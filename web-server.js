@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 
 // Dashboard principal
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.redirect('/relacionar.html');
 });
 
 /**
