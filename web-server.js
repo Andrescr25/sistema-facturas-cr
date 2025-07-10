@@ -228,9 +228,57 @@ app.post('/api/confirmar-producto', async (req, res) => {
 // Ajustar cantidad y precio de producto
 app.post('/api/ajustar-producto', async (req, res) => {
     try {
-        const { productoId, nuevaCantidad, nuevoPrecio } = req.body;
+        const { productoId, nuevaCantidad, nuevoPrecio, alegraItemId } = req.body;
 
         console.log(`⚙️ Ajustando producto: ${productoId} → ${nuevaCantidad} × ₡${nuevoPrecio}`);
+
+        // Si viene alegraItemId, actualizar precio en Alegra
+        // Si viene alegraItemId, actualizar precio en Alegra PRIMERO
+        if (alegraItemId) {
+            try {
+                console.log(`💰 Actualizando precio de venta en Alegra: ${alegraItemId}`);
+
+                // OBTENER el producto de la BD para saber su impuesto real
+                const productoBD = await dbService.prisma.productoFactura.findUnique({
+                    where: { id: productoId }
+                });
+
+                if (!productoBD) {
+                    throw new Error('Producto no encontrado en BD');
+                }
+
+                // CALCULAR porcentaje de impuesto real del producto
+                const impuestoTotal = productoBD.impuesto || 0;
+                const totalSinImpuesto = productoBD.totalLinea - impuestoTotal;
+                const porcentajeImpuesto = totalSinImpuesto > 0 ? (impuestoTotal / totalSinImpuesto) * 100 : 0;
+
+                // NUEVO: Calcular precio sin IVA usando el porcentaje REAL
+                const precioConIVA = nuevoPrecio;
+                const factorIVA = 1 + (porcentajeImpuesto / 100);
+                const precioSinIVA = precioConIVA / factorIVA;
+
+                console.log(`📊 Producto tiene ${porcentajeImpuesto.toFixed(1)}% de impuesto`);
+                console.log(`📊 Precio con IVA: ₡${precioConIVA} → Precio sin IVA: ₡${precioSinIVA.toFixed(2)}`);
+
+                const currentProduct = await alegraService.api.get(`/items/${alegraItemId}`);
+                const productData = currentProduct.data;
+
+                const updateData = {
+                    name: productData.name,
+                    reference: productData.reference,
+                    price: [{
+                        price: precioSinIVA.toFixed(2), // ← PRECIO SIN IVA REAL
+                        main: true
+                    }],
+                    inventory: productData.inventory
+                };
+
+                await alegraService.api.put(`/items/${alegraItemId}`, updateData);
+                console.log(`✅ Precio sin IVA (${porcentajeImpuesto.toFixed(1)}%) actualizado en Alegra: ${alegraItemId} → ₡${precioSinIVA.toFixed(2)}`);
+            } catch (alegraError) {
+                console.error('Error actualizando en Alegra:', alegraError);
+            }
+        }
 
         // Actualizar el producto en la base de datos
         const productoActualizado = await dbService.prisma.productoFactura.update({
@@ -255,36 +303,6 @@ app.post('/api/ajustar-producto', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Error ajustando producto'
-        });
-    }
-});
-
-
-// Rechazar sugerencia de producto
-app.post('/api/rechazar-producto', async (req, res) => {
-    try {
-        const { productoId, accion } = req.body;
-
-        const nuevoEstado = accion === 'reactivar' ? 'PENDIENTE' : 'IGNORADO';
-        const mensaje = accion === 'reactivar' ? 'Producto reactivado' : 'Producto marcado como ignorado';
-
-        console.log(`🔄 Actualizando estado de producto: ${productoId} → ${nuevoEstado}`);
-
-        await dbService.prisma.productoFactura.update({
-            where: { id: productoId },
-            data: { estadoRelacionado: nuevoEstado }
-        });
-
-        res.json({
-            success: true,
-            message: mensaje
-        });
-
-    } catch (error) {
-        console.error('❌ Error actualizando producto:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Error actualizando producto'
         });
     }
 });
@@ -470,36 +488,60 @@ app.get('/api/producto-alegra/:alegraId', async (req, res) => {
     try {
         const { alegraId } = req.params;
 
-        console.log(`📦 Obteniendo detalles del producto: ${alegraId}`);
+        console.log(`📦 Obteniendo detalles del producto desde Alegra API: ${alegraId}`);
 
-        const producto = await dbService.prisma.alegraProduct.findUnique({
-            where: { alegraId: alegraId }
-        });
+        // NUEVO: Buscar directamente en API de Alegra
+        const response = await alegraService.api.get(`/items/${alegraId}`);
+        const productoAlegra = response.data;
 
-        if (!producto) {
+        if (!productoAlegra) {
             return res.status(404).json({
                 success: false,
-                error: 'Producto no encontrado'
+                error: 'Producto no encontrado en Alegra'
             });
         }
 
+        // Extraer precio principal
+        const precioVenta = productoAlegra.price?.[0]?.price || 0;
+
+        // Extraer costo del inventario
+        const costo = productoAlegra.inventory?.unitCost || 0;
+
+        // Extraer referencia
+        const referencia = productoAlegra.reference?.reference || productoAlegra.reference || '';
+
+        // Respuesta normalizada
+        const productoNormalizado = {
+            alegraId: productoAlegra.id,
+            name: productoAlegra.name, // ✅ NOMBRE DE ALEGRA (no del proveedor)
+            reference: referencia,
+            description: productoAlegra.description || '',
+            category: productoAlegra.category?.name || '',
+            price: precioVenta,
+            cost: costo,
+            status: productoAlegra.status || 'active',
+            type: productoAlegra.type || 'product'
+        };
+
+        console.log(`✅ Producto obtenido de Alegra: ${productoNormalizado.name} (₡${precioVenta})`);
+
         res.json({
             success: true,
-            producto: producto,
-            // Datos adicionales para precios (compatibilidad)
-            precio: producto.price || 0,
-            costo: producto.cost || 0,
-            nombre: producto.name,
-            referencia: producto.reference,
-            categoria: producto.category,
-            descripcion: producto.description
+            producto: productoNormalizado,
+            // Datos adicionales para compatibilidad
+            precio: precioVenta,
+            costo: costo,
+            nombre: productoNormalizado.name,
+            referencia: referencia,
+            categoria: productoAlegra.category?.name || '',
+            descripcion: productoAlegra.description || ''
         });
 
     } catch (error) {
-        console.error('❌ Error obteniendo producto:', error);
+        console.error('❌ Error obteniendo producto de Alegra:', error);
         res.status(500).json({
             success: false,
-            error: 'Error obteniendo detalles del producto'
+            error: 'Error obteniendo detalles del producto desde Alegra'
         });
     }
 });
@@ -535,7 +577,7 @@ app.post('/api/enviar-alegra', async (req, res) => {
         // Verificar que esté 100% relacionada
         const total = factura.productos.length;
         const relacionados = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
-        
+
         if (relacionados !== total) {
             return res.status(400).json({
                 success: false,

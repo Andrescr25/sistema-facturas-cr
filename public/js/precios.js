@@ -441,7 +441,22 @@ async function analizarProducto(producto) {
     // ✅ 3. Obtener precio de venta desde Alegra
     const precioVentaActual = await obtenerPrecioVentaAlegra(producto);
 
-    // ✅ 4. Calcular margen: (precio_venta - costo_imap) / precio_venta
+    // ✅ 4. Obtener nombre de Alegra
+    let nombreAlegra = producto.descripcion; // Fallback
+    try {
+        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+        if (alegraId) {
+            const response = await fetch(`/api/producto-alegra/${alegraId}`);
+            const data = await response.json();
+            if (data.success && data.nombre) {
+                nombreAlegra = data.nombre;
+            }
+        }
+    } catch (error) {
+        console.warn('Error obteniendo nombre de Alegra:', error);
+    }
+
+    // ✅ 5. Calcular margen: (precio_venta - costo_imap) / precio_venta
     const margen = ((precioVentaActual - costoActual.costoConIVA) / precioVentaActual) * 100;
 
     // Alertas de cambio de costo
@@ -475,6 +490,7 @@ async function analizarProducto(producto) {
         costoAnteriorConIVA: costoAnterior.costoConIVA,
         costoNuevoConIVA: costoActual.costoConIVA,
         precioVentaActual: precioVentaActual,
+        nombreAlegra: nombreAlegra, // ← NOMBRE CORRECTO DE ALEGRA
         margenPorcentaje: Math.round(margen),
         margenColor: margenColor,
         margenTexto: margen < 15 ? 'Muy bajo' : margen < 25 ? 'Aceptable' : 'Bueno',
@@ -639,7 +655,7 @@ async function mostrarProductosRevision() {
         // Reemplazar marcadores en el template
         return template
             .replace(/{productoId}/g, producto.id)
-            .replace('{descripcion}', producto.descripcion)
+            .replace('{descripcion}', analisis.nombreAlegra || producto.descripcion)
             .replace('{estadoClass}', estadoClass)
             .replace('{estadoTexto}', estadoTexto)
             .replace('{costoAnteriorConIVA}', formatearNumero(analisis.costoAnteriorConIVA))
@@ -1312,6 +1328,7 @@ async function obtenerPrecioVentaAlegra(producto) {
 
         if (data.success) {
     const precioBase = data.precio || data.producto.price || 0;
+    const nombreAlegra = data.nombre || data.producto.name;
     
     // NUEVO: Si el producto fue actualizado manualmente, usar el precio actualizado directamente
     if (producto.precioVentaActualizado) {
@@ -1355,39 +1372,41 @@ async function actualizarPrecioProducto(productoId) {
     if (!producto) return;
 
     try {
-        console.log(`💰 Actualizando precio: ${producto.descripcion} → ₡${nuevoPrecio}`);
+        console.log(`💰 Actualizando precio de venta: ${producto.descripcion} → ₡${nuevoPrecio}`);
         
-        // Llamar al endpoint para guardar en base de datos
+        // Obtener alegraId
+        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+        
+        // Llamar al endpoint modificado
         const response = await fetch('/api/ajustar-producto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 productoId: productoId,
                 nuevaCantidad: producto.cantidad,
-                nuevoPrecio: nuevoPrecio
+                nuevoPrecio: nuevoPrecio,
+                alegraItemId: alegraId  // ← AGREGAR ESTA LÍNEA
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // AHORA sí podemos usar data.success
             producto.precioVentaActualizado = nuevoPrecio;
             producto.precioUnitario = nuevoPrecio;
             producto.estadoRevision = 'APROBADO';
             
-            // Recargar la vista
             await mostrarProductosRevision();
             actualizarProgresoRevision();
             
-            mostrarNotificacion(`✅ Precio actualizado: ₡${formatearNumero(nuevoPrecio)}`, 'success');
+            mostrarNotificacion(`✅ Precio de venta actualizado: ₡${formatearNumero(nuevoPrecio)}`, 'success');
         } else {
             throw new Error(data.error || 'Error actualizando precio');
         }
         
     } catch (error) {
         console.error('Error actualizando precio:', error);
-        mostrarNotificacion('❌ Error actualizando precio', 'error');
+        mostrarNotificacion('❌ Error actualizando precio de venta', 'error');
     }
 }
 /**

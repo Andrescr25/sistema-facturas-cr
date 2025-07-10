@@ -160,16 +160,16 @@ class AlegraService {
                 // Extraer precio de la lista de precios (tomar el principal)
                 const mainPrice = product.price?.find(p => p.main === true);
                 const price = mainPrice ? parseFloat(mainPrice.price) : 0;
-                
+
                 // Extraer costo del inventario
                 const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
-                
+
                 // Extraer referencia del objeto
                 const reference = product.reference?.reference || product.reference || '';
-                
+
                 // Usar itemCategory si existe, sino category
                 const category = product.itemCategory?.name || product.category?.name || '';
-                
+
                 return {
                     alegraId: product.id,
                     name: product.name,
@@ -306,8 +306,8 @@ class AlegraService {
             const providers = responseByName.data;
 
             // Buscar coincidencia por cédula en los resultados
-            const provider = providers.find(p => 
-                p.identification === cedula || 
+            const provider = providers.find(p =>
+                p.identification === cedula ||
                 p.name.toLowerCase().includes(nombre.toLowerCase().split(' ')[0]) // Primera palabra del nombre
             );
 
@@ -362,11 +362,11 @@ class AlegraService {
                     name: error.response.data.contactName,
                     identification: error.response.data.contactIdentification
                 };
-                
+
                 console.log(`✅ Proveedor ya existe: ${existingProvider.id} - ${existingProvider.name}`);
                 return existingProvider;
             }
-            
+
             console.error('❌ Error creando proveedor:', error.message);
             throw error;
         }
@@ -419,7 +419,7 @@ class AlegraService {
 
             // Buscar o crear proveedor
             let provider = await this.findProviderByCedula(
-                facturaData.proveedorCedula, 
+                facturaData.proveedorCedula,
                 facturaData.proveedorNombre
             );
 
@@ -439,16 +439,36 @@ class AlegraService {
             // Preparar productos para la factura
             const purchaseItems = facturaData.productos
                 .filter(p => p.estadoRelacionado === 'RELACIONADO' && p.alegraItemId)
-                .map(producto => ({
-                    id: parseInt(producto.alegraItemId),
-                    quantity: producto.cantidad,
-                    price: producto.precioUnitario,
-                    discount: producto.descuento || 0,
-                    tax: producto.impuesto ? [{
-                        id: 1, // IVA estándar en Costa Rica
-                        value: producto.impuesto
-                    }] : []
-                }));
+                .map(producto => {
+                    // Calcular precio unitario correcto
+                    const totalLinea = producto.totalLinea;
+                    const cantidad = producto.cantidad;
+                    const impuestoTotal = producto.impuesto || 0;
+
+                    // Calcular porcentaje de impuesto real del producto
+                    const subtotalSinImpuesto = totalLinea - impuestoTotal;
+                    const porcentajeImpuesto = subtotalSinImpuesto > 0 ? (impuestoTotal / subtotalSinImpuesto) * 100 : 0;
+
+                    // Precio unitario sin impuesto
+                    const precioUnitarioSinImpuesto = subtotalSinImpuesto / cantidad;
+
+                    console.log(`🔍 Producto ${producto.descripcion}:`);
+                    console.log(`   Total línea: ₡${totalLinea}`);
+                    console.log(`   Impuesto total: ₡${impuestoTotal} (${porcentajeImpuesto.toFixed(1)}%)`);
+                    console.log(`   Subtotal sin impuesto: ₡${subtotalSinImpuesto}`);
+                    console.log(`   Precio unitario sin impuesto: ₡${precioUnitarioSinImpuesto}`);
+
+                    return {
+                        id: parseInt(producto.alegraItemId),
+                        quantity: producto.cantidad,
+                        price: precioUnitarioSinImpuesto, // ← PRECIO UNITARIO SIN IMPUESTO
+                        discount: producto.descuento || 0,
+                        tax: producto.impuesto ? [{
+                            id: 1,
+                            value: producto.impuesto
+                        }] : []
+                    };
+                });
 
             if (purchaseItems.length === 0) {
                 throw new Error('No hay productos relacionados para crear la factura');
@@ -461,7 +481,7 @@ class AlegraService {
                 observations: `Factura electrónica ${facturaData.numeroConsecutivo} - Procesada automáticamente`,
                 termsConditions: 'Compra procesada desde sistema de facturas CR',
                 provider: provider.id,
-                
+
                 // Datos de la factura
                 numberTemplate: {
                     number: facturaData.numeroConsecutivo
@@ -508,7 +528,7 @@ class AlegraService {
         try {
             console.log(`🚀 Procesando factura completa: ${facturaCompleta.numeroConsecutivo}`);
 
-            const productosAprobados = facturaCompleta.productos.filter(p => 
+            const productosAprobados = facturaCompleta.productos.filter(p =>
                 p.estadoRevision === 'APROBADO' && p.alegraItemId
             );
 
@@ -524,9 +544,9 @@ class AlegraService {
                 try {
                     // Calcular costo real desde la factura
                     const costoUnitario = producto.totalLinea / producto.cantidad;
-                    
+
                     const updatedProduct = await this.updateProductCost(
-                        producto.alegraItemId, 
+                        producto.alegraItemId,
                         costoUnitario
                     );
 
