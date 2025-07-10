@@ -293,6 +293,9 @@ function abrirBusquedaManual(productoId) {
     }
 }
 
+// Variable global para el debounce
+let searchTimeout = null;
+
 async function buscarEnAlegra() {
     const inputElement = document.getElementById('buscarProductoInput');
     const resultadosContainer = document.getElementById('resultadosBusqueda');
@@ -306,22 +309,33 @@ async function buscarEnAlegra() {
         return;
     }
 
-    try {
-        resultadosContainer.innerHTML = '<div class="loading-small">🔍 Buscando...</div>';
-
-        const response = await fetch(`/api/buscar-productos?q=${encodeURIComponent(termino)}`);
-        const data = await response.json();
-
-        if (data.success && data.productos?.length > 0) {
-            mostrarResultadosBusqueda(data.productos, termino);
-        } else {
-            resultadosContainer.innerHTML = `<p>❌ No se encontraron productos con "${termino}"</p>`;
-        }
-
-    } catch (error) {
-        console.error('Error en búsqueda:', error);
-        resultadosContainer.innerHTML = '<p>❌ Error en la búsqueda</p>';
+    // ✅ CANCELAR BÚSQUEDA ANTERIOR
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
     }
+
+    // ✅ MOSTRAR ESTADO DE ESPERA
+    resultadosContainer.innerHTML = '<div class="loading-small">🔍 Buscando...</div>';
+
+    // ✅ NUEVA BÚSQUEDA CON DELAY DE 500ms
+    searchTimeout = setTimeout(async () => {
+        try {
+            console.log(`🔍 Ejecutando búsqueda: "${termino}"`);
+
+            const response = await fetch(`/api/buscar-productos?q=${encodeURIComponent(termino)}`);
+            const data = await response.json();
+
+            if (data.success && data.productos?.length > 0) {
+                mostrarResultadosBusqueda(data.productos, termino);
+            } else {
+                resultadosContainer.innerHTML = `<p>❌ No se encontraron productos con "${termino}"</p>`;
+            }
+
+        } catch (error) {
+            console.error('Error en búsqueda:', error);
+            resultadosContainer.innerHTML = '<p>❌ Error en la búsqueda</p>';
+        }
+    }, 500); // ← 500ms de delay
 }
 
 function mostrarResultadosBusqueda(productos, termino) {
@@ -334,7 +348,7 @@ function mostrarResultadosBusqueda(productos, termino) {
         </div>
         <div class="resultados-lista">
             ${productos.map((producto, index) => `
-                <div class="resultado-busqueda" onclick="seleccionarProductoAlegra('${producto.alegraId}', '${escaparTexto(producto.name)}', ${index})">
+                <div class="resultado-busqueda" data-alegra-id="${producto.id}" data-nombre="${escaparTexto(producto.name)}" data-index="${index}" onclick="seleccionarProductoDesdeElemento(this)">
                     <div class="resultado-info">
                         <div class="resultado-nombre">${resaltarTermino(producto.name, termino)}</div>
                         <div class="resultado-detalles">
@@ -403,6 +417,14 @@ async function seleccionarProductoAlegra(alegraId, nombre, index) {
             botones[index].disabled = false;
         }
     }
+}
+
+function seleccionarProductoDesdeElemento(elemento) {
+    const alegraId = elemento.getAttribute('data-alegra-id');
+    const nombre = elemento.getAttribute('data-nombre');
+    const index = parseInt(elemento.getAttribute('data-index'));
+
+    seleccionarProductoAlegra(alegraId, nombre, index);
 }
 
 async function ignorarProducto(productoId) {
@@ -489,11 +511,11 @@ function ajustarCantidadPrecio(productoId) {
         mostrarNotificacion('Producto no encontrado', 'error');
         return;
     }
-    
+
     // Usar el modal existente pero cambiar el contenido
-    document.querySelector('#modalBuscarProducto .modal-title').innerHTML = 
+    document.querySelector('#modalBuscarProducto .modal-title').innerHTML =
         '<i class="bi bi-gear"></i> Ajustar Cantidad y Precio';
-    
+
     // Mostrar información del producto
     document.getElementById('infoProductoActual').innerHTML = `
         <div class="producto-info-modal">
@@ -505,7 +527,7 @@ function ajustarCantidadPrecio(productoId) {
             </div>
         </div>
     `;
-    
+
     // Cambiar el contenido del área de búsqueda por el formulario de ajuste
     document.getElementById('resultadosBusqueda').innerHTML = `
         <div class="ajuste-form">
@@ -532,10 +554,10 @@ function ajustarCantidadPrecio(productoId) {
             </div>
         </div>
     `;
-    
+
     // Ocultar el buscador
     document.querySelector('#modalBuscarProducto .mb-4:nth-child(2)').style.display = 'none';
-    
+
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('modalBuscarProducto'));
     modal.show();
@@ -544,18 +566,18 @@ function ajustarCantidadPrecio(productoId) {
 async function guardarAjuste(productoId) {
     const nuevaCantidad = parseFloat(document.getElementById('nuevaCantidad').value);
     const nuevoPrecio = parseFloat(document.getElementById('nuevoPrecio').value);
-    
+
     // Validaciones básicas
     if (isNaN(nuevaCantidad) || nuevaCantidad <= 0) {
         mostrarNotificacion('❌ La cantidad debe ser mayor a 0', 'error');
         return;
     }
-    
+
     if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
         mostrarNotificacion('❌ El precio debe ser mayor a 0', 'error');
         return;
     }
-    
+
     try {
         const response = await fetch('/api/ajustar-producto', {
             method: 'POST',
@@ -566,19 +588,19 @@ async function guardarAjuste(productoId) {
                 nuevoPrecio: nuevoPrecio
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             mostrarNotificacion(`✅ Ajuste guardado: ${nuevaCantidad} × ₡${formatearNumero(nuevoPrecio)}`, 'success');
             cerrarModalBuscar();
-            
+
             // Recargar la factura para mostrar los cambios
             await cargarFactura(facturaActual.id);
         } else {
             throw new Error(data.error || 'Error guardando ajuste');
         }
-        
+
     } catch (error) {
         console.error('Error guardando ajuste:', error);
         mostrarNotificacion('❌ Error guardando cambios', 'error');

@@ -435,8 +435,8 @@ async function analizarProducto(producto) {
     // ✅ 1. Calcular costo actual desde IMAP (factura del proveedor)
     const costoActual = calcularCostoConIVA(producto);
     
-    // ✅ 2. Simular costo anterior (20% más bajo para comparación)
-    const costoAnterior = { costoConIVA: costoActual.costoConIVA * 0.8 };
+    // ✅ 2. Costo actual del producto
+    const costoAnterior = await obtenerCostoAnteriorAlegra(producto);
 
     // ✅ 3. Obtener precio de venta desde Alegra
     const precioVentaActual = await obtenerPrecioVentaAlegra(producto);
@@ -1353,6 +1353,34 @@ async function obtenerPrecioVentaAlegra(producto) {
     } catch (error) {
         console.error('Error obteniendo precio de Alegra:', error);
         return producto.precioUnitario * 1.25; // Fallback
+    }
+}
+
+/**
+ * OBTENER COSTO ANTERIOR DESDE ALEGRA
+ */
+async function obtenerCostoAnteriorAlegra(producto) {
+    try {
+        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+        
+        if (!alegraId) {
+            return { costoConIVA: 0 };
+        }
+
+        const response = await fetch(`/api/producto-alegra/${alegraId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const costoAlegra = data.costo || data.producto?.cost || 0;
+            console.log(`📊 Costo anterior de Alegra: ₡${costoAlegra}`);
+            return { costoConIVA: costoAlegra };
+        }
+        
+        return { costoConIVA: 0 };
+        
+    } catch (error) {
+        console.error('Error obteniendo costo de Alegra:', error);
+        return { costoConIVA: 0 };
     }
 }
 

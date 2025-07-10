@@ -436,6 +436,29 @@ class AlegraService {
             // Preparar fecha (formato YYYY-MM-DD)
             const fechaEmision = new Date(facturaData.fechaEmision).toISOString().split('T')[0];
 
+            // Función que calcula correctamente usando precio original
+            function calcularDescuentoPorcentaje(producto) {
+                const descuentoTotal = producto.descuento || 0;
+
+                if (descuentoTotal <= 0) {
+                    return 0;
+                }
+
+                // CORRECCIÓN: Calcular precio original ANTES del descuento
+                const totalConDescuento = producto.totalLinea - (producto.impuesto || 0);
+                const precioOriginalSinImpuesto = totalConDescuento + descuentoTotal;
+                const precioUnitarioOriginal = precioOriginalSinImpuesto / producto.cantidad;
+                const descuentoUnitario = descuentoTotal / producto.cantidad;
+
+                const porcentaje = (descuentoUnitario / precioUnitarioOriginal) * 100;
+
+                console.log(`💰 ${producto.descripcion}:`);
+                console.log(`💰 Precio original: ₡${precioUnitarioOriginal}`);
+                console.log(`💰 Descuento: ₡${descuentoUnitario} = ${porcentaje.toFixed(1)}%`);
+
+                return Math.min(Math.round(porcentaje * 100) / 100, 99);
+            }
+
             // Preparar productos para la factura
             const purchaseItems = facturaData.productos
                 .filter(p => p.estadoRelacionado === 'RELACIONADO' && p.alegraItemId)
@@ -461,8 +484,8 @@ class AlegraService {
                     return {
                         id: parseInt(producto.alegraItemId),
                         quantity: producto.cantidad,
-                        price: precioUnitarioSinImpuesto, // ← PRECIO UNITARIO SIN IMPUESTO
-                        discount: producto.descuento || 0,
+                        price: (subtotalSinImpuesto + (producto.descuento || 0)) / producto.cantidad, // ← PRECIO ORIGINAL
+                        discount: calcularDescuentoPorcentaje(producto),
                         tax: producto.impuesto ? [{
                             id: 1,
                             value: producto.impuesto
