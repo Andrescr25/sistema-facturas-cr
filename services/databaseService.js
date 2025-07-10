@@ -32,25 +32,25 @@ class DatabaseService {
                     clave: facturaData.clave,
                     numeroConsecutivo: facturaData.numeroConsecutivo,
                     fechaEmision: new Date(facturaData.fechaEmision.iso),
-                    
+
                     // Información del proveedor
                     proveedorNombre: facturaData.emisor.nombre,
                     proveedorCedula: facturaData.emisor.identificacion.numero,
                     proveedorEmail: facturaData.emisor.correoElectronico,
                     proveedorTelefono: facturaData.emisor.telefono?.numero,
-                    
+
                     // Totales
                     totalProductos: facturaData.productos.length,
                     totalFactura: facturaData.resumen.totales.comprobante,
                     moneda: facturaData.resumen.moneda.codigo,
-                    
+
                     // Estados
                     estado: 'PROCESADA',
-                    
+
                     // Metadatos
                     archivoXML: archivoXML,
                     emailId: emailId,
-                    
+
                     // Crear productos relacionados
                     productos: {
                         create: facturaData.productos.map(producto => ({
@@ -134,10 +134,10 @@ class DatabaseService {
 
                 const sugerencias = mapeosSimilares.map(mapeo => {
                     // Calcular confianza básica basada en palabras coincidentes
-                    const coincidencias = palabrasClave.filter(palabra => 
+                    const coincidencias = palabrasClave.filter(palabra =>
                         mapeo.supplierDesc.toLowerCase().includes(palabra)
                     ).length;
-                    
+
                     const confianza = Math.round((coincidencias / palabrasClave.length) * 80);
 
                     return {
@@ -170,6 +170,36 @@ class DatabaseService {
      */
     async createProductMapping(mappingData) {
         try {
+            // Verificar si ya existe el mapeo
+            const mapeoExistente = await this.prisma.supplierProductMapping.findUnique({
+                where: {
+                    supplierCedula_supplierCode: {
+                        supplierCedula: mappingData.supplierCedula,
+                        supplierCode: mappingData.supplierCode
+                    }
+                }
+            });
+
+            if (mapeoExistente) {
+                console.log(`✅ Mapeo ya existe, actualizando: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
+
+                // Actualizar el mapeo existente
+                const mapeoActualizado = await this.prisma.supplierProductMapping.update({
+                    where: { id: mapeoExistente.id },
+                    data: {
+                        alegraItemId: mappingData.alegraItemId,
+                        alegraReference: mappingData.alegraReference,
+                        alegraName: mappingData.alegraName,
+                        confidence: mappingData.confidence || 100,
+                        lastUsedDate: new Date(),
+                        timesUsed: { increment: 1 }
+                    }
+                });
+
+                return mapeoActualizado;
+            }
+
+            // Si no existe, crear nuevo mapeo
             const nuevoMapeo = await this.prisma.supplierProductMapping.create({
                 data: {
                     supplierName: mappingData.supplierName,

@@ -11,11 +11,11 @@ let filtroProductosActual = 'todos';
 /**
  * INICIALIZACIÓN
  */
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('💰 Iniciando revisión de precios...');
-    
+
     const facturaId = obtenerParametroURL('id');
-    
+
     if (facturaId) {
         // Cargar factura específica directamente en vista de revisión
         cargarFacturaEspecifica(facturaId);
@@ -31,14 +31,14 @@ document.addEventListener('DOMContentLoaded', function() {
 async function cargarFacturasCompletas() {
     try {
         console.log('📊 Cargando facturas completas para análisis...');
-        
+
         mostrarCargando('#listaFacturasPrecios');
         mostrarCargando('#estadisticasPrecios');
-        
+
         // Obtener facturas relacionadas
         const response = await fetch('/api/facturas/RELACIONADA');
         const data = await response.json();
-        
+
         if (data.success) {
             // Filtrar solo facturas 100% relacionadas
             facturasCompletas = data.facturas.filter(factura => {
@@ -46,22 +46,22 @@ async function cargarFacturasCompletas() {
                 const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO')?.length || 0;
                 return total > 0 && relacionados === total;
             });
-            
+
             facturasFiltradas = [...facturasCompletas];
-            
+
             // Extraer proveedores únicos para filtros
             proveedoresUnicos = [...new Set(facturasCompletas.map(f => f.proveedorNombre))].sort();
-            
+
             mostrarResumenAnalisis();
             llenarFiltroProveedores();
-            mostrarFacturasCompletas();
-            
+            await mostrarFacturasCompletas();
+
             console.log(`✅ ${facturasCompletas.length} facturas completas cargadas`);
-            
+
         } else {
             throw new Error(data.error || 'Error cargando facturas');
         }
-        
+
     } catch (error) {
         console.error('❌ Error cargando facturas completas:', error);
         mostrarError('Error cargando facturas para análisis de precios');
@@ -74,71 +74,71 @@ async function cargarFacturasCompletas() {
 async function cargarFacturaEspecifica(facturaId) {
     try {
         console.log(`💰 Cargando análisis de factura específica: ${facturaId}`);
-        
+
         mostrarCargando('#listaProductosRevision');
         mostrarCargando('#infoFacturaRevision');
-        
+
         // Primero intentar buscar en facturas RELACIONADA
         let response = await fetch('/api/facturas/RELACIONADA');
         let data = await response.json();
         let factura = null;
-        
+
         if (data.success) {
             factura = data.facturas.find(f => f.id === facturaId);
         }
-        
+
         // Si no se encuentra, buscar en facturas PROCESADA
         if (!factura) {
             console.log('📄 No encontrada en RELACIONADA, buscando en PROCESADA...');
             response = await fetch('/api/facturas/PROCESADA');
             data = await response.json();
-            
+
             if (data.success) {
                 factura = data.facturas.find(f => f.id === facturaId);
-                
+
                 // Verificar si está 100% relacionada
                 if (factura) {
                     const total = factura.productos?.length || 0;
                     const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO')?.length || 0;
                     const porcentaje = total > 0 ? Math.round((relacionados / total) * 100) : 0;
-                    
+
                     if (porcentaje !== 100) {
                         throw new Error(`Esta factura no está 100% relacionada (${porcentaje}% completado). Completa el relacionado primero.`);
                     }
-                    
+
                     // Si está 100% relacionada pero en estado PROCESADA, actualizar estado
                     console.log('🔄 Factura 100% relacionada pero en estado PROCESADA, actualizando...');
                     await actualizarEstadoFactura(facturaId);
                 }
             }
         }
-        
+
         if (!factura) {
             throw new Error('Factura no encontrada o no está lista para análisis de precios');
         }
-        
+
         // Verificar que la factura esté 100% relacionada
         const total = factura.productos?.length || 0;
         const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO')?.length || 0;
         const porcentaje = total > 0 ? Math.round((relacionados / total) * 100) : 0;
-        
+
         if (porcentaje !== 100) {
             throw new Error(`Esta factura no está completamente relacionada (${porcentaje}% completado). Termina de relacionar todos los productos primero.`);
         }
-        
+
         facturasCompletas = [factura];
         facturasFiltradas = [factura];
         facturaSeleccionada = factura;
-        productosRevision = factura.productos.map(p => ({...p, estadoRevision: 'PENDIENTE'}));
-        
+        productosRevision = factura.productos.map(p => ({ ...p, estadoRevision: 'PENDIENTE' }));
+
         console.log(`✅ Factura cargada para análisis: ${factura.numeroConsecutivo} (${total} productos, 100% relacionados)`);
-        
+
         // Mostrar vista de revisión individual
         mostrarVistaRevisionIndividual();
-        mostrarInfoFacturaRevision();
+        await mostrarInfoFacturaRevision();
         mostrarProductosRevision();
         actualizarProgresoRevision();
-        
+
     } catch (error) {
         console.error('❌ Error cargando factura específica:', error);
         mostrarError('Error cargando la factura para análisis: ' + error.message);
@@ -166,13 +166,11 @@ function volverAListaFacturas() {
 /**
  * MOSTRAR INFORMACIÓN DE FACTURA EN REVISIÓN
  */
-function mostrarInfoFacturaRevision() {
+async function mostrarInfoFacturaRevision() {
     const container = document.getElementById('infoFacturaRevision');
-    
     if (!facturaSeleccionada) return;
-    
-    const analisis = analizarFactura(facturaSeleccionada);
-    
+    const analisis = await analizarFactura(facturaSeleccionada);
+
     container.innerHTML = `
         <div class="card-header">
             <h2>📄 Factura #${facturaSeleccionada.numeroConsecutivo}</h2>
@@ -236,15 +234,15 @@ function mostrarInfoFacturaRevision() {
  */
 function mostrarResumenAnalisis() {
     const container = document.getElementById('estadisticasPrecios');
-    
+
     // Calcular estadísticas
     const totalFacturas = facturasFiltradas.length;
     const totalMonto = facturasFiltradas.reduce((sum, f) => sum + f.totalFactura, 0);
     const totalProductos = facturasFiltradas.reduce((sum, f) => sum + f.productos.length, 0);
-    
+
     // Detectar alertas
     const alertas = detectarAlertas(facturasFiltradas);
-    
+
     const html = `
         <div class="stat-card">
             <div class="stat-icon">📋</div>
@@ -282,7 +280,7 @@ function mostrarResumenAnalisis() {
             </div>
         </div>
     `;
-    
+
     container.innerHTML = html;
 }
 
@@ -297,32 +295,32 @@ function detectarAlertas(facturas) {
         sin_costo: 0,
         total: 0
     };
-    
+
     facturas.forEach(factura => {
         factura.productos.forEach(producto => {
             // Simular detección de alertas (necesitarías datos reales de Alegra)
             const precioFactura = producto.precioUnitario;
             const precioAlegra = Math.random() * precioFactura * 2; // Simulado
-            
+
             // Precio muy alto comparado con último precio
             if (precioFactura > precioAlegra * 1.5) {
                 alertas.precio_alto++;
             }
-            
+
             // Precio muy bajo
             if (precioFactura < precioAlegra * 0.5) {
                 alertas.precio_bajo++;
             }
-            
+
             // Sin costo registrado (simulado)
             if (Math.random() < 0.1) {
                 alertas.sin_costo++;
             }
         });
     });
-    
+
     alertas.total = alertas.precio_alto + alertas.precio_bajo + alertas.margen_bajo + alertas.sin_costo;
-    
+
     return alertas;
 }
 
@@ -331,21 +329,21 @@ function detectarAlertas(facturas) {
  */
 function llenarFiltroProveedores() {
     const select = document.getElementById('filtroProveedorPrecios');
-    
-    const opciones = proveedoresUnicos.map(proveedor => 
+
+    const opciones = proveedoresUnicos.map(proveedor =>
         `<option value="${proveedor}">${proveedor}</option>`
     ).join('');
-    
+
     select.innerHTML = `<option value="">Todos los proveedores</option>${opciones}`;
 }
 
 /**
  * MOSTRAR FACTURAS COMPLETAS
  */
-function mostrarFacturasCompletas() {
+async function mostrarFacturasCompletas() {
     const container = document.getElementById('listaFacturasPrecios');
     const contador = document.getElementById('contadorFacturasPrecios');
-    
+
     if (facturasFiltradas.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -358,35 +356,39 @@ function mostrarFacturasCompletas() {
         contador.textContent = 'No se encontraron facturas';
         return;
     }
-    
+
     contador.textContent = `${facturasFiltradas.length} factura${facturasFiltradas.length === 1 ? '' : 's'} lista${facturasFiltradas.length === 1 ? '' : 's'} para revisión`;
-    
+
     const template = document.getElementById('templateFacturaRevision').innerHTML;
-    
-    const html = facturasFiltradas.map(factura => {
-        const analisis = analizarFactura(factura);
-        const productosAprobados = 0; // Inicialmente ninguno aprobado
+
+    // Procesar facturas con async/await
+    const facturasConAnalisis = [];
+    for (const factura of facturasFiltradas) {
+        const analisis = await analizarFactura(factura);
+        facturasConAnalisis.push({ factura, analisis });
+    }
+
+    const html = facturasConAnalisis.map(({ factura, analisis }) => {
+        const productosAprobados = 0;
         const productosPendientes = factura.productos.length;
-        
+
         // Generar alertas HTML
         let alertasHTML = '';
-        if (analisis.alertas.length > 0) {
+        if (analisis.alertas && analisis.alertas.length > 0) {
             alertasHTML = analisis.alertas.slice(0, 2).map(alerta => `
                 <div class="alerta-item ${alerta.tipo}">
                     ${alerta.icono} ${alerta.mensaje}
                 </div>
             `).join('');
-            
+
             if (analisis.alertas.length > 2) {
                 alertasHTML += `<div class="alerta-item mas-alertas">+${analisis.alertas.length - 2} más</div>`;
             }
         }
-        
-        // Determinar estado de revisión
+
         let estadoTexto = 'PENDIENTE';
         let estadoClass = 'pendiente';
-        
-        // Reemplazar marcadores en el template
+
         return template
             .replace(/{facturaId}/g, factura.id)
             .replace('{numeroConsecutivo}', factura.numeroConsecutivo)
@@ -400,23 +402,23 @@ function mostrarFacturasCompletas() {
             .replace('{productosPendientes}', productosPendientes)
             .replace('{alertasHTML}', alertasHTML);
     }).join('');
-    
+
     container.innerHTML = html;
 }
 
 /**
  * ANALIZAR FACTURA PARA DETECTAR ALERTAS
  */
-function analizarFactura(factura) {
+async function analizarFactura(factura) {
     let alertas = [];
     let tieneAlertas = false;
-    
-    factura.productos.forEach(producto => {
-        const analisisProducto = analizarProducto(producto);
+
+    for (const producto of factura.productos) {
+        const analisisProducto = await analizarProducto(producto);
         alertas.push(...analisisProducto.alertas);
         if (analisisProducto.tieneAlerta) tieneAlertas = true;
-    });
-    
+    }
+
     return {
         alertas,
         tieneAlertas
@@ -426,36 +428,33 @@ function analizarFactura(factura) {
 /**
  * ANALIZAR PRODUCTO INDIVIDUAL
  */
-function analizarProducto(producto) {
+async function analizarProducto(producto) {
     let alertas = [];
     let tieneAlerta = false;
+
+    // ✅ 1. Calcular costo actual desde IMAP (factura del proveedor)
+    const costoActual = calcularCostoConIVA(producto);
     
-    // Simular análisis de precios (en producción usarías datos reales de Alegra)
-    const precioFactura = producto.precioUnitario;
-    const precioAnterior = precioFactura * (0.8 + Math.random() * 0.4); // Simulado
-    const costoProducto = precioFactura * (0.4 + Math.random() * 0.3); // Simulado
-    
-    // Alertas de precio
-    if (precioFactura > precioAnterior * 1.3) {
+    // ✅ 2. Simular costo anterior (20% más bajo para comparación)
+    const costoAnterior = { costoConIVA: costoActual.costoConIVA * 0.8 };
+
+    // ✅ 3. Obtener precio de venta desde Alegra
+    const precioVentaActual = await obtenerPrecioVentaAlegra(producto);
+
+    // ✅ 4. Calcular margen: (precio_venta - costo_imap) / precio_venta
+    const margen = ((precioVentaActual - costoActual.costoConIVA) / precioVentaActual) * 100;
+
+    // Alertas de cambio de costo
+    if (costoActual.costoConIVA > costoAnterior.costoConIVA * 1.3) {
         alertas.push({
             tipo: 'precio-alto',
             icono: '📈',
-            mensaje: `Precio ${Math.round(((precioFactura - precioAnterior) / precioAnterior) * 100)}% más alto`
+            mensaje: `Costo ${Math.round(((costoActual.costoConIVA - costoAnterior.costoConIVA) / costoAnterior.costoConIVA) * 100)}% más alto`
         });
         tieneAlerta = true;
     }
-    
-    if (precioFactura < precioAnterior * 0.7) {
-        alertas.push({
-            tipo: 'precio-bajo',
-            icono: '📉',
-            mensaje: `Precio ${Math.round(((precioAnterior - precioFactura) / precioAnterior) * 100)}% más bajo`
-        });
-        tieneAlerta = true;
-    }
-    
+
     // Alertas de margen
-    const margen = ((precioFactura - costoProducto) / precioFactura) * 100;
     if (margen < 20) {
         alertas.push({
             tipo: 'margen-bajo',
@@ -464,57 +463,55 @@ function analizarProducto(producto) {
         });
         tieneAlerta = true;
     }
-    
-    // Alerta de costo no registrado (simulado)
-    if (Math.random() < 0.1) {
-        alertas.push({
-            tipo: 'sin-costo',
-            icono: '❓',
-            mensaje: 'Sin costo registrado'
-        });
-        tieneAlerta = true;
-    }
-    
+
+    // Determinar color del margen
+    let margenColor = '#27ae60'; // Verde
+    if (margen < 15) margenColor = '#e74c3c'; // Rojo
+    else if (margen < 25) margenColor = '#f39c12'; // Naranja
+
     return {
         alertas,
         tieneAlerta,
-        precioAnterior,
-        costoProducto,
-        margen
+        costoAnteriorConIVA: costoAnterior.costoConIVA,
+        costoNuevoConIVA: costoActual.costoConIVA,
+        precioVentaActual: precioVentaActual,
+        margenPorcentaje: Math.round(margen),
+        margenColor: margenColor,
+        margenTexto: margen < 15 ? 'Muy bajo' : margen < 25 ? 'Aceptable' : 'Bueno',
+        impuestoPorcentaje: costoActual.impuestoPorcentaje
     };
 }
-
 /**
  * FILTRAR FACTURAS
  */
-function filtrarFacturasPrecios() {
+async function filtrarFacturasPrecios() {
     const proveedorFiltro = document.getElementById('filtroProveedorPrecios').value;
     const estadoFiltro = document.getElementById('filtroEstadoRevision').value;
     const busqueda = document.getElementById('buscarFacturaPrecios').value.toLowerCase();
-    
+
     console.log(`🔍 Filtrando: Proveedor="${proveedorFiltro}", Estado="${estadoFiltro}", Busqueda="${busqueda}"`);
-    
+
     facturasFiltradas = facturasCompletas.filter(factura => {
         // Filtro por proveedor
         const coincideProveedor = !proveedorFiltro || factura.proveedorNombre === proveedorFiltro;
-        
+
         // Filtro por estado (simulado)
         let coincideEstado = true;
         if (estadoFiltro !== 'TODAS') {
             const estadoFactura = 'PENDIENTE'; // Simulado - deberías tener este dato real
             coincideEstado = estadoFiltro === estadoFactura;
         }
-        
+
         // Filtro por búsqueda
-        const coincideBusqueda = !busqueda || 
-            factura.numeroConsecutivo.toLowerCase().includes(busqueda) || 
+        const coincideBusqueda = !busqueda ||
+            factura.numeroConsecutivo.toLowerCase().includes(busqueda) ||
             factura.proveedorNombre.toLowerCase().includes(busqueda);
-        
+
         return coincideProveedor && coincideEstado && coincideBusqueda;
     });
-    
+
     mostrarResumenAnalisis();
-    mostrarFacturasCompletas();
+    await mostrarFacturasCompletas();
 }
 
 /**
@@ -524,7 +521,7 @@ function limpiarFiltrosPrecios() {
     document.getElementById('filtroProveedorPrecios').value = '';
     document.getElementById('filtroEstadoRevision').value = 'PENDIENTE';
     document.getElementById('buscarFacturaPrecios').value = '';
-    
+
     filtrarFacturasPrecios();
 }
 
@@ -534,12 +531,24 @@ function limpiarFiltrosPrecios() {
 function abrirRevisionFactura(facturaId) {
     const factura = facturasCompletas.find(f => f.id === facturaId);
     if (!factura) return;
-    
+
     facturaSeleccionada = factura;
-    productosRevision = factura.productos.map(p => ({...p, estadoRevision: 'PENDIENTE'}));
-    
+    productosRevision = factura.productos.map(p => ({ ...p, estadoRevision: 'PENDIENTE' }));
+
     mostrarVistaRevisionIndividual();
-    mostrarInfoFacturaRevision();
+    async function abrirRevisionFactura(facturaId) {
+        const factura = facturasCompletas.find(f => f.id === facturaId);
+        if (!factura) return;
+
+        facturaSeleccionada = factura;
+        productosRevision = factura.productos.map(p => ({ ...p, estadoRevision: 'PENDIENTE' }));
+
+        mostrarVistaRevisionIndividual();
+        await mostrarInfoFacturaRevision();
+        mostrarProductosRevision();
+        actualizarProgresoRevision();
+    }
+
     mostrarProductosRevision();
     actualizarProgresoRevision();
 }
@@ -547,13 +556,13 @@ function abrirRevisionFactura(facturaId) {
 /**
  * MOSTRAR PRODUCTOS EN REVISIÓN
  */
-function mostrarProductosRevision() {
+async function mostrarProductosRevision() {
     const container = document.getElementById('listaProductosRevision');
     const template = document.getElementById('templateProductoRevision').innerHTML;
-    
+
     // Filtrar productos según el filtro actual
     let productosMostrar = [...productosRevision];
-    
+
     if (filtroProductosActual === 'pendientes') {
         productosMostrar = productosMostrar.filter(p => p.estadoRevision === 'PENDIENTE');
     } else if (filtroProductosActual === 'aprobados') {
@@ -561,13 +570,13 @@ function mostrarProductosRevision() {
     } else if (filtroProductosActual === 'rechazados') {
         productosMostrar = productosMostrar.filter(p => p.estadoRevision === 'RECHAZADO');
     }
-    
+
     // Actualizar contadores
     document.getElementById('countTodos').textContent = productosRevision.length;
     document.getElementById('countPendientes').textContent = productosRevision.filter(p => p.estadoRevision === 'PENDIENTE').length;
     document.getElementById('countAprobados').textContent = productosRevision.filter(p => p.estadoRevision === 'APROBADO').length;
     document.getElementById('countRechazados').textContent = productosRevision.filter(p => p.estadoRevision === 'RECHAZADO').length;
-    
+
     if (productosMostrar.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -578,14 +587,19 @@ function mostrarProductosRevision() {
         `;
         return;
     }
-    
-    const html = productosMostrar.map(producto => {
-        const analisis = analizarProducto(producto);
+
+    const productosConAnalisis = [];
+    for (const producto of productosMostrar) {
+        const analisis = await analizarProducto(producto);
+        productosConAnalisis.push({ producto, analisis });
+    }
+
+    const html = productosConAnalisis.map(({ producto, analisis }) => {
         const estadoRevision = producto.estadoRevision || 'PENDIENTE';
-        
+
         // Determinar estado y clase
         let estadoTexto, estadoClass;
-        switch(estadoRevision) {
+        switch (estadoRevision) {
             case 'APROBADO':
                 estadoTexto = 'APROBADO';
                 estadoClass = 'aprobado';
@@ -598,15 +612,15 @@ function mostrarProductosRevision() {
                 estadoTexto = 'PENDIENTE';
                 estadoClass = 'pendiente';
         }
-        
+
         // Calcular diferencia con precio Alegra (simulado)
         const precioAlegra = analisis.precioAnterior;
         const diferencia = producto.precioUnitario - precioAlegra;
         const diferenciaPorcentaje = Math.round((diferencia / precioAlegra) * 100);
-        
+
         let diferenciaTexto = '';
         let diferenciaClass = '';
-        
+
         if (diferencia > 0) {
             diferenciaTexto = `${formatearNumero(diferencia)} más alto`;
             diferenciaClass = 'alto';
@@ -617,34 +631,30 @@ function mostrarProductosRevision() {
             diferenciaTexto = 'Mismo precio';
             diferenciaClass = 'igual';
         }
-        
+
         // Calcular margen proveedor (simulado)
-        const margenObjetivo = parseInt(document.getElementById('margenObjetivo').value) || 25;
+        const margenObjetivo = 25; 
         const precioProveedor = producto.precioUnitario * (1 + margenObjetivo / 100);
-        
+
         // Reemplazar marcadores en el template
         return template
             .replace(/{productoId}/g, producto.id)
             .replace('{descripcion}', producto.descripcion)
             .replace('{estadoClass}', estadoClass)
             .replace('{estadoTexto}', estadoTexto)
-            .replace('{estado}', estadoRevision)
-            .replace('{precioAlegra}', formatearNumero(precioAlegra))
-            .replace('{precioProveedor}', formatearNumero(precioProveedor))
-            .replace('{margen}', margenObjetivo)
-            .replace('{diferenciaClass}', diferenciaClass)
-            .replace('{diferenciaPorcentaje}', diferenciaPorcentaje + '%')
-            .replace('{diferenciaTexto}', diferenciaTexto)
-            .replace('{cantidad}', producto.cantidad)
-            .replace('{unidadMedida}', producto.unidadMedida)
-            .replace('{codigoProveedor}', producto.codigoProveedor || 'N/A')
-            .replace('{numeroLinea}', producto.numeroLinea || 'N/A')
+            .replace('{costoAnteriorConIVA}', formatearNumero(analisis.costoAnteriorConIVA))
+            .replace('{costoNuevoConIVA}', formatearNumero(analisis.costoNuevoConIVA))
+            .replace('{precioVentaActual}', formatearNumero(analisis.precioVentaActual))
+            .replace(/{precioVentaActual}/g, analisis.precioVentaActual)  // ← AGREGAR ESTA LÍNEA (sin formatear)
+            .replace('{margenPorcentaje}', analisis.margenPorcentaje)
+            .replace('{margenColorClass}', analisis.margenPorcentaje < 15 ? 'text-danger' : analisis.margenPorcentaje < 25 ? 'text-warning' : 'text-success')
+            .replace('{margenTexto}', analisis.margenTexto)
             .replace('{approveDisabled}', estadoRevision !== 'PENDIENTE' ? 'disabled' : '')
             .replace('{rejectDisabled}', estadoRevision !== 'PENDIENTE' ? 'disabled' : '');
     }).join('');
-    
+
     container.innerHTML = html;
-    
+
     // Mostrar/ocultar acciones finales si todos están revisados
     const pendientes = productosRevision.filter(p => p.estadoRevision === 'PENDIENTE').length;
     document.getElementById('accionesFinalesRevision').style.display = pendientes === 0 ? 'block' : 'none';
@@ -655,7 +665,7 @@ function mostrarProductosRevision() {
  */
 function filtrarProductosRevision(filtro) {
     filtroProductosActual = filtro;
-    
+
     // Actualizar botones activos
     document.querySelectorAll('.filter-btn').forEach(btn => {
         if (btn.getAttribute('data-filter') === filtro) {
@@ -664,7 +674,7 @@ function filtrarProductosRevision(filtro) {
             btn.classList.remove('active');
         }
     });
-    
+
     mostrarProductosRevision();
 }
 
@@ -673,17 +683,17 @@ function filtrarProductosRevision(filtro) {
  */
 function actualizarProgresoRevision() {
     if (!facturaSeleccionada || !productosRevision.length) return;
-    
+
     const total = productosRevision.length;
     const aprobados = productosRevision.filter(p => p.estadoRevision === 'APROBADO').length;
     const rechazados = productosRevision.filter(p => p.estadoRevision === 'RECHAZADO').length;
     const revisados = aprobados + rechazados;
     const porcentaje = Math.round((revisados / total) * 100);
-    
+
     // Actualizar barra de progreso
     document.getElementById('progressRevision').style.width = `${porcentaje}%`;
     document.getElementById('progressTextRevision').textContent = `${porcentaje}% revisado`;
-    
+
     // Actualizar estadísticas
     document.getElementById('progressStatsRevision').innerHTML = `
         <div class="progress-stat">
@@ -711,13 +721,13 @@ function actualizarProgresoRevision() {
 function aprobarProducto(productoId) {
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
-    
+
     producto.estadoRevision = 'APROBADO';
-    
+
     // Actualizar vista
     mostrarProductosRevision();
     actualizarProgresoRevision();
-    
+
     mostrarNotificacion('✅ Producto aprobado', 'success');
 }
 
@@ -727,13 +737,13 @@ function aprobarProducto(productoId) {
 function rechazarProducto(productoId) {
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
-    
+
     producto.estadoRevision = 'RECHAZADO';
-    
+
     // Actualizar vista
     mostrarProductosRevision();
     actualizarProgresoRevision();
-    
+
     mostrarNotificacion('❌ Producto rechazado', 'error');
 }
 
@@ -743,9 +753,9 @@ function rechazarProducto(productoId) {
 function verDetallesComparacion(productoId) {
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
-    
+
     const analisis = analizarProducto(producto);
-    
+
     document.getElementById('contenidoComparacionProducto').innerHTML = `
         <div class="comparacion-producto">
             <h3>${producto.descripcion}</h3>
@@ -791,11 +801,11 @@ function verDetallesComparacion(productoId) {
                     <h4>📌 Sugerencias</h4>
                     <div class="sugerencia-item">
                         <span class="label">Margen Objetivo:</span>
-                        <span class="value">${document.getElementById('margenObjetivo').value}%</span>
+                        <span class="value">${25}%</span>
                     </div>
                     <div class="sugerencia-item">
                         <span class="label">Precio Sugerido:</span>
-                        <span class="value">₡${formatearNumero(analisis.costoProducto * (1 + parseInt(document.getElementById('margenObjetivo').value) / 100))}</span>
+                        <span class="value">₡${formatearNumero(analisis.costoProducto * 1.25)}</span>
                     </div>
                 </div>
             </div>
@@ -812,7 +822,7 @@ function verDetallesComparacion(productoId) {
             ` : ''}
         </div>
     `;
-    
+
     document.getElementById('modalComparacionProducto').style.display = 'block';
 }
 
@@ -848,9 +858,9 @@ function editarPrecioModal() {
     const productoId = document.querySelector('#contenidoComparacionProducto h3').getAttribute('data-producto-id');
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
-    
+
     const analisis = analizarProducto(producto);
-    
+
     document.getElementById('contenidoEditarPrecio').innerHTML = `
         <div class="editar-precio-form">
             <h3 data-producto-id="${producto.id}">${producto.descripcion}</h3>
@@ -881,14 +891,14 @@ function editarPrecioModal() {
             </div>
         </div>
     `;
-    
+
     // Calcular margen al cambiar precio
-    document.getElementById('nuevoPrecio').addEventListener('input', function() {
+    document.getElementById('nuevoPrecio').addEventListener('input', function () {
         const nuevoPrecio = parseFloat(this.value) || 0;
         const nuevoMargen = ((nuevoPrecio - analisis.costoProducto) / nuevoPrecio) * 100;
         document.getElementById('nuevoMargen').textContent = isNaN(nuevoMargen) ? '--%' : Math.round(nuevoMargen) + '%';
     });
-    
+
     document.getElementById('modalEditarPrecio').style.display = 'block';
 }
 
@@ -899,21 +909,21 @@ function guardarNuevoPrecio() {
     const productoId = document.querySelector('#contenidoEditarPrecio h3').getAttribute('data-producto-id');
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
-    
+
     const nuevoPrecio = parseFloat(document.getElementById('nuevoPrecio').value);
-    
+
     if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
         mostrarNotificacion('❌ Ingrese un precio válido', 'error');
         return;
     }
-    
+
     producto.precioUnitario = nuevoPrecio;
     producto.estadoRevision = 'APROBADO';
-    
+
     cerrarModalEditar();
     mostrarProductosRevision();
     actualizarProgresoRevision();
-    
+
     mostrarNotificacion('✅ Precio actualizado y producto aprobado', 'success');
 }
 
@@ -924,72 +934,293 @@ function cerrarModalEditar() {
     document.getElementById('modalEditarPrecio').style.display = 'none';
 }
 
+
 /**
- * APLICAR CRITERIOS AUTOMÁTICOS
+ * APROBAR TODOS LOS PRODUCTOS RESTANTES
  */
-function aplicarCriteriosAutomaticos() {
-    const margenObjetivo = parseInt(document.getElementById('margenObjetivo').value) || 25;
-    const tolerancia = parseInt(document.getElementById('toleranciaPrecio').value) || 10;
+function aprobarTodosLosRestantes() {
+    const pendientes = productosRevision.filter(p => p.estadoRevision === 'PENDIENTE');
     
-    if (!confirm(`¿Aplicar criterios automáticos con margen objetivo de ${margenObjetivo}% y tolerancia de ${tolerancia}%?`)) {
+    if (pendientes.length === 0) {
+        mostrarNotificacion('ℹ️ No hay productos pendientes para aprobar', 'info');
         return;
     }
     
-    productosRevision.forEach(producto => {
-        const analisis = analizarProducto(producto);
-        
-        // Solo aplicar a productos pendientes
-        if (producto.estadoRevision !== 'PENDIENTE') return;
-        
-        // Calcular margen actual
-        const margenActual = ((producto.precioUnitario - analisis.costoProducto) / producto.precioUnitario) * 100;
-        
-        // Aprobar si está dentro de la tolerancia
-        if (Math.abs(margenActual - margenObjetivo) <= tolerancia) {
-            producto.estadoRevision = 'APROBADO';
-        } else {
-            producto.estadoRevision = 'RECHAZADO';
-        }
+    if (!confirm(`¿Aprobar todos los ${pendientes.length} productos restantes?`)) {
+        return;
+    }
+    
+    // Aprobar todos los pendientes
+    pendientes.forEach(producto => {
+        producto.estadoRevision = 'APROBADO';
     });
     
     mostrarProductosRevision();
     actualizarProgresoRevision();
     
-    mostrarNotificacion(`🤖 Aplicados criterios automáticos a ${productosRevision.length} productos`, 'success');
+    mostrarNotificacion(`✅ ${pendientes.length} productos aprobados automáticamente`, 'success');
 }
 
 /**
- * APROBAR FACTURA COMPLETA
+ * APROBAR FACTURA COMPLETA Y ENVIAR A ALEGRA
  */
 function aprobarFacturaCompleta() {
     if (!facturaSeleccionada) return;
-    
-    document.getElementById('tituloConfirmacion').textContent = 'Confirmar Aprobación';
+
+    document.getElementById('tituloConfirmacion').textContent = 'Confirmar Envío a Alegra';
     document.getElementById('contenidoConfirmacion').innerHTML = `
-        <p>¿Estás seguro que deseas aprobar completamente la factura <strong>#${facturaSeleccionada.numeroConsecutivo}</strong>?</p>
-        <p>Esta acción marcará todos los productos como aprobados y enviará la factura al siguiente paso.</p>
+        <p>¿Estás seguro que deseas enviar la factura <strong>#${facturaSeleccionada.numeroConsecutivo}</strong> a Alegra?</p>
+        <p>Esta acción realizará:</p>
+        <ul style="text-align: left; margin: 1rem 0;">
+            <li>✅ Actualizar costos de productos en Alegra</li>
+            <li>📄 Crear factura de proveedor en Alegra</li>
+            <li>🔄 Marcar factura como ENVIADA</li>
+        </ul>
+        <p><strong>Esta acción no se puede deshacer.</strong></p>
     `;
-    
-    document.getElementById('btnConfirmarAccion').onclick = function() {
+
+    document.getElementById('btnConfirmarAccion').onclick = function () {
         // Marcar todos los productos como aprobados (por si acaso)
         productosRevision.forEach(p => p.estadoRevision = 'APROBADO');
-        
-        // Aquí implementarías el envío a Alegra o siguiente paso
-        mostrarNotificacion('🚧 Función en desarrollo: Aprobación completa', 'warning');
-        
+
+        // Cerrar modal y ejecutar envío
         cerrarModalConfirmacion();
-        volverAListaFacturas();
+        enviarFacturaAlegra();
     };
-    
+
     document.getElementById('modalConfirmacion').style.display = 'block';
 }
 
+/**
+ * NUEVA: Enviar factura completa a Alegra
+ */
+async function enviarFacturaAlegra() {
+    if (!facturaSeleccionada) return;
+
+    try {
+        console.log(`🚀 Iniciando envío a Alegra: ${facturaSeleccionada.numeroConsecutivo}`);
+
+        // Mostrar progreso
+        mostrarProgresoEnvio('Preparando envío...', 0);
+
+        // Verificar productos aprobados
+        const productosAprobados = productosRevision.filter(p => p.estadoRevision === 'APROBADO');
+        
+        if (productosAprobados.length === 0) {
+            throw new Error('No hay productos aprobados para enviar');
+        }
+
+        mostrarProgresoEnvio('Enviando a Alegra...', 25);
+
+        // Llamar al endpoint de envío
+        const response = await fetch('/api/enviar-alegra', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                facturaId: facturaSeleccionada.id
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Error enviando a Alegra');
+        }
+
+        mostrarProgresoEnvio('Procesamiento exitoso...', 75);
+
+        // Procesar resultado
+        const resultado = data.resultado;
+        
+        console.log('✅ Factura enviada exitosamente:', resultado);
+
+        mostrarProgresoEnvio('Completado', 100);
+
+        // Mostrar resultado detallado
+        setTimeout(() => {
+            ocultarProgresoEnvio();
+            mostrarResultadoEnvio(resultado);
+        }, 1000);
+
+        // Actualizar estado local
+        facturaSeleccionada.estado = 'ENVIADA';
+
+    } catch (error) {
+        console.error('❌ Error enviando factura:', error);
+        
+        ocultarProgresoEnvio();
+        
+        mostrarModalError('Error enviando a Alegra', error.message);
+    }
+}
+
+/**
+ * NUEVA: Mostrar progreso del envío
+ */
+function mostrarProgresoEnvio(mensaje, porcentaje) {
+    // Crear modal de progreso si no existe
+    let modalProgreso = document.getElementById('modalProgresoEnvio');
+    
+    if (!modalProgreso) {
+        modalProgreso = document.createElement('div');
+        modalProgreso.id = 'modalProgresoEnvio';
+        modalProgreso.className = 'modal';
+        modalProgreso.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>🚀 Enviando a Alegra</h2>
+                </div>
+                <div class="modal-body" style="text-align: center; padding: 2rem;">
+                    <div class="progress-circle" style="margin-bottom: 1rem;">
+                        <div class="spinner" style="width: 60px; height: 60px; border-width: 6px;"></div>
+                    </div>
+                    <h3 id="mensajeProgreso" style="margin: 1rem 0; color: #2c3e50;">Preparando...</h3>
+                    <div class="progress-bar" style="background: #eee; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="barraProgreso" style="background: #3498db; height: 100%; width: 0%; transition: width 0.5s;"></div>
+                    </div>
+                    <p id="porcentajeProgreso" style="margin: 1rem 0; color: #7f8c8d;">0%</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalProgreso);
+    }
+
+    // Actualizar contenido
+    document.getElementById('mensajeProgreso').textContent = mensaje;
+    document.getElementById('barraProgreso').style.width = `${porcentaje}%`;
+    document.getElementById('porcentajeProgreso').textContent = `${porcentaje}%`;
+
+    // Mostrar modal
+    modalProgreso.style.display = 'block';
+}
+
+/**
+ * NUEVA: Ocultar progreso del envío
+ */
+function ocultarProgresoEnvio() {
+    const modalProgreso = document.getElementById('modalProgresoEnvio');
+    if (modalProgreso) {
+        modalProgreso.style.display = 'none';
+    }
+}
+
+/**
+ * NUEVA: Mostrar resultado detallado del envío
+ */
+function mostrarResultadoEnvio(resultado) {
+    document.getElementById('tituloConfirmacion').textContent = '🎉 Factura Enviada Exitosamente';
+    
+    const costosExitosos = resultado.costosExitosos || 0;
+    const totalProductos = resultado.totalProductos || 0;
+    
+    document.getElementById('contenidoConfirmacion').innerHTML = `
+        <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+            
+            <h3 style="color: #27ae60; margin-bottom: 1rem;">
+                Factura #${resultado.numeroConsecutivo} enviada exitosamente
+            </h3>
+            
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: left;">
+                    <div>
+                        <strong>ID en Alegra:</strong><br>
+                        <span style="color: #3498db;">#${resultado.alegraFacturaId}</span>
+                    </div>
+                    <div>
+                        <strong>Proveedor:</strong><br>
+                        <span>${resultado.proveedor}</span>
+                    </div>
+                    <div>
+                        <strong>Productos:</strong><br>
+                        <span>${totalProductos} productos</span>
+                    </div>
+                    <div>
+                        <strong>Costos actualizados:</strong><br>
+                        <span style="color: ${costosExitosos === totalProductos ? '#27ae60' : '#f39c12'};">
+                            ${costosExitosos}/${totalProductos}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            ${costosExitosos < totalProductos ? `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                    <p style="color: #856404; margin: 0;">
+                        ⚠️ Algunos costos no se pudieron actualizar. 
+                        Revisa manualmente en Alegra si es necesario.
+                    </p>
+                </div>
+            ` : ''}
+            
+            <p style="color: #7f8c8d; margin-top: 1.5rem;">
+                La factura está ahora disponible en tu cuenta de Alegra y el inventario ha sido actualizado.
+            </p>
+        </div>
+    `;
+
+    // Cambiar el botón de confirmación
+    const btnConfirmar = document.getElementById('btnConfirmarAccion');
+    btnConfirmar.textContent = 'Continuar';
+    btnConfirmar.className = 'btn btn-primary';
+    btnConfirmar.onclick = function() {
+        cerrarModalConfirmacion();
+        volverAListaFacturas();
+        
+        // Mostrar notificación final
+        mostrarNotificacion(
+            `🎉 Factura #${resultado.numeroConsecutivo} enviada exitosamente a Alegra`, 
+            'success'
+        );
+    };
+
+    // Mostrar modal
+    document.getElementById('modalConfirmacion').style.display = 'block';
+}
+
+/**
+ * NUEVA: Mostrar modal de error
+ */
+function mostrarModalError(titulo, mensaje) {
+    document.getElementById('tituloConfirmacion').textContent = titulo;
+    document.getElementById('contenidoConfirmacion').innerHTML = `
+        <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 4rem; margin-bottom: 1rem; color: #e74c3c;">❌</div>
+            
+            <h3 style="color: #e74c3c; margin-bottom: 1rem;">Error en el envío</h3>
+            
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0; text-align: left;">
+                <p style="color: #2c3e50; margin: 0; font-family: monospace; word-break: break-word;">
+                    ${mensaje}
+                </p>
+            </div>
+            
+            <p style="color: #7f8c8d; margin-top: 1.5rem;">
+                Por favor, revisa la configuración de Alegra o intenta nuevamente más tarde.
+            </p>
+        </div>
+    `;
+
+    // Cambiar el botón de confirmación
+    const btnConfirmar = document.getElementById('btnConfirmarAccion');
+    btnConfirmar.textContent = 'Cerrar';
+    btnConfirmar.className = 'btn btn-secondary';
+    btnConfirmar.onclick = function() {
+        cerrarModalConfirmacion();
+    };
+
+    // Mostrar modal
+    document.getElementById('modalConfirmacion').style.display = 'block';
+    
+    // También mostrar notificación
+    mostrarNotificacion(`❌ Error: ${mensaje}`, 'error');
+}
 /**
  * EXPORTAR REVISIÓN
  */
 function exportarRevision() {
     if (!facturaSeleccionada) return;
-    
+
     console.log('📊 Exportando revisión de factura:', facturaSeleccionada.numeroConsecutivo);
     mostrarNotificacion('🚧 Función en desarrollo: Exportar revisión', 'info');
 }
@@ -1017,22 +1248,148 @@ async function actualizarEstadoFactura(facturaId) {
         const response = await fetch(`/api/factura/${facturaId}/actualizar-estado`, {
             method: 'PUT'
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.estadoNuevo !== data.estadoAnterior) {
             console.log(`🔄 Estado actualizado: ${data.estadoAnterior} → ${data.estadoNuevo}`);
             return true;
         }
-        
+
         return false;
-        
+
     } catch (error) {
         console.error('❌ Error actualizando estado:', error);
         return false;
     }
 }
 
+/**
+ * CALCULAR COSTO CON IVA INCLUIDO
+ */
+function calcularCostoConIVA(producto) {
+    // ✅ USAR EL TOTAL DE LA LÍNEA DE LA FACTURA
+    const costoTotal = producto.totalLinea;
+    const cantidad = producto.cantidad || 1;
+    const impuestoTotal = producto.impuesto || 0;
+    
+    // Costo por unidad
+    const costoPorUnidad = costoTotal / cantidad;
+    const impuestoPorUnidad = impuestoTotal / cantidad;
+    
+    // Costo sin IVA = total - impuesto
+    const costoSinIVAPorUnidad = (costoTotal - impuestoTotal) / cantidad;
+    
+    // Calcular porcentaje real de impuesto
+    const porcentajeImpuesto = costoSinIVAPorUnidad > 0 ? 
+        (impuestoPorUnidad / costoSinIVAPorUnidad) * 100 : 0;
+    
+    console.log(`💰 Costo desde factura: ₡${costoTotal} ÷ ${cantidad} = ₡${costoPorUnidad.toFixed(2)}`);
+    console.log(`💰 Impuesto real: ${porcentajeImpuesto.toFixed(1)}%`);
+    
+    return {
+        costoSinIVA: costoSinIVAPorUnidad,
+        costoConIVA: costoPorUnidad,
+        impuestoPorcentaje: porcentajeImpuesto
+    };
+}
+
+/**
+* OBTENER PRECIO DE VENTA DESDE ALEGRA (API real)
+*/
+async function obtenerPrecioVentaAlegra(producto) {
+    try {
+        // Obtener el ID de Alegra del mapeo
+        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+
+        if (!alegraId) {
+            console.warn('Producto sin ID de Alegra:', producto.id);
+            return producto.precioUnitario * 1.25; // Fallback simulado
+        }
+
+        const response = await fetch(`/api/producto-alegra/${alegraId}`);
+        const data = await response.json();
+
+        if (data.success) {
+    const precioBase = data.precio || data.producto.price || 0;
+    
+    // NUEVO: Si el producto fue actualizado manualmente, usar el precio actualizado directamente
+    if (producto.precioVentaActualizado) {
+        console.log(`📊 Precio actualizado manualmente: ₡${producto.precioVentaActualizado}`);
+        return producto.precioVentaActualizado;
+    }
+    
+    const impuestoTotal = producto.impuesto || 0;
+    const precioTotalSinIVA = producto.totalLinea - impuestoTotal;
+    const cantidad = producto.cantidad || 1;
+    
+    // Calcular porcentaje real de impuesto
+    const porcentajeIVA = precioTotalSinIVA > 0 ? (impuestoTotal / precioTotalSinIVA) * 100 : 13;
+    
+    const precioConIVA = precioBase * (1 + (porcentajeIVA / 100));
+    
+    console.log(`📊 Precio: ₡${precioBase} + ${porcentajeIVA.toFixed(1)}% = ₡${precioConIVA.toFixed(2)}`);
+    
+    return parseFloat(precioConIVA.toFixed(2));
+}
+
+    } catch (error) {
+        console.error('Error obteniendo precio de Alegra:', error);
+        return producto.precioUnitario * 1.25; // Fallback
+    }
+}
+
+/**
+ * ACTUALIZAR PRECIO PRODUCTO
+ */
+async function actualizarPrecioProducto(productoId) {
+    const nuevoPrecioInput = document.getElementById(`nuevoPrecio_${productoId}`);
+    const nuevoPrecio = parseFloat(nuevoPrecioInput.value);
+
+    if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
+        mostrarNotificacion('❌ Ingrese un precio válido', 'error');
+        return;
+    }
+
+    const producto = productosRevision.find(p => p.id === productoId);
+    if (!producto) return;
+
+    try {
+        console.log(`💰 Actualizando precio: ${producto.descripcion} → ₡${nuevoPrecio}`);
+        
+        // Llamar al endpoint para guardar en base de datos
+        const response = await fetch('/api/ajustar-producto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productoId: productoId,
+                nuevaCantidad: producto.cantidad,
+                nuevoPrecio: nuevoPrecio
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // AHORA sí podemos usar data.success
+            producto.precioVentaActualizado = nuevoPrecio;
+            producto.precioUnitario = nuevoPrecio;
+            producto.estadoRevision = 'APROBADO';
+            
+            // Recargar la vista
+            await mostrarProductosRevision();
+            actualizarProgresoRevision();
+            
+            mostrarNotificacion(`✅ Precio actualizado: ₡${formatearNumero(nuevoPrecio)}`, 'success');
+        } else {
+            throw new Error(data.error || 'Error actualizando precio');
+        }
+        
+    } catch (error) {
+        console.error('Error actualizando precio:', error);
+        mostrarNotificacion('❌ Error actualizando precio', 'error');
+    }
+}
 /**
  * UTILIDADES
  */
@@ -1047,10 +1404,10 @@ function formatearNumero(numero) {
 
 function formatearFecha(fecha) {
     if (!fecha) return 'N/A';
-    
+
     // Si es string, convertir a Date
     const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    
+
     return fechaObj.toLocaleDateString('es-CR', {
         day: '2-digit',
         month: '2-digit',
@@ -1061,7 +1418,7 @@ function formatearFecha(fecha) {
 function mostrarCargando(selector) {
     const container = document.querySelector(selector);
     if (!container) return;
-    
+
     container.innerHTML = `
         <div class="loading">
             <div class="spinner"></div>
@@ -1086,11 +1443,11 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
     const notificacion = document.createElement('div');
     notificacion.className = `notificacion ${tipo}`;
     notificacion.textContent = mensaje;
-    
+
     document.body.appendChild(notificacion);
-    
+
     setTimeout(() => notificacion.classList.add('mostrar'), 100);
-    
+
     setTimeout(() => {
         notificacion.classList.remove('mostrar');
         setTimeout(() => document.body.removeChild(notificacion), 300);

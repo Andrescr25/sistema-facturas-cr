@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📋 Sistema de Facturas CR - Revisión de Precios</title>
     <link rel="stylesheet" href="css/precios.css">
-    
+
 </head>
+
 <body>
     <nav class="navbar">
         <div class="nav-container">
@@ -14,13 +16,12 @@
                 <h1>📋 Sistema de Facturas CR</h1>
             </div>
             <ul class="nav-menu">
-                <li><a href="index.html" class="nav-link">Dashboard</a></li>
                 <li><a href="facturas.html" class="nav-link">Ver Facturas</a></li>
                 <li><a href="precios.html" class="nav-link active">Revisar Precios</a></li>
             </ul>
         </div>
     </nav>
-    
+
     <div class="container">
         <!-- Vista principal de lista de facturas -->
         <div id="vistaListaFacturas">
@@ -32,19 +33,20 @@
                     <select id="filtroProveedorPrecios" onchange="filtrarFacturasPrecios()">
                         <option value="">Todos los proveedores</option>
                     </select>
-                    
+
                     <select id="filtroEstadoRevision" onchange="filtrarFacturasPrecios()">
                         <option value="TODAS">Todos los estados</option>
                         <option value="PENDIENTE" selected>Pendientes</option>
                         <option value="APROBADO">Aprobadas</option>
                     </select>
-                    
-                    <input type="text" id="buscarFacturaPrecios" placeholder="Buscar factura..." oninput="filtrarFacturasPrecios()">
-                    
+
+                    <input type="text" id="buscarFacturaPrecios" placeholder="Buscar factura..."
+                        oninput="filtrarFacturasPrecios()">
+
                     <button class="btn btn-secondary" onclick="limpiarFiltrosPrecios()">Limpiar</button>
                 </div>
             </div>
-            
+
             <div class="card">
                 <div class="card-header">
                     <h2>📊 Resumen de Análisis</h2>
@@ -53,7 +55,7 @@
                     <!-- Aquí se cargarán las estadísticas -->
                 </div>
             </div>
-            
+
             <div class="card">
                 <div class="card-header">
                     <h2>📋 Facturas para Revisión de Precios</h2>
@@ -64,70 +66,79 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Vista de revisión individual de factura -->
         <div id="vistaRevisionIndividual" style="display: none;">
             <div class="card">
                 <div class="card-header">
-                    <h2>🔙 <a href="javascript:volverAListaFacturas()" style="text-decoration: none; color: inherit;">Volver a la lista</a></h2>
+                    <h2>🔙 <a href="javascript:volverAListaFacturas()"
+                            style="text-decoration: none; color: inherit;">Volver a la lista</a></h2>
                 </div>
             </div>
-            
+
             <div class="card">
                 <div id="infoFacturaRevision">
                     <!-- Aquí se cargará la información de la factura -->
                 </div>
             </div>
-            
+
             <div class="card">
                 <div class="card-header">
                     <h2>📦 Productos para Revisión</h2>
                     <div>
-                        <button class="btn btn-secondary" onclick="filtrarProductosRevision('todos')" data-filter="todos">Todos (<span id="countTodos">0</span>)</button>
-                        <button class="btn btn-secondary" onclick="filtrarProductosRevision('pendientes')" data-filter="pendientes">Pendientes (<span id="countPendientes">0</span>)</button>
-                        <button class="btn btn-success" onclick="filtrarProductosRevision('aprobados')" data-filter="aprobados">Aprobados (<span id="countAprobados">0</span>)</button>
-                        <button class="btn btn-danger" onclick="filtrarProductosRevision('rechazados')" data-filter="rechazados">Rechazados (<span id="countRechazados">0</span>)</button>
+                        <button class="btn btn-secondary" onclick="filtrarProductosRevision('todos')"
+                            data-filter="todos">Todos (<span id="countTodos">0</span>)</button>
+                        <button class="btn btn-secondary" onclick="filtrarProductosRevision('pendientes')"
+                            data-filter="pendientes">Pendientes (<span id="countPendientes">0</span>)</button>
+                        <button class="btn btn-success" onclick="filtrarProductosRevision('aprobados')"
+                            data-filter="aprobados">Aprobados (<span id="countAprobados">0</span>)</button>
+                        <button class="btn btn-danger" onclick="filtrarProductosRevision('rechazados')"
+                            data-filter="rechazados">Rechazados (<span id="countRechazados">0</span>)</button>
                     </div>
                 </div>
-                
+
                 <div style="padding: 1rem; background: #f8f9fa; border-bottom: 1px solid #eee;">
-                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-                        <span>Margen objetivo:</span>
-                        <input type="number" id="margenObjetivo" value="25" style="width: 60px;"> %
-                        <span style="margin-left: 1rem;">Tolerancia:</span>
-                        <input type="number" id="toleranciaPrecio" value="10" style="width: 60px;"> %
-                        <button class="btn" onclick="aplicarCriteriosAutomaticos()" style="margin-left: auto;">Aplicar automáticamente</button>
+                    <div style="display: flex; align-items: center; justify-content: flex-end;">
+                        <button class="btn btn-success" onclick="aprobarTodosLosRestantes()"
+                            style="padding: 0.75rem 1.5rem;">
+                            ✅ Aprobar Todos los Restantes
+                        </button>
                     </div>
-                    
+
                     <div style="background: #eee; height: 8px; border-radius: 4px; margin-top: 0.5rem;">
-                        <div id="progressRevision" style="background: #3498db; height: 100%; width: 0%; border-radius: 4px; transition: width 0.3s;"></div>
+                        <div id="progressRevision"
+                            style="background: #3498db; height: 100%; width: 0%; border-radius: 4px; transition: width 0.3s;">
+                        </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
                         <span id="progressTextRevision">0% revisado</span>
                         <div id="progressStatsRevision" style="display: flex; gap: 1rem;"></div>
                     </div>
                 </div>
-                
+
                 <div id="listaProductosRevision">
                     <!-- Aquí se cargarán los productos -->
                 </div>
-                
-                <div id="accionesFinalesRevision" style="display: none; padding-top: 1rem; border-top: 1px solid #eee; text-align: right;">
+
+                <div id="accionesFinalesRevision"
+                    style="display: none; padding-top: 1rem; border-top: 1px solid #eee; text-align: right;">
                     <button class="btn btn-success" onclick="aprobarFacturaCompleta()">Aprobar Factura Completa</button>
                     <button class="btn btn-secondary" onclick="exportarRevision()">Exportar Revisión</button>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Templates -->
     <template id="templateFacturaRevision">
-        <div class="factura-item" onclick="abrirRevisionFactura('{facturaId}')" style="cursor: pointer; padding: 1rem; border-bottom: 1px solid #eee; transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
+        <div class="factura-item" onclick="abrirRevisionFactura('{facturaId}')"
+            style="cursor: pointer; padding: 1rem; border-bottom: 1px solid #eee; transition: background 0.2s;"
+            onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <h3 style="font-size: 1.1rem;">Factura #{numeroConsecutivo}</h3>
                 <span class="{estadoClass}" style="font-weight: bold;">{estadoTexto}</span>
             </div>
-            
+
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                 <div>
                     <span style="color: #7f8c8d;">Proveedor:</span> {proveedorNombre}
@@ -139,65 +150,106 @@
                     <span style="color: #7f8c8d;">Total:</span> ₡{totalFactura}
                 </div>
             </div>
-            
+
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <span style="color: #7f8c8d;">Productos:</span> {totalProductos} ({productosAprobados} aprobados, {productosPendientes} pendientes)
+                    <span style="color: #7f8c8d;">Productos:</span> {totalProductos} ({productosAprobados} aprobados,
+                    {productosPendientes} pendientes)
                 </div>
-                
+
                 <div style="display: flex; gap: 0.5rem;">
                     {alertasHTML}
                 </div>
             </div>
         </div>
     </template>
-    
+
     <template id="templateProductoRevision">
         <div class="producto-item">
             <div class="producto-header">
                 <h3>{descripcion}</h3>
                 <span class="{estadoClass}">{estadoTexto}</span>
             </div>
-            
-            <div class="producto-details">
-                <div class="detail-item">
-                    <span class="label">Precio Factura</span>
-                    <span>₡{precioAlegra}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Precio Proveedor</span>
-                    <span>₡{precioProveedor} (+{margen}%)</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Diferencia</span>
-                    <span class="{diferenciaClass}">{diferenciaPorcentaje} ({diferenciaTexto})</span>
-                </div>
-                <div class="detail-item">
-                    <span class="label">Cantidad</span>
-                    <span>{cantidad} {unidadMedida}</span>
-                </div>
+
+            <div class="precio-comparison-table">
+                <table style="width: 100%; border-collapse: collapse; margin: 1rem 0;">
+                    <thead>
+                        <tr style="background: #f8f9fa; border-bottom: 2px solid #ddd;">
+                            <th style="padding: 0.75rem; text-align: left;">Anterior</th>
+                            <th style="padding: 0.75rem; text-align: left;">Actual</th>
+                            <th style="padding: 0.75rem; text-align: center;">Margen</th>
+                            <th style="padding: 0.75rem; text-align: center;">Actualizar Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 1rem; vertical-align: top;">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Costo anterior:</strong><br>
+                                    <span style="color: #e74c3c; font-size: 1.1rem;">₡{costoAnteriorConIVA}</span>
+                                </div>
+                                <div>
+                                    <strong>Precio venta actual:</strong><br>
+                                    <span style="color: #27ae60; font-size: 1.1rem;">₡{precioVentaActual}</span>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; vertical-align: top;">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Costo nuevo:</strong><br>
+                                    <span style="color: #e74c3c; font-size: 1.1rem;">₡{costoNuevoConIVA}</span>
+                                </div>
+                                <div>
+                                    <strong>Precio venta actual:</strong><br>
+                                    <span style="color: #27ae60; font-size: 1.1rem;">₡{precioVentaActual}</span>
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; text-align: center; vertical-align: middle;">
+                                <div style="font-size: 1.5rem; font-weight: bold;" class="{margenColorClass}">
+                                    {margenPorcentaje}%
+                                </div>
+                                <div style="font-size: 0.9rem; color: #7f8c8d;">
+                                    {margenTexto}
+                                </div>
+                            </td>
+                            <td style="padding: 1rem; text-align: center; vertical-align: middle;">
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+                                    <input type="number" id="nuevoPrecio_{productoId}" value="{precioVentaActual}"
+                                        style="width: 100px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; text-align: center;"
+                                        placeholder="Nuevo precio">
+                                    <button class="btn btn-primary" onclick="actualizarPrecioProducto('{productoId}')"
+                                        style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">
+                                        Actualizar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-            
-            <div class="producto-actions" style="margin-top: 1rem;">
-                <button class="btn btn-success" onclick="aprobarProducto('{productoId}')" {approveDisabled}>Aprobar</button>
-                <button class="btn btn-danger" onclick="rechazarProducto('{productoId}')" {rejectDisabled}>Rechazar</button>
-                <button class="btn" onclick="verDetallesComparacion('{productoId}')">Ver Detalles</button>
+
+            <div class="producto-actions"
+                style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button class="btn btn-success" onclick="aprobarProducto('{productoId}')" {approveDisabled}>✅
+                    Aprobar</button>
+                <button class="btn btn-danger" onclick="rechazarProducto('{productoId}')" {rejectDisabled}>❌
+                    Rechazar</button>
             </div>
         </div>
     </template>
-    
+
     <!-- Modals -->
     <div id="modalComparacionProducto" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>🔍 Comparación de Producto</h2>
-                <button onclick="cerrarModalComparacion()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button onclick="cerrarModalComparacion()"
+                    style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
-            
+
             <div id="contenidoComparacionProducto">
                 <!-- Contenido dinámico -->
             </div>
-            
+
             <div class="modal-footer">
                 <button class="btn btn-success" onclick="aprobarProductoModal()">Aprobar</button>
                 <button class="btn btn-danger" onclick="rechazarProductoModal()">Rechazar</button>
@@ -206,43 +258,46 @@
             </div>
         </div>
     </div>
-    
+
     <div id="modalEditarPrecio" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>✏️ Editar Precio</h2>
-                <button onclick="cerrarModalEditar()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button onclick="cerrarModalEditar()"
+                    style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
-            
+
             <div id="contenidoEditarPrecio">
                 <!-- Contenido dinámico -->
             </div>
-            
+
             <div class="modal-footer">
                 <button class="btn btn-success" onclick="guardarNuevoPrecio()">Guardar</button>
                 <button class="btn btn-secondary" onclick="cerrarModalEditar()">Cancelar</button>
             </div>
         </div>
     </div>
-    
+
     <div id="modalConfirmacion" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="tituloConfirmacion">Confirmar Acción</h2>
-                <button onclick="cerrarModalConfirmacion()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button onclick="cerrarModalConfirmacion()"
+                    style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
-            
+
             <div id="contenidoConfirmacion">
                 <!-- Contenido dinámico -->
             </div>
-            
+
             <div class="modal-footer">
                 <button id="btnConfirmarAccion" class="btn btn-success">Confirmar</button>
                 <button class="btn btn-secondary" onclick="cerrarModalConfirmacion()">Cancelar</button>
             </div>
         </div>
     </div>
-    
+
     <script src="js/precios.js"></script>
 </body>
+
 </html>

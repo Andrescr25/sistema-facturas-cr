@@ -12,8 +12,11 @@ emailService.connect();
 // Revisar emails cada 5 minutos
 setInterval(() => {
     console.log('\n⏰ Revisión automática...');
-    const newService = new EmailService();
-    newService.connect();
+    if (emailService.imap.state === 'disconnected') {
+        emailService.connect();
+    } else {
+        emailService.checkForNewEmails();
+    }
 }, 5 * 60 * 1000);
 
 // Manejar cierre del sistema

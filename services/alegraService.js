@@ -272,6 +272,315 @@ class AlegraService {
     }
 
     /**
+     * NUEVO: Busca proveedor por cédula o nombre
+     * @param {String} cedula - Cédula del proveedor
+     * @param {String} nombre - Nombre del proveedor
+     * @returns {Object|null} Proveedor encontrado
+     */
+    async findProviderByCedula(cedula, nombre) {
+        try {
+            console.log(`🔍 Buscando proveedor: ${nombre} (${cedula})`);
+
+            // Buscar por identificación primero (más preciso)
+            const responseById = await this.api.get('/contacts', {
+                params: {
+                    identification: cedula,
+                    type: 'provider'
+                }
+            });
+
+            if (responseById.data && responseById.data.length > 0) {
+                const provider = responseById.data[0];
+                console.log(`✅ Proveedor encontrado por cédula: ${provider.id} - ${provider.name}`);
+                return provider;
+            }
+
+            // Si no encuentra por cédula, buscar por nombre
+            const responseByName = await this.api.get('/contacts', {
+                params: {
+                    name: nombre,
+                    type: 'provider'
+                }
+            });
+
+            const providers = responseByName.data;
+
+            // Buscar coincidencia por cédula en los resultados
+            const provider = providers.find(p => 
+                p.identification === cedula || 
+                p.name.toLowerCase().includes(nombre.toLowerCase().split(' ')[0]) // Primera palabra del nombre
+            );
+
+            if (provider) {
+                console.log(`✅ Proveedor encontrado por nombre: ${provider.id} - ${provider.name}`);
+                return provider;
+            }
+
+            console.log(`⚠️ Proveedor no encontrado: ${nombre}`);
+            return null;
+
+        } catch (error) {
+            console.error('❌ Error buscando proveedor:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * NUEVO: Crea o actualiza un proveedor en Alegra
+     * @param {Object} providerData - Datos del proveedor de la factura
+     * @returns {Object} Proveedor creado/actualizado
+     */
+    async createOrUpdateProvider(providerData) {
+        try {
+            console.log(`👤 Creando proveedor: ${providerData.nombre}`);
+
+            const newProvider = {
+                name: providerData.nombre,
+                identification: providerData.cedula,
+                email: providerData.email,
+                mobile: providerData.telefono,
+                type: 'provider',
+                kindOfPerson: 'LEGAL_PERSON', // Persona jurídica por defecto
+                regime: 'SIMPLIFIED', // Régimen simplificado
+                identificationObject: {
+                    type: providerData.cedula.length > 10 ? 'LEGAL_PERSON' : 'NATURAL_PERSON',
+                    number: providerData.cedula
+                }
+            };
+
+            const response = await this.api.post('/contacts', newProvider);
+            const provider = response.data;
+
+            console.log(`✅ Proveedor creado: ${provider.id} - ${provider.name}`);
+            return provider;
+
+        } catch (error) {
+            // Si el error es que ya existe, extraer los datos del error
+            if (error.response?.status === 400 && error.response?.data?.code === 2006) {
+                const existingProvider = {
+                    id: error.response.data.contactId,
+                    name: error.response.data.contactName,
+                    identification: error.response.data.contactIdentification
+                };
+                
+                console.log(`✅ Proveedor ya existe: ${existingProvider.id} - ${existingProvider.name}`);
+                return existingProvider;
+            }
+            
+            console.error('❌ Error creando proveedor:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * NUEVO: Actualiza el costo de un producto en Alegra
+     * @param {String} alegraItemId - ID del producto en Alegra
+     * @param {Number} newCost - Nuevo costo unitario
+     * @returns {Object} Producto actualizado
+     */
+    async updateProductCost(alegraItemId, newCost) {
+        try {
+            console.log(`💰 Actualizando costo del producto ${alegraItemId}: ₡${newCost}`);
+
+            // Obtener producto actual para preservar otros datos
+            const currentProduct = await this.api.get(`/items/${alegraItemId}`);
+            const productData = currentProduct.data;
+
+            // Actualizar solo el costo en el inventario
+            const updateData = {
+                name: productData.name,
+                reference: productData.reference || {},
+                inventory: {
+                    ...productData.inventory,
+                    unitCost: newCost
+                }
+            };
+
+            const response = await this.api.put(`/items/${alegraItemId}`, updateData);
+            const updatedProduct = response.data;
+
+            console.log(`✅ Costo actualizado: ${alegraItemId} → ₡${newCost}`);
+            return updatedProduct;
+
+        } catch (error) {
+            console.error(`❌ Error actualizando costo del producto ${alegraItemId}:`, error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * NUEVO: Crea una factura de proveedor (Bills) en Alegra
+     * @param {Object} facturaData - Datos de la factura procesada
+     * @returns {Object} Factura creada en Alegra
+     */
+    async createBill(facturaData) {
+        try {
+            console.log(`📄 Creando factura de proveedor en Alegra: ${facturaData.numeroConsecutivo}`);
+
+            // Buscar o crear proveedor
+            let provider = await this.findProviderByCedula(
+                facturaData.proveedorCedula, 
+                facturaData.proveedorNombre
+            );
+
+            if (!provider) {
+                console.log('👤 Proveedor no encontrado, creando nuevo...');
+                provider = await this.createOrUpdateProvider({
+                    nombre: facturaData.proveedorNombre,
+                    cedula: facturaData.proveedorCedula,
+                    email: facturaData.proveedorEmail,
+                    telefono: facturaData.proveedorTelefono
+                });
+            }
+
+            // Preparar fecha (formato YYYY-MM-DD)
+            const fechaEmision = new Date(facturaData.fechaEmision).toISOString().split('T')[0];
+
+            // Preparar productos para la factura
+            const purchaseItems = facturaData.productos
+                .filter(p => p.estadoRelacionado === 'RELACIONADO' && p.alegraItemId)
+                .map(producto => ({
+                    id: parseInt(producto.alegraItemId),
+                    quantity: producto.cantidad,
+                    price: producto.precioUnitario,
+                    discount: producto.descuento || 0,
+                    tax: producto.impuesto ? [{
+                        id: 1, // IVA estándar en Costa Rica
+                        value: producto.impuesto
+                    }] : []
+                }));
+
+            if (purchaseItems.length === 0) {
+                throw new Error('No hay productos relacionados para crear la factura');
+            }
+
+            // Estructura para Bills API de Alegra
+            const billData = {
+                date: fechaEmision,
+                dueDate: fechaEmision, // Misma fecha por defecto
+                observations: `Factura electrónica ${facturaData.numeroConsecutivo} - Procesada automáticamente`,
+                termsConditions: 'Compra procesada desde sistema de facturas CR',
+                provider: provider.id,
+                
+                // Datos de la factura
+                numberTemplate: {
+                    number: facturaData.numeroConsecutivo
+                },
+
+                purchases: {
+                    items: purchaseItems
+                },
+
+                // Información de Costa Rica
+                saleCondition: 'CASH', // Contado por defecto
+                paymentMethod: 'CASH', // Efectivo por defecto
+                economicActivity: {
+                    code: '523402' // Código por defecto para comercio
+                }
+
+                // No incluir moneda para usar la predeterminada de la cuenta
+            };
+
+            console.log(`📋 Enviando factura con ${purchaseItems.length} productos...`);
+
+            const response = await this.api.post('/bills', billData);
+            const bill = response.data;
+
+            console.log(`✅ Factura creada en Alegra: ${bill.id} - ${bill.numberTemplate?.number || bill.reference}`);
+
+            return bill;
+
+        } catch (error) {
+            console.error('❌ Error creando factura en Alegra:', error.message);
+            if (error.response?.data) {
+                console.error('📋 Detalles del error:', JSON.stringify(error.response.data, null, 2));
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * NUEVO: Procesa una factura completa (actualiza costos + crea factura)
+     * @param {Object} facturaCompleta - Factura con productos aprobados
+     * @returns {Object} Resultado del procesamiento
+     */
+    async processCompleteBill(facturaCompleta) {
+        try {
+            console.log(`🚀 Procesando factura completa: ${facturaCompleta.numeroConsecutivo}`);
+
+            const productosAprobados = facturaCompleta.productos.filter(p => 
+                p.estadoRevision === 'APROBADO' && p.alegraItemId
+            );
+
+            if (productosAprobados.length === 0) {
+                throw new Error('No hay productos aprobados para procesar');
+            }
+
+            console.log(`📦 ${productosAprobados.length} productos aprobados para procesar`);
+
+            // 1. Actualizar costos de productos en Alegra
+            const costosActualizados = [];
+            for (const producto of productosAprobados) {
+                try {
+                    // Calcular costo real desde la factura
+                    const costoUnitario = producto.totalLinea / producto.cantidad;
+                    
+                    const updatedProduct = await this.updateProductCost(
+                        producto.alegraItemId, 
+                        costoUnitario
+                    );
+
+                    costosActualizados.push({
+                        alegraItemId: producto.alegraItemId,
+                        descripcion: producto.descripcion,
+                        costoAnterior: updatedProduct.inventory?.unitCost || 0,
+                        costoNuevo: costoUnitario,
+                        actualizado: true
+                    });
+
+                    // Pausa entre actualizaciones para evitar límites de API
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                } catch (error) {
+                    console.error(`⚠️ Error actualizando costo del producto ${producto.alegraItemId}:`, error.message);
+                    costosActualizados.push({
+                        alegraItemId: producto.alegraItemId,
+                        descripcion: producto.descripcion,
+                        error: error.message,
+                        actualizado: false
+                    });
+                }
+            }
+
+            // 2. Crear factura de proveedor en Alegra
+            const billCreated = await this.createBill(facturaCompleta);
+
+            // 3. Resultado del procesamiento
+            const resultado = {
+                facturaId: facturaCompleta.id,
+                alegraFacturaId: billCreated.id,
+                numeroConsecutivo: facturaCompleta.numeroConsecutivo,
+                proveedor: facturaCompleta.proveedorNombre,
+                totalProductos: productosAprobados.length,
+                costosActualizados: costosActualizados,
+                costosExitosos: costosActualizados.filter(c => c.actualizado).length,
+                facturaCreada: true,
+                fechaProcesamiento: new Date().toISOString()
+            };
+
+            console.log(`🎉 Factura procesada exitosamente:`);
+            console.log(`   📄 Alegra ID: ${billCreated.id}`);
+            console.log(`   💰 Productos: ${resultado.costosExitosos}/${resultado.totalProductos} costos actualizados`);
+
+            return resultado;
+
+        } catch (error) {
+            console.error('❌ Error procesando factura completa:', error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Crea un nuevo producto en Alegra
      * @param {Object} productData - Datos del producto
      * @returns {Object} Producto creado
@@ -302,7 +611,7 @@ class AlegraService {
     }
 
     /**
-     * Crea un gasto (factura de proveedor) en Alegra
+     * Crea un gasto (factura de proveedor) en Alegra [DEPRECATED - usar createBill]
      * @param {Object} facturaData - Datos de la factura
      * @returns {Object} Gasto creado
      */
