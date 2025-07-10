@@ -168,15 +168,20 @@ app.post('/api/confirmar-producto', async (req, res) => {
             });
         }
 
-        // Obtener información del producto de Alegra
-        const alegraProduct = await dbService.prisma.alegraProduct.findUnique({
-            where: { alegraId: alegraItemId }
-        });
-
-        if (!alegraProduct) {
+        // CAMBIO: Obtener producto directamente de Alegra API
+        let alegraProduct;
+        try {
+            const response = await alegraService.api.get(`/items/${alegraItemId}`);
+            alegraProduct = {
+                alegraId: response.data.id,
+                name: response.data.name,
+                reference: response.data.reference?.reference || response.data.reference || '',
+                price: response.data.price?.[0]?.price || 0
+            };
+        } catch (error) {
             return res.status(404).json({
                 success: false,
-                error: 'Producto de Alegra no encontrado'
+                error: 'Producto de Alegra no encontrado en API'
             });
         }
 
@@ -384,52 +389,24 @@ app.get('/api/buscar-productos', async (req, res) => {
             });
         }
 
-        console.log(`🔍 Búsqueda manual: "${termino}"`);
+        console.log(`🔍 Búsqueda directa en Alegra: "${termino}"`);
 
-        // Buscar en productos locales de Alegra
-        const productos = await dbService.prisma.alegraProduct.findMany({
-            where: {
-                OR: [
-                    {
-                        name: {
-                            contains: termino.trim(),
-                            mode: 'insensitive'
-                        }
-                    },
-                    {
-                        reference: {
-                            contains: termino.trim(),
-                            mode: 'insensitive'
-                        }
-                    },
-                    {
-                        description: {
-                            contains: termino.trim(),
-                            mode: 'insensitive'
-                        }
-                    },
-                    {
-                        searchText: {
-                            contains: termino.trim(),
-                            mode: 'insensitive'
-                        }
-                    }
-                ]
-            },
-            orderBy: [
-                {
-                    name: 'asc'
-                }
-            ],
-            take: 20 // Máximo 20 resultados
+        // Buscar directamente en API de Alegra
+        const response = await alegraService.api.get('/items', {
+            params: {
+                name: termino.trim(),
+                limit: 20
+            }
         });
+
+        const productos = response.data || [];
 
         // Calcular relevancia de cada resultado
         const productosConRelevancia = productos.map(producto => {
             let relevancia = 0;
             const terminoLower = termino.toLowerCase();
             const nombreLower = producto.name.toLowerCase();
-            const referenceLower = (producto.reference || '').toLowerCase();
+            const referenceLower = (producto.reference?.reference || producto.reference || '').toLowerCase();
 
             // Coincidencia exacta en nombre = 100 puntos
             if (nombreLower === terminoLower) {
@@ -450,12 +427,18 @@ app.get('/api/buscar-productos', async (req, res) => {
             }
 
             // Bonus por productos con precio y costo
-            if (producto.price > 0) relevancia += 5;
-            if (producto.cost > 0) relevancia += 5;
+            if (producto.price && producto.price.length > 0) relevancia += 5;
+            if (producto.inventory?.unitCost > 0) relevancia += 5;
 
             return {
                 ...producto,
-                relevancia
+                relevancia,
+                // Normalizar datos para compatibilidad
+                alegraId: producto.id,
+                name: producto.name,
+                reference: producto.reference?.reference || producto.reference || '',
+                price: producto.price?.[0]?.price || 0,
+                cost: producto.inventory?.unitCost || 0
             };
         });
 
@@ -464,7 +447,7 @@ app.get('/api/buscar-productos', async (req, res) => {
             .sort((a, b) => b.relevancia - a.relevancia)
             .slice(0, 15); // Top 15 resultados
 
-        console.log(`✅ ${productosOrdenados.length} productos encontrados para "${termino}"`);
+        console.log(`✅ ${productosOrdenados.length} productos encontrados en Alegra para "${termino}"`);
 
         res.json({
             success: true,
@@ -474,10 +457,10 @@ app.get('/api/buscar-productos', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error en búsqueda de productos:', error);
+        console.error('❌ Error buscando en Alegra:', error);
         res.status(500).json({
             success: false,
-            error: 'Error interno en la búsqueda de productos'
+            error: 'Error buscando productos en Alegra'
         });
     }
 });
