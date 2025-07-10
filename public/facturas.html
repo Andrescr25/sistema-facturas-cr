@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📄 Ver Facturas - Sistema de Facturas CR</title>
+    <link rel="stylesheet" href="css/facturas.css">
+</head>
+<body>
+    <!-- Navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>📋 Sistema de Facturas CR</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Dashboard</a></li>
+                <li><a href="facturas.html" class="nav-link active">Ver Facturas</a></li>
+                <li><a href="precios.html" class="nav-link">Revisar Precios</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📄 Lista de Facturas</h1>
+            <p>Buscar y relacionar productos por factura</p>
+        </div>
+
+        <!-- Filtros y búsqueda -->
+        <div class="card">
+            <div class="filters-section">
+                <div class="search-box">
+                    <input type="text" id="buscarFactura" placeholder="Buscar por número de factura, proveedor o clave..." class="search-input">
+                    <button onclick="buscarFacturas()" class="btn">🔍 Buscar</button>
+                </div>
+                
+                <div class="filter-row">
+                    <select id="filtroEstado" class="filter-select" onchange="buscarFacturas()">
+                        <option value="TODAS">Todos los estados</option>
+                        <option value="PROCESADA">Procesadas</option>
+                        <option value="RELACIONADA">Relacionadas</option>
+                        <option value="COMPLETADA">Completadas</option>
+                    </select>
+                    
+                    <input type="text" id="filtroProveedor" placeholder="Filtrar por proveedor..." class="filter-input" onkeyup="buscarFacturas()">
+                    
+                    <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de facturas -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📋 Facturas Encontradas</h2>
+                <div id="resultadosInfo" class="results-info"></div>
+            </div>
+            
+            <div id="listaFacturas" class="facturas-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando facturas...</p>
+                </div>
+            </div>
+            
+            <!-- Paginación -->
+            <div id="paginacion" class="pagination" style="display: none;">
+                <button id="btnAnterior" onclick="cambiarPagina(-1)" class="btn btn-secondary">‹ Anterior</button>
+                <span id="infoPagina">Página 1 de 1</span>
+                <button id="btnSiguiente" onclick="cambiarPagina(1)" class="btn btn-secondary">Siguiente ›</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/facturas.js"></script>
+</body>
+</html>

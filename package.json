@@ -1,0 +1,51 @@
+{
+  "name": "sistema-facturas-cr",
+  "version": "1.0.0",
+  "description": "Sistema inteligente para recepción automática de facturas electrónicas de Costa Rica.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Andrescr25/sistema-facturas-cr.git"
+  },
+  "keywords": [
+    "facturas",
+    "costa-rica",
+    "xml",
+    "alegra",
+    "imap"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Andrescr25/sistema-facturas-cr/issues"
+  },
+  "homepage": "https://github.com/Andrescr25/sistema-facturas-cr#readme",
+  "dependencies": {
+    "@prisma/client": "^5.7.0",
+    "axios": "^1.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "imap": "^0.8.19",
+    "mailparser": "^3.6.5",
+    "moment-timezone": "^0.5.43",
+    "multer": "^1.4.4-lts.1",
+    "prisma": "^5.7.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

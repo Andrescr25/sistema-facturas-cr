@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔗 Relacionar Productos - Sistema de Facturas CR</title>
+    <link rel="stylesheet" href="css/relacionar.css">
+</head>
+<body>
+    <!-- Navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>📋 Sistema de Facturas CR</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Dashboard</a></li>
+                <li><a href="facturas.html" class="nav-link">Ver Facturas</a></li>
+                <li><a href="precios.html" class="nav-link">Revisar Precios</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header con información de la factura -->
+        <div class="header" id="facturaHeader">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Cargando información de la factura...</p>
+            </div>
+        </div>
+
+        <!-- Progreso de relacionado -->
+        <div class="card">
+            <div class="progress-section">
+                <h3>📊 Progreso de Relacionado</h3>
+                <div class="progress-bar-large">
+                    <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div id="progressText" class="progress-text">0% completado</div>
+                <div id="progressStats" class="progress-stats"></div>
+            </div>
+        </div>
+
+        <!-- Lista de productos -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📦 Productos de la Factura</h2>
+                <div class="filter-tabs">
+                    <button class="tab-btn active" onclick="filtrarProductos('todos')" data-filter="todos">Todos</button>
+                    <button class="tab-btn" onclick="filtrarProductos('pendientes')" data-filter="pendientes">Pendientes</button>
+                    <button class="tab-btn" onclick="filtrarProductos('relacionados')" data-filter="relacionados">Relacionados</button>
+                    <button class="tab-btn" onclick="filtrarProductos('ignorados')" data-filter="ignorados">Ignorados</button>
+                </div>
+            </div>
+            
+            <div id="listaProductos" class="productos-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando productos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón de finalizar -->
+        <div class="card text-center" id="accionesFinales" style="display: none;">
+            <h3>🎉 ¡Factura Lista!</h3>
+            <p>Todos los productos han sido procesados. ¿Qué deseas hacer?</p>
+            <div class="action-buttons">
+                <a href="precios.html" class="btn success">💰 Revisar Precios</a>
+                <button onclick="enviarAlegra()" class="btn" id="btnEnviarAlegra">📤 Enviar a Alegra</button>
+                <a href="facturas.html" class="btn btn-secondary">📄 Ver Otras Facturas</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para buscar productos manualmente -->
+    <div id="modalBuscarProducto" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="background: white; margin: 5% auto; padding: 30px; border-radius: 12px; max-width: 600px; max-height: 80%; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>🔍 Buscar Producto en Alegra</h2>
+                <button onclick="cerrarModalBuscar()" style="background: none; border: none; font-size: 2em; cursor: pointer; color: #666;">×</button>
+            </div>
+            
+            <!-- Información del producto a relacionar -->
+            <div id="infoProductoActual" class="product-info-modal"></div>
+            
+            <!-- Buscador -->
+            <div class="search-section">
+                <input type="text" id="buscarProductoInput" placeholder="Buscar por nombre, referencia o descripción..." class="search-input-modal" onkeyup="buscarEnAlegra()">
+                <div class="search-help">💡 Tip: Prueba con palabras clave como "tornillo", "cable", "pintura", etc.</div>
+            </div>
+            
+            <!-- Resultados de búsqueda -->
+            <div id="resultadosBusqueda" class="search-results">
+                <p style="text-align: center; color: #666; font-style: italic;">Escribe para buscar productos en Alegra...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/relacionar.js"></script>
+</body>
+</html>

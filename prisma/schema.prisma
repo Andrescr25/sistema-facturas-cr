@@ -1,0 +1,140 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tabla para facturas recibidas
+model Factura {
+  id                String   @id @default(cuid())
+  clave             String   @unique // Clave de 50 dígitos
+  numeroConsecutivo String
+  fechaEmision      DateTime
+  fechaProcesada    DateTime @default(now())
+  
+  // Información del proveedor
+  proveedorNombre   String
+  proveedorCedula   String
+  proveedorEmail    String?
+  proveedorTelefono String?
+  
+  // Totales
+  totalProductos    Int
+  totalFactura      Float
+  moneda            String   @default("CRC")
+  
+  // Estados del procesamiento
+  estado            EstadoFactura @default(RECIBIDA)
+  
+  // Relaciones
+  productos         ProductoFactura[]
+  
+  // Metadatos
+  archivoXML        String
+  emailId           String?
+  
+  @@map("facturas")
+}
+
+// Tabla para productos de cada factura
+model ProductoFactura {
+  id                String  @id @default(cuid())
+  
+  // Relación con factura
+  facturaId         String
+  factura           Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  
+  // Datos del producto en la factura
+  numeroLinea       Int
+  codigoProveedor   String  // Código que usa el proveedor
+  codigoComercial   String? // Código comercial alternativo
+  descripcion       String
+  
+  // Cantidades y precios
+  cantidad          Float
+  unidadMedida      String
+  precioUnitario    Float
+  descuento         Float   @default(0)
+  impuesto          Float   @default(0)
+  totalLinea        Float
+  
+  // Relacionado inteligente
+  alegraItemId      String? // ID del producto en Alegra (cuando se relacione)
+  estadoRelacionado EstadoRelacionado @default(PENDIENTE)
+  confianza         Float?  // Nivel de confianza del relacionado (0-100)
+  
+  // Relación con mapeo
+  mapeoId           String?
+  mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
+  
+  @@map("productos_factura")
+}
+
+// Tabla para el relacionado inteligente
+model SupplierProductMapping {
+  id                String   @id @default(cuid())
+  
+  // Información del proveedor
+  supplierName      String
+  supplierCedula    String
+  supplierCode      String   // Código que usa el proveedor
+  supplierDesc      String   // Descripción del proveedor
+  
+  // Información del producto en Alegra
+  alegraItemId      String   // ID del ítem en Alegra
+  alegraReference   String?  // Referencia en Alegra
+  alegraName        String   // Nombre en Alegra
+  
+  // Metadatos del relacionado
+  confidence        Float    @default(100) // Confianza del mapeo
+  timesUsed         Int      @default(1)   // Cuántas veces se ha usado
+  createdDate       DateTime @default(now())
+  lastUsedDate      DateTime @default(now())
+  createdBy         String   @default("manual") // manual | automatic
+  
+  // Relaciones
+  productos         ProductoFactura[]
+  
+  @@unique([supplierCedula, supplierCode]) // Un proveedor no puede tener códigos duplicados
+  @@map("supplier_product_mapping")
+}
+
+// Enums
+enum EstadoFactura {
+  RECIBIDA      // Recién llegó por email
+  PROCESADA     // XML parseado correctamente
+  RELACIONADA   // Productos relacionados con Alegra
+  ENVIADA       // Enviada a Alegra como gasto
+  COMPLETADA    // Proceso completo terminado
+}
+
+enum EstadoRelacionado {
+  PENDIENTE     // Necesita relacionado manual
+  SUGERIDO      // Sistema sugiere productos
+  RELACIONADO   // Ya relacionado con Alegra
+  IGNORADO      // Usuario decidió ignorar
+}
+
+// Tabla para productos de Alegra (cache local)
+model AlegraProduct {
+  id          String @id @default(cuid())
+  alegraId    String    @unique
+  name        String
+  reference   String @default("")
+  description String @default("")
+  category    String @default("")
+  price       Float  @default(0)
+  cost        Float  @default(0)
+  status      String @default("active")
+  type        String @default("product")
+  searchText  String // Para búsquedas rápidas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("alegra_products")
+}
