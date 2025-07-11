@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 
 // Dashboard principal
 app.get('/', (req, res) => {
-    res.redirect('/relacionar.html');
+    res.redirect('/facturas.html');
 });
 
 /**
