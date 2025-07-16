@@ -273,20 +273,17 @@ app.post('/api/rechazar-producto', async (req, res) => {
     }
 });
 
-// Ajustar cantidad y precio de producto
-app.post('/api/ajustar-producto', async (req, res) => {
+// ✅ NUEVO: Endpoint específico para actualizar PRECIO DE VENTA
+app.post('/api/actualizar-precio-venta', async (req, res) => {
     try {
-        const { productoId, nuevaCantidad, nuevoPrecio, alegraItemId } = req.body;
+        const { productoId, nuevoPrecioVenta, alegraItemId } = req.body;
 
-        console.log(`⚙️ Ajustando producto: ${productoId} → ${nuevaCantidad} × ₡${nuevoPrecio}`);
+        console.log(`💰 Actualizando precio de venta: ${productoId} → ₡${nuevoPrecioVenta}`);
 
-        // Si viene alegraItemId, actualizar precio en Alegra
-        // Si viene alegraItemId, actualizar precio en Alegra PRIMERO
+        // Si hay alegraItemId, actualizar precio de venta en Alegra
         if (alegraItemId) {
             try {
-                console.log(`💰 Actualizando precio de venta en Alegra: ${alegraItemId}`);
-
-                // OBTENER el producto de la BD para saber su impuesto real
+                // Obtener producto de BD para calcular impuesto real
                 const productoBD = await dbService.prisma.productoFactura.findUnique({
                     where: { id: productoId }
                 });
@@ -295,12 +292,96 @@ app.post('/api/ajustar-producto', async (req, res) => {
                     throw new Error('Producto no encontrado en BD');
                 }
 
-                // CALCULAR porcentaje de impuesto real del producto
+                // Calcular porcentaje de impuesto real del producto
                 const impuestoTotal = productoBD.impuesto || 0;
                 const totalSinImpuesto = productoBD.totalLinea - impuestoTotal;
                 const porcentajeImpuesto = totalSinImpuesto > 0 ? (impuestoTotal / totalSinImpuesto) * 100 : 0;
 
-                // NUEVO: Calcular precio sin IVA usando el porcentaje REAL
+                // Calcular precio sin IVA usando el porcentaje REAL
+                const precioConIVA = nuevoPrecioVenta;
+                const factorIVA = 1 + (porcentajeImpuesto / 100);
+                const precioSinIVA = precioConIVA / factorIVA;
+
+                console.log(`📊 Actualizando PRECIO DE VENTA en Alegra:`);
+                console.log(`📊 Precio con IVA: ₡${precioConIVA} → Precio sin IVA: ₡${precioSinIVA.toFixed(2)}`);
+                console.log(`📊 Impuesto real: ${porcentajeImpuesto.toFixed(1)}%`);
+
+                // ✅ CAMBIO: Usar método específico para precio de venta
+                await alegraService.updateProductPrice(alegraItemId, precioSinIVA);
+
+                console.log(`✅ Precio de venta actualizado en Alegra: ${alegraItemId}`);
+
+            } catch (alegraError) {
+                console.error('❌ Error actualizando precio en Alegra:', alegraError);
+                // Continuar para actualizar BD local aunque falle Alegra
+            }
+        }
+
+        // Actualizar SOLO el precio en la base de datos (NO cantidad ni costo)
+        const productoActualizado = await dbService.prisma.productoFactura.update({
+            where: { id: productoId },
+            data: {
+                precioUnitario: nuevoPrecioVenta  // Solo precio, NO cantidad ni totalLinea
+            }
+        });
+
+        console.log(`✅ Precio de venta actualizado en BD: ${productoActualizado.descripcion}`);
+
+        res.json({
+            success: true,
+            message: 'Precio de venta actualizado exitosamente',
+            precioAnterior: productoActualizado.precioUnitario,
+            precioNuevo: nuevoPrecioVenta,
+            producto: productoActualizado
+        });
+
+    } catch (error) {
+        console.error('❌ Error actualizando precio de venta:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error actualizando precio de venta'
+        });
+    }
+});
+
+// Ajustar cantidad y precio de producto
+app.post('/api/ajustar-producto', async (req, res) => {
+    try {
+        const { productoId, nuevaCantidad, nuevoPrecio, alegraItemId } = req.body;
+
+        console.log(`⚙️ Ajustando producto: ${productoId} → ${nuevaCantidad} × ₡${nuevoPrecio}`);
+
+        // ✅ OBTENER producto actual para calcular totalLinea correctamente
+        const productoActual = await dbService.prisma.productoFactura.findUnique({
+            where: { id: productoId }
+        });
+
+        if (!productoActual) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto no encontrado'
+            });
+        }
+
+        // ✅ CALCULAR nuevos valores
+        const cantidadFinal = nuevaCantidad || productoActual.cantidad;
+        const precioFinal = nuevoPrecio || productoActual.precioUnitario;
+        const totalLineaFinal = cantidadFinal * precioFinal;
+
+        // ✅ SI SOLO se actualiza cantidad (NO precio), no tocar Alegra
+        const soloActualizaCantidad = nuevaCantidad && !nuevoPrecio;
+        
+        // ✅ SI se actualiza precio Y hay alegraItemId, actualizar precio en Alegra
+        if (nuevoPrecio && alegraItemId) {
+            try {
+                console.log(`💰 Actualizando PRECIO DE VENTA en Alegra: ${alegraItemId}`);
+
+                // CALCULAR porcentaje de impuesto real del producto
+                const impuestoTotal = productoActual.impuesto || 0;
+                const totalSinImpuesto = productoActual.totalLinea - impuestoTotal;
+                const porcentajeImpuesto = totalSinImpuesto > 0 ? (impuestoTotal / totalSinImpuesto) * 100 : 0;
+
+                // Calcular precio sin IVA usando el porcentaje REAL
                 const precioConIVA = nuevoPrecio;
                 const factorIVA = 1 + (porcentajeImpuesto / 100);
                 const precioSinIVA = precioConIVA / factorIVA;
@@ -308,41 +389,55 @@ app.post('/api/ajustar-producto', async (req, res) => {
                 console.log(`📊 Producto tiene ${porcentajeImpuesto.toFixed(1)}% de impuesto`);
                 console.log(`📊 Precio con IVA: ₡${precioConIVA} → Precio sin IVA: ₡${precioSinIVA.toFixed(2)}`);
 
-                const currentProduct = await alegraService.api.get(`/items/${alegraItemId}`);
-                const productData = currentProduct.data;
+                // ✅ USAR método específico para actualizar precio de venta
+                await alegraService.updateProductPrice(alegraItemId, precioSinIVA);
 
-                const updateData = {
-                    name: productData.name,
-                    reference: productData.reference,
-                    price: [{
-                        price: precioSinIVA.toFixed(2), // ← PRECIO SIN IVA REAL
-                        main: true
-                    }],
-                    inventory: productData.inventory
-                };
-
-                await alegraService.api.put(`/items/${alegraItemId}`, updateData);
-                console.log(`✅ Precio sin IVA (${porcentajeImpuesto.toFixed(1)}%) actualizado en Alegra: ${alegraItemId} → ₡${precioSinIVA.toFixed(2)}`);
+                console.log(`✅ PRECIO DE VENTA actualizado en Alegra: ${alegraItemId} → ₡${precioSinIVA.toFixed(2)}`);
+                
             } catch (alegraError) {
-                console.error('Error actualizando en Alegra:', alegraError);
+                console.error('❌ Error actualizando precio en Alegra:', alegraError);
+                // ✅ CONTINUAR aunque falle Alegra (actualizar BD local)
             }
         }
 
-        // Actualizar el producto en la base de datos
+        // ✅ ACTUALIZAR producto en la base de datos (solo campos que cambiaron)
+        const datosActualizacion = {};
+        
+        if (nuevaCantidad) {
+            datosActualizacion.cantidad = cantidadFinal;
+        }
+        
+        if (nuevoPrecio) {
+            datosActualizacion.precioUnitario = precioFinal;
+        }
+        
+        // ✅ RECALCULAR totalLinea solo si cambió cantidad o precio
+        if (nuevaCantidad || nuevoPrecio) {
+            datosActualizacion.totalLinea = totalLineaFinal;
+        }
+
         const productoActualizado = await dbService.prisma.productoFactura.update({
             where: { id: productoId },
-            data: {
-                cantidad: nuevaCantidad,
-                precioUnitario: nuevoPrecio,
-                totalLinea: nuevaCantidad * nuevoPrecio
-            }
+            data: datosActualizacion
         });
 
-        console.log(`✅ Producto ajustado: ${productoActualizado.descripcion}`);
+        console.log(`✅ Producto ajustado en BD: ${productoActualizado.descripcion}`);
+        console.log(`   📊 Cantidad: ${productoActual.cantidad} → ${productoActualizado.cantidad}`);
+        console.log(`   💰 Precio: ₡${productoActual.precioUnitario} → ₡${productoActualizado.precioUnitario}`);
+        console.log(`   📋 Total línea: ₡${productoActual.totalLinea} → ₡${productoActualizado.totalLinea}`);
 
         res.json({
             success: true,
             message: 'Producto ajustado exitosamente',
+            cambios: {
+                cantidadAnterior: productoActual.cantidad,
+                cantidadNueva: productoActualizado.cantidad,
+                precioAnterior: productoActual.precioUnitario,
+                precioNuevo: productoActualizado.precioUnitario,
+                totalAnterior: productoActual.totalLinea,
+                totalNuevo: productoActualizado.totalLinea,
+                actualizoAlegra: !!(nuevoPrecio && alegraItemId)
+            },
             producto: productoActualizado
         });
 
@@ -350,7 +445,7 @@ app.post('/api/ajustar-producto', async (req, res) => {
         console.error('❌ Error ajustando producto:', error);
         res.status(500).json({
             success: false,
-            error: 'Error ajustando producto'
+            error: 'Error ajustando producto: ' + error.message
         });
     }
 });

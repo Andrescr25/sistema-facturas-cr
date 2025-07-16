@@ -1385,7 +1385,7 @@ async function obtenerCostoAnteriorAlegra(producto) {
 }
 
 /**
- * ACTUALIZAR PRECIO PRODUCTO
+ * ACTUALIZAR PRECIO DE VENTA DE PRODUCTO
  */
 async function actualizarPrecioProducto(productoId) {
     const nuevoPrecioInput = document.getElementById(`nuevoPrecio_${productoId}`);
@@ -1405,15 +1405,14 @@ async function actualizarPrecioProducto(productoId) {
         // Obtener alegraId
         const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
         
-        // Llamar al endpoint modificado
-        const response = await fetch('/api/ajustar-producto', {
+        // ✅ CAMBIO: Llamar al endpoint específico para precio de venta
+        const response = await fetch('/api/actualizar-precio-venta', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 productoId: productoId,
-                nuevaCantidad: producto.cantidad,
-                nuevoPrecio: nuevoPrecio,
-                alegraItemId: alegraId  // ← AGREGAR ESTA LÍNEA
+                nuevoPrecioVenta: nuevoPrecio,  // ← CLARIFICAR que es precio de venta
+                alegraItemId: alegraId
             })
         });
         
@@ -1437,6 +1436,7 @@ async function actualizarPrecioProducto(productoId) {
         mostrarNotificacion('❌ Error actualizando precio de venta', 'error');
     }
 }
+
 /**
  * UTILIDADES
  */

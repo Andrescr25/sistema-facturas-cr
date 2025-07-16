@@ -373,40 +373,82 @@ class AlegraService {
     }
 
     /**
-     * NUEVO: Actualiza el costo de un producto en Alegra
-     * @param {String} alegraItemId - ID del producto en Alegra
-     * @param {Number} newCost - Nuevo costo unitario
-     * @returns {Object} Producto actualizado
-     */
-    async updateProductCost(alegraItemId, newCost) {
-        try {
-            console.log(`💰 Actualizando costo del producto ${alegraItemId}: ₡${newCost}`);
+ * ✅ NUEVO: Actualiza el PRECIO DE VENTA de un producto en Alegra
+ * @param {String} alegraItemId - ID del producto en Alegra
+ * @param {Number} newPrice - Nuevo precio de venta (SIN IVA)
+ * @returns {Object} Producto actualizado
+ */
+async updateProductPrice(alegraItemId, newPrice) {
+    try {
+        console.log(`💰 Actualizando PRECIO DE VENTA del producto ${alegraItemId}: ₡${newPrice} (sin IVA)`);
 
-            // Obtener producto actual para preservar otros datos
-            const currentProduct = await this.api.get(`/items/${alegraItemId}`);
-            const productData = currentProduct.data;
+        // Obtener producto actual para preservar otros datos
+        const currentProduct = await this.api.get(`/items/${alegraItemId}`);
+        const productData = currentProduct.data;
 
-            // Actualizar solo el costo en el inventario
-            const updateData = {
-                name: productData.name,
-                reference: productData.reference || {},
-                inventory: {
-                    ...productData.inventory,
-                    unitCost: newCost
-                }
-            };
+        // ✅ ACTUALIZAR SOLO EL PRECIO DE VENTA (NO EL COSTO)
+        const updateData = {
+            name: productData.name,
+            reference: productData.reference,
+            // ✅ SOLO actualizar price (precio de venta)
+            price: [{
+                price: parseFloat(newPrice).toFixed(2),
+                main: true
+            }],
+            // ✅ MANTENER inventory sin cambios (NO tocar el costo)
+            inventory: productData.inventory
+        };
 
-            const response = await this.api.put(`/items/${alegraItemId}`, updateData);
-            const updatedProduct = response.data;
+        const response = await this.api.put(`/items/${alegraItemId}`, updateData);
+        const updatedProduct = response.data;
 
-            console.log(`✅ Costo actualizado: ${alegraItemId} → ₡${newCost}`);
-            return updatedProduct;
+        console.log(`✅ PRECIO DE VENTA actualizado: ${alegraItemId} → ₡${newPrice} (sin IVA)`);
+        return updatedProduct;
 
-        } catch (error) {
-            console.error(`❌ Error actualizando costo del producto ${alegraItemId}:`, error.message);
-            throw error;
-        }
+    } catch (error) {
+        console.error(`❌ Error actualizando PRECIO DE VENTA del producto ${alegraItemId}:`, error.message);
+        throw error;
     }
+}
+
+    /**
+ * ✅ CORREGIDO: Actualiza SOLO el COSTO de un producto en Alegra (NO el precio de venta)
+ * @param {String} alegraItemId - ID del producto en Alegra
+ * @param {Number} newCost - Nuevo costo unitario
+ * @returns {Object} Producto actualizado
+ */
+async updateProductCost(alegraItemId, newCost) {
+    try {
+        console.log(`💰 Actualizando COSTO del producto ${alegraItemId}: ₡${newCost}`);
+
+        // Obtener producto actual para preservar otros datos
+        const currentProduct = await this.api.get(`/items/${alegraItemId}`);
+        const productData = currentProduct.data;
+
+        // ✅ ACTUALIZAR SOLO EL COSTO (NO EL PRECIO DE VENTA)
+        const updateData = {
+            name: productData.name,
+            reference: productData.reference,
+            // ✅ MANTENER price sin cambios (NO tocar precio de venta)
+            price: productData.price,
+            // ✅ SOLO actualizar costo en inventory
+            inventory: {
+                ...productData.inventory,
+                unitCost: parseFloat(newCost).toFixed(2)
+            }
+        };
+
+        const response = await this.api.put(`/items/${alegraItemId}`, updateData);
+        const updatedProduct = response.data;
+
+        console.log(`✅ COSTO actualizado: ${alegraItemId} → ₡${newCost}`);
+        return updatedProduct;
+
+    } catch (error) {
+        console.error(`❌ Error actualizando COSTO del producto ${alegraItemId}:`, error.message);
+        throw error;
+    }
+}
 
     /**
      * NUEVO: Crea una factura de proveedor (Bills) en Alegra
