@@ -28,12 +28,12 @@ class XmlParser {
             }
 
             const facturaData = this.extractFacturaData(factura);
-            
+
             console.log('✅ XML parseado exitosamente');
             console.log(`📄 Factura: ${facturaData.numeroConsecutivo}`);
             console.log(`🏢 Proveedor: ${facturaData.emisor.nombre}`);
             console.log(`📦 Productos: ${facturaData.productos.length}`);
-            
+
             return facturaData;
 
         } catch (error) {
@@ -117,7 +117,7 @@ class XmlParser {
      */
     extractUbicacionData(ubicacion) {
         if (!ubicacion) return null;
-        
+
         return {
             provincia: ubicacion.Provincia,
             canton: ubicacion.Canton,
@@ -132,7 +132,7 @@ class XmlParser {
      */
     extractTelefonoData(telefono) {
         if (!telefono) return null;
-        
+
         return {
             codigoPais: telefono.CodigoPais,
             numero: telefono.NumTelefono
@@ -148,8 +148,8 @@ class XmlParser {
         }
 
         // Si solo hay un producto, LineaDetalle no es array
-        const lineas = Array.isArray(detalleServicio.LineaDetalle) 
-            ? detalleServicio.LineaDetalle 
+        const lineas = Array.isArray(detalleServicio.LineaDetalle)
+            ? detalleServicio.LineaDetalle
             : [detalleServicio.LineaDetalle];
 
         return lineas.map(linea => this.extractLineaDetalle(linea));
@@ -159,11 +159,41 @@ class XmlParser {
      * Extrae datos de una línea de detalle (producto)
      */
     extractLineaDetalle(linea) {
+        console.log('🔍 DEBUGGEANDO CÓDIGOS:');
+        console.log('  - Descripción:', linea.Detalle);
+        console.log('  - Codigo (CABYS):', linea.Codigo);
+        console.log('  - CodigoComercial objeto:', linea.CodigoComercial);
+        console.log('  - CodigoComercial?.Codigo:', linea.CodigoComercial?.Codigo);
+        console.log('  - Resultado final:', linea.CodigoComercial?.Codigo || linea.Codigo);
+        console.log('---');
         return {
             numeroLinea: parseInt(linea.NumeroLinea),
-            
+
             // Códigos del producto
-            codigo: linea.Codigo,
+            codigo: (() => {
+                if (!linea.CodigoComercial) return linea.Codigo;
+
+                // Si es array, buscar el primer código válido (prioridad: 04, 01, 02, cualquier otro)
+                if (Array.isArray(linea.CodigoComercial)) {
+                    // Buscar tipo 04 primero (código del proveedor más común)
+                    let codigoProveedor = linea.CodigoComercial.find(c => c.Tipo === '04');
+
+                    // Si no hay tipo 04, buscar tipo 01
+                    if (!codigoProveedor) {
+                        codigoProveedor = linea.CodigoComercial.find(c => c.Tipo === '01');
+                    }
+
+                    // Si no hay tipo 01, tomar el primer código disponible
+                    if (!codigoProveedor && linea.CodigoComercial.length > 0) {
+                        codigoProveedor = linea.CodigoComercial[0];
+                    }
+
+                    return codigoProveedor?.Codigo || linea.Codigo;
+                }
+
+                // Si es objeto simple
+                return linea.CodigoComercial.Codigo || linea.Codigo;
+            })(),
             codigoComercial: linea.CodigoComercial ? {
                 tipo: linea.CodigoComercial.Tipo,
                 codigo: linea.CodigoComercial.Codigo
@@ -233,7 +263,7 @@ class XmlParser {
         try {
             // Las fechas vienen en formato: 2025-07-03T15:55:00
             const fecha = moment.tz(fechaString, 'America/Costa_Rica');
-            
+
             return {
                 original: fechaString,
                 iso: fecha.toISOString(),

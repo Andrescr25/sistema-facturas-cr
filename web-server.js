@@ -4,6 +4,7 @@ const path = require('path');
 const DatabaseService = require('./services/databaseService');
 const AlegraService = require('./services/alegraService');
 
+
 const app = express();
 const PORT = process.env.WEB_PORT || 3001;
 
@@ -449,6 +450,373 @@ app.post('/api/ajustar-producto', async (req, res) => {
         });
     }
 });
+
+// =================== GESTIÓN DE PRODUCTOS RELACIONADOS =================== //
+
+// Obtener todos los productos relacionados con filtros
+app.get('/api/productos-relacionados', async (req, res) => {
+    try {
+        const { proveedor, estado, confianza, busqueda, page = 1, limit = 20 } = req.query;
+
+        console.log('📊 Obteniendo productos relacionados...');
+
+        // Construir filtros
+        const filtros = {};
+        
+        if (proveedor) {
+            filtros.factura = {
+                proveedorNombre: {
+                    contains: proveedor,
+                    mode: 'insensitive'
+                }
+            };
+        }
+
+        if (estado && estado !== 'TODOS') {
+            filtros.estadoRelacionado = estado;
+        }
+
+        if (confianza) {
+            const [min, max] = confianza.split('-').map(Number);
+            filtros.confianza = {
+                gte: min,
+                lte: max || 100
+            };
+        }
+
+        if (busqueda) {
+            filtros.OR = [
+                {
+                    descripcion: {
+                        contains: busqueda,
+                        mode: 'insensitive'
+                    }
+                },
+                {
+                    codigoProveedor: {
+                        contains: busqueda,
+                        mode: 'insensitive'
+                    }
+                }
+            ];
+        }
+
+        // Obtener productos con paginación
+        const skip = (page - 1) * limit;
+        
+        const [productos, total] = await Promise.all([
+            dbService.prisma.productoFactura.findMany({
+                where: filtros,
+                include: {
+                    factura: true,
+                    mapeo: true
+                },
+                orderBy: [
+                    { estadoRelacionado: 'desc' },
+                    { confianza: 'desc' },
+                    { factura: { fechaProcesada: 'desc' } }
+                ],
+                skip: parseInt(skip),
+                take: parseInt(limit)
+            }),
+            dbService.prisma.productoFactura.count({ where: filtros })
+        ]);
+
+        // ✅ SIMPLIFICADO: NO llamar API Alegra para mostrar datos
+        const productosEnriquecidos = productos.map(producto => {
+            // Usar datos del MAPEO (que ya están en BD)
+            let alegraInfo = null;
+            
+            if (producto.estadoRelacionado === 'RELACIONADO' && producto.mapeo) {
+                alegraInfo = {
+                    alegraId: producto.alegraItemId,
+                    name: producto.mapeo.alegraName,           // ✅ DESDE BD
+                    reference: producto.mapeo.alegraReference, // ✅ DESDE BD  
+                    price: 0, // No necesario para visualizar
+                    cost: 0   // No necesario para visualizar
+                };
+            }
+
+            return {
+                ...producto,
+                alegraInfo: alegraInfo
+            };
+        });
+
+        // Calcular estadísticas
+        const estadisticas = await calcularEstadisticasRelaciones();
+
+        res.json({
+            success: true,
+            productos: productosEnriquecidos,
+            total: total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil(total / limit),
+            estadisticas: estadisticas
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo productos relacionados:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error obteniendo productos relacionados'
+        });
+    }
+});
+
+// Editar relación existente
+app.put('/api/relacion/:productoId/editar', async (req, res) => {
+    try {
+        const { productoId } = req.params;
+        const { nuevoAlegraItemId, motivo } = req.body;
+
+        console.log(`✏️ Editando relación del producto: ${productoId} → ${nuevoAlegraItemId}`);
+
+        // Obtener producto actual
+        const producto = await dbService.prisma.productoFactura.findUnique({
+            where: { id: productoId },
+            include: { factura: true, mapeo: true }
+        });
+
+        if (!producto) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto no encontrado'
+            });
+        }
+
+        // Obtener información del nuevo producto de Alegra
+        let nuevoAlegraProduct;
+        try {
+            const response = await alegraService.api.get(`/items/${nuevoAlegraItemId}`);
+            nuevoAlegraProduct = {
+                alegraId: response.data.id,
+                name: response.data.name,
+                reference: response.data.reference?.reference || response.data.reference || '',
+                price: response.data.price?.[0]?.price || 0
+            };
+        } catch (error) {
+            return res.status(404).json({
+                success: false,
+                error: 'Nuevo producto de Alegra no encontrado'
+            });
+        }
+
+        // Crear nuevo mapeo
+        const nuevoMapeoData = {
+            supplierName: producto.factura.proveedorNombre,
+            supplierCedula: producto.factura.proveedorCedula,
+            supplierCode: producto.codigoProveedor,
+            supplierDesc: producto.descripcion,
+            alegraItemId: nuevoAlegraProduct.alegraId,
+            alegraReference: nuevoAlegraProduct.reference,
+            alegraName: nuevoAlegraProduct.name,
+            confidence: 100, // Manual = 100% confianza
+            createdBy: 'manual_edit'
+        };
+
+        const nuevoMapeo = await dbService.createProductMapping(nuevoMapeoData);
+
+        // Actualizar producto
+        const productoActualizado = await dbService.prisma.productoFactura.update({
+            where: { id: productoId },
+            data: {
+                alegraItemId: nuevoAlegraItemId,
+                estadoRelacionado: 'RELACIONADO',
+                confianza: 100,
+                mapeoId: nuevoMapeo.id
+            }
+        });
+
+        // Registrar el cambio en historial
+        await registrarCambioRelacion(productoId, {
+            accion: 'EDITAR',
+            alegraAnterior: producto.alegraItemId,
+            alegraNuevo: nuevoAlegraItemId,
+            motivo: motivo || 'Edición manual',
+            fecha: new Date()
+        });
+
+        console.log(`✅ Relación editada: ${producto.descripcion} → ${nuevoAlegraProduct.name}`);
+
+        res.json({
+            success: true,
+            message: 'Relación editada exitosamente',
+            producto: productoActualizado,
+            nuevoMapeo: nuevoMapeo
+        });
+
+    } catch (error) {
+        console.error('❌ Error editando relación:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error editando relación'
+        });
+    }
+});
+
+// Eliminar relación (volver a pendiente)
+app.delete('/api/relacion/:productoId', async (req, res) => {
+    try {
+        const { productoId } = req.params;
+        const { motivo } = req.body;
+
+        console.log(`🗑️ Eliminando relación del producto: ${productoId}`);
+
+        // Obtener producto actual
+        const producto = await dbService.prisma.productoFactura.findUnique({
+            where: { id: productoId },
+            include: { factura: true }
+        });
+
+        if (!producto) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto no encontrado'
+            });
+        }
+
+        const alegraAnterior = producto.alegraItemId;
+
+        // Actualizar producto para quitar relación
+        const productoActualizado = await dbService.prisma.productoFactura.update({
+            where: { id: productoId },
+            data: {
+                alegraItemId: null,
+                estadoRelacionado: 'PENDIENTE',
+                confianza: null,
+                mapeoId: null
+            }
+        });
+
+        // Registrar el cambio en historial
+        await registrarCambioRelacion(productoId, {
+            accion: 'ELIMINAR',
+            alegraAnterior: alegraAnterior,
+            alegraNuevo: null,
+            motivo: motivo || 'Eliminación manual',
+            fecha: new Date()
+        });
+
+        console.log(`✅ Relación eliminada: ${producto.descripcion}`);
+
+        res.json({
+            success: true,
+            message: 'Relación eliminada exitosamente',
+            producto: productoActualizado
+        });
+
+    } catch (error) {
+        console.error('❌ Error eliminando relación:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error eliminando relación'
+        });
+    }
+});
+
+// Obtener historial de cambios de un producto
+app.get('/api/relacion/:productoId/historial', async (req, res) => {
+    try {
+        const { productoId } = req.params;
+
+        // Por ahora simulamos el historial (puedes implementar una tabla de auditoría después)
+        const historial = await obtenerHistorialRelacion(productoId);
+
+        res.json({
+            success: true,
+            historial: historial
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo historial:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error obteniendo historial de relación'
+        });
+    }
+});
+
+// =================== FUNCIONES AUXILIARES =================== //
+
+async function calcularEstadisticasRelaciones() {
+    try {
+        const [
+            totalProductos,
+            relacionados,
+            pendientes,
+            ignorados,
+            porProveedor,
+            porConfianza
+        ] = await Promise.all([
+            dbService.prisma.productoFactura.count(),
+            dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'RELACIONADO' } }),
+            dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'PENDIENTE' } }),
+            dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'IGNORADO' } }),
+            dbService.prisma.productoFactura.groupBy({
+                by: ['factura'],
+                _count: { id: true },
+                include: { factura: { select: { proveedorNombre: true } } },
+                take: 10
+            }),
+            dbService.prisma.productoFactura.groupBy({
+                by: ['confianza'],
+                _count: { id: true },
+                where: { confianza: { not: null } },
+                orderBy: { confianza: 'desc' }
+            })
+        ]);
+
+        return {
+            totales: {
+                total: totalProductos,
+                relacionados,
+                pendientes,
+                ignorados,
+                porcentajeRelacionado: totalProductos > 0 ? Math.round((relacionados / totalProductos) * 100) : 0
+            },
+            porProveedor: porProveedor.slice(0, 5), // Top 5 proveedores
+            porConfianza: porConfianza
+        };
+
+    } catch (error) {
+        console.error('Error calculando estadísticas:', error);
+        return {
+            totales: { total: 0, relacionados: 0, pendientes: 0, ignorados: 0, porcentajeRelacionado: 0 },
+            porProveedor: [],
+            porConfianza: []
+        };
+    }
+}
+
+async function registrarCambioRelacion(productoId, cambio) {
+    // Por ahora solo logueamos, después puedes crear una tabla de auditoría
+    console.log(`📝 Historial de cambio: ${productoId}`, cambio);
+    
+    // TODO: Implementar tabla de auditoría si necesitas historial persistente
+    // await dbService.prisma.historialRelacion.create({
+    //     data: {
+    //         productoId,
+    //         ...cambio
+    //     }
+    // });
+}
+
+async function obtenerHistorialRelacion(productoId) {
+    // Por ahora devolvemos historial simulado
+    // TODO: Implementar consulta real cuando tengas tabla de auditoría
+    
+    return [
+        {
+            id: '1',
+            fecha: new Date(),
+            accion: 'CREAR',
+            descripcion: 'Relación creada automáticamente',
+            usuario: 'sistema'
+        }
+    ];
+}
 
 // Obtener facturas por estado
 app.get('/api/facturas/:estado?', async (req, res) => {

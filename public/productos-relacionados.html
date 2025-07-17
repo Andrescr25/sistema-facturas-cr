@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔗 Gestionar Relaciones - Sistema de Facturas CR</title>
+    <link rel="stylesheet" href="css/productos-relacionados.css">
+    <style>
+        /* Estilos específicos para productos relacionados */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .filters-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .productos-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .table-header {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .producto-row {
+            padding: 1.5rem;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+
+        .producto-row:hover {
+            background-color: #f8f9fa;
+        }
+
+        .producto-info {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr;
+            gap: 1rem;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .producto-descripcion {
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .producto-detalles {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+
+        .alegra-info {
+            background: #e8f5e8;
+            padding: 0.75rem;
+            border-radius: 4px;
+            border-left: 3px solid #27ae60;
+        }
+
+        .alegra-nombre {
+            font-weight: 500;
+            color: #27ae60;
+            margin-bottom: 0.25rem;
+        }
+
+        .confianza-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .confianza-alta { background: #d4edda; color: #155724; }
+        .confianza-media { background: #fff3cd; color: #856404; }
+        .confianza-baja { background: #f8d7da; color: #721c24; }
+
+        .producto-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background: #3498db; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+
+        .btn-sm:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #f8f9fa;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination .current-page {
+            font-weight: bold;
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #7f8c8d;
+        }
+
+        .loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #7f8c8d;
+        }
+
+        .empty-state .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .producto-info {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .producto-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navegación -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>📋 Sistema de Facturas CR</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="facturas.html" class="nav-link">Ver Facturas</a></li>
+                <li><a href="productos-relacionados.html" class="nav-link active">Gestionar Relaciones</a></li>
+                <li><a href="precios.html" class="nav-link">Revisar Precios</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Estadísticas -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📊 Estadísticas de Relaciones</h2>
+            </div>
+            <div class="card-body">
+                <div id="estadisticasContainer" class="stats-grid">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Cargando estadísticas...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters-card">
+            <h3>🔍 Filtros de Búsqueda</h3>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="filtroProveedor">Proveedor:</label>
+                    <select id="filtroProveedor">
+                        <option value="">Todos los proveedores</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="filtroEstado">Estado:</label>
+                    <select id="filtroEstado">
+                        <option value="TODOS">Todos los estados</option>
+                        <option value="RELACIONADO" selected>Relacionados</option>
+                        <option value="PENDIENTE">Pendientes</option>
+                        <option value="IGNORADO">Ignorados</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="filtroConfianza">Confianza:</label>
+                    <select id="filtroConfianza">
+                        <option value="">Todas las confianzas</option>
+                        <option value="80-100">Alta (80-100%)</option>
+                        <option value="60-79">Media (60-79%)</option>
+                        <option value="0-59">Baja (0-59%)</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="busquedaTexto">Buscar:</label>
+                    <input type="text" id="busquedaTexto" placeholder="Descripción o código...">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <button class="btn btn-primary" onclick="aplicarFiltros()">🔍 Buscar</button>
+                <button class="btn btn-secondary" onclick="limpiarFiltros()">🧹 Limpiar</button>
+                <button class="btn btn-success" onclick="exportarRelaciones()">📊 Exportar</button>
+            </div>
+        </div>
+
+        <!-- Lista de productos -->
+        <div class="productos-table">
+            <div class="table-header">
+                <h3>🔗 Productos Relacionados</h3>
+                <div id="infoResultados">Cargando...</div>
+            </div>
+            
+            <div id="listaProductos">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando productos relacionados...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paginación -->
+        <div id="paginacionContainer" class="pagination" style="display: none;">
+            <button id="btnPrimera" onclick="irAPagina(1)">⏮️</button>
+            <button id="btnAnterior" onclick="cambiarPagina(-1)">⬅️</button>
+            <span id="infoPagina">Página 1 de 1</span>
+            <button id="btnSiguiente" onclick="cambiarPagina(1)">➡️</button>
+            <button id="btnUltima" onclick="irAUltimaPagina()">⏭️</button>
+        </div>
+    </div>
+
+    <!-- Modal para editar relación -->
+    <div id="modalEditarRelacion" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Editar Relación de Producto</h3>
+                <button onclick="cerrarModalEditar()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="infoProductoEditar" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+                    <!-- Información del producto actual -->
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label>🔍 Buscar nuevo producto en Alegra:</label>
+                    <input type="text" id="buscarNuevoProducto" placeholder="Escribe para buscar..." 
+                           style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.5rem;">
+                </div>
+                
+                <div id="resultadosBusquedaNuevo" style="max-height: 300px; overflow-y: auto;">
+                    <p style="text-align: center; color: #7f8c8d; padding: 2rem;">
+                        Escribe para buscar productos en Alegra...
+                    </p>
+                </div>
+                
+                <div style="margin-top: 1rem;">
+                    <label>📝 Motivo del cambio (opcional):</label>
+                    <textarea id="motivoCambio" rows="3" placeholder="Ej: Producto anterior incorrecto, mejor coincidencia encontrada..." 
+                              style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.5rem; resize: vertical;"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalEditar()">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar eliminación -->
+    <div id="modalConfirmarEliminacion" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚠️ Confirmar Eliminación</h3>
+                <button onclick="cerrarModalEliminar()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="infoProductoEliminar" style="margin-bottom: 1rem;">
+                    <!-- Información del producto a eliminar -->
+                </div>
+                
+                <p><strong>¿Estás seguro que deseas eliminar esta relación?</strong></p>
+                <p>El producto volverá al estado <strong>PENDIENTE</strong> y tendrás que relacionarlo nuevamente.</p>
+                
+                <div style="margin-top: 1rem;">
+                    <label>📝 Motivo de eliminación (opcional):</label>
+                    <textarea id="motivoEliminacion" rows="3" placeholder="Ej: Relación incorrecta, producto duplicado..." 
+                              style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.5rem; resize: vertical;"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="confirmarEliminacion()">🗑️ Eliminar Relación</button>
+                <button class="btn btn-secondary" onclick="cerrarModalEliminar()">❌ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/productos-relacionados.js"></script>
+</body>
+</html>
