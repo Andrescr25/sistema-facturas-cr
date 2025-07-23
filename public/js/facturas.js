@@ -334,3 +334,45 @@ function getEstadoTexto(estado) {
     };
     return textos[estado] || estado;
 }
+
+/**
+ * ACTUALIZAR FACTURAS VIA GITHUB ACTION
+ */
+async function actualizarFacturas() {
+    const btn = document.getElementById('btnActualizar');
+    
+    // Cambiar estado del botón
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Ejecutando...';
+    
+    try {
+        const response = await fetch('https://api.github.com/repos/Andrescr25/sistema-facturas-cr/actions/workflows/actualizar-facturas.yml/dispatches', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer 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',
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ref: 'main'
+            })
+        });
+
+        if (response.ok) {
+            btn.innerHTML = '✅ Ejecutado!';
+            setTimeout(() => {
+                btn.innerHTML = '🔄 Actualizar Facturas';
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            throw new Error(`Error: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        btn.innerHTML = '❌ Error';
+        setTimeout(() => {
+            btn.innerHTML = '🔄 Actualizar Facturas';
+            btn.disabled = false;
+        }, 3000);
+    }
+}
