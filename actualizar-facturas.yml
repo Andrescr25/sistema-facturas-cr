@@ -9,7 +9,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Ejecutar actualización
-        run: |
-          echo "Actualizando facturas..."
-          # Aquí irá tu código
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Ejecutar sistema de facturas
+        run: node server.js
+        env:
+          ALEGRA_TOKEN: ${{ secrets.ALEGRA_TOKEN }}
+          ALEGRA_USER: ${{ secrets.ALEGRA_USER }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          IMAP_HOST: ${{ secrets.IMAP_HOST }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+          IMAP_PORT: ${{ secrets.IMAP_PORT }}
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          NODE_ENV: ${{ secrets.NODE_ENV }}
