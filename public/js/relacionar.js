@@ -338,6 +338,31 @@ async function buscarEnAlegra() {
     }, 500); // ← 500ms de delay
 }
 
+function abrirModalBuscar(productoId) {
+    // Limpiar búsqueda anterior
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+        searchTimeout = null;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalBuscarProducto'));
+    modal.show();
+    
+    // Esperar a que el modal se renderice completamente
+    modal._element.addEventListener('shown.bs.modal', function() {
+        const input = document.getElementById('buscarProductoInput');
+        const resultados = document.getElementById('resultadosBusqueda');
+        
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        if (resultados) {
+            resultados.innerHTML = '<p class="text-center text-muted fst-italic">Escribe para buscar productos en Alegra...</p>';
+        }
+    }, { once: true });
+}
+
 function mostrarResultadosBusqueda(productos, termino) {
     const container = document.getElementById('resultadosBusqueda');
     if (!container) return;
