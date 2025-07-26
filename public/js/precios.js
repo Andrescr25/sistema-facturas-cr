@@ -1,5 +1,4 @@
-// js/precios.js - Revisión de precios para facturas 100% relacionadas
-// Sistema de Facturas CR - Análisis de precios y costos
+const cacheAnalisisProductos = new Map();
 
 let facturasCompletas = [];
 let facturasFiltradas = [];
@@ -569,8 +568,6 @@ function abrirRevisionFactura(facturaId) {
     actualizarProgresoRevision();
 }
 
-// ✅ CACHE para productos ya analizados (agregar al inicio del archivo)
-const cacheAnalisisProductos = new Map();
 
 /**
  * MOSTRAR PRODUCTOS EN REVISIÓN - VERSIÓN OPTIMIZADA
