@@ -1,4 +1,5 @@
-const cacheAnalisisProductos = new Map();
+// js/precios.js - Revisión de precios para facturas 100% relacionadas
+// Sistema de Facturas CR - Análisis de precios y costos
 
 let facturasCompletas = [];
 let facturasFiltradas = [];
@@ -568,9 +569,8 @@ function abrirRevisionFactura(facturaId) {
     actualizarProgresoRevision();
 }
 
-
 /**
- * MOSTRAR PRODUCTOS EN REVISIÓN - VERSIÓN OPTIMIZADA
+ * MOSTRAR PRODUCTOS EN REVISIÓN
  */
 async function mostrarProductosRevision() {
     const container = document.getElementById('listaProductosRevision');
@@ -604,14 +604,11 @@ async function mostrarProductosRevision() {
         return;
     }
 
-    // ✅ OPTIMIZACIÓN: Procesamiento en paralelo
-    console.log(`🚀 Procesando ${productosMostrar.length} productos en paralelo...`);
-    const startTime = Date.now();
-    
-    const productosConAnalisis = await procesarProductosEnParalelo(productosMostrar);
-    
-    const endTime = Date.now();
-    console.log(`⚡ Análisis completado en ${endTime - startTime}ms (${Math.round((endTime - startTime) / productosMostrar.length)}ms por producto)`);
+    const productosConAnalisis = [];
+    for (const producto of productosMostrar) {
+        const analisis = await analizarProducto(producto);
+        productosConAnalisis.push({ producto, analisis });
+    }
 
     const html = productosConAnalisis.map(({ producto, analisis }) => {
         const estadoRevision = producto.estadoRevision || 'PENDIENTE';
@@ -632,10 +629,10 @@ async function mostrarProductosRevision() {
                 estadoClass = 'pendiente';
         }
 
-        // Calcular diferencia con precio Alegra (usando datos reales del análisis)
-        const precioAlegra = analisis.precioVentaActual;
+        // Calcular diferencia con precio Alegra (simulado)
+        const precioAlegra = analisis.precioAnterior;
         const diferencia = producto.precioUnitario - precioAlegra;
-        const diferenciaPorcentaje = precioAlegra > 0 ? Math.round((diferencia / precioAlegra) * 100) : 0;
+        const diferenciaPorcentaje = Math.round((diferencia / precioAlegra) * 100);
 
         let diferenciaTexto = '';
         let diferenciaClass = '';
@@ -664,7 +661,7 @@ async function mostrarProductosRevision() {
             .replace('{costoAnteriorConIVA}', formatearNumero(analisis.costoAnteriorConIVA))
             .replace('{costoNuevoConIVA}', formatearNumero(analisis.costoNuevoConIVA))
             .replace('{precioVentaActual}', formatearNumero(analisis.precioVentaActual))
-            .replace(/{precioVentaActual}/g, analisis.precioVentaActual)
+            .replace(/{precioVentaActual}/g, analisis.precioVentaActual)  // ← AGREGAR ESTA LÍNEA (sin formatear)
             .replace('{margenPorcentaje}', analisis.margenPorcentaje)
             .replace('{margenColorClass}', analisis.margenPorcentaje < 15 ? 'text-danger' : analisis.margenPorcentaje < 25 ? 'text-warning' : 'text-success')
             .replace('{margenTexto}', analisis.margenTexto)
@@ -680,192 +677,7 @@ async function mostrarProductosRevision() {
 }
 
 /**
- * ✅ NUEVA FUNCIÓN: Procesamiento en paralelo
- */
-async function procesarProductosEnParalelo(productos) {
-    const BATCH_SIZE = 5; // Procesar 5 productos a la vez
-    const resultados = [];
-    
-    for (let i = 0; i < productos.length; i += BATCH_SIZE) {
-        const batch = productos.slice(i, i + BATCH_SIZE);
-        
-        console.log(`📦 Procesando batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(productos.length/BATCH_SIZE)} (${batch.length} productos)`);
-        
-        // Procesar batch en paralelo
-        const batchPromises = batch.map(async (producto) => {
-            try {
-                const analisis = await analizarProductoOptimizado(producto);
-                return { producto, analisis };
-            } catch (error) {
-                console.warn(`⚠️ Error analizando producto ${producto.id}:`, error.message);
-                return { producto, analisis: getAnalisisFallback(producto) };
-            }
-        });
-        
-        const batchResultados = await Promise.all(batchPromises);
-        resultados.push(...batchResultados);
-        
-        // Pequeña pausa entre batches para no sobrecargar (solo si hay más batches)
-        if (i + BATCH_SIZE < productos.length) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-        }
-    }
-    
-    return resultados;
-}
-
-/**
- * ✅ NUEVA FUNCIÓN: Análisis optimizado con cache
- */
-async function analizarProductoOptimizado(producto) {
-    const cacheKey = `${producto.id}_${producto.estadoRevision}_${producto.totalLinea}`;
-    
-    // Verificar cache primero
-    if (cacheAnalisisProductos.has(cacheKey)) {
-        return cacheAnalisisProductos.get(cacheKey);
-    }
-    
-    let alertas = [];
-    let tieneAlerta = false;
-
-    try {
-        // 1. Calcular costo actual desde factura (INSTANTÁNEO)
-        const costoActual = calcularCostoConIVA(producto);
-        
-        // 2. Obtener todos los datos de Alegra en UNA SOLA llamada
-        const datosAlegra = await obtenerDatosAlegraCompletos(producto);
-        
-        const costoAnterior = datosAlegra.costo || 0;
-        const precioVentaActual = datosAlegra.precio || (producto.precioUnitario * 1.25);
-        const nombreAlegra = datosAlegra.nombre || producto.descripcion;
-
-        // 3. Calcular margen (INSTANTÁNEO)
-        const margen = precioVentaActual > 0 ? 
-            ((precioVentaActual - costoActual.costoConIVA) / precioVentaActual) * 100 : 0;
-
-        // 4. Generar alertas (INSTANTÁNEO)
-        if (costoActual.costoConIVA > costoAnterior * 1.3 && costoAnterior > 0) {
-            alertas.push({
-                tipo: 'precio-alto',
-                icono: '📈',
-                mensaje: `Costo ${Math.round(((costoActual.costoConIVA - costoAnterior) / costoAnterior) * 100)}% más alto`
-            });
-            tieneAlerta = true;
-        }
-
-        if (margen < 20) {
-            alertas.push({
-                tipo: 'margen-bajo',
-                icono: '⚠️',
-                mensaje: `Margen bajo: ${Math.round(margen)}%`
-            });
-            tieneAlerta = true;
-        }
-
-        // 5. Determinar color del margen (INSTANTÁNEO)
-        let margenColor = '#27ae60'; // Verde
-        if (margen < 15) margenColor = '#e74c3c'; // Rojo
-        else if (margen < 25) margenColor = '#f39c12'; // Naranja
-
-        const analisis = {
-            alertas,
-            tieneAlerta,
-            costoAnteriorConIVA: costoAnterior,
-            costoNuevoConIVA: costoActual.costoConIVA,
-            precioVentaActual: precioVentaActual,
-            nombreAlegra: nombreAlegra,
-            margenPorcentaje: Math.round(margen),
-            margenColor: margenColor,
-            margenTexto: margen < 15 ? 'Muy bajo' : margen < 25 ? 'Aceptable' : 'Bueno',
-            impuestoPorcentaje: costoActual.impuestoPorcentaje
-        };
-        
-        // Guardar en cache
-        cacheAnalisisProductos.set(cacheKey, analisis);
-        
-        return analisis;
-        
-    } catch (error) {
-        console.warn(`⚠️ Error en análisis optimizado:`, error);
-        const fallback = getAnalisisFallback(producto);
-        cacheAnalisisProductos.set(cacheKey, fallback);
-        return fallback;
-    }
-}
-
-/**
- * ✅ NUEVA FUNCIÓN: Una sola llamada para todos los datos de Alegra
- */
-async function obtenerDatosAlegraCompletos(producto) {
-    const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
-    
-    if (!alegraId) {
-        return { costo: 0, precio: producto.precioUnitario * 1.25, nombre: producto.descripcion };
-    }
-
-    try {
-        const response = await fetch(`/api/producto-alegra/${alegraId}`, {
-            headers: { 'Cache-Control': 'max-age=300' } // Cache 5 minutos
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-
-        if (data.success) {
-            return {
-                costo: data.costo || data.producto?.cost || 0,
-                precio: data.precio || data.producto?.price || 0,
-                nombre: data.nombre || data.producto?.name || producto.descripcion
-            };
-        }
-        
-        return { costo: 0, precio: producto.precioUnitario * 1.25, nombre: producto.descripcion };
-        
-    } catch (error) {
-        console.warn(`⚠️ Error obteniendo datos de Alegra para ${alegraId}:`, error.message);
-        return { costo: 0, precio: producto.precioUnitario * 1.25, nombre: producto.descripcion };
-    }
-}
-
-/**
- * ✅ NUEVA FUNCIÓN: Análisis fallback para errores
- */
-function getAnalisisFallback(producto) {
-    const costoEstimado = producto.totalLinea / (producto.cantidad || 1);
-    const precioEstimado = costoEstimado * 1.25;
-    const margen = 20; // Margen estimado
-
-    return {
-        alertas: [{
-            tipo: 'info',
-            icono: 'ℹ️',
-            mensaje: 'Datos estimados (error cargando desde Alegra)'
-        }],
-        tieneAlerta: false,
-        costoAnteriorConIVA: 0,
-        costoNuevoConIVA: costoEstimado,
-        precioVentaActual: precioEstimado,
-        nombreAlegra: producto.descripcion,
-        margenPorcentaje: margen,
-        margenColor: '#f39c12',
-        margenTexto: 'Estimado',
-        impuestoPorcentaje: 13
-    };
-}
-
-/**
- * ✅ FUNCIÓN para limpiar cache cuando sea necesario
- */
-function limpiarCacheAnalisis() {
-    cacheAnalisisProductos.clear();
-    console.log('🗑️ Cache de análisis limpiado');
-}
-
-/**
- * FILTRAR PRODUCTOS EN REVISIÓN - SIN CAMBIOS
+ * FILTRAR PRODUCTOS EN REVISIÓN
  */
 function filtrarProductosRevision(filtro) {
     filtroProductosActual = filtro;
