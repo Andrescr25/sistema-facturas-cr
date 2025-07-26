@@ -255,6 +255,26 @@ async function startSystem() {
         console.log('⚙️ Inicializando servicios del sistema...');
         await initializeSystem();
         
+        // ✅ 3. KEEP ALIVE - Configurar después de que todo esté funcionando
+        console.log('🏓 Configurando keep-alive cada 10 minutos...');
+        
+        setInterval(async () => {
+            try {
+                const axios = require('axios');
+                const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+                
+                const response = await axios.get(`${url}/health`, {
+                    timeout: 5000,
+                    headers: { 'User-Agent': 'KeepAlive-Self' }
+                });
+                
+                console.log(`🏓 Keep-alive OK: ${response.status} - Uptime: ${response.data.uptime.toFixed(0)}s`);
+                
+            } catch (error) {
+                console.warn('⚠️ Keep-alive ping falló:', error.message);
+            }
+        }, 10 * 60 * 1000); // 10 minutos
+        
         const totalTime = PerformanceMonitor.end(startupTimer);
         
         console.log('\n🎉 ¡SISTEMA OPTIMIZADO INICIADO EXITOSAMENTE!');
@@ -262,6 +282,7 @@ async function startSystem() {
         console.log('🚀 Rendimiento mejorado: 85% más rápido que la versión anterior');
         console.log('💡 Cache inteligente activado para búsquedas instantáneas');
         console.log('📧 Monitoreo automático de emails cada 5 minutos');
+        console.log('🏓 Keep-alive configurado cada 10 minutos');
         console.log(`🌐 Servidor disponible en puerto ${PORT}`);
         console.log('\n--- Sistema listo para procesar facturas ---\n');
         
