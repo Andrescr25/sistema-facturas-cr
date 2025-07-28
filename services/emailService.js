@@ -233,11 +233,12 @@ class EmailService {
 
         const isFacturaCR = (
             filename.startsWith('FE-') ||
-            filename.startsWith('TE-') ||                          // Tiquetes electrónicos
-            filename.startsWith('NC-') ||                          // Notas de crédito
-            filename.startsWith('ND-') ||                          // Notas de débito
+            filename.startsWith('TE-') ||
+            filename.startsWith('NC-') ||
+            filename.startsWith('ND-') ||
             claveMatch ||
             filename.includes('FacturaElectronica') ||
+            filename.includes('Factura Electronica') ||
             filename.includes('Factura_XML') ||
             filename.match(/^[0-9]{50}/) ||
             (filename.includes('Factura') && filename.includes('XML')) ||
@@ -322,47 +323,94 @@ class EmailService {
             for (const producto of facturaGuardada.productos) {
                 console.log(`\n🔍 Procesando: ${producto.descripcion}`);
 
-                const similares = await this.alegraService.findSimilarProducts(
-                    producto.descripcion,
-                    producto.codigoProveedor
+                const mapeosExistentes = await this.dbService.findSimilarProducts(
+                    producto.codigoProveedor,
+                    facturaData.emisor.identificacion.numero,
+                    producto.descripcion
                 );
 
-                if (similares.length > 0) {
-                    const mejorMatch = similares[0];
+                if (mapeosExistentes.length > 0) {
+                    const mejorMapeo = mapeosExistentes[0];
 
-                    console.log(`💡 Mejor match: ${mejorMatch.name} (${mejorMatch.similarityScore}%)`);
-
-                    if (mejorMatch.similarityScore >= 80) {
-                        const mapeoData = {
-                            supplierName: facturaData.emisor.nombre,
-                            supplierCedula: facturaData.emisor.identificacion.numero,
-                            supplierCode: producto.codigoProveedor,
-                            supplierDesc: producto.descripcion,
-                            alegraItemId: mejorMatch.alegraId,
-                            alegraReference: mejorMatch.reference,
-                            alegraName: mejorMatch.name,
-                            confidence: mejorMatch.similarityScore,
-                            createdBy: 'automatic'
-                        };
-
-                        const mapeo = await this.dbService.createProductMapping(mapeoData);
+                    if (mejorMapeo.tipo === 'EXACTO') {
+                        // Mapeo exacto encontrado - Relacionar automáticamente
+                        console.log(`🎯 Mapeo exacto encontrado: ${mejorMapeo.mapeo.alegraName} (100%)`);
 
                         await this.dbService.updateProductMapping(
                             producto.id,
-                            mejorMatch.alegraId,
-                            mapeo.id,
-                            mejorMatch.similarityScore
+                            mejorMapeo.mapeo.alegraItemId,
+                            mejorMapeo.mapeo.id,
+                            100
                         );
 
-                        console.log(`✅ Relacionado automáticamente (${mejorMatch.similarityScore}%)`);
+                        console.log(`✅ Relacionado automáticamente por mapeo existente (100%)`);
                         productosRelacionados++;
+
+                    } else if (mejorMapeo.tipo === 'SIMILAR' && mejorMapeo.confianza >= 80) {
+                        // Mapeo similar con alta confianza
+                        console.log(`💡 Mapeo similar encontrado: ${mejorMapeo.mapeo.alegraName} (${mejorMapeo.confianza}%)`);
+
+                        await this.dbService.updateProductMapping(
+                            producto.id,
+                            mejorMapeo.mapeo.alegraItemId,
+                            mejorMapeo.mapeo.id,
+                            mejorMapeo.confianza
+                        );
+
+                        console.log(`✅ Relacionado automáticamente por mapeo similar (${mejorMapeo.confianza}%)`);
+                        productosRelacionados++;
+
                     } else {
-                        console.log(`⚠️ Requiere revisión manual (${mejorMatch.similarityScore}%)`);
+                        console.log(`⚠️ Mapeo con baja confianza (${mejorMapeo.confianza}%) - Requiere revisión manual`);
                         productosPendientes++;
                     }
+
                 } else {
-                    console.log(`❌ Sin productos similares`);
-                    productosPendientes++;
+                    // 3. NO hay mapeos - Buscar en productos de Alegra como fallback
+                    console.log(`🔍 No hay mapeos existentes, buscando en productos de Alegra...`);
+
+                    const similaresAlegra = await this.alegraService.findSimilarProducts(
+                        producto.descripcion,
+                        producto.codigoProveedor
+                    );
+
+                    if (similaresAlegra.length > 0) {
+                        const mejorMatch = similaresAlegra[0];
+
+                        console.log(`💡 Mejor match en Alegra: ${mejorMatch.name} (${mejorMatch.similarityScore}%)`);
+
+                        if (mejorMatch.similarityScore >= 80) {
+                            const mapeoData = {
+                                supplierName: facturaData.emisor.nombre,
+                                supplierCedula: facturaData.emisor.identificacion.numero,
+                                supplierCode: producto.codigoProveedor,
+                                supplierDesc: producto.descripcion,
+                                alegraItemId: mejorMatch.alegraId,
+                                alegraReference: mejorMatch.reference,
+                                alegraName: mejorMatch.name,
+                                confidence: mejorMatch.similarityScore,
+                                createdBy: 'automatic'
+                            };
+
+                            const mapeo = await this.dbService.createProductMapping(mapeoData);
+
+                            await this.dbService.updateProductMapping(
+                                producto.id,
+                                mejorMatch.alegraId,
+                                mapeo.id,
+                                mejorMatch.similarityScore
+                            );
+
+                            console.log(`✅ Relacionado automáticamente y mapeo creado (${mejorMatch.similarityScore}%)`);
+                            productosRelacionados++;
+                        } else {
+                            console.log(`⚠️ Requiere revisión manual (${mejorMatch.similarityScore}%)`);
+                            productosPendientes++;
+                        }
+                    } else {
+                        console.log(`❌ Sin productos similares en Alegra`);
+                        productosPendientes++;
+                    }
                 }
             }
 

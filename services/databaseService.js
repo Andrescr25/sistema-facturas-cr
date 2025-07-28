@@ -106,7 +106,13 @@ class DatabaseService {
                 return [{
                     tipo: 'EXACTO',
                     confianza: 100,
-                    mapeo: mapeoExacto
+                    mapeo: {
+                        ...mapeoExacto,
+                        // Asegurar que tenga todos los campos necesarios
+                        alegraItemId: mapeoExacto.alegraItemId,
+                        alegraName: mapeoExacto.alegraName,
+                        id: mapeoExacto.id
+                    }
                 }];
             }
 
