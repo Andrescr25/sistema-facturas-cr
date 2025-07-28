@@ -150,10 +150,24 @@ class OptimizedCache {
     
     if (products.length === 0) {
       console.log('⚠️ No hay productos en BD local, sincronizando desde Alegra...');
-      // Solo si no hay productos locales, sincronizar desde API
-      const alegraService = require('./alegraService');
-      await alegraService.syncProducts();
-      return this.loadProductsFromDatabase(); // Recursive call
+      // ✅ CORRECCIÓN: Usar el método correcto
+      try {
+        const AlegraService = require('./alegraService');
+        const alegraService = new AlegraService();
+        await alegraService.syncProductsFromAlegra(); // ← MÉTODO CORRECTO
+        
+        // Después de sincronizar, volver a cargar productos
+        return this.loadProductsFromDatabase(); // Recursive call
+      } catch (syncError) {
+        console.error('❌ Error sincronizando productos desde Alegra:', syncError.message);
+        console.log('⚠️ Continuando con cache vacío...');
+        
+        // Continuar con cache vacío para no bloquear el sistema
+        this.productsCache = [];
+        this.searchIndex.buildIndex([]);
+        this.lastSync = Date.now();
+        return;
+      }
     }
     
     this.productsCache = products;
@@ -164,16 +178,22 @@ class OptimizedCache {
   async loadMappings() {
     console.log('🔗 Cargando mapeos existentes...');
     
-    const mappings = await prisma.productMapping.findMany();
-    
-    mappings.forEach(mapping => {
-      this.mappingsCache.set(mapping.providerCode, {
-        alegraProductId: mapping.alegraProductId,
-        confidence: 100 // Mapeos confirmados tienen 100% confianza
+    try {
+      // ✅ CORRECCIÓN: Usar el nombre correcto de la tabla
+      const mappings = await prisma.supplierProductMapping.findMany();
+      
+      mappings.forEach(mapping => {
+        this.mappingsCache.set(mapping.supplierCode, {
+          alegraProductId: mapping.alegraItemId, // ✅ Usar el campo correcto
+          confidence: 100 // Mapeos confirmados tienen 100% confianza
+        });
       });
-    });
-    
-    console.log(`🔗 ${mappings.size} mapeos cargados`);
+      
+      console.log(`🔗 ${mappings.length} mapeos cargados`);
+    } catch (error) {
+      console.error('❌ Error cargando mapeos:', error.message);
+      console.log('⚠️ Continuando sin mapeos...');
+    }
   }
   
   fastSearch(query) {
@@ -201,14 +221,35 @@ class OptimizedCache {
       confidence: 100
     });
     
-    // Guardar en BD
-    await prisma.productMapping.upsert({
-      where: { providerCode },
-      update: { alegraProductId },
-      create: { providerCode, alegraProductId }
-    });
-    
-    console.log(`💾 Mapeo guardado: ${providerCode} -> ${alegraProductId}`);
+    // ✅ CORRECCIÓN: Usar la tabla correcta con los campos correctos
+    try {
+      await prisma.supplierProductMapping.upsert({
+        where: { 
+          supplierCedula_supplierCode: {
+            supplierCedula: 'GENERAL', // Valor por defecto
+            supplierCode: providerCode
+          }
+        },
+        update: { 
+          alegraItemId: alegraProductId,
+          lastUsedDate: new Date()
+        },
+        create: { 
+          supplierName: 'GENERAL',
+          supplierCedula: 'GENERAL',
+          supplierCode: providerCode,
+          supplierDesc: `Producto ${providerCode}`,
+          alegraItemId: alegraProductId,
+          alegraName: `Producto ${alegraProductId}`,
+          confidence: 100,
+          createdBy: 'automatic'
+        }
+      });
+      
+      console.log(`💾 Mapeo guardado: ${providerCode} -> ${alegraProductId}`);
+    } catch (error) {
+      console.error('❌ Error guardando mapeo:', error.message);
+    }
   }
   
   getStats() {
