@@ -1166,7 +1166,7 @@ function aprobarTodosLosRestantes() {
 function aprobarFacturaCompleta() {
     if (!facturaSeleccionada) return;
 
-    document.getElementById('tituloConfirmacion').textContent = 'Confirmar Envío a Alegra';
+    document.getElementById('tituloConfirmacion').textContent = 'Enviar Factura a Alegra';
     document.getElementById('contenidoConfirmacion').innerHTML = `
         <p>¿Estás seguro que deseas enviar la factura <strong>#${facturaSeleccionada.numeroConsecutivo}</strong> a Alegra?</p>
         <p>Esta acción realizará:</p>
@@ -1175,15 +1175,14 @@ function aprobarFacturaCompleta() {
             <li>📄 Crear factura de proveedor en Alegra</li>
             <li>🔄 Marcar factura como ENVIADA</li>
         </ul>
-        <p><strong>Esta acción no se puede deshacer.</strong></p>
+        <p><strong>El procesamiento se hará en segundo plano.</strong> Podrás seguir usando el sistema mientras se procesa.</p>
     `;
 
     document.getElementById('btnConfirmarAccion').onclick = function () {
         // Marcar todos los productos como aprobados (por si acaso)
         productosRevision.forEach(p => p.estadoRevision = 'APROBADO');
 
-        // Cerrar modal y ejecutar envío
-        cerrarModalConfirmacion();
+        // Ejecutar envío en segundo plano
         enviarFacturaAlegra();
     };
 
@@ -1194,13 +1193,18 @@ function aprobarFacturaCompleta() {
  * NUEVA: Enviar factura completa a Alegra
  */
 async function enviarFacturaAlegra() {
-    if (!facturaSeleccionada) return;
+    if (!facturaSeleccionada) {
+        console.error('❌ No hay factura seleccionada');
+        mostrarNotificacion('❌ Error: No hay factura seleccionada', 'error');
+        return;
+    }
 
     try {
-        console.log(`🚀 Iniciando envío a Alegra: ${facturaSeleccionada.numeroConsecutivo}`);
-
-        // Mostrar progreso
-        mostrarProgresoEnvio('Preparando envío...', 0);
+        // ✅ ALMACENAR datos antes de cambiar de vista
+        const facturaId = facturaSeleccionada.id;
+        const numeroConsecutivo = facturaSeleccionada.numeroConsecutivo;
+        
+        console.log(`🚀 Iniciando envío a Alegra en segundo plano: ${numeroConsecutivo}`);
 
         // Verificar productos aprobados
         const productosAprobados = productosRevision.filter(p => p.estadoRevision === 'APROBADO');
@@ -1209,47 +1213,24 @@ async function enviarFacturaAlegra() {
             throw new Error('No hay productos aprobados para enviar');
         }
 
-        mostrarProgresoEnvio('Enviando a Alegra...', 25);
+        // ✅ MOSTRAR NOTIFICACIÓN INMEDIATA
+        mostrarNotificacion(
+            `🚀 Enviando factura #${numeroConsecutivo} a Alegra en segundo plano...`, 
+            'info'
+        );
 
-        // Llamar al endpoint de envío
-        const response = await fetch('/api/enviar-alegra', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                facturaId: facturaSeleccionada.id
-            })
-        });
+        // ✅ CERRAR MODAL INMEDIATAMENTE
+        cerrarModalConfirmacion();
+        
+        // ✅ VOLVER A LA LISTA (esto puede hacer que facturaSeleccionada sea null)
+        volverAListaFacturas();
 
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error(data.error || 'Error enviando a Alegra');
-        }
-
-        mostrarProgresoEnvio('Procesamiento exitoso...', 75);
-
-        // Procesar resultado
-        const resultado = data.resultado;
-
-        console.log('✅ Factura enviada exitosamente:', resultado);
-
-        mostrarProgresoEnvio('Completado', 100);
-
-        // Mostrar resultado detallado
-        setTimeout(() => {
-            ocultarProgresoEnvio();
-            mostrarResultadoEnvio(resultado);
-        }, 1000);
-
-        // Actualizar estado local
-        facturaSeleccionada.estado = 'ENVIADA';
+        // ✅ USAR facturaId almacenado (no facturaSeleccionada.id)
+        procesarFacturaEnSegundoPlano(facturaId);
 
     } catch (error) {
-        console.error('❌ Error enviando factura:', error);
-
-        ocultarProgresoEnvio();
-
-        mostrarModalError('Error enviando a Alegra', error.message);
+        console.error('❌ Error iniciando envío:', error);
+        mostrarNotificacion(`❌ Error: ${error.message}`, 'error');
     }
 }
 
@@ -1680,6 +1661,139 @@ async function actualizarProductoIndividual(productoId) {
         console.error('❌ Error actualizando producto individual:', error);
         // Si falla, usar el método original como fallback
         await mostrarProductosRevision();
+    }
+}
+
+/**
+ * ✅ NUEVA: Procesar factura en segundo plano (sin bloquear UI)
+ */
+async function procesarFacturaEnSegundoPlano(facturaId) {
+    try {
+        // Mostrar indicador de progreso en la esquina
+        mostrarIndicadorProcesamientoBackground(facturaId);
+
+        // Llamar al endpoint sin bloquear la UI
+        const response = await fetch('/api/enviar-alegra', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                facturaId: facturaId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // ✅ ÉXITO: Mostrar notificación y actualizar estado
+            const resultado = data.resultado;
+            
+            mostrarNotificacion(
+                `🎉 Factura #${resultado.numeroConsecutivo} enviada exitosamente a Alegra (ID: ${resultado.alegraFacturaId})`,
+                'success'
+            );
+
+            // Actualizar estado local si la factura está visible
+            actualizarEstadoFacturaEnLista(facturaId, 'ENVIADA');
+
+            console.log('✅ Factura procesada exitosamente en segundo plano:', resultado);
+
+        } else {
+            throw new Error(data.error || 'Error enviando a Alegra');
+        }
+
+    } catch (error) {
+        console.error('❌ Error en procesamiento background:', error);
+        
+        mostrarNotificacion(
+            `❌ Error enviando factura a Alegra: ${error.message}. Revisa los logs para más detalles.`,
+            'error'
+        );
+    } finally {
+        // Quitar indicador de progreso
+        ocultarIndicadorProcesamientoBackground();
+    }
+}
+
+/**
+ * ✅ NUEVA: Mostrar indicador de procesamiento en segundo plano
+ */
+function mostrarIndicadorProcesamientoBackground(facturaId) {
+    // Crear indicador fijo en la esquina superior derecha
+    let indicador = document.getElementById('indicadorBackground');
+    
+    if (!indicador) {
+        indicador = document.createElement('div');
+        indicador.id = 'indicadorBackground';
+        indicador.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideInRight 0.3s ease-out;
+        `;
+        document.body.appendChild(indicador);
+    }
+
+    indicador.innerHTML = `
+        <div style="width: 16px; height: 16px; border: 2px solid white; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <span>Enviando factura a Alegra...</span>
+    `;
+
+    // Agregar animaciones CSS si no existen
+    if (!document.getElementById('backgroundProcessingStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'backgroundProcessingStyles';
+        styles.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+}
+
+/**
+ * ✅ NUEVA: Ocultar indicador de procesamiento
+ */
+function ocultarIndicadorProcesamientoBackground() {
+    const indicador = document.getElementById('indicadorBackground');
+    if (indicador) {
+        indicador.style.animation = 'slideInRight 0.3s ease-out reverse';
+        setTimeout(() => {
+            if (indicador.parentNode) {
+                indicador.parentNode.removeChild(indicador);
+            }
+        }, 300);
+    }
+}
+
+/**
+ * ✅ NUEVA: Actualizar estado de factura en la lista
+ */
+function actualizarEstadoFacturaEnLista(facturaId, nuevoEstado) {
+    // Buscar la factura en la lista y actualizar su estado visual
+    const facturaElement = document.querySelector(`[data-factura-id="${facturaId}"]`);
+    if (facturaElement) {
+        const estadoElement = facturaElement.querySelector('.factura-estado');
+        if (estadoElement) {
+            estadoElement.textContent = nuevoEstado;
+            estadoElement.className = `factura-estado ${nuevoEstado.toLowerCase()}`;
+        }
     }
 }
 
