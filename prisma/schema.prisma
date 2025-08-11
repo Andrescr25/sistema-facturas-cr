@@ -104,20 +104,23 @@ model SupplierProductMapping {
   @@map("supplier_product_mapping")
 }
 
-// Enums
 enum EstadoFactura {
-  RECIBIDA      // Recién llegó por email
-  PROCESADA     // XML parseado correctamente
-  RELACIONADA   // Productos relacionados con Alegra
-  ENVIADA       // Enviada a Alegra como gasto
-  COMPLETADA    // Proceso completo terminado
+  RECIBIDA
+  PROCESADA
+  RELACIONADA
+  ENVIADA
+  COMPLETADA
+
+  @@map("estado_factura")  // ← ESTO FALTA
 }
 
 enum EstadoRelacionado {
-  PENDIENTE     // Necesita relacionado manual
-  SUGERIDO      // Sistema sugiere productos
-  RELACIONADO   // Ya relacionado con Alegra
-  IGNORADO      // Usuario decidió ignorar
+  PENDIENTE
+  SUGERIDO
+  RELACIONADO
+  IGNORADO
+
+  @@map("estado_relacionado")  // ← ESTO FALTA
 }
 
 // Tabla para productos de Alegra (cache local)
