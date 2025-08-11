@@ -13,19 +13,19 @@ datasource db {
 model Factura {
   id                String   @id @default(cuid())
   clave             String   @unique // Clave de 50 dígitos
-  numeroConsecutivo String
-  fechaEmision      DateTime
-  fechaProcesada    DateTime @default(now())
+  numeroConsecutivo String   @map("numero_consecutivo")
+  fechaEmision      DateTime @map("fecha_emision")
+  fechaProcesada    DateTime @default(now()) @map("fecha_procesada")
   
   // Información del proveedor
-  proveedorNombre   String
-  proveedorCedula   String
-  proveedorEmail    String?
-  proveedorTelefono String?
+  proveedorNombre   String   @map("proveedor_nombre")
+  proveedorCedula   String   @map("proveedor_cedula")
+  proveedorEmail    String?  @map("proveedor_email")
+  proveedorTelefono String?  @map("proveedor_telefono")
   
   // Totales
-  totalProductos    Int
-  totalFactura      Float
+  totalProductos    Int      @map("total_productos")
+  totalFactura      Float    @map("total_factura")
   moneda            String   @default("CRC")
   
   // Estados del procesamiento
@@ -35,8 +35,8 @@ model Factura {
   productos         ProductoFactura[]
   
   // Metadatos
-  archivoXML        String
-  emailId           String?
+  archivoXML        String   @map("archivo_xml")
+  emailId           String?  @map("email_id")
   
   @@map("facturas")
 }
@@ -46,33 +46,33 @@ model ProductoFactura {
   id                String  @id @default(cuid())
   
   // Relación con factura
-  facturaId         String
+  facturaId         String  @map("factura_id")
   factura           Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   
   // Datos del producto en la factura
-  numeroLinea       Int
-  codigoProveedor   String  // Código que usa el proveedor
-  codigoComercial   String? // Código comercial alternativo
+  numeroLinea       Int     @map("numero_linea")
+  codigoProveedor   String  @map("codigo_proveedor") // Código que usa el proveedor
+  codigoComercial   String? @map("codigo_comercial") // Código comercial alternativo
   descripcion       String
   
   // Cantidades y precios
   cantidad          Float
-  unidadMedida      String
-  precioUnitario    Float
+  unidadMedida      String  @map("unidad_medida")
+  precioUnitario    Float   @map("precio_unitario")
   descuento         Float   @default(0)
   impuesto          Float   @default(0)
-  totalLinea        Float
+  totalLinea        Float   @map("total_linea")
   
   // Relacionado inteligente
-  alegraItemId      String? // ID del producto en Alegra (cuando se relacione)
-  estadoRelacionado EstadoRelacionado @default(PENDIENTE)
+  alegraItemId      String? @map("alegra_item_id") // ID del producto en Alegra (cuando se relacione)
+  estadoRelacionado EstadoRelacionado @default(PENDIENTE) @map("estado_relacionado")
   confianza         Float?  // Nivel de confianza del relacionado (0-100)
   
   // Relación con mapeo
-  mapeoId           String?
+  mapeoId           String? @map("mapeo_id")
   mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
   
-  @@map("productos_factura")
+  @@map("productos_factura_proveedor")
 }
 
 // Tabla para el relacionado inteligente
@@ -80,22 +80,22 @@ model SupplierProductMapping {
   id                String   @id @default(cuid())
   
   // Información del proveedor
-  supplierName      String
-  supplierCedula    String
-  supplierCode      String   // Código que usa el proveedor
-  supplierDesc      String   // Descripción del proveedor
+  supplierName      String   @map("supplier_name")
+  supplierCedula    String   @map("supplier_cedula")
+  supplierCode      String   @map("supplier_code") // Código que usa el proveedor
+  supplierDesc      String   @map("supplier_desc") // Descripción del proveedor
   
   // Información del producto en Alegra
-  alegraItemId      String   // ID del ítem en Alegra
-  alegraReference   String?  // Referencia en Alegra
-  alegraName        String   // Nombre en Alegra
+  alegraItemId      String   @map("alegra_item_id") // ID del ítem en Alegra
+  alegraReference   String?  @map("alegra_reference") // Referencia en Alegra
+  alegraName        String   @map("alegra_name") // Nombre en Alegra
   
   // Metadatos del relacionado
   confidence        Float    @default(100) // Confianza del mapeo
-  timesUsed         Int      @default(1)   // Cuántas veces se ha usado
-  createdDate       DateTime @default(now())
-  lastUsedDate      DateTime @default(now())
-  createdBy         String   @default("manual") // manual | automatic
+  timesUsed         Int      @default(1) @map("times_used") // Cuántas veces se ha usado
+  createdDate       DateTime @default(now()) @map("created_date")
+  lastUsedDate      DateTime @default(now()) @map("last_used_date")
+  createdBy         String   @default("manual") @map("created_by") // manual | automatic
   
   // Relaciones
   productos         ProductoFactura[]
@@ -111,6 +111,8 @@ enum EstadoFactura {
   RELACIONADA   // Productos relacionados con Alegra
   ENVIADA       // Enviada a Alegra como gasto
   COMPLETADA    // Proceso completo terminado
+
+  @@map("estado_factura")
 }
 
 enum EstadoRelacionado {
@@ -118,12 +120,14 @@ enum EstadoRelacionado {
   SUGERIDO      // Sistema sugiere productos
   RELACIONADO   // Ya relacionado con Alegra
   IGNORADO      // Usuario decidió ignorar
+
+  @@map("estado_relacionado")
 }
 
 // Tabla para productos de Alegra (cache local)
 model AlegraProduct {
   id          String @id @default(cuid())
-  alegraId    String    @unique
+  alegraId    String    @unique @map("alegra_id")
   name        String
   reference   String @default("")
   description String @default("")
@@ -132,9 +136,9 @@ model AlegraProduct {
   cost        Float  @default(0)
   status      String @default("active")
   type        String @default("product")
-  searchText  String // Para búsquedas rápidas
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  searchText  String @map("search_text") // Para búsquedas rápidas
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  @@map("alegra_products")
+  @@map("alegra_products_cache")
 }
