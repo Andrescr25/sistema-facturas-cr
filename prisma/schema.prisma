@@ -1,4 +1,4 @@
-// prisma/schema.prisma
+// prisma/schema.prisma - VERSIÓN FINAL COMPATIBLE
 
 generator client {
   provider = "prisma-client-js"
@@ -9,9 +9,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Tabla para facturas recibidas
+// Tabla para facturas recibidas DE PROVEEDORES
 model Factura {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @db.Uuid
   clave             String   @unique // Clave de 50 dígitos
   numeroConsecutivo String   @map("numero_consecutivo")
   fechaEmision      DateTime @map("fecha_emision")
@@ -38,15 +38,15 @@ model Factura {
   archivoXML        String   @map("archivo_xml")
   emailId           String?  @map("email_id")
   
-  @@map("facturas")
+  @@map("facturas_proveedores")
 }
 
 // Tabla para productos de cada factura
 model ProductoFactura {
-  id                String  @id @default(cuid())
+  id                String  @id @default(cuid()) @db.Uuid
   
   // Relación con factura
-  facturaId         String  @map("factura_id")
+  facturaId         String  @map("factura_id") @db.Uuid
   factura           Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   
   // Datos del producto en la factura
@@ -69,7 +69,7 @@ model ProductoFactura {
   confianza         Float?  // Nivel de confianza del relacionado (0-100)
   
   // Relación con mapeo
-  mapeoId           String? @map("mapeo_id")
+  mapeoId           String? @map("mapeo_id") @db.Uuid
   mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
   
   @@map("productos_factura_proveedor")
@@ -77,7 +77,7 @@ model ProductoFactura {
 
 // Tabla para el relacionado inteligente
 model SupplierProductMapping {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @db.Uuid
   
   // Información del proveedor
   supplierName      String   @map("supplier_name")
@@ -111,8 +111,6 @@ enum EstadoFactura {
   RELACIONADA   // Productos relacionados con Alegra
   ENVIADA       // Enviada a Alegra como gasto
   COMPLETADA    // Proceso completo terminado
-
-  @@map("estado_factura")
 }
 
 enum EstadoRelacionado {
@@ -120,13 +118,11 @@ enum EstadoRelacionado {
   SUGERIDO      // Sistema sugiere productos
   RELACIONADO   // Ya relacionado con Alegra
   IGNORADO      // Usuario decidió ignorar
-
-  @@map("estado_relacionado")
 }
 
 // Tabla para productos de Alegra (cache local)
 model AlegraProduct {
-  id          String @id @default(cuid())
+  id          String @id @default(cuid()) @db.Uuid
   alegraId    String    @unique @map("alegra_id")
   name        String
   reference   String @default("")
