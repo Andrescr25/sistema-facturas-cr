@@ -754,10 +754,10 @@ async function calcularEstadisticasRelaciones() {
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'RELACIONADO' } }),
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'PENDIENTE' } }),
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'IGNORADO' } }),
+            // ✅ ARREGLADO: Sin include, solo groupBy básico
             dbService.prisma.productoFactura.groupBy({
-                by: ['factura'],
+                by: ['facturaId'],
                 _count: { id: true },
-                include: { factura: { select: { proveedorNombre: true } } },
                 take: 10
             }),
             dbService.prisma.productoFactura.groupBy({
