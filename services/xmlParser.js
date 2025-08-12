@@ -166,6 +166,7 @@ class XmlParser {
         console.log('  - CodigoComercial?.Codigo:', linea.CodigoComercial?.Codigo);
         console.log('  - Resultado final:', linea.CodigoComercial?.Codigo || linea.Codigo);
         console.log('---');
+        
         return {
             numeroLinea: parseInt(linea.NumeroLinea),
 
@@ -194,10 +195,26 @@ class XmlParser {
                 // Si es objeto simple
                 return linea.CodigoComercial.Codigo || linea.Codigo;
             })(),
-            codigoComercial: linea.CodigoComercial ? {
-                tipo: linea.CodigoComercial.Tipo,
-                codigo: linea.CodigoComercial.Codigo
-            } : null,
+            
+            // ✅ CÓDIGO COMERCIAL CORREGIDO - Maneja arrays y objetos
+            codigoComercial: (() => {
+                if (!linea.CodigoComercial) return null;
+                
+                if (Array.isArray(linea.CodigoComercial)) {
+                    // Si es array, tomar el primer elemento
+                    const primer = linea.CodigoComercial[0];
+                    return {
+                        tipo: primer?.Tipo,
+                        codigo: primer?.Codigo
+                    };
+                }
+                
+                // Si es objeto simple
+                return {
+                    tipo: linea.CodigoComercial.Tipo,
+                    codigo: linea.CodigoComercial.Codigo
+                };
+            })(),
 
             // Descripción del producto
             descripcion: linea.Detalle,

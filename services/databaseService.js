@@ -37,6 +37,11 @@ class DatabaseService {
                 return facturaExistente;
             }
 
+            if (emailId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(emailId)) {
+                console.log(`⚠️ emailId inválido: ${emailId}, usando null`);
+                emailId = null;
+            }
+
             // Crear la factura con sus productos
             const facturaGuardada = await this.prisma.factura.create({
                 data: {
@@ -60,7 +65,7 @@ class DatabaseService {
 
                     // Metadatos
                     archivoXML: archivoXML,
-                    emailId: emailId,
+                    emailId: emailId || null,
 
                     // Crear productos relacionados
                     productos: {
