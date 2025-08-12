@@ -764,7 +764,6 @@ async function calcularEstadisticasRelaciones() {
                 by: ['confianza'],
                 _count: { id: true },
                 where: { confianza: { not: null } },
-                orderBy: { confianza: 'desc' }
             })
         ]);
 
