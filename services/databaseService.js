@@ -1,8 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
 
+// Singleton global para evitar múltiples instancias
+if (!global.prismaInstance) {
+    global.prismaInstance = new PrismaClient();
+}
+
 class DatabaseService {
     constructor() {
-        this.prisma = new PrismaClient();
+        this.prisma = global.prismaInstance;
     }
 
     /**
