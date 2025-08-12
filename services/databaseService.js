@@ -7,6 +7,12 @@ if (!global.prismaInstance) {
 
 class DatabaseService {
     constructor() {
+        if (global.prismaInstance) {
+            global.prismaInstance.$disconnect();
+        }
+        global.prismaInstance = new PrismaClient({
+            log: ['error'],
+        });
         this.prisma = global.prismaInstance;
     }
 

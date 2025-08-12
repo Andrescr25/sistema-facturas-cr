@@ -1,8 +1,9 @@
-// services/alegraCacheService.js - VERSION FINAL CORREGIDA
-const { PrismaClient } = require('@prisma/client');
 const AlegraService = require('./alegraService'); // ✅ Usar tu AlegraService
+if (!global.prismaInstance) {
+    global.prismaInstance = new PrismaClient();
+}
+const prisma = global.prismaInstance; 
 
-const prisma = new PrismaClient();
 
 class AlegraCacheService {
     constructor() {
