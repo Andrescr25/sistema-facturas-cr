@@ -289,10 +289,10 @@ class DatabaseService {
      * @param {String} estado - Estado de las facturas a buscar
      * @returns {Array} Facturas encontradas
      */
-    async getFacturasByEstado(estado = 'PROCESADA') {
+    async getFacturasByEstado(estado = 'procesado') {
         try {
             const facturas = await this.prisma.factura.findMany({
-                where: { estado: estado },
+                where: { estado : estado },
                 include: {
                     productos: {
                         include: {

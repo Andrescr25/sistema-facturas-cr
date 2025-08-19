@@ -11,7 +11,7 @@ datasource db {
 
 // Tabla para facturas recibidas DE PROVEEDORES
 model Factura {
-  id                String   @id @default(cuid()) @db.Uuid
+  id                String   @id @default(uuid())  // ✅ uuid() en lugar de cuid()
   clave             String   @unique // Clave de 50 dígitos
   numeroConsecutivo String   @map("numero_consecutivo")
   fechaEmision      DateTime @map("fecha_emision")
@@ -43,10 +43,10 @@ model Factura {
 
 // Tabla para productos de cada factura
 model ProductoFactura {
-  id                String  @id @default(cuid()) @db.Uuid
+  id                String  @id @default(uuid())  // ✅ uuid() en lugar de cuid()
   
   // Relación con factura
-  facturaId         String  @map("factura_id") @db.Uuid
+  facturaId         String  @map("factura_id")  // ✅ Sin @db.Uuid
   factura           Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   
   // Datos del producto en la factura
@@ -69,7 +69,7 @@ model ProductoFactura {
   confianza         Float?  // Nivel de confianza del relacionado (0-100)
   
   // Relación con mapeo
-  mapeoId           String? @map("mapeo_id") @db.Uuid
+  mapeoId           String? @map("mapeo_id")  // ✅ Sin @db.Uuid
   mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
   
   @@map("productos_factura_proveedor")
@@ -77,7 +77,7 @@ model ProductoFactura {
 
 // Tabla para el relacionado inteligente
 model SupplierProductMapping {
-  id                String   @id @default(cuid()) @db.Uuid
+  id                String   @id @default(uuid())  // ✅ uuid() en lugar de cuid()
   
   // Información del proveedor
   supplierName      String   @map("supplier_name")
@@ -111,7 +111,7 @@ enum EstadoFactura {
   ENVIADA
   COMPLETADA
 
-  @@map("estado_factura")  // ← ESTO FALTA
+  @@map("estado_factura")
 }
 
 enum EstadoRelacionado {
@@ -120,12 +120,12 @@ enum EstadoRelacionado {
   RELACIONADO
   IGNORADO
 
-  @@map("estado_relacionado")  // ← ESTO FALTA
+  @@map("estado_relacionado")
 }
 
 // Tabla para productos de Alegra (cache local)
 model AlegraProduct {
-  id          String @id @default(cuid()) @db.Uuid
+  id          String @id @default(uuid())  // ✅ uuid() en lugar de cuid()
   alegraId    String    @unique @map("alegra_id")
   name        String
   reference   String @default("")

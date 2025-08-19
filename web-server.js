@@ -371,7 +371,7 @@ app.post('/api/ajustar-producto', async (req, res) => {
 
         // ✅ SI SOLO se actualiza cantidad (NO precio), no tocar Alegra
         const soloActualizaCantidad = nuevaCantidad && !nuevoPrecio;
-        
+
         // ✅ SI se actualiza precio Y hay alegraItemId, actualizar precio en Alegra
         if (nuevoPrecio && alegraItemId) {
             try {
@@ -394,7 +394,7 @@ app.post('/api/ajustar-producto', async (req, res) => {
                 await alegraService.updateProductPrice(alegraItemId, precioSinIVA);
 
                 console.log(`✅ PRECIO DE VENTA actualizado en Alegra: ${alegraItemId} → ₡${precioSinIVA.toFixed(2)}`);
-                
+
             } catch (alegraError) {
                 console.error('❌ Error actualizando precio en Alegra:', alegraError);
                 // ✅ CONTINUAR aunque falle Alegra (actualizar BD local)
@@ -403,15 +403,15 @@ app.post('/api/ajustar-producto', async (req, res) => {
 
         // ✅ ACTUALIZAR producto en la base de datos (solo campos que cambiaron)
         const datosActualizacion = {};
-        
+
         if (nuevaCantidad) {
             datosActualizacion.cantidad = cantidadFinal;
         }
-        
+
         if (nuevoPrecio) {
             datosActualizacion.precioUnitario = precioFinal;
         }
-        
+
         // ✅ RECALCULAR totalLinea solo si cambió cantidad o precio
         if (nuevaCantidad || nuevoPrecio) {
             datosActualizacion.totalLinea = totalLineaFinal;
@@ -462,7 +462,7 @@ app.get('/api/productos-relacionados', async (req, res) => {
 
         // Construir filtros
         const filtros = {};
-        
+
         if (proveedor) {
             filtros.factura = {
                 proveedorNombre: {
@@ -503,7 +503,7 @@ app.get('/api/productos-relacionados', async (req, res) => {
 
         // Obtener productos con paginación
         const skip = (page - 1) * limit;
-        
+
         const [productos, total] = await Promise.all([
             dbService.prisma.productoFactura.findMany({
                 where: filtros,
@@ -526,7 +526,7 @@ app.get('/api/productos-relacionados', async (req, res) => {
         const productosEnriquecidos = productos.map(producto => {
             // Usar datos del MAPEO (que ya están en BD)
             let alegraInfo = null;
-            
+
             if (producto.estadoRelacionado === 'RELACIONADO' && producto.mapeo) {
                 alegraInfo = {
                     alegraId: producto.alegraItemId,
@@ -754,16 +754,18 @@ async function calcularEstadisticasRelaciones() {
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'RELACIONADO' } }),
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'PENDIENTE' } }),
             dbService.prisma.productoFactura.count({ where: { estadoRelacionado: 'IGNORADO' } }),
-            // ✅ ARREGLADO: Sin include, solo groupBy básico
+            // ✅ CORREGIDO: Ordenar por _count y limitar correctamente
             dbService.prisma.productoFactura.groupBy({
                 by: ['facturaId'],
                 _count: { id: true },
+                orderBy: { _count: { id: 'desc' } },
                 take: 10
             }),
             dbService.prisma.productoFactura.groupBy({
                 by: ['confianza'],
                 _count: { id: true },
                 where: { confianza: { not: null } },
+                orderBy: { _count: { id: 'desc' } }
             })
         ]);
 
@@ -792,7 +794,7 @@ async function calcularEstadisticasRelaciones() {
 async function registrarCambioRelacion(productoId, cambio) {
     // Por ahora solo logueamos, después puedes crear una tabla de auditoría
     console.log(`📝 Historial de cambio: ${productoId}`, cambio);
-    
+
     // TODO: Implementar tabla de auditoría si necesitas historial persistente
     // await dbService.prisma.historialRelacion.create({
     //     data: {
@@ -805,7 +807,7 @@ async function registrarCambioRelacion(productoId, cambio) {
 async function obtenerHistorialRelacion(productoId) {
     // Por ahora devolvemos historial simulado
     // TODO: Implementar consulta real cuando tengas tabla de auditoría
-    
+
     return [
         {
             id: '1',
