@@ -363,41 +363,6 @@ async function startHTTPServer() {
     });
 }
 
-// Función para cerrar el sistema limpiamente
-async function shutdownSystem() {
-    console.log('\n🔌 Cerrando sistema optimizado...');
-    
-    try {
-        const shutdownTimer = PerformanceMonitor.start('Cierre del sistema');
-        
-        // Cerrar servidor HTTP
-        if (serverInstance) {
-            console.log('🌐 Cerrando servidor HTTP...');
-            serverInstance.close();
-        }
-        
-        if (emailService) {
-            console.log('📧 Cerrando conexión de email...');
-            await emailService.disconnect().catch(err => 
-                console.warn('⚠️ Error cerrando email:', err.message)
-            );
-        }
-        
-        if (optimizedCache) {
-            console.log('💾 Cache optimizado cerrado correctamente');
-        }
-        
-        console.log('🚀 Cache de Alegra se mantendrá actualizando en background');
-        
-        PerformanceMonitor.end(shutdownTimer);
-        console.log('✅ Sistema cerrado correctamente');
-        
-    } catch (error) {
-        console.error('❌ Error cerrando servicios:', error);
-    } finally {
-        process.exit(0);
-    }
-}
 
 // Función para manejar errores del sistema
 async function handleSystemError(error, source) {
@@ -417,23 +382,12 @@ async function handleSystemError(error, source) {
             console.warn('⚠️ No se pudieron obtener stats de Alegra:', err.message);
         }
         
-        await shutdownSystem();
     } catch (shutdownError) {
         console.error('❌ Error durante el cierre:', shutdownError);
         process.exit(1);
     }
 }
 
-// Manejar cierre controlado del sistema
-process.on('SIGINT', async () => {
-    console.log('\n👋 Señal de interrupción recibida...');
-    await shutdownSystem();
-});
-
-process.on('SIGTERM', async () => {
-    console.log('\n👋 Señal de terminación recibida...');
-    await shutdownSystem();
-});
 
 // Manejar errores no capturados
 process.on('uncaughtException', async (error) => {

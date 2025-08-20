@@ -141,63 +141,222 @@ class AlegraService {
     }
 
     /**
-     * Guarda productos de Alegra en tabla local
-     * @param {Array} products - Productos de Alegra
-     */
-    async saveProductsToLocal(products) {
-        try {
-            console.log('💾 Guardando productos en BD local...');
+ * ⚡ OPTIMIZADO: Guarda productos usando updates incrementales (MUCHO MÁS RÁPIDO)
+ * @param {Array} products - Productos de Alegra
+ */
+async saveProductsToLocal(products) {
+    try {
+        console.log('💾 Guardando productos en BD local (modo incremental)...');
+        const startTime = Date.now();
 
-            // Limpiar tabla existente
-            await this.prisma.alegraProduct.deleteMany({});
+        // ✅ 1. Obtener productos existentes de la BD (solo IDs y updatedAt para comparar)
+        const existingProducts = await this.prisma.alegraProduct.findMany({
+            select: {
+                alegraId: true,
+                updatedAt: true,
+                name: true
+            }
+        });
 
-            // Filtrar duplicados por alegraId
-            const uniqueProducts = products.filter((product, index, self) =>
-                index === self.findIndex(p => p.id === product.id)
+        const existingMap = new Map();
+        existingProducts.forEach(p => {
+            existingMap.set(p.alegraId, {
+                updatedAt: p.updatedAt,
+                name: p.name
+            });
+        });
+
+        console.log(`📊 ${existingProducts.length} productos en BD, ${products.length} desde Alegra`);
+
+        // ✅ 2. Filtrar duplicados por alegraId
+        const uniqueProducts = products.filter((product, index, self) =>
+            index === self.findIndex(p => p.id === product.id)
+        );
+
+        // ✅ 3. Clasificar productos: nuevos, a actualizar, a eliminar
+        const toInsert = [];
+        const toUpdate = [];
+        const currentAlegraIds = new Set();
+
+        uniqueProducts.forEach(product => {
+            currentAlegraIds.add(product.id);
+            
+            // Extraer datos del producto (igual que antes)
+            const mainPrice = product.price?.find(p => p.main === true);
+            const price = mainPrice ? parseFloat(mainPrice.price) : 0;
+            const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
+            const reference = product.reference?.reference || product.reference || '';
+            const category = product.itemCategory?.name || product.category?.name || '';
+
+            const productData = {
+                alegraId: product.id,
+                name: product.name,
+                reference: reference,
+                description: product.description || '',
+                category: category,
+                price: price,
+                cost: cost,
+                status: product.status || 'active',
+                type: product.type || 'product',
+                searchText: `${product.name} ${reference} ${product.description || ''}`.toLowerCase()
+            };
+
+            const existing = existingMap.get(product.id);
+            
+            if (!existing) {
+                // ✅ Producto nuevo
+                toInsert.push(productData);
+            } else if (existing.name !== product.name) {
+                // ✅ Solo actualizar si cambió el nombre (indicador simple de cambio)
+                toUpdate.push(productData);
+            }
+            // Si no cambió, no hacer nada (MUCHO MÁS EFICIENTE)
+        });
+
+        // ✅ 4. Identificar productos a eliminar (ya no están en Alegra)
+        const toDelete = existingProducts
+            .filter(existing => !currentAlegraIds.has(existing.alegraId))
+            .map(p => p.alegraId);
+
+        console.log(`📈 Cambios detectados:`);
+        console.log(`   ➕ ${toInsert.length} nuevos`);
+        console.log(`   🔄 ${toUpdate.length} a actualizar`);
+        console.log(`   ❌ ${toDelete.length} a eliminar`);
+
+        // ✅ 5. Ejecutar operaciones en paralelo (MUCHO MÁS RÁPIDO)
+        const operations = [];
+
+        // Insertar nuevos
+        if (toInsert.length > 0) {
+            operations.push(
+                this.prisma.alegraProduct.createMany({
+                    data: toInsert,
+                    skipDuplicates: true
+                })
             );
-
-            console.log(`📦 ${products.length} productos descargados, ${uniqueProducts.length} únicos`);
-
-            // Insertar productos únicos
-            const productsToInsert = uniqueProducts.map(product => {
-                // Extraer precio de la lista de precios (tomar el principal)
-                const mainPrice = product.price?.find(p => p.main === true);
-                const price = mainPrice ? parseFloat(mainPrice.price) : 0;
-
-                // Extraer costo del inventario
-                const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
-
-                // Extraer referencia del objeto
-                const reference = product.reference?.reference || product.reference || '';
-
-                // Usar itemCategory si existe, sino category
-                const category = product.itemCategory?.name || product.category?.name || '';
-
-                return {
-                    alegraId: product.id,
-                    name: product.name,
-                    reference: reference,
-                    description: product.description || '',
-                    category: category,
-                    price: price,
-                    cost: cost,
-                    status: product.status || 'active',
-                    type: product.type || 'product',
-                    searchText: `${product.name} ${reference} ${product.description || ''}`.toLowerCase()
-                };
-            });
-
-            await this.prisma.alegraProduct.createMany({
-                data: productsToInsert
-            });
-
-            console.log(`✅ ${productsToInsert.length} productos guardados en BD local`);
-
-        } catch (error) {
-            console.error('❌ Error guardando productos localmente:', error.message);
-            throw error;
         }
+
+        // Actualizar existentes (uno por uno, pero en paralelo)
+        if (toUpdate.length > 0) {
+            const updatePromises = toUpdate.map(product =>
+                this.prisma.alegraProduct.update({
+                    where: { alegraId: product.alegraId },
+                    data: {
+                        name: product.name,
+                        reference: product.reference,
+                        description: product.description,
+                        category: product.category,
+                        price: product.price,
+                        cost: product.cost,
+                        status: product.status,
+                        type: product.type,
+                        searchText: product.searchText,
+                        updatedAt: new Date()
+                    }
+                }).catch(error => {
+                    console.warn(`⚠️ Error actualizando producto ${product.alegraId}:`, error.message);
+                })
+            );
+            operations.push(Promise.all(updatePromises));
+        }
+
+        // Eliminar obsoletos
+        if (toDelete.length > 0) {
+            operations.push(
+                this.prisma.alegraProduct.deleteMany({
+                    where: {
+                        alegraId: {
+                            in: toDelete
+                        }
+                    }
+                })
+            );
+        }
+
+        // ✅ 6. Ejecutar todas las operaciones
+        if (operations.length > 0) {
+            await Promise.all(operations);
+        }
+
+        const duration = Date.now() - startTime;
+        console.log(`✅ Sincronización incremental completada en ${duration}ms`);
+        console.log(`📊 Total final: ${uniqueProducts.length} productos en BD local`);
+
+        return {
+            total: uniqueProducts.length,
+            inserted: toInsert.length,
+            updated: toUpdate.length,
+            deleted: toDelete.length,
+            duration: duration
+        };
+
+    } catch (error) {
+        console.error('❌ Error en sincronización incremental:', error.message);
+        
+        // ✅ Fallback: si falla, hacer el método original como backup
+        console.log('🔄 Fallback: usando método tradicional...');
+        return this.saveProductsToLocalFallback(products);
     }
+}
+
+/**
+ * 🔄 Método fallback (original) en caso de error
+ */
+async saveProductsToLocalFallback(products) {
+    try {
+        console.log('💾 Guardando productos (método fallback)...');
+
+        // Limpiar tabla existente
+        await this.prisma.alegraProduct.deleteMany({});
+
+        // Filtrar duplicados por alegraId
+        const uniqueProducts = products.filter((product, index, self) =>
+            index === self.findIndex(p => p.id === product.id)
+        );
+
+        console.log(`📦 ${products.length} productos descargados, ${uniqueProducts.length} únicos`);
+
+        // Insertar productos únicos
+        const productsToInsert = uniqueProducts.map(product => {
+            const mainPrice = product.price?.find(p => p.main === true);
+            const price = mainPrice ? parseFloat(mainPrice.price) : 0;
+            const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
+            const reference = product.reference?.reference || product.reference || '';
+            const category = product.itemCategory?.name || product.category?.name || '';
+
+            return {
+                alegraId: product.id,
+                name: product.name,
+                reference: reference,
+                description: product.description || '',
+                category: category,
+                price: price,
+                cost: cost,
+                status: product.status || 'active',
+                type: product.type || 'product',
+                searchText: `${product.name} ${reference} ${product.description || ''}`.toLowerCase()
+            };
+        });
+
+        await this.prisma.alegraProduct.createMany({
+            data: productsToInsert
+        });
+
+        console.log(`✅ ${productsToInsert.length} productos guardados (fallback)`);
+        
+        return {
+            total: productsToInsert.length,
+            inserted: productsToInsert.length,
+            updated: 0,
+            deleted: 0,
+            duration: 0
+        };
+
+    } catch (error) {
+        console.error('❌ Error en método fallback:', error.message);
+        throw error;
+    }
+}
 
     /**
      * Busca productos similares en Alegra (local)

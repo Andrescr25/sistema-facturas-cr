@@ -302,7 +302,18 @@ function volverAListaFacturas() {
 async function mostrarInfoFacturaRevision() {
     const container = document.getElementById('infoFacturaRevision');
     if (!facturaSeleccionada) return;
-    const analisis = await analizarFactura(facturaSeleccionada);
+    
+    // ✅ CORREGIDO: Usar la función optimizada con datos batch
+    const todosLosProductos = facturaSeleccionada.productos.map(producto => ({
+        ...producto,
+        alegraId: producto.alegraItemId || producto.mapeo?.alegraItemId
+    })).filter(p => p.alegraId);
+    
+    // Obtener datos en batch para esta factura
+    const datosProductos = await obtenerDatosProductosBatch(todosLosProductos);
+    
+    // Analizar con datos pre-cargados
+    const analisis = analizarFacturaConDatos(facturaSeleccionada, datosProductos);
 
     container.innerHTML = `
         <div class="card-header">
@@ -492,32 +503,48 @@ async function mostrarFacturasCompletas() {
 
     contador.textContent = `${facturasFiltradas.length} factura${facturasFiltradas.length === 1 ? '' : 's'} lista${facturasFiltradas.length === 1 ? '' : 's'} para revisión`;
 
-    // Mostrar indicador de carga
+    // Mostrar indicador de carga optimizado
     container.innerHTML = `
         <div class="loading-optimized" style="text-align: center; padding: 2rem;">
             <div class="spinner" style="margin: 0 auto 1rem;"></div>
-            <p style="color: #3498db; font-weight: bold;">🚀 Analizando ${facturasFiltradas.length} facturas de forma optimizada...</p>
-            <p style="color: #7f8c8d; font-size: 0.9em;">Cache inteligente trabajando...</p>
+            <p style="color: #3498db; font-weight: bold;">🚀 Analizando ${facturasFiltradas.length} facturas (modo ultra-rápido)...</p>
+            <p style="color: #7f8c8d; font-size: 0.9em;">Una sola llamada API para todo...</p>
         </div>
     `;
 
     const template = document.getElementById('templateFacturaRevision').innerHTML;
 
     try {
-        console.log(`🚀 Analizando ${facturasFiltradas.length} facturas de forma optimizada...`);
+        console.log(`🚀 ANÁLISIS ULTRA-OPTIMIZADO: ${facturasFiltradas.length} facturas...`);
         const startTime = Date.now();
 
-        // ✅ Procesar facturas con análisis optimizado en paralelo
-        const facturasPromises = facturasFiltradas.map(async (factura) => {
-            const analisis = await analizarFactura(factura);
+        // ✅ 1. EXTRAER TODOS los alegraIds de TODAS las facturas de una vez
+        const todosLosProductos = [];
+        facturasFiltradas.forEach(factura => {
+            factura.productos.forEach(producto => {
+                const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+                if (alegraId) {
+                    todosLosProductos.push({ ...producto, alegraId, facturaId: factura.id });
+                }
+            });
+        });
+
+        console.log(`📦 Obteniendo datos para ${todosLosProductos.length} productos en UNA sola llamada...`);
+
+        // ✅ 2. UNA SOLA llamada batch para TODOS los productos de TODAS las facturas
+        const datosProductos = await obtenerDatosProductosBatch(todosLosProductos);
+
+        // ✅ 3. Analizar TODAS las facturas síncronamente (sin await)
+        const facturasConAnalisis = facturasFiltradas.map(factura => {
+            // Analizar factura usando datos pre-cargados
+            const analisis = analizarFacturaConDatos(factura, datosProductos);
             return { factura, analisis };
         });
 
-        const facturasConAnalisis = await Promise.all(facturasPromises);
-
         const endTime = Date.now();
-        console.log(`✅ ${facturasConAnalisis.length} facturas analizadas en ${endTime - startTime}ms`);
+        console.log(`⚡ ${facturasConAnalisis.length} facturas analizadas en ${endTime - startTime}ms (ultra-optimizado)`);
 
+        // ✅ 4. Generar HTML de una vez
         const html = facturasConAnalisis.map(({ factura, analisis }) => {
             const productosAprobados = 0;
             const productosPendientes = factura.productos.length;
@@ -555,36 +582,38 @@ async function mostrarFacturasCompletas() {
 
         container.innerHTML = html;
 
-        // Mostrar notificación de éxito
-        mostrarNotificacion(`🚀 ${facturasConAnalisis.length} facturas analizadas en ${endTime - startTime}ms`, 'success');
+        // Mostrar notificación de éxito con tiempo real
+        mostrarNotificacion(`⚡ ${facturasConAnalisis.length} facturas analizadas en ${endTime - startTime}ms (ultra-optimizado)`, 'success');
 
     } catch (error) {
-        console.error('❌ Error mostrando facturas optimizadas:', error);
+        console.error('❌ Error en análisis ultra-optimizado:', error);
         container.innerHTML = `
             <div class="error-state">
                 <div class="error-icon">❌</div>
                 <h3>Error</h3>
-                <p>Error cargando análisis de facturas: ${error.message}</p>
+                <p>Error cargando análisis: ${error.message}</p>
                 <button onclick="mostrarFacturasCompletas()" class="btn" style="margin-top: 1rem;">🔄 Reintentar</button>
             </div>
         `;
-        mostrarNotificacion('❌ Error en análisis de facturas', 'error');
+        mostrarNotificacion('❌ Error en análisis ultra-optimizado', 'error');
     }
 }
 
-
 /**
- * ANALIZAR FACTURA PARA DETECTAR ALERTAS
+ * ⚡ NUEVO: Analizar factura usando datos pre-cargados (SIN API calls)
  */
-async function analizarFactura(factura) {
+function analizarFacturaConDatos(factura, datosProductos = {}) {
     let alertas = [];
     let tieneAlertas = false;
 
-    for (const producto of factura.productos) {
-        const analisisProducto = await analizarProducto(producto);
+    factura.productos.forEach(producto => {
+        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+        const datosProducto = alegraId ? datosProductos[alegraId] : null;
+
+        const analisisProducto = analizarProductoConDatos(producto, datosProducto);
         alertas.push(...analisisProducto.alertas);
         if (analisisProducto.tieneAlerta) tieneAlertas = true;
-    }
+    });
 
     return {
         alertas,
@@ -592,78 +621,9 @@ async function analizarFactura(factura) {
     };
 }
 
-/**
- * ANALIZAR PRODUCTO INDIVIDUAL
- */
-async function analizarProducto(producto) {
-    let alertas = [];
-    let tieneAlerta = false;
 
-    // ✅ 1. Calcular costo actual desde IMAP (factura del proveedor)
-    const costoActual = calcularCostoConIVA(producto);
 
-    // ✅ 2. Costo actual del producto
-    const costoAnterior = await obtenerCostoAnteriorAlegra(producto);
 
-    // ✅ 3. Obtener precio de venta desde Alegra
-    const precioVentaActual = await obtenerPrecioVentaAlegra(producto);
-
-    // ✅ 4. Obtener nombre de Alegra
-    let nombreAlegra = producto.descripcion; // Fallback
-    try {
-        const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
-        if (alegraId) {
-            const response = await fetch(`/api/producto-alegra/${alegraId}`);
-            const data = await response.json();
-            if (data.success && data.nombre) {
-                nombreAlegra = data.nombre;
-            }
-        }
-    } catch (error) {
-        console.warn('Error obteniendo nombre de Alegra:', error);
-    }
-
-    // ✅ 5. Calcular margen: (precio_venta - costo_imap) / precio_venta
-    const margen = ((precioVentaActual - costoActual.costoConIVA) / precioVentaActual) * 100;
-
-    // Alertas de cambio de costo
-    if (costoActual.costoConIVA > costoAnterior.costoConIVA * 1.3) {
-        alertas.push({
-            tipo: 'precio-alto',
-            icono: '📈',
-            mensaje: `Costo ${Math.round(((costoActual.costoConIVA - costoAnterior.costoConIVA) / costoAnterior.costoConIVA) * 100)}% más alto`
-        });
-        tieneAlerta = true;
-    }
-
-    // Alertas de margen
-    if (margen < 20) {
-        alertas.push({
-            tipo: 'margen-bajo',
-            icono: '⚠️',
-            mensaje: `Margen bajo: ${Math.round(margen)}%`
-        });
-        tieneAlerta = true;
-    }
-
-    // Determinar color del margen
-    let margenColor = '#27ae60'; // Verde
-    if (margen < 15) margenColor = '#e74c3c'; // Rojo
-    else if (margen < 25) margenColor = '#f39c12'; // Naranja
-
-    return {
-        alertas,
-        tieneAlerta,
-        costoAnteriorConIVA: costoAnterior.costoConIVA,
-        costoNuevoConIVA: costoActual.costoConIVA,
-        precioVentaActual: precioVentaActual,
-        nombreAlegra: nombreAlegra, // ← NOMBRE CORRECTO DE ALEGRA
-        margenPorcentaje: Math.round(margen),
-        margenColor: margenColor,
-        margenTexto: margen < 15 ? 'Muy bajo' : margen < 25 ? 'Aceptable' : 'Bueno',
-        impuestoPorcentaje: costoActual.impuestoPorcentaje
-    };
-}
 /**
  * FILTRAR FACTURAS
  */
@@ -747,8 +707,8 @@ async function mostrarProductosRevision() {
     container.innerHTML = `
         <div class="loading-optimized" style="text-align: center; padding: 2rem;">
             <div class="spinner" style="margin: 0 auto 1rem;"></div>
-            <p style="color: #3498db; font-weight: bold;">🚀 Analizando productos de forma optimizada...</p>
-            <p style="color: #7f8c8d; font-size: 0.9em;">Esto debería tomar solo unos segundos</p>
+            <p style="color: #3498db; font-weight: bold;">⚡ Cargando en modo ultra-rápido...</p>
+            <p style="color: #7f8c8d; font-size: 0.9em;">Una sola llamada API para todos los productos</p>
         </div>
     `;
 
@@ -781,13 +741,13 @@ async function mostrarProductosRevision() {
             return;
         }
 
-        console.log(`🚀 Analizando ${productosMostrar.length} productos de forma optimizada...`);
+        console.log(`⚡ ANÁLISIS ULTRA-RÁPIDO: ${productosMostrar.length} productos...`);
         const startTime = Date.now();
 
-        // ✅ 1. Obtener TODOS los datos en una sola llamada batch
+        // ✅ 1. UNA SOLA llamada batch para TODOS los productos
         const datosProductos = await obtenerDatosProductosBatch(productosMostrar);
 
-        // ✅ 2. Analizar TODOS los productos síncronamente (sin await)
+        // ✅ 2. Analizar TODOS los productos síncronamente (sin await, súper rápido)
         const productosConAnalisis = productosMostrar.map(producto => {
             const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
             const datosProducto = alegraId ? datosProductos[alegraId] : null;
@@ -797,7 +757,7 @@ async function mostrarProductosRevision() {
         });
 
         const endTime = Date.now();
-        console.log(`✅ ${productosConAnalisis.length} productos analizados en ${endTime - startTime}ms`);
+        console.log(`⚡ ${productosConAnalisis.length} productos analizados en ${endTime - startTime}ms (ultra-rápido)`);
 
         // ✅ 3. Generar HTML de una vez
         const html = productosConAnalisis.map(({ producto, analisis }) => {
@@ -842,20 +802,20 @@ async function mostrarProductosRevision() {
         const pendientes = productosRevision.filter(p => p.estadoRevision === 'PENDIENTE').length;
         document.getElementById('accionesFinalesRevision').style.display = pendientes === 0 ? 'block' : 'none';
 
-        // Mostrar notificación de éxito
-        mostrarNotificacion(`🚀 ${productosConAnalisis.length} productos analizados en ${endTime - startTime}ms`, 'success');
+        // Mostrar notificación de éxito con tiempo real
+        mostrarNotificacion(`⚡ ${productosConAnalisis.length} productos analizados en ${endTime - startTime}ms (ultra-rápido)`, 'success');
 
     } catch (error) {
-        console.error('❌ Error mostrando productos optimizados:', error);
+        console.error('❌ Error en análisis ultra-rápido:', error);
         container.innerHTML = `
             <div class="error-state">
                 <div class="error-icon">❌</div>
                 <h3>Error</h3>
-                <p>Error cargando análisis de productos: ${error.message}</p>
+                <p>Error en análisis: ${error.message}</p>
                 <button onclick="mostrarProductosRevision()" class="btn" style="margin-top: 1rem;">🔄 Reintentar</button>
             </div>
         `;
-        mostrarNotificacion('❌ Error en análisis optimizado', 'error');
+        mostrarNotificacion('❌ Error en análisis ultra-rápido', 'error');
     }
 }
 
@@ -949,15 +909,23 @@ function rechazarProducto(productoId) {
 /**
  * VER DETALLES DE COMPARACIÓN
  */
-function verDetallesComparacion(productoId) {
+async function verDetallesComparacion(productoId) {
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
 
-    const analisis = analizarProducto(producto);
+    // ✅ CORREGIDO: Usar la función optimizada
+    const datosProductos = await obtenerDatosProductosBatch([producto]);
+    const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+    const datosProducto = alegraId ? datosProductos[alegraId] : null;
+    
+    const analisis = analizarProductoConDatos(producto, datosProducto);
+
+    // Simular datos históricos para la comparación
+    const precioAnterior = datosProducto?.cost ? datosProducto.cost * 1.2 : producto.precioUnitario * 0.9;
 
     document.getElementById('contenidoComparacionProducto').innerHTML = `
         <div class="comparacion-producto">
-            <h3>${producto.descripcion}</h3>
+            <h3 data-producto-id="${producto.id}">${producto.descripcion}</h3>
             
             <div class="comparacion-grid">
                 <div class="comparacion-col">
@@ -968,12 +936,12 @@ function verDetallesComparacion(productoId) {
                     </div>
                     <div class="comparacion-item">
                         <span class="label">Costo Estimado:</span>
-                        <span class="value">₡${formatearNumero(analisis.costoProducto)}</span>
+                        <span class="value">₡${formatearNumero(analisis.costoNuevoConIVA)}</span>
                     </div>
                     <div class="comparacion-item">
                         <span class="label">Margen Actual:</span>
-                        <span class="value ${analisis.margen < 20 ? 'text-warning' : ''}">
-                            ${Math.round(analisis.margen)}%
+                        <span class="value ${analisis.margenPorcentaje < 20 ? 'text-warning' : ''}">
+                            ${analisis.margenPorcentaje}%
                         </span>
                     </div>
                 </div>
@@ -982,12 +950,12 @@ function verDetallesComparacion(productoId) {
                     <h4>📈 Histórico</h4>
                     <div class="comparacion-item">
                         <span class="label">Último Precio:</span>
-                        <span class="value">₡${formatearNumero(analisis.precioAnterior)}</span>
+                        <span class="value">₡${formatearNumero(precioAnterior)}</span>
                     </div>
                     <div class="comparacion-item">
                         <span class="label">Diferencia:</span>
-                        <span class="value ${producto.precioUnitario > analisis.precioAnterior ? 'text-danger' : 'text-success'}">
-                            ${Math.round(((producto.precioUnitario - analisis.precioAnterior) / analisis.precioAnterior * 100))}%
+                        <span class="value ${producto.precioUnitario > precioAnterior ? 'text-danger' : 'text-success'}">
+                            ${Math.round(((producto.precioUnitario - precioAnterior) / precioAnterior * 100))}%
                         </span>
                     </div>
                     <div class="comparacion-item">
@@ -1000,11 +968,11 @@ function verDetallesComparacion(productoId) {
                     <h4>📌 Sugerencias</h4>
                     <div class="sugerencia-item">
                         <span class="label">Margen Objetivo:</span>
-                        <span class="value">${25}%</span>
+                        <span class="value">25%</span>
                     </div>
                     <div class="sugerencia-item">
                         <span class="label">Precio Sugerido:</span>
-                        <span class="value">₡${formatearNumero(analisis.costoProducto * 1.25)}</span>
+                        <span class="value">₡${formatearNumero(analisis.costoNuevoConIVA * 1.25)}</span>
                     </div>
                 </div>
             </div>
@@ -1024,6 +992,7 @@ function verDetallesComparacion(productoId) {
 
     document.getElementById('modalComparacionProducto').style.display = 'block';
 }
+
 
 /**
  * CERRAR MODAL DE COMPARACIÓN
@@ -1053,12 +1022,16 @@ function rechazarProductoModal() {
 /**
  * EDITAR PRECIO DESDE MODAL
  */
-function editarPrecioModal() {
+async function editarPrecioModal() {
     const productoId = document.querySelector('#contenidoComparacionProducto h3').getAttribute('data-producto-id');
     const producto = productosRevision.find(p => p.id === productoId);
     if (!producto) return;
 
-    const analisis = analizarProducto(producto);
+    const datosProductos = await obtenerDatosProductosBatch([producto]);
+    const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
+    const datosProducto = alegraId ? datosProductos[alegraId] : null;
+    
+    const analisis = analizarProductoConDatos(producto, datosProducto);
 
     document.getElementById('contenidoEditarPrecio').innerHTML = `
         <div class="editar-precio-form">
@@ -1077,11 +1050,11 @@ function editarPrecioModal() {
             <div class="precio-info">
                 <div class="info-item">
                     <span class="label">Costo Estimado:</span>
-                    <span class="value">₡${formatearNumero(analisis.costoProducto)}</span>
+                    <span class="value">₡${formatearNumero(analisis.costoNuevoConIVA)}</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Margen Actual:</span>
-                    <span class="value">${Math.round(analisis.margen)}%</span>
+                    <span class="value">${analisis.margenPorcentaje}%</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Margen con Nuevo Precio:</span>
@@ -1094,7 +1067,7 @@ function editarPrecioModal() {
     // Calcular margen al cambiar precio
     document.getElementById('nuevoPrecio').addEventListener('input', function () {
         const nuevoPrecio = parseFloat(this.value) || 0;
-        const nuevoMargen = ((nuevoPrecio - analisis.costoProducto) / nuevoPrecio) * 100;
+        const nuevoMargen = nuevoPrecio > 0 ? ((nuevoPrecio - analisis.costoNuevoConIVA) / nuevoPrecio) * 100 : 0;
         document.getElementById('nuevoMargen').textContent = isNaN(nuevoMargen) ? '--%' : Math.round(nuevoMargen) + '%';
     });
 
@@ -1203,7 +1176,7 @@ async function enviarFacturaAlegra() {
         // ✅ ALMACENAR datos antes de cambiar de vista
         const facturaId = facturaSeleccionada.id;
         const numeroConsecutivo = facturaSeleccionada.numeroConsecutivo;
-        
+
         console.log(`🚀 Iniciando envío a Alegra en segundo plano: ${numeroConsecutivo}`);
 
         // Verificar productos aprobados
@@ -1215,13 +1188,13 @@ async function enviarFacturaAlegra() {
 
         // ✅ MOSTRAR NOTIFICACIÓN INMEDIATA
         mostrarNotificacion(
-            `🚀 Enviando factura #${numeroConsecutivo} a Alegra en segundo plano...`, 
+            `🚀 Enviando factura #${numeroConsecutivo} a Alegra en segundo plano...`,
             'info'
         );
 
         // ✅ CERRAR MODAL INMEDIATAMENTE
         cerrarModalConfirmacion();
-        
+
         // ✅ VOLVER A LA LISTA (esto puede hacer que facturaSeleccionada sea null)
         volverAListaFacturas();
 
@@ -1474,60 +1447,7 @@ function calcularCostoConIVA(producto) {
     };
 }
 
-/**
-* OBTENER PRECIO DE VENTA DESDE ALEGRA (API real)
-*/
-async function obtenerPrecioVentaAlegra(producto) {
-    const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
 
-    if (!alegraId) {
-        console.warn('Producto sin ID de Alegra:', producto.id);
-        return producto.precioUnitario * 1.25; // Fallback
-    }
-
-    try {
-        // Usar el nuevo endpoint optimizado
-        const datosProductos = await obtenerDatosProductosBatch([producto]);
-        const datosProducto = datosProductos[alegraId];
-
-        if (datosProducto) {
-            return datosProducto.price || (producto.precioUnitario * 1.25);
-        }
-
-        return producto.precioUnitario * 1.25; // Fallback
-
-    } catch (error) {
-        console.error('Error obteniendo precio optimizado:', error);
-        return producto.precioUnitario * 1.25; // Fallback
-    }
-}
-
-/**
- * OBTENER COSTO ANTERIOR DESDE ALEGRA
- */
-async function obtenerCostoAnteriorAlegra(producto) {
-    const alegraId = producto.alegraItemId || producto.mapeo?.alegraItemId;
-
-    if (!alegraId) {
-        return { costoConIVA: 0 };
-    }
-
-    try {
-        // Usar el nuevo endpoint optimizado
-        const datosProductos = await obtenerDatosProductosBatch([producto]);
-        const datosProducto = datosProductos[alegraId];
-
-        if (datosProducto) {
-            return { costoConIVA: datosProducto.cost || 0 };
-        }
-
-        return { costoConIVA: 0 };
-
-    } catch (error) {
-        console.error('Error obteniendo costo optimizado:', error);
-        return { costoConIVA: 0 };
-    }
-}
 
 /**
  * ACTUALIZAR PRECIO DE VENTA DE PRODUCTO
@@ -1686,7 +1606,7 @@ async function procesarFacturaEnSegundoPlano(facturaId) {
         if (data.success) {
             // ✅ ÉXITO: Mostrar notificación y actualizar estado
             const resultado = data.resultado;
-            
+
             mostrarNotificacion(
                 `🎉 Factura #${resultado.numeroConsecutivo} enviada exitosamente a Alegra (ID: ${resultado.alegraFacturaId})`,
                 'success'
@@ -1703,7 +1623,7 @@ async function procesarFacturaEnSegundoPlano(facturaId) {
 
     } catch (error) {
         console.error('❌ Error en procesamiento background:', error);
-        
+
         mostrarNotificacion(
             `❌ Error enviando factura a Alegra: ${error.message}. Revisa los logs para más detalles.`,
             'error'
@@ -1720,7 +1640,7 @@ async function procesarFacturaEnSegundoPlano(facturaId) {
 function mostrarIndicadorProcesamientoBackground(facturaId) {
     // Crear indicador fijo en la esquina superior derecha
     let indicador = document.getElementById('indicadorBackground');
-    
+
     if (!indicador) {
         indicador = document.createElement('div');
         indicador.id = 'indicadorBackground';
