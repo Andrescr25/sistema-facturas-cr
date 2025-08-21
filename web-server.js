@@ -1,9 +1,9 @@
 require('dotenv').config();
 const express = require('express');
-const path = require('path');
+const path = require('path'); // ✅ Solo una vez
+const multer = require('multer'); // ✅ Sin duplicar path
 const DatabaseService = require('./services/databaseService');
 const AlegraService = require('./services/alegraService');
-
 
 const app = express();
 const PORT = process.env.WEB_PORT || 3001;
@@ -11,6 +11,23 @@ const PORT = process.env.WEB_PORT || 3001;
 // Servicios
 const dbService = new DatabaseService();
 const alegraService = new AlegraService();
+
+// ✅ CONFIGURACIÓN DE MULTER (mover aquí, con los middlewares)
+const storage = multer.memoryStorage(); // Guardar en memoria para enviar a Alegra
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 2 * 1024 * 1024, // 2MB máximo
+    },
+    fileFilter: (req, file, cb) => {
+        // Solo permitir imágenes
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Solo se permiten archivos de imagen'), false);
+        }
+    }
+});
 
 // Middleware
 app.use(express.json());
@@ -33,6 +50,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.redirect('/facturas.html');
 });
+
 
 /**
  * API ENDPOINTS
@@ -738,6 +756,262 @@ app.get('/api/relacion/:productoId/historial', async (req, res) => {
     }
 });
 
+app.post('/api/crear-producto', upload.single('image'), async (req, res) => {
+    try {
+        console.log('📦 Iniciando creación de producto nuevo...');
+        console.log('📋 Datos recibidos:', req.body);
+
+        const {
+            name,
+            description,
+            reference,
+            unit,
+            price,
+            cost,
+            initialQuantity,
+            productoOriginalId
+        } = req.body;
+
+        // ✅ 1. VALIDACIONES BÁSICAS
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                error: 'El nombre del producto es obligatorio'
+            });
+        }
+
+        if (!price || parseFloat(price) <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'El precio debe ser mayor a 0'
+            });
+        }
+
+        if (!cost || parseFloat(cost) <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'El costo debe ser mayor a 0'
+            });
+        }
+
+        if (!productoOriginalId) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID del producto original es requerido'
+            });
+        }
+
+        // ✅ 2. OBTENER PRODUCTO ORIGINAL PARA CONTEXTO
+        const productoOriginal = await dbService.prisma.productoFactura.findUnique({
+            where: { id: productoOriginalId },
+            include: { factura: true }
+        });
+
+        if (!productoOriginal) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto original no encontrado'
+            });
+        }
+
+        // ✅ 3. PREPARAR DATOS PARA ALEGRA
+        const productDataFromProvider = {
+            descripcion: productoOriginal.descripcion,
+            codigoProveedor: productoOriginal.codigoProveedor,
+            codigoCabys: productoOriginal.codigoCabys,
+            precioUnitario: productoOriginal.precioUnitario,
+            unidadMedida: productoOriginal.unidadMedida,
+            cantidad: productoOriginal.cantidad,
+            totalLinea: productoOriginal.totalLinea,
+            descuento: productoOriginal.descuento,
+            impuesto: productoOriginal.impuesto
+        };
+
+        console.log('🔍 DATOS ENVIADOS A ALEGRA SERVICE:', JSON.stringify(productDataFromProvider, null, 2));
+
+        const editedData = {
+            name: name.trim(),
+            description: description?.trim() || '',
+            reference: reference?.trim() || '',
+            price: parseFloat(price),
+            cost: parseFloat(cost),
+            unidadMedida: unit || 'unit',
+            initialQuantity: parseInt(initialQuantity) || 0,
+            categoryId: req.body.category || "2",
+            codigoProveedor: productDataFromProvider.codigoProveedor,
+            codigoCabys: productDataFromProvider.codigoCabys,
+            descripcion: productDataFromProvider.descripcion,
+            cantidad: productDataFromProvider.cantidad,
+            descuento: productDataFromProvider.descuento,
+            impuesto: productDataFromProvider.impuesto,
+            precioUnitario: productDataFromProvider.precioUnitario,
+            totalLinea: productDataFromProvider.totalLinea
+
+        };
+
+        // ✅ 4. CREAR PRODUCTO EN ALEGRA (con imagen opcional)
+        const imageFile = req.file; // Multer coloca el archivo aquí
+        const resultado = await alegraService.createProductWithImage(
+            productDataFromProvider,
+            editedData,
+            imageFile,
+            productDataFromProvider
+        );
+
+        if (!resultado.success) {
+            throw new Error(resultado.error || 'Error creando producto en Alegra');
+        }
+
+        console.log(`✅ Producto creado en Alegra: ${resultado.alegraId} - ${resultado.name}`);
+
+        // ✅ 5. AUTO-RELACIONAR: Crear mapeo automáticamente
+        const mapeoData = {
+            supplierName: productoOriginal.factura.proveedorNombre,
+            supplierCedula: productoOriginal.factura.proveedorCedula,
+            supplierCode: productoOriginal.codigoProveedor,
+            supplierDesc: productoOriginal.descripcion,
+            alegraItemId: resultado.alegraId.toString(),
+            alegraReference: editedData.reference,
+            alegraName: resultado.name,
+            confidence: 100, // Creación manual = 100% confianza
+            createdBy: 'manual_create'
+        };
+
+        const mapeo = await dbService.createProductMapping(mapeoData);
+
+        // ✅ 6. ACTUALIZAR PRODUCTO ORIGINAL CON LA RELACIÓN
+        const productoActualizado = await dbService.prisma.productoFactura.update({
+            where: { id: productoOriginalId },
+            data: {
+                alegraItemId: resultado.alegraId.toString(),
+                estadoRelacionado: 'RELACIONADO',
+                confianza: 100,
+                mapeoId: mapeo.id
+            }
+        });
+
+        console.log(`✅ Producto auto-relacionado: ${productoOriginal.descripcion} → ${resultado.name}`);
+
+        // ✅ 7. ACTUALIZAR ESTADO DE FACTURA SI ESTÁ 100% RELACIONADA
+        try {
+            const factura = await dbService.prisma.factura.findUnique({
+                where: { id: productoOriginal.facturaId },
+                include: { productos: true }
+            });
+
+            if (factura) {
+                const totalProductos = factura.productos.length;
+                const productosRelacionados = factura.productos.filter(p =>
+                    p.estadoRelacionado === 'RELACIONADO' || p.id === productoOriginalId
+                ).length;
+
+                if (productosRelacionados === totalProductos) {
+                    await dbService.prisma.factura.update({
+                        where: { id: factura.id },
+                        data: { estado: 'RELACIONADA' }
+                    });
+                    console.log(`🎉 Factura ${factura.numeroConsecutivo} completamente relacionada`);
+                }
+            }
+        } catch (estadoError) {
+            console.warn('⚠️ Error actualizando estado de factura:', estadoError.message);
+        }
+
+        // ✅ 8. RESPUESTA EXITOSA
+        res.json({
+            success: true,
+            message: `Producto "${resultado.name}" creado y relacionado exitosamente`,
+            product: {
+                alegraId: resultado.alegraId,
+                name: resultado.name,
+                reference: editedData.reference,
+                price: editedData.price,
+                cost: editedData.cost,
+                hasImage: resultado.hasImage,
+                imageUrl: resultado.imageUrl
+            },
+            mapeo: mapeo,
+            productoOriginal: productoActualizado,
+            autoRelacionado: true,
+            imageInfo: {
+                uploaded: resultado.hasImage,
+                url: resultado.imageUrl,
+                error: resultado.imageError
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error creando producto:', error);
+
+        // Manejar errores específicos de multer
+        if (error instanceof multer.MulterError) {
+            if (error.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'La imagen es demasiado grande (máximo 2MB)'
+                });
+            }
+        }
+
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Error creando producto',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+
+app.get('/api/alegra-categorias', async (req, res) => {
+    try {
+        console.log('📂 Obteniendo categorías de ITEMS de Alegra...');
+
+        //item-categories en lugar de /categories
+        const response = await alegraService.api.get('/item-categories');
+        const categorias = response.data || [];
+
+        console.log(`✅ ${categorias.length} categorías de items encontradas`);
+
+        res.json({
+            success: true,
+            categorias: categorias.map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                description: cat.description || '',
+                status: cat.status
+            }))
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo categorías de items:', error);
+
+        res.json({
+            success: true,
+            categorias: [
+                { id: "2", name: "Consumo", description: "", status: "active" },
+                { id: "8", name: "Ferretería", description: "", status: "active" },
+                { id: "5", name: "Limpieza", description: "", status: "active" },
+                { id: "11", name: "Aceites y productos para vehículos", description: "", status: "active" },
+                { id: "19", name: "Cocina", description: "", status: "active" },
+                { id: "20", name: "Desodorantes", description: "", status: "active" },
+                { id: "15", name: "Librería", description: "", status: "active" },
+                { id: "10", name: "Línea Eléctrica", description: "", status: "active" },
+                { id: "4", name: "Línea Plástica", description: "", status: "active" },
+                { id: "18", name: "Línea de Ciclo", description: "", status: "active" },
+                { id: "22", name: "Medicamentos", description: "", status: "active" },
+                { id: "14", name: "Pegamentos", description: "", status: "active" },
+                { id: "6", name: "Productos Personales", description: "", status: "active" },
+                { id: "16", name: "Productos de PVC", description: "", status: "active" },
+                { id: "9", name: "Productos de Pesca", description: "", status: "active" },
+                { id: "3", name: "Productos para perro", description: "", status: "active" },
+                { id: "7", name: "Venenos", description: "", status: "active" }
+            ]
+        });
+    }
+});
+
+
+
 // =================== FUNCIONES AUXILIARES =================== //
 
 async function calcularEstadisticasRelaciones() {
@@ -1124,6 +1398,8 @@ app.use((req, res) => {
 /**
  * INICIAR SERVIDOR
  */
+
+
 async function startWebServer() {
     try {
         console.log('🌐 Iniciando servidor web para papá...');

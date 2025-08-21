@@ -72,6 +72,7 @@ class DatabaseService {
                         create: facturaData.productos.map(producto => ({
                             numeroLinea: producto.numeroLinea,
                             codigoProveedor: producto.codigo,
+                            codigoCabys: producto.codigoCabys, 
                             codigoComercial: producto.codigoComercial?.codigo,
                             descripcion: producto.descripcion,
                             cantidad: producto.cantidad,

@@ -203,6 +203,9 @@ function mostrarAcciones(producto) {
                 <button onclick="abrirBusquedaManual('${producto.id}')" class="btn-action primary">
                     🔍 Buscar Producto
                 </button>
+                <button onclick="abrirModalCrearProducto('${producto.id}')" class="btn-action success">
+                    ➕ Crear Nuevo
+                </button>
                 <button onclick="ignorarProducto('${producto.id}')" class="btn-action warning">
                     ❌ Ignorar
                 </button>
@@ -247,7 +250,7 @@ function filtrarProductosPorEstado(productos, filtro) {
 }
 
 // ========================================
-// BÚSQUEDA MANUAL
+// BÚSQUEDA MANUAL - ✅ SOLO UNA FUNCIÓN
 // ========================================
 function abrirBusquedaManual(productoId) {
     const producto = productosActuales.find(p => p.id === productoId);
@@ -282,15 +285,39 @@ function abrirBusquedaManual(productoId) {
         resultados.innerHTML = '<p style="text-align: center; color: #666;">Escribe para buscar productos...</p>';
     }
 
-    // Mostrar modal
-    const modal = document.getElementById('modalBuscarProducto');
-    if (modal) {
-        modal.style.display = 'block';
-        // Focus en el input después de un momento
-        setTimeout(() => {
-            if (inputBuscar) inputBuscar.focus();
-        }, 300);
+    // ✅ USAR BOOTSTRAP 5 CORRECTAMENTE
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('modalBuscarProducto'));
+        modal.show();
+        
+        // Focus en el input después de mostrar el modal
+        const modalElement = document.getElementById('modalBuscarProducto');
+        modalElement.addEventListener('shown.bs.modal', function() {
+            if (inputBuscar) {
+                inputBuscar.focus();
+            }
+        }, { once: true }); // Solo ejecutar una vez
+        
+    } catch (error) {
+        console.error('❌ Error abriendo modal de búsqueda:', error);
+        mostrarNotificacion('Error abriendo modal', 'error');
     }
+}
+
+// ✅ CERRAR MODAL CON BOOTSTRAP
+function cerrarModalBuscar() {
+    try {
+        const modalElement = document.getElementById('modalBuscarProducto');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (modal) {
+            modal.hide();
+        }
+    } catch (error) {
+        console.error('❌ Error cerrando modal:', error);
+    }
+    
+    productoEnBusqueda = null;
 }
 
 // Variable global para el debounce
@@ -336,31 +363,6 @@ async function buscarEnAlegra() {
             resultadosContainer.innerHTML = '<p>❌ Error en la búsqueda</p>';
         }
     }, 500); // ← 500ms de delay
-}
-
-function abrirModalBuscar(productoId) {
-    // Limpiar búsqueda anterior
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-        searchTimeout = null;
-    }
-    
-    const modal = new bootstrap.Modal(document.getElementById('modalBuscarProducto'));
-    modal.show();
-    
-    // Esperar a que el modal se renderice completamente
-    modal._element.addEventListener('shown.bs.modal', function() {
-        const input = document.getElementById('buscarProductoInput');
-        const resultados = document.getElementById('resultadosBusqueda');
-        
-        if (input) {
-            input.value = '';
-            input.focus();
-        }
-        if (resultados) {
-            resultados.innerHTML = '<p class="text-center text-muted fst-italic">Escribe para buscar productos en Alegra...</p>';
-        }
-    }, { once: true });
 }
 
 function mostrarResultadosBusqueda(productos, termino) {
@@ -635,14 +637,6 @@ async function guardarAjuste(productoId) {
 // ========================================
 // UTILIDADES
 // ========================================
-function cerrarModalBuscar() {
-    const modal = document.getElementById('modalBuscarProducto');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    productoEnBusqueda = null;
-}
-
 function obtenerParametroURL(parametro) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(parametro);

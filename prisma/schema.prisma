@@ -53,6 +53,7 @@ model ProductoFactura {
   numeroLinea       Int     @map("numero_linea")
   codigoProveedor   String  @map("codigo_proveedor") // Código que usa el proveedor
   codigoComercial   String? @map("codigo_comercial") // Código comercial alternativo
+  codigoCabys       String? @map("codigo_cabys")
   descripcion       String
   
   // Cantidades y precios

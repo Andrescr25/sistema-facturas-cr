@@ -29,7 +29,7 @@ class XmlParser {
 
             const facturaData = this.extractFacturaData(factura);
 
-            console.log('✅ XML parseado exitosamente');
+            console.log('XML parseado exitosamente');
             console.log(`📄 Factura: ${facturaData.numeroConsecutivo}`);
             console.log(`🏢 Proveedor: ${facturaData.emisor.nombre}`);
             console.log(`📦 Productos: ${facturaData.productos.length}`);
@@ -164,15 +164,39 @@ class XmlParser {
         console.log('  - Codigo (CABYS):', linea.Codigo);
         console.log('  - CodigoComercial objeto:', linea.CodigoComercial);
         console.log('  - CodigoComercial?.Codigo:', linea.CodigoComercial?.Codigo);
-        console.log('  - Resultado final:', linea.CodigoComercial?.Codigo || linea.Codigo);
         console.log('---');
-        
+
         return {
             numeroLinea: parseInt(linea.NumeroLinea),
 
-            // Códigos del producto
+            // ✅ CÓDIGO CABYS ROBUSTO - Buscar en múltiples campos
+            codigoCabys: (() => {
+                // Prioridad 1: CodigoCABYS explícito
+                if (linea.CodigoCABYS) {
+                    return linea.CodigoCABYS;
+                }
+
+                // Prioridad 2: Codigo (campo genérico)
+                if (linea.Codigo) {
+                    return linea.Codigo;
+                }
+
+                // Prioridad 3: Buscar en códigos comerciales si es CABYS
+                if (Array.isArray(linea.CodigoComercial)) {
+                    const codigoCabys = linea.CodigoComercial.find(c =>
+                        c.Tipo === '99' || // Tipo CABYS
+                        (c.Codigo && c.Codigo.length >= 10) // Código largo típico de CABYS
+                    );
+                    if (codigoCabys) return codigoCabys.Codigo;
+                }
+
+                console.warn(`⚠️ No se encontró código CABYS para: ${linea.Detalle}`);
+                return null;
+            })(),
+
+            // Códigos del producto (lógica existente - para compatibilidad)
             codigo: (() => {
-                if (!linea.CodigoComercial) return linea.Codigo;
+                if (!linea.CodigoComercial) return linea.CodigoCABYS || linea.Codigo;
 
                 // Si es array, buscar el primer código válido (prioridad: 04, 01, 02, cualquier otro)
                 if (Array.isArray(linea.CodigoComercial)) {
@@ -184,37 +208,40 @@ class XmlParser {
                         codigoProveedor = linea.CodigoComercial.find(c => c.Tipo === '01');
                     }
 
-                    // Si no hay tipo 01, tomar el primer código disponible
+                    // Si no hay tipo 01, tomar el primer código disponible (excluyendo CABYS)
                     if (!codigoProveedor && linea.CodigoComercial.length > 0) {
-                        codigoProveedor = linea.CodigoComercial[0];
+                        codigoProveedor = linea.CodigoComercial.find(c => c.Tipo !== '99') ||
+                            linea.CodigoComercial[0];
                     }
 
-                    return codigoProveedor?.Codigo || linea.Codigo;
+                    return codigoProveedor?.Codigo || linea.CodigoCABYS || linea.Codigo;
                 }
 
                 // Si es objeto simple
-                return linea.CodigoComercial.Codigo || linea.Codigo;
+                return linea.CodigoComercial.Codigo || linea.CodigoCABYS || linea.Codigo;
             })(),
-            
-            // ✅ CÓDIGO COMERCIAL CORREGIDO - Maneja arrays y objetos
+
+            // CÓDIGO COMERCIAL 
             codigoComercial: (() => {
                 if (!linea.CodigoComercial) return null;
-                
+
                 if (Array.isArray(linea.CodigoComercial)) {
-                    // Si es array, tomar el primer elemento
-                    const primer = linea.CodigoComercial[0];
+                    // Buscar el primer código que NO sea CABYS
+                    const primer = linea.CodigoComercial.find(c => c.Tipo !== '99') ||
+                        linea.CodigoComercial[0];
                     return {
                         tipo: primer?.Tipo,
                         codigo: primer?.Codigo
                     };
                 }
-                
+
                 // Si es objeto simple
                 return {
                     tipo: linea.CodigoComercial.Tipo,
                     codigo: linea.CodigoComercial.Codigo
                 };
             })(),
+
 
             // Descripción del producto
             descripcion: linea.Detalle,
