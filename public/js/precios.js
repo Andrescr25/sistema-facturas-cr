@@ -44,7 +44,7 @@ async function obtenerDatosProductosBatch(productos) {
         console.log(`🚀 Obteniendo datos para ${alegraIds.length} productos en batch...`);
 
         // Llamar al endpoint batch
-        const response = await fetch('http://localhost:3000/api/productos-alegra/batch', {
+        const response = await fetch('/api/productos-alegra/batch', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
