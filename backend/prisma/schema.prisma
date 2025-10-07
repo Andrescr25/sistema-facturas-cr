@@ -1,0 +1,145 @@
+// prisma/schema.prisma - VERSIÓN FINAL COMPATIBLE
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tabla para facturas recibidas DE PROVEEDORES
+model Factura {
+  id                String   @id @default(uuid())
+  clave             String   @unique // Clave de 50 dígitos
+  numeroConsecutivo String   @map("numero_consecutivo")
+  fechaEmision      DateTime @map("fecha_emision")
+  fechaProcesada    DateTime @default(now()) @map("fecha_procesada")
+  
+  // Información del proveedor
+  proveedorNombre   String   @map("proveedor_nombre")
+  proveedorCedula   String   @map("proveedor_cedula")
+  proveedorEmail    String?  @map("proveedor_email")
+  proveedorTelefono String?  @map("proveedor_telefono")
+  
+  // Totales
+  totalProductos    Int      @map("total_productos")
+  totalFactura      Float    @map("total_factura")
+  moneda            String   @default("CRC")
+  
+  // Estados del procesamiento
+  estado            EstadoFactura @default(RECIBIDA)
+  
+  // Relaciones
+  productos         ProductoFactura[]
+  
+  // Metadatos
+  archivoXML        String   @map("archivo_xml")
+  emailId           String?  @map("email_id")
+  
+  @@map("facturas_proveedores")
+}
+
+// Tabla para productos de cada factura
+model ProductoFactura {
+  id                String  @id @default(uuid())
+  
+  // Relación con factura
+  facturaId         String  @map("factura_id")
+  factura           Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  
+  // Datos del producto en la factura
+  numeroLinea       Int     @map("numero_linea")
+  codigoProveedor   String  @map("codigo_proveedor") // Código que usa el proveedor
+  codigoComercial   String? @map("codigo_comercial") // Código comercial alternativo
+  codigoCabys       String? @map("codigo_cabys")
+  descripcion       String
+  
+  // Cantidades y precios
+  cantidad          Float
+  unidadMedida      String  @map("unidad_medida")
+  precioUnitario    Float   @map("precio_unitario")
+  descuento         Float   @default(0)
+  impuesto          Float   @default(0)
+  totalLinea        Float   @map("total_linea")
+  
+  // Relacionado inteligente
+  alegraItemId      String? @map("alegra_item_id") // ID del producto en Alegra (cuando se relacione)
+  estadoRelacionado EstadoRelacionado @default(PENDIENTE) @map("estado_relacionado")
+  confianza         Float?  // Nivel de confianza del relacionado (0-100)
+  
+  // Relación con mapeo
+  mapeoId           String? @map("mapeo_id")
+  mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
+  
+  @@map("productos_factura_proveedor")
+}
+
+// Tabla para el relacionado inteligente
+model SupplierProductMapping {
+  id                String   @id @default(uuid())
+  
+  // Información del proveedor
+  supplierName      String   @map("supplier_name")
+  supplierCedula    String   @map("supplier_cedula")
+  supplierCode      String   @map("supplier_code") // Código que usa el proveedor
+  supplierDesc      String   @map("supplier_desc") // Descripción del proveedor
+  
+  // Información del producto en Alegra
+  alegraItemId      String   @map("alegra_item_id") // ID del ítem en Alegra
+  alegraReference   String?  @map("alegra_reference") // Referencia en Alegra
+  alegraName        String   @map("alegra_name") // Nombre en Alegra
+  
+  // Metadatos del relacionado
+  confidence        Float    @default(100) // Confianza del mapeo
+  timesUsed         Int      @default(1) @map("times_used") // Cuántas veces se ha usado
+  createdDate       DateTime @default(now()) @map("created_date")
+  lastUsedDate      DateTime @default(now()) @map("last_used_date")
+  createdBy         String   @default("manual") @map("created_by") // manual | automatic
+  
+  // Relaciones
+  productos         ProductoFactura[]
+  
+  @@unique([supplierCedula, supplierCode]) // Un proveedor no puede tener códigos duplicados
+  @@map("supplier_product_mapping")
+}
+
+enum EstadoFactura {
+  RECIBIDA
+  PROCESADA
+  RELACIONADA
+  ENVIADA
+  COMPLETADA
+
+  @@map("estado_factura")
+}
+
+enum EstadoRelacionado {
+  PENDIENTE
+  SUGERIDO
+  RELACIONADO
+  IGNORADO
+
+  @@map("estado_relacionado")
+}
+
+// Tabla para productos de Alegra (cache local)
+model AlegraProduct {
+  id          String @id @default(uuid())
+  alegraId    String    @unique @map("alegra_id")
+  name        String
+  reference   String @default("")
+  description String @default("")
+  category    String @default("")
+  price       Float  @default(0)
+  cost        Float  @default(0)
+  status      String @default("active")
+  type        String @default("product")
+  searchText  String @map("search_text") // Para búsquedas rápidas
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("alegra_products_cache")
+}
