@@ -316,23 +316,22 @@ router.delete('/:productoId/relacion', async (req, res) => {
  */
 router.post('/crear', upload.single('image'), async (req, res) => {
     try {
-        console.log('📦 Creando producto nuevo...');
+        console.log('📦 Creando producto nuevo en Alegra...');
 
         const {
-            name, description, reference, unit, price, cost,
-            initialQuantity, productoOriginalId, categoryId
+            productoId, nombre, referencia, precio, costo, categoria
         } = req.body;
 
         // Validaciones
-        if (!name || !price || !cost || !productoOriginalId) {
+        if (!nombre || !precio || !costo || !productoId) {
             return res.status(400).json({
                 success: false,
-                error: 'Faltan campos requeridos'
+                error: 'Faltan campos requeridos: nombre, precio, costo, productoId'
             });
         }
 
         const productoOriginal = await prisma.productoFactura.findUnique({
-            where: { id: productoOriginalId },
+            where: { id: productoId },
             include: { factura: true }
         });
 
@@ -343,24 +342,150 @@ router.post('/crear', upload.single('image'), async (req, res) => {
             });
         }
 
-        // Crear en Alegra (esto requerirá más lógica)
-        // Por ahora solo creamos el mapeo y lo marcamos como relacionado
-        
+        // Crear producto en Alegra
+        const nuevoProductoAlegra = await alegraService.createProduct({
+            name: nombre,
+            reference: referencia || productoOriginal.codigoProveedor,
+            price: parseFloat(precio),
+            status: 'active',
+            type: categoria === '1' ? 'product' : 'service',
+            category: {
+                id: parseInt(categoria) || 2 // Default: Consumo
+            }
+        });
+
+        if (!nuevoProductoAlegra || !nuevoProductoAlegra.id) {
+            throw new Error('No se pudo crear el producto en Alegra');
+        }
+
+        console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
+
+        // Guardar en caché local
+        await prisma.alegraProduct.create({
+            data: {
+                alegraId: nuevoProductoAlegra.id.toString(),
+                name: nuevoProductoAlegra.name,
+                reference: nuevoProductoAlegra.reference || '',
+                price: nuevoProductoAlegra.price?.[0]?.price || parseFloat(precio),
+                searchText: `${nuevoProductoAlegra.name} ${nuevoProductoAlegra.reference || ''}`.toLowerCase()
+            }
+        }).catch(err => console.error('Error guardando en caché:', err));
+
+        // Crear mapeo
+        const nuevoMapeo = await prisma.supplierProductMapping.create({
+            data: {
+                supplierName: productoOriginal.factura.proveedorNombre,
+                supplierCedula: productoOriginal.factura.proveedorCedula,
+                supplierCode: productoOriginal.codigoProveedor,
+                supplierDesc: productoOriginal.descripcion,
+                alegraItemId: nuevoProductoAlegra.id.toString(),
+                alegraReference: nuevoProductoAlegra.reference || referencia || '',
+                alegraName: nuevoProductoAlegra.name,
+                confidence: 100,
+                createdBy: 'manual_create'
+            }
+        });
+
+        // Actualizar producto como RELACIONADO
+        await prisma.productoFactura.update({
+            where: { id: productoId },
+            data: {
+                alegraItemId: nuevoProductoAlegra.id.toString(),
+                estadoRelacionado: 'RELACIONADO',
+                confianza: 100,
+                mapeoId: nuevoMapeo.id
+            }
+        });
+
+        console.log(`✅ Producto relacionado automáticamente: ${productoOriginal.descripcion} → ${nombre}`);
+
         res.json({
             success: true,
-            message: 'Funcionalidad de creación de producto en desarrollo'
+            message: `Producto "${nombre}" creado y relacionado exitosamente`,
+            alegraProductId: nuevoProductoAlegra.id,
+            mapeoId: nuevoMapeo.id
         });
     } catch (error) {
         console.error('❌ Error creando producto:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || 'Error creando producto en Alegra'
         });
     }
 });
 
 /**
- * Buscar productos en Alegra
+ * Buscar productos en Alegra (alias para compatibilidad)
+ */
+router.get('/buscar', async (req, res) => {
+    try {
+        const { q } = req.query;
+
+        if (!q || q.trim().length < 2) {
+            return res.json({
+                success: false,
+                error: 'Término de búsqueda debe tener al menos 2 caracteres',
+                productos: []
+            });
+        }
+
+        console.log(`🔍 Buscando en caché local: "${q}"`);
+
+        // Buscar primero en la caché local de productos de Alegra
+        const productos = await prisma.alegraProduct.findMany({
+            where: {
+                OR: [
+                    {
+                        name: {
+                            contains: q,
+                            mode: 'insensitive'
+                        }
+                    },
+                    {
+                        reference: {
+                            contains: q,
+                            mode: 'insensitive'
+                        }
+                    },
+                    {
+                        searchText: {
+                            contains: q,
+                            mode: 'insensitive'
+                        }
+                    }
+                ]
+            },
+            take: 20,
+            orderBy: {
+                name: 'asc'
+            }
+        });
+
+        // Mapear a formato esperado
+        const productosFormateados = productos.map(p => ({
+            id: p.alegraId,
+            name: p.name,
+            reference: p.reference,
+            price: p.price
+        }));
+
+        res.json({
+            success: true,
+            productos: productosFormateados,
+            total: productosFormateados.length
+        });
+    } catch (error) {
+        console.error('❌ Error buscando productos:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            productos: []
+        });
+    }
+});
+
+/**
+ * Buscar productos en Alegra (ruta alternativa)
  */
 router.get('/buscar-alegra', async (req, res) => {
     try {
@@ -373,7 +498,7 @@ router.get('/buscar-alegra', async (req, res) => {
             });
         }
 
-        console.log(`🔍 Buscando en Alegra: "${q}"`);
+        console.log(`🔍 Buscando en Alegra API: "${q}"`);
 
         const productos = await alegraService.searchProducts(q);
 
