@@ -1,26 +1,27 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Configuración de la conexión a PostgreSQL
+// Configuración de la conexión a PostgreSQL usando DATABASE_URL
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 5432,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
 });
 
-// Debug para verificar la configuración
-console.log('🔍 Database config:', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  database: process.env.DB_NAME,
-  ssl: true
-});
+// Debug para verificar la conexión
+console.log('🔍 Database: Conectando usando DATABASE_URL');
+if (process.env.DATABASE_URL) {
+  const url = new URL(process.env.DATABASE_URL);
+  console.log('✅ Database config:', {
+    host: url.hostname,
+    port: url.port || 5432,
+    database: url.pathname.slice(1),
+    ssl: true
+  });
+} else {
+  console.warn('⚠️ DATABASE_URL no está configurada');
+}
 
 
 // Función para verificar la conexión
