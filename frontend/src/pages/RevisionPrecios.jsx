@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react'
+import api from '../services/api'
 
 export default function RevisionPrecios() {
   const [activeTab, setActiveTab] = useState('pendientes')
@@ -34,8 +35,8 @@ export default function RevisionPrecios() {
       setError(null)
       
       // Llamar al API del backend
-      const response = await fetch(`/api/revision-precios/facturas?estado=${filtroEstado}`)
-      const result = await response.json()
+      const response = await api.get(`/revision-precios/facturas?estado=${filtroEstado}`)
+      const result = response.data
 
       if (result.success) {
         setFacturas(result.facturas)
@@ -54,8 +55,8 @@ export default function RevisionPrecios() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch('/api/revision-precios/productos-pendientes')
-      const result = await response.json()
+      const response = await api.get('/revision-precios/productos-pendientes')
+      const result = response.data
 
       if (result.success) {
         setProductosPendientes(result.productos)
@@ -71,13 +72,13 @@ export default function RevisionPrecios() {
 
   const handleConfirmarProducto = async (productoId, alegraItemId) => {
     try {
-      const response = await fetch('/api/revision-precios/confirmar-producto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productoId, alegraItemId, confianza: 100 })
+      const response = await api.post('/revision-precios/confirmar-producto', {
+        productoId, 
+        alegraItemId, 
+        confianza: 100
       })
 
-      const result = await response.json()
+      const result = response.data
 
       if (result.success) {
         alert('✅ Producto confirmado exitosamente')
@@ -92,13 +93,11 @@ export default function RevisionPrecios() {
 
   const handleRechazarProducto = async (productoId) => {
     try {
-      const response = await fetch('/api/revision-precios/rechazar-producto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productoId })
+      const response = await api.post('/revision-precios/rechazar-producto', {
+        productoId
       })
 
-      const result = await response.json()
+      const result = response.data
 
       if (result.success) {
         alert('✅ Producto rechazado exitosamente')
