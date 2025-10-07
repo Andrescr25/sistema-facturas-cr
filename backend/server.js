@@ -40,8 +40,10 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🔧 ACTUALIZADO: Servir archivos estáticos del frontend desde la carpeta correcta
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Servir frontend solo en desarrollo local, no en producción
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+}
 
 // Importar rutas
 const facturaRoutes = require('./routes/facturas');
