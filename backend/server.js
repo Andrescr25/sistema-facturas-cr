@@ -92,19 +92,30 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 🔧 ACTUALIZADO: Catch-all handler para SPA con ruta correcta
-app.get('*', (req, res) => {
-  // Solo para rutas que NO empiecen con /api
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ 
-      error: 'Ruta de API no encontrada',
+// Catch-all handler para SPA solo en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  app.get('*', (req, res) => {
+    // Solo para rutas que NO empiecen con /api
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ 
+        error: 'Ruta de API no encontrada',
+        path: req.originalUrl
+      });
+    }
+    
+    // Para todas las demás rutas, servir el frontend desde la ruta correcta
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  });
+} else {
+  // En producción, solo devolver 404 para rutas no API
+  app.get('*', (req, res) => {
+    res.status(404).json({ 
+      error: 'Ruta no encontrada',
+      message: 'Este es un servidor API. El frontend está en un servicio separado.',
       path: req.originalUrl
     });
-  }
-  
-  // Para todas las demás rutas, servir el frontend desde la ruta correcta
-  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-});
+  });
+}
 
 // Iniciar servidor
 app.listen(PORT, () => {
