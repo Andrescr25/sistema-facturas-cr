@@ -17,8 +17,8 @@ const corsOptions = {
     // Lista de orígenes permitidos
     const allowedOrigins = [
       'http://localhost:5173',                           // Desarrollo
-      'https://proyecto-faltantes-1.onrender.com',       // Frontend en producción
-      'https://proyecto-faltantes.onrender.com'          // Backup URL
+      'https://sistema-facturas-cr.onrender.com',        // Frontend en producción
+      'https://sistema-facturas-cr-web.onrender.com'     // Backend URL (para requests internos)
     ];
     
     // También permitir cualquier subdominio de onrender.com para flexibilidad

@@ -13,8 +13,11 @@ const getBaseURL = () => {
   
   // En producción, usar la variable de entorno
   if (import.meta.env.VITE_API_URL) {
-    console.log('✅ Using production URL:', import.meta.env.VITE_API_URL);
-    return import.meta.env.VITE_API_URL
+    const url = import.meta.env.VITE_API_URL;
+    // Asegurar que siempre termine en /api
+    const apiUrl = url.endsWith('/api') ? url : `${url}/api`;
+    console.log('✅ Using production URL:', apiUrl);
+    return apiUrl;
   }
   
   // En desarrollo, usar localhost
