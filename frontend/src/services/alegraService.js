@@ -110,8 +110,10 @@ export const alegraService = {
   // Obtener estadísticas de sincronización
   async getEstadisticasSincronizacion() {
     try {
-      const response = await api.get('/alegra/estadisticas/sincronizacion')
-      return response.data
+      // TODO: Ruta no implementada en el backend actual
+      return { totalProductos: 0, ultimaSincronizacion: null, pendientes: 0 }
+      // const response = await api.get('/alegra/estadisticas/sincronizacion')
+      // return response.data
     } catch (error) {
       throw new Error(`Error obteniendo estadísticas: ${error.message}`)
     }
@@ -243,10 +245,12 @@ export const alegraService = {
   // Obtener facturas pendientes de reimpresión
   async getFacturasPendientesReimpresion() {
     try {
-      console.log('📋 Frontend: Obteniendo facturas pendientes de reimpresión');
-      const response = await api.get('/alegra/reimpresion/pendientes')
-      console.log('✅ Frontend: Facturas pendientes obtenidas:', response.data);
-      return response.data
+      // TODO: Ruta no implementada en el backend actual
+      return []
+      // console.log('📋 Frontend: Obteniendo facturas pendientes de reimpresión');
+      // const response = await api.get('/alegra/reimpresion/pendientes')
+      // console.log('✅ Frontend: Facturas pendientes obtenidas:', response.data);
+      // return response.data
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo facturas pendientes:', error);
       throw new Error(`Error obteniendo facturas pendientes: ${error.message}`)
@@ -256,10 +260,12 @@ export const alegraService = {
   // Obtener reporte de faltantes por cliente
   async getReporteFaltantesCliente() {
     try {
-      console.log('📋 Frontend: Obteniendo reporte de faltantes por cliente');
-      const response = await api.get('/alegra/reportes/faltantes/cliente')
-      console.log('✅ Frontend: Reporte de clientes obtenido:', response.data);
-      return response.data
+      // TODO: Ruta no implementada en el backend actual
+      return []
+      // console.log('📋 Frontend: Obteniendo reporte de faltantes por cliente');
+      // const response = await api.get('/alegra/reportes/faltantes/cliente')
+      // console.log('✅ Frontend: Reporte de clientes obtenido:', response.data);
+      // return response.data
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo reporte de clientes:', error);
       throw new Error(`Error obteniendo reporte de clientes: ${error.message}`)
@@ -269,10 +275,12 @@ export const alegraService = {
   // Obtener reporte de faltantes por proveedor
   async getReporteFaltantesProveedor() {
     try {
-      console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor');
-      const response = await api.get('/alegra/reportes/faltantes/proveedor')
-      console.log('✅ Frontend: Reporte de proveedores obtenido:', response.data);
-      return response.data
+      // TODO: Ruta no implementada en el backend actual
+      return []
+      // console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor');
+      // const response = await api.get('/alegra/reportes/faltantes/proveedor')
+      // console.log('✅ Frontend: Reporte de proveedores obtenido:', response.data);
+      // return response.data
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo reporte de proveedores:', error);
       throw new Error(`Error obteniendo reporte de proveedores: ${error.message}`)
