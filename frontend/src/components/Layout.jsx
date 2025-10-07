@@ -7,6 +7,7 @@ import {
   Users, 
   TrendingUp,
   DollarSign,
+  Link2,
   Printer,
   Settings,
   Menu,
@@ -23,6 +24,7 @@ export default function Layout({ children }) {
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
+    { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Reimpresión', href: '/reimpresion', icon: Printer }, 
     { name: 'Configuración', href: '/configuracion', icon: Settings },
   ]

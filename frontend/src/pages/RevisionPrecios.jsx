@@ -413,7 +413,30 @@ export default function RevisionPrecios() {
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-gray-900">Progreso de Revisión</h3>
-          <span className="text-sm font-medium text-gray-600">{progreso}% completado</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">{progreso}% completado</span>
+            {progreso === 100 && facturaSeleccionada?.estado !== 'PENDIENTE' && (
+              <button
+                onClick={async () => {
+                  if (confirm('¿Deseas devolver esta factura para hacer correcciones? Volverá al estado PROCESADA.')) {
+                    try {
+                      await api.post(`/revision-precios/devolver-factura`, { 
+                        facturaId: facturaSeleccionada.id 
+                      })
+                      alert('✅ Factura devuelta al estado PROCESADA')
+                      volverALista()
+                    } catch (err) {
+                      alert('❌ Error: ' + err.message)
+                    }
+                  }
+                }}
+                className="btn btn-outline text-sm text-orange-600 hover:bg-orange-50 border-orange-300 flex items-center"
+              >
+                <RotateCcw size={16} className="mr-1" />
+                Devolver Factura
+              </button>
+            )}
+          </div>
         </div>
         <div className="bg-gray-200 rounded-full h-3 mb-3">
           <div

@@ -304,4 +304,62 @@ router.get('/estadisticas', async (req, res) => {
   }
 });
 
+/**
+ * Devolver factura al estado PROCESADA (para hacer correcciones)
+ */
+router.post('/devolver-factura', async (req, res) => {
+  try {
+    const { facturaId } = req.body;
+
+    if (!facturaId) {
+      return res.status(400).json({
+        success: false,
+        error: 'facturaId es requerido'
+      });
+    }
+
+    console.log(`🔄 Devolviendo factura ${facturaId} al estado PROCESADA...`);
+
+    const factura = await prisma.factura.findUnique({
+      where: { id: facturaId },
+      include: {
+        productos: true
+      }
+    });
+
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        error: 'Factura no encontrada'
+      });
+    }
+
+    // Cambiar estado de factura a PROCESADA
+    await prisma.factura.update({
+      where: { id: facturaId },
+      data: {
+        estado: 'PROCESADA'
+      }
+    });
+
+    console.log(`✅ Factura ${factura.numeroConsecutivo} devuelta al estado PROCESADA`);
+
+    res.json({
+      success: true,
+      message: `Factura ${factura.numeroConsecutivo} devuelta al estado PROCESADA`,
+      factura: {
+        id: factura.id,
+        numeroConsecutivo: factura.numeroConsecutivo,
+        nuevoEstado: 'PROCESADA'
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error devolviendo factura:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
