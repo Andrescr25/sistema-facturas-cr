@@ -2607,6 +2607,33 @@ router.get('/reportes/encargos-especiales', async (req, res) => {
   }
 });
 
+// Obtener categorías de Alegra
+router.get('/categorias', async (req, res) => {
+  try {
+    console.log('📁 Obteniendo categorías de Alegra...');
+
+    const categorias = await alegraService.getCategories();
+
+    res.json({
+      success: true,
+      categorias: categorias || [
+        { id: 1, name: 'Inventario' },
+        { id: 2, name: 'Consumo' }
+      ]
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo categorías:', error);
+    // Fallback con categorías básicas
+    res.json({
+      success: true,
+      categorias: [
+        { id: 1, name: 'Inventario' },
+        { id: 2, name: 'Consumo' }
+      ]
+    });
+  }
+});
+
 // Redirigir cantidad sugerida al endpoint de reportes
 router.get('/reportes/cantidad-sugerida', (req, res, next) => {
   console.log('🔄 Redirigiendo cantidad sugerida a /reportes/cantidad-sugerida');

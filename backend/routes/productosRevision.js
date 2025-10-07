@@ -312,14 +312,17 @@ router.delete('/:productoId/relacion', async (req, res) => {
 });
 
 /**
- * Crear producto nuevo en Alegra
+ * Crear producto nuevo en Alegra - COMPLETO
  */
-router.post('/crear', upload.single('image'), async (req, res) => {
+router.post('/crear', upload.single('imagen'), async (req, res) => {
     try {
         console.log('📦 Creando producto nuevo en Alegra...');
+        console.log('📝 Datos recibidos:', req.body);
+        console.log('🖼️ Imagen recibida:', req.file ? req.file.originalname : 'Sin imagen');
 
         const {
-            productoId, nombre, referencia, precio, costo, categoria
+            productoId, nombre, descripcion, referencia, unidad, 
+            precio, costo, categoria, cantidadInicial
         } = req.body;
 
         // Validaciones
@@ -342,23 +345,54 @@ router.post('/crear', upload.single('image'), async (req, res) => {
             });
         }
 
-        // Crear producto en Alegra
-        const nuevoProductoAlegra = await alegraService.createProduct({
-            name: nombre,
-            reference: referencia || productoOriginal.codigoProveedor,
+        // Preparar datos para Alegra
+        const productoData = {
+            name: nombre.trim(),
+            description: descripcion?.trim() || nombre.trim(),
+            reference: referencia?.trim() || productoOriginal.codigoProveedor,
             price: parseFloat(precio),
             status: 'active',
             type: categoria === '1' ? 'product' : 'service',
+            unit: unidad || 'unit',
             category: {
                 id: parseInt(categoria) || 2 // Default: Consumo
             }
-        });
+        };
+
+        // Agregar cantidad inicial si se especificó
+        if (cantidadInicial && parseFloat(cantidadInicial) > 0) {
+            productoData.initialQuantity = parseFloat(cantidadInicial);
+        }
+
+        console.log('📤 Datos a enviar a Alegra:', productoData);
+
+        // Crear producto en Alegra
+        const nuevoProductoAlegra = await alegraService.createProduct(productoData);
 
         if (!nuevoProductoAlegra || !nuevoProductoAlegra.id) {
             throw new Error('No se pudo crear el producto en Alegra');
         }
 
         console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
+
+        // Si hay imagen, subirla a Alegra
+        if (req.file) {
+            try {
+                console.log('📸 Subiendo imagen a Alegra...');
+                const FormData = require('form-data');
+                const formData = new FormData();
+                formData.append('image', req.file.buffer, {
+                    filename: req.file.originalname,
+                    contentType: req.file.mimetype
+                });
+
+                await alegraService.uploadProductImage(nuevoProductoAlegra.id, formData);
+                console.log('✅ Imagen subida exitosamente');
+            } catch (imgError) {
+                console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
+                // No fallar si la imagen no se puede subir
+            }
+        }
 
         // Guardar en caché local
         await prisma.alegraProduct.create({
@@ -403,7 +437,8 @@ router.post('/crear', upload.single('image'), async (req, res) => {
             success: true,
             message: `Producto "${nombre}" creado y relacionado exitosamente`,
             alegraProductId: nuevoProductoAlegra.id,
-            mapeoId: nuevoMapeo.id
+            mapeoId: nuevoMapeo.id,
+            imagenSubida: !!req.file
         });
     } catch (error) {
         console.error('❌ Error creando producto:', error);
