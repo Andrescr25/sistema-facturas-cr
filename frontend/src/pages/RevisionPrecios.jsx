@@ -350,159 +350,191 @@ export default function RevisionPrecios() {
       )}
 
       {/* Productos */}
-      <div className="space-y-4 mb-6">
-        {productos.map(producto => {
+      <div className="space-y-6 mb-6">
+        {productos.map((producto, index) => {
           const analisis = analizarProducto(producto)
 
           return (
             <div
               key={producto.id}
-              className={`card ${
-                analisis.precioModificado ? 'border-orange-500 bg-orange-50' : ''
+              className={`relative rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden ${
+                analisis.precioModificado 
+                  ? 'bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-400' 
+                  : 'bg-white border-2 border-gray-200'
               }`}
             >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    {analisis.nombre}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Código: {producto.codigoProveedor} • 
-                    Cantidad: {producto.cantidad} {producto.unidadMedida}
-                  </p>
-                </div>
-                {analisis.precioModificado && (
-                  <span className="badge badge-warning flex items-center">
-                    <Edit3 size={14} className="mr-1" />
-                    Precio ajustado
-                  </span>
-                )}
+              {/* Número de producto */}
+              <div className="absolute top-0 left-0 bg-blue-600 text-white px-4 py-2 rounded-br-xl font-bold text-sm">
+                #{index + 1}
               </div>
 
-              {/* Alertas */}
-              {analisis.alertas.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  {analisis.alertas.map((alerta, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex items-center text-sm px-3 py-2 rounded-lg ${
-                        alerta.tipo === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      <AlertCircle size={16} className="mr-2" />
-                      {alerta.mensaje}
+              <div className="p-6 pt-12">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center">
+                      <Package className="mr-2 text-blue-600" size={24} />
+                      {analisis.nombre}
+                    </h3>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      <span className="inline-flex items-center px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-700">
+                        📦 Código: <strong className="ml-1">{producto.codigoProveedor}</strong>
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 bg-blue-100 rounded-full font-medium text-blue-700">
+                        🔢 Cantidad: <strong className="ml-1">{producto.cantidad} {producto.unidadMedida}</strong>
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 bg-purple-100 rounded-full font-medium text-purple-700">
+                        💰 Subtotal: <strong className="ml-1">₡{producto.subtotal?.toLocaleString('es-CR')}</strong>
+                      </span>
                     </div>
-                  ))}
+                  </div>
+                  {analisis.precioModificado && (
+                    <span className="badge bg-orange-500 text-white text-base px-4 py-2 flex items-center shadow-lg">
+                      <Edit3 size={18} className="mr-2" />
+                      Precio Ajustado
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {/* Tabla */}
-              <div className="overflow-x-auto mb-4">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100 border-b-2 border-gray-300">
-                      <th className="text-left p-3 text-sm font-semibold">Concepto</th>
-                      <th className="text-right p-3 text-sm font-semibold">Anterior</th>
-                      <th className="text-right p-3 text-sm font-semibold">Actual/Nuevo</th>
-                      <th className="text-center p-3 text-sm font-semibold">Cambio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="p-3 text-sm font-medium">Costo (con IVA)</td>
-                      <td className="p-3 text-right text-red-600 font-semibold">
-                        ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
-                      </td>
-                      <td className="p-3 text-right text-red-600 font-bold text-lg">
-                        ₡{analisis.costoNuevo.toLocaleString('es-CR', {minimumFractionDigits: 2})}
-                      </td>
-                      <td className="p-3 text-center">
-                        {analisis.cambioCosto !== 0 && (
-                          <span className={`inline-flex items-center text-sm font-semibold ${
-                            analisis.cambioCosto > 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
-                            {analisis.cambioCosto > 0 ? (
-                              <TrendingUp size={16} className="mr-1" />
-                            ) : (
-                              <TrendingDown size={16} className="mr-1" />
-                            )}
-                            {Math.abs(analisis.cambioCosto).toFixed(1)}%
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                    <tr className="border-b bg-green-50">
-                      <td className="p-3 text-sm font-medium">Precio Venta Actual</td>
-                      <td colSpan="2" className="p-3 text-right text-green-700 font-bold text-lg">
-                        ₡{analisis.precioVentaActual.toLocaleString('es-CR', {minimumFractionDigits: 2})}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-lg font-bold ${
-                          analisis.margenActual < 15 ? 'bg-red-100 text-red-700' :
-                          analisis.margenActual < 20 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
-                          {analisis.margenActual.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="bg-orange-50 border-b-2 border-orange-200">
-                      <td className="p-3 text-sm font-bold">
-                        <div className="flex items-center">
-                          <Calculator size={16} className="mr-2 text-orange-600" />
-                          Ajustar Precio Venta
-                        </div>
-                      </td>
-                      <td colSpan="2" className="p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-semibold">
-                              ₡
+                {/* Alertas */}
+                {analisis.alertas.length > 0 && (
+                  <div className="mb-5 space-y-2">
+                    {analisis.alertas.map((alerta, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center text-sm px-4 py-3 rounded-lg font-medium shadow-sm border-l-4 ${
+                          alerta.tipo === 'warning' 
+                            ? 'bg-yellow-50 text-yellow-900 border-yellow-500' 
+                            : 'bg-red-50 text-red-900 border-red-500'
+                        }`}
+                      >
+                        <AlertCircle size={20} className="mr-3 flex-shrink-0" />
+                        <span>{alerta.mensaje}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tabla Mejorada */}
+                <div className="bg-white rounded-lg shadow-inner border border-gray-300 overflow-hidden mb-4">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                        <th className="text-left p-4 text-sm font-bold uppercase">Concepto</th>
+                        <th className="text-right p-4 text-sm font-bold uppercase">Anterior</th>
+                        <th className="text-right p-4 text-sm font-bold uppercase">Actual/Nuevo</th>
+                        <th className="text-center p-4 text-sm font-bold uppercase">Cambio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Fila Costo */}
+                      <tr className="border-b-2 border-gray-200 bg-red-50 hover:bg-red-100 transition-colors">
+                        <td className="p-4 text-sm font-bold text-gray-900">
+                          💸 Costo (con IVA)
+                        </td>
+                        <td className="p-4 text-right text-gray-600 font-semibold text-base">
+                          ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-4 text-right text-red-700 font-bold text-xl">
+                          ₡{analisis.costoNuevo.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-4 text-center">
+                          {analisis.cambioCosto !== 0 ? (
+                            <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold shadow-sm ${
+                              analisis.cambioCosto > 0 
+                                ? 'bg-red-200 text-red-800' 
+                                : 'bg-green-200 text-green-800'
+                            }`}>
+                              {analisis.cambioCosto > 0 ? (
+                                <TrendingUp size={18} className="mr-1" />
+                              ) : (
+                                <TrendingDown size={18} className="mr-1" />
+                              )}
+                              {analisis.cambioCosto > 0 ? '+' : ''}{analisis.cambioCosto.toFixed(1)}%
                             </span>
-                            <input
-                              type="number"
-                              value={preciosAjustados[producto.id] || analisis.precioVentaActual}
-                              onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
-                              step="100"
-                              min="0"
-                              className="input pl-8 text-right font-bold text-lg"
-                              placeholder="Nuevo precio"
-                            />
-                          </div>
-                          {analisis.margenNuevo < 20 && (
-                            <button
-                              onClick={() => ajustarPrecio(producto.id, analisis.precioSugerido)}
-                              className="btn btn-outline text-sm whitespace-nowrap"
-                              title="Precio con margen del 20%"
-                            >
-                              Sugerido (20%): ₡{analisis.precioSugerido.toFixed(0)}
-                            </button>
+                          ) : (
+                            <span className="text-gray-400 text-sm">Sin cambio</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="p-3 text-center">
-                        {analisis.precioModificado ? (
-                          <span className={`inline-block px-3 py-1 rounded-lg font-bold text-lg ${
-                            analisis.margenNuevo < 15 ? 'bg-red-100 text-red-700' :
-                            analisis.margenNuevo < 20 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
+                        </td>
+                      </tr>
+
+                      {/* Fila Precio Venta Actual */}
+                      <tr className="border-b-2 border-gray-200 bg-green-50 hover:bg-green-100 transition-colors">
+                        <td className="p-4 text-sm font-bold text-gray-900">
+                          💰 Precio Venta Actual
+                        </td>
+                        <td colSpan="2" className="p-4 text-right text-green-700 font-bold text-2xl">
+                          ₡{analisis.precioVentaActual.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`inline-block px-4 py-2 rounded-lg font-bold text-base shadow-md ${
+                            analisis.margenActual < 15 ? 'bg-red-500 text-white' :
+                            analisis.margenActual < 20 ? 'bg-yellow-400 text-gray-900' :
+                            'bg-green-500 text-white'
                           }`}>
-                            {analisis.margenNuevo.toFixed(1)}% ⭐
+                            📊 {analisis.margenActual.toFixed(1)}%
                           </span>
-                        ) : (
-                          <span className="text-gray-400 text-sm">Sin cambios</span>
-                        )}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                        </td>
+                      </tr>
+
+                      {/* Fila Ajustar Precio */}
+                      <tr className="bg-gradient-to-r from-orange-100 to-orange-50 border-b-4 border-orange-400">
+                        <td className="p-4 text-sm font-bold text-gray-900">
+                          <div className="flex items-center">
+                            <Calculator size={20} className="mr-2 text-orange-600" />
+                            <span className="text-base">✏️ Ajustar Precio Venta</span>
+                          </div>
+                        </td>
+                        <td colSpan="2" className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex-1">
+                              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 font-bold text-lg">
+                                ₡
+                              </span>
+                              <input
+                                type="number"
+                                value={preciosAjustados[producto.id] || analisis.precioVentaActual}
+                                onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
+                                step="100"
+                                min="0"
+                                className="w-full pl-10 pr-4 py-3 text-right font-bold text-xl border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                placeholder="Nuevo precio"
+                              />
+                            </div>
+                            {analisis.margenNuevo < 20 && (
+                              <button
+                                onClick={() => ajustarPrecio(producto.id, analisis.precioSugerido)}
+                                className="btn bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow-md hover:shadow-lg transition-all whitespace-nowrap flex items-center"
+                                title="Precio con margen del 20%"
+                              >
+                                <TrendingUp size={18} className="mr-2" />
+                                Sugerido (20%): ₡{analisis.precioSugerido.toFixed(0)}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          {analisis.precioModificado ? (
+                            <span className={`inline-block px-4 py-2 rounded-lg font-bold text-lg shadow-lg ${
+                              analisis.margenNuevo < 15 ? 'bg-red-500 text-white' :
+                              analisis.margenNuevo < 20 ? 'bg-yellow-400 text-gray-900' :
+                              'bg-green-500 text-white'
+                            }`}>
+                              ⭐ {analisis.margenNuevo.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 font-medium">Sin cambios</span>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )
         })}
-          </div>
+      </div>
 
       {/* Botón Enviar */}
       <div className="card bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300">
