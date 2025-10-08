@@ -464,40 +464,40 @@ export default function RevisionPrecios() {
               </div>
                 )}
 
-                {/* Tabla Mejorada */}
-                <div className="bg-white rounded-lg shadow-inner border border-gray-300 overflow-hidden mb-4">
+                {/* Tabla Simple con Marco */}
+                <div className="bg-white rounded-lg border-2 border-gray-300 overflow-hidden mb-4">
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                        <th className="text-left p-4 text-sm font-bold uppercase">Concepto</th>
-                        <th className="text-right p-4 text-sm font-bold uppercase">Anterior</th>
-                        <th className="text-right p-4 text-sm font-bold uppercase">Actual/Nuevo</th>
-                        <th className="text-center p-4 text-sm font-bold uppercase">Cambio</th>
+                      <tr className="border-b-2 border-gray-300 bg-gray-50">
+                        <th className="text-left p-4 text-sm font-bold text-gray-700">Concepto</th>
+                        <th className="text-right p-4 text-sm font-bold text-gray-700">Anterior</th>
+                        <th className="text-right p-4 text-sm font-bold text-gray-700">Actual/Nuevo</th>
+                        <th className="text-center p-4 text-sm font-bold text-gray-700">Cambio</th>
                       </tr>
                     </thead>
                     <tbody>
                       {/* Fila Costo */}
-                      <tr className="border-b-2 border-gray-200 bg-red-50 hover:bg-red-100 transition-colors">
+                      <tr className="border-b border-gray-200">
                         <td className="p-4 text-sm font-bold text-gray-900">
                           Costo (con IVA)
                         </td>
                         <td className="p-4 text-right text-gray-600 font-semibold text-base">
                           ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
                         </td>
-                        <td className="p-4 text-right text-red-700 font-bold text-xl">
+                        <td className="p-4 text-right text-gray-900 font-bold text-xl">
                           ₡{analisis.costoNuevo.toLocaleString('es-CR', {minimumFractionDigits: 2})}
                         </td>
                         <td className="p-4 text-center">
                           {analisis.cambioCosto !== 0 ? (
-                            <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold shadow-sm ${
+                            <span className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-semibold ${
                               analisis.cambioCosto > 0 
-                                ? 'bg-red-200 text-red-800' 
-                                : 'bg-green-200 text-green-800'
+                                ? 'text-red-600' 
+                                : 'text-green-600'
                             }`}>
                               {analisis.cambioCosto > 0 ? (
-                                <TrendingUp size={18} className="mr-1" />
+                                <TrendingUp size={16} className="mr-1" />
                               ) : (
-                                <TrendingDown size={18} className="mr-1" />
+                                <TrendingDown size={16} className="mr-1" />
                               )}
                               {analisis.cambioCosto > 0 ? '+' : ''}{analisis.cambioCosto.toFixed(1)}%
                             </span>
@@ -508,15 +508,15 @@ export default function RevisionPrecios() {
                       </tr>
 
                       {/* Fila Precio Venta Actual */}
-                      <tr className="border-b-2 border-gray-200 bg-green-50 hover:bg-green-100 transition-colors">
+                      <tr className="border-b border-gray-200">
                         <td className="p-4 text-sm font-bold text-gray-900">
                           Precio Venta Actual
                         </td>
-                        <td colSpan="2" className="p-4 text-right text-green-700 font-bold text-2xl">
+                        <td colSpan="2" className="p-4 text-right text-gray-900 font-bold text-2xl">
                           ₡{analisis.precioVentaActual.toLocaleString('es-CR', {minimumFractionDigits: 2})}
                         </td>
                         <td className="p-4 text-center">
-                          <span className={`inline-block px-4 py-2 rounded-lg font-bold text-base shadow-md ${
+                          <span className={`inline-block px-4 py-2 rounded-lg font-bold text-base shadow-sm ${
                             analisis.margenActual < 15 ? 'bg-red-500 text-white' :
                             analisis.margenActual < 20 ? 'bg-yellow-400 text-gray-900' :
                             'bg-green-500 text-white'
@@ -527,10 +527,10 @@ export default function RevisionPrecios() {
                       </tr>
 
                       {/* Fila Ajustar Precio */}
-                      <tr className="bg-gradient-to-r from-orange-100 to-orange-50 border-b-4 border-orange-400">
+                      <tr className="border-t-2 border-gray-300">
                         <td className="p-4 text-sm font-bold text-gray-900">
                           <div className="flex items-center">
-                            <Calculator size={20} className="mr-2 text-orange-600" />
+                            <Calculator size={18} className="mr-2 text-blue-600" />
                             <span className="text-base">Ajustar Precio Venta</span>
                           </div>
                         </td>
@@ -546,7 +546,7 @@ export default function RevisionPrecios() {
                                 onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
                                 step="100"
                                 min="0"
-                                className="w-full pl-10 pr-4 py-3 text-right font-bold text-xl border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all"
+                                className="w-full pl-10 pr-4 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                                 placeholder="Nuevo precio"
                               />
                             </div>
@@ -564,7 +564,7 @@ export default function RevisionPrecios() {
                         </td>
                         <td className="p-4 text-center">
                           {analisis.precioModificado ? (
-                            <span className={`inline-block px-4 py-2 rounded-lg font-bold text-lg shadow-lg ${
+                            <span className={`inline-block px-4 py-2 rounded-lg font-bold text-lg shadow-sm ${
                               analisis.margenNuevo < 15 ? 'bg-red-500 text-white' :
                               analisis.margenNuevo < 20 ? 'bg-yellow-400 text-gray-900' :
                               'bg-green-500 text-white'
