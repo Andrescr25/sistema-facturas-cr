@@ -469,11 +469,11 @@ router.post('/productos-batch', async (req, res) => {
 });
 
 /**
- * Enviar factura completa a Alegra (actualizar costos + crear factura de proveedor)
+ * Enviar factura completa a Alegra (actualizar costos + precios + crear factura de proveedor)
  */
 router.post('/enviar-alegra', async (req, res) => {
   try {
-    const { facturaId, productosAprobados } = req.body;
+    const { facturaId, preciosAjustados = {} } = req.body;
 
     if (!facturaId) {
       return res.status(400).json({
@@ -503,15 +503,15 @@ router.post('/enviar-alegra', async (req, res) => {
       });
     }
 
-    // Filtrar productos aprobados (o todos si no se especifica)
-    const productos = productosAprobados && productosAprobados.length > 0
-      ? factura.productos.filter(p => productosAprobados.includes(p.id))
-      : factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO');
+    // Todos los productos relacionados
+    const productos = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO');
 
     console.log(`📦 Procesando ${productos.length} productos...`);
 
-    // PASO 1: Actualizar costos en Alegra
+    // PASO 1: Actualizar costos Y precios en Alegra
     let costosActualizados = 0;
+    let preciosActualizados = 0;
+    
     for (const producto of productos) {
       try {
         const alegraId = producto.alegraItemId;
@@ -523,15 +523,25 @@ router.post('/enviar-alegra', async (req, res) => {
           : 13;
         const costoConIVA = producto.precioUnitario * (1 + impuestoPorcentaje / 100);
 
-        // Actualizar en Alegra
-        await alegraService.updateProduct(alegraId, {
+        // Preparar datos de actualización
+        const updateData = {
           cost: Math.round(costoConIVA * 100) / 100
-        });
+        };
+
+        // Si el usuario ajustó el precio, incluirlo
+        if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
+          updateData.price = parseFloat(preciosAjustados[producto.id]);
+          preciosActualizados++;
+          console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
+        }
+
+        // Actualizar en Alegra
+        await alegraService.updateProduct(alegraId, updateData);
 
         costosActualizados++;
-        console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoConIVA.toFixed(2)}`);
+        console.log(`✅ Actualizado: ${producto.descripcion}`);
       } catch (error) {
-        console.error(`⚠️ Error actualizando costo de ${producto.descripcion}:`, error.message);
+        console.error(`⚠️ Error actualizando ${producto.descripcion}:`, error.message);
       }
     }
 
@@ -593,7 +603,8 @@ router.post('/enviar-alegra', async (req, res) => {
         proveedor: factura.proveedorNombre,
         alegraFacturaId: alegraFacturaId,
         totalProductos: productos.length,
-        costosActualizados: costosActualizados
+        costosActualizados: costosActualizados,
+        preciosActualizados: preciosActualizados
       }
     });
   } catch (error) {
