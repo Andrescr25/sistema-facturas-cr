@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { 
   DollarSign, 
-  Package,
+  Package, 
   ArrowLeft,
   AlertCircle, 
   Search,
@@ -236,35 +236,19 @@ export default function RevisionPrecios() {
     }
   }
 
-  // Acciones de productos
-  const ignorarProducto = async (productoId) => {
-    try {
-      await api.post('/revision-precios/rechazar-producto', { productoId })
-      alert('✅ Producto ignorado')
-      const facturaResponse = await api.get(`/revision-precios/facturas?estado=${filtroEstado}`)
-      const facturaActualizada = facturaResponse.data.facturas.find(f => f.id === facturaSeleccionada.id)
-      if (facturaActualizada) {
-        setFacturaSeleccionada(facturaActualizada)
-        setProductos(facturaActualizada.productos || [])
-      }
-    } catch (err) {
-      alert('❌ Error: ' + err.message)
-    }
-  }
+  // Acciones de productos - Ignorar eliminado por política de seguimiento obligatorio
 
-  // Filtrar productos
+  // Filtrar productos - Solo Pendientes y Relacionados (Ignorar eliminado)
   const productosFiltrados = productos.filter(p => {
     if (filtroProductos === 'pendientes') return p.estadoRelacionado === 'PENDIENTE'
     if (filtroProductos === 'relacionados') return p.estadoRelacionado === 'RELACIONADO'
-    if (filtroProductos === 'ignorados') return p.estadoRelacionado === 'IGNORADO' || p.estadoRelacionado === 'RECHAZADO'
     return true
   })
 
   const stats = {
     total: productos.length,
     pendientes: productos.filter(p => p.estadoRelacionado === 'PENDIENTE').length,
-    relacionados: productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length,
-    ignorados: productos.filter(p => p.estadoRelacionado === 'IGNORADO' || p.estadoRelacionado === 'RECHAZADO').length
+    relacionados: productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length
   }
 
   const progreso = stats.total > 0 ? Math.round((stats.relacionados / stats.total) * 100) : 0
@@ -500,7 +484,7 @@ export default function RevisionPrecios() {
             style={{ width: `${progreso}%` }}
           ></div>
         </div>
-        <div className="grid grid-cols-4 gap-4 text-center text-sm">
+        <div className="grid grid-cols-3 gap-4 text-center text-sm">
           <div>
             <p className="text-gray-600">Total</p>
             <p className="text-xl font-bold text-gray-900">{stats.total}</p>
@@ -512,10 +496,6 @@ export default function RevisionPrecios() {
           <div>
             <p className="text-yellow-600">Pendientes</p>
             <p className="text-xl font-bold text-yellow-600">{stats.pendientes}</p>
-          </div>
-          <div>
-            <p className="text-red-600">Ignorados</p>
-            <p className="text-xl font-bold text-red-600">{stats.ignorados}</p>
           </div>
         </div>
       </div>
@@ -552,16 +532,6 @@ export default function RevisionPrecios() {
             }`}
           >
             Relacionados ({stats.relacionados})
-          </button>
-          <button
-            onClick={() => setFiltroProductos('ignorados')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filtroProductos === 'ignorados'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Ignorados ({stats.ignorados})
           </button>
         </div>
       </div>
@@ -629,13 +599,6 @@ export default function RevisionPrecios() {
                   >
                     <Plus size={16} className="mr-1" />
                     Crear Nuevo
-                  </button>
-                  <button
-                    onClick={() => ignorarProducto(producto.id)}
-                    className="btn btn-outline flex items-center text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <XCircle size={16} className="mr-1" />
-                    Ignorar
                   </button>
                 </div>
               )}
