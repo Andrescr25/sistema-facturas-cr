@@ -9,7 +9,8 @@ import {
   Send,
   Loader,
   Edit3,
-  Calculator
+  Calculator,
+  RotateCcw
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -26,6 +27,7 @@ export default function RevisionPrecios() {
   // Precios ajustados por el usuario
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
+  const [devolviendo, setDevolviendo] = useState(false)
 
   useEffect(() => {
     if (vista === 'lista') {
@@ -85,6 +87,33 @@ export default function RevisionPrecios() {
     setProductos([])
     setProductosAlegra({})
     setPreciosAjustados({})
+  }
+
+  const devolverFactura = async () => {
+    if (!facturaSeleccionada) return
+
+    const confirmacion = window.confirm(
+      `¿Devolver factura ${facturaSeleccionada.numeroConsecutivo} a PROCESADA?\n\n` +
+      `Esta acción permitirá revisar y corregir las relaciones de productos.`
+    )
+
+    if (!confirmacion) return
+
+    try {
+      setDevolviendo(true)
+      const response = await api.post('/revision-precios/devolver-factura', {
+        facturaId: facturaSeleccionada.id
+      })
+
+      if (response.data.success) {
+        alert('✅ Factura devuelta a estado PROCESADA correctamente')
+        volverALista()
+      }
+    } catch (err) {
+      alert('❌ Error: ' + err.message)
+    } finally {
+      setDevolviendo(false)
+    }
   }
 
   const ajustarPrecio = (productoId, nuevoPrecio) => {
@@ -304,13 +333,33 @@ export default function RevisionPrecios() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-                    <button
-          onClick={volverALista}
-          className="btn btn-outline flex items-center mb-4"
-                    >
-          <ArrowLeft size={16} className="mr-2" />
-          Volver a la lista
-                    </button>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={volverALista}
+            className="btn btn-outline flex items-center"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Volver a la lista
+          </button>
+          
+          <button
+            onClick={devolverFactura}
+            className="btn bg-yellow-500 hover:bg-yellow-600 text-white flex items-center"
+            disabled={devolviendo}
+          >
+            {devolviendo ? (
+              <>
+                <Loader size={16} className="mr-2 animate-spin" />
+                Devolviendo...
+              </>
+            ) : (
+              <>
+                <RotateCcw size={16} className="mr-2" />
+                Devolver a Relacionar
+              </>
+            )}
+          </button>
+        </div>
 
         <h1 className="text-3xl font-bold text-gray-900">
           Factura #{facturaSeleccionada?.numeroConsecutivo}
@@ -384,7 +433,7 @@ export default function RevisionPrecios() {
                         Cantidad: <strong className="ml-1">{producto.cantidad} {producto.unidadMedida}</strong>
                       </span>
                       <span className="inline-flex items-center px-3 py-1 bg-purple-100 rounded-full font-medium text-purple-700">
-                        Subtotal: <strong className="ml-1">₡{producto.subtotal?.toLocaleString('es-CR')}</strong>
+                        Subtotal: <strong className="ml-1">₡{((producto.precioUnitario || 0) * (producto.cantidad || 0)).toLocaleString('es-CR', {minimumFractionDigits: 2})}</strong>
                       </span>
                     </div>
                   </div>
@@ -412,7 +461,7 @@ export default function RevisionPrecios() {
                         <span>{alerta.mensaje}</span>
                       </div>
                     ))}
-                  </div>
+              </div>
                 )}
 
                 {/* Tabla Mejorada */}
@@ -534,7 +583,7 @@ export default function RevisionPrecios() {
             </div>
           )
         })}
-      </div>
+          </div>
 
       {/* Botón Enviar */}
       <div className="card bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300">
