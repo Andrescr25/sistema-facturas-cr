@@ -618,39 +618,67 @@ router.get('/facturas/detalle/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`📄 Obteniendo factura ID: ${id}`);
+    console.log(`📄 Obteniendo factura de Hacienda ID: ${id}`);
 
-    const result = await alegraService.getInvoiceById(id);
+    // Obtener factura de la base de datos de Hacienda (Prisma)
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
 
-    if (result.success) {
-      // Procesar la factura para el frontend
-      const facturaDetallada = {
-        ...result.data,
-        // Procesar items para el registro de faltantes
-        items: result.data.items?.map(item => ({
-          ...item,
-          cantidad_faltante: 0,
-          tipo_faltante: 'ninguno', // 'ninguno', 'parcial', 'total'
-          observaciones: ''
-        })) || []
-      };
+    const factura = await prisma.factura.findUnique({
+      where: { id: id },
+      include: {
+        productos: {
+          include: {
+            mapeo: true
+          }
+        }
+      }
+    });
 
-      res.json({
-        success: true,
-        data: facturaDetallada
-      });
-    } else {
-      res.status(404).json({
+    await prisma.$disconnect();
+
+    if (!factura) {
+      return res.status(404).json({
         success: false,
         message: 'Factura no encontrada'
       });
     }
+
+    // Formatear respuesta para el frontend
+    const facturaDetallada = {
+      id: factura.id,
+      numeroConsecutivo: factura.numeroConsecutivo,
+      fechaEmision: factura.fechaEmision,
+      proveedorNombre: factura.proveedorNombre,
+      proveedorCedula: factura.proveedorCedula,
+      totalFactura: factura.totalFactura,
+      estado: factura.estado,
+      productos: factura.productos.map(prod => ({
+        id: prod.id,
+        descripcion: prod.descripcion,
+        codigoProveedor: prod.codigoProveedor,
+        cantidad: prod.cantidad,
+        unidadMedida: prod.unidadMedida,
+        precioUnitario: prod.precioUnitario,
+        subtotal: prod.subtotal,
+        impuesto: prod.impuesto,
+        estadoRelacionado: prod.estadoRelacionado,
+        alegraItemId: prod.alegraItemId,
+        mapeo: prod.mapeo
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: facturaDetallada
+    });
+
   } catch (error) {
     console.error('❌ Error obteniendo factura:', error);
     res.status(500).json({
       success: false,
       error: error.message,
-      message: 'Error obteniendo factura'
+      message: 'Error obteniendo factura de Hacienda'
     });
   }
 });
