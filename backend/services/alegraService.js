@@ -360,6 +360,66 @@ class AlegraService {
         }
     }
 
+    /**
+     * Actualizar producto (cost, price, etc)
+     */
+    async updateProduct(alegraId, data) {
+        try {
+            console.log(`📝 Actualizando producto ${alegraId}...`);
+            const response = await this.api.put(`/items/${alegraId}`, data);
+            console.log(`✅ Producto ${alegraId} actualizado`);
+            return response.data;
+        } catch (error) {
+            console.error(`❌ Error actualizando producto ${alegraId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Crear o obtener contacto (proveedor/cliente)
+     */
+    async createOrGetContact(data) {
+        try {
+            // Buscar contacto existente por identificación
+            if (data.identification) {
+                const response = await this.api.get('/contacts', {
+                    params: {
+                        identification: data.identification
+                    }
+                });
+
+                if (response.data && response.data.length > 0) {
+                    console.log(`✅ Contacto encontrado: ${response.data[0].name}`);
+                    return response.data[0];
+                }
+            }
+
+            // Si no existe, crear nuevo
+            console.log(`📝 Creando contacto: ${data.name}...`);
+            const response = await this.api.post('/contacts', data);
+            console.log(`✅ Contacto creado: ${response.data.name}`);
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error creando/obteniendo contacto:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Crear factura de compra (purchase invoice)
+     */
+    async createPurchaseInvoice(data) {
+        try {
+            console.log(`📄 Creando factura de compra en Alegra...`);
+            const response = await this.api.post('/purchase-invoices', data);
+            console.log(`✅ Factura de compra creada: ID ${response.data.id}`);
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error creando factura de compra:', error);
+            throw error;
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }

@@ -1,64 +1,47 @@
 import { useState, useEffect } from 'react'
 import { 
   DollarSign, 
-  Package, 
+  Package,
   ArrowLeft,
   AlertCircle, 
-  Search,
-  RefreshCw,
   CheckCircle,
   XCircle,
-  Eye,
-  Building2,
-  Calendar,
-  FileText,
-  Plus,
-  Link2Off,
-  RotateCcw,
-  Trash2
+  TrendingUp,
+  TrendingDown,
+  Send,
+  Loader
 } from 'lucide-react'
 import api from '../services/api'
 
 export default function RevisionPrecios() {
   // Estados principales
-  const [vista, setVista] = useState('lista') // 'lista' o 'detalle'
+  const [vista, setVista] = useState('lista') // 'lista' o 'revision'
   const [facturas, setFacturas] = useState([])
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [productos, setProductos] = useState([])
+  const [productosAlegra, setProductosAlegra] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   
-  // Filtros
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('PROCESADA')
-  const [filtroProductos, setFiltroProductos] = useState('todos')
-  
-  // Modales
-  const [modalBusqueda, setModalBusqueda] = useState(false)
-  const [modalCrear, setModalCrear] = useState(false)
-  const [productoActual, setProductoActual] = useState(null)
-  
-  // Búsqueda
-  const [terminoBusqueda, setTerminoBusqueda] = useState('')
-  const [resultadosBusqueda, setResultadosBusqueda] = useState([])
-  const [buscando, setBuscando] = useState(false)
+  // Estados de revisión
+  const [productosAprobados, setProductosAprobados] = useState([])
+  const [productosRechazados, setProductosRechazados] = useState([])
+  const [enviando, setEnviando] = useState(false)
 
   useEffect(() => {
+    if (vista === 'lista') {
       loadFacturas()
-  }, [filtroEstado])
+    }
+  }, [vista])
 
   const loadFacturas = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await api.get(`/revision-precios/facturas?estado=${filtroEstado}`)
-      const result = response.data
-
-      if (result.success) {
-        setFacturas(result.facturas)
-      } else {
-        setError(result.error || 'Error cargando facturas')
+      const response = await api.get('/revision-precios/facturas-relacionadas')
+      if (response.data.success) {
+        setFacturas(response.data.facturas)
       }
     } catch (err) {
       setError(err.message)
@@ -67,344 +50,235 @@ export default function RevisionPrecios() {
     }
   }
 
-  const abrirFactura = (factura) => {
-    setFacturaSeleccionada(factura)
-    setProductos(factura.productos || [])
-    setVista('detalle')
+  const abrirRevision = async (factura) => {
+    try {
+      setLoading(true)
+      setFacturaSeleccionada(factura)
+      setProductos(factura.productos)
+      setProductosAprobados([])
+      setProductosRechazados([])
+      
+      // Obtener datos de Alegra para comparación
+      const alegraIds = factura.productos
+        .map(p => p.alegraItemId)
+        .filter(Boolean)
+      
+      if (alegraIds.length > 0) {
+        const response = await api.post('/revision-precios/productos-batch', {
+          alegraIds
+        })
+        
+        if (response.data.success) {
+          setProductosAlegra(response.data.productos)
+        }
+      }
+      
+      setVista('revision')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const volverALista = () => {
     setVista('lista')
     setFacturaSeleccionada(null)
     setProductos([])
-    setFiltroProductos('todos')
-    loadFacturas()
+    setProductosAlegra({})
+    setProductosAprobados([])
+    setProductosRechazados([])
   }
 
-  // Búsqueda de productos
-  const abrirBusqueda = (producto) => {
-    setProductoActual(producto)
-    setModalBusqueda(true)
-    setTerminoBusqueda('')
-    setResultadosBusqueda([])
+  const aprobarProducto = (productoId) => {
+    setProductosAprobados([...productosAprobados, productoId])
+    setProductosRechazados(productosRechazados.filter(id => id !== productoId))
   }
 
-  const buscarProductos = async (termino) => {
-    if (!termino || termino.length < 2) {
-      setResultadosBusqueda([])
-      return
-    }
+  const rechazarProducto = (productoId) => {
+    setProductosRechazados([...productosRechazados, productoId])
+    setProductosAprobados(productosAprobados.filter(id => id !== productoId))
+  }
+
+  const aprobarTodos = () => {
+    const todosIds = productos.map(p => p.id)
+    setProductosAprobados(todosIds)
+    setProductosRechazados([])
+  }
+
+  const enviarAlegra = async () => {
+    if (!facturaSeleccionada) return
+
+    const confirmacion = window.confirm(
+      `¿Estás seguro de enviar la factura ${facturaSeleccionada.numeroConsecutivo} a Alegra?\n\n` +
+      `Esto realizará:\n` +
+      `✅ Actualizar costos de ${productosAprobados.length} productos\n` +
+      `📄 Crear factura de proveedor en Alegra\n` +
+      `🔄 Marcar factura como ENVIADA`
+    )
+
+    if (!confirmacion) return
 
     try {
-      setBuscando(true)
-      const response = await api.get(`/productos-revision/buscar?q=${encodeURIComponent(termino)}`)
-      const result = response.data
+      setEnviando(true)
+      const response = await api.post('/revision-precios/enviar-alegra', {
+        facturaId: facturaSeleccionada.id,
+        productosAprobados: productosAprobados
+      })
 
-      if (result.success) {
-        setResultadosBusqueda(result.productos || [])
+      if (response.data.success) {
+        alert(
+          `✅ Factura enviada exitosamente!\n\n` +
+          `ID en Alegra: ${response.data.resultado.alegraFacturaId}\n` +
+          `Costos actualizados: ${response.data.resultado.costosActualizados}/${response.data.resultado.totalProductos}`
+        )
+        volverALista()
       }
     } catch (err) {
-      console.error('Error buscando:', err)
+      alert('❌ Error enviando a Alegra: ' + err.message)
     } finally {
-      setBuscando(false)
+      setEnviando(false)
     }
   }
 
-  // Debounce para búsqueda
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (terminoBusqueda) {
-        buscarProductos(terminoBusqueda)
-      }
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [terminoBusqueda])
-
-  const relacionarProducto = async (alegraId, nombre) => {
-    try {
-      const response = await api.post('/revision-precios/confirmar-producto', {
-        productoId: productoActual.id,
-        alegraItemId: alegraId,
-        confianza: 100
+  // Cálculos de análisis de producto
+  const analizarProducto = (producto) => {
+    const alegraData = productosAlegra[producto.alegraItemId] || {}
+    
+    // Costo anterior (de Alegra)
+    const costoAnterior = alegraData.cost || 0
+    
+    // Costo nuevo (de factura con IVA)
+    const impuestoPorcentaje = producto.impuesto > 0 
+      ? (producto.impuesto / producto.subtotal) * 100 
+      : 13
+    const costoNuevo = producto.precioUnitario * (1 + impuestoPorcentaje / 100)
+    
+    // Precio de venta actual
+    const precioVenta = alegraData.price || 0
+    
+    // Margen: (precioVenta - costoNuevo) / precioVenta * 100
+    const margen = precioVenta > 0 
+      ? ((precioVenta - costoNuevo) / precioVenta) * 100 
+      : 0
+    
+    // Cambio de costo
+    const cambioCosto = costoAnterior > 0 
+      ? ((costoNuevo - costoAnterior) / costoAnterior) * 100 
+      : 0
+    
+    // Alertas
+    const alertas = []
+    if (cambioCosto > 30) {
+      alertas.push({
+        tipo: 'warning',
+        mensaje: `Costo subió ${Math.round(cambioCosto)}%`
       })
-
-      if (response.data.success) {
-        alert(`✅ Producto relacionado: ${nombre}`)
-        setModalBusqueda(false)
-        // Recargar factura
-        const facturaResponse = await api.get(`/revision-precios/facturas?estado=${filtroEstado}`)
-        const facturaActualizada = facturaResponse.data.facturas.find(f => f.id === facturaSeleccionada.id)
-        if (facturaActualizada) {
-          setFacturaSeleccionada(facturaActualizada)
-          setProductos(facturaActualizada.productos || [])
-        }
-      }
-    } catch (err) {
-      alert('❌ Error: ' + err.message)
     }
-  }
-
-  // Crear producto
-  const [categorias, setCategorias] = useState([])
-  const [imagenPreview, setImagenPreview] = useState(null)
-
-  const abrirCrear = (producto) => {
-    setProductoActual(producto)
-    setModalCrear(true)
-    setImagenPreview(null)
-    loadCategorias()
-  }
-
-  const loadCategorias = async () => {
-    try {
-      console.log('📁 Cargando categorías de Alegra...')
-      const response = await api.get('/alegra/categorias')
-      console.log('📥 Respuesta de categorías:', response.data)
-      
-      if (response.data.success && response.data.categorias) {
-        console.log(`✅ ${response.data.categorias.length} categorías cargadas`)
-        setCategorias(response.data.categorias)
-      } else {
-        throw new Error('No se encontraron categorías')
-      }
-    } catch (err) {
-      console.error('❌ Error cargando categorías:', err)
-      // Fallback con categorías básicas
-      const fallbackCategorias = [
-        { id: 1, name: 'Inventario' },
-        { id: 2, name: 'Consumo' }
-      ]
-      console.log('⚠️ Usando categorías fallback:', fallbackCategorias)
-      setCategorias(fallbackCategorias)
-    }
-  }
-
-  const handleImagenChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) {
-      setImagenPreview(null)
-      return
-    }
-
-    // Validar tamaño (2MB máximo)
-    if (file.size > 2 * 1024 * 1024) {
-      alert('❌ La imagen debe ser menor a 2MB')
-      e.target.value = ''
-      setImagenPreview(null)
-      return
-    }
-
-    // Validar tipo
-    if (!file.type.startsWith('image/')) {
-      alert('❌ Solo se permiten archivos de imagen')
-      e.target.value = ''
-      setImagenPreview(null)
-      return
-    }
-
-    // Preview
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setImagenPreview(event.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const removerImagen = () => {
-    setImagenPreview(null)
-    const input = document.getElementById('imagenProducto')
-    if (input) input.value = ''
-  }
-
-  const crearProducto = async (e) => {
-    e.preventDefault()
-    const formData = new FormData(e.target)
-
-    try {
-      const response = await api.post('/productos-revision/crear', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+    if (margen < 20 && margen > 0) {
+      alertas.push({
+        tipo: 'danger',
+        mensaje: `Margen bajo: ${Math.round(margen)}%`
       })
-
-      if (response.data.success) {
-        alert('✅ Producto creado y relacionado exitosamente')
-        setModalCrear(false)
-        // Recargar
-        const facturaResponse = await api.get(`/revision-precios/facturas?estado=${filtroEstado}`)
-        const facturaActualizada = facturaResponse.data.facturas.find(f => f.id === facturaSeleccionada.id)
-        if (facturaActualizada) {
-          setFacturaSeleccionada(facturaActualizada)
-          setProductos(facturaActualizada.productos || [])
-        }
-      }
-    } catch (err) {
-      alert('❌ Error: ' + err.message)
+    }
+    
+    return {
+      costoAnterior,
+      costoNuevo,
+      precioVenta,
+      margen,
+      cambioCosto,
+      alertas,
+      nombre: alegraData.name || producto.descripcion
     }
   }
 
-  // Acciones de productos - Ignorar eliminado por política de seguimiento obligatorio
-
-  // Filtrar productos - Solo Pendientes y Relacionados (Ignorar eliminado)
-  const productosFiltrados = productos.filter(p => {
-    if (filtroProductos === 'pendientes') return p.estadoRelacionado === 'PENDIENTE'
-    if (filtroProductos === 'relacionados') return p.estadoRelacionado === 'RELACIONADO'
-    return true
-  })
-
-  const stats = {
-    total: productos.length,
-    pendientes: productos.filter(p => p.estadoRelacionado === 'PENDIENTE').length,
-    relacionados: productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length
-  }
-
-  const progreso = stats.total > 0 ? Math.round((stats.relacionados / stats.total) * 100) : 0
-
-  // ====================================
   // VISTA DE LISTA
-  // ====================================
   if (vista === 'lista') {
-    const facturasFiltradas = facturas.filter(f =>
-      f.proveedorNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      f.numeroConsecutivo?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <DollarSign className="mr-3 text-blue-600" size={32} />
-          Revisión de Precios
-        </h1>
-        <p className="text-gray-600 mt-1">
-                Gestión de facturas y relación de productos con Alegra
-              </p>
-            </div>
-            <button
-              onClick={loadFacturas}
-              disabled={loading}
-              className="btn btn-outline flex items-center"
-            >
-              <RefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} size={18} />
-              Actualizar
-            </button>
-          </div>
-      </div>
-
-      {error && (
-          <div className="card bg-red-50 border-red-200 mb-6">
-          <div className="flex items-center">
-            <AlertCircle className="text-red-500 mr-2" size={20} />
-            <p className="text-red-700">Error: {error}</p>
-          </div>
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+            <DollarSign className="mr-3" size={32} />
+            Revisión de Precios
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Analiza costos y márgenes antes de enviar facturas a Alegra
+          </p>
         </div>
-      )}
 
-        <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-              <label className="label">Buscar factura</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                  placeholder="Proveedor o número de factura..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div>
-              <label className="label">Estado de factura</label>
-                <select
-                  value={filtroEstado}
-                  onChange={(e) => setFiltroEstado(e.target.value)}
-                className="input"
-                >
-                  <option value="PROCESADA">Procesadas</option>
-                  <option value="RELACIONADA">Relacionadas</option>
-                  <option value="ENVIADA">Enviadas</option>
-                  <option value="">Todas</option>
-                </select>
-              </div>
+        {error && (
+          <div className="card bg-red-50 border-red-200 mb-6">
+            <div className="flex items-center text-red-800">
+              <AlertCircle className="mr-2" size={20} />
+              {error}
             </div>
           </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">
             <div className="spinner mx-auto mb-4"></div>
             <p className="text-gray-600">Cargando facturas...</p>
           </div>
-        ) : facturasFiltradas.length === 0 ? (
-            <div className="card text-center py-12">
-              <Package className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No se encontraron facturas
-              </h3>
-            </div>
-          ) : (
-          <div className="space-y-3">
-            {facturasFiltradas.map((factura) => {
-              const pendientes = factura.productos?.filter(p => p.estadoRelacionado === 'PENDIENTE').length || 0
-              const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO').length || 0
-              
+        ) : facturas.length === 0 ? (
+          <div className="card text-center py-12">
+            <Package className="mx-auto text-gray-400 mb-4" size={48} />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No hay facturas para revisar
+            </h3>
+            <p className="text-gray-600">
+              Las facturas aparecerán aquí cuando estén 100% relacionadas
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {facturas.map(factura => {
+              const total = factura.productos.length
+              const totalFactura = factura.totalFactura || 0
+
               return (
-                <div
+                <div 
                   key={factura.id}
-                  onClick={() => abrirFactura(factura)}
-                  className="card hover:shadow-lg transition-all cursor-pointer border-l-4"
-                  style={{ borderLeftColor: pendientes > 0 ? '#f59e0b' : '#10b981' }}
+                  className="card hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => abrirRevision(factura)}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <FileText className="text-blue-600" size={20} />
-                        <h3 className="text-lg font-bold text-gray-900">
-                        {factura.numeroConsecutivo}
-                      </h3>
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          factura.estado === 'RELACIONADA' ? 'bg-green-100 text-green-800' :
-                          factura.estado === 'PROCESADA' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {factura.estado}
-                        </span>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Factura #{factura.numeroConsecutivo}
+                        </h3>
+                        <span className="badge badge-success">100% Relacionada</span>
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span className="flex items-center">
-                          <Building2 className="mr-1" size={14} />
-                          {factura.proveedorNombre}
-                        </span>
-                        <span className="flex items-center">
-                          <Calendar className="mr-1" size={14} />
-                          {new Date(factura.fechaEmision).toLocaleDateString('es-CR')}
-                        </span>
-                        <span className="flex items-center">
-                          <Package className="mr-1" size={14} />
-                          {factura.totalProductos} productos
-                        </span>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-600">Proveedor</p>
+                          <p className="font-medium text-gray-900">{factura.proveedorNombre}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Fecha</p>
+                          <p className="font-medium text-gray-900">
+                            {new Date(factura.fechaEmision).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Total</p>
+                          <p className="font-medium text-green-600">
+                            ₡{totalFactura.toLocaleString('es-CR')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Productos</p>
+                          <p className="font-medium text-gray-900">{total}</p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500 mb-1">Total</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        ₡{factura.totalFactura?.toLocaleString('es-CR')}
-                      </p>
-                      <div className="flex gap-2 mt-2 text-xs">
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
-                          {relacionados} ✓
-                        </span>
-                        <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                          {pendientes} ⏳
-                        </span>
-                      </div>
-                    </div>
+                    <button className="btn btn-primary ml-4">
+                      Revisar Precios →
+                    </button>
                   </div>
                 </div>
               )
@@ -415,44 +289,65 @@ export default function RevisionPrecios() {
     )
   }
 
-  // ====================================
-  // VISTA DE DETALLE
-  // ====================================
+  // VISTA DE REVISIÓN INDIVIDUAL
+  const stats = {
+    total: productos.length,
+    aprobados: productosAprobados.length,
+    rechazados: productosRechazados.length,
+    pendientes: productos.length - productosAprobados.length - productosRechazados.length
+  }
+
+  const progreso = stats.total > 0 
+    ? Math.round(((stats.aprobados + stats.rechazados) / stats.total) * 100) 
+    : 0
+
+  const todoRevisado = stats.pendientes === 0
+  const hayAprobados = stats.aprobados > 0
+
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header con botón volver */}
+      {/* Header */}
       <div className="mb-6">
         <button
           onClick={volverALista}
           className="btn btn-outline flex items-center mb-4"
         >
-          <ArrowLeft className="mr-2" size={18} />
+          <ArrowLeft size={16} className="mr-2" />
           Volver a la lista
         </button>
 
-        <div className="card">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {facturaSeleccionada?.numeroConsecutivo}
-              </h2>
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span className="flex items-center">
-                  <Building2 className="mr-1" size={16} />
-                  {facturaSeleccionada?.proveedorNombre}
-                </span>
-                <span className="flex items-center">
-                  <Calendar className="mr-1" size={16} />
-                  {new Date(facturaSeleccionada?.fechaEmision).toLocaleDateString('es-CR')}
-                </span>
-              </div>
-                    </div>
-                    <div className="text-right">
-              <p className="text-sm text-gray-500">Total Factura</p>
-              <p className="text-2xl font-bold text-gray-900">
-                ₡{facturaSeleccionada?.totalFactura?.toLocaleString('es-CR')}
-              </p>
-            </div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Factura #{facturaSeleccionada?.numeroConsecutivo}
+        </h1>
+        <p className="text-gray-600 mt-1">
+          {facturaSeleccionada?.proveedorNombre}
+        </p>
+      </div>
+
+      {/* Info de factura */}
+      <div className="card mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">Fecha de Emisión</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {new Date(facturaSeleccionada.fechaEmision).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Total Factura</p>
+            <p className="text-2xl font-bold text-blue-600">
+              ₡{facturaSeleccionada.totalFactura?.toLocaleString('es-CR')}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Productos</p>
+            <p className="text-lg font-semibold text-gray-900">
+              {stats.total} items
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Estado</p>
+            <span className="badge badge-success">Listo para enviar</span>
           </div>
         </div>
       </div>
@@ -461,30 +356,7 @@ export default function RevisionPrecios() {
       <div className="card mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-gray-900">Progreso de Revisión</h3>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600">{progreso}% completado</span>
-            {progreso === 100 && facturaSeleccionada?.estado !== 'PENDIENTE' && (
-              <button
-                onClick={async () => {
-                  if (confirm('¿Deseas devolver esta factura para hacer correcciones? Volverá al estado PROCESADA.')) {
-                    try {
-                      await api.post(`/revision-precios/devolver-factura`, { 
-                        facturaId: facturaSeleccionada.id 
-                      })
-                      alert('✅ Factura devuelta al estado PROCESADA')
-                      volverALista()
-                    } catch (err) {
-                      alert('❌ Error: ' + err.message)
-                    }
-                  }
-                }}
-                className="btn btn-outline text-sm text-orange-600 hover:bg-orange-50 border-orange-300 flex items-center"
-              >
-                <RotateCcw size={16} className="mr-1" />
-                Devolver Factura
-              </button>
-            )}
-          </div>
+          <span className="text-sm font-medium text-gray-600">{progreso}% completado</span>
         </div>
         <div className="bg-gray-200 rounded-full h-3 mb-3">
           <div
@@ -492,14 +364,18 @@ export default function RevisionPrecios() {
             style={{ width: `${progreso}%` }}
           ></div>
         </div>
-        <div className="grid grid-cols-3 gap-4 text-center text-sm">
+        <div className="grid grid-cols-4 gap-4 text-center text-sm">
           <div>
             <p className="text-gray-600">Total</p>
             <p className="text-xl font-bold text-gray-900">{stats.total}</p>
           </div>
           <div>
-            <p className="text-green-600">Relacionados</p>
-            <p className="text-xl font-bold text-green-600">{stats.relacionados}</p>
+            <p className="text-green-600">Aprobados</p>
+            <p className="text-xl font-bold text-green-600">{stats.aprobados}</p>
+          </div>
+          <div>
+            <p className="text-red-600">Rechazados</p>
+            <p className="text-xl font-bold text-red-600">{stats.rechazados}</p>
           </div>
           <div>
             <p className="text-yellow-600">Pendientes</p>
@@ -508,449 +384,200 @@ export default function RevisionPrecios() {
         </div>
       </div>
 
-      {/* Filtros de productos */}
+      {/* Acciones rápidas */}
       <div className="card mb-6">
-        <div className="flex gap-2">
+        <div className="flex items-center justify-between">
           <button
-            onClick={() => setFiltroProductos('todos')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filtroProductos === 'todos'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            onClick={aprobarTodos}
+            className="btn btn-success flex items-center"
+            disabled={stats.aprobados === stats.total}
           >
-            Todos ({stats.total})
+            <CheckCircle size={16} className="mr-2" />
+            Aprobar Todos
           </button>
-          <button
-            onClick={() => setFiltroProductos('pendientes')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filtroProductos === 'pendientes'
-                ? 'bg-yellow-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Pendientes ({stats.pendientes})
-          </button>
-          <button
-            onClick={() => setFiltroProductos('relacionados')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              filtroProductos === 'relacionados'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Relacionados ({stats.relacionados})
-          </button>
+
+          {todoRevisado && hayAprobados && (
+            <button
+              onClick={enviarAlegra}
+              className="btn btn-primary flex items-center text-lg px-6 py-3"
+              disabled={enviando}
+            >
+              {enviando ? (
+                <>
+                  <Loader size={20} className="mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send size={20} className="mr-2" />
+                  Enviar a Alegra ({stats.aprobados} productos)
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Lista de productos */}
       <div className="space-y-4">
-        {productosFiltrados.map((producto) => {
-          const estado = producto.estadoRelacionado
-          const colores = {
-            PENDIENTE: 'border-yellow-300 bg-yellow-50',
-            RELACIONADO: 'border-green-300 bg-green-50',
-            IGNORADO: 'border-red-300 bg-red-50',
-            RECHAZADO: 'border-red-300 bg-red-50'
-          }
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="spinner mx-auto mb-4"></div>
+            <p className="text-gray-600">Analizando productos...</p>
+          </div>
+        ) : (
+          productos.map(producto => {
+            const analisis = analizarProducto(producto)
+            const aprobado = productosAprobados.includes(producto.id)
+            const rechazado = productosRechazados.includes(producto.id)
+            const pendiente = !aprobado && !rechazado
 
-          return (
-            <div key={producto.id} className={`card border-l-4 ${colores[estado] || 'border-gray-300'}`}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold text-gray-900">{producto.descripcion}</h4>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      estado === 'RELACIONADO' ? 'bg-green-100 text-green-800' :
-                      estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {estado === 'RELACIONADO' ? '✓ Relacionado' :
-                       estado === 'PENDIENTE' ? '⏳ Pendiente' : '❌ Ignorado'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">
-                    Código: <span className="font-mono bg-white px-2 py-0.5 rounded">{producto.codigoProveedor}</span>
-                  </p>
-                  {producto.mapeo && (
-                    <p className="text-sm text-green-700 bg-green-100 inline-block px-2 py-1 rounded">
-                      ✓ Relacionado con: {producto.mapeo.alegraProductName}
+            return (
+              <div
+                key={producto.id}
+                className={`card ${
+                  aprobado ? 'border-green-500 bg-green-50' :
+                  rechazado ? 'border-red-500 bg-red-50' :
+                  'border-gray-200'
+                }`}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      {analisis.nombre}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Código: {producto.codigoProveedor} | 
+                      Cantidad: {producto.cantidad} {producto.unidadMedida}
                     </p>
+                  </div>
+                  {aprobado && (
+                    <span className="badge badge-success flex items-center">
+                      <CheckCircle size={14} className="mr-1" />
+                      Aprobado
+                    </span>
+                  )}
+                  {rechazado && (
+                    <span className="badge badge-danger flex items-center">
+                      <XCircle size={14} className="mr-1" />
+                      Rechazado
+                    </span>
                   )}
                 </div>
 
-                <div className="text-right bg-white rounded-lg px-4 py-2 border">
-                  <p className="text-lg font-bold text-gray-900">
-                    ₡{producto.precioUnitario?.toLocaleString('es-CR')}
-                  </p>
-                  <p className="text-sm text-gray-600">x {producto.cantidad} uds</p>
-                  <p className="text-xs text-gray-500 mt-1 pt-1 border-t">
-                    Total: ₡{(producto.precioUnitario * producto.cantidad).toLocaleString('es-CR')}
-                  </p>
-                </div>
-              </div>
+                {/* Alertas */}
+                {analisis.alertas.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {analisis.alertas.map((alerta, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center text-sm px-3 py-2 rounded-lg ${
+                          alerta.tipo === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        <AlertCircle size={16} className="mr-2" />
+                        {alerta.mensaje}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* Acciones */}
-              {estado === 'PENDIENTE' && (
-                <div className="flex gap-2 pt-3 border-t">
-                  <button
-                    onClick={() => abrirBusqueda(producto)}
-                    className="btn btn-primary flex items-center text-sm"
-                  >
-                    <Search size={16} className="mr-1" />
-                    Buscar Producto
-                  </button>
-                  <button
-                    onClick={() => abrirCrear(producto)}
-                    className="btn btn-success flex items-center text-sm"
-                  >
-                    <Plus size={16} className="mr-1" />
-                    Crear Nuevo
-                  </button>
+                {/* Tabla de comparación */}
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100 border-b-2 border-gray-300">
+                        <th className="text-left p-3 text-sm font-semibold">Concepto</th>
+                        <th className="text-right p-3 text-sm font-semibold">Anterior</th>
+                        <th className="text-right p-3 text-sm font-semibold">Nuevo</th>
+                        <th className="text-center p-3 text-sm font-semibold">Cambio</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="p-3 text-sm font-medium">Costo (con IVA)</td>
+                        <td className="p-3 text-right text-red-600 font-semibold">
+                          ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-3 text-right text-red-600 font-bold text-lg">
+                          ₡{analisis.costoNuevo.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-3 text-center">
+                          {analisis.cambioCosto !== 0 && (
+                            <span className={`inline-flex items-center text-sm font-semibold ${
+                              analisis.cambioCosto > 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
+                              {analisis.cambioCosto > 0 ? (
+                                <TrendingUp size={16} className="mr-1" />
+                              ) : (
+                                <TrendingDown size={16} className="mr-1" />
+                              )}
+                              {Math.abs(analisis.cambioCosto).toFixed(1)}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="border-b">
+                        <td className="p-3 text-sm font-medium">Precio Venta</td>
+                        <td colSpan="2" className="p-3 text-right text-green-600 font-bold text-lg">
+                          ₡{analisis.precioVenta.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="p-3 text-center text-gray-500 text-sm">Actual</td>
+                      </tr>
+                      <tr className="bg-gray-50">
+                        <td className="p-3 text-sm font-bold">Margen</td>
+                        <td colSpan="2" className="p-3 text-right"></td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-block text-xl font-bold px-3 py-1 rounded-lg ${
+                            analisis.margen < 15 ? 'bg-red-100 text-red-700' :
+                            analisis.margen < 25 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {analisis.margen.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
-          )
-        })}
+
+                {/* Botones de acción */}
+                {pendiente && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => aprobarProducto(producto.id)}
+                      className="btn btn-success flex-1 flex items-center justify-center"
+                    >
+                      <CheckCircle size={16} className="mr-2" />
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => rechazarProducto(producto.id)}
+                      className="btn btn-danger flex-1 flex items-center justify-center"
+                    >
+                      <XCircle size={16} className="mr-2" />
+                      Rechazar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
       </div>
 
-      {/* Modal de Búsqueda */}
-      {modalBusqueda && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-6 border-b sticky top-0 bg-white">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Buscar Producto en Alegra</h3>
-                <button
-                  onClick={() => setModalBusqueda(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <XCircle size={24} />
-                </button>
-              </div>
-
-              {productoActual && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">{productoActual.descripcion}</h4>
-                  <div className="grid grid-cols-3 gap-4 text-sm text-blue-800">
-                    <span>Código: {productoActual.codigoProveedor}</span>
-                    <span>Cantidad: {productoActual.cantidad}</span>
-                    <span>Precio: ₡{productoActual.precioUnitario?.toLocaleString('es-CR')}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o referencia..."
-                  value={terminoBusqueda}
-                  onChange={(e) => setTerminoBusqueda(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="p-6">
-              {buscando ? (
-                <div className="text-center py-8">
-                  <div className="spinner mx-auto mb-4"></div>
-                  <p className="text-gray-600">Buscando...</p>
-                </div>
-              ) : resultadosBusqueda.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  {terminoBusqueda.length < 2 
-                    ? 'Escribe al menos 2 caracteres para buscar'
-                    : 'No se encontraron productos'}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {resultadosBusqueda.map((resultado) => (
-                    <div
-                      key={resultado.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between"
-                      onClick={() => relacionarProducto(resultado.id, resultado.name)}
-                    >
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{resultado.name}</h4>
-                        <div className="flex gap-4 text-sm text-gray-600 mt-1">
-                          <span>Ref: {resultado.reference || 'N/A'}</span>
-                          <span>₡{resultado.price?.toLocaleString('es-CR')}</span>
-                        </div>
-                      </div>
-                      <button className="btn btn-primary text-sm">
-                        Seleccionar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Crear Producto - COMPLETO */}
-      {modalCrear && productoActual && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-6 border-b sticky top-0 bg-white z-10">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                  <Plus className="mr-2 text-green-600" size={24} />
-                  Crear Producto Nuevo en Alegra
-                </h3>
-                <button
-                  onClick={() => { setModalCrear(false); removerImagen(); }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <XCircle size={24} />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={crearProducto} className="p-6">
-              {/* Info del producto proveedor */}
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-6 border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
-                  <Building2 className="mr-2" size={18} />
-                  Datos del Proveedor (referencia)
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <span className="text-blue-600 font-medium">Descripción:</span>
-                    <p className="text-blue-900 font-semibold">{productoActual.descripcion}</p>
-                  </div>
-                  <div>
-                    <span className="text-blue-600 font-medium">Código:</span>
-                    <p className="text-blue-900 font-mono">{productoActual.codigoProveedor}</p>
-                  </div>
-                  <div>
-                    <span className="text-blue-600 font-medium">Precio:</span>
-                    <p className="text-blue-900 font-bold">₡{productoActual.precioUnitario?.toLocaleString('es-CR')}</p>
-                  </div>
-                  <div>
-                    <span className="text-blue-600 font-medium">Cantidad:</span>
-                    <p className="text-blue-900">{productoActual.cantidad} {productoActual.unidadMedida}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Campo oculto con ID del producto */}
-              <input type="hidden" name="productoId" value={productoActual.id} />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Columna izquierda */}
-                <div className="space-y-4">
-                  {/* Nombre */}
-                  <div>
-                    <label className="label flex items-center">
-                      <Package className="mr-1" size={16} />
-                      Nombre del producto *
-                    </label>
-                    <input
-                      type="text"
-                      name="nombre"
-                      defaultValue={productoActual.descripcion}
-                      required
-                      maxLength="150"
-                      className="input"
-                      placeholder="Nombre que aparecerá en Alegra"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Máximo 150 caracteres</p>
-                  </div>
-
-                  {/* Descripción */}
-                  <div>
-                    <label className="label flex items-center">
-                      <FileText className="mr-1" size={16} />
-                      Descripción
-                    </label>
-                    <textarea
-                      name="descripcion"
-                      defaultValue={productoActual.descripcion}
-                      rows="3"
-                      maxLength="500"
-                      className="input resize-none"
-                      placeholder="Descripción detallada del producto"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Máximo 500 caracteres</p>
-                  </div>
-
-                  {/* Referencia y Unidad */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">Código/Referencia</label>
-                      <input
-                        type="text"
-                        name="referencia"
-                        defaultValue={productoActual.codigoProveedor}
-                        className="input"
-                        placeholder="Código interno"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Unidad</label>
-                      <select name="unidad" className="input" defaultValue="unit">
-                        <option value="unit">Unidad</option>
-                        <option value="meter">Metro</option>
-                        <option value="kilogram">Kilogramo</option>
-                        <option value="gram">Gramo</option>
-                        <option value="liter">Litro</option>
-                        <option value="hour">Hora</option>
-                        <option value="day">Día</option>
-                        <option value="service">Servicio</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Categoría */}
-                  <div>
-                    <label className="label">Categoría *</label>
-                    <select name="categoria" className="input" defaultValue="2" required>
-                      {categorias.length === 0 ? (
-                        <>
-                          <option value="2">Consumo</option>
-                          <option value="1">Inventario</option>
-                        </>
-                      ) : (
-                        categorias.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">Categoría del producto en Alegra</p>
-                  </div>
-                </div>
-
-                {/* Columna derecha */}
-                <div className="space-y-4">
-                  {/* Precios */}
-                  <div className="grid grid-cols-2 gap-3">
-                      <div>
-                      <label className="label">Precio de Venta *</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₡</span>
-                        <input
-                          type="number"
-                          name="precio"
-                          defaultValue={productoActual.precioUnitario}
-                          step="0.01"
-                          min="0"
-                          required
-                          className="input pl-8"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Precio sin IVA</p>
-                    </div>
-
-                      <div>
-                      <label className="label">Costo Unitario *</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₡</span>
-                        <input
-                          type="number"
-                          name="costo"
-                          defaultValue={productoActual.precioUnitario}
-                          step="0.01"
-                          min="0"
-                          required
-                          className="input pl-8"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Costo de compra</p>
-                    </div>
-                  </div>
-
-                  {/* Cantidad inicial */}
-                  <div>
-                    <label className="label">Cantidad Inicial (opcional)</label>
-                    <input
-                      type="number"
-                      name="cantidadInicial"
-                      defaultValue={productoActual.cantidad || 0}
-                      step="0.01"
-                      min="0"
-                      className="input"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Inventario inicial en Alegra</p>
-                  </div>
-
-                  {/* Imagen del producto */}
-                      <div>
-                    <label className="label flex items-center">
-                      <Eye className="mr-1" size={16} />
-                      Imagen del Producto (opcional)
-                    </label>
-                    <input
-                      type="file"
-                      id="imagenProducto"
-                      name="imagen"
-                      accept="image/jpeg,image/png,image/gif"
-                      onChange={handleImagenChange}
-                      className="input file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">JPG, PNG o GIF - Máximo 2MB</p>
-                  </div>
-
-                  {/* Preview de imagen */}
-                  {imagenPreview && (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                      <div className="flex items-center justify-between">
-                        <img
-                          src={imagenPreview}
-                          alt="Preview"
-                          className="max-w-[150px] max-h-[150px] rounded-lg border border-gray-200 object-contain"
-                        />
-                        <button
-                          type="button"
-                          onClick={removerImagen}
-                          className="btn btn-outline text-red-600 hover:bg-red-50 text-sm"
-                        >
-                          <Trash2 size={16} className="mr-1" />
-                          Remover
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Info de ayuda */}
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <AlertCircle className="text-blue-600 mr-3 flex-shrink-0 mt-0.5" size={20} />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-semibold mb-1">💡 Tip:</p>
-                    <p>Los datos se han pre-cargado desde el producto del proveedor. Puedes editarlos antes de crear el producto en Alegra. El producto se creará y se relacionará automáticamente con esta factura.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones */}
-              <div className="flex gap-3 mt-6 pt-6 border-t">
-                <button type="submit" className="btn btn-primary flex-1 flex items-center justify-center">
-                  <Plus size={20} className="mr-2" />
-                  Crear Producto en Alegra
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setModalCrear(false); removerImagen(); }}
-                  className="btn btn-outline flex-1"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-            </div>
+      {/* Mensaje final */}
+      {todoRevisado && !hayAprobados && (
+        <div className="card bg-yellow-50 border-yellow-200 mt-6 text-center">
+          <AlertCircle className="mx-auto text-yellow-600 mb-3" size={48} />
+          <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+            No hay productos aprobados
+          </h3>
+          <p className="text-yellow-800">
+            Debes aprobar al menos un producto para enviar la factura a Alegra
+          </p>
         </div>
       )}
     </div>

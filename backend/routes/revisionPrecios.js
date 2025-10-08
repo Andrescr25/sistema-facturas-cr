@@ -362,4 +362,243 @@ router.post('/devolver-factura', async (req, res) => {
   }
 });
 
+/**
+ * Obtener facturas 100% relacionadas (listas para revisión de precios)
+ */
+router.get('/facturas-relacionadas', async (req, res) => {
+  try {
+    console.log('📋 Obteniendo facturas 100% relacionadas para revisión de precios...');
+
+    const facturas = await prisma.factura.findMany({
+      where: {
+        estado: {
+          in: ['RELACIONADA', 'PROCESADA']
+        }
+      },
+      include: {
+        productos: {
+          include: {
+            mapeo: true
+          }
+        }
+      },
+      orderBy: {
+        fechaEmision: 'desc'
+      }
+    });
+
+    // Filtrar solo facturas 100% relacionadas
+    const facturasCompletas = facturas.filter(factura => {
+      const total = factura.productos.length;
+      const relacionados = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
+      return total > 0 && relacionados === total;
+    });
+
+    console.log(`✅ ${facturasCompletas.length} facturas 100% relacionadas encontradas`);
+
+    res.json({
+      success: true,
+      facturas: facturasCompletas
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo facturas relacionadas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Obtener datos de productos en Alegra (batch) para comparación de precios
+ */
+router.post('/productos-batch', async (req, res) => {
+  try {
+    const { alegraIds } = req.body;
+
+    if (!alegraIds || !Array.isArray(alegraIds)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere un array de alegraIds'
+      });
+    }
+
+    console.log(`🔍 Obteniendo datos de ${alegraIds.length} productos en batch...`);
+
+    const productos = {};
+
+    // Obtener datos de cada producto en paralelo
+    await Promise.all(
+      alegraIds.map(async (alegraId) => {
+        try {
+          const producto = await alegraService.getProductById(alegraId);
+          if (producto) {
+            productos[alegraId] = {
+              id: producto.id,
+              name: producto.name,
+              reference: producto.reference,
+              price: producto.price?.[0]?.price || 0,
+              cost: producto.cost || 0
+            };
+          }
+        } catch (error) {
+          console.error(`⚠️ Error obteniendo producto ${alegraId}:`, error.message);
+        }
+      })
+    );
+
+    console.log(`✅ ${Object.keys(productos).length}/${alegraIds.length} productos obtenidos`);
+
+    res.json({
+      success: true,
+      productos: productos,
+      total: Object.keys(productos).length,
+      solicitados: alegraIds.length
+    });
+  } catch (error) {
+    console.error('❌ Error en batch de productos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Enviar factura completa a Alegra (actualizar costos + crear factura de proveedor)
+ */
+router.post('/enviar-alegra', async (req, res) => {
+  try {
+    const { facturaId, productosAprobados } = req.body;
+
+    if (!facturaId) {
+      return res.status(400).json({
+        success: false,
+        error: 'facturaId es requerido'
+      });
+    }
+
+    console.log(`🚀 Enviando factura ${facturaId} a Alegra...`);
+
+    // Obtener factura con productos
+    const factura = await prisma.factura.findUnique({
+      where: { id: facturaId },
+      include: {
+        productos: {
+          include: {
+            mapeo: true
+          }
+        }
+      }
+    });
+
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        error: 'Factura no encontrada'
+      });
+    }
+
+    // Filtrar productos aprobados (o todos si no se especifica)
+    const productos = productosAprobados && productosAprobados.length > 0
+      ? factura.productos.filter(p => productosAprobados.includes(p.id))
+      : factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO');
+
+    console.log(`📦 Procesando ${productos.length} productos...`);
+
+    // PASO 1: Actualizar costos en Alegra
+    let costosActualizados = 0;
+    for (const producto of productos) {
+      try {
+        const alegraId = producto.alegraItemId;
+        if (!alegraId) continue;
+
+        // Calcular costo con IVA
+        const impuestoPorcentaje = producto.impuesto > 0 
+          ? (producto.impuesto / producto.subtotal) * 100 
+          : 13;
+        const costoConIVA = producto.precioUnitario * (1 + impuestoPorcentaje / 100);
+
+        // Actualizar en Alegra
+        await alegraService.updateProduct(alegraId, {
+          cost: Math.round(costoConIVA * 100) / 100
+        });
+
+        costosActualizados++;
+        console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoConIVA.toFixed(2)}`);
+      } catch (error) {
+        console.error(`⚠️ Error actualizando costo de ${producto.descripcion}:`, error.message);
+      }
+    }
+
+    // PASO 2: Crear factura de proveedor en Alegra
+    let alegraFacturaId = null;
+    try {
+      // Buscar o crear contacto del proveedor
+      const contacto = await alegraService.createOrGetContact({
+        name: factura.proveedorNombre,
+        identification: factura.proveedorCedula,
+        phonePrimary: factura.proveedorTelefono || '',
+        email: factura.proveedorEmail || '',
+        type: 'provider'
+      });
+
+      // Preparar items de la factura
+      const items = productos.map(p => ({
+        id: p.alegraItemId,
+        quantity: p.cantidad,
+        price: p.precioUnitario,
+        tax: [{
+          id: 3, // IVA 13%
+          percentage: p.impuesto > 0 ? (p.impuesto / p.subtotal) * 100 : 13
+        }]
+      }));
+
+      // Crear factura de compra en Alegra
+      const alegraFactura = await alegraService.createPurchaseInvoice({
+        date: factura.fechaEmision,
+        client: contacto.id,
+        numberTemplate: {
+          id: 1 // Compras
+        },
+        observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
+        items: items
+      });
+
+      alegraFacturaId = alegraFactura.id;
+      console.log(`✅ Factura creada en Alegra: ID ${alegraFacturaId}`);
+    } catch (error) {
+      console.error(`⚠️ Error creando factura en Alegra:`, error.message);
+    }
+
+    // PASO 3: Marcar factura como ENVIADA
+    await prisma.factura.update({
+      where: { id: facturaId },
+      data: {
+        estado: 'ENVIADA',
+        alegraFacturaId: alegraFacturaId?.toString()
+      }
+    });
+
+    console.log(`✅ Factura ${factura.numeroConsecutivo} procesada exitosamente`);
+
+    res.json({
+      success: true,
+      resultado: {
+        numeroConsecutivo: factura.numeroConsecutivo,
+        proveedor: factura.proveedorNombre,
+        alegraFacturaId: alegraFacturaId,
+        totalProductos: productos.length,
+        costosActualizados: costosActualizados
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error enviando a Alegra:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
