@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   DollarSign, 
   Package, 
@@ -15,6 +16,8 @@ import {
 import api from '../services/api'
 
 export default function RevisionPrecios() {
+  const navigate = useNavigate()
+  
   // Estados principales
   const [vista, setVista] = useState('lista')
   const [facturas, setFacturas] = useState([])
@@ -342,7 +345,9 @@ export default function RevisionPrecios() {
                   if (tabActiva === 'LISTAS_REVISION' && es100Relacionada) {
                     abrirRevision(factura)
                   } else if (tabActiva === 'PENDIENTE_RELACIONAR') {
-                    window.location.href = `/relacionar?id=${factura.id}`
+                    navigate(`/registrar-faltantes/${factura.id}`)
+                  } else if (tabActiva === 'ENVIADAS') {
+                    abrirRevision(factura)
                   }
                 }}
               >
