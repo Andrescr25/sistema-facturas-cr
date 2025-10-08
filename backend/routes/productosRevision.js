@@ -118,6 +118,139 @@ router.get('/relacionados', async (req, res) => {
 });
 
 /**
+ * Crear nueva relación producto-proveedor con Alegra
+ */
+router.post('/relacion', async (req, res) => {
+    try {
+        const { productoProveedorId, alegraItemId, facturaId } = req.body;
+
+        console.log(`🔗 Creando relación: Producto ${productoProveedorId} → Alegra ${alegraItemId}`);
+
+        // Validaciones
+        if (!productoProveedorId || !alegraItemId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Faltan campos requeridos: productoProveedorId, alegraItemId'
+            });
+        }
+
+        // Obtener producto del proveedor
+        const producto = await prisma.productoFactura.findUnique({
+            where: { id: productoProveedorId },
+            include: { factura: true }
+        });
+
+        if (!producto) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto del proveedor no encontrado'
+            });
+        }
+
+        // Obtener info del producto de Alegra desde caché local
+        const alegraProduct = await prisma.alegraProduct.findUnique({
+            where: { alegraId: alegraItemId.toString() }
+        });
+
+        if (!alegraProduct) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto de Alegra no encontrado en caché'
+            });
+        }
+
+        // Crear o actualizar mapeo
+        let mapeo = await prisma.supplierProductMapping.findFirst({
+            where: {
+                supplierCedula: producto.factura.proveedorCedula,
+                supplierCode: producto.codigoProveedor,
+                alegraItemId: alegraItemId.toString()
+            }
+        });
+
+        if (!mapeo) {
+            mapeo = await prisma.supplierProductMapping.create({
+                data: {
+                    supplierName: producto.factura.proveedorNombre,
+                    supplierCedula: producto.factura.proveedorCedula,
+                    supplierCode: producto.codigoProveedor,
+                    supplierDesc: producto.descripcion,
+                    alegraItemId: alegraItemId.toString(),
+                    alegraReference: alegraProduct.reference,
+                    alegraName: alegraProduct.name,
+                    confidence: 100,
+                    createdBy: 'manual_relation'
+                }
+            });
+            console.log(`✅ Mapeo creado: ID ${mapeo.id}`);
+        } else {
+            console.log(`✅ Mapeo ya existe: ID ${mapeo.id}`);
+        }
+
+        // Actualizar producto como RELACIONADO
+        const productoActualizado = await prisma.productoFactura.update({
+            where: { id: productoProveedorId },
+            data: {
+                alegraItemId: alegraItemId.toString(),
+                estadoRelacionado: 'RELACIONADO',
+                confianza: 100,
+                mapeoId: mapeo.id
+            }
+        });
+
+        // Verificar si todos los productos de la factura están relacionados
+        const totalProductos = await prisma.productoFactura.count({
+            where: { facturaId: producto.facturaId }
+        });
+
+        const productosRelacionados = await prisma.productoFactura.count({
+            where: {
+                facturaId: producto.facturaId,
+                estadoRelacionado: 'RELACIONADO'
+            }
+        });
+
+        const porcentajeRelacionado = Math.round((productosRelacionados / totalProductos) * 100);
+
+        // Si está 100% relacionado, actualizar estado de la factura
+        if (porcentajeRelacionado === 100) {
+            await prisma.factura.update({
+                where: { id: producto.facturaId },
+                data: {
+                    estadoRelacionado: 'RELACIONADO',
+                    porcentajeRelacionado: 100
+                }
+            });
+            console.log(`🎉 Factura ${producto.facturaId} ahora está 100% relacionada`);
+        } else {
+            await prisma.factura.update({
+                where: { id: producto.facturaId },
+                data: {
+                    porcentajeRelacionado: porcentajeRelacionado
+                }
+            });
+        }
+
+        console.log(`✅ Producto relacionado: ${producto.descripcion} → ${alegraProduct.name}`);
+
+        res.json({
+            success: true,
+            message: 'Producto relacionado exitosamente',
+            producto: productoActualizado,
+            mapeo: mapeo,
+            porcentajeRelacionado: porcentajeRelacionado,
+            facturaCompleta: porcentajeRelacionado === 100
+        });
+    } catch (error) {
+        console.error('❌ Error creando relación:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * Ajustar cantidad y/o precio de producto
  */
 router.post('/ajustar', async (req, res) => {
