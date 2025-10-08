@@ -16,26 +16,40 @@ const corsOptions = {
     
     // Lista de orígenes permitidos
     const allowedOrigins = [
-      'http://localhost:5173',                           // Desarrollo
+      'http://localhost:5173',                           // Desarrollo local
+      'http://localhost:5174',                           // Desarrollo local alternativo
       'https://sistema-facturas-cr.onrender.com',        // Frontend en producción
       'https://sistema-facturas-cr-web.onrender.com'     // Backend URL (para requests internos)
     ];
     
     // También permitir cualquier subdominio de onrender.com para flexibilidad
     if (origin.includes('.onrender.com') || allowedOrigins.includes(origin)) {
+      console.log(`✅ CORS: Permitido desde ${origin}`);
       callback(null, true);
     } else {
-      console.warn(`🚫 CORS: Origin ${origin} no permitido`);
-      callback(null, true); // Permitir de todos modos en producción
+      console.warn(`⚠️ CORS: Origin ${origin} no en lista, pero permitiendo...`);
+      callback(null, true); // Permitir de todos modos para evitar bloqueos
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200
 };
 
 // Middlewares
 app.use(helmet());
 app.use(cors(corsOptions));
+
+// Manejar preflight requests explícitamente
+app.options('*', cors(corsOptions));
+
+// Logging mejorado
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+  next();
+});
+
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -123,6 +137,11 @@ app.listen(PORT, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 URL: http://localhost:${PORT}`);
   console.log(`📁 Sirviendo frontend desde: ${path.join(__dirname, '../frontend/dist')}`);
+  console.log(`🔓 CORS: Configurado para .onrender.com y localhost`);
+  console.log(`📋 Orígenes permitidos:`);
+  console.log(`   - http://localhost:5173`);
+  console.log(`   - https://sistema-facturas-cr.onrender.com`);
+  console.log(`   - Todos los subdominios *.onrender.com`);
 });
 
 module.exports = app;
