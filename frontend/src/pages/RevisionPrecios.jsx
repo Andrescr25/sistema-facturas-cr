@@ -345,7 +345,7 @@ export default function RevisionPrecios() {
                   if (tabActiva === 'LISTAS_REVISION' && es100Relacionada) {
                     abrirRevision(factura)
                   } else if (tabActiva === 'PENDIENTE_RELACIONAR') {
-                    navigate(`/registrar-faltantes/${factura.id}`)
+                    navigate(`/relacionar-productos/${factura.id}`)
                   } else if (tabActiva === 'ENVIADAS') {
                     abrirRevision(factura)
                   }

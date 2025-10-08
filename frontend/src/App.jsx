@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import BuscarFactura from './pages/BuscarFactura'
 import RegistrarFaltantes from './pages/RegistrarFaltantes'
+import RelacionarProductos from './pages/RelacionarProductos'
 import ReporteProveedores from './pages/ReporteProveedores'
 import ReporteClientes from './pages/ReporteClientes'
 import RevisionPrecios from './pages/RevisionPrecios'
@@ -51,6 +52,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/buscar-factura" element={<BuscarFactura />} />
         <Route path="/registrar-faltantes/:facturaId?" element={<RegistrarFaltantes />} />
+        <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />
         <Route path="/reportes/proveedores" element={<ReporteProveedores />} />
         <Route path="/reportes/clientes" element={<ReporteClientes />} />
         <Route path="/revision-precios" element={<RevisionPrecios />} />
