@@ -517,15 +517,12 @@ router.post('/enviar-alegra', async (req, res) => {
         const alegraId = producto.alegraItemId;
         if (!alegraId) continue;
 
-        // Calcular costo con IVA
-        const impuestoPorcentaje = producto.impuesto > 0 
-          ? (producto.impuesto / producto.subtotal) * 100 
-          : 13;
-        const costoConIVA = producto.precioUnitario * (1 + impuestoPorcentaje / 100);
+        // El costo nuevo es directamente el precioUnitario de la factura (ya incluye IVA)
+        const costoNuevo = producto.precioUnitario;
 
         // Preparar datos de actualización
         const updateData = {
-          cost: Math.round(costoConIVA * 100) / 100
+          cost: Math.round(costoNuevo * 100) / 100
         };
 
         // Si el usuario ajustó el precio, incluirlo
@@ -539,7 +536,7 @@ router.post('/enviar-alegra', async (req, res) => {
         await alegraService.updateProduct(alegraId, updateData);
 
         costosActualizados++;
-        console.log(`✅ Actualizado: ${producto.descripcion}`);
+        console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevo.toFixed(2)}`);
       } catch (error) {
         console.error(`⚠️ Error actualizando ${producto.descripcion}:`, error.message);
       }

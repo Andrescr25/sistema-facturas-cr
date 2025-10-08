@@ -141,18 +141,18 @@ export default function RevisionPrecios() {
   const analizarProducto = (producto) => {
     const alegraData = productosAlegra[producto.alegraItemId] || {}
     
+    // Costo Anterior: último costo en Alegra (antes de esta factura)
     const costoAnterior = alegraData.cost || 0
     
-    const impuestoPorcentaje = producto.impuesto > 0 
-      ? (producto.impuesto / producto.subtotal) * 100 
-      : 13
-    const costoNuevo = producto.precioUnitario * (1 + impuestoPorcentaje / 100)
+    // Costo Nuevo: precio de la factura actual del proveedor (con IVA incluido)
+    // producto.precioUnitario ya es el costo con IVA de la factura
+    const costoNuevo = producto.precioUnitario || 0
     
     // Precio de venta: usar ajustado si existe, sino el de Alegra
     const precioVentaActual = alegraData.price || 0
     const precioVentaAjustado = preciosAjustados[producto.id] || precioVentaActual
     
-    // Margen con precio actual
+    // Margen con precio actual: (precioVenta - costo) / precioVenta * 100
     const margenActual = precioVentaActual > 0 
       ? ((precioVentaActual - costoNuevo) / precioVentaActual) * 100 
       : 0
@@ -162,12 +162,13 @@ export default function RevisionPrecios() {
       ? ((precioVentaAjustado - costoNuevo) / precioVentaAjustado) * 100 
       : 0
     
+    // Cambio de costo: cuánto aumentó/disminuyó respecto al anterior
     const cambioCosto = costoAnterior > 0 
       ? ((costoNuevo - costoAnterior) / costoAnterior) * 100 
       : 0
     
     // Precio sugerido (margen 25%)
-    const precioSugerido = costoNuevo / 0.75
+    const precioSugerido = costoNuevo > 0 ? costoNuevo / 0.75 : 0
     
     const alertas = []
     if (cambioCosto > 30) {
@@ -179,7 +180,7 @@ export default function RevisionPrecios() {
     if (margenNuevo < 20 && margenNuevo > 0) {
       alertas.push({
         tipo: 'danger',
-        mensaje: `🔴 Margen bajo: ${Math.round(margenNuevo)}% (sugerido: ₡${precioSugerido.toFixed(0)})`
+        mensaje: `🔴 Margen bajo: ${Math.round(margenNuevo)}% (sugerido: ₡${Math.round(precioSugerido)})`
       })
     }
     
