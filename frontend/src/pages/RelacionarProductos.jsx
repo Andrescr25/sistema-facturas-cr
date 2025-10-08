@@ -39,6 +39,12 @@ export default function RelacionarProductos() {
   const [modalCrear, setModalCrear] = useState(false)
   const [categorias, setCategorias] = useState([])
   const [imagenPreview, setImagenPreview] = useState(null)
+  
+  // Modal ajuste de conversión
+  const [modalConversion, setModalConversion] = useState(false)
+  const [productoRelacionado, setProductoRelacionado] = useState(null)
+  const [factorConversion, setFactorConversion] = useState(1)
+  const [tipoConversion, setTipoConversion] = useState('igual') // 'igual', 'multiplicar', 'dividir'
 
   useEffect(() => {
     if (facturaId) {
@@ -124,6 +130,16 @@ export default function RelacionarProductos() {
             : p
         ))
         cerrarModalBusqueda()
+        
+        // Abrir modal de conversión
+        setProductoRelacionado({
+          ...productoSeleccionado,
+          alegraProducto: alegraProducto,
+          mapeoId: response.data.mapeo.id
+        })
+        setFactorConversion(1)
+        setTipoConversion('igual')
+        setModalConversion(true)
       }
     } catch (err) {
       alert('Error relacionando producto: ' + err.message)
@@ -220,6 +236,38 @@ export default function RelacionarProductos() {
     } catch (err) {
       alert('⚠️ Error: ' + err.message)
     }
+  }
+
+  const guardarFactorConversion = async () => {
+    if (!productoRelacionado) return
+
+    let factor = 1
+    
+    if (tipoConversion === 'multiplicar') {
+      factor = parseFloat(factorConversion)
+    } else if (tipoConversion === 'dividir') {
+      factor = 1 / parseFloat(factorConversion)
+    }
+
+    try {
+      await api.post('/productos-revision/factor-conversion', {
+        mapeoId: productoRelacionado.mapeoId,
+        factorConversion: factor
+      })
+
+      alert(`✅ Factor de conversión guardado. Las futuras relaciones se ajustarán automáticamente.`)
+      setModalConversion(false)
+      setProductoRelacionado(null)
+      loadFactura()
+    } catch (err) {
+      alert('Error guardando factor: ' + err.message)
+    }
+  }
+
+  const omitirConversion = () => {
+    setModalConversion(false)
+    setProductoRelacionado(null)
+    loadFactura()
   }
 
   const productosFiltrados = productos.filter(p => {
@@ -735,6 +783,128 @@ export default function RelacionarProductos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Conversión de Cantidad */}
+      {modalConversion && productoRelacionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full">
+            <div className="p-6 border-b">
+              <h3 className="text-xl font-bold text-gray-900">⚙️ Configurar Conversión de Cantidad</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Define cómo convertir las cantidades entre el proveedor y tu sistema
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Info de productos */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <p className="text-xs font-medium text-orange-700 mb-1">PROVEEDOR</p>
+                  <p className="font-semibold text-gray-900">{productoRelacionado.descripcion}</p>
+                  <p className="text-sm text-gray-600">
+                    Cantidad: {productoRelacionado.cantidad} {productoRelacionado.unidadMedida}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-xs font-medium text-blue-700 mb-1">TU SISTEMA (ALEGRA)</p>
+                  <p className="font-semibold text-gray-900">{productoRelacionado.alegraProducto.name}</p>
+                  <p className="text-sm text-gray-600">
+                    Ref: {productoRelacionado.alegraProducto.reference || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Opciones de conversión */}
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Tipo de Conversión</label>
+                  <select
+                    value={tipoConversion}
+                    onChange={(e) => setTipoConversion(e.target.value)}
+                    className="input"
+                  >
+                    <option value="igual">✅ Sin conversión (1:1)</option>
+                    <option value="multiplicar">✖️ Multiplicar cantidad del proveedor</option>
+                    <option value="dividir">➗ Dividir cantidad del proveedor</option>
+                  </select>
+                </div>
+
+                {tipoConversion !== 'igual' && (
+                  <div>
+                    <label className="label">Factor de Conversión</label>
+                    <input
+                      type="number"
+                      value={factorConversion}
+                      onChange={(e) => setFactorConversion(e.target.value)}
+                      step="0.01"
+                      min="0.01"
+                      className="input"
+                      placeholder="Ej: 2, 0.5, 12, etc."
+                    />
+                  </div>
+                )}
+
+                {/* Ejemplos */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="font-semibold text-gray-900 mb-2">💡 Ejemplo:</p>
+                  {tipoConversion === 'igual' && (
+                    <p className="text-sm text-gray-700">
+                      Si el proveedor factura <strong>10 unidades</strong>, en tu sistema se registrarán <strong>10 unidades</strong>
+                    </p>
+                  )}
+                  {tipoConversion === 'multiplicar' && (
+                    <p className="text-sm text-gray-700">
+                      Si el proveedor factura <strong>10 cajas</strong> y el factor es <strong>{factorConversion}</strong>, 
+                      en tu sistema se registrarán <strong>{(10 * parseFloat(factorConversion || 1)).toFixed(2)} unidades</strong>
+                      <br />
+                      <span className="text-xs text-gray-500 mt-1 block">
+                        (Útil cuando el proveedor vende en cajas y tú en unidades)
+                      </span>
+                    </p>
+                  )}
+                  {tipoConversion === 'dividir' && (
+                    <p className="text-sm text-gray-700">
+                      Si el proveedor factura <strong>100 unidades</strong> y el factor es <strong>{factorConversion}</strong>, 
+                      en tu sistema se registrarán <strong>{(100 / parseFloat(factorConversion || 1)).toFixed(2)} cajas</strong>
+                      <br />
+                      <span className="text-xs text-gray-500 mt-1 block">
+                        (Útil cuando el proveedor vende en unidades y tú en cajas)
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Advertencia */}
+                {tipoConversion !== 'igual' && (
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex items-start">
+                    <AlertCircle className="text-yellow-600 mr-2 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-semibold mb-1">⚠️ Importante:</p>
+                      <p>Este factor se guardará y se aplicará automáticamente en futuras facturas de este proveedor para este producto.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="p-6 border-t bg-gray-50 flex gap-3">
+              <button
+                onClick={guardarFactorConversion}
+                className="btn btn-primary flex-1"
+              >
+                Guardar Factor
+              </button>
+              <button
+                onClick={omitirConversion}
+                className="btn btn-outline flex-1"
+              >
+                Omitir (Sin conversión)
+              </button>
+            </div>
           </div>
         </div>
       )}

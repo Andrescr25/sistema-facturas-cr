@@ -603,6 +603,45 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 });
 
 /**
+ * Guardar factor de conversión en mapeo
+ */
+router.post('/factor-conversion', async (req, res) => {
+    try {
+        const { mapeoId, factorConversion } = req.body;
+
+        console.log(`⚙️ Actualizando factor de conversión: Mapeo ${mapeoId} → Factor ${factorConversion}`);
+
+        if (!mapeoId || !factorConversion) {
+            return res.status(400).json({
+                success: false,
+                error: 'Faltan campos requeridos: mapeoId, factorConversion'
+            });
+        }
+
+        const mapeo = await prisma.supplierProductMapping.update({
+            where: { id: mapeoId },
+            data: {
+                factorConversion: parseFloat(factorConversion)
+            }
+        });
+
+        console.log(`✅ Factor de conversión guardado: ${factorConversion}`);
+
+        res.json({
+            success: true,
+            message: 'Factor de conversión guardado exitosamente',
+            mapeo: mapeo
+        });
+    } catch (error) {
+        console.error('❌ Error guardando factor de conversión:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * Buscar productos en Alegra (alias para compatibilidad)
  */
 router.get('/buscar', async (req, res) => {

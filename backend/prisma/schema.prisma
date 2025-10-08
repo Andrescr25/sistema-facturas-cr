@@ -30,7 +30,9 @@ model Factura {
   moneda            String   @default("CRC")
   
   // Estados del procesamiento
-  estado            EstadoFactura @default(RECIBIDA)
+  estado                EstadoFactura      @default(RECIBIDA)
+  estadoRelacionado     EstadoRelacionado? @map("estado_relacionado")
+  porcentajeRelacionado Int                @default(0) @map("porcentaje_relacionado")
   
   // Relaciones
   productos         ProductoFactura[]
@@ -98,6 +100,7 @@ model SupplierProductMapping {
   createdDate       DateTime @default(now()) @map("created_date")
   lastUsedDate      DateTime @default(now()) @map("last_used_date")
   createdBy         String   @default("manual") @map("created_by") // manual | automatic
+  factorConversion  Float?   @map("factor_conversion") // Factor para convertir cantidad (ej: 1x24 a 1x12 = 0.5)
   
   // Relaciones
   productos         ProductoFactura[]
