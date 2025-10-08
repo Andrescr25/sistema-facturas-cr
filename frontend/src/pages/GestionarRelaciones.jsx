@@ -9,7 +9,8 @@ import {
   CheckCircle,
   XCircle,
   Package,
-  Filter
+  Filter,
+  Settings
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -28,7 +29,12 @@ export default function GestionarRelaciones() {
   // Modales
   const [modalEditar, setModalEditar] = useState(false)
   const [modalEliminar, setModalEliminar] = useState(false)
+  const [modalFactor, setModalFactor] = useState(false)
   const [productoSeleccionado, setProductoSeleccionado] = useState(null)
+  
+  // Factor de conversión
+  const [cantidadProveedor, setCantidadProveedor] = useState(1)
+  const [cantidadMia, setCantidadMia] = useState(1)
   
   // Búsqueda de nuevo producto
   const [terminoBusqueda, setTerminoBusqueda] = useState('')
@@ -104,6 +110,58 @@ export default function GestionarRelaciones() {
     setModalEditar(true)
     setTerminoBusqueda('')
     setResultadosBusqueda([])
+  }
+
+  const abrirFactor = (producto) => {
+    setProductoSeleccionado(producto)
+    
+    // Si ya tiene un factor, calcularlo en reversa
+    if (producto.mapeo?.factorConversion && producto.mapeo.factorConversion !== 1) {
+      // El factor guardado es cantidadMia / cantidadProveedor
+      // Intentar inferir valores razonables
+      const factor = producto.mapeo.factorConversion
+      if (factor < 1) {
+        // Ejemplo: 0.5 significa 1 del proveedor = 0.5 mío (2:1)
+        setCantidadProveedor(Math.round(1 / factor))
+        setCantidadMia(1)
+      } else {
+        // Ejemplo: 2 significa 1 del proveedor = 2 míos (1:2)
+        setCantidadProveedor(1)
+        setCantidadMia(Math.round(factor))
+      }
+    } else {
+      setCantidadProveedor(1)
+      setCantidadMia(1)
+    }
+    
+    setModalFactor(true)
+  }
+
+  const guardarFactor = async () => {
+    if (!productoSeleccionado?.mapeo) return
+
+    const cantProv = parseFloat(cantidadProveedor)
+    const cantMia = parseFloat(cantidadMia)
+
+    if (cantProv <= 0 || cantMia <= 0) {
+      alert('⚠️ Las cantidades deben ser mayores a 0')
+      return
+    }
+
+    const factor = cantMia / cantProv
+
+    try {
+      await api.post('/productos-revision/factor-conversion', {
+        mapeoId: productoSeleccionado.mapeo.id,
+        factorConversion: factor
+      })
+
+      alert(`✅ Factor guardado: ${cantProv} del proveedor = ${cantMia} en tu sistema`)
+      setModalFactor(false)
+      loadProductos()
+    } catch (err) {
+      alert('Error guardando factor: ' + err.message)
+    }
   }
 
   const buscarNuevoProducto = async (termino) => {
@@ -402,6 +460,16 @@ export default function GestionarRelaciones() {
                             Editar
                           </button>
                           <button
+                            onClick={() => abrirFactor(producto)}
+                            className="btn btn-outline text-sm flex items-center justify-center text-blue-600 hover:bg-blue-50"
+                          >
+                            <Settings size={16} className="mr-1" />
+                            Factor
+                            {producto.mapeo?.factorConversion && producto.mapeo.factorConversion !== 1 && (
+                              <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">✓</span>
+                            )}
+                          </button>
+                          <button
                             onClick={() => abrirEliminar(producto)}
                             className="btn btn-outline text-sm flex items-center justify-center text-red-600 hover:bg-red-50"
                           >
@@ -530,6 +598,116 @@ export default function GestionarRelaciones() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Factor de Conversión */}
+      {modalFactor && productoSeleccionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">⚙️ Factor de Conversión</h3>
+                <button
+                  onClick={() => setModalFactor(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle size={24} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Info del producto */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <p className="text-sm text-gray-600 mb-2">Producto del proveedor:</p>
+                <p className="font-semibold text-gray-900">{productoSeleccionado.descripcion}</p>
+                <p className="text-sm text-gray-600">Relacionado con: {productoSeleccionado.mapeo?.alegraName}</p>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
+                <p className="text-sm font-semibold text-blue-900 mb-3">
+                  💡 Define la equivalencia entre las cantidades:
+                </p>
+                
+                <div className="grid grid-cols-5 gap-3 items-center">
+                  {/* Cantidad Proveedor */}
+                  <div className="col-span-2">
+                    <label className="label text-xs">Cantidad Proveedor</label>
+                    <input
+                      type="number"
+                      value={cantidadProveedor}
+                      onChange={(e) => setCantidadProveedor(e.target.value)}
+                      step="1"
+                      min="1"
+                      className="input"
+                      placeholder="Ej: 24"
+                    />
+                    <p className="text-xs text-gray-600 mt-1">Unidades que factura</p>
+                  </div>
+
+                  {/* Icono = */}
+                  <div className="col-span-1 text-center">
+                    <span className="text-2xl text-blue-600 font-bold">=</span>
+                  </div>
+
+                  {/* Cantidad Mía */}
+                  <div className="col-span-2">
+                    <label className="label text-xs">Cantidad en Tu Sistema</label>
+                    <input
+                      type="number"
+                      value={cantidadMia}
+                      onChange={(e) => setCantidadMia(e.target.value)}
+                      step="1"
+                      min="1"
+                      className="input"
+                      placeholder="Ej: 12"
+                    />
+                    <p className="text-xs text-gray-600 mt-1">Unidades que registras</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vista Previa */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <p className="font-semibold text-gray-900 mb-2">📊 Vista Previa:</p>
+                {(() => {
+                  const cantProv = parseFloat(cantidadProveedor) || 1
+                  const cantMia = parseFloat(cantidadMia) || 1
+                  const factor = cantMia / cantProv
+                  const ejemploProveedor = 10
+                  const ejemploResultado = (ejemploProveedor * factor).toFixed(2)
+
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-700">
+                        <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
+                      </p>
+                      <p className="text-sm text-blue-700 font-medium">
+                        <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
+                        en tu sistema se registrarán <strong>{ejemploResultado}</strong>
+                      </p>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50 flex gap-3">
+              <button
+                onClick={guardarFactor}
+                className="btn btn-primary flex-1"
+              >
+                ✅ Guardar Factor
+              </button>
+              <button
+                onClick={() => setModalFactor(false)}
+                className="btn btn-outline flex-1"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>

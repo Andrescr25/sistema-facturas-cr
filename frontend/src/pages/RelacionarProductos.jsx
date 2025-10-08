@@ -43,8 +43,8 @@ export default function RelacionarProductos() {
   // Modal ajuste de conversión
   const [modalConversion, setModalConversion] = useState(false)
   const [productoRelacionado, setProductoRelacionado] = useState(null)
-  const [factorConversion, setFactorConversion] = useState(1)
-  const [tipoConversion, setTipoConversion] = useState('igual') // 'igual', 'multiplicar', 'dividir'
+  const [cantidadProveedor, setCantidadProveedor] = useState(1)
+  const [cantidadMia, setCantidadMia] = useState(1)
 
   useEffect(() => {
     if (facturaId) {
@@ -137,8 +137,8 @@ export default function RelacionarProductos() {
           alegraProducto: alegraProducto,
           mapeoId: response.data.mapeo.id
         })
-        setFactorConversion(1)
-        setTipoConversion('igual')
+        setCantidadProveedor(1)
+        setCantidadMia(1)
         setModalConversion(true)
       }
     } catch (err) {
@@ -241,13 +241,18 @@ export default function RelacionarProductos() {
   const guardarFactorConversion = async () => {
     if (!productoRelacionado) return
 
-    let factor = 1
-    
-    if (tipoConversion === 'multiplicar') {
-      factor = parseFloat(factorConversion)
-    } else if (tipoConversion === 'dividir') {
-      factor = 1 / parseFloat(factorConversion)
+    const cantProv = parseFloat(cantidadProveedor)
+    const cantMia = parseFloat(cantidadMia)
+
+    if (cantProv <= 0 || cantMia <= 0) {
+      alert('⚠️ Las cantidades deben ser mayores a 0')
+      return
     }
+
+    // Calcular factor: cantidadMia / cantidadProveedor
+    // Si proveedor factura 24 y yo registro 12, factor = 12/24 = 0.5
+    // Si proveedor factura 100 y yo registro 1, factor = 1/100 = 0.01
+    const factor = cantMia / cantProv
 
     try {
       await api.post('/productos-revision/factor-conversion', {
@@ -255,7 +260,7 @@ export default function RelacionarProductos() {
         factorConversion: factor
       })
 
-      alert(`✅ Factor de conversión guardado. Las futuras relaciones se ajustarán automáticamente.`)
+      alert(`✅ Factor guardado: ${cantProv} del proveedor = ${cantMia} en tu sistema\nLas futuras facturas se ajustarán automáticamente.`)
       setModalConversion(false)
       setProductoRelacionado(null)
       loadFactura()
@@ -819,80 +824,97 @@ export default function RelacionarProductos() {
 
               {/* Opciones de conversión */}
               <div className="space-y-4">
-                <div>
-                  <label className="label">Tipo de Conversión</label>
-                  <select
-                    value={tipoConversion}
-                    onChange={(e) => setTipoConversion(e.target.value)}
-                    className="input"
-                  >
-                    <option value="igual">✅ Sin conversión (1:1)</option>
-                    <option value="multiplicar">✖️ Multiplicar cantidad del proveedor</option>
-                    <option value="dividir">➗ Dividir cantidad del proveedor</option>
-                  </select>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold text-blue-900 mb-3">
+                    💡 Define la equivalencia entre las cantidades:
+                  </p>
+                  
+                  <div className="grid grid-cols-5 gap-3 items-center">
+                    {/* Cantidad Proveedor */}
+                    <div className="col-span-2">
+                      <label className="label text-xs">Cantidad Proveedor</label>
+                      <input
+                        type="number"
+                        value={cantidadProveedor}
+                        onChange={(e) => setCantidadProveedor(e.target.value)}
+                        step="1"
+                        min="1"
+                        className="input"
+                        placeholder="Ej: 24"
+                      />
+                      <p className="text-xs text-gray-600 mt-1">Unidades que factura</p>
+                    </div>
+
+                    {/* Icono = */}
+                    <div className="col-span-1 text-center">
+                      <span className="text-2xl text-blue-600 font-bold">=</span>
+                    </div>
+
+                    {/* Cantidad Mía */}
+                    <div className="col-span-2">
+                      <label className="label text-xs">Cantidad en Tu Sistema</label>
+                      <input
+                        type="number"
+                        value={cantidadMia}
+                        onChange={(e) => setCantidadMia(e.target.value)}
+                        step="1"
+                        min="1"
+                        className="input"
+                        placeholder="Ej: 12"
+                      />
+                      <p className="text-xs text-gray-600 mt-1">Unidades que registras</p>
+                    </div>
+                  </div>
                 </div>
 
-                {tipoConversion !== 'igual' && (
-                  <div>
-                    <label className="label">Factor de Conversión</label>
-                    <input
-                      type="number"
-                      value={factorConversion}
-                      onChange={(e) => setFactorConversion(e.target.value)}
-                      step="0.01"
-                      min="0.01"
-                      className="input"
-                      placeholder="Ej: 2, 0.5, 12, etc."
-                    />
-                  </div>
-                )}
-
-                {/* Ejemplos */}
+                {/* Ejemplos dinámicos */}
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <p className="font-semibold text-gray-900 mb-2">💡 Ejemplo:</p>
-                  {tipoConversion === 'igual' && (
-                    <p className="text-sm text-gray-700">
-                      Si el proveedor factura <strong>10 unidades</strong>, en tu sistema se registrarán <strong>10 unidades</strong>
-                    </p>
-                  )}
-                  {tipoConversion === 'multiplicar' && (
-                    <p className="text-sm text-gray-700">
-                      Si el proveedor factura <strong>10 cajas</strong> y el factor es <strong>{factorConversion}</strong>, 
-                      en tu sistema se registrarán <strong>{(10 * parseFloat(factorConversion || 1)).toFixed(2)} unidades</strong>
-                      <br />
-                      <span className="text-xs text-gray-500 mt-1 block">
-                        {parseFloat(factorConversion) === 24 
-                          ? '(Ej: Proveedor vende 1x24, tú vendes unidades sueltas. 10 cajas = 240 unidades)'
-                          : parseFloat(factorConversion) === 12
-                          ? '(Ej: Proveedor vende 1x12, tú vendes unidades sueltas. 10 cajas = 120 unidades)'
-                          : '(Útil cuando el proveedor vende en cajas y tú en unidades)'
-                        }
-                      </span>
-                    </p>
-                  )}
-                  {tipoConversion === 'dividir' && (
-                    <p className="text-sm text-gray-700">
-                      Si el proveedor factura <strong>100 unidades</strong> y el factor es <strong>{factorConversion}</strong>, 
-                      en tu sistema se registrarán <strong>{(100 / parseFloat(factorConversion || 1)).toFixed(2)} {parseFloat(factorConversion) === 100 ? 'caja (1x100)' : 'cajas'}</strong>
-                      <br />
-                      <span className="text-xs text-gray-500 mt-1 block">
-                        {parseFloat(factorConversion) === 100 
-                          ? '(Ej: Proveedor vende 100 unidades sueltas, tú vendes 1x100. 100 unidades = 1 caja tuya)'
-                          : parseFloat(factorConversion) === 24
-                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. 1 caja del proveedor = 2 cajas tuyas)'
-                          : parseFloat(factorConversion) === 12
-                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. Factor incorrecto, usa 2)'
-                          : parseFloat(factorConversion) === 2
-                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. 1 caja del proveedor = 2 cajas tuyas)'
-                          : `(${100 / parseFloat(factorConversion || 1)} unidades del proveedor = 1 unidad tuya)`
-                        }
-                      </span>
-                    </p>
-                  )}
+                  <p className="font-semibold text-gray-900 mb-2">📊 Vista Previa:</p>
+                  {(() => {
+                    const cantProv = parseFloat(cantidadProveedor) || 1
+                    const cantMia = parseFloat(cantidadMia) || 1
+                    const factor = cantMia / cantProv
+                    const ejemploProveedor = 10
+                    const ejemploResultado = (ejemploProveedor * factor).toFixed(2)
+
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-700">
+                          <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
+                        </p>
+                        <p className="text-sm text-blue-700 font-medium">
+                          <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
+                          en tu sistema se registrarán <strong>{ejemploResultado}</strong>
+                        </p>
+                        
+                        {/* Casos comunes */}
+                        {cantProv === 24 && cantMia === 12 && (
+                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
+                            ✅ Caso común: Proveedor vende 1x24, tú vendes 1x12
+                          </p>
+                        )}
+                        {cantProv === 100 && cantMia === 1 && (
+                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
+                            ✅ Caso común: Proveedor vende 100 unidades sueltas, tú vendes 1x100
+                          </p>
+                        )}
+                        {cantProv === 1 && cantMia === 24 && (
+                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
+                            ✅ Caso común: Proveedor vende 1 caja, tú vendes 24 unidades
+                          </p>
+                        )}
+                        {cantProv === cantMia && (
+                          <p className="text-xs text-gray-600 bg-gray-100 p-2 rounded mt-2">
+                            ℹ️ Sin conversión: Las cantidades son iguales (1:1)
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Advertencia */}
-                {tipoConversion !== 'igual' && (
+                {parseFloat(cantidadProveedor) !== parseFloat(cantidadMia) && (
                   <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex items-start">
                     <AlertCircle className="text-yellow-600 mr-2 flex-shrink-0 mt-0.5" size={20} />
                     <div className="text-sm text-yellow-800">
@@ -910,13 +932,13 @@ export default function RelacionarProductos() {
                 onClick={guardarFactorConversion}
                 className="btn btn-primary flex-1"
               >
-                Guardar Factor
+                ✅ Guardar Conversión
               </button>
               <button
                 onClick={omitirConversion}
                 className="btn btn-outline flex-1"
               >
-                Omitir (Sin conversión)
+                ⏭️ Omitir (1:1)
               </button>
             </div>
           </div>
