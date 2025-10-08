@@ -167,8 +167,8 @@ export default function RevisionPrecios() {
       ? ((costoNuevo - costoAnterior) / costoAnterior) * 100 
       : 0
     
-    // Precio sugerido (margen 25%)
-    const precioSugerido = costoNuevo > 0 ? costoNuevo / 0.75 : 0
+    // Precio sugerido (margen 20%)
+    const precioSugerido = costoNuevo > 0 ? costoNuevo / 0.80 : 0
     
     const alertas = []
     if (cambioCosto > 30) {
@@ -177,10 +177,15 @@ export default function RevisionPrecios() {
         mensaje: `⚠️ Costo aumentó ${Math.round(cambioCosto)}%`
       })
     }
-    if (margenNuevo < 20 && margenNuevo > 0) {
+    if (margenNuevo < 15 && margenNuevo > 0) {
       alertas.push({
         tipo: 'danger',
-        mensaje: `🔴 Margen bajo: ${Math.round(margenNuevo)}% (sugerido: ₡${Math.round(precioSugerido)})`
+        mensaje: `🔴 Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugerido)})`
+      })
+    } else if (margenNuevo >= 15 && margenNuevo < 20 && margenNuevo > 0) {
+      alertas.push({
+        tipo: 'warning',
+        mensaje: `⚠️ Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugerido)})`
       })
     }
     
@@ -218,7 +223,7 @@ export default function RevisionPrecios() {
             <div className="flex items-center text-red-800">
               <AlertCircle className="mr-2" size={20} />
               {error}
-            </div>
+          </div>
         </div>
       )}
 
@@ -436,7 +441,7 @@ export default function RevisionPrecios() {
                       <td className="p-3 text-center">
                         <span className={`inline-block px-3 py-1 rounded-lg font-bold ${
                           analisis.margenActual < 15 ? 'bg-red-100 text-red-700' :
-                          analisis.margenActual < 25 ? 'bg-yellow-100 text-yellow-700' :
+                          analisis.margenActual < 20 ? 'bg-yellow-100 text-yellow-700' :
                           'bg-green-100 text-green-700'
                         }`}>
                           {analisis.margenActual.toFixed(1)}%
@@ -466,12 +471,13 @@ export default function RevisionPrecios() {
                               placeholder="Nuevo precio"
                             />
                           </div>
-                          {analisis.margenNuevo < 25 && (
+                          {analisis.margenNuevo < 20 && (
                             <button
                               onClick={() => ajustarPrecio(producto.id, analisis.precioSugerido)}
                               className="btn btn-outline text-sm whitespace-nowrap"
+                              title="Precio con margen del 20%"
                             >
-                              Sugerido: ₡{analisis.precioSugerido.toFixed(0)}
+                              Sugerido (20%): ₡{analisis.precioSugerido.toFixed(0)}
                             </button>
                           )}
                         </div>
@@ -480,7 +486,7 @@ export default function RevisionPrecios() {
                         {analisis.precioModificado ? (
                           <span className={`inline-block px-3 py-1 rounded-lg font-bold text-lg ${
                             analisis.margenNuevo < 15 ? 'bg-red-100 text-red-700' :
-                            analisis.margenNuevo < 25 ? 'bg-yellow-100 text-yellow-700' :
+                            analisis.margenNuevo < 20 ? 'bg-yellow-100 text-yellow-700' :
                             'bg-green-100 text-green-700'
                           }`}>
                             {analisis.margenNuevo.toFixed(1)}% ⭐
