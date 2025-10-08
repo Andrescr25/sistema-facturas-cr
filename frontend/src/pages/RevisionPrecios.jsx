@@ -174,18 +174,18 @@ export default function RevisionPrecios() {
     if (cambioCosto > 30) {
       alertas.push({
         tipo: 'warning',
-        mensaje: `⚠️ Costo aumentó ${Math.round(cambioCosto)}%`
+        mensaje: `Costo aumentó ${Math.round(cambioCosto)}%`
       })
     }
     if (margenNuevo < 15 && margenNuevo > 0) {
       alertas.push({
         tipo: 'danger',
-        mensaje: `🔴 Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugerido)})`
+        mensaje: `Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugerido)})`
       })
     } else if (margenNuevo >= 15 && margenNuevo < 20 && margenNuevo > 0) {
       alertas.push({
         tipo: 'warning',
-        mensaje: `⚠️ Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugerido)})`
+        mensaje: `Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugerido)})`
       })
     }
     
@@ -378,13 +378,13 @@ export default function RevisionPrecios() {
                     </h3>
                     <div className="flex flex-wrap gap-3 text-sm">
                       <span className="inline-flex items-center px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-700">
-                        📦 Código: <strong className="ml-1">{producto.codigoProveedor}</strong>
+                        Código: <strong className="ml-1">{producto.codigoProveedor}</strong>
                       </span>
                       <span className="inline-flex items-center px-3 py-1 bg-blue-100 rounded-full font-medium text-blue-700">
-                        🔢 Cantidad: <strong className="ml-1">{producto.cantidad} {producto.unidadMedida}</strong>
+                        Cantidad: <strong className="ml-1">{producto.cantidad} {producto.unidadMedida}</strong>
                       </span>
                       <span className="inline-flex items-center px-3 py-1 bg-purple-100 rounded-full font-medium text-purple-700">
-                        💰 Subtotal: <strong className="ml-1">₡{producto.subtotal?.toLocaleString('es-CR')}</strong>
+                        Subtotal: <strong className="ml-1">₡{producto.subtotal?.toLocaleString('es-CR')}</strong>
                       </span>
                     </div>
                   </div>
@@ -430,7 +430,7 @@ export default function RevisionPrecios() {
                       {/* Fila Costo */}
                       <tr className="border-b-2 border-gray-200 bg-red-50 hover:bg-red-100 transition-colors">
                         <td className="p-4 text-sm font-bold text-gray-900">
-                          💸 Costo (con IVA)
+                          Costo (con IVA)
                         </td>
                         <td className="p-4 text-right text-gray-600 font-semibold text-base">
                           ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
@@ -461,7 +461,7 @@ export default function RevisionPrecios() {
                       {/* Fila Precio Venta Actual */}
                       <tr className="border-b-2 border-gray-200 bg-green-50 hover:bg-green-100 transition-colors">
                         <td className="p-4 text-sm font-bold text-gray-900">
-                          💰 Precio Venta Actual
+                          Precio Venta Actual
                         </td>
                         <td colSpan="2" className="p-4 text-right text-green-700 font-bold text-2xl">
                           ₡{analisis.precioVentaActual.toLocaleString('es-CR', {minimumFractionDigits: 2})}
@@ -472,7 +472,7 @@ export default function RevisionPrecios() {
                             analisis.margenActual < 20 ? 'bg-yellow-400 text-gray-900' :
                             'bg-green-500 text-white'
                           }`}>
-                            📊 {analisis.margenActual.toFixed(1)}%
+                            {analisis.margenActual.toFixed(1)}%
                           </span>
                         </td>
                       </tr>
@@ -482,7 +482,7 @@ export default function RevisionPrecios() {
                         <td className="p-4 text-sm font-bold text-gray-900">
                           <div className="flex items-center">
                             <Calculator size={20} className="mr-2 text-orange-600" />
-                            <span className="text-base">✏️ Ajustar Precio Venta</span>
+                            <span className="text-base">Ajustar Precio Venta</span>
                           </div>
                         </td>
                         <td colSpan="2" className="p-4">
@@ -520,7 +520,7 @@ export default function RevisionPrecios() {
                               analisis.margenNuevo < 20 ? 'bg-yellow-400 text-gray-900' :
                               'bg-green-500 text-white'
                             }`}>
-                              ⭐ {analisis.margenNuevo.toFixed(1)}%
+                              {analisis.margenNuevo.toFixed(1)}%
                             </span>
                           ) : (
                             <span className="text-gray-400 font-medium">Sin cambios</span>
