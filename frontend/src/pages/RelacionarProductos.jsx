@@ -861,17 +861,31 @@ export default function RelacionarProductos() {
                       en tu sistema se registrarán <strong>{(10 * parseFloat(factorConversion || 1)).toFixed(2)} unidades</strong>
                       <br />
                       <span className="text-xs text-gray-500 mt-1 block">
-                        (Útil cuando el proveedor vende en cajas y tú en unidades)
+                        {parseFloat(factorConversion) === 24 
+                          ? '(Ej: Proveedor vende 1x24, tú vendes unidades sueltas. 10 cajas = 240 unidades)'
+                          : parseFloat(factorConversion) === 12
+                          ? '(Ej: Proveedor vende 1x12, tú vendes unidades sueltas. 10 cajas = 120 unidades)'
+                          : '(Útil cuando el proveedor vende en cajas y tú en unidades)'
+                        }
                       </span>
                     </p>
                   )}
                   {tipoConversion === 'dividir' && (
                     <p className="text-sm text-gray-700">
                       Si el proveedor factura <strong>100 unidades</strong> y el factor es <strong>{factorConversion}</strong>, 
-                      en tu sistema se registrarán <strong>{(100 / parseFloat(factorConversion || 1)).toFixed(2)} cajas</strong>
+                      en tu sistema se registrarán <strong>{(100 / parseFloat(factorConversion || 1)).toFixed(2)} {parseFloat(factorConversion) === 100 ? 'caja (1x100)' : 'cajas'}</strong>
                       <br />
                       <span className="text-xs text-gray-500 mt-1 block">
-                        (Útil cuando el proveedor vende en unidades y tú en cajas)
+                        {parseFloat(factorConversion) === 100 
+                          ? '(Ej: Proveedor vende 100 unidades sueltas, tú vendes 1x100. 100 unidades = 1 caja tuya)'
+                          : parseFloat(factorConversion) === 24
+                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. 1 caja del proveedor = 2 cajas tuyas)'
+                          : parseFloat(factorConversion) === 12
+                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. Factor incorrecto, usa 2)'
+                          : parseFloat(factorConversion) === 2
+                          ? '(Ej: Proveedor vende 1x24, tú vendes 1x12. 1 caja del proveedor = 2 cajas tuyas)'
+                          : `(${100 / parseFloat(factorConversion || 1)} unidades del proveedor = 1 unidad tuya)`
+                        }
                       </span>
                     </p>
                   )}
