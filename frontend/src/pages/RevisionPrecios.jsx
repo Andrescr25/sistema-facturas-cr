@@ -24,6 +24,9 @@ export default function RevisionPrecios() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   
+  // Pestaña activa y filtros
+  const [tabActiva, setTabActiva] = useState('LISTAS_REVISION') // PENDIENTE_RELACIONAR, LISTAS_REVISION, ENVIADAS
+  
   // Precios ajustados por el usuario
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
@@ -33,16 +36,28 @@ export default function RevisionPrecios() {
     if (vista === 'lista') {
       loadFacturas()
     }
-  }, [vista])
+  }, [vista, tabActiva])
 
   const loadFacturas = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await api.get('/revision-precios/facturas-relacionadas')
-      if (response.data.success) {
-        setFacturas(response.data.facturas)
+      let response
+      
+      if (tabActiva === 'PENDIENTE_RELACIONAR') {
+        // Facturas procesadas pero sin relacionar completamente
+        response = await api.get('/revision-precios/facturas?estado=PROCESADA')
+      } else if (tabActiva === 'LISTAS_REVISION') {
+        // Facturas 100% relacionadas listas para revisión
+        response = await api.get('/revision-precios/facturas-relacionadas')
+      } else if (tabActiva === 'ENVIADAS') {
+        // Facturas ya enviadas a Alegra
+        response = await api.get('/revision-precios/facturas?estado=ENVIADA')
+      }
+      
+      if (response && response.data.success) {
+        setFacturas(response.data.facturas || [])
       }
     } catch (err) {
       setError(err.message)
@@ -247,6 +262,42 @@ export default function RevisionPrecios() {
         </p>
       </div>
 
+      {/* Pestañas de filtrado */}
+      <div className="card mb-6">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTabActiva('PENDIENTE_RELACIONAR')}
+            className={`px-6 py-3 rounded-lg font-semibold text-sm transition-all ${
+              tabActiva === 'PENDIENTE_RELACIONAR'
+                ? 'bg-orange-500 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Pendientes de Relacionar
+          </button>
+          <button
+            onClick={() => setTabActiva('LISTAS_REVISION')}
+            className={`px-6 py-3 rounded-lg font-semibold text-sm transition-all ${
+              tabActiva === 'LISTAS_REVISION'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Listas para Revisión (100%)
+          </button>
+          <button
+            onClick={() => setTabActiva('ENVIADAS')}
+            className={`px-6 py-3 rounded-lg font-semibold text-sm transition-all ${
+              tabActiva === 'ENVIADAS'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Enviadas a Alegra
+          </button>
+        </div>
+      </div>
+
       {error && (
           <div className="card bg-red-50 border-red-200 mb-6">
             <div className="flex items-center text-red-800">
@@ -265,19 +316,35 @@ export default function RevisionPrecios() {
             <div className="card text-center py-12">
             <Package className="mx-auto text-gray-400 mb-4" size={48} />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No hay facturas para revisar
+                {tabActiva === 'PENDIENTE_RELACIONAR' && 'No hay facturas pendientes de relacionar'}
+                {tabActiva === 'LISTAS_REVISION' && 'No hay facturas listas para revisión'}
+                {tabActiva === 'ENVIADAS' && 'No hay facturas enviadas'}
               </h3>
               <p className="text-gray-600">
-              Las facturas aparecerán aquí cuando estén 100% relacionadas
+                {tabActiva === 'PENDIENTE_RELACIONAR' && 'Las facturas pendientes aparecerán aquí'}
+                {tabActiva === 'LISTAS_REVISION' && 'Las facturas aparecerán aquí cuando estén 100% relacionadas'}
+                {tabActiva === 'ENVIADAS' && 'Las facturas enviadas a Alegra aparecerán aquí'}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-            {facturas.map(factura => (
+            {facturas.map(factura => {
+              const totalProductos = factura.productos?.length || 0
+              const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO').length || 0
+              const porcentajeRelacionado = totalProductos > 0 ? Math.round((relacionados / totalProductos) * 100) : 0
+              const es100Relacionada = porcentajeRelacionado === 100
+              
+              return (
               <div 
                 key={factura.id}
                 className="card hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => abrirRevision(factura)}
+                onClick={() => {
+                  if (tabActiva === 'LISTAS_REVISION' && es100Relacionada) {
+                    abrirRevision(factura)
+                  } else if (tabActiva === 'PENDIENTE_RELACIONAR') {
+                    window.location.href = `/relacionar?id=${factura.id}`
+                  }
+                }}
               >
                 <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -285,7 +352,21 @@ export default function RevisionPrecios() {
                       <h3 className="text-lg font-semibold text-gray-900">
                         Factura #{factura.numeroConsecutivo}
                       </h3>
-                      <span className="badge badge-success">100% Relacionada</span>
+                      {tabActiva === 'PENDIENTE_RELACIONAR' && (
+                        <span className={`badge ${
+                          porcentajeRelacionado === 0 ? 'bg-red-500' :
+                          porcentajeRelacionado < 100 ? 'bg-orange-500' :
+                          'bg-green-500'
+                        } text-white`}>
+                          {porcentajeRelacionado}% Relacionada
+                        </span>
+                      )}
+                      {tabActiva === 'LISTAS_REVISION' && (
+                        <span className="badge badge-success">100% Relacionada</span>
+                      )}
+                      {tabActiva === 'ENVIADAS' && (
+                        <span className="badge bg-green-600 text-white">Enviada a Alegra</span>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -307,17 +388,27 @@ export default function RevisionPrecios() {
                       </div>
                       <div>
                         <p className="text-gray-600">Productos</p>
-                        <p className="font-medium text-gray-900">{factura.productos.length}</p>
+                        <p className="font-medium text-gray-900">
+                          {totalProductos}
+                          {tabActiva === 'PENDIENTE_RELACIONAR' && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              ({relacionados} relacionados)
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   <button className="btn btn-primary ml-4">
-                    Revisar →
+                    {tabActiva === 'PENDIENTE_RELACIONAR' && 'Relacionar →'}
+                    {tabActiva === 'LISTAS_REVISION' && 'Revisar →'}
+                    {tabActiva === 'ENVIADAS' && 'Ver →'}
                               </button>
                             </div>
                           </div>
-                        ))}
+              )
+            })}
                       </div>
         )}
                     </div>
@@ -334,10 +425,10 @@ export default function RevisionPrecios() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button
+                    <button
             onClick={volverALista}
-            className="btn btn-outline flex items-center"
-          >
+                      className="btn btn-outline flex items-center"
+                    >
             <ArrowLeft size={16} className="mr-2" />
             Volver a la lista
           </button>
@@ -358,7 +449,7 @@ export default function RevisionPrecios() {
                 Devolver a Relacionar
               </>
             )}
-          </button>
+                    </button>
         </div>
 
         <h1 className="text-3xl font-bold text-gray-900">
