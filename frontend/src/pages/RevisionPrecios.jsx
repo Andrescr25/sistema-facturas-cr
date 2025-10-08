@@ -158,17 +158,25 @@ export default function RevisionPrecios() {
 
   const loadCategorias = async () => {
     try {
+      console.log('📁 Cargando categorías de Alegra...')
       const response = await api.get('/alegra/categorias')
-      if (response.data.success) {
-        setCategorias(response.data.categorias || [])
+      console.log('📥 Respuesta de categorías:', response.data)
+      
+      if (response.data.success && response.data.categorias) {
+        console.log(`✅ ${response.data.categorias.length} categorías cargadas`)
+        setCategorias(response.data.categorias)
+      } else {
+        throw new Error('No se encontraron categorías')
       }
     } catch (err) {
-      console.error('Error cargando categorías:', err)
+      console.error('❌ Error cargando categorías:', err)
       // Fallback con categorías básicas
-      setCategorias([
+      const fallbackCategorias = [
         { id: 1, name: 'Inventario' },
         { id: 2, name: 'Consumo' }
-      ])
+      ]
+      console.log('⚠️ Usando categorías fallback:', fallbackCategorias)
+      setCategorias(fallbackCategorias)
     }
   }
 

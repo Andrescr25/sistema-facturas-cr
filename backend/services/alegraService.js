@@ -328,6 +328,26 @@ class AlegraService {
     }
 
     /**
+     * Obtener categorías de Alegra
+     */
+    async getCategories() {
+        try {
+            console.log('📁 Obteniendo categorías de Alegra...');
+            const response = await this.api.get('/categories');
+            
+            if (response.data && Array.isArray(response.data)) {
+                console.log(`✅ ${response.data.length} categorías obtenidas de Alegra`);
+                return response.data;
+            }
+            
+            return [];
+        } catch (error) {
+            console.error('❌ Error obteniendo categorías de Alegra:', error);
+            return [];
+        }
+    }
+
+    /**
      * Obtener producto por ID
      */
     async getProductById(alegraId) {

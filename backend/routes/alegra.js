@@ -2614,13 +2614,21 @@ router.get('/categorias', async (req, res) => {
 
     const categorias = await alegraService.getCategories();
 
-    res.json({
-      success: true,
-      categorias: categorias || [
-        { id: 1, name: 'Inventario' },
-        { id: 2, name: 'Consumo' }
-      ]
-    });
+    if (categorias && categorias.length > 0) {
+      res.json({
+        success: true,
+        categorias: categorias
+      });
+    } else {
+      // Fallback con categorías básicas
+      res.json({
+        success: true,
+        categorias: [
+          { id: 1, name: 'Inventario' },
+          { id: 2, name: 'Consumo' }
+        ]
+      });
+    }
   } catch (error) {
     console.error('❌ Error obteniendo categorías:', error);
     // Fallback con categorías básicas
