@@ -147,16 +147,36 @@ router.post('/relacion', async (req, res) => {
             });
         }
 
-        // Obtener info del producto de Alegra desde caché local
-        const alegraProduct = await prisma.alegraProduct.findUnique({
+        // Obtener info del producto de Alegra desde caché local o API
+        let alegraProduct = await prisma.alegraProduct.findUnique({
             where: { alegraId: alegraItemId.toString() }
         });
 
+        // Si no está en caché, buscar en la API de Alegra
         if (!alegraProduct) {
-            return res.status(404).json({
-                success: false,
-                error: 'Producto de Alegra no encontrado en caché'
-            });
+            console.log(`📡 Producto ${alegraItemId} no en caché, consultando Alegra API...`);
+            try {
+                const alegraData = await alegraService.getProductById(alegraItemId);
+                
+                // Guardar en caché para futuras búsquedas
+                alegraProduct = await prisma.alegraProduct.create({
+                    data: {
+                        alegraId: alegraData.id.toString(),
+                        name: alegraData.name,
+                        reference: alegraData.reference || '',
+                        price: alegraData.price?.[0]?.price || 0,
+                        searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                    }
+                });
+                
+                console.log(`✅ Producto guardado en caché: ${alegraProduct.name}`);
+            } catch (alegraError) {
+                console.error('❌ Error obteniendo producto de Alegra:', alegraError);
+                return res.status(404).json({
+                    success: false,
+                    error: `Producto de Alegra no encontrado: ${alegraError.message}`
+                });
+            }
         }
 
         // Crear o actualizar mapeo
