@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const AlegraService = require('../services/alegraService');
 
 // Conectar con Prisma (la misma BD que el otro proyecto)
 const prisma = new PrismaClient({
   log: ['error'],
 });
+
+// Instanciar AlegraService
+const alegraService = new AlegraService();
 
 /**
  * Obtener facturas por estado
