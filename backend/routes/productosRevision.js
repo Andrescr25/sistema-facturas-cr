@@ -68,13 +68,24 @@ router.get('/relacionados', async (req, res) => {
             prisma.productoFactura.findMany({
                 where: filtros,
                 include: {
-                    factura: true,
+                    factura: {
+                        select: {
+                            id: true,
+                            numeroConsecutivo: true,
+                            proveedorNombre: true,
+                            proveedorCedula: true,
+                            fechaEmision: true,
+                            fechaProcesada: true,
+                            totalFactura: true,
+                            estado: true
+                        }
+                    },
                     mapeo: true
                 },
                 orderBy: [
                     { estadoRelacionado: 'desc' },
                     { confianza: 'desc' },
-                    { factura: { fechaProcesada: 'desc' } }
+                    { facturaId: 'desc' }
                 ],
                 skip: parseInt(skip),
                 take: parseInt(limit)
@@ -234,21 +245,31 @@ router.post('/relacion', async (req, res) => {
 
         // Si está 100% relacionado, actualizar estado de la factura
         if (porcentajeRelacionado === 100) {
-            await prisma.factura.update({
-                where: { id: producto.facturaId },
-                data: {
-                    estadoRelacionado: 'RELACIONADO',
-                    porcentajeRelacionado: 100
-                }
-            });
-            console.log(`🎉 Factura ${producto.facturaId} ahora está 100% relacionada`);
+            try {
+                await prisma.factura.update({
+                    where: { id: producto.facturaId },
+                    data: {
+                        estadoRelacionado: 'RELACIONADO',
+                        porcentajeRelacionado: 100
+                    }
+                });
+                console.log(`🎉 Factura ${producto.facturaId} ahora está 100% relacionada`);
+            } catch (err) {
+                // Ignorar si las columnas no existen aún (migración pendiente)
+                console.log(`⚠️ No se pudo actualizar estado de factura (migración pendiente): ${err.message}`);
+            }
         } else {
-            await prisma.factura.update({
-                where: { id: producto.facturaId },
-                data: {
-                    porcentajeRelacionado: porcentajeRelacionado
-                }
-            });
+            try {
+                await prisma.factura.update({
+                    where: { id: producto.facturaId },
+                    data: {
+                        porcentajeRelacionado: porcentajeRelacionado
+                    }
+                });
+            } catch (err) {
+                // Ignorar si las columnas no existen aún
+                console.log(`⚠️ No se pudo actualizar porcentaje (migración pendiente)`);
+            }
         }
 
         console.log(`✅ Producto relacionado: ${producto.descripcion} → ${alegraProduct.name}`);
