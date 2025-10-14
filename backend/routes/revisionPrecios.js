@@ -573,10 +573,11 @@ router.post('/enviar-alegra', async (req, res) => {
       const items = productos.map(p => ({
         id: p.alegraItemId,
         quantity: p.cantidad,
-        price: p.precioUnitario,
+        price: p.precioUnitario, // Precio sin IVA (como viene del XML)
+        discount: 0, // IMPORTANTE: Sin descuento en compras (evita descuentos automáticos de Alegra)
         tax: [{
-          id: 3, // IVA 13%
-          percentage: p.impuesto > 0 ? (p.impuesto / p.subtotal) * 100 : 13
+          id: 1, // IVA (ID correcto en Alegra)
+          percentage: 13 // Siempre 13% para Costa Rica
         }]
       }));
 
