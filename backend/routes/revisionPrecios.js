@@ -580,9 +580,9 @@ router.post('/enviar-alegra', async (req, res) => {
 
       // Preparar items de la factura
       const items = productos.map(p => ({
-        id: p.alegraItemId,
-        quantity: p.cantidad,
-        price: p.precioUnitario, // Precio sin IVA (como viene del XML)
+        id: p.alegraItemId?.toString() || p.alegraItemId, // Asegurar que sea string
+        quantity: parseFloat(p.cantidad) || 1,
+        price: parseFloat(p.precioUnitario) || 0, // Precio sin IVA (como viene del XML)
         discount: 0, // IMPORTANTE: Sin descuento en compras (evita descuentos automáticos de Alegra)
         tax: [{
           id: 1, // IVA (ID correcto en Alegra)
@@ -590,10 +590,12 @@ router.post('/enviar-alegra', async (req, res) => {
         }]
       }));
 
+      console.log(`📋 Items preparados para Alegra:`, JSON.stringify(items, null, 2));
+
       // Crear factura de compra en Alegra
       const alegraFactura = await alegraService.createPurchaseInvoice({
         date: factura.fechaEmision,
-        client: contacto.id,
+        client: contacto.id?.toString() || contacto.id,
         numberTemplate: {
           id: 1 // Compras
         },

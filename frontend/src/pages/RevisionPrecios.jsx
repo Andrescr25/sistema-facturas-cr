@@ -236,36 +236,42 @@ export default function RevisionPrecios() {
   // Análisis de producto
   const analizarProducto = (producto) => {
     const alegraData = productosAlegra[producto.alegraItemId] || {}
+    const IVA_PORCENTAJE = 13  // Costa Rica
     
     // Costo Anterior: último costo en Alegra (antes de esta factura)
     const costoAnterior = alegraData.cost || 0
     
     // Costo Nuevo: precio de la factura actual del proveedor (con IVA incluido)
-    // producto.precioUnitario ya es el costo con IVA de la factura
-    const costoNuevo = producto.precioUnitario || 0
+    const costoNuevoConIva = producto.precioUnitario || 0
+    const costoNuevoSinIva = costoNuevoConIva / (1 + IVA_PORCENTAJE / 100)
     
-    // Precio de venta: usar ajustado si existe, sino el de Alegra (CON IVA incluido)
-    const precioVentaActual = alegraData.price || 0  // Ya incluye IVA desde el backend
-    const precioVentaAjustado = preciosAjustados[producto.id] || precioVentaActual
+    // Precio de venta ACTUAL (CON IVA desde el backend)
+    const precioVentaConIva = alegraData.price || 0
+    const precioVentaSinIva = precioVentaConIva / (1 + IVA_PORCENTAJE / 100)
     
-    // Margen con precio actual: (precioVenta - costo) / precioVenta * 100
-    const margenActual = precioVentaActual > 0 
-      ? ((precioVentaActual - costoNuevo) / precioVentaActual) * 100 
+    // Precio AJUSTADO por el usuario (si existe)
+    const precioAjustadoInput = preciosAjustados[producto.id]
+    const precioAjustadoSinIva = precioAjustadoInput || precioVentaSinIva
+    const precioAjustadoConIva = precioAjustadoSinIva * (1 + IVA_PORCENTAJE / 100)
+    
+    // MARGEN sobre precio SIN IVA (como debe ser)
+    // Margen = (Precio - Costo) / Precio * 100
+    const margenActual = precioVentaSinIva > 0 
+      ? ((precioVentaSinIva - costoNuevoSinIva) / precioVentaSinIva) * 100 
       : 0
     
-    // Margen con precio ajustado
-    const margenNuevo = precioVentaAjustado > 0 
-      ? ((precioVentaAjustado - costoNuevo) / precioVentaAjustado) * 100 
+    const margenNuevo = precioAjustadoSinIva > 0 
+      ? ((precioAjustadoSinIva - costoNuevoSinIva) / precioAjustadoSinIva) * 100 
       : 0
     
     // Cambio de costo: cuánto aumentó/disminuyó respecto al anterior
     const cambioCosto = costoAnterior > 0 
-      ? ((costoNuevo - costoAnterior) / costoAnterior) * 100 
+      ? ((costoNuevoConIva - costoAnterior) / costoAnterior) * 100 
       : 0
     
-    // Precio sugerido (margen 20%, incluye IVA)
-    // Como el costo ya incluye IVA, el precio sugerido también lo incluirá
-    const precioSugerido = costoNuevo > 0 ? costoNuevo / 0.80 : 0
+    // Precio sugerido (margen 20% sobre precio SIN IVA)
+    const precioSugeridoSinIva = costoNuevoSinIva > 0 ? costoNuevoSinIva / 0.80 : 0
+    const precioSugeridoConIva = precioSugeridoSinIva * (1 + IVA_PORCENTAJE / 100)
     
     const alertas = []
     if (cambioCosto > 30) {
@@ -277,27 +283,43 @@ export default function RevisionPrecios() {
     if (margenNuevo < 15 && margenNuevo > 0) {
       alertas.push({
         tipo: 'danger',
-        mensaje: `Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugerido)})`
+        mensaje: `Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
       })
     } else if (margenNuevo >= 15 && margenNuevo < 20 && margenNuevo > 0) {
       alertas.push({
         tipo: 'warning',
-        mensaje: `Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugerido)})`
+        mensaje: `Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
       })
     }
     
     return {
+      // Costos
       costoAnterior,
-      costoNuevo,
-      precioVentaActual,
-      precioVentaAjustado,
+      costoNuevoConIva,
+      costoNuevoSinIva,
+      
+      // Precios actuales
+      precioVentaSinIva,
+      precioVentaConIva,
+      
+      // Precios ajustados
+      precioAjustadoSinIva,
+      precioAjustadoConIva,
+      
+      // Precio sugerido
+      precioSugeridoSinIva,
+      precioSugeridoConIva,
+      
+      // Márgenes y cambios
       margenActual,
       margenNuevo,
       cambioCosto,
-      precioSugerido,
+      
+      // Otros
       alertas,
       nombre: alegraData.name || producto.descripcion,
-      precioModificado: preciosAjustados[producto.id] !== undefined
+      precioModificado: preciosAjustados[producto.id] !== undefined,
+      ivaPorcentaje: IVA_PORCENTAJE
     }
   }
 
@@ -659,12 +681,20 @@ export default function RevisionPrecios() {
                       </tr>
 
                       {/* Fila Precio Venta Actual */}
-                      <tr className="border-b border-gray-200">
+                      <tr className="border-b border-gray-200 bg-blue-50">
                         <td className="p-4 text-sm font-bold text-gray-900">
                           Precio Venta Actual
                         </td>
-                        <td colSpan="2" className="p-4 text-right text-gray-900 font-bold text-2xl">
-                          ₡{analisis.precioVentaActual.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                        <td colSpan="2" className="p-4">
+                          <div className="text-right">
+                            <div className="text-gray-900 font-bold text-2xl">
+                              ₡{analisis.precioVentaSinIva.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                              <span className="text-sm font-normal text-gray-600 ml-2">sin IVA</span>
+                            </div>
+                            <div className="text-gray-600 text-sm mt-1">
+                              ₡{analisis.precioVentaConIva.toLocaleString('es-CR', {minimumFractionDigits: 2})} con IVA ({analisis.ivaPorcentaje}%)
+                            </div>
+                          </div>
                         </td>
                         <td className="p-4 text-center">
                           <span className={`inline-block px-4 py-2 rounded-lg font-bold text-base shadow-sm ${
@@ -674,6 +704,7 @@ export default function RevisionPrecios() {
                           }`}>
                             {analisis.margenActual.toFixed(1)}%
                           </span>
+                          <div className="text-xs text-gray-500 mt-1">sobre precio sin IVA</div>
                         </td>
                       </tr>
 
@@ -693,22 +724,28 @@ export default function RevisionPrecios() {
                               </span>
                               <input
                                 type="number"
-                                value={preciosAjustados[producto.id] || analisis.precioVentaActual}
+                                value={preciosAjustados[producto.id] || analisis.precioVentaSinIva}
                                 onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
                                 step="100"
                                 min="0"
                                 className="w-full pl-10 pr-4 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                                placeholder="Nuevo precio"
+                                placeholder="Precio sin IVA"
                               />
+                              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                                sin IVA
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Con IVA: ₡{analisis.precioAjustadoConIva.toLocaleString('es-CR', {minimumFractionDigits: 2})}
                             </div>
                             {analisis.margenNuevo < 20 && (
                               <button
-                                onClick={() => ajustarPrecio(producto.id, analisis.precioSugerido)}
+                                onClick={() => ajustarPrecio(producto.id, analisis.precioSugeridoSinIva)}
                                 className="btn bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow-md hover:shadow-lg transition-all whitespace-nowrap flex items-center"
                                 title="Precio con margen del 20%"
                               >
                                 <TrendingUp size={18} className="mr-2" />
-                                Sugerido (20%): ₡{analisis.precioSugerido.toFixed(0)}
+                                Sugerido (20%): ₡{analisis.precioSugeridoSinIva.toFixed(0)}
                               </button>
                             )}
                           </div>
