@@ -230,8 +230,8 @@ export default function RevisionPrecios() {
     // producto.precioUnitario ya es el costo con IVA de la factura
     const costoNuevo = producto.precioUnitario || 0
     
-    // Precio de venta: usar ajustado si existe, sino el de Alegra
-    const precioVentaActual = alegraData.price || 0
+    // Precio de venta: usar ajustado si existe, sino el de Alegra (CON IVA incluido)
+    const precioVentaActual = alegraData.price || 0  // Ya incluye IVA desde el backend
     const precioVentaAjustado = preciosAjustados[producto.id] || precioVentaActual
     
     // Margen con precio actual: (precioVenta - costo) / precioVenta * 100
