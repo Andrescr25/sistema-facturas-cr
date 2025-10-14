@@ -655,10 +655,10 @@ export default function RevisionPrecios() {
                           Costo (con IVA)
                         </td>
                         <td className="p-4 text-right text-gray-600 font-semibold text-base">
-                          ₡{analisis.costoAnterior.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                          ₡{(analisis.costoAnterior || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
                         </td>
                         <td className="p-4 text-right text-gray-900 font-bold text-xl">
-                          ₡{analisis.costoNuevo.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                          ₡{(analisis.costoNuevoConIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
                         </td>
                         <td className="p-4 text-center">
                           {analisis.cambioCosto !== 0 ? (
@@ -688,11 +688,11 @@ export default function RevisionPrecios() {
                         <td colSpan="2" className="p-4">
                           <div className="text-right">
                             <div className="text-gray-900 font-bold text-2xl">
-                              ₡{analisis.precioVentaSinIva.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                              ₡{(analisis.precioVentaSinIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
                               <span className="text-sm font-normal text-gray-600 ml-2">sin IVA</span>
                             </div>
                             <div className="text-gray-600 text-sm mt-1">
-                              ₡{analisis.precioVentaConIva.toLocaleString('es-CR', {minimumFractionDigits: 2})} con IVA ({analisis.ivaPorcentaje}%)
+                              ₡{(analisis.precioVentaConIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})} con IVA ({analisis.ivaPorcentaje || 13}%)
                             </div>
                           </div>
                         </td>
@@ -736,7 +736,7 @@ export default function RevisionPrecios() {
                               </div>
                             </div>
                             <div className="text-sm text-gray-600">
-                              Con IVA: ₡{analisis.precioAjustadoConIva.toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                              Con IVA: ₡{(analisis.precioAjustadoConIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
                             </div>
                             {analisis.margenNuevo < 20 && (
                               <button
@@ -745,7 +745,7 @@ export default function RevisionPrecios() {
                                 title="Precio con margen del 20%"
                               >
                                 <TrendingUp size={18} className="mr-2" />
-                                Sugerido (20%): ₡{analisis.precioSugeridoSinIva.toFixed(0)}
+                                Sugerido (20%): ₡{(analisis.precioSugeridoSinIva || 0).toFixed(0)}
                               </button>
                             )}
                           </div>

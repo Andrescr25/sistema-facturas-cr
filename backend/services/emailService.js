@@ -33,6 +33,20 @@ class EmailService {
         this.imap.on('error', (err) => {
             console.error('❌ Error IMAP:', err.message);
             this.isConnected = false;
+            
+            // Si es un error de credenciales, no reintentar
+            if (err.message && err.message.includes('Invalid credentials')) {
+                console.error('🚨 ERROR DE CREDENCIALES IMAP:');
+                console.error('   Las credenciales IMAP son inválidas.');
+                console.error('   Verifica tu archivo .env:');
+                console.error('   1. IMAP_PASSWORD NO debe tener espacios');
+                console.error('   2. Debe ser una contraseña de app de Gmail');
+                console.error('   3. El acceso IMAP debe estar activado en Gmail');
+                console.error('   ℹ️ Monitoreo de emails detenido hasta corregir credenciales');
+                this.isMonitoring = false; // Detener monitoreo
+                return;
+            }
+            
             this.handleDisconnection();
         });
 
