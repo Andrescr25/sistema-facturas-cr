@@ -241,8 +241,11 @@ export default function RevisionPrecios() {
     // Costo Anterior: último costo en Alegra (antes de esta factura)
     const costoAnterior = alegraData.cost || 0
     
-    // Costo Nuevo: precio de la factura actual del proveedor (con IVA incluido)
-    const costoNuevoConIva = producto.precioUnitario || 0
+    // Costo Nuevo: precio REAL considerando descuentos
+    // totalLinea ya incluye descuentos e impuestos aplicados
+    const costoNuevoConIva = producto.cantidad > 0 
+      ? (producto.totalLinea / producto.cantidad)
+      : producto.precioUnitario || 0
     const costoNuevoSinIva = costoNuevoConIva / (1 + IVA_PORCENTAJE / 100)
     
     // Precio de venta ACTUAL (CON IVA desde el backend)

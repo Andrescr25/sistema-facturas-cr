@@ -545,8 +545,11 @@ router.post('/enviar-alegra', async (req, res) => {
         const alegraId = producto.alegraItemId;
         if (!alegraId) return { success: false, precioAjustado: false };
 
-        // El costo nuevo es directamente el precioUnitario de la factura (ya incluye IVA)
-        const costoNuevo = producto.precioUnitario;
+        // El costo nuevo considerando descuentos: totalLinea / cantidad
+        // totalLinea ya incluye descuentos e impuestos aplicados
+        const costoNuevo = producto.cantidad > 0 
+          ? (producto.totalLinea / producto.cantidad)
+          : producto.precioUnitario;
 
         // Preparar datos de actualización
         const updateData = {
@@ -595,16 +598,24 @@ router.post('/enviar-alegra', async (req, res) => {
       });
 
       // Preparar items de la factura
-      const items = productos.map(p => ({
-        id: p.alegraItemId?.toString() || p.alegraItemId, // Asegurar que sea string
-        quantity: parseFloat(p.cantidad) || 1,
-        price: parseFloat(p.precioUnitario) || 0, // Precio sin IVA (como viene del XML)
-        discount: 0, // IMPORTANTE: Sin descuento en compras (evita descuentos automáticos de Alegra)
-        tax: [{
-          id: 1, // IVA (ID correcto en Alegra)
-          percentage: 13 // Siempre 13% para Costa Rica
-        }]
-      }));
+      const items = productos.map(p => {
+        // Calcular precio real considerando descuentos
+        // totalLinea incluye descuentos e impuestos
+        const precioRealConIvaYDescuento = p.cantidad > 0 
+          ? (p.totalLinea / p.cantidad)
+          : parseFloat(p.precioUnitario) || 0;
+        
+        return {
+          id: p.alegraItemId?.toString() || p.alegraItemId,
+          quantity: parseFloat(p.cantidad) || 1,
+          price: precioRealConIvaYDescuento, // Precio real con descuentos aplicados
+          discount: 0, // Ya aplicado en el precio
+          tax: [{
+            id: 1, // IVA (ID correcto en Alegra)
+            percentage: 13 // Siempre 13% para Costa Rica
+          }]
+        };
+      });
 
       console.log(`📋 Items preparados para Alegra:`, JSON.stringify(items, null, 2));
 
@@ -651,10 +662,14 @@ router.post('/enviar-alegra', async (req, res) => {
     await prisma.factura.update({
       where: { id: facturaId },
       data: {
-        estado: 'ENVIADA',
-        alegraFacturaId: alegraFacturaId?.toString()
+        estado: 'ENVIADA'
+        // Nota: alegraFacturaId no está en el schema, se registra en logs
       }
     });
+    
+    if (alegraFacturaId) {
+      console.log(`📝 Factura enviada a Alegra con ID: ${alegraFacturaId}`);
+    }
 
     console.log(`✅ Factura ${factura.numeroConsecutivo} procesada exitosamente`);
 
