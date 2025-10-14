@@ -626,14 +626,24 @@ router.post('/enviar-alegra', async (req, res) => {
       console.error(`   Status: ${error.response?.status}`);
       console.error(`   Detalles:`, error.response?.data);
       
-      // Si es error 403 (sin permisos), continuar pero avisar
-      if (error.response?.status === 403) {
+      const errorCode = error.response?.data?.code;
+      const errorMessage = error.response?.data?.message;
+      
+      // Manejar errores específicos de Alegra
+      if (error.response?.status === 400 && errorCode === 2094) {
+        // Proveedor deshabilitado
+        throw new Error(`El proveedor "${factura.proveedorNombre}" está deshabilitado en Alegra. Por favor, actívalo en Alegra → Contactos → Proveedores y vuelve a intentar.`);
+      } else if (error.response?.status === 400 && errorMessage) {
+        // Otros errores 400 con mensaje específico
+        throw new Error(`Error de Alegra: ${errorMessage}`);
+      } else if (error.response?.status === 403) {
+        // Sin permisos, continuar pero avisar
         console.warn(`⚠️  Continuando sin crear factura en Alegra (sin permisos)`);
         console.warn(`✅ Los costos y precios se actualizaron correctamente`);
         alegraFacturaId = null;
       } else {
-        // Para otros errores, propagar la excepción
-        throw error;
+        // Para otros errores, propagar con mensaje mejorado
+        throw new Error(errorMessage || error.message || 'Error desconocido al crear factura en Alegra');
       }
     }
 
@@ -671,9 +681,17 @@ router.post('/enviar-alegra', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error enviando a Alegra:', error);
-    res.status(500).json({
+    
+    // Determinar código de estado apropiado
+    let statusCode = 500;
+    if (error.message?.includes('deshabilitado') || 
+        error.message?.includes('Error de Alegra')) {
+      statusCode = 400; // Errores de validación/negocio
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: error.message
+      error: error.message || 'Error desconocido al procesar la factura'
     });
   }
 });
