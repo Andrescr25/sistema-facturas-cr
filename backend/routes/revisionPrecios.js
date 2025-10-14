@@ -437,12 +437,21 @@ router.post('/productos-batch', async (req, res) => {
         try {
           const producto = await alegraService.getProductById(alegraId);
           if (producto) {
+            const precioSinIva = producto.price?.[0]?.price || 0;
+            
+            // Calcular precio con IVA (13% en Costa Rica)
+            // Obtener porcentaje de IVA del producto (por defecto 13%)
+            const ivaPorcentaje = producto.tax?.[0]?.percentage || 13;
+            const precioConIva = precioSinIva * (1 + ivaPorcentaje / 100);
+            
             productos[alegraId] = {
               id: producto.id,
               name: producto.name,
               reference: producto.reference,
-              price: producto.price?.[0]?.price || 0,
-              cost: producto.cost || 0
+              price: precioConIva,  // Precio CON IVA para mostrar al usuario
+              priceWithoutTax: precioSinIva,  // Precio sin IVA (por si se necesita)
+              cost: producto.cost || 0,
+              taxPercentage: ivaPorcentaje
             };
           }
         } catch (error) {

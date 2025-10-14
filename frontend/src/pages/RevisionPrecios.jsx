@@ -249,7 +249,8 @@ export default function RevisionPrecios() {
       ? ((costoNuevo - costoAnterior) / costoAnterior) * 100 
       : 0
     
-    // Precio sugerido (margen 20%)
+    // Precio sugerido (margen 20%, incluye IVA)
+    // Como el costo ya incluye IVA, el precio sugerido también lo incluirá
     const precioSugerido = costoNuevo > 0 ? costoNuevo / 0.80 : 0
     
     const alertas = []
