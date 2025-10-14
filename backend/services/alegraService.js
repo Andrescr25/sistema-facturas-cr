@@ -407,33 +407,14 @@ class AlegraService {
 
     /**
      * Crear factura de compra (purchase invoice)
-     */
-    /**
-     * Crear factura de compra (usando endpoint /bills para compras)
-     * Documentación: https://developer.alegra.com/reference/post_bills
+     * Documentación: https://developer.alegra.com/reference/post_purchase-invoices
      */
     async createPurchaseInvoice(data) {
         try {
             console.log(`📄 Creando factura de compra en Alegra...`);
+            console.log(`📋 Datos de factura:`, JSON.stringify(data, null, 2));
             
-            // Transformar datos al formato correcto de /bills
-            const billData = {
-                date: data.date,
-                dueDate: data.date, // Misma fecha si es contado
-                contact: data.client, // En /bills se usa 'contact' no 'client'
-                numberTemplate: data.numberTemplate,
-                observations: data.observations || '',
-                purchases: {
-                    items: data.items
-                },
-                costCenter: null, // Opcional
-                seller: null, // Opcional
-                term: 'contado' // Contado por defecto
-            };
-            
-            console.log(`📋 Datos de factura:`, JSON.stringify(billData, null, 2));
-            
-            const response = await this.api.post('/bills', billData);
+            const response = await this.api.post('/purchase-invoices', data);
             console.log(`✅ Factura de compra creada: ID ${response.data.id}`);
             return response.data;
         } catch (error) {
