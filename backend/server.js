@@ -5,6 +5,9 @@ const morgan = require('morgan');
 const path = require('path');
 require('dotenv').config();
 
+// Importar servicio de email para monitoreo continuo
+const EmailService = require('./services/emailService');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -131,8 +134,11 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// Iniciar monitoreo de emails (variable global para poder detenerlo)
+let emailService = null;
+
 // Iniciar servidor
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 URL: http://localhost:${PORT}`);
@@ -142,6 +148,57 @@ app.listen(PORT, () => {
   console.log(`   - http://localhost:5173`);
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
+  
+  // Iniciar monitoreo de emails solo si está configurado
+  if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {
+    console.log('\n📧 ========================================');
+    console.log('📧 Iniciando monitoreo de emails...');
+    console.log('📧 ========================================\n');
+    
+    emailService = new EmailService();
+    emailService.startMonitoring();
+  } else {
+    console.log('\n⚠️ Monitoreo de emails desactivado');
+    console.log('   Configura IMAP_USER e IMAP_PASSWORD en .env para activarlo');
+    console.log('   O establece ENABLE_EMAIL_MONITORING=false para desactivar este mensaje\n');
+  }
+});
+
+// Manejo de cierre graceful
+const gracefulShutdown = async (signal) => {
+  console.log(`\n🛑 Señal ${signal} recibida. Cerrando servidor...`);
+  
+  // Detener monitoreo de emails
+  if (emailService) {
+    console.log('📧 Deteniendo monitoreo de emails...');
+    await emailService.disconnect();
+  }
+  
+  // Cerrar servidor HTTP
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+  
+  // Forzar cierre después de 10 segundos
+  setTimeout(() => {
+    console.error('⚠️ Forzando cierre del servidor...');
+    process.exit(1);
+  }, 10000);
+};
+
+// Escuchar señales de terminación
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+  console.error('❌ Excepción no capturada:', error);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promesa rechazada no manejada:', reason);
 });
 
 module.exports = app;

@@ -508,14 +508,17 @@ router.post('/enviar-alegra', async (req, res) => {
 
     console.log(`📦 Procesando ${productos.length} productos...`);
 
-    // PASO 1: Actualizar costos Y precios en Alegra
+    // PASO 1: Actualizar costos Y precios en Alegra EN PARALELO (mucho más rápido)
     let costosActualizados = 0;
     let preciosActualizados = 0;
     
-    for (const producto of productos) {
+    console.log(`⚡ Actualizando ${productos.length} productos en paralelo...`);
+    
+    // Crear promesas para procesar todos los productos simultáneamente
+    const updatePromises = productos.map(async (producto) => {
       try {
         const alegraId = producto.alegraItemId;
-        if (!alegraId) continue;
+        if (!alegraId) return { success: false, precioAjustado: false };
 
         // El costo nuevo es directamente el precioUnitario de la factura (ya incluye IVA)
         const costoNuevo = producto.precioUnitario;
@@ -525,22 +528,34 @@ router.post('/enviar-alegra', async (req, res) => {
           cost: Math.round(costoNuevo * 100) / 100
         };
 
+        let precioAjustado = false;
+        
         // Si el usuario ajustó el precio, incluirlo
         if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
           updateData.price = parseFloat(preciosAjustados[producto.id]);
-          preciosActualizados++;
+          precioAjustado = true;
           console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
         }
 
         // Actualizar en Alegra
         await alegraService.updateProduct(alegraId, updateData);
 
-        costosActualizados++;
         console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevo.toFixed(2)}`);
+        return { success: true, precioAjustado };
       } catch (error) {
         console.error(`⚠️ Error actualizando ${producto.descripcion}:`, error.message);
+        return { success: false, precioAjustado: false };
       }
-    }
+    });
+    
+    // Esperar a que TODAS las actualizaciones terminen en paralelo
+    const results = await Promise.all(updatePromises);
+    
+    // Contar resultados
+    costosActualizados = results.filter(r => r.success).length;
+    preciosActualizados = results.filter(r => r.precioAjustado).length;
+    
+    console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
 
     // PASO 2: Crear factura de proveedor en Alegra
     let alegraFacturaId = null;
@@ -579,7 +594,7 @@ router.post('/enviar-alegra', async (req, res) => {
       alegraFacturaId = alegraFactura.id;
       console.log(`✅ Factura creada en Alegra: ID ${alegraFacturaId}`);
     } catch (error) {
-      console.error(`⚠️ Error creando factura en Alegra:`, error.message);
+      console.error(`⚠️ Error en proceso de contacto:`, error.message);
     }
 
     // PASO 3: Marcar factura como ENVIADA

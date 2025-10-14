@@ -408,14 +408,53 @@ class AlegraService {
     /**
      * Crear factura de compra (purchase invoice)
      */
+    /**
+     * Crear factura de compra (usando endpoint /bills para compras)
+     * Documentación: https://developer.alegra.com/reference/post_bills
+     */
     async createPurchaseInvoice(data) {
         try {
             console.log(`📄 Creando factura de compra en Alegra...`);
-            const response = await this.api.post('/purchase-invoices', data);
+            
+            // Transformar datos al formato correcto de /bills
+            const billData = {
+                date: data.date,
+                dueDate: data.date, // Misma fecha si es contado
+                contact: data.client, // En /bills se usa 'contact' no 'client'
+                numberTemplate: data.numberTemplate,
+                observations: data.observations || '',
+                purchases: {
+                    items: data.items
+                },
+                costCenter: null, // Opcional
+                seller: null, // Opcional
+                term: 'contado' // Contado por defecto
+            };
+            
+            console.log(`📋 Datos de factura:`, JSON.stringify(billData, null, 2));
+            
+            const response = await this.api.post('/bills', billData);
             console.log(`✅ Factura de compra creada: ID ${response.data.id}`);
             return response.data;
         } catch (error) {
-            console.error('❌ Error creando factura de compra:', error);
+            // Log detallado del error
+            console.error('❌ Error creando factura de compra:');
+            console.error('   Status:', error.response?.status);
+            console.error('   Message:', error.response?.data?.message || error.message);
+            console.error('   Data:', JSON.stringify(error.response?.data, null, 2));
+            
+            // Verificar si es error 403 (sin permisos)
+            if (error.response?.status === 403) {
+                console.warn('⚠️ Error 403: Sin permisos para crear facturas de compra');
+                console.warn('💡 Posibles causas:');
+                console.warn('   1. Tu plan no incluye facturas de proveedor');
+                console.warn('   2. El usuario no tiene permisos suficientes');
+                console.warn('   3. Verifica en Alegra: Configuración > Usuarios y permisos');
+            } else if (error.response?.status === 400) {
+                console.warn('⚠️ Error 400: Datos inválidos');
+                console.warn('   Datos enviados:', JSON.stringify(error.config?.data, null, 2));
+            }
+            
             throw error;
         }
     }

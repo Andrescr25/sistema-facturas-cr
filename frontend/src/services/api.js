@@ -31,7 +31,7 @@ console.log('🔗 Final baseURL:', baseURL);
 // Configuración base del cliente API
 const api = axios.create({
   baseURL: baseURL,
-  timeout: 30000,
+  timeout: 180000, // 3 minutos para procesos largos (actualización de múltiples productos)
   headers: {
     'Content-Type': 'application/json',
   },

@@ -14,6 +14,7 @@ import {
   RotateCcw
 } from 'lucide-react'
 import api from '../services/api'
+import ToastContainer from '../components/ToastContainer'
 
 export default function RevisionPrecios() {
   const navigate = useNavigate()
@@ -34,6 +35,18 @@ export default function RevisionPrecios() {
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [devolviendo, setDevolviendo] = useState(false)
+  
+  // Toast notifications
+  const [toasts, setToasts] = useState([])
+  
+  const showToast = (message, type = 'info', duration = 5000) => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type, duration }])
+  }
+  
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
 
   useEffect(() => {
     if (vista === 'lista') {
@@ -160,27 +173,49 @@ export default function RevisionPrecios() {
 
     if (!confirmacion) return
 
+    // Guardar info de la factura para el toast
+    const facturaNumero = facturaSeleccionada.numeroConsecutivo
+    const facturaId = facturaSeleccionada.id
+    
+    // Mostrar toast de "enviando" y volver a la lista inmediatamente
+    showToast(`📤 Enviando factura ${facturaNumero} a Alegra...`, 'loading', null)
+    volverALista()
+
+    // Enviar en segundo plano
     try {
-      setEnviando(true)
       const response = await api.post('/revision-precios/enviar-alegra', {
-        facturaId: facturaSeleccionada.id,
+        facturaId: facturaId,
         preciosAjustados: preciosAjustados
       })
 
       if (response.data.success) {
         const resultado = response.data.resultado
-        alert(
-          `✅ Factura enviada exitosamente!\n\n` +
-          `📄 ID Alegra: ${resultado.alegraFacturaId || 'N/A'}\n` +
-          `💰 Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
-          `🔄 Precios actualizados: ${resultado.preciosActualizados || 0}`
+        // Remover toast de "enviando"
+        setToasts(prev => prev.filter(t => t.type !== 'loading'))
+        
+        // Mostrar resultado exitoso
+        showToast(
+          `✅ Factura ${facturaNumero} enviada exitosamente\n` +
+          `📄 ID: ${resultado.alegraFacturaId || 'N/A'}\n` +
+          `💰 Costos: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
+          `🔄 Precios: ${resultado.preciosActualizados || 0}`,
+          'success',
+          8000
         )
-        volverALista()
+        
+        // Recargar la lista para actualizar estados
+        loadFacturas()
       }
     } catch (err) {
-      alert('❌ Error: ' + err.message)
-    } finally {
-      setEnviando(false)
+      // Remover toast de "enviando"
+      setToasts(prev => prev.filter(t => t.type !== 'loading'))
+      
+      // Mostrar error
+      showToast(
+        `❌ Error enviando factura ${facturaNumero}\n${err.message}`,
+        'error',
+        10000
+      )
     }
   }
 
@@ -253,9 +288,11 @@ export default function RevisionPrecios() {
 
   // VISTA DE LISTA
   if (vista === 'lista') {
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
+    return (
+      <>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center">
           <DollarSign className="mr-3" size={32} />
           Revisión de Precios
@@ -414,9 +451,10 @@ export default function RevisionPrecios() {
                           </div>
               )
             })}
-                      </div>
-        )}
-                    </div>
+            </div>
+          )}
+        </div>
+      </>
     )
   }
 
@@ -426,7 +464,9 @@ export default function RevisionPrecios() {
   ).length
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -711,6 +751,7 @@ export default function RevisionPrecios() {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
