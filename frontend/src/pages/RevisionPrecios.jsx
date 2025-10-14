@@ -190,18 +190,32 @@ export default function RevisionPrecios() {
 
       if (response.data.success) {
         const resultado = response.data.resultado
+        const facturaCreada = response.data.facturaCreada
+        
         // Remover toast de "enviando"
         setToasts(prev => prev.filter(t => t.type !== 'loading'))
         
-        // Mostrar resultado exitoso
-        showToast(
-          `✅ Factura ${facturaNumero} enviada exitosamente\n` +
-          `📄 ID: ${resultado.alegraFacturaId || 'N/A'}\n` +
-          `💰 Costos: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
-          `🔄 Precios: ${resultado.preciosActualizados || 0}`,
-          'success',
-          8000
-        )
+        // Mostrar resultado apropiado
+        if (facturaCreada) {
+          showToast(
+            `✅ Factura ${facturaNumero} enviada exitosamente\n` +
+            `📄 ID Alegra: ${resultado.alegraFacturaId}\n` +
+            `💰 Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
+            `🔄 Precios ajustados: ${resultado.preciosActualizados || 0}`,
+            'success',
+            8000
+          )
+        } else {
+          showToast(
+            `⚠️ Factura ${facturaNumero} procesada parcialmente\n` +
+            `✅ Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
+            `✅ Precios ajustados: ${resultado.preciosActualizados || 0}\n` +
+            `❌ Factura NO creada en Alegra (sin permisos)\n` +
+            `💡 Contacta soporte de Alegra para habilitar facturas de compra`,
+            'warning',
+            12000
+          )
+        }
         
         // Recargar la lista para actualizar estados
         loadFacturas()

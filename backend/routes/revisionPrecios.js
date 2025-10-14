@@ -604,7 +604,19 @@ router.post('/enviar-alegra', async (req, res) => {
       alegraFacturaId = alegraFactura.id;
       console.log(`✅ Factura creada en Alegra: ID ${alegraFacturaId}`);
     } catch (error) {
-      console.error(`⚠️ Error en proceso de contacto:`, error.message);
+      console.error(`❌ Error creando factura en Alegra:`, error.message);
+      console.error(`   Status: ${error.response?.status}`);
+      console.error(`   Detalles:`, error.response?.data);
+      
+      // Si es error 403 (sin permisos), continuar pero avisar
+      if (error.response?.status === 403) {
+        console.warn(`⚠️  Continuando sin crear factura en Alegra (sin permisos)`);
+        console.warn(`✅ Los costos y precios se actualizaron correctamente`);
+        alegraFacturaId = null;
+      } else {
+        // Para otros errores, propagar la excepción
+        throw error;
+      }
     }
 
     // PASO 3: Marcar factura como ENVIADA
@@ -618,8 +630,18 @@ router.post('/enviar-alegra', async (req, res) => {
 
     console.log(`✅ Factura ${factura.numeroConsecutivo} procesada exitosamente`);
 
+    // Determinar el mensaje apropiado
+    let mensaje = 'Factura procesada exitosamente';
+    if (alegraFacturaId) {
+      mensaje = `Factura creada en Alegra (ID: ${alegraFacturaId})`;
+    } else {
+      mensaje = 'Costos y precios actualizados (factura no creada en Alegra por falta de permisos)';
+    }
+
     res.json({
       success: true,
+      mensaje: mensaje,
+      facturaCreada: !!alegraFacturaId,
       resultado: {
         numeroConsecutivo: factura.numeroConsecutivo,
         proveedor: factura.proveedorNombre,
