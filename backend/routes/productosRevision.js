@@ -190,33 +190,37 @@ router.post('/relacion', async (req, res) => {
             }
         }
 
-        // Crear o actualizar mapeo
-        let mapeo = await prisma.supplierProductMapping.findFirst({
+        // Crear o actualizar mapeo usando upsert
+        const mapeo = await prisma.supplierProductMapping.upsert({
             where: {
+                supplierCedula_supplierCode: {
+                    supplierCedula: producto.factura.proveedorCedula,
+                    supplierCode: producto.codigoProveedor
+                }
+            },
+            update: {
+                supplierName: producto.factura.proveedorNombre,
+                supplierDesc: producto.descripcion,
+                alegraItemId: alegraItemId.toString(),
+                alegraReference: alegraProduct.reference,
+                alegraName: alegraProduct.name,
+                confidence: 100,
+                lastUsedDate: new Date(),
+                timesUsed: { increment: 1 }
+            },
+            create: {
+                supplierName: producto.factura.proveedorNombre,
                 supplierCedula: producto.factura.proveedorCedula,
                 supplierCode: producto.codigoProveedor,
-                alegraItemId: alegraItemId.toString()
+                supplierDesc: producto.descripcion,
+                alegraItemId: alegraItemId.toString(),
+                alegraReference: alegraProduct.reference,
+                alegraName: alegraProduct.name,
+                confidence: 100,
+                createdBy: 'manual_relation'
             }
         });
-
-        if (!mapeo) {
-            mapeo = await prisma.supplierProductMapping.create({
-                data: {
-                    supplierName: producto.factura.proveedorNombre,
-                    supplierCedula: producto.factura.proveedorCedula,
-                    supplierCode: producto.codigoProveedor,
-                    supplierDesc: producto.descripcion,
-                    alegraItemId: alegraItemId.toString(),
-                    alegraReference: alegraProduct.reference,
-                    alegraName: alegraProduct.name,
-                    confidence: 100,
-                    createdBy: 'manual_relation'
-                }
-            });
-            console.log(`✅ Mapeo creado: ID ${mapeo.id}`);
-        } else {
-            console.log(`✅ Mapeo ya existe: ID ${mapeo.id}`);
-        }
+        console.log(`✅ Mapeo guardado: ID ${mapeo.id}`);
 
         // Actualizar producto como RELACIONADO
         const productoActualizado = await prisma.productoFactura.update({
@@ -398,9 +402,26 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
             });
         }
 
-        // Crear nuevo mapeo
-        const nuevoMapeo = await prisma.supplierProductMapping.create({
-            data: {
+        // Crear o actualizar mapeo usando upsert
+        const nuevoMapeo = await prisma.supplierProductMapping.upsert({
+            where: {
+                supplierCedula_supplierCode: {
+                    supplierCedula: producto.factura.proveedorCedula,
+                    supplierCode: producto.codigoProveedor
+                }
+            },
+            update: {
+                supplierName: producto.factura.proveedorNombre,
+                supplierDesc: producto.descripcion,
+                alegraItemId: nuevoAlegraProduct.alegraId,
+                alegraReference: nuevoAlegraProduct.reference,
+                alegraName: nuevoAlegraProduct.name,
+                confidence: 100,
+                lastUsedDate: new Date(),
+                timesUsed: { increment: 1 },
+                createdBy: 'manual_edit'
+            },
+            create: {
                 supplierName: producto.factura.proveedorNombre,
                 supplierCedula: producto.factura.proveedorCedula,
                 supplierCode: producto.codigoProveedor,
@@ -579,9 +600,26 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             }
         }).catch(err => console.error('Error guardando en caché:', err));
 
-        // Crear mapeo
-        const nuevoMapeo = await prisma.supplierProductMapping.create({
-            data: {
+        // Crear o actualizar mapeo usando upsert
+        const nuevoMapeo = await prisma.supplierProductMapping.upsert({
+            where: {
+                supplierCedula_supplierCode: {
+                    supplierCedula: productoOriginal.factura.proveedorCedula,
+                    supplierCode: productoOriginal.codigoProveedor
+                }
+            },
+            update: {
+                supplierName: productoOriginal.factura.proveedorNombre,
+                supplierDesc: productoOriginal.descripcion,
+                alegraItemId: nuevoProductoAlegra.id.toString(),
+                alegraReference: nuevoProductoAlegra.reference || referencia || '',
+                alegraName: nuevoProductoAlegra.name,
+                confidence: 100,
+                lastUsedDate: new Date(),
+                timesUsed: { increment: 1 },
+                createdBy: 'manual_create'
+            },
+            create: {
                 supplierName: productoOriginal.factura.proveedorNombre,
                 supplierCedula: productoOriginal.factura.proveedorCedula,
                 supplierCode: productoOriginal.codigoProveedor,

@@ -162,9 +162,25 @@ router.post('/confirmar-producto', async (req, res) => {
       });
     }
 
-    // Crear mapeo
-    const mapeo = await prisma.supplierProductMapping.create({
-      data: {
+    // Crear o actualizar mapeo usando upsert
+    const mapeo = await prisma.supplierProductMapping.upsert({
+      where: {
+        supplierCedula_supplierCode: {
+          supplierCedula: producto.factura.proveedorCedula,
+          supplierCode: producto.codigoProveedor
+        }
+      },
+      update: {
+        supplierName: producto.factura.proveedorNombre,
+        supplierDesc: producto.descripcion,
+        alegraItemId: alegraProduct.alegraId,
+        alegraReference: alegraProduct.reference,
+        alegraName: alegraProduct.name,
+        confidence: confianza || 100,
+        lastUsedDate: new Date(),
+        timesUsed: { increment: 1 }
+      },
+      create: {
         supplierName: producto.factura.proveedorNombre,
         supplierCedula: producto.factura.proveedorCedula,
         supplierCode: producto.codigoProveedor,
