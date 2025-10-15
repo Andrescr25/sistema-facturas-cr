@@ -1,23 +1,27 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// SOLUCIÓN CRÍTICA: Deshabilitar verificación SSL globalmente para Supabase
+// Esto es necesario porque Supabase usa certificados que Node.js rechaza
+if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase')) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  console.log('⚠️ SSL verification disabled for Supabase connection');
+}
+
 // Configuración de la conexión a PostgreSQL usando DATABASE_URL
-// Supabase con PgBouncer requiere configuración SSL específica
 const isSupabase = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase');
 
-// Para Supabase, necesitamos deshabilitar completamente la verificación SSL
+// Para Supabase, configuración optimizada para PgBouncer
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: isSupabase ? {
-    rejectUnauthorized: false,
-    // No verificar el certificado del servidor
-    checkServerIdentity: () => undefined
+    rejectUnauthorized: false
   } : false,
   // Configuración adicional para Supabase con PgBouncer
   ...(isSupabase && {
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
-    max: 10, // Límite de conexiones
+    max: 10,
     allowExitOnIdle: true
   })
 });
