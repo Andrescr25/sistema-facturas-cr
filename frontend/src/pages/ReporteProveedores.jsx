@@ -1648,31 +1648,45 @@ NO afecta la base de datos externa de facturas.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {productosAlegra.map((producto) => (
-                    <div
-                      key={producto.id}
-                      className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => {
-                        const cantidad = prompt(`¿Cuántas unidades de "${producto.name}" deseas agregar?`, '1')
-                        if (cantidad && parseInt(cantidad) > 0) {
-                          agregarProductoAOrden(producto, cantidad)
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h5 className="font-medium text-gray-900">{producto.name}</h5>
-                          <p className="text-sm text-gray-600">Código: {producto.reference}</p>
-                          {producto.price && (
-                            <p className="text-sm text-gray-500">Precio: ₡{producto.price.toLocaleString()}</p>
-                          )}
+                  {productosAlegra.map((producto, idx) => {
+                    // Validar que reference sea string
+                    const reference = typeof producto.reference === 'object' 
+                      ? producto.reference?.reference || producto.reference?.code || 'N/A'
+                      : producto.reference || 'N/A'
+                    
+                    const name = producto.name || 'Sin nombre'
+                    const price = typeof producto.price === 'number' ? producto.price : null
+                    
+                    return (
+                      <div
+                        key={producto.id || `producto-${idx}`}
+                        className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          const cantidad = prompt(`¿Cuántas unidades de "${name}" deseas agregar?`, '1')
+                          if (cantidad && parseInt(cantidad) > 0) {
+                            agregarProductoAOrden({
+                              ...producto,
+                              reference: reference,
+                              name: name
+                            }, cantidad)
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h5 className="font-medium text-gray-900">{name}</h5>
+                            <p className="text-sm text-gray-600">Código: {reference}</p>
+                            {price && (
+                              <p className="text-sm text-gray-500">Precio: ₡{price.toLocaleString()}</p>
+                            )}
+                          </div>
+                          <button className="btn btn-sm btn-primary">
+                            + Agregar
+                          </button>
                         </div>
-                        <button className="btn btn-sm btn-primary">
-                          + Agregar
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
