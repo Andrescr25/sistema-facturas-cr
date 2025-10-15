@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
+import Facturacion from './pages/Facturacion'
 import BuscarFactura from './pages/BuscarFactura'
 import RegistrarFaltantes from './pages/RegistrarFaltantes'
 import RelacionarProductos from './pages/RelacionarProductos'
@@ -50,6 +51,7 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/facturacion-rapida" element={<Facturacion />} />
         <Route path="/buscar-factura" element={<BuscarFactura />} />
         <Route path="/registrar-faltantes/:facturaId?" element={<RegistrarFaltantes />} />
         <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />

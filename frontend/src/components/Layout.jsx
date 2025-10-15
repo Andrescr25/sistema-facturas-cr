@@ -11,7 +11,8 @@ import {
   Printer,
   Settings,
   Menu,
-  X
+  X,
+  Zap
 } from 'lucide-react'
 
 export default function Layout({ children }) {
@@ -20,6 +21,7 @@ export default function Layout({ children }) {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Facturación', href: '/facturacion-rapida', icon: Zap },
     { name: 'Buscar Factura', href: '/buscar-factura', icon: Search },
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },

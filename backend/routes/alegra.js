@@ -3357,4 +3357,255 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
   }
 });
 
+// ============================================
+// 🧾 ENDPOINTS PARA FACTURACIÓN RÁPIDA
+// ============================================
+
+/**
+ * GET /alegra/facturacion/items
+ * Obtener todos los productos de Alegra para cache offline
+ */
+router.get('/facturacion/items', async (req, res) => {
+  try {
+    console.log('📦 Obteniendo todos los productos de Alegra para cache...');
+    
+    const allItems = [];
+    let page = 1;
+    const limit = 30; // Alegra API límite por página
+    let hasMore = true;
+
+    // Obtener todos los productos paginados
+    while (hasMore) {
+      const response = await alegraService.makeRequest('GET', '/items', {
+        start: (page - 1) * limit,
+        limit: limit
+      });
+
+      if (response && response.length > 0) {
+        allItems.push(...response);
+        page++;
+        
+        // Si recibimos menos items que el límite, ya no hay más
+        if (response.length < limit) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    console.log(`✅ ${allItems.length} productos obtenidos de Alegra`);
+
+    res.json({
+      success: true,
+      data: allItems,
+      total: allItems.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo items de Alegra:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo productos de Alegra'
+    });
+  }
+});
+
+/**
+ * GET /alegra/facturacion/contacts
+ * Obtener todos los clientes de Alegra para cache offline
+ */
+router.get('/facturacion/contacts', async (req, res) => {
+  try {
+    console.log('👥 Obteniendo todos los clientes de Alegra para cache...');
+    
+    const allContacts = [];
+    let page = 1;
+    const limit = 30;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await alegraService.makeRequest('GET', '/contacts', {
+        start: (page - 1) * limit,
+        limit: limit,
+        type: 'client' // Solo clientes, no proveedores
+      });
+
+      if (response && response.length > 0) {
+        allContacts.push(...response);
+        page++;
+        
+        if (response.length < limit) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    console.log(`✅ ${allContacts.length} clientes obtenidos de Alegra`);
+
+    res.json({
+      success: true,
+      data: allContacts,
+      total: allContacts.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo contacts de Alegra:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo clientes de Alegra'
+    });
+  }
+});
+
+/**
+ * POST /alegra/facturacion/invoices
+ * Crear factura en Alegra
+ * 
+ * Body esperado según documentación Alegra:
+ * {
+ *   date: "2024-01-15",
+ *   dueDate: "2024-01-30",
+ *   client: 123, // ID del cliente
+ *   items: [
+ *     { id: 456, quantity: 2, price: 1000, tax: [{ id: 1 }] }
+ *   ],
+ *   observations: "Notas adicionales",
+ *   termsConditions: "Términos y condiciones",
+ *   status: "open",
+ *   stamp: { generateStamp: true } // Para factura electrónica
+ * }
+ */
+router.post('/facturacion/invoices', async (req, res) => {
+  try {
+    const invoiceData = req.body;
+    
+    console.log('🧾 Creando factura en Alegra:', {
+      cliente: invoiceData.client,
+      items: invoiceData.items?.length,
+      electronica: invoiceData.stamp?.generateStamp
+    });
+
+    // Crear factura en Alegra
+    const response = await alegraService.makeRequest('POST', '/invoices', null, invoiceData);
+
+    console.log('✅ Factura creada exitosamente:', response.id);
+
+    res.json({
+      success: true,
+      data: response,
+      message: 'Factura creada exitosamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error creando factura en Alegra:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error creando factura en Alegra',
+      details: error.response?.data
+    });
+  }
+});
+
+/**
+ * GET /alegra/facturacion/invoices/:id/pdf
+ * Obtener PDF de una factura
+ */
+router.get('/facturacion/invoices/:id/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`📄 Obteniendo PDF de factura ${id}...`);
+
+    // Obtener PDF desde Alegra
+    const pdfResponse = await alegraService.makeRequest('GET', `/invoices/${id}/pdf`);
+
+    // Si Alegra devuelve el PDF como buffer o URL
+    if (pdfResponse.pdf) {
+      res.json({
+        success: true,
+        pdfUrl: pdfResponse.pdf,
+        invoiceId: id
+      });
+    } else {
+      // Si devuelve datos binarios, enviarlos directamente
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=factura-${id}.pdf`);
+      res.send(pdfResponse);
+    }
+
+  } catch (error) {
+    console.error('❌ Error obteniendo PDF de factura:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo PDF de factura'
+    });
+  }
+});
+
+/**
+ * GET /alegra/facturacion/taxes
+ * Obtener impuestos configurados (IVA 13% en CR, etc.)
+ */
+router.get('/facturacion/taxes', async (req, res) => {
+  try {
+    console.log('💰 Obteniendo impuestos de Alegra...');
+    
+    const taxes = await alegraService.makeRequest('GET', '/taxes');
+
+    res.json({
+      success: true,
+      data: taxes
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo impuestos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo impuestos de Alegra'
+    });
+  }
+});
+
+/**
+ * GET /alegra/facturacion/payment-methods
+ * Obtener métodos de pago disponibles
+ */
+router.get('/facturacion/payment-methods', async (req, res) => {
+  try {
+    console.log('💳 Obteniendo métodos de pago de Alegra...');
+    
+    // Métodos de pago comunes en Costa Rica según Alegra
+    const paymentMethods = [
+      { id: 'cash', name: 'Efectivo', type: 'cash' },
+      { id: 'credit-card', name: 'Tarjeta de Crédito', type: 'credit-card' },
+      { id: 'debit-card', name: 'Tarjeta de Débito', type: 'debit-card' },
+      { id: 'transfer', name: 'Transferencia Bancaria', type: 'transfer' },
+      { id: 'check', name: 'Cheque', type: 'check' }
+    ];
+
+    res.json({
+      success: true,
+      data: paymentMethods
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo métodos de pago:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo métodos de pago'
+    });
+  }
+});
+
 module.exports = router;
