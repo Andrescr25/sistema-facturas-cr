@@ -1,6 +1,72 @@
 const express = require('express');
 const router = express.Router();
 const alegraService = require('../services/alegraService');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// DEBUG: Verificar estado de la base de datos
+router.get('/debug/database', async (req, res) => {
+  try {
+    const { query } = require('../config/database');
+    
+    // Test 1: Verificar conexión
+    const timeResult = await query('SELECT NOW() as time');
+    
+    // Test 2: Listar todas las tablas
+    const tablesResult = await query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
+    `);
+    
+    // Test 3: Contar registros en tablas principales
+    let counts = {};
+    try {
+      const facturasCount = await query('SELECT COUNT(*) FROM facturas');
+      counts.facturas = facturasCount.rows[0].count;
+    } catch (e) {
+      counts.facturas = 'ERROR: ' + e.message;
+    }
+    
+    try {
+      const productosCount = await query('SELECT COUNT(*) FROM productos');
+      counts.productos = productosCount.rows[0].count;
+    } catch (e) {
+      counts.productos = 'ERROR: ' + e.message;
+    }
+    
+    try {
+      const faltantesCount = await query('SELECT COUNT(*) FROM faltantes');
+      counts.faltantes = faltantesCount.rows[0].count;
+    } catch (e) {
+      counts.faltantes = 'ERROR: ' + e.message;
+    }
+    
+    // Test 4: Prisma tables
+    try {
+      const prismaFacturas = await prisma.factura.count();
+      counts.facturas_proveedores_prisma = prismaFacturas;
+    } catch (e) {
+      counts.facturas_proveedores_prisma = 'ERROR: ' + e.message;
+    }
+    
+    res.json({
+      success: true,
+      database_time: timeResult.rows[0].time,
+      tables: tablesResult.rows.map(r => r.table_name),
+      record_counts: counts,
+      message: 'Database debug info'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack,
+      message: 'Error en debug de base de datos'
+    });
+  }
+});
 
 // Probar conexión con Alegra
 router.get('/test', async (req, res) => {
