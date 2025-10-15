@@ -2635,11 +2635,14 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
     for (const producto of productos) {
       try {
+        console.log(`🔍 Buscando mapping para: ${producto.codigo} con proveedor: "${proveedor}"`);
+        
         // Buscar información del proveedor para este producto en Supabase
         const mappingResult = await query(`
           SELECT 
             supplier_code as "supplierCode",
             supplier_desc as "supplierDesc",
+            supplier_name as "supplierName",
             alegra_reference as "alegraReference",
             alegra_name as "alegraName",
             confidence,
@@ -2649,6 +2652,12 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           AND supplier_name = $2
           LIMIT 1
         `, [producto.codigo, proveedor]);
+        
+        console.log(`   Resultados encontrados: ${mappingResult.rows.length}`);
+        if (mappingResult.rows.length > 0) {
+          console.log(`   Mapping: origen="${mappingResult.rows[0].origen}", supplierName="${mappingResult.rows[0].supplierName}"`);
+          console.log(`   Códigos: supplier="${mappingResult.rows[0].supplierCode}", alegra="${mappingResult.rows[0].alegraReference}"`);
+        }
 
         let productoEnriquecido;
 
@@ -2670,16 +2679,27 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             console.log(`📝 Producto MANUAL: ${mapping.alegraReference} (Alegra)`);
           } else {
             // ✅ AUTOMÁTICO (IMAP): Usar datos del PROVEEDOR
+            
+            // Verificar que los datos del proveedor no estén vacíos
+            const codigoProveedor = mapping.supplierCode || producto.codigo;
+            const nombreProveedor = mapping.supplierDesc || producto.nombre;
+            
+            if (!mapping.supplierCode || !mapping.supplierDesc) {
+              console.warn(`⚠️ ADVERTENCIA: Producto ${mapping.alegraReference} marcado como IMAP pero sin datos del proveedor:`);
+              console.warn(`   supplierCode: "${mapping.supplierCode}", supplierDesc: "${mapping.supplierDesc}"`);
+              console.warn(`   Usando fallback a datos locales`);
+            }
+            
             productoEnriquecido = {
-              codigo_pdf: mapping.supplierCode,           // Código del proveedor
-              nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
+              codigo_pdf: codigoProveedor,           // Código del proveedor
+              nombre_pdf: nombreProveedor,           // Descripción del proveedor
               cantidad: producto.cantidad,
               codigo_interno: producto.codigo,
               nombre_interno: producto.nombre,
               confianza: mapping.confidence,
               origen: 'imap'
             };
-            console.log(`✅ Producto AUTOMÁTICO: ${mapping.alegraReference} → ${mapping.supplierCode}`);
+            console.log(`✅ Producto AUTOMÁTICO: ${mapping.alegraReference} → Proveedor: "${codigoProveedor}" / "${nombreProveedor}"`);
           }
         } else {
           // Fallback: usar datos originales si no hay mapping
