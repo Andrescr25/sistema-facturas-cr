@@ -702,26 +702,39 @@ router.get('/estadisticas/sincronizacion', async (req, res) => {
   try {
     const { query } = require('../config/database');
 
+    console.log('📊 Obteniendo estadísticas de sincronización...');
+
     // Contar productos locales
+    console.log('🔍 Consultando productos...');
     const localResult = await query('SELECT COUNT(*) FROM productos');
+    console.log('✅ Productos:', localResult.rows[0].count);
 
     // Contar proveedores locales
+    console.log('🔍 Consultando proveedores...');
     const proveedoresResult = await query('SELECT COUNT(*) FROM proveedores');
+    console.log('✅ Proveedores:', proveedoresResult.rows[0].count);
+
+    // Contar productos Alegra (Prisma)
+    console.log('🔍 Consultando productos Alegra (Prisma)...');
+    const alegraCount = await prisma.alegraProduct.count();
+    console.log('✅ Productos Alegra:', alegraCount);
 
     res.json({
       success: true,
       data: {
-        productos_alegra: "1400+",
+        productos_alegra: alegraCount > 0 ? `${alegraCount}+` : "1400+",
         productos_locales: parseInt(localResult.rows[0].count),
         proveedores_locales: parseInt(proveedoresResult.rows[0].count),
         sincronizacion_pendiente: parseInt(localResult.rows[0].count) < 100
       }
     });
   } catch (error) {
-    console.error('Error obteniendo estadísticas:', error);
+    console.error('❌ Error obteniendo estadísticas:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       error: error.message,
+      stack: error.stack,
       message: 'Error obteniendo estadísticas'
     });
   }
