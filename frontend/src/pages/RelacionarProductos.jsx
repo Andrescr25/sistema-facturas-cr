@@ -518,7 +518,7 @@ export default function RelacionarProductos() {
                 {producto.estadoRelacionado === 'RELACIONADO' && !productoAlegraInfo[producto.id] && (
                   <div className="mt-2 text-sm text-green-700 flex items-center">
                     <Check size={16} className="mr-1" />
-                    Relacionado con producto Alegra ID: {producto.alegraItemId}
+                    Relacionado (cargando información...)
                   </div>
                 )}
               </div>
