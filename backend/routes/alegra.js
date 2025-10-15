@@ -2656,7 +2656,7 @@ router.delete('/orden-compra/cantidades', async (req, res) => {
 // ✅ NUEVO: Guardar producto eliminado
 router.post('/orden-compra/producto-eliminado', async (req, res) => {
   try {
-    const { proveedorNombre, productoCodigo, productoNombre } = req.body;
+    const { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal } = req.body;
 
     if (!proveedorNombre || !productoCodigo) {
       return res.status(400).json({
@@ -2669,15 +2669,16 @@ router.post('/orden-compra/producto-eliminado', async (req, res) => {
 
     await query(`
       INSERT INTO orden_compra_temporal 
-        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_modificada, accion)
-      VALUES ($1, $2, $3, 0, 'eliminado')
+        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_original, cantidad_modificada, accion)
+      VALUES ($1, $2, $3, $4, 0, 'eliminado')
       ON CONFLICT (proveedor_nombre, producto_codigo)
       DO UPDATE SET 
-        accion = 'eliminado', 
+        accion = 'eliminado',
+        cantidad_original = EXCLUDED.cantidad_original,
         updated_at = CURRENT_TIMESTAMP
-    `, [proveedorNombre, productoCodigo, productoNombre || productoCodigo]);
+    `, [proveedorNombre, productoCodigo, productoNombre || productoCodigo, cantidadOriginal || 0]);
 
-    console.log(`🗑️ Producto eliminado guardado: ${proveedorNombre} - ${productoCodigo}`);
+    console.log(`🗑️ Producto eliminado guardado: ${proveedorNombre} - ${productoCodigo} (cantidad: ${cantidadOriginal})`);
 
     res.json({
       success: true,

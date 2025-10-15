@@ -564,7 +564,7 @@ NO afecta la base de datos externa de facturas.
   }
 
   // ✅ NUEVO: Eliminar producto de la orden
-  const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre) => {
+  const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
     if (!confirm('¿Eliminar este producto de la orden de compra?')) return
     
     const key = `${proveedorNombre}-${productoCodigo}`
@@ -577,9 +577,10 @@ NO afecta la base de datos externa de facturas.
       await api.post('/alegra/orden-compra/producto-eliminado', {
         proveedorNombre,
         productoCodigo,
-        productoNombre
+        productoNombre,
+        cantidadOriginal: cantidadOriginal || 0
       })
-      console.log(`🗑️ Producto eliminado y guardado en BD: ${key}`)
+      console.log(`🗑️ Producto eliminado y guardado en BD: ${key} (cantidad: ${cantidadOriginal})`)
     } catch (error) {
       console.error('Error guardando producto eliminado:', error)
     }
@@ -1188,7 +1189,7 @@ NO afecta la base de datos externa de facturas.
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre)}
+                                    onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
                                     className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
                                   >
                                     <Trash2 size={14} className="mr-1" />
