@@ -247,6 +247,17 @@ router.get('/test', async (req, res) => {
   }
 });
 
+// Test específico para verificar que el endpoint de proveedores existe
+router.get('/test-proveedores', async (req, res) => {
+  res.json({
+    success: true,
+    message: 'El endpoint de proveedores EXISTE en este código',
+    endpoint: '/api/alegra/proveedores disponible',
+    alegraServiceHasMethod: typeof alegraService.getProveedores === 'function',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Buscar facturas por número
 router.get('/facturas/buscar/numero/:numero', async (req, res) => {
   try {
@@ -3008,12 +3019,15 @@ router.get('/reportes/cantidad-sugerida', (req, res, next) => {
 
 // Obtener lista de proveedores de Alegra
 router.get('/proveedores', async (req, res) => {
+  console.log('⚡ ENDPOINT /proveedores LLAMADO - método:', req.method, '- query:', req.query);
   try {
     const { busqueda } = req.query;
     
     console.log(`🏭 Obteniendo proveedores de Alegra${busqueda ? ` (búsqueda: "${busqueda}")` : ''}`);
+    console.log('🔍 alegraService.getProveedores existe?', typeof alegraService.getProveedores === 'function');
     
     const result = await alegraService.getProveedores(busqueda);
+    console.log('✅ Resultado obtenido:', result.success, '- cantidad:', result.data?.length);
     
     if (result.success) {
       res.json({
