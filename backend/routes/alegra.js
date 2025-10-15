@@ -2518,17 +2518,26 @@ router.get('/orden-compra/cantidades', async (req, res) => {
         producto_nombre,
         cantidad_original,
         cantidad_modificada,
+        accion,
         created_at,
         updated_at
       FROM orden_compra_temporal
       ORDER BY proveedor_nombre, producto_nombre
     `);
 
-    console.log(`✅ ${result.rows.length} cantidades modificadas encontradas`);
+    // Separar por tipo de acción
+    const modificadas = result.rows.filter(r => !r.accion || r.accion === 'modificado');
+    const eliminadas = result.rows.filter(r => r.accion === 'eliminado');
+    const agregadas = result.rows.filter(r => r.accion === 'agregado');
+
+    console.log(`✅ Obtenidos: ${modificadas.length} modificadas, ${eliminadas.length} eliminadas, ${agregadas.length} agregadas`);
 
     res.json({
       success: true,
       data: result.rows,
+      modificadas,
+      eliminadas,
+      agregadas,
       total: result.rows.length
     });
 
@@ -2640,6 +2649,154 @@ router.delete('/orden-compra/cantidades', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error eliminando cantidades modificadas'
+    });
+  }
+});
+
+// ✅ NUEVO: Guardar producto eliminado
+router.post('/orden-compra/producto-eliminado', async (req, res) => {
+  try {
+    const { proveedorNombre, productoCodigo, productoNombre } = req.body;
+
+    if (!proveedorNombre || !productoCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere proveedorNombre y productoCodigo'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    await query(`
+      INSERT INTO orden_compra_temporal 
+        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_modificada, accion)
+      VALUES ($1, $2, $3, 0, 'eliminado')
+      ON CONFLICT (proveedor_nombre, producto_codigo)
+      DO UPDATE SET 
+        accion = 'eliminado', 
+        updated_at = CURRENT_TIMESTAMP
+    `, [proveedorNombre, productoCodigo, productoNombre || productoCodigo]);
+
+    console.log(`🗑️ Producto eliminado guardado: ${proveedorNombre} - ${productoCodigo}`);
+
+    res.json({
+      success: true,
+      message: 'Producto eliminado guardado'
+    });
+  } catch (error) {
+    console.error('❌ Error guardando producto eliminado:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ✅ NUEVO: Guardar producto agregado
+router.post('/orden-compra/producto-agregado', async (req, res) => {
+  try {
+    const { proveedorNombre, productoCodigo, productoNombre, cantidad } = req.body;
+
+    if (!proveedorNombre || !productoCodigo || !productoNombre || !cantidad) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere proveedorNombre, productoCodigo, productoNombre y cantidad'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    await query(`
+      INSERT INTO orden_compra_temporal 
+        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_modificada, accion)
+      VALUES ($1, $2, $3, $4, 'agregado')
+      ON CONFLICT (proveedor_nombre, producto_codigo)
+      DO UPDATE SET 
+        producto_nombre = $3,
+        cantidad_modificada = $4, 
+        accion = 'agregado',
+        updated_at = CURRENT_TIMESTAMP
+    `, [proveedorNombre, productoCodigo, productoNombre, cantidad]);
+
+    console.log(`➕ Producto agregado guardado: ${proveedorNombre} - ${productoCodigo} x${cantidad}`);
+
+    res.json({
+      success: true,
+      message: 'Producto agregado guardado'
+    });
+  } catch (error) {
+    console.error('❌ Error guardando producto agregado:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ✅ NUEVO: Restaurar producto eliminado
+router.delete('/orden-compra/producto-eliminado', async (req, res) => {
+  try {
+    const { proveedorNombre, productoCodigo } = req.body;
+
+    if (!proveedorNombre || !productoCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere proveedorNombre y productoCodigo'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    await query(`
+      DELETE FROM orden_compra_temporal 
+      WHERE proveedor_nombre = $1 AND producto_codigo = $2 AND accion = 'eliminado'
+    `, [proveedorNombre, productoCodigo]);
+
+    console.log(`↩️ Producto restaurado: ${proveedorNombre} - ${productoCodigo}`);
+
+    res.json({
+      success: true,
+      message: 'Producto restaurado'
+    });
+  } catch (error) {
+    console.error('❌ Error restaurando producto:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ✅ NUEVO: Eliminar producto agregado
+router.delete('/orden-compra/producto-agregado', async (req, res) => {
+  try {
+    const { proveedorNombre, productoCodigo } = req.body;
+
+    if (!proveedorNombre || !productoCodigo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere proveedorNombre y productoCodigo'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    await query(`
+      DELETE FROM orden_compra_temporal 
+      WHERE proveedor_nombre = $1 AND producto_codigo = $2 AND accion = 'agregado'
+    `, [proveedorNombre, productoCodigo]);
+
+    console.log(`🗑️ Producto agregado eliminado: ${proveedorNombre} - ${productoCodigo}`);
+
+    res.json({
+      success: true,
+      message: 'Producto agregado eliminado'
+    });
+  } catch (error) {
+    console.error('❌ Error eliminando producto agregado:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
