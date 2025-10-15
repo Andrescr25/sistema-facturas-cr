@@ -32,7 +32,42 @@ class DatabaseService {
                 return facturaExistente;
             }
 
-            // Crear la factura con sus productos
+            // PASO 1: Buscar mapeos existentes para auto-relacionar productos
+            const proveedorCedula = facturaData.emisor.identificacion.numero;
+            const productosConMapeo = [];
+
+            console.log(`🔍 Buscando mapeos existentes para proveedor ${proveedorCedula}...`);
+
+            for (const producto of facturaData.productos) {
+                // Buscar mapeo existente con este proveedor y código
+                const mapeo = await this.prisma.supplierProductMapping.findUnique({
+                    where: {
+                        supplierCedula_supplierCode: {
+                            supplierCedula: proveedorCedula,
+                            supplierCode: producto.codigo
+                        }
+                    }
+                });
+
+                if (mapeo) {
+                    console.log(`✅ Mapeo encontrado: ${producto.codigo} → ${mapeo.alegraName} (${mapeo.alegraItemId})`);
+                    productosConMapeo.push({
+                        ...producto,
+                        alegraItemId: mapeo.alegraItemId,
+                        mapeoId: mapeo.id,
+                        estadoRelacionado: 'RELACIONADO',
+                        confianza: mapeo.confidence
+                    });
+                } else {
+                    console.log(`⚠️ Sin mapeo previo: ${producto.codigo} - ${producto.descripcion.substring(0, 50)}`);
+                    productosConMapeo.push({
+                        ...producto,
+                        estadoRelacionado: 'PENDIENTE'
+                    });
+                }
+            }
+
+            // PASO 2: Crear la factura con sus productos (ya con relaciones aplicadas)
             const facturaGuardada = await this.prisma.factura.create({
                 data: {
                     clave: facturaData.clave,
@@ -41,12 +76,12 @@ class DatabaseService {
 
                     // Información del proveedor
                     proveedorNombre: facturaData.emisor.nombre,
-                    proveedorCedula: facturaData.emisor.identificacion.numero,
+                    proveedorCedula: proveedorCedula,
                     proveedorEmail: facturaData.emisor.correoElectronico,
                     proveedorTelefono: facturaData.emisor.telefono?.numero,
 
                     // Totales
-                    totalProductos: facturaData.productos.length,
+                    totalProductos: productosConMapeo.length,
                     totalFactura: facturaData.resumen.totales.comprobante,
                     moneda: facturaData.resumen.moneda.codigo,
 
@@ -57,9 +92,9 @@ class DatabaseService {
                     archivoXML: archivoXML,
                     emailId: emailId,
 
-                    // Crear productos relacionados
+                    // Crear productos relacionados (con mapeos aplicados)
                     productos: {
-                        create: facturaData.productos.map(producto => ({
+                        create: productosConMapeo.map(producto => ({
                             numeroLinea: producto.numeroLinea,
                             codigoProveedor: producto.codigo,
                             codigoComercial: producto.codigoComercial?.codigo,
@@ -71,7 +106,10 @@ class DatabaseService {
                             descuento: producto.descuento?.monto || 0,
                             impuesto: producto.impuesto?.monto || 0,
                             totalLinea: producto.montoTotalLinea,
-                            estadoRelacionado: 'PENDIENTE'
+                            estadoRelacionado: producto.estadoRelacionado,
+                            alegraItemId: producto.alegraItemId || null,
+                            mapeoId: producto.mapeoId || null,
+                            confianza: producto.confianza || null
                         }))
                     }
                 },
@@ -80,8 +118,48 @@ class DatabaseService {
                 }
             });
 
+            // PASO 3: Actualizar timesUsed en mapeos utilizados
+            const mapeosUsados = productosConMapeo.filter(p => p.mapeoId);
+            if (mapeosUsados.length > 0) {
+                await Promise.all(mapeosUsados.map(async (p) => {
+                    await this.prisma.supplierProductMapping.update({
+                        where: { id: p.mapeoId },
+                        data: {
+                            timesUsed: { increment: 1 },
+                            lastUsedDate: new Date()
+                        }
+                    });
+                }));
+            }
+
+            const productosRelacionados = productosConMapeo.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
+            const productosPendientes = productosConMapeo.filter(p => p.estadoRelacionado === 'PENDIENTE').length;
+            const porcentajeRelacionado = Math.round((productosRelacionados / productosConMapeo.length) * 100);
+
+            // PASO 4: Actualizar estado de la factura si está relacionada
+            if (porcentajeRelacionado > 0) {
+                try {
+                    await this.prisma.factura.update({
+                        where: { id: facturaGuardada.id },
+                        data: {
+                            porcentajeRelacionado: porcentajeRelacionado,
+                            estadoRelacionado: porcentajeRelacionado === 100 ? 'RELACIONADO' : null
+                        }
+                    });
+
+                    if (porcentajeRelacionado === 100) {
+                        console.log(`🎉 Factura 100% relacionada automáticamente!`);
+                    }
+                } catch (err) {
+                    // Ignorar si campos no existen (migración pendiente)
+                    console.log(`⚠️ No se pudo actualizar porcentaje (campos no existen)`);
+                }
+            }
+
             console.log(`✅ Factura guardada: ${facturaGuardada.id}`);
             console.log(`📦 ${facturaGuardada.productos.length} productos guardados`);
+            console.log(`   ✅ ${productosRelacionados} productos auto-relacionados (${porcentajeRelacionado}%)`);
+            console.log(`   ⚠️ ${productosPendientes} productos pendientes de relacionar`);
 
             return facturaGuardada;
 
