@@ -648,7 +648,6 @@ export default function Facturacion() {
               <div>
                 <div className="flex gap-2">
                   <input
-                    ref={busquedaClienteRef}
                     type="text"
                     value={busquedaCliente}
                     onChange={(e) => {
