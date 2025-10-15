@@ -2,11 +2,16 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Configuración de la conexión a PostgreSQL usando DATABASE_URL
+const sslConfig = process.env.NODE_ENV === 'production' 
+  ? {
+      rejectUnauthorized: false,
+      require: true
+    }
+  : false;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: sslConfig
 });
 
 // Debug para verificar la conexión
@@ -66,7 +71,7 @@ const initializeDatabase = async () => {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('proveedores', 'productos', 'facturas')
+      AND table_name IN ('proveedores', 'productos', 'facturas', 'faltantes', 'factura_items')
     `);
     
     if (tableCheck.rows.length === 0) {
@@ -92,6 +97,64 @@ const initializeDatabase = async () => {
           descripcion TEXT,
           proveedor_id INTEGER REFERENCES proveedores(id),
           precio_unitario DECIMAL(10,2),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await query(`
+        CREATE TABLE IF NOT EXISTS facturas (
+          id SERIAL PRIMARY KEY,
+          numero_factura VARCHAR(100) NOT NULL UNIQUE,
+          alegra_id INTEGER NOT NULL,
+          cliente_nombre VARCHAR(255) NOT NULL,
+          cliente_email VARCHAR(100),
+          fecha_emision DATE NOT NULL,
+          semana INTEGER NOT NULL,
+          mes INTEGER NOT NULL,
+          ano INTEGER NOT NULL,
+          total DECIMAL(10,2),
+          estado_procesamiento VARCHAR(50) DEFAULT 'listo',
+          observaciones_adicionales TEXT,
+          procesada BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await query(`
+        CREATE TABLE IF NOT EXISTS factura_items (
+          id SERIAL PRIMARY KEY,
+          factura_id INTEGER REFERENCES facturas(id),
+          producto_id INTEGER REFERENCES productos(id),
+          cantidad_original INTEGER NOT NULL,
+          cantidad_entregada INTEGER DEFAULT 0,
+          precio_unitario DECIMAL(10,2),
+          subtotal DECIMAL(10,2),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await query(`
+        CREATE TABLE IF NOT EXISTS faltantes (
+          id SERIAL PRIMARY KEY,
+          factura_id INTEGER REFERENCES facturas(id),
+          producto_id INTEGER REFERENCES productos(id),
+          cantidad_faltante INTEGER NOT NULL,
+          tipo_faltante VARCHAR(20) NOT NULL CHECK (tipo_faltante IN ('total', 'parcial')),
+          observaciones TEXT,
+          registrado_por VARCHAR(100),
+          estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'procesado', 'en_reimpresion')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      await query(`
+        CREATE TABLE IF NOT EXISTS faltantes_ajustes (
+          id SERIAL PRIMARY KEY,
+          faltante_id INTEGER REFERENCES faltantes(id),
+          cantidad_entregada INTEGER NOT NULL,
+          estado VARCHAR(20) DEFAULT 'pendiente',
+          requiere_actualizacion BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
