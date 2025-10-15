@@ -25,6 +25,9 @@ export default function ReporteProveedores() {
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
+  
+  // ✅ NUEVO: Estados para asignación en lote
+  const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
 
   useEffect(() => {
     loadReporte()
@@ -360,9 +363,41 @@ NO afecta la base de datos externa de facturas.
       (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
   }
 
-  // ✅ NUEVO: Abrir modal para asignar proveedor
-  const abrirModalAsignar = async (producto) => {
-    setProductoParaAsignar(producto)
+  // ✅ NUEVO: Toggle selección de producto
+  const toggleProductoSeleccionado = (codigo) => {
+    const nuevaSeleccion = new Set(productosSeleccionados)
+    if (nuevaSeleccion.has(codigo)) {
+      nuevaSeleccion.delete(codigo)
+    } else {
+      nuevaSeleccion.add(codigo)
+    }
+    setProductosSeleccionados(nuevaSeleccion)
+  }
+
+  // ✅ NUEVO: Seleccionar/Deseleccionar todos
+  const toggleTodosProductos = (proveedor) => {
+    if (proveedor.nombre === 'Sin_Proveedor') {
+      const todosCodigos = proveedor.productos_faltantes.map(p => p.codigo)
+      const todosSeleccionados = todosCodigos.every(codigo => productosSeleccionados.has(codigo))
+      
+      const nuevaSeleccion = new Set(productosSeleccionados)
+      if (todosSeleccionados) {
+        // Deseleccionar todos
+        todosCodigos.forEach(codigo => nuevaSeleccion.delete(codigo))
+      } else {
+        // Seleccionar todos
+        todosCodigos.forEach(codigo => nuevaSeleccion.add(codigo))
+      }
+      setProductosSeleccionados(nuevaSeleccion)
+    }
+  }
+
+  // ✅ NUEVO: Abrir modal para asignar proveedor (ahora para múltiples productos)
+  const abrirModalAsignar = async () => {
+    if (productosSeleccionados.size === 0) {
+      alert('⚠️ Selecciona al menos un producto')
+      return
+    }
     setModalAsignarVisible(true)
     setBusquedaProveedor('')
     await cargarProveedoresAlegra('')
@@ -398,27 +433,48 @@ NO afecta la base de datos externa de facturas.
     }
   }
 
-  // ✅ NUEVO: Asignar proveedor manualmente
+  // ✅ NUEVO: Asignar proveedor manualmente (ahora soporta múltiples productos)
   const asignarProveedorManual = async (proveedorId) => {
-    if (!productoParaAsignar) return
+    if (productosSeleccionados.size === 0) return
 
     try {
       setLoading(true)
       
-      const response = await api.post('/alegra/faltantes/asignar-proveedor-manual', {
-        alegraReference: productoParaAsignar.codigo,
-        alegraItemId: productoParaAsignar.alegra_item_id || productoParaAsignar.codigo,
-        alegraName: productoParaAsignar.nombre,
-        proveedorId: proveedorId
-      })
+      // Obtener información completa de los productos seleccionados
+      const productosSinProveedor = proveedores.find(p => p.nombre === 'Sin_Proveedor')
+      if (!productosSinProveedor) {
+        alert('⚠️ No se encontró el grupo de productos sin proveedor')
+        return
+      }
 
-      if (response.data.success) {
-        alert(`✅ Proveedor asignado correctamente`)
+      const productosAAsignar = productosSinProveedor.productos_faltantes.filter(p => 
+        productosSeleccionados.has(p.codigo)
+      )
+
+      console.log(`🔄 Asignando ${productosAAsignar.length} productos al proveedor ${proveedorId}`)
+
+      // Asignar cada producto (en paralelo)
+      const promesas = productosAAsignar.map(producto =>
+        api.post('/alegra/faltantes/asignar-proveedor-manual', {
+          alegraReference: producto.codigo,
+          alegraItemId: producto.alegra_item_id || producto.codigo,
+          alegraName: producto.nombre,
+          proveedorId: proveedorId
+        })
+      )
+
+      const resultados = await Promise.all(promesas)
+      
+      const exitosos = resultados.filter(r => r.data.success).length
+      const fallidos = resultados.length - exitosos
+
+      if (exitosos > 0) {
+        alert(`✅ ${exitosos} producto(s) asignado(s) correctamente${fallidos > 0 ? `\n⚠️ ${fallidos} fallaron` : ''}`)
         setModalAsignarVisible(false)
-        setProductoParaAsignar(null)
+        setProductosSeleccionados(new Set()) // Limpiar selección
         await loadReporte() // Recargar para ver cambios
       } else {
-        alert(`❌ Error: ${response.data.message}`)
+        alert(`❌ No se pudo asignar ningún producto`)
       }
     } catch (error) {
       console.error('Error asignando proveedor:', error)
@@ -631,6 +687,16 @@ NO afecta la base de datos externa de facturas.
                   {/* Header del proveedor */}
                   <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
                     <div className="flex items-center">
+                      {/* ✅ NUEVO: Checkbox para seleccionar todos (solo Sin_Proveedor) */}
+                      {proveedor.nombre === 'Sin_Proveedor' && (
+                        <input
+                          type="checkbox"
+                          checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))}
+                          onChange={() => toggleTodosProductos(proveedor)}
+                          className="w-5 h-5 mr-3 cursor-pointer"
+                          title="Seleccionar todos"
+                        />
+                      )}
                       <div className="p-2 bg-blue-100 rounded-lg mr-4">
                         <Users className="text-blue-600" size={24} />
                       </div>
@@ -671,22 +737,21 @@ NO afecta la base de datos externa de facturas.
                     {proveedor.productos_faltantes.map((producto, index) => (
                       <div key={index} className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center justify-between">
+                          {/* ✅ NUEVO: Checkbox para selección individual (solo Sin_Proveedor) */}
+                          {proveedor.nombre === 'Sin_Proveedor' && (
+                            <input
+                              type="checkbox"
+                              checked={productosSeleccionados.has(producto.codigo)}
+                              onChange={() => toggleProductoSeleccionado(producto.codigo)}
+                              className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
+                            />
+                          )}
                           <div className="flex-1">
                             <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
                             <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
                             <p className="text-sm text-gray-600">
                               Clientes afectados: {producto.clientes_afectados}
                             </p>
-                            {/* ✅ NUEVO: Botón asignar proveedor para "Sin_Proveedor" */}
-                            {proveedor.nombre === 'Sin_Proveedor' && (
-                              <button
-                                onClick={() => abrirModalAsignar(producto)}
-                                className="mt-2 btn btn-sm btn-outline text-blue-600 border-blue-600 hover:bg-blue-50"
-                              >
-                                <Users size={14} className="mr-1" />
-                                Asignar Proveedor
-                              </button>
-                            )}
                           </div>
                           <div className="text-right">
                             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${producto.tipo_faltante === 'total'
@@ -709,6 +774,19 @@ NO afecta la base de datos externa de facturas.
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ✅ NUEVO: Botón flotante para asignar productos seleccionados */}
+          {productosSeleccionados.size > 0 && (
+            <div className="fixed bottom-8 right-8 z-50">
+              <button
+                onClick={abrirModalAsignar}
+                className="btn btn-primary shadow-2xl flex items-center space-x-2 text-lg px-6 py-4 rounded-full hover:scale-105 transition-transform"
+              >
+                <Users size={20} />
+                <span>Asignar {productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
+              </button>
             </div>
           )}
         </div>
@@ -1111,17 +1189,19 @@ NO afecta la base de datos externa de facturas.
         </div>
       )}
 
-      {/* ✅ NUEVO: Modal para asignar proveedor */}
-      {modalAsignarVisible && productoParaAsignar && (
+      {/* ✅ NUEVO: Modal para asignar proveedor (ahora soporta múltiples productos) */}
+      {modalAsignarVisible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header del modal */}
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">Asignar Proveedor</h2>
               <p className="text-gray-600 mt-1">
-                Producto: <span className="font-medium">{productoParaAsignar.nombre}</span>
+                Asignar <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span> a un proveedor
               </p>
-              <p className="text-sm text-gray-500">Código: {productoParaAsignar.codigo}</p>
+              <p className="text-sm text-gray-500">
+                Selecciona el proveedor de la lista o crea uno nuevo
+              </p>
             </div>
 
             {/* Buscador */}
