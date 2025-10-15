@@ -14,6 +14,8 @@ export default function ReporteProveedores() {
   const [cantidadSugerida, setCantidadSugerida] = useState([]) // Datos de cantidad sugerida
   const [resumenSugerida, setResumenSugerida] = useState(null) // Resumen de cantidad sugerida
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('') // Proveedor seleccionado para filtro
+  const [proveedorQuery, setProveedorQuery] = useState('') // NUEVO: búsqueda proveedores
+  const [proveedoresColapsados, setProveedoresColapsados] = useState(new Set()) // NUEVO: colapsables
 
   useEffect(() => {
     loadReporte()
@@ -34,6 +36,8 @@ export default function ReporteProveedores() {
       if (result.success) {
         setProveedores(result.data)
         setResumen(result.resumen)
+        // Colapsar todos los proveedores por defecto
+        setProveedoresColapsados(new Set(result.data.map(p => p.id)))
 
         // ✅ AGREGADO: Cargar encargos especiales
         loadEncargosEspeciales()
@@ -259,6 +263,47 @@ export default function ReporteProveedores() {
     }
   }
 
+  // NUEVO: Generar PDF desde Cantidad Sugerida
+  const handleGenerarPDFDesdeSugerida = async () => {
+    if (!proveedorSeleccionado || cantidadSugerida.length === 0) {
+      alert('Seleccione un proveedor con datos para generar el PDF')
+      return
+    }
+
+    const proveedor = proveedores.find(p => String(p.id) === String(proveedorSeleccionado))
+    if (!proveedor) {
+      alert('Proveedor no encontrado')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const productosParaPDF = cantidadSugerida.map(p => ({
+        codigo: p.producto_codigo,
+        nombre: p.producto_nombre,
+        cantidad: p.cantidad_sugerida
+      }))
+
+      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF)
+
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `orden-compra-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      alert(`✅ PDF generado para ${proveedor.nombre}`)
+    } catch (error) {
+      alert(`❌ Error generando PDF: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleLimpiarVista = async () => {
     if (proveedores.length === 0) {
       alert('ℹ️ No hay datos para limpiar.')
@@ -332,6 +377,16 @@ NO afecta la base de datos externa de facturas.
           <p className="text-gray-600 mt-1">Lista de productos faltantes organizados por proveedor para facilitar las compras</p>
         </div>
         <div className="flex items-center space-x-2">
+          {/* NUEVO: Búsqueda de proveedores */}
+          {activeTab === 'faltantes' && (
+            <input
+              type="text"
+              value={proveedorQuery}
+              onChange={(e) => setProveedorQuery(e.target.value)}
+              placeholder="Buscar proveedor por nombre..."
+              className="input w-64"
+            />
+          )}
           {activeTab === 'modificar' && cantidadesGuardadas.size > 0 && (
             <button
               onClick={handleLimpiarCantidadesGuardadas}
@@ -473,7 +528,9 @@ NO afecta la base de datos externa de facturas.
             </div>
           ) : (
             <div className="space-y-6">
-              {proveedores.map((proveedor) => (
+              {proveedores
+                .filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase()))
+                .map((proveedor) => (
                 <div key={proveedor.id} className="card">
                   {/* Header del proveedor */}
                   <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
@@ -486,14 +543,29 @@ NO afecta la base de datos externa de facturas.
                         <p className="text-gray-600">{proveedor.contacto}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Total productos</p>
-                      <p className="text-2xl font-bold text-blue-600">{proveedor.total_productos}</p>
-                      <p className="text-sm text-gray-600">{proveedor.total_cantidad} unidades</p>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">Total productos</p>
+                        <p className="text-2xl font-bold text-blue-600">{proveedor.total_productos}</p>
+                        <p className="text-sm text-gray-600">{proveedor.total_cantidad} unidades</p>
+                      </div>
+                      {/* NUEVO: Botón colapsar/expandir */}
+                      <button
+                        onClick={() => {
+                          const next = new Set(proveedoresColapsados)
+                          if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
+                          setProveedoresColapsados(next)
+                        }}
+                        className="btn btn-outline whitespace-nowrap"
+                        title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                      >
+                        {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                      </button>
                     </div>
                   </div>
 
                   {/* Lista de productos faltantes */}
+                  {!proveedoresColapsados.has(proveedor.id) && (
                   <div className="space-y-3">
                     <h4 className="font-medium text-gray-900 flex items-center">
                       <FileText size={16} className="mr-2" />
@@ -528,6 +600,7 @@ NO afecta la base de datos externa de facturas.
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -584,16 +657,30 @@ NO afecta la base de datos externa de facturas.
                         <p className="text-gray-600">Orden de Compra</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleGenerarPDF(proveedor)}
-                      className="btn bg-green-600 text-white border-green-600 hover:bg-green-700"
-                    >
-                      <Download size={16} className="mr-2" />
-                      Generar PDF
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          const next = new Set(proveedoresColapsados)
+                          if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
+                          setProveedoresColapsados(next)
+                        }}
+                        className="btn btn-outline whitespace-nowrap"
+                        title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                      >
+                        {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                      </button>
+                      <button
+                        onClick={() => handleGenerarPDF(proveedor)}
+                        className="btn bg-green-600 text-white border-green-600 hover:bg-green-700"
+                      >
+                        <Download size={16} className="mr-2" />
+                        Generar PDF
+                      </button>
+                    </div>
                   </div>
 
                   {/* Lista de productos editables */}
+                  {!proveedoresColapsados.has(proveedor.id) && (
                   <div className="space-y-3">
                     <h4 className="font-medium text-gray-900 flex items-center">
                       <Edit3 size={16} className="mr-2" />
@@ -660,6 +747,7 @@ NO afecta la base de datos externa de facturas.
                       )
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -697,6 +785,16 @@ NO afecta la base de datos externa de facturas.
                     ))}
                   </select>
                 </div>
+                {/* NUEVO: Generar PDF desde sugerida */}
+                <button
+                  onClick={handleGenerarPDFDesdeSugerida}
+                  disabled={!proveedorSeleccionado || cantidadSugerida.length === 0}
+                  className={`btn bg-green-600 text-white border-green-600 hover:bg-green-700 ${(!proveedorSeleccionado || cantidadSugerida.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={!proveedorSeleccionado ? 'Seleccione un proveedor' : (cantidadSugerida.length === 0 ? 'No hay datos para PDF' : 'Generar PDF de sugerencias')}
+                >
+                  <Download size={16} className="mr-2" />
+                  Generar PDF
+                </button>
               </div>
             </div>
           </div>

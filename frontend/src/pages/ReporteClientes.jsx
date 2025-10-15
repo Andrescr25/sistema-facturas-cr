@@ -10,6 +10,8 @@ export default function ReporteClientes() {
   const [entregasAjustadas, setEntregasAjustadas] = useState(new Map())
   const [historialCambios, setHistorialCambios] = useState(new Map())
   const [facturasEstado, setFacturasEstado] = useState(new Map()) // NUEVO: Para manejar estados
+  const [clienteQuery, setClienteQuery] = useState('') // NUEVO: búsqueda
+  const [clientesColapsados, setClientesColapsados] = useState(new Set()) // NUEVO: colapsables
 
   useEffect(() => {
     loadReporte()
@@ -27,6 +29,8 @@ export default function ReporteClientes() {
         console.log('🔍 DEBUG: Primera factura:', result.data[0]?.facturas_con_faltantes[0]);
         setClientes(result.data)
         setResumen(result.resumen)
+        // Colapsar todos los clientes por defecto
+        setClientesColapsados(new Set(result.data.map(c => c.nombre)))
 
         // NUEVO: Cargar estados y ajustes desde BD
         const estadosMap = new Map()
@@ -468,6 +472,14 @@ La factura se marcará como procesada en la base de datos.
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          {/* NUEVO: Búsqueda de clientes */}
+          <input
+            type="text"
+            value={clienteQuery}
+            onChange={(e) => setClienteQuery(e.target.value)}
+            placeholder="Buscar cliente por nombre..."
+            className="input w-64"
+          />
           <button
             onClick={handleLimpiarFacturasListas}
             disabled={contarFacturasProcesadas() === 0}
@@ -560,7 +572,10 @@ La factura se marcará como procesada en la base de datos.
         </div>
       ) : (
         <div className="space-y-6">
-          {clientes.map((cliente, clienteIndex) => (
+          {/* NUEVO: Filtrar por nombre de cliente */}
+          {clientes
+            .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
+            .map((cliente, clienteIndex) => (
             <div key={clienteIndex} className="card">
               {/* Header del cliente */}
               <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
@@ -582,14 +597,29 @@ La factura se marcará como procesada en la base de datos.
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Productos pendientes</p>
-                  <p className="text-2xl font-bold text-purple-600">{cliente.total_cantidad}</p>
-                  <p className="text-sm text-gray-600">{cliente.facturas_con_faltantes.length} factura{cliente.facturas_con_faltantes.length > 1 ? 's' : ''}</p>
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Productos pendientes</p>
+                    <p className="text-2xl font-bold text-purple-600">{cliente.total_cantidad}</p>
+                    <p className="text-sm text-gray-600">{cliente.facturas_con_faltantes.length} factura{cliente.facturas_con_faltantes.length > 1 ? 's' : ''}</p>
+                  </div>
+                  {/* NUEVO: Botón colapsar/expandir */}
+                  <button
+                    onClick={() => {
+                      const next = new Set(clientesColapsados)
+                      if (next.has(cliente.nombre)) next.delete(cliente.nombre); else next.add(cliente.nombre)
+                      setClientesColapsados(next)
+                    }}
+                    className="btn btn-outline whitespace-nowrap"
+                    title={clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
+                  >
+                    {clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
+                  </button>
                 </div>
               </div>
 
               {/* Facturas con faltantes */}
+              {!clientesColapsados.has(cliente.nombre) && (
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-900 flex items-center">
                   <FileText size={16} className="mr-2" />
@@ -883,6 +913,7 @@ La factura se marcará como procesada en la base de datos.
                   )
                 })}
               </div>
+              )}
             </div>
           ))}
         </div>
