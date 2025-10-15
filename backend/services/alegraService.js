@@ -469,11 +469,19 @@ class AlegraService {
                 }
             });
             
-            console.log(`✅ Encontradas ${response.data.length} facturas`);
+            // Debug: Ver estructura de la respuesta
+            console.log('📦 Respuesta de Alegra:', JSON.stringify(response.data, null, 2));
+            console.log('📊 Tipo de respuesta:', typeof response.data);
+            console.log('📊 Es array?:', Array.isArray(response.data));
+            
+            // Alegra puede devolver un array directo o un objeto con datos
+            const facturas = Array.isArray(response.data) ? response.data : [];
+            
+            console.log(`✅ Encontradas ${facturas.length} facturas`);
             
             return {
                 success: true,
-                data: response.data || []
+                data: facturas
             };
         } catch (error) {
             console.error('❌ Error buscando facturas por número:', error.message);
@@ -500,6 +508,8 @@ class AlegraService {
                 }
             });
             
+            console.log('📦 Respuesta contactos:', JSON.stringify(contactsResponse.data, null, 2).substring(0, 500));
+            
             if (!contactsResponse.data || contactsResponse.data.length === 0) {
                 console.log('⚠️ No se encontró el cliente');
                 return {
@@ -520,11 +530,14 @@ class AlegraService {
                 }
             });
             
-            console.log(`✅ Encontradas ${invoicesResponse.data.length} facturas`);
+            console.log('📦 Respuesta facturas:', JSON.stringify(invoicesResponse.data, null, 2).substring(0, 500));
+            
+            const facturas = Array.isArray(invoicesResponse.data) ? invoicesResponse.data : [];
+            console.log(`✅ Encontradas ${facturas.length} facturas`);
             
             return {
                 success: true,
-                data: invoicesResponse.data || [],
+                data: facturas,
                 client: contact
             };
         } catch (error) {
