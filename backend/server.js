@@ -57,9 +57,15 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir frontend solo en desarrollo local, no en producción
-if (process.env.NODE_ENV !== 'production') {
+// ⚠️ NUNCA servir frontend desde el backend en Render
+// El frontend debe estar en un servicio separado (Render Static Site)
+// Solo servir en desarrollo local explícito
+const isLocalDevelopment = process.env.LOCAL_DEV === 'true';
+if (isLocalDevelopment) {
+  console.log('📁 Sirviendo frontend desde backend (SOLO desarrollo local)');
   app.use(express.static(path.join(__dirname, '../frontend/dist')));
+} else {
+  console.log('🚫 NO sirviendo frontend - Este es un servidor API puro');
 }
 
 // Importar rutas
@@ -109,30 +115,36 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Catch-all handler para SPA solo en desarrollo
-if (process.env.NODE_ENV !== 'production') {
-  app.get('*', (req, res) => {
-    // Solo para rutas que NO empiecen con /api
-    if (req.path.startsWith('/api')) {
-      return res.status(404).json({ 
-        error: 'Ruta de API no encontrada',
-        path: req.originalUrl
-      });
-    }
-    
-    // Para todas las demás rutas, servir el frontend desde la ruta correcta
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-  });
-} else {
-  // En producción, solo devolver 404 para rutas no API
-  app.get('*', (req, res) => {
-    res.status(404).json({ 
-      error: 'Ruta no encontrada',
-      message: 'Este es un servidor API. El frontend está en un servicio separado.',
-      path: req.originalUrl
+// Catch-all handler
+app.get('*', (req, res) => {
+  // Para rutas /api, devolver JSON 404
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ 
+      error: 'Ruta de API no encontrada',
+      path: req.originalUrl,
+      availableRoutes: [
+        '/api/alegra/*',
+        '/api/facturas/*',
+        '/api/productos/*',
+        '/api/proveedores/*',
+        '/api/faltantes/*',
+        '/api/reportes/*'
+      ]
     });
+  }
+  
+  // Para desarrollo local, servir index.html
+  if (isLocalDevelopment) {
+    return res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  }
+  
+  // En producción/Render, devolver 404 en lugar de HTML
+  res.status(404).json({ 
+    error: 'Ruta no encontrada',
+    message: 'Este es un servidor API puro. El frontend está en https://sistema-facturas-cr.onrender.com',
+    path: req.originalUrl
   });
-}
+});
 
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
