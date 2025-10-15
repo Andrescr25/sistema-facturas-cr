@@ -52,11 +52,25 @@ class FacturacionService {
       
       if (response.data.success) {
         const productos = response.data.data;
-        await indexedDBService.saveProductos(productos);
+        
+        // Normalizar productos antes de guardar
+        const productosNormalizados = productos.map(p => ({
+          ...p,
+          // Alegra puede devolver reference como objeto {type, reference} o como string
+          reference: typeof p.reference === 'object' && p.reference !== null 
+            ? (p.reference.reference || '') 
+            : (p.reference || ''),
+          // Extraer precio principal
+          price: Array.isArray(p.price) 
+            ? (p.price.find(pr => pr.main)?.price || p.price[0]?.price || 0)
+            : (p.price || 0)
+        }));
+        
+        await indexedDBService.saveProductos(productosNormalizados);
         
         return {
           success: true,
-          total: productos.length,
+          total: productosNormalizados.length,
           timestamp: response.data.timestamp
         };
       }

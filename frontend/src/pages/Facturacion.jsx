@@ -49,7 +49,13 @@ export default function Facturacion() {
   // Referencias
   const codigoInputRef = useRef(null);
   const cantidadInputRef = useRef(null);
-  const busquedaClienteRef = useRef(null);
+
+  // Helper: Obtener reference como string (puede venir como objeto o string desde Alegra)
+  const getReference = (ref) => {
+    if (!ref) return '';
+    if (typeof ref === 'object' && ref.reference) return String(ref.reference);
+    return String(ref);
+  };
 
   // Detectar tipo de dispositivo (mejorado)
   useEffect(() => {
@@ -318,7 +324,7 @@ export default function Facturacion() {
       // Agregar nuevo
       const nuevoItem = {
         id: producto.id,
-        reference: producto.reference,
+        reference: getReference(producto.reference),
         name: producto.name,
         quantity: cantidad,
         price: producto.price || 0,
@@ -805,7 +811,7 @@ export default function Facturacion() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <p className="font-medium">{producto.name}</p>
-                            <p className="text-sm text-gray-600">Código: {producto.reference}</p>
+                            <p className="text-sm text-gray-600">Código: {getReference(producto.reference)}</p>
                             {producto.price && (
                               <p className="text-sm text-green-600">₡{producto.price.toLocaleString()}</p>
                             )}
@@ -834,7 +840,7 @@ export default function Facturacion() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-600">Código: {item.reference}</p>
+                        <p className="text-sm text-gray-600">Código: {getReference(item.reference)}</p>
                       </div>
                       <button
                         onClick={() => eliminarItem(index)}
