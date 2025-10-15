@@ -28,6 +28,15 @@ export default function ReporteProveedores() {
   
   // ✅ NUEVO: Estados para asignación en lote
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
+  
+  // ✅ NUEVO: Estados para edición de orden de compra
+  const [productosEliminados, setProductosEliminados] = useState(new Set()) // Set de códigos eliminados
+  const [productosAgregados, setProductosAgregados] = useState(new Map()) // Map<proveedorNombre, [{producto, cantidad}]>
+  const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
+  const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
+  const [busquedaProducto, setBusquedaProducto] = useState('')
+  const [productosAlegra, setProductosAlegra] = useState([])
+  const [loadingProductos, setLoadingProductos] = useState(false)
 
   useEffect(() => {
     loadReporte()
@@ -232,22 +241,43 @@ export default function ReporteProveedores() {
       setLoading(true)
 
       // Preparar datos del proveedor con cantidades finales
-      const productosParaPDF = proveedor.productos_faltantes.map(producto => {
-        const key = `${proveedor.nombre}-${producto.codigo}`
-        const cantidadModificada = cantidadesModificadas.get(key)
-        const cantidadGuardada = cantidadesGuardadas.get(key)
+      const productosParaPDF = proveedor.productos_faltantes
+        .filter(producto => {
+          // ✅ FILTRAR productos eliminados
+          const key = `${proveedor.nombre}-${producto.codigo}`
+          return !productosEliminados.has(key)
+        })
+        .map(producto => {
+          const key = `${proveedor.nombre}-${producto.codigo}`
+          const cantidadModificada = cantidadesModificadas.get(key)
+          const cantidadGuardada = cantidadesGuardadas.get(key)
 
-        // Prioridad: modificada > guardada > original
-        const cantidadFinal = cantidadModificada !== undefined ?
-          cantidadModificada :
-          (cantidadGuardada ? cantidadGuardada.cantidad_modificada : producto.cantidad_faltante)
+          // Prioridad: modificada > guardada > original
+          const cantidadFinal = cantidadModificada !== undefined ?
+            cantidadModificada :
+            (cantidadGuardada ? cantidadGuardada.cantidad_modificada : producto.cantidad_faltante)
 
-        return {
-          codigo: producto.codigo,
-          nombre: producto.nombre,
-          cantidad: cantidadFinal
-        }
+          return {
+            codigo: producto.codigo,
+            nombre: producto.nombre,
+            cantidad: cantidadFinal
+          }
+        })
+      
+      // ✅ AGREGAR productos agregados manualmente
+      const productosAgregadosDelProveedor = productosAgregados.get(proveedor.nombre) || []
+      productosAgregadosDelProveedor.forEach(p => {
+        productosParaPDF.push({
+          codigo: p.codigo,
+          nombre: p.nombre,
+          cantidad: p.cantidad
+        })
       })
+
+      if (productosParaPDF.length === 0) {
+        alert('⚠️ No hay productos para generar la orden de compra')
+        return
+      }
 
       // ✅ OBTENER BLOB DIRECTAMENTE
       const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF)
@@ -505,6 +535,101 @@ NO afecta la base de datos externa de facturas.
     } finally {
       setLoading(false)
     }
+  }
+
+  // ✅ NUEVO: Eliminar producto de la orden
+  const eliminarProductoDeOrden = (proveedorNombre, productoCodigo) => {
+    if (!confirm('¿Eliminar este producto de la orden de compra?')) return
+    
+    const key = `${proveedorNombre}-${productoCodigo}`
+    const nuevosEliminados = new Set(productosEliminados)
+    nuevosEliminados.add(key)
+    setProductosEliminados(nuevosEliminados)
+    
+    console.log(`🗑️ Producto eliminado: ${key}`)
+  }
+
+  // ✅ NUEVO: Restaurar producto eliminado
+  const restaurarProducto = (proveedorNombre, productoCodigo) => {
+    const key = `${proveedorNombre}-${productoCodigo}`
+    const nuevosEliminados = new Set(productosEliminados)
+    nuevosEliminados.delete(key)
+    setProductosEliminados(nuevosEliminados)
+    
+    console.log(`↩️ Producto restaurado: ${key}`)
+  }
+
+  // ✅ NUEVO: Abrir modal para agregar producto
+  const abrirModalAgregarProducto = (proveedor) => {
+    setProveedorParaAgregar(proveedor)
+    setModalAgregarProducto(true)
+    setBusquedaProducto('')
+    setProductosAlegra([])
+  }
+
+  // ✅ NUEVO: Buscar productos de Alegra
+  const buscarProductosAlegra = async (query) => {
+    if (!query || query.length < 2) {
+      setProductosAlegra([])
+      return
+    }
+
+    try {
+      setLoadingProductos(true)
+      const response = await api.get('/alegra/productos/buscar', {
+        params: { query }
+      })
+
+      if (response.data.success) {
+        setProductosAlegra(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error buscando productos:', error)
+      alert('Error buscando productos')
+    } finally {
+      setLoadingProductos(false)
+    }
+  }
+
+  // ✅ NUEVO: Agregar producto a la orden
+  const agregarProductoAOrden = (producto, cantidad) => {
+    if (!proveedorParaAgregar || cantidad <= 0) return
+
+    const nuevosAgregados = new Map(productosAgregados)
+    const keyProveedor = proveedorParaAgregar.nombre
+    
+    const productosDelProveedor = nuevosAgregados.get(keyProveedor) || []
+    productosDelProveedor.push({
+      codigo: producto.reference,
+      nombre: producto.name,
+      cantidad: parseInt(cantidad),
+      agregadoManual: true
+    })
+    
+    nuevosAgregados.set(keyProveedor, productosDelProveedor)
+    setProductosAgregados(nuevosAgregados)
+    
+    alert(`✅ ${producto.name} agregado a la orden de ${proveedorParaAgregar.nombre}`)
+    setModalAgregarProducto(false)
+    
+    console.log(`➕ Producto agregado: ${producto.reference} x${cantidad} a ${keyProveedor}`)
+  }
+
+  // ✅ NUEVO: Eliminar producto agregado manualmente
+  const eliminarProductoAgregado = (proveedorNombre, index) => {
+    if (!confirm('¿Eliminar este producto agregado?')) return
+    
+    const nuevosAgregados = new Map(productosAgregados)
+    const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
+    productosDelProveedor.splice(index, 1)
+    
+    if (productosDelProveedor.length === 0) {
+      nuevosAgregados.delete(proveedorNombre)
+    } else {
+      nuevosAgregados.set(proveedorNombre, productosDelProveedor)
+    }
+    
+    setProductosAgregados(nuevosAgregados)
   }
 
   if (loading) {
@@ -854,6 +979,13 @@ NO afecta la base de datos externa de facturas.
                         {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
                       </button>
                       <button
+                        onClick={() => abrirModalAgregarProducto(proveedor)}
+                        className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                      >
+                        <Package size={16} className="mr-2" />
+                        + Agregar Producto
+                      </button>
+                      <button
                         onClick={() => handleGenerarPDF(proveedor)}
                         className="btn bg-green-600 text-white border-green-600 hover:bg-green-700"
                       >
@@ -875,18 +1007,30 @@ NO afecta la base de datos externa de facturas.
                       const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
                       const key = `${proveedor.nombre}-${producto.codigo}`
                       const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
+                      const estaEliminado = productosEliminados.has(key)
 
                       return (
-                        <div key={index} className={`rounded-lg p-4 border ${tieneModificacion ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <div key={index} className={`rounded-lg p-4 border ${
+                          estaEliminado ? 'bg-red-50 border-red-200 opacity-60' : 
+                          tieneModificacion ? 'bg-yellow-50 border-yellow-200' : 
+                          'bg-gray-50 border-gray-200'
+                        }`}>
                           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                             {/* Info del producto */}
-                            <div className="lg:col-span-6">
-                              <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
+                            <div className="lg:col-span-5">
+                              <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                {producto.nombre}
+                              </h5>
                               <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
                               <p className="text-xs text-gray-500">
                                 Clientes afectados: {producto.clientes_afectados} •
                                 Facturas: {producto.facturas_afectadas}
                               </p>
+                              {estaEliminado && (
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
+                                  🗑️ Eliminado
+                                </span>
+                              )}
                             </div>
 
                             {/* Cantidad original */}
@@ -908,28 +1052,87 @@ NO afecta la base de datos externa de facturas.
                                 onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
                                 className="input"
                                 placeholder="0"
+                                disabled={estaEliminado}
                               />
                             </div>
 
-                            {/* Estado */}
-                            <div className="lg:col-span-2">
+                            {/* Estado y Acciones */}
+                            <div className="lg:col-span-3">
                               <label className="label">Estado:</label>
-                              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${cantidadFinal !== producto.cantidad_faltante
+                              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                estaEliminado ? 'bg-red-100 text-red-800' :
+                                cantidadFinal !== producto.cantidad_faltante
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-gray-100 text-gray-800'
                                 }`}>
-                                {cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
+                                {estaEliminado ? '🗑️ Eliminado' : 
+                                 cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
                               </div>
-                              {cantidadFinal !== producto.cantidad_faltante && (
+                              {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
                                 <p className="text-xs text-yellow-600 mt-1">
                                   Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
                                 </p>
                               )}
+                              {/* Botones de acción */}
+                              <div className="mt-2 flex gap-2">
+                                {estaEliminado ? (
+                                  <button
+                                    onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
+                                    className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
+                                  >
+                                    ↩️ Restaurar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo)}
+                                    className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                                  >
+                                    <Trash2 size={14} className="mr-1" />
+                                    Eliminar
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       )
                     })}
+                    
+                    {/* ✅ NUEVO: Productos agregados manualmente */}
+                    {(productosAgregados.get(proveedor.nombre) || []).map((producto, index) => (
+                      <div key={`agregado-${index}`} className="rounded-lg p-4 border bg-green-50 border-green-200">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                          {/* Info del producto */}
+                          <div className="lg:col-span-7">
+                            <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
+                            <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded mt-1">
+                              ➕ Agregado manualmente
+                            </span>
+                          </div>
+
+                          {/* Cantidad */}
+                          <div className="lg:col-span-2">
+                            <label className="label">Cantidad:</label>
+                            <div className="text-lg font-medium text-gray-700">
+                              {producto.cantidad}
+                            </div>
+                          </div>
+
+                          {/* Acciones */}
+                          <div className="lg:col-span-3">
+                            <label className="label">Acción:</label>
+                            <button
+                              onClick={() => eliminarProductoAgregado(proveedor.nombre, index)}
+                              className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                            >
+                              <Trash2 size={14} className="mr-1" />
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   )}
                 </div>
@@ -1393,6 +1596,95 @@ NO afecta la base de datos externa de facturas.
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NUEVO: Modal para agregar producto a la orden */}
+      {modalAgregarProducto && proveedorParaAgregar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Agregar Producto</h2>
+              <p className="text-gray-600 mt-1">
+                Proveedor: <span className="font-medium">{proveedorParaAgregar.nombre}</span>
+              </p>
+            </div>
+
+            {/* Buscador */}
+            <div className="p-6 border-b border-gray-200">
+              <input
+                type="text"
+                value={busquedaProducto}
+                onChange={(e) => {
+                  setBusquedaProducto(e.target.value)
+                  if (e.target.value.length >= 2) {
+                    buscarProductosAlegra(e.target.value)
+                  }
+                }}
+                placeholder="Buscar producto por código o nombre (mín. 2 caracteres)..."
+                className="input w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Lista de productos */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingProductos ? (
+                <div className="text-center py-8">
+                  <div className="spinner mx-auto mb-4"></div>
+                  <p className="text-gray-600">Buscando productos...</p>
+                </div>
+              ) : productosAlegra.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="mx-auto text-gray-400 mb-2" size={48} />
+                  <p className="text-gray-600">
+                    {busquedaProducto.length >= 2 
+                      ? 'No se encontraron productos' 
+                      : 'Escribe al menos 2 caracteres para buscar'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {productosAlegra.map((producto) => (
+                    <div
+                      key={producto.id}
+                      className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        const cantidad = prompt(`¿Cuántas unidades de "${producto.name}" deseas agregar?`, '1')
+                        if (cantidad && parseInt(cantidad) > 0) {
+                          agregarProductoAOrden(producto, cantidad)
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h5 className="font-medium text-gray-900">{producto.name}</h5>
+                          <p className="text-sm text-gray-600">Código: {producto.reference}</p>
+                          {producto.price && (
+                            <p className="text-sm text-gray-500">Precio: ₡{producto.price.toLocaleString()}</p>
+                          )}
+                        </div>
+                        <button className="btn btn-sm btn-primary">
+                          + Agregar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => setModalAgregarProducto(false)}
+                className="btn btn-outline w-full"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

@@ -482,6 +482,40 @@ router.get('/productos', async (req, res) => {
   }
 });
 
+// ✅ NUEVO: Buscar productos de Alegra por query
+router.get('/productos/buscar', async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || query.length < 2) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    console.log(`🔍 Buscando productos con query: "${query}"`);
+
+    const result = await alegraService.searchProducts(query);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('Error buscando productos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error buscando productos en Alegra'
+    });
+  }
+});
+
 // Obtener contactos de Alegra
 router.get('/contactos', async (req, res) => {
   try {
