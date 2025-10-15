@@ -492,7 +492,6 @@ export default function GestionarRelaciones() {
                 onClick={() => setPage(1)}
                 disabled={page === 1}
                 className="btn btn-outline text-sm"
-                disabled={page === 1}
               >
                 Primera
               </button>
