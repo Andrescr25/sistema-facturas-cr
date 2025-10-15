@@ -126,69 +126,76 @@ export default function BuscarFactura() {
       {facturas.length > 0 && (
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Resultados de la búsqueda ({facturas.length} facturas)
+            Resultados de la búsqueda ({facturas.length} facturas de proveedores)
           </h3>
 
           <div className="space-y-4">
             {facturas.map((factura) => (
-              <div key={factura.alegra_id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+              <div key={factura.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <FileText className="text-blue-600 mr-2" size={20} />
                       <h4 className="font-semibold text-gray-900">
-                        Factura #{factura.numero_factura}
+                        Factura #{factura.numeroConsecutivo}
                       </h4>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div className="flex items-center">
                         <User className="text-gray-400 mr-2" size={16} />
-                        <span className="text-gray-600">Cliente:</span>
-                        <span className="ml-1 font-medium">{factura.cliente_nombre}</span>
+                        <span className="text-gray-600">Proveedor:</span>
+                        <span className="ml-1 font-medium">{factura.proveedorNombre || factura.proveedor?.nombre}</span>
                       </div>
 
                       <div className="flex items-center">
                         <Calendar className="text-gray-400 mr-2" size={16} />
                         <span className="text-gray-600">Fecha:</span>
-                        <span className="ml-1">{formatDate(factura.fecha_emision)}</span>
+                        <span className="ml-1">{formatDate(factura.fechaEmision)}</span>
                       </div>
 
                       <div className="flex items-center">
                         <DollarSign className="text-gray-400 mr-2" size={16} />
                         <span className="text-gray-600">Total:</span>
-                        <span className="ml-1 font-medium">{formatCurrency(factura.total)}</span>
+                        <span className="ml-1 font-medium">{formatCurrency(factura.totalFactura)}</span>
                       </div>
 
                       <div className="flex items-center">
                         <span className="text-gray-600">Estado:</span>
-                        <span className={`ml-1 px-2 py-1 rounded-full text-xs ${factura.estado === 'open' ? 'bg-green-100 text-green-800' :
-                          factura.estado === 'closed' ? 'bg-gray-100 text-gray-800' :
-                            'bg-yellow-100 text-yellow-800'
+                        <span className={`ml-1 px-2 py-1 rounded-full text-xs ${
+                          factura.estado === 'ENVIADA' ? 'bg-green-100 text-green-800' :
+                          factura.estado === 'PROCESADA' ? 'bg-blue-100 text-blue-800' :
+                          factura.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
                           }`}>
-                          {factura.estado === 'open' ? 'Abierta' :
-                            factura.estado === 'closed' ? 'Cerrada' :
-                              factura.estado}
+                          {factura.estado}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-2 text-sm text-gray-600">
-                      <span>Semana {factura.semana} • Mes {factura.mes} • {factura.ano}</span>
-                      <span className="ml-4">{factura.items?.length || 0} productos</span>
+                      <span className="ml-0">{factura.productos?.length || factura.totalProductos || 0} productos</span>
+                      {factura.estadoRelacionado && (
+                        <span className="ml-4">Relacionado: {factura.porcentajeRelacionado}%</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="mt-4 sm:mt-0 sm:ml-4 flex flex-col sm:flex-row gap-2">
                     <Link
-                      to={`/registrar-faltantes/${factura.alegra_id}`}
+                      to={`/revision/${factura.id}`}
                       className="btn btn-primary btn-sm"
                     >
-                      Registrar Faltantes
+                      Ver Productos
                     </Link>
-                    <button className="btn btn-outline btn-sm">
-                      Ver Detalles
-                    </button>
+                    {factura.estadoRelacionado === 'COMPLETO' && factura.estado !== 'ENVIADA' && (
+                      <Link
+                        to={`/revision/precios/${factura.id}`}
+                        className="btn btn-outline btn-sm"
+                      >
+                        Revisar Precios
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
