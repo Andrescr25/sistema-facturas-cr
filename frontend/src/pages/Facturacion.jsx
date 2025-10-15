@@ -51,16 +51,45 @@ export default function Facturacion() {
   const cantidadInputRef = useRef(null);
   const busquedaClienteRef = useRef(null);
 
-  // Detectar tipo de dispositivo
+  // Detectar tipo de dispositivo (mejorado)
   useEffect(() => {
     const checkDevice = () => {
-      const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+      // Detección más precisa de dispositivos móviles
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isSmallScreen = window.innerWidth < 768;
+      
+      // Es móvil si tiene pantalla táctil Y (user agent móvil O pantalla pequeña)
+      const mobile = isTouchDevice && (isMobileUserAgent || isSmallScreen);
+      
       setIsMobile(mobile);
+      
+      // Agregar clase al body para estilos globales
+      if (mobile) {
+        document.body.classList.add('mobile-device');
+        document.body.classList.remove('desktop-device');
+      } else {
+        document.body.classList.add('desktop-device');
+        document.body.classList.remove('mobile-device');
+      }
+      
+      console.log('🔍 Dispositivo detectado:', {
+        mobile,
+        isTouchDevice,
+        isMobileUserAgent,
+        isSmallScreen,
+        width: window.innerWidth
+      });
     };
 
     checkDevice();
     window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
+    window.addEventListener('orientationchange', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+      window.removeEventListener('orientationchange', checkDevice);
+    };
   }, []);
 
   // Inicializar servicio y cargar datos
@@ -90,12 +119,20 @@ export default function Facturacion() {
     };
   }, []);
 
-  // Auto-focus en código cuando cambia el modo
+  // Auto-focus en código cuando cambia el modo (solo en desktop)
   useEffect(() => {
-    if (modoEntradaRapida && codigoInputRef.current) {
+    if (modoEntradaRapida && codigoInputRef.current && !isMobile) {
       codigoInputRef.current.focus();
     }
-  }, [modoEntradaRapida]);
+  }, [modoEntradaRapida, isMobile]);
+  
+  // Cambiar automáticamente a búsqueda en móvil
+  useEffect(() => {
+    if (isMobile && modoEntradaRapida) {
+      setModoEntradaRapida(false);
+      console.log('📱 Cambiado a modo búsqueda (dispositivo móvil)');
+    }
+  }, [isMobile]);
 
   const inicializarServicio = async () => {
     try {
@@ -480,18 +517,18 @@ export default function Facturacion() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Zap className="text-yellow-500" size={32} />
+      <div className={`${isMobile ? 'flex-col' : 'flex items-center justify-between'} mb-6`}>
+        <div className={isMobile ? 'mb-4' : ''}>
+          <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 flex items-center gap-2`}>
+            <Zap className="text-yellow-500" size={isMobile ? 28 : 32} />
             Facturación
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className={`text-gray-600 mt-1 ${isMobile ? 'text-sm' : ''}`}>
             Sistema de facturación con soporte offline
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className={`flex ${isMobile ? 'flex-wrap' : ''} items-center gap-2`}>
           {/* Indicador de conexión */}
           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
             isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
@@ -516,11 +553,11 @@ export default function Facturacion() {
           <button
             onClick={actualizarCache}
             disabled={!isOnline || syncingCache}
-            className="btn btn-outline flex items-center gap-2"
+            className={`btn btn-outline flex items-center gap-2 ${isMobile ? 'text-sm px-3 py-2' : ''}`}
             title="Actualizar catálogo"
           >
             <RefreshCw size={16} className={syncingCache ? 'animate-spin' : ''} />
-            {!isMobile && 'Actualizar'}
+            {isMobile ? 'Actualizar' : 'Actualizar'}
           </button>
         </div>
       </div>
@@ -540,7 +577,7 @@ export default function Facturacion() {
 
       {/* Stats del cache */}
       {cacheStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-1 md:grid-cols-3 gap-4'} mb-6`}>
           <div className="card">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -672,34 +709,36 @@ export default function Facturacion() {
               Agregar Productos
             </h3>
 
-            {/* Toggle: Modo rápido vs Búsqueda */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setModoEntradaRapida(true)}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                  modoEntradaRapida
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Zap size={16} className="inline mr-2" />
-                Entrada Rápida (PC)
-              </button>
-              <button
-                onClick={() => setModoEntradaRapida(false)}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                  !modoEntradaRapida
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Search size={16} className="inline mr-2" />
-                Búsqueda por Nombre
-              </button>
-            </div>
+            {/* Toggle: Modo rápido vs Búsqueda (solo en desktop) */}
+            {!isMobile && (
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setModoEntradaRapida(true)}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                    modoEntradaRapida
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Zap size={16} className="inline mr-2" />
+                  Entrada Rápida (PC)
+                </button>
+                <button
+                  onClick={() => setModoEntradaRapida(false)}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                    !modoEntradaRapida
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Search size={16} className="inline mr-2" />
+                  Búsqueda por Nombre
+                </button>
+              </div>
+            )}
 
-            {/* Modo Entrada Rápida (PC) */}
-            {modoEntradaRapida && (
+            {/* Modo Entrada Rápida (PC) - Solo en desktop */}
+            {modoEntradaRapida && !isMobile && (
               <div className="space-y-3">
                 <div>
                   <label className="label">Código del Producto</label>
@@ -735,8 +774,8 @@ export default function Facturacion() {
               </div>
             )}
 
-            {/* Modo Búsqueda por Nombre */}
-            {!modoEntradaRapida && (
+            {/* Modo Búsqueda por Nombre - Desktop y Móvil */}
+            {(!modoEntradaRapida || isMobile) && (
               <div>
                 <input
                   type="text"
@@ -745,8 +784,9 @@ export default function Facturacion() {
                     setBusquedaProducto(e.target.value);
                     buscarProductosPorNombre(e.target.value);
                   }}
-                  placeholder="Buscar producto por código o nombre..."
-                  className="input w-full"
+                  placeholder={isMobile ? "Buscar producto..." : "Buscar producto por código o nombre..."}
+                  className={`input w-full ${isMobile ? 'text-base' : ''}`}
+                  autoFocus={isMobile}
                 />
 
                 {/* Resultados búsqueda productos */}
@@ -804,7 +844,7 @@ export default function Facturacion() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className={`grid ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-3'}`}>
                       <div>
                         <label className="label text-xs">Cantidad</label>
                         <input
@@ -812,7 +852,8 @@ export default function Facturacion() {
                           min="1"
                           value={item.quantity}
                           onChange={(e) => actualizarCantidadItem(index, e.target.value)}
-                          className="input input-sm w-full"
+                          className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
+                          inputMode="numeric"
                         />
                       </div>
 
@@ -824,7 +865,8 @@ export default function Facturacion() {
                           step="0.01"
                           value={item.price}
                           onChange={(e) => actualizarPrecioItem(index, e.target.value)}
-                          className="input input-sm w-full"
+                          className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
+                          inputMode="decimal"
                         />
                       </div>
 
@@ -836,7 +878,8 @@ export default function Facturacion() {
                           max="100"
                           value={item.discount || 0}
                           onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
-                          className="input input-sm w-full"
+                          className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
+                          inputMode="numeric"
                         />
                       </div>
                     </div>
@@ -969,17 +1012,17 @@ export default function Facturacion() {
               <button
                 onClick={finalizarFactura}
                 disabled={!clienteSeleccionado || items.length === 0 || loading}
-                className="btn btn-primary w-full flex items-center justify-center gap-2"
+                className={`btn btn-primary w-full flex items-center justify-center gap-2 ${isMobile ? 'py-3 text-base' : ''}`}
               >
-                <Check size={20} />
+                <Check size={isMobile ? 24 : 20} />
                 {loading ? 'Procesando...' : 'Finalizar Factura'}
               </button>
 
               <button
                 onClick={limpiarFactura}
-                className="btn btn-outline w-full flex items-center justify-center gap-2"
+                className={`btn btn-outline w-full flex items-center justify-center gap-2 ${isMobile ? 'py-3 text-base' : ''}`}
               >
-                <X size={20} />
+                <X size={isMobile ? 24 : 20} />
                 Cancelar
               </button>
             </div>
