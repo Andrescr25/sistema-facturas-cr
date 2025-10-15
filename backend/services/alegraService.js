@@ -572,44 +572,99 @@ class AlegraService {
     
     /**
      * Transformar factura de Alegra al formato esperado por el frontend
+     * Copiado del sistema original proyecto-faltantes
      */
-    transformInvoiceForFrontend(factura) {
-        const fecha = new Date(factura.date);
-        const semana = this.getWeekNumber(fecha);
-        
+    transformInvoiceForFrontend(invoice) {
+        const fecha = new Date(invoice.date);
+
         return {
-            alegra_id: factura.id,
-            numero_factura: factura.numberTemplate?.formattedNumber || factura.numberTemplate?.number || factura.id,
-            cliente_nombre: factura.client?.name || 'Sin nombre',
-            cliente_id: factura.client?.id || null,
-            fecha: factura.date,
-            fecha_vencimiento: factura.dueDate,
-            subtotal: parseFloat(factura.subtotal) || 0,
-            impuesto: parseFloat(factura.tax) || 0,
-            total: parseFloat(factura.total) || 0,
-            saldo: parseFloat(factura.balance) || 0,
-            estado: factura.status,
-            observaciones: factura.observations || '',
-            terminos: factura.termsConditions || '',
-            items: factura.items || [],
-            semana: semana,
+            // ID y números
+            alegra_id: parseInt(invoice.id),
+            numero_factura: invoice.numberTemplate?.formattedNumber || invoice.numberTemplate?.number || 'N/A',
+            numero_completo: invoice.numberTemplate?.fullNumber || 'N/A',
+
+            // Cliente
+            cliente_id: parseInt(invoice.client?.id || 0),
+            cliente_nombre: invoice.client?.name || 'Cliente no especificado',
+            cliente_email: invoice.client?.email || null,
+            cliente_identificacion: invoice.client?.identification || null,
+            cliente_telefono: invoice.client?.phonePrimary || null,
+
+            // Fechas
+            fecha_emision: invoice.date,
+            fecha_vencimiento: invoice.dueDate || invoice.date,
+            fecha_hora: invoice.datetime || invoice.date,
+
+            // Montos
+            subtotal: parseFloat(invoice.subtotal || 0),
+            descuento: parseFloat(invoice.discount || 0),
+            impuestos: parseFloat(invoice.tax || 0),
+            total: parseFloat(invoice.total || 0),
+            total_pagado: parseFloat(invoice.totalPaid || 0),
+            saldo: parseFloat(invoice.balance || 0),
+
+            // Estado y condiciones
+            estado: invoice.status || 'unknown',
+            condicion_venta: invoice.saleCondition || null,
+            metodo_pago: invoice.paymentMethod || null,
+            terminos: invoice.term || null,
+
+            // Información adicional
+            observaciones: invoice.observations || null,
+            anotaciones: invoice.anotation || null,
+            terminos_condiciones: invoice.termsConditions || null,
+
+            // Bodega y vendedor
+            bodega: invoice.warehouse?.name || 'Principal',
+            vendedor: invoice.seller?.name || null,
+
+            // Semana, mes, año (calculados)
+            semana: this.calculateWeekOfMonth(invoice.date),
             mes: fecha.getMonth() + 1,
             ano: fecha.getFullYear(),
-            condicion_venta: factura.saleCondition,
-            metodo_pago: factura.paymentMethod,
-            bodega: factura.warehouse?.name || 'Principal'
+
+            // Items procesados
+            items: this.processAlegraItems(invoice.items || []),
+
+            // Datos originales para referencia
+            alegra_data: invoice
         };
+    }
+
+    /**
+     * Procesar items de factura de Alegra
+     */
+    processAlegraItems(items) {
+        if (!Array.isArray(items)) {
+            return [];
+        }
+
+        return items.map(item => ({
+            alegra_id: item.id,
+            nombre: item.name || 'Producto sin nombre',
+            descripcion: item.description || '',
+            referencia: item.reference || null,
+            codigo_producto: item.productKey || null,
+            cantidad: parseInt(item.quantity || 0),
+            precio_unitario: parseFloat(item.price || 0),
+            descuento: parseFloat(item.discount || 0),
+            total: parseFloat(item.total || 0),
+            unidad: item.unit || 'unit',
+            tipo: item.type || 'product', // 'product' o 'service'
+            impuestos: item.tax || []
+        }));
     }
     
     /**
-     * Obtener número de semana del año
+     * Calcular semana del mes
      */
-    getWeekNumber(date) {
-        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-        const dayNum = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    calculateWeekOfMonth(dateString) {
+        const date = new Date(dateString);
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfMonth = date.getDate();
+        const dayOfWeek = firstDay.getDay();
+
+        return Math.ceil((dayOfMonth + dayOfWeek) / 7);
     }
 
     async disconnect() {

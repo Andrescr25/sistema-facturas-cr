@@ -32,6 +32,8 @@ export default function BuscarFactura() {
       }
 
       if (response.success) {
+        console.log('📦 Facturas recibidas:', response.data)
+        console.log('📦 Primera factura:', response.data[0])
         setFacturas(response.data)
       } else {
         setError(response.message || 'Error en la búsqueda')
