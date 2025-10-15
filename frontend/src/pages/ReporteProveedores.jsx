@@ -91,8 +91,9 @@ export default function ReporteProveedores() {
       const result = await alegraService.getCantidadesModificadas()
 
       if (result.success) {
+        // Cargar cantidades modificadas
         const cantidadesMap = new Map()
-        result.data.forEach(item => {
+        result.modificadas?.forEach(item => {
           const key = `${item.proveedor_nombre}-${item.producto_codigo}`
           cantidadesMap.set(key, {
             cantidad_original: item.cantidad_original,
@@ -100,6 +101,31 @@ export default function ReporteProveedores() {
           })
         })
         setCantidadesGuardadas(cantidadesMap)
+        
+        // Cargar productos eliminados
+        const eliminados = new Set()
+        result.eliminadas?.forEach(item => {
+          const key = `${item.proveedor_nombre}-${item.producto_codigo}`
+          eliminados.add(key)
+        })
+        setProductosEliminados(eliminados)
+        
+        // Cargar productos agregados
+        const agregados = new Map()
+        result.agregadas?.forEach(item => {
+          const proveedorNombre = item.proveedor_nombre
+          const productosDelProveedor = agregados.get(proveedorNombre) || []
+          productosDelProveedor.push({
+            codigo: item.producto_codigo,
+            nombre: item.producto_nombre,
+            cantidad: item.cantidad_modificada,
+            agregadoManual: true
+          })
+          agregados.set(proveedorNombre, productosDelProveedor)
+        })
+        setProductosAgregados(agregados)
+        
+        console.log(`✅ Cargadas: ${result.modificadas?.length || 0} modificadas, ${result.eliminadas?.length || 0} eliminadas, ${result.agregadas?.length || 0} agregadas`)
       }
     } catch (err) {
       console.warn('Error cargando cantidades guardadas:', err)
@@ -538,7 +564,7 @@ NO afecta la base de datos externa de facturas.
   }
 
   // ✅ NUEVO: Eliminar producto de la orden
-  const eliminarProductoDeOrden = (proveedorNombre, productoCodigo) => {
+  const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre) => {
     if (!confirm('¿Eliminar este producto de la orden de compra?')) return
     
     const key = `${proveedorNombre}-${productoCodigo}`
@@ -546,17 +572,35 @@ NO afecta la base de datos externa de facturas.
     nuevosEliminados.add(key)
     setProductosEliminados(nuevosEliminados)
     
-    console.log(`🗑️ Producto eliminado: ${key}`)
+    // Guardar en BD
+    try {
+      await api.post('/alegra/orden-compra/producto-eliminado', {
+        proveedorNombre,
+        productoCodigo,
+        productoNombre
+      })
+      console.log(`🗑️ Producto eliminado y guardado en BD: ${key}`)
+    } catch (error) {
+      console.error('Error guardando producto eliminado:', error)
+    }
   }
 
   // ✅ NUEVO: Restaurar producto eliminado
-  const restaurarProducto = (proveedorNombre, productoCodigo) => {
+  const restaurarProducto = async (proveedorNombre, productoCodigo) => {
     const key = `${proveedorNombre}-${productoCodigo}`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.delete(key)
     setProductosEliminados(nuevosEliminados)
     
-    console.log(`↩️ Producto restaurado: ${key}`)
+    // Eliminar de BD
+    try {
+      await api.delete('/alegra/orden-compra/producto-eliminado', {
+        data: { proveedorNombre, productoCodigo }
+      })
+      console.log(`↩️ Producto restaurado y eliminado de BD: ${key}`)
+    } catch (error) {
+      console.error('Error restaurando producto:', error)
+    }
   }
 
   // ✅ NUEVO: Abrir modal para agregar producto
@@ -592,7 +636,7 @@ NO afecta la base de datos externa de facturas.
   }
 
   // ✅ NUEVO: Agregar producto a la orden
-  const agregarProductoAOrden = (producto, cantidad) => {
+  const agregarProductoAOrden = async (producto, cantidad) => {
     if (!proveedorParaAgregar || cantidad <= 0) return
 
     const nuevosAgregados = new Map(productosAgregados)
@@ -609,18 +653,31 @@ NO afecta la base de datos externa de facturas.
     nuevosAgregados.set(keyProveedor, productosDelProveedor)
     setProductosAgregados(nuevosAgregados)
     
+    // Guardar en BD
+    try {
+      await api.post('/alegra/orden-compra/producto-agregado', {
+        proveedorNombre: keyProveedor,
+        productoCodigo: producto.reference,
+        productoNombre: producto.name,
+        cantidad: parseInt(cantidad)
+      })
+      console.log(`➕ Producto agregado y guardado en BD: ${producto.reference} x${cantidad}`)
+    } catch (error) {
+      console.error('Error guardando producto agregado:', error)
+    }
+    
     alert(`✅ ${producto.name} agregado a la orden de ${proveedorParaAgregar.nombre}`)
     setModalAgregarProducto(false)
-    
-    console.log(`➕ Producto agregado: ${producto.reference} x${cantidad} a ${keyProveedor}`)
   }
 
   // ✅ NUEVO: Eliminar producto agregado manualmente
-  const eliminarProductoAgregado = (proveedorNombre, index) => {
+  const eliminarProductoAgregado = async (proveedorNombre, index) => {
     if (!confirm('¿Eliminar este producto agregado?')) return
     
     const nuevosAgregados = new Map(productosAgregados)
     const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
+    const productoAEliminar = productosDelProveedor[index]
+    
     productosDelProveedor.splice(index, 1)
     
     if (productosDelProveedor.length === 0) {
@@ -630,10 +687,23 @@ NO afecta la base de datos externa de facturas.
     }
     
     setProductosAgregados(nuevosAgregados)
+    
+    // Eliminar de BD
+    try {
+      await api.delete('/alegra/orden-compra/producto-agregado', {
+        data: { 
+          proveedorNombre, 
+          productoCodigo: productoAEliminar.codigo 
+        }
+      })
+      console.log(`🗑️ Producto agregado eliminado de BD: ${productoAEliminar.codigo}`)
+    } catch (error) {
+      console.error('Error eliminando producto agregado:', error)
+    }
   }
 
   // ✅ NUEVO: Actualizar cantidad de producto agregado
-  const actualizarCantidadAgregado = (proveedorNombre, index, nuevaCantidad) => {
+  const actualizarCantidadAgregado = async (proveedorNombre, index, nuevaCantidad) => {
     const cantidad = parseInt(nuevaCantidad)
     
     if (isNaN(cantidad) || cantidad <= 0) {
@@ -650,6 +720,19 @@ NO afecta la base de datos externa de facturas.
       }
       nuevosAgregados.set(proveedorNombre, productosDelProveedor)
       setProductosAgregados(nuevosAgregados)
+      
+      // Actualizar en BD (usar POST porque el endpoint hace upsert)
+      try {
+        await api.post('/alegra/orden-compra/producto-agregado', {
+          proveedorNombre,
+          productoCodigo: productosDelProveedor[index].codigo,
+          productoNombre: productosDelProveedor[index].nombre,
+          cantidad
+        })
+        console.log(`✏️ Cantidad actualizada en BD: ${productosDelProveedor[index].codigo} = ${cantidad}`)
+      } catch (error) {
+        console.error('Error actualizando cantidad:', error)
+      }
     }
   }
 
@@ -1105,7 +1188,7 @@ NO afecta la base de datos externa de facturas.
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo)}
+                                    onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre)}
                                     className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
                                   >
                                     <Trash2 size={14} className="mr-1" />
