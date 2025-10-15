@@ -418,7 +418,11 @@ class AlegraService {
                 date: data.date,
                 dueDate: data.date, // Misma fecha si es contado
                 provider: data.client, // ← CLAVE: usar 'provider' no 'contact'
-                numberTemplate: data.numberTemplate,
+                numberTemplate: {
+                    id: data.numberTemplate?.id || 1
+                },
+                // Consecutivo del proveedor (el número de su factura)
+                providerNumber: data.numberTemplate?.fullNumber,
                 observations: data.observations || '',
                 purchases: {
                     items: data.items
