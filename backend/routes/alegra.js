@@ -2816,8 +2816,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       totalUnidades += parseInt(producto.cantidad) || 0;
     });
 
-    // ✅ SEGUNDO: Header sutil para productos manuales (solo si existen)
-    if (productosManuales.length > 0) {
+    // ✅ SEGUNDO: Header sutil para productos manuales (solo si hay automáticos antes)
+    if (productosManuales.length > 0 && productosAutomaticos.length > 0) {
       yPos += 30; // Pequeño espacio
 
       // Verificar si necesitamos nueva página
