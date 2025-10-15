@@ -314,16 +314,28 @@ class AlegraService {
     async searchProducts(query) {
         try {
             const response = await this.api.get('/items', {
-        params: {
+                params: {
                     query: query.trim(),
                     limit: 20
                 }
             });
 
-            return response.data || [];
-    } catch (error) {
-            console.error('❌ Error buscando en Alegra:', error);
-            return [];
+            // Alegra retorna un array directamente
+            const items = Array.isArray(response.data) ? response.data : [];
+            
+            console.log(`✅ Búsqueda exitosa: ${items.length} productos encontrados`);
+            
+            return {
+                success: true,
+                data: items
+            };
+        } catch (error) {
+            console.error('❌ Error buscando productos en Alegra:', error.response?.data || error.message);
+            return {
+                success: false,
+                message: error.response?.data?.message || error.message,
+                data: []
+            };
         }
     }
 
