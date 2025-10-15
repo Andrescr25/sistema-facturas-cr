@@ -88,9 +88,16 @@ class IndexedDBService {
     // Limpiar productos existentes
     await store.clear();
 
-    // Guardar nuevos productos
+    // Guardar nuevos productos normalizados
     for (const producto of productos) {
-      await store.put(producto);
+      // Normalizar campos para búsqueda consistente
+      const normalizedProducto = {
+        ...producto,
+        reference: producto.reference ? String(producto.reference).trim() : '',
+        name: producto.name ? String(producto.name) : '',
+        description: producto.description ? String(producto.description) : ''
+      };
+      await store.put(normalizedProducto);
     }
 
     // Guardar timestamp de última actualización
@@ -122,7 +129,10 @@ class IndexedDBService {
       const transaction = this.db.transaction([STORES.PRODUCTOS], 'readonly');
       const store = transaction.objectStore(STORES.PRODUCTOS);
       const index = store.index('reference');
-      const request = index.get(reference);
+      
+      // Normalizar reference (puede venir como string o número)
+      const normalizedRef = String(reference).trim();
+      const request = index.get(normalizedRef);
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -134,12 +144,19 @@ class IndexedDBService {
    */
   async searchProductosByName(searchTerm) {
     const productos = await this.getProductos();
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
     
-    return productos.filter(p => 
-      p.name?.toLowerCase().includes(term) || 
-      p.reference?.toLowerCase().includes(term)
-    );
+    if (!term) return [];
+    
+    return productos.filter(p => {
+      const name = p.name ? String(p.name).toLowerCase() : '';
+      const reference = p.reference ? String(p.reference).toLowerCase() : '';
+      const description = p.description ? String(p.description).toLowerCase() : '';
+      
+      return name.includes(term) || 
+             reference.includes(term) || 
+             description.includes(term);
+    });
   }
 
   /**
@@ -152,9 +169,16 @@ class IndexedDBService {
     // Limpiar clientes existentes
     await store.clear();
 
-    // Guardar nuevos clientes
+    // Guardar nuevos clientes normalizados
     for (const cliente of clientes) {
-      await store.put(cliente);
+      // Normalizar campos para búsqueda consistente
+      const normalizedCliente = {
+        ...cliente,
+        name: cliente.name ? String(cliente.name) : '',
+        identification: cliente.identification ? String(cliente.identification) : '',
+        email: cliente.email ? String(cliente.email) : ''
+      };
+      await store.put(normalizedCliente);
     }
 
     // Guardar timestamp de última actualización
@@ -183,12 +207,19 @@ class IndexedDBService {
    */
   async searchClientesByName(searchTerm) {
     const clientes = await this.getClientes();
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
     
-    return clientes.filter(c => 
-      c.name?.toLowerCase().includes(term) ||
-      c.identification?.toLowerCase().includes(term)
-    );
+    if (!term) return [];
+    
+    return clientes.filter(c => {
+      const name = c.name ? String(c.name).toLowerCase() : '';
+      const identification = c.identification ? String(c.identification).toLowerCase() : '';
+      const email = c.email ? String(c.email).toLowerCase() : '';
+      
+      return name.includes(term) || 
+             identification.includes(term) || 
+             email.includes(term);
+    });
   }
 
   /**
