@@ -512,7 +512,17 @@ class AlegraService {
             console.log(`✅ Encontradas ${facturasFiltradas.length} facturas que coinciden con "${numero}"`);
             
             // Transformar al formato esperado por el frontend
-            const facturasTransformadas = facturasFiltradas.map(f => this.transformInvoiceForFrontend(f));
+            console.log('🔄 Iniciando transformación de facturas...');
+            const facturasTransformadas = facturasFiltradas.map((f, index) => {
+                try {
+                    console.log(`🔄 Transformando factura ${index + 1}/${facturasFiltradas.length}:`, f.id);
+                    return this.transformInvoiceForFrontend(f);
+                } catch (transformError) {
+                    console.error(`❌ Error transformando factura ${f.id}:`, transformError);
+                    throw new Error(`Error transformando factura ${f.id}: ${transformError.message}`);
+                }
+            });
+            console.log(`✅ Transformación completada: ${facturasTransformadas.length} facturas`);
             
             return {
                 success: true,
@@ -521,10 +531,13 @@ class AlegraService {
             };
         } catch (error) {
             console.error('❌ Error buscando facturas por número:', error.message);
+            console.error('❌ Stack trace:', error.stack);
+            console.error('❌ Error completo:', error);
             return {
                 success: false,
                 data: [],
-                error: error.message
+                error: error.message,
+                message: `Error en búsqueda: ${error.message}`
             };
         }
     }
