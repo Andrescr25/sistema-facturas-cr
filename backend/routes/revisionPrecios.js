@@ -546,14 +546,18 @@ router.post('/enviar-alegra', async (req, res) => {
         if (!alegraId) return { success: false, precioAjustado: false };
 
         // El costo nuevo considerando descuentos
+        // En XML de Costa Rica, precioUnitario es SIN IVA
+        const precioUnitarioSinIva = parseFloat(producto.precioUnitario) || 0;
+        
         // Calcular el porcentaje de descuento
-        const montoTotalSinDescuento = parseFloat(producto.precioUnitario) * producto.cantidad;
+        const montoTotalSinDescuento = precioUnitarioSinIva * producto.cantidad;
         const descuentoPorcentaje = montoTotalSinDescuento > 0 
           ? ((producto.descuento || 0) / montoTotalSinDescuento) * 100
           : 0;
         
-        // Costo = precioUnitario con descuento aplicado (CON IVA)
-        const costoNuevo = parseFloat(producto.precioUnitario) * (1 - descuentoPorcentaje / 100);
+        // Costo = precioUnitario SIN IVA con descuento aplicado, luego multiplicar por 1.13
+        const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
+        const costoNuevo = costoSinIvaConDescuento * 1.13; // Agregamos el IVA
 
         // Preparar datos de actualización
         const updateData = {
@@ -603,13 +607,12 @@ router.post('/enviar-alegra', async (req, res) => {
 
       // Preparar items de la factura
       const items = productos.map(p => {
-        // Precio unitario ANTES de descuento (del XML)
-        const precioUnitarioConIva = parseFloat(p.precioUnitario) || 0;
-        const precioUnitarioSinIva = precioUnitarioConIva / 1.13;
+        // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
+        const precioUnitarioSinIva = parseFloat(p.precioUnitario) || 0;
         
         // Calcular porcentaje de descuento
-        // descuento es el monto total de descuento en la línea
-        const montoTotalSinDescuento = precioUnitarioConIva * p.cantidad;
+        // MontoTotal = precioUnitario * cantidad (ANTES de descuento)
+        const montoTotalSinDescuento = precioUnitarioSinIva * p.cantidad;
         const descuentoPorcentaje = montoTotalSinDescuento > 0 
           ? ((p.descuento || 0) / montoTotalSinDescuento) * 100
           : 0;
@@ -617,7 +620,7 @@ router.post('/enviar-alegra', async (req, res) => {
         return {
           id: p.alegraItemId?.toString() || p.alegraItemId,
           quantity: parseFloat(p.cantidad) || 1,
-          price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio ANTES de descuento, SIN IVA
+          price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio del XML (ya SIN IVA)
           discount: Math.round(descuentoPorcentaje * 100) / 100, // Porcentaje de descuento
           tax: [{
             id: 1, // IVA 13% Costa Rica
@@ -633,9 +636,9 @@ router.post('/enviar-alegra', async (req, res) => {
         date: factura.fechaEmision,
         client: contacto.id?.toString() || contacto.id,
         numberTemplate: {
-          id: 1 // ID de plantilla de compras
+          id: 1, // ID de plantilla de compras
+          fullNumber: factura.numeroConsecutivo // Consecutivo del proveedor
         },
-        number: factura.numeroConsecutivo, // Consecutivo del proveedor
         observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
         items: items
       });
