@@ -189,7 +189,7 @@ router.post('/confirmar-producto', async (req, res) => {
         alegraReference: alegraProduct.reference,
         alegraName: alegraProduct.name,
         confidence: confianza || 100,
-        createdBy: 'manual'
+        origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
       }
     });
 

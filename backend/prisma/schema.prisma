@@ -99,7 +99,7 @@ model SupplierProductMapping {
   timesUsed         Int      @default(1) @map("times_used") // Cuántas veces se ha usado
   createdDate       DateTime @default(now()) @map("created_date")
   lastUsedDate      DateTime @default(now()) @map("last_used_date")
-  createdBy         String   @default("manual") @map("created_by") // manual | automatic
+  origen            String   @default("imap") @map("origen") // 'manual' | 'imap'
   factorConversion  Float?   @map("factor_conversion") // Factor para convertir cantidad (ej: 1x24 a 1x12 = 0.5)
   
   // Relaciones

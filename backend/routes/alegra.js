@@ -1160,9 +1160,9 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         proveedorNombre = mapping.supplierName;
         proveedorCedula = mapping.supplierCedula;
       } else {
-        // Fallback: usar proveedor genérico
-        proveedorNombre = `Proveedor Desconocido (${faltante.producto_codigo})`;
-        proveedorCedula = 'N/A';
+        // ✅ NUEVO: Agrupar todos los productos sin mapping en un solo grupo
+        proveedorNombre = 'Sin_Proveedor';
+        proveedorCedula = 'SIN_PROVEEDOR';
 
         console.warn(`⚠️ No se encontró mapping para código: ${faltante.producto_codigo}`);
       }
@@ -2631,7 +2631,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             supplier_desc as "supplierDesc",
             alegra_reference as "alegraReference",
             alegra_name as "alegraName",
-            confidence
+            confidence,
+            origen
           FROM supplier_product_mapping 
           WHERE alegra_reference = $1 
           AND supplier_name = $2
@@ -2642,19 +2643,33 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
         if (mappingResult.rows.length > 0) {
           const mapping = mappingResult.rows[0];
+          const esManual = mapping.origen === 'manual';
 
-          // ✅ Usar datos del PROVEEDOR para el PDF
-          productoEnriquecido = {
-            codigo_pdf: mapping.supplierCode,           // Código del proveedor
-            nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
-            cantidad: producto.cantidad,
-            // Datos originales para referencia interna
-            codigo_interno: producto.codigo,            // Tu código (0159)
-            nombre_interno: producto.nombre,            // Tu nombre
-            confianza: mapping.confidence
-          };
-
-          console.log(`✅ Producto enriquecido: ${mapping.alegraReference} → ${mapping.supplierCode}`);
+          if (esManual) {
+            // ✅ MANUAL: Usar datos de ALEGRA (porque no tiene código del proveedor)
+            productoEnriquecido = {
+              codigo_pdf: mapping.alegraReference,        // Código Alegra
+              nombre_pdf: mapping.alegraName,             // Nombre Alegra
+              cantidad: producto.cantidad,
+              codigo_interno: producto.codigo,
+              nombre_interno: producto.nombre,
+              confianza: mapping.confidence,
+              origen: 'manual'
+            };
+            console.log(`📝 Producto MANUAL: ${mapping.alegraReference} (Alegra)`);
+          } else {
+            // ✅ AUTOMÁTICO (IMAP): Usar datos del PROVEEDOR
+            productoEnriquecido = {
+              codigo_pdf: mapping.supplierCode,           // Código del proveedor
+              nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
+              cantidad: producto.cantidad,
+              codigo_interno: producto.codigo,
+              nombre_interno: producto.nombre,
+              confianza: mapping.confidence,
+              origen: 'imap'
+            };
+            console.log(`✅ Producto AUTOMÁTICO: ${mapping.alegraReference} → ${mapping.supplierCode}`);
+          }
         } else {
           // Fallback: usar datos originales si no hay mapping
           productoEnriquecido = {
@@ -2663,7 +2678,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             cantidad: producto.cantidad,
             codigo_interno: producto.codigo,
             nombre_interno: producto.nombre,
-            confianza: 0
+            confianza: 0,
+            origen: 'sin_mapeo'
           };
 
           console.warn(`⚠️ Sin mapping para producto: ${producto.codigo} del proveedor ${proveedor}`);
@@ -2681,10 +2697,18 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           cantidad: producto.cantidad,
           codigo_interno: producto.codigo,
           nombre_interno: producto.nombre,
-          confianza: 0
+          confianza: 0,
+          origen: 'error'
         });
       }
     }
+
+    // ✅ SEPARAR productos automáticos de manuales
+    const productosAutomaticos = productosEnriquecidos.filter(p => p.origen === 'imap');
+    const productosManuales = productosEnriquecidos.filter(p => p.origen === 'manual');
+    const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
+
+    console.log(`📊 Separación de productos: ${productosAutomaticos.length} automáticos, ${productosManuales.length} manuales, ${productosSinMapeo.length} sin mapeo`);
 
     // Importar PDFKit
     const PDFDocument = require('pdfkit');
@@ -2752,7 +2776,9 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     let totalUnidades = 0;
 
     doc.font('Helvetica');
-    productosEnriquecidos.forEach((producto, index) => {
+
+    // ✅ PRIMERO: Productos automáticos (con código del proveedor)
+    productosAutomaticos.forEach((producto, index) => {
       yPos += 20;
 
       // Verificar si necesitamos nueva página
@@ -2771,6 +2797,83 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       }
 
       // Mostrar datos del proveedor
+      doc.fontSize(11)
+        .text(producto.codigo_pdf || 'N/A', 50, yPos)
+        .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })
+        .text(producto.cantidad?.toString() || '0', 450, yPos);
+
+      totalUnidades += parseInt(producto.cantidad) || 0;
+    });
+
+    // ✅ SEGUNDO: Header sutil para productos manuales (solo si existen)
+    if (productosManuales.length > 0) {
+      yPos += 30; // Pequeño espacio
+
+      // Verificar si necesitamos nueva página
+      if (yPos > 680) {
+        doc.addPage();
+        yPos = 50;
+      }
+
+      // Header discreto
+      doc.fontSize(10)
+        .font('Helvetica-Oblique')
+        .fillColor('#666666')
+        .text('productos sin_codigo_provedor', 150, yPos);
+
+      doc.fillColor('#000000'); // Volver a negro
+      yPos += 10; // Pequeño espacio después del header
+    }
+
+    // ✅ TERCERO: Productos manuales (con código de Alegra)
+    productosManuales.forEach((producto, index) => {
+      yPos += 20;
+
+      // Verificar si necesitamos nueva página
+      if (yPos > 700) {
+        doc.addPage();
+        yPos = 50;
+
+        // Repetir headers en nueva página
+        doc.fontSize(12)
+          .font('Helvetica-Bold')
+          .text('Código', 50, yPos)
+          .text('Descripción', 150, yPos)
+          .text('Cantidad', 450, yPos);
+
+        yPos += 20;
+      }
+
+      // Mostrar datos de Alegra (porque son manuales)
+      doc.fontSize(11)
+        .font('Helvetica')
+        .text(producto.codigo_pdf || 'N/A', 50, yPos)
+        .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })
+        .text(producto.cantidad?.toString() || '0', 450, yPos);
+
+      totalUnidades += parseInt(producto.cantidad) || 0;
+    });
+
+    // ✅ CUARTO: Productos sin mapeo (fallback)
+    productosSinMapeo.forEach((producto, index) => {
+      yPos += 20;
+
+      // Verificar si necesitamos nueva página
+      if (yPos > 700) {
+        doc.addPage();
+        yPos = 50;
+
+        // Repetir headers en nueva página
+        doc.fontSize(12)
+          .font('Helvetica-Bold')
+          .text('Código', 50, yPos)
+          .text('Descripción', 150, yPos)
+          .text('Cantidad', 450, yPos);
+
+        yPos += 20;
+      }
+
+      // Mostrar datos originales
       doc.fontSize(11)
         .text(producto.codigo_pdf || 'N/A', 50, yPos)
         .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })
@@ -2897,6 +3000,143 @@ router.get('/reportes/cantidad-sugerida', (req, res, next) => {
   // Importar y usar el router de reportes
   const reportesRouter = require('./reportes');
   reportesRouter(req, res, next);
+});
+
+// ========================================
+// ENDPOINTS PARA GESTIÓN DE PROVEEDORES MANUALES
+// ========================================
+
+// Obtener lista de proveedores de Alegra
+router.get('/proveedores', async (req, res) => {
+  try {
+    const { busqueda } = req.query;
+    
+    console.log(`🏭 Obteniendo proveedores de Alegra${busqueda ? ` (búsqueda: "${busqueda}")` : ''}`);
+    
+    const result = await alegraService.getProveedores(busqueda);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo proveedores:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo proveedores'
+    });
+  }
+});
+
+// Crear nuevo proveedor en Alegra
+router.post('/proveedores', async (req, res) => {
+  try {
+    const proveedorData = req.body;
+    
+    console.log(`➕ Creando proveedor:`, proveedorData.name);
+    
+    const result = await alegraService.createProveedor(proveedorData);
+    
+    if (result.success) {
+      res.status(201).json({
+        success: true,
+        data: result.data,
+        message: 'Proveedor creado exitosamente'
+      });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('❌ Error creando proveedor:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error creando proveedor'
+    });
+  }
+});
+
+// Asignar proveedor manualmente a un producto
+router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
+  try {
+    const { 
+      alegraReference,  // Código del producto en Alegra (ej: "10053")
+      alegraItemId,     // ID del producto en Alegra
+      alegraName,       // Nombre del producto en Alegra
+      proveedorId       // ID del proveedor en Alegra
+    } = req.body;
+
+    console.log(`🔗 Asignando proveedor manualmente:`, {
+      producto: alegraName,
+      codigo: alegraReference,
+      proveedorId
+    });
+
+    // 1. Obtener información del proveedor de Alegra
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const proveedorResponse = await alegraService.api.get(`/contacts/${proveedorId}`);
+    const proveedor = proveedorResponse.data;
+
+    console.log(`✅ Proveedor encontrado:`, proveedor.name);
+
+    // 2. Crear o actualizar el mapping manual
+    const mapping = await prisma.supplierProductMapping.upsert({
+      where: {
+        supplierCedula_supplierCode: {
+          supplierCedula: proveedor.identification || 'SIN_CEDULA',
+          supplierCode: alegraReference
+        }
+      },
+      update: {
+        supplierName: proveedor.name,
+        alegraItemId: alegraItemId,
+        alegraReference: alegraReference,
+        alegraName: alegraName,
+        origen: 'manual', // ✅ MARCAR COMO MANUAL
+        lastUsedDate: new Date(),
+        timesUsed: {
+          increment: 1
+        }
+      },
+      create: {
+        supplierName: proveedor.name,
+        supplierCedula: proveedor.identification || 'SIN_CEDULA',
+        supplierCode: alegraReference,
+        supplierDesc: alegraName,
+        alegraItemId: alegraItemId,
+        alegraReference: alegraReference,
+        alegraName: alegraName,
+        confidence: 100,
+        origen: 'manual', // ✅ MARCAR COMO MANUAL
+        timesUsed: 1
+      }
+    });
+
+    await prisma.$disconnect();
+
+    console.log(`✅ Relación manual creada: ${alegraName} → ${proveedor.name}`);
+
+    res.json({
+      success: true,
+      data: mapping,
+      message: `Producto relacionado con ${proveedor.name}`
+    });
+
+  } catch (error) {
+    console.error('❌ Error asignando proveedor manual:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error asignando proveedor manualmente'
+    });
+  }
 });
 
 module.exports = router;

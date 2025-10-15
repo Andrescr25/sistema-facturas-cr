@@ -388,7 +388,7 @@ class EmailService {
                             alegraReference: mejorMatch.reference,
                             alegraName: mejorMatch.name,
                             confidence: mejorMatch.similarityScore,
-                            createdBy: 'automatic'
+                            origen: 'imap' // ✅ Cambiado de 'createdBy: automatic' a 'origen: imap'
                         };
 
                         const mapeo = await this.dbService.createProductMapping(mapeoData);

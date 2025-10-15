@@ -16,6 +16,14 @@ export default function ReporteProveedores() {
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState('') // Proveedor seleccionado para filtro
   const [proveedorQuery, setProveedorQuery] = useState('') // NUEVO: búsqueda proveedores
   const [proveedoresColapsados, setProveedoresColapsados] = useState(new Set()) // NUEVO: colapsables
+  
+  // ✅ NUEVO: Estados para modal de asignar proveedor
+  const [modalAsignarVisible, setModalAsignarVisible] = useState(false)
+  const [productoParaAsignar, setProductoParaAsignar] = useState(null)
+  const [proveedoresAlegra, setProveedoresAlegra] = useState([])
+  const [busquedaProveedor, setBusquedaProveedor] = useState('')
+  const [loadingProveedores, setLoadingProveedores] = useState(false)
+  const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
 
   useEffect(() => {
     loadReporte()
@@ -355,6 +363,99 @@ NO afecta la base de datos externa de facturas.
       (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
   }
 
+  // ✅ NUEVO: Abrir modal para asignar proveedor
+  const abrirModalAsignar = async (producto) => {
+    setProductoParaAsignar(producto)
+    setModalAsignarVisible(true)
+    setBusquedaProveedor('')
+    await cargarProveedoresAlegra('')
+  }
+
+  // ✅ NUEVO: Cargar proveedores de Alegra
+  const cargarProveedoresAlegra = async (busqueda) => {
+    try {
+      setLoadingProveedores(true)
+      const response = await fetch(`/api/alegra/proveedores?busqueda=${encodeURIComponent(busqueda)}`)
+      const result = await response.json()
+      
+      if (result.success) {
+        setProveedoresAlegra(result.data)
+      } else {
+        alert('Error cargando proveedores: ' + result.message)
+      }
+    } catch (error) {
+      console.error('Error cargando proveedores:', error)
+      alert('Error cargando proveedores de Alegra')
+    } finally {
+      setLoadingProveedores(false)
+    }
+  }
+
+  // ✅ NUEVO: Asignar proveedor manualmente
+  const asignarProveedorManual = async (proveedorId) => {
+    if (!productoParaAsignar) return
+
+    try {
+      setLoading(true)
+      
+      const response = await fetch('/api/alegra/faltantes/asignar-proveedor-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alegraReference: productoParaAsignar.codigo,
+          alegraItemId: productoParaAsignar.alegra_item_id || productoParaAsignar.codigo,
+          alegraName: productoParaAsignar.nombre,
+          proveedorId: proveedorId
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(`✅ Proveedor asignado correctamente`)
+        setModalAsignarVisible(false)
+        setProductoParaAsignar(null)
+        await loadReporte() // Recargar para ver cambios
+      } else {
+        alert(`❌ Error: ${result.message}`)
+      }
+    } catch (error) {
+      console.error('Error asignando proveedor:', error)
+      alert('Error asignando proveedor manualmente')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ✅ NUEVO: Crear nuevo proveedor
+  const crearNuevoProveedor = async (datosProveedor) => {
+    try {
+      setLoading(true)
+
+      const response = await fetch('/api/alegra/proveedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosProveedor)
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert(`✅ Proveedor creado: ${result.data.name}`)
+        setModalCrearProveedor(false)
+        // Asignar automáticamente el nuevo proveedor
+        await asignarProveedorManual(result.data.id)
+      } else {
+        alert(`❌ Error: ${result.message}`)
+      }
+    } catch (error) {
+      console.error('Error creando proveedor:', error)
+      alert('Error creando proveedor en Alegra')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -581,6 +682,16 @@ NO afecta la base de datos externa de facturas.
                             <p className="text-sm text-gray-600">
                               Clientes afectados: {producto.clientes_afectados}
                             </p>
+                            {/* ✅ NUEVO: Botón asignar proveedor para "Sin_Proveedor" */}
+                            {proveedor.nombre === 'Sin_Proveedor' && (
+                              <button
+                                onClick={() => abrirModalAsignar(producto)}
+                                className="mt-2 btn btn-sm btn-outline text-blue-600 border-blue-600 hover:bg-blue-50"
+                              >
+                                <Users size={14} className="mr-1" />
+                                Asignar Proveedor
+                              </button>
+                            )}
                           </div>
                           <div className="text-right">
                             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${producto.tipo_faltante === 'total'
@@ -1001,6 +1112,213 @@ NO afecta la base de datos externa de facturas.
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NUEVO: Modal para asignar proveedor */}
+      {modalAsignarVisible && productoParaAsignar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header del modal */}
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Asignar Proveedor</h2>
+              <p className="text-gray-600 mt-1">
+                Producto: <span className="font-medium">{productoParaAsignar.nombre}</span>
+              </p>
+              <p className="text-sm text-gray-500">Código: {productoParaAsignar.codigo}</p>
+            </div>
+
+            {/* Buscador */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={busquedaProveedor}
+                  onChange={(e) => setBusquedaProveedor(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)
+                  }}
+                  placeholder="Buscar proveedor por nombre..."
+                  className="input flex-1"
+                />
+                <button
+                  onClick={() => cargarProveedoresAlegra(busquedaProveedor)}
+                  className="btn btn-primary"
+                  disabled={loadingProveedores}
+                >
+                  {loadingProveedores ? 'Buscando...' : 'Buscar'}
+                </button>
+                <button
+                  onClick={() => setModalCrearProveedor(true)}
+                  className="btn btn-outline"
+                >
+                  + Crear Nuevo
+                </button>
+              </div>
+            </div>
+
+            {/* Lista de proveedores */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingProveedores ? (
+                <div className="text-center py-12">
+                  <div className="spinner mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando proveedores...</p>
+                </div>
+              ) : proveedoresAlegra.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="mx-auto text-gray-400 mb-4" size={48} />
+                  <p className="text-gray-600">No se encontraron proveedores</p>
+                  <p className="text-sm text-gray-500 mt-2">Intenta otra búsqueda o crea uno nuevo</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {proveedoresAlegra.map((prov) => (
+                    <button
+                      key={prov.id}
+                      onClick={() => asignarProveedorManual(prov.id)}
+                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{prov.name}</p>
+                          {prov.identification && (
+                            <p className="text-sm text-gray-600">Cédula: {prov.identification}</p>
+                          )}
+                          {prov.email && (
+                            <p className="text-sm text-gray-600">Email: {prov.email}</p>
+                          )}
+                        </div>
+                        <div className="text-blue-600">
+                          <Users size={24} />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setModalAsignarVisible(false)
+                  setProductoParaAsignar(null)
+                  setBusquedaProveedor('')
+                  setProveedoresAlegra([])
+                }}
+                className="btn btn-outline w-full"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NUEVO: Modal para crear proveedor */}
+      {modalCrearProveedor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Crear Nuevo Proveedor</h2>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const formData = new FormData(e.target)
+                  crearNuevoProveedor({
+                    name: formData.get('name'),
+                    identification: formData.get('identification'),
+                    identificationType: formData.get('identificationType'),
+                    email: formData.get('email'),
+                    phone: formData.get('phone'),
+                    address: formData.get('address')
+                  })
+                }}
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="label">Nombre del Proveedor *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      className="input w-full"
+                      placeholder="Ej: Distribuidora ABC S.A."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Tipo de Identificación</label>
+                    <select name="identificationType" className="input w-full">
+                      <option value="">-- Seleccione --</option>
+                      <option value="CF">Cédula Física</option>
+                      <option value="CJ">Cédula Jurídica</option>
+                      <option value="DIMEX">DIMEX</option>
+                      <option value="NITE">NITE</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="label">Número de Identificación</label>
+                    <input
+                      type="text"
+                      name="identification"
+                      className="input w-full"
+                      placeholder="Ej: 3101234567"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="input w-full"
+                      placeholder="proveedor@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Teléfono</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      className="input w-full"
+                      placeholder="Ej: 22001122"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Dirección</label>
+                    <textarea
+                      name="address"
+                      rows="2"
+                      className="input w-full"
+                      placeholder="Dirección completa del proveedor"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setModalCrearProveedor(false)}
+                    className="btn btn-outline flex-1"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary flex-1"
+                    disabled={loading}
+                  >
+                    {loading ? 'Creando...' : 'Crear Proveedor'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

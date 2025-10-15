@@ -724,6 +724,84 @@ class AlegraService {
         return Math.ceil((dayOfMonth + dayOfWeek) / 7);
     }
 
+    /**
+     * Obtener lista de proveedores (contactos tipo 'provider') de Alegra
+     */
+    async getProveedores(busqueda = '', limit = 100) {
+        try {
+            console.log(`🏭 Obteniendo proveedores de Alegra${busqueda ? ` (búsqueda: "${busqueda}")` : ''}`);
+            
+            const params = {
+                type: 'provider',
+                limit: Math.min(limit, 30), // Alegra máximo 30 por página
+                order_field: 'name',
+                order_direction: 'ASC'
+            };
+
+            if (busqueda) {
+                params.query = busqueda;
+            }
+
+            const response = await this.api.get('/contacts', { params });
+            
+            const proveedores = Array.isArray(response.data) ? response.data : [];
+            
+            console.log(`✅ Encontrados ${proveedores.length} proveedores`);
+            
+            return {
+                success: true,
+                data: proveedores
+            };
+        } catch (error) {
+            console.error('❌ Error obteniendo proveedores:', error.message);
+            return {
+                success: false,
+                data: [],
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Crear un nuevo proveedor en Alegra
+     */
+    async createProveedor(proveedorData) {
+        try {
+            console.log(`➕ Creando proveedor en Alegra:`, proveedorData.name);
+            
+            const payload = {
+                name: proveedorData.name,
+                type: ['provider'],
+                identification: proveedorData.identification || null,
+                identificationObject: proveedorData.identificationType ? {
+                    type: proveedorData.identificationType,
+                    number: proveedorData.identification
+                } : null,
+                phonePrimary: proveedorData.phone || null,
+                email: proveedorData.email || null,
+                address: proveedorData.address ? {
+                    address: proveedorData.address
+                } : null
+            };
+
+            const response = await this.api.post('/contacts', payload);
+            
+            console.log(`✅ Proveedor creado: ${response.data.name} (ID: ${response.data.id})`);
+            
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error('❌ Error creando proveedor:', error.message);
+            return {
+                success: false,
+                error: error.message,
+                message: `Error al crear proveedor: ${error.message}`
+            };
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }

@@ -217,7 +217,7 @@ router.post('/relacion', async (req, res) => {
                 alegraReference: alegraProduct.reference,
                 alegraName: alegraProduct.name,
                 confidence: 100,
-                createdBy: 'manual_relation'
+                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
             }
         });
         console.log(`✅ Mapeo guardado: ID ${mapeo.id}`);
@@ -419,7 +419,7 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
                 confidence: 100,
                 lastUsedDate: new Date(),
                 timesUsed: { increment: 1 },
-                createdBy: 'manual_edit'
+                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
             },
             create: {
                 supplierName: producto.factura.proveedorNombre,
@@ -430,7 +430,7 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
                 alegraReference: nuevoAlegraProduct.reference,
                 alegraName: nuevoAlegraProduct.name,
                 confidence: 100,
-                createdBy: 'manual_edit'
+                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
             }
         });
 
@@ -617,7 +617,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
                 confidence: 100,
                 lastUsedDate: new Date(),
                 timesUsed: { increment: 1 },
-                createdBy: 'manual_create'
+                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
             },
             create: {
                 supplierName: productoOriginal.factura.proveedorNombre,
@@ -628,7 +628,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
                 alegraReference: nuevoProductoAlegra.reference || referencia || '',
                 alegraName: nuevoProductoAlegra.name,
                 confidence: 100,
-                createdBy: 'manual_create'
+                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
             }
         });
 

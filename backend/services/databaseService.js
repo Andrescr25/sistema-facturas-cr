@@ -266,19 +266,39 @@ class DatabaseService {
             });
 
             if (mapeoExistente) {
-                console.log(`✅ Mapeo ya existe, actualizando: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
+                // ✅ Determinar si es IMAP (automático) o manual
+                const esAutomatico = mappingData.origen === 'imap';
+                const eraManual = mapeoExistente.origen === 'manual';
 
-                // Actualizar el mapeo existente
+                // ⚠️ Si el mapeo existente era manual y llega uno automático, SOBRESCRIBIR
+                if (eraManual && esAutomatico) {
+                    console.log(`🔄 SOBRESCRIBIENDO mapeo MANUAL con IMAP: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
+                } else if (esAutomatico) {
+                    console.log(`✅ Actualizando mapeo automático: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
+                } else {
+                    console.log(`✅ Actualizando mapeo: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
+                }
+
+                // Actualizar el mapeo existente (incluyendo origen si es automático)
+                const dataToUpdate = {
+                    supplierName: mappingData.supplierName,
+                    supplierDesc: mappingData.supplierDesc,
+                    alegraItemId: mappingData.alegraItemId,
+                    alegraReference: mappingData.alegraReference,
+                    alegraName: mappingData.alegraName,
+                    confidence: mappingData.confidence || 100,
+                    lastUsedDate: new Date(),
+                    timesUsed: { increment: 1 }
+                };
+
+                // Si es automático, actualizar también el origen
+                if (esAutomatico) {
+                    dataToUpdate.origen = 'imap';
+                }
+
                 const mapeoActualizado = await this.prisma.supplierProductMapping.update({
                     where: { id: mapeoExistente.id },
-                    data: {
-                        alegraItemId: mappingData.alegraItemId,
-                        alegraReference: mappingData.alegraReference,
-                        alegraName: mappingData.alegraName,
-                        confidence: mappingData.confidence || 100,
-                        lastUsedDate: new Date(),
-                        timesUsed: { increment: 1 }
-                    }
+                    data: dataToUpdate
                 });
 
                 return mapeoActualizado;
@@ -295,7 +315,7 @@ class DatabaseService {
                     alegraReference: mappingData.alegraReference,
                     alegraName: mappingData.alegraName,
                     confidence: mappingData.confidence || 100,
-                    createdBy: mappingData.createdBy || 'manual'
+                    origen: mappingData.origen || 'manual' // ✅ Usar 'origen' en lugar de 'createdBy'
                 }
             });
 
