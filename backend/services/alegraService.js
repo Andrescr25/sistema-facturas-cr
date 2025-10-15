@@ -469,19 +469,16 @@ class AlegraService {
                 }
             });
             
-            // Debug: Ver estructura de la respuesta
-            console.log('📦 Respuesta de Alegra:', JSON.stringify(response.data, null, 2));
-            console.log('📊 Tipo de respuesta:', typeof response.data);
-            console.log('📊 Es array?:', Array.isArray(response.data));
-            
-            // Alegra puede devolver un array directo o un objeto con datos
-            const facturas = Array.isArray(response.data) ? response.data : [];
+            // Alegra devuelve: { metadata: {...}, data: [...] }
+            const facturas = response.data.data || response.data || [];
             
             console.log(`✅ Encontradas ${facturas.length} facturas`);
+            console.log(`📊 Total en Alegra: ${response.data.metadata?.total || 'N/A'}`);
             
             return {
                 success: true,
-                data: facturas
+                data: facturas,
+                metadata: response.data.metadata
             };
         } catch (error) {
             console.error('❌ Error buscando facturas por número:', error.message);
@@ -500,7 +497,7 @@ class AlegraService {
         try {
             console.log(`🔍 Buscando facturas del cliente: ${cliente}`);
             
-            // Primero buscar el contacto
+            // Primero buscar el contacto - Alegra devuelve array directo para contacts
             const contactsResponse = await this.api.get('/contacts', {
                 params: {
                     query: cliente,
@@ -508,9 +505,10 @@ class AlegraService {
                 }
             });
             
-            console.log('📦 Respuesta contactos:', JSON.stringify(contactsResponse.data, null, 2).substring(0, 500));
+            // Contacts devuelve array directo (sin wrapper metadata/data)
+            const contacts = contactsResponse.data || [];
             
-            if (!contactsResponse.data || contactsResponse.data.length === 0) {
+            if (contacts.length === 0) {
                 console.log('⚠️ No se encontró el cliente');
                 return {
                     success: true,
@@ -519,7 +517,7 @@ class AlegraService {
                 };
             }
             
-            const contact = contactsResponse.data[0];
+            const contact = contacts[0];
             console.log(`✅ Cliente encontrado: ${contact.name} (ID: ${contact.id})`);
             
             // Buscar facturas del cliente
@@ -530,15 +528,15 @@ class AlegraService {
                 }
             });
             
-            console.log('📦 Respuesta facturas:', JSON.stringify(invoicesResponse.data, null, 2).substring(0, 500));
-            
-            const facturas = Array.isArray(invoicesResponse.data) ? invoicesResponse.data : [];
-            console.log(`✅ Encontradas ${facturas.length} facturas`);
+            // Invoices devuelve: { metadata: {...}, data: [...] }
+            const facturas = invoicesResponse.data.data || invoicesResponse.data || [];
+            console.log(`✅ Encontradas ${facturas.length} facturas del cliente`);
             
             return {
                 success: true,
                 data: facturas,
-                client: contact
+                client: contact,
+                metadata: invoicesResponse.data.metadata
             };
         } catch (error) {
             console.error('❌ Error buscando facturas por cliente:', error.message);
