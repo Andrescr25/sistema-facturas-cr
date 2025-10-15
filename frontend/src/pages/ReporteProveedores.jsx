@@ -632,6 +632,27 @@ NO afecta la base de datos externa de facturas.
     setProductosAgregados(nuevosAgregados)
   }
 
+  // ✅ NUEVO: Actualizar cantidad de producto agregado
+  const actualizarCantidadAgregado = (proveedorNombre, index, nuevaCantidad) => {
+    const cantidad = parseInt(nuevaCantidad)
+    
+    if (isNaN(cantidad) || cantidad <= 0) {
+      return // No actualizar si la cantidad no es válida
+    }
+    
+    const nuevosAgregados = new Map(productosAgregados)
+    const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
+    
+    if (productosDelProveedor[index]) {
+      productosDelProveedor[index] = {
+        ...productosDelProveedor[index],
+        cantidad: cantidad
+      }
+      nuevosAgregados.set(proveedorNombre, productosDelProveedor)
+      setProductosAgregados(nuevosAgregados)
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -1103,7 +1124,7 @@ NO afecta la base de datos externa de facturas.
                       <div key={`agregado-${index}`} className="rounded-lg p-4 border bg-green-50 border-green-200">
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                           {/* Info del producto */}
-                          <div className="lg:col-span-7">
+                          <div className="lg:col-span-5">
                             <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
                             <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
                             <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded mt-1">
@@ -1111,12 +1132,20 @@ NO afecta la base de datos externa de facturas.
                             </span>
                           </div>
 
-                          {/* Cantidad */}
-                          <div className="lg:col-span-2">
-                            <label className="label">Cantidad:</label>
-                            <div className="text-lg font-medium text-gray-700">
-                              {producto.cantidad}
-                            </div>
+                          {/* Cantidad Editable */}
+                          <div className="lg:col-span-4">
+                            <label className="label">Cantidad a ordenar:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={producto.cantidad}
+                              onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, index, e.target.value)}
+                              className="input w-full"
+                              placeholder="0"
+                            />
+                            <p className="text-xs text-green-600 mt-1">
+                              ✏️ Editable
+                            </p>
                           </div>
 
                           {/* Acciones */}
@@ -1124,7 +1153,7 @@ NO afecta la base de datos externa de facturas.
                             <label className="label">Acción:</label>
                             <button
                               onClick={() => eliminarProductoAgregado(proveedor.nombre, index)}
-                              className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                              className="btn btn-sm bg-red-600 text-white hover:bg-red-700 w-full"
                             >
                               <Trash2 size={14} className="mr-1" />
                               Eliminar
