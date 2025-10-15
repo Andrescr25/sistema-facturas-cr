@@ -462,22 +462,38 @@ class AlegraService {
         try {
             console.log(`🔍 Buscando facturas en Alegra con número: ${numero}`);
             
+            // Alegra no filtra bien con numberTemplate, así que obtenemos todas y filtramos
             const response = await this.api.get('/invoices', {
                 params: {
-                    numberTemplate: numero,
-                    metadata: true
+                    metadata: true,
+                    order_field: 'date',
+                    order_direction: 'DESC',
+                    start: 0,
+                    limit: 100 // Obtener últimas 100 facturas
                 }
             });
             
             // Alegra devuelve: { metadata: {...}, data: [...] }
-            const facturas = response.data.data || response.data || [];
+            const todasFacturas = response.data.data || response.data || [];
             
-            console.log(`✅ Encontradas ${facturas.length} facturas`);
-            console.log(`📊 Total en Alegra: ${response.data.metadata?.total || 'N/A'}`);
+            // Filtrar por número (buscar en formattedNumber, number o fullNumber)
+            const facturasFiltradas = todasFacturas.filter(f => {
+                const num = numero.toLowerCase();
+                return (
+                    f.numberTemplate?.formattedNumber?.toLowerCase().includes(num) ||
+                    f.numberTemplate?.number?.toString().includes(num) ||
+                    f.numberTemplate?.fullNumber?.toLowerCase().includes(num)
+                );
+            });
+            
+            console.log(`✅ Encontradas ${facturasFiltradas.length} facturas que coinciden con "${numero}"`);
+            
+            // Transformar al formato esperado por el frontend
+            const facturasTransformadas = facturasFiltradas.map(f => this.transformInvoiceForFrontend(f));
             
             return {
                 success: true,
-                data: facturas,
+                data: facturasTransformadas,
                 metadata: response.data.metadata
             };
         } catch (error) {
@@ -524,7 +540,9 @@ class AlegraService {
             const invoicesResponse = await this.api.get('/invoices', {
                 params: {
                     client: contact.id,
-                    metadata: true
+                    metadata: true,
+                    order_field: 'date',
+                    order_direction: 'DESC'
                 }
             });
             
@@ -532,9 +550,12 @@ class AlegraService {
             const facturas = invoicesResponse.data.data || invoicesResponse.data || [];
             console.log(`✅ Encontradas ${facturas.length} facturas del cliente`);
             
+            // Transformar al formato esperado por el frontend
+            const facturasTransformadas = facturas.map(f => this.transformInvoiceForFrontend(f));
+            
             return {
                 success: true,
-                data: facturas,
+                data: facturasTransformadas,
                 client: contact,
                 metadata: invoicesResponse.data.metadata
             };
@@ -547,6 +568,48 @@ class AlegraService {
                 error: error.message
             };
         }
+    }
+    
+    /**
+     * Transformar factura de Alegra al formato esperado por el frontend
+     */
+    transformInvoiceForFrontend(factura) {
+        const fecha = new Date(factura.date);
+        const semana = this.getWeekNumber(fecha);
+        
+        return {
+            alegra_id: factura.id,
+            numero_factura: factura.numberTemplate?.formattedNumber || factura.numberTemplate?.number || factura.id,
+            cliente_nombre: factura.client?.name || 'Sin nombre',
+            cliente_id: factura.client?.id || null,
+            fecha: factura.date,
+            fecha_vencimiento: factura.dueDate,
+            subtotal: parseFloat(factura.subtotal) || 0,
+            impuesto: parseFloat(factura.tax) || 0,
+            total: parseFloat(factura.total) || 0,
+            saldo: parseFloat(factura.balance) || 0,
+            estado: factura.status,
+            observaciones: factura.observations || '',
+            terminos: factura.termsConditions || '',
+            items: factura.items || [],
+            semana: semana,
+            mes: fecha.getMonth() + 1,
+            ano: fecha.getFullYear(),
+            condicion_venta: factura.saleCondition,
+            metodo_pago: factura.paymentMethod,
+            bodega: factura.warehouse?.name || 'Principal'
+        };
+    }
+    
+    /**
+     * Obtener número de semana del año
+     */
+    getWeekNumber(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     }
 
     async disconnect() {
