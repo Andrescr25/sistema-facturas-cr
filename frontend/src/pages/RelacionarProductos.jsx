@@ -67,20 +67,16 @@ export default function RelacionarProductos() {
         const prods = response.data.data.productos || []
         setProductos(prods)
         
-        // Cargar info de productos Alegra relacionados
+        // La info de productos Alegra ya viene en la respuesta del backend
         const infoAlegra = {}
-        for (const prod of prods) {
-          if (prod.alegraItemId && prod.estadoRelacionado === 'RELACIONADO') {
-            try {
-              const alegraResp = await api.get(`/productos-revision/info-alegra/${prod.alegraItemId}`)
-              if (alegraResp.data.success) {
-                infoAlegra[prod.id] = alegraResp.data.producto
-              }
-            } catch (err) {
-              console.error(`Error cargando info Alegra para producto ${prod.id}:`, err)
+        prods.forEach(prod => {
+          if (prod.alegraProductInfo) {
+            infoAlegra[prod.id] = {
+              ...prod.alegraProductInfo,
+              factorConversion: prod.mapeo?.factorConversion || 1
             }
           }
-        }
+        })
         setProductoAlegraInfo(infoAlegra)
       }
     } catch (err) {

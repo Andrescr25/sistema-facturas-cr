@@ -644,6 +644,33 @@ router.get('/facturas/detalle/:id', async (req, res) => {
       });
     }
 
+    // Obtener IDs únicos de productos Alegra
+    const alegraItemIds = [...new Set(
+      factura.productos
+        .filter(p => p.alegraItemId && p.estadoRelacionado === 'RELACIONADO')
+        .map(p => p.alegraItemId)
+    )];
+
+    // Obtener info de productos Alegra en una sola consulta (caché local)
+    const alegraProductsInfo = {};
+    if (alegraItemIds.length > 0) {
+      const alegraProducts = await prisma.alegraProduct.findMany({
+        where: {
+          alegraId: {
+            in: alegraItemIds.map(id => id.toString())
+          }
+        }
+      });
+
+      alegraProducts.forEach(prod => {
+        alegraProductsInfo[prod.alegraId] = {
+          name: prod.name,
+          reference: prod.reference,
+          price: parseFloat(prod.price || 0)
+        };
+      });
+    }
+
     // Formatear respuesta para el frontend
     const facturaDetallada = {
       id: factura.id,
@@ -664,7 +691,9 @@ router.get('/facturas/detalle/:id', async (req, res) => {
         impuesto: prod.impuesto,
         estadoRelacionado: prod.estadoRelacionado,
         alegraItemId: prod.alegraItemId,
-        mapeo: prod.mapeo
+        mapeo: prod.mapeo,
+        // Agregar info del producto Alegra si existe
+        alegraProductInfo: prod.alegraItemId ? alegraProductsInfo[prod.alegraItemId.toString()] : null
       }))
     };
 
