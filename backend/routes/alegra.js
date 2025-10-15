@@ -20,43 +20,91 @@ router.get('/debug/database', async (req, res) => {
       ORDER BY table_name
     `);
     
-    // Test 3: Contar registros en tablas principales
-    let counts = {};
-    try {
-      const facturasCount = await query('SELECT COUNT(*) FROM facturas');
-      counts.facturas = facturasCount.rows[0].count;
-    } catch (e) {
-      counts.facturas = 'ERROR: ' + e.message;
+    const allTables = tablesResult.rows.map(r => r.table_name);
+    
+    // Test 3: Obtener estructura de cada tabla
+    const tableStructures = {};
+    for (const tableName of allTables) {
+      try {
+        const columnsResult = await query(`
+          SELECT 
+            column_name,
+            data_type,
+            is_nullable,
+            column_default,
+            character_maximum_length
+          FROM information_schema.columns
+          WHERE table_schema = 'public' 
+            AND table_name = $1
+          ORDER BY ordinal_position
+        `, [tableName]);
+        
+        tableStructures[tableName] = columnsResult.rows;
+      } catch (e) {
+        tableStructures[tableName] = 'ERROR: ' + e.message;
+      }
     }
     
-    try {
-      const productosCount = await query('SELECT COUNT(*) FROM productos');
-      counts.productos = productosCount.rows[0].count;
-    } catch (e) {
-      counts.productos = 'ERROR: ' + e.message;
+    // Test 4: Contar registros en todas las tablas
+    const counts = {};
+    for (const tableName of allTables) {
+      try {
+        const countResult = await query(`SELECT COUNT(*) FROM "${tableName}"`);
+        counts[tableName] = countResult.rows[0].count;
+      } catch (e) {
+        counts[tableName] = 'ERROR: ' + e.message;
+      }
     }
     
-    try {
-      const faltantesCount = await query('SELECT COUNT(*) FROM faltantes');
-      counts.faltantes = faltantesCount.rows[0].count;
-    } catch (e) {
-      counts.faltantes = 'ERROR: ' + e.message;
-    }
+    // Test 5: Verificar tablas esperadas del sistema de faltantes
+    const expectedTables = [
+      'proveedores',
+      'productos', 
+      'facturas',
+      'factura_items',
+      'faltantes',
+      'faltantes_ajustes',
+      'procesamientos',
+      'facturas_reimpresion',
+      'configuracion_semanal'
+    ];
     
-    // Test 4: Prisma tables
-    try {
-      const prismaFacturas = await prisma.factura.count();
-      counts.facturas_proveedores_prisma = prismaFacturas;
-    } catch (e) {
-      counts.facturas_proveedores_prisma = 'ERROR: ' + e.message;
-    }
+    const missingTables = expectedTables.filter(t => !allTables.includes(t));
+    const existingExpectedTables = expectedTables.filter(t => allTables.includes(t));
+    
+    // Test 6: Verificar tablas de Prisma
+    const prismaTables = [
+      'facturas_proveedores',
+      'productos_factura', 
+      'supplier_product_mapping',
+      'alegra_product'
+    ];
+    
+    const existingPrismaTables = prismaTables.filter(t => allTables.includes(t));
+    const missingPrismaTables = prismaTables.filter(t => !allTables.includes(t));
     
     res.json({
       success: true,
       database_time: timeResult.rows[0].time,
-      tables: tablesResult.rows.map(r => r.table_name),
+      summary: {
+        total_tables: allTables.length,
+        sistema_faltantes: {
+          expected: expectedTables.length,
+          existing: existingExpectedTables.length,
+          missing: missingTables.length,
+          missing_tables: missingTables
+        },
+        sistema_imap_prisma: {
+          expected: prismaTables.length,
+          existing: existingPrismaTables.length,
+          missing: missingPrismaTables.length,
+          missing_tables: missingPrismaTables
+        }
+      },
+      all_tables: allTables,
+      table_structures: tableStructures,
       record_counts: counts,
-      message: 'Database debug info'
+      message: 'Database debug info completo'
     });
   } catch (error) {
     res.status(500).json({
