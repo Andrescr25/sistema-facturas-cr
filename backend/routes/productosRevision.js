@@ -802,4 +802,169 @@ router.get('/buscar-alegra', async (req, res) => {
     }
 });
 
+/**
+ * Obtener información completa de un producto de Alegra
+ */
+router.get('/info-alegra/:alegraItemId', async (req, res) => {
+    try {
+        const { alegraItemId } = req.params;
+
+        console.log(`📦 Obteniendo info de producto Alegra ${alegraItemId}`);
+
+        // Buscar en caché local primero
+        let producto = await prisma.alegraProduct.findUnique({
+            where: { alegraId: alegraItemId.toString() }
+        });
+
+        // Si no está en caché, consultar API
+        if (!producto) {
+            const alegraData = await alegraService.getProductById(alegraItemId);
+            
+            // Guardar en caché
+            producto = await prisma.alegraProduct.create({
+                data: {
+                    alegraId: alegraData.id.toString(),
+                    name: alegraData.name,
+                    reference: alegraData.reference || '',
+                    price: alegraData.price?.[0]?.price || 0,
+                    searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                }
+            });
+        }
+
+        // Buscar factor de conversión si existe
+        const mapeo = await prisma.supplierProductMapping.findFirst({
+            where: {
+                alegraItemId: alegraItemId.toString()
+            },
+            orderBy: {
+                updatedAt: 'desc'
+            }
+        });
+
+        res.json({
+            success: true,
+            producto: {
+                ...producto,
+                price: parseFloat(producto.price || 0),
+                factorConversion: mapeo?.factorConversion || 1
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo producto Alegra:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Eliminar relación de un producto
+ */
+router.delete('/relacion/:productoId', async (req, res) => {
+    try {
+        const { productoId } = req.params;
+
+        console.log(`🗑️ Eliminando relación del producto ${productoId}`);
+
+        // Obtener producto
+        const producto = await prisma.productoFactura.findUnique({
+            where: { id: parseInt(productoId) },
+            include: { factura: true }
+        });
+
+        if (!producto) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto no encontrado'
+            });
+        }
+
+        // Actualizar producto a PENDIENTE
+        await prisma.productoFactura.update({
+            where: { id: parseInt(productoId) },
+            data: {
+                estadoRelacionado: 'PENDIENTE',
+                alegraItemId: null,
+                mapeoId: null,
+                confianza: null
+            }
+        });
+
+        // NO eliminar el mapeo global, solo desconectar este producto
+        // El mapeo sigue existiendo para futuras facturas
+
+        console.log(`✅ Relación eliminada`);
+
+        res.json({
+            success: true,
+            message: 'Relación eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('❌ Error eliminando relación:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Obtener mapeo de un producto
+ */
+router.get('/mapeo/:productoId', async (req, res) => {
+    try {
+        const { productoId } = req.params;
+
+        console.log(`🔍 Obteniendo mapeo del producto ${productoId}`);
+
+        const producto = await prisma.productoFactura.findUnique({
+            where: { id: parseInt(productoId) },
+            include: { factura: true }
+        });
+
+        if (!producto) {
+            return res.status(404).json({
+                success: false,
+                error: 'Producto no encontrado'
+            });
+        }
+
+        // Buscar mapeo
+        const mapeo = await prisma.supplierProductMapping.findUnique({
+            where: {
+                supplierCedula_supplierCode: {
+                    supplierCedula: producto.factura.proveedorCedula,
+                    supplierCode: producto.codigoProveedor
+                }
+            }
+        });
+
+        if (!mapeo) {
+            return res.status(404).json({
+                success: false,
+                error: 'Mapeo no encontrado'
+            });
+        }
+
+        res.json({
+            success: true,
+            mapeo: {
+                id: mapeo.id,
+                factorConversion: mapeo.factorConversion || 1,
+                alegraItemId: mapeo.alegraItemId,
+                alegraName: mapeo.alegraName,
+                confidence: mapeo.confidence
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo mapeo:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

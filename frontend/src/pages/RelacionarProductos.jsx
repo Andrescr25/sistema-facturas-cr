@@ -45,6 +45,9 @@ export default function RelacionarProductos() {
   const [productoRelacionado, setProductoRelacionado] = useState(null)
   const [cantidadProveedor, setCantidadProveedor] = useState(1)
   const [cantidadMia, setCantidadMia] = useState(1)
+  
+  // Estado para producto Alegra completo (con más info)
+  const [productoAlegraInfo, setProductoAlegraInfo] = useState({})
 
   useEffect(() => {
     if (facturaId) {
@@ -61,7 +64,24 @@ export default function RelacionarProductos() {
       
       if (response.data.success) {
         setFactura(response.data.data)
-        setProductos(response.data.data.productos || [])
+        const prods = response.data.data.productos || []
+        setProductos(prods)
+        
+        // Cargar info de productos Alegra relacionados
+        const infoAlegra = {}
+        for (const prod of prods) {
+          if (prod.alegraItemId && prod.estadoRelacionado === 'RELACIONADO') {
+            try {
+              const alegraResp = await api.get(`/productos-revision/info-alegra/${prod.alegraItemId}`)
+              if (alegraResp.data.success) {
+                infoAlegra[prod.id] = alegraResp.data.producto
+              }
+            } catch (err) {
+              console.error(`Error cargando info Alegra para producto ${prod.id}:`, err)
+            }
+          }
+        }
+        setProductoAlegraInfo(infoAlegra)
       }
     } catch (err) {
       setError(err.message)
@@ -275,6 +295,65 @@ export default function RelacionarProductos() {
     loadFactura()
   }
 
+  // Cambiar relación de un producto ya relacionado
+  const cambiarRelacion = async (producto) => {
+    const confirmar = window.confirm(`¿Cambiar la relación del producto "${producto.descripcion}"?\n\nEsto eliminará la relación actual y podrás seleccionar un nuevo producto de Alegra.`)
+    if (!confirmar) return
+
+    try {
+      // Eliminar relación actual
+      await api.delete(`/productos-revision/relacion/${producto.id}`)
+      
+      // Actualizar estado local
+      setProductos(prev => prev.map(p => 
+        p.id === producto.id 
+          ? { ...p, estadoRelacionado: 'PENDIENTE', alegraItemId: null, mapeoId: null }
+          : p
+      ))
+      
+      // Abrir modal para nueva relación
+      abrirModalBusqueda(producto)
+    } catch (err) {
+      alert('Error eliminando relación: ' + err.message)
+    }
+  }
+
+  // Editar factor de conversión de un producto relacionado
+  const editarFactor = async (producto) => {
+    if (!producto.alegraItemId) return
+
+    try {
+      // Obtener mapeo actual
+      const response = await api.get(`/productos-revision/mapeo/${producto.id}`)
+      if (response.data.success) {
+        const mapeo = response.data.mapeo
+        const alegraInfo = productoAlegraInfo[producto.id]
+
+        setProductoRelacionado({
+          ...producto,
+          alegraProducto: alegraInfo || { name: 'Producto Alegra', reference: producto.alegraItemId },
+          mapeoId: mapeo.id
+        })
+
+        // Configurar valores actuales del factor
+        if (mapeo.factorConversion && mapeo.factorConversion !== 1) {
+          // Si existe factor, calcular cantidades originales
+          // factor = cantMia / cantProv
+          // Si factor = 0.5, significa 1 del proveedor = 0.5 mío
+          setCantidadProveedor(1)
+          setCantidadMia(mapeo.factorConversion)
+        } else {
+          setCantidadProveedor(1)
+          setCantidadMia(1)
+        }
+
+        setModalConversion(true)
+      }
+    } catch (err) {
+      alert('Error cargando información de mapeo: ' + err.message)
+    }
+  }
+
   const productosFiltrados = productos.filter(p => {
     if (filtro === 'pendientes') return p.estadoRelacionado === 'PENDIENTE'
     if (filtro === 'relacionados') return p.estadoRelacionado === 'RELACIONADO'
@@ -407,9 +486,36 @@ export default function RelacionarProductos() {
                 <div className="flex flex-wrap gap-3 text-sm text-gray-600">
                   <span>Código: {producto.codigoProveedor}</span>
                   <span>Cantidad: {producto.cantidad} {producto.unidadMedida}</span>
-                  <span>Precio: ₡{producto.precioUnitario?.toLocaleString('es-CR')}</span>
+                  <span className="font-semibold">Precio: ₡{producto.precioUnitario?.toLocaleString('es-CR')}</span>
                 </div>
-                {producto.estadoRelacionado === 'RELACIONADO' && (
+                
+                {/* Info del producto relacionado */}
+                {producto.estadoRelacionado === 'RELACIONADO' && productoAlegraInfo[producto.id] && (
+                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center text-green-700 font-semibold mb-1">
+                          <Check size={16} className="mr-1" />
+                          Relacionado con:
+                        </div>
+                        <p className="font-semibold text-gray-900">{productoAlegraInfo[producto.id].name}</p>
+                        <div className="flex flex-wrap gap-3 text-sm text-gray-600 mt-1">
+                          <span>Ref: {productoAlegraInfo[producto.id].reference || 'N/A'}</span>
+                          <span className="font-semibold text-green-700">
+                            Precio Venta: ₡{productoAlegraInfo[producto.id].price?.toLocaleString('es-CR')}
+                          </span>
+                          {productoAlegraInfo[producto.id].factorConversion && productoAlegraInfo[producto.id].factorConversion !== 1 && (
+                            <span className="text-blue-600 font-medium">
+                              Factor: {productoAlegraInfo[producto.id].factorConversion}x
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {producto.estadoRelacionado === 'RELACIONADO' && !productoAlegraInfo[producto.id] && (
                   <div className="mt-2 text-sm text-green-700 flex items-center">
                     <Check size={16} className="mr-1" />
                     Relacionado con producto Alegra ID: {producto.alegraItemId}
@@ -417,12 +523,12 @@ export default function RelacionarProductos() {
                 )}
               </div>
 
-              <div className="flex gap-2 ml-4">
+              <div className="flex flex-col gap-2 ml-4">
                 {producto.estadoRelacionado === 'PENDIENTE' && (
                   <>
                     <button
                       onClick={() => abrirModalBusqueda(producto)}
-                      className="btn btn-primary flex items-center"
+                      className="btn btn-primary flex items-center whitespace-nowrap"
                     >
                       <Link2 size={16} className="mr-1" />
                       Relacionar
@@ -430,10 +536,23 @@ export default function RelacionarProductos() {
                   </>
                 )}
                 {producto.estadoRelacionado === 'RELACIONADO' && (
-                  <span className="badge badge-success flex items-center">
-                    <Check size={14} className="mr-1" />
-                    Relacionado
-                  </span>
+                  <>
+                    <button
+                      onClick={() => cambiarRelacion(producto)}
+                      className="btn btn-sm btn-outline flex items-center whitespace-nowrap text-orange-600 border-orange-300 hover:bg-orange-50"
+                      title="Cambiar relación"
+                    >
+                      <Link2 size={14} className="mr-1" />
+                      Cambiar
+                    </button>
+                    <button
+                      onClick={() => editarFactor(producto)}
+                      className="btn btn-sm btn-outline flex items-center whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
+                      title="Editar factor de conversión"
+                    >
+                      ⚙️ Factor
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -495,17 +614,44 @@ export default function RelacionarProductos() {
                   {resultadosBusqueda.map(prod => (
                     <div
                       key={prod.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all"
                       onClick={() => relacionarProducto(prod)}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{prod.name}</h4>
-                          <p className="text-sm text-gray-600">
-                            Referencia: {prod.reference || 'N/A'} | Precio: ₡{prod.price?.toLocaleString('es-CR')}
-                          </p>
+                          <h4 className="font-semibold text-gray-900 mb-2">{prod.name}</h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-500">Referencia:</span>
+                              <span className="ml-1 font-mono font-medium text-gray-900">
+                                {prod.reference || 'Sin ref.'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Precio Venta:</span>
+                              <span className="ml-1 font-bold text-green-700">
+                                ₡{prod.price?.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            {prod.cost && (
+                              <div>
+                                <span className="text-gray-500">Costo:</span>
+                                <span className="ml-1 font-medium text-gray-700">
+                                  ₡{prod.cost?.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )}
+                            {prod.category && (
+                              <div>
+                                <span className="text-gray-500">Categoría:</span>
+                                <span className="ml-1 font-medium text-gray-700">
+                                  {prod.category}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <button className="btn btn-sm btn-primary ml-4">
+                        <button className="btn btn-sm btn-primary ml-4 flex-shrink-0">
                           Seleccionar
                         </button>
                       </div>
