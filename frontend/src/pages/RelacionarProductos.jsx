@@ -578,9 +578,24 @@ export default function RelacionarProductos() {
               </div>
               
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  Producto del proveedor: <strong>{productoSeleccionado?.descripcion}</strong>
-                </p>
+                <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                  <p className="text-xs font-medium text-orange-700 mb-2">PRODUCTO DEL PROVEEDOR</p>
+                  <p className="font-bold text-gray-900 text-lg mb-2">{productoSeleccionado?.descripcion}</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="text-orange-600">Código:</span>
+                      <p className="font-mono font-semibold text-gray-900">{productoSeleccionado?.codigoProveedor}</p>
+                    </div>
+                    <div>
+                      <span className="text-orange-600">Cantidad:</span>
+                      <p className="font-semibold text-gray-900">{productoSeleccionado?.cantidad} {productoSeleccionado?.unidadMedida}</p>
+                    </div>
+                    <div>
+                      <span className="text-orange-600">Precio Proveedor:</span>
+                      <p className="font-bold text-orange-700 text-lg">₡{productoSeleccionado?.precioUnitario?.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="relative">
