@@ -223,10 +223,18 @@ class IndexedDBService {
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readonly');
       const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
-      const index = store.index('sincronizada');
-      const request = index.getAll(false);
+      
+      // Obtener todas las facturas y filtrar manualmente
+      // porque getAll(false) no funciona correctamente con booleanos
+      const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const facturas = request.result || [];
+        // Filtrar solo las no sincronizadas
+        const pendientes = facturas.filter(f => f.sincronizada === false);
+        resolve(pendientes);
+      };
+      
       request.onerror = () => reject(request.error);
     });
   }
