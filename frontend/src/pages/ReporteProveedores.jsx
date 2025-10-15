@@ -376,6 +376,13 @@ NO afecta la base de datos externa de facturas.
     try {
       setLoadingProveedores(true)
       const response = await fetch(`/api/alegra/proveedores?busqueda=${encodeURIComponent(busqueda)}`)
+      
+      // Verificar si la respuesta es JSON válida
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`El servidor respondió con ${contentType || 'tipo desconocido'} en lugar de JSON. Puede que Render esté aún desplegando los cambios. Espera 1-2 minutos e intenta de nuevo.`)
+      }
+      
       const result = await response.json()
       
       if (result.success) {
@@ -385,7 +392,7 @@ NO afecta la base de datos externa de facturas.
       }
     } catch (error) {
       console.error('Error cargando proveedores:', error)
-      alert('Error cargando proveedores de Alegra')
+      alert('⚠️ ' + error.message || 'Error cargando proveedores de Alegra')
     } finally {
       setLoadingProveedores(false)
     }
