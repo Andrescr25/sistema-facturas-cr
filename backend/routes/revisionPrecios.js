@@ -599,20 +599,23 @@ router.post('/enviar-alegra', async (req, res) => {
 
       // Preparar items de la factura
       const items = productos.map(p => {
-        // Calcular precio real considerando descuentos
-        // totalLinea incluye descuentos e impuestos
-        const precioRealConIvaYDescuento = p.cantidad > 0 
+        // Calcular precio UNITARIO SIN IVA (Alegra aplicará el IVA automáticamente)
+        // totalLinea incluye descuentos e IVA aplicados
+        const precioConIva = p.cantidad > 0 
           ? (p.totalLinea / p.cantidad)
           : parseFloat(p.precioUnitario) || 0;
+        
+        // Dividir entre 1.13 para obtener precio SIN IVA
+        const precioSinIva = precioConIva / 1.13;
         
         return {
           id: p.alegraItemId?.toString() || p.alegraItemId,
           quantity: parseFloat(p.cantidad) || 1,
-          price: precioRealConIvaYDescuento, // Precio real con descuentos aplicados
-          discount: 0, // Ya aplicado en el precio
+          price: Math.round(precioSinIva * 100) / 100, // Precio SIN IVA (Alegra aplicará 13%)
+          discount: 0, // Descuentos ya aplicados en el precio
           tax: [{
-            id: 1, // IVA (ID correcto en Alegra)
-            percentage: 13 // Siempre 13% para Costa Rica
+            id: 1, // IVA 13% Costa Rica
+            percentage: 13
           }]
         };
       });
@@ -624,7 +627,8 @@ router.post('/enviar-alegra', async (req, res) => {
         date: factura.fechaEmision,
         client: contacto.id?.toString() || contacto.id,
         numberTemplate: {
-          id: 1 // Compras
+          id: 1, // ID de plantilla de compras
+          fullNumber: factura.numeroConsecutivo // Número real de la factura del proveedor
         },
         observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
         items: items
