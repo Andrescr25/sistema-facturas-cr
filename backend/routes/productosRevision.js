@@ -838,7 +838,7 @@ router.get('/info-alegra/:alegraItemId', async (req, res) => {
                 alegraItemId: alegraItemId.toString()
             },
             orderBy: {
-                updatedAt: 'desc'
+                lastUsedDate: 'desc'
             }
         });
 
