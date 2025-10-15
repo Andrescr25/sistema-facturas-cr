@@ -4,6 +4,122 @@ const alegraService = require('../services/alegraService');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// DEBUG: Test simple de conexión
+router.get('/debug/test-simple', async (req, res) => {
+  const tests = [];
+  
+  try {
+    // Test 1: Conexión básica
+    tests.push({ test: 'Conexión básica', status: 'OK', result: 'Endpoint alcanzado' });
+    
+    // Test 2: Verificar DATABASE_URL
+    tests.push({ 
+      test: 'DATABASE_URL configurada', 
+      status: process.env.DATABASE_URL ? 'OK' : 'ERROR',
+      result: process.env.DATABASE_URL ? 'Sí existe' : 'NO EXISTE'
+    });
+    
+    // Test 3: Prisma
+    try {
+      const prismaTest = await prisma.$queryRaw`SELECT 1 as test`;
+      tests.push({ test: 'Prisma conexión', status: 'OK', result: prismaTest });
+    } catch (e) {
+      tests.push({ test: 'Prisma conexión', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 4: Query SQL directa
+    try {
+      const { query } = require('../config/database');
+      const sqlTest = await query('SELECT NOW() as time');
+      tests.push({ test: 'SQL Query directa', status: 'OK', result: sqlTest.rows[0] });
+    } catch (e) {
+      tests.push({ test: 'SQL Query directa', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 5: Contar tabla productos
+    try {
+      const { query } = require('../config/database');
+      const productosTest = await query('SELECT COUNT(*) FROM productos');
+      tests.push({ test: 'COUNT productos', status: 'OK', result: productosTest.rows[0].count });
+    } catch (e) {
+      tests.push({ test: 'COUNT productos', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 6: Contar tabla proveedores
+    try {
+      const { query } = require('../config/database');
+      const proveedoresTest = await query('SELECT COUNT(*) FROM proveedores');
+      tests.push({ test: 'COUNT proveedores', status: 'OK', result: proveedoresTest.rows[0].count });
+    } catch (e) {
+      tests.push({ test: 'COUNT proveedores', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 7: Contar tabla faltantes
+    try {
+      const { query } = require('../config/database');
+      const faltantesTest = await query('SELECT COUNT(*) FROM faltantes');
+      tests.push({ test: 'COUNT faltantes', status: 'OK', result: faltantesTest.rows[0].count });
+    } catch (e) {
+      tests.push({ test: 'COUNT faltantes', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 8: Prisma AlegraProduct
+    try {
+      const alegraTest = await prisma.alegraProduct.count();
+      tests.push({ test: 'Prisma AlegraProduct.count()', status: 'OK', result: alegraTest });
+    } catch (e) {
+      tests.push({ test: 'Prisma AlegraProduct.count()', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 9: Prisma Factura
+    try {
+      const facturaTest = await prisma.factura.count();
+      tests.push({ test: 'Prisma Factura.count()', status: 'OK', result: facturaTest });
+    } catch (e) {
+      tests.push({ test: 'Prisma Factura.count()', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    // Test 10: Buscar facturas (query compleja)
+    try {
+      const { query } = require('../config/database');
+      const facturaQuery = await query(`
+        SELECT 
+          p.codigo as producto_codigo,
+          p.nombre as producto_nombre,
+          SUM(f.cantidad_faltante) as total_faltante
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        WHERE f.estado = 'pendiente'
+        GROUP BY p.codigo, p.nombre
+        LIMIT 5
+      `);
+      tests.push({ test: 'Query compleja faltantes', status: 'OK', result: `${facturaQuery.rows.length} registros` });
+    } catch (e) {
+      tests.push({ test: 'Query compleja faltantes', status: 'ERROR', error: e.message, code: e.code });
+    }
+    
+    res.json({
+      success: true,
+      total_tests: tests.length,
+      passed: tests.filter(t => t.status === 'OK').length,
+      failed: tests.filter(t => t.status === 'ERROR').length,
+      tests: tests,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        has_database_url: !!process.env.DATABASE_URL
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack,
+      tests: tests
+    });
+  }
+});
+
 // DEBUG: Verificar estado de la base de datos
 router.get('/debug/database', async (req, res) => {
   try {
