@@ -485,22 +485,50 @@ class AlegraService {
         try {
             console.log(`🔍 Buscando facturas en Alegra con número: ${numero}`);
             
-            // Alegra no filtra bien con numberTemplate, así que obtenemos todas y filtramos
-            const response = await this.api.get('/invoices', {
-                params: {
-                    metadata: true,
-                    order_field: 'date',
-                    order_direction: 'DESC',
-                    start: 0,
-                    limit: 100 // Obtener últimas 100 facturas
+            // Paginación: obtener hasta 3 páginas (90 facturas)
+            let allInvoices = [];
+            let start = 0;
+            const limit = 30; // Máximo permitido por Alegra
+            let hasMore = true;
+            let totalPages = 0;
+
+            while (hasMore && totalPages < 3) {
+                const response = await this.api.get('/invoices', {
+                    params: {
+                        start: start,
+                        limit: limit,
+                        order_field: 'date',
+                        order_direction: 'DESC',
+                        metadata: true
+                    }
+                });
+
+                // Alegra devuelve: { metadata: {...}, data: [...] }
+                const invoices = response.data.data || response.data || [];
+                
+                console.log(`📊 Página ${totalPages + 1}: Obtenidas ${invoices.length} facturas`);
+
+                if (invoices.length === 0) {
+                    hasMore = false;
+                    break;
                 }
-            });
-            
-            // Alegra devuelve: { metadata: {...}, data: [...] }
-            const todasFacturas = response.data.data || response.data || [];
+
+                allInvoices = allInvoices.concat(invoices);
+
+                // Siguiente página
+                start += limit;
+                totalPages++;
+
+                // Si obtuvo menos facturas que el límite, es la última página
+                if (invoices.length < limit) {
+                    hasMore = false;
+                }
+            }
+
+            console.log(`🔍 Total facturas revisadas: ${allInvoices.length} en ${totalPages} páginas`);
             
             // Filtrar por número (buscar en formattedNumber, number o fullNumber)
-            const facturasFiltradas = todasFacturas.filter(f => {
+            const facturasFiltradas = allInvoices.filter(f => {
                 const num = numero.toLowerCase();
                 return (
                     f.numberTemplate?.formattedNumber?.toLowerCase().includes(num) ||
@@ -512,27 +540,14 @@ class AlegraService {
             console.log(`✅ Encontradas ${facturasFiltradas.length} facturas que coinciden con "${numero}"`);
             
             // Transformar al formato esperado por el frontend
-            console.log('🔄 Iniciando transformación de facturas...');
-            const facturasTransformadas = facturasFiltradas.map((f, index) => {
-                try {
-                    console.log(`🔄 Transformando factura ${index + 1}/${facturasFiltradas.length}:`, f.id);
-                    return this.transformInvoiceForFrontend(f);
-                } catch (transformError) {
-                    console.error(`❌ Error transformando factura ${f.id}:`, transformError);
-                    throw new Error(`Error transformando factura ${f.id}: ${transformError.message}`);
-                }
-            });
-            console.log(`✅ Transformación completada: ${facturasTransformadas.length} facturas`);
+            const facturasTransformadas = facturasFiltradas.map(f => this.transformInvoiceForFrontend(f));
             
             return {
                 success: true,
-                data: facturasTransformadas,
-                metadata: response.data.metadata
+                data: facturasTransformadas
             };
         } catch (error) {
             console.error('❌ Error buscando facturas por número:', error.message);
-            console.error('❌ Stack trace:', error.stack);
-            console.error('❌ Error completo:', error);
             return {
                 success: false,
                 data: [],
@@ -611,9 +626,10 @@ class AlegraService {
      * Copiado del sistema original proyecto-faltantes
      */
     transformInvoiceForFrontend(invoice) {
-        const fecha = new Date(invoice.date);
+        try {
+            const fecha = new Date(invoice.date);
 
-        return {
+            return {
             // ID y números
             alegra_id: parseInt(invoice.id),
             numero_factura: invoice.numberTemplate?.formattedNumber || invoice.numberTemplate?.number || 'N/A',
@@ -664,7 +680,12 @@ class AlegraService {
 
             // Datos originales para referencia
             alegra_data: invoice
-        };
+            };
+        } catch (error) {
+            console.error('❌ Error en transformInvoiceForFrontend:', error);
+            console.error('❌ Factura problemática:', invoice);
+            throw new Error(`Error transformando factura: ${error.message}`);
+        }
     }
 
     /**
