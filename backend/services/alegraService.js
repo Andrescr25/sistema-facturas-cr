@@ -455,6 +455,89 @@ class AlegraService {
         }
     }
 
+    /**
+     * Buscar facturas por número en Alegra
+     */
+    async searchInvoicesByNumber(numero) {
+        try {
+            console.log(`🔍 Buscando facturas en Alegra con número: ${numero}`);
+            
+            const response = await this.api.get('/invoices', {
+                params: {
+                    numberTemplate: numero,
+                    metadata: true
+                }
+            });
+            
+            console.log(`✅ Encontradas ${response.data.length} facturas`);
+            
+            return {
+                success: true,
+                data: response.data || []
+            };
+        } catch (error) {
+            console.error('❌ Error buscando facturas por número:', error.message);
+            return {
+                success: false,
+                data: [],
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Buscar facturas por cliente en Alegra
+     */
+    async searchInvoicesByClient(cliente) {
+        try {
+            console.log(`🔍 Buscando facturas del cliente: ${cliente}`);
+            
+            // Primero buscar el contacto
+            const contactsResponse = await this.api.get('/contacts', {
+                params: {
+                    query: cliente,
+                    type: 'client'
+                }
+            });
+            
+            if (!contactsResponse.data || contactsResponse.data.length === 0) {
+                console.log('⚠️ No se encontró el cliente');
+                return {
+                    success: true,
+                    data: [],
+                    client: null
+                };
+            }
+            
+            const contact = contactsResponse.data[0];
+            console.log(`✅ Cliente encontrado: ${contact.name} (ID: ${contact.id})`);
+            
+            // Buscar facturas del cliente
+            const invoicesResponse = await this.api.get('/invoices', {
+                params: {
+                    client: contact.id,
+                    metadata: true
+                }
+            });
+            
+            console.log(`✅ Encontradas ${invoicesResponse.data.length} facturas`);
+            
+            return {
+                success: true,
+                data: invoicesResponse.data || [],
+                client: contact
+            };
+        } catch (error) {
+            console.error('❌ Error buscando facturas por cliente:', error.message);
+            return {
+                success: false,
+                data: [],
+                client: null,
+                error: error.message
+            };
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }
