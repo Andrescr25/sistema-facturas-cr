@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const alegraService = require('../services/alegraService');
+const AlegraService = require('../services/alegraService');
+const alegraService = new AlegraService(); // Instanciar la clase
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
