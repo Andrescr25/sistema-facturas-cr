@@ -565,8 +565,6 @@ NO afecta la base de datos externa de facturas.
 
   // ✅ NUEVO: Eliminar producto de la orden
   const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
-    if (!confirm('¿Eliminar este producto de la orden de compra?')) return
-    
     const key = `${proveedorNombre}-${productoCodigo}`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.add(key)
@@ -583,6 +581,7 @@ NO afecta la base de datos externa de facturas.
       console.log(`🗑️ Producto eliminado y guardado en BD: ${key} (cantidad: ${cantidadOriginal})`)
     } catch (error) {
       console.error('Error guardando producto eliminado:', error)
+      alert(`❌ Error: ${error.message}`)
     }
   }
 
@@ -665,16 +664,17 @@ NO afecta la base de datos externa de facturas.
       console.log(`➕ Producto agregado y guardado en BD: ${producto.reference} x${cantidad}`)
     } catch (error) {
       console.error('Error guardando producto agregado:', error)
+      alert(`❌ Error: ${error.message}`)
+      return
     }
     
-    alert(`✅ ${producto.name} agregado a la orden de ${proveedorParaAgregar.nombre}`)
+    // Cerrar modal sin alert para no interrumpir
     setModalAgregarProducto(false)
+    console.log(`✅ ${producto.name} agregado a la orden de ${proveedorParaAgregar.nombre}`)
   }
 
   // ✅ NUEVO: Eliminar producto agregado manualmente
   const eliminarProductoAgregado = async (proveedorNombre, index) => {
-    if (!confirm('¿Eliminar este producto agregado?')) return
-    
     const nuevosAgregados = new Map(productosAgregados)
     const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
     const productoAEliminar = productosDelProveedor[index]
@@ -700,6 +700,7 @@ NO afecta la base de datos externa de facturas.
       console.log(`🗑️ Producto agregado eliminado de BD: ${productoAEliminar.codigo}`)
     } catch (error) {
       console.error('Error eliminando producto agregado:', error)
+      alert(`❌ Error: ${error.message}`)
     }
   }
 

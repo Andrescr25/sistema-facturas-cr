@@ -2709,12 +2709,13 @@ router.post('/orden-compra/producto-agregado', async (req, res) => {
 
     await query(`
       INSERT INTO orden_compra_temporal 
-        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_modificada, accion)
-      VALUES ($1, $2, $3, $4, 'agregado')
+        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_original, cantidad_modificada, accion)
+      VALUES ($1, $2, $3, 0, $4, 'agregado')
       ON CONFLICT (proveedor_nombre, producto_codigo)
       DO UPDATE SET 
-        producto_nombre = $3,
-        cantidad_modificada = $4, 
+        producto_nombre = EXCLUDED.producto_nombre,
+        cantidad_original = 0,
+        cantidad_modificada = EXCLUDED.cantidad_modificada, 
         accion = 'agregado',
         updated_at = CURRENT_TIMESTAMP
     `, [proveedorNombre, productoCodigo, productoNombre, cantidad]);
