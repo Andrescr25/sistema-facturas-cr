@@ -868,9 +868,9 @@ router.delete('/relacion/:productoId', async (req, res) => {
 
         console.log(`🗑️ Eliminando relación del producto ${productoId}`);
 
-        // Obtener producto
+        // Obtener producto (ID es UUID string, no número)
         const producto = await prisma.productoFactura.findUnique({
-            where: { id: parseInt(productoId) },
+            where: { id: productoId },
             include: { factura: true }
         });
 
@@ -883,7 +883,7 @@ router.delete('/relacion/:productoId', async (req, res) => {
 
         // Actualizar producto a PENDIENTE
         await prisma.productoFactura.update({
-            where: { id: parseInt(productoId) },
+            where: { id: productoId },
             data: {
                 estadoRelacionado: 'PENDIENTE',
                 alegraItemId: null,
@@ -920,7 +920,7 @@ router.get('/mapeo/:productoId', async (req, res) => {
         console.log(`🔍 Obteniendo mapeo del producto ${productoId}`);
 
         const producto = await prisma.productoFactura.findUnique({
-            where: { id: parseInt(productoId) },
+            where: { id: productoId },
             include: { factura: true }
         });
 
