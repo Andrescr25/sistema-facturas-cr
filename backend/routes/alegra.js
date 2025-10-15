@@ -23,30 +23,20 @@ router.get('/facturas/buscar/numero/:numero', async (req, res) => {
 
     console.log(`🔍 Buscando facturas con número: ${numero}`);
 
-    const facturas = await prisma.factura.findMany({
-      where: {
-        numeroConsecutivo: {
-          contains: numero
-        }
-      },
-      include: {
-        productos: true,
-        proveedor: true
-      },
-      orderBy: {
-        fechaEmision: 'desc'
-      },
-      take: 50
-    });
+    const result = await alegraService.searchInvoicesByNumber(numero);
 
-    console.log(`✅ Búsqueda completada: ${facturas.length} facturas encontradas`);
+    console.log(`✅ Búsqueda completada: ${result.data?.length || 0} facturas encontradas`);
 
-    res.json({
-      success: true,
-      data: facturas,
-      searchTerm: numero,
-      searchType: 'numero'
-    });
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data,
+        searchTerm: numero,
+        searchType: 'numero'
+      });
+    } else {
+      res.status(400).json(result);
+    }
   } catch (error) {
     console.error('❌ Error buscando facturas por número:', error);
     res.status(500).json({
@@ -65,41 +55,21 @@ router.get('/facturas/buscar/cliente/:cliente', async (req, res) => {
 
     console.log(`🔍 Buscando facturas del cliente: ${cliente}`);
 
-    const facturas = await prisma.factura.findMany({
-      where: {
-        OR: [
-          {
-            receptorNombre: {
-              contains: cliente,
-              mode: 'insensitive'
-            }
-          },
-          {
-            receptorEmail: {
-              contains: cliente,
-              mode: 'insensitive'
-            }
-          }
-        ]
-      },
-      include: {
-        productos: true,
-        proveedor: true
-      },
-      orderBy: {
-        fechaEmision: 'desc'
-      },
-      take: 50
-    });
+    const result = await alegraService.searchInvoicesByClient(cliente);
 
-    console.log(`✅ Búsqueda completada: ${facturas.length} facturas encontradas`);
+    console.log(`✅ Búsqueda completada: ${result.data?.length || 0} facturas encontradas`);
 
-    res.json({
-      success: true,
-      data: facturas,
-      searchTerm: cliente,
-      searchType: 'cliente'
-    });
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data,
+        client: result.client,
+        searchTerm: cliente,
+        searchType: 'cliente'
+      });
+    } else {
+      res.status(400).json(result);
+    }
   } catch (error) {
     console.error('❌ Error buscando facturas por cliente:', error);
     res.status(500).json({
@@ -616,26 +586,21 @@ function calculateWeekEndDate(year, month, week) {
 // Obtener estadísticas de sincronización
 router.get('/estadisticas/sincronizacion', async (req, res) => {
   try {
-    // Contar productos de Alegra sincronizados (Prisma)
-    const productosAlegra = await prisma.alegraProduct.count();
-    
-    // Contar facturas procesadas (Prisma)
-    const facturasTotal = await prisma.factura.count();
-    
-    // Contar proveedores únicos (Prisma)
-    const proveedoresUnicos = await prisma.factura.findMany({
-      select: { proveedorCedula: true },
-      distinct: ['proveedorCedula']
-    });
+    const { query } = require('../config/database');
+
+    // Contar productos locales
+    const localResult = await query('SELECT COUNT(*) FROM productos');
+
+    // Contar proveedores locales
+    const proveedoresResult = await query('SELECT COUNT(*) FROM proveedores');
 
     res.json({
       success: true,
       data: {
-        productos_alegra: `${productosAlegra}+`,
-        productos_locales: productosAlegra,
-        proveedores_locales: proveedoresUnicos.length,
-        sincronizacion_pendiente: productosAlegra < 100,
-        facturas_procesadas: facturasTotal
+        productos_alegra: "1400+",
+        productos_locales: parseInt(localResult.rows[0].count),
+        proveedores_locales: parseInt(proveedoresResult.rows[0].count),
+        sincronizacion_pendiente: parseInt(localResult.rows[0].count) < 100
       }
     });
   } catch (error) {
@@ -937,27 +902,6 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 // Reporte de faltantes por proveedor CON MAPPING EXTERNO
 router.get('/reportes/faltantes/proveedor', async (req, res) => {
   try {
-    console.log('📋 Endpoint de reportes de faltantes (sistema viejo - desactivado)');
-    
-    // Este endpoint era del sistema viejo de "faltantes" que fue fusionado
-    // El sistema actual usa Prisma con Factura/ProductoFactura
-    // Devolvemos array vacío para que el frontend no falle
-    res.json({
-      success: true,
-      data: [],
-      total_proveedores: 0,
-      resumen: {
-        total_productos_faltantes: 0,
-        total_cantidad_faltante: 0,
-        productos_con_mapping: 0,
-        productos_sin_mapping: 0,
-        porcentaje_mapping: 0
-      },
-      message: 'Sistema de faltantes no disponible en versión actual'
-    });
-    return;
-    
-    /* CÓDIGO ORIGINAL COMENTADO
     const { query } = require('../config/database');
 
     console.log('📋 Generando reporte de faltantes por proveedor con mapping...');
@@ -1089,14 +1033,13 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         porcentaje_mapping: Math.round((productosInMapping / totalProductos) * 100)
       }
     });
-    */ // FIN CÓDIGO COMENTADO
 
   } catch (error) {
-    console.error('❌ Error en endpoint de faltantes:', error);
+    console.error('❌ Error generando reporte por proveedor:', error);
     res.status(500).json({
       success: false,
       error: error.message,
-      message: 'Error en endpoint de faltantes (desactivado)'
+      message: 'Error generando reporte por proveedor con mapping de Supabase'
     });
   }
 });
@@ -1104,19 +1047,6 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 // Reporte de faltantes por cliente - MODIFICADO
 router.get('/reportes/faltantes/cliente', async (req, res) => {
   try {
-    console.log('📋 Endpoint de reportes de faltantes por cliente (sistema viejo - desactivado)');
-    
-    // Este endpoint era del sistema viejo de "faltantes" que fue fusionado
-    // El sistema actual usa Prisma con Factura/ProductoFactura
-    // Devolvemos array vacío para que el frontend no falle
-    res.json({
-      success: true,
-      data: [],
-      message: 'Sistema de faltantes no disponible en versión actual'
-    });
-    return;
-    
-    /* CÓDIGO ORIGINAL COMENTADO
     const { query } = require('../config/database');
 
     const result = await query(`
@@ -1225,14 +1155,13 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         total_facturas_afectadas: Array.from(new Set(result.rows.map(r => r.numero_factura))).length
       }
     });
-    */ // FIN CÓDIGO COMENTADO
 
   } catch (error) {
-    console.error('❌ Error en endpoint de faltantes por cliente:', error);
+    console.error('❌ Error generando reporte por cliente:', error);
     res.status(500).json({
       success: false,
       error: error.message,
-      message: 'Error en endpoint de faltantes (desactivado)'
+      message: 'Error generando reporte por cliente'
     });
   }
 });
