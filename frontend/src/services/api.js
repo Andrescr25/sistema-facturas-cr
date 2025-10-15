@@ -9,18 +9,28 @@ console.log('All VITE vars:', Object.keys(import.meta.env).filter(key => key.sta
 
 // Configuración de URL dinámica para desarrollo y producción
 const getBaseURL = () => {
-  console.log('🔍 getBaseURL called with VITE_API_URL:', import.meta.env.VITE_API_URL);
+  console.log('🔍 getBaseURL called');
+  console.log('   VITE_API_URL:', import.meta.env.VITE_API_URL);
+  console.log('   MODE:', import.meta.env.MODE);
+  console.log('   PROD:', import.meta.env.PROD);
+  console.log('   window.location.origin:', window.location.origin);
   
-  // En producción, usar la variable de entorno
+  // Si hay VITE_API_URL definida, usarla
   if (import.meta.env.VITE_API_URL) {
     const url = import.meta.env.VITE_API_URL;
-    // Asegurar que siempre termine en /api
     const apiUrl = url.endsWith('/api') ? url : `${url}/api`;
-    console.log('✅ Using production URL:', apiUrl);
+    console.log('✅ Using VITE_API_URL:', apiUrl);
     return apiUrl;
   }
   
-  // En desarrollo, usar localhost
+  // Detectar si estamos en producción de Render
+  if (window.location.origin.includes('sistema-facturas-cr.onrender.com')) {
+    const apiUrl = 'https://sistema-facturas-cr-web.onrender.com/api';
+    console.log('✅ Detected Render production, using:', apiUrl);
+    return apiUrl;
+  }
+  
+  // Desarrollo local
   console.log('⚠️ Using development URL: http://localhost:3000/api');
   return 'http://localhost:3000/api'
 }

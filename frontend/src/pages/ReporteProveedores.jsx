@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
+import api from '../services/api'
 
 export default function ReporteProveedores() {
   const [proveedores, setProveedores] = useState([])
@@ -205,10 +206,6 @@ export default function ReporteProveedores() {
     try {
       setLoading(true)
 
-      const response = await fetch('/api/alegra/orden-compra/cantidades', {
-        method: 'DELETE'
-      })
-
       const result = await alegraService.limpiarCantidadesModificadas()
 
       if (result.success) {
@@ -375,24 +372,27 @@ NO afecta la base de datos externa de facturas.
   const cargarProveedoresAlegra = async (busqueda) => {
     try {
       setLoadingProveedores(true)
-      const response = await fetch(`/api/alegra/proveedores?busqueda=${encodeURIComponent(busqueda)}`)
       
-      // Verificar si la respuesta es JSON válida
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`El servidor respondió con ${contentType || 'tipo desconocido'} en lugar de JSON. Puede que Render esté aún desplegando los cambios. Espera 1-2 minutos e intenta de nuevo.`)
-      }
+      console.log('🔍 Cargando proveedores con búsqueda:', busqueda)
+      console.log('🔗 Base URL configurada:', api.defaults.baseURL)
       
-      const result = await response.json()
+      // Usar api configurado que apunta al backend correcto
+      const response = await api.get(`/alegra/proveedores`, {
+        params: { busqueda }
+      })
       
-      if (result.success) {
-        setProveedoresAlegra(result.data)
+      console.log('✅ Respuesta recibida:', response.data)
+      
+      if (response.data.success) {
+        setProveedoresAlegra(response.data.data)
       } else {
-        alert('Error cargando proveedores: ' + result.message)
+        alert('Error cargando proveedores: ' + response.data.message)
       }
     } catch (error) {
-      console.error('Error cargando proveedores:', error)
-      alert('⚠️ ' + error.message || 'Error cargando proveedores de Alegra')
+      console.error('❌ Error cargando proveedores:', error)
+      console.error('URL intentada:', error.config?.url)
+      console.error('Base URL:', error.config?.baseURL)
+      alert(`❌ Error: ${error.message}\n\nURL: ${error.config?.baseURL}${error.config?.url}`)
     } finally {
       setLoadingProveedores(false)
     }
@@ -405,30 +405,24 @@ NO afecta la base de datos externa de facturas.
     try {
       setLoading(true)
       
-      const response = await fetch('/api/alegra/faltantes/asignar-proveedor-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          alegraReference: productoParaAsignar.codigo,
-          alegraItemId: productoParaAsignar.alegra_item_id || productoParaAsignar.codigo,
-          alegraName: productoParaAsignar.nombre,
-          proveedorId: proveedorId
-        })
+      const response = await api.post('/alegra/faltantes/asignar-proveedor-manual', {
+        alegraReference: productoParaAsignar.codigo,
+        alegraItemId: productoParaAsignar.alegra_item_id || productoParaAsignar.codigo,
+        alegraName: productoParaAsignar.nombre,
+        proveedorId: proveedorId
       })
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (response.data.success) {
         alert(`✅ Proveedor asignado correctamente`)
         setModalAsignarVisible(false)
         setProductoParaAsignar(null)
         await loadReporte() // Recargar para ver cambios
       } else {
-        alert(`❌ Error: ${result.message}`)
+        alert(`❌ Error: ${response.data.message}`)
       }
     } catch (error) {
       console.error('Error asignando proveedor:', error)
-      alert('Error asignando proveedor manualmente')
+      alert('Error asignando proveedor manualmente: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -439,25 +433,19 @@ NO afecta la base de datos externa de facturas.
     try {
       setLoading(true)
 
-      const response = await fetch('/api/alegra/proveedores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datosProveedor)
-      })
+      const response = await api.post('/alegra/proveedores', datosProveedor)
 
-      const result = await response.json()
-
-      if (result.success) {
-        alert(`✅ Proveedor creado: ${result.data.name}`)
+      if (response.data.success) {
+        alert(`✅ Proveedor creado: ${response.data.data.name}`)
         setModalCrearProveedor(false)
         // Asignar automáticamente el nuevo proveedor
-        await asignarProveedorManual(result.data.id)
+        await asignarProveedorManual(response.data.data.id)
       } else {
-        alert(`❌ Error: ${result.message}`)
+        alert(`❌ Error: ${response.data.message}`)
       }
     } catch (error) {
       console.error('Error creando proveedor:', error)
-      alert('Error creando proveedor en Alegra')
+      alert('Error creando proveedor en Alegra: ' + error.message)
     } finally {
       setLoading(false)
     }
