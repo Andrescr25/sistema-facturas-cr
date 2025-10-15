@@ -637,7 +637,8 @@ router.post('/enviar-alegra', async (req, res) => {
         client: contacto.id?.toString() || contacto.id,
         numberTemplate: {
           id: 10, // ID 10 = Factura de compra electrónica
-          fullNumber: factura.numeroConsecutivo // Consecutivo del proveedor
+          number: factura.numeroConsecutivo, // Número visible de la factura
+          fullNumber: factura.numeroConsecutivo // Consecutivo del proveedor (mismo valor)
         },
         observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
         items: items
