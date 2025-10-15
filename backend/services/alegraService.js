@@ -456,6 +456,29 @@ class AlegraService {
     }
 
     /**
+     * Obtener una factura específica por ID de Alegra
+     */
+    async getInvoiceById(invoiceId) {
+        try {
+            const response = await this.api.get(`/invoices/${invoiceId}`);
+
+            console.log(`📄 Factura obtenida: ${invoiceId}`);
+
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error(`❌ Error obteniendo factura ${invoiceId}:`, error.message);
+            return {
+                success: false,
+                error: error.message,
+                message: `Error al obtener factura: ${error.message}`
+            };
+        }
+    }
+    
+    /**
      * Buscar facturas por número en Alegra
      */
     async searchInvoicesByNumber(numero) {

@@ -858,100 +858,43 @@ router.get('/estadisticas/sincronizacion', async (req, res) => {
 });
 
 // Obtener una factura específica con detalles completos
+// Sistema de FALTANTES - Obtiene factura directamente de Alegra API
 router.get('/facturas/detalle/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`📄 Obteniendo factura de Hacienda ID: ${id}`);
+    console.log(`📄 Obteniendo factura de Alegra ID: ${id}`);
 
-    // Obtener factura de la base de datos de Hacienda (Prisma)
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    const result = await alegraService.getInvoiceById(id);
 
-    const factura = await prisma.factura.findUnique({
-      where: { id: id },
-      include: {
-        productos: {
-          include: {
-            mapeo: true
-          }
-        }
-      }
-    });
+    if (result.success) {
+      // Procesar la factura para el frontend (registro de faltantes)
+      const facturaDetallada = {
+        ...result.data,
+        // Procesar items para el registro de faltantes
+        items: result.data.items?.map(item => ({
+          ...item,
+          cantidad_faltante: 0,
+          tipo_faltante: 'ninguno', // 'ninguno', 'parcial', 'total'
+          observaciones: ''
+        })) || []
+      };
 
-    await prisma.$disconnect();
-
-    if (!factura) {
+      return res.json({
+        success: true,
+        data: facturaDetallada
+      });
+    } else {
       return res.status(404).json({
         success: false,
         message: 'Factura no encontrada'
       });
     }
-
-    // Obtener IDs únicos de productos Alegra
-    const alegraItemIds = [...new Set(
-      factura.productos
-        .filter(p => p.alegraItemId && p.estadoRelacionado === 'RELACIONADO')
-        .map(p => p.alegraItemId)
-    )];
-
-    // Obtener info de productos Alegra en una sola consulta (caché local)
-    const alegraProductsInfo = {};
-    if (alegraItemIds.length > 0) {
-      const alegraProducts = await prisma.alegraProduct.findMany({
-        where: {
-          alegraId: {
-            in: alegraItemIds.map(id => id.toString())
-          }
-        }
-      });
-
-      alegraProducts.forEach(prod => {
-        alegraProductsInfo[prod.alegraId] = {
-          name: prod.name,
-          reference: prod.reference,
-          price: parseFloat(prod.price || 0)
-        };
-      });
-    }
-
-    // Formatear respuesta para el frontend
-    const facturaDetallada = {
-      id: factura.id,
-      numeroConsecutivo: factura.numeroConsecutivo,
-      fechaEmision: factura.fechaEmision,
-      proveedorNombre: factura.proveedorNombre,
-      proveedorCedula: factura.proveedorCedula,
-      totalFactura: factura.totalFactura,
-      estado: factura.estado,
-      productos: factura.productos.map(prod => ({
-        id: prod.id,
-        descripcion: prod.descripcion,
-        codigoProveedor: prod.codigoProveedor,
-        cantidad: prod.cantidad,
-        unidadMedida: prod.unidadMedida,
-        precioUnitario: prod.precioUnitario,
-        subtotal: prod.subtotal,
-        impuesto: prod.impuesto,
-        estadoRelacionado: prod.estadoRelacionado,
-        alegraItemId: prod.alegraItemId,
-        mapeo: prod.mapeo,
-        // Agregar info del producto Alegra si existe
-        alegraProductInfo: prod.alegraItemId ? alegraProductsInfo[prod.alegraItemId.toString()] : null
-      }))
-    };
-
-    res.json({
-      success: true,
-      data: facturaDetallada
-    });
-
   } catch (error) {
     console.error('❌ Error obteniendo factura:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
-      message: 'Error obteniendo factura de Hacienda'
+      error: error.message
     });
   }
 });
