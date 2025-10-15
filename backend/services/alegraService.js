@@ -814,6 +814,31 @@ class AlegraService {
         }
     }
 
+    /**
+     * Método genérico para hacer requests a la API de Alegra
+     * Usado por las rutas de facturación
+     */
+    async makeRequest(method, endpoint, params = {}) {
+        try {
+            console.log(`📡 makeRequest: ${method} ${endpoint}`);
+            
+            const config = {
+                method: method.toLowerCase(),
+                url: endpoint,
+                params: method.toUpperCase() === 'GET' ? params : undefined,
+                data: method.toUpperCase() !== 'GET' ? params : undefined
+            };
+            
+            const response = await this.api.request(config);
+            
+            // Devolver solo los datos (sin el wrapper de axios)
+            return response.data;
+        } catch (error) {
+            console.error(`❌ makeRequest error:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }
