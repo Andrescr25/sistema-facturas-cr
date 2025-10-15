@@ -54,17 +54,29 @@ class FacturacionService {
         const productos = response.data.data;
         
         // Normalizar productos antes de guardar
-        const productosNormalizados = productos.map(p => ({
-          ...p,
-          // Alegra puede devolver reference como objeto {type, reference} o como string
-          reference: typeof p.reference === 'object' && p.reference !== null 
-            ? (p.reference.reference || '') 
-            : (p.reference || ''),
+        const productosNormalizados = productos.map(p => {
+          // Extraer reference (puede ser objeto, string, o número)
+          let reference = '';
+          if (typeof p.reference === 'object' && p.reference !== null) {
+            reference = p.reference.reference || '';
+          } else if (p.reference !== null && p.reference !== undefined) {
+            reference = p.reference;
+          }
+          
+          // IMPORTANTE: Convertir a string para preservar ceros a la izquierda (ej: "0005")
+          reference = String(reference).trim();
+          
           // Extraer precio principal
-          price: Array.isArray(p.price) 
+          const price = Array.isArray(p.price) 
             ? (p.price.find(pr => pr.main)?.price || p.price[0]?.price || 0)
-            : (p.price || 0)
-        }));
+            : (p.price || 0);
+          
+          return {
+            ...p,
+            reference,
+            price: parseFloat(price) || 0
+          };
+        });
         
         await indexedDBService.saveProductos(productosNormalizados);
         
@@ -151,7 +163,15 @@ class FacturacionService {
    */
   async buscarProductoPorCodigo(codigo) {
     try {
+      console.log(`🔍 Buscando producto con código: "${codigo}"`);
       const producto = await indexedDBService.getProductoByReference(codigo);
+      
+      if (producto) {
+        console.log(`✅ Producto encontrado: ${producto.name} (ref: "${producto.reference}")`);
+      } else {
+        console.log(`❌ Producto no encontrado con referencia: "${codigo}"`);
+      }
+      
       return producto;
     } catch (error) {
       console.error('❌ Error buscando producto:', error);

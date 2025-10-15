@@ -97,6 +97,12 @@ class IndexedDBService {
         name: producto.name ? String(producto.name) : '',
         description: producto.description ? String(producto.description) : ''
       };
+      
+      // Debug: Log primeros 5 productos para verificar
+      if (productos.indexOf(producto) < 5) {
+        console.log(`💾 Guardando producto: ${normalizedProducto.name} | Ref: "${normalizedProducto.reference}" (tipo: ${typeof normalizedProducto.reference})`);
+      }
+      
       await store.put(normalizedProducto);
     }
 
@@ -132,10 +138,18 @@ class IndexedDBService {
       
       // Normalizar reference (puede venir como string o número)
       const normalizedRef = String(reference).trim();
+      console.log(`📊 IndexedDB: Buscando reference normalizada: "${normalizedRef}"`);
+      
       const request = index.get(normalizedRef);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        console.log(`📊 IndexedDB: Resultado de búsqueda:`, request.result ? 'Encontrado' : 'No encontrado');
+        resolve(request.result);
+      };
+      request.onerror = () => {
+        console.error(`📊 IndexedDB: Error en búsqueda:`, request.error);
+        reject(request.error);
+      };
     });
   }
 
