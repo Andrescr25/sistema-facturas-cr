@@ -352,12 +352,20 @@ class EmailService {
                 emailId
             );
 
-            // 2. Procesar relacionado inteligente
+            // 2. Procesar relacionado inteligente (solo productos PENDIENTES)
             console.log('🔍 Iniciando relacionado inteligente...');
             let productosRelacionados = 0;
             let productosPendientes = 0;
 
             for (const producto of facturaGuardada.productos) {
+                // ✅ VERIFICAR SI YA ESTÁ RELACIONADO (por mapeo existente)
+                if (producto.estadoRelacionado === 'RELACIONADO') {
+                    console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
+                    productosRelacionados++;
+                    continue; // Saltar este producto
+                }
+
+                // Solo procesar productos PENDIENTES
                 console.log(`\n🔍 Procesando: ${producto.descripcion}`);
 
                 const similares = await this.alegraService.findSimilarProducts(
