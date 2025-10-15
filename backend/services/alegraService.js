@@ -426,6 +426,11 @@ class AlegraService {
                 saleCondition: 'CASH', // Contado por defecto
                 paymentMethod: 'CASH' // Efectivo por defecto
             };
+
+            // Agregar consecutivo del proveedor si está disponible
+            if (data.number) {
+                billData.number = data.number;
+            }
             
             console.log(`📋 Datos de factura:`, JSON.stringify(billData, null, 2));
             
