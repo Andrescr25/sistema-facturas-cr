@@ -183,15 +183,17 @@ export default function RelacionarProductos() {
     try {
       const response = await api.get('/alegra/categorias')
       if (response.data.success) {
-        setCategorias(response.data.categorias || [])
+        const cats = response.data.categorias || []
+        setCategorias(cats)
+        
+        if (cats.length === 0) {
+          console.warn('⚠️ No hay categorías de productos en Alegra. El usuario deberá crearlas primero.')
+        }
       }
     } catch (err) {
       console.error('Error cargando categorías:', err)
-      // Fallback con categorías básicas
-      setCategorias([
-        { id: 1, name: 'Inventario' },
-        { id: 2, name: 'Consumo' }
-      ])
+      alert('⚠️ Error cargando categorías de Alegra. Verifica tu conexión e inténtalo de nuevo.')
+      setCategorias([])
     }
   }
 
@@ -807,19 +809,29 @@ export default function RelacionarProductos() {
                   {/* Categoría */}
                   <div>
                     <label className="label">Categoría *</label>
-                    <select name="categoria" className="input" defaultValue="2" required>
-                      {categorias.length === 0 ? (
-                        <>
-                          <option value="2">Consumo</option>
-                          <option value="1">Inventario</option>
-                        </>
-                      ) : (
-                        categorias.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">Categoría del producto en Alegra</p>
+                    {categorias.length === 0 ? (
+                      <>
+                        <select name="categoria" className="input border-red-300" disabled>
+                          <option value="">Sin categorías disponibles</option>
+                        </select>
+                        <p className="text-xs text-red-600 mt-1 flex items-center">
+                          <AlertCircle size={12} className="mr-1" />
+                          No hay categorías. Ve a Alegra → Configuración → Categorías de Productos para crear una.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <select name="categoria" className="input" required>
+                          <option value="">Selecciona una categoría</option>
+                          {categorias.map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name} {cat.description && `- ${cat.description}`}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Categoría del producto en Alegra</p>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -933,7 +945,11 @@ export default function RelacionarProductos() {
 
               {/* Botones */}
               <div className="flex gap-3 mt-6 pt-6 border-t">
-                <button type="submit" className="btn btn-primary flex-1 flex items-center justify-center">
+                <button 
+                  type="submit" 
+                  className="btn btn-primary flex-1 flex items-center justify-center"
+                  disabled={categorias.length === 0}
+                >
                   <Plus size={20} className="mr-2" />
                   Crear Producto en Alegra
                 </button>
@@ -945,6 +961,11 @@ export default function RelacionarProductos() {
                   Cancelar
                 </button>
               </div>
+              {categorias.length === 0 && (
+                <p className="text-center text-sm text-red-600 mt-3">
+                  ⚠️ Debes tener al menos una categoría en Alegra para crear productos
+                </p>
+              )}
             </form>
           </div>
         </div>

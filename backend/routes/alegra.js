@@ -3169,37 +3169,35 @@ router.get('/reportes/encargos-especiales', async (req, res) => {
   }
 });
 
-// Obtener categorías de Alegra
+// Obtener categorías de productos de Alegra (item-categories)
 router.get('/categorias', async (req, res) => {
   try {
-    console.log('📁 Obteniendo categorías de Alegra...');
+    console.log('📦 Obteniendo categorías de productos de Alegra...');
 
-    const categorias = await alegraService.getCategories();
+    const categorias = await alegraService.getItemCategories();
 
     if (categorias && categorias.length > 0) {
+      console.log(`✅ ${categorias.length} categorías de productos encontradas`);
       res.json({
         success: true,
         categorias: categorias
       });
     } else {
-      // Fallback con categorías básicas
+      // Si no hay categorías, devolver array vacío para que el usuario vea el problema
+      console.warn('⚠️ No se encontraron categorías de productos en Alegra');
       res.json({
         success: true,
-        categorias: [
-          { id: 1, name: 'Inventario' },
-          { id: 2, name: 'Consumo' }
-        ]
+        categorias: [],
+        message: 'No se encontraron categorías. Crea categorías en Alegra primero.'
       });
     }
   } catch (error) {
-    console.error('❌ Error obteniendo categorías:', error);
-    // Fallback con categorías básicas
-    res.json({
-      success: true,
-      categorias: [
-        { id: 1, name: 'Inventario' },
-        { id: 2, name: 'Consumo' }
-      ]
+    console.error('❌ Error obteniendo categorías de productos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo categorías de productos. Verifica tu configuración de Alegra.',
+      categorias: []
     });
   }
 });

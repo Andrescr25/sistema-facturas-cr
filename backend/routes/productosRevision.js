@@ -547,12 +547,16 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             reference: referencia?.trim() || productoOriginal.codigoProveedor,
             price: parseFloat(precio),
             status: 'active',
-            type: categoria === '1' ? 'product' : 'service',
-            unit: unidad || 'unit',
-            category: {
-                id: parseInt(categoria) || 2 // Default: Consumo
-            }
+            type: 'product', // Siempre producto (no servicio) para inventario
+            unit: unidad || 'unit'
         };
+
+        // Agregar categoría si se especificó
+        if (categoria) {
+            productoData.itemCategory = {
+                id: parseInt(categoria)
+            };
+        }
 
         // Agregar cantidad inicial si se especificó
         if (cantidadInicial && parseFloat(cantidadInicial) > 0) {

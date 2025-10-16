@@ -340,11 +340,12 @@ class AlegraService {
     }
 
     /**
-     * Obtener categorías de Alegra
+     * Obtener categorías de Alegra (cuentas contables) - DEPRECATED
+     * Usar getItemCategories() en su lugar para categorías de productos
      */
     async getCategories() {
         try {
-            console.log('📁 Obteniendo categorías de Alegra...');
+            console.log('📁 Obteniendo categorías (cuentas contables) de Alegra...');
             const response = await this.api.get('/categories');
             
             if (response.data && Array.isArray(response.data)) {
@@ -355,6 +356,31 @@ class AlegraService {
             return [];
         } catch (error) {
             console.error('❌ Error obteniendo categorías de Alegra:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Obtener categorías de PRODUCTOS (item-categories)
+     * Este es el endpoint correcto para categorías de productos/items
+     */
+    async getItemCategories() {
+        try {
+            console.log('📦 Obteniendo categorías de productos (item-categories) de Alegra...');
+            const response = await this.api.get('/item-categories');
+            
+            if (response.data && Array.isArray(response.data)) {
+                console.log(`✅ ${response.data.length} categorías de productos obtenidas de Alegra`);
+                return response.data.map(cat => ({
+                    id: cat.id,
+                    name: cat.name || cat.description,
+                    description: cat.description
+                }));
+            }
+            
+            return [];
+        } catch (error) {
+            console.error('❌ Error obteniendo categorías de productos de Alegra:', error.message);
             return [];
         }
     }
