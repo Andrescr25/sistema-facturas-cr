@@ -60,7 +60,7 @@ export default function RelacionarProductos() {
       setLoading(true)
       setError(null)
       
-      const response = await api.get(`/alegra/facturas/detalle/${facturaId}`)
+      const response = await api.get(`/productos-revision/factura/${facturaId}`)
       
       if (response.data.success) {
         setFactura(response.data.data)
@@ -80,7 +80,8 @@ export default function RelacionarProductos() {
         setProductoAlegraInfo(infoAlegra)
       }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Error cargando factura')
+      console.error('Error completo:', err)
     } finally {
       setLoading(false)
     }

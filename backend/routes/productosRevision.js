@@ -967,4 +967,101 @@ router.get('/mapeo/:productoId', async (req, res) => {
     }
 });
 
+/**
+ * Obtener una factura específica con sus productos (desde Prisma)
+ */
+router.get('/factura/:facturaId', async (req, res) => {
+    try {
+        const { facturaId } = req.params;
+
+        console.log(`📄 Obteniendo factura de Prisma: ${facturaId}`);
+
+        const factura = await prisma.factura.findUnique({
+            where: { id: facturaId },
+            include: {
+                productos: {
+                    include: {
+                        mapeo: true
+                    }
+                }
+            }
+        });
+
+        if (!factura) {
+            return res.status(404).json({
+                success: false,
+                error: 'Factura no encontrada'
+            });
+        }
+
+        // Enriquecer productos con información de Alegra
+        const productosEnriquecidos = await Promise.all(
+            factura.productos.map(async (producto) => {
+                let alegraProductInfo = null;
+
+                if (producto.alegraItemId) {
+                    // Buscar en caché local
+                    const alegraProduct = await prisma.alegraProduct.findUnique({
+                        where: { alegraId: producto.alegraItemId }
+                    });
+
+                    if (alegraProduct) {
+                        alegraProductInfo = {
+                            id: alegraProduct.alegraId,
+                            name: alegraProduct.name,
+                            reference: alegraProduct.reference,
+                            price: parseFloat(alegraProduct.price || 0)
+                        };
+                    } else {
+                        // Si no está en caché, consultar API (opcional)
+                        try {
+                            const alegraData = await alegraService.getProductById(producto.alegraItemId);
+                            if (alegraData) {
+                                alegraProductInfo = {
+                                    id: alegraData.id,
+                                    name: alegraData.name,
+                                    reference: alegraData.reference || '',
+                                    price: alegraData.price?.[0]?.price || 0
+                                };
+
+                                // Guardar en caché para futuras consultas
+                                await prisma.alegraProduct.create({
+                                    data: {
+                                        alegraId: alegraData.id.toString(),
+                                        name: alegraData.name,
+                                        reference: alegraData.reference || '',
+                                        price: alegraData.price?.[0]?.price || 0,
+                                        searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                                    }
+                                }).catch(err => console.error('Error guardando en caché:', err));
+                            }
+                        } catch (err) {
+                            console.error(`⚠️ Error obteniendo producto Alegra ${producto.alegraItemId}:`, err.message);
+                        }
+                    }
+                }
+
+                return {
+                    ...producto,
+                    alegraProductInfo
+                };
+            })
+        );
+
+        res.json({
+            success: true,
+            data: {
+                ...factura,
+                productos: productosEnriquecidos
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error obteniendo factura:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
