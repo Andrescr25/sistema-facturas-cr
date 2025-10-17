@@ -108,35 +108,64 @@ class XmlParser {
         return lineas.map(linea => this.extractLineaDetalle(linea));
     }
 
+    /**
+     * Genera un código único basado en la descripción del producto
+     * Usado cuando el proveedor no proporciona código interno
+     */
+    generateCodigoFromDescripcion(descripcion) {
+        if (!descripcion) return null;
+        
+        // Normalizar descripción: quitar espacios extras, mayúsculas, caracteres especiales
+        const normalized = descripcion
+            .trim()
+            .toUpperCase()
+            .replace(/\s+/g, '-') // Espacios -> guiones
+            .replace(/[^A-Z0-9-]/g, '') // Solo letras, números y guiones
+            .substring(0, 50); // Máximo 50 caracteres
+        
+        return `DESC-${normalized}`;
+    }
+
     extractLineaDetalle(linea) {
+        // Primero intentamos obtener el código comercial del proveedor
+        let codigoProveedor = null;
+        let tieneCodigoReal = false;
+        
+        if (linea.CodigoComercial) {
+            if (Array.isArray(linea.CodigoComercial)) {
+                // Buscar código del proveedor (Tipo 04) o código interno (Tipo 01)
+                let codigo = linea.CodigoComercial.find(c => c.Tipo === '04');
+                if (!codigo) codigo = linea.CodigoComercial.find(c => c.Tipo === '01');
+                // Si no hay 04 ni 01, buscar cualquiera que NO sea CABYS (99)
+                if (!codigo && linea.CodigoComercial.length > 0) {
+                    codigo = linea.CodigoComercial.find(c => c.Tipo !== '99');
+                }
+                codigoProveedor = codigo?.Codigo;
+            } else {
+                codigoProveedor = linea.CodigoComercial.Codigo;
+            }
+            tieneCodigoReal = !!codigoProveedor;
+        }
+        
+        // Si hay campo "Codigo" directo (raro pero posible), usarlo
+        if (!codigoProveedor && linea.Codigo) {
+            codigoProveedor = linea.Codigo;
+            tieneCodigoReal = true;
+        }
+        
+        // ⚠️ IMPORTANTE: NO usar CABYS como código de producto
+        // CABYS es un código FISCAL usado por múltiples productos
+        // Si no hay código del proveedor, generar uno desde la descripción
+        if (!codigoProveedor) {
+            codigoProveedor = this.generateCodigoFromDescripcion(linea.Detalle);
+            console.log(`⚠️ Producto sin código interno: "${linea.Detalle}" -> Generando código: "${codigoProveedor}"`);
+        }
+
         return {
             numeroLinea: parseInt(linea.NumeroLinea),
-            codigoCabys: (() => {
-                if (linea.CodigoCABYS) return linea.CodigoCABYS;
-                if (linea.Codigo) return linea.Codigo;
-                if (Array.isArray(linea.CodigoComercial)) {
-                    const codigoCabys = linea.CodigoComercial.find(c =>
-                        c.Tipo === '99' || (c.Codigo && c.Codigo.length >= 10)
-                    );
-                    if (codigoCabys) return codigoCabys.Codigo;
-                }
-                return null;
-            })(),
-            codigo: (() => {
-                if (!linea.CodigoComercial) return linea.CodigoCABYS || linea.Codigo;
-
-                if (Array.isArray(linea.CodigoComercial)) {
-                    let codigoProveedor = linea.CodigoComercial.find(c => c.Tipo === '04');
-                    if (!codigoProveedor) codigoProveedor = linea.CodigoComercial.find(c => c.Tipo === '01');
-                    if (!codigoProveedor && linea.CodigoComercial.length > 0) {
-                        codigoProveedor = linea.CodigoComercial.find(c => c.Tipo !== '99') ||
-                            linea.CodigoComercial[0];
-                    }
-                    return codigoProveedor?.Codigo || linea.CodigoCABYS || linea.Codigo;
-                }
-
-                return linea.CodigoComercial.Codigo || linea.CodigoCABYS || linea.Codigo;
-            })(),
+            codigoCabys: linea.CodigoCABYS || null, // Solo para referencia fiscal
+            codigo: codigoProveedor, // Código ÚNICO del producto
+            tieneCodigoReal: tieneCodigoReal, // Flag para saber si es código real o generado
             codigoComercial: (() => {
                 if (!linea.CodigoComercial) return null;
 
@@ -166,7 +195,7 @@ class XmlParser {
             } : null,
             impuesto: linea.Impuesto ? {
                 codigo: linea.Impuesto.Codigo,
-                codigoTarifa: linea.Impuesto.CodigoTarifa,
+                codigoTarifa: linea.Impuesto.CodigoTarifa || linea.Impuesto.CodigoTarifaIVA,
                 tarifa: parseFloat(linea.Impuesto.Tarifa),
                 monto: parseFloat(linea.Impuesto.Monto)
             } : null,
