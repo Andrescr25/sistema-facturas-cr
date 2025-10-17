@@ -533,7 +533,66 @@ router.post('/enviar-alegra', async (req, res) => {
 
     console.log(`📦 Procesando ${productos.length} productos...`);
 
-    // PASO 1: Actualizar costos Y precios en Alegra EN PARALELO (mucho más rápido)
+    // PASO 1: Crear factura de proveedor en Alegra PRIMERO (con precios originales)
+    // Esto evita que los precios ajustados afecten la factura de compra
+    let alegraFacturaId = null;
+    try {
+      // Buscar o crear contacto del proveedor
+      const contacto = await alegraService.createOrGetContact({
+        name: factura.proveedorNombre,
+        identification: factura.proveedorCedula,
+        phonePrimary: factura.proveedorTelefono || '',
+        email: factura.proveedorEmail || '',
+        type: 'provider'
+      });
+
+      // Preparar items de la factura con precios ORIGINALES del proveedor
+      const items = productos.map(p => {
+        // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
+        const precioUnitarioSinIva = parseFloat(p.precioUnitario) || 0;
+        
+        // Calcular porcentaje de descuento
+        const montoTotalSinDescuento = precioUnitarioSinIva * p.cantidad;
+        const descuentoPorcentaje = montoTotalSinDescuento > 0 
+          ? ((p.descuento || 0) / montoTotalSinDescuento) * 100
+          : 0;
+        
+        return {
+          id: p.alegraItemId?.toString() || p.alegraItemId,
+          quantity: parseFloat(p.cantidad) || 1,
+          price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio ORIGINAL del proveedor
+          discount: Math.round(descuentoPorcentaje * 100) / 100,
+          tax: [{
+            id: 1, // IVA 13% Costa Rica
+            percentage: 13
+          }]
+        };
+      });
+
+      console.log(`📋 Items preparados para Alegra (precios originales):`, JSON.stringify(items, null, 2));
+
+      // Crear factura de compra en Alegra
+      const alegraFactura = await alegraService.createPurchaseInvoice({
+        date: factura.fechaEmision,
+        client: contacto.id?.toString() || contacto.id,
+        numberTemplate: {
+          id: 10,
+          number: factura.numeroConsecutivo,
+          fullNumber: factura.numeroConsecutivo
+        },
+        observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
+        items: items
+      });
+
+      alegraFacturaId = alegraFactura.id;
+      console.log(`✅ Factura de compra creada en Alegra: ID ${alegraFacturaId}`);
+    } catch (facturaError) {
+      console.warn('⚠️ Error creando factura de compra:', facturaError.message);
+      // Continuar para actualizar costos y precios incluso si falla la factura
+    }
+
+    // PASO 2: Actualizar costos Y precios en Alegra EN PARALELO
+    // Esto se hace DESPUÉS de crear la factura para no afectar su total
     let costosActualizados = 0;
     let preciosActualizados = 0;
     
@@ -593,84 +652,7 @@ router.post('/enviar-alegra', async (req, res) => {
     
     console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
 
-    // PASO 2: Crear factura de proveedor en Alegra
-    let alegraFacturaId = null;
-    try {
-      // Buscar o crear contacto del proveedor
-      const contacto = await alegraService.createOrGetContact({
-        name: factura.proveedorNombre,
-        identification: factura.proveedorCedula,
-        phonePrimary: factura.proveedorTelefono || '',
-        email: factura.proveedorEmail || '',
-        type: 'provider'
-      });
-
-      // Preparar items de la factura
-      const items = productos.map(p => {
-        // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
-        const precioUnitarioSinIva = parseFloat(p.precioUnitario) || 0;
-        
-        // Calcular porcentaje de descuento
-        // MontoTotal = precioUnitario * cantidad (ANTES de descuento)
-        const montoTotalSinDescuento = precioUnitarioSinIva * p.cantidad;
-        const descuentoPorcentaje = montoTotalSinDescuento > 0 
-          ? ((p.descuento || 0) / montoTotalSinDescuento) * 100
-          : 0;
-        
-        return {
-          id: p.alegraItemId?.toString() || p.alegraItemId,
-          quantity: parseFloat(p.cantidad) || 1,
-          price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio del XML (ya SIN IVA)
-          discount: Math.round(descuentoPorcentaje * 100) / 100, // Porcentaje de descuento
-          tax: [{
-            id: 1, // IVA 13% Costa Rica
-            percentage: 13
-          }]
-        };
-      });
-
-      console.log(`📋 Items preparados para Alegra:`, JSON.stringify(items, null, 2));
-
-      // Crear factura de compra en Alegra
-      const alegraFactura = await alegraService.createPurchaseInvoice({
-        date: factura.fechaEmision,
-        client: contacto.id?.toString() || contacto.id,
-        numberTemplate: {
-          id: 10, // ID 10 = Factura de compra electrónica
-          number: factura.numeroConsecutivo, // Número visible de la factura
-          fullNumber: factura.numeroConsecutivo // Consecutivo del proveedor (mismo valor)
-        },
-        observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
-        items: items
-      });
-
-      alegraFacturaId = alegraFactura.id;
-      console.log(`✅ Factura creada en Alegra: ID ${alegraFacturaId}`);
-    } catch (error) {
-      console.error(`❌ Error creando factura en Alegra:`, error.message);
-      console.error(`   Status: ${error.response?.status}`);
-      console.error(`   Detalles:`, error.response?.data);
-      
-      const errorCode = error.response?.data?.code;
-      const errorMessage = error.response?.data?.message;
-      
-      // Manejar errores específicos de Alegra
-      if (error.response?.status === 400 && errorCode === 2094) {
-        // Proveedor deshabilitado
-        throw new Error(`El proveedor "${factura.proveedorNombre}" está deshabilitado en Alegra. Por favor, actívalo en Alegra → Contactos → Proveedores y vuelve a intentar.`);
-      } else if (error.response?.status === 400 && errorMessage) {
-        // Otros errores 400 con mensaje específico
-        throw new Error(`Error de Alegra: ${errorMessage}`);
-      } else if (error.response?.status === 403) {
-        // Sin permisos, continuar pero avisar
-        console.warn(`⚠️  Continuando sin crear factura en Alegra (sin permisos)`);
-        console.warn(`✅ Los costos y precios se actualizaron correctamente`);
-        alegraFacturaId = null;
-      } else {
-        // Para otros errores, propagar con mensaje mejorado
-        throw new Error(errorMessage || error.message || 'Error desconocido al crear factura en Alegra');
-      }
-    }
+    // La factura ya se creó en el PASO 1 con precios originales
 
     // PASO 3: Marcar factura como ENVIADA
     await prisma.factura.update({
