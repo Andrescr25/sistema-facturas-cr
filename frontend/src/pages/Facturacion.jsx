@@ -54,6 +54,7 @@ export default function Facturacion() {
   // Referencias
   const codigoInputRef = useRef(null);
   const cantidadInputRef = useRef(null);
+  const busquedaProductoInputRef = useRef(null);
 
   // Helper: Obtener reference como string (puede venir como objeto o string desde Alegra)
   const getReference = (ref) => {
@@ -334,6 +335,13 @@ export default function Facturacion() {
       setModalCantidadMovil(false);
       setProductoSeleccionadoMovil(null);
       setCantidadMovil('');
+      
+      // Enfocar el input de búsqueda para continuar con el siguiente producto
+      setTimeout(() => {
+        if (busquedaProductoInputRef.current) {
+          busquedaProductoInputRef.current.focus();
+        }
+      }, 100);
     } else {
       mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
     }
@@ -822,6 +830,7 @@ export default function Facturacion() {
             {(!modoEntradaRapida || isMobile) && (
               <div>
                 <input
+                  ref={busquedaProductoInputRef}
                   type="text"
                   value={busquedaProducto}
                   onChange={(e) => {
@@ -964,8 +973,8 @@ export default function Facturacion() {
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
-                  className={`input w-full ${isMobile ? 'text-sm' : ''}`}
-                  style={isMobile ? { fontSize: '14px' } : {}}
+                  className="input w-full"
+                  style={isMobile ? { fontSize: '16px', paddingTop: '0.5rem', paddingBottom: '0.5rem' } : {}}
                 />
               </div>
 
