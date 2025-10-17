@@ -164,13 +164,15 @@ class FacturacionService {
    */
   async actualizarCacheClientes() {
     try {
-      console.log('👥 Actualizando cache de clientes desde Alegra...');
+      console.log('👥 Actualizando cache de contactos (clientes, proveedores, etc.) desde Alegra...');
       
       const response = await api.get('/alegra/facturacion/contacts');
       
       if (response.data.success) {
         const clientes = response.data.data;
         await indexedDBService.saveClientes(clientes);
+        
+        console.log(`✅ ${clientes.length} contactos guardados en cache`);
         
         return {
           success: true,
@@ -179,24 +181,26 @@ class FacturacionService {
         };
       }
       
-      throw new Error(response.data.message || 'Error obteniendo clientes');
+      throw new Error(response.data.message || 'Error obteniendo contactos');
     } catch (error) {
-      console.error('❌ Error actualizando cache de clientes:', error);
+      console.error('❌ Error actualizando cache de contactos:', error);
       throw error;
     }
   }
 
   /**
-   * Actualizar todo el cache (productos + clientes)
+   * Actualizar todo el cache (productos + contactos)
    */
   async actualizarTodoCache() {
     try {
-      console.log('🔄 Actualizando todo el cache...');
+      console.log('🔄 Actualizando todo el cache (productos + contactos)...');
       
       const [productos, clientes] = await Promise.all([
         this.actualizarCacheProductos(),
         this.actualizarCacheClientes()
       ]);
+      
+      console.log(`✅ Cache actualizado: ${productos.total} productos, ${clientes.total} contactos`);
       
       return {
         success: true,
