@@ -169,14 +169,19 @@ router.post('/relacion', async (req, res) => {
             try {
                 const alegraData = await alegraService.getProductById(alegraItemId);
                 
+                // Extraer reference como string
+                const refStr = typeof alegraData.reference === 'object' 
+                    ? alegraData.reference?.reference || ''
+                    : alegraData.reference || '';
+                
                 // Guardar en caché para futuras búsquedas
                 alegraProduct = await prisma.alegraProduct.create({
                     data: {
                         alegraId: alegraData.id.toString(),
                         name: alegraData.name,
-                        reference: alegraData.reference || '',
+                        reference: refStr,
                         price: alegraData.price?.[0]?.price || 0,
-                        searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                        searchText: `${alegraData.name} ${refStr}`.toLowerCase()
                     }
                 });
                 
@@ -619,33 +624,58 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 
         console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
 
-        // Si hay imagen, subirla a Alegra
+        // Si hay imagen, guardarla y actualizar producto con la URL
         if (req.file) {
             try {
-                console.log('📸 Subiendo imagen a Alegra...');
-                const FormData = require('form-data');
-                const formData = new FormData();
-                formData.append('image', req.file.buffer, {
-                    filename: req.file.originalname,
-                    contentType: req.file.mimetype
+                console.log('📸 Guardando imagen localmente...');
+                const fs = require('fs');
+                const path = require('path');
+                
+                // Crear directorio si no existe
+                const uploadDir = path.join(__dirname, '../uploads/productos');
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+                
+                // Generar nombre único para la imagen
+                const timestamp = Date.now();
+                const ext = path.extname(req.file.originalname);
+                const filename = `producto-${nuevoProductoAlegra.id}-${timestamp}${ext}`;
+                const filepath = path.join(uploadDir, filename);
+                
+                // Guardar imagen
+                fs.writeFileSync(filepath, req.file.buffer);
+                console.log(`✅ Imagen guardada: ${filename}`);
+                
+                // Generar URL pública
+                const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
+                const imageUrl = `${baseUrl}/uploads/productos/${filename}`;
+                console.log(`📷 URL de imagen: ${imageUrl}`);
+                
+                // Actualizar producto en Alegra con la URL de la imagen
+                await alegraService.updateProduct(nuevoProductoAlegra.id, {
+                    image: imageUrl
                 });
-
-                await alegraService.uploadProductImage(nuevoProductoAlegra.id, formData);
-                console.log('✅ Imagen subida exitosamente');
+                console.log('✅ Producto actualizado con imagen en Alegra');
             } catch (imgError) {
-                console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
+                console.error('⚠️ Error procesando imagen (continuando):', imgError.message);
                 // No fallar si la imagen no se puede subir
             }
         }
 
         // Guardar en caché local
+        // Extraer el string de reference (puede ser objeto {type, reference} o string)
+        const refString = typeof nuevoProductoAlegra.reference === 'object' 
+            ? nuevoProductoAlegra.reference?.reference || ''
+            : nuevoProductoAlegra.reference || '';
+        
         await prisma.alegraProduct.create({
             data: {
                 alegraId: nuevoProductoAlegra.id.toString(),
                 name: nuevoProductoAlegra.name,
-                reference: nuevoProductoAlegra.reference || '',
+                reference: refString,
                 price: nuevoProductoAlegra.price?.[0]?.price || parseFloat(precio),
-                searchText: `${nuevoProductoAlegra.name} ${nuevoProductoAlegra.reference || ''}`.toLowerCase()
+                searchText: `${nuevoProductoAlegra.name} ${refString}`.toLowerCase()
             }
         }).catch(err => console.error('Error guardando en caché:', err));
 
@@ -661,7 +691,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
                 supplierName: productoOriginal.factura.proveedorNombre,
                 supplierDesc: productoOriginal.descripcion,
                 alegraItemId: nuevoProductoAlegra.id.toString(),
-                alegraReference: nuevoProductoAlegra.reference || referencia || '',
+                alegraReference: refString || referencia || '',
                 alegraName: nuevoProductoAlegra.name,
                 confidence: 100,
                 lastUsedDate: new Date(),
@@ -674,7 +704,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
                 supplierCode: productoOriginal.codigoProveedor,
                 supplierDesc: productoOriginal.descripcion,
                 alegraItemId: nuevoProductoAlegra.id.toString(),
-                alegraReference: nuevoProductoAlegra.reference || referencia || '',
+                alegraReference: refString || referencia || '',
                 alegraName: nuevoProductoAlegra.name,
                 confidence: 100,
                 origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
@@ -869,14 +899,19 @@ router.get('/info-alegra/:alegraItemId', async (req, res) => {
         if (!producto) {
             const alegraData = await alegraService.getProductById(alegraItemId);
             
+            // Extraer reference como string
+            const refStr = typeof alegraData.reference === 'object' 
+                ? alegraData.reference?.reference || ''
+                : alegraData.reference || '';
+            
             // Guardar en caché
             producto = await prisma.alegraProduct.create({
                 data: {
                     alegraId: alegraData.id.toString(),
                     name: alegraData.name,
-                    reference: alegraData.reference || '',
+                    reference: refStr,
                     price: alegraData.price?.[0]?.price || 0,
-                    searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                    searchText: `${alegraData.name} ${refStr}`.toLowerCase()
                 }
             });
         }
@@ -1066,10 +1101,15 @@ router.get('/factura/:facturaId', async (req, res) => {
                         try {
                             const alegraData = await alegraService.getProductById(producto.alegraItemId);
                             if (alegraData) {
+                                // Extraer reference como string
+                                const refStr = typeof alegraData.reference === 'object' 
+                                    ? alegraData.reference?.reference || ''
+                                    : alegraData.reference || '';
+                                
                                 alegraProductInfo = {
                                     id: alegraData.id,
                                     name: alegraData.name,
-                                    reference: alegraData.reference || '',
+                                    reference: refStr,
                                     price: alegraData.price?.[0]?.price || 0
                                 };
 
@@ -1078,9 +1118,9 @@ router.get('/factura/:facturaId', async (req, res) => {
                                     data: {
                                         alegraId: alegraData.id.toString(),
                                         name: alegraData.name,
-                                        reference: alegraData.reference || '',
+                                        reference: refStr,
                                         price: alegraData.price?.[0]?.price || 0,
-                                        searchText: `${alegraData.name} ${alegraData.reference || ''}`.toLowerCase()
+                                        searchText: `${alegraData.name} ${refStr}`.toLowerCase()
                                     }
                                 }).catch(err => console.error('Error guardando en caché:', err));
                             }

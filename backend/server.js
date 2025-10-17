@@ -57,6 +57,10 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Servir imágenes de productos públicamente
+app.use('/uploads/productos', express.static(path.join(__dirname, 'uploads/productos')));
+console.log('📸 Sirviendo imágenes de productos desde /uploads/productos');
+
 // ⚠️ NUNCA servir frontend desde el backend en Render
 // El frontend debe estar en un servicio separado (Render Static Site)
 // Solo servir en desarrollo local explícito

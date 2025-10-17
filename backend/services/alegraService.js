@@ -528,46 +528,27 @@ class AlegraService {
 
     /**
      * 🆕 Subir imagen a un producto en Alegra
+     * Nota: Alegra solo acepta URLs de imágenes, no multipart/form-data
+     * Usa updateProduct({ image: 'https://...' }) en su lugar
      */
-    async uploadProductImage(productId, formData) {
-        try {
-            console.log(`📸 Subiendo imagen al producto ${productId} en Alegra...`);
-            
-            // La API de Alegra usa /items/{id}/image
-            const response = await this.api.post(`/items/${productId}/image`, formData, {
-                headers: {
-                    ...formData.getHeaders(),
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            
-            console.log(`✅ Imagen subida exitosamente al producto ${productId}`);
-            return response.data;
-        } catch (error) {
-            console.error(`❌ Error subiendo imagen al producto ${productId}:`, error.response?.data || error.message);
-            
-            // No fallar completamente si la imagen no se puede subir
-            if (error.response?.status === 404) {
-                throw new Error('El endpoint de imágenes no está disponible en tu versión de Alegra');
-            } else if (error.response?.data?.message) {
-                throw new Error(`Error de Alegra: ${error.response.data.message}`);
-            } else {
-                throw error;
-            }
-        }
-    }
 
     /**
-     * Actualizar producto (cost, price, etc)
+     * Actualizar producto (cost, price, etc, image URL)
      */
     async updateProduct(alegraId, data) {
         try {
             console.log(`📝 Actualizando producto ${alegraId}...`);
+            console.log('📋 Datos de actualización:', JSON.stringify(data, null, 2));
+            
             const response = await this.api.put(`/items/${alegraId}`, data);
-            console.log(`✅ Producto ${alegraId} actualizado`);
+            console.log(`✅ Producto ${alegraId} actualizado exitosamente`);
+            
             return response.data;
         } catch (error) {
-            console.error(`❌ Error actualizando producto ${alegraId}:`, error);
+            console.error(`❌ Error actualizando producto ${alegraId}:`);
+            console.error('   Status:', error.response?.status);
+            console.error('   Error:', error.response?.data);
+            console.error('   Message:', error.message);
             throw error;
         }
     }
