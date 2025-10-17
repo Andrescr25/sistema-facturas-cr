@@ -595,8 +595,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             console.log('✅ Forma farmacéutica agregada:', formaFarmaceutica);
         }
 
-        // 🆕 Agregar impuestos (tax)
-        // Si el producto tiene impuesto > 0, agregar IVA
+        // 🆕 Agregar impuestos (tax) - Detección automática
         if (productoOriginal.impuesto > 0) {
             // Calcular porcentaje de impuesto correctamente
             // subtotal = totalLinea - impuesto
@@ -606,13 +605,34 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             
             console.log(`📊 Impuesto detectado: ${productoOriginal.impuesto}, Subtotal: ${subtotal}, Porcentaje: ${porcentajeImpuesto.toFixed(2)}%`);
             
-            // En Costa Rica el IVA estándar es 13%
-            // Si está cerca del 13%, usar IVA (id: 1)
-            if (Math.abs(porcentajeImpuesto - 13) < 1) {
-                productoData.tax = [{ id: 1 }]; // IVA 13%
-                console.log('✅ Impuesto IVA 13% agregado');
-            } else if (porcentajeImpuesto > 0) {
-                console.log(`⚠️ Impuesto no estándar detectado: ${porcentajeImpuesto.toFixed(2)}% - No se aplicará automáticamente`);
+            // Mapeo de impuestos en Costa Rica para Alegra
+            // Basado en los porcentajes más comunes de IVA en Costa Rica
+            const mapeoImpuestos = [
+                { porcentaje: 0, id: 3, nombre: 'Exento' },
+                { porcentaje: 1, id: 6, nombre: 'IVA 1%' },
+                { porcentaje: 2, id: 7, nombre: 'IVA 2%' },
+                { porcentaje: 4, id: 8, nombre: 'IVA 4%' },
+                { porcentaje: 8, id: 9, nombre: 'IVA 8%' },
+                { porcentaje: 13, id: 1, nombre: 'IVA 13%' }
+            ];
+            
+            // Encontrar el impuesto más cercano (tolerancia de 0.5%)
+            let impuestoSeleccionado = null;
+            let menorDiferencia = Infinity;
+            
+            for (const impuesto of mapeoImpuestos) {
+                const diferencia = Math.abs(porcentajeImpuesto - impuesto.porcentaje);
+                if (diferencia < menorDiferencia && diferencia < 0.5) {
+                    menorDiferencia = diferencia;
+                    impuestoSeleccionado = impuesto;
+                }
+            }
+            
+            if (impuestoSeleccionado) {
+                productoData.tax = [{ id: impuestoSeleccionado.id }];
+                console.log(`✅ Impuesto aplicado: ${impuestoSeleccionado.nombre} (${impuestoSeleccionado.porcentaje}%) - ID: ${impuestoSeleccionado.id}`);
+            } else {
+                console.log(`⚠️ Impuesto ${porcentajeImpuesto.toFixed(2)}% no reconocido - Se aplicará sin impuesto`);
             }
         } else {
             console.log('ℹ️ Producto sin impuesto (exento)');
