@@ -32,7 +32,7 @@ export default function Facturacion() {
 
   // Estados de búsqueda y entrada rápida
   const [codigoProducto, setCodigoProducto] = useState('');
-  const [cantidadProducto, setCantidadProducto] = useState(1);
+  const [cantidadProducto, setCantidadProducto] = useState('');
   const [modoEntradaRapida, setModoEntradaRapida] = useState(true); // true = código, false = búsqueda
   const [busquedaProducto, setBusquedaProducto] = useState('');
   const [productosEncontrados, setProductosEncontrados] = useState([]);
@@ -282,9 +282,10 @@ export default function Facturacion() {
       const producto = await buscarProductoPorCodigo(codigoProducto);
 
       if (producto) {
-        // Producto encontrado, pasar a cantidad
-        setCantidadProducto(1);
+        // Producto encontrado, pasar a cantidad (vacío para que el usuario ingrese)
+        setCantidadProducto('');
         cantidadInputRef.current?.focus();
+        cantidadInputRef.current?.select(); // Seleccionar todo el contenido
       } else {
         mostrarMensaje(`Producto "${codigoProducto}" no encontrado`, 'error');
         setCodigoProducto('');
@@ -297,14 +298,18 @@ export default function Facturacion() {
       e.preventDefault();
 
       const producto = await buscarProductoPorCodigo(codigoProducto);
+      const cantidad = parseInt(cantidadProducto) || 0;
 
-      if (producto && cantidadProducto > 0) {
-        agregarProductoAFactura(producto, cantidadProducto);
+      if (producto && cantidad > 0) {
+        agregarProductoAFactura(producto, cantidad);
         
         // Limpiar y volver al código
         setCodigoProducto('');
-        setCantidadProducto(1);
+        setCantidadProducto('');
         codigoInputRef.current?.focus();
+      } else if (producto && cantidad <= 0) {
+        mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
+        cantidadInputRef.current?.select();
       }
     }
   };
@@ -499,7 +504,7 @@ export default function Facturacion() {
     setDescuentoGlobal(0);
     setEsElectronica(false);
     setCodigoProducto('');
-    setCantidadProducto(1);
+    setCantidadProducto('');
     setBusquedaCliente('');
     setClientesEncontrados([]);
   };
@@ -766,9 +771,10 @@ export default function Facturacion() {
                     type="number"
                     min="1"
                     value={cantidadProducto}
-                    onChange={(e) => setCantidadProducto(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setCantidadProducto(e.target.value)}
                     onKeyPress={handleCantidadKeyPress}
-                    placeholder="Cantidad"
+                    onFocus={(e) => e.target.select()}
+                    placeholder="Ingrese cantidad"
                     className="input w-full text-lg"
                   />
                 </div>
