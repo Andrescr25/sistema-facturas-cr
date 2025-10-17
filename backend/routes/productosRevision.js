@@ -517,7 +517,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 
         const {
             productoId, nombre, descripcion, referencia, unidad, 
-            precio, costo, categoria, cantidadInicial
+            precio, costo, categoria, cantidadInicial, formaFarmaceutica
         } = req.body;
 
         // Validaciones
@@ -576,6 +576,12 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         if (productoOriginal.codigoCabys) {
             productoData.productKey = productoOriginal.codigoCabys;
             console.log('✅ Código CABYS agregado:', productoOriginal.codigoCabys);
+        }
+
+        // 🆕 Agregar forma farmacéutica si se especificó (productos médicos/farmacéuticos)
+        if (formaFarmaceutica) {
+            productoData.pharmaceuticalForm = formaFarmaceutica;
+            console.log('✅ Forma farmacéutica agregada:', formaFarmaceutica);
         }
 
         // 🆕 Agregar impuestos (tax)

@@ -48,6 +48,10 @@ export default function RelacionarProductos() {
   
   // Estado para producto Alegra completo (con más info)
   const [productoAlegraInfo, setProductoAlegraInfo] = useState({})
+  
+  // Estado para forma farmacéutica (solo productos farmacéuticos)
+  const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
+  const [esFarmaceutico, setEsFarmaceutico] = useState(false)
 
   useEffect(() => {
     if (facturaId) {
@@ -177,6 +181,11 @@ export default function RelacionarProductos() {
     setModalCrear(true)
     setImagenPreview(null)
     loadCategorias()
+    
+    // Detectar automáticamente si es farmacéutico y su forma
+    const deteccion = detectarFormaFarmaceutica(producto.codigoCabys, producto.descripcion)
+    setEsFarmaceutico(deteccion.esFarmaceutico)
+    setFormaFarmaceutica(deteccion.forma)
   }
 
   const loadCategorias = async () => {
@@ -234,6 +243,36 @@ export default function RelacionarProductos() {
     if (input) input.value = ''
   }
 
+  // Detectar si es producto farmacéutico y su forma
+  const detectarFormaFarmaceutica = (codigoCabys, descripcion) => {
+    // Detectar si es farmacéutico por prefijo CABYS (30-35)
+    const cabysPrefix = codigoCabys?.substring(0, 2)
+    const esFarma = ['30', '31', '32', '33', '34', '35'].includes(cabysPrefix)
+    
+    if (!esFarma) return { esFarmaceutico: false, forma: '' }
+    
+    // Detectar forma desde descripción
+    const desc = (descripcion || '').toLowerCase()
+    
+    // Sólidos (02)
+    if (desc.match(/tableta|capsula|comprimido|pastilla|polvo|granulo/i)) {
+      return { esFarmaceutico: true, forma: '02' }
+    }
+    
+    // Semisólidos (03)
+    if (desc.match(/crema|unguento|gel|pomada|pasta/i)) {
+      return { esFarmaceutico: true, forma: '03' }
+    }
+    
+    // Gases (04)
+    if (desc.match(/gas|aerosol|spray|inhalador/i)) {
+      return { esFarmaceutico: true, forma: '04' }
+    }
+    
+    // Por defecto: Líquidos (01) - alcohol, jarabe, solución, suspensión, etc.
+    return { esFarmaceutico: true, forma: '01' }
+  }
+
   const crearProducto = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
@@ -249,6 +288,8 @@ export default function RelacionarProductos() {
         alert('✅ Producto creado y relacionado exitosamente')
         setModalCrear(false)
         removerImagen()
+        setFormaFarmaceutica('')
+        setEsFarmaceutico(false)
         // Recargar factura
         loadFactura()
       }
@@ -916,6 +957,39 @@ export default function RelacionarProductos() {
                     />
                     <p className="text-xs text-gray-500 mt-1">Inventario inicial en Alegra</p>
                   </div>
+
+                  {/* Forma Farmacéutica - Solo para productos farmacéuticos */}
+                  {esFarmaceutico && (
+                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                      <label className="label flex items-center text-yellow-800">
+                        <AlertCircle className="mr-2 text-yellow-600" size={18} />
+                        Forma Farmacéutica * (Producto Médico/Químico)
+                      </label>
+                      <select 
+                        name="formaFarmaceutica" 
+                        className="input border-yellow-300 bg-white"
+                        value={formaFarmaceutica}
+                        onChange={(e) => setFormaFarmaceutica(e.target.value)}
+                        required
+                      >
+                        <option value="">Seleccione forma farmacéutica</option>
+                        <option value="01">01 - Líquidos (alcohol, jarabe, solución, suspensión)</option>
+                        <option value="02">02 - Sólidos (tabletas, cápsulas, polvos)</option>
+                        <option value="03">03 - Semisólidos (cremas, ungüentos, geles)</option>
+                        <option value="04">04 - Gases (aerosoles, inhaladores)</option>
+                        <option value="05">05 - Otros</option>
+                      </select>
+                      <p className="text-xs text-yellow-700 mt-2 flex items-start">
+                        <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <strong>Detectado automáticamente.</strong> Verifica que sea correcto antes de crear el producto.
+                          {productoSeleccionado.codigoCabys && (
+                            <span className="block mt-1">CABYS: <span className="font-mono">{productoSeleccionado.codigoCabys}</span></span>
+                          )}
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
                   {/* Imagen del producto */}
                   <div>

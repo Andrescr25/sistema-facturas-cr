@@ -461,18 +461,12 @@ class AlegraService {
             if (data.productKey) {
                 productData.productKey = data.productKey;
                 console.log(`✅ Código CABYS agregado: ${data.productKey}`);
-                
-                // 🆕 Detectar productos farmacéuticos por código CABYS
-                // Los códigos CABYS de productos médicos/farmacéuticos empiezan con 35, 30, 31, 32, 33, 34
-                const cabysPrefix = data.productKey.substring(0, 2);
-                const esFarmaceutico = ['30', '31', '32', '33', '34', '35'].includes(cabysPrefix);
-                
-                if (esFarmaceutico) {
-                    // Códigos de forma farmacéutica según Hacienda CR:
-                    // 01 = Líquidos, 02 = Sólidos, 03 = Semisólidos, 04 = Gases, 05 = Otros
-                    productData.pharmaceuticalForm = data.pharmaceuticalForm || '01'; // Por defecto líquidos
-                    console.log(`✅ Producto farmacéutico detectado - Forma farmacéutica: ${productData.pharmaceuticalForm}`);
-                }
+            }
+
+            // 🆕 Agregar forma farmacéutica si viene (productos médicos/farmacéuticos)
+            if (data.pharmaceuticalForm) {
+                productData.pharmaceuticalForm = data.pharmaceuticalForm;
+                console.log(`✅ Forma farmacéutica agregada: ${data.pharmaceuticalForm}`);
             }
 
             // 🆕 Agregar impuestos (tax)
