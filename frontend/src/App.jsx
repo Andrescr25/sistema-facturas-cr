@@ -51,7 +51,7 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/facturacion-rapida" element={<Facturacion />} />
+        <Route path="/facturacion" element={<Facturacion />} />
         <Route path="/buscar-factura" element={<BuscarFactura />} />
         <Route path="/registrar-faltantes/:facturaId?" element={<RegistrarFaltantes />} />
         <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />

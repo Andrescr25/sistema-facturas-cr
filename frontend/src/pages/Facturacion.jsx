@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Receipt, Package, Users, Wifi, WifiOff, RefreshCw, Save, 
   Check, AlertCircle, Search, X, Plus, Minus, ShoppingCart,
-  CreditCard, Calendar, FileText, Download, Zap, Send
+  CreditCard, Calendar, FileText, Download, Send
 } from 'lucide-react';
 import facturacionService from '../services/facturacionService';
 import { descargarFacturaPDF } from '../utils/pdfGenerator';
@@ -531,7 +531,7 @@ export default function Facturacion() {
       <div className={`${isMobile ? 'flex-col' : 'flex items-center justify-between'} mb-6`}>
         <div className={isMobile ? 'mb-4' : ''}>
           <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 flex items-center gap-2`}>
-            <Zap className="text-yellow-500" size={isMobile ? 28 : 32} />
+            <FileText className="text-blue-600" size={isMobile ? 28 : 32} />
             Facturación
           </h1>
           <p className={`text-gray-600 mt-1 ${isMobile ? 'text-sm' : ''}`}>
@@ -730,7 +730,7 @@ export default function Facturacion() {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  <Zap size={16} className="inline mr-2" />
+                  <Package size={16} className="inline mr-2" />
                   Entrada Rápida (PC)
                 </button>
                 <button
