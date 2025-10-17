@@ -540,12 +540,21 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             });
         }
 
+        console.log('🔍 Producto original de la factura:', {
+            descripcion: productoOriginal.descripcion,
+            codigoProveedor: productoOriginal.codigoProveedor,
+            codigoCabys: productoOriginal.codigoCabys,
+            impuesto: productoOriginal.impuesto,
+            precioUnitario: productoOriginal.precioUnitario
+        });
+
         // Preparar datos para Alegra
         const productoData = {
             name: nombre.trim(),
             description: descripcion?.trim() || nombre.trim(),
             reference: referencia?.trim() || productoOriginal.codigoProveedor,
             price: parseFloat(precio),
+            cost: parseFloat(costo),
             status: 'active',
             type: 'product', // Siempre producto (no servicio) para inventario
             unit: unidad || 'unit'
@@ -561,6 +570,30 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         // Agregar cantidad inicial si se especificó
         if (cantidadInicial && parseFloat(cantidadInicial) > 0) {
             productoData.initialQuantity = parseFloat(cantidadInicial);
+        }
+
+        // 🆕 Agregar código CABYS (productKey)
+        if (productoOriginal.codigoCabys) {
+            productoData.productKey = productoOriginal.codigoCabys;
+            console.log('✅ Código CABYS agregado:', productoOriginal.codigoCabys);
+        }
+
+        // 🆕 Agregar impuestos (tax)
+        // Si el producto tiene impuesto > 0, agregar IVA
+        if (productoOriginal.impuesto > 0) {
+            // Calcular porcentaje de impuesto
+            // impuesto = precioUnitario * (porcentaje / 100)
+            // porcentaje = (impuesto / precioUnitario) * 100
+            const porcentajeImpuesto = (productoOriginal.impuesto / productoOriginal.precioUnitario) * 100;
+            
+            // En Costa Rica el IVA estándar es 13%
+            // Si está cerca del 13%, usar IVA (id: 1)
+            if (Math.abs(porcentajeImpuesto - 13) < 1) {
+                productoData.tax = [{ id: 1 }]; // IVA 13%
+                console.log('✅ Impuesto IVA 13% agregado');
+            } else {
+                console.log(`⚠️ Impuesto no estándar detectado: ${porcentajeImpuesto.toFixed(2)}%`);
+            }
         }
 
         console.log('📤 Datos a enviar a Alegra:', productoData);

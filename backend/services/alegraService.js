@@ -417,6 +417,127 @@ class AlegraService {
     }
 
     /**
+     * Crear un nuevo producto en Alegra con TODOS los datos
+     * Incluye: imagen, CABYS, impuestos, costo, inventario
+     */
+    async createProduct(data) {
+        try {
+            console.log(`📦 Creando producto COMPLETO en Alegra: ${data.name}`);
+            console.log('📤 Datos recibidos:', JSON.stringify(data, null, 2));
+            
+            // Preparar datos según la API de Alegra
+            const productData = {
+                name: data.name,
+                description: data.description || data.name,
+                status: data.status || 'active',
+                type: data.type || 'product', // 'product' para inventario, 'service' para servicios
+                
+                // Precio (Alegra requiere array de precios)
+                price: [{
+                    idPriceList: 1, // ID 1 = Lista de precios "General" por defecto
+                    price: parseFloat(data.price) || 0
+                }],
+                
+                // Unidad de medida (obligatoria)
+                unit: data.unit || 'unit'
+            };
+            
+            // Agregar referencia si se proporcionó
+            if (data.reference) {
+                productData.reference = {
+                    reference: data.reference,
+                    type: 'CODE_OF_INTERNAL_USE'
+                };
+            }
+            
+            // Agregar categoría si se especificó
+            if (data.itemCategory && data.itemCategory.id) {
+                productData.itemCategory = {
+                    id: parseInt(data.itemCategory.id)
+                };
+            }
+
+            // 🆕 Agregar código CABYS (productKey)
+            if (data.productKey) {
+                productData.productKey = data.productKey;
+                console.log(`✅ Código CABYS agregado: ${data.productKey}`);
+            }
+
+            // 🆕 Agregar impuestos (tax)
+            if (data.tax && Array.isArray(data.tax)) {
+                productData.tax = data.tax;
+                console.log(`✅ Impuestos agregados: ${JSON.stringify(data.tax)}`);
+            }
+
+            // 🆕 Agregar inventario (inventory) si es tipo producto
+            if (data.type === 'product') {
+                productData.inventory = {
+                    unit: data.unit || 'unit',
+                    unitCost: parseFloat(data.cost) || parseFloat(data.price) || 0
+                };
+
+                // Agregar cantidad inicial si se especificó
+                if (data.initialQuantity && parseFloat(data.initialQuantity) > 0) {
+                    productData.inventory.initialQuantity = parseFloat(data.initialQuantity);
+                    console.log(`✅ Cantidad inicial: ${data.initialQuantity}`);
+                }
+            }
+
+            console.log('📋 Datos formateados para Alegra:', JSON.stringify(productData, null, 2));
+            
+            const response = await this.api.post('/items', productData);
+            console.log(`✅ Producto creado exitosamente: ID ${response.data.id}`);
+            console.log(`📊 Respuesta completa:`, JSON.stringify(response.data, null, 2));
+            return response.data;
+        } catch (error) {
+            console.error(`❌ Error creando producto en Alegra:`);
+            console.error('   Status:', error.response?.status);
+            console.error('   Error:', error.response?.data);
+            console.error('   Message:', error.message);
+            
+            // Proporcionar error más descriptivo al usuario
+            if (error.response?.data?.code === 1093) {
+                throw new Error('Alegra requiere una "clave/referencia de producto". Verifica la configuración de tu cuenta en Alegra → Configuración → Productos.');
+            } else if (error.response?.data?.message) {
+                throw new Error(`Error de Alegra: ${error.response.data.message} (código ${error.response.data.code || 'N/A'})`);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * 🆕 Subir imagen a un producto en Alegra
+     */
+    async uploadProductImage(productId, formData) {
+        try {
+            console.log(`📸 Subiendo imagen al producto ${productId} en Alegra...`);
+            
+            // La API de Alegra usa /items/{id}/image
+            const response = await this.api.post(`/items/${productId}/image`, formData, {
+                headers: {
+                    ...formData.getHeaders(),
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            
+            console.log(`✅ Imagen subida exitosamente al producto ${productId}`);
+            return response.data;
+        } catch (error) {
+            console.error(`❌ Error subiendo imagen al producto ${productId}:`, error.response?.data || error.message);
+            
+            // No fallar completamente si la imagen no se puede subir
+            if (error.response?.status === 404) {
+                throw new Error('El endpoint de imágenes no está disponible en tu versión de Alegra');
+            } else if (error.response?.data?.message) {
+                throw new Error(`Error de Alegra: ${error.response.data.message}`);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    /**
      * Actualizar producto (cost, price, etc)
      */
     async updateProduct(alegraId, data) {
@@ -427,6 +548,21 @@ class AlegraService {
             return response.data;
         } catch (error) {
             console.error(`❌ Error actualizando producto ${alegraId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Eliminar producto
+     */
+    async deleteProduct(alegraId) {
+        try {
+            console.log(`🗑️ Eliminando producto ${alegraId}...`);
+            await this.api.delete(`/items/${alegraId}`);
+            console.log(`✅ Producto ${alegraId} eliminado`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error eliminando producto ${alegraId}:`, error);
             throw error;
         }
     }
