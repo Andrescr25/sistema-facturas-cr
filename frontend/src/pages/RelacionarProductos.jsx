@@ -352,19 +352,19 @@ export default function RelacionarProductos() {
 
       console.log('✅ Factor guardado en servidor:', response.data)
       
-      // Determinar si el factor se aplicará o no
-      const seAplicara = factor >= 1
-      const mensajeAplicacion = seAplicara
-        ? `✅ Se aplicará: Si proveedor factura ${cantProv * 2}, tú verás ${(cantProv * 2 * factor).toFixed(0)}`
-        : `ℹ️ No se aplicará multiplicación: Solo es referencia de empaque (${cantProv} del proveedor = ${cantMia} caja tuya)\n   Si proveedor factura ${cantProv * 2}, tú verás ${cantProv * 2} (sin cambio)`
+      // El factor SIEMPRE se aplica
+      const ejemplo1 = cantProv * 2
+      const ejemplo1Resultado = (ejemplo1 * factor).toFixed(2)
       
       alert(
         `✅ Factor guardado correctamente\n\n` +
         `Configuración:\n` +
-        `• Proveedor factura: ${cantProv}\n` +
-        `• Tu sistema registra: ${cantMia}\n` +
-        `• Factor calculado: ${factor.toFixed(6)}\n\n` +
-        mensajeAplicacion
+        `• Proveedor factura: ${cantProv} = Tú registras: ${cantMia}\n` +
+        `• Factor: ${factor.toFixed(6)}\n\n` +
+        `📊 Ejemplos:\n` +
+        `• Si proveedor factura ${ejemplo1} → Tú verás ${ejemplo1Resultado}\n` +
+        `• Si proveedor factura ${cantProv} → Tú verás ${cantMia}\n\n` +
+        `ℹ️ Este factor se aplicará automáticamente en futuras facturas de este proveedor.`
       )
       
       setModalConversion(false)
@@ -1247,33 +1247,21 @@ export default function RelacionarProductos() {
 
                     return (
                       <div className="space-y-2">
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-gray-700 bg-blue-50 p-2 rounded">
                           <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
                         </p>
                         <p className="text-xs text-gray-600 bg-gray-100 p-2 rounded font-mono">
-                          Factor: {factor.toFixed(8)}
+                          Factor de conversión: <strong>{factor.toFixed(6)}</strong>
                         </p>
-                        {factor >= 1 ? (
-                          <>
-                            <p className="text-xs text-green-700 bg-green-50 p-2 rounded">
-                              ✅ Factor se aplicará: {factor.toFixed(2)} tuyos por cada 1 del proveedor
-                            </p>
-                            <p className="text-sm text-blue-700 font-medium">
-                              <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
-                              en tu sistema se registrarán <strong>{ejemploResultado}</strong>
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
-                              ℹ️ Factor NO se aplicará (solo referencia de empaque)
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
-                              en tu sistema verás <strong>{ejemploProveedor}</strong> (sin cambio)
-                            </p>
-                          </>
-                        )}
+                        <div className="bg-green-50 p-3 rounded border border-green-200">
+                          <p className="text-xs text-green-700 font-semibold mb-1">
+                            ✅ Este factor se aplicará automáticamente
+                          </p>
+                          <p className="text-sm text-gray-700">
+                            <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
+                            en tu sistema verás <strong>{ejemploResultado}</strong>
+                          </p>
+                        </div>
                         
                         {/* Casos comunes */}
                         {cantProv === 24 && cantMia === 12 && (
