@@ -29,6 +29,12 @@ class FacturacionService {
       await indexedDBService.init();
       console.log('✅ Servicio de facturación inicializado');
       
+      // Verificar y limpiar cache corrupto
+      const cacheLimpiado = await this.verificarYLimpiarCacheCorrupto();
+      if (cacheLimpiado) {
+        console.log('🔄 Cache limpiado. Se recargará automáticamente.');
+      }
+      
       // Si está online, intentar sincronizar facturas pendientes
       if (this.isOnline) {
         await this.sincronizarFacturasPendientes();
@@ -42,11 +48,38 @@ class FacturacionService {
   }
 
   /**
+   * Verificar y limpiar cache corrupto (reference como objeto)
+   */
+  async verificarYLimpiarCacheCorrupto() {
+    try {
+      const productos = await indexedDBService.getProductos();
+      
+      if (productos.length > 0) {
+        // Verificar si el primer producto tiene reference como objeto
+        const primerProducto = productos[0];
+        if (typeof primerProducto.reference === 'object' && primerProducto.reference !== null) {
+          console.warn('⚠️ Cache corrupto detectado (reference como objeto). Limpiando...');
+          await indexedDBService.clearAll();
+          return true; // Cache limpiado
+        }
+      }
+      
+      return false; // Cache OK
+    } catch (error) {
+      console.error('❌ Error verificando cache:', error);
+      return false;
+    }
+  }
+
+  /**
    * Actualizar cache de productos desde Alegra
    */
   async actualizarCacheProductos() {
     try {
       console.log('📦 Actualizando cache de productos desde Alegra...');
+      
+      // Verificar y limpiar cache corrupto antes de actualizar
+      await this.verificarYLimpiarCacheCorrupto();
       
       const response = await api.get('/alegra/facturacion/items');
       
@@ -66,10 +99,19 @@ class FacturacionService {
           // IMPORTANTE: Convertir a string para preservar ceros a la izquierda (ej: "0005")
           reference = String(reference).trim();
           
-          // Extraer precio principal
-          const price = Array.isArray(p.price) 
-            ? (p.price.find(pr => pr.main)?.price || p.price[0]?.price || 0)
-            : (p.price || 0);
+          // Extraer precio principal (puede ser array, objeto, o número)
+          let price = 0;
+          if (Array.isArray(p.price)) {
+            // Si es array, buscar el precio principal
+            const precioMain = p.price.find(pr => pr.main === true);
+            price = precioMain ? precioMain.price : (p.price[0]?.price || 0);
+          } else if (typeof p.price === 'object' && p.price !== null) {
+            // Si es objeto, extraer el campo price
+            price = p.price.price || 0;
+          } else {
+            // Si es número directo
+            price = p.price || 0;
+          }
           
           const precioFinal = parseFloat(price) || 0;
           
