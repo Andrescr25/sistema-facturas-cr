@@ -52,6 +52,9 @@ export default function RelacionarProductos() {
   // Estado para forma farmacéutica (solo productos farmacéuticos)
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
   const [esFarmaceutico, setEsFarmaceutico] = useState(false)
+  
+  // Estado para CABYS editable
+  const [codigoCabys, setCodigoCabys] = useState('')
 
   useEffect(() => {
     if (facturaId) {
@@ -182,8 +185,23 @@ export default function RelacionarProductos() {
     setImagenPreview(null)
     loadCategorias()
     
+    // Inicializar CABYS editable
+    const cabysInicial = producto.codigoCabys || ''
+    setCodigoCabys(cabysInicial)
+    
     // Detectar automáticamente si es farmacéutico y su forma
-    const deteccion = detectarFormaFarmaceutica(producto.codigoCabys, producto.descripcion)
+    const deteccion = detectarFormaFarmaceutica(cabysInicial, producto.descripcion)
+    setEsFarmaceutico(deteccion.esFarmaceutico)
+    setFormaFarmaceutica(deteccion.forma)
+  }
+  
+  // Función para actualizar CABYS y re-detectar si es farmacéutico
+  const handleCabysChange = (e) => {
+    const nuevoCabys = e.target.value
+    setCodigoCabys(nuevoCabys)
+    
+    // Re-detectar si es farmacéutico con el nuevo CABYS
+    const deteccion = detectarFormaFarmaceutica(nuevoCabys, productoSeleccionado?.descripcion || '')
     setEsFarmaceutico(deteccion.esFarmaceutico)
     setFormaFarmaceutica(deteccion.forma)
   }
@@ -290,6 +308,7 @@ export default function RelacionarProductos() {
         removerImagen()
         setFormaFarmaceutica('')
         setEsFarmaceutico(false)
+        setCodigoCabys('')
         // Recargar factura
         loadFactura()
       }
@@ -956,6 +975,48 @@ export default function RelacionarProductos() {
                       placeholder="0"
                     />
                     <p className="text-xs text-gray-500 mt-1">Inventario inicial en Alegra</p>
+                  </div>
+
+                  {/* Código CABYS - Editable */}
+                  <div className="bg-gradient-to-r from-purple-50 to-purple-100 border-2 border-purple-200 rounded-lg p-4">
+                    <label className="label flex items-center text-purple-900">
+                      <FileText className="mr-2 text-purple-600" size={18} />
+                      Código CABYS *
+                    </label>
+                    <input
+                      type="text"
+                      name="codigoCabys"
+                      value={codigoCabys}
+                      onChange={handleCabysChange}
+                      required
+                      maxLength="13"
+                      className="input border-purple-300 bg-white font-mono"
+                      placeholder="Ej: 2413900000100"
+                    />
+                    <div className="mt-2 text-xs text-purple-700 space-y-1">
+                      <p className="flex items-start">
+                        <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <strong>Código original:</strong> <span className="font-mono">{productoSeleccionado.codigoCabys}</span>
+                        </span>
+                      </p>
+                      {esFarmaceutico && (
+                        <p className="flex items-start text-yellow-700 bg-yellow-100 p-2 rounded">
+                          <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+                          <span>
+                            <strong>⚠️ Producto Farmacéutico Detectado (CABYS {codigoCabys.substring(0, 2)})</strong><br/>
+                            Si prefieres evitar validaciones farmacéuticas, cambia a un CABYS similar como:<br/>
+                            <span className="font-mono bg-white px-2 py-1 rounded mt-1 inline-block">2413900000100</span> - Alcohol etílico sin desnaturalizar
+                          </span>
+                        </p>
+                      )}
+                      {!esFarmaceutico && codigoCabys && (
+                        <p className="flex items-start text-green-700 bg-green-100 p-2 rounded">
+                          <Check size={14} className="mr-1 mt-0.5 flex-shrink-0" />
+                          <span>✅ Producto NO farmacéutico - No requiere validaciones especiales</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Forma Farmacéutica - Solo para productos farmacéuticos */}
