@@ -3491,7 +3491,7 @@ router.post('/facturacion/invoices', async (req, res) => {
     });
 
     // Crear factura en Alegra
-    const response = await alegraService.makeRequest('POST', '/invoices', null, invoiceData);
+    const response = await alegraService.makeRequest('POST', '/invoices', invoiceData);
 
     console.log('✅ Factura creada exitosamente:', response.id);
 

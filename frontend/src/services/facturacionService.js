@@ -85,10 +85,19 @@ class FacturacionService {
             });
           }
           
+          // IMPORTANTE: No usar spread operator que puede preservar reference original
+          // Crear objeto nuevo limpio
           return {
-            ...p,
-            reference,
-            price: precioFinal
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            reference,  // String normalizado
+            price: precioFinal,
+            status: p.status,
+            type: p.type,
+            tax: p.tax,
+            category: p.category,
+            inventory: p.inventory
           };
         });
         
