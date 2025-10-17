@@ -468,9 +468,9 @@ class AlegraService {
                 const esFarmaceutico = ['30', '31', '32', '33', '34', '35'].includes(cabysPrefix);
                 
                 if (esFarmaceutico) {
-                    // Agregar forma farmacéutica por defecto: 'liquid' para líquidos
-                    // Otros valores posibles: 'capsule', 'tablet', 'cream', 'powder', 'gel', 'ointment', 'solution'
-                    productData.pharmaceuticalForm = data.pharmaceuticalForm || 'liquid';
+                    // Códigos de forma farmacéutica según Hacienda CR:
+                    // 01 = Líquidos, 02 = Sólidos, 03 = Semisólidos, 04 = Gases, 05 = Otros
+                    productData.pharmaceuticalForm = data.pharmaceuticalForm || '01'; // Por defecto líquidos
                     console.log(`✅ Producto farmacéutico detectado - Forma farmacéutica: ${productData.pharmaceuticalForm}`);
                 }
             }
