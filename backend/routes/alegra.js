@@ -3417,7 +3417,7 @@ router.get('/facturacion/items', async (req, res) => {
  */
 router.get('/facturacion/contacts', async (req, res) => {
   try {
-    console.log('👥 Obteniendo todos los clientes de Alegra para cache...');
+    console.log('👥 Obteniendo todos los contactos (clientes y proveedores) de Alegra para cache...');
     
     const allContacts = [];
     let page = 1;
@@ -3427,8 +3427,8 @@ router.get('/facturacion/contacts', async (req, res) => {
     while (hasMore) {
       const response = await alegraService.makeRequest('GET', '/contacts', {
         start: (page - 1) * limit,
-        limit: limit,
-        type: 'client' // Solo clientes, no proveedores
+        limit: limit
+        // NO filtrar por type para obtener clientes Y proveedores
       });
 
       if (response && response.length > 0) {
@@ -3443,7 +3443,7 @@ router.get('/facturacion/contacts', async (req, res) => {
       }
     }
 
-    console.log(`✅ ${allContacts.length} clientes obtenidos de Alegra`);
+    console.log(`✅ ${allContacts.length} contactos obtenidos de Alegra (clientes y proveedores)`);
 
     res.json({
       success: true,
