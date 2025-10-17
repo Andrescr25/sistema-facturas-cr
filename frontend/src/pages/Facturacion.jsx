@@ -348,15 +348,23 @@ export default function Facturacion() {
   };
 
   const actualizarCantidadItem = (index, cantidad) => {
-    const nuevaCantidad = parseInt(cantidad) || 0;
-    if (nuevaCantidad <= 0) {
-      eliminarItem(index);
-      return;
-    }
+    // Permitir valores vacíos temporalmente mientras el usuario edita
+    const nuevaCantidad = cantidad === '' ? '' : (parseInt(cantidad) || 1);
 
     setItems(items.map((item, i) =>
       i === index ? { ...item, quantity: nuevaCantidad } : item
     ));
+  };
+
+  const validarCantidadItem = (index) => {
+    // Al perder foco, validar que la cantidad sea válida
+    setItems(items.map((item, i) => {
+      if (i === index) {
+        const cantidad = parseInt(item.quantity) || 1;
+        return { ...item, quantity: cantidad >= 1 ? cantidad : 1 };
+      }
+      return item;
+    }));
   };
 
   const actualizarPrecioItem = (index, precio) => {
@@ -863,6 +871,7 @@ export default function Facturacion() {
                           min="1"
                           value={item.quantity}
                           onChange={(e) => actualizarCantidadItem(index, e.target.value)}
+                          onBlur={() => validarCantidadItem(index)}
                           className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
                           inputMode="numeric"
                         />
