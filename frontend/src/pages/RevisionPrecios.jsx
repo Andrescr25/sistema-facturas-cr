@@ -242,9 +242,13 @@ export default function RevisionPrecios() {
     const costoAnterior = alegraData.cost || 0
     
     // 🆕 Aplicar factor de conversión a la cantidad
-    // Ejemplo: si proveedor factura 1 pero factor es 1→100, la cantidad real es 100
+    // SOLO aplicar si factor >= 1 (cuando YO vendo más que el proveedor)
+    // Ejemplo: Proveedor 1 → Yo 100 → Factor 100 → Aplicar ✓
+    // Ejemplo: Proveedor 50 → Yo 1 → Factor 0.02 → NO aplicar (solo es unidad de empaque)
     const factorConversion = producto.mapeo?.factorConversion || 1
-    const cantidadReal = producto.cantidad * factorConversion
+    const cantidadReal = factorConversion >= 1 
+      ? producto.cantidad * factorConversion 
+      : producto.cantidad
     
     // Costo Nuevo: precio REAL considerando descuentos Y factor de conversión
     // totalLinea ya incluye descuentos e impuestos aplicados
@@ -618,14 +622,32 @@ export default function RevisionPrecios() {
                         Cantidad: <strong className="ml-1">
                           {(() => {
                             const factorConversion = producto.mapeo?.factorConversion || 1
-                            const cantidadReal = producto.cantidad * factorConversion
-                            const esConvertida = factorConversion !== 1
+                            
+                            // SOLO aplicar factor si >= 1 (cuando YO vendo más que el proveedor)
+                            const cantidadReal = factorConversion >= 1 
+                              ? producto.cantidad * factorConversion 
+                              : producto.cantidad
+                            
+                            // Mostrar indicador solo cuando se aplica el factor (>= 1)
+                            const mostrarIndicador = factorConversion > 1
+                            
+                            // Formatear cantidad real según precisión
+                            const cantidadRealFormateada = Number.isInteger(cantidadReal) 
+                              ? cantidadReal 
+                              : cantidadReal.toFixed(2)
+                            
+                            // Crear tooltip descriptivo
+                            let tooltipText = `${factorConversion.toFixed(2)} tuyos por cada 1 del proveedor\nProveedor factura: ${producto.cantidad}\nTú registras: ${cantidadReal}`
+                            
                             return (
                               <>
-                                {cantidadReal} {producto.unidadMedida}
-                                {esConvertida && (
-                                  <span className="text-xs text-blue-600 ml-2" title={`Factor: ${factorConversion}x (Proveedor: ${producto.cantidad})`}>
-                                    🔄 x{factorConversion}
+                                {cantidadRealFormateada} {producto.unidadMedida}
+                                {mostrarIndicador && (
+                                  <span 
+                                    className="text-xs text-blue-600 ml-2 cursor-help" 
+                                    title={tooltipText}
+                                  >
+                                    🔄 ×{factorConversion}
                                   </span>
                                 )}
                               </>

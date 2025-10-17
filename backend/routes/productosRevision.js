@@ -739,19 +739,39 @@ router.post('/factor-conversion', async (req, res) => {
             });
         }
 
+        // Convertir a número con máxima precisión
+        const factorNumerico = parseFloat(factorConversion);
+        
+        // Validar que sea un número válido
+        if (isNaN(factorNumerico) || !isFinite(factorNumerico)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Factor de conversión inválido'
+            });
+        }
+
+        console.log(`   Factor recibido: ${factorConversion} (tipo: ${typeof factorConversion})`);
+        console.log(`   Factor parseado: ${factorNumerico} (precisión: ${factorNumerico.toFixed(10)})`);
+
         const mapeo = await prisma.supplierProductMapping.update({
             where: { id: mapeoId },
             data: {
-                factorConversion: parseFloat(factorConversion)
+                factorConversion: factorNumerico
             }
         });
 
-        console.log(`✅ Factor de conversión guardado: ${factorConversion}`);
+        console.log(`✅ Factor de conversión guardado: ${factorNumerico}`);
+        console.log(`   Verificación: ${mapeo.factorConversion}`);
 
         res.json({
             success: true,
             message: 'Factor de conversión guardado exitosamente',
-            mapeo: mapeo
+            mapeo: {
+                id: mapeo.id,
+                factorConversion: mapeo.factorConversion,
+                alegraItemId: mapeo.alegraItemId,
+                alegraName: mapeo.alegraName
+            }
         });
     } catch (error) {
         console.error('❌ Error guardando factor de conversión:', error);

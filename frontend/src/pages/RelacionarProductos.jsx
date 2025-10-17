@@ -328,22 +328,50 @@ export default function RelacionarProductos() {
       return
     }
 
-    // Calcular factor: cantidadMia / cantidadProveedor
-    // Si proveedor factura 24 y yo registro 12, factor = 12/24 = 0.5
-    // Si proveedor factura 100 y yo registro 1, factor = 1/100 = 0.01
+    // Calcular factor con máxima precisión: cantidadMia / cantidadProveedor
+    // Ejemplos:
+    // - Proveedor: 24, Mío: 12 → factor = 12/24 = 0.5
+    // - Proveedor: 1, Mío: 100 → factor = 100/1 = 100
+    // - Proveedor: 50, Mío: 1 → factor = 1/50 = 0.02
     const factor = cantMia / cantProv
+    
+    console.log(`🔢 Factor calculado: ${cantProv} → ${cantMia} = ${factor}`)
+    console.log(`   Tipo: ${typeof factor}, Valor exacto: ${factor.toFixed(10)}`)
+
+    // Validar que el factor sea un número válido
+    if (!isFinite(factor) || isNaN(factor)) {
+      alert('⚠️ Error calculando el factor. Verifica las cantidades.')
+      return
+    }
 
     try {
-      await api.post('/productos-revision/factor-conversion', {
+      const response = await api.post('/productos-revision/factor-conversion', {
         mapeoId: productoRelacionado.mapeoId,
         factorConversion: factor
       })
 
-      alert(`✅ Factor guardado: ${cantProv} del proveedor = ${cantMia} en tu sistema\nLas futuras facturas se ajustarán automáticamente.`)
+      console.log('✅ Factor guardado en servidor:', response.data)
+      
+      // Determinar si el factor se aplicará o no
+      const seAplicara = factor >= 1
+      const mensajeAplicacion = seAplicara
+        ? `✅ Se aplicará: Si proveedor factura ${cantProv * 2}, tú verás ${(cantProv * 2 * factor).toFixed(0)}`
+        : `ℹ️ No se aplicará multiplicación: Solo es referencia de empaque (${cantProv} del proveedor = ${cantMia} caja tuya)\n   Si proveedor factura ${cantProv * 2}, tú verás ${cantProv * 2} (sin cambio)`
+      
+      alert(
+        `✅ Factor guardado correctamente\n\n` +
+        `Configuración:\n` +
+        `• Proveedor factura: ${cantProv}\n` +
+        `• Tu sistema registra: ${cantMia}\n` +
+        `• Factor calculado: ${factor.toFixed(6)}\n\n` +
+        mensajeAplicacion
+      )
+      
       setModalConversion(false)
       setProductoRelacionado(null)
       loadFactura()
     } catch (err) {
+      console.error('❌ Error guardando factor:', err)
       alert('Error guardando factor: ' + err.message)
     }
   }
@@ -1222,10 +1250,30 @@ export default function RelacionarProductos() {
                         <p className="text-sm text-gray-700">
                           <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
                         </p>
-                        <p className="text-sm text-blue-700 font-medium">
-                          <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
-                          en tu sistema se registrarán <strong>{ejemploResultado}</strong>
+                        <p className="text-xs text-gray-600 bg-gray-100 p-2 rounded font-mono">
+                          Factor: {factor.toFixed(8)}
                         </p>
+                        {factor >= 1 ? (
+                          <>
+                            <p className="text-xs text-green-700 bg-green-50 p-2 rounded">
+                              ✅ Factor se aplicará: {factor.toFixed(2)} tuyos por cada 1 del proveedor
+                            </p>
+                            <p className="text-sm text-blue-700 font-medium">
+                              <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
+                              en tu sistema se registrarán <strong>{ejemploResultado}</strong>
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                              ℹ️ Factor NO se aplicará (solo referencia de empaque)
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
+                              en tu sistema verás <strong>{ejemploProveedor}</strong> (sin cambio)
+                            </p>
+                          </>
+                        )}
                         
                         {/* Casos comunes */}
                         {cantProv === 24 && cantMia === 12 && (
