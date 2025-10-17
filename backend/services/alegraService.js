@@ -367,21 +367,39 @@ class AlegraService {
     async getItemCategories() {
         try {
             console.log('📦 Obteniendo categorías de productos (item-categories) de Alegra...');
+            console.log('🔑 Usando credenciales:', {
+                user: this.credentials.user,
+                token: this.credentials.token ? `${this.credentials.token.substring(0, 4)}...` : 'NO CONFIGURADO',
+                baseURL: this.baseURL
+            });
+            
             const response = await this.api.get('/item-categories');
+            
+            console.log('📊 Respuesta recibida:', {
+                status: response.status,
+                dataType: Array.isArray(response.data) ? 'array' : typeof response.data,
+                length: Array.isArray(response.data) ? response.data.length : 'N/A'
+            });
             
             if (response.data && Array.isArray(response.data)) {
                 console.log(`✅ ${response.data.length} categorías de productos obtenidas de Alegra`);
                 return response.data.map(cat => ({
                     id: cat.id,
                     name: cat.name || cat.description,
-                    description: cat.description
+                    description: cat.description,
+                    status: cat.status
                 }));
             }
             
+            console.warn('⚠️ La respuesta no es un array válido');
             return [];
         } catch (error) {
-            console.error('❌ Error obteniendo categorías de productos de Alegra:', error.message);
-            return [];
+            console.error('❌ Error obteniendo categorías de productos de Alegra:');
+            console.error('   Mensaje:', error.message);
+            console.error('   Status:', error.response?.status);
+            console.error('   Data:', error.response?.data);
+            console.error('   URL:', error.config?.url);
+            throw error; // Propagar el error para que se maneje en el endpoint
         }
     }
 
