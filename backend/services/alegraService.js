@@ -528,9 +528,43 @@ class AlegraService {
 
     /**
      * 🆕 Subir imagen a un producto en Alegra
-     * Nota: Alegra solo acepta URLs de imágenes, no multipart/form-data
-     * Usa updateProduct({ image: 'https://...' }) en su lugar
+     * Usa el endpoint /items/{id}/attachment con multipart/form-data
      */
+    async uploadProductImage(alegraItemId, formData) {
+        try {
+            console.log(`📸 Subiendo imagen al producto ${alegraItemId}...`);
+            
+            // El endpoint correcto es /items/{id}/attachment
+            const response = await this.api.post(`/items/${alegraItemId}/attachment`, formData, {
+                headers: {
+                    ...formData.getHeaders()
+                },
+                timeout: 60000 // 60 segundos para subida de imagen
+            });
+            
+            console.log(`✅ Imagen subida exitosamente: ${response.data.url || 'URL generada'}`);
+            return {
+                success: true,
+                url: response.data.url,
+                data: response.data
+            };
+        } catch (error) {
+            console.error(`❌ Error subiendo imagen al producto ${alegraItemId}:`);
+            console.error('   Status:', error.response?.status);
+            console.error('   Error:', error.response?.data);
+            console.error('   Message:', error.message);
+            
+            if (error.response?.status === 404) {
+                throw new Error('El endpoint de imágenes no está disponible en tu versión de Alegra');
+            } else if (error.response?.status === 403) {
+                throw new Error('No tienes permisos para subir imágenes. Verifica tu plan de Alegra.');
+            } else if (error.response?.data?.message) {
+                throw new Error(`Error de Alegra: ${error.response.data.message}`);
+            } else {
+                throw error;
+            }
+        }
+    }
 
     /**
      * Actualizar producto (cost, price, etc, image URL)

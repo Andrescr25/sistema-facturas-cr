@@ -624,41 +624,24 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 
         console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
 
-        // Si hay imagen, guardarla y actualizar producto con la URL
+        // Si hay imagen, subirla a Alegra usando endpoint /attachment
         if (req.file) {
             try {
-                console.log('📸 Guardando imagen localmente...');
-                const fs = require('fs');
-                const path = require('path');
+                console.log('📸 Subiendo imagen a Alegra...');
+                const FormData = require('form-data');
+                const formData = new FormData();
                 
-                // Crear directorio si no existe
-                const uploadDir = path.join(__dirname, '../uploads/productos');
-                if (!fs.existsSync(uploadDir)) {
-                    fs.mkdirSync(uploadDir, { recursive: true });
-                }
-                
-                // Generar nombre único para la imagen
-                const timestamp = Date.now();
-                const ext = path.extname(req.file.originalname);
-                const filename = `producto-${nuevoProductoAlegra.id}-${timestamp}${ext}`;
-                const filepath = path.join(uploadDir, filename);
-                
-                // Guardar imagen
-                fs.writeFileSync(filepath, req.file.buffer);
-                console.log(`✅ Imagen guardada: ${filename}`);
-                
-                // Generar URL pública
-                const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
-                const imageUrl = `${baseUrl}/uploads/productos/${filename}`;
-                console.log(`📷 URL de imagen: ${imageUrl}`);
-                
-                // Actualizar producto en Alegra con la URL de la imagen
-                await alegraService.updateProduct(nuevoProductoAlegra.id, {
-                    image: imageUrl
+                // Agregar imagen al FormData
+                formData.append('image', req.file.buffer, {
+                    filename: req.file.originalname,
+                    contentType: req.file.mimetype
                 });
-                console.log('✅ Producto actualizado con imagen en Alegra');
+
+                await alegraService.uploadProductImage(nuevoProductoAlegra.id, formData);
+                console.log('✅ Imagen subida exitosamente a Alegra');
             } catch (imgError) {
-                console.error('⚠️ Error procesando imagen (continuando):', imgError.message);
+                console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
+                console.error('   Stack:', imgError.stack);
                 // No fallar si la imagen no se puede subir
             }
         }
