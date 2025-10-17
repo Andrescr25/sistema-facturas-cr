@@ -1135,15 +1135,15 @@ export default function RelacionarProductos() {
       {/* Modal de Conversión de Cantidad */}
       {modalConversion && productoRelacionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full">
-            <div className="p-6 border-b">
-              <h3 className="text-xl font-bold text-gray-900">⚙️ Configurar Conversión de Cantidad</h3>
-              <p className="text-sm text-gray-600 mt-1">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b flex-shrink-0">
+              <h3 className="text-lg font-bold text-gray-900">⚙️ Configurar Conversión de Cantidad</h3>
+              <p className="text-xs text-gray-600 mt-1">
                 Define cómo convertir las cantidades entre el proveedor y tu sistema
               </p>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 overflow-y-auto flex-1">
               {/* Info de productos */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -1255,11 +1255,11 @@ export default function RelacionarProductos() {
 
                 {/* Advertencia */}
                 {parseFloat(cantidadProveedor) !== parseFloat(cantidadMia) && (
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 flex items-start">
-                    <AlertCircle className="text-yellow-600 mr-2 flex-shrink-0 mt-0.5" size={20} />
-                    <div className="text-sm text-yellow-800">
-                      <p className="font-semibold mb-1">⚠️ Importante:</p>
-                      <p>Este factor se guardará y se aplicará automáticamente en futuras facturas de este proveedor para este producto.</p>
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 flex items-start">
+                    <AlertCircle className="text-yellow-600 mr-2 flex-shrink-0 mt-0.5" size={16} />
+                    <div className="text-xs text-yellow-800">
+                      <p className="font-semibold">⚠️ Importante:</p>
+                      <p>Se aplicará automáticamente en futuras facturas de este proveedor.</p>
                     </div>
                   </div>
                 )}
@@ -1267,7 +1267,7 @@ export default function RelacionarProductos() {
             </div>
 
             {/* Botones */}
-            <div className="p-6 border-t bg-gray-50 flex gap-3">
+            <div className="p-4 border-t bg-gray-50 flex gap-3 flex-shrink-0">
               <button
                 onClick={guardarFactorConversion}
                 className="btn btn-primary flex-1"

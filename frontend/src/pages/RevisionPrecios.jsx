@@ -241,10 +241,15 @@ export default function RevisionPrecios() {
     // Costo Anterior: último costo en Alegra (antes de esta factura)
     const costoAnterior = alegraData.cost || 0
     
-    // Costo Nuevo: precio REAL considerando descuentos
+    // 🆕 Aplicar factor de conversión a la cantidad
+    // Ejemplo: si proveedor factura 1 pero factor es 1→100, la cantidad real es 100
+    const factorConversion = producto.mapeo?.factorConversion || 1
+    const cantidadReal = producto.cantidad * factorConversion
+    
+    // Costo Nuevo: precio REAL considerando descuentos Y factor de conversión
     // totalLinea ya incluye descuentos e impuestos aplicados
-    const costoNuevoConIva = producto.cantidad > 0 
-      ? (producto.totalLinea / producto.cantidad)
+    const costoNuevoConIva = cantidadReal > 0 
+      ? (producto.totalLinea / cantidadReal)
       : producto.precioUnitario || 0
     const costoNuevoSinIva = costoNuevoConIva / (1 + IVA_PORCENTAJE / 100)
     
@@ -296,6 +301,10 @@ export default function RevisionPrecios() {
     }
     
     return {
+      // Cantidades
+      cantidadReal,
+      factorConversion,
+      
       // Costos
       costoAnterior,
       costoNuevoConIva,
@@ -606,7 +615,23 @@ export default function RevisionPrecios() {
                         Código: <strong className="ml-1">{producto.codigoProveedor}</strong>
                       </span>
                       <span className="inline-flex items-center px-3 py-1 bg-blue-100 rounded-full font-medium text-blue-700">
-                        Cantidad: <strong className="ml-1">{producto.cantidad} {producto.unidadMedida}</strong>
+                        Cantidad: <strong className="ml-1">
+                          {(() => {
+                            const factorConversion = producto.mapeo?.factorConversion || 1
+                            const cantidadReal = producto.cantidad * factorConversion
+                            const esConvertida = factorConversion !== 1
+                            return (
+                              <>
+                                {cantidadReal} {producto.unidadMedida}
+                                {esConvertida && (
+                                  <span className="text-xs text-blue-600 ml-2" title={`Factor: ${factorConversion}x (Proveedor: ${producto.cantidad})`}>
+                                    🔄 x{factorConversion}
+                                  </span>
+                                )}
+                              </>
+                            )
+                          })()}
+                        </strong>
                       </span>
                       <span className="inline-flex items-center px-3 py-1 bg-purple-100 rounded-full font-medium text-purple-700">
                         Subtotal: <strong className="ml-1">₡{((producto.precioUnitario || 0) * (producto.cantidad || 0)).toLocaleString('es-CR', {minimumFractionDigits: 2})}</strong>
@@ -731,10 +756,10 @@ export default function RevisionPrecios() {
                                 onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
                                 step="100"
                                 min="0"
-                                className="w-full pl-10 pr-4 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                                className="w-full pl-10 pr-20 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                                 placeholder="Precio sin IVA"
                               />
-                              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+                              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">
                                 sin IVA
                               </div>
                             </div>
