@@ -54,7 +54,7 @@ class FacturacionService {
         const productos = response.data.data;
         
         // Normalizar productos antes de guardar
-        const productosNormalizados = productos.map(p => {
+        const productosNormalizados = productos.map((p, index) => {
           // Extraer reference (puede ser objeto, string, o número)
           let reference = '';
           if (typeof p.reference === 'object' && p.reference !== null) {
@@ -71,10 +71,24 @@ class FacturacionService {
             ? (p.price.find(pr => pr.main)?.price || p.price[0]?.price || 0)
             : (p.price || 0);
           
+          const precioFinal = parseFloat(price) || 0;
+          
+          // Debug: Log primeros 5 productos para verificar normalización
+          if (index < 5) {
+            console.log(`📝 Producto ${index + 1}:`, {
+              nombre: p.name,
+              referenceOriginal: p.reference,
+              referenceNormalizada: reference,
+              tipoReferenceOriginal: typeof p.reference,
+              priceOriginal: p.price,
+              priceNormalizado: precioFinal
+            });
+          }
+          
           return {
             ...p,
             reference,
-            price: parseFloat(price) || 0
+            price: precioFinal
           };
         });
         

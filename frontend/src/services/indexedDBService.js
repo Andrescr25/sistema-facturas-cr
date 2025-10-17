@@ -143,7 +143,26 @@ class IndexedDBService {
       const request = index.get(normalizedRef);
 
       request.onsuccess = () => {
-        console.log(`📊 IndexedDB: Resultado de búsqueda:`, request.result ? 'Encontrado' : 'No encontrado');
+        if (request.result) {
+          console.log(`✅ IndexedDB: Producto encontrado:`, {
+            nombre: request.result.name,
+            reference: request.result.reference,
+            price: request.result.price,
+            tipoReference: typeof request.result.reference
+          });
+        } else {
+          console.log(`❌ IndexedDB: Resultado de búsqueda: No encontrado`);
+          // Debug: Ver qué hay en el store para comparar
+          const allRequest = store.getAll();
+          allRequest.onsuccess = () => {
+            const primeros5 = allRequest.result.slice(0, 5);
+            console.log(`🔍 Primeros 5 productos en IndexedDB para comparar:`, primeros5.map(p => ({
+              nombre: p.name,
+              reference: p.reference,
+              tipoReference: typeof p.reference
+            })));
+          };
+        }
         resolve(request.result);
       };
       request.onerror = () => {
