@@ -147,11 +147,23 @@ export default function RevisionPrecios() {
     }
   }
 
+  // Función para redondear precio terminado en 5 o 0
+  const redondearPrecio = (precio) => {
+    // Redondear a la decena más cercana terminada en 5 o 0
+    const precioRedondeado = Math.round(precio / 5) * 5
+    return precioRedondeado
+  }
+
   const ajustarPrecio = (productoId, nuevoPrecio) => {
     setPreciosAjustados({
       ...preciosAjustados,
       [productoId]: parseFloat(nuevoPrecio) || 0
     })
+  }
+
+  const aplicarPrecioSugerido = (productoId, precioSugerido) => {
+    const precioRedondeado = redondearPrecio(precioSugerido)
+    ajustarPrecio(productoId, precioRedondeado)
   }
 
   const enviarAlegra = async () => {
@@ -769,35 +781,37 @@ export default function RevisionPrecios() {
                           </div>
                         </td>
                         <td colSpan="2" className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="relative flex-1">
-                              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 font-bold text-lg">
-                                ₡
-                              </span>
-                              <input
-                                type="number"
-                                value={preciosAjustados[producto.id] || analisis.precioVentaSinIva}
-                                onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
-                                step="100"
-                                min="0"
-                                className="w-full pl-10 pr-20 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                                placeholder="Precio sin IVA"
-                              />
-                              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">
-                                sin IVA
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex-1">
+                                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 font-bold text-lg">
+                                  ₡
+                                </span>
+                                <input
+                                  type="number"
+                                  value={preciosAjustados[producto.id] || analisis.precioVentaSinIva}
+                                  onChange={(e) => ajustarPrecio(producto.id, e.target.value)}
+                                  step="100"
+                                  min="0"
+                                  className="w-full pl-10 pr-20 py-3 text-right font-bold text-xl border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                                  placeholder="Precio sin IVA"
+                                />
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">
+                                  sin IVA
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Con IVA: ₡{(analisis.precioAjustadoConIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                              <div className="text-sm text-gray-600 min-w-[150px]">
+                                Con IVA: ₡{(analisis.precioAjustadoConIva || 0).toLocaleString('es-CR', {minimumFractionDigits: 2})}
+                              </div>
                             </div>
                             {analisis.margenNuevo < 20 && (
                               <button
-                                onClick={() => ajustarPrecio(producto.id, analisis.precioSugeridoSinIva)}
-                                className="btn bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow-md hover:shadow-lg transition-all whitespace-nowrap flex items-center"
-                                title="Precio con margen del 20%"
+                                onClick={() => aplicarPrecioSugerido(producto.id, analisis.precioSugeridoSinIva)}
+                                className="btn bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all whitespace-nowrap flex items-center w-full justify-center"
+                                title="Aplicar precio con margen del 20% (redondeado a 5 o 0)"
                               >
-                                <TrendingUp size={18} className="mr-2" />
-                                Sugerido (20%): ₡{(analisis.precioSugeridoSinIva || 0).toFixed(0)}
+                                <TrendingUp size={16} className="mr-2" />
+                                Aplicar Sugerido 20%: ₡{redondearPrecio(analisis.precioSugeridoSinIva).toLocaleString('es-CR')}
                               </button>
                             )}
                           </div>
