@@ -394,7 +394,7 @@ export default function RelacionarProductos() {
       // Actualizar estado local
       setProductos(prev => prev.map(p => 
         p.id === producto.id 
-          ? { ...p, estadoRelacionado: 'PENDIENTE', alegraItemId: null, mapeoId: null }
+          ? { ...p, estadoRelacionado: 'SIN_RELACIONAR', alegraItemId: null, mapeoId: null }
           : p
       ))
       
@@ -442,17 +442,15 @@ export default function RelacionarProductos() {
   }
 
   const productosFiltrados = productos.filter(p => {
-    if (filtro === 'pendientes') return p.estadoRelacionado === 'PENDIENTE'
     if (filtro === 'relacionados') return p.estadoRelacionado === 'RELACIONADO'
-    if (filtro === 'ignorados') return p.estadoRelacionado === 'IGNORADO'
+    if (filtro === 'no-relacionados') return p.estadoRelacionado !== 'RELACIONADO'
     return true
   })
 
   const stats = {
     total: productos.length,
     relacionados: productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length,
-    pendientes: productos.filter(p => p.estadoRelacionado === 'PENDIENTE').length,
-    ignorados: productos.filter(p => p.estadoRelacionado === 'IGNORADO').length
+    noRelacionados: productos.filter(p => p.estadoRelacionado !== 'RELACIONADO').length
   }
 
   const progreso = stats.total > 0 ? Math.round((stats.relacionados / stats.total) * 100) : 0
@@ -511,8 +509,8 @@ export default function RelacionarProductos() {
         <div className="flex justify-between text-sm">
           <span className="font-bold text-gray-900">{progreso}% completado</span>
           <div className="flex gap-4">
-            <span className="text-green-600">✓ {stats.relacionados}</span>
-            <span className="text-orange-600">⏳ {stats.pendientes}</span>
+            <span className="text-green-600">✓ Relacionados: {stats.relacionados}</span>
+            <span className="text-gray-600">Sin relacionar: {stats.noRelacionados}</span>
             <span className="text-gray-600">Total: {stats.total}</span>
           </div>
         </div>
@@ -532,16 +530,6 @@ export default function RelacionarProductos() {
             Todos ({stats.total})
           </button>
           <button
-            onClick={() => setFiltro('pendientes')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${
-              filtro === 'pendientes'
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Pendientes ({stats.pendientes})
-          </button>
-          <button
             onClick={() => setFiltro('relacionados')}
             className={`px-4 py-2 rounded-lg font-medium text-sm ${
               filtro === 'relacionados'
@@ -550,6 +538,16 @@ export default function RelacionarProductos() {
             }`}
           >
             Relacionados ({stats.relacionados})
+          </button>
+          <button
+            onClick={() => setFiltro('no-relacionados')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm ${
+              filtro === 'no-relacionados'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Sin Relacionar ({stats.noRelacionados})
           </button>
         </div>
       </div>
@@ -560,9 +558,7 @@ export default function RelacionarProductos() {
           <div
             key={producto.id}
             className={`card border-l-4 ${
-              producto.estadoRelacionado === 'RELACIONADO' ? 'border-l-green-500' :
-              producto.estadoRelacionado === 'IGNORADO' ? 'border-l-red-500' :
-              'border-l-orange-500'
+              producto.estadoRelacionado === 'RELACIONADO' ? 'border-l-green-500' : 'border-l-orange-500'
             }`}
           >
             <div className="flex items-start justify-between">
@@ -621,7 +617,7 @@ export default function RelacionarProductos() {
               </div>
 
               <div className="flex flex-col gap-2 ml-4">
-                {producto.estadoRelacionado === 'PENDIENTE' && (
+                {producto.estadoRelacionado !== 'RELACIONADO' && (
                   <>
                     <button
                       onClick={() => abrirModalBusqueda(producto)}
