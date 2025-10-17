@@ -1242,8 +1242,13 @@ export default function RelacionarProductos() {
                     const cantProv = parseFloat(cantidadProveedor) || 1
                     const cantMia = parseFloat(cantidadMia) || 1
                     const factor = cantMia / cantProv
-                    const ejemploProveedor = 10
-                    const ejemploResultado = (ejemploProveedor * factor).toFixed(2)
+                    
+                    // Usar ejemplos relevantes basados en la configuración actual
+                    const ejemplo1Prov = cantProv * 2  // El doble
+                    const ejemplo1Mia = (ejemplo1Prov * factor).toFixed(2)
+                    
+                    const ejemplo2Prov = cantProv  // Lo que configuraste
+                    const ejemplo2Mia = (ejemplo2Prov * factor).toFixed(2)
 
                     return (
                       <div className="space-y-2">
@@ -1254,13 +1259,13 @@ export default function RelacionarProductos() {
                           Factor de conversión: <strong>{factor.toFixed(6)}</strong>
                         </p>
                         <div className="bg-green-50 p-3 rounded border border-green-200">
-                          <p className="text-xs text-green-700 font-semibold mb-1">
+                          <p className="text-xs text-green-700 font-semibold mb-2">
                             ✅ Este factor se aplicará automáticamente
                           </p>
-                          <p className="text-sm text-gray-700">
-                            <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
-                            en tu sistema verás <strong>{ejemploResultado}</strong>
-                          </p>
+                          <div className="space-y-1 text-sm text-gray-700">
+                            <p>• Proveedor factura <strong>{ejemplo2Prov}</strong> → Tú verás <strong>{ejemplo2Mia}</strong></p>
+                            <p>• Proveedor factura <strong>{ejemplo1Prov}</strong> → Tú verás <strong>{ejemplo1Mia}</strong></p>
+                          </div>
                         </div>
                         
                         {/* Casos comunes */}
