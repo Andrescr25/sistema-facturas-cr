@@ -483,7 +483,17 @@ export default function RelacionarProductos() {
                   {producto.descripcion}
                 </h3>
                 <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-                  <span>Código: {producto.codigoProveedor}</span>
+                  <span className="flex items-center">
+                    Código: 
+                    <span className={producto.codigoProveedor?.startsWith('DESC-') ? 'text-orange-600 font-mono ml-1' : 'ml-1'}>
+                      {producto.codigoProveedor}
+                    </span>
+                    {producto.codigoProveedor?.startsWith('DESC-') && (
+                      <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="Código generado automáticamente porque el proveedor no envía código interno">
+                        Auto-generado
+                      </span>
+                    )}
+                  </span>
                   <span>Cantidad: {producto.cantidad} {producto.unidadMedida}</span>
                   <span className="font-semibold">Precio: ₡{producto.precioUnitario?.toLocaleString('es-CR')}</span>
                 </div>
@@ -583,7 +593,12 @@ export default function RelacionarProductos() {
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div>
                       <span className="text-orange-600">Código:</span>
-                      <p className="font-mono font-semibold text-gray-900">{productoSeleccionado?.codigoProveedor}</p>
+                      <p className="font-mono font-semibold text-gray-900">
+                        {productoSeleccionado?.codigoProveedor}
+                        {productoSeleccionado?.codigoProveedor?.startsWith('DESC-') && (
+                          <span className="block text-xs text-orange-600 mt-1">⚠️ Auto-generado</span>
+                        )}
+                      </p>
                     </div>
                     <div>
                       <span className="text-orange-600">Cantidad:</span>
@@ -594,6 +609,17 @@ export default function RelacionarProductos() {
                       <p className="font-bold text-orange-700 text-lg">₡{productoSeleccionado?.precioUnitario?.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
+                  {productoSeleccionado?.codigoProveedor?.startsWith('DESC-') && (
+                    <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
+                      <p className="text-yellow-800 flex items-start">
+                        <AlertCircle size={14} className="mr-2 flex-shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Nota:</strong> Este proveedor no envía códigos internos en sus facturas, por lo que el sistema generó un código basado en la descripción. 
+                          Cada descripción única tendrá su propio código generado.
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
