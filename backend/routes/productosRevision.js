@@ -598,19 +598,24 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         // 🆕 Agregar impuestos (tax)
         // Si el producto tiene impuesto > 0, agregar IVA
         if (productoOriginal.impuesto > 0) {
-            // Calcular porcentaje de impuesto
-            // impuesto = precioUnitario * (porcentaje / 100)
-            // porcentaje = (impuesto / precioUnitario) * 100
-            const porcentajeImpuesto = (productoOriginal.impuesto / productoOriginal.precioUnitario) * 100;
+            // Calcular porcentaje de impuesto correctamente
+            // subtotal = totalLinea - impuesto
+            // porcentaje = (impuesto / subtotal) * 100
+            const subtotal = productoOriginal.totalLinea - productoOriginal.impuesto;
+            const porcentajeImpuesto = subtotal > 0 ? (productoOriginal.impuesto / subtotal) * 100 : 0;
+            
+            console.log(`📊 Impuesto detectado: ${productoOriginal.impuesto}, Subtotal: ${subtotal}, Porcentaje: ${porcentajeImpuesto.toFixed(2)}%`);
             
             // En Costa Rica el IVA estándar es 13%
             // Si está cerca del 13%, usar IVA (id: 1)
             if (Math.abs(porcentajeImpuesto - 13) < 1) {
                 productoData.tax = [{ id: 1 }]; // IVA 13%
                 console.log('✅ Impuesto IVA 13% agregado');
-            } else {
-                console.log(`⚠️ Impuesto no estándar detectado: ${porcentajeImpuesto.toFixed(2)}%`);
+            } else if (porcentajeImpuesto > 0) {
+                console.log(`⚠️ Impuesto no estándar detectado: ${porcentajeImpuesto.toFixed(2)}% - No se aplicará automáticamente`);
             }
+        } else {
+            console.log('ℹ️ Producto sin impuesto (exento)');
         }
 
         console.log('📤 Datos a enviar a Alegra:', productoData);
