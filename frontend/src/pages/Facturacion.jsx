@@ -45,6 +45,11 @@ export default function Facturacion() {
   const [mostrarBusquedaProducto, setMostrarBusquedaProducto] = useState(false);
   const [cacheStats, setCacheStats] = useState(null);
   const [mensaje, setMensaje] = useState(null);
+  
+  // Modal de cantidad para móvil
+  const [modalCantidadMovil, setModalCantidadMovil] = useState(false);
+  const [productoSeleccionadoMovil, setProductoSeleccionadoMovil] = useState(null);
+  const [cantidadMovil, setCantidadMovil] = useState('');
 
   // Referencias
   const codigoInputRef = useRef(null);
@@ -311,6 +316,26 @@ export default function Facturacion() {
         mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
         cantidadInputRef.current?.select();
       }
+    }
+  };
+
+  const abrirModalCantidadMovil = (producto) => {
+    setProductoSeleccionadoMovil(producto);
+    setCantidadMovil('');
+    setModalCantidadMovil(true);
+    setBusquedaProducto('');
+    setProductosEncontrados([]);
+  };
+
+  const confirmarCantidadMovil = () => {
+    const cantidad = parseInt(cantidadMovil) || 1;
+    if (cantidad > 0 && productoSeleccionadoMovil) {
+      agregarProductoAFactura(productoSeleccionadoMovil, cantidad);
+      setModalCantidadMovil(false);
+      setProductoSeleccionadoMovil(null);
+      setCantidadMovil('');
+    } else {
+      mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
     }
   };
 
@@ -815,9 +840,13 @@ export default function Facturacion() {
                       <button
                         key={producto.id}
                         onClick={() => {
-                          agregarProductoAFactura(producto, 1);
-                          setBusquedaProducto('');
-                          setProductosEncontrados([]);
+                          if (isMobile) {
+                            abrirModalCantidadMovil(producto);
+                          } else {
+                            agregarProductoAFactura(producto, 1);
+                            setBusquedaProducto('');
+                            setProductosEncontrados([]);
+                          }
                         }}
                         className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                       >
@@ -935,7 +964,8 @@ export default function Facturacion() {
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
-                  className="input w-full"
+                  className={`input w-full ${isMobile ? 'text-sm' : ''}`}
+                  style={isMobile ? { fontSize: '14px' } : {}}
                 />
               </div>
 
@@ -1049,6 +1079,74 @@ export default function Facturacion() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Cantidad para Móvil */}
+      {modalCantidadMovil && productoSeleccionadoMovil && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+            {/* Producto seleccionado */}
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {productoSeleccionadoMovil.name}
+              </h3>
+              <p className="text-sm text-gray-600">
+                Código: {getReference(productoSeleccionadoMovil.reference)}
+              </p>
+              {productoSeleccionadoMovil.price && (
+                <p className="text-lg font-semibold text-green-600 mt-2">
+                  ₡{productoSeleccionadoMovil.price.toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            {/* Input de cantidad */}
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-900 mb-3">
+                ¿Cuántas unidades desea?
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={cantidadMovil}
+                onChange={(e) => setCantidadMovil(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    confirmarCantidadMovil();
+                  }
+                }}
+                placeholder="Ingrese cantidad"
+                className="input w-full text-2xl text-center font-bold"
+                autoFocus
+                inputMode="numeric"
+              />
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setModalCantidadMovil(false);
+                  setProductoSeleccionadoMovil(null);
+                  setCantidadMovil('');
+                }}
+                className="flex-1 py-3 px-4 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarCantidadMovil}
+                disabled={!cantidadMovil || parseInt(cantidadMovil) <= 0}
+                className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Check size={24} />
+                Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
