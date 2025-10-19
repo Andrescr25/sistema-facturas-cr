@@ -392,7 +392,7 @@ class FacturacionService {
   async sincronizarFacturasPendientes() {
     if (this.syncInProgress) {
       console.log('⏳ Sincronización ya en progreso...');
-      return;
+      return { success: false, sincronizadas: 0, mensaje: 'Sincronización en progreso' };
     }
 
     try {

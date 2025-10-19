@@ -42,15 +42,21 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia: Network First, fallback a Cache
 self.addEventListener('fetch', (event) => {
-  // Solo cachear GET requests (POST/PUT/DELETE no son cacheables)
+  const url = new URL(event.request.url);
+  
+  // NO interceptar requests a dominios externos (incluyendo el backend en otro dominio)
+  if (url.origin !== location.origin) {
+    // Dejar pasar sin interferir - esto resuelve problemas de CORS
+    return;
+  }
+  
+  // NO interceptar métodos que no sean GET
   if (event.request.method !== 'GET') {
-    event.respondWith(fetch(event.request));
     return;
   }
 
-  // No cachear requests a API (solo assets estáticos)
+  // NO cachear requests a API (solo assets estáticos)
   if (event.request.url.includes('/api/')) {
-    event.respondWith(fetch(event.request));
     return;
   }
 

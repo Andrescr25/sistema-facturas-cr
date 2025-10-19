@@ -14,8 +14,13 @@ const PORT = process.env.PORT || 3000;
 // Configuración CORS para desarrollo y producción
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log(`🔍 CORS: Request from origin: ${origin || 'No origin'}`);
+    
     // Permitir requests sin origin (Postman, mobile apps, etc.)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ CORS: Sin origin - permitido');
+      return callback(null, true);
+    }
     
     // Lista de orígenes permitidos
     const allowedOrigins = [
@@ -25,21 +30,22 @@ const corsOptions = {
       'https://sistema-facturas-cr-web.onrender.com'     // Backend URL (para requests internos)
     ];
     
-    // También permitir cualquier subdominio de onrender.com para flexibilidad
+    // Permitir cualquier origen de onrender.com
     if (origin.includes('.onrender.com') || allowedOrigins.includes(origin)) {
-      console.log(`✅ CORS: Permitido desde ${origin}`);
+      console.log(`✅ CORS: ${origin} - PERMITIDO`);
       callback(null, true);
     } else {
-      console.warn(`⚠️ CORS: Origin ${origin} no en lista, pero permitiendo...`);
-      callback(null, true); // Permitir de todos modos para evitar bloqueos
+      console.log(`✅ CORS: ${origin} - Permitiendo de todos modos`);
+      callback(null, true); // Permitir todos los orígenes para evitar problemas
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'X-Total-Count'],
   optionsSuccessStatus: 200,
-  preflightContinue: false
+  preflightContinue: false,
+  maxAge: 86400 // Cache preflight por 24 horas
 };
 
 // Middleware CORS ANTES de helmet para evitar conflictos
