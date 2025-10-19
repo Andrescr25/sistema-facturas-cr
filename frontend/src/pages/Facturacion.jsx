@@ -63,16 +63,17 @@ export default function Facturacion() {
     return String(ref);
   };
 
-  // Detectar tipo de dispositivo (mejorado)
+  // Detectar tipo de dispositivo (mejorado con mejor detección)
   useEffect(() => {
     const checkDevice = () => {
       // Detección más precisa de dispositivos móviles
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const isSmallScreen = window.innerWidth < 768;
+      const isTablet = window.innerWidth >= 768 && window.innerWidth <= 1024;
       
-      // Es móvil si tiene pantalla táctil Y (user agent móvil O pantalla pequeña)
-      const mobile = isTouchDevice && (isMobileUserAgent || isSmallScreen);
+      // Es móvil si tiene pantalla pequeña O (táctil Y user agent móvil)
+      const mobile = isSmallScreen || (isTouchDevice && isMobileUserAgent && !isTablet);
       
       setIsMobile(mobile);
       
@@ -80,9 +81,13 @@ export default function Facturacion() {
       if (mobile) {
         document.body.classList.add('mobile-device');
         document.body.classList.remove('desktop-device');
+        document.body.classList.add('touch-device');
       } else {
         document.body.classList.add('desktop-device');
         document.body.classList.remove('mobile-device');
+        if (isTouchDevice) {
+          document.body.classList.add('touch-device');
+        }
       }
       
       console.log('🔍 Dispositivo detectado:', {
@@ -90,7 +95,9 @@ export default function Facturacion() {
         isTouchDevice,
         isMobileUserAgent,
         isSmallScreen,
-        width: window.innerWidth
+        isTablet,
+        width: window.innerWidth,
+        height: window.innerHeight
       });
     };
 
@@ -567,50 +574,65 @@ export default function Facturacion() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className={`${isMobile ? 'flex-col' : 'flex items-center justify-between'} mb-6`}>
-        <div className={isMobile ? 'mb-4' : ''}>
-          <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 flex items-center gap-2`}>
-            <FileText className="text-blue-600" size={isMobile ? 28 : 32} />
-            Facturación
-          </h1>
-          <p className={`text-gray-600 mt-1 ${isMobile ? 'text-sm' : ''}`}>
-            Sistema de facturación con soporte offline
-          </p>
-        </div>
-
-        <div className={`flex ${isMobile ? 'flex-wrap' : ''} items-center gap-2`}>
-          {/* Indicador de conexión */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-            isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-          }`}>
-            {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-            <span className="text-sm font-medium">
-              {isOnline ? 'Online' : 'Offline'}
-            </span>
+    <div className={`${isMobile ? 'pb-20' : 'max-w-7xl mx-auto'}`}>
+      {/* Header - Sticky en móvil */}
+      <div className={`${isMobile ? 'sticky top-0 z-40 bg-white shadow-md px-4 py-3' : 'mb-6'}`}>
+        <div className={`${isMobile ? '' : 'flex items-center justify-between'}`}>
+          <div className={isMobile ? 'mb-3' : ''}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold text-gray-900 flex items-center gap-2`}>
+              <FileText className="text-blue-600" size={isMobile ? 24 : 32} />
+              Facturación
+              {isMobile && (
+                <span className="ml-auto text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                  {isOnline ? '🟢' : '🔴'}
+                </span>
+              )}
+            </h1>
+            {!isMobile && (
+              <p className="text-gray-600 mt-1">
+                Sistema de facturación con soporte offline
+              </p>
+            )}
           </div>
 
-          {/* Facturas pendientes */}
-          {facturasPendientes.length > 0 && (
-            <div className="bg-yellow-100 text-yellow-800 px-3 py-2 rounded-lg flex items-center gap-2">
-              <AlertCircle size={16} />
-              <span className="text-sm font-medium">
-                {facturasPendientes.length} pendiente{facturasPendientes.length > 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
+          <div className={`flex ${isMobile ? 'justify-between' : ''} items-center gap-2`}>
+            {/* Indicador de conexión - Solo desktop */}
+            {!isMobile && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+              }`}>
+                {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
+                <span className="text-sm font-medium">
+                  {isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            )}
 
-          {/* Botón actualizar cache */}
-          <button
-            onClick={actualizarCache}
-            disabled={!isOnline || syncingCache}
-            className={`btn btn-outline flex items-center gap-2 ${isMobile ? 'text-sm px-3 py-2' : ''}`}
-            title="Actualizar catálogo"
-          >
-            <RefreshCw size={16} className={syncingCache ? 'animate-spin' : ''} />
-            {isMobile ? 'Actualizar' : 'Actualizar'}
-          </button>
+            {/* Facturas pendientes */}
+            {facturasPendientes.length > 0 && (
+              <div className={`bg-yellow-100 text-yellow-800 px-3 py-2 rounded-lg flex items-center gap-2 ${
+                isMobile ? 'text-xs' : 'text-sm'
+              }`}>
+                <AlertCircle size={isMobile ? 14 : 16} />
+                <span className="font-medium">
+                  {facturasPendientes.length}
+                </span>
+              </div>
+            )}
+
+            {/* Botón actualizar cache */}
+            <button
+              onClick={actualizarCache}
+              disabled={!isOnline || syncingCache}
+              className={`btn btn-outline flex items-center gap-2 ${
+                isMobile ? 'text-xs px-2 py-1.5' : ''
+              }`}
+              title="Actualizar catálogo"
+            >
+              <RefreshCw size={isMobile ? 14 : 16} className={syncingCache ? 'animate-spin' : ''} />
+              {!isMobile && 'Actualizar'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -627,61 +649,67 @@ export default function Facturacion() {
         </div>
       )}
 
-      {/* Stats del cache */}
+      {/* Stats del cache - Horizontal scroll en móvil */}
       {cacheStats && (
-        <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-1 md:grid-cols-3 gap-4'} mb-6`}>
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Package className="text-blue-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Productos en Cache</p>
-                <p className="text-2xl font-bold">{cacheStats.productos.total}</p>
-                {cacheStats.productos.ultimaActualizacion && (
-                  <p className="text-xs text-gray-500">
-                    Actualizado: {new Date(cacheStats.productos.ultimaActualizacion).toLocaleString('es-CR')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Users className="text-green-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Clientes en Cache</p>
-                <p className="text-2xl font-bold">{cacheStats.clientes.total}</p>
-                {cacheStats.clientes.ultimaActualizacion && (
-                  <p className="text-xs text-gray-500">
-                    Actualizado: {new Date(cacheStats.clientes.ultimaActualizacion).toLocaleString('es-CR')}
-                  </p>
-                )}
+        <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+          <div className={`${
+            isMobile 
+              ? 'flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-hide' 
+              : 'grid grid-cols-1 md:grid-cols-3 gap-4'
+          }`}>
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-blue-100 rounded-lg`}>
+                  <Package className="text-blue-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Productos</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.productos.total}</p>
+                  {!isMobile && cacheStats.productos.ultimaActualizacion && (
+                    <p className="text-xs text-gray-500">
+                      {new Date(cacheStats.productos.ultimaActualizacion).toLocaleDateString('es-CR')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Receipt className="text-purple-600" size={24} />
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-green-100 rounded-lg`}>
+                  <Users className="text-green-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clientes</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.clientes.total}</p>
+                  {!isMobile && cacheStats.clientes.ultimaActualizacion && (
+                    <p className="text-xs text-gray-500">
+                      {new Date(cacheStats.clientes.ultimaActualizacion).toLocaleDateString('es-CR')}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Facturas Pendientes</p>
-                <p className="text-2xl font-bold">{cacheStats.facturasPendientes}</p>
-                <p className="text-xs text-gray-500">Por sincronizar</p>
+            </div>
+
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-purple-100 rounded-lg`}>
+                  <Receipt className="text-purple-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Pendientes</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.facturasPendientes}</p>
+                  <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500`}>Por sincronizar</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'} gap-6`}>
+      <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
         {/* Columna principal: Entrada de datos */}
-        <div className={`${isMobile ? '' : 'lg:col-span-2'} space-y-6`}>
+        <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
           
           {/* Selección de Cliente */}
           <div className="card">
@@ -754,9 +782,9 @@ export default function Facturacion() {
           </div>
 
           {/* Entrada de Productos */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Package size={20} />
+          <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
+            <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
+              <Package size={isMobile ? 18 : 20} />
               Agregar Productos
             </h3>
 
@@ -829,22 +857,44 @@ export default function Facturacion() {
             {/* Modo Búsqueda por Nombre - Desktop y Móvil */}
             {(!modoEntradaRapida || isMobile) && (
               <div>
-                <input
-                  ref={busquedaProductoInputRef}
-                  type="text"
-                  value={busquedaProducto}
-                  onChange={(e) => {
-                    setBusquedaProducto(e.target.value);
-                    buscarProductosPorNombre(e.target.value);
-                  }}
-                  placeholder={isMobile ? "Buscar producto..." : "Buscar producto por código o nombre..."}
-                  className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                  autoFocus={isMobile}
-                />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={isMobile ? 18 : 20} />
+                  <input
+                    ref={busquedaProductoInputRef}
+                    type="search"
+                    inputMode="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    value={busquedaProducto}
+                    onChange={(e) => {
+                      setBusquedaProducto(e.target.value);
+                      buscarProductosPorNombre(e.target.value);
+                    }}
+                    placeholder={isMobile ? "Buscar producto..." : "Buscar producto por código o nombre..."}
+                    className={`input w-full ${isMobile ? 'text-base pl-10 py-3' : 'pl-10'}`}
+                    autoFocus={isMobile}
+                    style={isMobile ? { fontSize: '16px' } : {}}
+                  />
+                  {busquedaProducto && (
+                    <button
+                      onClick={() => {
+                        setBusquedaProducto('');
+                        setProductosEncontrados([]);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
 
                 {/* Resultados búsqueda productos */}
                 {productosEncontrados.length > 0 && (
-                  <div className="mt-2 border border-gray-200 rounded-lg max-h-80 overflow-y-auto">
+                  <div className={`mt-2 border border-gray-200 rounded-lg max-h-80 overflow-y-auto ${
+                    isMobile ? 'shadow-lg' : ''
+                  }`}>
                     {productosEncontrados.map((producto) => (
                       <button
                         key={producto.id}
@@ -857,17 +907,27 @@ export default function Facturacion() {
                             setProductosEncontrados([]);
                           }
                         }}
-                        className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        className={`w-full text-left ${
+                          isMobile ? 'p-4 active:bg-blue-50' : 'p-3 hover:bg-gray-50'
+                        } border-b border-gray-100 last:border-b-0 transition-colors`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium">{producto.name}</p>
-                            <p className="text-sm text-gray-600">Código: {getReference(producto.reference)}</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium truncate ${isMobile ? 'text-base' : ''}`}>{producto.name}</p>
+                            <p className={`text-gray-600 truncate ${isMobile ? 'text-sm' : 'text-sm'}`}>
+                              {getReference(producto.reference)}
+                            </p>
                             {producto.price && (
-                              <p className="text-sm text-green-600">₡{producto.price.toLocaleString()}</p>
+                              <p className={`text-green-600 font-semibold ${isMobile ? 'text-base mt-1' : 'text-sm'}`}>
+                                ₡{producto.price.toLocaleString()}
+                              </p>
                             )}
                           </div>
-                          <Plus className="text-blue-600" size={20} />
+                          <div className={`${
+                            isMobile ? 'p-2 bg-blue-100 rounded-full' : ''
+                          }`}>
+                            <Plus className="text-blue-600" size={isMobile ? 24 : 20} />
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -956,12 +1016,12 @@ export default function Facturacion() {
         </div>
 
         {/* Columna derecha: Resumen y configuración */}
-        <div className="space-y-6">
+        <div className={`${isMobile ? 'space-y-4' : 'space-y-6'}`}>
           
           {/* Configuración de Factura */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <FileText size={20} />
+          <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
+            <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
+              <FileText size={isMobile ? 18 : 20} />
               Configuración
             </h3>
 
@@ -1038,118 +1098,207 @@ export default function Facturacion() {
             </div>
           </div>
 
-          {/* Resumen de Totales */}
-          <div className="card bg-gradient-to-br from-blue-50 to-purple-50">
-            <h3 className="text-lg font-semibold mb-4">Resumen</h3>
+          {/* Resumen de Totales - Bottom Sheet en móvil */}
+          <div className={`${
+            isMobile 
+              ? 'fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl border-t-2 border-blue-200' 
+              : 'card bg-gradient-to-br from-blue-50 to-purple-50'
+          }`}>
+            <div className={isMobile ? 'px-4 pt-3 pb-safe' : ''}>
+              {/* Header del resumen - Solo desktop */}
+              {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
 
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-gray-700">
-                <span>Subtotal:</span>
-                <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {/* Totales compactos en móvil */}
+              <div className={`${isMobile ? 'space-y-1 mb-3' : 'space-y-2 mb-4'}`}>
+                {!isMobile && (
+                  <>
+                    <div className="flex justify-between text-gray-700">
+                      <span>Subtotal:</span>
+                      <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    </div>
 
-              {descuentoGlobal > 0 && (
-                <div className="flex justify-between text-orange-600">
-                  <span>Descuento ({descuentoGlobal}%):</span>
-                  <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    {descuentoGlobal > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>Descuento ({descuentoGlobal}%):</span>
+                        <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-gray-700">
+                      <span>Impuestos ({impuestos[0]?.percentage || 0}%):</span>
+                      <span className="font-medium">₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Total - Siempre visible */}
+                <div className={`${
+                  isMobile ? 'py-2' : 'border-t-2 border-gray-300 pt-2'
+                } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}>
+                  <div>
+                    <span className={isMobile ? 'text-sm text-gray-600 block' : ''}>
+                      {isMobile && `${items.length} ${items.length === 1 ? 'producto' : 'productos'} •`}
+                    </span>
+                    <span>TOTAL:</span>
+                  </div>
+                  <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                 </div>
-              )}
-
-              <div className="flex justify-between text-gray-700">
-                <span>Impuestos ({impuestos[0]?.percentage || 0}%):</span>
-                <span className="font-medium">₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="border-t-2 border-gray-300 pt-2 flex justify-between text-xl font-bold text-gray-900">
-                <span>TOTAL:</span>
-                <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+              {/* Botones de acción */}
+              <div className={`${isMobile ? 'space-y-2' : 'space-y-2'}`}>
+                <button
+                  onClick={finalizarFactura}
+                  disabled={!clienteSeleccionado || items.length === 0 || loading}
+                  className={`btn btn-primary w-full flex items-center justify-center gap-2 ${
+                    isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
+                  }`}
+                >
+                  <Check size={isMobile ? 24 : 20} />
+                  {loading ? 'Procesando...' : (isMobile ? 'Finalizar' : 'Finalizar Factura')}
+                </button>
+
+                {!isMobile && (
+                  <button
+                    onClick={limpiarFactura}
+                    className="btn btn-outline w-full flex items-center justify-center gap-2"
+                  >
+                    <X size={20} />
+                    Cancelar
+                  </button>
+                )}
               </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="space-y-2">
-              <button
-                onClick={finalizarFactura}
-                disabled={!clienteSeleccionado || items.length === 0 || loading}
-                className={`btn btn-primary w-full flex items-center justify-center gap-2 ${isMobile ? 'py-3 text-base' : ''}`}
-              >
-                <Check size={isMobile ? 24 : 20} />
-                {loading ? 'Procesando...' : 'Finalizar Factura'}
-              </button>
-
-              <button
-                onClick={limpiarFactura}
-                className={`btn btn-outline w-full flex items-center justify-center gap-2 ${isMobile ? 'py-3 text-base' : ''}`}
-              >
-                <X size={isMobile ? 24 : 20} />
-                Cancelar
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal de Cantidad para Móvil */}
+      {/* Modal de Cantidad para Móvil - Optimizado touch */}
       {modalCantidadMovil && productoSeleccionadoMovil && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-end sm:items-center justify-center"
+          onClick={() => {
+            setModalCantidadMovil(false);
+            setProductoSeleccionadoMovil(null);
+            setCantidadMovil('');
+          }}
+        >
+          <div 
+            className="bg-white rounded-t-3xl sm:rounded-xl shadow-2xl w-full sm:max-w-md p-6 animate-slideUp"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: '85vh' }}
+          >
+            {/* Handle visual para drag (solo móvil) */}
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+
             {/* Producto seleccionado */}
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
                 {productoSeleccionadoMovil.name}
               </h3>
-              <p className="text-sm text-gray-600">
-                Código: {getReference(productoSeleccionadoMovil.reference)}
+              <p className="text-sm text-gray-600 flex items-center gap-2">
+                <Package size={14} />
+                {getReference(productoSeleccionadoMovil.reference)}
               </p>
               {productoSeleccionadoMovil.price && (
-                <p className="text-lg font-semibold text-green-600 mt-2">
+                <p className="text-2xl font-bold text-green-600 mt-3">
                   ₡{productoSeleccionadoMovil.price.toLocaleString()}
                 </p>
               )}
             </div>
 
-            {/* Input de cantidad */}
+            {/* Input de cantidad con botones + y - */}
             <div className="mb-6">
-              <label className="block text-lg font-semibold text-gray-900 mb-3">
-                ¿Cuántas unidades desea?
+              <label className="block text-lg font-semibold text-gray-900 mb-4">
+                Cantidad
               </label>
-              <input
-                type="number"
-                min="1"
-                value={cantidadMovil}
-                onChange={(e) => setCantidadMovil(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    confirmarCantidadMovil();
-                  }
-                }}
-                placeholder="Ingrese cantidad"
-                className="input w-full text-2xl text-center font-bold"
-                autoFocus
-                inputMode="numeric"
-              />
+              
+              <div className="flex items-center gap-3">
+                {/* Botón menos */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(cantidadMovil) || 1;
+                    if (current > 1) setCantidadMovil((current - 1).toString());
+                  }}
+                  className="w-14 h-14 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-xl text-gray-700 font-bold text-2xl transition-colors"
+                >
+                  <Minus size={24} />
+                </button>
+
+                {/* Input numérico */}
+                <input
+                  type="number"
+                  min="1"
+                  value={cantidadMovil}
+                  onChange={(e) => setCantidadMovil(e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      confirmarCantidadMovil();
+                    }
+                  }}
+                  placeholder="1"
+                  className="flex-1 text-center text-3xl font-bold border-2 border-gray-300 rounded-xl py-3 px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-200"
+                  autoFocus
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  style={{ fontSize: '28px' }}
+                />
+
+                {/* Botón más */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = parseInt(cantidadMovil) || 0;
+                    setCantidadMovil((current + 1).toString());
+                  }}
+                  className="w-14 h-14 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl text-white font-bold text-2xl transition-colors"
+                >
+                  <Plus size={24} />
+                </button>
+              </div>
+
+              {/* Botones de cantidad rápida */}
+              <div className="flex gap-2 mt-4">
+                {[1, 5, 10, 20].map(qty => (
+                  <button
+                    key={qty}
+                    type="button"
+                    onClick={() => setCantidadMovil(qty.toString())}
+                    className={`flex-1 py-2 px-3 rounded-lg font-semibold transition-colors ${
+                      parseInt(cantidadMovil) === qty
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
+                    }`}
+                  >
+                    {qty}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Botones */}
+            {/* Botones de acción */}
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setModalCantidadMovil(false);
                   setProductoSeleccionadoMovil(null);
                   setCantidadMovil('');
                 }}
-                className="flex-1 py-3 px-4 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                className="flex-1 py-4 px-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 active:bg-gray-400 transition-colors text-base"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={confirmarCantidadMovil}
                 disabled={!cantidadMovil || parseInt(cantidadMovil) <= 0}
-                className="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 py-4 px-4 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-lg"
               >
-                <Check size={24} />
+                <Check size={24} strokeWidth={3} />
                 Agregar
               </button>
             </div>

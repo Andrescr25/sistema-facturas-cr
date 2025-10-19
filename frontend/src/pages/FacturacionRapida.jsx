@@ -51,16 +51,52 @@ export default function Facturacion() {
   const cantidadInputRef = useRef(null);
   const busquedaClienteRef = useRef(null);
 
-  // Detectar tipo de dispositivo
+  // Detectar tipo de dispositivo (mejorado con mejor detección)
   useEffect(() => {
     const checkDevice = () => {
-      const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+      // Detección más precisa de dispositivos móviles
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isMobileUserAgent = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isSmallScreen = window.innerWidth < 768;
+      const isTablet = window.innerWidth >= 768 && window.innerWidth <= 1024;
+      
+      // Es móvil si tiene pantalla pequeña O (táctil Y user agent móvil)
+      const mobile = isSmallScreen || (isTouchDevice && isMobileUserAgent && !isTablet);
+      
       setIsMobile(mobile);
+      
+      // Agregar clase al body para estilos globales
+      if (mobile) {
+        document.body.classList.add('mobile-device');
+        document.body.classList.remove('desktop-device');
+        document.body.classList.add('touch-device');
+      } else {
+        document.body.classList.add('desktop-device');
+        document.body.classList.remove('mobile-device');
+        if (isTouchDevice) {
+          document.body.classList.add('touch-device');
+        }
+      }
+      
+      console.log('🔍 Dispositivo detectado:', {
+        mobile,
+        isTouchDevice,
+        isMobileUserAgent,
+        isSmallScreen,
+        isTablet,
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
     };
 
     checkDevice();
     window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
+    window.addEventListener('orientationchange', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+      window.removeEventListener('orientationchange', checkDevice);
+    };
   }, []);
 
   // Inicializar servicio y cargar datos
@@ -478,50 +514,65 @@ export default function Facturacion() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Zap className="text-yellow-500" size={32} />
-            Facturación
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Sistema de facturación con soporte offline
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Indicador de conexión */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-            isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-          }`}>
-            {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-            <span className="text-sm font-medium">
-              {isOnline ? 'Online' : 'Offline'}
-            </span>
+    <div className={`${isMobile ? 'pb-20' : 'max-w-7xl mx-auto'}`}>
+      {/* Header - Sticky en móvil */}
+      <div className={`${isMobile ? 'sticky top-0 z-40 bg-white shadow-md px-4 py-3' : 'mb-6'}`}>
+        <div className={`${isMobile ? '' : 'flex items-center justify-between'}`}>
+          <div className={isMobile ? 'mb-3' : ''}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold text-gray-900 flex items-center gap-2`}>
+              <Zap className="text-yellow-500" size={isMobile ? 24 : 32} />
+              Facturación Rápida
+              {isMobile && (
+                <span className="ml-auto text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                  {isOnline ? '🟢' : '🔴'}
+                </span>
+              )}
+            </h1>
+            {!isMobile && (
+              <p className="text-gray-600 mt-1">
+                Sistema de facturación rápida con soporte offline
+              </p>
+            )}
           </div>
 
-          {/* Facturas pendientes */}
-          {facturasPendientes.length > 0 && (
-            <div className="bg-yellow-100 text-yellow-800 px-3 py-2 rounded-lg flex items-center gap-2">
-              <AlertCircle size={16} />
-              <span className="text-sm font-medium">
-                {facturasPendientes.length} pendiente{facturasPendientes.length > 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
+          <div className={`flex ${isMobile ? 'justify-between' : ''} items-center gap-2`}>
+            {/* Indicador de conexión - Solo desktop */}
+            {!isMobile && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+              }`}>
+                {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
+                <span className="text-sm font-medium">
+                  {isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            )}
 
-          {/* Botón actualizar cache */}
-          <button
-            onClick={actualizarCache}
-            disabled={!isOnline || syncingCache}
-            className="btn btn-outline flex items-center gap-2"
-            title="Actualizar catálogo"
-          >
-            <RefreshCw size={16} className={syncingCache ? 'animate-spin' : ''} />
-            {!isMobile && 'Actualizar'}
-          </button>
+            {/* Facturas pendientes */}
+            {facturasPendientes.length > 0 && (
+              <div className={`bg-yellow-100 text-yellow-800 px-3 py-2 rounded-lg flex items-center gap-2 ${
+                isMobile ? 'text-xs' : 'text-sm'
+              }`}>
+                <AlertCircle size={isMobile ? 14 : 16} />
+                <span className="font-medium">
+                  {facturasPendientes.length}
+                </span>
+              </div>
+            )}
+
+            {/* Botón actualizar cache */}
+            <button
+              onClick={actualizarCache}
+              disabled={!isOnline || syncingCache}
+              className={`btn btn-outline flex items-center gap-2 ${
+                isMobile ? 'text-xs px-2 py-1.5' : ''
+              }`}
+              title="Actualizar catálogo"
+            >
+              <RefreshCw size={isMobile ? 14 : 16} className={syncingCache ? 'animate-spin' : ''} />
+              {!isMobile && 'Actualizar'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -538,61 +589,67 @@ export default function Facturacion() {
         </div>
       )}
 
-      {/* Stats del cache */}
+      {/* Stats del cache - Horizontal scroll en móvil */}
       {cacheStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Package className="text-blue-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Productos en Cache</p>
-                <p className="text-2xl font-bold">{cacheStats.productos.total}</p>
-                {cacheStats.productos.ultimaActualizacion && (
-                  <p className="text-xs text-gray-500">
-                    Actualizado: {new Date(cacheStats.productos.ultimaActualizacion).toLocaleString('es-CR')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Users className="text-green-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Clientes en Cache</p>
-                <p className="text-2xl font-bold">{cacheStats.clientes.total}</p>
-                {cacheStats.clientes.ultimaActualizacion && (
-                  <p className="text-xs text-gray-500">
-                    Actualizado: {new Date(cacheStats.clientes.ultimaActualizacion).toLocaleString('es-CR')}
-                  </p>
-                )}
+        <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+          <div className={`${
+            isMobile 
+              ? 'flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-hide' 
+              : 'grid grid-cols-1 md:grid-cols-3 gap-4'
+          }`}>
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-blue-100 rounded-lg`}>
+                  <Package className="text-blue-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Productos</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.productos.total}</p>
+                  {!isMobile && cacheStats.productos.ultimaActualizacion && (
+                    <p className="text-xs text-gray-500">
+                      {new Date(cacheStats.productos.ultimaActualizacion).toLocaleDateString('es-CR')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Receipt className="text-purple-600" size={24} />
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-green-100 rounded-lg`}>
+                  <Users className="text-green-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clientes</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.clientes.total}</p>
+                  {!isMobile && cacheStats.clientes.ultimaActualizacion && (
+                    <p className="text-xs text-gray-500">
+                      {new Date(cacheStats.clientes.ultimaActualizacion).toLocaleDateString('es-CR')}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Facturas Pendientes</p>
-                <p className="text-2xl font-bold">{cacheStats.facturasPendientes}</p>
-                <p className="text-xs text-gray-500">Por sincronizar</p>
+            </div>
+
+            <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
+              <div className="flex items-center gap-3">
+                <div className={`${isMobile ? 'p-2' : 'p-2'} bg-purple-100 rounded-lg`}>
+                  <Receipt className="text-purple-600" size={isMobile ? 20 : 24} />
+                </div>
+                <div>
+                  <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Pendientes</p>
+                  <p className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold`}>{cacheStats.facturasPendientes}</p>
+                  <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-500`}>Por sincronizar</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'} gap-6`}>
+      <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
         {/* Columna principal: Entrada de datos */}
-        <div className={`${isMobile ? '' : 'lg:col-span-2'} space-y-6`}>
+        <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
           
           {/* Selección de Cliente */}
           <div className="card">
@@ -855,12 +912,12 @@ export default function Facturacion() {
         </div>
 
         {/* Columna derecha: Resumen y configuración */}
-        <div className="space-y-6">
+        <div className={`${isMobile ? 'space-y-4' : 'space-y-6'}`}>
           
           {/* Configuración de Factura */}
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <FileText size={20} />
+          <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
+            <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
+              <FileText size={isMobile ? 18 : 20} />
               Configuración
             </h3>
 
@@ -936,52 +993,76 @@ export default function Facturacion() {
             </div>
           </div>
 
-          {/* Resumen de Totales */}
-          <div className="card bg-gradient-to-br from-blue-50 to-purple-50">
-            <h3 className="text-lg font-semibold mb-4">Resumen</h3>
+          {/* Resumen de Totales - Bottom Sheet en móvil */}
+          <div className={`${
+            isMobile 
+              ? 'fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl border-t-2 border-blue-200' 
+              : 'card bg-gradient-to-br from-blue-50 to-purple-50'
+          }`}>
+            <div className={isMobile ? 'px-4 pt-3 pb-safe' : ''}>
+              {/* Header del resumen - Solo desktop */}
+              {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
 
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-gray-700">
-                <span>Subtotal:</span>
-                <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-              </div>
+              {/* Totales compactos en móvil */}
+              <div className={`${isMobile ? 'space-y-1 mb-3' : 'space-y-2 mb-4'}`}>
+                {!isMobile && (
+                  <>
+                    <div className="flex justify-between text-gray-700">
+                      <span>Subtotal:</span>
+                      <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    </div>
 
-              {descuentoGlobal > 0 && (
-                <div className="flex justify-between text-orange-600">
-                  <span>Descuento ({descuentoGlobal}%):</span>
-                  <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    {descuentoGlobal > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>Descuento ({descuentoGlobal}%):</span>
+                        <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-gray-700">
+                      <span>Impuestos ({impuestos[0]?.percentage || 0}%):</span>
+                      <span className="font-medium">₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Total - Siempre visible */}
+                <div className={`${
+                  isMobile ? 'py-2' : 'border-t-2 border-gray-300 pt-2'
+                } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}>
+                  <div>
+                    <span className={isMobile ? 'text-sm text-gray-600 block' : ''}>
+                      {isMobile && `${items.length} ${items.length === 1 ? 'producto' : 'productos'} •`}
+                    </span>
+                    <span>TOTAL:</span>
+                  </div>
+                  <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                 </div>
-              )}
-
-              <div className="flex justify-between text-gray-700">
-                <span>Impuestos ({impuestos[0]?.percentage || 0}%):</span>
-                <span className="font-medium">₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="border-t-2 border-gray-300 pt-2 flex justify-between text-xl font-bold text-gray-900">
-                <span>TOTAL:</span>
-                <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+              {/* Botones de acción */}
+              <div className={`${isMobile ? 'space-y-2' : 'space-y-2'}`}>
+                <button
+                  onClick={finalizarFactura}
+                  disabled={!clienteSeleccionado || items.length === 0 || loading}
+                  className={`btn btn-primary w-full flex items-center justify-center gap-2 ${
+                    isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
+                  }`}
+                >
+                  <Check size={isMobile ? 24 : 20} />
+                  {loading ? 'Procesando...' : (isMobile ? 'Finalizar' : 'Finalizar Factura')}
+                </button>
+
+                {!isMobile && (
+                  <button
+                    onClick={limpiarFactura}
+                    className="btn btn-outline w-full flex items-center justify-center gap-2"
+                  >
+                    <X size={20} />
+                    Cancelar
+                  </button>
+                )}
               </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="space-y-2">
-              <button
-                onClick={finalizarFactura}
-                disabled={!clienteSeleccionado || items.length === 0 || loading}
-                className="btn btn-primary w-full flex items-center justify-center gap-2"
-              >
-                <Check size={20} />
-                {loading ? 'Procesando...' : 'Finalizar Factura'}
-              </button>
-
-              <button
-                onClick={limpiarFactura}
-                className="btn btn-outline w-full flex items-center justify-center gap-2"
-              >
-                <X size={20} />
-                Cancelar
-              </button>
             </div>
           </div>
         </div>
