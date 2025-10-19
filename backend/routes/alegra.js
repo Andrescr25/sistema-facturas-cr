@@ -350,6 +350,33 @@ router.get('/facturas/siguiente-consecutivo', async (req, res) => {
   }
 });
 
+// Descargar PDF de factura desde Alegra
+router.get('/facturas/:id/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`📄 Descargando PDF de factura ${id} desde Alegra...`);
+
+    // Obtener el PDF desde Alegra
+    const response = await alegraService.api.get(`/invoices/${id}/files/pdf`, {
+      responseType: 'arraybuffer'
+    });
+
+    // Configurar headers para descargar el PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Factura_${id}.pdf`);
+    res.send(Buffer.from(response.data));
+
+    console.log(`✅ PDF de factura ${id} enviado exitosamente`);
+  } catch (error) {
+    console.error('❌ Error descargando PDF:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error descargando PDF de Alegra'
+    });
+  }
+});
+
 // Buscar facturas por cliente
 router.get('/facturas/buscar/cliente/:cliente', async (req, res) => {
   try {

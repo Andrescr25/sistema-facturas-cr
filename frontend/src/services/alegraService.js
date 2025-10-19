@@ -34,6 +34,33 @@ export const alegraService = {
     }
   },
 
+  // Descargar PDF de factura desde Alegra
+  async descargarPDFFactura(facturaId) {
+    try {
+      console.log('📄 Frontend: Descargando PDF de factura', facturaId);
+      const response = await api.get(`/alegra/facturas/${facturaId}/pdf`, {
+        responseType: 'blob'
+      });
+      
+      // Crear URL del blob y descargar
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Factura_${facturaId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Frontend: PDF descargado exitosamente');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Frontend: Error descargando PDF:', error);
+      throw new Error(`Error descargando PDF: ${error.message}`);
+    }
+  },
+
   // Buscar facturas por número
   async buscarFacturasPorNumero(numero) {
     try {

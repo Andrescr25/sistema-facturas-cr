@@ -5,7 +5,6 @@ import {
   CreditCard, Calendar, FileText, Download, Send
 } from 'lucide-react';
 import facturacionService from '../services/facturacionService';
-import { descargarFacturaPDF, getSiguienteConsecutivo } from '../utils/pdfGenerator';
 import { alegraService } from '../services/alegraService';
 
 export default function Facturacion() {
@@ -521,38 +520,17 @@ export default function Facturacion() {
           5000
         );
 
-        // Obtener siguiente consecutivo y generar PDF
-        try {
-          // Obtener el consecutivo de Alegra solo si NO hay ID de resultado
-          let numeroFactura = resultado.data?.id;
-          if (!numeroFactura) {
-            try {
-              const consecutivoResponse = await alegraService.getSiguienteConsecutivo();
-              numeroFactura = consecutivoResponse.siguienteConsecutivo || `LOCAL-${resultado.localId}`;
-            } catch (error) {
-              console.log('No se pudo obtener consecutivo de Alegra, usando local');
-              numeroFactura = `LOCAL-${resultado.localId}`;
-            }
+        // Descargar PDF desde Alegra (solo si se creó online)
+        if (resultado.online && resultado.data?.id) {
+          try {
+            await alegraService.descargarPDFFactura(resultado.data.id);
+            mostrarMensaje('📄 PDF descargado desde Alegra', 'success', 2000);
+          } catch (pdfError) {
+            console.error('Error descargando PDF desde Alegra:', pdfError);
+            mostrarMensaje('⚠️ Error descargando PDF. La factura fue creada correctamente.', 'warning', 3000);
           }
-
-          const pdfData = {
-            invoice: {
-              id: numeroFactura,
-              fecha: fecha,
-              electronica: esElectronica,
-              observaciones: observaciones,
-              descuentoGlobal: descuentoGlobal,
-              impuestoPorcentaje: impuestos[0]?.percentage || 13
-            },
-            client: clienteSeleccionado,
-            items: items
-          };
-
-          await descargarFacturaPDF(pdfData);
-          mostrarMensaje('📄 PDF descargado', 'success', 2000);
-        } catch (pdfError) {
-          console.error('Error generando PDF:', pdfError);
-          mostrarMensaje('⚠️ Error generando PDF', 'warning', 3000);
+        } else if (!resultado.online) {
+          mostrarMensaje('ℹ️ El PDF se generará cuando la factura se sincronice con Alegra', 'info', 4000);
         }
 
         // Limpiar formulario
