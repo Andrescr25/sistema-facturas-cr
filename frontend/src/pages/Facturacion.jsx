@@ -5,7 +5,8 @@ import {
   CreditCard, Calendar, FileText, Download, Send
 } from 'lucide-react';
 import facturacionService from '../services/facturacionService';
-import { descargarFacturaPDF } from '../utils/pdfGenerator';
+import { descargarFacturaPDF, getSiguienteConsecutivo } from '../utils/pdfGenerator';
+import { alegraService } from '../services/alegraService';
 
 export default function Facturacion() {
   // Estados principales
@@ -520,11 +521,23 @@ export default function Facturacion() {
           5000
         );
 
-        // Generar y descargar PDF
+        // Obtener siguiente consecutivo y generar PDF
         try {
+          // Obtener el consecutivo de Alegra solo si NO hay ID de resultado
+          let numeroFactura = resultado.data?.id;
+          if (!numeroFactura) {
+            try {
+              const consecutivoResponse = await alegraService.getSiguienteConsecutivo();
+              numeroFactura = consecutivoResponse.siguienteConsecutivo || `LOCAL-${resultado.localId}`;
+            } catch (error) {
+              console.log('No se pudo obtener consecutivo de Alegra, usando local');
+              numeroFactura = `LOCAL-${resultado.localId}`;
+            }
+          }
+
           const pdfData = {
             invoice: {
-              id: resultado.data?.id || `LOCAL-${resultado.localId}`,
+              id: numeroFactura,
               fecha: fecha,
               electronica: esElectronica,
               observaciones: observaciones,
@@ -532,17 +545,10 @@ export default function Facturacion() {
               impuestoPorcentaje: impuestos[0]?.percentage || 13
             },
             client: clienteSeleccionado,
-            items: items,
-            empresa: {
-              nombre: 'DISTRIBUIDORA TACHI',
-              cedula: '3-101-234567',
-              direccion: 'San José, Costa Rica',
-              telefono: '2222-2222',
-              email: 'info@tachi.cr'
-            }
+            items: items
           };
 
-          descargarFacturaPDF(pdfData);
+          await descargarFacturaPDF(pdfData);
           mostrarMensaje('📄 PDF descargado', 'success', 2000);
         } catch (pdfError) {
           console.error('Error generando PDF:', pdfError);

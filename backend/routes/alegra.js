@@ -290,6 +290,66 @@ router.get('/facturas/buscar/numero/:numero', async (req, res) => {
 });
 
 
+// Obtener el siguiente número de consecutivo
+router.get('/facturas/siguiente-consecutivo', async (req, res) => {
+  try {
+    console.log('🔢 Obteniendo siguiente consecutivo de factura...');
+
+    // Obtener la última factura
+    const result = await alegraService.api.get('/invoices', {
+      params: {
+        order_field: 'numberTemplate.number',
+        order_direction: 'DESC',
+        limit: 1
+      }
+    });
+
+    if (result.data && result.data.length > 0) {
+      const ultimaFactura = result.data[0];
+      const ultimoNumero = ultimaFactura.numberTemplate?.fullNumber || '001000012979';
+      
+      console.log(`📋 Última factura: ${ultimoNumero}`);
+      
+      // Extraer el número y sumar 1
+      const match = ultimoNumero.match(/(\d+)$/);
+      if (match) {
+        const numeroActual = parseInt(match[1]);
+        const siguienteNumero = (numeroActual + 1).toString().padStart(match[1].length, '0');
+        
+        console.log(`✅ Siguiente consecutivo: ${siguienteNumero}`);
+        
+        res.json({
+          success: true,
+          ultimoNumero: ultimoNumero,
+          siguienteNumero: siguienteNumero,
+          siguienteConsecutivo: siguienteNumero
+        });
+      } else {
+        res.json({
+          success: true,
+          ultimoNumero: ultimoNumero,
+          siguienteNumero: '001000012980',
+          siguienteConsecutivo: '001000012980'
+        });
+      }
+    } else {
+      res.json({
+        success: true,
+        ultimoNumero: '001000012979',
+        siguienteNumero: '001000012980',
+        siguienteConsecutivo: '001000012980'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo consecutivo:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo consecutivo'
+    });
+  }
+});
+
 // Buscar facturas por cliente
 router.get('/facturas/buscar/cliente/:cliente', async (req, res) => {
   try {

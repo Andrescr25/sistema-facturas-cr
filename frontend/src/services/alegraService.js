@@ -21,6 +21,19 @@ export const alegraService = {
     }
   },
 
+  // Obtener el siguiente número de consecutivo
+  async getSiguienteConsecutivo() {
+    try {
+      console.log('🔢 Frontend: Obteniendo siguiente consecutivo...');
+      const response = await api.get('/alegra/facturas/siguiente-consecutivo');
+      console.log('✅ Frontend: Consecutivo obtenido:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Frontend: Error obteniendo consecutivo:', error);
+      throw new Error(`Error obteniendo consecutivo: ${error.message}`);
+    }
+  },
+
   // Buscar facturas por número
   async buscarFacturasPorNumero(numero) {
     try {
