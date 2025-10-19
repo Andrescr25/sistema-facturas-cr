@@ -34,30 +34,27 @@ export const alegraService = {
     }
   },
 
-  // Descargar PDF de factura desde Alegra
-  async descargarPDFFactura(facturaId) {
+  // Visualizar PDF de factura desde Alegra en nueva pestaña
+  async visualizarPDFFactura(facturaId) {
     try {
-      console.log('📄 Frontend: Descargando PDF de factura', facturaId);
-      const response = await api.get(`/alegra/facturas/${facturaId}/pdf`, {
-        responseType: 'blob'
-      });
+      console.log('📄 Frontend: Abriendo PDF de factura', facturaId);
       
-      // Crear URL del blob y descargar
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Factura_${facturaId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Construir URL del PDF
+      const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+      const pdfUrl = `${baseURL}/alegra/facturas/${facturaId}/pdf`;
       
-      console.log('✅ Frontend: PDF descargado exitosamente');
+      // Abrir en nueva pestaña
+      const ventana = window.open(pdfUrl, '_blank');
+      
+      if (!ventana) {
+        throw new Error('No se pudo abrir la ventana. Verifica que no estén bloqueadas las ventanas emergentes.');
+      }
+      
+      console.log('✅ Frontend: PDF abierto en nueva pestaña');
       return { success: true };
     } catch (error) {
-      console.error('❌ Frontend: Error descargando PDF:', error);
-      throw new Error(`Error descargando PDF: ${error.message}`);
+      console.error('❌ Frontend: Error visualizando PDF:', error);
+      throw new Error(`Error visualizando PDF: ${error.message}`);
     }
   },
 

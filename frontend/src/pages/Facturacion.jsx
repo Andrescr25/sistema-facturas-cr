@@ -520,17 +520,17 @@ export default function Facturacion() {
           5000
         );
 
-        // Descargar PDF desde Alegra (solo si se creó online)
+        // Visualizar PDF desde Alegra (solo si se creó online)
         if (resultado.online && resultado.data?.id) {
           try {
-            await alegraService.descargarPDFFactura(resultado.data.id);
-            mostrarMensaje('📄 PDF descargado desde Alegra', 'success', 2000);
+            await alegraService.visualizarPDFFactura(resultado.data.id);
+            mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000);
           } catch (pdfError) {
-            console.error('Error descargando PDF desde Alegra:', pdfError);
-            mostrarMensaje('⚠️ Error descargando PDF. La factura fue creada correctamente.', 'warning', 3000);
+            console.error('Error visualizando PDF desde Alegra:', pdfError);
+            mostrarMensaje('⚠️ Error abriendo PDF. La factura fue creada correctamente.', 'warning', 3000);
           }
         } else if (!resultado.online) {
-          mostrarMensaje('ℹ️ El PDF se generará cuando la factura se sincronice con Alegra', 'info', 4000);
+          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se sincronice con Alegra', 'info', 4000);
         }
 
         // Limpiar formulario
