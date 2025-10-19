@@ -392,9 +392,10 @@ router.get('/facturas/:id/pdf', async (req, res) => {
     
     console.log(`📥 Respuesta de preview:`, JSON.stringify(previewResponse.data, null, 2));
     
-    // 4. Extraer la URL del PDF
-    if (previewResponse.data && previewResponse.data.url) {
-      const pdfUrl = previewResponse.data.url;
+    // 4. Extraer la URL del PDF (Alegra usa el campo 'pdfUrl')
+    const pdfUrl = previewResponse.data.pdfUrl || previewResponse.data.url;
+    
+    if (pdfUrl) {
       console.log(`✅ URL del PDF generada: ${pdfUrl}`);
       
       // Devolver la URL para que el frontend la abra
