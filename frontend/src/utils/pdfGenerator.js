@@ -1,190 +1,266 @@
-/**
- * 📄 Generador de PDF para Facturas
- * 
- * Genera PDFs con diseño similar a Alegra
- * Funciona completamente en el cliente sin necesidad de backend
- */
-
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-/**
- * Generar PDF de factura
- * 
- * @param {Object} facturaData - Datos de la factura
- * @param {Object} facturaData.invoice - Información de la factura
- * @param {Object} facturaData.client - Información del cliente
- * @param {Array} facturaData.items - Productos de la factura
- * @param {Object} facturaData.empresa - Información de la empresa
- */
+// Función para cargar configuración de empresa
+const getEmpresaConfig = () => {
+  try {
+    const config = localStorage.getItem('empresa_config');
+    if (config) {
+      return JSON.parse(config);
+    }
+  } catch (error) {
+    console.error('Error cargando configuración:', error);
+  }
+
+  // Configuración por defecto
+  return {
+    empresa: {
+      nombre: 'DISTRIBUIDORA TACHI',
+      cedula: '204050474',
+      direccion: 'Contiguo al mirador Call vazquez, Palmares',
+      telefono: '+506-86477036',
+      email: 'tachifacturas@gmail.com',
+      actividadEconomica: '523402 - Venta al por menor artículos de ferretería pinturas madera y materiales',
+      logo: null
+    },
+    bancos: [
+      { nombre: 'SINPE', cuenta: '86477036 TARCICIO VARGAS CHAVARRIA' },
+      { nombre: 'Banco Nacional', cuenta: '5518980336453110' },
+      { nombre: 'BAC', cuenta: '4745812311852180' }
+    ],
+    factura: {
+      terminosCondiciones: 'Gracias por su compra. Garantía según términos del fabricante.',
+      notaPie: 'Factura autorizada por Hacienda',
+      mostrarLogo: true,
+      mostrarCabys: true
+    }
+  };
+};
+
+// Función para convertir número a texto (español CR)
+const numeroATexto = (numero) => {
+  const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+  const decenas = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+  const especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+  const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+  if (numero === 0) return 'cero';
+  if (numero === 100) return 'cien';
+
+  let texto = '';
+  const parteEntera = Math.floor(numero);
+  
+  if (parteEntera >= 1000) {
+    const miles = Math.floor(parteEntera / 1000);
+    if (miles === 1) {
+      texto += 'mil ';
+    } else {
+      texto += numeroATexto(miles) + ' mil ';
+    }
+  }
+
+  const resto = parteEntera % 1000;
+  if (resto >= 100) {
+    texto += centenas[Math.floor(resto / 100)] + ' ';
+  }
+
+  const restoDecenas = resto % 100;
+  if (restoDecenas >= 10 && restoDecenas < 20) {
+    texto += especiales[restoDecenas - 10];
+  } else {
+    if (restoDecenas >= 20) {
+      texto += decenas[Math.floor(restoDecenas / 10)];
+      if (restoDecenas % 10 > 0) {
+        texto += ' y ' + unidades[restoDecenas % 10];
+      }
+    } else if (restoDecenas > 0) {
+      texto += unidades[restoDecenas];
+    }
+  }
+
+  return texto.trim() + ' colones costarricenses';
+};
+
 export const generarFacturaPDF = (facturaData) => {
   const doc = new jsPDF();
-
-  // Configuración
+  const config = getEmpresaConfig();
+  
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
-  const margin = 20;
-  let yPosition = margin;
-
-  // Colores
-  const primaryColor = [37, 99, 235]; // Azul
-  const secondaryColor = [107, 114, 128]; // Gris
-  const headerBg = [239, 246, 255]; // Azul claro
+  const margin = 15;
+  let yPosition = 20;
 
   // ==========================================
-  // HEADER - Información de la Empresa
+  // HEADER: Logo + Datos Empresa
   // ==========================================
-  doc.setFillColor(...headerBg);
-  doc.rect(0, 0, pageWidth, 50, 'F');
-
-  // Logo/Nombre de la empresa (izquierda)
-  doc.setFontSize(22);
-  doc.setTextColor(...primaryColor);
-  doc.setFont('helvetica', 'bold');
-  doc.text(facturaData.empresa?.nombre || 'DISTRIBUIDORA TACHI', margin, 20);
-
-  doc.setFontSize(10);
-  doc.setTextColor(...secondaryColor);
-  doc.setFont('helvetica', 'normal');
-  if (facturaData.empresa?.cedula) {
-    doc.text(`Cédula Jurídica: ${facturaData.empresa.cedula}`, margin, 28);
-  }
-  if (facturaData.empresa?.direccion) {
-    doc.text(facturaData.empresa.direccion, margin, 34);
-  }
-  if (facturaData.empresa?.telefono) {
-    doc.text(`Tel: ${facturaData.empresa.telefono}`, margin, 40);
-  }
-  if (facturaData.empresa?.email) {
-    doc.text(`Email: ${facturaData.empresa.email}`, margin, 46);
-  }
-
-  // Título FACTURA (derecha)
-  doc.setFontSize(24);
-  doc.setTextColor(...primaryColor);
-  doc.setFont('helvetica', 'bold');
-  const facturaTitle = facturaData.invoice?.electronica ? 'FACTURA ELECTRÓNICA' : 'FACTURA';
-  const titleWidth = doc.getTextWidth(facturaTitle);
-  doc.text(facturaTitle, pageWidth - margin - titleWidth, 20);
-
-  // Número de factura y fecha
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
-  if (facturaData.invoice?.id) {
-    const facturaNumText = `# ${facturaData.invoice.id}`;
-    const facturaNumWidth = doc.getTextWidth(facturaNumText);
-    doc.text(facturaNumText, pageWidth - margin - facturaNumWidth, 30);
-  }
-  if (facturaData.invoice?.fecha) {
-    const fechaText = `Fecha: ${new Date(facturaData.invoice.fecha).toLocaleDateString('es-CR')}`;
-    const fechaWidth = doc.getTextWidth(fechaText);
-    doc.text(fechaText, pageWidth - margin - fechaWidth, 36);
-  }
-
-  yPosition = 60;
-
-  // ==========================================
-  // INFORMACIÓN DEL CLIENTE
-  // ==========================================
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, yPosition, pageWidth - 2 * margin, 35, 'F');
-
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  doc.text('CLIENTE', margin + 5, yPosition + 8);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(String(facturaData.client?.name || 'Cliente'), margin + 5, yPosition + 15);
   
-  if (facturaData.client?.identification) {
-    doc.text(`Cédula: ${String(facturaData.client.identification)}`, margin + 5, yPosition + 21);
+  // Logo (si existe y está habilitado)
+  if (config.factura.mostrarLogo && config.empresa.logo) {
+    try {
+      doc.addImage(config.empresa.logo, 'PNG', margin, yPosition - 5, 30, 30);
+    } catch (error) {
+      console.error('Error agregando logo:', error);
+    }
   }
 
-  if (facturaData.client?.email) {
-    doc.text(`Email: ${String(facturaData.client.email)}`, margin + 5, yPosition + 27);
-  }
-
-  if (facturaData.client?.phone) {
-    const phoneText = `Tel: ${String(facturaData.client.phone)}`;
-    const phoneWidth = doc.getTextWidth(phoneText);
-    doc.text(phoneText, pageWidth - margin - phoneWidth - 5, yPosition + 21);
-  }
-
-  if (facturaData.client?.address) {
-    // Asegurar que address sea string (puede ser objeto en algunos casos)
-    const addressText = typeof facturaData.client.address === 'string' 
-      ? facturaData.client.address 
-      : facturaData.client.address?.address || 'Sin dirección';
-    doc.text(addressText, margin + 5, yPosition + 33);
-  }
+  // Datos de la empresa (derecha del logo)
+  const empresaX = config.factura.mostrarLogo && config.empresa.logo ? margin + 35 : margin;
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(config.empresa.nombre, empresaX, yPosition);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Cédula Física ${config.empresa.cedula}`, empresaX, yPosition + 5);
+  doc.text(config.empresa.direccion, empresaX, yPosition + 10);
+  doc.text(config.empresa.email, empresaX, yPosition + 15);
+  doc.text(config.empresa.telefono, empresaX, yPosition + 20);
+  
+  // Actividad económica (texto largo, ajustado)
+  doc.setFontSize(8);
+  const actividadLines = doc.splitTextToSize(`Actividad Económica ${config.empresa.actividadEconomica}`, pageWidth - empresaX - margin);
+  doc.text(actividadLines, empresaX, yPosition + 25);
 
   yPosition += 45;
 
   // ==========================================
+  // TÍTULO FACTURA (Esquina superior derecha)
+  // ==========================================
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 102, 204);
+  doc.text('Factura de venta', pageWidth - margin, 20, { align: 'right' });
+  
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text(String(facturaData.invoice?.id || '001000012979'), pageWidth - margin, 27, { align: 'right' });
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const fechaCreacion = facturaData.invoice?.fecha || new Date().toLocaleDateString('es-CR');
+  doc.text(`Fecha de creación: ${fechaCreacion}`, pageWidth - margin, 33, { align: 'right' });
+  doc.text(`Fecha de vencimiento: ${fechaCreacion}`, pageWidth - margin, 38, { align: 'right' });
+
+  // ==========================================
+  // INFORMACIÓN DEL CLIENTE
+  // ==========================================
+  yPosition += 5;
+  
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin, yPosition - 5, pageWidth - 2 * margin, 7, 'F');
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORMACIÓN DEL CLIENTE', margin + 2, yPosition);
+  
+  yPosition += 7;
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  const clienteNombre = String(facturaData.client?.name || 'Cliente');
+  const clienteCedula = String(facturaData.client?.identification || '');
+  const clienteTelefono = String(facturaData.client?.phone || '');
+  const clienteEmail = String(facturaData.client?.email || '');
+  
+  // Dirección (manejo especial si es objeto)
+  let clienteDireccion = '';
+  if (facturaData.client?.address) {
+    clienteDireccion = typeof facturaData.client.address === 'string' 
+      ? facturaData.client.address 
+      : facturaData.client.address?.address || '';
+  }
+  
+  doc.text(`Señor(es): ${clienteNombre}`, margin + 2, yPosition);
+  doc.text(`Cédula física: ${clienteCedula}`, margin + 2, yPosition + 5);
+  doc.text(`Teléfono: ${clienteTelefono}`, margin + 2, yPosition + 10);
+  doc.text(`Dirección: ${clienteDireccion}`, margin + 2, yPosition + 15);
+  doc.text(`Email: ${clienteEmail}`, margin + 2, yPosition + 20);
+  
+  // Método de pago y moneda
+  doc.text('Método de pago:', pageWidth / 2, yPosition);
+  doc.text('Moneda: CRC', pageWidth / 2, yPosition + 5);
+
+  yPosition += 30;
+
+  // ==========================================
   // TABLA DE PRODUCTOS
   // ==========================================
-  const tableColumn = ['#', 'Código', 'Descripción', 'Cantidad', 'Precio Unit.', 'Descuento', 'Subtotal'];
+  const tableColumn = ['Producto/Servicio', 'Cantidad', 'Precio Unitario', 'Descuento', 'Impuestos', 'Total línea'];
   const tableRows = [];
 
-  let subtotal = 0;
+  let subtotalSinImpuestos = 0;
+  let totalImpuestos = 0;
 
-  facturaData.items?.forEach((item, index) => {
+  // Helper para obtener reference como string
+  const getReference = (ref) => {
+    if (!ref) return '';
+    if (typeof ref === 'object' && ref.reference) return String(ref.reference);
+    return String(ref);
+  };
+
+  facturaData.items?.forEach((item) => {
     const cantidad = item.quantity || 0;
     const precio = item.price || 0;
     const descuentoPorcentaje = item.discount || 0;
     
-    const subtotalItem = cantidad * precio;
-    const descuentoMonto = (subtotalItem * descuentoPorcentaje) / 100;
-    const subtotalConDescuento = subtotalItem - descuentoMonto;
+    const subtotalLinea = cantidad * precio;
+    const descuentoMonto = (subtotalLinea * descuentoPorcentaje) / 100;
+    const baseImponible = subtotalLinea - descuentoMonto;
     
-    subtotal += subtotalConDescuento;
+    // Calcular impuesto (13%)
+    const impuesto = baseImponible * 0.13;
+    const totalLinea = baseImponible + impuesto;
+    
+    subtotalSinImpuestos += baseImponible;
+    totalImpuestos += impuesto;
 
-    // Asegurar que reference sea string (puede venir como objeto)
-    const getReference = (ref) => {
-      if (!ref) return '-';
-      if (typeof ref === 'object' && ref.reference) return String(ref.reference);
-      return String(ref);
-    };
+    const nombre = String(item.name || 'Producto');
+    const reference = getReference(item.reference) || getReference(item.code);
+    
+    // Obtener CABYS si existe
+    const cabysText = config.factura.mostrarCabys && item.cabys 
+      ? `\nCabys: ${item.cabys}` 
+      : '';
 
-    const row = [
-      (index + 1).toString(),
-      getReference(item.reference) || getReference(item.code) || '-',
-      String(item.name || item.description || 'Producto'),
+    const productoTexto = reference 
+      ? `${nombre}${cabysText}`
+      : `${nombre}${cabysText}`;
+
+    tableRows.push([
+      productoTexto,
       cantidad.toString(),
-      `₡${precio.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`,
-      descuentoPorcentaje > 0 ? `${descuentoPorcentaje}%` : '-',
-      `₡${subtotalConDescuento.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`
-    ];
-
-    tableRows.push(row);
+      `₡${Math.round(precio)}`,
+      descuentoMonto > 0 ? `₡${Math.round(descuentoMonto)}` : '₡0',
+      `₡${Math.round(impuesto)}`,
+      `₡${Math.round(totalLinea)}`
+    ]);
   });
 
   doc.autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: yPosition,
-    theme: 'striped',
+    theme: 'grid',
     headStyles: {
-      fillColor: primaryColor,
-      textColor: 255,
-      fontSize: 10,
+      fillColor: [0, 102, 204],
+      textColor: [255, 255, 255],
+      fontSize: 9,
       fontStyle: 'bold',
       halign: 'center'
     },
     bodyStyles: {
-      fontSize: 9
+      fontSize: 8,
+      cellPadding: 3
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'left', cellWidth: 25 },
-      2: { halign: 'left', cellWidth: 60 },
-      3: { halign: 'center', cellWidth: 20 },
-      4: { halign: 'right', cellWidth: 25 },
-      5: { halign: 'center', cellWidth: 20 },
-      6: { halign: 'right', cellWidth: 30 }
+      0: { cellWidth: 60, halign: 'left' },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 25, halign: 'right' },
+      3: { cellWidth: 20, halign: 'right' },
+      4: { cellWidth: 20, halign: 'right' },
+      5: { cellWidth: 25, halign: 'right' }
     },
     margin: { left: margin, right: margin }
   });
@@ -192,106 +268,109 @@ export const generarFacturaPDF = (facturaData) => {
   yPosition = doc.lastAutoTable.finalY + 10;
 
   // ==========================================
-  // TOTALES
+  // TOTAL EN LETRAS
   // ==========================================
-  const totalsX = pageWidth - margin - 60;
-  let totalsY = yPosition;
-
-  // Subtotal
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Subtotal:', totalsX, totalsY);
-  doc.text(`₡${subtotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, totalsX + 50, totalsY, { align: 'right' });
-  totalsY += 7;
-
-  // Descuento global (si existe)
-  if (facturaData.invoice?.descuentoGlobal > 0) {
-    const descuentoGlobal = (subtotal * facturaData.invoice.descuentoGlobal) / 100;
-    doc.text(`Descuento (${facturaData.invoice.descuentoGlobal}%):`, totalsX, totalsY);
-    doc.text(`-₡${descuentoGlobal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, totalsX + 50, totalsY, { align: 'right' });
-    subtotal -= descuentoGlobal;
-    totalsY += 7;
-  }
-
-  // Impuestos
-  const impuestoPorcentaje = facturaData.invoice?.impuestoPorcentaje || 13;
-  const impuesto = (subtotal * impuestoPorcentaje) / 100;
-  doc.text(`Impuesto (${impuestoPorcentaje}%):`, totalsX, totalsY);
-  doc.text(`₡${impuesto.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, totalsX + 50, totalsY, { align: 'right' });
-  totalsY += 10;
-
-  // Total
-  const total = subtotal + impuesto;
+  const totalFinal = subtotalSinImpuestos + totalImpuestos;
+  
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL:', totalsX, totalsY);
-  doc.text(`₡${total.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`, totalsX + 50, totalsY, { align: 'right' });
+  const totalEnLetras = numeroATexto(totalFinal);
+  doc.text(totalEnLetras.charAt(0).toUpperCase() + totalEnLetras.slice(1), margin, yPosition);
+
+  yPosition += 8;
 
   // ==========================================
-  // OBSERVACIONES
+  // RESUMEN DE TOTALES (Derecha)
   // ==========================================
-  if (facturaData.invoice?.observaciones) {
-    totalsY += 15;
-    doc.setFontSize(10);
+  const totalesX = pageWidth - margin - 50;
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  doc.text('Subtotal', totalesX - 20, yPosition);
+  doc.text(`₡${Math.round(subtotalSinImpuestos)}`, totalesX + 30, yPosition, { align: 'right' });
+  
+  yPosition += 5;
+  doc.text('Descuento', totalesX - 20, yPosition);
+  doc.text('₡0', totalesX + 30, yPosition, { align: 'right' });
+  
+  yPosition += 5;
+  doc.text('Subtotal', totalesX - 20, yPosition);
+  doc.text(`₡${Math.round(subtotalSinImpuestos)}`, totalesX + 30, yPosition, { align: 'right' });
+  
+  yPosition += 5;
+  doc.text('IVA (13.00%)', totalesX - 20, yPosition);
+  doc.text(`₡${Math.round(totalImpuestos)}`, totalesX + 30, yPosition, { align: 'right' });
+  
+  yPosition += 7;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Total a pagar', totalesX - 20, yPosition);
+  doc.text(`₡${Math.round(totalFinal)}`, totalesX + 30, yPosition, { align: 'right' });
+  
+  // Valor restante
+  yPosition += 6;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Valor restante por pagar: ₡${Math.round(totalFinal)}`, totalesX - 20, yPosition);
+
+  yPosition += 15;
+
+  // ==========================================
+  // TÉRMINOS Y CONDICIONES
+  // ==========================================
+  if (config.factura.terminosCondiciones) {
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Observaciones:', margin, totalsY);
+    doc.text('Términos y condiciones:', margin, yPosition);
     
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const observacionesLines = doc.splitTextToSize(facturaData.invoice.observaciones, pageWidth - 2 * margin);
-    doc.text(observacionesLines, margin, totalsY + 7);
+    doc.setFontSize(8);
+    const terminosLines = doc.splitTextToSize(config.factura.terminosCondiciones, pageWidth - 2 * margin);
+    doc.text(terminosLines, margin, yPosition + 5);
+    
+    yPosition += 5 + (terminosLines.length * 4);
   }
 
   // ==========================================
-  // FOOTER
+  // CUENTAS BANCARIAS
   // ==========================================
-  const footerY = pageHeight - 20;
+  if (config.bancos && config.bancos.length > 0) {
+    yPosition += 5;
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    config.bancos.forEach((banco, index) => {
+      if (banco.nombre && banco.cuenta) {
+        const texto = `${banco.nombre}_${banco.cuenta}`;
+        doc.text(texto, margin, yPosition + (index * 4));
+      }
+    });
+  }
+
+  // ==========================================
+  // PIE DE PÁGINA
+  // ==========================================
   doc.setFontSize(8);
-  doc.setTextColor(...secondaryColor);
   doc.setFont('helvetica', 'italic');
+  doc.setTextColor(100, 100, 100);
   
-  const footerText = facturaData.invoice?.electronica 
-    ? 'Factura Electrónica - Documento generado electrónicamente'
-    : 'Documento generado por Sistema de Facturación';
-  
+  const footerY = pageHeight - 15;
+  const footerText = config.factura.notaPie || 'Factura autorizada por Hacienda';
   const footerWidth = doc.getTextWidth(footerText);
   doc.text(footerText, (pageWidth - footerWidth) / 2, footerY);
-
-  // Número de página
-  doc.text(`Página 1 de 1`, pageWidth / 2, footerY + 5, { align: 'center' });
 
   return doc;
 };
 
-/**
- * Descargar PDF
- */
-export const descargarFacturaPDF = (facturaData, nombreArchivo) => {
-  const doc = generarFacturaPDF(facturaData);
-  const fileName = nombreArchivo || `factura-${facturaData.invoice?.id || Date.now()}.pdf`;
-  doc.save(fileName);
+export const descargarFacturaPDF = (facturaData) => {
+  try {
+    const doc = generarFacturaPDF(facturaData);
+    const nombreArchivo = `Factura_${facturaData.invoice?.id || 'SinNumero'}_${new Date().getTime()}.pdf`;
+    doc.save(nombreArchivo);
+    console.log('✅ PDF generado exitosamente');
+  } catch (error) {
+    console.error('❌ Error generando PDF:', error);
+    throw error;
+  }
 };
-
-/**
- * Obtener PDF como Blob (para preview o envío)
- */
-export const obtenerFacturaPDFBlob = (facturaData) => {
-  const doc = generarFacturaPDF(facturaData);
-  return doc.output('blob');
-};
-
-/**
- * Obtener PDF como Data URL (para preview en iframe)
- */
-export const obtenerFacturaPDFDataURL = (facturaData) => {
-  const doc = generarFacturaPDF(facturaData);
-  return doc.output('dataurlstring');
-};
-
-export default {
-  generarFacturaPDF,
-  descargarFacturaPDF,
-  obtenerFacturaPDFBlob,
-  obtenerFacturaPDFDataURL
-};
-
