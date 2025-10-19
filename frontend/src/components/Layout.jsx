@@ -13,6 +13,7 @@ import {
   Menu,
   X
 } from 'lucide-react'
+import InstallPWA from './InstallPWA'
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -116,6 +117,9 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Banner de instalación PWA */}
+      <InstallPWA />
     </div>
   )
 }
