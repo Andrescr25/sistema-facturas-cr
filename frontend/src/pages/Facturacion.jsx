@@ -1055,7 +1055,7 @@ export default function Facturacion() {
         </div>
 
         {/* Columna derecha: Resumen y configuración */}
-        <div className={`${isMobile ? 'space-y-4' : 'space-y-6'}`}>
+        <div className={`${isMobile ? 'space-y-4 pb-48' : 'space-y-6'}`}>
           
           {/* Configuración de Factura */}
           <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
