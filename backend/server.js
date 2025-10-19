@@ -36,16 +36,31 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
-// Middlewares
-app.use(helmet());
+// Middleware CORS ANTES de helmet para evitar conflictos
 app.use(cors(corsOptions));
 
-// Manejar preflight requests explícitamente
-app.options('*', cors(corsOptions));
+// Manejar preflight requests explícitamente ANTES de otros middlewares
+app.options('*', (req, res) => {
+  console.log(`🔄 OPTIONS request from: ${req.headers.origin || 'No origin'}`);
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 horas
+  res.sendStatus(200);
+});
+
+// Middlewares
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
 
 // Logging mejorado
 app.use((req, res, next) => {
