@@ -51,7 +51,8 @@ export default function RelacionarProductos() {
   
   // Estado para forma farmacéutica (solo productos farmacéuticos)
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
-  const [esFarmaceutico, setEsFarmaceutico] = useState(false)
+  const [esMedicamento, setEsMedicamento] = useState(false)
+  const [registroSanitario, setRegistroSanitario] = useState('')
   
   // Estado para CABYS editable
   const [codigoCabys, setCodigoCabys] = useState('')
@@ -189,21 +190,32 @@ export default function RelacionarProductos() {
     const cabysInicial = producto.codigoCabys || ''
     setCodigoCabys(cabysInicial)
     
-    // Detectar automáticamente si es farmacéutico y su forma
-    const deteccion = detectarFormaFarmaceutica(cabysInicial, producto.descripcion)
-    setEsFarmaceutico(deteccion.esFarmaceutico)
-    setFormaFarmaceutica(deteccion.forma)
+    // NO detectar automáticamente - dejar al usuario decidir
+    setEsMedicamento(false)
+    setFormaFarmaceutica('')
+    setRegistroSanitario('')
   }
   
-  // Función para actualizar CABYS y re-detectar si es farmacéutico
+  // Función para actualizar CABYS
   const handleCabysChange = (e) => {
     const nuevoCabys = e.target.value
     setCodigoCabys(nuevoCabys)
+  }
+  
+  // Función para manejar el cambio del checkbox de medicamento
+  const handleEsMedicamentoChange = (e) => {
+    const checked = e.target.checked
+    setEsMedicamento(checked)
     
-    // Re-detectar si es farmacéutico con el nuevo CABYS
-    const deteccion = detectarFormaFarmaceutica(nuevoCabys, productoSeleccionado?.descripcion || '')
-    setEsFarmaceutico(deteccion.esFarmaceutico)
-    setFormaFarmaceutica(deteccion.forma)
+    // Si se marca como medicamento, sugerir forma automáticamente basada en descripción
+    if (checked && productoSeleccionado) {
+      const formaSugerida = detectarFormaSugerida(productoSeleccionado.descripcion)
+      setFormaFarmaceutica(formaSugerida)
+    } else {
+      // Si se desmarca, limpiar campos farmacéuticos
+      setFormaFarmaceutica('')
+      setRegistroSanitario('')
+    }
   }
 
   const loadCategorias = async () => {
@@ -261,34 +273,27 @@ export default function RelacionarProductos() {
     if (input) input.value = ''
   }
 
-  // Detectar si es producto farmacéutico y su forma
-  const detectarFormaFarmaceutica = (codigoCabys, descripcion) => {
-    // Detectar si es farmacéutico por prefijo CABYS (30-35)
-    const cabysPrefix = codigoCabys?.substring(0, 2)
-    const esFarma = ['30', '31', '32', '33', '34', '35'].includes(cabysPrefix)
-    
-    if (!esFarma) return { esFarmaceutico: false, forma: '' }
-    
-    // Detectar forma desde descripción
+  // Sugerir forma farmacéutica basada solo en descripción (para ayudar al usuario)
+  const detectarFormaSugerida = (descripcion) => {
     const desc = (descripcion || '').toLowerCase()
     
     // Sólidos (02)
     if (desc.match(/tableta|capsula|comprimido|pastilla|polvo|granulo/i)) {
-      return { esFarmaceutico: true, forma: '02' }
+      return '02'
     }
     
     // Semisólidos (03)
     if (desc.match(/crema|unguento|gel|pomada|pasta/i)) {
-      return { esFarmaceutico: true, forma: '03' }
+      return '03'
     }
     
     // Gases (04)
     if (desc.match(/gas|aerosol|spray|inhalador/i)) {
-      return { esFarmaceutico: true, forma: '04' }
+      return '04'
     }
     
     // Por defecto: Líquidos (01) - alcohol, jarabe, solución, suspensión, etc.
-    return { esFarmaceutico: true, forma: '01' }
+    return '01'
   }
 
   const crearProducto = async (e) => {
@@ -307,7 +312,8 @@ export default function RelacionarProductos() {
         setModalCrear(false)
         removerImagen()
         setFormaFarmaceutica('')
-        setEsFarmaceutico(false)
+        setEsMedicamento(false)
+        setRegistroSanitario('')
         setCodigoCabys('')
         // Recargar factura
         loadFactura()
@@ -1024,55 +1030,82 @@ export default function RelacionarProductos() {
                           <strong>Código original:</strong> <span className="font-mono">{productoSeleccionado.codigoCabys}</span>
                         </span>
                       </p>
-                      {esFarmaceutico && (
-                        <p className="flex items-start text-yellow-700 bg-yellow-100 p-2 rounded">
-                          <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
-                          <span>
-                            <strong>⚠️ Producto Farmacéutico Detectado (CABYS {codigoCabys.substring(0, 2)})</strong><br/>
-                            Si prefieres evitar validaciones farmacéuticas, cambia a un CABYS similar como:<br/>
-                            <span className="font-mono bg-white px-2 py-1 rounded mt-1 inline-block">2413900000100</span> - Alcohol etílico sin desnaturalizar
-                          </span>
-                        </p>
-                      )}
-                      {!esFarmaceutico && codigoCabys && (
-                        <p className="flex items-start text-green-700 bg-green-100 p-2 rounded">
-                          <Check size={14} className="mr-1 mt-0.5 flex-shrink-0" />
-                          <span>✅ Producto NO farmacéutico - No requiere validaciones especiales</span>
-                        </p>
-                      )}
                     </div>
                   </div>
 
-                  {/* Forma Farmacéutica - Solo para productos farmacéuticos */}
-                  {esFarmaceutico && (
-                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                      <label className="label flex items-center text-yellow-800">
-                        <AlertCircle className="mr-2 text-yellow-600" size={18} />
-                        Forma Farmacéutica * (Producto Médico/Químico)
-                      </label>
-                      <select 
-                        name="formaFarmaceutica" 
-                        className="input border-yellow-300 bg-white"
-                        value={formaFarmaceutica}
-                        onChange={(e) => setFormaFarmaceutica(e.target.value)}
-                        required
-                      >
-                        <option value="">Seleccione forma farmacéutica</option>
-                        <option value="01">01 - Líquidos (alcohol, jarabe, solución, suspensión)</option>
-                        <option value="02">02 - Sólidos (tabletas, cápsulas, polvos)</option>
-                        <option value="03">03 - Semisólidos (cremas, ungüentos, geles)</option>
-                        <option value="04">04 - Gases (aerosoles, inhaladores)</option>
-                        <option value="05">05 - Otros</option>
-                      </select>
-                      <p className="text-xs text-yellow-700 mt-2 flex items-start">
-                        <AlertCircle size={14} className="mr-1 mt-0.5 flex-shrink-0" />
-                        <span>
-                          <strong>Detectado automáticamente.</strong> Verifica que sea correcto antes de crear el producto.
-                          {productoSeleccionado.codigoCabys && (
-                            <span className="block mt-1">CABYS: <span className="font-mono">{productoSeleccionado.codigoCabys}</span></span>
-                          )}
-                        </span>
-                      </p>
+                  {/* Checkbox: ¿Es Medicamento? */}
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={esMedicamento}
+                        onChange={handleEsMedicamentoChange}
+                        className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 mr-3"
+                      />
+                      <span className="font-semibold text-blue-900 text-lg">
+                        ¿Es medicamento? 💊
+                      </span>
+                    </label>
+                    <p className="text-xs text-blue-700 mt-2 ml-8">
+                      Marca esta casilla si el producto es un medicamento humano. Esto activará campos obligatorios según normativa de Costa Rica.
+                    </p>
+                  </div>
+
+                  {/* Campos de Medicamento - Solo si el checkbox está marcado */}
+                  {esMedicamento && (
+                    <div className="space-y-4 border-2 border-yellow-300 rounded-lg p-4 bg-yellow-50">
+                      <div className="flex items-center text-yellow-800 font-semibold mb-3">
+                        <AlertCircle className="mr-2" size={20} />
+                        Información Farmacéutica (Obligatoria)
+                      </div>
+                      
+                      {/* Forma Farmacéutica */}
+                      <div>
+                        <label className="label text-yellow-900">
+                          Forma Farmacéutica * 
+                        </label>
+                        <select 
+                          name="formaFarmaceutica" 
+                          className="input border-yellow-400 bg-white"
+                          value={formaFarmaceutica}
+                          onChange={(e) => setFormaFarmaceutica(e.target.value)}
+                          required={esMedicamento}
+                        >
+                          <option value="">Seleccione forma farmacéutica</option>
+                          <option value="01">01 - Líquidos (alcohol, jarabe, solución, suspensión)</option>
+                          <option value="02">02 - Sólidos (tabletas, cápsulas, polvos)</option>
+                          <option value="03">03 - Semisólidos (cremas, ungüentos, geles)</option>
+                          <option value="04">04 - Gases (aerosoles, inhaladores)</option>
+                          <option value="05">05 - Otros</option>
+                        </select>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Sugerido automáticamente según descripción. Verifica que sea correcto.
+                        </p>
+                      </div>
+
+                      {/* Registro Sanitario */}
+                      <div>
+                        <label className="label text-yellow-900">
+                          Registro Sanitario *
+                        </label>
+                        <input
+                          type="text"
+                          name="registroSanitario"
+                          value={registroSanitario}
+                          onChange={(e) => setRegistroSanitario(e.target.value)}
+                          className="input border-yellow-400 bg-white"
+                          placeholder="Ej: M-12345-2024"
+                          required={esMedicamento}
+                        />
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Número de registro sanitario emitido por el Ministerio de Salud de Costa Rica
+                        </p>
+                      </div>
+
+                      <div className="bg-yellow-100 border border-yellow-400 rounded p-3 text-xs text-yellow-800">
+                        <p className="font-semibold mb-1">📋 Normativa Costa Rica 2025:</p>
+                        <p>Desde el 1 de enero de 2025 es obligatorio incluir la forma farmacéutica y registro sanitario para medicamentos humanos.</p>
+                      </div>
                     </div>
                   )}
 

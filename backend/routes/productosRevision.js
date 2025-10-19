@@ -523,7 +523,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         const {
             productoId, nombre, descripcion, referencia, unidad, 
             precio, costo, categoria, cantidadInicial, formaFarmaceutica,
-            codigoCabys
+            codigoCabys, registroSanitario
         } = req.body;
 
         // Validaciones
@@ -589,10 +589,16 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
             }
         }
 
-        // 🆕 Agregar forma farmacéutica si se especificó (productos médicos/farmacéuticos)
+        // 🆕 Agregar forma farmacéutica y registro sanitario si se especificó (medicamentos)
         if (formaFarmaceutica) {
             productoData.pharmaceuticalForm = formaFarmaceutica;
             console.log('✅ Forma farmacéutica agregada:', formaFarmaceutica);
+        }
+        
+        // 🆕 Agregar registro sanitario si se especificó (medicamentos)
+        if (registroSanitario) {
+            productoData.sanitaryRegistry = registroSanitario.trim();
+            console.log('✅ Registro sanitario agregado:', registroSanitario);
         }
 
         // 🆕 Agregar impuestos (tax) - Detección automática

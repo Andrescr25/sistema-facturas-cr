@@ -463,24 +463,17 @@ class AlegraService {
                 console.log(`✅ Código CABYS agregado: ${data.productKey}`);
             }
 
-            // 🆕 Workaround para productos farmacéuticos:
-            // Si es farmacéutico (CABYS 30-35) y tiene pharmaceuticalForm, cambiar a 'service'
-            // para evitar validación estricta de Alegra que requiere configuración especial
-            if (data.pharmaceuticalForm && data.productKey) {
-                const cabysPrefix = data.productKey.substring(0, 2);
-                const esFarmaceutico = ['30', '31', '32', '33', '34', '35'].includes(cabysPrefix);
-                
-                if (esFarmaceutico) {
-                    // Cambiar a servicio para evitar validación farmacéutica
-                    productData.type = 'service';
-                    console.log('⚠️ Producto farmacéutico detectado - Cambiando a tipo "service" para evitar validación');
-                    console.log('💡 Motivo: Alegra requiere configuración especial de cuenta para productos farmacéuticos');
-                    // No agregar pharmaceuticalForm para servicios
-                } else {
-                    // Productos no farmacéuticos pueden usar el campo normalmente
-                    productData.pharmaceuticalForm = data.pharmaceuticalForm;
-                    console.log(`✅ Forma farmacéutica agregada: ${data.pharmaceuticalForm}`);
-                }
+            // 🆕 Agregar forma farmacéutica si se especificó (medicamentos)
+            // Nota: Alegra requiere este campo para medicamentos según normativa CR 2025
+            if (data.pharmaceuticalForm) {
+                productData.pharmaceuticalForm = data.pharmaceuticalForm;
+                console.log(`✅ Forma farmacéutica agregada: ${data.pharmaceuticalForm}`);
+            }
+            
+            // 🆕 Agregar registro sanitario si se especificó (medicamentos)
+            if (data.sanitaryRegistry) {
+                productData.sanitaryRegistry = data.sanitaryRegistry;
+                console.log(`✅ Registro sanitario agregado: ${data.sanitaryRegistry}`);
             }
 
             // 🆕 Agregar impuestos (tax)
