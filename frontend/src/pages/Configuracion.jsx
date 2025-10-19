@@ -25,7 +25,8 @@ export default function Configuracion() {
       terminosCondiciones: 'Gracias por su compra. Garantía según términos del fabricante.',
       notaPie: 'Factura autorizada por Hacienda',
       mostrarLogo: true,
-      mostrarCabys: true
+      mostrarCabys: true,
+      colorPrimario: '#FF6B35' // Naranja por defecto
     }
   });
 
@@ -344,26 +345,90 @@ export default function Configuracion() {
               />
             </div>
 
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={config.factura.mostrarLogo}
-                  onChange={(e) => handleInputChange('factura', 'mostrarLogo', e.target.checked)}
-                  className="w-5 h-5"
-                />
-                <span>Mostrar logo en facturas</span>
-              </label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.factura.mostrarLogo}
+                    onChange={(e) => handleInputChange('factura', 'mostrarLogo', e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <span>Mostrar logo en facturas</span>
+                </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={config.factura.mostrarCabys}
-                  onChange={(e) => handleInputChange('factura', 'mostrarCabys', e.target.checked)}
-                  className="w-5 h-5"
-                />
-                <span>Mostrar código CABYS</span>
-              </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.factura.mostrarCabys}
+                    onChange={(e) => handleInputChange('factura', 'mostrarCabys', e.target.checked)}
+                    className="w-5 h-5"
+                  />
+                  <span>Mostrar código CABYS</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="label">Color Principal de la Factura</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="color"
+                    value={config.factura.colorPrimario}
+                    onChange={(e) => handleInputChange('factura', 'colorPrimario', e.target.value)}
+                    className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={config.factura.colorPrimario}
+                      onChange={(e) => handleInputChange('factura', 'colorPrimario', e.target.value)}
+                      className="input"
+                      placeholder="#FF6B35"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Color para encabezados y títulos del PDF</p>
+                  </div>
+                  
+                  {/* Colores predefinidos */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('factura', 'colorPrimario', '#FF6B35')}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                      style={{ backgroundColor: '#FF6B35' }}
+                      title="Naranja (Defecto)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('factura', 'colorPrimario', '#2563EB')}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                      style={{ backgroundColor: '#2563EB' }}
+                      title="Azul"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('factura', 'colorPrimario', '#059669')}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                      style={{ backgroundColor: '#059669' }}
+                      title="Verde"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('factura', 'colorPrimario', '#DC2626')}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                      style={{ backgroundColor: '#DC2626' }}
+                      title="Rojo"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('factura', 'colorPrimario', '#7C3AED')}
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-500"
+                      style={{ backgroundColor: '#7C3AED' }}
+                      title="Morado"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
