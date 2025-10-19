@@ -350,63 +350,24 @@ router.get('/facturas/siguiente-consecutivo', async (req, res) => {
   }
 });
 
-// Visualizar PDF de factura desde Alegra  
+// Visualizar PDF de factura desde Alegra
 router.get('/facturas/:id/pdf', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📄 Obteniendo PDF de factura ID: ${id}...`);
+    console.log(`📄 Redirigiendo a PDF de factura ID: ${id}...`);
 
-    // Obtener información de la factura incluyendo el link público
+    // Verificar que la factura existe
     const invoiceInfo = await alegraService.api.get(`/invoices/${id}`);
     console.log(`📋 Factura ${id}: ${invoiceInfo.data.numberTemplate?.fullNumber}`);
     console.log(`📋 Cliente: ${invoiceInfo.data.client?.name}`);
     
-    // Buscar si la factura tiene un link público de visualización
-    if (invoiceInfo.data.publicViewLink) {
-      console.log(`🔗 Usando link público: ${invoiceInfo.data.publicViewLink}`);
-      res.redirect(invoiceInfo.data.publicViewLink);
-      return;
-    }
+    // Construir URL directa del visor de PDF de Alegra
+    const pdfUrl = `https://app.alegra.com/invoice/print/type/original/id/${id}`;
     
-    // Si no hay link público, intentar obtener el PDF directamente
-    console.log(`📥 Descargando PDF desde API de Alegra...`);
+    console.log(`🔗 Redirigiendo a: ${pdfUrl}`);
     
-    try {
-      // Intentar con el endpoint de print/download
-      const pdfResponse = await alegraService.api.get(`/invoices/${id}/pdf`, {
-        responseType: 'arraybuffer',
-        headers: {
-          'Accept': 'application/pdf',
-          'Content-Type': 'application/pdf'
-        },
-        timeout: 30000
-      });
-      
-      console.log(`✅ PDF descargado, tamaño: ${pdfResponse.data.byteLength || pdfResponse.data.length} bytes`);
-      
-      // Enviar el PDF al cliente
-      const buffer = Buffer.from(pdfResponse.data);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=Factura_${invoiceInfo.data.numberTemplate?.fullNumber || id}.pdf`);
-      res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Cache-Control', 'no-cache');
-      res.send(buffer);
-      
-      console.log(`✅ PDF enviado al cliente`);
-    } catch (pdfError) {
-      console.error(`❌ Error descargando PDF:`, pdfError.message);
-      console.error(`   Status:`, pdfError.response?.status);
-      
-      // Como último recurso, devolver mensaje con instrucciones
-      res.status(500).json({
-        success: false,
-        message: 'No se pudo obtener el PDF automáticamente',
-        invoiceId: id,
-        invoiceNumber: invoiceInfo.data.numberTemplate?.fullNumber,
-        suggestion: 'Por favor, descarga el PDF desde la plataforma de Alegra',
-        alegraUrl: `https://app.alegra.com/invoices/${id}`
-      });
-    }
+    // Redirigir al visor de PDF de Alegra
+    res.redirect(pdfUrl);
   } catch (error) {
     console.error(`❌ Error obteniendo PDF de factura ${req.params.id}:`);
     console.error(`   - Mensaje: ${error.message}`);
