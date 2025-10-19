@@ -55,6 +55,7 @@ export default function Facturacion() {
   const codigoInputRef = useRef(null);
   const cantidadInputRef = useRef(null);
   const busquedaProductoInputRef = useRef(null);
+  const cantidadMovilInputRef = useRef(null);
 
   // Helper: Obtener reference como string (puede venir como objeto o string desde Alegra)
   const getReference = (ref) => {
@@ -144,6 +145,29 @@ export default function Facturacion() {
       codigoInputRef.current.focus();
     }
   }, [modoEntradaRapida, isMobile]);
+
+  // Focus con delay en modal de cantidad (evita que el teclado tape el modal)
+  useEffect(() => {
+    if (modalCantidadMovil && cantidadMovilInputRef.current) {
+      // Esperar a que termine la animación del modal (400ms)
+      const timer = setTimeout(() => {
+        if (cantidadMovilInputRef.current) {
+          cantidadMovilInputRef.current.focus();
+          cantidadMovilInputRef.current.select();
+          
+          // Hacer scroll para asegurar que el input sea visible
+          setTimeout(() => {
+            cantidadMovilInputRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }, 100);
+        }
+      }, 400);
+
+      return () => clearTimeout(timer);
+    }
+  }, [modalCantidadMovil]);
   
   // Cambiar automáticamente a búsqueda en móvil
   useEffect(() => {
@@ -329,7 +353,7 @@ export default function Facturacion() {
 
   const abrirModalCantidadMovil = (producto) => {
     setProductoSeleccionadoMovil(producto);
-    setCantidadMovil('');
+    setCantidadMovil('1');
     setModalCantidadMovil(true);
     setBusquedaProducto('');
     setProductosEncontrados([]);
@@ -872,9 +896,20 @@ export default function Facturacion() {
                       setBusquedaProducto(e.target.value);
                       buscarProductosPorNombre(e.target.value);
                     }}
+                    onFocus={(e) => {
+                      // Ajustar scroll cuando aparece el teclado en móvil
+                      if (isMobile) {
+                        setTimeout(() => {
+                          e.target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                            inline: 'nearest'
+                          });
+                        }, 300);
+                      }
+                    }}
                     placeholder={isMobile ? "Buscar producto..." : "Buscar producto por código o nombre..."}
                     className={`input w-full ${isMobile ? 'text-base pl-10 py-3' : 'pl-10'}`}
-                    autoFocus={isMobile}
                     style={isMobile ? { fontSize: '16px' } : {}}
                   />
                   {busquedaProducto && (
@@ -1180,7 +1215,7 @@ export default function Facturacion() {
       {/* Modal de Cantidad para Móvil - Optimizado touch */}
       {modalCantidadMovil && productoSeleccionadoMovil && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-end sm:items-center justify-center"
+          className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
           onClick={() => {
             setModalCantidadMovil(false);
             setProductoSeleccionadoMovil(null);
@@ -1188,9 +1223,12 @@ export default function Facturacion() {
           }}
         >
           <div 
-            className="bg-white rounded-t-3xl sm:rounded-xl shadow-2xl w-full sm:max-w-md p-6 animate-slideUp"
+            className="bg-white rounded-3xl sm:rounded-xl shadow-2xl w-full sm:max-w-md p-6 animate-slideUp"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: '85vh' }}
+            style={{ 
+              maxHeight: '90vh',
+              marginBottom: 'env(safe-area-inset-bottom, 0px)'
+            }}
           >
             {/* Handle visual para drag (solo móvil) */}
             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
@@ -1232,11 +1270,21 @@ export default function Facturacion() {
 
                 {/* Input numérico */}
                 <input
+                  ref={cantidadMovilInputRef}
                   type="number"
                   min="1"
                   value={cantidadMovil}
                   onChange={(e) => setCantidadMovil(e.target.value)}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={(e) => {
+                    e.target.select();
+                    // Ajustar scroll cuando aparece el teclado
+                    setTimeout(() => {
+                      e.target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                      });
+                    }, 300);
+                  }}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -1245,9 +1293,10 @@ export default function Facturacion() {
                   }}
                   placeholder="1"
                   className="w-full max-w-[120px] text-center text-2xl font-bold border-2 border-gray-300 rounded-xl py-3 px-2 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
-                  autoFocus
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  readOnly
+                  onClick={(e) => e.target.readOnly = false}
                 />
 
                 {/* Botón más */}
