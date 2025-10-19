@@ -354,41 +354,76 @@ router.get('/facturas/siguiente-consecutivo', async (req, res) => {
 router.get('/facturas/:id/pdf', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📄 Redirigiendo a PDF de factura ID: ${id}...`);
+    console.log(`📄 Generando URL de PDF para factura ID: ${id}...`);
 
-    // Verificar que la factura existe
-    const invoiceInfo = await alegraService.api.get(`/invoices/${id}`);
-    console.log(`📋 Factura ${id}: ${invoiceInfo.data.numberTemplate?.fullNumber}`);
-    console.log(`📋 Cliente: ${invoiceInfo.data.client?.name}`);
+    // 1. Obtener datos completos de la factura
+    const invoiceResponse = await alegraService.api.get(`/invoices/${id}`);
+    const invoiceData = invoiceResponse.data;
     
-    // Construir URL directa del visor de PDF de Alegra
-    const pdfUrl = `https://app.alegra.com/invoice/print/type/original/id/${id}`;
+    console.log(`📋 Factura ${id}: ${invoiceData.numberTemplate?.fullNumber}`);
+    console.log(`📋 Cliente: ${invoiceData.client?.name}`);
+    console.log(`📋 Total: ${invoiceData.total}`);
     
-    console.log(`🔗 Redirigiendo a: ${pdfUrl}`);
+    // 2. Preparar datos para el preview (mismo formato que POST /invoices)
+    const previewData = {
+      client: invoiceData.client?.id || invoiceData.client,
+      date: invoiceData.date,
+      dueDate: invoiceData.dueDate,
+      items: invoiceData.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        price: item.price,
+        quantity: item.quantity,
+        discount: item.discount || 0,
+        tax: item.tax || []
+      })),
+      observations: invoiceData.observations || '',
+      termsConditions: invoiceData.termsConditions || '',
+      status: invoiceData.status || 'draft',
+      numberTemplate: invoiceData.numberTemplate
+    };
     
-    // Redirigir al visor de PDF de Alegra
-    res.redirect(pdfUrl);
+    console.log(`📤 Llamando a /invoices/preview con datos de la factura...`);
+    console.log(`📋 Preview data:`, JSON.stringify(previewData, null, 2));
+    
+    // 3. Llamar al endpoint /invoices/preview
+    const previewResponse = await alegraService.api.post('/invoices/preview', previewData);
+    
+    console.log(`📥 Respuesta de preview:`, JSON.stringify(previewResponse.data, null, 2));
+    
+    // 4. Extraer la URL del PDF
+    if (previewResponse.data && previewResponse.data.url) {
+      const pdfUrl = previewResponse.data.url;
+      console.log(`✅ URL del PDF generada: ${pdfUrl}`);
+      
+      // Devolver la URL para que el frontend la abra
+      res.json({
+        success: true,
+        url: pdfUrl,
+        invoiceNumber: invoiceData.numberTemplate?.fullNumber,
+        invoiceId: id
+      });
+    } else {
+      throw new Error('La respuesta de preview no contiene una URL del PDF');
+    }
+    
   } catch (error) {
-    console.error(`❌ Error obteniendo PDF de factura ${req.params.id}:`);
+    console.error(`❌ Error generando PDF de factura ${req.params.id}:`);
     console.error(`   - Mensaje: ${error.message}`);
     console.error(`   - Status: ${error.response?.status}`);
     console.error(`   - Status Text: ${error.response?.statusText}`);
     console.error(`   - URL: ${error.config?.url}`);
     
     if (error.response?.data) {
-      try {
-        const errorData = error.response.data.toString();
-        console.error(`   - Data: ${errorData.substring(0, 200)}`);
-      } catch (e) {
-        console.error(`   - Data: [binary data]`);
-      }
+      console.error(`   - Response Data:`, JSON.stringify(error.response.data, null, 2));
     }
     
     res.status(error.response?.status || 500).json({
       success: false,
       error: error.message,
       details: error.response?.statusText,
-      message: `Error obteniendo PDF de Alegra para factura ${req.params.id}`,
+      message: `Error generando PDF de Alegra para factura ${req.params.id}`,
       invoiceId: req.params.id
     });
   }

@@ -37,28 +37,29 @@ export const alegraService = {
   // Visualizar PDF de factura desde Alegra en nueva pestaña
   async visualizarPDFFactura(facturaId) {
     try {
-      console.log('📄 Frontend: Abriendo PDF de factura ID:', facturaId);
-      
-      // Construir URL del PDF usando la baseURL configurada
-      let baseURL = api.defaults.baseURL || 'http://localhost:3000/api';
-      
-      // Asegurar que termine con /api
-      if (!baseURL.endsWith('/api')) {
-        baseURL = `${baseURL}/api`;
-      }
-      
-      // Construir URL completa del PDF
-      const pdfUrl = `${baseURL}/alegra/facturas/${facturaId}/pdf`;
-      
-      console.log('🔗 URL del PDF:', pdfUrl);
-      console.log('📋 ID de factura:', facturaId, 'tipo:', typeof facturaId);
+      console.log('📄 Frontend: Obteniendo URL del PDF de factura ID:', facturaId);
       
       // Verificar que tengamos un ID válido
       if (!facturaId || facturaId === 'undefined' || facturaId === 'null') {
         throw new Error(`ID de factura inválido: ${facturaId}`);
       }
       
-      // Abrir en nueva pestaña
+      // 1. Hacer llamada al backend para obtener la URL del PDF
+      console.log('🔗 Llamando al endpoint /alegra/facturas/:id/pdf...');
+      const response = await api.get(`/alegra/facturas/${facturaId}/pdf`);
+      
+      console.log('📥 Respuesta del backend:', response.data);
+      
+      // 2. Verificar que tengamos la URL
+      if (!response.data || !response.data.url) {
+        throw new Error('El servidor no devolvió una URL de PDF válida');
+      }
+      
+      const pdfUrl = response.data.url;
+      console.log('🔗 URL del PDF obtenida:', pdfUrl);
+      console.log('📋 Número de factura:', response.data.invoiceNumber);
+      
+      // 3. Abrir en nueva pestaña
       const ventana = window.open(pdfUrl, '_blank');
       
       if (!ventana) {
