@@ -523,14 +523,22 @@ export default function Facturacion() {
         // Visualizar PDF desde Alegra (solo si se creó online)
         if (resultado.online && resultado.data?.id) {
           try {
+            console.log('🔍 Factura creada, intentando abrir PDF...');
+            console.log('📋 Datos de resultado:', JSON.stringify(resultado.data, null, 2));
+            console.log('📋 ID de factura:', resultado.data.id);
+            console.log('📋 Número de factura:', resultado.data.numberTemplate?.fullNumber);
+            
             await alegraService.visualizarPDFFactura(resultado.data.id);
             mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000);
           } catch (pdfError) {
-            console.error('Error visualizando PDF desde Alegra:', pdfError);
+            console.error('❌ Error visualizando PDF desde Alegra:', pdfError);
+            console.error('❌ Stack:', pdfError.stack);
             mostrarMensaje('⚠️ Error abriendo PDF. La factura fue creada correctamente.', 'warning', 3000);
           }
         } else if (!resultado.online) {
           mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se sincronice con Alegra', 'info', 4000);
+        } else {
+          console.warn('⚠️ No se puede mostrar PDF: online=', resultado.online, 'id=', resultado.data?.id);
         }
 
         // Limpiar formulario

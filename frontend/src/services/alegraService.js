@@ -37,11 +37,26 @@ export const alegraService = {
   // Visualizar PDF de factura desde Alegra en nueva pestaña
   async visualizarPDFFactura(facturaId) {
     try {
-      console.log('📄 Frontend: Abriendo PDF de factura', facturaId);
+      console.log('📄 Frontend: Abriendo PDF de factura ID:', facturaId);
       
-      // Construir URL del PDF
-      const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+      // Construir URL del PDF usando la baseURL configurada
+      let baseURL = api.defaults.baseURL || 'http://localhost:3000/api';
+      
+      // Asegurar que termine con /api
+      if (!baseURL.endsWith('/api')) {
+        baseURL = `${baseURL}/api`;
+      }
+      
+      // Construir URL completa del PDF
       const pdfUrl = `${baseURL}/alegra/facturas/${facturaId}/pdf`;
+      
+      console.log('🔗 URL del PDF:', pdfUrl);
+      console.log('📋 ID de factura:', facturaId, 'tipo:', typeof facturaId);
+      
+      // Verificar que tengamos un ID válido
+      if (!facturaId || facturaId === 'undefined' || facturaId === 'null') {
+        throw new Error(`ID de factura inválido: ${facturaId}`);
+      }
       
       // Abrir en nueva pestaña
       const ventana = window.open(pdfUrl, '_blank');

@@ -354,34 +354,70 @@ router.get('/facturas/siguiente-consecutivo', async (req, res) => {
 router.get('/facturas/:id/pdf', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📄 Obteniendo PDF de factura ${id} desde Alegra...`);
+    console.log(`📄 Obteniendo PDF de factura ID: ${id} desde Alegra...`);
+    console.log(`🔗 URL completa: /invoices/${id}/files/pdf`);
+
+    // Primero obtener la factura para ver sus detalles
+    try {
+      const invoiceInfo = await alegraService.api.get(`/invoices/${id}`);
+      console.log(`📋 Factura encontrada:`);
+      console.log(`   - ID: ${invoiceInfo.data.id}`);
+      console.log(`   - Número: ${invoiceInfo.data.numberTemplate?.fullNumber || 'N/A'}`);
+      console.log(`   - Cliente: ${invoiceInfo.data.client?.name || 'N/A'}`);
+      console.log(`   - Estado: ${invoiceInfo.data.status}`);
+    } catch (infoError) {
+      console.warn(`⚠️ No se pudo obtener info de la factura: ${infoError.message}`);
+    }
 
     // Obtener el PDF desde Alegra
     const response = await alegraService.api.get(`/invoices/${id}/files/pdf`, {
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
+      timeout: 30000 // 30 segundos
     });
+
+    console.log(`📦 PDF recibido:`);
+    console.log(`   - Tamaño: ${response.data.byteLength || response.data.length} bytes`);
+    console.log(`   - Content-Type: ${response.headers['content-type']}`);
+
+    // Verificar que sea un PDF válido
+    const buffer = Buffer.from(response.data);
+    const pdfHeader = buffer.slice(0, 5).toString();
+    
+    if (!pdfHeader.startsWith('%PDF')) {
+      console.error(`❌ El archivo recibido no es un PDF válido. Header: ${pdfHeader}`);
+      throw new Error('El archivo recibido no es un PDF válido');
+    }
 
     // Configurar headers para visualizar el PDF (inline, no download)
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=Factura_${id}.pdf`);
-    res.setHeader('Content-Length', response.data.byteLength || response.data.length);
-    res.send(Buffer.from(response.data));
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(buffer);
 
-    console.log(`✅ PDF de factura ${id} enviado exitosamente`);
+    console.log(`✅ PDF de factura ${id} enviado exitosamente (${buffer.length} bytes)`);
   } catch (error) {
-    console.error('❌ Error obteniendo PDF:', error.response?.data || error.message);
+    console.error(`❌ Error obteniendo PDF de factura ${req.params.id}:`);
+    console.error(`   - Mensaje: ${error.message}`);
+    console.error(`   - Status: ${error.response?.status}`);
+    console.error(`   - Status Text: ${error.response?.statusText}`);
+    console.error(`   - URL: ${error.config?.url}`);
     
-    // Si Alegra responde con error, intentar obtener detalles
-    if (error.response) {
-      console.error('Status:', error.response.status);
-      console.error('Headers:', error.response.headers);
+    if (error.response?.data) {
+      try {
+        const errorData = error.response.data.toString();
+        console.error(`   - Data: ${errorData.substring(0, 200)}`);
+      } catch (e) {
+        console.error(`   - Data: [binary data]`);
+      }
     }
     
     res.status(error.response?.status || 500).json({
       success: false,
       error: error.message,
-      details: error.response?.data,
-      message: 'Error obteniendo PDF de Alegra'
+      details: error.response?.statusText,
+      message: `Error obteniendo PDF de Alegra para factura ${req.params.id}`,
+      invoiceId: req.params.id
     });
   }
 });
