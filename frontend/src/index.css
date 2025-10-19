@@ -48,6 +48,9 @@
   
   .input {
     @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
   }
   
   .label {
@@ -123,7 +126,7 @@
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
 
-/* Mejoras para inputs en móvil (evitar zoom en iOS) */
+/* Mejoras para inputs en móvil (evitar zoom en iOS y overflow) */
 @media screen and (max-width: 768px) {
   input[type="text"],
   input[type="number"],
@@ -131,9 +134,26 @@
   input[type="tel"],
   input[type="email"],
   input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Prevenir desbordamiento en cards */
+  .card {
+    overflow-x: hidden;
+  }
+
+  /* Asegurar que inputs date no se salgan */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 8px;
   }
 }
 

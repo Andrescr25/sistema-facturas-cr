@@ -1058,7 +1058,7 @@ export default function Facturacion() {
         <div className={`${isMobile ? 'space-y-4 pb-48' : 'space-y-6'}`}>
           
           {/* Configuración de Factura */}
-          <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
+          <div className={`card ${isMobile ? 'shadow-sm overflow-hidden' : ''}`}>
             <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
               <FileText size={isMobile ? 18 : 20} />
               Configuración
@@ -1066,25 +1066,33 @@ export default function Facturacion() {
 
             <div className={`${isMobile ? 'space-y-3' : 'space-y-4'}`}>
               {/* Fecha */}
-              <div>
+              <div className={isMobile ? 'overflow-hidden' : ''}>
                 <label className={`label ${isMobile ? 'text-sm' : ''}`}>Fecha</label>
                 <input
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
                   className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                  style={{ fontSize: '16px' }}
+                  style={{ 
+                    fontSize: '16px',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
               {/* Método de Pago */}
-              <div>
+              <div className={isMobile ? 'overflow-hidden' : ''}>
                 <label className={`label ${isMobile ? 'text-sm' : ''}`}>Método de Pago</label>
                 <select
                   value={metodoPago}
                   onChange={(e) => setMetodoPago(e.target.value)}
                   className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                  style={{ fontSize: '16px' }}
+                  style={{ 
+                    fontSize: '16px',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box'
+                  }}
                 >
                   {metodosPago.map((metodo) => (
                     <option key={metodo.id} value={metodo.id}>
@@ -1095,7 +1103,7 @@ export default function Facturacion() {
               </div>
 
               {/* Descuento Global */}
-              <div>
+              <div className={isMobile ? 'overflow-hidden' : ''}>
                 <label className={`label ${isMobile ? 'text-sm' : ''}`}>Descuento Global %</label>
                 <input
                   type="number"
@@ -1105,7 +1113,11 @@ export default function Facturacion() {
                   onChange={(e) => setDescuentoGlobal(parseFloat(e.target.value) || 0)}
                   className={`input w-full ${isMobile ? 'text-base' : ''}`}
                   inputMode="decimal"
-                  style={{ fontSize: '16px' }}
+                  style={{ 
+                    fontSize: '16px',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
@@ -1127,7 +1139,7 @@ export default function Facturacion() {
               </div>
 
               {/* Observaciones */}
-              <div>
+              <div className={isMobile ? 'overflow-hidden' : ''}>
                 <label className={`label ${isMobile ? 'text-sm' : ''}`}>Observaciones</label>
                 <textarea
                   value={observaciones}
@@ -1135,18 +1147,20 @@ export default function Facturacion() {
                   rows={isMobile ? "2" : "3"}
                   placeholder="Notas o comentarios adicionales..."
                   className={`input w-full resize-none ${isMobile ? 'text-base' : ''}`}
-                  style={{ fontSize: '16px' }}
+                  style={{ 
+                    fontSize: '16px',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    minHeight: isMobile ? '60px' : 'auto'
+                  }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Resumen de Totales - Bottom Sheet en móvil */}
-          <div className={`${
-            isMobile 
-              ? 'fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl border-t-2 border-blue-200' 
-              : 'card bg-gradient-to-br from-blue-50 to-purple-50'
-          }`}>
+          {/* Resumen de Totales - Solo desktop */}
+          {!isMobile && (
+            <div className="card bg-gradient-to-br from-blue-50 to-purple-50">
             <div className={isMobile ? 'px-4 pt-3 pb-safe' : ''}>
               {/* Header del resumen - Solo desktop */}
               {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
@@ -1201,20 +1215,49 @@ export default function Facturacion() {
                   {loading ? 'Procesando...' : (isMobile ? 'Finalizar' : 'Finalizar Factura')}
                 </button>
 
-                {!isMobile && (
-                  <button
-                    onClick={limpiarFactura}
-                    className="btn btn-outline w-full flex items-center justify-center gap-2"
-                  >
-                    <X size={20} />
-                    Cancelar
-                  </button>
-                )}
+                <button
+                  onClick={limpiarFactura}
+                  className="btn btn-outline w-full flex items-center justify-center gap-2"
+                >
+                  <X size={20} />
+                  Cancelar
+                </button>
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Bottom Sheet Móvil - Fijo fuera del scroll */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl border-t-2 border-blue-200">
+          <div className="px-4 pt-3 pb-safe">
+            {/* Total compacto */}
+            <div className="space-y-1 mb-3">
+              <div className="py-2 flex justify-between text-lg font-bold text-gray-900">
+                <div>
+                  <span className="text-sm text-gray-600 block">
+                    {items.length} {items.length === 1 ? 'producto' : 'productos'} •
+                  </span>
+                  <span>TOTAL:</span>
+                </div>
+                <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+
+            {/* Botón de finalizar */}
+            <button
+              onClick={finalizarFactura}
+              disabled={!clienteSeleccionado || items.length === 0 || loading}
+              className="btn btn-primary w-full flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg"
+            >
+              <Check size={24} />
+              {loading ? 'Procesando...' : 'Finalizar'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Cantidad para Móvil - Optimizado touch */}
       {modalCantidadMovil && productoSeleccionadoMovil && (
