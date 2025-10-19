@@ -36,12 +36,21 @@ export const alegraService = {
 
   // Visualizar PDF de factura desde Alegra en nueva pestaña
   async visualizarPDFFactura(facturaId) {
+    // Abrir ventana ANTES del await para evitar bloqueo del navegador
+    const ventana = window.open('about:blank', '_blank');
+    
     try {
       console.log('📄 Frontend: Obteniendo URL del PDF de factura ID:', facturaId);
       
       // Verificar que tengamos un ID válido
       if (!facturaId || facturaId === 'undefined' || facturaId === 'null') {
+        if (ventana) ventana.close();
         throw new Error(`ID de factura inválido: ${facturaId}`);
+      }
+      
+      // Verificar que la ventana se haya abierto
+      if (!ventana) {
+        throw new Error('No se pudo abrir la ventana. Verifica que no estén bloqueadas las ventanas emergentes.');
       }
       
       // 1. Hacer llamada al backend para obtener la URL del PDF
@@ -52,6 +61,7 @@ export const alegraService = {
       
       // 2. Verificar que tengamos la URL
       if (!response.data || !response.data.url) {
+        ventana.close();
         throw new Error('El servidor no devolvió una URL de PDF válida');
       }
       
@@ -59,17 +69,16 @@ export const alegraService = {
       console.log('🔗 URL del PDF obtenida:', pdfUrl);
       console.log('📋 Número de factura:', response.data.invoiceNumber);
       
-      // 3. Abrir en nueva pestaña
-      const ventana = window.open(pdfUrl, '_blank');
-      
-      if (!ventana) {
-        throw new Error('No se pudo abrir la ventana. Verifica que no estén bloqueadas las ventanas emergentes.');
-      }
+      // 3. Redirigir la ventana ya abierta a la URL del PDF
+      ventana.location.href = pdfUrl;
       
       console.log('✅ Frontend: PDF abierto en nueva pestaña');
       return { success: true };
     } catch (error) {
       console.error('❌ Frontend: Error visualizando PDF:', error);
+      if (ventana && !ventana.closed) {
+        ventana.close();
+      }
       throw new Error(`Error visualizando PDF: ${error.message}`);
     }
   },
