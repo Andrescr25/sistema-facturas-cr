@@ -42,14 +42,28 @@ self.addEventListener('activate', (event) => {
 
 // Estrategia: Network First, fallback a Cache
 self.addEventListener('fetch', (event) => {
+  // Solo cachear GET requests (POST/PUT/DELETE no son cacheables)
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // No cachear requests a API (solo assets estáticos)
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         // Si la respuesta es válida, clonarla y guardarla en cache
-        if (response && response.status === 200) {
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+            cache.put(event.request, responseClone).catch((err) => {
+              console.log('[SW] Error cacheando:', err);
+            });
           });
         }
         return response;

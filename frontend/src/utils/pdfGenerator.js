@@ -97,24 +97,28 @@ export const generarFacturaPDF = (facturaData) => {
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(facturaData.client?.name || 'Cliente', margin + 5, yPosition + 15);
+  doc.text(String(facturaData.client?.name || 'Cliente'), margin + 5, yPosition + 15);
   
   if (facturaData.client?.identification) {
-    doc.text(`Cédula: ${facturaData.client.identification}`, margin + 5, yPosition + 21);
+    doc.text(`Cédula: ${String(facturaData.client.identification)}`, margin + 5, yPosition + 21);
   }
 
   if (facturaData.client?.email) {
-    doc.text(`Email: ${facturaData.client.email}`, margin + 5, yPosition + 27);
+    doc.text(`Email: ${String(facturaData.client.email)}`, margin + 5, yPosition + 27);
   }
 
   if (facturaData.client?.phone) {
-    const phoneText = `Tel: ${facturaData.client.phone}`;
+    const phoneText = `Tel: ${String(facturaData.client.phone)}`;
     const phoneWidth = doc.getTextWidth(phoneText);
     doc.text(phoneText, pageWidth - margin - phoneWidth - 5, yPosition + 21);
   }
 
   if (facturaData.client?.address) {
-    doc.text(facturaData.client.address, margin + 5, yPosition + 33);
+    // Asegurar que address sea string (puede ser objeto en algunos casos)
+    const addressText = typeof facturaData.client.address === 'string' 
+      ? facturaData.client.address 
+      : facturaData.client.address?.address || 'Sin dirección';
+    doc.text(addressText, margin + 5, yPosition + 33);
   }
 
   yPosition += 45;
@@ -138,10 +142,17 @@ export const generarFacturaPDF = (facturaData) => {
     
     subtotal += subtotalConDescuento;
 
+    // Asegurar que reference sea string (puede venir como objeto)
+    const getReference = (ref) => {
+      if (!ref) return '-';
+      if (typeof ref === 'object' && ref.reference) return String(ref.reference);
+      return String(ref);
+    };
+
     const row = [
       (index + 1).toString(),
-      item.reference || item.code || '-',
-      item.name || item.description || 'Producto',
+      getReference(item.reference) || getReference(item.code) || '-',
+      String(item.name || item.description || 'Producto'),
       cantidad.toString(),
       `₡${precio.toLocaleString('es-CR', { minimumFractionDigits: 2 })}`,
       descuentoPorcentaje > 0 ? `${descuentoPorcentaje}%` : '-',
