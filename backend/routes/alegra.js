@@ -354,65 +354,46 @@ router.get('/facturas/siguiente-consecutivo', async (req, res) => {
 router.get('/facturas/:id/pdf', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`📄 Generando URL de PDF para factura ID: ${id}...`);
+    console.log(`📄 Obteniendo URL del PDF oficial para factura ID: ${id}...`);
 
-    // 1. Obtener datos completos de la factura
-    const invoiceResponse = await alegraService.api.get(`/invoices/${id}`);
+    // Usar el parámetro fields=pdf para obtener la URL del PDF oficial
+    // IMPORTANTE: Solo funciona con facturas que tienen status 'open', no 'draft'
+    const invoiceResponse = await alegraService.api.get(`/invoices/${id}`, {
+      params: {
+        fields: 'pdf'  // Este parámetro devuelve la URL del PDF oficial
+      }
+    });
+    
     const invoiceData = invoiceResponse.data;
     
     console.log(`📋 Factura ${id}: ${invoiceData.numberTemplate?.fullNumber}`);
     console.log(`📋 Cliente: ${invoiceData.client?.name}`);
+    console.log(`📋 Status: ${invoiceData.status}`);
     console.log(`📋 Total: ${invoiceData.total}`);
     
-    // 2. Preparar datos para el preview (mismo formato que POST /invoices)
-    // IMPORTANTE: Si la factura ya está en Alegra con status 'open', usamos ese status
-    // para que el PDF no tenga marca de agua de BORRADOR
-    const previewData = {
-      client: invoiceData.client?.id || invoiceData.client,
-      date: invoiceData.date,
-      dueDate: invoiceData.dueDate,
-      items: invoiceData.items.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || '',
-        price: item.price,
-        quantity: item.quantity,
-        discount: item.discount || 0,
-        tax: item.tax || []
-      })),
-      observations: invoiceData.observations || '',
-      termsConditions: invoiceData.termsConditions || '',
-      status: 'open', // Forzar status 'open' para que no aparezca como borrador
-      numberTemplate: invoiceData.numberTemplate
-    };
-    
-    console.log(`📤 Llamando a /invoices/preview con datos de la factura...`);
-    console.log(`📋 Preview data:`, JSON.stringify(previewData, null, 2));
-    
-    // 3. Llamar al endpoint /invoices/preview
-    const previewResponse = await alegraService.api.post('/invoices/preview', previewData);
-    
-    console.log(`📥 Respuesta de preview:`, JSON.stringify(previewResponse.data, null, 2));
-    
-    // 4. Extraer la URL del PDF (Alegra usa el campo 'pdfUrl')
-    const pdfUrl = previewResponse.data.pdfUrl || previewResponse.data.url;
-    
-    if (pdfUrl) {
-      console.log(`✅ URL del PDF generada: ${pdfUrl}`);
-      
-      // Devolver la URL para que el frontend la abra
-      res.json({
-        success: true,
-        url: pdfUrl,
-        invoiceNumber: invoiceData.numberTemplate?.fullNumber,
-        invoiceId: id
-      });
-    } else {
-      throw new Error('La respuesta de preview no contiene una URL del PDF');
+    // Verificar que la factura tenga el campo 'pdf'
+    if (!invoiceData.pdf) {
+      // Si no hay PDF, probablemente es porque está en borrador
+      if (invoiceData.status === 'draft') {
+        throw new Error('Las facturas en borrador no pueden generar PDF. La factura debe tener status "open".');
+      }
+      throw new Error('No se pudo obtener la URL del PDF de la factura');
     }
     
+    const pdfUrl = invoiceData.pdf;
+    console.log(`✅ URL del PDF oficial obtenida: ${pdfUrl}`);
+    
+    // Devolver la URL para que el frontend la abra
+    res.json({
+      success: true,
+      url: pdfUrl,
+      invoiceNumber: invoiceData.numberTemplate?.fullNumber,
+      invoiceId: id,
+      status: invoiceData.status
+    });
+    
   } catch (error) {
-    console.error(`❌ Error generando PDF de factura ${req.params.id}:`);
+    console.error(`❌ Error obteniendo PDF de factura ${req.params.id}:`);
     console.error(`   - Mensaje: ${error.message}`);
     console.error(`   - Status: ${error.response?.status}`);
     console.error(`   - Status Text: ${error.response?.statusText}`);
@@ -426,7 +407,7 @@ router.get('/facturas/:id/pdf', async (req, res) => {
       success: false,
       error: error.message,
       details: error.response?.statusText,
-      message: `Error generando PDF de Alegra para factura ${req.params.id}`,
+      message: `Error obteniendo PDF de Alegra para factura ${req.params.id}`,
       invoiceId: req.params.id
     });
   }
