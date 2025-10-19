@@ -365,6 +365,8 @@ router.get('/facturas/:id/pdf', async (req, res) => {
     console.log(`📋 Total: ${invoiceData.total}`);
     
     // 2. Preparar datos para el preview (mismo formato que POST /invoices)
+    // IMPORTANTE: Si la factura ya está en Alegra con status 'open', usamos ese status
+    // para que el PDF no tenga marca de agua de BORRADOR
     const previewData = {
       client: invoiceData.client?.id || invoiceData.client,
       date: invoiceData.date,
@@ -380,7 +382,7 @@ router.get('/facturas/:id/pdf', async (req, res) => {
       })),
       observations: invoiceData.observations || '',
       termsConditions: invoiceData.termsConditions || '',
-      status: invoiceData.status || 'draft',
+      status: 'open', // Forzar status 'open' para que no aparezca como borrador
       numberTemplate: invoiceData.numberTemplate
     };
     

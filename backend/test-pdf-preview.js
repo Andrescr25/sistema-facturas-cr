@@ -69,7 +69,7 @@ async function testPDFPreview() {
         }
       ],
       observations: '🧪 FACTURA DE PRUEBA - Generada automáticamente para testing',
-      status: 'draft' // Crear como borrador para no contaminar datos reales
+      status: 'open' // Crear como factura activa para que el PDF no tenga marca de BORRADOR
     };
     
     console.log('   📋 Datos de la factura:');
@@ -107,7 +107,7 @@ async function testPDFPreview() {
       })),
       observations: facturaCompleta.observations || '',
       termsConditions: facturaCompleta.termsConditions || '',
-      status: facturaCompleta.status || 'draft',
+      status: 'open', // Forzar 'open' para que no aparezca marca de BORRADOR
       numberTemplate: facturaCompleta.numberTemplate
     };
     
