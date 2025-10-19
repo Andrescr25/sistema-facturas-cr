@@ -897,13 +897,17 @@ export default function Facturacion() {
                       buscarProductosPorNombre(e.target.value);
                     }}
                     onFocus={(e) => {
-                      // Ajustar scroll cuando aparece el teclado en móvil
+                      // Ajustar scroll cuando aparece el teclado en móvil (scroll mínimo)
                       if (isMobile) {
                         setTimeout(() => {
-                          e.target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start',
-                            inline: 'nearest'
+                          // Scroll manual más controlado
+                          const rect = e.target.getBoundingClientRect();
+                          const offset = window.pageYOffset || document.documentElement.scrollTop;
+                          const targetY = rect.top + offset - (window.innerHeight * 0.3); // Solo 30% desde arriba
+                          
+                          window.scrollTo({
+                            top: targetY,
+                            behavior: 'smooth'
                           });
                         }, 300);
                       }
@@ -1295,8 +1299,6 @@ export default function Facturacion() {
                   className="w-full max-w-[120px] text-center text-2xl font-bold border-2 border-gray-300 rounded-xl py-3 px-2 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  readOnly
-                  onClick={(e) => e.target.readOnly = false}
                 />
 
                 {/* Botón más */}
