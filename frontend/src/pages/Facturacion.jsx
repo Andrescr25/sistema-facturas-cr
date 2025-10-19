@@ -1025,26 +1025,27 @@ export default function Facturacion() {
               Configuración
             </h3>
 
-            <div className="space-y-4">
+            <div className={`${isMobile ? 'space-y-3' : 'space-y-4'}`}>
               {/* Fecha */}
               <div>
-                <label className="label">Fecha</label>
+                <label className={`label ${isMobile ? 'text-sm' : ''}`}>Fecha</label>
                 <input
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
-                  className="input w-full"
-                  style={isMobile ? { fontSize: '16px', paddingTop: '0.5rem', paddingBottom: '0.5rem' } : {}}
+                  className={`input w-full ${isMobile ? 'text-base' : ''}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
               {/* Método de Pago */}
               <div>
-                <label className="label">Método de Pago</label>
+                <label className={`label ${isMobile ? 'text-sm' : ''}`}>Método de Pago</label>
                 <select
                   value={metodoPago}
                   onChange={(e) => setMetodoPago(e.target.value)}
-                  className="input w-full"
+                  className={`input w-full ${isMobile ? 'text-base' : ''}`}
+                  style={{ fontSize: '16px' }}
                 >
                   {metodosPago.map((metodo) => (
                     <option key={metodo.id} value={metodo.id}>
@@ -1056,29 +1057,31 @@ export default function Facturacion() {
 
               {/* Descuento Global */}
               <div>
-                <label className="label">Descuento Global %</label>
+                <label className={`label ${isMobile ? 'text-sm' : ''}`}>Descuento Global %</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={descuentoGlobal}
                   onChange={(e) => setDescuentoGlobal(parseFloat(e.target.value) || 0)}
-                  className="input w-full"
+                  className={`input w-full ${isMobile ? 'text-base' : ''}`}
+                  inputMode="decimal"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
 
               {/* Factura Electrónica */}
-              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className={`flex items-center gap-3 ${isMobile ? 'p-2.5' : 'p-3'} bg-blue-50 border border-blue-200 rounded-lg`}>
                 <input
                   type="checkbox"
                   id="factura-electronica"
                   checked={esElectronica}
                   onChange={(e) => setEsElectronica(e.target.checked)}
-                  className="w-5 h-5"
+                  className={`${isMobile ? 'w-5 h-5' : 'w-5 h-5'} flex-shrink-0`}
                 />
                 <label htmlFor="factura-electronica" className="flex-1 cursor-pointer">
-                  <p className="font-medium text-blue-900">Factura Electrónica</p>
-                  <p className="text-xs text-blue-700">
+                  <p className={`font-medium text-blue-900 ${isMobile ? 'text-sm' : ''}`}>Factura Electrónica</p>
+                  <p className={`text-blue-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                     {esElectronica ? 'Se enviará a Hacienda' : 'Factura simple sin envío a Hacienda'}
                   </p>
                 </label>
@@ -1086,13 +1089,14 @@ export default function Facturacion() {
 
               {/* Observaciones */}
               <div>
-                <label className="label">Observaciones</label>
+                <label className={`label ${isMobile ? 'text-sm' : ''}`}>Observaciones</label>
                 <textarea
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
-                  rows="3"
+                  rows={isMobile ? "2" : "3"}
                   placeholder="Notas o comentarios adicionales..."
-                  className="input w-full"
+                  className={`input w-full resize-none ${isMobile ? 'text-base' : ''}`}
+                  style={{ fontSize: '16px' }}
                 />
               </div>
             </div>
@@ -1221,7 +1225,7 @@ export default function Facturacion() {
                     const current = parseInt(cantidadMovil) || 1;
                     if (current > 1) setCantidadMovil((current - 1).toString());
                   }}
-                  className="w-14 h-14 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-xl text-gray-700 font-bold text-2xl transition-colors"
+                  className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-xl text-gray-700 font-bold text-2xl transition-colors"
                 >
                   <Minus size={24} />
                 </button>
@@ -1240,11 +1244,10 @@ export default function Facturacion() {
                     }
                   }}
                   placeholder="1"
-                  className="flex-1 text-center text-3xl font-bold border-2 border-gray-300 rounded-xl py-3 px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-200"
+                  className="w-full max-w-[120px] text-center text-2xl font-bold border-2 border-gray-300 rounded-xl py-3 px-2 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
                   autoFocus
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  style={{ fontSize: '28px' }}
                 />
 
                 {/* Botón más */}
@@ -1254,28 +1257,10 @@ export default function Facturacion() {
                     const current = parseInt(cantidadMovil) || 0;
                     setCantidadMovil((current + 1).toString());
                   }}
-                  className="w-14 h-14 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl text-white font-bold text-2xl transition-colors"
+                  className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl text-white font-bold text-2xl transition-colors"
                 >
                   <Plus size={24} />
                 </button>
-              </div>
-
-              {/* Botones de cantidad rápida */}
-              <div className="flex gap-2 mt-4">
-                {[1, 5, 10, 20].map(qty => (
-                  <button
-                    key={qty}
-                    type="button"
-                    onClick={() => setCantidadMovil(qty.toString())}
-                    className={`flex-1 py-2 px-3 rounded-lg font-semibold transition-colors ${
-                      parseInt(cantidadMovil) === qty
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
-                    }`}
-                  >
-                    {qty}
-                  </button>
-                ))}
               </div>
             </div>
 
