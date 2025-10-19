@@ -369,22 +369,42 @@ router.get('/facturas/:id/pdf', async (req, res) => {
       console.warn(`⚠️ No se pudo obtener info de la factura: ${infoError.message}`);
     }
 
-    // Obtener el PDF desde Alegra
+    // Obtener el PDF desde Alegra - primero sin especificar responseType para ver qué devuelve
     const response = await alegraService.api.get(`/invoices/${id}/files/pdf`, {
-      responseType: 'arraybuffer',
       timeout: 30000 // 30 segundos
     });
 
-    console.log(`📦 PDF recibido:`);
-    console.log(`   - Tamaño: ${response.data.byteLength || response.data.length} bytes`);
+    console.log(`📦 Respuesta recibida:`);
     console.log(`   - Content-Type: ${response.headers['content-type']}`);
+    console.log(`   - Tipo de data:`, typeof response.data);
+    
+    // Si Alegra devuelve JSON con una URL del PDF
+    if (response.headers['content-type']?.includes('application/json')) {
+      console.log(`📋 JSON recibido:`, JSON.stringify(response.data, null, 2));
+      
+      // Alegra devuelve un objeto con la URL del PDF
+      if (response.data && response.data.url) {
+        console.log(`🔗 Redirigiendo a URL del PDF: ${response.data.url}`);
+        // Redirigir al cliente a la URL del PDF
+        res.redirect(response.data.url);
+        return;
+      } else if (response.data && response.data.pdf) {
+        console.log(`🔗 Redirigiendo a URL del PDF: ${response.data.pdf}`);
+        res.redirect(response.data.pdf);
+        return;
+      } else {
+        console.error(`❌ JSON no contiene URL del PDF. Estructura:`, Object.keys(response.data));
+        throw new Error('La respuesta no contiene una URL del PDF');
+      }
+    }
 
-    // Verificar que sea un PDF válido
+    // Si es binario (arraybuffer), procesarlo como PDF
     const buffer = Buffer.from(response.data);
     const pdfHeader = buffer.slice(0, 5).toString();
     
     if (!pdfHeader.startsWith('%PDF')) {
       console.error(`❌ El archivo recibido no es un PDF válido. Header: ${pdfHeader}`);
+      console.error(`📄 Primeros 100 bytes:`, buffer.slice(0, 100).toString());
       throw new Error('El archivo recibido no es un PDF válido');
     }
 
