@@ -56,7 +56,7 @@ export default function Dashboard() {
     {
       name: 'Registrar Faltantes',
       description: 'Registrar productos faltantes',
-      href: '/registrar-faltantes',
+      href: '/buscar-factura',
       icon: FileText,
       color: 'bg-green-500'
     },
