@@ -513,6 +513,39 @@ router.get('/facturas/:id', async (req, res) => {
   }
 });
 
+// Editar factura completa
+router.put('/facturas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const datosEdicion = req.body;
+
+    console.log(`✏️ Editando factura ID: ${id}`);
+    console.log('📝 Datos de edición:', JSON.stringify(datosEdicion, null, 2));
+
+    const result = await alegraService.updateInvoice(id, datosEdicion);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data,
+        message: 'Factura actualizada exitosamente'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.message || 'Error actualizando factura'
+      });
+    }
+  } catch (error) {
+    console.error('Error editando factura:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error editando factura'
+    });
+  }
+});
+
 // Actualizar factura (eliminar producto)
 router.delete('/facturas/:id/items/:itemId', async (req, res) => {
   try {

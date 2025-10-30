@@ -697,7 +697,36 @@ class AlegraService {
             };
         }
     }
-    
+
+    /**
+     * Actualizar factura en Alegra
+     */
+    async updateInvoice(invoiceId, datosEdicion) {
+        try {
+            console.log(`✏️ Actualizando factura ${invoiceId} en Alegra`);
+            console.log('📝 Datos de edición:', JSON.stringify(datosEdicion, null, 2));
+
+            const response = await this.api.put(`/invoices/${invoiceId}`, datosEdicion);
+
+            console.log(`✅ Factura ${invoiceId} actualizada exitosamente`);
+
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error(`❌ Error actualizando factura ${invoiceId}:`, error.message);
+            console.error('Detalles del error:', error.response?.data || error);
+
+            return {
+                success: false,
+                error: error.message,
+                message: `Error al actualizar factura: ${error.message}`,
+                details: error.response?.data || null
+            };
+        }
+    }
+
     /**
      * Buscar facturas por número en Alegra
      */

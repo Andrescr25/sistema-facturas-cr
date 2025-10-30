@@ -511,10 +511,13 @@ class FacturacionService {
   async handleOnline() {
     console.log('🌐 Conexión detectada');
     this.isOnline = true;
-    
-    // Intentar sincronizar facturas pendientes
+
+    // Intentar sincronizar facturas pendientes y ediciones
     try {
-      await this.sincronizarFacturasPendientes();
+      await Promise.all([
+        this.sincronizarFacturasPendientes(),
+        this.sincronizarEdicionesPendientes()
+      ]);
     } catch (error) {
       console.error('Error en sincronización automática:', error);
     }
@@ -533,6 +536,255 @@ class FacturacionService {
    */
   isConnected() {
     return this.isOnline;
+  }
+
+  /**
+   * ========== MÉTODOS PARA EDICIÓN DE FACTURAS ==========
+   */
+
+  /**
+   * Buscar facturas (desde API si hay internet, desde cache si no)
+   */
+  async buscarFacturas(criterio) {
+    try {
+      console.log('🔍 Buscando facturas...', { online: this.isOnline, criterio });
+
+      if (this.isOnline) {
+        // Buscar online y actualizar cache
+        try {
+          let response;
+
+          if (criterio.numero) {
+            // Buscar por número
+            response = await api.get(`/alegra/facturas/buscar/numero/${criterio.numero}`);
+          } else if (criterio.cliente) {
+            // Buscar por cliente
+            response = await api.get(`/alegra/facturas/buscar/cliente/${criterio.cliente}`);
+          } else if (criterio.periodo) {
+            // Buscar por período
+            const { ano, mes, semana } = criterio.periodo;
+            response = await api.get(`/alegra/facturas/${ano}/${mes}/${semana}`);
+          } else {
+            throw new Error('Criterio de búsqueda no válido');
+          }
+
+          if (response.data.success) {
+            const facturas = response.data.data;
+
+            // Guardar en cache para uso offline
+            if (facturas.length > 0) {
+              await indexedDBService.saveFacturasCache(facturas);
+            }
+
+            return facturas;
+          }
+        } catch (error) {
+          console.warn('⚠️ Error buscando online, buscando en cache:', error.message);
+          // Si falla, buscar en cache
+        }
+      }
+
+      // Modo offline: buscar en cache
+      if (criterio.numero) {
+        return await indexedDBService.searchFacturasByNumber(criterio.numero);
+      } else if (criterio.cliente) {
+        return await indexedDBService.searchFacturasByClient(criterio.cliente);
+      } else {
+        return await indexedDBService.getFacturasCache();
+      }
+
+    } catch (error) {
+      console.error('❌ Error buscando facturas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener una factura específica por ID
+   */
+  async getFacturaById(facturaId) {
+    try {
+      console.log('📋 Obteniendo factura:', facturaId);
+
+      if (this.isOnline) {
+        try {
+          const response = await api.get(`/alegra/facturas/${facturaId}`);
+
+          if (response.data.success) {
+            const factura = response.data.data;
+
+            // Guardar en cache
+            await indexedDBService.saveFacturasCache([factura]);
+
+            return factura;
+          }
+        } catch (error) {
+          console.warn('⚠️ Error obteniendo factura online, buscando en cache:', error.message);
+        }
+      }
+
+      // Buscar en cache
+      return await indexedDBService.getFacturaById(facturaId);
+
+    } catch (error) {
+      console.error('❌ Error obteniendo factura:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Editar factura
+   * Si hay internet: envía directamente a Alegra
+   * Si no hay internet: guarda localmente y sincroniza después
+   */
+  async editarFactura(facturaId, datosEdicion) {
+    try {
+      console.log('✏️ Editando factura...', {
+        online: this.isOnline,
+        facturaId,
+        cambios: Object.keys(datosEdicion)
+      });
+
+      if (this.isOnline) {
+        // Intentar editar directamente en Alegra
+        try {
+          const response = await api.put(`/alegra/facturas/${facturaId}`, datosEdicion);
+
+          if (response.data.success) {
+            console.log('✅ Factura editada online:', facturaId);
+
+            // Actualizar cache con la nueva versión
+            if (response.data.data) {
+              await indexedDBService.saveFacturasCache([response.data.data]);
+            }
+
+            return {
+              success: true,
+              online: true,
+              data: response.data.data,
+              message: 'Factura editada exitosamente en Alegra'
+            };
+          }
+        } catch (error) {
+          console.warn('⚠️ Error enviando edición a Alegra, guardando offline:', error.message);
+          // Si falla, guardar offline
+        }
+      }
+
+      // Modo offline: guardar edición localmente
+      const localId = await indexedDBService.saveEdicionPendiente(facturaId, datosEdicion);
+
+      console.log('💾 Edición guardada localmente:', localId);
+
+      return {
+        success: true,
+        online: false,
+        localId: localId,
+        message: 'Edición guardada localmente. Se sincronizará cuando haya conexión.'
+      };
+
+    } catch (error) {
+      console.error('❌ Error editando factura:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sincronizar ediciones pendientes con Alegra
+   */
+  async sincronizarEdicionesPendientes() {
+    if (this.syncInProgress) {
+      console.log('⏳ Sincronización ya en progreso...');
+      return { success: false, sincronizadas: 0, mensaje: 'Sincronización en progreso' };
+    }
+
+    try {
+      this.syncInProgress = true;
+      console.log('🔄 Iniciando sincronización de ediciones pendientes...');
+
+      const edicionesPendientes = await indexedDBService.getEdicionesPendientes();
+
+      if (edicionesPendientes.length === 0) {
+        console.log('✅ No hay ediciones pendientes de sincronizar');
+        return { success: true, sincronizadas: 0 };
+      }
+
+      console.log(`📋 ${edicionesPendientes.length} ediciones pendientes de sincronizar`);
+
+      const resultados = {
+        exitosas: [],
+        fallidas: []
+      };
+
+      for (const edicion of edicionesPendientes) {
+        try {
+          // Intentar editar en Alegra
+          const response = await api.put(
+            `/alegra/facturas/${edicion.facturaId}`,
+            edicion.datosEdicion
+          );
+
+          if (response.data.success) {
+            // Marcar como sincronizada
+            await indexedDBService.markEdicionSincronizada(edicion.localId);
+
+            // Actualizar cache con la nueva versión
+            if (response.data.data) {
+              await indexedDBService.saveFacturasCache([response.data.data]);
+            }
+
+            resultados.exitosas.push({
+              localId: edicion.localId,
+              facturaId: edicion.facturaId
+            });
+
+            console.log(`✅ Edición ${edicion.localId} sincronizada (Factura: ${edicion.facturaId})`);
+          }
+        } catch (error) {
+          // Registrar error
+          await indexedDBService.markEdicionError(edicion.localId, error.message);
+
+          resultados.fallidas.push({
+            localId: edicion.localId,
+            facturaId: edicion.facturaId,
+            error: error.message
+          });
+
+          console.error(`❌ Error sincronizando edición ${edicion.localId}:`, error.message);
+        }
+      }
+
+      console.log('🎯 Sincronización de ediciones completada:', {
+        exitosas: resultados.exitosas.length,
+        fallidas: resultados.fallidas.length
+      });
+
+      return {
+        success: true,
+        sincronizadas: resultados.exitosas.length,
+        fallidas: resultados.fallidas.length,
+        detalles: resultados
+      };
+
+    } catch (error) {
+      console.error('❌ Error en sincronización de ediciones:', error);
+      throw error;
+    } finally {
+      this.syncInProgress = false;
+    }
+  }
+
+  /**
+   * Obtener ediciones pendientes
+   */
+  async getEdicionesPendientes() {
+    try {
+      const pendientes = await indexedDBService.getEdicionesPendientes();
+      return pendientes;
+    } catch (error) {
+      console.error('❌ Error obteniendo ediciones pendientes:', error);
+      throw error;
+    }
   }
 }
 

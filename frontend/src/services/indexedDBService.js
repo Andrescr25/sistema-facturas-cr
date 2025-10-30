@@ -6,13 +6,15 @@
  */
 
 const DB_NAME = 'SistemaFacturasCR';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incrementado para agregar nuevos stores
 
 // Stores
 const STORES = {
   PRODUCTOS: 'productos',
   CLIENTES: 'clientes',
   FACTURAS_PENDIENTES: 'facturas_pendientes',
+  FACTURAS_CACHE: 'facturas_cache', // Cache de facturas existentes para edición offline
+  EDICIONES_PENDIENTES: 'ediciones_pendientes', // Ediciones pendientes de sincronización
   CONFIGURACION: 'configuracion'
 };
 
@@ -73,6 +75,27 @@ class IndexedDBService {
         if (!db.objectStoreNames.contains(STORES.CONFIGURACION)) {
           db.createObjectStore(STORES.CONFIGURACION, { keyPath: 'key' });
           console.log('⚙️ Store de configuración creado');
+        }
+
+        // Store de cache de facturas (para edición offline)
+        if (!db.objectStoreNames.contains(STORES.FACTURAS_CACHE)) {
+          const facturasCacheStore = db.createObjectStore(STORES.FACTURAS_CACHE, { keyPath: 'id' });
+          facturasCacheStore.createIndex('numberTemplate', 'numberTemplate.fullNumber', { unique: false });
+          facturasCacheStore.createIndex('client', 'client', { unique: false });
+          facturasCacheStore.createIndex('date', 'date', { unique: false });
+          console.log('📋 Store de cache de facturas creado');
+        }
+
+        // Store de ediciones pendientes
+        if (!db.objectStoreNames.contains(STORES.EDICIONES_PENDIENTES)) {
+          const edicionesStore = db.createObjectStore(STORES.EDICIONES_PENDIENTES, {
+            keyPath: 'localId',
+            autoIncrement: true
+          });
+          edicionesStore.createIndex('facturaId', 'facturaId', { unique: false });
+          edicionesStore.createIndex('timestamp', 'timestamp', { unique: false });
+          edicionesStore.createIndex('sincronizada', 'sincronizada', { unique: false });
+          console.log('✏️ Store de ediciones pendientes creado');
         }
       };
     });
@@ -447,7 +470,7 @@ class IndexedDBService {
    */
   async clearAll() {
     const transaction = this.db.transaction(
-      [STORES.PRODUCTOS, STORES.CLIENTES, STORES.FACTURAS_PENDIENTES, STORES.CONFIGURACION], 
+      [STORES.PRODUCTOS, STORES.CLIENTES, STORES.FACTURAS_PENDIENTES, STORES.FACTURAS_CACHE, STORES.EDICIONES_PENDIENTES, STORES.CONFIGURACION],
       'readwrite'
     );
 
@@ -455,10 +478,196 @@ class IndexedDBService {
       transaction.objectStore(STORES.PRODUCTOS).clear(),
       transaction.objectStore(STORES.CLIENTES).clear(),
       transaction.objectStore(STORES.FACTURAS_PENDIENTES).clear(),
+      transaction.objectStore(STORES.FACTURAS_CACHE).clear(),
+      transaction.objectStore(STORES.EDICIONES_PENDIENTES).clear(),
       transaction.objectStore(STORES.CONFIGURACION).clear()
     ]);
 
     console.log('🗑️ Cache limpiado completamente');
+  }
+
+  /**
+   * ========== MÉTODOS PARA EDICIÓN DE FACTURAS ==========
+   */
+
+  /**
+   * Guardar facturas en cache (para edición offline)
+   */
+  async saveFacturasCache(facturas) {
+    const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
+    const store = transaction.objectStore(STORES.FACTURAS_CACHE);
+
+    for (const factura of facturas) {
+      await store.put(factura);
+    }
+
+    console.log(`✅ ${facturas.length} facturas guardadas en cache`);
+    return facturas.length;
+  }
+
+  /**
+   * Obtener todas las facturas del cache
+   */
+  async getFacturasCache() {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readonly');
+      const store = transaction.objectStore(STORES.FACTURAS_CACHE);
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Obtener una factura específica del cache
+   */
+  async getFacturaById(facturaId) {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readonly');
+      const store = transaction.objectStore(STORES.FACTURAS_CACHE);
+      const request = store.get(facturaId);
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Buscar facturas por número
+   */
+  async searchFacturasByNumber(numero) {
+    const facturas = await this.getFacturasCache();
+    const term = numero.toString().toLowerCase().trim();
+
+    if (!term) return [];
+
+    return facturas.filter(f => {
+      const fullNumber = f.numberTemplate?.fullNumber ?
+        String(f.numberTemplate.fullNumber).toLowerCase() : '';
+      return fullNumber.includes(term);
+    });
+  }
+
+  /**
+   * Buscar facturas por cliente
+   */
+  async searchFacturasByClient(clienteNombre) {
+    const facturas = await this.getFacturasCache();
+    const term = clienteNombre.toLowerCase().trim();
+
+    if (!term) return [];
+
+    return facturas.filter(f => {
+      const clientName = f.client?.name ?
+        String(f.client.name).toLowerCase() : '';
+      return clientName.includes(term);
+    });
+  }
+
+  /**
+   * Guardar edición pendiente de factura
+   */
+  async saveEdicionPendiente(facturaId, datosEdicion) {
+    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
+
+    const edicionConMetadata = {
+      facturaId,
+      datosEdicion,
+      timestamp: Date.now(),
+      sincronizada: false,
+      intentosSincronizacion: 0,
+      errorSincronizacion: null
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(edicionConMetadata);
+      request.onsuccess = () => {
+        console.log('💾 Edición guardada localmente con ID:', request.result);
+        resolve(request.result);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Obtener ediciones pendientes de sincronización
+   */
+  async getEdicionesPendientes() {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readonly');
+      const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const ediciones = request.result || [];
+        const pendientes = ediciones.filter(e => e.sincronizada === false);
+        resolve(pendientes);
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Marcar edición como sincronizada
+   */
+  async markEdicionSincronizada(localId) {
+    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
+
+    return new Promise((resolve, reject) => {
+      const getRequest = store.get(localId);
+
+      getRequest.onsuccess = () => {
+        const edicion = getRequest.result;
+        if (edicion) {
+          edicion.sincronizada = true;
+          edicion.sincronizadaEn = Date.now();
+
+          const updateRequest = store.put(edicion);
+          updateRequest.onsuccess = () => {
+            console.log(`✅ Edición ${localId} marcada como sincronizada`);
+            resolve(edicion);
+          };
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          reject(new Error('Edición no encontrada'));
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Registrar error de sincronización de edición
+   */
+  async markEdicionError(localId, error) {
+    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
+
+    return new Promise((resolve, reject) => {
+      const getRequest = store.get(localId);
+
+      getRequest.onsuccess = () => {
+        const edicion = getRequest.result;
+        if (edicion) {
+          edicion.intentosSincronizacion = (edicion.intentosSincronizacion || 0) + 1;
+          edicion.errorSincronizacion = error;
+          edicion.ultimoIntento = Date.now();
+
+          const updateRequest = store.put(edicion);
+          updateRequest.onsuccess = () => resolve(edicion);
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          reject(new Error('Edición no encontrada'));
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
   }
 }
 

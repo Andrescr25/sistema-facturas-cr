@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  Receipt, Package, Users, Wifi, WifiOff, RefreshCw, Save, 
+import {
+  Receipt, Package, Users, Wifi, WifiOff, RefreshCw, Save,
   Check, AlertCircle, Search, X, Plus, Minus, ShoppingCart,
-  CreditCard, Calendar, FileText, Download, Send
+  CreditCard, Calendar, FileText, Download, Send, Edit
 } from 'lucide-react';
 import facturacionService from '../services/facturacionService';
 import { alegraService } from '../services/alegraService';
@@ -13,6 +13,9 @@ export default function Facturacion() {
   const [isMobile, setIsMobile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncingCache, setSyncingCache] = useState(false);
+  const [tabActiva, setTabActiva] = useState('nueva'); // 'nueva' o 'editar'
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [facturaEditando, setFacturaEditando] = useState(null);
 
   // Estados de datos
   const [productos, setProductos] = useState([]);
@@ -38,6 +41,12 @@ export default function Facturacion() {
   const [productosEncontrados, setProductosEncontrados] = useState([]);
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [clientesEncontrados, setClientesEncontrados] = useState([]);
+
+  // Estados de búsqueda de facturas para edición
+  const [busquedaFactura, setBusquedaFactura] = useState('');
+  const [facturasEncontradas, setFacturasEncontradas] = useState([]);
+  const [buscandoFacturas, setBuscandoFacturas] = useState(false);
+  const [edicionesPendientes, setEdicionesPendientes] = useState([]);
 
   // Estados UI
   const [itemEditando, setItemEditando] = useState(null);
@@ -115,6 +124,20 @@ export default function Facturacion() {
   // Inicializar servicio y cargar datos
   useEffect(() => {
     inicializarServicio();
+  }, []);
+
+  // Cargar ediciones pendientes
+  useEffect(() => {
+    const cargarEdicionesPendientes = async () => {
+      try {
+        const ediciones = await facturacionService.getEdicionesPendientes();
+        setEdicionesPendientes(ediciones);
+      } catch (error) {
+        console.error('Error cargando ediciones pendientes:', error);
+      }
+    };
+
+    cargarEdicionesPendientes();
   }, []);
 
   // Listeners de conexión
@@ -309,6 +332,93 @@ export default function Facturacion() {
     } catch (error) {
       console.error('Error buscando clientes:', error);
       setClientesEncontrados([]);
+    }
+  };
+
+  const buscarFacturas = async (termino) => {
+    if (!termino || termino.length < 2) {
+      setFacturasEncontradas([]);
+      return;
+    }
+
+    try {
+      setBuscandoFacturas(true);
+
+      // Buscar por número o cliente
+      const facturas = await facturacionService.buscarFacturas({ numero: termino });
+
+      setFacturasEncontradas(facturas.slice(0, 10));
+    } catch (error) {
+      console.error('Error buscando facturas:', error);
+      mostrarMensaje('Error buscando facturas: ' + error.message, 'error');
+      setFacturasEncontradas([]);
+    } finally {
+      setBuscandoFacturas(false);
+    }
+  };
+
+  const cargarFacturaParaEdicion = async (factura) => {
+    try {
+      setLoading(true);
+
+      // Obtener detalles completos de la factura
+      const facturaCompleta = await facturacionService.getFacturaById(factura.id);
+
+      if (!facturaCompleta) {
+        mostrarMensaje('No se pudo cargar la factura', 'error');
+        return;
+      }
+
+      // Cargar datos en el formulario
+      setFacturaEditando(facturaCompleta);
+      setModoEdicion(true);
+
+      // Cliente
+      if (facturaCompleta.client) {
+        setClienteSeleccionado(facturaCompleta.client);
+      }
+
+      // Items
+      if (facturaCompleta.items && facturaCompleta.items.length > 0) {
+        const itemsFormateados = facturaCompleta.items.map(item => ({
+          id: item.id,
+          reference: getReference(item.reference),
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          tax: item.tax || [],
+          discount: item.discount || 0
+        }));
+        setItems(itemsFormateados);
+      }
+
+      // Fecha
+      if (facturaCompleta.date) {
+        setFecha(facturaCompleta.date);
+      }
+
+      // Observaciones
+      if (facturaCompleta.observations) {
+        setObservaciones(facturaCompleta.observations);
+      }
+
+      // Descuento global (si existe en la factura)
+      if (facturaCompleta.discount) {
+        setDescuentoGlobal(parseFloat(facturaCompleta.discount) || 0);
+      }
+
+      // Cambiar a la pestaña de nueva/editar para mostrar el formulario
+      setTabActiva('nueva');
+      setBusquedaFactura('');
+      setFacturasEncontradas([]);
+
+      mostrarMensaje(`Factura ${facturaCompleta.numberTemplate?.fullNumber || facturaCompleta.id} cargada para edición`, 'success');
+
+    } catch (error) {
+      console.error('Error cargando factura:', error);
+      mostrarMensaje('Error cargando factura: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -508,20 +618,29 @@ export default function Facturacion() {
         facturaData.discount = descuentoGlobal;
       }
 
-      // Crear factura
-      const resultado = await facturacionService.crearFactura(facturaData);
+      let resultado;
+
+      if (modoEdicion && facturaEditando) {
+        // Editar factura existente
+        resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData);
+      } else {
+        // Crear factura nueva
+        resultado = await facturacionService.crearFactura(facturaData);
+      }
 
       if (resultado.success) {
-        mostrarMensaje(
-          resultado.online 
+        const mensaje = modoEdicion
+          ? (resultado.online
+            ? `✅ Factura #${facturaEditando.numberTemplate?.fullNumber || facturaEditando.id} editada exitosamente`
+            : `💾 Edición guardada localmente. Se sincronizará cuando haya conexión.`)
+          : (resultado.online
             ? `✅ Factura #${resultado.data.id} creada exitosamente`
-            : `💾 Factura guardada localmente. Se sincronizará cuando haya conexión.`,
-          'success',
-          5000
-        );
+            : `💾 Factura guardada localmente. Se sincronizará cuando haya conexión.`);
 
-        // Visualizar PDF desde Alegra (solo si se creó online)
-        if (resultado.online && resultado.data?.id) {
+        mostrarMensaje(mensaje, 'success', 5000);
+
+        // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
+        if (resultado.online && resultado.data?.id && !modoEdicion) {
           try {
             console.log('🔍 Factura creada, intentando abrir PDF...');
             console.log('📋 Datos de resultado:', JSON.stringify(resultado.data, null, 2));
@@ -571,6 +690,8 @@ export default function Facturacion() {
     setCantidadProducto('');
     setBusquedaCliente('');
     setClientesEncontrados([]);
+    setModoEdicion(false);
+    setFacturaEditando(null);
   };
 
   const mostrarMensaje = (texto, tipo = 'info', duracion = 3000) => {
@@ -665,8 +786,167 @@ export default function Facturacion() {
         </div>
       )}
 
+      {/* Sistema de Pestañas */}
+      <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => {
+              setTabActiva('nueva');
+              if (modoEdicion) {
+                limpiarFactura();
+              }
+            }}
+            className={`px-6 py-3 font-medium transition-colors relative ${
+              tabActiva === 'nueva'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            } ${isMobile ? 'flex-1 text-sm' : ''}`}
+          >
+            <FileText size={16} className="inline mr-2" />
+            {modoEdicion ? 'Editando Factura' : 'Nueva Factura'}
+          </button>
+          <button
+            onClick={() => {
+              setTabActiva('editar');
+              limpiarFactura();
+            }}
+            className={`px-6 py-3 font-medium transition-colors relative ${
+              tabActiva === 'editar'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            } ${isMobile ? 'flex-1 text-sm' : ''}`}
+          >
+            <Edit size={16} className="inline mr-2" />
+            Buscar Factura
+            {edicionesPendientes.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full">
+                {edicionesPendientes.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Contenido de la pestaña "Buscar Factura" */}
+      {tabActiva === 'editar' && (
+        <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Search size={20} />
+              Buscar Factura para Editar
+            </h3>
+
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="search"
+                  value={busquedaFactura}
+                  onChange={(e) => {
+                    setBusquedaFactura(e.target.value);
+                    buscarFacturas(e.target.value);
+                  }}
+                  placeholder="Buscar por número de factura..."
+                  className="input w-full pl-10"
+                />
+                {busquedaFactura && (
+                  <button
+                    onClick={() => {
+                      setBusquedaFactura('');
+                      setFacturasEncontradas([]);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {buscandoFacturas && (
+              <div className="text-center py-8">
+                <div className="spinner mx-auto mb-4"></div>
+                <p className="text-gray-600">Buscando facturas...</p>
+              </div>
+            )}
+
+            {!buscandoFacturas && facturasEncontradas.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 mb-2">
+                  {facturasEncontradas.length} factura(s) encontrada(s)
+                </p>
+                {facturasEncontradas.map((factura) => (
+                  <button
+                    key={factura.id}
+                    onClick={() => cargarFacturaParaEdicion(factura)}
+                    className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">
+                          Factura #{factura.numberTemplate?.fullNumber || factura.id}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Cliente: {factura.client?.name || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Fecha: {factura.date ? new Date(factura.date).toLocaleDateString('es-CR') : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-600">
+                          ₡{(factura.total || 0).toLocaleString('es-CR')}
+                        </p>
+                        <span className="text-xs text-blue-600 flex items-center gap-1">
+                          <Edit size={12} />
+                          Editar
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!buscandoFacturas && busquedaFactura && facturasEncontradas.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <AlertCircle size={48} className="mx-auto mb-2 opacity-50" />
+                <p>No se encontraron facturas con ese criterio</p>
+                {!isOnline && (
+                  <p className="text-sm text-orange-600 mt-2">
+                    Estás offline. Solo se muestran facturas en cache.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {edicionesPendientes.length > 0 && (
+              <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <h4 className="font-semibold text-orange-900 mb-2 flex items-center gap-2">
+                  <AlertCircle size={18} />
+                  Ediciones Pendientes de Sincronización
+                </h4>
+                <p className="text-sm text-orange-800 mb-3">
+                  Hay {edicionesPendientes.length} edición(es) que se sincronizarán cuando haya conexión.
+                </p>
+                <div className="space-y-2">
+                  {edicionesPendientes.map((edicion) => (
+                    <div key={edicion.localId} className="bg-white p-3 rounded border border-orange-200">
+                      <p className="text-sm font-medium">Factura ID: {edicion.facturaId}</p>
+                      <p className="text-xs text-gray-600">
+                        Editada: {new Date(edicion.timestamp).toLocaleString('es-CR')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Stats del cache - Horizontal scroll en móvil */}
-      {cacheStats && (
+      {tabActiva === 'nueva' && cacheStats && (
         <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
           <div className={`${
             isMobile 
@@ -723,6 +1003,34 @@ export default function Facturacion() {
         </div>
       )}
 
+      {/* Banner de modo edición */}
+      {modoEdicion && facturaEditando && tabActiva === 'nueva' && (
+        <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+          <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-r-lg">
+            <div className="flex items-center gap-3">
+              <Edit className="text-orange-600" size={24} />
+              <div className="flex-1">
+                <p className="font-semibold text-orange-900">
+                  Editando Factura #{facturaEditando.numberTemplate?.fullNumber || facturaEditando.id}
+                </p>
+                <p className="text-sm text-orange-700">
+                  Realiza los cambios necesarios y guarda cuando termines
+                </p>
+              </div>
+              <button
+                onClick={limpiarFactura}
+                className="text-orange-600 hover:text-orange-800 p-2"
+                title="Cancelar edición"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Formulario de factura (Nueva/Edición) */}
+      {tabActiva === 'nueva' && (
       <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
         {/* Columna principal: Entrada de datos */}
         <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
@@ -1199,12 +1507,12 @@ export default function Facturacion() {
                 <button
                   onClick={finalizarFactura}
                   disabled={!clienteSeleccionado || items.length === 0 || loading}
-                  className={`btn btn-primary w-full flex items-center justify-center gap-2 ${
+                  className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 ${
                     isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
                   }`}
                 >
-                  <Check size={isMobile ? 24 : 20} />
-                  {loading ? 'Procesando...' : (isMobile ? 'Finalizar' : 'Finalizar Factura')}
+                  {modoEdicion ? <Edit size={isMobile ? 24 : 20} /> : <Check size={isMobile ? 24 : 20} />}
+                  {loading ? 'Procesando...' : (modoEdicion ? (isMobile ? 'Guardar Cambios' : 'Guardar Cambios') : (isMobile ? 'Finalizar' : 'Finalizar Factura'))}
                 </button>
 
                 <button
@@ -1242,14 +1550,16 @@ export default function Facturacion() {
             <button
               onClick={finalizarFactura}
               disabled={!clienteSeleccionado || items.length === 0 || loading}
-              className="btn btn-primary w-full flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg"
+              className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg`}
             >
-              <Check size={24} />
-              {loading ? 'Procesando...' : 'Finalizar'}
+              {modoEdicion ? <Edit size={24} /> : <Check size={24} />}
+              {loading ? 'Procesando...' : (modoEdicion ? 'Guardar Cambios' : 'Finalizar')}
             </button>
           </div>
         </div>
       )}
+      )}
+      {/* Fin del formulario de factura */}
 
       {/* Modal de Cantidad para Móvil - Optimizado touch */}
       {modalCantidadMovil && productoSeleccionadoMovil && (
