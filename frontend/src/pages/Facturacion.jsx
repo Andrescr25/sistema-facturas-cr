@@ -1031,6 +1031,7 @@ export default function Facturacion() {
 
       {/* Formulario de factura (Nueva/Edición) */}
       {tabActiva === 'nueva' && (
+      <>
       <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
         {/* Columna principal: Entrada de datos */}
         <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
@@ -1558,6 +1559,7 @@ export default function Facturacion() {
           </div>
         </div>
       )}
+      </>
       )}
       {/* Fin del formulario de factura */}
 
