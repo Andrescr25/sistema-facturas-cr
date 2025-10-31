@@ -817,7 +817,7 @@ export default function Facturacion() {
             } ${isMobile ? 'flex-1 text-sm' : ''}`}
           >
             <Edit size={16} className="inline mr-2" />
-            Buscar Factura
+            Editar Facturas
             {edicionesPendientes.length > 0 && (
               <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full">
                 {edicionesPendientes.length}
@@ -827,13 +827,13 @@ export default function Facturacion() {
         </div>
       </div>
 
-      {/* Contenido de la pestaña "Buscar Factura" */}
+      {/* Contenido de la pestaña "Editar Facturas" */}
       {tabActiva === 'editar' && (
         <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
           <div className="card">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Search size={20} />
-              Buscar Factura para Editar
+              Editar Facturas
             </h3>
 
             <div className="mb-4">

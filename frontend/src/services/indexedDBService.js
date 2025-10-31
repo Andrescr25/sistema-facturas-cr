@@ -494,15 +494,31 @@ class IndexedDBService {
    * Guardar facturas en cache (para edición offline)
    */
   async saveFacturasCache(facturas) {
+    if (!this.db) {
+      console.warn('⚠️ IndexedDB no inicializada en saveFacturasCache');
+      return 0;
+    }
+
     const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_CACHE);
 
+    let guardadas = 0;
     for (const factura of facturas) {
-      await store.put(factura);
+      // Verificar que la factura tenga id (clave primaria)
+      if (factura && factura.id) {
+        try {
+          await store.put(factura);
+          guardadas++;
+        } catch (error) {
+          console.warn('⚠️ Error guardando factura en cache:', factura.id, error.message);
+        }
+      } else {
+        console.warn('⚠️ Factura sin ID, no se puede guardar en cache:', factura);
+      }
     }
 
-    console.log(`✅ ${facturas.length} facturas guardadas en cache`);
-    return facturas.length;
+    console.log(`✅ ${guardadas} facturas guardadas en cache`);
+    return guardadas;
   }
 
   /**
@@ -595,6 +611,12 @@ class IndexedDBService {
    * Obtener ediciones pendientes de sincronización
    */
   async getEdicionesPendientes() {
+    // Verificar que la DB esté inicializada
+    if (!this.db) {
+      console.warn('⚠️ IndexedDB no inicializada en getEdicionesPendientes');
+      return [];
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readonly');
       const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);

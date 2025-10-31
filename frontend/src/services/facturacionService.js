@@ -193,24 +193,99 @@ class FacturacionService {
    */
   async actualizarTodoCache() {
     try {
-      console.log('🔄 Actualizando todo el cache (productos + contactos)...');
-      
-      const [productos, clientes] = await Promise.all([
+      console.log('🔄 Actualizando todo el cache (productos + contactos + facturas)...');
+
+      const [productos, clientes, facturas] = await Promise.all([
         this.actualizarCacheProductos(),
-        this.actualizarCacheClientes()
+        this.actualizarCacheClientes(),
+        this.precargarUltimasFacturas()
       ]);
-      
-      console.log(`✅ Cache actualizado: ${productos.total} productos, ${clientes.total} contactos`);
-      
+
+      console.log(`✅ Cache actualizado: ${productos.total} productos, ${clientes.total} contactos, ${facturas.total} facturas`);
+
       return {
         success: true,
         productos: productos.total,
         clientes: clientes.total,
+        facturas: facturas.total,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
       console.error('❌ Error actualizando cache completo:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Precargar las últimas 60 facturas para edición offline
+   */
+  async precargarUltimasFacturas() {
+    try {
+      if (!this.isOnline) {
+        console.log('⚠️ Sin conexión, no se pueden precargar facturas');
+        return { success: false, total: 0 };
+      }
+
+      console.log('🔄 Precargando últimas 60 facturas...');
+
+      // Obtener fecha actual y hace 60 días
+      const hoy = new Date();
+      const hace60Dias = new Date();
+      hace60Dias.setDate(hoy.getDate() - 60);
+
+      const ano = hoy.getFullYear();
+      const mes = hoy.getMonth() + 1;
+
+      // Buscar facturas del mes actual y anterior
+      const mesAnterior = mes === 1 ? 12 : mes - 1;
+      const anoAnterior = mes === 1 ? ano - 1 : ano;
+
+      const response = await api.get(`/alegra/facturas/${ano}/${mes}/todas`);
+      let facturas = [];
+
+      if (response.data.success) {
+        facturas = response.data.data || [];
+
+        // Si son menos de 60, buscar mes anterior también
+        if (facturas.length < 60) {
+          try {
+            const responseAnterior = await api.get(`/alegra/facturas/${anoAnterior}/${mesAnterior}/todas`);
+            if (responseAnterior.data.success) {
+              facturas = [...facturas, ...(responseAnterior.data.data || [])];
+            }
+          } catch (error) {
+            console.warn('⚠️ Error obteniendo facturas del mes anterior:', error.message);
+          }
+        }
+
+        // Ordenar por fecha descendente y tomar las últimas 60
+        facturas.sort((a, b) => new Date(b.date) - new Date(a.date));
+        facturas = facturas.slice(0, 60);
+
+        // Guardar en cache
+        if (facturas.length > 0) {
+          const guardadas = await indexedDBService.saveFacturasCache(facturas);
+          console.log(`✅ ${guardadas} facturas precargadas para edición offline`);
+
+          return {
+            success: true,
+            total: guardadas
+          };
+        }
+      }
+
+      return {
+        success: true,
+        total: 0
+      };
+    } catch (error) {
+      console.error('❌ Error precargando facturas:', error);
+      // No lanzar error para no detener la actualización del cache
+      return {
+        success: false,
+        total: 0,
+        error: error.message
+      };
     }
   }
 
