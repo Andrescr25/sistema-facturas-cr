@@ -123,12 +123,9 @@ export default function Facturacion() {
 
   // Inicializar servicio y cargar datos
   useEffect(() => {
-    inicializarServicio();
-  }, []);
-
-  // Cargar ediciones pendientes
-  useEffect(() => {
-    const cargarEdicionesPendientes = async () => {
+    const init = async () => {
+      await inicializarServicio();
+      // Cargar ediciones pendientes después de inicializar el servicio
       try {
         const ediciones = await facturacionService.getEdicionesPendientes();
         setEdicionesPendientes(ediciones);
@@ -136,8 +133,8 @@ export default function Facturacion() {
         console.error('Error cargando ediciones pendientes:', error);
       }
     };
-
-    cargarEdicionesPendientes();
+    
+    init();
   }, []);
 
   // Listeners de conexión

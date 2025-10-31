@@ -504,16 +504,24 @@ class IndexedDBService {
 
     let guardadas = 0;
     for (const factura of facturas) {
+      if (!factura) continue;
+
+      // Normalizar la factura: usar alegra_id como id si no existe id
+      const facturaNormalizada = { ...factura };
+      if (!facturaNormalizada.id && facturaNormalizada.alegra_id) {
+        facturaNormalizada.id = facturaNormalizada.alegra_id;
+      }
+
       // Verificar que la factura tenga id (clave primaria)
-      if (factura && factura.id) {
+      if (facturaNormalizada.id) {
         try {
-          await store.put(factura);
+          await store.put(facturaNormalizada);
           guardadas++;
         } catch (error) {
-          console.warn('⚠️ Error guardando factura en cache:', factura.id, error.message);
+          console.warn('⚠️ Error guardando factura en cache:', facturaNormalizada.id, error.message);
         }
       } else {
-        console.warn('⚠️ Factura sin ID, no se puede guardar en cache:', factura);
+        console.warn('⚠️ Factura sin ID ni alegra_id, no se puede guardar en cache:', factura);
       }
     }
 
@@ -611,10 +619,15 @@ class IndexedDBService {
    * Obtener ediciones pendientes de sincronización
    */
   async getEdicionesPendientes() {
-    // Verificar que la DB esté inicializada
+    // Esperar a que la DB esté inicializada
     if (!this.db) {
-      console.warn('⚠️ IndexedDB no inicializada en getEdicionesPendientes');
-      return [];
+      // Intentar inicializar si no está inicializada
+      try {
+        await this.init();
+      } catch (error) {
+        console.warn('⚠️ IndexedDB no inicializada en getEdicionesPendientes:', error);
+        return [];
+      }
     }
 
     return new Promise((resolve, reject) => {
