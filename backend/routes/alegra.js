@@ -481,7 +481,56 @@ router.get('/facturas/:ano/:mes/:semana', async (req, res) => {
   }
 });
 
+// Obtener todas las facturas de un mes completo
+router.get('/facturas/:ano/:mes/todas', async (req, res) => {
+  try {
+    const { ano, mes } = req.params;
 
+    // Calcular primer y último día del mes
+    const firstDay = new Date(ano, mes - 1, 1);
+    const lastDay = new Date(ano, mes, 0); // Día 0 del siguiente mes = último día del mes actual
+
+    const startDate = firstDay.toISOString().split('T')[0];
+    const endDate = lastDay.toISOString().split('T')[0];
+
+    console.log(`📅 Buscando todas las facturas del mes ${mes}/${ano} desde ${startDate} hasta ${endDate}`);
+
+    // Buscar facturas en Alegra usando el rango de fechas
+    const response = await alegraService.api.get('/invoices', {
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 100,
+        metadata: true,
+        order_field: 'date',
+        order_direction: 'DESC'
+      }
+    });
+
+    // Alegra devuelve: { metadata: {...}, data: [...] }
+    const facturas = response.data.data || response.data || [];
+
+    console.log(`✅ ${facturas.length} facturas encontradas para ${mes}/${ano}`);
+
+    // Devolver las facturas SIN transformar (formato original de Alegra)
+    // El frontend espera client como objeto, date, etc.
+    res.json({
+      success: true,
+      data: facturas, // Datos originales de Alegra
+      total: facturas.length,
+      filters: { ano, mes, startDate, endDate },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo todas las facturas del mes:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo facturas de Alegra'
+    });
+  }
+});
 
 // Obtener una factura específica
 router.get('/facturas/:id', async (req, res) => {
