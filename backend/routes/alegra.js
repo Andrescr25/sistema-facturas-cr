@@ -2103,7 +2103,7 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
     const { query } = require('../config/database');
 
     const result = await query(`
-      SELECT 
+      SELECT
         fr.id as reimpresion_id,
         fr.ajustes_realizados,
         fr.estado as estado_reimpresion,
@@ -2152,6 +2152,70 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error obteniendo facturas pendientes de reimpresión'
+    });
+  }
+});
+
+// Obtener facturas procesadas (recuperables últimos 7 días)
+router.get('/facturas/procesadas-reimpresion', async (req, res) => {
+  try {
+    console.log('📋 Obteniendo facturas procesadas (últimos 7 días)...');
+
+    const { query } = require('../config/database');
+
+    const result = await query(`
+      SELECT
+        fr.id as reimpresion_id,
+        fr.ajustes_realizados,
+        fr.estado as estado_reimpresion,
+        fr.fecha_creacion,
+        fr.fecha_procesamiento,
+        fa.id as factura_id,
+        fa.numero_factura,
+        fa.alegra_id,
+        fa.cliente_nombre,
+        fa.cliente_email,
+        fa.fecha_emision,
+        fa.total,
+        EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) as dias_desde_procesamiento
+      FROM facturas_reimpresion fr
+      JOIN facturas fa ON fr.factura_id = fa.id
+      WHERE fr.estado = 'procesada'
+        AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
+      ORDER BY fr.fecha_procesamiento DESC
+    `);
+
+    // Procesar los ajustes JSONB
+    const facturasConAjustes = result.rows.map(factura => {
+      const ajustes = typeof factura.ajustes_realizados === 'string'
+        ? JSON.parse(factura.ajustes_realizados)
+        : factura.ajustes_realizados;
+
+      return {
+        ...factura,
+        ajustes_realizados: ajustes,
+        total_ajustes: ajustes?.length || 0,
+        dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
+        puede_recuperar: factura.dias_desde_procesamiento <= 7
+      };
+    });
+
+    res.json({
+      success: true,
+      data: facturasConAjustes,
+      total: facturasConAjustes.length,
+      resumen: {
+        facturas_procesadas: facturasConAjustes.length,
+        recuperables: facturasConAjustes.filter(f => f.puede_recuperar).length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo facturas procesadas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo facturas procesadas'
     });
   }
 });
@@ -2544,6 +2608,131 @@ router.post('/facturas/actualizar-masivo', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error en actualización masiva'
+    });
+  }
+});
+
+// Procesar factura individual con actualización automática de precios
+// Esta ruta borra y recrea los items para asegurar precios actualizados
+router.post('/facturas/procesar-individual', async (req, res) => {
+  try {
+    console.log('🖨️ Procesando factura individual con actualización de precios...');
+
+    const { factura, items_editados } = req.body;
+
+    if (!factura || !factura.alegra_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere una factura con alegra_id para procesar'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    console.log(`🔄 Procesando factura ${factura.numero_factura} (ID: ${factura.alegra_id})...`);
+
+    // 1. Obtener factura actual completa de Alegra
+    const facturaActual = await alegraService.getInvoiceById(factura.alegra_id);
+
+    if (!facturaActual.success) {
+      throw new Error('Factura no encontrada en Alegra');
+    }
+
+    console.log(`📋 Factura actual obtenida: ${facturaActual.data.items.length} items`);
+
+    // 2. Construir lista de items con precios actualizados
+    // Si hay items_editados (usuario hizo cambios manuales), usar esos
+    // Si no, aplicar ajustes automáticos por faltantes
+    let itemsActualizados = [];
+
+    if (items_editados && items_editados.length > 0) {
+      // Usuario editó manualmente
+      console.log('✏️ Usando items editados por el usuario');
+      itemsActualizados = items_editados;
+    } else {
+      // Aplicar ajustes automáticos
+      console.log('🔧 Aplicando ajustes automáticos por faltantes');
+
+      for (const item of facturaActual.data.items) {
+        // Buscar ajuste para este item
+        const ajuste = factura.ajustes_realizados?.find(a =>
+          a.producto_codigo === item.id.toString() ||
+          a.producto_codigo === item.reference
+        );
+
+        let cantidadFinal = item.quantity;
+
+        if (ajuste) {
+          // Calcular cantidad final según estado del ajuste
+          if (ajuste.estado === 'no_llego') {
+            cantidadFinal = item.quantity - ajuste.cantidad_faltante;
+          } else if (ajuste.estado === 'parcial') {
+            const cantidadQueAunFalta = ajuste.cantidad_faltante - ajuste.cantidad_entregada;
+            cantidadFinal = item.quantity - cantidadQueAunFalta;
+          }
+        }
+
+        // Solo incluir si cantidad > 0
+        if (cantidadFinal > 0) {
+          // Obtener precio actualizado
+          console.log(`💰 Obteniendo precio actualizado para ${item.reference}...`);
+          const precioActualizado = await alegraService.getUpdatedPrice(item.reference);
+
+          itemsActualizados.push({
+            id: item.id,
+            reference: item.reference,
+            quantity: cantidadFinal,
+            price: precioActualizado,
+            description: item.description,
+            tax: item.tax || []
+          });
+
+          console.log(`  ✅ ${item.reference}: ${item.quantity} → ${cantidadFinal} | ₡${item.price} → ₡${precioActualizado}`);
+        } else {
+          console.log(`  🗑️ ${item.reference}: cantidad = 0, se eliminará`);
+        }
+      }
+    }
+
+    // 3. Actualizar factura en Alegra con items reconstruidos
+    console.log(`🔄 Actualizando factura en Alegra con ${itemsActualizados.length} items...`);
+
+    const updateResult = await alegraService.updateInvoice(factura.alegra_id, {
+      items: itemsActualizados
+    });
+
+    if (!updateResult.success) {
+      throw new Error(`Error actualizando factura: ${updateResult.message || 'Actualización falló'}`);
+    }
+
+    console.log(`✅ Factura ${factura.numero_factura} actualizada exitosamente`);
+
+    // 4. Marcar como procesada en facturas_reimpresion
+    await query(`
+      UPDATE facturas_reimpresion
+      SET estado = 'procesada',
+          fecha_procesamiento = NOW()
+      WHERE id = $1
+    `, [factura.reimpresion_id]);
+
+    console.log(`✅ Registro de reimpresión marcado como procesado`);
+
+    res.json({
+      success: true,
+      message: 'Factura procesada exitosamente',
+      data: {
+        factura_id: factura.alegra_id,
+        numero_factura: factura.numero_factura,
+        items_actualizados: itemsActualizados.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error procesando factura individual:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error procesando factura individual'
     });
   }
 });

@@ -306,12 +306,54 @@ export const alegraService = {
   async getFacturasPendientesReimpresion() {
     try {
       console.log('📋 Frontend: Obteniendo facturas pendientes de reimpresión');
-      const response = await api.get('/alegra/reimpresion/pendientes')
+      const response = await api.get('/alegra/facturas/pendientes-reimpresion')
       console.log('✅ Frontend: Facturas pendientes obtenidas:', response.data);
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo facturas pendientes:', error);
       throw new Error(`Error obteniendo facturas pendientes: ${error.message}`)
+    }
+  },
+
+  // Obtener facturas procesadas (recuperables últimos 7 días)
+  async getFacturasProcesadasReimpresion() {
+    try {
+      console.log('📋 Frontend: Obteniendo facturas procesadas (últimos 7 días)');
+      const response = await api.get('/alegra/facturas/procesadas-reimpresion')
+      console.log('✅ Frontend: Facturas procesadas obtenidas:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error obteniendo facturas procesadas:', error);
+      throw new Error(`Error obteniendo facturas procesadas: ${error.message}`)
+    }
+  },
+
+  // Procesar factura individual con actualización de precios
+  async procesarFacturaIndividual(factura, itemsEditados = null) {
+    try {
+      console.log('🖨️ Frontend: Procesando factura individual:', factura.numero_factura);
+      const response = await api.post('/alegra/facturas/procesar-individual', {
+        factura,
+        items_editados: itemsEditados
+      })
+      console.log('✅ Frontend: Factura procesada:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error procesando factura individual:', error);
+      throw new Error(`Error procesando factura: ${error.message}`)
+    }
+  },
+
+  // Recuperar factura procesada
+  async recuperarFactura(alegraId) {
+    try {
+      console.log('🔄 Frontend: Recuperando factura:', alegraId);
+      const response = await api.post(`/alegra/facturas/${alegraId}/recuperar`)
+      console.log('✅ Frontend: Factura recuperada:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error recuperando factura:', error);
+      throw new Error(`Error recuperando factura: ${error.message}`)
     }
   },
 
