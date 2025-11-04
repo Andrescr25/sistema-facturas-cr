@@ -247,10 +247,26 @@ export const alegraService = {
   },
 
   // Procesar factura individual
-  async procesarFacturaIndividual(facturaData) {
+  async procesarFacturaIndividual(factura, itemsEditados = null) {
     try {
-      console.log('📋 Frontend: Procesando factura individual');
-      const response = await api.post('/alegra/facturas/procesar-individual', facturaData)
+      console.log('📋 Frontend: Procesando factura individual:', factura.numero_factura);
+
+      // Construir payload con los campos que espera el backend
+      const payload = {
+        alegra_id: factura.alegra_id,
+        numero_factura: factura.numero_factura,
+        cliente_nombre: factura.cliente_nombre,
+        fecha_emision: factura.fecha_emision,
+        ajustes: factura.ajustes_realizados || [],  // ← mapeo correcto
+        estado: factura.requiere_actualizacion
+          ? ['requiere_reimpresion']
+          : ['resuelto'],  // ← mapeo correcto
+        items_editados: itemsEditados  // ← pasar items editados si existen
+      };
+
+      console.log('📤 Payload enviado:', payload);
+
+      const response = await api.post('/alegra/facturas/procesar-individual', payload)
       console.log('✅ Frontend: Factura procesada:', response.data);
       return response.data
     } catch (error) {
