@@ -2614,6 +2614,9 @@ router.post('/facturas/actualizar-masivo', async (req, res) => {
   }
 });
 
+// ❌ COMENTADO: Endpoint duplicado que estaba sobrescribiendo al endpoint principal
+// Este endpoint no se usa actualmente - el flujo principal usa el endpoint en línea 2301
+/*
 // Procesar factura individual con actualización automática de precios
 // Esta ruta borra y recrea los items para asegurar precios actualizados
 router.post('/facturas/procesar-individual', async (req, res) => {
@@ -2738,6 +2741,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     });
   }
 });
+*/
 
 // Recuperar factura procesada - CORREGIDO (Preserva ajustes previos)
 router.post('/facturas/:id/recuperar', async (req, res) => {

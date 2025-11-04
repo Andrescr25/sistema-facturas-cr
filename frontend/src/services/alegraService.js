@@ -328,6 +328,9 @@ export const alegraService = {
     }
   },
 
+  // ❌ COMENTADO: Métodos duplicados que estaban sobrescribiendo a los métodos principales
+  // Estos métodos no se usan actualmente - el flujo principal usa los métodos en líneas 250 y 277
+  /*
   // Procesar factura individual con actualización de precios
   async procesarFacturaIndividual(factura, itemsEditados = null) {
     try {
@@ -356,6 +359,7 @@ export const alegraService = {
       throw new Error(`Error recuperando factura: ${error.message}`)
     }
   },
+  */
 
   // Obtener reporte de faltantes por cliente
   async getReporteFaltantesCliente() {
