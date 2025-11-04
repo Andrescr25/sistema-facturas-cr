@@ -558,6 +558,133 @@ router.get('/facturas/:ano/:mes/:semana', async (req, res) => {
   }
 });
 
+// Obtener facturas pendientes de reimpresión
+// IMPORTANTE: Esta ruta debe estar ANTES de /facturas/:id para evitar conflictos
+router.get('/facturas/pendientes-reimpresion', async (req, res) => {
+  try {
+    console.log('📋 Obteniendo facturas pendientes de reimpresión...');
+
+    const { query } = require('../config/database');
+
+    const result = await query(`
+      SELECT
+        fr.id as reimpresion_id,
+        fr.ajustes_realizados,
+        fr.estado as estado_reimpresion,
+        fr.fecha_creacion,
+        fa.id as factura_id,
+        fa.numero_factura,
+        fa.alegra_id,
+        fa.cliente_nombre,
+        fa.cliente_email,
+        fa.fecha_emision,
+        fa.total
+      FROM facturas_reimpresion fr
+      JOIN facturas fa ON fr.factura_id = fa.id
+      WHERE fr.estado = 'pendiente'
+      ORDER BY fr.fecha_creacion DESC
+    `);
+
+    // Procesar los ajustes JSONB para mejor visualización
+    const facturasConAjustes = result.rows.map(factura => {
+      const ajustes = typeof factura.ajustes_realizados === 'string'
+        ? JSON.parse(factura.ajustes_realizados)
+        : factura.ajustes_realizados;
+
+      return {
+        ...factura,
+        ajustes_realizados: ajustes,
+        total_ajustes: ajustes?.length || 0,
+        requiere_actualizacion: ajustes?.some(aj => aj.requiere_actualizacion) || false
+      };
+    });
+
+    res.json({
+      success: true,
+      data: facturasConAjustes,
+      total_pendientes: facturasConAjustes.length,
+      resumen: {
+        facturas_pendientes: facturasConAjustes.length,
+        facturas_con_cambios: facturasConAjustes.filter(f => f.requiere_actualizacion).length,
+        facturas_resueltas: facturasConAjustes.filter(f => !f.requiere_actualizacion).length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo facturas pendientes:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo facturas pendientes de reimpresión'
+    });
+  }
+});
+
+// Obtener facturas procesadas (recuperables últimos 7 días)
+// IMPORTANTE: Esta ruta debe estar ANTES de /facturas/:id para evitar conflictos
+router.get('/facturas/procesadas-reimpresion', async (req, res) => {
+  try {
+    console.log('📋 Obteniendo facturas procesadas (últimos 7 días)...');
+
+    const { query } = require('../config/database');
+
+    const result = await query(`
+      SELECT
+        fr.id as reimpresion_id,
+        fr.ajustes_realizados,
+        fr.estado as estado_reimpresion,
+        fr.fecha_creacion,
+        fr.fecha_procesamiento,
+        fa.id as factura_id,
+        fa.numero_factura,
+        fa.alegra_id,
+        fa.cliente_nombre,
+        fa.cliente_email,
+        fa.fecha_emision,
+        fa.total,
+        EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) as dias_desde_procesamiento
+      FROM facturas_reimpresion fr
+      JOIN facturas fa ON fr.factura_id = fa.id
+      WHERE fr.estado = 'procesada'
+        AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
+      ORDER BY fr.fecha_procesamiento DESC
+    `);
+
+    // Procesar los ajustes JSONB
+    const facturasConAjustes = result.rows.map(factura => {
+      const ajustes = typeof factura.ajustes_realizados === 'string'
+        ? JSON.parse(factura.ajustes_realizados)
+        : factura.ajustes_realizados;
+
+      return {
+        ...factura,
+        ajustes_realizados: ajustes,
+        total_ajustes: ajustes?.length || 0,
+        dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
+        puede_recuperar: factura.dias_desde_procesamiento <= 7
+      };
+    });
+
+    res.json({
+      success: true,
+      data: facturasConAjustes,
+      total: facturasConAjustes.length,
+      resumen: {
+        facturas_procesadas: facturasConAjustes.length,
+        recuperables: facturasConAjustes.filter(f => f.puede_recuperar).length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo facturas procesadas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo facturas procesadas'
+    });
+  }
+});
+
 // Obtener una factura específica
 router.get('/facturas/:id', async (req, res) => {
   try {
@@ -2091,131 +2218,6 @@ router.get('/reimpresion/historial', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error obteniendo historial de procesamientos'
-    });
-  }
-});
-
-// Obtener facturas pendientes de reimpresión
-router.get('/facturas/pendientes-reimpresion', async (req, res) => {
-  try {
-    console.log('📋 Obteniendo facturas pendientes de reimpresión...');
-
-    const { query } = require('../config/database');
-
-    const result = await query(`
-      SELECT
-        fr.id as reimpresion_id,
-        fr.ajustes_realizados,
-        fr.estado as estado_reimpresion,
-        fr.fecha_creacion,
-        fa.id as factura_id,
-        fa.numero_factura,
-        fa.alegra_id,
-        fa.cliente_nombre,
-        fa.cliente_email,
-        fa.fecha_emision,
-        fa.total
-      FROM facturas_reimpresion fr
-      JOIN facturas fa ON fr.factura_id = fa.id
-      WHERE fr.estado = 'pendiente'
-      ORDER BY fr.fecha_creacion DESC
-    `);
-
-    // Procesar los ajustes JSONB para mejor visualización
-    const facturasConAjustes = result.rows.map(factura => {
-      const ajustes = typeof factura.ajustes_realizados === 'string'
-        ? JSON.parse(factura.ajustes_realizados)
-        : factura.ajustes_realizados;
-
-      return {
-        ...factura,
-        ajustes_realizados: ajustes,
-        total_ajustes: ajustes?.length || 0,
-        requiere_actualizacion: ajustes?.some(aj => aj.requiere_actualizacion) || false
-      };
-    });
-
-    res.json({
-      success: true,
-      data: facturasConAjustes,
-      total_pendientes: facturasConAjustes.length,
-      resumen: {
-        facturas_pendientes: facturasConAjustes.length,
-        facturas_con_cambios: facturasConAjustes.filter(f => f.requiere_actualizacion).length,
-        facturas_resueltas: facturasConAjustes.filter(f => !f.requiere_actualizacion).length
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error obteniendo facturas pendientes:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Error obteniendo facturas pendientes de reimpresión'
-    });
-  }
-});
-
-// Obtener facturas procesadas (recuperables últimos 7 días)
-router.get('/facturas/procesadas-reimpresion', async (req, res) => {
-  try {
-    console.log('📋 Obteniendo facturas procesadas (últimos 7 días)...');
-
-    const { query } = require('../config/database');
-
-    const result = await query(`
-      SELECT
-        fr.id as reimpresion_id,
-        fr.ajustes_realizados,
-        fr.estado as estado_reimpresion,
-        fr.fecha_creacion,
-        fr.fecha_procesamiento,
-        fa.id as factura_id,
-        fa.numero_factura,
-        fa.alegra_id,
-        fa.cliente_nombre,
-        fa.cliente_email,
-        fa.fecha_emision,
-        fa.total,
-        EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) as dias_desde_procesamiento
-      FROM facturas_reimpresion fr
-      JOIN facturas fa ON fr.factura_id = fa.id
-      WHERE fr.estado = 'procesada'
-        AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
-      ORDER BY fr.fecha_procesamiento DESC
-    `);
-
-    // Procesar los ajustes JSONB
-    const facturasConAjustes = result.rows.map(factura => {
-      const ajustes = typeof factura.ajustes_realizados === 'string'
-        ? JSON.parse(factura.ajustes_realizados)
-        : factura.ajustes_realizados;
-
-      return {
-        ...factura,
-        ajustes_realizados: ajustes,
-        total_ajustes: ajustes?.length || 0,
-        dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
-        puede_recuperar: factura.dias_desde_procesamiento <= 7
-      };
-    });
-
-    res.json({
-      success: true,
-      data: facturasConAjustes,
-      total: facturasConAjustes.length,
-      resumen: {
-        facturas_procesadas: facturasConAjustes.length,
-        recuperables: facturasConAjustes.filter(f => f.puede_recuperar).length
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error obteniendo facturas procesadas:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Error obteniendo facturas procesadas'
     });
   }
 });
