@@ -44,6 +44,7 @@ export default function Facturacion() {
 
   // Estados de búsqueda de facturas para edición
   const [busquedaFactura, setBusquedaFactura] = useState('');
+  const [facturasPrecargadas, setFacturasPrecargadas] = useState([]); // Facturas precargadas del cache
   const [facturasEncontradas, setFacturasEncontradas] = useState([]);
   const [buscandoFacturas, setBuscandoFacturas] = useState(false);
   const [edicionesPendientes, setEdicionesPendientes] = useState([]);
@@ -125,15 +126,18 @@ export default function Facturacion() {
   useEffect(() => {
     const init = async () => {
       await inicializarServicio();
-      // Cargar ediciones pendientes después de inicializar el servicio
+      // Cargar ediciones pendientes y facturas precargadas después de inicializar el servicio
       try {
-        const ediciones = await facturacionService.getEdicionesPendientes();
+        const [ediciones] = await Promise.all([
+          facturacionService.getEdicionesPendientes(),
+          cargarFacturasPrecargadas() // Cargar facturas precargadas al inicio
+        ]);
         setEdicionesPendientes(ediciones);
       } catch (error) {
-        console.error('Error cargando ediciones pendientes:', error);
+        console.error('Error cargando datos iniciales:', error);
       }
     };
-    
+
     init();
   }, []);
 
@@ -197,6 +201,24 @@ export default function Facturacion() {
     }
   }, [isMobile]);
 
+  // Función para cargar facturas precargadas (definida antes de los useEffect que la llaman)
+  const cargarFacturasPrecargadas = async () => {
+    try {
+      setBuscandoFacturas(true);
+      const facturas = await facturacionService.getFacturasPrecargadas();
+      setFacturasPrecargadas(facturas);
+      setFacturasEncontradas(facturas); // Mostrar todas inicialmente
+      console.log(`✅ ${facturas.length} facturas precargadas listas para edición`);
+    } catch (error) {
+      console.error('Error cargando facturas precargadas:', error);
+      mostrarMensaje('Error cargando facturas: ' + error.message, 'error');
+      setFacturasPrecargadas([]);
+      setFacturasEncontradas([]);
+    } finally {
+      setBuscandoFacturas(false);
+    }
+  };
+
   const inicializarServicio = async () => {
     try {
       setLoading(true);
@@ -252,18 +274,19 @@ export default function Facturacion() {
 
       const resultado = await facturacionService.actualizarTodoCache();
 
-      // Recargar datos del cache
+      // Recargar datos del cache (incluyendo facturas precargadas)
       const [productosCache, clientesCache, stats] = await Promise.all([
         facturacionService.getProductos(),
         facturacionService.getClientes(),
-        facturacionService.getCacheStats()
+        facturacionService.getCacheStats(),
+        cargarFacturasPrecargadas() // Recargar facturas precargadas
       ]);
 
       setProductos(productosCache);
       setClientes(clientesCache);
       setCacheStats(stats);
 
-      mostrarMensaje(`Catálogo actualizado: ${resultado.productos} productos, ${resultado.clientes} clientes`, 'success');
+      mostrarMensaje(`Catálogo actualizado: ${resultado.productos} productos, ${resultado.clientes} clientes, ${resultado.facturas} facturas`, 'success');
 
     } catch (error) {
       console.error('Error actualizando cache:', error);
@@ -334,17 +357,37 @@ export default function Facturacion() {
 
   const buscarFacturas = async (termino) => {
     if (!termino || termino.length < 2) {
-      setFacturasEncontradas([]);
+      // Si no hay búsqueda, mostrar todas las facturas precargadas
+      setFacturasEncontradas(facturasPrecargadas);
       return;
     }
 
     try {
       setBuscandoFacturas(true);
 
-      // Buscar por número o cliente
-      const facturas = await facturacionService.buscarFacturas({ numero: termino });
+      // Primero buscar en las facturas precargadas (offline)
+      const terminoLower = termino.toLowerCase();
+      let facturasLocales = facturasPrecargadas.filter(factura => {
+        const numero = factura.numberTemplate?.fullNumber?.toString().toLowerCase() || '';
+        const cliente = factura.client?.name?.toLowerCase() || '';
+        return numero.includes(terminoLower) || cliente.includes(terminoLower);
+      });
 
-      setFacturasEncontradas(facturas.slice(0, 10));
+      // Si hay conexión, también buscar online
+      if (isOnline) {
+        try {
+          const facturasOnline = await facturacionService.buscarFacturas({ numero: termino });
+
+          // Combinar resultados evitando duplicados
+          const idsLocales = new Set(facturasLocales.map(f => f.id));
+          const facturasNuevas = facturasOnline.filter(f => !idsLocales.has(f.id));
+          facturasLocales = [...facturasLocales, ...facturasNuevas];
+        } catch (error) {
+          console.warn('⚠️ Error buscando online, mostrando solo resultados locales:', error.message);
+        }
+      }
+
+      setFacturasEncontradas(facturasLocales.slice(0, 20)); // Mostrar hasta 20 resultados
     } catch (error) {
       console.error('Error buscando facturas:', error);
       mostrarMensaje('Error buscando facturas: ' + error.message, 'error');
@@ -843,14 +886,14 @@ export default function Facturacion() {
                     setBusquedaFactura(e.target.value);
                     buscarFacturas(e.target.value);
                   }}
-                  placeholder="Buscar por número de factura..."
+                  placeholder="Buscar por número de factura o cliente..."
                   className="input w-full pl-10"
                 />
                 {busquedaFactura && (
                   <button
                     onClick={() => {
                       setBusquedaFactura('');
-                      setFacturasEncontradas([]);
+                      setFacturasEncontradas(facturasPrecargadas); // Volver a mostrar todas
                     }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
@@ -863,56 +906,75 @@ export default function Facturacion() {
             {buscandoFacturas && (
               <div className="text-center py-8">
                 <div className="spinner mx-auto mb-4"></div>
-                <p className="text-gray-600">Buscando facturas...</p>
+                <p className="text-gray-600">Cargando facturas...</p>
               </div>
             )}
 
             {!buscandoFacturas && facturasEncontradas.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm text-gray-600 mb-2">
-                  {facturasEncontradas.length} factura(s) encontrada(s)
+                  {busquedaFactura
+                    ? `${facturasEncontradas.length} factura(s) encontrada(s)`
+                    : `${facturasEncontradas.length} facturas disponibles (últimas 60 días)`
+                  }
                 </p>
-                {facturasEncontradas.map((factura) => (
-                  <button
-                    key={factura.id}
-                    onClick={() => cargarFacturaParaEdicion(factura)}
-                    className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          Factura #{factura.numberTemplate?.fullNumber || factura.id}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Cliente: {factura.client?.name || 'N/A'}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Fecha: {factura.date ? new Date(factura.date).toLocaleDateString('es-CR') : 'N/A'}
-                        </p>
+                <div className="max-h-[600px] overflow-y-auto space-y-2">
+                  {facturasEncontradas.map((factura) => (
+                    <button
+                      key={factura.id}
+                      onClick={() => cargarFacturaParaEdicion(factura)}
+                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            Factura #{factura.numberTemplate?.fullNumber || factura.id}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Cliente: {factura.client?.name || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Fecha: {factura.date ? new Date(factura.date).toLocaleDateString('es-CR') : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-green-600">
+                            ₡{(factura.total || 0).toLocaleString('es-CR')}
+                          </p>
+                          <span className="text-xs text-blue-600 flex items-center gap-1">
+                            <Edit size={12} />
+                            Editar
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">
-                          ₡{(factura.total || 0).toLocaleString('es-CR')}
-                        </p>
-                        <span className="text-xs text-blue-600 flex items-center gap-1">
-                          <Edit size={12} />
-                          Editar
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {!buscandoFacturas && busquedaFactura && facturasEncontradas.length === 0 && (
+            {!buscandoFacturas && facturasEncontradas.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <AlertCircle size={48} className="mx-auto mb-2 opacity-50" />
-                <p>No se encontraron facturas con ese criterio</p>
+                <p>
+                  {busquedaFactura
+                    ? 'No se encontraron facturas con ese criterio'
+                    : 'No hay facturas en cache'
+                  }
+                </p>
                 {!isOnline && (
                   <p className="text-sm text-orange-600 mt-2">
                     Estás offline. Solo se muestran facturas en cache.
                   </p>
+                )}
+                {isOnline && !busquedaFactura && (
+                  <button
+                    onClick={actualizarCache}
+                    className="mt-4 btn btn-primary flex items-center gap-2 mx-auto"
+                  >
+                    <RefreshCw size={16} />
+                    Actualizar Cache
+                  </button>
                 )}
               </div>
             )}

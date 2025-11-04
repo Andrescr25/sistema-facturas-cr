@@ -861,6 +861,21 @@ class FacturacionService {
       throw error;
     }
   }
+
+  /**
+   * Obtener facturas precargadas del cache (para edición offline)
+   */
+  async getFacturasPrecargadas() {
+    try {
+      const facturas = await indexedDBService.getFacturasCache();
+      // Ordenar por fecha descendente (más recientes primero)
+      facturas.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return facturas;
+    } catch (error) {
+      console.error('❌ Error obteniendo facturas precargadas:', error);
+      throw error;
+    }
+  }
 }
 
 // Singleton
