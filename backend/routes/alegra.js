@@ -3720,8 +3720,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     });
 
     // 1. Obtener información del proveedor de Alegra
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    const prisma = require('../lib/prisma');
 
     const proveedorResponse = await alegraService.api.get(`/contacts/${proveedorId}`);
     const proveedor = proveedorResponse.data;
@@ -3761,8 +3760,6 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
       }
     });
 
-    await prisma.$disconnect();
-
     console.log(`✅ Relación manual creada: ${alegraName} → ${proveedor.name}`);
 
     res.json({
@@ -3783,8 +3780,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
 
 // Reasignar proveedor de un producto que ya tiene proveedor
 router.post('/faltantes/reasignar-proveedor', async (req, res) => {
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
+  const prisma = require('../lib/prisma');
 
   try {
     const {
@@ -3946,8 +3942,6 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       message: 'Error reasignando proveedor',
       errorType: error.constructor.name
     });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
