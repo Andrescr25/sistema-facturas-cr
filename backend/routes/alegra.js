@@ -3837,50 +3837,89 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       throw new Error(`No se pudo obtener el proveedor ${nuevoProveedorId} de Alegra: ${alegraError.message}`);
     }
 
-    // 3. Eliminar TODOS los mappings antiguos del producto
-    if (mappingsExistentes.length > 0) {
-      console.log('🗑️ Eliminando mappings antiguos...');
-      try {
-        const deleteResult = await prisma.supplierProductMapping.deleteMany({
-          where: {
-            supplierCode: alegraReference
-          }
-        });
-        console.log(`✅ ${deleteResult.count} mapping(s) antiguo(s) eliminado(s)`);
-      } catch (deleteError) {
-        console.error('❌ Error eliminando mappings:', deleteError.message);
-        throw new Error(`Error eliminando mappings antiguos: ${deleteError.message}`);
-      }
-    }
+    const nuevaCedula = nuevoProveedor.identification || 'SIN_CEDULA';
 
-    // 4. Crear nuevo mapping con el nuevo proveedor
-    console.log('➕ Creando nuevo mapping...');
-    let nuevoMapping;
-    try {
-      nuevoMapping = await prisma.supplierProductMapping.create({
+    // 3. Verificar si el producto ya está asignado a este proveedor
+    const mappingExistenteConMismoProveedor = mappingsExistentes.find(
+      m => m.supplierCedula === nuevaCedula
+    );
+
+    if (mappingExistenteConMismoProveedor) {
+      console.log('⚠️ El producto ya está asignado a este proveedor. Solo actualizando metadatos...');
+
+      // Actualizar solo los metadatos sin cambiar el mapping
+      const mappingActualizado = await prisma.supplierProductMapping.update({
+        where: {
+          id: mappingExistenteConMismoProveedor.id
+        },
         data: {
           supplierName: nuevoProveedor.name,
-          supplierCedula: nuevoProveedor.identification || 'SIN_CEDULA',
-          supplierCode: alegraReference,
-          supplierDesc: alegraName,
           alegraItemId: alegraItemId || alegraReference,
-          alegraReference: alegraReference,
           alegraName: alegraName,
-          confidence: 100,
-          origen: 'manual', // Marcar como manual (reasignación)
-          timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
+          lastUsedDate: new Date(),
+          timesUsed: {
+            increment: 1
+          }
         }
       });
-      console.log(`✅ Nuevo mapping creado con ID: ${nuevoMapping.id}`);
-    } catch (createError) {
-      console.error('❌ Error creando nuevo mapping:', createError.message);
+
+      return res.json({
+        success: true,
+        data: {
+          proveedorAnterior: nuevoProveedor.name,
+          nuevoProveedor: nuevoProveedor.name,
+          mapping: mappingActualizado,
+          mensaje: 'Producto ya estaba asignado a este proveedor (metadatos actualizados)'
+        },
+        message: `Producto ya estaba asignado a ${nuevoProveedor.name}`
+      });
+    }
+
+    // 4. Usar transacción para eliminar y crear de forma atómica
+    console.log('🔄 Ejecutando transacción para reasignar...');
+    let nuevoMapping;
+    try {
+      nuevoMapping = await prisma.$transaction(async (tx) => {
+        // 4.1. Eliminar TODOS los mappings antiguos del producto
+        if (mappingsExistentes.length > 0) {
+          console.log('🗑️ Eliminando mappings antiguos en transacción...');
+          const deleteResult = await tx.supplierProductMapping.deleteMany({
+            where: {
+              supplierCode: alegraReference
+            }
+          });
+          console.log(`✅ ${deleteResult.count} mapping(s) eliminado(s)`);
+        }
+
+        // 4.2. Crear nuevo mapping con el nuevo proveedor
+        console.log('➕ Creando nuevo mapping en transacción...');
+        const nuevo = await tx.supplierProductMapping.create({
+          data: {
+            supplierName: nuevoProveedor.name,
+            supplierCedula: nuevaCedula,
+            supplierCode: alegraReference,
+            supplierDesc: alegraName,
+            alegraItemId: alegraItemId || alegraReference,
+            alegraReference: alegraReference,
+            alegraName: alegraName,
+            confidence: 100,
+            origen: 'manual', // Marcar como manual (reasignación)
+            timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
+          }
+        });
+        console.log(`✅ Nuevo mapping creado con ID: ${nuevo.id}`);
+        return nuevo;
+      });
+    } catch (transactionError) {
+      console.error('❌ Error en transacción:', transactionError.message);
+      console.error('Código Prisma:', transactionError.code);
       console.error('Datos que se intentaron crear:', {
         supplierName: nuevoProveedor.name,
-        supplierCedula: nuevoProveedor.identification || 'SIN_CEDULA',
+        supplierCedula: nuevaCedula,
         supplierCode: alegraReference,
         alegraReference: alegraReference
       });
-      throw new Error(`Error creando nuevo mapping: ${createError.message}`);
+      throw new Error(`Error en transacción de reasignación: ${transactionError.message}`);
     }
 
     console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
