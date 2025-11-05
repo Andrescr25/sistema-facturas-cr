@@ -3949,6 +3949,146 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
   }
 });
 
+// Endpoint de diagnóstico: Ver todos los mappings de un producto
+router.get('/faltantes/diagnostico/:alegraReference', async (req, res) => {
+  try {
+    const { alegraReference } = req.params;
+    const prisma = require('../lib/prisma');
+
+    console.log(`🔍 Diagnóstico para producto: ${alegraReference}`);
+
+    // Buscar TODOS los mappings de este producto
+    const mappings = await prisma.supplierProductMapping.findMany({
+      where: {
+        alegraReference: alegraReference
+      },
+      orderBy: {
+        createdDate: 'desc'
+      }
+    });
+
+    console.log(`📋 Encontrados ${mappings.length} mapping(s) para ${alegraReference}:`);
+    mappings.forEach((m, idx) => {
+      console.log(`   ${idx + 1}. ${m.supplierName} (${m.supplierCedula}) - creado: ${m.createdDate}`);
+    });
+
+    res.json({
+      success: true,
+      alegraReference: alegraReference,
+      totalMappings: mappings.length,
+      mappings: mappings.map(m => ({
+        id: m.id,
+        supplierName: m.supplierName,
+        supplierCedula: m.supplierCedula,
+        supplierCode: m.supplierCode,
+        alegraReference: m.alegraReference,
+        alegraName: m.alegraName,
+        origen: m.origen,
+        timesUsed: m.timesUsed,
+        createdDate: m.createdDate,
+        lastUsedDate: m.lastUsedDate
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Error en diagnóstico:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para limpiar mappings duplicados de un producto
+router.post('/faltantes/limpiar-duplicados/:alegraReference', async (req, res) => {
+  try {
+    const { alegraReference } = req.params;
+    const { mantenerProveedorId } = req.body; // ID del proveedor que queremos mantener
+    const prisma = require('../lib/prisma');
+
+    console.log(`🧹 Limpiando duplicados para: ${alegraReference}`);
+    console.log(`   Mantener proveedor con ID Alegra: ${mantenerProveedorId}`);
+
+    // 1. Buscar TODOS los mappings
+    const mappings = await prisma.supplierProductMapping.findMany({
+      where: {
+        alegraReference: alegraReference
+      }
+    });
+
+    console.log(`📋 Encontrados ${mappings.length} mapping(s)`);
+
+    if (mappings.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay mappings para este producto',
+        eliminados: 0
+      });
+    }
+
+    // 2. Si se especificó un proveedor, obtener su cédula
+    let cedulaAMantener = null;
+    if (mantenerProveedorId) {
+      const alegraService = require('../services/alegraService');
+      try {
+        const proveedorResponse = await alegraService.api.get(`/contacts/${mantenerProveedorId}`);
+        cedulaAMantener = proveedorResponse.data.identification || 'SIN_CEDULA';
+        console.log(`✅ Mantener mapping de: ${proveedorResponse.data.name} (${cedulaAMantener})`);
+      } catch (error) {
+        console.error('❌ Error obteniendo proveedor de Alegra:', error.message);
+      }
+    }
+
+    // 3. Determinar cuál mantener
+    let mappingAMantener;
+    if (cedulaAMantener) {
+      // Mantener el del proveedor especificado
+      mappingAMantener = mappings.find(m => m.supplierCedula === cedulaAMantener);
+    }
+
+    if (!mappingAMantener) {
+      // Mantener el más reciente (manual si existe)
+      mappingAMantener = mappings.find(m => m.origen === 'manual') || mappings[0];
+    }
+
+    console.log(`✅ Se mantendrá: ${mappingAMantener.supplierName} (ID: ${mappingAMantener.id})`);
+
+    // 4. Eliminar todos los demás
+    const idsAEliminar = mappings
+      .filter(m => m.id !== mappingAMantener.id)
+      .map(m => m.id);
+
+    if (idsAEliminar.length > 0) {
+      const deleteResult = await prisma.supplierProductMapping.deleteMany({
+        where: {
+          id: {
+            in: idsAEliminar
+          }
+        }
+      });
+
+      console.log(`🗑️ Eliminados ${deleteResult.count} mapping(s) duplicado(s)`);
+    }
+
+    res.json({
+      success: true,
+      message: `Producto limpio. Mantenido: ${mappingAMantener.supplierName}`,
+      eliminados: idsAEliminar.length,
+      mantenido: {
+        supplierName: mappingAMantener.supplierName,
+        supplierCedula: mappingAMantener.supplierCedula
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error limpiando duplicados:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ============================================
 // 🧾 ENDPOINTS PARA FACTURACIÓN RÁPIDA
 // ============================================
