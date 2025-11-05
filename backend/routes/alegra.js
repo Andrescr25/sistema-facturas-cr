@@ -3794,13 +3794,24 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       nuevoProveedorId  // ID del nuevo proveedor en Alegra
     } = req.body;
 
+    // Validar datos requeridos
+    if (!alegraReference || !alegraName || !nuevoProveedorId) {
+      console.error('❌ Datos faltantes:', { alegraReference, alegraName, nuevoProveedorId });
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan datos requeridos: alegraReference, alegraName, nuevoProveedorId'
+      });
+    }
+
     console.log(`🔄 Reasignando proveedor:`, {
       producto: alegraName,
       codigo: alegraReference,
-      nuevoProveedorId
+      nuevoProveedorId,
+      body: req.body
     });
 
     // 1. Buscar TODOS los mappings existentes del producto (por código)
+    console.log('🔍 Buscando mappings existentes...');
     const mappingsExistentes = await prisma.supplierProductMapping.findMany({
       where: {
         supplierCode: alegraReference
@@ -3815,36 +3826,62 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     }
 
     // 2. Obtener información del nuevo proveedor de Alegra
-    const proveedorResponse = await alegraService.api.get(`/contacts/${nuevoProveedorId}`);
-    const nuevoProveedor = proveedorResponse.data;
-
-    console.log(`✅ Nuevo proveedor encontrado: ${nuevoProveedor.name} (${nuevoProveedor.identification || 'SIN_CEDULA'})`);
+    console.log('🔍 Obteniendo información del proveedor de Alegra...');
+    let nuevoProveedor;
+    try {
+      const proveedorResponse = await alegraService.api.get(`/contacts/${nuevoProveedorId}`);
+      nuevoProveedor = proveedorResponse.data;
+      console.log(`✅ Nuevo proveedor encontrado: ${nuevoProveedor.name} (${nuevoProveedor.identification || 'SIN_CEDULA'})`);
+    } catch (alegraError) {
+      console.error('❌ Error obteniendo proveedor de Alegra:', alegraError.message);
+      throw new Error(`No se pudo obtener el proveedor ${nuevoProveedorId} de Alegra: ${alegraError.message}`);
+    }
 
     // 3. Eliminar TODOS los mappings antiguos del producto
     if (mappingsExistentes.length > 0) {
-      const deleteResult = await prisma.supplierProductMapping.deleteMany({
-        where: {
-          supplierCode: alegraReference
-        }
-      });
-      console.log(`🗑️ ${deleteResult.count} mapping(s) antiguo(s) eliminado(s)`);
+      console.log('🗑️ Eliminando mappings antiguos...');
+      try {
+        const deleteResult = await prisma.supplierProductMapping.deleteMany({
+          where: {
+            supplierCode: alegraReference
+          }
+        });
+        console.log(`✅ ${deleteResult.count} mapping(s) antiguo(s) eliminado(s)`);
+      } catch (deleteError) {
+        console.error('❌ Error eliminando mappings:', deleteError.message);
+        throw new Error(`Error eliminando mappings antiguos: ${deleteError.message}`);
+      }
     }
 
     // 4. Crear nuevo mapping con el nuevo proveedor
-    const nuevoMapping = await prisma.supplierProductMapping.create({
-      data: {
+    console.log('➕ Creando nuevo mapping...');
+    let nuevoMapping;
+    try {
+      nuevoMapping = await prisma.supplierProductMapping.create({
+        data: {
+          supplierName: nuevoProveedor.name,
+          supplierCedula: nuevoProveedor.identification || 'SIN_CEDULA',
+          supplierCode: alegraReference,
+          supplierDesc: alegraName,
+          alegraItemId: alegraItemId || alegraReference,
+          alegraReference: alegraReference,
+          alegraName: alegraName,
+          confidence: 100,
+          origen: 'manual', // Marcar como manual (reasignación)
+          timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
+        }
+      });
+      console.log(`✅ Nuevo mapping creado con ID: ${nuevoMapping.id}`);
+    } catch (createError) {
+      console.error('❌ Error creando nuevo mapping:', createError.message);
+      console.error('Datos que se intentaron crear:', {
         supplierName: nuevoProveedor.name,
         supplierCedula: nuevoProveedor.identification || 'SIN_CEDULA',
         supplierCode: alegraReference,
-        supplierDesc: alegraName,
-        alegraItemId: alegraItemId || alegraReference,
-        alegraReference: alegraReference,
-        alegraName: alegraName,
-        confidence: 100,
-        origen: 'manual', // Marcar como manual (reasignación)
-        timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
-      }
-    });
+        alegraReference: alegraReference
+      });
+      throw new Error(`Error creando nuevo mapping: ${createError.message}`);
+    }
 
     console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
 
@@ -3861,12 +3898,14 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error reasignando proveedor:', error);
+    console.error('Tipo de error:', error.constructor.name);
+    console.error('Mensaje:', error.message);
     console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       error: error.message,
       message: 'Error reasignando proveedor',
-      details: error.stack
+      errorType: error.constructor.name
     });
   } finally {
     await prisma.$disconnect();
