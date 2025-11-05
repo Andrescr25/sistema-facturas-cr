@@ -3806,11 +3806,11 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       body: req.body
     });
 
-    // 1. Buscar TODOS los mappings existentes del producto (por código)
+    // 1. Buscar TODOS los mappings existentes del producto (por alegraReference)
     console.log('🔍 Buscando mappings existentes...');
     const mappingsExistentes = await prisma.supplierProductMapping.findMany({
       where: {
-        supplierCode: alegraReference
+        alegraReference: alegraReference
       }
     });
 
@@ -3878,13 +3878,18 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     // 4.1. Eliminar TODOS los mappings antiguos del producto
     if (mappingsExistentes.length > 0) {
       console.log('🗑️ Eliminando mappings antiguos...');
+      console.log(`   Buscando por alegraReference: "${alegraReference}"`);
       try {
         const deleteResult = await prisma.supplierProductMapping.deleteMany({
           where: {
-            supplierCode: alegraReference
+            alegraReference: alegraReference
           }
         });
-        console.log(`✅ ${deleteResult.count} mapping(s) eliminado(s)`);
+        console.log(`✅ ${deleteResult.count} mapping(s) eliminado(s) de la BD`);
+
+        if (deleteResult.count === 0) {
+          console.warn(`⚠️ ADVERTENCIA: Se encontraron ${mappingsExistentes.length} mappings pero deleteMany eliminó 0`);
+        }
       } catch (deleteError) {
         console.error('❌ Error eliminando mappings:', deleteError.message);
         throw new Error(`Error eliminando mappings: ${deleteError.message}`);
@@ -3893,6 +3898,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
 
     // 4.2. Crear nuevo mapping con el nuevo proveedor
     console.log('➕ Creando nuevo mapping...');
+    console.log(`   Datos: ${nuevoProveedor.name} (${nuevaCedula}) → código: ${alegraReference}`);
     try {
       nuevoMapping = await prisma.supplierProductMapping.create({
         data: {
@@ -3909,6 +3915,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
         }
       });
       console.log(`✅ Nuevo mapping creado con ID: ${nuevoMapping.id}`);
+      console.log(`   Verificando: ${nuevoMapping.supplierName} → ${nuevoMapping.supplierCode}`);
     } catch (createError) {
       console.error('❌ Error creando mapping:', createError.message);
       console.error('Código Prisma:', createError.code);
