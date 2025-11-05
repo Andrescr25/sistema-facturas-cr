@@ -3781,6 +3781,97 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
   }
 });
 
+// Reasignar proveedor de un producto que ya tiene proveedor
+router.post('/faltantes/reasignar-proveedor', async (req, res) => {
+  try {
+    const {
+      alegraReference,  // Código del producto en Alegra (ej: "10053")
+      alegraItemId,     // ID del producto en Alegra
+      alegraName,       // Nombre del producto en Alegra
+      nuevoProveedorId  // ID del nuevo proveedor en Alegra
+    } = req.body;
+
+    console.log(`🔄 Reasignando proveedor:`, {
+      producto: alegraName,
+      codigo: alegraReference,
+      nuevoProveedorId
+    });
+
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    try {
+      // 1. Buscar mapping existente del producto (por código, sin importar proveedor)
+      const mappingExistente = await prisma.supplierProductMapping.findFirst({
+        where: {
+          supplierCode: alegraReference
+        }
+      });
+
+      if (mappingExistente) {
+        console.log(`📋 Mapping existente encontrado: ${mappingExistente.supplierName} → ${alegraName}`);
+      }
+
+      // 2. Obtener información del nuevo proveedor de Alegra
+      const proveedorResponse = await alegraService.api.get(`/contacts/${nuevoProveedorId}`);
+      const nuevoProveedor = proveedorResponse.data;
+
+      console.log(`✅ Nuevo proveedor encontrado: ${nuevoProveedor.name}`);
+
+      // 3. Eliminar mapping antiguo si existe
+      if (mappingExistente) {
+        await prisma.supplierProductMapping.delete({
+          where: {
+            id: mappingExistente.id
+          }
+        });
+        console.log(`🗑️ Mapping antiguo eliminado`);
+      }
+
+      // 4. Crear nuevo mapping con el nuevo proveedor
+      const nuevoMapping = await prisma.supplierProductMapping.create({
+        data: {
+          supplierName: nuevoProveedor.name,
+          supplierCedula: nuevoProveedor.identification || 'SIN_CEDULA',
+          supplierCode: alegraReference,
+          supplierDesc: alegraName,
+          alegraItemId: alegraItemId,
+          alegraReference: alegraReference,
+          alegraName: alegraName,
+          confidence: 100,
+          origen: 'manual', // Marcar como manual (reasignación)
+          timesUsed: mappingExistente ? mappingExistente.timesUsed : 1
+        }
+      });
+
+      await prisma.$disconnect();
+
+      console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
+
+      res.json({
+        success: true,
+        data: {
+          proveedorAnterior: mappingExistente ? mappingExistente.supplierName : 'Sin_Proveedor',
+          nuevoProveedor: nuevoProveedor.name,
+          mapping: nuevoMapping
+        },
+        message: `Producto reasignado a ${nuevoProveedor.name}`
+      });
+
+    } finally {
+      await prisma.$disconnect();
+    }
+
+  } catch (error) {
+    console.error('❌ Error reasignando proveedor:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error reasignando proveedor'
+    });
+  }
+});
+
 // ============================================
 // 🧾 ENDPOINTS PARA FACTURACIÓN RÁPIDA
 // ============================================
