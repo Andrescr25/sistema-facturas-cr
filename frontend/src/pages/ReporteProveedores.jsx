@@ -517,31 +517,48 @@ NO afecta la base de datos externa de facturas.
 
       console.log(`🔄 Asignando ${productosAAsignar.length} productos al proveedor ${proveedorId}`)
 
-      // Asignar cada producto (decidir si es asignación nueva o reasignación)
-      const promesas = productosAAsignar.map(({ producto, proveedorActual }) => {
-        const esReasignacion = proveedorActual !== 'Sin_Proveedor'
-        const endpoint = esReasignacion
-          ? '/alegra/faltantes/reasignar-proveedor'
-          : '/alegra/faltantes/asignar-proveedor-manual'
+      // Procesar en lotes de 3 para evitar saturar la conexión de BD
+      const BATCH_SIZE = 3
+      const resultados = []
 
-        const body = esReasignacion ? {
-          alegraReference: producto.codigo,
-          alegraItemId: producto.alegra_item_id || producto.codigo,
-          alegraName: producto.nombre,
-          nuevoProveedorId: proveedorId
-        } : {
-          alegraReference: producto.codigo,
-          alegraItemId: producto.alegra_item_id || producto.codigo,
-          alegraName: producto.nombre,
-          proveedorId: proveedorId
+      for (let i = 0; i < productosAAsignar.length; i += BATCH_SIZE) {
+        const lote = productosAAsignar.slice(i, i + BATCH_SIZE)
+        console.log(`📦 Procesando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(productosAAsignar.length / BATCH_SIZE)}`)
+
+        const promesasLote = lote.map(({ producto, proveedorActual }) => {
+          const esReasignacion = proveedorActual !== 'Sin_Proveedor'
+          const endpoint = esReasignacion
+            ? '/alegra/faltantes/reasignar-proveedor'
+            : '/alegra/faltantes/asignar-proveedor-manual'
+
+          const body = esReasignacion ? {
+            alegraReference: producto.codigo,
+            alegraItemId: producto.alegra_item_id || producto.codigo,
+            alegraName: producto.nombre,
+            nuevoProveedorId: proveedorId
+          } : {
+            alegraReference: producto.codigo,
+            alegraItemId: producto.alegra_item_id || producto.codigo,
+            alegraName: producto.nombre,
+            proveedorId: proveedorId
+          }
+
+          return api.post(endpoint, body).catch(err => ({
+            data: { success: false },
+            error: err
+          }))
+        })
+
+        const resultadosLote = await Promise.all(promesasLote)
+        resultados.push(...resultadosLote)
+
+        // Pequeña pausa entre lotes para no saturar
+        if (i + BATCH_SIZE < productosAAsignar.length) {
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
+      }
 
-        return api.post(endpoint, body)
-      })
-
-      const resultados = await Promise.all(promesas)
-
-      const exitosos = resultados.filter(r => r.data.success).length
+      const exitosos = resultados.filter(r => r.data?.success).length
       const fallidos = resultados.length - exitosos
 
       if (exitosos > 0) {
