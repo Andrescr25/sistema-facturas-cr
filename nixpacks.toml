@@ -1,0 +1,14 @@
+# Configuración de Nixpacks para Railway
+# Proyecto Node.js con backend en subdirectorio
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+
+[phases.install]
+cmds = ["cd backend && npm ci"]
+
+[phases.build]
+cmds = ["cd backend && npx prisma generate"]
+
+[start]
+cmd = "cd backend && npm start"
