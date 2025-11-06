@@ -1,0 +1,16 @@
+{
+  "name": "sistema-facturas-cr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de facturas CR - Backend y Frontend",
+  "scripts": {
+    "install": "cd backend && npm install",
+    "build": "cd backend && npx prisma generate",
+    "start": "cd backend && npm start",
+    "migrate": "cd backend && npx prisma migrate deploy"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
