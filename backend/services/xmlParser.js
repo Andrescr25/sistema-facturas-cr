@@ -1,6 +1,9 @@
 const xml2js = require('xml2js');
 const moment = require('moment');
 
+// Configuración de logging
+const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === 'true' || false;
+
 class XmlParser {
     constructor() {
         this.parser = new xml2js.Parser({
@@ -13,7 +16,7 @@ class XmlParser {
 
     async parseFacturaXML(xmlContent) {
         try {
-            console.log('🔍 Parseando XML de factura CR...');
+            if (VERBOSE_LOGGING) console.log('🔍 Parseando XML de factura CR...');
 
             const result = await this.parser.parseStringPromise(xmlContent);
             const factura = result.FacturaElectronica;
@@ -24,7 +27,7 @@ class XmlParser {
 
             const facturaData = this.extractFacturaData(factura);
 
-            console.log(`✅ XML parseado: ${facturaData.numeroConsecutivo}`);
+            if (VERBOSE_LOGGING) console.log(`✅ XML parseado: ${facturaData.numeroConsecutivo}`);
             return facturaData;
         } catch (error) {
             console.error('❌ Error parseando XML:', error.message);
@@ -158,7 +161,7 @@ class XmlParser {
         // Si no hay código del proveedor, generar uno desde la descripción
         if (!codigoProveedor) {
             codigoProveedor = this.generateCodigoFromDescripcion(linea.Detalle);
-            console.log(`⚠️ Producto sin código interno: "${linea.Detalle}" -> Generando código: "${codigoProveedor}"`);
+            if (VERBOSE_LOGGING) console.log(`⚠️ Producto sin código interno: "${linea.Detalle}" -> Generando código: "${codigoProveedor}"`);
         }
 
         return {

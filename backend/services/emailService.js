@@ -5,6 +5,9 @@ const XmlParser = require('./xmlParser');
 const DatabaseService = require('./databaseService');
 const AlegraService = require('./alegraService');
 
+// Configuración de logging
+const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === 'true' || false;
+
 class EmailService {
     constructor() {
         this.imap = null;
@@ -292,7 +295,7 @@ class EmailService {
             return;
         }
 
-        console.log(`\n📄 Documento electrónico CR detectado: ${filename}`);
+        if (VERBOSE_LOGGING) console.log(`\n📄 Documento electrónico CR detectado: ${filename}`);
 
         try {
             // Verificar si ya existe en BD
@@ -302,7 +305,7 @@ class EmailService {
                     where: { clave: claveFactura }
                 });
                 if (facturaExistente) {
-                    console.log(`⚠️ Factura ya existe en BD: ${claveFactura}`);
+                    if (VERBOSE_LOGGING) console.log(`⚠️ Factura ya existe en BD: ${claveFactura}`);
                     return;
                 }
             }
@@ -312,22 +315,24 @@ class EmailService {
 
             // Validar que sea una factura válida
             this.xmlParser.validateFacturaCR(facturaData);
-            
+
             // Ignorar facturas de nuestra propia empresa
             if (facturaData.emisor.identificacion.numero === '204050474') {
-                console.log(`🚫 Factura de nuestra empresa (Distribuidora Tachi), ignorando`);
+                if (VERBOSE_LOGGING) console.log(`🚫 Factura de nuestra empresa (Distribuidora Tachi), ignorando`);
                 return;
             }
 
             // Generar resumen
             const resumen = this.xmlParser.generateSummary(facturaData);
 
-            console.log(`\n📋 NUEVA FACTURA ENCONTRADA:`);
-            console.log(`📄 ${resumen.titulo}`);
-            console.log(`🏢 Proveedor: ${resumen.proveedor}`);
-            console.log(`📅 Fecha: ${resumen.fecha}`);
-            console.log(`📦 Productos: ${resumen.productos}`);
-            console.log(`💰 Total: ${resumen.total}`);
+            if (VERBOSE_LOGGING) {
+                console.log(`\n📋 NUEVA FACTURA ENCONTRADA:`);
+                console.log(`📄 ${resumen.titulo}`);
+                console.log(`🏢 Proveedor: ${resumen.proveedor}`);
+                console.log(`📅 Fecha: ${resumen.fecha}`);
+                console.log(`📦 Productos: ${resumen.productos}`);
+                console.log(`💰 Total: ${resumen.total}`);
+            }
 
             // Procesar la factura parseada
             await this.processParsedFactura(facturaData, filename, `${seqno}`);
@@ -342,10 +347,10 @@ class EmailService {
      */
     async processParsedFactura(facturaData, filename, emailId) {
         try {
-            console.log(`\n🔄 PROCESANDO FACTURA COMPLETA...`);
+            if (VERBOSE_LOGGING) console.log(`\n🔄 PROCESANDO FACTURA COMPLETA...`);
 
             // 1. Guardar factura en base de datos
-            console.log('💾 Guardando factura en base de datos...');
+            if (VERBOSE_LOGGING) console.log('💾 Guardando factura en base de datos...');
             const facturaGuardada = await this.dbService.saveFactura(
                 facturaData,
                 filename,
@@ -353,20 +358,20 @@ class EmailService {
             );
 
             // 2. Procesar relacionado inteligente (solo productos PENDIENTES)
-            console.log('🔍 Iniciando relacionado inteligente...');
+            if (VERBOSE_LOGGING) console.log('🔍 Iniciando relacionado inteligente...');
             let productosRelacionados = 0;
             let productosPendientes = 0;
 
             for (const producto of facturaGuardada.productos) {
                 // ✅ VERIFICAR SI YA ESTÁ RELACIONADO (por mapeo existente)
                 if (producto.estadoRelacionado === 'RELACIONADO') {
-                    console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
+                    if (VERBOSE_LOGGING) console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
                     productosRelacionados++;
                     continue; // Saltar este producto
                 }
 
                 // Solo procesar productos PENDIENTES
-                console.log(`\n🔍 Procesando: ${producto.descripcion}`);
+                if (VERBOSE_LOGGING) console.log(`\n🔍 Procesando: ${producto.descripcion}`);
 
                 const similares = await this.alegraService.findSimilarProducts(
                     producto.descripcion,
