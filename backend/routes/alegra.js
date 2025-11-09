@@ -1568,6 +1568,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const placeholders = codigosProductos.map((_, index) => `$${index + 1}`).join(',');
     const mappingResult = await query(`
       SELECT
+        id,
         supplier_name as "supplierName",
         supplier_cedula as "supplierCedula",
         supplier_code as "supplierCode",
@@ -1583,23 +1584,104 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
     console.log(`🔗 Encontrados ${mappingResult.rows.length} mappings en Supabase`);
 
-    // PASO 4: Agrupar por proveedor
+    // PASO 4: Para cada producto faltante, buscar TODOS los mappings y seleccionar el de precio más bajo
     const proveedoresMap = new Map();
+    const prisma = require('../lib/prisma');
 
-    faltantesResult.rows.forEach(faltante => {
-      // Buscar mapping para este producto
-      const mapping = mappingResult.rows.find(m => m.alegraReference === faltante.producto_codigo);
+    for (const faltante of faltantesResult.rows) {
+      // Buscar TODOS los mappings para este producto (puede haber múltiples proveedores)
+      const mappingsDelProducto = mappingResult.rows.filter(m => m.alegraReference === faltante.producto_codigo);
 
-      let proveedorNombre, proveedorCedula;
+      let proveedorSeleccionado = null;
+      let precioMasBajo = null;
 
-      if (mapping) {
-        // Usar datos del mapping de Supabase
-        proveedorNombre = mapping.supplierName;
-        proveedorCedula = mapping.supplierCedula;
+      if (mappingsDelProducto.length > 0) {
+        // 🔍 NUEVO: Para cada mapping, obtener el precio más reciente
+        console.log(`💰 Analizando ${mappingsDelProducto.length} proveedores para producto: ${faltante.producto_codigo}`);
+        
+        const proveedoresConPrecios = [];
+
+        for (const mapping of mappingsDelProducto) {
+          try {
+            // Buscar el precio más reciente de este proveedor para este producto
+            const productoFactura = await prisma.productoFactura.findFirst({
+              where: {
+                mappingId: mapping.id || null
+              },
+              orderBy: {
+                factura: {
+                  fechaEmision: 'desc'
+                }
+              },
+              select: {
+                precioUnitario: true,
+                factura: {
+                  select: {
+                    fechaEmision: true
+                  }
+                }
+              }
+            });
+
+            const precio = productoFactura?.precioUnitario || null;
+            const fechaPrecio = productoFactura?.factura?.fechaEmision || null;
+
+            proveedoresConPrecios.push({
+              mapping: mapping,
+              precio: precio,
+              fechaPrecio: fechaPrecio,
+              confianza: mapping.confidence || 0
+            });
+
+            console.log(`   - ${mapping.supplierName}: ${precio ? `₡${precio.toFixed(2)}` : 'Sin precio'} (confianza: ${mapping.confidence}%)`);
+          } catch (error) {
+            console.warn(`   ⚠️ Error obteniendo precio para ${mapping.supplierName}:`, error.message);
+            // Si hay error, agregar sin precio pero con confianza
+            proveedoresConPrecios.push({
+              mapping: mapping,
+              precio: null,
+              fechaPrecio: null,
+              confianza: mapping.confidence || 0
+            });
+          }
+        }
+
+        // 🎯 SELECCIONAR proveedor con precio más bajo
+        // Filtrar solo los que tienen precio
+        const proveedoresConPrecio = proveedoresConPrecios.filter(p => p.precio !== null && p.precio > 0);
+
+        if (proveedoresConPrecio.length > 0) {
+          // Ordenar por precio (ascendente) y luego por confianza (descendente) como desempate
+          proveedoresConPrecio.sort((a, b) => {
+            if (a.precio !== b.precio) {
+              return a.precio - b.precio; // Precio más bajo primero
+            }
+            return b.confianza - a.confianza; // Mayor confianza como desempate
+          });
+
+          proveedorSeleccionado = proveedoresConPrecio[0].mapping;
+          precioMasBajo = proveedoresConPrecio[0].precio;
+
+          console.log(`   ✅ Seleccionado: ${proveedorSeleccionado.supplierName} con precio ₡${precioMasBajo.toFixed(2)}`);
+        } else {
+          // Si ningún proveedor tiene precio, usar el de mayor confianza
+          proveedoresConPrecios.sort((a, b) => b.confianza - a.confianza);
+          proveedorSeleccionado = proveedoresConPrecios[0].mapping;
+          console.log(`   ⚠️ Sin precios disponibles, usando proveedor con mayor confianza: ${proveedorSeleccionado.supplierName}`);
+        }
+      }
+
+      let proveedorNombre, proveedorCedula, mappingFinal;
+
+      if (proveedorSeleccionado) {
+        proveedorNombre = proveedorSeleccionado.supplierName;
+        proveedorCedula = proveedorSeleccionado.supplierCedula;
+        mappingFinal = proveedorSeleccionado;
       } else {
         // ✅ NUEVO: Agrupar todos los productos sin mapping en un solo grupo
         proveedorNombre = 'Sin_Proveedor';
         proveedorCedula = 'SIN_PROVEEDOR';
+        mappingFinal = null;
 
         console.warn(`⚠️ No se encontró mapping para código: ${faltante.producto_codigo}`);
       }
@@ -1622,18 +1704,20 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       proveedor.productos_faltantes.push({
         nombre: faltante.producto_nombre,
         codigo: faltante.producto_codigo,
-        codigo_proveedor: mapping ? mapping.supplierCode : 'N/A', // Código del proveedor
+        codigo_proveedor: mappingFinal ? mappingFinal.supplierCode : 'N/A', // Código del proveedor
         cantidad_faltante: parseInt(faltante.total_faltante),
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
         tipo_faltante: faltante.tipo_faltante,
         clientes_afectados: faltante.clientes_afectados,
-        confianza_mapping: mapping ? mapping.confidence : 0, // Confianza del mapping
-        factor_conversion: mapping ? (mapping.factorConversion || 1) : 1 // Factor de conversión
+        confianza_mapping: mappingFinal ? mappingFinal.confidence : 0, // Confianza del mapping
+        factor_conversion: mappingFinal ? (mappingFinal.factorConversion || 1) : 1, // Factor de conversión
+        precio_asignado: precioMasBajo, // 🆕 Precio del proveedor seleccionado
+        asignacion_automatica: proveedorSeleccionado !== null // 🆕 Indica si fue asignación automática
       });
 
       proveedor.total_productos++;
       proveedor.total_cantidad += parseInt(faltante.total_faltante);
-    });
+    }
 
     const proveedoresArray = Array.from(proveedoresMap.values());
 
