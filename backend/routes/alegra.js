@@ -3312,21 +3312,58 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       try {
         console.log(`🔍 Buscando mapping para: ${producto.codigo} con proveedor: "${proveedor}"`);
         
-        // Buscar información del proveedor para este producto en Supabase
-        const mappingResult = await query(`
+        // 🔧 CORREGIDO: Buscar por código de Alegra (reference) y nombre del proveedor
+        // El producto.codigo es el código interno de Alegra (reference), no el código del proveedor
+        // Mejorar búsqueda: primero por reference + proveedor exacto, luego por reference solo si no hay match exacto
+        let mappingResult = await query(`
           SELECT 
+            id,
             supplier_code as "supplierCode",
             supplier_desc as "supplierDesc",
             supplier_name as "supplierName",
+            supplier_cedula as "supplierCedula",
             alegra_reference as "alegraReference",
             alegra_name as "alegraName",
+            alegra_item_id as "alegraItemId",
             confidence,
-            origen
+            origen,
+            factor_conversion as "factorConversion"
           FROM supplier_product_mapping 
           WHERE alegra_reference = $1 
-          AND supplier_name = $2
+          AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
+          ORDER BY confidence DESC, last_used_date DESC, times_used DESC
           LIMIT 1
         `, [producto.codigo, proveedor]);
+        
+        // Si no hay match exacto, buscar solo por reference (puede haber múltiples proveedores)
+        // Pero solo si realmente no hay match exacto
+        if (mappingResult.rows.length === 0) {
+          console.log(`   ⚠️ No se encontró match exacto, buscando solo por reference...`);
+          mappingResult = await query(`
+            SELECT 
+              id,
+              supplier_code as "supplierCode",
+              supplier_desc as "supplierDesc",
+              supplier_name as "supplierName",
+              supplier_cedula as "supplierCedula",
+              alegra_reference as "alegraReference",
+              alegra_name as "alegraName",
+              alegra_item_id as "alegraItemId",
+              confidence,
+              origen,
+              factor_conversion as "factorConversion"
+            FROM supplier_product_mapping 
+            WHERE alegra_reference = $1
+            ORDER BY confidence DESC, last_used_date DESC, times_used DESC
+            LIMIT 1
+          `, [producto.codigo]);
+          
+          if (mappingResult.rows.length > 0) {
+            console.warn(`   ⚠️ ADVERTENCIA: Se encontró mapping pero el proveedor no coincide exactamente.`);
+            console.warn(`   Proveedor buscado: "${proveedor}"`);
+            console.warn(`   Proveedor encontrado: "${mappingResult.rows[0].supplierName}"`);
+          }
+        }
         
         console.log(`   Resultados encontrados: ${mappingResult.rows.length}`);
         if (mappingResult.rows.length > 0) {

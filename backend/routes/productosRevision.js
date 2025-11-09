@@ -22,39 +22,45 @@ const upload = multer({
 });
 
 /**
- * Obtener productos relacionados con filtros
+ * Obtener productos relacionados con filtros (RELACIONES ÚNICAS)
  */
 router.get('/relacionados', async (req, res) => {
     try {
         const { proveedor, estado, busqueda, page = 1, limit = 20 } = req.query;
 
-        console.log('📊 Obteniendo productos relacionados...');
+        console.log('📊 Obteniendo relaciones únicas de productos...');
 
         const filtros = {};
 
         if (proveedor) {
-            filtros.factura = {
-                proveedorNombre: {
-                    contains: proveedor,
-                    mode: 'insensitive'
-                }
+            filtros.supplierName = {
+                contains: proveedor,
+                mode: 'insensitive'
             };
-        }
-
-        if (estado && estado !== 'TODOS') {
-            filtros.estadoRelacionado = estado;
         }
 
         if (busqueda) {
             filtros.OR = [
                 {
-                    descripcion: {
+                    supplierDesc: {
                         contains: busqueda,
                         mode: 'insensitive'
                     }
                 },
                 {
-                    codigoProveedor: {
+                    supplierCode: {
+                        contains: busqueda,
+                        mode: 'insensitive'
+                    }
+                },
+                {
+                    alegraName: {
+                        contains: busqueda,
+                        mode: 'insensitive'
+                    }
+                },
+                {
+                    alegraReference: {
                         contains: busqueda,
                         mode: 'insensitive'
                     }
@@ -64,56 +70,79 @@ router.get('/relacionados', async (req, res) => {
 
         const skip = (page - 1) * limit;
 
-        const [productos, total] = await Promise.all([
-            prisma.productoFactura.findMany({
-                where: filtros,
-                include: {
-                    factura: {
-                        select: {
-                            id: true,
-                            numeroConsecutivo: true,
-                            proveedorNombre: true,
-                            proveedorCedula: true,
-                            fechaEmision: true,
-                            fechaProcesada: true,
-                            totalFactura: true,
-                            estado: true
-                        }
-                    },
-                    mapeo: true
-                },
-                orderBy: [
-                    { estadoRelacionado: 'desc' },
-                    { confianza: 'desc' },
-                    { facturaId: 'desc' }
-                ],
-                skip: parseInt(skip),
-                take: parseInt(limit)
-            }),
-            prisma.productoFactura.count({ where: filtros })
-        ]);
+        // 🔧 CORREGIDO: Obtener todas las relaciones y eliminar duplicados por mapeo único
+        const todasLasRelaciones = await prisma.supplierProductMapping.findMany({
+            where: filtros,
+            orderBy: [
+                { confidence: 'desc' },
+                { supplierName: 'asc' },
+                { supplierCode: 'asc' }
+            ]
+        });
 
-        // Enriquecer con info de Alegra desde BD local
-        const productosEnriquecidos = productos.map(producto => {
-            let alegraInfo = null;
-
-            if (producto.estadoRelacionado === 'RELACIONADO' && producto.mapeo) {
-                alegraInfo = {
-                    alegraId: producto.alegraItemId,
-                    name: producto.mapeo.alegraName,
-                    reference: producto.mapeo.alegraReference
-                };
+        // 🔧 CORREGIDO: Eliminar duplicados agrupando por supplierCedula + supplierCode
+        // Si hay múltiples mapeos con el mismo proveedor y código, usar el más reciente o con mayor confianza
+        const mapeosUnicos = new Map();
+        todasLasRelaciones.forEach(mapeo => {
+            const key = `${mapeo.supplierCedula}-${mapeo.supplierCode}`;
+            const existente = mapeosUnicos.get(key);
+            
+            if (!existente) {
+                mapeosUnicos.set(key, mapeo);
+            } else {
+                // Si ya existe, mantener el que tenga mayor confianza o sea más reciente
+                if (mapeo.confidence > existente.confidence || 
+                    (mapeo.confidence === existente.confidence && mapeo.lastUsedDate > existente.lastUsedDate)) {
+                    mapeosUnicos.set(key, mapeo);
+                }
             }
+        });
 
+        const relacionesUnicas = Array.from(mapeosUnicos.values());
+        
+        // Aplicar paginación después de eliminar duplicados
+        const total = relacionesUnicas.length;
+        const relaciones = relacionesUnicas.slice(skip, skip + parseInt(limit));
+
+        // Formatear relaciones para el frontend
+        const productosFormateados = relaciones.map(mapeo => {
             return {
-                ...producto,
-                alegraInfo: alegraInfo
+                id: mapeo.id,
+                // Datos del proveedor
+                proveedor: {
+                    nombre: mapeo.supplierName,
+                    cedula: mapeo.supplierCedula
+                },
+                codigo: mapeo.supplierCode,
+                descripcion: mapeo.supplierDesc,
+
+                // Datos de Alegra
+                alegraItemId: mapeo.alegraItemId,
+                alegraReference: mapeo.alegraReference,
+                alegraName: mapeo.alegraName,
+
+                // Metadatos de la relación
+                confianza: mapeo.confidence || 0,
+                origen: mapeo.origen || 'manual',
+                factorConversion: mapeo.factorConversion || 1,
+                timesUsed: mapeo.timesUsed || 0,
+                createdDate: mapeo.createdDate,
+                lastUsedDate: mapeo.lastUsedDate,
+
+                // Información de relación (para compatibilidad con frontend)
+                mapeo: {
+                    id: mapeo.id,
+                    alegraName: mapeo.alegraName,
+                    alegraReference: mapeo.alegraReference,
+                    confidence: mapeo.confidence,
+                    factorConversion: mapeo.factorConversion || 1
+                }
             };
         });
 
         res.json({
             success: true,
-            productos: productosEnriquecidos,
+            productos: productosFormateados,
             total: total,
             page: parseInt(page),
             limit: parseInt(limit),
@@ -121,6 +150,115 @@ router.get('/relacionados', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error obteniendo productos relacionados:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Obtener todas las relaciones de un producto específico (con diferentes proveedores)
+ * Útil para ver todas las relaciones de un producto de Alegra con diferentes proveedores
+ */
+router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
+    try {
+        const { alegraItemId } = req.params;
+
+        console.log(`🔍 Obteniendo todas las relaciones para producto Alegra: ${alegraItemId}`);
+
+        // Buscar todas las relaciones que apuntan a este producto de Alegra
+        const relaciones = await prisma.supplierProductMapping.findMany({
+            where: {
+                alegraItemId: alegraItemId.toString()
+            },
+            orderBy: [
+                { confidence: 'desc' },
+                { lastUsedDate: 'desc' }
+            ],
+            include: {
+                productos: {
+                    select: {
+                        id: true,
+                        codigoProveedor: true,
+                        descripcion: true,
+                        precioUnitario: true,
+                        factura: {
+                            select: {
+                                proveedorNombre: true,
+                                proveedorCedula: true,
+                                fechaEmision: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        factura: {
+                            fechaEmision: 'desc'
+                        }
+                    },
+                    take: 5 // Solo los últimos 5 productos para no sobrecargar
+                }
+            }
+        });
+
+        // Formatear respuesta
+        const relacionesFormateadas = relaciones.map(mapeo => {
+            // Obtener precio más reciente de los productos relacionados
+            const precios = mapeo.productos
+                .filter(p => p.precioUnitario > 0)
+                .map(p => p.precioUnitario);
+            const precioPromedio = precios.length > 0 
+                ? precios.reduce((a, b) => a + b, 0) / precios.length 
+                : null;
+            const precioMasReciente = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
+                ? mapeo.productos[0].precioUnitario
+                : null;
+
+            return {
+                mapeoId: mapeo.id,
+                proveedor: {
+                    nombre: mapeo.supplierName,
+                    cedula: mapeo.supplierCedula
+                },
+                codigoProveedor: mapeo.supplierCode,
+                descripcionProveedor: mapeo.supplierDesc,
+                productoAlegra: {
+                    id: mapeo.alegraItemId,
+                    reference: mapeo.alegraReference,
+                    name: mapeo.alegraName
+                },
+                confianza: mapeo.confidence,
+                factorConversion: mapeo.factorConversion || 1,
+                vecesUsado: mapeo.timesUsed,
+                ultimaUso: mapeo.lastUsedDate,
+                precioPromedio: precioPromedio,
+                precioMasReciente: precioMasReciente,
+                productosRelacionados: mapeo.productos.map(p => ({
+                    productoProveedorId: p.id,
+                    codigo: p.codigoProveedor,
+                    descripcion: p.descripcion,
+                    precio: p.precioUnitario,
+                    factura: {
+                        proveedor: p.factura.proveedorNombre,
+                        fecha: p.factura.fechaEmision
+                    }
+                }))
+            };
+        });
+
+        res.json({
+            success: true,
+            productoAlegra: {
+                id: alegraItemId,
+                reference: relaciones[0]?.alegraReference || null,
+                name: relaciones[0]?.alegraName || null
+            },
+            relaciones: relacionesFormateadas,
+            total: relacionesFormateadas.length
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo relaciones del producto:', error);
         res.status(500).json({
             success: false,
             error: error.message

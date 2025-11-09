@@ -30,7 +30,10 @@ export default function GestionarRelaciones() {
   const [modalEditar, setModalEditar] = useState(false)
   const [modalEliminar, setModalEliminar] = useState(false)
   const [modalFactor, setModalFactor] = useState(false)
+  const [modalRelaciones, setModalRelaciones] = useState(false)
   const [productoSeleccionado, setProductoSeleccionado] = useState(null)
+  const [relacionesProducto, setRelacionesProducto] = useState(null)
+  const [cargandoRelaciones, setCargandoRelaciones] = useState(false)
   
   // Factor de conversión
   const [cantidadProveedor, setCantidadProveedor] = useState(1)
@@ -135,6 +138,33 @@ export default function GestionarRelaciones() {
     }
     
     setModalFactor(true)
+  }
+
+  // Ver todas las relaciones de un producto
+  const abrirRelaciones = async (producto) => {
+    if (!producto.alegraItemId) {
+      alert('⚠️ Este producto no tiene un ID de Alegra asociado')
+      return
+    }
+
+    setProductoSeleccionado(producto)
+    setModalRelaciones(true)
+    setCargandoRelaciones(true)
+    setRelacionesProducto(null)
+
+    try {
+      const response = await api.get(`/productos-revision/producto/${producto.alegraItemId}/relaciones`)
+      if (response.data.success) {
+        setRelacionesProducto(response.data)
+      } else {
+        throw new Error(response.data.error || 'Error cargando relaciones')
+      }
+    } catch (err) {
+      alert('❌ Error cargando relaciones: ' + err.message)
+      setModalRelaciones(false)
+    } finally {
+      setCargandoRelaciones(false)
+    }
   }
 
   const guardarFactor = async () => {
@@ -410,9 +440,11 @@ export default function GestionarRelaciones() {
                     <div className="lg:col-span-4">
                       <h4 className="font-semibold text-gray-900 mb-2">{producto.descripcion}</h4>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <p>Código: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{producto.codigoProveedor}</span></p>
-                        <p>Proveedor: {producto.factura?.proveedorNombre}</p>
-                        <p>Precio: ₡{producto.precioUnitario?.toLocaleString('es-CR')}</p>
+                        <p>Código: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{producto.codigo}</span></p>
+                        <p>Proveedor: {producto.proveedor?.nombre}</p>
+                        <p className="text-xs text-gray-500">
+                          ID Mapeo: <span className="font-mono">{producto.id}</span>
+                        </p>
                       </div>
                     </div>
 
@@ -422,8 +454,13 @@ export default function GestionarRelaciones() {
                         <div className="bg-green-50 rounded-lg p-3 border border-green-200">
                           <p className="text-xs text-green-600 mb-1">Relacionado con:</p>
                           <h5 className="font-semibold text-green-900 mb-1">{producto.mapeo.alegraName}</h5>
-                          <div className="text-sm text-green-700">
+                          <div className="text-sm text-green-700 space-y-1">
                             <p>Ref: {producto.mapeo.alegraReference || 'N/A'}</p>
+                            {producto.factorConversion && producto.factorConversion !== 1 && (
+                              <p className="text-blue-600 font-medium">
+                                🔄 Factor: {producto.factorConversion}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -452,6 +489,14 @@ export default function GestionarRelaciones() {
                     <div className="lg:col-span-2 flex flex-col gap-2">
                       {producto.estadoRelacionado === 'RELACIONADO' && (
                         <>
+                          <button
+                            onClick={() => abrirRelaciones(producto)}
+                            className="btn bg-purple-600 text-white border-purple-600 hover:bg-purple-700 text-sm flex items-center justify-center"
+                            title="Ver todas las relaciones de este producto con diferentes proveedores"
+                          >
+                            <Package size={16} className="mr-1" />
+                            Ver Relaciones
+                          </button>
                           <button
                             onClick={() => abrirEditar(producto)}
                             className="btn btn-primary text-sm flex items-center justify-center"
@@ -764,6 +809,187 @@ export default function GestionarRelaciones() {
                 className="btn btn-outline flex-1"
               >
                 Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ver Relaciones - MEJORADO */}
+      {modalRelaciones && productoSeleccionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">📦 Relaciones del Producto</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Todas las relaciones de este producto con diferentes proveedores
+                  </p>
+                </div>
+                <button
+                  onClick={() => setModalRelaciones(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <XCircle size={24} />
+                </button>
+              </div>
+
+              {/* Info del producto de Alegra */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2">Producto en Alegra:</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-blue-600 font-medium">Nombre:</span>
+                    <p className="text-blue-900">{productoSeleccionado.mapeo?.alegraName || productoSeleccionado.alegraName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-600 font-medium">Referencia:</span>
+                    <p className="text-blue-900 font-mono">{productoSeleccionado.mapeo?.alegraReference || productoSeleccionado.alegraReference || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-600 font-medium">ID Alegra:</span>
+                    <p className="text-blue-900 font-mono text-xs">{productoSeleccionado.alegraItemId}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {cargandoRelaciones ? (
+                <div className="text-center py-12">
+                  <div className="spinner mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando relaciones...</p>
+                </div>
+              ) : relacionesProducto && relacionesProducto.relaciones ? (
+                relacionesProducto.relaciones.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="mx-auto text-gray-400 mb-4" size={48} />
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                      No hay relaciones con proveedores
+                    </h4>
+                    <p className="text-gray-600">
+                      Este producto aún no tiene relaciones con proveedores.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        <strong>Total:</strong> {relacionesProducto.total} relación{relacionesProducto.total !== 1 ? 'es' : ''} con diferentes proveedores
+                      </p>
+                    </div>
+
+                    {relacionesProducto.relaciones.map((relacion, index) => (
+                      <div key={relacion.mapeoId} className="border rounded-lg p-5 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h4 className="text-lg font-semibold text-gray-900">
+                                {relacion.descripcionProveedor || relacion.codigoProveedor}
+                              </h4>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                relacion.confianza >= 80 ? 'bg-green-100 text-green-800' :
+                                relacion.confianza >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {relacion.confianza}% confianza
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Proveedor:</span>
+                                <p className="font-medium text-gray-900">{relacion.proveedor.nombre}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Código Proveedor:</span>
+                                <p className="font-mono text-gray-900">{relacion.codigoProveedor}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">ID Mapeo:</span>
+                                <p className="font-mono text-xs text-gray-700">{relacion.mapeoId}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Veces Usado:</span>
+                                <p className="font-medium text-gray-900">{relacion.vecesUsado}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Precios */}
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                          {relacion.precioMasReciente && (
+                            <div>
+                              <span className="text-xs text-gray-600">Precio Más Reciente:</span>
+                              <p className="text-lg font-bold text-green-600">
+                                ₡{relacion.precioMasReciente.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          )}
+                          {relacion.precioPromedio && (
+                            <div>
+                              <span className="text-xs text-gray-600">Precio Promedio:</span>
+                              <p className="text-lg font-semibold text-gray-700">
+                                ₡{relacion.precioPromedio.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Factor de conversión */}
+                        {relacion.factorConversion && relacion.factorConversion !== 1 && (
+                          <div className="mb-4 p-2 bg-blue-50 rounded border border-blue-200">
+                            <p className="text-sm text-blue-800">
+                              <strong>Factor de Conversión:</strong> {relacion.factorConversion}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Productos relacionados (últimos 5) */}
+                        {relacion.productosRelacionados && relacion.productosRelacionados.length > 0 && (
+                          <div className="mt-4">
+                            <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                              Productos del Proveedor Relacionados ({relacion.productosRelacionados.length}):
+                            </h5>
+                            <div className="space-y-2">
+                              {relacion.productosRelacionados.map((prod, prodIndex) => (
+                                <div key={prod.productoProveedorId} className="bg-white border rounded p-3 text-sm">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-900">{prod.descripcion}</p>
+                                      <div className="flex gap-4 mt-1 text-xs text-gray-600">
+                                        <span>ID: <span className="font-mono">{prod.productoProveedorId}</span></span>
+                                        <span>Código: <span className="font-mono">{prod.codigo}</span></span>
+                                        <span>Precio: <span className="font-semibold text-green-600">₡{prod.precio?.toLocaleString('es-CR') || 'N/A'}</span></span>
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-gray-500 text-right">
+                                      <p>{prod.factura?.fecha ? new Date(prod.factura.fecha).toLocaleDateString('es-CR') : 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  No se pudieron cargar las relaciones
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setModalRelaciones(false)}
+                className="btn btn-primary w-full"
+              >
+                Cerrar
               </button>
             </div>
           </div>
