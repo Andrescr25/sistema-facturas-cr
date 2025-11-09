@@ -599,14 +599,19 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
       };
     });
 
+    // 🔧 FILTRAR: Solo mostrar facturas que requieren actualización
+    const facturasFiltradas = facturasConAjustes.filter(f => f.requiere_actualizacion);
+
+    console.log(`✅ Facturas filtradas: ${facturasFiltradas.length} requieren cambios (${facturasConAjustes.length - facturasFiltradas.length} sin cambios ocultas)`);
+
     res.json({
       success: true,
-      data: facturasConAjustes,
-      total_pendientes: facturasConAjustes.length,
+      data: facturasFiltradas,
+      total_pendientes: facturasFiltradas.length,
       resumen: {
-        facturas_pendientes: facturasConAjustes.length,
-        facturas_con_cambios: facturasConAjustes.filter(f => f.requiere_actualizacion).length,
-        facturas_resueltas: facturasConAjustes.filter(f => !f.requiere_actualizacion).length
+        facturas_pendientes: facturasFiltradas.length,
+        facturas_con_cambios: facturasFiltradas.length,
+        facturas_sin_cambios_ocultas: facturasConAjustes.length - facturasFiltradas.length
       }
     });
 
@@ -2436,10 +2441,23 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       WHERE alegra_id = $1
     `, [alegra_id]);
 
+    // 5. 🔧 NUEVO: Marcar factura como 'procesada' en facturas_reimpresion al reimprimir
+    if (estado.includes('requiere_reimpresion')) {
+      await query(`
+        UPDATE facturas_reimpresion 
+        SET estado = 'procesada', 
+            fecha_procesamiento = NOW()
+        FROM facturas fa
+        WHERE facturas_reimpresion.factura_id = fa.id
+        AND fa.alegra_id = $1
+      `, [alegra_id]);
+      console.log(`✅ Factura ${numero_factura} marcada como 'procesada' en reimpresión`);
+    }
+
     console.log(`✅ Factura ${numero_factura} procesada individualmente:`);
     console.log(`   📋 Faltantes marcados como procesados`);
     console.log(`   💾 ${ajustes.length} ajustes guardados permanentemente`);
-    console.log(`🔄 Estado: ${estado.includes('requiere_reimpresion') ? 'En reimpresión' : 'En historial'}`);
+    console.log(`🔄 Estado: ${estado.includes('requiere_reimpresion') ? 'En reimpresión → Historial' : 'En historial'}`);
 
     res.json({
       success: true,
