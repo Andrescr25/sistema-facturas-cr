@@ -639,30 +639,53 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
 
 /**
  * Eliminar relación (volver a pendiente)
+ * 
+ * NOTA: El frontend envía el ID del supplierProductMapping (mapeo.id),
+ * no el ID del productoFactura. Por lo tanto, buscamos todos los productos
+ * de factura que tengan ese mapeoId y los actualizamos a PENDIENTE.
  */
-router.delete('/:productoId/relacion', async (req, res) => {
+router.delete('/:mapeoId/relacion', async (req, res) => {
     // 🔧 CORS: Asegurar headers antes de procesar
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     
     try {
-        const { productoId } = req.params;
+        const { mapeoId } = req.params;
 
-        console.log(`🗑️ Eliminando relación: ${productoId}`);
+        console.log(`🗑️ Eliminando relación para mapeo: ${mapeoId}`);
 
-        const producto = await prisma.productoFactura.findUnique({
-            where: { id: productoId }
+        // Verificar que el mapeo existe
+        const mapeo = await prisma.supplierProductMapping.findUnique({
+            where: { id: mapeoId }
         });
 
-        if (!producto) {
+        if (!mapeo) {
+            console.log(`❌ Mapeo no encontrado con ID: ${mapeoId}`);
             return res.status(404).json({
                 success: false,
-                error: 'Producto no encontrado'
+                error: 'Relación no encontrada',
+                mapeoId: mapeoId
             });
         }
 
-        const productoActualizado = await prisma.productoFactura.update({
-            where: { id: productoId },
+        // Buscar todos los productos de factura que usan este mapeo
+        const productosAfectados = await prisma.productoFactura.findMany({
+            where: {
+                mapeoId: mapeoId
+            },
+            select: {
+                id: true,
+                descripcion: true
+            }
+        });
+
+        console.log(`🔍 Encontrados ${productosAfectados.length} productos usando este mapeo`);
+
+        // Actualizar todos los productos que usan este mapeo
+        const resultado = await prisma.productoFactura.updateMany({
+            where: {
+                mapeoId: mapeoId
+            },
             data: {
                 alegraItemId: null,
                 estadoRelacionado: 'PENDIENTE',
@@ -671,10 +694,13 @@ router.delete('/:productoId/relacion', async (req, res) => {
             }
         });
 
+        console.log(`✅ ${resultado.count} productos actualizados a PENDIENTE`);
+
         res.json({
             success: true,
-            message: 'Relación eliminada exitosamente',
-            producto: productoActualizado
+            message: `Relación eliminada exitosamente. ${resultado.count} producto(s) actualizado(s) a PENDIENTE`,
+            productosAfectados: resultado.count,
+            mapeoId: mapeoId
         });
     } catch (error) {
         console.error('❌ Error eliminando relación:', error);
