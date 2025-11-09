@@ -206,17 +206,10 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
 
         // Formatear respuesta - VERSIÓN SIMPLIFICADA
         const relacionesFormateadas = relaciones.map(mapeo => {
-            // Obtener precio más reciente de los productos relacionados
-            const precios = mapeo.productos
-                .filter(p => p.precioUnitario > 0)
-                .map(p => p.precioUnitario);
+            // Obtener precio más reciente de los productos relacionados (PRECIO DE COSTO)
+            // precioUnitario viene de facturas de compra, así que es el precio de costo
             const precioMasReciente = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
                 ? mapeo.productos[0].precioUnitario
-                : null;
-
-            // Obtener el ID del producto_proveedor más reciente
-            const productoProveedorMasReciente = mapeo.productos.length > 0
-                ? mapeo.productos[0]
                 : null;
 
             return {
@@ -235,10 +228,18 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 confianza: mapeo.confidence,
                 factorConversion: mapeo.factorConversion || 1,
                 vecesUsado: mapeo.timesUsed,
-                // 🔧 SIMPLIFICADO: Solo información esencial
-                productoProveedorId: productoProveedorMasReciente?.id || null,
+                // Precio de costo (precioUnitario de facturas de compra)
                 precio: precioMasReciente
             };
+        });
+
+        // Ordenar por precio de costo (ascendente) - el más bajo primero
+        // Los que no tienen precio van al final
+        relacionesFormateadas.sort((a, b) => {
+            if (a.precio === null && b.precio === null) return 0;
+            if (a.precio === null) return 1; // Sin precio al final
+            if (b.precio === null) return -1; // Sin precio al final
+            return a.precio - b.precio; // Precio más bajo primero
         });
 
         res.json({

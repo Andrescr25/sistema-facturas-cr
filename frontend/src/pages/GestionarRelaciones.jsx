@@ -873,61 +873,54 @@ export default function GestionarRelaciones() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-800">
-                        <strong>Total:</strong> {relacionesProducto.total} relación{relacionesProducto.total !== 1 ? 'es' : ''} con diferentes proveedores
-                      </p>
+                  <div>
+                    {/* Título de sección */}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                        Este producto está relacionado con:
+                      </h3>
                     </div>
 
-                    {relacionesProducto.relaciones.map((relacion, index) => (
-                      <div key={relacion.mapeoId} className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all bg-gradient-to-br from-white to-gray-50">
-                        {/* Header con nombre y confianza */}
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-bold text-gray-900">
-                            {relacion.descripcionProveedor || relacion.codigoProveedor}
-                          </h4>
-                          <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${
-                            relacion.confianza >= 80 ? 'bg-green-100 text-green-800 border border-green-300' :
-                            relacion.confianza >= 60 ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-                            'bg-red-100 text-red-800 border border-red-300'
-                          }`}>
-                            {relacion.confianza}% confianza
-                          </span>
-                        </div>
-                        
-                        {/* Formato compacto mejorado */}
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200 mb-3">
-                          <div className="flex items-center flex-wrap gap-2 text-base">
-                            <span className="font-bold text-purple-700">{relacion.proveedor.nombre}</span>
-                            <span className="text-gray-400 font-bold">→</span>
-                            <span className="text-blue-700 font-semibold">ID: <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">{relacion.codigoProveedor || 'N/A'}</span></span>
-                            <span className="text-gray-400 font-bold">→</span>
-                            <span className="text-green-700 font-semibold">Mi Producto ID: <span className="font-mono bg-green-100 px-2 py-0.5 rounded">{relacion.productoAlegra.id || 'N/A'}</span></span>
-                            <span className="text-gray-400 font-bold">→</span>
-                            <span className="text-orange-700 font-bold text-lg">Precio: <span className="font-mono bg-orange-100 px-2 py-0.5 rounded">₡{relacion.precio ? relacion.precio.toLocaleString('es-CR', { minimumFractionDigits: 2 }) : 'N/A'}</span></span>
-                          </div>
-                        </div>
-
-                        {/* Información adicional en grid */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-gray-100 rounded-lg p-2">
-                            <span className="text-gray-600 font-medium">Código:</span>
-                            <p className="font-mono text-gray-900 font-semibold">{relacion.codigoProveedor}</p>
-                          </div>
-                          <div className="bg-gray-100 rounded-lg p-2">
-                            <span className="text-gray-600 font-medium">ID Mapeo:</span>
-                            <p className="font-mono text-xs text-gray-700">{relacion.mapeoId}</p>
-                          </div>
-                          {relacion.factorConversion && relacion.factorConversion !== 1 && (
-                            <div className="bg-blue-100 rounded-lg p-2 col-span-2">
-                              <span className="text-blue-700 font-medium">Factor de Conversión:</span>
-                              <p className="text-blue-900 font-bold">{relacion.factorConversion}</p>
+                    {/* Lista simple de proveedores */}
+                    <div className="space-y-3">
+                      {relacionesProducto.relaciones.map((relacion, index) => (
+                        <div 
+                          key={relacion.mapeoId} 
+                          className="bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="font-semibold text-gray-900">
+                                  {relacion.proveedor.nombre}
+                                </span>
+                                {relacion.confianza >= 80 && (
+                                  <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
+                                    {relacion.confianza}%
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span>
+                                  <span className="font-medium">Código:</span>{' '}
+                                  <span className="font-mono text-gray-900">{relacion.codigoProveedor || 'N/A'}</span>
+                                </span>
+                              </div>
                             </div>
-                          )}
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-green-600">
+                                {relacion.precio ? (
+                                  <>₡{relacion.precio.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">Sin precio</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">Precio de costo</div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )
               ) : (
