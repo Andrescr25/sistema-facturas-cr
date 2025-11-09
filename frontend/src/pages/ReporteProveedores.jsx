@@ -1018,11 +1018,8 @@ NO afecta la base de datos externa de facturas.
                             </p>
                           </div>
                           <div className="text-right">
-                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${producto.tipo_faltante === 'total'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                              {producto.tipo_faltante === 'total' ? 'Falta Completo' : 'Falta Parcial'}
+                            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                              Faltante
                             </div>
                             <p className="text-lg font-bold text-gray-900 mt-1">
                               {producto.cantidad_faltante} unidades
