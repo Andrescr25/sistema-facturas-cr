@@ -186,6 +186,9 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                         codigoProveedor: true,
                         descripcion: true,
                         precioUnitario: true,
+                        descuento: true,
+                        impuesto: true,
+                        cantidad: true,
                         factura: {
                             select: {
                                 proveedorNombre: true,
@@ -205,10 +208,10 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
         });
 
         // Formatear respuesta - VERSIÓN SIMPLIFICADA
-        // Obtener último precio de costo por proveedor desde facturas
+        // Obtener último precio de costo por proveedor desde facturas (CON DESCUENTOS E IVA)
         const relacionesFormateadas = relaciones.map((mapeo) => {
             // 🔍 Obtener último precio de costo de ESTE PROVEEDOR desde facturas
-            // El precio más reciente de productos relacionados con este mapeo específico
+            // Calcular el costo real considerando descuentos e IVA (como en revisionPrecios)
             let precioCostoProveedor = null;
 
             if (mapeo.productos && mapeo.productos.length > 0) {
@@ -216,11 +219,30 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 // Buscar el primer producto con precio válido
                 const productoConPrecio = mapeo.productos.find(p => p.precioUnitario && p.precioUnitario > 0);
                 if (productoConPrecio) {
-                    precioCostoProveedor = parseFloat(productoConPrecio.precioUnitario);
+                    // Calcular costo real: precioUnitario SIN IVA, aplicar descuento, agregar IVA
+                    // En XML de Costa Rica, precioUnitario es SIN IVA
+                    const precioUnitarioSinIva = parseFloat(productoConPrecio.precioUnitario) || 0;
+                    const descuento = parseFloat(productoConPrecio.descuento) || 0;
+                    const cantidad = parseFloat(productoConPrecio.cantidad) || 1;
+                    
+                    // Calcular porcentaje de descuento
+                    const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
+                    const descuentoPorcentaje = montoTotalSinDescuento > 0 
+                        ? (descuento / montoTotalSinDescuento) * 100
+                        : 0;
+                    
+                    // Costo = precioUnitario SIN IVA con descuento aplicado, luego multiplicar por 1.13 (IVA)
+                    const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
+                    const costoConIva = costoSinIvaConDescuento * 1.13; // Agregar IVA 13%
+                    
+                    precioCostoProveedor = Math.round(costoConIva * 100) / 100;
+                    
+                    console.log(`   💰 Costo calculado para ${mapeo.supplierName}:`);
+                    console.log(`      Precio sin IVA: ₡${precioUnitarioSinIva.toFixed(2)}`);
+                    console.log(`      Descuento: ${descuentoPorcentaje.toFixed(2)}% (₡${descuento.toFixed(2)})`);
+                    console.log(`      Costo final con IVA: ₡${precioCostoProveedor.toFixed(2)}`);
                 }
             }
-
-            console.log(`   💰 Último precio de ${mapeo.supplierName} para ${mapeo.alegraName}: ${precioCostoProveedor ? `₡${precioCostoProveedor.toFixed(2)}` : 'No disponible'}`);
 
             return {
                 mapeoId: mapeo.id,
@@ -238,7 +260,7 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 confianza: mapeo.confidence,
                 factorConversion: mapeo.factorConversion || 1,
                 vecesUsado: mapeo.timesUsed,
-                // Precio de costo del proveedor (último precio pagado a este proveedor específico)
+                // Precio de costo del proveedor (último precio pagado con descuentos e IVA aplicados)
                 precio: precioCostoProveedor
             };
         });
