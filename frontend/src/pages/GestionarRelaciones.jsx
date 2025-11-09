@@ -881,44 +881,50 @@ export default function GestionarRelaciones() {
                     </div>
 
                     {relacionesProducto.relaciones.map((relacion, index) => (
-                      <div key={relacion.mapeoId} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="text-lg font-semibold text-gray-900">
-                                {relacion.descripcionProveedor || relacion.codigoProveedor}
-                              </h4>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                relacion.confianza >= 80 ? 'bg-green-100 text-green-800' :
-                                relacion.confianza >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {relacion.confianza}% confianza
-                              </span>
-                            </div>
-                            
-                            {/* 🔧 SIMPLIFICADO: Formato compacto como solicitado */}
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                              <p className="text-sm text-gray-700 font-mono">
-                                <span className="font-semibold text-purple-600">{relacion.proveedor.nombre}</span>
-                                {' → '}
-                                <span className="text-blue-600">ID: {relacion.productoProveedorId || 'N/A'}</span>
-                                {' → '}
-                                <span className="text-green-600">Mi Producto ID: {relacion.productoAlegra.id}</span>
-                                {' → '}
-                                <span className="text-orange-600 font-bold">Precio: ₡{relacion.precio ? relacion.precio.toLocaleString('es-CR', { minimumFractionDigits: 2 }) : 'N/A'}</span>
-                              </p>
-                            </div>
-
-                            {/* Información adicional compacta */}
-                            <div className="mt-2 flex gap-4 text-xs text-gray-500">
-                              <span>Código: <span className="font-mono">{relacion.codigoProveedor}</span></span>
-                              <span>ID Mapeo: <span className="font-mono text-xs">{relacion.mapeoId}</span></span>
-                              {relacion.factorConversion && relacion.factorConversion !== 1 && (
-                                <span className="text-blue-600">Factor: {relacion.factorConversion}</span>
-                              )}
-                            </div>
+                      <div key={relacion.mapeoId} className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all bg-gradient-to-br from-white to-gray-50">
+                        {/* Header con nombre y confianza */}
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-bold text-gray-900">
+                            {relacion.descripcionProveedor || relacion.codigoProveedor}
+                          </h4>
+                          <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${
+                            relacion.confianza >= 80 ? 'bg-green-100 text-green-800 border border-green-300' :
+                            relacion.confianza >= 60 ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
+                            'bg-red-100 text-red-800 border border-red-300'
+                          }`}>
+                            {relacion.confianza}% confianza
+                          </span>
+                        </div>
+                        
+                        {/* Formato compacto mejorado */}
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200 mb-3">
+                          <div className="flex items-center flex-wrap gap-2 text-base">
+                            <span className="font-bold text-purple-700">{relacion.proveedor.nombre}</span>
+                            <span className="text-gray-400 font-bold">→</span>
+                            <span className="text-blue-700 font-semibold">ID: <span className="font-mono bg-blue-100 px-2 py-0.5 rounded">{relacion.codigoProveedor || 'N/A'}</span></span>
+                            <span className="text-gray-400 font-bold">→</span>
+                            <span className="text-green-700 font-semibold">Mi Producto ID: <span className="font-mono bg-green-100 px-2 py-0.5 rounded">{relacion.productoAlegra.id || 'N/A'}</span></span>
+                            <span className="text-gray-400 font-bold">→</span>
+                            <span className="text-orange-700 font-bold text-lg">Precio: <span className="font-mono bg-orange-100 px-2 py-0.5 rounded">₡{relacion.precio ? relacion.precio.toLocaleString('es-CR', { minimumFractionDigits: 2 }) : 'N/A'}</span></span>
                           </div>
+                        </div>
+
+                        {/* Información adicional en grid */}
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-gray-100 rounded-lg p-2">
+                            <span className="text-gray-600 font-medium">Código:</span>
+                            <p className="font-mono text-gray-900 font-semibold">{relacion.codigoProveedor}</p>
+                          </div>
+                          <div className="bg-gray-100 rounded-lg p-2">
+                            <span className="text-gray-600 font-medium">ID Mapeo:</span>
+                            <p className="font-mono text-xs text-gray-700">{relacion.mapeoId}</p>
+                          </div>
+                          {relacion.factorConversion && relacion.factorConversion !== 1 && (
+                            <div className="bg-blue-100 rounded-lg p-2 col-span-2">
+                              <span className="text-blue-700 font-medium">Factor de Conversión:</span>
+                              <p className="text-blue-900 font-bold">{relacion.factorConversion}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
