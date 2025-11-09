@@ -1532,18 +1532,17 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
     // PASO 1: Obtener faltantes de la BD local
     const faltantesResult = await query(`
-      SELECT 
+      SELECT
         p.codigo as producto_codigo,
         p.nombre as producto_nombre,
         SUM(f.cantidad_faltante) as total_faltante,
         COUNT(f.id) as facturas_afectadas,
-        f.tipo_faltante,
         STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
       WHERE f.estado = 'pendiente'
-      GROUP BY p.codigo, p.nombre, f.tipo_faltante
+      GROUP BY p.codigo, p.nombre
       ORDER BY total_faltante DESC
     `);
 
