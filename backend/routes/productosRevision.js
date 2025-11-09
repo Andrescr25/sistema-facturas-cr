@@ -205,12 +205,34 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
         });
 
         // Formatear respuesta - VERSIÓN SIMPLIFICADA
-        const relacionesFormateadas = relaciones.map(mapeo => {
-            // Obtener precio más reciente de los productos relacionados (PRECIO DE COSTO)
-            // precioUnitario viene de facturas de compra, así que es el precio de costo
-            const precioMasReciente = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
-                ? mapeo.productos[0].precioUnitario
-                : null;
+        // Obtener costos desde Alegra para cada relación
+        const relacionesFormateadas = await Promise.all(relaciones.map(async (mapeo) => {
+            let costoProducto = null;
+
+            // 🔍 Obtener costo desde Alegra (costo inicial del producto)
+            try {
+                if (mapeo.alegraItemId) {
+                    const productoAlegra = await alegraService.getProductById(mapeo.alegraItemId);
+                    
+                    // El costo puede estar en inventory.unitCost o en cost directamente
+                    if (productoAlegra.inventory && productoAlegra.inventory.unitCost) {
+                        costoProducto = parseFloat(productoAlegra.inventory.unitCost);
+                    } else if (productoAlegra.cost) {
+                        costoProducto = parseFloat(productoAlegra.cost);
+                    } else if (productoAlegra.inventory && productoAlegra.inventory.cost) {
+                        costoProducto = parseFloat(productoAlegra.inventory.cost);
+                    }
+                    
+                    console.log(`   💰 Costo desde Alegra para ${mapeo.alegraName}: ${costoProducto ? `₡${costoProducto.toFixed(2)}` : 'No disponible'}`);
+                }
+            } catch (error) {
+                console.warn(`   ⚠️ Error obteniendo costo desde Alegra para ${mapeo.alegraItemId}:`, error.message);
+                // Si falla, intentar usar precio de factura como fallback
+                const precioFactura = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
+                    ? mapeo.productos[0].precioUnitario
+                    : null;
+                costoProducto = precioFactura;
+            }
 
             return {
                 mapeoId: mapeo.id,
@@ -228,10 +250,10 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 confianza: mapeo.confidence,
                 factorConversion: mapeo.factorConversion || 1,
                 vecesUsado: mapeo.timesUsed,
-                // Precio de costo (precioUnitario de facturas de compra)
-                precio: precioMasReciente
+                // Precio de costo desde Alegra (costo inicial del producto)
+                precio: costoProducto
             };
-        });
+        }));
 
         // Ordenar por precio de costo (ascendente) - el más bajo primero
         // Los que no tienen precio van al final
