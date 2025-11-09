@@ -114,6 +114,7 @@ router.get('/relacionados', async (req, res) => {
                     cedula: mapeo.supplierCedula
                 },
                 codigo: mapeo.supplierCode,
+                codigoProveedor: mapeo.supplierCode, // Para compatibilidad
                 descripcion: mapeo.supplierDesc,
 
                 // Datos de Alegra
@@ -128,10 +129,12 @@ router.get('/relacionados', async (req, res) => {
                 timesUsed: mapeo.timesUsed || 0,
                 createdDate: mapeo.createdDate,
                 lastUsedDate: mapeo.lastUsedDate,
+                estadoRelacionado: 'RELACIONADO', // Todos los productos de este endpoint están relacionados
 
                 // Información de relación (para compatibilidad con frontend)
                 mapeo: {
                     id: mapeo.id,
+                    alegraItemId: mapeo.alegraItemId,
                     alegraName: mapeo.alegraName,
                     alegraReference: mapeo.alegraReference,
                     confidence: mapeo.confidence,
