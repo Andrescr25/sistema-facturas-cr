@@ -3312,10 +3312,10 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       try {
         console.log(`🔍 Buscando mapping para: ${producto.codigo} con proveedor: "${proveedor}"`);
         
-        // 🔧 CORREGIDO: Buscar por código de Alegra (reference) y nombre del proveedor
-        // El producto.codigo es el código interno de Alegra (reference), no el código del proveedor
-        // Mejorar búsqueda: primero por reference + proveedor exacto, luego por reference solo si no hay match exacto
-        let mappingResult = await query(`
+        // 🔧 CORREGIDO: Buscar SOLO por código de Alegra (reference) + proveedor EXACTO
+        // NO usar mappings de otros proveedores - esto causa relaciones incorrectas
+        // El producto.codigo es el código interno de Alegra (reference)
+        const mappingResult = await query(`
           SELECT 
             id,
             supplier_code as "supplierCode",
@@ -3335,34 +3335,11 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           LIMIT 1
         `, [producto.codigo, proveedor]);
         
-        // Si no hay match exacto, buscar solo por reference (puede haber múltiples proveedores)
-        // Pero solo si realmente no hay match exacto
+        // ⚠️ IMPORTANTE: Si no hay match exacto, NO usar mapping de otro proveedor
+        // Esto previene relaciones incorrectas
         if (mappingResult.rows.length === 0) {
-          console.log(`   ⚠️ No se encontró match exacto, buscando solo por reference...`);
-          mappingResult = await query(`
-            SELECT 
-              id,
-              supplier_code as "supplierCode",
-              supplier_desc as "supplierDesc",
-              supplier_name as "supplierName",
-              supplier_cedula as "supplierCedula",
-              alegra_reference as "alegraReference",
-              alegra_name as "alegraName",
-              alegra_item_id as "alegraItemId",
-              confidence,
-              origen,
-              factor_conversion as "factorConversion"
-            FROM supplier_product_mapping 
-            WHERE alegra_reference = $1
-            ORDER BY confidence DESC, last_used_date DESC, times_used DESC
-            LIMIT 1
-          `, [producto.codigo]);
-          
-          if (mappingResult.rows.length > 0) {
-            console.warn(`   ⚠️ ADVERTENCIA: Se encontró mapping pero el proveedor no coincide exactamente.`);
-            console.warn(`   Proveedor buscado: "${proveedor}"`);
-            console.warn(`   Proveedor encontrado: "${mappingResult.rows[0].supplierName}"`);
-          }
+          console.warn(`   ⚠️ No se encontró mapping exacto para: ${producto.codigo} con proveedor "${proveedor}"`);
+          console.warn(`   Se usará el código y nombre original del producto (sin mapping del proveedor)`);
         }
         
         console.log(`   Resultados encontrados: ${mappingResult.rows.length}`);
@@ -3376,36 +3353,66 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         if (mappingResult.rows.length > 0) {
           const mapping = mappingResult.rows[0];
           
-          // ✅ NUEVA LÓGICA: Verificar si tiene datos del proveedor (independiente del origen)
-          const tieneCodigoProveedor = mapping.supplierCode && mapping.supplierDesc;
+          // ✅ VERIFICAR que el proveedor coincida exactamente (doble verificación)
+          const proveedorCoincide = mapping.supplierName?.toLowerCase().trim() === proveedor?.toLowerCase().trim();
           
-          if (tieneCodigoProveedor) {
-            // ✅ TIENE CÓDIGO DEL PROVEEDOR: Usar datos del PROVEEDOR
+          if (!proveedorCoincide) {
+            console.error(`   ❌ ERROR: El mapping encontrado no coincide con el proveedor solicitado!`);
+            console.error(`   Proveedor solicitado: "${proveedor}"`);
+            console.error(`   Proveedor en mapping: "${mapping.supplierName}"`);
+            // Usar datos originales en lugar de mapping incorrecto
             productoEnriquecido = {
-              codigo_pdf: mapping.supplierCode,           // Código del proveedor
-              nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
+              codigo_pdf: producto.codigo,
+              nombre_pdf: producto.nombre,
               cantidad: producto.cantidad,
               codigo_interno: producto.codigo,
               nombre_interno: producto.nombre,
-              confianza: mapping.confidence,
-              origen: 'con_codigo_proveedor'              // Tiene código del proveedor
+              confianza: 0,
+              origen: 'error_proveedor_no_coincide'
             };
-            console.log(`✅ CON CÓDIGO PROVEEDOR: ${mapping.alegraReference} → "${mapping.supplierCode}" / "${mapping.supplierDesc}"`);
           } else {
-            // ❌ NO TIENE CÓDIGO DEL PROVEEDOR: Usar datos de ALEGRA (locales)
-            productoEnriquecido = {
-              codigo_pdf: mapping.alegraReference,        // Código Alegra (local)
-              nombre_pdf: mapping.alegraName,             // Nombre Alegra (local)
-              cantidad: producto.cantidad,
-              codigo_interno: producto.codigo,
-              nombre_interno: producto.nombre,
-              confianza: mapping.confidence,
-              origen: 'sin_codigo_proveedor'              // No tiene código del proveedor
-            };
-            console.log(`📝 SIN CÓDIGO PROVEEDOR: ${mapping.alegraReference} (usando datos locales)`);
+            // ✅ NUEVA LÓGICA: Verificar si tiene datos del proveedor
+            const tieneCodigoProveedor = mapping.supplierCode && mapping.supplierDesc;
+            
+            // 🔧 APLICAR FACTOR DE CONVERSIÓN si existe
+            // El factor es: cantidadMia / cantidadProveedor
+            // Para convertir cantidad del sistema a cantidad del proveedor: cantidad / factor
+            let cantidadFinal = producto.cantidad;
+            if (mapping.factorConversion && mapping.factorConversion !== 1) {
+              cantidadFinal = Math.ceil(producto.cantidad / mapping.factorConversion);
+              console.log(`   🔄 Aplicando factor ${mapping.factorConversion}: ${producto.cantidad} → ${cantidadFinal}`);
+            }
+            
+            if (tieneCodigoProveedor) {
+              // ✅ TIENE CÓDIGO DEL PROVEEDOR: Usar datos del PROVEEDOR
+              productoEnriquecido = {
+                codigo_pdf: mapping.supplierCode,           // Código del proveedor
+                nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
+                cantidad: cantidadFinal,                    // Cantidad con factor aplicado
+                codigo_interno: producto.codigo,
+                nombre_interno: producto.nombre,
+                confianza: mapping.confidence,
+                factorConversion: mapping.factorConversion || 1,
+                origen: 'con_codigo_proveedor'              // Tiene código del proveedor
+              };
+              console.log(`✅ CON CÓDIGO PROVEEDOR: ${mapping.alegraReference} → "${mapping.supplierCode}" / "${mapping.supplierDesc}" (cantidad: ${cantidadFinal})`);
+            } else {
+              // ❌ NO TIENE CÓDIGO DEL PROVEEDOR: Usar datos de ALEGRA (locales)
+              productoEnriquecido = {
+                codigo_pdf: mapping.alegraReference,        // Código Alegra (local)
+                nombre_pdf: mapping.alegraName,             // Nombre Alegra (local)
+                cantidad: cantidadFinal,                     // Cantidad con factor aplicado
+                codigo_interno: producto.codigo,
+                nombre_interno: producto.nombre,
+                confianza: mapping.confidence,
+                factorConversion: mapping.factorConversion || 1,
+                origen: 'sin_codigo_proveedor'              // No tiene código del proveedor
+              };
+              console.log(`📝 SIN CÓDIGO PROVEEDOR: ${mapping.alegraReference} (usando datos locales, cantidad: ${cantidadFinal})`);
+            }
           }
         } else {
-          // Fallback: usar datos originales si no hay mapping
+          // Fallback: usar datos originales si no hay mapping exacto
           productoEnriquecido = {
             codigo_pdf: producto.codigo,
             nombre_pdf: producto.nombre,
@@ -3416,7 +3423,7 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             origen: 'sin_mapeo'
           };
 
-          console.warn(`⚠️ Sin mapping para producto: ${producto.codigo} del proveedor ${proveedor}`);
+          console.warn(`⚠️ Sin mapping exacto para producto: ${producto.codigo} del proveedor ${proveedor} - usando datos originales`);
         }
 
         productosEnriquecidos.push(productoEnriquecido);
