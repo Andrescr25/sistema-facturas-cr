@@ -205,34 +205,22 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
         });
 
         // Formatear respuesta - VERSIÓN SIMPLIFICADA
-        // Obtener costos desde Alegra para cada relación
-        const relacionesFormateadas = await Promise.all(relaciones.map(async (mapeo) => {
-            let costoProducto = null;
+        // Obtener último precio de costo por proveedor desde facturas
+        const relacionesFormateadas = relaciones.map((mapeo) => {
+            // 🔍 Obtener último precio de costo de ESTE PROVEEDOR desde facturas
+            // El precio más reciente de productos relacionados con este mapeo específico
+            let precioCostoProveedor = null;
 
-            // 🔍 Obtener costo desde Alegra (costo inicial del producto)
-            try {
-                if (mapeo.alegraItemId) {
-                    const productoAlegra = await alegraService.getProductById(mapeo.alegraItemId);
-                    
-                    // El costo puede estar en inventory.unitCost o en cost directamente
-                    if (productoAlegra.inventory && productoAlegra.inventory.unitCost) {
-                        costoProducto = parseFloat(productoAlegra.inventory.unitCost);
-                    } else if (productoAlegra.cost) {
-                        costoProducto = parseFloat(productoAlegra.cost);
-                    } else if (productoAlegra.inventory && productoAlegra.inventory.cost) {
-                        costoProducto = parseFloat(productoAlegra.inventory.cost);
-                    }
-                    
-                    console.log(`   💰 Costo desde Alegra para ${mapeo.alegraName}: ${costoProducto ? `₡${costoProducto.toFixed(2)}` : 'No disponible'}`);
+            if (mapeo.productos && mapeo.productos.length > 0) {
+                // Los productos ya están ordenados por fecha descendente (más reciente primero)
+                // Buscar el primer producto con precio válido
+                const productoConPrecio = mapeo.productos.find(p => p.precioUnitario && p.precioUnitario > 0);
+                if (productoConPrecio) {
+                    precioCostoProveedor = parseFloat(productoConPrecio.precioUnitario);
                 }
-            } catch (error) {
-                console.warn(`   ⚠️ Error obteniendo costo desde Alegra para ${mapeo.alegraItemId}:`, error.message);
-                // Si falla, intentar usar precio de factura como fallback
-                const precioFactura = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
-                    ? mapeo.productos[0].precioUnitario
-                    : null;
-                costoProducto = precioFactura;
             }
+
+            console.log(`   💰 Último precio de ${mapeo.supplierName} para ${mapeo.alegraName}: ${precioCostoProveedor ? `₡${precioCostoProveedor.toFixed(2)}` : 'No disponible'}`);
 
             return {
                 mapeoId: mapeo.id,
@@ -250,10 +238,10 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 confianza: mapeo.confidence,
                 factorConversion: mapeo.factorConversion || 1,
                 vecesUsado: mapeo.timesUsed,
-                // Precio de costo desde Alegra (costo inicial del producto)
-                precio: costoProducto
+                // Precio de costo del proveedor (último precio pagado a este proveedor específico)
+                precio: precioCostoProveedor
             };
-        }));
+        });
 
         // Ordenar por precio de costo (ascendente) - el más bajo primero
         // Los que no tienen precio van al final
