@@ -1567,15 +1567,16 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
     const placeholders = codigosProductos.map((_, index) => `$${index + 1}`).join(',');
     const mappingResult = await query(`
-      SELECT 
+      SELECT
         supplier_name as "supplierName",
-        supplier_cedula as "supplierCedula", 
+        supplier_cedula as "supplierCedula",
         supplier_code as "supplierCode",
         supplier_desc as "supplierDesc",
         alegra_reference as "alegraReference",
         alegra_name as "alegraName",
-        confidence
-      FROM supplier_product_mapping 
+        confidence,
+        factor_conversion as "factorConversion"
+      FROM supplier_product_mapping
       WHERE alegra_reference IN (${placeholders})
       ORDER BY supplier_name, supplier_code
     `, codigosProductos);
@@ -1626,7 +1627,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
         tipo_faltante: faltante.tipo_faltante,
         clientes_afectados: faltante.clientes_afectados,
-        confianza_mapping: mapping ? mapping.confidence : 0 // Confianza del mapping
+        confianza_mapping: mapping ? mapping.confidence : 0, // Confianza del mapping
+        factor_conversion: mapping ? (mapping.factorConversion || 1) : 1 // Factor de conversión
       });
 
       proveedor.total_productos++;

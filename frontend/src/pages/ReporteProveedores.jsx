@@ -283,10 +283,20 @@ export default function ReporteProveedores() {
             cantidadModificada :
             (cantidadGuardada ? cantidadGuardada.cantidad_modificada : producto.cantidad_faltante)
 
+          // ✅ APLICAR CONVERSIÓN INVERSA: cantidad en tu sistema → cantidad para proveedor
+          // Factor = cantidadMia / cantidadProveedor
+          // CantidadProveedor = cantidadMia / factor
+          const factorConversion = producto.factor_conversion || 1
+          const cantidadParaProveedor = factorConversion !== 1
+            ? Math.ceil(cantidadFinal / factorConversion) // Redondear hacia arriba
+            : cantidadFinal
+
           return {
             codigo: producto.codigo,
             nombre: producto.nombre,
-            cantidad: cantidadFinal
+            cantidad: cantidadParaProveedor, // ← Cantidad convertida para el proveedor
+            cantidadOriginal: cantidadFinal, // ← Cantidad en tu sistema (para referencia)
+            factorConversion: factorConversion
           }
         })
       
