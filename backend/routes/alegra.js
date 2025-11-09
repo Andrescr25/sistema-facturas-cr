@@ -2441,8 +2441,13 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       WHERE alegra_id = $1
     `, [alegra_id]);
 
-    // 5. 🔧 NUEVO: Marcar factura como 'procesada' en facturas_reimpresion al reimprimir
-    if (estado.includes('requiere_reimpresion')) {
+    // 5. 🔧 CORREGIDO: Solo marcar como 'procesada' en facturas_reimpresion si viene desde Reimpresión
+    // Si viene desde ReporteClientes (marcar como "lista"), debe quedar en 'pendiente'
+    // El parámetro 'marcar_como_procesada' indica si se está reimprimiendo (true) o solo marcando como lista (false)
+    const marcarComoProcesada = req.body.marcar_como_procesada === true;
+    
+    if (estado.includes('requiere_reimpresion') && marcarComoProcesada) {
+      // Solo si viene desde Reimpresión (reimprimiendo), marcar como procesada
       await query(`
         UPDATE facturas_reimpresion 
         SET estado = 'procesada', 
@@ -2451,7 +2456,10 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         WHERE facturas_reimpresion.factura_id = fa.id
         AND fa.alegra_id = $1
       `, [alegra_id]);
-      console.log(`✅ Factura ${numero_factura} marcada como 'procesada' en reimpresión`);
+      console.log(`✅ Factura ${numero_factura} marcada como 'procesada' en reimpresión (reimpresa)`);
+    } else if (estado.includes('requiere_reimpresion')) {
+      // Si viene desde ReporteClientes, mantener en 'pendiente' para que aparezca en Reimpresión
+      console.log(`📋 Factura ${numero_factura} guardada en reimpresión con estado 'pendiente' (aparecerá en Reimpresión)`);
     }
 
     console.log(`✅ Factura ${numero_factura} procesada individualmente:`);

@@ -251,17 +251,32 @@ export const alegraService = {
     try {
       console.log('📋 Frontend: Procesando factura individual:', factura.numero_factura);
 
+      // 🔧 CORREGIDO: Manejar ambos casos:
+      // 1. Desde Reimpresion: factura.ajustes_realizados, factura.requiere_actualizacion
+      // 2. Desde ReporteClientes: factura.ajustes, factura.estado
+      const ajustes = factura.ajustes || factura.ajustes_realizados || [];
+      
+      // Determinar estado: si viene desde ReporteClientes con estado explícito, usarlo
+      // Si no, calcular basado en requiere_actualizacion
+      let estado;
+      if (factura.estado) {
+        // Viene desde ReporteClientes con estado ya calculado
+        estado = factura.estado;
+      } else {
+        // Viene desde Reimpresion, calcular basado en requiere_actualizacion
+        estado = factura.requiere_actualizacion ? 'requiere_reimpresion' : 'resuelto';
+      }
+
       // Construir payload con los campos que espera el backend
       const payload = {
         alegra_id: factura.alegra_id,
         numero_factura: factura.numero_factura,
         cliente_nombre: factura.cliente_nombre,
         fecha_emision: factura.fecha_emision,
-        ajustes: factura.ajustes_realizados || [],  // ← mapeo correcto
-        estado: factura.requiere_actualizacion
-          ? ['requiere_reimpresion']
-          : ['resuelto'],  // ← mapeo correcto
-        items_editados: itemsEditados  // ← pasar items editados si existen
+        ajustes: ajustes,
+        estado: estado,  // Backend espera string que contenga 'requiere_reimpresion'
+        items_editados: itemsEditados,  // ← pasar items editados si existen
+        marcar_como_procesada: factura.marcar_como_procesada !== undefined ? factura.marcar_como_procesada : false  // Por defecto false (desde ReporteClientes)
       };
 
       console.log('📤 Payload enviado:', payload);

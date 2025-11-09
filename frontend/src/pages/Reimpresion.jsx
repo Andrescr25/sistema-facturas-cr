@@ -121,8 +121,14 @@ export default function Reimpresion() {
       setProcesando(true)
 
       // Procesar factura (con items editados si hay, o ajustes automáticos)
+      // 🔧 Marcar como procesada porque viene desde Reimpresión (reimprimiendo)
+      const facturaConFlag = {
+        ...facturaEditando,
+        marcar_como_procesada: true
+      }
+      
       const result = await alegraService.procesarFacturaIndividual(
-        facturaEditando,
+        facturaConFlag,
         modoEdicion ? itemsEditados : null
       )
 
