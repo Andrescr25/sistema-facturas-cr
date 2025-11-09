@@ -1615,6 +1615,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
               },
               select: {
                 precioUnitario: true,
+                descuento: true,
+                cantidad: true,
                 factura: {
                   select: {
                     fechaEmision: true
@@ -1623,7 +1625,26 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
               }
             });
 
-            const precio = productoFactura?.precioUnitario || null;
+            // Calcular costo real con descuentos e IVA (igual que en gestionar relaciones)
+            let precio = null;
+            if (productoFactura && productoFactura.precioUnitario > 0) {
+              const precioUnitarioSinIva = parseFloat(productoFactura.precioUnitario);
+              const descuento = parseFloat(productoFactura.descuento) || 0;
+              const cantidad = parseFloat(productoFactura.cantidad) || 1;
+              
+              // Calcular porcentaje de descuento
+              const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
+              const descuentoPorcentaje = montoTotalSinDescuento > 0 
+                ? (descuento / montoTotalSinDescuento) * 100
+                : 0;
+              
+              // Costo = precioUnitario SIN IVA con descuento aplicado, luego multiplicar por 1.13 (IVA)
+              const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
+              const costoConIva = costoSinIvaConDescuento * 1.13; // Agregar IVA 13%
+              
+              precio = Math.round(costoConIva * 100) / 100;
+            }
+            
             const fechaPrecio = productoFactura?.factura?.fechaEmision || null;
 
             proveedoresConPrecios.push({
