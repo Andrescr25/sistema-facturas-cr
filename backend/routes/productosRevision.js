@@ -543,6 +543,10 @@ router.post('/ajustar', async (req, res) => {
  * Editar relación existente
  */
 router.put('/:productoId/editar-relacion', async (req, res) => {
+    // 🔧 CORS: Asegurar headers antes de procesar
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     try {
         const { productoId } = req.params;
         const { nuevoAlegraItemId, motivo } = req.body;
@@ -637,6 +641,10 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
  * Eliminar relación (volver a pendiente)
  */
 router.delete('/:productoId/relacion', async (req, res) => {
+    // 🔧 CORS: Asegurar headers antes de procesar
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     try {
         const { productoId } = req.params;
 
@@ -1147,6 +1155,10 @@ router.get('/info-alegra/:alegraItemId', async (req, res) => {
  * Eliminar relación de un producto
  */
 router.delete('/relacion/:productoId', async (req, res) => {
+    // 🔧 CORS: Asegurar headers antes de procesar
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     try {
         const { productoId } = req.params;
 
