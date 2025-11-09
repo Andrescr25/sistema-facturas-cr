@@ -482,16 +482,58 @@ class InvoiceService {
 
       // 2. Guardar faltantes
       for (const faltante of faltantes) {
+        // El frontend envía item_id que puede ser la referencia del producto o el ID de Alegra
+        const itemIdentifier = faltante.item_id || faltante.producto_codigo;
+
+        if (!itemIdentifier) {
+          console.warn('⚠️ Faltante sin identificador:', faltante);
+          continue;
+        }
+
+        // Buscar producto por código
+        const productoResult = await query(`
+          SELECT id FROM productos
+          WHERE codigo = $1
+          LIMIT 1
+        `, [itemIdentifier]);
+
+        let productoId = null;
+
+        if (productoResult.rows.length === 0) {
+          // Si no existe el producto, crearlo temporalmente con la información disponible
+          console.log(`⚠️ Producto ${itemIdentifier} no encontrado, creando registro temporal...`);
+
+          try {
+            const newProducto = await query(`
+              INSERT INTO productos (codigo, nombre)
+              VALUES ($1, $2)
+              RETURNING id
+            `, [itemIdentifier, faltante.nombre_producto || 'Producto sin nombre']);
+
+            productoId = newProducto.rows[0].id;
+          } catch (insertError) {
+            // Si falla el INSERT (por ejemplo, por duplicado), intentar buscar de nuevo
+            console.warn(`⚠️ Error al insertar producto, buscando de nuevo:`, insertError.message);
+            const retryResult = await query(`
+              SELECT id FROM productos WHERE codigo = $1 LIMIT 1
+            `, [itemIdentifier]);
+
+            if (retryResult.rows.length > 0) {
+              productoId = retryResult.rows[0].id;
+            } else {
+              throw new Error(`No se pudo obtener o crear el producto con código ${itemIdentifier}`);
+            }
+          }
+        } else {
+          productoId = productoResult.rows[0].id;
+        }
+
         await query(`
           INSERT INTO faltantes (
             factura_id, producto_id, cantidad_faltante, tipo_faltante,
             observaciones, registrado_por, estado
           )
-          VALUES (
-            $1,
-            (SELECT id FROM productos WHERE codigo = $2 LIMIT 1),
-            $3, $4, $5, $6, 'pendiente'
-          )
+          VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
           ON CONFLICT (factura_id, producto_id)
           DO UPDATE SET
             cantidad_faltante = $3,
@@ -500,10 +542,10 @@ class InvoiceService {
             fecha_registro = CURRENT_TIMESTAMP
         `, [
           facturaLocalId,
-          faltante.producto_codigo,
+          productoId,
           faltante.cantidad_faltante,
           faltante.tipo_faltante,
-          faltante.observaciones,
+          faltante.observaciones || '',
           registradoPor
         ]);
       }

@@ -47,9 +47,48 @@ class AlegraInvoiceService {
    * Buscar facturas por cliente
    */
   async searchInvoicesByClient(clientName) {
-    return await this.client.get('/invoices', {
-      client: clientName
-    });
+    try {
+      // Primero buscar el cliente por nombre en Alegra
+      const clientResult = await this.client.get('/contacts', {
+        name: clientName,
+        type: 'client'
+      });
+
+      if (!clientResult.success || !clientResult.data || clientResult.data.length === 0) {
+        // Si no se encuentra el cliente, buscar facturas directamente por nombre
+        console.log(`⚠️ Cliente "${clientName}" no encontrado, buscando facturas por texto...`);
+        return await this.client.get('/invoices', {
+          client: clientName
+        });
+      }
+
+      // Si se encuentra el cliente, buscar facturas por ID de cliente
+      const clientIds = clientResult.data.map(c => c.id);
+      console.log(`✅ Encontrados ${clientIds.length} clientes con nombre "${clientName}"`);
+
+      // Buscar facturas para cada cliente encontrado
+      const allInvoices = [];
+      for (const clientId of clientIds) {
+        const invoiceResult = await this.client.get('/invoices', {
+          client: clientId
+        });
+
+        if (invoiceResult.success && invoiceResult.data) {
+          allInvoices.push(...invoiceResult.data);
+        }
+      }
+
+      return {
+        success: true,
+        data: allInvoices
+      };
+    } catch (error) {
+      console.error('❌ Error en searchInvoicesByClient:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   /**
