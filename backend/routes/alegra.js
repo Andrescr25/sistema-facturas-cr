@@ -1334,16 +1334,61 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     }
 
     // Buscar factura local existente
-    const facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(facturaId)]);
+    let facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(facturaId)]);
+
+    let facturaLocalId;
 
     if (facturaLocal.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Factura no encontrada en la base de datos local. Debe registrarse primero antes de registrar faltantes.'
-      });
-    }
+      // Si no existe, crearla automáticamente desde Alegra
+      console.log(`📝 Factura ${facturaId} no existe en BD local, creándola desde Alegra...`);
 
-    const facturaLocalId = facturaLocal.rows[0].id;
+      const fechaEmision = facturaAlegra.data.date;
+      const fecha = new Date(fechaEmision);
+
+      // Calcular semana del año (ISO 8601)
+      const startOfYear = new Date(fecha.getFullYear(), 0, 1);
+      const dayOfYear = Math.floor((fecha - startOfYear) / (24 * 60 * 60 * 1000));
+      const semanaDelAno = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
+
+      try {
+        const nuevaFactura = await query(`
+          INSERT INTO facturas (
+            numero_factura, alegra_id, cliente_nombre, cliente_email,
+            fecha_emision, semana, mes, ano, total
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING id
+        `, [
+          facturaAlegra.data.numberTemplate?.formattedNumber || facturaId,
+          parseInt(facturaId),
+          facturaAlegra.data.client?.name || 'Cliente no especificado',
+          facturaAlegra.data.client?.email,
+          fechaEmision,
+          semanaDelAno,
+          parseInt(facturaAlegra.data.date?.split('-')[1]) || 1,
+          parseInt(facturaAlegra.data.date?.split('-')[0]) || 2025,
+          parseFloat(facturaAlegra.data.total || 0)
+        ]);
+
+        facturaLocalId = nuevaFactura.rows[0].id;
+        console.log(`✅ Factura ${facturaId} creada en BD local con ID: ${facturaLocalId}`);
+
+      } catch (insertError) {
+        // Si falla por unique constraint, puede ser que otro proceso la creó simultáneamente
+        if (insertError.code === '23505') {
+          console.log(`⚠️ Factura ya existe (creada por otro proceso), reintentando búsqueda...`);
+          facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(facturaId)]);
+          if (facturaLocal.rows.length > 0) {
+            facturaLocalId = facturaLocal.rows[0].id;
+          } else {
+            throw insertError; // Si aún no existe, lanzar el error original
+          }
+        } else {
+          throw insertError;
+        }
+      }
+    } else {
+      facturaLocalId = facturaLocal.rows[0].id;
+    }
 
     const faltantesRegistrados = [];
 
