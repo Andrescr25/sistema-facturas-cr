@@ -1471,11 +1471,12 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
 
       // Registrar el faltante
+      // 🔧 CORREGIDO: Asegurar que el estado sea 'pendiente' explícitamente
       const nuevoFaltante = await query(`
         INSERT INTO faltantes (
           factura_id, producto_id, cantidad_faltante, 
-          tipo_faltante, observaciones, registrado_por
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          tipo_faltante, observaciones, registrado_por, estado
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
         RETURNING *
       `, [
         facturaLocalId,
@@ -1789,7 +1790,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         fa.estado_procesamiento,
         p.nombre as producto_nombre,
         p.codigo as producto_codigo,
-        pr.nombre as proveedor_nombre,
+        COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre,
         f.cantidad_faltante,
         f.tipo_faltante,
         f.observaciones,
@@ -1803,7 +1804,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         aj.requiere_actualizacion
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
-      JOIN proveedores pr ON p.proveedor_id = pr.id
+      LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       JOIN facturas fa ON f.factura_id = fa.id
       LEFT JOIN faltantes_ajustes aj ON f.id = aj.faltante_id
       WHERE f.estado IN ('pendiente', 'procesado')
