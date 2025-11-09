@@ -204,17 +204,19 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
             }
         });
 
-        // Formatear respuesta
+        // Formatear respuesta - VERSIÓN SIMPLIFICADA
         const relacionesFormateadas = relaciones.map(mapeo => {
             // Obtener precio más reciente de los productos relacionados
             const precios = mapeo.productos
                 .filter(p => p.precioUnitario > 0)
                 .map(p => p.precioUnitario);
-            const precioPromedio = precios.length > 0 
-                ? precios.reduce((a, b) => a + b, 0) / precios.length 
-                : null;
             const precioMasReciente = mapeo.productos.length > 0 && mapeo.productos[0].precioUnitario > 0
                 ? mapeo.productos[0].precioUnitario
+                : null;
+
+            // Obtener el ID del producto_proveedor más reciente
+            const productoProveedorMasReciente = mapeo.productos.length > 0
+                ? mapeo.productos[0]
                 : null;
 
             return {
@@ -233,19 +235,9 @@ router.get('/producto/:alegraItemId/relaciones', async (req, res) => {
                 confianza: mapeo.confidence,
                 factorConversion: mapeo.factorConversion || 1,
                 vecesUsado: mapeo.timesUsed,
-                ultimaUso: mapeo.lastUsedDate,
-                precioPromedio: precioPromedio,
-                precioMasReciente: precioMasReciente,
-                productosRelacionados: mapeo.productos.map(p => ({
-                    productoProveedorId: p.id,
-                    codigo: p.codigoProveedor,
-                    descripcion: p.descripcion,
-                    precio: p.precioUnitario,
-                    factura: {
-                        proveedor: p.factura.proveedorNombre,
-                        fecha: p.factura.fechaEmision
-                    }
-                }))
+                // 🔧 SIMPLIFICADO: Solo información esencial
+                productoProveedorId: productoProveedorMasReciente?.id || null,
+                precio: precioMasReciente
             };
         });
 

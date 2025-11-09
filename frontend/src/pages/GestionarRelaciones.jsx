@@ -881,8 +881,8 @@ export default function GestionarRelaciones() {
                     </div>
 
                     {relacionesProducto.relaciones.map((relacion, index) => (
-                      <div key={relacion.mapeoId} className="border rounded-lg p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-4">
+                      <div key={relacion.mapeoId} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-50">
+                        <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h4 className="text-lg font-semibold text-gray-900">
@@ -896,83 +896,30 @@ export default function GestionarRelaciones() {
                                 {relacion.confianza}% confianza
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">Proveedor:</span>
-                                <p className="font-medium text-gray-900">{relacion.proveedor.nombre}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Código Proveedor:</span>
-                                <p className="font-mono text-gray-900">{relacion.codigoProveedor}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">ID Mapeo:</span>
-                                <p className="font-mono text-xs text-gray-700">{relacion.mapeoId}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Veces Usado:</span>
-                                <p className="font-medium text-gray-900">{relacion.vecesUsado}</p>
-                              </div>
+                            
+                            {/* 🔧 SIMPLIFICADO: Formato compacto como solicitado */}
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                              <p className="text-sm text-gray-700 font-mono">
+                                <span className="font-semibold text-purple-600">{relacion.proveedor.nombre}</span>
+                                {' → '}
+                                <span className="text-blue-600">ID: {relacion.productoProveedorId || 'N/A'}</span>
+                                {' → '}
+                                <span className="text-green-600">Mi Producto ID: {relacion.productoAlegra.id}</span>
+                                {' → '}
+                                <span className="text-orange-600 font-bold">Precio: ₡{relacion.precio ? relacion.precio.toLocaleString('es-CR', { minimumFractionDigits: 2 }) : 'N/A'}</span>
+                              </p>
+                            </div>
+
+                            {/* Información adicional compacta */}
+                            <div className="mt-2 flex gap-4 text-xs text-gray-500">
+                              <span>Código: <span className="font-mono">{relacion.codigoProveedor}</span></span>
+                              <span>ID Mapeo: <span className="font-mono text-xs">{relacion.mapeoId}</span></span>
+                              {relacion.factorConversion && relacion.factorConversion !== 1 && (
+                                <span className="text-blue-600">Factor: {relacion.factorConversion}</span>
+                              )}
                             </div>
                           </div>
                         </div>
-
-                        {/* Precios */}
-                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-                          {relacion.precioMasReciente && (
-                            <div>
-                              <span className="text-xs text-gray-600">Precio Más Reciente:</span>
-                              <p className="text-lg font-bold text-green-600">
-                                ₡{relacion.precioMasReciente.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          )}
-                          {relacion.precioPromedio && (
-                            <div>
-                              <span className="text-xs text-gray-600">Precio Promedio:</span>
-                              <p className="text-lg font-semibold text-gray-700">
-                                ₡{relacion.precioPromedio.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Factor de conversión */}
-                        {relacion.factorConversion && relacion.factorConversion !== 1 && (
-                          <div className="mb-4 p-2 bg-blue-50 rounded border border-blue-200">
-                            <p className="text-sm text-blue-800">
-                              <strong>Factor de Conversión:</strong> {relacion.factorConversion}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Productos relacionados (últimos 5) */}
-                        {relacion.productosRelacionados && relacion.productosRelacionados.length > 0 && (
-                          <div className="mt-4">
-                            <h5 className="text-sm font-semibold text-gray-700 mb-2">
-                              Productos del Proveedor Relacionados ({relacion.productosRelacionados.length}):
-                            </h5>
-                            <div className="space-y-2">
-                              {relacion.productosRelacionados.map((prod, prodIndex) => (
-                                <div key={prod.productoProveedorId} className="bg-white border rounded p-3 text-sm">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <p className="font-medium text-gray-900">{prod.descripcion}</p>
-                                      <div className="flex gap-4 mt-1 text-xs text-gray-600">
-                                        <span>ID: <span className="font-mono">{prod.productoProveedorId}</span></span>
-                                        <span>Código: <span className="font-mono">{prod.codigo}</span></span>
-                                        <span>Precio: <span className="font-semibold text-green-600">₡{prod.precio?.toLocaleString('es-CR') || 'N/A'}</span></span>
-                                      </div>
-                                    </div>
-                                    <div className="text-xs text-gray-500 text-right">
-                                      <p>{prod.factura?.fecha ? new Date(prod.factura.fecha).toLocaleDateString('es-CR') : 'N/A'}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
