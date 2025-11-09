@@ -1419,6 +1419,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         console.log(`➕ Creando nuevo producto: "${nombre_producto}" con código "${item_id}"`);
 
         // Crear producto con la referencia correcta
+        // CORREGIDO: proveedor_id NULL para evitar error de foreign key
         const nuevoProducto = await query(`
           INSERT INTO productos (nombre, codigo, descripcion, proveedor_id, precio_unitario)
           VALUES ($1, $2, $3, $4, $5)
@@ -1427,7 +1428,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           nombre_producto || `Producto ${item_id}`,
           item_id, // CORREGIDO: Usar la referencia como código
           `Producto creado desde registro de faltantes - Referencia: ${item_id}`,
-          1, // Proveedor por defecto
+          null, // CORREGIDO: NULL si no hay proveedor por defecto
           0
         ]);
         productoId = nuevoProducto.rows[0].id;
