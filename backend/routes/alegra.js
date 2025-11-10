@@ -2765,6 +2765,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
         } else {
           // Construir items actualizados aplicando ajustes
+          // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
+          // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
           const itemsActualizados = [];
           let huboCambios = false;
 
@@ -2783,8 +2785,15 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               if (ajuste.estado === 'no_llego') {
                 // No llegó la cantidad faltante - reducir por la cantidad faltante
                 // Ejemplo: factura tenía 6, faltaron 3 → quedan 3
-                cantidadFinal = item.quantity - ajuste.cantidad_faltante;
-                console.log(`   📊 ${item.description}: ${item.quantity} - ${ajuste.cantidad_faltante} (faltante) = ${cantidadFinal}`);
+                const cantidadFaltante = ajuste.cantidad_faltante || 0;
+                
+                if (cantidadFaltante <= 0) {
+                  console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
+                  cantidadFinal = item.quantity; // Mantener cantidad original si hay error
+                } else {
+                  cantidadFinal = item.quantity - cantidadFaltante;
+                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
+                }
               } else if (ajuste.estado === 'parcial') {
                 // Llegó parcial - reducir por lo que aún falta
                 // Ejemplo: factura tenía 6, faltaron 3, llegaron 1 → aún faltan 2 → quedan 4
@@ -2813,8 +2822,9 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 huboCambios = true;
               }
 
-              // Solo incluir si cantidad > 0
-              if (cantidadFinal > 0 && (cantidadFinal !== item.quantity || precioAUsar !== item.price)) {
+              // IMPORTANTE: Incluir el item SIEMPRE si cantidadFinal > 0
+              // Si cantidadFinal === 0, NO incluirlo (se elimina de la factura)
+              if (cantidadFinal > 0) {
                 itemsActualizados.push({
                   id: item.id,
                   reference: item.reference,
@@ -2823,27 +2833,20 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                   price: precioAUsar,
                   tax: item.tax || []
                 });
-                if (cantidadFinal !== item.quantity) {
+                
+                if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
                   huboCambios = true;
-                  console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
+                  if (cantidadFinal !== item.quantity) {
+                    console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
+                  }
                 }
-              } else if (cantidadFinal === 0) {
+              } else {
                 // Eliminar item (no agregarlo a itemsActualizados)
                 huboCambios = true;
                 console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
-              } else {
-                // Sin cambios - mantener item original
-                itemsActualizados.push({
-                  id: item.id,
-                  reference: item.reference,
-                  description: item.description,
-                  quantity: item.quantity,
-                  price: item.price,
-                  tax: item.tax || []
-                });
               }
             } else {
-              // Sin ajuste - mantener item original
+              // Sin ajuste - mantener item original (DEBE incluirse para que no se elimine)
               itemsActualizados.push({
                 id: item.id,
                 reference: item.reference,
