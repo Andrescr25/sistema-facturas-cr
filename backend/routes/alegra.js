@@ -1722,9 +1722,15 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
       const proveedor = proveedoresMap.get(proveedorNombre);
 
+      // 🔧 CORREGIDO: Usar nombre de Alegra del mapping si está disponible (más actualizado)
+      // Si no hay mapping, usar el nombre de la BD local
+      const nombreProducto = mappingFinal && mappingFinal.alegraName 
+        ? mappingFinal.alegraName 
+        : faltante.producto_nombre;
+
       // Agregar producto faltante
       proveedor.productos_faltantes.push({
-        nombre: faltante.producto_nombre,
+        nombre: nombreProducto, // 🔧 Usar nombre actualizado de Alegra si está disponible
         codigo: faltante.producto_codigo,
         codigo_proveedor: mappingFinal ? mappingFinal.supplierCode : 'N/A', // Código del proveedor
         cantidad_faltante: parseInt(faltante.total_faltante),
