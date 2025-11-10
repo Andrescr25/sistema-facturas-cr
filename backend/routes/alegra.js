@@ -1315,6 +1315,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     const { id: facturaId } = req.params;
     const { faltantes, registrado_por = 'Sistema', observaciones_adicionales } = req.body;
 
+    console.log(`📝 Registrando faltantes para factura ${facturaId}:`, faltantes);
+
     if (!faltantes || !Array.isArray(faltantes) || faltantes.length === 0) {
       return res.status(400).json({
         success: false,
@@ -1433,6 +1435,9 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           itemReference = itemEnFactura.id?.toString() || item_id;
         }
         itemAlegraId = itemEnFactura.id?.toString() || item_id;
+        console.log(`   📋 Item encontrado en factura: ID=${itemAlegraId}, Reference="${itemReference}", Nombre="${itemEnFactura.name || itemEnFactura.description}"`);
+      } else {
+        console.warn(`   ⚠️ Item ${item_id} no encontrado en factura de Alegra. Se usará item_id como referencia e ID.`);
       }
 
       const allegraIdEntero = itemAlegraId && /^\d+$/.test(itemAlegraId) ? parseInt(itemAlegraId, 10) : null;
@@ -1447,10 +1452,16 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           LIMIT 1
         `, [allegraIdEntero]);
 
+        if (productoLocal.rows.length > 0) {
+          const productoEncontrado = productoLocal.rows[0];
+          console.log(`✅ Producto encontrado por alegra_id (${allegraIdEntero}): ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
+        }
       }
 
       // SEGUNDA OPCIÓN: Buscar por reference (productos.codigo) como fallback
       if (!productoLocal || productoLocal.rows.length === 0) {
+        console.log(`🔍 Producto no encontrado por alegra_id. Buscando por reference="${itemReference}" y nombre...`);
+
         productoLocal = await query(`
           SELECT id, codigo, nombre, alegra_id FROM productos 
           WHERE codigo = $1 
@@ -1469,8 +1480,9 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
       }
 
-      // Si no encuentra, intentar buscar por nombre más específico
+      // NUEVO: Si no encuentra, intentar buscar por nombre más específico
       if (productoLocal.rows.length === 0) {
+        console.log(`⚠️ No encontrado por código, buscando por nombre exacto...`);
         productoLocal = await query(`
           SELECT id, codigo, nombre, alegra_id FROM productos 
           WHERE UPPER(nombre) = UPPER($1)
@@ -1478,9 +1490,28 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         `, [nombre_producto]);
       }
 
+      // ✅ VALIDACIÓN: Verificar que el producto encontrado coincide con el nombre esperado
+      if (productoLocal.rows.length > 0) {
+        const productoEncontrado = productoLocal.rows[0];
+        const nombreCoincide = productoEncontrado.nombre.toLowerCase().includes(nombre_producto.toLowerCase()) ||
+                              nombre_producto.toLowerCase().includes(productoEncontrado.nombre.toLowerCase());
+        
+        if (!nombreCoincide) {
+          console.warn(`⚠️ ADVERTENCIA: Producto encontrado pero el nombre NO coincide:`);
+          console.warn(`   Esperado: "${nombre_producto}"`);
+          console.warn(`   Encontrado: "${productoEncontrado.nombre}" (reference: ${productoEncontrado.codigo}, alegra_id: ${productoEncontrado.alegra_id || 'N/A'})`);
+          console.warn(`   ⚠️ Esto puede causar relaciones incorrectas. Considerar crear nuevo producto o actualizar los datos locales.`);
+        } else {
+          console.log(`✅ Producto encontrado: ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
+        }
+      }
+
       let productoId;
       if (productoLocal.rows.length === 0) {
+        console.log(`➕ Creando nuevo producto: "${nombre_producto}" con reference "${itemReference}" y alegra_id="${itemAlegraId}"`);
+
         // Crear producto con la referencia e ID de Alegra correctos
+        // CORREGIDO: proveedor_id NULL para evitar error de foreign key
         const alegraIdParaInsert = allegraIdEntero !== null ? allegraIdEntero : null;
         const nuevoProducto = await query(`
           INSERT INTO productos (alegra_id, nombre, codigo, descripcion, proveedor_id, precio_unitario)
@@ -1489,24 +1520,32 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         `, [
           alegraIdParaInsert,
           nombre_producto || `Producto ${itemReference}`,
-          itemReference,
-          `Producto creado desde registro de faltantes`,
-          null,
+          itemReference, // Guardar reference en código
+          `Producto creado desde registro de faltantes - ID Alegra: ${itemAlegraId}`,
+          null, // NULL si no hay proveedor por defecto
           0
         ]);
         productoId = nuevoProducto.rows[0].id;
+
+        console.log(`✅ Producto creado con ID: ${productoId}`);
       } else {
         productoId = productoLocal.rows[0].id;
         const productoEncontrado = productoLocal.rows[0];
+        console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}", alegra_id="${productoEncontrado.alegra_id || 'NULL'}"`);
 
-        // Solo actualizar alegra_id si está NULL
+        // ✅ CORREGIDO: Solo actualizar alegra_id si está NULL, NUNCA actualizar el código (reference)
+        // El código (reference) es único por producto y no debe cambiar
         if (allegraIdEntero !== null && !productoEncontrado.alegra_id) {
+          console.log(`🔄 Asignando alegra_id=${allegraIdEntero} al producto (antes era NULL)`);
           await query(`
             UPDATE productos
             SET alegra_id = $1
             WHERE id = $2
           `, [allegraIdEntero, productoId]);
         }
+        
+        // ⚠️ NO actualizar el código (reference) porque puede ser diferente al alegra_id
+        // Ejemplo: ENVASE PLASTICO tiene alegra_id=705 pero reference="2016"
       }
 
 
@@ -1569,6 +1608,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
   try {
     const { query } = require('../config/database');
 
+    console.log('📋 Generando reporte de faltantes por proveedor con mapping...');
+
     // Asegurar que la columna alegra_id exista en productos
     await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
 
@@ -1588,6 +1629,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       GROUP BY p.codigo, p.alegra_id, p.nombre
       ORDER BY total_faltante DESC
     `);
+
+    console.log(`📊 Encontrados ${faltantesResult.rows.length} productos con faltantes`);
 
     if (faltantesResult.rows.length === 0) {
       return res.json({
@@ -1610,6 +1653,9 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const codigosReferencia = faltantesResult.rows
       .map(row => row.producto_codigo)
       .filter(codigo => codigo !== null);
+
+    console.log(`🔍 Buscando mapping por alegra_id:`, codigosAlegra);
+    console.log(`🔍 Buscando mapping por reference:`, codigosReferencia);
 
     // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
     const mappingResult = await query(`
@@ -1636,6 +1682,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       ORDER BY supplier_name, supplier_code
     `, [codigosAlegra, codigosReferencia]);
 
+    console.log(`🔗 Encontrados ${mappingResult.rows.length} mappings en Supabase`);
+
     // PASO 4: Para cada producto faltante, buscar TODOS los mappings y seleccionar el de precio más bajo
     const proveedoresMap = new Map();
     const prisma = require('../lib/prisma');
@@ -1653,16 +1701,25 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         (!productoAlegraIdTexto && m.alegraReference === faltante.producto_codigo)
       );
       
-      // Logs reducidos: solo mostrar si no hay mappings
-      if (mappingsDelProducto.length === 0) {
-        console.log(`⚠️ Sin mappings para: ${faltante.producto_nombre} (alegra_id=${productoAlegraIdTexto || 'N/A'}, ref="${faltante.producto_codigo}")`);
+      console.log(`🔍 Buscando mappings para producto: allegra_id=${productoAlegraIdTexto || 'N/A'}, reference="${faltante.producto_codigo}" - "${faltante.producto_nombre}"`);
+      console.log(`   Mappings encontrados: ${mappingsDelProducto.length}`);
+      
+      if (mappingsDelProducto.length > 0) {
+        mappingsDelProducto.forEach((m, i) => {
+          console.log(`   ${i + 1}. Mapping ID: ${m.id}`);
+          console.log(`      Reference: "${m.alegraReference}", Item ID: ${m.alegraItemId}`);
+          console.log(`      Proveedor: ${m.supplierName}`);
+          console.log(`      Producto Alegra: "${m.alegraName}"`);
+        });
       }
 
       let proveedorSeleccionado = null;
       let precioMasBajo = null;
 
       if (mappingsDelProducto.length > 0) {
-        // Para cada mapping, obtener el precio más reciente
+        // 🔍 NUEVO: Para cada mapping, obtener el precio más reciente
+        console.log(`💰 Analizando ${mappingsDelProducto.length} proveedores para producto: ${faltante.producto_codigo}`);
+        
         const proveedoresConPrecios = [];
 
         for (const mapping of mappingsDelProducto) {
@@ -1718,7 +1775,9 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
               confianza: mapping.confidence || 0
             });
 
+            console.log(`   - ${mapping.supplierName}: ${precio ? `₡${precio.toFixed(2)}` : 'Sin precio'} (confianza: ${mapping.confidence}%)`);
           } catch (error) {
+            console.warn(`   ⚠️ Error obteniendo precio para ${mapping.supplierName}:`, error.message);
             // Si hay error, agregar sin precio pero con confianza
             proveedoresConPrecios.push({
               mapping: mapping,
@@ -1746,14 +1805,20 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           precioMasBajo = proveedoresConPrecio[0].precio;
 
           // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
-          // Priorizar alegra_id para la comparación (más confiable que reference)
-          const mappingValido = (productoAlegraIdTexto && proveedorSeleccionado.alegraItemId === productoAlegraIdTexto) ||
-                               (!productoAlegraIdTexto && proveedorSeleccionado.alegraReference === faltante.producto_codigo);
+          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
+                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
           
           if (!mappingValido) {
-            console.error(`❌ Mapping NO válido para: ${faltante.producto_nombre}`);
+            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
+            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
+            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
+            // No usar este mapping, buscar otro o dejar sin proveedor
             proveedorSeleccionado = null;
             precioMasBajo = null;
+          } else {
+            console.log(`   ✅ Seleccionado: ${proveedorSeleccionado.supplierName} con precio ₡${precioMasBajo.toFixed(2)}`);
+            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
           }
         } else {
           // Si ningún proveedor tiene precio, usar el de mayor confianza
@@ -1761,12 +1826,18 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           proveedorSeleccionado = proveedoresConPrecios[0].mapping;
           
           // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
-          const mappingValido = (productoAlegraIdTexto && proveedorSeleccionado.alegraItemId === productoAlegraIdTexto) ||
-                               (!productoAlegraIdTexto && proveedorSeleccionado.alegraReference === faltante.producto_codigo);
+          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
+                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
           
           if (!mappingValido) {
-            console.error(`❌ Mapping NO válido para: ${faltante.producto_nombre}`);
+            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
+            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
+            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
             proveedorSeleccionado = null;
+          } else {
+            console.log(`   ⚠️ Sin precios disponibles, usando proveedor con mayor confianza: ${proveedorSeleccionado.supplierName}`);
+            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
           }
         }
       }
