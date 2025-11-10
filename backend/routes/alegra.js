@@ -2756,6 +2756,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     
     if (estadoFinal.includes('requiere_reimpresion') && ajustes && ajustes.length > 0) {
       console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
+      console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
       
       try {
         // Obtener factura actual de Alegra
@@ -2764,6 +2765,10 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         if (!facturaActual.success) {
           console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
         } else {
+          console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
+          facturaActual.data.items.forEach((item, index) => {
+            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
+          });
           // Construir items actualizados aplicando ajustes
           // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
           // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
@@ -2772,13 +2777,28 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
           for (const item of facturaActual.data.items) {
             // Buscar ajuste para este item
-            const ajuste = ajustes.find(a =>
-              a.producto_codigo === item.id.toString() ||
-              a.producto_codigo === item.reference ||
-              a.producto_codigo === item.reference?.reference
-            );
+            console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
+            console.log(`      item.id.toString(): "${item.id.toString()}"`);
+            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
+            
+            const ajuste = ajustes.find(a => {
+              const match = a.producto_codigo === item.id.toString() ||
+                           a.producto_codigo === item.reference ||
+                           a.producto_codigo === item.reference?.reference;
+              
+              if (!match) {
+                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
+              }
+              return match;
+            });
 
             if (ajuste) {
+              console.log(`      ✅ Ajuste encontrado:`, {
+                codigo: ajuste.producto_codigo,
+                estado: ajuste.estado,
+                faltante: ajuste.cantidad_faltante,
+                entregada: ajuste.cantidad_entregada
+              });
               // Calcular cantidad final según el estado del ajuste
               let cantidadFinal = item.quantity;
 
@@ -2859,8 +2879,16 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           }
 
           // Actualizar factura en Alegra si hubo cambios
+          console.log(`\n📊 Resultado de construcción de items:`);
+          console.log(`   huboCambios: ${huboCambios}`);
+          console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
+          console.log(`\n📋 Items a enviar a Alegra:`);
+          itemsActualizados.forEach((item, index) => {
+            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
+          });
+          
           if (huboCambios && itemsActualizados.length > 0) {
-            console.log(`📝 Actualizando factura en Alegra con ${itemsActualizados.length} items...`);
+            console.log(`\n📝 Actualizando factura en Alegra...`);
             
             const updateResult = await alegraService.updateInvoice(alegra_id, {
               items: itemsActualizados
