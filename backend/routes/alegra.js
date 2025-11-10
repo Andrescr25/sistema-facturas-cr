@@ -1530,27 +1530,22 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         console.log(`✅ Producto creado con ID: ${productoId}`);
       } else {
         productoId = productoLocal.rows[0].id;
-        console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoLocal.rows[0].codigo}", nombre="${productoLocal.rows[0].nombre}"`);
+        const productoEncontrado = productoLocal.rows[0];
+        console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}", alegra_id="${productoEncontrado.alegra_id || 'NULL'}"`);
 
-        // NUEVO: Actualizar código (reference) si es necesario para productos antiguos
-        if (productoLocal.rows[0].codigo !== itemReference) {
-          console.log(`🔄 Actualizando reference (código) de "${productoLocal.rows[0].codigo}" a "${itemReference}"`);
-          await query(`
-            UPDATE productos 
-            SET codigo = $1, 
-                descripcion = COALESCE(descripcion, '') || ' - Actualizado con reference correcta desde Alegra'
-            WHERE id = $2
-          `, [itemReference, productoId]);
-        }
-
-        // Asegurar que el alegra_id esté guardado
-        if (allegraIdEntero !== null) {
+        // ✅ CORREGIDO: Solo actualizar alegra_id si está NULL, NUNCA actualizar el código (reference)
+        // El código (reference) es único por producto y no debe cambiar
+        if (allegraIdEntero !== null && !productoEncontrado.alegra_id) {
+          console.log(`🔄 Asignando alegra_id=${allegraIdEntero} al producto (antes era NULL)`);
           await query(`
             UPDATE productos
             SET alegra_id = $1
-            WHERE id = $2 AND (alegra_id IS NULL OR alegra_id <> $1)
+            WHERE id = $2
           `, [allegraIdEntero, productoId]);
         }
+        
+        // ⚠️ NO actualizar el código (reference) porque puede ser diferente al alegra_id
+        // Ejemplo: ENVASE PLASTICO tiene alegra_id=705 pero reference="2016"
       }
 
 
