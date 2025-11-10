@@ -2585,10 +2585,116 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       WHERE alegra_id = $1
     `, [alegra_id]);
 
-    // 5. 🔧 CORREGIDO: Solo marcar como 'procesada' en facturas_reimpresion si viene desde Reimpresión
-    // Si viene desde ReporteClientes (marcar como "lista"), debe quedar en 'pendiente'
-    // El parámetro 'marcar_como_procesada' indica si se está reimprimiendo (true) o solo marcando como lista (false)
+    // 5. 🔧 NUEVO: Si requiere reimpresión, editar la factura en Alegra con los ajustes
     const marcarComoProcesada = req.body.marcar_como_procesada === true;
+    
+    if (estado.includes('requiere_reimpresion') && ajustes && ajustes.length > 0) {
+      console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
+      
+      try {
+        // Obtener factura actual de Alegra
+        const facturaActual = await alegraService.getInvoiceById(alegra_id);
+        
+        if (!facturaActual.success) {
+          console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
+        } else {
+          // Construir items actualizados aplicando ajustes
+          const itemsActualizados = [];
+          let huboCambios = false;
+
+          for (const item of facturaActual.data.items) {
+            // Buscar ajuste para este item
+            const ajuste = ajustes.find(a =>
+              a.producto_codigo === item.id.toString() ||
+              a.producto_codigo === item.reference ||
+              a.producto_codigo === item.reference?.reference
+            );
+
+            if (ajuste) {
+              // Calcular cantidad final según el estado del ajuste
+              let cantidadFinal = item.quantity;
+
+              if (ajuste.estado === 'no_llego') {
+                // No llegó nada - eliminar completamente
+                cantidadFinal = 0;
+              } else if (ajuste.estado === 'parcial') {
+                // Llegó parcial - reducir por lo que aún falta
+                const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+                cantidadFinal = item.quantity - cantidadQueAunFalta;
+              } else if (ajuste.estado === 'completo') {
+                // Llegó completo - mantener cantidad original
+                cantidadFinal = item.quantity;
+              }
+
+              // Solo incluir si cantidad > 0
+              if (cantidadFinal > 0 && cantidadFinal !== item.quantity) {
+                itemsActualizados.push({
+                  id: item.id,
+                  reference: item.reference,
+                  description: item.description,
+                  quantity: cantidadFinal,
+                  price: item.price,
+                  tax: item.tax || []
+                });
+                huboCambios = true;
+                console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
+              } else if (cantidadFinal === 0) {
+                // Eliminar item (no agregarlo a itemsActualizados)
+                huboCambios = true;
+                console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
+              } else {
+                // Sin cambios - mantener item original
+                itemsActualizados.push({
+                  id: item.id,
+                  reference: item.reference,
+                  description: item.description,
+                  quantity: item.quantity,
+                  price: item.price,
+                  tax: item.tax || []
+                });
+              }
+            } else {
+              // Sin ajuste - mantener item original
+              itemsActualizados.push({
+                id: item.id,
+                reference: item.reference,
+                description: item.description,
+                quantity: item.quantity,
+                price: item.price,
+                tax: item.tax || []
+              });
+            }
+          }
+
+          // Actualizar factura en Alegra si hubo cambios
+          if (huboCambios && itemsActualizados.length > 0) {
+            console.log(`📝 Actualizando factura en Alegra con ${itemsActualizados.length} items...`);
+            
+            const updateResult = await alegraService.updateInvoice(alegra_id, {
+              items: itemsActualizados
+            });
+
+            if (updateResult.success) {
+              console.log(`✅ Factura ${numero_factura} editada exitosamente en Alegra`);
+              
+              // Obtener factura actualizada de Alegra
+              const facturaActualizada = await alegraService.getInvoiceById(alegra_id);
+              
+              if (facturaActualizada.success) {
+                console.log(`✅ Factura ${numero_factura} actualizada obtenida de Alegra`);
+              }
+            } else {
+              console.error(`❌ Error editando factura en Alegra: ${updateResult.message}`);
+            }
+          } else {
+            console.log(`ℹ️ No hubo cambios en la factura (todos los items sin ajustes o sin cambios)`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error editando factura en Alegra:`, error.message);
+        // Continuar aunque falle la edición en Alegra
+      }
+    }
     
     if (estado.includes('requiere_reimpresion') && marcarComoProcesada) {
       // Solo si viene desde Reimpresión (reimprimiendo), marcar como procesada
@@ -2609,6 +2715,9 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     console.log(`✅ Factura ${numero_factura} procesada individualmente:`);
     console.log(`   📋 Faltantes marcados como procesados`);
     console.log(`   💾 ${ajustes.length} ajustes guardados permanentemente`);
+    if (estado.includes('requiere_reimpresion') && ajustes && ajustes.length > 0) {
+      console.log(`   ✏️ Factura editada en Alegra con ajustes aplicados`);
+    }
     console.log(`🔄 Estado: ${estado.includes('requiere_reimpresion') ? 'En reimpresión → Historial' : 'En historial'}`);
 
     res.json({
@@ -2620,7 +2729,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         estado: estado,
         requiere_reimpresion: estado === 'requiere_reimpresion',
         ajustes_realizados: ajustes.length,
-        ajustes_guardados: ajustes.length
+        ajustes_guardados: ajustes.length,
+        factura_editada_en_alegra: estado.includes('requiere_reimpresion') && ajustes && ajustes.length > 0
       }
     });
 
