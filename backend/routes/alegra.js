@@ -3831,9 +3831,6 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
               origen: 'error_proveedor_no_coincide'
             };
           } else {
-            // ✅ NUEVA LÓGICA: Verificar si tiene datos del proveedor
-            const tieneCodigoProveedor = mapping.supplierCode && mapping.supplierDesc;
-            
             // 🔧 APLICAR FACTOR DE CONVERSIÓN si existe
             // El factor es: cantidadMia / cantidadProveedor
             // Para convertir cantidad del sistema a cantidad del proveedor: cantidad / factor
@@ -3843,32 +3840,27 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
               console.log(`   🔄 Aplicando factor ${mapping.factorConversion}: ${producto.cantidad} → ${cantidadFinal}`);
             }
             
+            // ✅ NUEVA LÓGICA: Priorizar SIEMPRE los datos del proveedor si existen
+            // Solo usar datos locales si NO hay mapping del proveedor
+            const codigoPDF = mapping.supplierCode || producto.codigo;
+            const nombrePDF = mapping.supplierDesc || producto.nombre;
+            const tieneCodigoProveedor = !!mapping.supplierCode;
+            
+            productoEnriquecido = {
+              codigo_pdf: codigoPDF,                      // Prioridad: código proveedor, fallback: local
+              nombre_pdf: nombrePDF,                      // Prioridad: nombre proveedor, fallback: local
+              cantidad: cantidadFinal,                    // Cantidad con factor aplicado
+              codigo_interno: producto.codigo,
+              nombre_interno: producto.nombre,
+              confianza: mapping.confidence,
+              factorConversion: mapping.factorConversion || 1,
+              origen: tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor'
+            };
+            
             if (tieneCodigoProveedor) {
-              // ✅ TIENE CÓDIGO DEL PROVEEDOR: Usar datos del PROVEEDOR
-              productoEnriquecido = {
-                codigo_pdf: mapping.supplierCode,           // Código del proveedor
-                nombre_pdf: mapping.supplierDesc,           // Descripción del proveedor
-                cantidad: cantidadFinal,                    // Cantidad con factor aplicado
-                codigo_interno: producto.codigo,
-                nombre_interno: producto.nombre,
-                confianza: mapping.confidence,
-                factorConversion: mapping.factorConversion || 1,
-                origen: 'con_codigo_proveedor'              // Tiene código del proveedor
-              };
-              console.log(`✅ CON CÓDIGO PROVEEDOR: ${mapping.alegraReference} → "${mapping.supplierCode}" / "${mapping.supplierDesc}" (cantidad: ${cantidadFinal})`);
+              console.log(`✅ CON CÓDIGO PROVEEDOR: ${mapping.alegraReference} → "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             } else {
-              // ❌ NO TIENE CÓDIGO DEL PROVEEDOR: Usar datos de ALEGRA (locales)
-              productoEnriquecido = {
-                codigo_pdf: mapping.alegraReference,        // Código Alegra (local)
-                nombre_pdf: mapping.alegraName,             // Nombre Alegra (local)
-                cantidad: cantidadFinal,                     // Cantidad con factor aplicado
-                codigo_interno: producto.codigo,
-                nombre_interno: producto.nombre,
-                confianza: mapping.confidence,
-                factorConversion: mapping.factorConversion || 1,
-                origen: 'sin_codigo_proveedor'              // No tiene código del proveedor
-              };
-              console.log(`📝 SIN CÓDIGO PROVEEDOR: ${mapping.alegraReference} (usando datos locales, cantidad: ${cantidadFinal})`);
+              console.log(`📝 SIN CÓDIGO PROVEEDOR: ${mapping.alegraReference} → usando código local "${codigoPDF}" pero nombre proveedor "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             }
           }
         } else {
