@@ -3774,9 +3774,11 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       try {
         console.log(`\n🔍 Procesando producto: ${producto.codigo} - "${producto.nombre}"`);
         
-        // 🔧 CORREGIDO: Buscar SOLO por código de Alegra (reference) + proveedor EXACTO
-        // NO usar mappings de otros proveedores - esto causa relaciones incorrectas
-        // El producto.codigo es el código interno de Alegra (reference)
+        // 🔧 CORREGIDO: Buscar por código de Alegra (reference) + proveedor EXACTO
+        // IMPORTANTE: También buscar por alegra_item_id porque puede haber múltiples mappings
+        // con diferentes references pero el mismo item_id (ej: "1084" y "0005" ambos apuntan al mismo producto)
+        // Priorizar mappings con datos REALES del proveedor (supplierCode !== alegraReference)
+        // También buscar por nombre del producto si no hay match por código
         const mappingResult = await query(`
           SELECT 
             id,
@@ -3789,13 +3791,27 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             alegra_item_id as "alegraItemId",
             confidence,
             origen,
-            factor_conversion as "factorConversion"
+            factor_conversion as "factorConversion",
+            -- Calcular si tiene datos reales del proveedor
+            CASE 
+              WHEN supplier_code != alegra_reference OR supplier_desc != alegra_name 
+              THEN 1 
+              ELSE 0 
+            END as tiene_datos_reales
           FROM supplier_product_mapping 
-          WHERE alegra_reference = $1 
+          WHERE (
+            alegra_reference = $1 
+            OR alegra_item_id::text = $1
+            OR alegra_name ILIKE $3
+          )
           AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
-          ORDER BY confidence DESC, last_used_date DESC, times_used DESC
+          ORDER BY 
+            tiene_datos_reales DESC,  -- Priorizar mappings con datos reales
+            confidence DESC, 
+            last_used_date DESC, 
+            times_used DESC
           LIMIT 1
-        `, [producto.codigo, proveedor]);
+        `, [producto.codigo, proveedor, `%${producto.nombre}%`]);
         
         // ⚠️ IMPORTANTE: Si no hay match exacto, NO usar mapping de otro proveedor
         // Esto previene relaciones incorrectas
@@ -3807,13 +3823,17 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         console.log(`   Resultados encontrados: ${mappingResult.rows.length}`);
         if (mappingResult.rows.length > 0) {
           const m = mappingResult.rows[0];
+          const tieneDatosReales = m.supplierCode !== m.alegraReference || m.supplierDesc !== m.alegraName;
           console.log(`   📋 Mapping encontrado:`, {
+            id: m.id,
             supplierCode: m.supplierCode,
             supplierDesc: m.supplierDesc,
             supplierName: m.supplierName,
             alegraReference: m.alegraReference,
+            alegraItemId: m.alegraItemId,
             alegraName: m.alegraName,
-            confidence: m.confidence
+            confidence: m.confidence,
+            tieneDatosReales: tieneDatosReales
           });
         }
 
