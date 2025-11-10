@@ -1609,7 +1609,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
             // Buscar el precio más reciente de este proveedor para este producto
             const productoFactura = await prisma.productoFactura.findFirst({
               where: {
-                mappingId: mapping.id || null
+                mapeoId: mapping.id || null
               },
               orderBy: {
                 factura: {
