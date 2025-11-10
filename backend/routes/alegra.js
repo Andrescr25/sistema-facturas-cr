@@ -1392,6 +1392,9 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       facturaLocalId = facturaLocal.rows[0].id;
     }
 
+    // Asegurar que la columna alegra_id exista en productos
+    await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
+
     const faltantesRegistrados = [];
 
     for (const faltante of faltantes) {
@@ -1611,6 +1614,9 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const { query } = require('../config/database');
 
     console.log('📋 Generando reporte de faltantes por proveedor con mapping...');
+
+    // Asegurar que la columna alegra_id exista en productos
+    await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
 
     // PASO 1: Obtener faltantes de la BD local
     const faltantesResult = await query(`
