@@ -3765,12 +3765,14 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     // const { queryExternal } = require('../config/external-database');
 
     console.log(`🔍 Enriqueciendo ${productos.length} productos con datos del proveedor...`);
+    console.log(`📦 Productos recibidos:`, JSON.stringify(productos, null, 2));
+    console.log(`🏢 Proveedor: "${proveedor}"`);
 
     const productosEnriquecidos = [];
 
     for (const producto of productos) {
       try {
-        console.log(`🔍 Buscando mapping para: ${producto.codigo} con proveedor: "${proveedor}"`);
+        console.log(`\n🔍 Procesando producto: ${producto.codigo} - "${producto.nombre}"`);
         
         // 🔧 CORREGIDO: Buscar SOLO por código de Alegra (reference) + proveedor EXACTO
         // NO usar mappings de otros proveedores - esto causa relaciones incorrectas
@@ -3804,8 +3806,15 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         
         console.log(`   Resultados encontrados: ${mappingResult.rows.length}`);
         if (mappingResult.rows.length > 0) {
-          console.log(`   Mapping: origen="${mappingResult.rows[0].origen}", supplierName="${mappingResult.rows[0].supplierName}"`);
-          console.log(`   Códigos: supplier="${mappingResult.rows[0].supplierCode}", alegra="${mappingResult.rows[0].alegraReference}"`);
+          const m = mappingResult.rows[0];
+          console.log(`   📋 Mapping encontrado:`, {
+            supplierCode: m.supplierCode,
+            supplierDesc: m.supplierDesc,
+            supplierName: m.supplierName,
+            alegraReference: m.alegraReference,
+            alegraName: m.alegraName,
+            confidence: m.confidence
+          });
         }
 
         let productoEnriquecido;
@@ -3846,6 +3855,14 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             const nombrePDF = mapping.supplierDesc || producto.nombre;
             const tieneCodigoProveedor = !!mapping.supplierCode;
             
+            console.log(`   🔧 Calculando campos PDF:`);
+            console.log(`      mapping.supplierCode: "${mapping.supplierCode}"`);
+            console.log(`      mapping.supplierDesc: "${mapping.supplierDesc}"`);
+            console.log(`      producto.codigo (local): "${producto.codigo}"`);
+            console.log(`      producto.nombre (local): "${producto.nombre}"`);
+            console.log(`      → codigoPDF: "${codigoPDF}"`);
+            console.log(`      → nombrePDF: "${nombrePDF}"`);
+            
             productoEnriquecido = {
               codigo_pdf: codigoPDF,                      // Prioridad: código proveedor, fallback: local
               nombre_pdf: nombrePDF,                      // Prioridad: nombre proveedor, fallback: local
@@ -3858,9 +3875,9 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             };
             
             if (tieneCodigoProveedor) {
-              console.log(`✅ CON CÓDIGO PROVEEDOR: ${mapping.alegraReference} → "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
+              console.log(`   ✅ CON CÓDIGO PROVEEDOR: "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             } else {
-              console.log(`📝 SIN CÓDIGO PROVEEDOR: ${mapping.alegraReference} → usando código local "${codigoPDF}" pero nombre proveedor "${nombrePDF}" (cantidad: ${cantidadFinal})`);
+              console.log(`   📝 SIN CÓDIGO PROVEEDOR: código local "${codigoPDF}" + nombre proveedor "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             }
           }
         } else {
@@ -3901,7 +3918,15 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     const productosSinCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'sin_codigo_proveedor');
     const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
 
-    console.log(`📊 Separación de productos: ${productosConCodigoProveedor.length} con código proveedor, ${productosSinCodigoProveedor.length} sin código proveedor, ${productosSinMapeo.length} sin mapeo`);
+    console.log(`\n📊 RESUMEN DE ENRIQUECIMIENTO:`);
+    console.log(`   Con código proveedor: ${productosConCodigoProveedor.length}`);
+    console.log(`   Sin código proveedor: ${productosSinCodigoProveedor.length}`);
+    console.log(`   Sin mapeo: ${productosSinMapeo.length}`);
+    
+    console.log(`\n📋 PRODUCTOS FINALES PARA PDF:`);
+    productosEnriquecidos.forEach((p, i) => {
+      console.log(`   ${i + 1}. "${p.codigo_pdf}" - "${p.nombre_pdf}" x${p.cantidad} [${p.origen}]`);
+    });
 
     // Importar PDFKit
     const PDFDocument = require('pdfkit');
