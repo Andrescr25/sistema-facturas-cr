@@ -2682,7 +2682,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           JOIN facturas fa ON f.factura_id = fa.id
           WHERE fa.alegra_id = $1 
           AND p.codigo = $2
-          AND f.estado = 'pendiente'
+          AND f.estado IN ('pendiente', 'procesado')
           LIMIT 1
         `, [alegra_id, ajuste.producto_codigo]);
 
