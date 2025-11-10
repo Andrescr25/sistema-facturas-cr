@@ -1409,7 +1409,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
       // 🔧 CORREGIDO: Obtener el reference del item desde la factura de Alegra
       // El item_id puede ser el alegra_id (item.id) o la reference (item.reference)
-      // Necesitamos obtener el reference real para buscar correctamente en productos locales
+      // Necesitamos obtener ambos para buscar correctamente en productos locales
       let itemReference = item_id; // Por defecto usar el item_id recibido
       let itemAlegraId = item_id;
       
@@ -1434,37 +1434,54 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         itemAlegraId = itemEnFactura.id?.toString() || item_id;
         console.log(`   📋 Item encontrado en factura: ID=${itemAlegraId}, Reference="${itemReference}", Nombre="${itemEnFactura.name || itemEnFactura.description}"`);
       } else {
-        console.warn(`   ⚠️ Item ${item_id} no encontrado en factura de Alegra, usando item_id como reference`);
-        console.warn(`   ⚠️ Esto puede causar búsqueda incorrecta si item_id es alegra_id en lugar de reference`);
+        console.warn(`   ⚠️ Item ${item_id} no encontrado en factura de Alegra. Se usará item_id como referencia e ID.`);
       }
 
-      // CORREGIDO: Buscar producto de forma más inteligente
-      // 🔧 PRIORIZAR: código Y nombre > solo código > solo nombre
-      // IMPORTANTE: productos.codigo guarda la REFERENCE de Alegra, no el ID
-      console.log(`🔍 Buscando producto: reference="${itemReference}", alegra_id="${itemAlegraId}", nombre="${nombre_producto}"`);
+      const allegraIdEntero = itemAlegraId && /^\d+$/.test(itemAlegraId) ? parseInt(itemAlegraId, 10) : null;
 
-      let productoLocal = await query(`
-        SELECT id, codigo, nombre FROM productos 
-        WHERE codigo = $1 
-           OR codigo = $2
-           OR nombre ILIKE $3
-        ORDER BY 
-          CASE 
-            WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Reference Y nombre coinciden
-            WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Alegra ID Y nombre coinciden (fallback)
-            WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con reference (sin nombre)
-            WHEN codigo = $2 THEN 3                        -- Coincidencia con alegra_id (sin nombre, menos confiable)
-            WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
-            ELSE 5 
-          END
-        LIMIT 1
-      `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
+      let productoLocal;
+
+      // ✅ PRIMERA OPCIÓN: Buscar por alegra_id (ID único en Alegra)
+      if (allegraIdEntero !== null) {
+        productoLocal = await query(`
+          SELECT id, codigo, nombre, alegra_id FROM productos 
+          WHERE alegra_id = $1
+          LIMIT 1
+        `, [allegraIdEntero]);
+
+        if (productoLocal.rows.length > 0) {
+          const productoEncontrado = productoLocal.rows[0];
+          console.log(`✅ Producto encontrado por alegra_id (${allegraIdEntero}): ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
+        }
+      }
+
+      // SEGUNDA OPCIÓN: Buscar por reference (productos.codigo) como fallback
+      if (!productoLocal || productoLocal.rows.length === 0) {
+        console.log(`🔍 Producto no encontrado por alegra_id. Buscando por reference="${itemReference}" y nombre...`);
+
+        productoLocal = await query(`
+          SELECT id, codigo, nombre, alegra_id FROM productos 
+          WHERE codigo = $1 
+             OR codigo = $2
+             OR nombre ILIKE $3
+          ORDER BY 
+            CASE 
+              WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Reference Y nombre coinciden
+              WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Alegra ID Y nombre coinciden (fallback)
+              WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con reference (sin nombre)
+              WHEN codigo = $2 THEN 3                        -- Coincidencia con alegra_id (sin nombre, menos confiable)
+              WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
+              ELSE 5 
+            END
+          LIMIT 1
+        `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
+      }
 
       // NUEVO: Si no encuentra, intentar buscar por nombre más específico
       if (productoLocal.rows.length === 0) {
         console.log(`⚠️ No encontrado por código, buscando por nombre exacto...`);
         productoLocal = await query(`
-          SELECT id, codigo, nombre FROM productos 
+          SELECT id, codigo, nombre, alegra_id FROM productos 
           WHERE UPPER(nombre) = UPPER($1)
           LIMIT 1
         `, [nombre_producto]);
@@ -1476,11 +1493,11 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         const nombreCoincide = productoEncontrado.nombre.toLowerCase().includes(nombre_producto.toLowerCase()) ||
                               nombre_producto.toLowerCase().includes(productoEncontrado.nombre.toLowerCase());
         
-        if (!nombreCoincide && productoEncontrado.codigo === item_id) {
-          console.warn(`⚠️ ADVERTENCIA: Producto encontrado por código pero nombre NO coincide:`);
+        if (!nombreCoincide) {
+          console.warn(`⚠️ ADVERTENCIA: Producto encontrado pero el nombre NO coincide:`);
           console.warn(`   Esperado: "${nombre_producto}"`);
-          console.warn(`   Encontrado: "${productoEncontrado.nombre}" (código: ${productoEncontrado.codigo})`);
-          console.warn(`   ⚠️ Esto puede causar relaciones incorrectas. Considerar crear nuevo producto.`);
+          console.warn(`   Encontrado: "${productoEncontrado.nombre}" (reference: ${productoEncontrado.codigo}, alegra_id: ${productoEncontrado.alegra_id || 'N/A'})`);
+          console.warn(`   ⚠️ Esto puede causar relaciones incorrectas. Considerar crear nuevo producto o actualizar los datos locales.`);
         } else {
           console.log(`✅ Producto encontrado: ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
         }
@@ -1488,19 +1505,21 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
       let productoId;
       if (productoLocal.rows.length === 0) {
-        console.log(`➕ Creando nuevo producto: "${nombre_producto}" con código "${item_id}"`);
+        console.log(`➕ Creando nuevo producto: "${nombre_producto}" con reference "${itemReference}" y alegra_id="${itemAlegraId}"`);
 
-        // Crear producto con la referencia correcta
+        // Crear producto con la referencia e ID de Alegra correctos
         // CORREGIDO: proveedor_id NULL para evitar error de foreign key
+        const alegraIdParaInsert = allegraIdEntero !== null ? allegraIdEntero : null;
         const nuevoProducto = await query(`
-          INSERT INTO productos (nombre, codigo, descripcion, proveedor_id, precio_unitario)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO productos (alegra_id, nombre, codigo, descripcion, proveedor_id, precio_unitario)
+          VALUES ($1, $2, $3, $4, $5, $6)
           RETURNING id
         `, [
-          nombre_producto || `Producto ${item_id}`,
-          item_id, // CORREGIDO: Usar la referencia como código
-          `Producto creado desde registro de faltantes - Referencia: ${item_id}`,
-          null, // CORREGIDO: NULL si no hay proveedor por defecto
+          alegraIdParaInsert,
+          nombre_producto || `Producto ${itemReference}`,
+          itemReference, // Guardar reference en código
+          `Producto creado desde registro de faltantes - ID Alegra: ${itemAlegraId}`,
+          null, // NULL si no hay proveedor por defecto
           0
         ]);
         productoId = nuevoProducto.rows[0].id;
@@ -1510,15 +1529,24 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         productoId = productoLocal.rows[0].id;
         console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoLocal.rows[0].codigo}", nombre="${productoLocal.rows[0].nombre}"`);
 
-        // NUEVO: Actualizar código si es necesario (para productos viejos)
-        if (productoLocal.rows[0].codigo !== item_id) {
-          console.log(`🔄 Actualizando código de "${productoLocal.rows[0].codigo}" a "${item_id}"`);
+        // NUEVO: Actualizar código (reference) si es necesario para productos antiguos
+        if (productoLocal.rows[0].codigo !== itemReference) {
+          console.log(`🔄 Actualizando reference (código) de "${productoLocal.rows[0].codigo}" a "${itemReference}"`);
           await query(`
             UPDATE productos 
             SET codigo = $1, 
-                descripcion = COALESCE(descripcion, '') || ' - Actualizado con referencia correcta'
+                descripcion = COALESCE(descripcion, '') || ' - Actualizado con reference correcta desde Alegra'
             WHERE id = $2
-          `, [item_id, productoId]);
+          `, [itemReference, productoId]);
+        }
+
+        // Asegurar que el alegra_id esté guardado
+        if (allegraIdEntero !== null) {
+          await query(`
+            UPDATE productos
+            SET alegra_id = $1
+            WHERE id = $2 AND (alegra_id IS NULL OR alegra_id <> $1)
+          `, [allegraIdEntero, productoId]);
         }
       }
 
@@ -1588,6 +1616,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const faltantesResult = await query(`
       SELECT
         p.codigo as producto_codigo,
+        p.alegra_id as producto_alegra_id,
         p.nombre as producto_nombre,
         SUM(f.cantidad_faltante) as total_faltante,
         COUNT(f.id) as facturas_afectadas,
@@ -1596,7 +1625,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
       WHERE f.estado = 'pendiente'
-      GROUP BY p.codigo, p.nombre
+      GROUP BY p.codigo, p.alegra_id, p.nombre
       ORDER BY total_faltante DESC
     `);
 
@@ -1614,16 +1643,20 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       });
     }
 
-    // PASO 2: Obtener códigos únicos para buscar mapping
-    const codigosProductos = faltantesResult.rows.map(row => row.producto_codigo);
-    console.log(`🔍 Buscando mapping para ${codigosProductos.length} códigos:`, codigosProductos);
+    // PASO 2: Obtener identificadores para buscar mappings
+    const codigosAlegra = faltantesResult.rows
+      .map(row => row.producto_alegra_id)
+      .filter(id => id !== null)
+      .map(id => id.toString());
+
+    const codigosReferencia = faltantesResult.rows
+      .map(row => row.producto_codigo)
+      .filter(codigo => codigo !== null);
+
+    console.log(`🔍 Buscando mapping por alegra_id:`, codigosAlegra);
+    console.log(`🔍 Buscando mapping por reference:`, codigosReferencia);
 
     // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
-    // 🔧 CORREGIDO: Buscar también por alegra_item_id porque puede haber múltiples mappings
-    // con diferentes references pero el mismo item_id
-    const numCodigos = codigosProductos.length;
-    const placeholdersRef = codigosProductos.map((_, index) => `$${index + 1}`).join(',');
-    const placeholdersItemId = codigosProductos.map((_, index) => `$${numCodigos + index + 1}`).join(',');
     const mappingResult = await query(`
       SELECT
         id,
@@ -1637,10 +1670,16 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         confidence,
         factor_conversion as "factorConversion"
       FROM supplier_product_mapping
-      WHERE alegra_reference IN (${placeholdersRef})
-      OR alegra_item_id::text IN (${placeholdersItemId})
+      WHERE (
+        array_length($1::text[], 1) IS NOT NULL
+        AND alegra_item_id::text = ANY($1::text[])
+      )
+      OR (
+        array_length($2::text[], 1) IS NOT NULL
+        AND COALESCE(alegra_reference, '') = ANY($2::text[])
+      )
       ORDER BY supplier_name, supplier_code
-    `, [...codigosProductos, ...codigosProductos]);
+    `, [codigosAlegra, codigosReferencia]);
 
     console.log(`🔗 Encontrados ${mappingResult.rows.length} mappings en Supabase`);
 
@@ -1649,15 +1688,19 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const prisma = require('../lib/prisma');
 
     for (const faltante of faltantesResult.rows) {
+      const productoAlegraIdTexto = faltante.producto_alegra_id
+        ? faltante.producto_alegra_id.toString()
+        : null;
+
       // 🔧 CORREGIDO: Buscar mappings por referencia O por item_id
       // Esto evita que se seleccione un mapping incorrecto cuando hay múltiples references
       // para el mismo producto (mismo item_id)
       const mappingsDelProducto = mappingResult.rows.filter(m => 
-        m.alegraReference === faltante.producto_codigo || 
-        m.alegraItemId?.toString() === faltante.producto_codigo
+        (productoAlegraIdTexto && m.alegraItemId === productoAlegraIdTexto) ||
+        (!productoAlegraIdTexto && m.alegraReference === faltante.producto_codigo)
       );
       
-      console.log(`🔍 Buscando mappings para producto: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+      console.log(`🔍 Buscando mappings para producto: allegra_id=${productoAlegraIdTexto || 'N/A'}, reference="${faltante.producto_codigo}" - "${faltante.producto_nombre}"`);
       console.log(`   Mappings encontrados: ${mappingsDelProducto.length}`);
       
       if (mappingsDelProducto.length > 0) {
