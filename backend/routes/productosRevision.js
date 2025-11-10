@@ -541,27 +541,47 @@ router.post('/ajustar', async (req, res) => {
 
 /**
  * Editar relación existente
+ * 
+ * NOTA: El frontend envía el ID del supplierProductMapping (mapeo.id),
+ * no el ID del productoFactura. Por lo tanto, buscamos el mapeo y
+ * actualizamos todos los productos de factura que lo usan.
  */
-router.put('/:productoId/editar-relacion', async (req, res) => {
+router.put('/:mapeoId/editar-relacion', async (req, res) => {
     // 🔧 CORS: Asegurar headers antes de procesar
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     
     try {
-        const { productoId } = req.params;
+        const { mapeoId } = req.params;
         const { nuevoAlegraItemId, motivo } = req.body;
 
-        console.log(`✏️ Editando relación: ${productoId} → ${nuevoAlegraItemId}`);
+        console.log(`✏️ Editando relación para mapeo: ${mapeoId} → ${nuevoAlegraItemId}`);
 
-        const producto = await prisma.productoFactura.findUnique({
-            where: { id: productoId },
-            include: { factura: true, mapeo: true }
+        // Verificar que el mapeo existe
+        const mapeo = await prisma.supplierProductMapping.findUnique({
+            where: { id: mapeoId },
+            include: {
+                productos: {
+                    take: 1,
+                    include: { factura: true }
+                }
+            }
         });
 
-        if (!producto) {
+        if (!mapeo) {
             return res.status(404).json({
                 success: false,
-                error: 'Producto no encontrado'
+                error: 'Relación no encontrada',
+                mapeoId: mapeoId
+            });
+        }
+        
+        // Obtener un producto de ejemplo para validaciones
+        const productoEjemplo = mapeo.productos[0];
+        if (!productoEjemplo) {
+            return res.status(404).json({
+                success: false,
+                error: 'No hay productos asociados a esta relación'
             });
         }
 
@@ -577,56 +597,40 @@ router.put('/:productoId/editar-relacion', async (req, res) => {
             });
         }
 
-        // Crear o actualizar mapeo usando upsert
-        const nuevoMapeo = await prisma.supplierProductMapping.upsert({
-            where: {
-                supplierCedula_supplierCode: {
-                    supplierCedula: producto.factura.proveedorCedula,
-                    supplierCode: producto.codigoProveedor
-                }
-            },
-            update: {
-                supplierName: producto.factura.proveedorNombre,
-                supplierDesc: producto.descripcion,
-                alegraItemId: nuevoAlegraProduct.alegraId,
+        // Actualizar el mapeo existente con el nuevo producto de Alegra
+        const mapeoActualizado = await prisma.supplierProductMapping.update({
+            where: { id: mapeoId },
+            data: {
+                alegraItemId: nuevoAlegraProduct.alegraId.toString(),
                 alegraReference: nuevoAlegraProduct.reference,
                 alegraName: nuevoAlegraProduct.name,
                 confidence: 100,
                 lastUsedDate: new Date(),
-                timesUsed: { increment: 1 },
-                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
-            },
-            create: {
-                supplierName: producto.factura.proveedorNombre,
-                supplierCedula: producto.factura.proveedorCedula,
-                supplierCode: producto.codigoProveedor,
-                supplierDesc: producto.descripcion,
-                alegraItemId: nuevoAlegraProduct.alegraId,
-                alegraReference: nuevoAlegraProduct.reference,
-                alegraName: nuevoAlegraProduct.name,
-                confidence: 100,
-                origen: 'manual' // ✅ Cambiado de 'createdBy' a 'origen'
+                origen: 'manual'
             }
         });
 
-        // Actualizar producto
-        const productoActualizado = await prisma.productoFactura.update({
-            where: { id: productoId },
+        // Actualizar todos los productos de factura que usan este mapeo
+        const resultado = await prisma.productoFactura.updateMany({
+            where: {
+                mapeoId: mapeoId
+            },
             data: {
-                alegraItemId: nuevoAlegraItemId,
+                alegraItemId: nuevoAlegraItemId.toString(),
                 estadoRelacionado: 'RELACIONADO',
                 confianza: 100,
-                mapeoId: nuevoMapeo.id
+                mapeoId: mapeoId // Mantener el mismo mapeoId
             }
         });
 
-        console.log(`✅ Relación editada: ${producto.descripcion} → ${nuevoAlegraProduct.name}`);
+        console.log(`✅ Relación editada: ${mapeo.supplierDesc} → ${nuevoAlegraProduct.name}`);
+        console.log(`✅ ${resultado.count} producto(s) actualizado(s)`);
 
         res.json({
             success: true,
-            message: 'Relación editada exitosamente',
-            producto: productoActualizado,
-            nuevoMapeo: nuevoMapeo
+            message: `Relación editada exitosamente. ${resultado.count} producto(s) actualizado(s)`,
+            productosAfectados: resultado.count,
+            mapeo: mapeoActualizado
         });
     } catch (error) {
         console.error('❌ Error editando relación:', error);
