@@ -1408,6 +1408,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       }
 
       // CORREGIDO: Buscar producto de forma más inteligente
+      // 🔧 PRIORIZAR: código Y nombre > solo código > solo nombre
+      // Esto evita seleccionar el producto incorrecto cuando hay múltiples productos con el mismo código
       console.log(`🔍 Buscando producto: item_id="${item_id}", nombre="${nombre_producto}"`);
 
       let productoLocal = await query(`
@@ -1417,10 +1419,12 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
            OR nombre ILIKE $3
         ORDER BY 
           CASE 
-            WHEN codigo = $1 THEN 1    -- Coincidencia exacta con referencia
-            WHEN codigo = $2 THEN 2    -- Coincidencia con ID (fallback)
-            WHEN nombre ILIKE $3 THEN 3 -- Coincidencia por nombre
-            ELSE 4 
+            WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Código Y nombre coinciden
+            WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Código (ID) Y nombre coinciden
+            WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con referencia (sin nombre)
+            WHEN codigo = $2 THEN 3                        -- Coincidencia con ID (sin nombre)
+            WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
+            ELSE 5 
           END
         LIMIT 1
       `, [item_id, item_id, `%${nombre_producto}%`]);
@@ -1433,6 +1437,22 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           WHERE UPPER(nombre) = UPPER($1)
           LIMIT 1
         `, [nombre_producto]);
+      }
+
+      // ✅ VALIDACIÓN: Verificar que el producto encontrado coincide con el nombre esperado
+      if (productoLocal.rows.length > 0) {
+        const productoEncontrado = productoLocal.rows[0];
+        const nombreCoincide = productoEncontrado.nombre.toLowerCase().includes(nombre_producto.toLowerCase()) ||
+                              nombre_producto.toLowerCase().includes(productoEncontrado.nombre.toLowerCase());
+        
+        if (!nombreCoincide && productoEncontrado.codigo === item_id) {
+          console.warn(`⚠️ ADVERTENCIA: Producto encontrado por código pero nombre NO coincide:`);
+          console.warn(`   Esperado: "${nombre_producto}"`);
+          console.warn(`   Encontrado: "${productoEncontrado.nombre}" (código: ${productoEncontrado.codigo})`);
+          console.warn(`   ⚠️ Esto puede causar relaciones incorrectas. Considerar crear nuevo producto.`);
+        } else {
+          console.log(`✅ Producto encontrado: ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
+        }
       }
 
       let productoId;
