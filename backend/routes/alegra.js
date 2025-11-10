@@ -1407,10 +1407,41 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         continue; // Saltar faltantes inválidos
       }
 
+      // 🔧 CORREGIDO: Obtener el reference del item desde la factura de Alegra
+      // El item_id puede ser el alegra_id (item.id) o la reference (item.reference)
+      // Necesitamos obtener el reference real para buscar correctamente en productos locales
+      let itemReference = item_id; // Por defecto usar el item_id recibido
+      let itemAlegraId = item_id;
+      
+      // Buscar el item en la factura de Alegra para obtener su reference
+      const itemEnFactura = facturaAlegra.data.items?.find(item => 
+        item.id?.toString() === item_id || 
+        item.reference === item_id ||
+        item.reference?.reference === item_id
+      );
+      
+      if (itemEnFactura) {
+        // Priorizar reference sobre id
+        // El reference puede ser string o objeto con propiedad reference
+        if (typeof itemEnFactura.reference === 'string') {
+          itemReference = itemEnFactura.reference;
+        } else if (itemEnFactura.reference?.reference) {
+          itemReference = itemEnFactura.reference.reference;
+        } else {
+          // Si no hay reference, usar el id como fallback (pero es menos confiable)
+          itemReference = itemEnFactura.id?.toString() || item_id;
+        }
+        itemAlegraId = itemEnFactura.id?.toString() || item_id;
+        console.log(`   📋 Item encontrado en factura: ID=${itemAlegraId}, Reference="${itemReference}", Nombre="${itemEnFactura.name || itemEnFactura.description}"`);
+      } else {
+        console.warn(`   ⚠️ Item ${item_id} no encontrado en factura de Alegra, usando item_id como reference`);
+        console.warn(`   ⚠️ Esto puede causar búsqueda incorrecta si item_id es alegra_id en lugar de reference`);
+      }
+
       // CORREGIDO: Buscar producto de forma más inteligente
       // 🔧 PRIORIZAR: código Y nombre > solo código > solo nombre
-      // Esto evita seleccionar el producto incorrecto cuando hay múltiples productos con el mismo código
-      console.log(`🔍 Buscando producto: item_id="${item_id}", nombre="${nombre_producto}"`);
+      // IMPORTANTE: productos.codigo guarda la REFERENCE de Alegra, no el ID
+      console.log(`🔍 Buscando producto: reference="${itemReference}", alegra_id="${itemAlegraId}", nombre="${nombre_producto}"`);
 
       let productoLocal = await query(`
         SELECT id, codigo, nombre FROM productos 
@@ -1419,15 +1450,15 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
            OR nombre ILIKE $3
         ORDER BY 
           CASE 
-            WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Código Y nombre coinciden
-            WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Código (ID) Y nombre coinciden
-            WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con referencia (sin nombre)
-            WHEN codigo = $2 THEN 3                        -- Coincidencia con ID (sin nombre)
+            WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Reference Y nombre coinciden
+            WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Alegra ID Y nombre coinciden (fallback)
+            WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con reference (sin nombre)
+            WHEN codigo = $2 THEN 3                        -- Coincidencia con alegra_id (sin nombre, menos confiable)
             WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
             ELSE 5 
           END
         LIMIT 1
-      `, [item_id, item_id, `%${nombre_producto}%`]);
+      `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
 
       // NUEVO: Si no encuentra, intentar buscar por nombre más específico
       if (productoLocal.rows.length === 0) {
