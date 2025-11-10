@@ -1568,7 +1568,11 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     console.log(`🔍 Buscando mapping para ${codigosProductos.length} códigos:`, codigosProductos);
 
     // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
-    const placeholders = codigosProductos.map((_, index) => `$${index + 1}`).join(',');
+    // 🔧 CORREGIDO: Buscar también por alegra_item_id porque puede haber múltiples mappings
+    // con diferentes references pero el mismo item_id
+    const numCodigos = codigosProductos.length;
+    const placeholdersRef = codigosProductos.map((_, index) => `$${index + 1}`).join(',');
+    const placeholdersItemId = codigosProductos.map((_, index) => `$${numCodigos + index + 1}`).join(',');
     const mappingResult = await query(`
       SELECT
         id,
@@ -1578,12 +1582,14 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         supplier_desc as "supplierDesc",
         alegra_reference as "alegraReference",
         alegra_name as "alegraName",
+        alegra_item_id as "alegraItemId",
         confidence,
         factor_conversion as "factorConversion"
       FROM supplier_product_mapping
-      WHERE alegra_reference IN (${placeholders})
+      WHERE alegra_reference IN (${placeholdersRef})
+      OR alegra_item_id::text IN (${placeholdersItemId})
       ORDER BY supplier_name, supplier_code
-    `, codigosProductos);
+    `, [...codigosProductos, ...codigosProductos]);
 
     console.log(`🔗 Encontrados ${mappingResult.rows.length} mappings en Supabase`);
 
@@ -1592,8 +1598,25 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     const prisma = require('../lib/prisma');
 
     for (const faltante of faltantesResult.rows) {
-      // Buscar TODOS los mappings para este producto (puede haber múltiples proveedores)
-      const mappingsDelProducto = mappingResult.rows.filter(m => m.alegraReference === faltante.producto_codigo);
+      // 🔧 CORREGIDO: Buscar mappings por referencia O por item_id
+      // Esto evita que se seleccione un mapping incorrecto cuando hay múltiples references
+      // para el mismo producto (mismo item_id)
+      const mappingsDelProducto = mappingResult.rows.filter(m => 
+        m.alegraReference === faltante.producto_codigo || 
+        m.alegraItemId?.toString() === faltante.producto_codigo
+      );
+      
+      console.log(`🔍 Buscando mappings para producto: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+      console.log(`   Mappings encontrados: ${mappingsDelProducto.length}`);
+      
+      if (mappingsDelProducto.length > 0) {
+        mappingsDelProducto.forEach((m, i) => {
+          console.log(`   ${i + 1}. Mapping ID: ${m.id}`);
+          console.log(`      Reference: "${m.alegraReference}", Item ID: ${m.alegraItemId}`);
+          console.log(`      Proveedor: ${m.supplierName}`);
+          console.log(`      Producto Alegra: "${m.alegraName}"`);
+        });
+      }
 
       let proveedorSeleccionado = null;
       let precioMasBajo = null;
@@ -1686,12 +1709,41 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           proveedorSeleccionado = proveedoresConPrecio[0].mapping;
           precioMasBajo = proveedoresConPrecio[0].precio;
 
-          console.log(`   ✅ Seleccionado: ${proveedorSeleccionado.supplierName} con precio ₡${precioMasBajo.toFixed(2)}`);
+          // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
+          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
+                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
+          
+          if (!mappingValido) {
+            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
+            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
+            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
+            // No usar este mapping, buscar otro o dejar sin proveedor
+            proveedorSeleccionado = null;
+            precioMasBajo = null;
+          } else {
+            console.log(`   ✅ Seleccionado: ${proveedorSeleccionado.supplierName} con precio ₡${precioMasBajo.toFixed(2)}`);
+            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
+          }
         } else {
           // Si ningún proveedor tiene precio, usar el de mayor confianza
           proveedoresConPrecios.sort((a, b) => b.confianza - a.confianza);
           proveedorSeleccionado = proveedoresConPrecios[0].mapping;
-          console.log(`   ⚠️ Sin precios disponibles, usando proveedor con mayor confianza: ${proveedorSeleccionado.supplierName}`);
+          
+          // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
+          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
+                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
+          
+          if (!mappingValido) {
+            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
+            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
+            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
+            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
+            proveedorSeleccionado = null;
+          } else {
+            console.log(`   ⚠️ Sin precios disponibles, usando proveedor con mayor confianza: ${proveedorSeleccionado.supplierName}`);
+            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
+          }
         }
       }
 
