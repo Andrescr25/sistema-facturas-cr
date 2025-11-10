@@ -2615,15 +2615,20 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               let cantidadFinal = item.quantity;
 
               if (ajuste.estado === 'no_llego') {
-                // No llegó nada - eliminar completamente
-                cantidadFinal = 0;
+                // No llegó la cantidad faltante - reducir por la cantidad faltante
+                // Ejemplo: factura tenía 6, faltaron 3 → quedan 3
+                cantidadFinal = item.quantity - ajuste.cantidad_faltante;
+                console.log(`   📊 ${item.description}: ${item.quantity} - ${ajuste.cantidad_faltante} (faltante) = ${cantidadFinal}`);
               } else if (ajuste.estado === 'parcial') {
                 // Llegó parcial - reducir por lo que aún falta
+                // Ejemplo: factura tenía 6, faltaron 3, llegaron 1 → aún faltan 2 → quedan 4
                 const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
                 cantidadFinal = item.quantity - cantidadQueAunFalta;
+                console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
               } else if (ajuste.estado === 'completo') {
                 // Llegó completo - mantener cantidad original
                 cantidadFinal = item.quantity;
+                console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
               }
 
               // Solo incluir si cantidad > 0
