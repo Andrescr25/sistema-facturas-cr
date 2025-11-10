@@ -2893,7 +2893,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       WHERE alegra_id = $1
     `, [alegra_id]);
 
-    // 5. 🔧 NUEVO: Si requiere reimpresión, editar la factura en Alegra con los ajustes
+    // 5. 🔧 CAMBIO: Editar factura en Alegra SOLO cuando se reimprime (no al marcar como lista)
     const marcarComoProcesada = req.body.marcar_como_procesada === true;
     
     // Usar estado actualizado (puede haber cambiado por diferencia de precio)
@@ -2901,13 +2901,12 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       ? 'requiere_reimpresion'
       : estado;
     
-    // IMPORTANTE: Si marcarComoProcesada = true, significa que viene desde Reimpresión
-    // En ese caso, la factura YA FUE EDITADA en Alegra en una ejecución anterior
-    // NO debemos editarla de nuevo o aplicaremos los ajustes dos veces
-    const debeEditarEnAlegra = estadoFinal.includes('requiere_reimpresion') && 
+    // NUEVO COMPORTAMIENTO:
+    // - Si marcarComoProcesada = false → Viene desde "Reporte Clientes" (Factura Lista) → NO editar en Alegra
+    // - Si marcarComoProcesada = true → Viene desde "Reimpresión" (Reimprimir) → SÍ editar en Alegra
+    const debeEditarEnAlegra = marcarComoProcesada && 
                                 ajustes && 
-                                ajustes.length > 0 && 
-                                !marcarComoProcesada;
+                                ajustes.length > 0;
     
     if (debeEditarEnAlegra) {
       console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
@@ -3069,10 +3068,10 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         console.error(`❌ Error editando factura en Alegra:`, error.message);
         // Continuar aunque falle la edición en Alegra
       }
-    } else if (marcarComoProcesada && ajustes && ajustes.length > 0) {
-      // Viene desde Reimpresión, la factura ya fue editada anteriormente
-      console.log(`⏭️ Factura ${numero_factura} NO se editará en Alegra (ya fue editada en ejecución anterior desde Reporte Cliente)`);
-      console.log(`   Solo se marcará como procesada`);
+    } else if (!marcarComoProcesada && ajustes && ajustes.length > 0) {
+      // Viene desde Reporte Clientes (Factura Lista) - NO editar en Alegra aún
+      console.log(`📋 Factura ${numero_factura} NO se editará en Alegra todavía (viene desde Reporte Clientes)`);
+      console.log(`   ✅ Ajustes guardados - La factura se editará cuando se reimprime`);
     }
     
     if (estadoFinal.includes('requiere_reimpresion') && marcarComoProcesada) {
@@ -3097,8 +3096,10 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     if (ajustesConDiferenciaPrecio.length > 0) {
       console.log(`   💰 ${ajustesConDiferenciaPrecio.length} producto(s) con diferencia de precio >5% detectados`);
     }
-    if (estadoFinal.includes('requiere_reimpresion') && ajustes && ajustes.length > 0) {
+    if (marcarComoProcesada && ajustes && ajustes.length > 0) {
       console.log(`   ✏️ Factura editada en Alegra con ajustes aplicados`);
+    } else if (!marcarComoProcesada && estadoFinal.includes('requiere_reimpresion')) {
+      console.log(`   ⏳ Factura pendiente de edición en Alegra (se editará al reimprimir)`);
     }
     console.log(`🔄 Estado: ${estadoFinal.includes('requiere_reimpresion') ? 'En reimpresión → Historial' : 'En historial'}`);
 
@@ -3113,7 +3114,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         ajustes_realizados: ajustes.length,
         ajustes_guardados: ajustes.length,
         ajustes_diferencia_precio: ajustesConDiferenciaPrecio.length,
-        factura_editada_en_alegra: estadoFinal.includes('requiere_reimpresion') && ajustes && ajustes.length > 0
+        factura_editada_en_alegra: marcarComoProcesada && ajustes && ajustes.length > 0
       }
     });
 
