@@ -992,17 +992,19 @@ router.post('/sincronizar/productos', async (req, res) => {
           }
 
           if (productoExistente) {
-            // Actualizar producto existente
+            // Actualizar producto existente (incluyendo nombre si cambió en Alegra)
             await query(`
               UPDATE productos 
-              SET precio_unitario = $1, 
-                  descripcion = $2,
+              SET nombre = $1,
+                  precio_unitario = $2, 
+                  descripcion = $3,
                   proveedor_id = CASE 
-                    WHEN proveedor_id = 1 THEN $3 
+                    WHEN proveedor_id = 1 THEN $4 
                     ELSE proveedor_id 
                   END
-              WHERE codigo = $4
+              WHERE codigo = $5
             `, [
+              producto.nombre, // 🔧 Actualizar nombre desde Alegra
               producto.precio || 0,
               producto.descripcion || `${producto.categoria || 'Producto'} - Actualizado desde Alegra`,
               proveedorId,
