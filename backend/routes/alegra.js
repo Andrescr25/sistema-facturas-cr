@@ -3849,35 +3849,56 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
               console.log(`   🔄 Aplicando factor ${mapping.factorConversion}: ${producto.cantidad} → ${cantidadFinal}`);
             }
             
-            // ✅ NUEVA LÓGICA: Priorizar SIEMPRE los datos del proveedor si existen
-            // Solo usar datos locales si NO hay mapping del proveedor
-            const codigoPDF = mapping.supplierCode || producto.codigo;
-            const nombrePDF = mapping.supplierDesc || producto.nombre;
-            const tieneCodigoProveedor = !!mapping.supplierCode;
+            // ✅ NUEVA LÓGICA: Verificar si los datos del proveedor son REALES o solo temporales (de Alegra)
+            // Si supplierCode === alegraReference Y supplierDesc === alegraName, 
+            // significa que es un mapping manual SIN info real del proveedor
+            const datosProveedorSonReales = mapping.supplierCode !== mapping.alegraReference || 
+                                            mapping.supplierDesc !== mapping.alegraName;
+            
+            let codigoPDF, nombrePDF, tieneCodigoProveedor;
+            
+            if (datosProveedorSonReales) {
+              // ✅ Tiene datos REALES del proveedor - usar esos
+              codigoPDF = mapping.supplierCode;
+              nombrePDF = mapping.supplierDesc;
+              tieneCodigoProveedor = true;
+              console.log(`   ✅ DATOS REALES DEL PROVEEDOR encontrados`);
+            } else {
+              // ⚠️ Datos del proveedor son iguales a Alegra (mapping manual sin info real)
+              // Usar datos locales de Alegra
+              codigoPDF = producto.codigo;
+              nombrePDF = producto.nombre;
+              tieneCodigoProveedor = false;
+              console.log(`   ⚠️ Mapping manual sin info real del proveedor (usa datos de Alegra)`);
+            }
             
             console.log(`   🔧 Calculando campos PDF:`);
             console.log(`      mapping.supplierCode: "${mapping.supplierCode}"`);
             console.log(`      mapping.supplierDesc: "${mapping.supplierDesc}"`);
+            console.log(`      mapping.alegraReference: "${mapping.alegraReference}"`);
+            console.log(`      mapping.alegraName: "${mapping.alegraName}"`);
+            console.log(`      datosProveedorSonReales: ${datosProveedorSonReales}`);
             console.log(`      producto.codigo (local): "${producto.codigo}"`);
             console.log(`      producto.nombre (local): "${producto.nombre}"`);
             console.log(`      → codigoPDF: "${codigoPDF}"`);
             console.log(`      → nombrePDF: "${nombrePDF}"`);
             
             productoEnriquecido = {
-              codigo_pdf: codigoPDF,                      // Prioridad: código proveedor, fallback: local
-              nombre_pdf: nombrePDF,                      // Prioridad: nombre proveedor, fallback: local
-              cantidad: cantidadFinal,                    // Cantidad con factor aplicado
+              codigo_pdf: codigoPDF,
+              nombre_pdf: nombrePDF,
+              cantidad: cantidadFinal,
               codigo_interno: producto.codigo,
               nombre_interno: producto.nombre,
               confianza: mapping.confidence,
               factorConversion: mapping.factorConversion || 1,
-              origen: tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor'
+              origen: tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor',
+              datosProveedorReales: datosProveedorSonReales
             };
             
             if (tieneCodigoProveedor) {
-              console.log(`   ✅ CON CÓDIGO PROVEEDOR: "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
+              console.log(`   ✅ PDF usará DATOS DEL PROVEEDOR: "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             } else {
-              console.log(`   📝 SIN CÓDIGO PROVEEDOR: código local "${codigoPDF}" + nombre proveedor "${nombrePDF}" (cantidad: ${cantidadFinal})`);
+              console.log(`   📝 PDF usará DATOS LOCALES: "${codigoPDF}" / "${nombrePDF}" (cantidad: ${cantidadFinal})`);
             }
           }
         } else {
@@ -4326,13 +4347,13 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
       create: {
         supplierName: proveedor.name,
         supplierCedula: proveedor.identification || 'SIN_CEDULA',
-        supplierCode: alegraReference,
-        supplierDesc: alegraName,
+        supplierCode: alegraReference,  // Se usa alegraReference temporalmente
+        supplierDesc: alegraName,       // Se usa alegraName temporalmente
         alegraItemId: alegraItemId,
         alegraReference: alegraReference,
         alegraName: alegraName,
         confidence: 100,
-        origen: 'manual', // ✅ MARCAR COMO MANUAL
+        origen: 'manual', // ✅ MARCAR COMO MANUAL (sin info real del proveedor)
         timesUsed: 1
       }
     });
@@ -4481,13 +4502,13 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
         data: {
           supplierName: nuevoProveedor.name,
           supplierCedula: nuevaCedula,
-          supplierCode: alegraReference,
-          supplierDesc: alegraName,
+          supplierCode: alegraReference,  // Se usa alegraReference temporalmente
+          supplierDesc: alegraName,       // Se usa alegraName temporalmente
           alegraItemId: alegraItemId || alegraReference,
           alegraReference: alegraReference,
           alegraName: alegraName,
           confidence: 100,
-          origen: 'manual', // Marcar como manual (reasignación)
+          origen: 'manual', // Marcar como manual (reasignación sin info real del proveedor)
           timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
         }
       });
