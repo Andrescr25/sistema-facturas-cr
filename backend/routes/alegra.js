@@ -4429,8 +4429,8 @@ router.post('/proveedores', async (req, res) => {
 router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
   try {
     const { 
-      alegraReference,  // Código del producto en Alegra (ej: "10053")
-      alegraItemId,     // ID del producto en Alegra
+      alegraReference,  // Código del producto en Alegra (ej: "10053", "E282")
+      alegraItemId,     // ID del producto en Alegra (puede ser fallback)
       alegraName,       // Nombre del producto en Alegra
       proveedorId       // ID del proveedor en Alegra
     } = req.body;
@@ -4438,18 +4438,64 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     console.log(`🔗 Asignando proveedor manualmente:`, {
       producto: alegraName,
       codigo: alegraReference,
+      alegraItemIdRecibido: alegraItemId,
       proveedorId
     });
 
-    // 1. Obtener información del proveedor de Alegra
     const prisma = require('../lib/prisma');
 
+    // 1. 🔍 BUSCAR PRODUCTO EN ALEGRA PARA OBTENER EL ID REAL
+    // Esto evita confusiones entre ID y reference (problema "envase vs cable")
+    console.log(`🔍 Buscando producto en Alegra con reference="${alegraReference}"...`);
+    
+    let productoAlegra;
+    let alegraIdReal;
+    
+    try {
+      // Buscar por reference en Alegra
+      const itemsResponse = await alegraService.api.get('/items', {
+        params: {
+          query: alegraReference,
+          limit: 30
+        }
+      });
+      
+      // Buscar coincidencia exacta por reference
+      const items = itemsResponse.data;
+      productoAlegra = items.find(item => {
+        // Comparar reference (puede ser string o objeto en Costa Rica)
+        const itemReference = typeof item.reference === 'object' 
+          ? item.reference?.reference 
+          : item.reference;
+        
+        return itemReference === alegraReference;
+      });
+      
+      if (productoAlegra) {
+        alegraIdReal = productoAlegra.id;
+        console.log(`✅ Producto encontrado en Alegra:`);
+        console.log(`   ID real: ${alegraIdReal}`);
+        console.log(`   Reference: ${alegraReference}`);
+        console.log(`   Nombre: ${productoAlegra.name}`);
+      } else {
+        // Si no se encuentra por reference exacto, usar el ID recibido como fallback
+        console.warn(`⚠️ No se encontró producto con reference="${alegraReference}" en Alegra`);
+        console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+        alegraIdReal = alegraItemId;
+      }
+    } catch (searchError) {
+      console.error(`❌ Error buscando producto en Alegra:`, searchError.message);
+      console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+      alegraIdReal = alegraItemId;
+    }
+
+    // 2. Obtener información del proveedor de Alegra
     const proveedorResponse = await alegraService.api.get(`/contacts/${proveedorId}`);
     const proveedor = proveedorResponse.data;
 
     console.log(`✅ Proveedor encontrado:`, proveedor.name);
 
-    // 2. Crear o actualizar el mapping manual
+    // 3. Crear o actualizar el mapping manual con el ID REAL
     const mapping = await prisma.supplierProductMapping.upsert({
       where: {
         supplierCedula_supplierCode: {
@@ -4459,10 +4505,10 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
       },
       update: {
         supplierName: proveedor.name,
-        alegraItemId: alegraItemId,
+        alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
         alegraReference: alegraReference,
-        alegraName: alegraName,
-        origen: 'manual', // ✅ MARCAR COMO MANUAL
+        alegraName: productoAlegra?.name || alegraName,  // Usar nombre de Alegra si está disponible
+        origen: 'manual',
         lastUsedDate: new Date(),
         timesUsed: {
           increment: 1
@@ -4471,18 +4517,21 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
       create: {
         supplierName: proveedor.name,
         supplierCedula: proveedor.identification || 'SIN_CEDULA',
-        supplierCode: alegraReference,  // Se usa alegraReference temporalmente
-        supplierDesc: alegraName,       // Se usa alegraName temporalmente
-        alegraItemId: alegraItemId,
+        supplierCode: alegraReference,
+        supplierDesc: productoAlegra?.name || alegraName,
+        alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
         alegraReference: alegraReference,
-        alegraName: alegraName,
+        alegraName: productoAlegra?.name || alegraName,
         confidence: 100,
-        origen: 'manual', // ✅ MARCAR COMO MANUAL (sin info real del proveedor)
+        origen: 'manual',
         timesUsed: 1
       }
     });
 
     console.log(`✅ Relación manual creada: ${alegraName} → ${proveedor.name}`);
+    console.log(`   Mapping ID: ${mapping.id}`);
+    console.log(`   alegraItemId: ${mapping.alegraItemId} (ID real de Alegra)`);
+    console.log(`   alegraReference: ${mapping.alegraReference} (código interno)`);
 
     res.json({
       success: true,
@@ -4543,7 +4592,47 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       });
     }
 
-    // 2. Obtener información del nuevo proveedor de Alegra
+    // 2. 🔍 BUSCAR PRODUCTO EN ALEGRA PARA OBTENER EL ID REAL
+    console.log(`🔍 Buscando producto en Alegra con reference="${alegraReference}"...`);
+    
+    let productoAlegra;
+    let alegraIdReal;
+    
+    try {
+      const itemsResponse = await alegraService.api.get('/items', {
+        params: {
+          query: alegraReference,
+          limit: 30
+        }
+      });
+      
+      const items = itemsResponse.data;
+      productoAlegra = items.find(item => {
+        const itemReference = typeof item.reference === 'object' 
+          ? item.reference?.reference 
+          : item.reference;
+        
+        return itemReference === alegraReference;
+      });
+      
+      if (productoAlegra) {
+        alegraIdReal = productoAlegra.id;
+        console.log(`✅ Producto encontrado en Alegra:`);
+        console.log(`   ID real: ${alegraIdReal}`);
+        console.log(`   Reference: ${alegraReference}`);
+        console.log(`   Nombre: ${productoAlegra.name}`);
+      } else {
+        console.warn(`⚠️ No se encontró producto con reference="${alegraReference}" en Alegra`);
+        console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+        alegraIdReal = alegraItemId || alegraReference;
+      }
+    } catch (searchError) {
+      console.error(`❌ Error buscando producto en Alegra:`, searchError.message);
+      console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+      alegraIdReal = alegraItemId || alegraReference;
+    }
+
+    // 3. Obtener información del nuevo proveedor de Alegra
     console.log('🔍 Obteniendo información del proveedor de Alegra...');
     let nuevoProveedor;
     try {
@@ -4557,7 +4646,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
 
     const nuevaCedula = nuevoProveedor.identification || 'SIN_CEDULA';
 
-    // 3. Verificar si el producto ya está asignado a este proveedor
+    // 4. Verificar si el producto ya está asignado a este proveedor
     const mappingExistenteConMismoProveedor = mappingsExistentes.find(
       m => m.supplierCedula === nuevaCedula
     );
@@ -4572,8 +4661,8 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
         },
         data: {
           supplierName: nuevoProveedor.name,
-          alegraItemId: alegraItemId || alegraReference,
-          alegraName: alegraName,
+          alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
+          alegraName: productoAlegra?.name || alegraName,
           lastUsedDate: new Date(),
           timesUsed: {
             increment: 1
@@ -4626,18 +4715,20 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
         data: {
           supplierName: nuevoProveedor.name,
           supplierCedula: nuevaCedula,
-          supplierCode: alegraReference,  // Se usa alegraReference temporalmente
-          supplierDesc: alegraName,       // Se usa alegraName temporalmente
-          alegraItemId: alegraItemId || alegraReference,
+          supplierCode: alegraReference,
+          supplierDesc: productoAlegra?.name || alegraName,
+          alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
           alegraReference: alegraReference,
-          alegraName: alegraName,
+          alegraName: productoAlegra?.name || alegraName,
           confidence: 100,
-          origen: 'manual', // Marcar como manual (reasignación sin info real del proveedor)
+          origen: 'manual',
           timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
         }
       });
       console.log(`✅ Nuevo mapping creado con ID: ${nuevoMapping.id}`);
-      console.log(`   Verificando: ${nuevoMapping.supplierName} → ${nuevoMapping.supplierCode}`);
+      console.log(`   alegraItemId: ${nuevoMapping.alegraItemId} (ID real de Alegra)`);
+      console.log(`   alegraReference: ${nuevoMapping.alegraReference} (código interno)`);
+      console.log(`   Proveedor: ${nuevoMapping.supplierName} → Código: ${nuevoMapping.supplierCode}`);
     } catch (createError) {
       console.error('❌ Error creando mapping:', createError.message);
       console.error('Código Prisma:', createError.code);
