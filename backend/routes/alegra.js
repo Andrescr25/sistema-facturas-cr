@@ -1566,9 +1566,22 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         registrado_por
       ]);
 
+      const faltanteId = nuevoFaltante.rows[0].id;
+
+      // 🤖 NUEVO: Asignar automáticamente proveedor basado en precio más bajo
+      const { asignarProveedorAutomatico } = require('../services/proveedorAsignacionService');
+      const asignacionResult = await asignarProveedorAutomatico(
+        faltanteId,
+        productoId,
+        allegraIdEntero,
+        faltante.item_id
+      );
+
       faltantesRegistrados.push({
         ...nuevoFaltante.rows[0],
-        nombre_producto: nombre_producto
+        nombre_producto: nombre_producto,
+        proveedor_asignado: asignacionResult.success ? asignacionResult.proveedor : 'Sin_Proveedor',
+        precio_asignado: asignacionResult.precio || null
       });
     }
 
@@ -1613,15 +1626,21 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     // Asegurar que la columna alegra_id exista en productos
     await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
 
-    // PASO 1: Obtener faltantes de la BD local
+    // PASO 1: Obtener faltantes de la BD local CON ASIGNACIÓN GUARDADA
     const faltantesResult = await query(`
-      SELECT 
+      SELECT
         p.codigo as producto_codigo,
         p.alegra_id as producto_alegra_id,
         p.nombre as producto_nombre,
         SUM(f.cantidad_faltante) as total_faltante,
         COUNT(f.id) as facturas_afectadas,
-        STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados
+        STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+        -- 🔧 NUEVO: Usar asignación guardada (tomar la más reciente si hay múltiples)
+        MAX(f.proveedor_asignado) as proveedor_asignado,
+        MAX(f.proveedor_cedula) as proveedor_cedula,
+        MAX(f.precio_asignado) as precio_asignado,
+        MAX(f.asignacion_tipo) as asignacion_tipo,
+        MAX(f.mapping_id) as mapping_id
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
@@ -1644,223 +1663,56 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       });
     }
 
-    // PASO 2: Obtener identificadores para buscar mappings
-    const codigosAlegra = faltantesResult.rows
-      .map(row => row.producto_alegra_id)
-      .filter(id => id !== null)
-      .map(id => id.toString());
-
-    const codigosReferencia = faltantesResult.rows
-      .map(row => row.producto_codigo)
-      .filter(codigo => codigo !== null);
-
-    console.log(`🔍 Buscando mapping por alegra_id:`, codigosAlegra);
-    console.log(`🔍 Buscando mapping por reference:`, codigosReferencia);
-
-    // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
-    const mappingResult = await query(`
-      SELECT 
-        id,
-        supplier_name as "supplierName",
-        supplier_cedula as "supplierCedula", 
-        supplier_code as "supplierCode",
-        supplier_desc as "supplierDesc",
-        alegra_reference as "alegraReference",
-        alegra_name as "alegraName",
-        alegra_item_id as "alegraItemId",
-        confidence,
-        factor_conversion as "factorConversion"
-      FROM supplier_product_mapping 
-      WHERE (
-        array_length($1::text[], 1) IS NOT NULL
-        AND alegra_item_id::text = ANY($1::text[])
-      )
-      OR (
-        array_length($2::text[], 1) IS NOT NULL
-        AND COALESCE(alegra_reference, '') = ANY($2::text[])
-      )
-      ORDER BY supplier_name, supplier_code
-    `, [codigosAlegra, codigosReferencia]);
-
-    console.log(`🔗 Encontrados ${mappingResult.rows.length} mappings en Supabase`);
-
-    // PASO 4: Para cada producto faltante, buscar TODOS los mappings y seleccionar el de precio más bajo
+    // PASO 2: Agrupar faltantes por proveedor asignado (mucho más rápido)
     const proveedoresMap = new Map();
-    const prisma = require('../lib/prisma');
+    
+    console.log(`⚡ Usando asignaciones guardadas (RÁPIDO)`);
+    
+    // Solo buscar mappings para productos SIN asignación guardada
+    const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
+    if (productosSinAsignacion.length > 0) {
+      console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada, buscando mappings...`);
+    }
 
+    // PASO 3: Obtener mapping info solo para productos con asignación (mucho más rápido)
+    const mappingIds = faltantesResult.rows
+      .filter(f => f.mapping_id)
+      .map(f => f.mapping_id);
+    
+    let mappingsInfo = new Map();
+    if (mappingIds.length > 0) {
+      const mappingsResult = await query(`
+        SELECT
+          id,
+          supplier_code as "supplierCode",
+          supplier_desc as "supplierDesc",
+          alegra_name as "alegraName",
+          confidence,
+          factor_conversion as "factorConversion"
+        FROM supplier_product_mapping
+        WHERE id = ANY($1::uuid[])
+      `, [mappingIds]);
+      
+      mappingsResult.rows.forEach(m => {
+        mappingsInfo.set(m.id, m);
+      });
+    }
+
+    // PASO 4: Agrupar productos por proveedor (SUPER RÁPIDO)
     for (const faltante of faltantesResult.rows) {
-      const productoAlegraIdTexto = faltante.producto_alegra_id
-        ? faltante.producto_alegra_id.toString()
-        : null;
-
-      // 🔧 CORREGIDO: Buscar mappings por referencia O por item_id
-      // Esto evita que se seleccione un mapping incorrecto cuando hay múltiples references
-      // para el mismo producto (mismo item_id)
-      const mappingsDelProducto = mappingResult.rows.filter(m => 
-        (productoAlegraIdTexto && m.alegraItemId === productoAlegraIdTexto) ||
-        (!productoAlegraIdTexto && m.alegraReference === faltante.producto_codigo)
-      );
+      // Usar asignación guardada directamente
+      const proveedorNombre = faltante.proveedor_asignado || 'Sin_Proveedor';
+      const proveedorCedula = faltante.proveedor_cedula || 'SIN_PROVEEDOR';
+      const precioAsignado = faltante.precio_asignado ? parseFloat(faltante.precio_asignado) : null;
+      const asignacionTipo = faltante.asignacion_tipo || 'automatica';
       
-      console.log(`🔍 Buscando mappings para producto: allegra_id=${productoAlegraIdTexto || 'N/A'}, reference="${faltante.producto_codigo}" - "${faltante.producto_nombre}"`);
-      console.log(`   Mappings encontrados: ${mappingsDelProducto.length}`);
-      
-      if (mappingsDelProducto.length > 0) {
-        mappingsDelProducto.forEach((m, i) => {
-          console.log(`   ${i + 1}. Mapping ID: ${m.id}`);
-          console.log(`      Reference: "${m.alegraReference}", Item ID: ${m.alegraItemId}`);
-          console.log(`      Proveedor: ${m.supplierName}`);
-          console.log(`      Producto Alegra: "${m.alegraName}"`);
-        });
-      }
-
-      let proveedorSeleccionado = null;
-      let precioMasBajo = null;
-
-      if (mappingsDelProducto.length > 0) {
-        // 🔍 NUEVO: Para cada mapping, obtener el precio más reciente
-        console.log(`💰 Analizando ${mappingsDelProducto.length} proveedores para producto: ${faltante.producto_codigo}`);
-        
-        const proveedoresConPrecios = [];
-
-        for (const mapping of mappingsDelProducto) {
-          try {
-            // Buscar el precio más reciente de este proveedor para este producto
-            const productoFactura = await prisma.productoFactura.findFirst({
-              where: {
-                mapeoId: mapping.id || null
-              },
-              orderBy: {
-                factura: {
-                  fechaEmision: 'desc'
-                }
-              },
-              select: {
-                precioUnitario: true,
-                descuento: true,
-                cantidad: true,
-                factura: {
-                  select: {
-                    fechaEmision: true
-                  }
-                }
-              }
-            });
-
-            // Calcular costo real con descuentos e IVA (igual que en gestionar relaciones)
-            let precio = null;
-            if (productoFactura && productoFactura.precioUnitario > 0) {
-              const precioUnitarioSinIva = parseFloat(productoFactura.precioUnitario);
-              const descuento = parseFloat(productoFactura.descuento) || 0;
-              const cantidad = parseFloat(productoFactura.cantidad) || 1;
-              
-              // Calcular porcentaje de descuento
-              const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
-              const descuentoPorcentaje = montoTotalSinDescuento > 0 
-                ? (descuento / montoTotalSinDescuento) * 100
-                : 0;
-              
-              // Costo = precioUnitario SIN IVA con descuento aplicado, luego multiplicar por 1.13 (IVA)
-              const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
-              const costoConIva = costoSinIvaConDescuento * 1.13; // Agregar IVA 13%
-              
-              precio = Math.round(costoConIva * 100) / 100;
-            }
-            
-            const fechaPrecio = productoFactura?.factura?.fechaEmision || null;
-
-            proveedoresConPrecios.push({
-              mapping: mapping,
-              precio: precio,
-              fechaPrecio: fechaPrecio,
-              confianza: mapping.confidence || 0
-            });
-
-            console.log(`   - ${mapping.supplierName}: ${precio ? `₡${precio.toFixed(2)}` : 'Sin precio'} (confianza: ${mapping.confidence}%)`);
-          } catch (error) {
-            console.warn(`   ⚠️ Error obteniendo precio para ${mapping.supplierName}:`, error.message);
-            // Si hay error, agregar sin precio pero con confianza
-            proveedoresConPrecios.push({
-              mapping: mapping,
-              precio: null,
-              fechaPrecio: null,
-              confianza: mapping.confidence || 0
-            });
-          }
-        }
-
-        // 🎯 SELECCIONAR proveedor con precio más bajo
-        // Filtrar solo los que tienen precio
-        const proveedoresConPrecio = proveedoresConPrecios.filter(p => p.precio !== null && p.precio > 0);
-
-        if (proveedoresConPrecio.length > 0) {
-          // Ordenar por precio (ascendente) y luego por confianza (descendente) como desempate
-          proveedoresConPrecio.sort((a, b) => {
-            if (a.precio !== b.precio) {
-              return a.precio - b.precio; // Precio más bajo primero
-            }
-            return b.confianza - a.confianza; // Mayor confianza como desempate
-          });
-
-          proveedorSeleccionado = proveedoresConPrecio[0].mapping;
-          precioMasBajo = proveedoresConPrecio[0].precio;
-
-          // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
-          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
-                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
-          
-          if (!mappingValido) {
-            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
-            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
-            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
-            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
-            // No usar este mapping, buscar otro o dejar sin proveedor
-            proveedorSeleccionado = null;
-            precioMasBajo = null;
-          } else {
-            console.log(`   ✅ Seleccionado: ${proveedorSeleccionado.supplierName} con precio ₡${precioMasBajo.toFixed(2)}`);
-            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
-          }
-        } else {
-          // Si ningún proveedor tiene precio, usar el de mayor confianza
-          proveedoresConPrecios.sort((a, b) => b.confianza - a.confianza);
-          proveedorSeleccionado = proveedoresConPrecios[0].mapping;
-          
-          // ✅ VALIDACIÓN: Verificar que el mapping seleccionado corresponde al producto faltante
-          const mappingValido = proveedorSeleccionado.alegraReference === faltante.producto_codigo || 
-                               proveedorSeleccionado.alegraItemId?.toString() === faltante.producto_codigo;
-          
-          if (!mappingValido) {
-            console.error(`   ❌ ERROR: Mapping seleccionado NO corresponde al producto faltante!`);
-            console.error(`      Producto faltante: ${faltante.producto_codigo} - "${faltante.producto_nombre}"`);
-            console.error(`      Mapping Reference: "${proveedorSeleccionado.alegraReference}", Item ID: ${proveedorSeleccionado.alegraItemId}`);
-            console.error(`      Mapping Producto: "${proveedorSeleccionado.alegraName}"`);
-            proveedorSeleccionado = null;
-          } else {
-            console.log(`   ⚠️ Sin precios disponibles, usando proveedor con mayor confianza: ${proveedorSeleccionado.supplierName}`);
-            console.log(`      Mapping válido: "${proveedorSeleccionado.alegraName}" (Ref: ${proveedorSeleccionado.alegraReference}, ID: ${proveedorSeleccionado.alegraItemId})`);
-          }
-        }
-      }
-
-      let proveedorNombre, proveedorCedula, mappingFinal;
-
-      if (proveedorSeleccionado) {
-        proveedorNombre = proveedorSeleccionado.supplierName;
-        proveedorCedula = proveedorSeleccionado.supplierCedula;
-        mappingFinal = proveedorSeleccionado;
-      } else {
-        // ✅ NUEVO: Agrupar todos los productos sin mapping en un solo grupo
-        proveedorNombre = 'Sin_Proveedor';
-        proveedorCedula = 'SIN_PROVEEDOR';
-        mappingFinal = null;
-
-        console.warn(`⚠️ No se encontró mapping para código: ${faltante.producto_codigo}`);
-      }
+      // Obtener info del mapping si existe
+      const mappingInfo = faltante.mapping_id ? mappingsInfo.get(faltante.mapping_id) : null;
 
       // Crear o obtener proveedor
       if (!proveedoresMap.has(proveedorNombre)) {
         proveedoresMap.set(proveedorNombre, {
-          id: proveedorCedula, // Usar cédula como ID único
+          id: proveedorCedula,
           nombre: proveedorNombre,
           contacto: proveedorCedula,
           productos_faltantes: [],
@@ -1871,26 +1723,20 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
       const proveedor = proveedoresMap.get(proveedorNombre);
 
-      // 🔧 CORREGIDO: Usar nombre de Alegra del mapping si está disponible (más actualizado)
-      // Si no hay mapping, usar el nombre de la BD local
-      const nombreProducto = mappingFinal && mappingFinal.alegraName 
-        ? mappingFinal.alegraName 
-        : faltante.producto_nombre;
-
-      // Agregar producto faltante
+      // Agregar producto faltante con datos guardados
       proveedor.productos_faltantes.push({
-        nombre: nombreProducto, // 🔧 Usar nombre actualizado de Alegra si está disponible
+        nombre: mappingInfo?.alegraName || faltante.producto_nombre,
         codigo: faltante.producto_codigo,
-        alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo, // 🔧 ID de Alegra para asignaciones manuales
-        codigo_proveedor: mappingFinal ? mappingFinal.supplierCode : 'N/A', // Código del proveedor
+        alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo,
+        codigo_proveedor: mappingInfo?.supplierCode || 'N/A',
         cantidad_faltante: parseInt(faltante.total_faltante),
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
         tipo_faltante: faltante.tipo_faltante,
         clientes_afectados: faltante.clientes_afectados,
-        confianza_mapping: mappingFinal ? mappingFinal.confidence : 0, // Confianza del mapping
-        factor_conversion: mappingFinal ? (mappingFinal.factorConversion || 1) : 1, // Factor de conversión
-        precio_asignado: precioMasBajo, // 🆕 Precio del proveedor seleccionado
-        asignacion_automatica: proveedorSeleccionado !== null // 🆕 Indica si fue asignación automática
+        confianza_mapping: mappingInfo?.confidence || 0,
+        factor_conversion: mappingInfo?.factorConversion || 1,
+        precio_asignado: precioAsignado,
+        asignacion_automatica: asignacionTipo === 'automatica'
       });
 
       proveedor.total_productos++;
@@ -1899,14 +1745,14 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
     const proveedoresArray = Array.from(proveedoresMap.values());
 
-    // PASO 5: Estadísticas de mapping
+    // PASO 5: Estadísticas
     const totalProductos = faltantesResult.rows.length;
-    const productosConMapping = mappingResult.rows.length;
-    const productosInMapping = faltantesResult.rows.filter(f =>
-      mappingResult.rows.some(m => m.alegraReference === f.producto_codigo)
-    ).length;
+    const productosConAsignacion = faltantesResult.rows.filter(f => f.proveedor_asignado && f.proveedor_asignado !== 'Sin_Proveedor').length;
+    const productosAsignacionManual = faltantesResult.rows.filter(f => f.asignacion_tipo === 'manual').length;
+    const productosAsignacionAutomatica = faltantesResult.rows.filter(f => f.asignacion_tipo === 'automatica').length;
 
-    console.log(`✅ Reporte generado: ${proveedoresArray.length} proveedores, ${productosConMapping}/${totalProductos} productos mapeados`);
+    console.log(`✅ Reporte generado RÁPIDO: ${proveedoresArray.length} proveedores, ${productosConAsignacion}/${totalProductos} productos asignados`);
+    console.log(`   📊 ${productosAsignacionAutomatica} automáticas, ${productosAsignacionManual} manuales`);
 
     res.json({
       success: true,
@@ -1915,9 +1761,11 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       resumen: {
         total_productos_faltantes: totalProductos,
         total_cantidad_faltante: proveedoresArray.reduce((sum, p) => sum + p.total_cantidad, 0),
-        productos_con_mapping: productosInMapping,
-        productos_sin_mapping: totalProductos - productosInMapping,
-        porcentaje_mapping: Math.round((productosInMapping / totalProductos) * 100)
+        productos_con_asignacion: productosConAsignacion,
+        productos_sin_asignacion: totalProductos - productosConAsignacion,
+        asignaciones_manuales: productosAsignacionManual,
+        asignaciones_automaticas: productosAsignacionAutomatica,
+        porcentaje_asignado: totalProductos > 0 ? Math.round((productosConAsignacion / totalProductos) * 100) : 0
       }
     });
 
@@ -4555,9 +4403,22 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     console.log(`   alegraItemId: ${mapping.alegraItemId} (ID real de Alegra)`);
     console.log(`   alegraReference: ${mapping.alegraReference} (código interno)`);
 
+    // 4. 👤 ACTUALIZAR FALTANTES con asignación manual
+    const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
+    const faltantesActualizados = await asignarProveedorManual(
+      alegraReference,
+      alegraIdReal,
+      proveedor.name,
+      proveedor.identification || 'SIN_CEDULA',
+      mapping.id
+    );
+
+    console.log(`📋 ${faltantesActualizados} faltante(s) actualizados con asignación manual`);
+
     res.json({
       success: true,
       data: mapping,
+      faltantes_actualizados: faltantesActualizados,
       message: `Producto relacionado con ${proveedor.name}`
     });
 
@@ -4784,13 +4645,26 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
 
     console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
 
+    // 5. 👤 ACTUALIZAR FALTANTES con asignación manual
+    const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
+    const faltantesActualizados = await asignarProveedorManual(
+      alegraReference,
+      alegraIdReal,
+      nuevoProveedor.name,
+      nuevaCedula,
+      nuevoMapping.id
+    );
+
+    console.log(`📋 ${faltantesActualizados} faltante(s) actualizados con asignación manual`);
+
     res.json({
       success: true,
       data: {
         proveedorAnterior: mappingsExistentes.length > 0 ? mappingsExistentes[0].supplierName : 'Sin_Proveedor',
         nuevoProveedor: nuevoProveedor.name,
         mapping: nuevoMapping,
-        mappingsEliminados: mappingsExistentes.length
+        mappingsEliminados: mappingsExistentes.length,
+        faltantes_actualizados: faltantesActualizados
       },
       message: `Producto reasignado a ${nuevoProveedor.name}`
     });
