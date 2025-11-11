@@ -1640,7 +1640,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         MAX(f.proveedor_cedula) as proveedor_cedula,
         MAX(f.precio_asignado) as precio_asignado,
         MAX(f.asignacion_tipo) as asignacion_tipo,
-        MAX(f.mapping_id) as mapping_id
+        (array_agg(f.mapping_id ORDER BY f.fecha_asignacion DESC NULLS LAST))[1] as mapping_id
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
