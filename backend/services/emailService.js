@@ -385,7 +385,7 @@ class EmailService {
 
                     if (mejorMatch.similarityScore >= 80) {
                         const mapeoData = {
-                            supplierName: facturaData.emisor.nombre,
+                            supplierName: facturaData.emisor.nombre.trim(),
                             supplierCedula: facturaData.emisor.identificacion.numero,
                             supplierCode: producto.codigoProveedor,
                             supplierDesc: producto.descripcion,

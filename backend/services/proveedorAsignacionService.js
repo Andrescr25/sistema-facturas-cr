@@ -137,7 +137,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
         mapping_id = $4
       WHERE id = $5
     `, [
-      proveedorSeleccionado.supplierName,
+      proveedorSeleccionado.supplierName.trim(),
       proveedorSeleccionado.supplierCedula,
       precioAsignado,
       proveedorSeleccionado.mappingId,
@@ -185,7 +185,7 @@ async function asignarProveedorManual(productoCodigo, allegraId, proveedorNombre
       WHERE f.producto_id = p.id
         AND f.estado = 'pendiente'
         AND (p.codigo = $4 OR p.alegra_id = $5)
-    `, [proveedorNombre, proveedorCedula, mappingId, productoCodigo, allegraId]);
+    `, [proveedorNombre.trim(), proveedorCedula, mappingId, productoCodigo, allegraId]);
 
     console.log(`✅ ${result.rowCount} faltante(s) actualizados con asignación manual`);
 

@@ -171,7 +171,7 @@ router.post('/confirmar-producto', async (req, res) => {
         }
       },
       update: {
-        supplierName: producto.factura.proveedorNombre,
+        supplierName: producto.factura.proveedorNombre.trim(),
         supplierDesc: producto.descripcion,
         alegraItemId: alegraProduct.alegraId,
         alegraReference: alegraProduct.reference,
@@ -181,7 +181,7 @@ router.post('/confirmar-producto', async (req, res) => {
         timesUsed: { increment: 1 }
       },
       create: {
-        supplierName: producto.factura.proveedorNombre,
+        supplierName: producto.factura.proveedorNombre.trim(),
         supplierCedula: producto.factura.proveedorCedula,
         supplierCode: producto.codigoProveedor,
         supplierDesc: producto.descripcion,

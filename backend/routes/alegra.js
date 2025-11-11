@@ -4428,7 +4428,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
         }
       },
       update: {
-        supplierName: proveedor.name,
+        supplierName: proveedor.name.trim(),
         alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
         alegraReference: alegraReference,
         alegraName: productoAlegra?.name || alegraName,  // Usar nombre de Alegra si está disponible
@@ -4439,7 +4439,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
         }
       },
       create: {
-        supplierName: proveedor.name,
+        supplierName: proveedor.name.trim(),
         supplierCedula: proveedor.identification || 'SIN_CEDULA',
         supplierCode: alegraReference,
         supplierDesc: productoAlegra?.name || alegraName,
@@ -4462,7 +4462,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     const faltantesActualizados = await asignarProveedorManual(
       alegraReference,
       alegraIdReal,
-      proveedor.name,
+      proveedor.name.trim(),
       proveedor.identification || 'SIN_CEDULA',
       mapping.id
     );
@@ -4675,7 +4675,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     try {
       nuevoMapping = await prisma.supplierProductMapping.create({
         data: {
-          supplierName: nuevoProveedor.name,
+          supplierName: nuevoProveedor.name.trim(),
           supplierCedula: nuevaCedula,
           supplierCode: alegraReference,
           supplierDesc: productoAlegra?.name || alegraName,
@@ -4704,7 +4704,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     const faltantesActualizados = await asignarProveedorManual(
       alegraReference,
       alegraIdReal,
-      nuevoProveedor.name,
+      nuevoProveedor.name.trim(),
       nuevaCedula,
       nuevoMapping.id
     );

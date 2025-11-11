@@ -74,8 +74,8 @@ class DatabaseService {
                     numeroConsecutivo: facturaData.numeroConsecutivo,
                     fechaEmision: new Date(facturaData.fechaEmision.iso),
 
-                    // Información del proveedor
-                    proveedorNombre: facturaData.emisor.nombre,
+                    // Información del proveedor (con TRIM para evitar espacios)
+                    proveedorNombre: facturaData.emisor.nombre.trim(),
                     proveedorCedula: proveedorCedula,
                     proveedorEmail: facturaData.emisor.correoElectronico,
                     proveedorTelefono: facturaData.emisor.telefono?.numero,
@@ -281,7 +281,7 @@ class DatabaseService {
 
                 // Actualizar el mapeo existente (incluyendo origen si es automático)
                 const dataToUpdate = {
-                    supplierName: mappingData.supplierName,
+                    supplierName: mappingData.supplierName.trim(),
                     supplierDesc: mappingData.supplierDesc,
                     alegraItemId: mappingData.alegraItemId,
                     alegraReference: mappingData.alegraReference,
@@ -307,7 +307,7 @@ class DatabaseService {
             // Si no existe, crear nuevo mapeo
             const nuevoMapeo = await this.prisma.supplierProductMapping.create({
                 data: {
-                    supplierName: mappingData.supplierName,
+                    supplierName: mappingData.supplierName.trim(),
                     supplierCedula: mappingData.supplierCedula,
                     supplierCode: mappingData.supplierCode,
                     supplierDesc: mappingData.supplierDesc,
