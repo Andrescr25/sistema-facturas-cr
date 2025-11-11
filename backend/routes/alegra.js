@@ -1663,15 +1663,69 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       });
     }
 
-    // PASO 2: Agrupar faltantes por proveedor asignado (mucho más rápido)
+    // PASO 2: Asignar automáticamente productos sin asignación (faltantes antiguos)
     const proveedoresMap = new Map();
     
     console.log(`⚡ Usando asignaciones guardadas (RÁPIDO)`);
     
-    // Solo buscar mappings para productos SIN asignación guardada
+    // Buscar productos SIN asignación guardada
     const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
     if (productosSinAsignacion.length > 0) {
-      console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada, buscando mappings...`);
+      console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada`);
+      console.log(`🤖 Asignando automáticamente (solo esta vez)...`);
+      
+      const { asignarProveedorAutomatico } = require('../services/proveedorAsignacionService');
+      
+      // Asignar cada producto sin asignación
+      for (const producto of productosSinAsignacion) {
+        // Buscar todos los faltantes pendientes de este producto
+        const faltantesDelProducto = await query(`
+          SELECT f.id, f.producto_id
+          FROM faltantes f
+          JOIN productos p ON f.producto_id = p.id
+          WHERE p.codigo = $1
+            AND f.estado = 'pendiente'
+            AND f.proveedor_asignado IS NULL
+        `, [producto.producto_codigo]);
+        
+        // Asignar cada faltante
+        for (const faltante of faltantesDelProducto.rows) {
+          await asignarProveedorAutomatico(
+            faltante.id,
+            faltante.producto_id,
+            producto.producto_alegra_id,
+            producto.producto_codigo
+          );
+        }
+      }
+      
+      console.log(`✅ ${productosSinAsignacion.length} productos asignados automáticamente`);
+      console.log(`🔄 Recargando faltantes con asignaciones actualizadas...`);
+      
+      // Recargar faltantes ahora con asignaciones
+      const faltantesActualizados = await query(`
+        SELECT
+          p.codigo as producto_codigo,
+          p.alegra_id as producto_alegra_id,
+          p.nombre as producto_nombre,
+          SUM(f.cantidad_faltante) as total_faltante,
+          COUNT(f.id) as facturas_afectadas,
+          STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+          MAX(f.proveedor_asignado) as proveedor_asignado,
+          MAX(f.proveedor_cedula) as proveedor_cedula,
+          MAX(f.precio_asignado) as precio_asignado,
+          MAX(f.asignacion_tipo) as asignacion_tipo,
+          (array_agg(f.mapping_id ORDER BY f.fecha_asignacion DESC NULLS LAST))[1] as mapping_id
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE f.estado = 'pendiente'
+        GROUP BY p.codigo, p.alegra_id, p.nombre
+        ORDER BY total_faltante DESC
+      `);
+      
+      // Reemplazar con datos actualizados
+      faltantesResult.rows = faltantesActualizados.rows;
     }
 
     // PASO 3: Obtener mapping info solo para productos con asignación (mucho más rápido)
