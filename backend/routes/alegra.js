@@ -1353,25 +1353,25 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       const semanaDelAno = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
 
       try {
-        const nuevaFactura = await query(`
-          INSERT INTO facturas (
-            numero_factura, alegra_id, cliente_nombre, cliente_email,
-            fecha_emision, semana, mes, ano, total
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING id
-        `, [
-          facturaAlegra.data.numberTemplate?.formattedNumber || facturaId,
-          parseInt(facturaId),
-          facturaAlegra.data.client?.name || 'Cliente no especificado',
-          facturaAlegra.data.client?.email,
+      const nuevaFactura = await query(`
+    INSERT INTO facturas (
+      numero_factura, alegra_id, cliente_nombre, cliente_email, 
+      fecha_emision, semana, mes, ano, total
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id
+  `, [
+        facturaAlegra.data.numberTemplate?.formattedNumber || facturaId,
+        parseInt(facturaId),
+        facturaAlegra.data.client?.name || 'Cliente no especificado',
+        facturaAlegra.data.client?.email,
           fechaEmision,
           semanaDelAno,
-          parseInt(facturaAlegra.data.date?.split('-')[1]) || 1,
-          parseInt(facturaAlegra.data.date?.split('-')[0]) || 2025,
-          parseFloat(facturaAlegra.data.total || 0)
-        ]);
+        parseInt(facturaAlegra.data.date?.split('-')[1]) || 1,
+        parseInt(facturaAlegra.data.date?.split('-')[0]) || 2025,
+        parseFloat(facturaAlegra.data.total || 0)
+      ]);
 
-        facturaLocalId = nuevaFactura.rows[0].id;
+      facturaLocalId = nuevaFactura.rows[0].id;
         console.log(`✅ Factura ${facturaId} creada en BD local con ID: ${facturaLocalId}`);
 
       } catch (insertError) {
@@ -1381,7 +1381,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(facturaId)]);
           if (facturaLocal.rows.length > 0) {
             facturaLocalId = facturaLocal.rows[0].id;
-          } else {
+    } else {
             throw insertError; // Si aún no existe, lanzar el error original
           }
         } else {
@@ -1464,19 +1464,19 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
         productoLocal = await query(`
           SELECT id, codigo, nombre, alegra_id FROM productos 
-          WHERE codigo = $1 
-             OR codigo = $2
-             OR nombre ILIKE $3
-          ORDER BY 
-            CASE 
+        WHERE codigo = $1 
+           OR codigo = $2
+           OR nombre ILIKE $3
+        ORDER BY 
+          CASE 
               WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Reference Y nombre coinciden
               WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Alegra ID Y nombre coinciden (fallback)
               WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con reference (sin nombre)
               WHEN codigo = $2 THEN 3                        -- Coincidencia con alegra_id (sin nombre, menos confiable)
               WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
               ELSE 5 
-            END
-          LIMIT 1
+          END
+        LIMIT 1
         `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
       }
 
@@ -1538,7 +1538,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         if (allegraIdEntero !== null && !productoEncontrado.alegra_id) {
           console.log(`🔄 Asignando alegra_id=${allegraIdEntero} al producto (antes era NULL)`);
           await query(`
-            UPDATE productos
+            UPDATE productos 
             SET alegra_id = $1
             WHERE id = $2
           `, [allegraIdEntero, productoId]);
@@ -1615,7 +1615,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
     // PASO 1: Obtener faltantes de la BD local
     const faltantesResult = await query(`
-      SELECT
+      SELECT 
         p.codigo as producto_codigo,
         p.alegra_id as producto_alegra_id,
         p.nombre as producto_nombre,
@@ -1659,10 +1659,10 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
 
     // PASO 3: Buscar mapping en Supabase (ya no en BD externa)
     const mappingResult = await query(`
-      SELECT
+      SELECT 
         id,
         supplier_name as "supplierName",
-        supplier_cedula as "supplierCedula",
+        supplier_cedula as "supplierCedula", 
         supplier_code as "supplierCode",
         supplier_desc as "supplierDesc",
         alegra_reference as "alegraReference",
@@ -1670,7 +1670,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         alegra_item_id as "alegraItemId",
         confidence,
         factor_conversion as "factorConversion"
-      FROM supplier_product_mapping
+      FROM supplier_product_mapping 
       WHERE (
         array_length($1::text[], 1) IS NOT NULL
         AND alegra_item_id::text = ANY($1::text[])
@@ -4444,49 +4444,71 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
 
     const prisma = require('../lib/prisma');
 
-    // 1. 🔍 BUSCAR PRODUCTO EN ALEGRA PARA OBTENER EL ID REAL
-    // Esto evita confusiones entre ID y reference (problema "envase vs cable")
-    console.log(`🔍 Buscando producto en Alegra con reference="${alegraReference}"...`);
+    // 1. 🔍 OBTENER ID REAL DEL PRODUCTO
+    // Si alegraItemId es numérico, es el ID real de Alegra → Obtener producto directamente
+    // Si NO es numérico, es un fallback al código → Buscar por reference
+    console.log(`🔍 Validando alegraItemId recibido: ${alegraItemId} (tipo: ${typeof alegraItemId})`);
     
     let productoAlegra;
     let alegraIdReal;
     
-    try {
-      // Buscar por reference en Alegra
-      const itemsResponse = await alegraService.api.get('/items', {
-        params: {
-          query: alegraReference,
-          limit: 30
-        }
-      });
+    const esIdNumerico = /^\d+$/.test(alegraItemId?.toString());
+    
+    if (esIdNumerico) {
+      // CASO 1: alegraItemId es un número → Es el ID real de Alegra
+      console.log(`✅ alegraItemId es numérico (${alegraItemId}) → Obteniendo producto directamente...`);
       
-      // Buscar coincidencia exacta por reference
-      const items = itemsResponse.data;
-      productoAlegra = items.find(item => {
-        // Comparar reference (puede ser string o objeto en Costa Rica)
-        const itemReference = typeof item.reference === 'object' 
-          ? item.reference?.reference 
-          : item.reference;
-        
-        return itemReference === alegraReference;
-      });
-      
-      if (productoAlegra) {
+      try {
+        const response = await alegraService.api.get(`/items/${alegraItemId}`);
+        productoAlegra = response.data;
         alegraIdReal = productoAlegra.id;
-        console.log(`✅ Producto encontrado en Alegra:`);
-        console.log(`   ID real: ${alegraIdReal}`);
-        console.log(`   Reference: ${alegraReference}`);
+        
+        console.log(`✅ Producto obtenido de Alegra:`);
+        console.log(`   ID: ${alegraIdReal}`);
+        console.log(`   Reference: ${productoAlegra.reference?.reference || productoAlegra.reference}`);
         console.log(`   Nombre: ${productoAlegra.name}`);
-      } else {
-        // Si no se encuentra por reference exacto, usar el ID recibido como fallback
-        console.warn(`⚠️ No se encontró producto con reference="${alegraReference}" en Alegra`);
+      } catch (error) {
+        console.error(`❌ Error obteniendo producto ${alegraItemId}:`, error.response?.data?.message || error.message);
+        console.warn(`   Usando alegraItemId como fallback: ${alegraItemId}`);
+        alegraIdReal = alegraItemId;
+      }
+    } else {
+      // CASO 2: alegraItemId NO es numérico → Es un código, buscar por reference
+      console.log(`⚠️ alegraItemId NO es numérico ("${alegraItemId}") → Buscando por reference...`);
+      
+      try {
+        const itemsResponse = await alegraService.api.get('/items', {
+          params: {
+            query: alegraReference,
+            limit: 30
+          }
+        });
+        
+        const items = itemsResponse.data;
+        productoAlegra = items.find(item => {
+          const itemReference = typeof item.reference === 'object' 
+            ? item.reference?.reference 
+            : item.reference;
+          
+          return itemReference === alegraReference;
+        });
+        
+        if (productoAlegra) {
+          alegraIdReal = productoAlegra.id;
+          console.log(`✅ Producto encontrado en Alegra:`);
+          console.log(`   ID real: ${alegraIdReal}`);
+          console.log(`   Reference: ${alegraReference}`);
+          console.log(`   Nombre: ${productoAlegra.name}`);
+        } else {
+          console.warn(`⚠️ No se encontró producto con reference="${alegraReference}"`);
+          console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+          alegraIdReal = alegraItemId;
+        }
+      } catch (searchError) {
+        console.error(`❌ Error buscando producto:`, searchError.message);
         console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
         alegraIdReal = alegraItemId;
       }
-    } catch (searchError) {
-      console.error(`❌ Error buscando producto en Alegra:`, searchError.message);
-      console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
-      alegraIdReal = alegraItemId;
     }
 
     // 2. Obtener información del proveedor de Alegra
@@ -4592,44 +4614,69 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       });
     }
 
-    // 2. 🔍 BUSCAR PRODUCTO EN ALEGRA PARA OBTENER EL ID REAL
-    console.log(`🔍 Buscando producto en Alegra con reference="${alegraReference}"...`);
+    // 2. 🔍 OBTENER ID REAL DEL PRODUCTO
+    console.log(`🔍 Validando alegraItemId recibido: ${alegraItemId} (tipo: ${typeof alegraItemId})`);
     
     let productoAlegra;
     let alegraIdReal;
     
-    try {
-      const itemsResponse = await alegraService.api.get('/items', {
-        params: {
-          query: alegraReference,
-          limit: 30
-        }
-      });
+    const esIdNumerico = /^\d+$/.test(alegraItemId?.toString());
+    
+    if (esIdNumerico) {
+      // CASO 1: alegraItemId es un número → Es el ID real de Alegra
+      console.log(`✅ alegraItemId es numérico (${alegraItemId}) → Obteniendo producto directamente...`);
       
-      const items = itemsResponse.data;
-      productoAlegra = items.find(item => {
-        const itemReference = typeof item.reference === 'object' 
-          ? item.reference?.reference 
-          : item.reference;
-        
-        return itemReference === alegraReference;
-      });
-      
-      if (productoAlegra) {
+      try {
+        const response = await alegraService.api.get(`/items/${alegraItemId}`);
+        productoAlegra = response.data;
         alegraIdReal = productoAlegra.id;
-        console.log(`✅ Producto encontrado en Alegra:`);
-        console.log(`   ID real: ${alegraIdReal}`);
-        console.log(`   Reference: ${alegraReference}`);
+        
+        console.log(`✅ Producto obtenido de Alegra:`);
+        console.log(`   ID: ${alegraIdReal}`);
+        console.log(`   Reference: ${productoAlegra.reference?.reference || productoAlegra.reference}`);
         console.log(`   Nombre: ${productoAlegra.name}`);
-      } else {
-        console.warn(`⚠️ No se encontró producto con reference="${alegraReference}" en Alegra`);
+      } catch (error) {
+        console.error(`❌ Error obteniendo producto ${alegraItemId}:`, error.response?.data?.message || error.message);
+        console.warn(`   Usando alegraItemId como fallback: ${alegraItemId}`);
+        alegraIdReal = alegraItemId || alegraReference;
+      }
+    } else {
+      // CASO 2: alegraItemId NO es numérico → Es un código, buscar por reference
+      console.log(`⚠️ alegraItemId NO es numérico ("${alegraItemId}") → Buscando por reference...`);
+      
+      try {
+        const itemsResponse = await alegraService.api.get('/items', {
+          params: {
+            query: alegraReference,
+            limit: 30
+          }
+        });
+        
+        const items = itemsResponse.data;
+        productoAlegra = items.find(item => {
+          const itemReference = typeof item.reference === 'object' 
+            ? item.reference?.reference 
+            : item.reference;
+          
+          return itemReference === alegraReference;
+        });
+        
+        if (productoAlegra) {
+          alegraIdReal = productoAlegra.id;
+          console.log(`✅ Producto encontrado en Alegra:`);
+          console.log(`   ID real: ${alegraIdReal}`);
+          console.log(`   Reference: ${alegraReference}`);
+          console.log(`   Nombre: ${productoAlegra.name}`);
+        } else {
+          console.warn(`⚠️ No se encontró producto con reference="${alegraReference}"`);
+          console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
+          alegraIdReal = alegraItemId || alegraReference;
+        }
+      } catch (searchError) {
+        console.error(`❌ Error buscando producto:`, searchError.message);
         console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
         alegraIdReal = alegraItemId || alegraReference;
       }
-    } catch (searchError) {
-      console.error(`❌ Error buscando producto en Alegra:`, searchError.message);
-      console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
-      alegraIdReal = alegraItemId || alegraReference;
     }
 
     // 3. Obtener información del nuevo proveedor de Alegra
