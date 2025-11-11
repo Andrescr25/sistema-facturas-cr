@@ -1881,6 +1881,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       proveedor.productos_faltantes.push({
         nombre: nombreProducto, // 🔧 Usar nombre actualizado de Alegra si está disponible
         codigo: faltante.producto_codigo,
+        alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo, // 🔧 ID de Alegra para asignaciones manuales
         codigo_proveedor: mappingFinal ? mappingFinal.supplierCode : 'N/A', // Código del proveedor
         cantidad_faltante: parseInt(faltante.total_faltante),
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
