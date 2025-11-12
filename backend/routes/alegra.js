@@ -1410,13 +1410,44 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         continue; // Saltar faltantes inválidos
       }
 
-      // 🔧 CORREGIDO: Obtener el reference del item desde la factura de Alegra
-      // El item_id puede ser el alegra_id (item.id) o la reference (item.reference)
-      // Necesitamos obtener ambos para buscar correctamente en productos locales
+      // ═══════════════════════════════════════════════════════════════════════════════
+      // 📚 CONCEPTOS CLAVE: alegra_id vs reference
+      // ═══════════════════════════════════════════════════════════════════════════════
+      // 
+      // ALEGRA maneja 2 identificadores por producto:
+      //
+      // 1️⃣ alegra_id (item.id): ID numérico único generado por Alegra
+      //    Ejemplo: 900, 885, 101, 868, 870
+      //    - Es el identificador INTERNO de Alegra
+      //    - Se usa en URLs: /items/900
+      //    - Es ÚNICO y NO cambia nunca
+      //
+      // 2️⃣ reference (item.reference.reference): Código interno definido por el usuario
+      //    Ejemplo: "SED", "PY2", "ESP", "0568", "305"
+      //    - Es el código que TÚ defines para tu inventario
+      //    - Es el que usas en tus mappings con proveedores
+      //    - Puede ser diferente al alegra_id (ej: alegra_id=900, reference="SED")
+      //
+      // ⚠️ PROBLEMA: En las facturas, Alegra NO incluye el reference en los items
+      //    Solo incluye el alegra_id (item.id)
+      //
+      // ✅ SOLUCIÓN: 
+      //    - Buscar producto en BD local por alegra_id
+      //    - Usar el "codigo" (reference) de la BD local para buscar mappings
+      //    - Si es producto nuevo, consultar API de Alegra para obtener el reference real
+      //
+      // ═══════════════════════════════════════════════════════════════════════════════
+      
       let itemReference = item_id; // Por defecto usar el item_id recibido
       let itemAlegraId = item_id;
       
-      // Buscar el item en la factura de Alegra para obtener su reference
+      // ─────────────────────────────────────────────────────────────────────────────
+      // PASO 1: Intentar obtener el reference desde la factura de Alegra
+      // ─────────────────────────────────────────────────────────────────────────────
+      // ⚠️ NOTA: En la mayoría de los casos, reference vendrá NULL en las facturas
+      //    Esto es normal en Alegra. Por eso después consultamos la API.
+      // ─────────────────────────────────────────────────────────────────────────────
+      
       const itemEnFactura = facturaAlegra.data.items?.find(item => 
         item.id?.toString() === item_id || 
         item.reference === item_id ||
@@ -1424,14 +1455,14 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       );
       
       if (itemEnFactura) {
-        // Priorizar reference sobre id
-        // El reference puede ser string o objeto con propiedad reference
+        // El reference puede venir como string o como objeto { type, reference }
         if (typeof itemEnFactura.reference === 'string') {
           itemReference = itemEnFactura.reference;
         } else if (itemEnFactura.reference?.reference) {
           itemReference = itemEnFactura.reference.reference;
         } else {
-          // Si no hay reference, usar el id como fallback (pero es menos confiable)
+          // ⚠️ Reference viene NULL → usamos el ID temporalmente
+          // Después consultaremos la API de Alegra si es necesario
           itemReference = itemEnFactura.id?.toString() || item_id;
         }
         itemAlegraId = itemEnFactura.id?.toString() || item_id;
@@ -1444,7 +1475,25 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
       let productoLocal;
 
-      // ✅ PRIMERA OPCIÓN: Buscar por alegra_id (ID único en Alegra)
+      // ─────────────────────────────────────────────────────────────────────────────
+      // PASO 2: Buscar el producto en la base de datos LOCAL
+      // ─────────────────────────────────────────────────────────────────────────────
+      // ESTRATEGIA DE BÚSQUEDA:
+      //
+      // 🥇 OPCIÓN 1 (MEJOR): Buscar por alegra_id
+      //    - Es el método más confiable
+      //    - El alegra_id es único y nunca cambia
+      //    - Ejemplo: alegra_id=900 → Encuentra "SERVILLETA" con codigo="SED"
+      //
+      // 🥈 OPCIÓN 2 (FALLBACK): Buscar por codigo (reference)
+      //    - Útil si el producto no tiene alegra_id asignado
+      //    - Menos confiable porque el reference puede cambiar
+      //
+      // 🥉 OPCIÓN 3 (ÚLTIMO RECURSO): Buscar por nombre
+      //    - Solo si no hay código
+      // ─────────────────────────────────────────────────────────────────────────────
+      
+      // ✅ OPCIÓN 1: Buscar por alegra_id (ID único en Alegra)
       if (allegraIdEntero !== null) {
         productoLocal = await query(`
           SELECT id, codigo, nombre, alegra_id FROM productos 
@@ -1507,12 +1556,35 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       }
 
       let productoId;
-      let codigoReferenceParaMapping; // ✅ Variable para guardar el reference correcto
+      let codigoReferenceParaMapping; // ✅ CRÍTICO: Esta variable guarda el reference REAL para buscar mappings
       
       if (productoLocal.rows.length === 0) {
+        // ─────────────────────────────────────────────────────────────────────────────
+        // CASO A: PRODUCTO NUEVO (no existe en BD local)
+        // ─────────────────────────────────────────────────────────────────────────────
         console.log(`➕ Producto nuevo detectado: "${nombre_producto}"`);
         
-        // 🔍 CRÍTICO: Si el reference no vino en la factura, consultar API de Alegra
+        // ═════════════════════════════════════════════════════════════════════════════
+        // 🔍 PASO CRÍTICO: Obtener el reference REAL de Alegra
+        // ═════════════════════════════════════════════════════════════════════════════
+        //
+        // PROBLEMA: Las facturas NO incluyen el reference en los items
+        //           Solo traen el alegra_id (item.id)
+        //
+        // SOLUCIÓN: Consultar la API de Alegra: GET /items/{id}
+        //           Esto nos da el reference real del producto
+        //
+        // EJEMPLO:
+        //   item_id = 900 (recibido del frontend)
+        //   GET /items/900 → { id: 900, reference: { reference: "SED" } }
+        //   reference REAL = "SED" (NO "900")
+        //
+        // ¿POR QUÉ ES IMPORTANTE?
+        //   Los mappings en supplier_product_mapping usan el reference ("SED")
+        //   Si guardamos el ID ("900"), no encontrará el mapping del proveedor
+        //
+        // ═════════════════════════════════════════════════════════════════════════════
+        
         let referenceReal = itemReference;
         if (allegraIdEntero && itemReference === itemAlegraId) {
           console.log(`🔍 Reference no disponible en factura, consultando API de Alegra para producto ${allegraIdEntero}...`);
@@ -1522,7 +1594,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
             const productoAlegra = await alegraServiceInstance.getItem(allegraIdEntero);
             
             if (productoAlegra && productoAlegra.reference) {
-              // Extraer reference correcto (puede ser string u objeto)
+              // El reference puede venir como string o como objeto { type, reference }
               if (typeof productoAlegra.reference === 'string') {
                 referenceReal = productoAlegra.reference;
               } else if (productoAlegra.reference?.reference) {
@@ -1557,14 +1629,36 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
         console.log(`✅ Producto creado con ID: ${productoId}, código: "${codigoReferenceParaMapping}" (reference real de Alegra)`);
       } else {
+        // ─────────────────────────────────────────────────────────────────────────────
+        // CASO B: PRODUCTO EXISTENTE (ya está en BD local)
+        // ─────────────────────────────────────────────────────────────────────────────
         productoId = productoLocal.rows[0].id;
         const productoEncontrado = productoLocal.rows[0];
-        codigoReferenceParaMapping = productoEncontrado.codigo; // ✅ CLAVE: Usar el código de la BD, NO el itemReference
+        
+        // ═════════════════════════════════════════════════════════════════════════════
+        // 🔑 CLAVE: Usar el "codigo" de la BD local, NO el itemReference de la factura
+        // ═════════════════════════════════════════════════════════════════════════════
+        //
+        // CORRECTO: codigoReferenceParaMapping = productoEncontrado.codigo (ej: "SED")
+        // ❌ MAL:   codigoReferenceParaMapping = itemReference (ej: "900")
+        //
+        // RAZÓN: El producto en BD ya tiene el reference correcto guardado
+        //        La factura solo trae el alegra_id, no el reference
+        //
+        // EJEMPLO:
+        //   Producto en BD: { id: 88, codigo: "SED", alegra_id: 900 }
+        //   Factura trae: item_id = 900
+        //   itemReference = "900" (porque reference viene null en factura)
+        //   ✅ Usamos: "SED" (de la BD)
+        //   ❌ NO usar: "900" (de la factura)
+        //
+        // ═════════════════════════════════════════════════════════════════════════════
+        
+        codigoReferenceParaMapping = productoEncontrado.codigo;
         
         console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}", alegra_id="${productoEncontrado.alegra_id || 'NULL'}"`);
 
-        // ✅ CORREGIDO: Solo actualizar alegra_id si está NULL, NUNCA actualizar el código (reference)
-        // El código (reference) es único por producto y no debe cambiar
+        // Actualizar alegra_id si está NULL (solo la primera vez)
         if (allegraIdEntero !== null && !productoEncontrado.alegra_id) {
           console.log(`🔄 Asignando alegra_id=${allegraIdEntero} al producto (antes era NULL)`);
           await query(`
@@ -1574,8 +1668,10 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           `, [allegraIdEntero, productoId]);
         }
         
-        // ⚠️ NO actualizar el código (reference) porque puede ser diferente al alegra_id
-        // Ejemplo: ENVASE PLASTICO tiene alegra_id=705 pero reference="2016"
+        // ⚠️ IMPORTANTE: NUNCA actualizar el código (reference)
+        //    El código es único por producto y NO debe cambiar
+        //    Puede ser diferente al alegra_id
+        //    Ejemplo: ENVASE PLASTICO tiene alegra_id=705 pero reference="2016"
       }
 
 
@@ -1598,13 +1694,21 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
 
       const faltanteId = nuevoFaltante.rows[0].id;
 
-      // 🤖 NUEVO: Asignar automáticamente proveedor basado en precio más bajo
+      // ─────────────────────────────────────────────────────────────────────────────
+      // PASO 3: Asignar proveedor automáticamente
+      // ─────────────────────────────────────────────────────────────────────────────
+      // Esta función busca en supplier_product_mapping usando:
+      //   - alegra_item_id (ej: 900)  O
+      //   - alegra_reference (ej: "SED")
+      //
+      // Y encuentra el proveedor con el precio más bajo
+      // ─────────────────────────────────────────────────────────────────────────────
       const { asignarProveedorAutomatico } = require('../services/proveedorAsignacionService');
       const asignacionResult = await asignarProveedorAutomatico(
         faltanteId,
         productoId,
-        allegraIdEntero,
-        codigoReferenceParaMapping  // ✅ CRÍTICO: usar el código de la BD, NO el itemReference de la factura
+        allegraIdEntero,           // alegra_id: 900
+        codigoReferenceParaMapping // reference: "SED" ✅ CRÍTICO: el código REAL, NO el ID
       );
 
       faltantesRegistrados.push({

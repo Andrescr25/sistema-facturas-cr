@@ -2,18 +2,45 @@ const { query } = require('../config/database');
 const prisma = require('../lib/prisma');
 
 /**
+ * ═════════════════════════════════════════════════════════════════════════════
  * Asignar automáticamente proveedor a un faltante basado en precio más bajo
- * @param {number} faltanteId - ID del faltante
- * @param {number} productoId - ID del producto local
- * @param {number} allegraId - ID del producto en Alegra
- * @param {string} productoCodigo - Código/reference del producto
- * @returns {Promise<Object>} Información de la asignación
+ * ═════════════════════════════════════════════════════════════════════════════
+ * 
+ * Esta función busca TODOS los proveedores que tienen el producto y selecciona
+ * el que tiene el precio más bajo.
+ * 
+ * @param {number} faltanteId - ID del faltante en la tabla faltantes
+ * @param {number} productoId - ID del producto en la tabla productos (BD local)
+ * @param {number} allegraId - ID del producto en Alegra (ej: 900)
+ * @param {string} productoCodigo - Código/reference del producto (ej: "SED")
+ * 
+ * @returns {Promise<Object>} { success, proveedor, precio }
+ * 
+ * ═════════════════════════════════════════════════════════════════════════════
+ * IMPORTANTE: productoCodigo debe ser el REFERENCE real, NO el alegra_id
+ * ═════════════════════════════════════════════════════════════════════════════
+ * 
+ * ✅ CORRECTO: asignarProveedorAutomatico(1, 88, 900, "SED")
+ * ❌ MAL:      asignarProveedorAutomatico(1, 88, 900, "900")
+ * 
+ * RAZÓN: Los mappings en supplier_product_mapping usan el reference ("SED")
+ *        no el alegra_id ("900")
+ * 
+ * ═════════════════════════════════════════════════════════════════════════════
  */
 async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, productoCodigo) {
   try {
     console.log(`🤖 Asignación automática para faltante ${faltanteId} (producto: ${productoCodigo})`);
 
-    // 1. Buscar todos los mappings del producto
+    // ─────────────────────────────────────────────────────────────────────────
+    // PASO 1: Buscar TODOS los mappings del producto
+    // ─────────────────────────────────────────────────────────────────────────
+    // Buscamos por:
+    //   - alegra_item_id: El ID numérico de Alegra (ej: 900)
+    //   - alegra_reference: El código interno del producto (ej: "SED")
+    //
+    // ¿Por qué ambos? Porque algunos mappings usan uno u otro
+    // ─────────────────────────────────────────────────────────────────────────
     const mappings = await query(`
       SELECT
         id,
@@ -40,7 +67,12 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
 
     console.log(`📋 Encontrados ${mappings.rows.length} mappings`);
 
-    // 2. Para cada mapping, obtener el precio más reciente
+    // ─────────────────────────────────────────────────────────────────────────
+    // PASO 2: Para cada mapping (proveedor), obtener el precio más reciente
+    // ─────────────────────────────────────────────────────────────────────────
+    // Los precios se obtienen de la tabla productoFactura (facturas de proveedores)
+    // Se busca la última factura que usó ese mapping
+    // ─────────────────────────────────────────────────────────────────────────
     const proveedoresConPrecios = [];
 
     for (const mapping of mappings.rows) {
@@ -99,7 +131,14 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
       }
     }
 
-    // 3. Seleccionar proveedor con precio más bajo
+    // ─────────────────────────────────────────────────────────────────────────
+    // PASO 3: Seleccionar el proveedor con el precio MÁS BAJO
+    // ─────────────────────────────────────────────────────────────────────────
+    // Criterio de selección:
+    //   1. Si hay precios: El de menor precio
+    //   2. En caso de empate: El de mayor confianza (confidence)
+    //   3. Si nadie tiene precio: El de mayor confianza
+    // ─────────────────────────────────────────────────────────────────────────
     const proveedoresConPrecio = proveedoresConPrecios.filter(p => p.precio !== null && p.precio > 0);
 
     let proveedorSeleccionado;
@@ -109,9 +148,9 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
       // Ordenar por precio (ascendente) y confianza (descendente) como desempate
       proveedoresConPrecio.sort((a, b) => {
         if (a.precio !== b.precio) {
-          return a.precio - b.precio;
+          return a.precio - b.precio; // Menor precio primero
         }
-        return b.confidence - a.confidence;
+        return b.confidence - a.confidence; // Mayor confianza como desempate
       });
 
       proveedorSeleccionado = proveedoresConPrecio[0];
@@ -125,7 +164,18 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
 
     console.log(`✅ Proveedor seleccionado: ${proveedorSeleccionado.supplierName} ${precioAsignado ? `(₡${precioAsignado.toFixed(2)})` : '(sin precio)'}`);
 
-    // 4. Actualizar el faltante con la asignación
+    // ─────────────────────────────────────────────────────────────────────────
+    // PASO 4: Guardar la asignación en la tabla faltantes
+    // ─────────────────────────────────────────────────────────────────────────
+    // Se guarda:
+    //   - proveedor_asignado: Nombre del proveedor
+    //   - proveedor_cedula: Cédula del proveedor
+    //   - precio_asignado: Precio más bajo encontrado
+    //   - asignacion_tipo: 'automatica' (vs 'manual')
+    //   - mapping_id: ID del mapping usado
+    //
+    // Esto hace que el reporte sea RÁPIDO (no recalcula cada vez)
+    // ─────────────────────────────────────────────────────────────────────────
     await query(`
       UPDATE faltantes
       SET 
