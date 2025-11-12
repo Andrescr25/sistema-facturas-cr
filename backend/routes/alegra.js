@@ -1510,10 +1510,35 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       let codigoReferenceParaMapping; // ✅ Variable para guardar el reference correcto
       
       if (productoLocal.rows.length === 0) {
-        console.log(`➕ Creando nuevo producto: "${nombre_producto}" con reference "${itemReference}" y alegra_id="${itemAlegraId}"`);
+        console.log(`➕ Producto nuevo detectado: "${nombre_producto}"`);
+        
+        // 🔍 CRÍTICO: Si el reference no vino en la factura, consultar API de Alegra
+        let referenceReal = itemReference;
+        if (allegraIdEntero && itemReference === itemAlegraId) {
+          console.log(`🔍 Reference no disponible en factura, consultando API de Alegra para producto ${allegraIdEntero}...`);
+          try {
+            const AlegraService = require('../services/alegraService');
+            const alegraServiceInstance = new AlegraService();
+            const productoAlegra = await alegraServiceInstance.getItem(allegraIdEntero);
+            
+            if (productoAlegra && productoAlegra.reference) {
+              // Extraer reference correcto (puede ser string u objeto)
+              if (typeof productoAlegra.reference === 'string') {
+                referenceReal = productoAlegra.reference;
+              } else if (productoAlegra.reference?.reference) {
+                referenceReal = productoAlegra.reference.reference;
+              }
+              console.log(`✅ Reference obtenido de Alegra: "${referenceReal}"`);
+            }
+          } catch (error) {
+            console.warn(`⚠️ No se pudo obtener reference de Alegra para producto ${allegraIdEntero}:`, error.message);
+            console.warn(`   Se usará el ID (${itemAlegraId}) como fallback`);
+          }
+        }
+        
+        console.log(`➕ Creando producto: "${nombre_producto}" con reference "${referenceReal}" y alegra_id="${itemAlegraId}"`);
 
         // Crear producto con la referencia e ID de Alegra correctos
-        // CORREGIDO: proveedor_id NULL para evitar error de foreign key
         const alegraIdParaInsert = allegraIdEntero !== null ? allegraIdEntero : null;
         const nuevoProducto = await query(`
           INSERT INTO productos (alegra_id, nombre, codigo, descripcion, proveedor_id, precio_unitario)
@@ -1521,16 +1546,16 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           RETURNING id, codigo
         `, [
           alegraIdParaInsert,
-          nombre_producto || `Producto ${itemReference}`,
-          itemReference, // Guardar reference en código
+          nombre_producto || `Producto ${referenceReal}`,
+          referenceReal, // ✅ CRÍTICO: Guardar reference REAL (ej: "SED"), no el ID (ej: "900")
           `Producto creado desde registro de faltantes - ID Alegra: ${itemAlegraId}`,
-          null, // NULL si no hay proveedor por defecto
+          null,
           0
         ]);
         productoId = nuevoProducto.rows[0].id;
-        codigoReferenceParaMapping = nuevoProducto.rows[0].codigo; // ✅ Usar el código que se guardó
+        codigoReferenceParaMapping = nuevoProducto.rows[0].codigo;
 
-        console.log(`✅ Producto creado con ID: ${productoId}, código: "${codigoReferenceParaMapping}"`);
+        console.log(`✅ Producto creado con ID: ${productoId}, código: "${codigoReferenceParaMapping}" (reference real de Alegra)`);
       } else {
         productoId = productoLocal.rows[0].id;
         const productoEncontrado = productoLocal.rows[0];

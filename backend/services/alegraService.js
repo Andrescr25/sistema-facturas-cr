@@ -279,6 +279,21 @@ class AlegraService {
     }
 
     /**
+     * Obtener un producto específico de Alegra por ID
+     */
+    async getItem(alegraItemId) {
+        try {
+            console.log(`🔍 Obteniendo producto ${alegraItemId} de Alegra...`);
+            const response = await this.api.get(`/items/${alegraItemId}`);
+            console.log(`✅ Producto obtenido: ${response.data.name}`);
+            return response.data;
+        } catch (error) {
+            console.error(`❌ Error obteniendo producto ${alegraItemId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Actualizar precio de producto
      */
     async updateProductPrice(alegraItemId, newPrice) {
