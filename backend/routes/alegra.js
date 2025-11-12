@@ -1507,6 +1507,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       }
 
       let productoId;
+      let codigoReferenceParaMapping; // ✅ Variable para guardar el reference correcto
+      
       if (productoLocal.rows.length === 0) {
         console.log(`➕ Creando nuevo producto: "${nombre_producto}" con reference "${itemReference}" y alegra_id="${itemAlegraId}"`);
 
@@ -1516,7 +1518,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         const nuevoProducto = await query(`
           INSERT INTO productos (alegra_id, nombre, codigo, descripcion, proveedor_id, precio_unitario)
           VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING id
+          RETURNING id, codigo
         `, [
           alegraIdParaInsert,
           nombre_producto || `Producto ${itemReference}`,
@@ -1526,11 +1528,14 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           0
         ]);
         productoId = nuevoProducto.rows[0].id;
+        codigoReferenceParaMapping = nuevoProducto.rows[0].codigo; // ✅ Usar el código que se guardó
 
-        console.log(`✅ Producto creado con ID: ${productoId}`);
+        console.log(`✅ Producto creado con ID: ${productoId}, código: "${codigoReferenceParaMapping}"`);
       } else {
         productoId = productoLocal.rows[0].id;
         const productoEncontrado = productoLocal.rows[0];
+        codigoReferenceParaMapping = productoEncontrado.codigo; // ✅ CLAVE: Usar el código de la BD, NO el itemReference
+        
         console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}", alegra_id="${productoEncontrado.alegra_id || 'NULL'}"`);
 
         // ✅ CORREGIDO: Solo actualizar alegra_id si está NULL, NUNCA actualizar el código (reference)
@@ -1574,7 +1579,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         faltanteId,
         productoId,
         allegraIdEntero,
-        itemReference  // ✅ CORREGIDO: usar itemReference (código real) en lugar de item_id
+        codigoReferenceParaMapping  // ✅ CRÍTICO: usar el código de la BD, NO el itemReference de la factura
       );
 
       faltantesRegistrados.push({
