@@ -1574,7 +1574,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         faltanteId,
         productoId,
         allegraIdEntero,
-        faltante.item_id
+        itemReference  // ✅ CORREGIDO: usar itemReference (código real) en lugar de item_id
       );
 
       faltantesRegistrados.push({
