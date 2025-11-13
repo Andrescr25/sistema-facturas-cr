@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const AlegraService = require('../services/alegraService');
+const { query } = require('../config/database');
 const multer = require('multer');
 
 const prisma = new PrismaClient({ log: ['error'] });
@@ -700,10 +701,37 @@ router.delete('/:mapeoId/relacion', async (req, res) => {
 
         console.log(`✅ ${resultado.count} productos actualizados a PENDIENTE`);
 
+        // 4️⃣ Limpiar referencia en faltantes (si existiera)
+        const faltantesActualizados = await query(
+            `
+            UPDATE faltantes
+            SET 
+                mapping_id = NULL,
+                proveedor_asignado = NULL,
+                proveedor_cedula = NULL,
+                precio_asignado = NULL,
+                asignacion_tipo = NULL,
+                fecha_asignacion = NULL
+            WHERE mapping_id = $1
+            `,
+            [mapeoId]
+        );
+
+        if (faltantesActualizados.rowCount > 0) {
+            console.log(`🔄 ${faltantesActualizados.rowCount} faltante(s) limpiados (sin proveedor asignado)`);
+        }
+
+        // 5️⃣ Eliminar el mapping definitivamente
+        await prisma.supplierProductMapping.delete({
+            where: { id: mapeoId }
+        });
+
         res.json({
             success: true,
             message: `Relación eliminada exitosamente. ${resultado.count} producto(s) actualizado(s) a PENDIENTE`,
             productosAfectados: resultado.count,
+            faltantesActualizados: faltantesActualizados.rowCount,
+            mapeoEliminado: true,
             mapeoId: mapeoId
         });
     } catch (error) {
