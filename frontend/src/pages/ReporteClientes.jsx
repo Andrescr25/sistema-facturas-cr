@@ -36,9 +36,9 @@ export default function ReporteClientes() {
         const estadosMap = new Map()
         const ajustesMap = new Map()
 
-        result.data.forEach((cliente, clienteIndex) => {
-          cliente.facturas_con_faltantes.forEach((factura, facturaIndex) => {
-            const facturaKey = `${clienteIndex}-${facturaIndex}`
+        result.data.forEach((cliente) => {
+          cliente.facturas_con_faltantes.forEach((factura) => {
+            const facturaKey = getFacturaKey(factura)
 
             // Cargar estado de factura desde BD
             if (factura.estado_procesamiento === 'procesado') {
@@ -51,8 +51,8 @@ export default function ReporteClientes() {
             }
 
             // Cargar ajustes desde BD
-            factura.productos_faltantes.forEach((producto, productoIndex) => {
-              const key = getProductKey(clienteIndex, facturaIndex, productoIndex)
+            factura.productos_faltantes.forEach((producto) => {
+              const key = getProductKey(factura, producto)
               if (producto.cantidad_entregada > 0 || producto.ajuste_estado !== 'pendiente') {
                 const cantidadEntregada = producto.cantidad_entregada || 0
                 const cantidadAReducir = Math.max(producto.cantidad_faltante - cantidadEntregada, 0)
@@ -87,12 +87,12 @@ export default function ReporteClientes() {
     }
   }
 
-  const handleFacturaLista = async (clienteIndex, facturaIndex, clienteNombre, factura) => {
+  const handleFacturaLista = async (clienteNombre, factura) => {
     // Recopilar ajustes de esta factura específica
     const ajustesFactura = []
 
-    factura.productos_faltantes.forEach((producto, index) => {
-      const key = getProductKey(clienteIndex, facturaIndex, index)
+    factura.productos_faltantes.forEach((producto) => {
+      const key = getProductKey(factura, producto)
       const ajuste = entregasAjustadas.get(key)
 
       if (ajuste) {
@@ -143,7 +143,7 @@ La factura se marcará como procesada en la base de datos.
       const resultado = await alegraService.procesarFacturaIndividual(facturaData)
 
       // Actualizar estado local inmediatamente
-      const facturaKey = `${clienteIndex}-${facturaIndex}`
+      const facturaKey = getFacturaKey(factura)
       const nuevosEstados = new Map(facturasEstado)
       nuevosEstados.set(facturaKey, {
         estado: 'procesado',
@@ -163,8 +163,8 @@ La factura se marcará como procesada en la base de datos.
 
 
   // NUEVO: Recuperar factura procesada
-  const handleRecuperarFactura = async (clienteIndex, facturaIndex, factura) => {
-    const facturaKey = `${clienteIndex}-${facturaIndex}`
+  const handleRecuperarFactura = async (factura) => {
+    const facturaKey = getFacturaKey(factura)
 
     if (!window.confirm(`¿Recuperar factura #${factura.numero_factura} para editarla nuevamente?\n\nEsto deshará el procesamiento en la base de datos.`)) {
       return
@@ -191,15 +191,14 @@ La factura se marcará como procesada en la base de datos.
     // Filtrar solo facturas procesadas
     const facturasProcessadas = []
 
-    clientes.forEach((cliente, clienteIndex) => {
-      cliente.facturas_con_faltantes.forEach((factura, facturaIndex) => {
-        const facturaKey = `${clienteIndex}-${facturaIndex}`
+    clientes.forEach((cliente) => {
+      cliente.facturas_con_faltantes.forEach((factura) => {
+        const facturaKey = getFacturaKey(factura)
         const estadoFactura = facturasEstado.get(facturaKey)
 
         if (estadoFactura && estadoFactura.estado === 'procesado') {
           facturasProcessadas.push({
-            clienteIndex,
-            facturaIndex,
+            facturaKey,
             factura,
             cliente: cliente.nombre
           })
@@ -251,8 +250,21 @@ La factura se marcará como procesada en la base de datos.
     }
   }
 
-  const getProductKey = (clienteIndex, facturaIndex, productoIndex) => {
-    return `${clienteIndex}-${facturaIndex}-${productoIndex}`
+  const getFacturaKey = (factura) => {
+    if (!factura) return 'factura-desconocida'
+    const identifier = factura.alegra_id ?? factura.factura_local_id ?? factura.numero_factura ?? factura.id ?? 'sin-identificador'
+    return `factura-${identifier}`
+  }
+
+  const getProductKey = (factura, producto) => {
+    if (producto?.faltante_id) {
+      return `faltante-${producto.faltante_id}`
+    }
+
+    const facturaKey = getFacturaKey(factura)
+    const productoId = producto?.producto_id ?? producto?.codigo ?? producto?.nombre ?? producto?.id ?? 'producto-sin-id'
+
+    return `${facturaKey}::${productoId}`
   }
 
   const getEntregaInfo = (key, producto) => {
@@ -272,8 +284,8 @@ La factura se marcará como procesada en la base de datos.
   }
 
   // NUEVO: Obtener estado de factura
-  const getFacturaEstado = (clienteIndex, facturaIndex) => {
-    const facturaKey = `${clienteIndex}-${facturaIndex}`
+  const getFacturaEstado = (factura) => {
+    const facturaKey = getFacturaKey(factura)
     return facturasEstado.get(facturaKey) || { estado: 'pendiente' }
   }
 
@@ -689,13 +701,14 @@ La factura se marcará como procesada en la base de datos.
                   Entregas pendientes:
                 </h4>
 
-                {cliente.facturas_con_faltantes.map((factura, facturaIndex) => {
+                {cliente.facturas_con_faltantes.map((factura) => {
                   // NUEVO: Obtener estado de la factura
-                  const estadoFactura = getFacturaEstado(clienteIndex, facturaIndex)
+                  const facturaKey = getFacturaKey(factura)
+                  const estadoFactura = getFacturaEstado(factura)
                   const estaProcesada = estadoFactura.estado === 'procesado'
 
                   return (
-                    <div key={facturaIndex} className={`rounded-lg p-4 transition-all ${estaProcesada
+                    <div key={facturaKey} className={`rounded-lg p-4 transition-all ${estaProcesada
                       ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
                       : 'bg-gray-50'
                       }`}>
@@ -736,9 +749,9 @@ La factura se marcará como procesada en la base de datos.
                                 )
                               }
 
-                              const ajustesEnFactura = factura.productos_faltantes.map((_, index) => {
-                                const key = getProductKey(clienteIndex, facturaIndex, index)
-                                return entregasAjustadas.get(key)
+                              const ajustesEnFactura = factura.productos_faltantes.map((producto) => {
+                                const productoKey = getProductKey(factura, producto)
+                                return entregasAjustadas.get(productoKey)
                               }).filter(Boolean)
 
                               if (ajustesEnFactura.length === 0) {
@@ -763,7 +776,7 @@ La factura se marcará como procesada en la base de datos.
                             {!estaProcesada ? (
                               // Botón normal para facturas pendientes
                               <button
-                                onClick={() => handleFacturaLista(clienteIndex, facturaIndex, cliente.nombre, factura)}
+                                onClick={() => handleFacturaLista(cliente.nombre, factura)}
                                 className="btn btn-primary flex items-center whitespace-nowrap"
                               >
                                 <Check size={16} className="mr-2" />
@@ -772,7 +785,7 @@ La factura se marcará como procesada en la base de datos.
                             ) : (
                               // Botón recuperar para facturas procesadas
                               <button
-                                onClick={() => handleRecuperarFactura(clienteIndex, facturaIndex, factura)}
+                                onClick={() => handleRecuperarFactura(factura)}
                                 className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center whitespace-nowrap"
                                 title="Recuperar factura para editarla"
                               >
@@ -786,16 +799,16 @@ La factura se marcará como procesada en la base de datos.
 
                       {/* Lista de productos faltantes */}
                       <div className={`space-y-3 ${estaProcesada ? 'pointer-events-none' : ''}`}>
-                        {factura.productos_faltantes.map((producto, productoIndex) => {
-                          const key = getProductKey(clienteIndex, facturaIndex, productoIndex)
-                          const entrega = getEntregaInfo(key, producto)
+                        {factura.productos_faltantes.map((producto) => {
+                          const productoKey = getProductKey(factura, producto)
+                          const entrega = getEntregaInfo(productoKey, producto)
                           const estaCompleto = entrega.estado === 'completo'
                           const estaParcial = entrega.estado === 'parcial'
                           const noLlego = entrega.estado === 'no_llego'
                           const tieneAjuste = entrega.tieneAjuste
 
                           return (
-                            <div key={productoIndex} className={`rounded-md p-4 border-2 transition-all ${estaProcesada
+                            <div key={productoKey} className={`rounded-md p-4 border-2 transition-all ${estaProcesada
                               ? 'border-gray-200 bg-gray-50 opacity-60'
                               : estaCompleto ? 'border-green-200 bg-green-50' :
                                 estaParcial ? 'border-blue-200 bg-blue-50' :
@@ -852,7 +865,7 @@ La factura se marcará como procesada en la base de datos.
                                     min="0"
                                     max={producto.cantidad_faltante}
                                     value={entrega.cantidadEntregada}
-                                    onChange={(e) => handleCantidadEntregadaChange(key, e.target.value, producto)}
+                                    onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
                                     disabled={estaCompleto || estaProcesada}
                                     className={`input ${(estaCompleto || estaProcesada) ? 'bg-gray-100 text-gray-500' : ''
                                       }`}
@@ -889,7 +902,7 @@ La factura se marcará como procesada en la base de datos.
                                     <div className="flex flex-col space-y-2">
                                       {!estaCompleto && entrega.estado !== 'no_llego' && (
                                         <button
-                                          onClick={() => handleMarcarCompleto(key, producto)}
+                                          onClick={() => handleMarcarCompleto(productoKey, producto)}
                                           className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center justify-center w-full"
                                           title="Marcar como entregado completo"
                                         >
@@ -899,7 +912,7 @@ La factura se marcará como procesada en la base de datos.
                                       )}
                                       {!estaCompleto && entrega.estado !== 'no_llego' && (
                                         <button
-                                          onClick={() => handleNoLlegoNada(key, producto)}
+                                          onClick={() => handleNoLlegoNada(productoKey, producto)}
                                           className="btn bg-red-600 text-white border-red-600 hover:bg-red-700 flex items-center justify-center w-full whitespace-nowrap"
                                           title="No llegó nada - Eliminar de factura"
                                         >
@@ -909,7 +922,7 @@ La factura se marcará como procesada en la base de datos.
                                       )}
                                       {tieneAjuste && (
                                         <button
-                                          onClick={() => handleDeshacer(key, producto)}
+                                          onClick={() => handleDeshacer(productoKey, producto)}
                                           className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center justify-center w-full"
                                           title="Deshacer cambios"
                                         >
