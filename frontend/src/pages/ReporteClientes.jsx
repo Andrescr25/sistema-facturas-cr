@@ -52,12 +52,16 @@ export default function ReporteClientes() {
 
             // Cargar ajustes desde BD
             factura.productos_faltantes.forEach((producto, productoIndex) => {
+              const key = getProductKey(clienteIndex, facturaIndex, productoIndex)
               if (producto.cantidad_entregada > 0 || producto.ajuste_estado !== 'pendiente') {
-                const key = getProductKey(clienteIndex, facturaIndex, productoIndex)
+                const cantidadEntregada = producto.cantidad_entregada || 0
+                const cantidadAReducir = Math.max(producto.cantidad_faltante - cantidadEntregada, 0)
+
                 ajustesMap.set(key, {
+                  faltanteId: producto.faltante_id,
                   cantidadFaltante: producto.cantidad_faltante,
-                  cantidadEntregada: producto.cantidad_entregada,
-                  cantidadAReducir: producto.cantidad_faltante - producto.cantidad_entregada,
+                  cantidadEntregada,
+                  cantidadAReducir,
                   estado: producto.ajuste_estado,
                   tieneAjuste: true,
                   requiereActualizacion: producto.requiere_actualizacion
@@ -255,6 +259,7 @@ La factura se marcará como procesada en la base de datos.
     const ajuste = entregasAjustadas.get(key)
     if (!ajuste) {
       return {
+        faltanteId: producto.faltante_id,
         cantidadFaltante: producto.cantidad_faltante,
         cantidadEntregada: 0,
         cantidadAReducir: 0,
@@ -287,83 +292,148 @@ La factura se marcará como procesada en la base de datos.
     setHistorialCambios(newHistorial)
   }
 
-  const handleCantidadEntregadaChange = (key, cantidadEntregada, producto) => {
-    const cantidadEntregadaNum = parseInt(cantidadEntregada || 0)
+  const guardarAjusteEnBD = async (producto, ajuste) => {
+    if (!producto?.faltante_id) {
+      console.warn('❌ No se pudo guardar ajuste: faltante_id no disponible', producto)
+      return
+    }
+
+    try {
+      await alegraService.guardarAjusteFaltante({
+        faltanteId: producto.faltante_id,
+        cantidadEntregada: ajuste.cantidad_entregada,
+        estado: ajuste.estado,
+        requiereActualizacion: ajuste.requiere_actualizacion
+      })
+    } catch (error) {
+      console.warn('❌ Error guardando ajuste:', error)
+      setError(`Error guardando ajuste para ${producto.codigo || 'producto'}: ${error.message}`)
+      throw error
+    }
+  }
+
+  const eliminarAjusteDeBD = async (producto) => {
+    if (!producto?.faltante_id) {
+      console.warn('❌ No se pudo eliminar ajuste: faltante_id no disponible', producto)
+      return
+    }
+
+    try {
+      await alegraService.eliminarAjusteFaltante(producto.faltante_id)
+    } catch (error) {
+      console.warn('❌ Error eliminando ajuste:', error)
+      setError(`Error eliminando ajuste para ${producto.codigo || 'producto'}: ${error.message}`)
+      throw error
+    }
+  }
+
+  const handleCantidadEntregadaChange = async (key, cantidadEntregada, producto) => {
+    setError(null)
+
+    const cantidadNumerica = Number.parseInt(cantidadEntregada ?? 0, 10)
+    const cantidadFaltante = producto.cantidad_faltante
+    const cantidadNormalizada = Number.isNaN(cantidadNumerica)
+      ? 0
+      : Math.min(Math.max(cantidadNumerica, 0), cantidadFaltante)
+
     const entregaAnterior = getEntregaInfo(key, producto)
+    if (cantidadNormalizada === (entregaAnterior.cantidadEntregada ?? 0)) {
+      return
+    }
 
     // Guardar en historial si había un valor anterior
     if (entregaAnterior.tieneAjuste) {
-      guardarHistorial(key, 'cambio_cantidad', entregaAnterior.cantidadEntregada, cantidadEntregadaNum)
+      guardarHistorial(key, 'cambio_cantidad', entregaAnterior.cantidadEntregada, cantidadNormalizada)
     }
 
+    const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
-    const cantidadFaltante = producto.cantidad_faltante
 
     let estado = 'pendiente'
     let cantidadAReducir = 0
     let requiereActualizacion = false
 
-    if (cantidadEntregadaNum >= cantidadFaltante) {
+    if (cantidadNormalizada >= cantidadFaltante) {
       estado = 'completo'
       cantidadAReducir = 0
       requiereActualizacion = false
-    } else if (cantidadEntregadaNum > 0) {
+    } else if (cantidadNormalizada > 0) {
       estado = 'parcial'
-      cantidadAReducir = cantidadFaltante - cantidadEntregadaNum
+      cantidadAReducir = Math.max(cantidadFaltante - cantidadNormalizada, 0)
       requiereActualizacion = true
     } else {
       estado = 'pendiente'
       requiereActualizacion = false
     }
 
-    if (cantidadEntregadaNum === 0) {
-      // Si es 0, eliminar el ajuste
+    if (cantidadNormalizada === 0) {
       newMap.delete(key)
-    } else {
-      newMap.set(key, {
-        cantidadFaltante,
-        cantidadEntregada: cantidadEntregadaNum,
-        cantidadAReducir,
-        estado,
-        tieneAjuste: true,
-        requiereActualizacion
-      })
+      setEntregasAjustadas(newMap)
 
-      // NUEVO: Guardar en BD inmediatamente
-      guardarAjusteEnBD(key, producto, {
-        cantidad_entregada: cantidadEntregadaNum,
-        estado: estado,
-        requiere_actualizacion: requiereActualizacion
-      })
+      try {
+        await eliminarAjusteDeBD(producto)
+      } catch (error) {
+        setEntregasAjustadas(prevMap)
+      }
+      return
     }
 
+    newMap.set(key, {
+      faltanteId: producto.faltante_id,
+      cantidadFaltante,
+      cantidadEntregada: cantidadNormalizada,
+      cantidadAReducir,
+      estado,
+      tieneAjuste: true,
+      requiereActualizacion
+    })
+
     setEntregasAjustadas(newMap)
+
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: cantidadNormalizada,
+        estado,
+        requiere_actualizacion: requiereActualizacion
+      })
+    } catch (error) {
+      setEntregasAjustadas(prevMap)
+    }
   }
 
-  const handleMarcarCompleto = (key, producto) => {
+  const handleMarcarCompleto = async (key, producto) => {
     const entregaAnterior = getEntregaInfo(key, producto)
     guardarHistorial(key, 'marcar_completo', entregaAnterior.cantidadEntregada, producto.cantidad_faltante)
-    handleCantidadEntregadaChange(key, producto.cantidad_faltante, producto)
+    await handleCantidadEntregadaChange(key, producto.cantidad_faltante, producto)
   }
 
-  const handleDeshacer = (key, producto) => {
+  const handleDeshacer = async (key, producto) => {
     const entregaAnterior = getEntregaInfo(key, producto)
     guardarHistorial(key, 'deshacer', entregaAnterior.cantidadEntregada, 0)
 
+    const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
     newMap.delete(key)
     setEntregasAjustadas(newMap)
+
+    try {
+      await eliminarAjusteDeBD(producto)
+    } catch (error) {
+      setEntregasAjustadas(prevMap)
+    }
   }
 
-  const handleNoLlegoNada = (key, producto) => {
+  const handleNoLlegoNada = async (key, producto) => {
     const entregaAnterior = getEntregaInfo(key, producto)
     guardarHistorial(key, 'no_llego_nada', entregaAnterior.cantidadEntregada, -1)
 
+    const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
     newMap.set(key, {
+      faltanteId: producto.faltante_id,
       cantidadFaltante: producto.cantidad_faltante,
-      cantidadEntregada: 0, // CORREGIDO: 0 en lugar de -1
-      cantidadAReducir: producto.cantidad_faltante, // CORREGIDO: Usar cantidad real
+      cantidadEntregada: 0,
+      cantidadAReducir: producto.cantidad_faltante,
       estado: 'no_llego',
       tieneAjuste: true,
       requiereActualizacion: true
@@ -371,21 +441,14 @@ La factura se marcará como procesada en la base de datos.
 
     setEntregasAjustadas(newMap)
 
-    //Guardar en BD inmediatamente
-    guardarAjusteEnBD(key, producto, {
-      cantidad_entregada: 0,
-      estado: 'no_llego',
-      requiere_actualizacion: true
-    })
-  }
-
-  //Función para guardar ajustes en BD
-  const guardarAjusteEnBD = async (key, producto, ajuste) => {
     try {
-      console.log('💾 Guardando ajuste en BD:', { key, ajuste })
-
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: 0,
+        estado: 'no_llego',
+        requiere_actualizacion: true
+      })
     } catch (error) {
-      console.warn('❌ Error guardando ajuste:', error)
+      setEntregasAjustadas(prevMap)
     }
   }
 

@@ -543,6 +543,33 @@ export const alegraService = {
       console.error('❌ Frontend: Error obteniendo cantidad sugerida:', error);
       throw new Error(`Error obteniendo cantidad sugerida: ${error.message}`)
     }
+  },
+
+  async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion }) {
+    try {
+      const payload = {
+        faltante_id: faltanteId,
+        cantidad_entregada: cantidadEntregada,
+        estado,
+        requiere_actualizacion: requiereActualizacion
+      }
+
+      const response = await api.post('/alegra/faltantes/ajustes', payload)
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error guardando ajuste:', error)
+      throw new Error(`Error guardando ajuste: ${error.message}`)
+    }
+  },
+
+  async eliminarAjusteFaltante(faltanteId) {
+    try {
+      const response = await api.delete(`/alegra/faltantes/ajustes/${faltanteId}`)
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error eliminando ajuste:', error)
+      throw new Error(`Error eliminando ajuste: ${error.message}`)
+    }
   }
 
 }

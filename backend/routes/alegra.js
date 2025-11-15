@@ -1974,6 +1974,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
 
     const result = await query(`
       SELECT 
+        f.id AS faltante_id,
         fa.cliente_nombre,
         fa.cliente_email,
         fa.numero_factura,
@@ -2036,6 +2037,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
 
       const factura = cliente.facturas_con_faltantes.get(facturaKey);
       factura.productos_faltantes.push({
+        faltante_id: row.faltante_id,
         nombre: row.producto_nombre,
         codigo: row.producto_codigo,
         proveedor: row.proveedor_nombre,
@@ -3596,6 +3598,24 @@ router.post('/faltantes/ajustes', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error guardando ajuste:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Eliminar ajuste temporal
+router.delete('/faltantes/ajustes/:faltanteId', async (req, res) => {
+  try {
+    const { faltanteId } = req.params;
+    const { query } = require('../config/database');
+
+    await query(
+      'DELETE FROM faltantes_ajustes WHERE faltante_id = $1',
+      [faltanteId]
+    );
+
+    res.json({ success: true, message: 'Ajuste eliminado' });
+  } catch (error) {
+    console.error('❌ Error eliminando ajuste:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
