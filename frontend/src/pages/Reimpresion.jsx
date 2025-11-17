@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, X, Trash2 } from 'lucide-react'
+import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, Trash2, Loader, Package } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
 const getReferenceFromInvoiceItem = (item) => {
@@ -209,65 +209,76 @@ export default function Reimpresion() {
     const terminoActual = esActivo ? productoBusqueda.termino : ''
 
     return (
-      <div className="col-span-12 border border-blue-200 rounded-md bg-white p-4">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between mb-3">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={terminoActual}
-              onFocus={() => iniciarBusquedaProducto(index)}
-              onChange={(e) => manejarCambioTerminoBusqueda(e.target.value)}
-              className="input input-sm w-full pl-9"
-              placeholder="Escribe código o descripción..."
-            />
-          </div>
-          <button
-            type="button"
-            onClick={cerrarBusquedaProducto}
-            className="btn btn-outline btn-sm flex items-center gap-1 text-gray-600 hover:text-gray-800 whitespace-nowrap"
-          >
-            <X size={14} />
-            Cerrar
-          </button>
+      <div className="border-t border-blue-100 pt-4">
+        <p className="text-xs font-semibold text-blue-700 uppercase mb-2 flex items-center gap-2">
+          <Search size={14} />
+          Buscar producto en Alegra
+        </p>
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={terminoActual}
+            onFocus={() => iniciarBusquedaProducto(index)}
+            onChange={(e) => manejarCambioTerminoBusqueda(index, e.target.value)}
+            className="input input-sm w-full pl-10"
+            placeholder="Escribe el código o parte del nombre..."
+          />
         </div>
 
-        {esActivo ? (
-          productoBusqueda.cargando ? (
-            <p className="text-sm text-gray-500">Buscando productos…</p>
-          ) : productoBusqueda.resultados.length > 0 ? (
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {productoBusqueda.resultados.map((producto) => {
-                const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
-                return (
-                  <div
-                    key={producto.id}
-                    className="flex items-center justify-between gap-3 border border-blue-100 rounded-md px-3 py-2 hover:border-blue-300 transition"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{producto.name}</p>
-                      <p className="text-xs text-gray-500">
-                        Ref: {producto.reference || 'Sin referencia'} • Precio: ₡{Number(price).toLocaleString('es-CR')}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => seleccionarProductoBusqueda(index, producto)}
-                      className="btn btn-outline btn-sm border-blue-300 text-blue-600 hover:bg-blue-50 flex items-center gap-1"
+        <div className="mt-3">
+          {esActivo ? (
+            productoBusqueda.cargando ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader size={16} className="animate-spin" />
+                Buscando productos…
+              </div>
+            ) : productoBusqueda.resultados.length > 0 ? (
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                {productoBusqueda.resultados.map((producto) => {
+                  const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
+                  const referencia =
+                    producto.reference ||
+                    producto.code ||
+                    producto.itemCode ||
+                    (typeof producto.reference === 'object' ? producto.reference?.code : '') ||
+                    'Sin referencia'
+
+                  return (
+                    <div
+                      key={producto.id}
+                      className="p-3 border border-blue-100 rounded-md hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer"
                     >
-                      <CheckCircle size={14} />
-                      Usar
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{producto.name}</p>
+                          <p className="text-xs text-gray-500">
+                            Ref: {referencia} • Precio: ₡{Number(price).toLocaleString('es-CR')}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => seleccionarProductoBusqueda(index, producto)}
+                          className="btn btn-sm btn-primary flex items-center gap-1"
+                        >
+                          <CheckCircle size={14} />
+                          Usar
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-xs text-gray-500 py-4">
+                <Package size={18} className="text-gray-400" />
+                <span>{productoBusqueda.error || 'Sin resultados para ese texto.'}</span>
+              </div>
+            )
           ) : (
-            <p className="text-sm text-gray-500">{productoBusqueda.error || 'Sin resultados para ese texto.'}</p>
-          )
-        ) : (
-          <p className="text-sm text-gray-500">Empieza escribiendo el código o nombre; la búsqueda es automática.</p>
-        )}
+            <p className="text-xs text-gray-500">Empieza escribiendo para buscar en Alegra.</p>
+          )}
+        </div>
       </div>
     )
   }
@@ -446,12 +457,24 @@ export default function Reimpresion() {
       const response = await alegraService.buscarProductosRevision(query)
 
       if (response.success) {
-        const resultados = response.data || []
+        const resultados = response.productos || response.data || []
         const terminoLower = query.toLowerCase()
+        const normalizarTexto = (valor) => {
+          if (valor === null || valor === undefined) return ''
+          if (typeof valor === 'string') return valor
+          if (typeof valor === 'number') return valor.toString()
+          if (typeof valor === 'object') {
+            if (typeof valor.reference === 'string') return valor.reference
+            if (typeof valor.code === 'string') return valor.code
+            if (typeof valor.name === 'string') return valor.name
+            if (typeof valor.label === 'string') return valor.label
+          }
+          return ''
+        }
 
         const score = (producto) => {
-          const ref = (producto.reference || producto.code || producto.itemCode || '').toLowerCase()
-          const name = (producto.name || producto.description || '').toLowerCase()
+          const ref = normalizarTexto(producto.reference ?? producto.code ?? producto.itemCode).toLowerCase()
+          const name = normalizarTexto(producto.name ?? producto.description).toLowerCase()
           let puntos = 0
 
           if (ref === terminoLower) puntos += 1000
@@ -510,10 +533,11 @@ export default function Reimpresion() {
     }
   }
 
-  const manejarCambioTerminoBusqueda = (valor) => {
+  const manejarCambioTerminoBusqueda = (index, valor) => {
     setProductoBusqueda(prev => {
       const next = {
         ...prev,
+        index,
         termino: valor,
         error: null
       }
@@ -523,10 +547,14 @@ export default function Reimpresion() {
       }
 
       const terminoLimpio = valor.trim()
-      if (terminoLimpio.length >= 2 && prev.index !== null) {
+      if (terminoLimpio.length >= 2) {
         debounceBusquedaRef.current = setTimeout(() => {
-          buscarProductoRevision(prev.index, terminoLimpio)
+          buscarProductoRevision(index, terminoLimpio)
         }, 350)
+      } else {
+        next.resultados = []
+        next.cargando = false
+        next.error = terminoLimpio.length === 0 ? null : 'Ingresa al menos 2 caracteres.'
       }
 
       return next
@@ -734,78 +762,76 @@ export default function Reimpresion() {
 
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {itemsEditados.map((item, index) => (
-            <div key={index} className="space-y-3">
-              <div className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-lg border">
-              <div className="col-span-3">
-                <label className="text-xs text-gray-600">Referencia</label>
-                <input
-                  type="text"
-                  value={item.reference || ''}
-                  onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
-                  onFocus={() => item.esNuevo && iniciarBusquedaProducto(index)}
-                  className="input input-sm w-full"
-                  disabled={!item.esNuevo}
-                  placeholder="Código o referencia"
-                />
-                {item.esNuevo ? (
-                  <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
-                    Nuevo producto
-                  </span>
-                ) : (
-                  <span className="inline-block mt-1 text-xs text-gray-500">
-                    Código original (no editable)
-                  </span>
-                )}
-              </div>
-              <div className="col-span-3">
-                <label className="text-xs text-gray-600">Descripción</label>
-                <input
-                  type="text"
-                  value={item.description || ''}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className={`input input-sm w-full ${item.esNuevo ? '' : 'bg-gray-100 text-gray-600'}`}
-                        disabled={!item.esNuevo}
-                  placeholder="Descripción del producto"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs text-gray-600">Cantidad</label>
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                  className="input input-sm w-full"
-                  min="0"
-                  step="1"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs text-gray-600">Precio Unit.</label>
-                <input
-                  type="number"
-                  value={item.price}
-                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                  className="input input-sm w-full"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div className="col-span-1">
-                <label className="text-xs text-gray-600">Subtotal</label>
-                <div className="input input-sm w-full bg-gray-100 flex items-center">
-                  ₡{(item.quantity * item.price).toLocaleString('es-CR')}
+            <div key={index} className="relative bg-gray-50 rounded-lg border p-4 space-y-4">
+              <button
+                type="button"
+                onClick={() => handleEliminarItem(index)}
+                className="absolute top-3 right-3 btn btn-outline btn-xs border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1"
+              >
+                <Trash2 size={14} />
+                Quitar
+              </button>
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-3">
+                  <label className="text-xs text-gray-600">Referencia</label>
+                  <input
+                    type="text"
+                    value={item.reference || ''}
+                    onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
+                    onFocus={() => item.esNuevo && iniciarBusquedaProducto(index)}
+                    className="input input-sm w-full"
+                    disabled={!item.esNuevo}
+                    placeholder="Código o referencia"
+                  />
+                  {item.esNuevo ? (
+                    <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
+                      Nuevo producto
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-1 text-xs text-gray-500">
+                      Código original (no editable)
+                    </span>
+                  )}
                 </div>
-              </div>
-                  <div className="col-span-1 flex items-end justify-end">
-                <button
-                        type="button"
-                  onClick={() => handleEliminarItem(index)}
-                        className="btn btn-outline btn-sm border-red-300 text-red-600 hover:bg-red-50 flex items-center gap-1"
-                >
-                        <Trash2 size={14} />
-                        Quitar
-                </button>
-              </div>
+                <div className="col-span-4">
+                  <label className="text-xs text-gray-600">Descripción</label>
+                  <input
+                    type="text"
+                    value={item.description || ''}
+                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                    className={`input input-sm w-full ${item.esNuevo ? '' : 'bg-gray-100 text-gray-600'}`}
+                    disabled={!item.esNuevo}
+                    placeholder="Descripción del producto"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-600">Cantidad</label>
+                  <input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                    className="input input-sm w-full"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-600">Precio Unit.</label>
+                  <input
+                    type="number"
+                    value={item.price}
+                    onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                    className="input input-sm w-full"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-xs text-gray-600">Subtotal</label>
+                  <div className="input input-sm w-full bg-gray-100 flex items-center">
+                    ₡{(item.quantity * item.price).toLocaleString('es-CR')}
+                  </div>
+                </div>
               </div>
               {renderBuscadorProducto(index)}
             </div>

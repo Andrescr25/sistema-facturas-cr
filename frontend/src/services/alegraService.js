@@ -162,6 +162,17 @@ export const alegraService = {
     }
   },
 
+  async buscarProductosAlegra(query) {
+    try {
+      const response = await api.get('/alegra/productos/buscar', {
+        params: { query }
+      })
+      return response.data
+    } catch (error) {
+      throw new Error(`Error buscando productos en Alegra: ${error.message}`)
+    }
+  },
+
   // Obtener contactos de Alegra
   async getContactos(page = 1, limit = 30, type = null) {
     try {
