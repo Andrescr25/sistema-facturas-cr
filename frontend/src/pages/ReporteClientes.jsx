@@ -46,7 +46,8 @@ export default function ReporteClientes() {
                 estado: 'procesado',
                 timestamp: factura.fecha_procesamiento || new Date().toISOString(),
                 ajustes: [],
-                requiere_reimpresion: false
+            requiere_reimpresion: false,
+            origen: 'procesado'
               })
             }
 
@@ -68,6 +69,17 @@ export default function ReporteClientes() {
                 })
               }
             })
+
+        if (factura.es_pendiente_manual && !estadosMap.has(facturaKey)) {
+          estadosMap.set(facturaKey, {
+            estado: 'pendiente',
+            timestamp: factura.pendiente_desde || new Date().toISOString(),
+            ajustes: [],
+            requiere_reimpresion: false,
+            origen: 'manual',
+            motivo: factura.pendiente_motivo || ''
+          })
+        }
           })
         })
 
@@ -149,9 +161,29 @@ La factura se marcará como procesada en la base de datos.
         estado: 'procesado',
         timestamp: new Date().toISOString(),
         ajustes: ajustesFactura,
-        requiere_reimpresion: requiereReimpresion
+        requiere_reimpresion: requiereReimpresion,
+        origen: 'procesado'
       })
       setFacturasEstado(nuevosEstados)
+
+      setClientes(prev =>
+        prev.map(cliente => {
+          if (cliente.nombre !== clienteNombre) return cliente
+          const facturasActualizadas = cliente.facturas_con_faltantes.map(f => {
+            if (getFacturaKey(f) !== facturaKey) return f
+            return {
+              ...f,
+              es_pendiente_manual: false,
+              pendiente_desde: null,
+              pendiente_motivo: null
+            }
+          })
+          return {
+            ...cliente,
+            facturas_con_faltantes: facturasActualizadas
+          }
+        })
+      )
 
       alert(`✅ Factura #${factura.numero_factura} procesada correctamente\n\n${requiereReimpresion ? '🖨️ Enviada a reimpresión' : '📚 Enviada solo al historial'}\n\n💡 La factura permanece visible (tachada). Use "Recuperar" si necesita editarla.\n\n🔄 El estado se mantiene permanentemente en la base de datos.`)
 
@@ -179,10 +211,118 @@ La factura se marcará como procesada en la base de datos.
       nuevosEstados.delete(facturaKey)
       setFacturasEstado(nuevosEstados)
 
+      setClientes(prev =>
+        prev.map(cliente => {
+          const facturasActualizadas = cliente.facturas_con_faltantes.map(f => {
+            if (getFacturaKey(f) !== facturaKey) return f
+            return {
+              ...f,
+              es_pendiente_manual: false,
+              pendiente_desde: null,
+              pendiente_motivo: null
+            }
+          })
+          return {
+            ...cliente,
+            facturas_con_faltantes: facturasActualizadas
+          }
+        })
+      )
+
       alert(`✅ Factura #${factura.numero_factura} recuperada.\n\nPuede editarla nuevamente.\n\n🔄 El cambio se mantiene permanentemente en la base de datos.`)
 
     } catch (error) {
       alert(`❌ Error recuperando factura: ${error.message}`)
+    }
+  }
+
+  const handleMarcarFacturaPendiente = async (factura, clienteNombre) => {
+    const facturaKey = getFacturaKey(factura)
+    const motivo = window.prompt(`Notas para la factura #${factura.numero_factura} (opcional):`, '') || null
+
+    try {
+      await alegraService.marcarFacturaPendiente(factura.alegra_id, motivo)
+
+      const timestamp = new Date().toISOString()
+
+      const nuevosEstados = new Map(facturasEstado)
+      nuevosEstados.set(facturaKey, {
+        estado: 'pendiente',
+        timestamp,
+        ajustes: [],
+        requiere_reimpresion: false,
+        origen: 'manual',
+        motivo: motivo || ''
+      })
+      setFacturasEstado(nuevosEstados)
+
+      setClientes(prev =>
+        prev.map(cliente => {
+          if (cliente.nombre !== clienteNombre) return cliente
+
+          const facturasActualizadas = cliente.facturas_con_faltantes.map(f => {
+            if (getFacturaKey(f) !== facturaKey) return f
+
+            return {
+              ...f,
+              es_pendiente_manual: true,
+              pendiente_desde: timestamp,
+              pendiente_motivo: motivo
+            }
+          })
+
+          return {
+            ...cliente,
+            facturas_con_faltantes: facturasActualizadas
+          }
+        })
+      )
+
+      alert(`⌛ Factura #${factura.numero_factura} marcada como pendiente.\n\nSe mantendrá visible hasta que quites el estado.`)
+    } catch (error) {
+      alert(`❌ Error marcando factura como pendiente: ${error.message}`)
+    }
+  }
+
+  const handleQuitarFacturaPendiente = async (factura, clienteNombre) => {
+    const facturaKey = getFacturaKey(factura)
+
+    if (!window.confirm(`¿Quitar el estado pendiente de la factura #${factura.numero_factura}?`)) {
+      return
+    }
+
+    try {
+      await alegraService.quitarFacturaPendiente(factura.alegra_id)
+
+      const nuevosEstados = new Map(facturasEstado)
+      nuevosEstados.delete(facturaKey)
+      setFacturasEstado(nuevosEstados)
+
+      setClientes(prev =>
+        prev.map(cliente => {
+          if (cliente.nombre !== clienteNombre) return cliente
+
+          const facturasActualizadas = cliente.facturas_con_faltantes.map(f => {
+            if (getFacturaKey(f) !== facturaKey) return f
+
+            return {
+              ...f,
+              es_pendiente_manual: false,
+              pendiente_desde: null,
+              pendiente_motivo: null
+            }
+          })
+
+          return {
+            ...cliente,
+            facturas_con_faltantes: facturasActualizadas
+          }
+        })
+      )
+
+      alert(`✅ Estado pendiente removido de la factura #${factura.numero_factura}.`)
+    } catch (error) {
+      alert(`❌ Error quitando estado pendiente: ${error.message}`)
     }
   }
 
@@ -286,7 +426,7 @@ La factura se marcará como procesada en la base de datos.
   // NUEVO: Obtener estado de factura
   const getFacturaEstado = (factura) => {
     const facturaKey = getFacturaKey(factura)
-    return facturasEstado.get(facturaKey) || { estado: 'pendiente' }
+    return facturasEstado.get(facturaKey) || { estado: 'pendiente', origen: 'default' }
   }
 
   const guardarHistorial = (key, accion, valorAnterior, valorNuevo) => {
@@ -482,6 +622,12 @@ La factura se marcará como procesada en la base de datos.
     return Array.from(facturasEstado.values()).filter(estado => estado.estado === 'procesado').length
   }
 
+  const contarFacturasPendientes = () => {
+    return Array.from(facturasEstado.values()).filter(
+      estado => estado.estado === 'pendiente' && estado.origen === 'manual'
+    ).length
+  }
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-CR', {
       year: 'numeric',
@@ -537,6 +683,11 @@ La factura se marcará como procesada en la base de datos.
             {contarAjustes() > 0 && (
               <p className="text-sm text-blue-600">
                 {contarAjustes()} producto{contarAjustes() > 1 ? 's' : ''} con ajustes pendientes
+              </p>
+            )}
+            {contarFacturasPendientes() > 0 && (
+              <p className="text-sm text-yellow-600">
+                {contarFacturasPendientes()} factura{contarFacturasPendientes() > 1 ? 's' : ''} marcada{contarFacturasPendientes() > 1 ? 's' : ''} como pendiente
               </p>
             )}
             {contarFacturasProcesadas() > 0 && (
@@ -706,15 +857,19 @@ La factura se marcará como procesada en la base de datos.
                   const facturaKey = getFacturaKey(factura)
                   const estadoFactura = getFacturaEstado(factura)
                   const estaProcesada = estadoFactura.estado === 'procesado'
+                  const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
+
+                  const facturaClase = estaProcesada
+                    ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
+                    : estaPendienteManual
+                      ? 'bg-yellow-50 border-2 border-yellow-300'
+                      : 'bg-gray-50'
 
                   return (
-                    <div key={facturaKey} className={`rounded-lg p-4 transition-all ${estaProcesada
-                      ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
-                      : 'bg-gray-50'
-                      }`}>
+                    <div key={facturaKey} className={`rounded-lg p-4 transition-all ${facturaClase}`}>
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h5 className={`font-medium ${estaProcesada ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                          <h5 className={`font-medium ${estaProcesada ? 'text-gray-500 line-through' : estaPendienteManual ? 'text-yellow-800' : 'text-gray-900'}`}>
                             {estaProcesada && <Check size={16} className="inline text-green-600 mr-1" />}
                             Factura #{factura.numero_factura}
                             {estaProcesada && (
@@ -722,13 +877,28 @@ La factura se marcará como procesada en la base de datos.
                                 ✓ Procesada
                               </span>
                             )}
+                            {estaPendienteManual && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                ⏳ Pendiente
+                              </span>
+                            )}
                           </h5>
-                          <p className={`text-sm ${estaProcesada ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                          <p className={`text-sm ${estaProcesada ? 'text-gray-400 line-through' : estaPendienteManual ? 'text-yellow-700' : 'text-gray-600'}`}>
                             Fecha: {formatDate(factura.fecha_emision)}
                           </p>
                           {estaProcesada && estadoFactura.timestamp && (
                             <p className="text-xs text-green-600 mt-1">
                               Procesada: {formatDateTime(estadoFactura.timestamp)}
+                            </p>
+                          )}
+                          {estaPendienteManual && estadoFactura.timestamp && (
+                            <p className="text-xs text-yellow-700 mt-1">
+                              Pendiente desde: {formatDateTime(estadoFactura.timestamp)}
+                            </p>
+                          )}
+                          {estaPendienteManual && estadoFactura.motivo && (
+                            <p className="text-xs text-yellow-700 mt-1">
+                              Motivo: {estadoFactura.motivo}
                             </p>
                           )}
                         </div>
@@ -747,6 +917,10 @@ La factura se marcará como procesada en la base de datos.
                                     {estadoFactura.requiere_reimpresion ? '🖨️ En reimpresión' : '📚 En historial'}
                                   </p>
                                 )
+                              }
+
+                              if (estaPendienteManual) {
+                                return <p className="text-sm text-yellow-600 mt-1">⌛ Pendiente: esperando entrega restante</p>
                               }
 
                               const ajustesEnFactura = factura.productos_faltantes.map((producto) => {
@@ -774,14 +948,34 @@ La factura se marcará como procesada en la base de datos.
                           {/* Botones de acción */}
                           <div className="flex flex-col space-y-2">
                             {!estaProcesada ? (
-                              // Botón normal para facturas pendientes
-                              <button
-                                onClick={() => handleFacturaLista(cliente.nombre, factura)}
-                                className="btn btn-primary flex items-center whitespace-nowrap"
-                              >
-                                <Check size={16} className="mr-2" />
-                                Factura Lista
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleFacturaLista(cliente.nombre, factura)}
+                                  className="btn btn-primary flex items-center whitespace-nowrap"
+                                >
+                                  <Check size={16} className="mr-2" />
+                                  Factura Lista
+                                </button>
+                                {estaPendienteManual ? (
+                                  <button
+                                    onClick={() => handleQuitarFacturaPendiente(factura, cliente.nombre)}
+                                    className="btn btn-outline text-yellow-800 border-yellow-700 hover:bg-yellow-50 flex items-center whitespace-nowrap"
+                                    title="Quitar estado pendiente manual"
+                                  >
+                                    <X size={16} className="mr-2" />
+                                    Quitar Pendiente
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)}
+                                    className="btn btn-outline text-yellow-700 border-yellow-600 hover:bg-yellow-50 flex items-center whitespace-nowrap"
+                                    title="Marcar factura como pendiente"
+                                  >
+                                    <Clock size={16} className="mr-2" />
+                                    Marcar Pendiente
+                                  </button>
+                                )}
+                              </>
                             ) : (
                               // Botón recuperar para facturas procesadas
                               <button

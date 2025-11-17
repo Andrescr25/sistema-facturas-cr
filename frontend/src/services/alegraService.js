@@ -317,6 +317,30 @@ export const alegraService = {
     }
   },
 
+  async marcarFacturaPendiente(facturaId, motivo) {
+    try {
+      console.log('⏳ Frontend: Marcando factura como pendiente:', facturaId);
+      const response = await api.post(`/alegra/facturas/${facturaId}/pendiente`, { motivo })
+      console.log('✅ Frontend: Factura marcada pendiente:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error marcando factura pendiente:', error);
+      throw new Error(`Error marcando factura pendiente: ${error.message}`)
+    }
+  },
+
+  async quitarFacturaPendiente(facturaId) {
+    try {
+      console.log('⏹️ Frontend: Quitando estado pendiente a factura:', facturaId);
+      const response = await api.delete(`/alegra/facturas/${facturaId}/pendiente`)
+      console.log('✅ Frontend: Estado pendiente removido:', response.data);
+      return response.data
+    } catch (error) {
+      console.error('❌ Frontend: Error removiendo estado pendiente:', error);
+      throw new Error(`Error removiendo estado pendiente: ${error.message}`)
+    }
+  },
+
   // Eliminar facturas procesadas permanentemente (incluye observaciones adicionales)
   async eliminarFacturasProceadas(facturasIds) {
     try {

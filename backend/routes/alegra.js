@@ -1981,6 +1981,9 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         fa.fecha_emision,
         fa.alegra_id as factura_alegra_id,
         fa.estado_procesamiento,
+        fp.id as factura_pendiente_id,
+        fp.motivo as factura_pendiente_motivo,
+        fp.created_at as factura_pendiente_desde,
         p.nombre as producto_nombre,
         p.codigo as producto_codigo,
         COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre,
@@ -1999,6 +2002,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
       JOIN productos p ON f.producto_id = p.id
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       JOIN facturas fa ON f.factura_id = fa.id
+      LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
       LEFT JOIN faltantes_ajustes aj ON f.id = aj.faltante_id
       WHERE f.estado IN ('pendiente', 'procesado')
       ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
@@ -2031,6 +2035,9 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
           estado_procesamiento: row.estado_procesamiento,
           fecha_procesamiento: row.fecha_procesamiento,
           observaciones_adicionales: row.observaciones_adicionales,
+        es_pendiente_manual: false,
+        pendiente_desde: null,
+        pendiente_motivo: null,
           productos_faltantes: []
         });
       }
@@ -2051,6 +2058,13 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         ajuste_estado: row.ajuste_estado || 'pendiente',
         requiere_actualizacion: row.requiere_actualizacion || false
       });
+
+      const esPendiente = Boolean(row.factura_pendiente_id);
+      factura.es_pendiente_manual = factura.es_pendiente_manual || esPendiente;
+      if (esPendiente) {
+        factura.pendiente_desde = row.factura_pendiente_desde;
+        factura.pendiente_motivo = row.factura_pendiente_motivo;
+      }
 
       // Solo contar en totales si está pendiente
       if (row.faltante_estado === 'pendiente') {
@@ -2932,6 +2946,12 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       WHERE alegra_id = $1
     `, [alegra_id]);
 
+    // Si estaba marcada como pendiente manual, removerla
+    await query(`
+      DELETE FROM facturas_pendientes
+      WHERE alegra_id = $1
+    `, [alegra_id]);
+
     // 5. 🔧 CAMBIO: Editar factura en Alegra SOLO cuando se reimprime (no al marcar como lista)
     const marcarComoProcesada = req.body.marcar_como_procesada === true;
     
@@ -3514,6 +3534,115 @@ router.post('/facturas/:id/recuperar', async (req, res) => {
 });
 
 
+// Marcar una factura como pendiente manualmente
+router.post('/facturas/:id/pendiente', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { motivo = null } = req.body || {};
+    const alegraId = parseInt(id, 10);
+
+    if (Number.isNaN(alegraId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de factura inválido'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    const facturaResult = await query(`
+      SELECT id
+      FROM facturas
+      WHERE alegra_id = $1
+    `, [alegraId]);
+
+    if (facturaResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Factura no encontrada'
+      });
+    }
+
+    const facturaId = facturaResult.rows[0].id;
+
+    const pendienteResult = await query(`
+      INSERT INTO facturas_pendientes (factura_id, alegra_id, motivo)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (factura_id) DO UPDATE
+      SET motivo = EXCLUDED.motivo,
+          updated_at = CURRENT_TIMESTAMP
+      RETURNING id, motivo, created_at, updated_at
+    `, [facturaId, alegraId, motivo]);
+
+    // Mantener la factura en estado pendiente
+    await query(`
+      UPDATE facturas
+      SET estado_procesamiento = 'pendiente'
+      WHERE id = $1
+    `, [facturaId]);
+
+    res.json({
+      success: true,
+      message: 'Factura marcada como pendiente',
+      data: {
+        pendiente_id: pendienteResult.rows[0].id,
+        motivo: pendienteResult.rows[0].motivo,
+        created_at: pendienteResult.rows[0].created_at,
+        updated_at: pendienteResult.rows[0].updated_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error marcando factura como pendiente:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error marcando factura como pendiente'
+    });
+  }
+});
+
+// Quitar estado pendiente manual de una factura
+router.delete('/facturas/:id/pendiente', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const alegraId = parseInt(id, 10);
+
+    if (Number.isNaN(alegraId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de factura inválido'
+      });
+    }
+
+    const { query } = require('../config/database');
+
+    const deleteResult = await query(`
+      DELETE FROM facturas_pendientes
+      WHERE alegra_id = $1
+      RETURNING id
+    `, [alegraId]);
+
+    if (deleteResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'La factura no estaba marcada como pendiente'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Factura removida del estado pendiente'
+    });
+  } catch (error) {
+    console.error('❌ Error removiendo estado pendiente:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error removiendo estado pendiente'
+    });
+  }
+});
+
 // Eliminar faltantes procesados permanentemente (incluye observaciones adicionales)
 router.post('/facturas/eliminar-procesadas', async (req, res) => {
   try {
@@ -3541,6 +3670,12 @@ router.post('/facturas/eliminar-procesadas', async (req, res) => {
       AND fa.alegra_id = ANY($1::int[])
       AND faltantes.estado = 'procesado'
       RETURNING faltantes.id
+    `, [facturas_ids]);
+
+    // 2.5 Limpiar estados pendientes manuales
+    await query(`
+      DELETE FROM facturas_pendientes
+      WHERE alegra_id = ANY($1::int[])
     `, [facturas_ids]);
 
     // ✅ 3. NUEVO: Limpiar observaciones adicionales

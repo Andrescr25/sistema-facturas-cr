@@ -178,6 +178,19 @@ async function setupDatabase() {
       )
     `);
 
+    // Crear tabla para facturas marcadas como pendientes manualmente
+    console.log('📋 Creando tabla facturas_pendientes...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS facturas_pendientes (
+          id SERIAL PRIMARY KEY,
+          factura_id INTEGER REFERENCES facturas(id) UNIQUE,
+          alegra_id INTEGER NOT NULL,
+          motivo TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Crear tabla para cantidades modificadas de órdenes de compra
     console.log('📋 Creando tabla orden_compra_temporal...');
     await client.query(`
@@ -221,6 +234,12 @@ async function setupDatabase() {
     `);
 
     await client.query(`
+      CREATE TRIGGER update_facturas_pendientes_updated_at
+        BEFORE UPDATE ON facturas_pendientes
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
+
+    await client.query(`
       CREATE TRIGGER update_orden_compra_temporal_updated_at 
         BEFORE UPDATE ON orden_compra_temporal 
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
@@ -254,6 +273,12 @@ async function setupDatabase() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_orden_compra_producto ON orden_compra_temporal(producto_codigo)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_facturas_pendientes_factura ON facturas_pendientes(factura_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_facturas_pendientes_alegra ON facturas_pendientes(alegra_id)
     `);
 
     // Insertar datos de ejemplo

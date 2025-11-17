@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FacturaElectronica xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica">
+  <Clave>50613112500010971029600100001010000069896100069896</Clave>
+  <ProveedorSistemas>3101750500</ProveedorSistemas>
+  <CodigoActividadEmisor>4669.9</CodigoActividadEmisor>
+  <CodigoActividadReceptor>4752.1</CodigoActividadReceptor>
+  <NumeroConsecutivo>00100001010000069896</NumeroConsecutivo>
+  <FechaEmision>2025-11-13T07:56:03</FechaEmision>
+  <Emisor>
+    <Nombre>Distribuidora Plasticos Salazar</Nombre>
+    <Identificacion>
+      <Tipo>01</Tipo>
+      <Numero>109710296</Numero>
+    </Identificacion>
+    <Ubicacion>
+      <Provincia>2</Provincia>
+      <Canton>06</Canton>
+      <Distrito>04</Distrito>
+      <OtrasSenas>25 mts al Norte en Calle  Damaris, segunda casa, mano izquierda, Cirri- Naranjo</OtrasSenas>
+    </Ubicacion>
+    <Telefono>
+      <CodigoPais>506</CodigoPais>
+      <NumTelefono>88537530</NumTelefono>
+    </Telefono>
+    <CorreoElectronico>ol1234salazar@gmail.com</CorreoElectronico>
+  </Emisor>
+  <Receptor>
+    <Nombre>TARCICIO GERARDO VARGAS CHAVARRIA</Nombre>
+    <Identificacion>
+      <Tipo>01</Tipo>
+      <Numero>204050474</Numero>
+    </Identificacion>
+    <NombreComercial>TARCICIO GERARDO VARGAS CHAVARRIA</NombreComercial>
+    <CorreoElectronico>tachifacturas@gmail.com</CorreoElectronico>
+  </Receptor>
+  <CondicionVenta>01</CondicionVenta>
+  <DetalleServicio>
+    <LineaDetalle>
+      <NumeroLinea>1</NumeroLinea>
+      <CodigoCABYS>3641001990100</CodigoCABYS>
+      <CodigoComercial>
+        <Tipo>04</Tipo>
+        <Codigo>295</Codigo>
+      </CodigoComercial>
+      <Cantidad>5.0</Cantidad>
+      <UnidadMedida>Kg</UnidadMedida>
+      <Detalle>Bolsa Salvadoreña Negra 37x55 Kilo</Detalle>
+      <PrecioUnitario>1188.12</PrecioUnitario>
+      <MontoTotal>5940.60</MontoTotal>
+      <SubTotal>5940.60</SubTotal>
+      <BaseImponible>5940.60</BaseImponible>
+      <Impuesto>
+        <Codigo>01</Codigo>
+        <CodigoTarifaIVA>02</CodigoTarifaIVA>
+        <Tarifa>1.0</Tarifa>
+        <Monto>59.41</Monto>
+      </Impuesto>
+      <ImpuestoAsumidoEmisorFabrica>0.0</ImpuestoAsumidoEmisorFabrica>
+      <ImpuestoNeto>59.41</ImpuestoNeto>
+      <MontoTotalLinea>6000.01</MontoTotalLinea>
+    </LineaDetalle>
+    <LineaDetalle>
+      <NumeroLinea>2</NumeroLinea>
+      <CodigoCABYS>2715000000300</CodigoCABYS>
+      <CodigoComercial>
+        <Tipo>04</Tipo>
+        <Codigo>265</Codigo>
+      </CodigoComercial>
+      <Cantidad>13.0</Cantidad>
+      <UnidadMedida>Kg</UnidadMedida>
+      <Detalle>Bolsa Plast Trans Kilo</Detalle>
+      <PrecioUnitario>1283.19</PrecioUnitario>
+      <MontoTotal>16681.47</MontoTotal>
+      <SubTotal>16681.47</SubTotal>
+      <BaseImponible>16681.47</BaseImponible>
+      <Impuesto>
+        <Codigo>01</Codigo>
+        <CodigoTarifaIVA>08</CodigoTarifaIVA>
+        <Tarifa>13.0</Tarifa>
+        <Monto>2168.59</Monto>
+      </Impuesto>
+      <ImpuestoAsumidoEmisorFabrica>0.0</ImpuestoAsumidoEmisorFabrica>
+      <ImpuestoNeto>2168.59</ImpuestoNeto>
+      <MontoTotalLinea>18850.06</MontoTotalLinea>
+    </LineaDetalle>
+    <LineaDetalle>
+      <NumeroLinea>3</NumeroLinea>
+      <CodigoCABYS>3694000010100</CodigoCABYS>
+      <CodigoComercial>
+        <Tipo>04</Tipo>
+        <Codigo>7441010608634</Codigo>
+      </CodigoComercial>
+      <Cantidad>1.0</Cantidad>
+      <UnidadMedida>Unid</UnidadMedida>
+      <Detalle>Cuchara Ez Serv 100 Und</Detalle>
+      <PrecioUnitario>663.72</PrecioUnitario>
+      <MontoTotal>663.72</MontoTotal>
+      <SubTotal>663.72</SubTotal>
+      <BaseImponible>663.72</BaseImponible>
+      <Impuesto>
+        <Codigo>01</Codigo>
+        <CodigoTarifaIVA>08</CodigoTarifaIVA>
+        <Tarifa>13.0</Tarifa>
+        <Monto>86.28</Monto>
+      </Impuesto>
+      <ImpuestoAsumidoEmisorFabrica>0.0</ImpuestoAsumidoEmisorFabrica>
+      <ImpuestoNeto>86.28</ImpuestoNeto>
+      <MontoTotalLinea>750.00</MontoTotalLinea>
+    </LineaDetalle>
+    <!-- contenido recortado para brevedad -->
+  </DetalleServicio>
+  <ResumenFactura>
+    <CodigoTipoMoneda>
+      <CodigoMoneda>CRC</CodigoMoneda>
+      <TipoCambio>1</TipoCambio>
+    </CodigoTipoMoneda>
+    <TotalServGravados>0.0</TotalServGravados>
+    <TotalServExentos>0.0</TotalServExentos>
+    <TotalServNoSujeto>0.0</TotalServNoSujeto>
+    <TotalMercanciasGravadas>176233.42</TotalMercanciasGravadas>
+    <TotalMercanciasExentas>0.0</TotalMercanciasExentas>
+    <TotalMercNoSujeta>0.0</TotalMercNoSujeta>
+    <TotalGravado>176233.42</TotalGravado>
+    <TotalExento>0.0</TotalExento>
+    <TotalNoSujeto>0.0</TotalNoSujeto>
+    <TotalVenta>176233.42</TotalVenta>
+    <TotalDescuentos>3130.48</TotalDescuentos>
+    <TotalVentaNeta>173102.94</TotalVentaNeta>
+    <TotalImpuesto>21339.02</TotalImpuesto>
+    <MedioPago>
+      <TipoMedioPago>01</TipoMedioPago>
+      <TotalMedioPago>194441.96</TotalMedioPago>
+    </MedioPago>
+    <TotalComprobante>194441.96</TotalComprobante>
+  </ResumenFactura>
+</FacturaElectronica>
+
