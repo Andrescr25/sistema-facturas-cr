@@ -273,6 +273,19 @@ class EmailService {
     async saveXmlAttachment(attachment, seqno) {
         const filename = attachment.filename;
 
+        const normalizedFilename = filename.toLowerCase();
+        const isXmlFile = normalizedFilename.endsWith('.xml');
+        const numericSequenceMatch = filename.match(/\d{20,50}/);
+
+        let xmlPreview = '';
+        let containsKnownTag = false;
+
+        if (isXmlFile) {
+            const previewLength = Math.min(2048, attachment.content.length);
+            xmlPreview = attachment.content.toString('utf8', 0, previewLength);
+            containsKnownTag = /<(FacturaElectronica|NotaCreditoElectronica|NotaDebitoElectronica|TiqueteElectronico)/i.test(xmlPreview);
+        }
+
         // Detección mejorada de facturas CR
         const claveMatch = filename.match(/(\d{50})/);
 
@@ -288,7 +301,9 @@ class EmailService {
             (filename.includes('Factura') && filename.includes('XML')) ||
             filename.includes('TiqueteElectronico') ||
             filename.includes('NotaCredito') ||
-            filename.includes('NotaDebito')
+            filename.includes('NotaDebito') ||
+            (isXmlFile && numericSequenceMatch) ||
+            (isXmlFile && containsKnownTag)
         );
 
         if (!isFacturaCR) {
@@ -299,7 +314,25 @@ class EmailService {
 
         try {
             // Verificar si ya existe en BD
-            const claveFactura = claveMatch ? claveMatch[1] : null;
+            let claveFactura = claveMatch ? claveMatch[1] : null;
+
+            let xmlContentFull = null;
+
+            if (!claveFactura && xmlPreview) {
+                const claveFromPreview = xmlPreview.match(/<Clave>(\d{50})<\/Clave>/);
+                if (claveFromPreview) {
+                    claveFactura = claveFromPreview[1];
+                }
+            }
+
+            if (!claveFactura && isXmlFile) {
+                xmlContentFull = attachment.content.toString('utf8');
+                const claveFromContent = xmlContentFull.match(/<Clave>(\d{50})<\/Clave>/);
+                if (claveFromContent) {
+                    claveFactura = claveFromContent[1];
+                }
+            }
+
             if (claveFactura) {
                 const facturaExistente = await this.dbService.prisma.factura.findUnique({
                     where: { clave: claveFactura }
