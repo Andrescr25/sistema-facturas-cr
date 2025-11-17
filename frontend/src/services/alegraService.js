@@ -119,6 +119,15 @@ export const alegraService = {
     }
   },
 
+  async getInvoiceById(id) {
+    try {
+      const response = await api.get(`/alegra/facturas/${id}`)
+      return response.data
+    } catch (error) {
+      throw new Error(`Error obteniendo factura en Alegra: ${error.message}`)
+    }
+  },
+
   // Obtener factura para registrar faltantes
   async getFacturaDetalle(id) {
     try {
