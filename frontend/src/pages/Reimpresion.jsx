@@ -204,27 +204,23 @@ export default function Reimpresion() {
   const renderBuscadorProducto = (index) => {
     const item = itemsEditados[index]
     if (!item || !item.esNuevo) return null
-    if (productoBusqueda.index !== index) return null
+
+    const esActivo = productoBusqueda.index === index
+    const terminoActual = esActivo ? productoBusqueda.termino : ''
 
     return (
       <div className="col-span-12 border border-blue-200 rounded-md bg-white p-4">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between mb-3">
-          <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              value={productoBusqueda.termino}
+              value={terminoActual}
+              onFocus={() => iniciarBusquedaProducto(index)}
               onChange={(e) => manejarCambioTerminoBusqueda(e.target.value)}
-              className="input input-sm flex-1"
-              placeholder="Buscar por código o descripción"
+              className="input input-sm w-full pl-9"
+              placeholder="Escribe código o descripción..."
             />
-            <button
-              type="button"
-              onClick={() => buscarProductoEnAlegra(index, productoBusqueda.termino)}
-              className="btn btn-primary btn-sm flex items-center gap-1 whitespace-nowrap"
-            >
-              <Search size={14} />
-              Buscar
-            </button>
           </div>
           <button
             type="button"
@@ -236,37 +232,41 @@ export default function Reimpresion() {
           </button>
         </div>
 
-        {productoBusqueda.cargando ? (
-          <p className="text-sm text-gray-500">Buscando productos en Alegra…</p>
-        ) : productoBusqueda.resultados.length > 0 ? (
-          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {productoBusqueda.resultados.map((producto) => {
-              const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
-              return (
-                <div
-                  key={producto.id}
-                  className="flex items-center justify-between gap-3 border border-blue-100 rounded-md px-3 py-2 hover:border-blue-300"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{producto.name}</p>
-                    <p className="text-xs text-gray-500">
-                      Ref: {producto.reference || 'Sin referencia'} • Precio: ₡{Number(price).toLocaleString('es-CR')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => seleccionarProductoBusqueda(index, producto)}
-                    className="btn btn-sm btn-primary flex items-center gap-1"
+        {esActivo ? (
+          productoBusqueda.cargando ? (
+            <p className="text-sm text-gray-500">Buscando productos…</p>
+          ) : productoBusqueda.resultados.length > 0 ? (
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {productoBusqueda.resultados.map((producto) => {
+                const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
+                return (
+                  <div
+                    key={producto.id}
+                    className="flex items-center justify-between gap-3 border border-blue-100 rounded-md px-3 py-2 hover:border-blue-300 transition"
                   >
-                    <CheckCircle size={14} />
-                    Usar
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{producto.name}</p>
+                      <p className="text-xs text-gray-500">
+                        Ref: {producto.reference || 'Sin referencia'} • Precio: ₡{Number(price).toLocaleString('es-CR')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => seleccionarProductoBusqueda(index, producto)}
+                      className="btn btn-outline btn-sm border-blue-300 text-blue-600 hover:bg-blue-50 flex items-center gap-1"
+                    >
+                      <CheckCircle size={14} />
+                      Usar
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">{productoBusqueda.error || 'Sin resultados para ese texto.'}</p>
+          )
         ) : (
-          <p className="text-sm text-gray-500">{productoBusqueda.error || 'Escribe un código y presiona buscar.'}</p>
+          <p className="text-sm text-gray-500">Empieza escribiendo el código o nombre; la búsqueda es automática.</p>
         )}
       </div>
     )
@@ -415,7 +415,7 @@ export default function Reimpresion() {
     })
   }
 
-  const buscarProductoEnAlegra = async (index, termino) => {
+  const buscarProductoRevision = async (index, termino) => {
     const item = itemsEditados[index]
     if (!item || !item.esNuevo) {
       return
@@ -506,7 +506,7 @@ export default function Reimpresion() {
     })
 
     if (referencia && referencia.length >= 2) {
-      buscarProductoEnAlegra(index, referencia)
+      buscarProductoRevision(index, referencia)
     }
   }
 
@@ -525,7 +525,7 @@ export default function Reimpresion() {
       const terminoLimpio = valor.trim()
       if (terminoLimpio.length >= 2 && prev.index !== null) {
         debounceBusquedaRef.current = setTimeout(() => {
-          buscarProductoEnAlegra(prev.index, terminoLimpio)
+          buscarProductoRevision(prev.index, terminoLimpio)
         }, 350)
       }
 
