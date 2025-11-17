@@ -20,6 +20,63 @@ const getDescriptionFromInvoiceItem = (item) => {
   return (item.description || item.name || item.item?.name || '').trim()
 }
 
+const extractStringValue = (value) => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'bigint') return value.toString()
+  if (typeof value === 'object') {
+    const keysPrioridad = ['code', 'reference', 'value', 'label', 'name', 'displayName', 'text']
+    for (const key of keysPrioridad) {
+      if (typeof value[key] === 'string' && value[key].trim()) {
+        return value[key]
+      }
+    }
+    const primerString = Object.values(value).find(val => typeof val === 'string' && val.trim())
+    if (primerString) return primerString
+  }
+  return ''
+}
+
+const getReferenceFromSearchProduct = (producto) => {
+  if (!producto) return ''
+  const candidatos = [
+    producto.reference,
+    producto.code,
+    producto.itemCode,
+    producto.reference?.code,
+    producto.reference?.value,
+    producto.reference?.reference,
+    producto.reference?.label,
+    producto.sku,
+    producto.id
+  ]
+
+  for (const candidato of candidatos) {
+    const valor = extractStringValue(candidato).trim()
+    if (valor) return valor
+  }
+
+  return ''
+}
+
+const getDescriptionFromSearchProduct = (producto) => {
+  if (!producto) return ''
+  const candidatos = [
+    producto.description,
+    producto.name,
+    producto.label,
+    producto.reference?.label,
+    producto.reference?.name
+  ]
+
+  for (const candidato of candidatos) {
+    const valor = extractStringValue(candidato).trim()
+    if (valor) return valor
+  }
+
+  return ''
+}
+
 const getPriceValue = (price) => {
   if (Array.isArray(price)) {
     const main = price.find(p => p.main) || price[0]
@@ -237,12 +294,8 @@ export default function Reimpresion() {
               <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                 {productoBusqueda.resultados.map((producto) => {
                   const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
-                  const referencia =
-                    producto.reference ||
-                    producto.code ||
-                    producto.itemCode ||
-                    (typeof producto.reference === 'object' ? producto.reference?.code : '') ||
-                    'Sin referencia'
+                  const referencia = getReferenceFromSearchProduct(producto) || 'Sin referencia'
+                  const descripcion = getDescriptionFromSearchProduct(producto) || referencia || 'Producto sin nombre'
 
                   return (
                     <div
@@ -251,7 +304,7 @@ export default function Reimpresion() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{producto.name}</p>
+                          <p className="text-sm font-medium text-gray-900">{descripcion}</p>
                           <p className="text-xs text-gray-500">
                             Ref: {referencia} • Precio: ₡{Number(price).toLocaleString('es-CR')}
                           </p>
@@ -459,22 +512,10 @@ export default function Reimpresion() {
       if (response.success) {
         const resultados = response.productos || response.data || []
         const terminoLower = query.toLowerCase()
-        const normalizarTexto = (valor) => {
-          if (valor === null || valor === undefined) return ''
-          if (typeof valor === 'string') return valor
-          if (typeof valor === 'number') return valor.toString()
-          if (typeof valor === 'object') {
-            if (typeof valor.reference === 'string') return valor.reference
-            if (typeof valor.code === 'string') return valor.code
-            if (typeof valor.name === 'string') return valor.name
-            if (typeof valor.label === 'string') return valor.label
-          }
-          return ''
-        }
 
         const score = (producto) => {
-          const ref = normalizarTexto(producto.reference ?? producto.code ?? producto.itemCode).toLowerCase()
-          const name = normalizarTexto(producto.name ?? producto.description).toLowerCase()
+          const ref = getReferenceFromSearchProduct(producto).toLowerCase()
+          const name = getDescriptionFromSearchProduct(producto).toLowerCase()
           let puntos = 0
 
           if (ref === terminoLower) puntos += 1000
@@ -562,8 +603,9 @@ export default function Reimpresion() {
   }
 
   const seleccionarProductoBusqueda = (index, producto) => {
-    const referencia = (producto.reference || producto.code || producto.itemCode || producto.id || '').toString()
-    const descripcion = (producto.name || producto.description || referencia).toString()
+    const referenciaNormalizada = getReferenceFromSearchProduct(producto)
+    const referencia = referenciaNormalizada || productoBusqueda.termino || ''
+    const descripcion = getDescriptionFromSearchProduct(producto) || referencia || 'Producto sin descripción'
     const precio = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
     const taxes = getTaxesArray(producto.taxes ?? producto.tax)
 
