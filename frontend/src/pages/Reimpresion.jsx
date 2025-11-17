@@ -443,7 +443,7 @@ export default function Reimpresion() {
     }))
 
     try {
-      const response = await alegraService.buscarProductosAlegra(query)
+      const response = await alegraService.buscarProductosRevision(query)
 
       if (response.success) {
         const resultados = response.data || []
@@ -737,35 +737,24 @@ export default function Reimpresion() {
             <div key={index} className="space-y-3">
               <div className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-lg border">
               <div className="col-span-3">
-                    <label className="flex items-center justify-between text-xs text-gray-600">
-                      <span>Referencia</span>
-                      {item.esNuevo && (
-                        <button
-                          type="button"
-                          onClick={() => iniciarBusquedaProducto(index)}
-                          className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700"
-                        >
-                          <Search size={12} />
-                          Buscar
-                        </button>
-                      )}
-                    </label>
+                <label className="text-xs text-gray-600">Referencia</label>
                 <input
                   type="text"
                   value={item.reference || ''}
-                        onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
-                        className="input input-sm w-full"
-                        disabled={!item.esNuevo}
+                  onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
+                  onFocus={() => item.esNuevo && iniciarBusquedaProducto(index)}
+                  className="input input-sm w-full"
+                  disabled={!item.esNuevo}
                   placeholder="Código o referencia"
                 />
-                    {item.esNuevo ? (
+                {item.esNuevo ? (
                   <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
                     Nuevo producto
                   </span>
-                    ) : (
-                      <span className="inline-block mt-1 text-xs text-gray-500">
-                        Código original (no editable)
-                      </span>
+                ) : (
+                  <span className="inline-block mt-1 text-xs text-gray-500">
+                    Código original (no editable)
+                  </span>
                 )}
               </div>
               <div className="col-span-3">
