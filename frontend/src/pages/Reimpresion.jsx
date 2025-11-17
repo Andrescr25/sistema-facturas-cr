@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, X, Trash2 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
@@ -57,6 +57,7 @@ export default function Reimpresion() {
     cargando: false,
     error: null
   })
+  const debounceBusquedaRef = useRef(null)
 
   useEffect(() => {
     if (activeTab === 'pendientes') {
@@ -65,6 +66,14 @@ export default function Reimpresion() {
       loadFacturasProcesadas()
     }
   }, [activeTab])
+
+  useEffect(() => {
+    return () => {
+      if (debounceBusquedaRef.current) {
+        clearTimeout(debounceBusquedaRef.current)
+      }
+    }
+  }, [])
 
   const loadFacturasPendientes = async () => {
     try {
@@ -144,7 +153,8 @@ export default function Reimpresion() {
             price,
             tax: taxes,
             itemId: item.item?.id ?? null,
-            item: item.item?.id ? { id: item.item.id } : item.item ?? undefined
+            item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
+            esNuevo: false
           }
         })
 
@@ -177,7 +187,8 @@ export default function Reimpresion() {
       quantity: 1,
       price: 0,
       tax: [],
-      itemId: null
+      itemId: null,
+      esNuevo: true
     }
 
     setItemsEditados(prev => [...prev, nuevoItem])
@@ -191,6 +202,8 @@ export default function Reimpresion() {
   }
 
   const renderBuscadorProducto = (index) => {
+    const item = itemsEditados[index]
+    if (!item || !item.esNuevo) return null
     if (productoBusqueda.index !== index) return null
 
     return (
@@ -309,6 +322,11 @@ export default function Reimpresion() {
           delete payload.tax
         }
 
+        delete payload.esNuevo
+        if (payload.itemId !== undefined) {
+          delete payload.itemId
+        }
+
         return payload
         })
 
@@ -398,6 +416,10 @@ export default function Reimpresion() {
   }
 
   const buscarProductoEnAlegra = async (index, termino) => {
+    const item = itemsEditados[index]
+    if (!item || !item.esNuevo) {
+      return
+    }
     const query = (termino || '').trim()
 
     if (query.length < 2) {
@@ -425,6 +447,26 @@ export default function Reimpresion() {
 
       if (response.success) {
         const resultados = response.data || []
+        const terminoLower = query.toLowerCase()
+
+        const score = (producto) => {
+          const ref = (producto.reference || producto.code || producto.itemCode || '').toLowerCase()
+          const name = (producto.name || producto.description || '').toLowerCase()
+          let puntos = 0
+
+          if (ref === terminoLower) puntos += 1000
+          if (ref.startsWith(terminoLower)) puntos += 500
+          if (ref.includes(terminoLower)) puntos += 200
+
+          if (name === terminoLower) puntos += 150
+          if (name.startsWith(terminoLower)) puntos += 120
+          if (name.includes(terminoLower)) puntos += 80
+
+          return puntos
+        }
+
+        resultados.sort((a, b) => score(b) - score(a))
+
         setProductoBusqueda(prev => ({
           ...prev,
           cargando: false,
@@ -450,6 +492,10 @@ export default function Reimpresion() {
   }
 
   const iniciarBusquedaProducto = (index) => {
+    const item = itemsEditados[index]
+    if (!item || !item.esNuevo) {
+      return
+    }
     const referencia = getReferenceFromInvoiceItem(itemsEditados[index]) || ''
     setProductoBusqueda({
       index,
@@ -465,11 +511,26 @@ export default function Reimpresion() {
   }
 
   const manejarCambioTerminoBusqueda = (valor) => {
-    setProductoBusqueda(prev => ({
-      ...prev,
-      termino: valor,
-      error: null
-    }))
+    setProductoBusqueda(prev => {
+      const next = {
+        ...prev,
+        termino: valor,
+        error: null
+      }
+
+      if (debounceBusquedaRef.current) {
+        clearTimeout(debounceBusquedaRef.current)
+      }
+
+      const terminoLimpio = valor.trim()
+      if (terminoLimpio.length >= 2 && prev.index !== null) {
+        debounceBusquedaRef.current = setTimeout(() => {
+          buscarProductoEnAlegra(prev.index, terminoLimpio)
+        }, 350)
+      }
+
+      return next
+    })
   }
 
   const seleccionarProductoBusqueda = (index, producto) => {
@@ -488,7 +549,8 @@ export default function Reimpresion() {
         price: Number(precio) || 0,
         tax: taxes,
         itemId: producto.id ?? null,
-        item: producto.id ? { id: producto.id } : item.item
+        item: producto.id ? { id: producto.id } : item.item,
+        esNuevo: false
       }
     }))
 
@@ -498,6 +560,10 @@ export default function Reimpresion() {
   const handleItemChange = (index, field, value) => {
     const newItems = [...itemsEditados]
     const itemActual = { ...newItems[index] }
+
+    if (!itemActual.esNuevo && (field === 'reference' || field === 'description')) {
+      return
+    }
 
     if (field === 'quantity') {
       const numero = parseFloat(value)
@@ -673,26 +739,33 @@ export default function Reimpresion() {
               <div className="col-span-3">
                     <label className="flex items-center justify-between text-xs text-gray-600">
                       <span>Referencia</span>
-                      <button
-                        type="button"
-                        onClick={() => iniciarBusquedaProducto(index)}
-                        className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700"
-                      >
-                        <Search size={12} />
-                        Buscar
-                      </button>
+                      {item.esNuevo && (
+                        <button
+                          type="button"
+                          onClick={() => iniciarBusquedaProducto(index)}
+                          className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700"
+                        >
+                          <Search size={12} />
+                          Buscar
+                        </button>
+                      )}
                     </label>
                 <input
                   type="text"
                   value={item.reference || ''}
                         onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
-                  className="input input-sm w-full"
+                        className="input input-sm w-full"
+                        disabled={!item.esNuevo}
                   placeholder="Código o referencia"
                 />
-                    {!item.id && (
+                    {item.esNuevo ? (
                   <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
                     Nuevo producto
                   </span>
+                    ) : (
+                      <span className="inline-block mt-1 text-xs text-gray-500">
+                        Código original (no editable)
+                      </span>
                 )}
               </div>
               <div className="col-span-3">
@@ -701,7 +774,8 @@ export default function Reimpresion() {
                   type="text"
                   value={item.description || ''}
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                  className="input input-sm w-full"
+                        className={`input input-sm w-full ${item.esNuevo ? '' : 'bg-gray-100 text-gray-600'}`}
+                        disabled={!item.esNuevo}
                   placeholder="Descripción del producto"
                 />
               </div>
