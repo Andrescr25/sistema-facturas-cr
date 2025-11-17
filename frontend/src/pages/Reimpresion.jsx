@@ -1,6 +1,42 @@
 import { useState, useEffect } from 'react'
-import { Printer, FileText, AlertCircle, Calendar, User, Package, Edit, Eye, Save, RotateCcw, CheckCircle } from 'lucide-react'
+import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, X, Trash2 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
+
+const getReferenceFromInvoiceItem = (item) => {
+  if (!item) return ''
+  if (typeof item.reference === 'string' && item.reference.trim()) return item.reference.trim()
+  if (item.reference && typeof item.reference === 'object') {
+    if (typeof item.reference.reference === 'string' && item.reference.reference.trim()) return item.reference.reference.trim()
+    if (typeof item.reference.code === 'string' && item.reference.code.trim()) return item.reference.code.trim()
+  }
+  if (item.item && typeof item.item.reference === 'string') return item.item.reference.trim()
+  if (typeof item.code === 'string') return item.code.trim()
+  if (typeof item.sku === 'string') return item.sku.trim()
+  return ''
+}
+
+const getDescriptionFromInvoiceItem = (item) => {
+  if (!item) return ''
+  return (item.description || item.name || item.item?.name || '').trim()
+}
+
+const getPriceValue = (price) => {
+  if (Array.isArray(price)) {
+    const main = price.find(p => p.main) || price[0]
+    return Number(main?.price ?? 0)
+  }
+  if (price && typeof price === 'object') {
+    return Number(price.price ?? price.value ?? 0)
+  }
+  return Number(price ?? 0)
+}
+
+const getTaxesArray = (tax) => {
+  if (!tax) return []
+  if (Array.isArray(tax)) return tax
+  if (Array.isArray(tax.taxes)) return tax.taxes
+  return [tax]
+}
 
 export default function Reimpresion() {
   const [activeTab, setActiveTab] = useState('pendientes')
@@ -14,6 +50,13 @@ export default function Reimpresion() {
   const [itemsEditados, setItemsEditados] = useState([])
   const [modoEdicion, setModoEdicion] = useState(false)
   const [procesando, setProcesando] = useState(false)
+  const [productoBusqueda, setProductoBusqueda] = useState({
+    index: null,
+    termino: '',
+    resultados: [],
+    cargando: false,
+    error: null
+  })
 
   useEffect(() => {
     if (activeTab === 'pendientes') {
@@ -86,15 +129,26 @@ export default function Reimpresion() {
     // Necesitamos obtener la factura completa
     alegraService.getInvoiceById(factura.alegra_id).then(result => {
       if (result.success) {
-        setItemsEditados(result.data.items.map(item => ({
-          id: item.id,
-          reference: item.reference,
-          name: item.name,
-          description: item.description || item.name || '',
-          quantity: item.quantity,
-          price: item.price,
-          tax: item.tax || []
-        })))
+        const items = Array.isArray(result.data.items) ? result.data.items : []
+        const normalizados = items.map(item => {
+          const reference = getReferenceFromInvoiceItem(item)
+          const description = getDescriptionFromInvoiceItem(item)
+          const price = getPriceValue(item.price)
+          const taxes = getTaxesArray(item.tax)
+
+          return {
+            id: item.id ?? null,
+            reference,
+            description,
+            quantity: Number(item.quantity) || 0,
+            price,
+            tax: taxes,
+            itemId: item.item?.id ?? null,
+            item: item.item?.id ? { id: item.item.id } : item.item ?? undefined
+          }
+        })
+
+        setItemsEditados(normalizados)
       }
     })
 
@@ -105,21 +159,104 @@ export default function Reimpresion() {
     setFacturaEditando(null)
     setItemsEditados([])
     setModoEdicion(false)
+    setProductoBusqueda({
+      index: null,
+      termino: '',
+      resultados: [],
+      cargando: false,
+      error: null
+    })
   }
 
   const handleAgregarItem = () => {
-    setItemsEditados(prev => ([
-      ...prev,
-      {
-        id: null,
-        reference: '',
-        name: '',
-        description: '',
-        quantity: 1,
-        price: 0,
-        tax: []
-      }
-    ]))
+    const nuevoIndice = itemsEditados.length
+    const nuevoItem = {
+      id: null,
+      reference: '',
+      description: '',
+      quantity: 1,
+      price: 0,
+      tax: [],
+      itemId: null
+    }
+
+    setItemsEditados(prev => [...prev, nuevoItem])
+    setProductoBusqueda({
+      index: nuevoIndice,
+      termino: '',
+      resultados: [],
+      cargando: false,
+      error: null
+    })
+  }
+
+  const renderBuscadorProducto = (index) => {
+    if (productoBusqueda.index !== index) return null
+
+    return (
+      <div className="col-span-12 border border-blue-200 rounded-md bg-white p-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between mb-3">
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            <input
+              type="text"
+              value={productoBusqueda.termino}
+              onChange={(e) => manejarCambioTerminoBusqueda(e.target.value)}
+              className="input input-sm flex-1"
+              placeholder="Buscar por código o descripción"
+            />
+            <button
+              type="button"
+              onClick={() => buscarProductoEnAlegra(index, productoBusqueda.termino)}
+              className="btn btn-primary btn-sm flex items-center gap-1 whitespace-nowrap"
+            >
+              <Search size={14} />
+              Buscar
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={cerrarBusquedaProducto}
+            className="btn btn-outline btn-sm flex items-center gap-1 text-gray-600 hover:text-gray-800 whitespace-nowrap"
+          >
+            <X size={14} />
+            Cerrar
+          </button>
+        </div>
+
+        {productoBusqueda.cargando ? (
+          <p className="text-sm text-gray-500">Buscando productos en Alegra…</p>
+        ) : productoBusqueda.resultados.length > 0 ? (
+          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+            {productoBusqueda.resultados.map((producto) => {
+              const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
+              return (
+                <div
+                  key={producto.id}
+                  className="flex items-center justify-between gap-3 border border-blue-100 rounded-md px-3 py-2 hover:border-blue-300"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{producto.name}</p>
+                    <p className="text-xs text-gray-500">
+                      Ref: {producto.reference || 'Sin referencia'} • Precio: ₡{Number(price).toLocaleString('es-CR')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => seleccionarProductoBusqueda(index, producto)}
+                    className="btn btn-sm btn-primary flex items-center gap-1"
+                  >
+                    <CheckCircle size={14} />
+                    Usar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">{productoBusqueda.error || 'Escribe un código y presiona buscar.'}</p>
+        )}
+      </div>
+    )
   }
 
   const handleGuardarFactura = async (imprimirDespues = false) => {
@@ -135,29 +272,44 @@ export default function Reimpresion() {
     try {
       setProcesando(true)
 
+      if (modoEdicion && productoBusqueda.index !== null) {
+        cerrarBusquedaProducto()
+      }
+
       let itemsParaGuardar = null
 
       if (modoEdicion) {
         itemsParaGuardar = itemsEditados.map(item => {
-          const descripcion = (item.description ?? item.name ?? '').trim()
-          const referencia = (item.reference ?? '').toString().trim()
+        const descripcion = (item.description ?? '').trim()
+        const referencia = (item.reference ?? '').toString().trim()
+        const quantity = Number(item.quantity) || 0
+        const price = Number(item.price) || 0
+        const tax = Array.isArray(item.tax) ? item.tax : getTaxesArray(item.tax)
 
-          const payload = {
-            ...item,
-            id: item.id ? item.id : undefined,
-            reference: referencia,
-            description: descripcion || referencia,
-            quantity: Number(item.quantity) || 0,
-            price: Number(item.price) || 0,
-            tax: item.tax || []
-          }
+        const payload = {
+          reference: referencia,
+          description: descripcion || referencia,
+          name: descripcion || referencia,
+          quantity,
+          price,
+          tax
+        }
 
-          delete payload.name
-          if (!payload.id) {
-            delete payload.id
-          }
+        if (item.id) {
+          payload.id = item.id
+        }
 
-          return payload
+        if (item.item && item.item.id) {
+          payload.item = { id: item.item.id }
+        } else if (item.itemId) {
+          payload.item = { id: item.itemId }
+        }
+
+        if (payload.tax.length === 0) {
+          delete payload.tax
+        }
+
+        return payload
         })
 
         const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
@@ -235,21 +387,156 @@ export default function Reimpresion() {
     }
   }
 
+  const cerrarBusquedaProducto = () => {
+    setProductoBusqueda({
+      index: null,
+      termino: '',
+      resultados: [],
+      cargando: false,
+      error: null
+    })
+  }
+
+  const buscarProductoEnAlegra = async (index, termino) => {
+    const query = (termino || '').trim()
+
+    if (query.length < 2) {
+      setProductoBusqueda(prev => ({
+        ...prev,
+        index,
+        termino,
+        resultados: [],
+        error: 'Ingresa al menos 2 caracteres.'
+      }))
+      return
+    }
+
+    setProductoBusqueda(prev => ({
+      ...prev,
+      index,
+      termino: query,
+      cargando: true,
+      resultados: [],
+      error: null
+    }))
+
+    try {
+      const response = await alegraService.buscarProductosAlegra(query)
+
+      if (response.success) {
+        const resultados = response.data || []
+        setProductoBusqueda(prev => ({
+          ...prev,
+          cargando: false,
+          resultados,
+          error: resultados.length === 0 ? 'Sin coincidencias para ese código.' : null
+        }))
+      } else {
+        setProductoBusqueda(prev => ({
+          ...prev,
+          cargando: false,
+          resultados: [],
+          error: response.message || 'No se pudieron obtener los productos.'
+        }))
+      }
+    } catch (error) {
+      setProductoBusqueda(prev => ({
+        ...prev,
+        cargando: false,
+        resultados: [],
+        error: error.message
+      }))
+    }
+  }
+
+  const iniciarBusquedaProducto = (index) => {
+    const referencia = getReferenceFromInvoiceItem(itemsEditados[index]) || ''
+    setProductoBusqueda({
+      index,
+      termino: referencia,
+      resultados: [],
+      cargando: false,
+      error: null
+    })
+
+    if (referencia && referencia.length >= 2) {
+      buscarProductoEnAlegra(index, referencia)
+    }
+  }
+
+  const manejarCambioTerminoBusqueda = (valor) => {
+    setProductoBusqueda(prev => ({
+      ...prev,
+      termino: valor,
+      error: null
+    }))
+  }
+
+  const seleccionarProductoBusqueda = (index, producto) => {
+    const referencia = (producto.reference || producto.code || producto.itemCode || producto.id || '').toString()
+    const descripcion = (producto.name || producto.description || referencia).toString()
+    const precio = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
+    const taxes = getTaxesArray(producto.taxes ?? producto.tax)
+
+    setItemsEditados(prev => prev.map((item, idx) => {
+      if (idx !== index) return item
+      return {
+        ...item,
+        reference: referencia,
+        description: descripcion,
+        quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
+        price: Number(precio) || 0,
+        tax: taxes,
+        itemId: producto.id ?? null,
+        item: producto.id ? { id: producto.id } : item.item
+      }
+    }))
+
+    cerrarBusquedaProducto()
+  }
+
   const handleItemChange = (index, field, value) => {
     const newItems = [...itemsEditados]
-    newItems[index] = {
-      ...newItems[index],
-      [field]: field === 'quantity' || field === 'price' ? parseFloat(value) || 0 : value
+    const itemActual = { ...newItems[index] }
+
+    if (field === 'quantity') {
+      const numero = parseFloat(value)
+      itemActual.quantity = Number.isFinite(numero) && numero >= 0 ? numero : 0
+    } else if (field === 'price') {
+      const numero = parseFloat(value)
+      itemActual.price = Number.isFinite(numero) ? numero : 0
+    } else if (field === 'description') {
+      itemActual.description = value
+    } else if (field === 'reference') {
+      itemActual.reference = value
+      itemActual.itemId = null
+      if (itemActual.item) delete itemActual.item
+    } else {
+      itemActual[field] = value
     }
-    if (field === 'description') {
-      newItems[index].name = value
-    }
+
+    newItems[index] = itemActual
     setItemsEditados(newItems)
   }
 
   const handleEliminarItem = (index) => {
     const newItems = itemsEditados.filter((_, i) => i !== index)
     setItemsEditados(newItems)
+
+    if (productoBusqueda.index !== null) {
+      if (productoBusqueda.index === index) {
+        cerrarBusquedaProducto()
+      } else if (productoBusqueda.index > index) {
+        setProductoBusqueda(prev => ({
+          ...prev,
+          index: prev.index - 1
+        }))
+      }
+    }
+
+    if (newItems.length === 0) {
+      setModoEdicion(false)
+    }
   }
 
   // Renderizar vista de cambios automáticos (sin modo edición)
@@ -374,35 +661,46 @@ export default function Reimpresion() {
             className="btn btn-outline btn-sm flex items-center gap-2"
             type="button"
           >
-            <span className="text-lg leading-none">＋</span>
+            <Plus size={14} />
             Agregar producto
           </button>
         </div>
 
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {itemsEditados.map((item, index) => (
-            <div key={index} className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-lg border">
+            <div key={index} className="space-y-3">
+              <div className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-lg border">
               <div className="col-span-3">
-                <label className="text-xs text-gray-600">Referencia</label>
+                    <label className="flex items-center justify-between text-xs text-gray-600">
+                      <span>Referencia</span>
+                      <button
+                        type="button"
+                        onClick={() => iniciarBusquedaProducto(index)}
+                        className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700"
+                      >
+                        <Search size={12} />
+                        Buscar
+                      </button>
+                    </label>
                 <input
                   type="text"
                   value={item.reference || ''}
-                  onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
+                        onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
                   className="input input-sm w-full"
                   placeholder="Código o referencia"
                 />
-                {!item.id && (
+                    {!item.id && (
                   <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
                     Nuevo producto
                   </span>
                 )}
               </div>
-              <div className="col-span-4">
+              <div className="col-span-3">
                 <label className="text-xs text-gray-600">Descripción</label>
                 <input
                   type="text"
                   value={item.description || ''}
-                  onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                   className="input input-sm w-full"
                   placeholder="Descripción del producto"
                 />
@@ -423,26 +721,30 @@ export default function Reimpresion() {
                 <input
                   type="number"
                   value={item.price}
-                  onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                   className="input input-sm w-full"
                   min="0"
                   step="0.01"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1">
                 <label className="text-xs text-gray-600">Subtotal</label>
                 <div className="input input-sm w-full bg-gray-100 flex items-center">
                   ₡{(item.quantity * item.price).toLocaleString('es-CR')}
                 </div>
               </div>
-              <div className="col-span-2 flex items-end">
+                  <div className="col-span-1 flex items-end justify-end">
                 <button
+                        type="button"
                   onClick={() => handleEliminarItem(index)}
-                  className="btn btn-sm bg-red-500 text-white hover:bg-red-600 w-full"
+                        className="btn btn-outline btn-sm border-red-300 text-red-600 hover:bg-red-50 flex items-center gap-1"
                 >
-                  🗑️
+                        <Trash2 size={14} />
+                        Quitar
                 </button>
               </div>
+              </div>
+              {renderBuscadorProducto(index)}
             </div>
           ))}
         </div>
