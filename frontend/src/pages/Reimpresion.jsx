@@ -90,7 +90,7 @@ export default function Reimpresion() {
           id: item.id,
           reference: item.reference,
           name: item.name,
-          description: item.description,
+          description: item.description || item.name || '',
           quantity: item.quantity,
           price: item.price,
           tax: item.tax || []
@@ -107,6 +107,21 @@ export default function Reimpresion() {
     setModoEdicion(false)
   }
 
+  const handleAgregarItem = () => {
+    setItemsEditados(prev => ([
+      ...prev,
+      {
+        id: null,
+        reference: '',
+        name: '',
+        description: '',
+        quantity: 1,
+        price: 0,
+        tax: []
+      }
+    ]))
+  }
+
   const handleGuardarFactura = async (imprimirDespues = false) => {
     if (!facturaEditando) return
 
@@ -120,6 +135,46 @@ export default function Reimpresion() {
     try {
       setProcesando(true)
 
+      let itemsParaGuardar = null
+
+      if (modoEdicion) {
+        itemsParaGuardar = itemsEditados.map(item => {
+          const descripcion = (item.description ?? item.name ?? '').trim()
+          const referencia = (item.reference ?? '').toString().trim()
+
+          const payload = {
+            ...item,
+            id: item.id ? item.id : undefined,
+            reference: referencia,
+            description: descripcion || referencia,
+            quantity: Number(item.quantity) || 0,
+            price: Number(item.price) || 0,
+            tax: item.tax || []
+          }
+
+          delete payload.name
+          if (!payload.id) {
+            delete payload.id
+          }
+
+          return payload
+        })
+
+        const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
+        if (hayReferenciaVacia) {
+          alert('⚠️ Todos los productos deben tener una referencia antes de guardar.')
+          setProcesando(false)
+          return
+        }
+
+        const hayCantidadInvalida = itemsParaGuardar.some(item => item.quantity <= 0)
+        if (hayCantidadInvalida) {
+          alert('⚠️ Las cantidades deben ser mayores a cero.')
+          setProcesando(false)
+          return
+        }
+      }
+
       // Procesar factura (con items editados si hay, o ajustes automáticos)
       // 🔧 Marcar como procesada porque viene desde Reimpresión (reimprimiendo)
       const facturaConFlag = {
@@ -129,7 +184,7 @@ export default function Reimpresion() {
       
       const result = await alegraService.procesarFacturaIndividual(
         facturaConFlag,
-        modoEdicion ? itemsEditados : null
+        modoEdicion ? itemsParaGuardar : null
       )
 
       if (result.success) {
@@ -185,6 +240,9 @@ export default function Reimpresion() {
     newItems[index] = {
       ...newItems[index],
       [field]: field === 'quantity' || field === 'price' ? parseFloat(value) || 0 : value
+    }
+    if (field === 'description') {
+      newItems[index].name = value
     }
     setItemsEditados(newItems)
   }
@@ -309,18 +367,45 @@ export default function Reimpresion() {
           </p>
         </div>
 
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-lg font-semibold text-gray-900">Productos en la factura</h4>
+          <button
+            onClick={handleAgregarItem}
+            className="btn btn-outline btn-sm flex items-center gap-2"
+            type="button"
+          >
+            <span className="text-lg leading-none">＋</span>
+            Agregar producto
+          </button>
+        </div>
+
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {itemsEditados.map((item, index) => (
             <div key={index} className="grid grid-cols-12 gap-3 p-4 bg-gray-50 rounded-lg border">
-              <div className="col-span-4">
-                <label className="text-xs text-gray-600">Producto</label>
+              <div className="col-span-3">
+                <label className="text-xs text-gray-600">Referencia</label>
                 <input
                   type="text"
-                  value={item.name || item.description}
-                  onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                  value={item.reference || ''}
+                  onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
                   className="input input-sm w-full"
+                  placeholder="Código o referencia"
                 />
-                <p className="text-xs text-gray-500 mt-1">Ref: {item.reference}</p>
+                {!item.id && (
+                  <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
+                    Nuevo producto
+                  </span>
+                )}
+              </div>
+              <div className="col-span-4">
+                <label className="text-xs text-gray-600">Descripción</label>
+                <input
+                  type="text"
+                  value={item.description || ''}
+                  onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                  className="input input-sm w-full"
+                  placeholder="Descripción del producto"
+                />
               </div>
               <div className="col-span-2">
                 <label className="text-xs text-gray-600">Cantidad</label>
