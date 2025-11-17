@@ -151,10 +151,10 @@ export const alegraService = {
     }
   },
 
-  async buscarProductosAlegra(query) {
+  async buscarProductosRevision(query) {
     try {
-      const response = await api.get('/alegra/productos/buscar', {
-        params: { query }
+      const response = await api.get('/productos-revision/buscar', {
+        params: { q: query }
       })
       return response.data
     } catch (error) {
