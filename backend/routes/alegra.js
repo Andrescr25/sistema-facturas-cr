@@ -2981,46 +2981,94 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     );
     
     if (debeEditarEnAlegra) {
+      const cacheProductosBusqueda = new Map();
+
+      const buscarProductoPorReferencia = async (referencia) => {
+        if (!referencia) return null;
+        const refNormalizada = referencia.trim().toLowerCase();
+        if (cacheProductosBusqueda.has(refNormalizada)) {
+          return cacheProductosBusqueda.get(refNormalizada);
+        }
+
+        try {
+          const resultadoBusqueda = await alegraService.searchProducts(referencia);
+          if (resultadoBusqueda.success && Array.isArray(resultadoBusqueda.data)) {
+            const encontrado = resultadoBusqueda.data.find(item => {
+              const refItem = (item.reference?.reference || item.reference || '').toString().trim().toLowerCase();
+              return refItem === refNormalizada;
+            }) || resultadoBusqueda.data.find(item => {
+              const refItem = (item.reference?.reference || item.reference || '').toString().trim().toLowerCase();
+              return refItem.includes(refNormalizada);
+            });
+
+            cacheProductosBusqueda.set(refNormalizada, encontrado || null);
+            return encontrado || null;
+          }
+        } catch (error) {
+          console.error(`❌ Error buscando producto por referencia ${referencia}:`, error.message);
+        }
+
+        cacheProductosBusqueda.set(refNormalizada, null);
+        return null;
+      };
+
       if (itemsEditados.length > 0) {
         console.log(`✏️ Recibidos ${itemsEditados.length} items editados manualmente. Actualizando factura ${numero_factura} en Alegra...`);
 
-        const normalizarItemEditado = (item) => {
+        const normalizarItemEditado = async (item) => {
           if (!item) return null;
           const referencia = (item.reference || '').toString().trim();
           const descripcionBase = (item.description || item.name || referencia || '').toString().trim();
           const cantidad = Number(item.quantity) || 0;
           const precio = Number(item.price) || 0;
+          let alegraItemId = item.item?.id || item.itemId || item.alegraItemId || item.id;
 
-          if (!referencia || cantidad <= 0) {
-            console.warn(`⚠️ Item ignorado por datos inválidos (ref: "${referencia}", qty: ${cantidad})`);
+          if (!referencia) {
+            console.warn(`⚠️ Item ${alegraItemId} ignorado: referencia vacía`);
+            return null;
+          }
+
+          if (!alegraItemId && referencia) {
+            const productoAlegra = await buscarProductoPorReferencia(referencia);
+            if (productoAlegra && productoAlegra.id) {
+              alegraItemId = productoAlegra.id.toString();
+              console.log(`🔁 Referencia ${referencia} asociada a item Alegra ${alegraItemId} mediante búsqueda`);
+            }
+          }
+
+          if (!alegraItemId) {
+            console.warn(`⚠️ Item ignorado por no tener alegraItemId: ${JSON.stringify(item)}`);
+            return null;
+          }
+
+          if (cantidad <= 0) {
+            console.log(`🗑️ Item ${alegraItemId} se eliminará (cantidad ${cantidad})`);
             return null;
           }
 
           const payload = {
+            id: alegraItemId.toString(),
             reference: referencia,
             description: descripcionBase || referencia,
             name: item.name || descripcionBase || referencia,
             quantity: cantidad,
-            price: precio > 0 ? precio : 0
+            price: precio > 0 ? precio : 0,
+            item: { id: alegraItemId.toString() }
           };
-
-          if (item.id) payload.id = item.id;
-          if (item.item && item.item.id) {
-            payload.item = { id: item.item.id };
-          } else if (item.itemId) {
-            payload.item = { id: item.itemId };
-          }
 
           if (Array.isArray(item.tax) && item.tax.length > 0) {
             payload.tax = item.tax;
           }
-
           return payload;
         };
 
-        const itemsNormalizados = itemsEditados
-          .map(normalizarItemEditado)
-          .filter(Boolean);
+        const itemsNormalizados = [];
+        for (const item of itemsEditados) {
+          const normalizado = await normalizarItemEditado(item);
+          if (normalizado) {
+            itemsNormalizados.push(normalizado);
+          }
+        }
 
         if (itemsNormalizados.length === 0) {
           return res.status(400).json({

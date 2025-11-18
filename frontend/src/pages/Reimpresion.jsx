@@ -33,8 +33,7 @@ const getReferenceFromInvoiceItem = (item) => {
     item.item?.code,
     item.item?.sku,
     item.itemReference,
-    item.externalReference,
-    item.id
+    item.externalReference
   ]
 
   for (const candidato of candidatos) {
@@ -182,9 +181,11 @@ export default function Reimpresion() {
   const completarItemConReferencia = async (itemBase) => {
     let referencia = itemBase.reference?.trim() ? itemBase.reference : ''
     let descripcion = itemBase.description?.trim() ? itemBase.description : ''
+    let referenciaTipo = itemBase.referencia_tipo || itemBase.reference_type || itemBase.referenceType || null
     const alegraItemId = itemBase.alegraItemId || itemBase.itemId || itemBase.item?.id || itemBase.id
+    const referenciaIgualId = alegraItemId && referencia === alegraItemId.toString()
 
-    if (!referencia && alegraItemId) {
+    if ((!referencia || referenciaIgualId) && alegraItemId) {
       const producto = await obtenerProductoAlegra(alegraItemId)
       if (producto) {
         const refNormalizada = getReferenceFromSearchProduct(producto)
@@ -195,6 +196,7 @@ export default function Reimpresion() {
         if (!descripcion && (descNormalizada || producto.name)) {
           descripcion = descNormalizada || producto.name || descripcion
         }
+        referenciaTipo = producto.reference?.type || referenciaTipo || 'CODE_OF_INTERNAL_USE'
       }
     }
 
@@ -202,7 +204,8 @@ export default function Reimpresion() {
       ...itemBase,
       reference: referencia,
       description: descripcion,
-      alegraItemId
+      alegraItemId,
+      referencia_tipo: referenciaTipo || 'CODE_OF_INTERNAL_USE'
     }
   }
 
@@ -708,6 +711,7 @@ export default function Reimpresion() {
         itemId: producto.id ?? null,
         alegraItemId: producto.id ?? null,
         item: producto.id ? { id: producto.id } : item.item,
+        referencia_tipo: producto.reference?.type || item.referencia_tipo || 'CODE_OF_INTERNAL_USE',
         esNuevo: false
       }
     }))
@@ -735,6 +739,9 @@ export default function Reimpresion() {
       itemActual.reference = value
       itemActual.itemId = null
       itemActual.alegraItemId = null
+      if (itemActual.referencia_tipo) {
+        delete itemActual.referencia_tipo
+      }
       if (itemActual.item) delete itemActual.item
     } else {
       itemActual[field] = value
