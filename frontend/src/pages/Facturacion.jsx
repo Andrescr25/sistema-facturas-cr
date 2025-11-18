@@ -316,16 +316,38 @@ export default function Facturacion() {
       const pendientes = await facturacionService.getFacturasPendientes();
       setFacturasPendientes(pendientes);
 
-      await refrescarFacturasLocales();
-
       if (resultado.sincronizadas > 0) {
         mostrarMensaje(`${resultado.sincronizadas} factura(s) sincronizada(s)`, 'success');
       }
+
+      await sincronizarEdiciones();
+      await refrescarFacturasLocales();
 
     } catch (error) {
       console.error('Error sincronizando:', error);
     }
   };
+
+  const sincronizarEdiciones = async () => {
+    try {
+      const resultado = await facturacionService.sincronizarEdicionesPendientes();
+      const ediciones = await facturacionService.getEdicionesPendientes();
+      setEdicionesPendientes(ediciones);
+
+      if (resultado.sincronizadas > 0) {
+        mostrarMensaje(`${resultado.sincronizadas} edición(es) sincronizada(s)`, 'success');
+      }
+
+      await refrescarFacturasLocales();
+    } catch (error) {
+      console.error('Error sincronizando ediciones:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOnline || edicionesPendientes.length === 0) return;
+    sincronizarEdiciones();
+  }, [isOnline, edicionesPendientes.length]);
 
   const buscarProductoPorCodigo = async (codigo) => {
     if (!codigo.trim()) return null;
@@ -725,7 +747,11 @@ export default function Facturacion() {
           : null);
 
       if (modoEdicion && esFacturaLocalPendiente && localIdEdicion) {
-        resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista);
+        if (facturacionService.isConnected()) {
+          resultado = await facturacionService.enviarFacturaPendiente(localIdEdicion, facturaData, facturaVista);
+        } else {
+          resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista);
+        }
       } else if (modoEdicion && facturaEditando) {
         resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData, facturaVista);
       } else {

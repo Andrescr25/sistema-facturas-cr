@@ -38,6 +38,7 @@ class FacturacionService {
       // Si está online, intentar sincronizar facturas pendientes
       if (this.isOnline) {
         await this.sincronizarFacturasPendientes();
+        await this.sincronizarEdicionesPendientes();
       }
       
       return true;
@@ -847,6 +848,53 @@ class FacturacionService {
       };
     } catch (error) {
       console.error('❌ Error actualizando factura pendiente:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Enviar inmediatamente una factura pendiente (si hay internet)
+   */
+  async enviarFacturaPendiente(localId, facturaData, facturaVista = null) {
+    try {
+      const numeroLocal = typeof localId === 'string' && localId.startsWith('local-')
+        ? parseInt(localId.replace('local-', ''), 10)
+        : Number(localId);
+
+      if (Number.isNaN(numeroLocal)) {
+        throw new Error('ID local inválido');
+      }
+
+      console.log(`🌐 Enviando factura pendiente ${numeroLocal} directamente a Alegra...`);
+
+      const response = await api.post('/alegra/facturacion/invoices', facturaData);
+
+      if (response.data.success) {
+        await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
+        await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
+
+        const facturaOnline = {
+          ...response.data.data,
+          client: response.data.data.client || facturaVista?.cliente || null,
+          pendienteSincronizar: false,
+          pendienteEdicion: false,
+          esLocal: false
+        };
+        await indexedDBService.saveFacturasCache([facturaOnline]);
+
+        console.log(`✅ Factura pendiente ${numeroLocal} enviada a Alegra con ID ${response.data.data.id}`);
+
+        return {
+          success: true,
+          online: true,
+          data: response.data.data,
+          message: 'Factura enviada exitosamente a Alegra'
+        };
+      }
+
+      throw new Error(response.data.message || 'Error enviando factura pendiente');
+    } catch (error) {
+      console.error('❌ Error enviando factura pendiente:', error);
       throw error;
     }
   }
