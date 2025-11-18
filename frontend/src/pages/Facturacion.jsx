@@ -57,9 +57,9 @@ export default function Facturacion() {
   const [mensaje, setMensaje] = useState(null);
   
   // Modal de cantidad para móvil
-  const [modalCantidadMovil, setModalCantidadMovil] = useState(false);
-  const [productoSeleccionadoMovil, setProductoSeleccionadoMovil] = useState(null);
-  const [cantidadMovil, setCantidadMovil] = useState('');
+  const [modalCantidadProducto, setModalCantidadProducto] = useState(false);
+  const [productoSeleccionadoCantidad, setProductoSeleccionadoCantidad] = useState(null);
+  const [cantidadSeleccionada, setCantidadSeleccionada] = useState('');
 
   // Referencias
   const codigoInputRef = useRef(null);
@@ -172,7 +172,7 @@ export default function Facturacion() {
 
   // Focus con delay en modal de cantidad (evita que el teclado tape el modal)
   useEffect(() => {
-    if (modalCantidadMovil && cantidadMovilInputRef.current) {
+    if (modalCantidadProducto && cantidadMovilInputRef.current) {
       // Esperar a que termine la animación del modal (400ms)
       const timer = setTimeout(() => {
         if (cantidadMovilInputRef.current) {
@@ -191,7 +191,7 @@ export default function Facturacion() {
 
       return () => clearTimeout(timer);
     }
-  }, [modalCantidadMovil]);
+  }, [modalCantidadProducto]);
   
   // Cambiar automáticamente a búsqueda en móvil
   useEffect(() => {
@@ -501,21 +501,21 @@ export default function Facturacion() {
     }
   };
 
-  const abrirModalCantidadMovil = (producto) => {
-    setProductoSeleccionadoMovil(producto);
-    setCantidadMovil('1');
-    setModalCantidadMovil(true);
+  const abrirModalCantidadProducto = (producto) => {
+    setProductoSeleccionadoCantidad(producto);
+    setCantidadSeleccionada('1');
+    setModalCantidadProducto(true);
     setBusquedaProducto('');
     setProductosEncontrados([]);
   };
 
-  const confirmarCantidadMovil = () => {
-    const cantidad = parseInt(cantidadMovil) || 1;
-    if (cantidad > 0 && productoSeleccionadoMovil) {
-      agregarProductoAFactura(productoSeleccionadoMovil, cantidad);
-      setModalCantidadMovil(false);
-      setProductoSeleccionadoMovil(null);
-      setCantidadMovil('');
+  const confirmarCantidadProducto = () => {
+    const cantidad = parseInt(cantidadSeleccionada) || 1;
+    if (cantidad > 0 && productoSeleccionadoCantidad) {
+      agregarProductoAFactura(productoSeleccionadoCantidad, cantidad);
+      setModalCantidadProducto(false);
+      setProductoSeleccionadoCantidad(null);
+      setCantidadSeleccionada('');
       
       // Enfocar el input de búsqueda para continuar con el siguiente producto
       setTimeout(() => {
@@ -1298,13 +1298,7 @@ export default function Facturacion() {
                       <button
                         key={producto.id}
                         onClick={() => {
-                          if (isMobile) {
-                            abrirModalCantidadMovil(producto);
-                          } else {
-                            agregarProductoAFactura(producto, 1);
-                            setBusquedaProducto('');
-                            setProductosEncontrados([]);
-                          }
+                          abrirModalCantidadProducto(producto);
                         }}
                         className={`w-full text-left ${
                           isMobile ? 'p-4 active:bg-blue-50' : 'p-3 hover:bg-gray-50'
@@ -1623,13 +1617,13 @@ export default function Facturacion() {
       {/* Fin del formulario de factura */}
 
       {/* Modal de Cantidad para Móvil - Optimizado touch */}
-      {modalCantidadMovil && productoSeleccionadoMovil && (
+      {modalCantidadProducto && productoSeleccionadoCantidad && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
           onClick={() => {
-            setModalCantidadMovil(false);
-            setProductoSeleccionadoMovil(null);
-            setCantidadMovil('');
+            setModalCantidadProducto(false);
+            setProductoSeleccionadoCantidad(null);
+            setCantidadSeleccionada('');
           }}
         >
           <div 
@@ -1646,15 +1640,15 @@ export default function Facturacion() {
             {/* Producto seleccionado */}
             <div className="mb-6">
               <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
-                {productoSeleccionadoMovil.name}
+                {productoSeleccionadoCantidad.name}
               </h3>
               <p className="text-sm text-gray-600 flex items-center gap-2">
                 <Package size={14} />
-                {getReference(productoSeleccionadoMovil.reference)}
+                {getReference(productoSeleccionadoCantidad.reference)}
               </p>
-              {productoSeleccionadoMovil.price && (
+              {productoSeleccionadoCantidad.price && (
                 <p className="text-2xl font-bold text-green-600 mt-3">
-                  ₡{productoSeleccionadoMovil.price.toLocaleString()}
+                  ₡{productoSeleccionadoCantidad.price.toLocaleString()}
                 </p>
               )}
             </div>
@@ -1670,8 +1664,8 @@ export default function Facturacion() {
                 <button
                   type="button"
                   onClick={() => {
-                    const current = parseInt(cantidadMovil) || 1;
-                    if (current > 1) setCantidadMovil((current - 1).toString());
+                    const current = parseInt(cantidadSeleccionada) || 1;
+                    if (current > 1) setCantidadSeleccionada((current - 1).toString());
                   }}
                   className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-xl text-gray-700 font-bold text-2xl transition-colors"
                 >
@@ -1683,8 +1677,8 @@ export default function Facturacion() {
                   ref={cantidadMovilInputRef}
                   type="number"
                   min="1"
-                  value={cantidadMovil}
-                  onChange={(e) => setCantidadMovil(e.target.value)}
+                  value={cantidadSeleccionada}
+                  onChange={(e) => setCantidadSeleccionada(e.target.value)}
                   onFocus={(e) => {
                     e.target.select();
                     // Ajustar scroll cuando aparece el teclado
@@ -1698,7 +1692,7 @@ export default function Facturacion() {
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      confirmarCantidadMovil();
+                      confirmarCantidadProducto();
                     }
                   }}
                   placeholder="1"
@@ -1711,8 +1705,8 @@ export default function Facturacion() {
                 <button
                   type="button"
                   onClick={() => {
-                    const current = parseInt(cantidadMovil) || 0;
-                    setCantidadMovil((current + 1).toString());
+                    const current = parseInt(cantidadSeleccionada) || 0;
+                    setCantidadSeleccionada((current + 1).toString());
                   }}
                   className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl text-white font-bold text-2xl transition-colors"
                 >
@@ -1726,9 +1720,9 @@ export default function Facturacion() {
               <button
                 type="button"
                 onClick={() => {
-                  setModalCantidadMovil(false);
-                  setProductoSeleccionadoMovil(null);
-                  setCantidadMovil('');
+                  setModalCantidadProducto(false);
+                  setProductoSeleccionadoCantidad(null);
+                  setCantidadSeleccionada('');
                 }}
                 className="flex-1 py-4 px-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 active:bg-gray-400 transition-colors text-base"
               >
@@ -1736,8 +1730,8 @@ export default function Facturacion() {
               </button>
               <button
                 type="button"
-                onClick={confirmarCantidadMovil}
-                disabled={!cantidadMovil || parseInt(cantidadMovil) <= 0}
+                onClick={confirmarCantidadProducto}
+                disabled={!cantidadSeleccionada || parseInt(cantidadSeleccionada) <= 0}
                 className="flex-1 py-4 px-4 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-lg"
               >
                 <Check size={24} strokeWidth={3} />
