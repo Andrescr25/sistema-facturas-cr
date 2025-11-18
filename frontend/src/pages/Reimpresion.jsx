@@ -141,6 +141,7 @@ export default function Reimpresion() {
     error: null
   })
   const debounceBusquedaRef = useRef(null)
+  const cacheProductosRef = useRef(new Map())
 
   useEffect(() => {
     if (activeTab === 'pendientes') {
@@ -157,6 +158,53 @@ export default function Reimpresion() {
       }
     }
   }, [])
+
+  const obtenerProductoAlegra = async (alegraItemId) => {
+    if (!alegraItemId) return null
+
+    if (cacheProductosRef.current.has(alegraItemId)) {
+      return cacheProductosRef.current.get(alegraItemId)
+    }
+
+    try {
+      const response = await alegraService.getProductoInfoAlegra(alegraItemId)
+      if (response.success && response.producto) {
+        cacheProductosRef.current.set(alegraItemId, response.producto)
+        return response.producto
+      }
+    } catch (error) {
+      console.error('Error obteniendo información de producto Alegra:', error)
+    }
+
+    return null
+  }
+
+  const completarItemConReferencia = async (itemBase) => {
+    let referencia = itemBase.reference?.trim() ? itemBase.reference : ''
+    let descripcion = itemBase.description?.trim() ? itemBase.description : ''
+    const alegraItemId = itemBase.alegraItemId || itemBase.itemId || itemBase.item?.id || itemBase.id
+
+    if (!referencia && alegraItemId) {
+      const producto = await obtenerProductoAlegra(alegraItemId)
+      if (producto) {
+        const refNormalizada = getReferenceFromSearchProduct(producto)
+        const descNormalizada = getDescriptionFromSearchProduct(producto)
+        if (refNormalizada) {
+          referencia = refNormalizada
+        }
+        if (!descripcion && (descNormalizada || producto.name)) {
+          descripcion = descNormalizada || producto.name || descripcion
+        }
+      }
+    }
+
+    return {
+      ...itemBase,
+      reference: referencia,
+      description: descripcion,
+      alegraItemId
+    }
+  }
 
   const loadFacturasPendientes = async () => {
     try {
@@ -217,34 +265,42 @@ export default function Reimpresion() {
   const handleIniciarEdicion = (factura) => {
     setFacturaEditando(factura)
 
-    // Inicializar items editados con los valores actuales de Alegra
-    // Necesitamos obtener la factura completa
-    alegraService.getInvoiceById(factura.alegra_id).then(result => {
-      if (result.success) {
-        const items = Array.isArray(result.data.items) ? result.data.items : []
-        const normalizados = items.map(item => {
-          const reference = getReferenceFromInvoiceItem(item)
-          const description = getDescriptionFromInvoiceItem(item)
-          const price = getPriceValue(item.price)
-          const taxes = getTaxesArray(item.tax)
+    const cargarFactura = async () => {
+      try {
+        const result = await alegraService.getInvoiceById(factura.alegra_id)
+        if (result.success) {
+          const items = Array.isArray(result.data.items) ? result.data.items : []
+          const normalizados = items.map(item => {
+            const reference = getReferenceFromInvoiceItem(item)
+            const description = getDescriptionFromInvoiceItem(item)
+            const price = getPriceValue(item.price)
+            const taxes = getTaxesArray(item.tax)
+            const alegraItemId = item.item?.id ?? item.productId ?? item.itemId ?? item.id ?? null
 
-          return {
-            id: item.id ?? null,
-            reference,
-            description,
-            quantity: Number(item.quantity) || 0,
-            price,
-            tax: taxes,
-            itemId: item.item?.id ?? null,
-            item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
-            esNuevo: false
-          }
-        })
+            return {
+              id: item.id ?? null,
+              reference,
+              description,
+              quantity: Number(item.quantity) || 0,
+              price,
+              tax: taxes,
+              itemId: item.item?.id ?? alegraItemId,
+              alegraItemId,
+              item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
+              esNuevo: false
+            }
+          })
 
-        setItemsEditados(normalizados)
+          const enriquecidos = await Promise.all(normalizados.map(completarItemConReferencia))
+          setItemsEditados(enriquecidos)
+        }
+      } catch (error) {
+        console.error('Error cargando factura desde Alegra:', error)
+        alert(`❌ No se pudo cargar la factura desde Alegra: ${error.message}`)
       }
-    })
+    }
 
+    cargarFactura()
     setModoEdicion(true)
   }
 
@@ -259,6 +315,7 @@ export default function Reimpresion() {
       cargando: false,
       error: null
     })
+    cacheProductosRef.current.clear()
   }
 
   const handleAgregarItem = () => {
@@ -271,6 +328,7 @@ export default function Reimpresion() {
       price: 0,
       tax: [],
       itemId: null,
+      alegraItemId: null,
       esNuevo: true
     }
 
@@ -413,6 +471,9 @@ export default function Reimpresion() {
         }
 
         delete payload.esNuevo
+        if (payload.alegraItemId !== undefined) {
+          delete payload.alegraItemId
+        }
         if (payload.itemId !== undefined) {
           delete payload.itemId
         }
@@ -645,6 +706,7 @@ export default function Reimpresion() {
         price: Number(precio) || 0,
         tax: taxes,
         itemId: producto.id ?? null,
+        alegraItemId: producto.id ?? null,
         item: producto.id ? { id: producto.id } : item.item,
         esNuevo: false
       }
@@ -672,6 +734,7 @@ export default function Reimpresion() {
     } else if (field === 'reference') {
       itemActual.reference = value
       itemActual.itemId = null
+      itemActual.alegraItemId = null
       if (itemActual.item) delete itemActual.item
     } else {
       itemActual[field] = value

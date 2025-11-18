@@ -173,6 +173,15 @@ export const alegraService = {
     }
   },
 
+  async getProductoInfoAlegra(alegraItemId) {
+    try {
+      const response = await api.get(`/productos-revision/info-alegra/${alegraItemId}`)
+      return response.data
+    } catch (error) {
+      throw new Error(`Error obteniendo info del producto Alegra: ${error.message}`)
+    }
+  },
+
   // Obtener contactos de Alegra
   async getContactos(page = 1, limit = 30, type = null) {
     try {
