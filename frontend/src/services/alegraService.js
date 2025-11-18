@@ -24,13 +24,11 @@ export const alegraService = {
   // Obtener el siguiente número de consecutivo
   async getSiguienteConsecutivo() {
     try {
-      console.log('🔢 Frontend: Obteniendo siguiente consecutivo...');
-      const response = await api.get('/alegra/facturas/siguiente-consecutivo');
-      console.log('✅ Frontend: Consecutivo obtenido:', response.data);
-      return response.data;
+      const response = await api.get('/alegra/facturas/siguiente-consecutivo')
+      return response.data
     } catch (error) {
-      console.error('❌ Frontend: Error obteniendo consecutivo:', error);
-      throw new Error(`Error obteniendo consecutivo: ${error.message}`);
+      console.error('❌ Frontend: Error obteniendo consecutivo:', error)
+      throw new Error(`Error obteniendo consecutivo: ${error.message}`)
     }
   },
 
@@ -40,8 +38,6 @@ export const alegraService = {
     const ventana = window.open('about:blank', '_blank');
     
     try {
-      console.log('📄 Frontend: Obteniendo URL del PDF de factura ID:', facturaId);
-      
       // Verificar que tengamos un ID válido
       if (!facturaId || facturaId === 'undefined' || facturaId === 'null') {
         if (ventana) ventana.close();
@@ -54,25 +50,18 @@ export const alegraService = {
       }
       
       // 1. Hacer llamada al backend para obtener la URL del PDF
-      console.log('🔗 Llamando al endpoint /alegra/facturas/:id/pdf...');
       const response = await api.get(`/alegra/facturas/${facturaId}/pdf`);
-      
-      console.log('📥 Respuesta del backend:', response.data);
-      
+
       // 2. Verificar que tengamos la URL
       if (!response.data || !response.data.url) {
         ventana.close();
         throw new Error('El servidor no devolvió una URL de PDF válida');
       }
-      
+
       const pdfUrl = response.data.url;
-      console.log('🔗 URL del PDF obtenida:', pdfUrl);
-      console.log('📋 Número de factura:', response.data.invoiceNumber);
-      
+
       // 3. Redirigir la ventana ya abierta a la URL del PDF
       ventana.location.href = pdfUrl;
-      
-      console.log('✅ Frontend: PDF abierto en nueva pestaña');
       return { success: true };
     } catch (error) {
       console.error('❌ Frontend: Error visualizando PDF:', error);
@@ -86,12 +75,10 @@ export const alegraService = {
   // Buscar facturas por número
   async buscarFacturasPorNumero(numero) {
     try {
-      console.log('🔍 Frontend: Buscando facturas por número:', numero);
       const response = await api.get(`/alegra/facturas/buscar/numero/${numero}`)
-      console.log('✅ Frontend: Respuesta recibida:', response.data);
       return response.data
     } catch (error) {
-      console.error('❌ Frontend: Error en búsqueda:', error);
+      console.error('❌ Frontend: Error en búsqueda:', error)
       throw new Error(`Error buscando facturas por número: ${error.message}`)
     }
   },
@@ -99,12 +86,10 @@ export const alegraService = {
   // Buscar facturas por cliente
   async buscarFacturasPorCliente(cliente) {
     try {
-      console.log('🔍 Frontend: Buscando facturas por cliente:', cliente);
       const response = await api.get(`/alegra/facturas/buscar/cliente/${encodeURIComponent(cliente)}`)
-      console.log('✅ Frontend: Respuesta recibida:', response.data);
       return response.data
     } catch (error) {
-      console.error('❌ Frontend: Error en búsqueda:', error);
+      console.error('❌ Frontend: Error en búsqueda:', error)
       throw new Error(`Error buscando facturas por cliente: ${error.message}`)
     }
   },
@@ -131,12 +116,10 @@ export const alegraService = {
   // Obtener factura para registrar faltantes
   async getFacturaDetalle(id) {
     try {
-      console.log('🔍 Frontend: Obteniendo detalle de factura:', id);
       const response = await api.get(`/alegra/facturas/detalle/${id}`)
-      console.log('✅ Frontend: Factura detalle recibida:', response.data);
       return response.data
     } catch (error) {
-      console.error('❌ Frontend: Error obteniendo factura:', error);
+      console.error('❌ Frontend: Error obteniendo factura:', error)
       throw new Error(`Error obteniendo factura: ${error.message}`)
     }
   },

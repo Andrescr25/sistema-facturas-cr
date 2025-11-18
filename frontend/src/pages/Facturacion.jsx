@@ -773,7 +773,7 @@ export default function Facturacion() {
       }
 
       if (resultado.success) {
-        const numeroFacturaDisplay = modoEdicion
+      const numeroFacturaDisplay = modoEdicion
           ? (facturaEditando?.numberTemplate?.fullNumber ||
              facturaVista.numberTemplate?.fullNumber ||
              facturaEditando?.id)
@@ -794,11 +794,6 @@ export default function Facturacion() {
         // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
         if (resultado.online && resultado.data?.id) {
           try {
-            console.log('🔍 Factura creada, intentando abrir PDF...');
-            console.log('📋 Datos de resultado:', JSON.stringify(resultado.data, null, 2));
-            console.log('📋 ID de factura:', resultado.data.id);
-            console.log('📋 Número de factura:', resultado.data.numberTemplate?.fullNumber);
-            
             await alegraService.visualizarPDFFactura(resultado.data.id);
             mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000);
           } catch (pdfError) {
