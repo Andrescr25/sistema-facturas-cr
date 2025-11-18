@@ -2651,7 +2651,16 @@ router.post('/facturas/procesar-individual', async (req, res) => {
   try {
     console.log('📋 Procesando factura individual...');
 
-    const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado } = req.body;
+    const {
+      alegra_id,
+      numero_factura,
+      cliente_nombre,
+      fecha_emision,
+      ajustes: ajustesRaw = [],
+      estado,
+      items_editados: itemsEditadosRaw = [],
+      marcar_como_procesada
+    } = req.body;
 
     if (!alegra_id || !numero_factura) {
       return res.status(400).json({
@@ -2659,6 +2668,9 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         message: 'alegra_id y numero_factura son requeridos'
       });
     }
+
+    const ajustes = Array.isArray(ajustesRaw) ? ajustesRaw : [];
+    const itemsEditados = Array.isArray(itemsEditadosRaw) ? itemsEditadosRaw : [];
 
     const { query } = require('../config/database');
 
@@ -2953,7 +2965,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     `, [alegra_id]);
 
     // 5. 🔧 CAMBIO: Editar factura en Alegra SOLO cuando se reimprime (no al marcar como lista)
-    const marcarComoProcesada = req.body.marcar_como_procesada === true;
+    const marcarComoProcesada = marcar_como_procesada === true;
     
     // Usar estado actualizado (puede haber cambiado por diferencia de precio)
     const estadoFinal = ajustesConDiferenciaPrecio.length > 0 && !estado.includes('requiere_reimpresion')
@@ -2963,169 +2975,221 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     // NUEVO COMPORTAMIENTO:
     // - Si marcarComoProcesada = false → Viene desde "Reporte Clientes" (Factura Lista) → NO editar en Alegra
     // - Si marcarComoProcesada = true → Viene desde "Reimpresión" (Reimprimir) → SÍ editar en Alegra
-    const debeEditarEnAlegra = marcarComoProcesada && 
-                                ajustes && 
-                                ajustes.length > 0;
+    const debeEditarEnAlegra = marcarComoProcesada && (
+      (ajustes && ajustes.length > 0) ||
+      itemsEditados.length > 0
+    );
     
     if (debeEditarEnAlegra) {
-      console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
-      console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
-      
-      try {
-        // Obtener factura actual de Alegra
-        const facturaActual = await alegraService.getInvoiceById(alegra_id);
-        
-        if (!facturaActual.success) {
-          console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
-        } else {
-          console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
-          facturaActual.data.items.forEach((item, index) => {
-            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
+      if (itemsEditados.length > 0) {
+        console.log(`✏️ Recibidos ${itemsEditados.length} items editados manualmente. Actualizando factura ${numero_factura} en Alegra...`);
+
+        const normalizarItemEditado = (item) => {
+          if (!item) return null;
+          const referencia = (item.reference || '').toString().trim();
+          const descripcionBase = (item.description || item.name || referencia || '').toString().trim();
+          const cantidad = Number(item.quantity) || 0;
+          const precio = Number(item.price) || 0;
+
+          if (!referencia || cantidad <= 0) {
+            console.warn(`⚠️ Item ignorado por datos inválidos (ref: "${referencia}", qty: ${cantidad})`);
+            return null;
+          }
+
+          const payload = {
+            reference: referencia,
+            description: descripcionBase || referencia,
+            name: item.name || descripcionBase || referencia,
+            quantity: cantidad,
+            price: precio > 0 ? precio : 0
+          };
+
+          if (item.id) payload.id = item.id;
+          if (item.item && item.item.id) {
+            payload.item = { id: item.item.id };
+          } else if (item.itemId) {
+            payload.item = { id: item.itemId };
+          }
+
+          if (Array.isArray(item.tax) && item.tax.length > 0) {
+            payload.tax = item.tax;
+          }
+
+          return payload;
+        };
+
+        const itemsNormalizados = itemsEditados
+          .map(normalizarItemEditado)
+          .filter(Boolean);
+
+        if (itemsNormalizados.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No hay productos válidos para actualizar en Alegra'
           });
-          // Construir items actualizados aplicando ajustes
-          // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
-          // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
-          const itemsActualizados = [];
-          let huboCambios = false;
+        }
 
-          for (const item of facturaActual.data.items) {
-            // Buscar ajuste para este item
-            console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
-            console.log(`      item.id.toString(): "${item.id.toString()}"`);
-            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
-            
-            const ajuste = ajustes.find(a => {
-              const match = a.producto_codigo === item.id.toString() ||
-                           a.producto_codigo === item.reference ||
-                           a.producto_codigo === item.reference?.reference;
-              
-              if (!match) {
-                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
-              }
-              return match;
+        const updateResult = await alegraService.updateInvoice(alegra_id, {
+          items: itemsNormalizados
+        });
+
+        if (updateResult.success) {
+          console.log(`✅ Factura ${numero_factura} editada en Alegra con ${itemsNormalizados.length} items manuales`);
+        } else {
+          console.error(`❌ Error editando factura en Alegra:`, updateResult.message, updateResult.details || '');
+          return res.status(500).json({
+            success: false,
+            message: updateResult.message || 'Error editando factura en Alegra',
+            details: updateResult.details || null
+          });
+        }
+      } else {
+        console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
+        console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
+        
+        try {
+          // Obtener factura actual de Alegra
+          const facturaActual = await alegraService.getInvoiceById(alegra_id);
+          
+          if (!facturaActual.success) {
+            console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
+          } else {
+            console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
+            facturaActual.data.items.forEach((item, index) => {
+              console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
             });
+            // Construir items actualizados aplicando ajustes
+            // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
+            // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
+            const itemsActualizados = [];
+            let huboCambios = false;
 
-            if (ajuste) {
-              console.log(`      ✅ Ajuste encontrado:`, {
-                codigo: ajuste.producto_codigo,
-                estado: ajuste.estado,
-                faltante: ajuste.cantidad_faltante,
-                entregada: ajuste.cantidad_entregada
-              });
-              // Calcular cantidad final según el estado del ajuste
-              let cantidadFinal = item.quantity;
-
-              if (ajuste.estado === 'no_llego') {
-                // No llegó la cantidad faltante - reducir por la cantidad faltante
-                // Ejemplo: factura tenía 6, faltaron 3 → quedan 3
-                const cantidadFaltante = ajuste.cantidad_faltante || 0;
-                
-                if (cantidadFaltante <= 0) {
-                  console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
-                  cantidadFinal = item.quantity; // Mantener cantidad original si hay error
-                } else {
-                  cantidadFinal = item.quantity - cantidadFaltante;
-                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
-                }
-              } else if (ajuste.estado === 'parcial') {
-                // Llegó parcial - reducir por lo que aún falta
-                // Ejemplo: factura tenía 6, faltaron 3, llegaron 1 → aún faltan 2 → quedan 4
-                const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
-                cantidadFinal = item.quantity - cantidadQueAunFalta;
-                console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
-              } else if (ajuste.estado === 'completo') {
-                // Llegó completo - mantener cantidad original
-                cantidadFinal = item.quantity;
-                
-                // Si es ajuste por diferencia de precio, mostrar el motivo
-                if (ajuste.tipo_ajuste === 'diferencia_precio') {
-                  console.log(`   💰 ${item.description}: ${item.quantity} (sin cambios cantidad, pero ${ajuste.diferencia_porcentual?.toFixed(2)}% diferencia precio)`);
-                } else {
-                  console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
-                }
-              }
-
-              // Determinar precio a usar
-              let precioAUsar = item.price;
+            for (const item of facturaActual.data.items) {
+              // Buscar ajuste para este item
+              console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
+              console.log(`      item.id.toString(): "${item.id.toString()}"`);
+              console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
               
-              // Si es ajuste por diferencia de precio, usar el precio nuevo
-              if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
-                precioAUsar = ajuste.precio_nuevo;
-                console.log(`   💰 Actualizando precio: ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
-                huboCambios = true;
-              }
+              const ajuste = ajustes.find(a => {
+                const match = a.producto_codigo === item.id.toString() ||
+                             a.producto_codigo === item.reference ||
+                             a.producto_codigo === item.reference?.reference;
+                
+                if (!match) {
+                  console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
+                }
+                return match;
+              });
 
-              // IMPORTANTE: Incluir el item SIEMPRE si cantidadFinal > 0
-              // Si cantidadFinal === 0, NO incluirlo (se elimina de la factura)
-              if (cantidadFinal > 0) {
+              if (ajuste) {
+                console.log(`      ✅ Ajuste encontrado:`, {
+                  codigo: ajuste.producto_codigo,
+                  estado: ajuste.estado,
+                  faltante: ajuste.cantidad_faltante,
+                  entregada: ajuste.cantidad_entregada
+                });
+                // Calcular cantidad final según el estado del ajuste
+                let cantidadFinal = item.quantity;
+
+                if (ajuste.estado === 'no_llego') {
+                  const cantidadFaltante = ajuste.cantidad_faltante || 0;
+                  
+                  if (cantidadFaltante <= 0) {
+                    console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
+                    cantidadFinal = item.quantity; // Mantener cantidad original si hay error
+                  } else {
+                    cantidadFinal = item.quantity - cantidadFaltante;
+                    console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
+                  }
+                } else if (ajuste.estado === 'parcial') {
+                  const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+                  cantidadFinal = item.quantity - cantidadQueAunFalta;
+                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
+                } else if (ajuste.estado === 'completo') {
+                  cantidadFinal = item.quantity;
+                  
+                  if (ajuste.tipo_ajuste === 'diferencia_precio') {
+                    console.log(`   💰 ${item.description}: ${item.quantity} (sin cambios cantidad, pero ${ajuste.diferencia_porcentual?.toFixed(2)}% diferencia precio)`);
+                  } else {
+                    console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
+                  }
+                }
+
+                // Determinar precio a usar
+                let precioAUsar = item.price;
+                
+                if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
+                  precioAUsar = ajuste.precio_nuevo;
+                  console.log(`   💰 Actualizando precio: ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
+                  huboCambios = true;
+                }
+
+                if (cantidadFinal > 0) {
+                  itemsActualizados.push({
+                    id: item.id,
+                    reference: item.reference,
+                    description: item.description,
+                    quantity: cantidadFinal,
+                    price: precioAUsar,
+                    tax: item.tax || []
+                  });
+                  
+                  if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
+                    huboCambios = true;
+                    if (cantidadFinal !== item.quantity) {
+                      console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
+                    }
+                  }
+                } else {
+                  huboCambios = true;
+                  console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
+                }
+              } else {
                 itemsActualizados.push({
                   id: item.id,
                   reference: item.reference,
                   description: item.description,
-                  quantity: cantidadFinal,
-                  price: precioAUsar,
+                  quantity: item.quantity,
+                  price: item.price,
                   tax: item.tax || []
                 });
+              }
+            }
+
+            console.log(`\n📊 Resultado de construcción de items:`);
+            console.log(`   huboCambios: ${huboCambios}`);
+            console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
+            console.log(`\n📋 Items a enviar a Alegra:`);
+            itemsActualizados.forEach((item, index) => {
+              console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
+            });
+            
+            if (huboCambios && itemsActualizados.length > 0) {
+              console.log(`\n📝 Actualizando factura en Alegra...`);
+              
+              const updateResult = await alegraService.updateInvoice(alegra_id, {
+                items: itemsActualizados
+              });
+
+              if (updateResult.success) {
+                console.log(`✅ Factura ${numero_factura} editada exitosamente en Alegra`);
                 
-                if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
-                  huboCambios = true;
-                  if (cantidadFinal !== item.quantity) {
-                    console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
-                  }
+                const facturaActualizada = await alegraService.getInvoiceById(alegra_id);
+                
+                if (facturaActualizada.success) {
+                  console.log(`✅ Factura ${numero_factura} actualizada obtenida de Alegra`);
                 }
               } else {
-                // Eliminar item (no agregarlo a itemsActualizados)
-                huboCambios = true;
-                console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
+                console.error(`❌ Error editando factura en Alegra: ${updateResult.message}`);
               }
             } else {
-              // Sin ajuste - mantener item original (DEBE incluirse para que no se elimine)
-              itemsActualizados.push({
-                id: item.id,
-                reference: item.reference,
-                description: item.description,
-                quantity: item.quantity,
-                price: item.price,
-                tax: item.tax || []
-              });
+              console.log(`ℹ️ No hubo cambios en la factura (todos los items sin ajustes o sin cambios)`);
             }
           }
-
-          // Actualizar factura en Alegra si hubo cambios
-          console.log(`\n📊 Resultado de construcción de items:`);
-          console.log(`   huboCambios: ${huboCambios}`);
-          console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
-          console.log(`\n📋 Items a enviar a Alegra:`);
-          itemsActualizados.forEach((item, index) => {
-            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
-          });
-          
-          if (huboCambios && itemsActualizados.length > 0) {
-            console.log(`\n📝 Actualizando factura en Alegra...`);
-            
-            const updateResult = await alegraService.updateInvoice(alegra_id, {
-              items: itemsActualizados
-            });
-
-            if (updateResult.success) {
-              console.log(`✅ Factura ${numero_factura} editada exitosamente en Alegra`);
-              
-              // Obtener factura actualizada de Alegra
-              const facturaActualizada = await alegraService.getInvoiceById(alegra_id);
-              
-              if (facturaActualizada.success) {
-                console.log(`✅ Factura ${numero_factura} actualizada obtenida de Alegra`);
-              }
-            } else {
-              console.error(`❌ Error editando factura en Alegra: ${updateResult.message}`);
-            }
-          } else {
-            console.log(`ℹ️ No hubo cambios en la factura (todos los items sin ajustes o sin cambios)`);
-          }
+        } catch (error) {
+          console.error(`❌ Error editando factura en Alegra:`, error.message);
+          // Continuar aunque falle la edición en Alegra
         }
-      } catch (error) {
-        console.error(`❌ Error editando factura en Alegra:`, error.message);
-        // Continuar aunque falle la edición en Alegra
       }
     } else if (!marcarComoProcesada && ajustes && ajustes.length > 0) {
       // Viene desde Reporte Clientes (Factura Lista) - NO editar en Alegra aún
@@ -3155,8 +3219,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     if (ajustesConDiferenciaPrecio.length > 0) {
       console.log(`   💰 ${ajustesConDiferenciaPrecio.length} producto(s) con diferencia de precio >5% detectados`);
     }
-    if (marcarComoProcesada && ajustes && ajustes.length > 0) {
-      console.log(`   ✏️ Factura editada en Alegra con ajustes aplicados`);
+    if (marcarComoProcesada && ((ajustes && ajustes.length > 0) || itemsEditados.length > 0)) {
+      console.log(`   ✏️ Factura editada en Alegra ${itemsEditados.length > 0 ? 'con items manuales' : 'con ajustes aplicados'}`);
     } else if (!marcarComoProcesada && estadoFinal.includes('requiere_reimpresion')) {
       console.log(`   ⏳ Factura pendiente de edición en Alegra (se editará al reimprimir)`);
     }
@@ -3173,7 +3237,10 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         ajustes_realizados: ajustes.length,
         ajustes_guardados: ajustes.length,
         ajustes_diferencia_precio: ajustesConDiferenciaPrecio.length,
-        factura_editada_en_alegra: marcarComoProcesada && ajustes && ajustes.length > 0
+        factura_editada_en_alegra: marcarComoProcesada && (
+          (ajustes && ajustes.length > 0) ||
+          itemsEditados.length > 0
+        )
       }
     });
 
