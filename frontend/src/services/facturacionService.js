@@ -414,7 +414,7 @@ class FacturacionService {
    * Si hay internet: envía directamente a Alegra
    * Si no hay internet: guarda localmente y sincroniza después
    */
-  async crearFactura(facturaData) {
+  async crearFactura(facturaData, facturaVista = null) {
     try {
       console.log('🧾 Creando factura...', {
         online: this.isOnline,
@@ -429,6 +429,17 @@ class FacturacionService {
           
           if (response.data.success) {
             console.log('✅ Factura creada online:', response.data.data.id);
+
+            // Guardar en cache para edición inmediata
+            const facturaOnline = {
+              ...response.data.data,
+              client: response.data.data.client || facturaVista?.cliente || null,
+              pendienteSincronizar: false,
+              pendienteEdicion: false,
+              esLocal: false,
+              creadaEn: Date.now()
+            };
+            await indexedDBService.saveFacturasCache([facturaOnline]);
             
             return {
               success: true,
@@ -445,6 +456,18 @@ class FacturacionService {
 
       // Modo offline: guardar localmente
       const localId = await indexedDBService.saveFacturaPendiente(facturaData);
+
+      // Guardar versión para edición inmediata
+      if (facturaVista) {
+        await this.guardarFacturaLocalEnCache({
+          ...facturaVista,
+          id: `local-${localId}`,
+          localId,
+          pendienteSincronizar: true,
+          origen: 'creacion',
+          date: facturaData.date
+        });
+      }
       
       console.log('💾 Factura guardada localmente:', localId);
       
@@ -499,6 +522,12 @@ class FacturacionService {
               factura.localId, 
               response.data.data.id
             );
+
+            // Reemplazar factura en cache (eliminar versión local y guardar definitiva)
+            if (factura.localId) {
+              await indexedDBService.deleteFacturaCache(`local-${factura.localId}`);
+            }
+            await indexedDBService.saveFacturasCache([response.data.data]);
             
             resultados.exitosas.push({
               localId: factura.localId,
@@ -681,6 +710,11 @@ class FacturacionService {
     try {
       console.log('📋 Obteniendo factura:', facturaId);
 
+      const esLocal = typeof facturaId === 'string' && facturaId.startsWith('local-');
+      if (esLocal) {
+        return await indexedDBService.getFacturaById(facturaId);
+      }
+
       if (this.isOnline) {
         try {
           const response = await api.get(`/alegra/facturas/${facturaId}`);
@@ -712,7 +746,7 @@ class FacturacionService {
    * Si hay internet: envía directamente a Alegra
    * Si no hay internet: guarda localmente y sincroniza después
    */
-  async editarFactura(facturaId, datosEdicion) {
+  async editarFactura(facturaId, datosEdicion, facturaVista = null) {
     try {
       console.log('✏️ Editando factura...', {
         online: this.isOnline,
@@ -730,7 +764,13 @@ class FacturacionService {
 
             // Actualizar cache con la nueva versión
             if (response.data.data) {
-              await indexedDBService.saveFacturasCache([response.data.data]);
+              const facturaOnline = {
+                ...response.data.data,
+                client: response.data.data.client || facturaVista?.cliente || null,
+                pendienteSincronizar: false,
+                pendienteEdicion: false
+              };
+              await indexedDBService.saveFacturasCache([facturaOnline]);
             }
 
             return {
@@ -749,6 +789,16 @@ class FacturacionService {
       // Modo offline: guardar edición localmente
       const localId = await indexedDBService.saveEdicionPendiente(facturaId, datosEdicion);
 
+      if (facturaVista) {
+        await this.guardarFacturaLocalEnCache({
+          ...facturaVista,
+          id: facturaVista.id || facturaId,
+          pendienteEdicion: true,
+          origen: 'edicion',
+          date: facturaVista.date || new Date().toISOString().split('T')[0]
+        });
+      }
+
       console.log('💾 Edición guardada localmente:', localId);
 
       return {
@@ -760,6 +810,43 @@ class FacturacionService {
 
     } catch (error) {
       console.error('❌ Error editando factura:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar factura pendiente antes de sincronizar (modo offline)
+   */
+  async actualizarFacturaPendiente(localId, facturaData, facturaVista = null) {
+    try {
+      const numeroLocal = typeof localId === 'string' && localId.startsWith('local-')
+        ? parseInt(localId.replace('local-', ''), 10)
+        : Number(localId);
+
+      if (Number.isNaN(numeroLocal)) {
+        throw new Error('ID local inválido');
+      }
+
+      await indexedDBService.updateFacturaPendiente(numeroLocal, facturaData);
+
+      if (facturaVista) {
+        await this.guardarFacturaLocalEnCache({
+          ...facturaVista,
+          id: `local-${numeroLocal}`,
+          localId: numeroLocal,
+          pendienteSincronizar: true,
+          origen: 'creacion'
+        });
+      }
+
+      return {
+        success: true,
+        online: false,
+        localId: numeroLocal,
+        message: 'Factura pendiente actualizada localmente'
+      };
+    } catch (error) {
+      console.error('❌ Error actualizando factura pendiente:', error);
       throw error;
     }
   }
@@ -859,6 +946,37 @@ class FacturacionService {
     } catch (error) {
       console.error('❌ Error obteniendo ediciones pendientes:', error);
       throw error;
+    }
+  }
+
+  async guardarFacturaLocalEnCache(facturaVista) {
+    if (!facturaVista) return;
+
+    try {
+      const numeroTemporal = facturaVista.numberTemplate?.fullNumber ||
+        facturaVista.numeroTemporal ||
+        facturaVista.id ||
+        `LOCAL-${Date.now()}`;
+
+      const facturaCache = {
+        id: facturaVista.id || numeroTemporal,
+        localId: facturaVista.localId || null,
+        numberTemplate: facturaVista.numberTemplate || { fullNumber: numeroTemporal },
+        client: facturaVista.cliente || facturaVista.client || null,
+        items: facturaVista.items || [],
+        total: facturaVista.total || 0,
+        observations: facturaVista.observaciones || '',
+        date: facturaVista.date || new Date().toISOString().split('T')[0],
+        status: facturaVista.estado || facturaVista.status || 'open',
+        pendienteSincronizar: Boolean(facturaVista.pendienteSincronizar),
+        pendienteEdicion: Boolean(facturaVista.pendienteEdicion),
+        origen: facturaVista.origen || null,
+        updatedAtLocal: Date.now()
+      };
+
+      await indexedDBService.saveFacturasCache([facturaCache]);
+    } catch (error) {
+      console.error('❌ Error guardando factura en cache local:', error);
     }
   }
 

@@ -304,6 +304,40 @@ class IndexedDBService {
   }
 
   /**
+   * Actualizar factura pendiente existente
+   */
+  async updateFacturaPendiente(localId, nuevosDatos) {
+    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
+
+    return new Promise((resolve, reject) => {
+      const getRequest = store.get(localId);
+
+      getRequest.onsuccess = () => {
+        const existente = getRequest.result;
+        if (!existente) {
+          reject(new Error('Factura pendiente no encontrada'));
+          return;
+        }
+
+        const facturaActualizada = {
+          ...existente,
+          ...nuevosDatos,
+          timestamp: Date.now(),
+          sincronizada: false,
+          ultimoCambioLocal: Date.now()
+        };
+
+        const updateRequest = store.put(facturaActualizada);
+        updateRequest.onsuccess = () => resolve(facturaActualizada);
+        updateRequest.onerror = () => reject(updateRequest.error);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
    * Obtener facturas pendientes de sincronización
    */
   async getFacturasPendientes() {
@@ -527,6 +561,22 @@ class IndexedDBService {
 
     console.log(`✅ ${guardadas} facturas guardadas en cache`);
     return guardadas;
+  }
+
+  async deleteFacturaCache(id) {
+    if (!this.db) {
+      console.warn('⚠️ IndexedDB no inicializada en deleteFacturaCache');
+      return;
+    }
+
+    const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
+    const store = transaction.objectStore(STORES.FACTURAS_CACHE);
+
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
   }
 
   /**

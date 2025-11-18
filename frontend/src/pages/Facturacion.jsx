@@ -219,6 +219,18 @@ export default function Facturacion() {
     }
   };
 
+  const refrescarFacturasLocales = async () => {
+    try {
+      const facturas = await facturacionService.getFacturasPrecargadas();
+      setFacturasPrecargadas(facturas);
+      if (!busquedaFactura) {
+        setFacturasEncontradas(facturas);
+      }
+    } catch (error) {
+      console.error('Error refrescando facturas locales:', error);
+    }
+  };
+
   const inicializarServicio = async () => {
     try {
       setLoading(true);
@@ -303,6 +315,8 @@ export default function Facturacion() {
       // Recargar pendientes
       const pendientes = await facturacionService.getFacturasPendientes();
       setFacturasPendientes(pendientes);
+
+      await refrescarFacturasLocales();
 
       if (resultado.sincronizadas > 0) {
         mostrarMensaje(`${resultado.sincronizadas} factura(s) sincronizada(s)`, 'success');
@@ -402,11 +416,25 @@ export default function Facturacion() {
       setLoading(true);
 
       // Obtener detalles completos de la factura
-      const facturaCompleta = await facturacionService.getFacturaById(factura.id);
+      let facturaCompleta = factura;
+      const esLocal = typeof factura.id === 'string' && factura.id.startsWith('local-');
+
+      if (!esLocal) {
+        facturaCompleta = await facturacionService.getFacturaById(factura.id);
+      }
+
+      if (!facturaCompleta && esLocal) {
+        facturaCompleta = await facturacionService.getFacturaById(factura.id);
+      }
 
       if (!facturaCompleta) {
         mostrarMensaje('No se pudo cargar la factura', 'error');
         return;
+      }
+
+      if (esLocal && !facturaCompleta.localId) {
+        facturaCompleta.localId = parseInt(factura.id.replace('local-', ''), 10);
+        facturaCompleta.pendienteSincronizar = true;
       }
 
       // Cargar datos en el formulario
@@ -658,23 +686,68 @@ export default function Facturacion() {
         facturaData.discount = descuentoGlobal;
       }
 
-      let resultado;
+      const itemsVista = items.map(item => ({
+        id: item.id,
+        name: item.name,
+        reference: item.reference,
+        quantity: item.quantity,
+        price: item.price,
+        discount: item.discount || 0,
+        tax: item.tax || []
+      }));
 
-      if (modoEdicion && facturaEditando) {
-        // Editar factura existente
-        resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData);
+      const facturaVista = {
+        id: facturaEditando?.id || null,
+        localId: facturaEditando?.localId || null,
+        cliente: clienteSeleccionado,
+        items: itemsVista,
+        total: calcularTotal(),
+        numberTemplate: facturaEditando?.numberTemplate || null,
+        observaciones,
+        date: fecha,
+        estado: facturaEditando?.status || 'open'
+      };
+
+      if (!facturaVista.numberTemplate) {
+        const numeroTemporal = `LOCAL-${Date.now()}`;
+        facturaVista.numberTemplate = { fullNumber: numeroTemporal };
+        facturaVista.numeroTemporal = numeroTemporal;
+      }
+
+      let resultado;
+      const esFacturaLocalPendiente = modoEdicion && (
+        facturaEditando?.pendienteSincronizar ||
+        (typeof facturaEditando?.id === 'string' && facturaEditando.id.startsWith('local-'))
+      );
+      const localIdEdicion = facturaEditando?.localId ||
+        (typeof facturaEditando?.id === 'string' && facturaEditando.id.startsWith('local-')
+          ? parseInt(facturaEditando.id.replace('local-', ''), 10)
+          : null);
+
+      if (modoEdicion && esFacturaLocalPendiente && localIdEdicion) {
+        resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista);
+      } else if (modoEdicion && facturaEditando) {
+        resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData, facturaVista);
       } else {
         // Crear factura nueva
-        resultado = await facturacionService.crearFactura(facturaData);
+        resultado = await facturacionService.crearFactura(facturaData, facturaVista);
       }
 
       if (resultado.success) {
+        const numeroFacturaDisplay = modoEdicion
+          ? (facturaEditando?.numberTemplate?.fullNumber ||
+             facturaVista.numberTemplate?.fullNumber ||
+             facturaEditando?.id)
+          : (resultado.data?.numberTemplate?.fullNumber ||
+             facturaVista.numberTemplate?.fullNumber ||
+             resultado.data?.id);
+
         const mensaje = modoEdicion
           ? (resultado.online
-            ? `✅ Factura #${facturaEditando.numberTemplate?.fullNumber || facturaEditando.id} editada exitosamente`
+            ? `✅ Factura #${numeroFacturaDisplay} editada exitosamente`
             : `💾 Edición guardada localmente. Se sincronizará cuando haya conexión.`)
           : (resultado.online
-            ? `✅ Factura #${resultado.data.id} creada exitosamente`
+            ? `✅ Factura #${numeroFacturaDisplay} creada exitosamente`
             : `💾 Factura guardada localmente. Se sincronizará cuando haya conexión.`);
 
         mostrarMensaje(mensaje, 'success', 5000);
@@ -705,9 +778,21 @@ export default function Facturacion() {
 
         // Actualizar pendientes si es offline
         if (!resultado.online) {
+          if (esFacturaLocalPendiente || !modoEdicion) {
+            const pendientes = await facturacionService.getFacturasPendientes();
+            setFacturasPendientes(pendientes);
+          } else {
+            const ediciones = await facturacionService.getEdicionesPendientes();
+            setEdicionesPendientes(ediciones);
+          }
+        } else {
           const pendientes = await facturacionService.getFacturasPendientes();
           setFacturasPendientes(pendientes);
+          const ediciones = await facturacionService.getEdicionesPendientes();
+          setEdicionesPendientes(ediciones);
         }
+
+        await refrescarFacturasLocales();
       }
 
     } catch (error) {
@@ -936,6 +1021,18 @@ export default function Facturacion() {
                           <p className="text-sm text-gray-500">
                             Fecha: {factura.date ? new Date(factura.date).toLocaleDateString('es-CR') : 'N/A'}
                           </p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {factura.pendienteSincronizar && (
+                              <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full">
+                                Pendiente de envío
+                              </span>
+                            )}
+                            {factura.pendienteEdicion && (
+                              <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full">
+                                Edición pendiente
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-green-600">
