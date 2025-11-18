@@ -1,5 +1,18 @@
 const express = require('express');
 const router = express.Router();
+// CORS headers for Alegra routes
+router.use((req, res, next) => {
+  const allowedOrigin = req.headers.origin || '*';
+  res.header('Access-Control-Allow-Origin', allowedOrigin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', req.header('Access-Control-Request-Headers') || 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService(); // Instanciar la clase
 const { PrismaClient } = require('@prisma/client');
