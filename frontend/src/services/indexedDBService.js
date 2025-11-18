@@ -151,6 +151,23 @@ class IndexedDBService {
   }
 
   /**
+   * Eliminar edición pendiente
+   */
+  async deleteEdicionPendiente(localId) {
+    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
+
+    return new Promise((resolve, reject) => {
+      const request = store.delete(localId);
+      request.onsuccess = () => {
+        console.log(`🗑️ Edición pendiente ${localId} eliminada de IndexedDB`);
+        resolve(true);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
    * Buscar producto por referencia (código)
    */
   async getProductoByReference(reference) {

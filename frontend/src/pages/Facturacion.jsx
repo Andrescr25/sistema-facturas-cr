@@ -231,6 +231,19 @@ export default function Facturacion() {
     }
   };
 
+  const descartarEdicionPendiente = async (localId, facturaId) => {
+    try {
+      await facturacionService.eliminarEdicionPendiente(localId, facturaId);
+      const ediciones = await facturacionService.getEdicionesPendientes();
+      setEdicionesPendientes(ediciones);
+      mostrarMensaje('Edición descartada', 'info', 3000);
+      await refrescarFacturasLocales();
+    } catch (error) {
+      console.error('Error descartando edición pendiente:', error);
+      mostrarMensaje('Error descartando edición: ' + error.message, 'error');
+    }
+  };
+
   const inicializarServicio = async () => {
     try {
       setLoading(true);
@@ -779,7 +792,7 @@ export default function Facturacion() {
         mostrarMensaje(mensaje, 'success', 5000);
 
         // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
-        if (resultado.online && resultado.data?.id && !modoEdicion) {
+        if (resultado.online && resultado.data?.id) {
           try {
             console.log('🔍 Factura creada, intentando abrir PDF...');
             console.log('📋 Datos de resultado:', JSON.stringify(resultado.data, null, 2));
@@ -1118,6 +1131,17 @@ export default function Facturacion() {
                       <p className="text-xs text-gray-600">
                         Editada: {new Date(edicion.timestamp).toLocaleString('es-CR')}
                       </p>
+                      {edicion.errorSincronizacion && (
+                        <p className="text-xs text-red-600 mt-1">Error: {edicion.errorSincronizacion}</p>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => descartarEdicionPendiente(edicion.localId, edicion.facturaId)}
+                          className="btn btn-xs btn-outline text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Descartar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

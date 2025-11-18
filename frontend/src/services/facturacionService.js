@@ -782,8 +782,16 @@ class FacturacionService {
             };
           }
         } catch (error) {
-          console.warn('⚠️ Error enviando edición a Alegra, guardando offline:', error.message);
-          // Si falla, guardar offline
+          const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
+          const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+
+          if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
+            console.warn(`⚠️ Alegra no permite editar factura ${facturaId}: ${alegraMessage}`);
+            throw new Error('Esta factura no se puede editar en Alegra. Usa Reimpresión o una nota de crédito.');
+          }
+
+          console.warn('⚠️ Error enviando edición a Alegra, guardando offline:', alegraMessage);
+          // Si falla por otra razón, guardar offline
         }
       }
 
@@ -894,7 +902,15 @@ class FacturacionService {
 
       throw new Error(response.data.message || 'Error enviando factura pendiente');
     } catch (error) {
-      console.error('❌ Error enviando factura pendiente:', error);
+      const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
+      const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+
+      if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
+        console.warn(`⚠️ Alegra no permite reenviar factura local ${numeroLocal}: ${alegraMessage}`);
+        throw new Error('Esta factura no se puede enviar/editar en Alegra. Usa Reimpresión o una nota de crédito.');
+      }
+
+      console.error('❌ Error enviando factura pendiente:', alegraMessage);
       throw error;
     }
   }
@@ -951,16 +967,30 @@ class FacturacionService {
             console.log(`✅ Edición ${edicion.localId} sincronizada (Factura: ${edicion.facturaId})`);
           }
         } catch (error) {
+          const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
+          const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+
+          if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
+            console.warn(`⚠️ Edición ${edicion.localId} descartada: Alegra no permite modificar la factura ${edicion.facturaId}`);
+            await indexedDBService.deleteEdicionPendiente(edicion.localId);
+            resultados.exitosas.push({
+              localId: edicion.localId,
+              facturaId: edicion.facturaId,
+              nota: 'No editable en Alegra'
+            });
+            continue;
+          }
+
           // Registrar error
-          await indexedDBService.markEdicionError(edicion.localId, error.message);
+          await indexedDBService.markEdicionError(edicion.localId, alegraMessage);
 
           resultados.fallidas.push({
             localId: edicion.localId,
             facturaId: edicion.facturaId,
-            error: error.message
+            error: alegraMessage
           });
 
-          console.error(`❌ Error sincronizando edición ${edicion.localId}:`, error.message);
+          console.error(`❌ Error sincronizando edición ${edicion.localId}:`, alegraMessage);
         }
       }
 
@@ -994,6 +1024,18 @@ class FacturacionService {
     } catch (error) {
       console.error('❌ Error obteniendo ediciones pendientes:', error);
       throw error;
+    }
+  }
+
+  async eliminarEdicionPendiente(localId, facturaId = null) {
+    await indexedDBService.deleteEdicionPendiente(localId);
+
+    if (facturaId) {
+      const factura = await indexedDBService.getFacturaById(facturaId);
+      if (factura) {
+        factura.pendienteEdicion = false;
+        await indexedDBService.saveFacturasCache([factura]);
+      }
     }
   }
 
