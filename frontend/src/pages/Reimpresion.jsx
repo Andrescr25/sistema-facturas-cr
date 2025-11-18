@@ -2,25 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, Trash2, Loader, Package } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
-const getReferenceFromInvoiceItem = (item) => {
-  if (!item) return ''
-  if (typeof item.reference === 'string' && item.reference.trim()) return item.reference.trim()
-  if (item.reference && typeof item.reference === 'object') {
-    if (typeof item.reference.reference === 'string' && item.reference.reference.trim()) return item.reference.reference.trim()
-    if (typeof item.reference.code === 'string' && item.reference.code.trim()) return item.reference.code.trim()
-  }
-  if (item.item && typeof item.item.reference === 'string') return item.item.reference.trim()
-  if (typeof item.code === 'string') return item.code.trim()
-  if (typeof item.sku === 'string') return item.sku.trim()
-  return ''
-}
-
-const getDescriptionFromInvoiceItem = (item) => {
-  if (!item) return ''
-  return (item.description || item.name || item.item?.name || '').trim()
-}
-
-const extractStringValue = (value) => {
+function extractStringValue(value) {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'bigint') return value.toString()
@@ -34,6 +16,50 @@ const extractStringValue = (value) => {
     const primerString = Object.values(value).find(val => typeof val === 'string' && val.trim())
     if (primerString) return primerString
   }
+  return ''
+}
+
+const getReferenceFromInvoiceItem = (item) => {
+  if (!item) return ''
+  const candidatos = [
+    item.reference,
+    item.reference?.code,
+    item.reference?.reference,
+    item.reference?.value,
+    item.code,
+    item.sku,
+    item.item?.reference,
+    item.item?.reference?.code,
+    item.item?.code,
+    item.item?.sku,
+    item.itemReference,
+    item.externalReference,
+    item.id
+  ]
+
+  for (const candidato of candidatos) {
+    const valor = extractStringValue(candidato).trim()
+    if (valor) return valor
+  }
+
+  return ''
+}
+
+const getDescriptionFromInvoiceItem = (item) => {
+  if (!item) return ''
+  const candidatos = [
+    item.description,
+    item.name,
+    item.item?.name,
+    item.reference?.label,
+    item.reference?.name
+  ]
+
+  for (const candidato of candidatos) {
+    const valor = extractStringValue(candidato).trim()
+    if (valor) return valor
+  }
+
   return ''
 }
 
@@ -804,15 +830,23 @@ export default function Reimpresion() {
 
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {itemsEditados.map((item, index) => (
-            <div key={index} className="relative bg-gray-50 rounded-lg border p-4 space-y-4">
-              <button
-                type="button"
-                onClick={() => handleEliminarItem(index)}
-                className="absolute top-3 right-3 btn btn-outline btn-xs border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1"
-              >
-                <Trash2 size={14} />
-                Quitar
-              </button>
+            <div key={index} className="bg-gray-50 rounded-lg border p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Producto #{index + 1}</p>
+                  {!item.esNuevo && (
+                    <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleEliminarItem(index)}
+                  className="btn btn-outline btn-xs border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1"
+                >
+                  <Trash2 size={14} />
+                  Quitar
+                </button>
+              </div>
               <div className="grid grid-cols-12 gap-3">
                 <div className="col-span-3">
                   <label className="text-xs text-gray-600">Referencia</label>
