@@ -273,12 +273,25 @@ export default function Reimpresion() {
         const result = await alegraService.getInvoiceById(factura.alegra_id)
         if (result.success) {
           const items = Array.isArray(result.data.items) ? result.data.items : []
+          const faltantesDetalle = Array.isArray(factura.faltantes_detalle) ? factura.faltantes_detalle : []
+          const faltantesPorCodigo = faltantesDetalle.reduce((acc, faltante) => {
+            if (faltante && faltante.producto_codigo) {
+              acc[faltante.producto_codigo.toString()] = faltante
+            }
+            return acc
+          }, {})
+
           const normalizados = items.map(item => {
             const reference = getReferenceFromInvoiceItem(item)
             const description = getDescriptionFromInvoiceItem(item)
             const price = getPriceValue(item.price)
             const taxes = getTaxesArray(item.tax)
             const alegraItemId = item.item?.id ?? item.productId ?? item.itemId ?? item.id ?? null
+
+            const codigoItem = item.id?.toString() || reference || item.reference?.reference?.toString() || ''
+            const faltante = faltantesPorCodigo[codigoItem]
+            const cantidadFaltante = Number(faltante?.cantidad_faltante || 0)
+            const debeEliminarse = cantidadFaltante > 0 && cantidadFaltante >= Number(item.quantity || 0)
 
             return {
               id: item.id ?? null,
@@ -290,7 +303,9 @@ export default function Reimpresion() {
               itemId: item.item?.id ?? alegraItemId,
               alegraItemId,
               item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
-              esNuevo: false
+              esNuevo: false,
+              cantidad_faltante: cantidadFaltante,
+              eliminar_por_faltante: debeEliminarse
             }
           })
 
@@ -692,9 +707,30 @@ export default function Reimpresion() {
     })
   }
 
-  const seleccionarProductoBusqueda = (index, producto) => {
+  const seleccionarProductoBusqueda = async (index, productoBase) => {
+    let producto = productoBase
     const referenciaNormalizada = getReferenceFromSearchProduct(producto)
     const referencia = referenciaNormalizada || productoBusqueda.termino || ''
+
+    const requiereDetalles = (!producto.taxes || producto.taxes.length === 0) && (producto.id || referencia)
+
+    if (requiereDetalles) {
+      try {
+        const query = referencia || producto.id?.toString() || ''
+        const resultado = await alegraService.buscarProductosAlegra(query)
+
+        if (resultado?.success) {
+          const lista = resultado.data || resultado.productos || []
+          const match = lista.find(item => item.id?.toString() === producto.id?.toString()) || lista[0]
+          if (match) {
+            producto = { ...match }
+          }
+        }
+      } catch (error) {
+        console.error('No se pudo obtener detalle del producto desde Alegra:', error)
+      }
+    }
+
     const descripcion = getDescriptionFromSearchProduct(producto) || referencia || 'Producto sin descripción'
     const precio = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
     const taxes = getTaxesArray(producto.taxes ?? producto.tax)
@@ -904,9 +940,14 @@ export default function Reimpresion() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500">Producto #{index + 1}</p>
-                  {!item.esNuevo && (
-                    <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
-                  )}
+              {!item.esNuevo && (
+                <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
+              )}
+              {!item.esNuevo && item.eliminar_por_faltante && (
+                <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                  Este producto se eliminará automáticamente al reimprimir (faltante sin recibir)
+                </p>
+              )}
                 </div>
                 <button
                   type="button"
