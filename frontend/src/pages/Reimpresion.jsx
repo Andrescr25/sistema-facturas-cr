@@ -273,7 +273,16 @@ export default function Reimpresion() {
         const result = await alegraService.getInvoiceById(factura.alegra_id)
         if (result.success) {
           const items = Array.isArray(result.data.items) ? result.data.items : []
+          const ajustesDetalle = Array.isArray(factura.ajustes_realizados) ? factura.ajustes_realizados : []
           const faltantesDetalle = Array.isArray(factura.faltantes_detalle) ? factura.faltantes_detalle : []
+
+          const ajustesPorCodigo = ajustesDetalle.reduce((acc, ajuste) => {
+            if (ajuste && ajuste.producto_codigo) {
+              acc[ajuste.producto_codigo.toString()] = ajuste
+            }
+            return acc
+          }, {})
+
           const faltantesPorCodigo = faltantesDetalle.reduce((acc, faltante) => {
             if (faltante && faltante.producto_codigo) {
               acc[faltante.producto_codigo.toString()] = faltante
@@ -288,16 +297,40 @@ export default function Reimpresion() {
             const taxes = getTaxesArray(item.tax)
             const alegraItemId = item.item?.id ?? item.productId ?? item.itemId ?? item.id ?? null
 
-            const codigoItem = item.id?.toString() || reference || item.reference?.reference?.toString() || ''
+            const codigoItem = (item.id ?? reference ?? item.reference?.reference ?? '').toString()
+            const ajuste = ajustesPorCodigo[codigoItem]
             const faltante = faltantesPorCodigo[codigoItem]
-            const cantidadFaltante = Number(faltante?.cantidad_faltante || 0)
-            const debeEliminarse = cantidadFaltante > 0 && cantidadFaltante >= Number(item.quantity || 0)
+
+            let cantidadOriginal = Number(item.quantity) || 0
+            let cantidadFaltante = 0
+            let eliminarPorFaltante = false
+            let estadoAjuste = ajuste?.estado
+
+            if (ajuste) {
+              const faltanteOriginal = Number(ajuste.cantidad_faltante || ajuste.cantidad_faltante_original || 0)
+              const entregada = Number(ajuste.cantidad_entregada || 0)
+              const faltantePendiente = Math.max(faltanteOriginal - entregada, 0)
+              cantidadFaltante = faltantePendiente
+              if (faltantePendiente > 0) {
+                cantidadOriginal = Math.max(cantidadOriginal - faltantePendiente, 0)
+              }
+              if (ajuste.estado === 'no_llego' || cantidadOriginal === 0) {
+                eliminarPorFaltante = true
+              }
+            } else if (faltante) {
+              const faltantePendiente = Number(faltante.cantidad_faltante || 0)
+              if (faltantePendiente > 0) {
+                cantidadFaltante = faltantePendiente
+                cantidadOriginal = Math.max(cantidadOriginal - faltantePendiente, 0)
+                eliminarPorFaltante = cantidadOriginal === 0
+              }
+            }
 
             return {
               id: item.id ?? null,
               reference,
               description,
-              quantity: Number(item.quantity) || 0,
+              quantity: cantidadOriginal,
               price,
               tax: taxes,
               itemId: item.item?.id ?? alegraItemId,
@@ -305,7 +338,8 @@ export default function Reimpresion() {
               item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
               esNuevo: false,
               cantidad_faltante: cantidadFaltante,
-              eliminar_por_faltante: debeEliminarse
+              eliminar_por_faltante: eliminarPorFaltante,
+              ajuste_estado: estadoAjuste
             }
           })
 
