@@ -540,7 +540,11 @@ export default function Reimpresion() {
           return
         }
 
-        const hayCantidadInvalida = itemsParaGuardar.some(item => item.quantity <= 0)
+        const hayCantidadInvalida = itemsParaGuardar.some((item, idx) => {
+          const original = itemsEditados[idx]
+          const puedeEliminarse = original?.eliminar_por_faltante
+          return item.quantity <= 0 && !puedeEliminarse
+        })
         if (hayCantidadInvalida) {
           alert('⚠️ Las cantidades deben ser mayores a cero.')
           setProcesando(false)
