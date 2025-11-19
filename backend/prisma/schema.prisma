@@ -42,6 +42,31 @@ model Factura {
   emailId           String?  @map("email_id")
   
   @@map("facturas_proveedores")
+  cuentaPorPagar    CuentaPorPagar?
+}
+
+model CuentaPorPagar {
+  id               String                  @id @default(uuid())
+  facturaId        String                  @unique @map("factura_id")
+  factura          Factura                 @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  proveedorNombre  String                  @map("proveedor_nombre")
+  proveedorCedula  String                  @map("proveedor_cedula")
+  numeroConsecutivo String                 @map("numero_consecutivo")
+  condicionVenta   String?                 @map("condicion_venta")
+  plazoCredito     Int                     @map("plazo_credito") @default(0)
+  fechaEmision     DateTime                @map("fecha_emision")
+  fechaVencimiento DateTime                @map("fecha_vencimiento")
+  montoTotal       Float                   @map("monto_total")
+  saldoPendiente   Float                   @map("saldo_pendiente")
+  estado           EstadoCuentaPorPagar    @default(PENDIENTE) @map("estado")
+  notas            String?                 @map("notas")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  @@map("cuentas_por_pagar")
+  @@index([proveedorCedula], map: "idx_cuentas_por_pagar_proveedor")
+  @@index([estado], map: "idx_cuentas_por_pagar_estado")
+  @@index([fechaVencimiento], map: "idx_cuentas_por_pagar_vencimiento")
 }
 
 // Tabla para productos de cada factura
@@ -126,6 +151,15 @@ enum EstadoRelacionado {
   IGNORADO
 
   @@map("estado_relacionado")
+}
+
+enum EstadoCuentaPorPagar {
+  PENDIENTE
+  PARCIAL
+  PAGADA
+  VENCIDA
+
+  @@map("estado_cuenta_por_pagar")
 }
 
 // Tabla para productos de Alegra (cache local)

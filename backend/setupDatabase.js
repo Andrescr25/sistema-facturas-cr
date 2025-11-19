@@ -16,12 +16,16 @@ async function setupDatabase() {
     const result = await client.query('SELECT NOW()');
     console.log('✅ Conexión exitosa:', result.rows[0].now);
 
+    // Habilitar extensión para UUID si está disponible
+    await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+
     // ============================================
     // 🗑️ ELIMINAR TODO (TEMPORAL)
     // ============================================
     console.log('🗑️ ELIMINANDO TODAS LAS TABLAS...');
 
     // Eliminar en orden correcto (por dependencias)
+    await client.query('DROP TABLE IF EXISTS cuentas_por_pagar CASCADE');
     await client.query('DROP TABLE IF EXISTS rotacion_productos CASCADE');
     await client.query('DROP TABLE IF EXISTS orden_compra_temporal CASCADE');
     await client.query('DROP TABLE IF EXISTS faltantes_ajustes CASCADE');
@@ -192,6 +196,28 @@ async function setupDatabase() {
       )
     `);
 
+    // Crear tabla para cuentas por pagar (facturas de proveedores)
+    console.log('📋 Creando tabla cuentas_por_pagar...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cuentas_por_pagar (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          factura_id UUID UNIQUE REFERENCES facturas_proveedores(id) ON DELETE CASCADE,
+          proveedor_nombre VARCHAR(255) NOT NULL,
+          proveedor_cedula VARCHAR(50) NOT NULL,
+          numero_consecutivo VARCHAR(150),
+          condicion_venta VARCHAR(10),
+          plazo_credito INTEGER DEFAULT 0,
+          fecha_emision TIMESTAMP NOT NULL,
+          fecha_vencimiento TIMESTAMP NOT NULL,
+          monto_total NUMERIC(14,2) NOT NULL,
+          saldo_pendiente NUMERIC(14,2) NOT NULL,
+          estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE','PARCIAL','PAGADA','VENCIDA')),
+          notas TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Crear tabla para cantidades modificadas de órdenes de compra
     console.log('📋 Creando tabla orden_compra_temporal...');
     await client.query(`
@@ -274,6 +300,11 @@ async function setupDatabase() {
         BEFORE UPDATE ON rotacion_productos
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
     `);
+    await client.query(`
+      CREATE TRIGGER update_cuentas_por_pagar_updated_at 
+        BEFORE UPDATE ON cuentas_por_pagar 
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
 
     // Crear índices
     console.log('📋 Creando índices...');
@@ -315,6 +346,15 @@ async function setupDatabase() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_rotacion_productos_semana ON rotacion_productos(ano, semana)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_pagar_proveedor ON cuentas_por_pagar(proveedor_cedula)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_pagar_estado ON cuentas_por_pagar(estado)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_pagar_vencimiento ON cuentas_por_pagar(fecha_vencimiento)
     `);
 
     // Insertar datos de ejemplo

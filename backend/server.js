@@ -115,6 +115,7 @@ const reporteRoutes = require('./routes/reportes');
 const alegraRoutes = require('./routes/alegra');
 const revisionPreciosRoutes = require('./routes/revisionPrecios');
 const productosRevisionRoutes = require('./routes/productosRevision');
+const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 
 // Usar rutas de API
 app.use('/api/facturas', facturaRoutes);
@@ -125,6 +126,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosRoutes);
 app.use('/api/productos-revision', productosRevisionRoutes);
+app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
@@ -166,7 +168,8 @@ app.get('*', (req, res) => {
         '/api/productos/*',
         '/api/proveedores/*',
         '/api/faltantes/*',
-        '/api/reportes/*'
+        '/api/reportes/*',
+        '/api/pagos-proveedores/*'
       ]
     });
   }

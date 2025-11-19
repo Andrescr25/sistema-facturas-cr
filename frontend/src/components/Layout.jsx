@@ -12,7 +12,8 @@ import {
   Settings,
   Menu,
   X,
-  Brain
+  Brain,
+  CreditCard
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 
@@ -27,6 +28,7 @@ export default function Layout({ children }) {
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
+    { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
     { name: 'Rotación Productos', href: '/rotacion-productos', icon: Brain },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Reimpresión', href: '/reimpresion', icon: Printer }, 

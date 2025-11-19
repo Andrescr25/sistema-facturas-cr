@@ -132,6 +132,59 @@ class DatabaseService {
                 }));
             }
 
+            // PASO EXTRA: Registrar cuenta por pagar si la factura es a crédito
+            try {
+                const condicionVenta = facturaData.condicionVenta || null;
+                const plazoCreditoValor = parseInt(facturaData.plazoCredito, 10);
+                const plazoDias = Number.isFinite(plazoCreditoValor)
+                    ? plazoCreditoValor
+                    : (condicionVenta === '02' ? 30 : 0);
+
+                const requiereCuenta = condicionVenta === '02' || plazoDias > 0;
+                if (requiereCuenta) {
+                    const fechaEmisionDate = facturaData.fechaEmision?.iso
+                        ? new Date(facturaData.fechaEmision.iso)
+                        : new Date();
+                    const fechaVencimiento = new Date(fechaEmisionDate);
+                    fechaVencimiento.setDate(fechaVencimiento.getDate() + Math.max(plazoDias, 0));
+
+                    const montoTotal = Number(facturaData.resumen?.totales?.comprobante || facturaGuardada.totalFactura || 0);
+                    const saldoPendiente = montoTotal;
+                    const estadoInicial = fechaVencimiento < new Date() ? 'VENCIDA' : 'PENDIENTE';
+
+                    await this.prisma.cuentaPorPagar.upsert({
+                        where: { facturaId: facturaGuardada.id },
+                        update: {
+                            proveedorNombre: facturaGuardada.proveedorNombre,
+                            proveedorCedula: facturaGuardada.proveedorCedula,
+                            numeroConsecutivo: facturaGuardada.numeroConsecutivo,
+                            condicionVenta,
+                            plazoCredito: plazoDias,
+                            fechaEmision: fechaEmisionDate,
+                            fechaVencimiento,
+                            montoTotal,
+                            saldoPendiente,
+                            estado: estadoInicial
+                        },
+                        create: {
+                            facturaId: facturaGuardada.id,
+                            proveedorNombre: facturaGuardada.proveedorNombre,
+                            proveedorCedula: facturaGuardada.proveedorCedula,
+                            numeroConsecutivo: facturaGuardada.numeroConsecutivo,
+                            condicionVenta,
+                            plazoCredito: plazoDias,
+                            fechaEmision: fechaEmisionDate,
+                            fechaVencimiento,
+                            montoTotal,
+                            saldoPendiente,
+                            estado: estadoInicial
+                        }
+                    });
+                }
+            } catch (cuentaError) {
+                console.error('⚠️ Error registrando cuenta por pagar:', cuentaError.message);
+            }
+
             const productosRelacionados = productosConMapeo.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
             const productosPendientes = productosConMapeo.filter(p => p.estadoRelacionado === 'PENDIENTE').length;
             const porcentajeRelacionado = Math.round((productosRelacionados / productosConMapeo.length) * 100);
