@@ -21,6 +21,7 @@ export default function Facturacion() {
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [impuestos, setImpuestos] = useState([]);
+  const [impuestoPrincipal, setImpuestoPrincipal] = useState(null);
   const [metodosPago, setMetodosPago] = useState([]);
   const [facturasPendientes, setFacturasPendientes] = useState([]);
 
@@ -72,6 +73,40 @@ export default function Facturacion() {
     if (!ref) return '';
     if (typeof ref === 'object' && ref.reference) return String(ref.reference);
     return String(ref);
+  };
+
+  const normalizarImpuestos = (lista = []) =>
+    lista.map((imp) => ({
+      ...imp,
+      percentage: Number(imp.percentage ?? imp.rate ?? imp.value ?? 0)
+    }));
+
+  const ordenarImpuestos = (lista = []) =>
+    [...lista].sort((a, b) => (Number(b.percentage) || 0) - (Number(a.percentage) || 0));
+
+  const seleccionarImpuestoPrincipal = (lista = []) => {
+    if (!lista.length) return null;
+    const preferidoIVA = lista.find(
+      (imp) =>
+        Number(imp.percentage) >= 13 &&
+        (imp.type?.toUpperCase() === 'IVA' || /iva/i.test(imp.name || ''))
+    );
+    return preferidoIVA || lista.find((imp) => Number(imp.percentage) >= 13) || lista[0];
+  };
+
+  const prepararImpuestosIniciales = (lista = []) => {
+    const normalizados = normalizarImpuestos(lista);
+    const ordenados = ordenarImpuestos(normalizados);
+    setImpuestos(ordenados);
+    setImpuestoPrincipal(seleccionarImpuestoPrincipal(ordenados));
+  };
+
+  const obtenerPorcentajeImpuesto = (taxItem) => {
+    if (!taxItem) return null;
+    if (taxItem.percentage !== undefined) return Number(taxItem.percentage) || 0;
+    const encontrado = impuestos.find((imp) => imp.id === taxItem.id);
+    if (encontrado) return Number(encontrado.percentage) || 0;
+    return null;
   };
 
   // Detectar tipo de dispositivo (mejorado con mejor detección)
@@ -193,6 +228,12 @@ export default function Facturacion() {
     }
   }, [modalCantidadProducto]);
   
+  useEffect(() => {
+    if (!impuestoPrincipal && impuestos.length > 0) {
+      setImpuestoPrincipal(seleccionarImpuestoPrincipal(impuestos));
+    }
+  }, [impuestos, impuestoPrincipal]);
+  
   // Cambiar automáticamente a búsqueda en móvil
   useEffect(() => {
     if (isMobile && modoEntradaRapida) {
@@ -263,7 +304,7 @@ export default function Facturacion() {
 
       setProductos(productosCache);
       setClientes(clientesCache);
-      setImpuestos(impuestosData);
+      prepararImpuestosIniciales(impuestosData);
       setMetodosPago(metodosPagoData);
       setFacturasPendientes(pendientes);
       setCacheStats(stats);
@@ -604,13 +645,22 @@ export default function Facturacion() {
       ));
     } else {
       // Agregar nuevo
+      const impuestoDefault = impuestoPrincipal
+        ? [{
+            id: impuestoPrincipal.id,
+            percentage: Number(impuestoPrincipal.percentage) || 0,
+            name: impuestoPrincipal.name,
+            type: impuestoPrincipal.type
+          }]
+        : [];
+
       const nuevoItem = {
         id: producto.id,
         reference: getReference(producto.reference),
         name: producto.name,
         quantity: cantidad,
         price: producto.price || 0,
-        tax: impuestos.length > 0 ? [{ id: impuestos[0].id }] : [],
+        tax: impuestoDefault,
         discount: 0
       };
 
@@ -660,16 +710,26 @@ export default function Facturacion() {
 
   const calcularSubtotal = () => {
     return items.reduce((sum, item) => {
-      const subtotalItem = item.quantity * item.price;
-      const descuentoItem = (subtotalItem * item.discount) / 100;
+      const cantidad = Number(item.quantity) || 0;
+      const precio = Number(item.price) || 0;
+      const descuento = Number(item.discount) || 0;
+      const subtotalItem = cantidad * precio;
+      const descuentoItem = (subtotalItem * descuento) / 100;
       return sum + (subtotalItem - descuentoItem);
     }, 0);
   };
 
   const calcularImpuestos = () => {
-    const subtotal = calcularSubtotal();
-    const impuestoPorcentaje = impuestos[0]?.percentage || 0;
-    return (subtotal * impuestoPorcentaje) / 100;
+    return items.reduce((sum, item) => {
+      const cantidad = Number(item.quantity) || 0;
+      const precio = Number(item.price) || 0;
+      const descuento = Number(item.discount) || 0;
+      const base = cantidad * precio * (1 - descuento / 100);
+      const porcentaje =
+        obtenerPorcentajeImpuesto(item.tax?.[0]) ??
+        (impuestoPrincipal ? Number(impuestoPrincipal.percentage) || 0 : 0);
+      return sum + (base * porcentaje) / 100;
+    }, 0);
   };
 
   const calcularDescuentoGlobal = () => {
@@ -706,10 +766,10 @@ export default function Facturacion() {
         client: parseInt(clienteSeleccionado.id),
         items: items.map(item => ({
           id: parseInt(item.id),
-          quantity: item.quantity,
-          price: item.price,
+          quantity: Number(item.quantity) || 0,
+          price: Number(item.price) || 0,
           discount: item.discount || 0,
-          tax: item.tax || []
+          tax: (item.tax || []).map(t => ({ id: t.id }))
         })),
         observations: observaciones || '',
         status: 'open',
@@ -1678,8 +1738,14 @@ export default function Facturacion() {
                     )}
 
                     <div className="flex justify-between text-gray-700">
-                      <span>Impuestos ({impuestos[0]?.percentage || 0}%):</span>
-                      <span className="font-medium">₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                      <span>
+                        {impuestoPrincipal
+                          ? `${impuestoPrincipal.name || 'Impuestos'} (${Number(impuestoPrincipal.percentage) || 0}%)`
+                          : 'Impuestos estimados'}:
+                      </span>
+                      <span className="font-medium">
+                        ₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
                   </>
                 )}
