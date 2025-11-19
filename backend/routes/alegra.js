@@ -2003,9 +2003,11 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       // Agregar producto faltante con datos guardados
       proveedor.productos_faltantes.push({
         nombre: mappingInfo?.alegraName || faltante.producto_nombre,
+        nombre_proveedor: mappingInfo?.supplierDesc || null,
         codigo: faltante.producto_codigo,
         alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo,
-        codigo_proveedor: mappingInfo?.supplierCode || 'N/A',
+        codigo_proveedor: mappingInfo?.supplierCode || null,
+        mapping_id: faltante.mapping_id || null,
         cantidad_faltante: parseInt(faltante.total_faltante),
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
         tipo_faltante: faltante.tipo_faltante,
@@ -4334,145 +4336,166 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     // const { queryExternal } = require('../config/external-database');
 
 
+    const normalize = (value) => value ? value.toString().trim() : '';
+    const normalizeLower = (value) => value ? value.toString().toLowerCase().trim() : '';
+    const proveedorNormalizado = normalizeLower(proveedor);
+
+    const mappingSelect = `
+      SELECT 
+        id,
+        supplier_code as "supplierCode",
+        supplier_desc as "supplierDesc",
+        supplier_name as "supplierName",
+        supplier_cedula as "supplierCedula",
+        alegra_reference as "alegraReference",
+        alegra_name as "alegraName",
+        alegra_item_id as "alegraItemId",
+        confidence,
+        origen,
+        factor_conversion as "factorConversion",
+        last_used_date as "lastUsedDate",
+        times_used as "timesUsed"
+      FROM supplier_product_mapping
+    `;
+
+    const fetchSingleMapping = async (sql, params) => {
+      const result = await query(sql, params);
+      return result.rows[0] || null;
+    };
+
+    const sanitizeCodigoProveedor = (valor) => {
+      if (!valor) return null;
+      const cleaned = valor.toString().trim();
+      if (!cleaned || cleaned.toUpperCase() === 'N/A') return null;
+      return cleaned;
+    };
+
+    const mappingMatchesProveedor = (mapping) =>
+      mapping && normalizeLower(mapping.supplierName) === proveedorNormalizado;
+
+    const getMappingById = async (mappingId) => {
+      if (!mappingId) return null;
+      return fetchSingleMapping(
+        `${mappingSelect} WHERE id = $1`,
+        [mappingId]
+      );
+    };
+
+    const getMappingBySupplierCode = async (codigoProveedor) => {
+      if (!codigoProveedor) return null;
+      return fetchSingleMapping(
+        `${mappingSelect} 
+          WHERE supplier_code = $1 
+            AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
+          ORDER BY last_used_date DESC, times_used DESC
+          LIMIT 1`,
+        [codigoProveedor, proveedor]
+      );
+    };
+
+    const getMappingByAlegraId = async (alegraItemId) => {
+      if (!alegraItemId) return null;
+      return fetchSingleMapping(
+        `${mappingSelect}
+          WHERE alegra_item_id::text = $1
+            AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
+          ORDER BY last_used_date DESC, times_used DESC
+          LIMIT 1`,
+        [alegraItemId.toString(), proveedor]
+      );
+    };
+
+    const getMappingByFlexibleSearch = async (productoPayload) => {
+      const referencia = productoPayload.codigoInterno || null;
+      const nombreBusqueda = productoPayload.nombreProveedorEntrada || productoPayload.nombreInterno || null;
+
+      if (!referencia && !nombreBusqueda) return null;
+
+      return fetchSingleMapping(
+        `${mappingSelect}
+          WHERE LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
+            AND (
+              ($1 IS NOT NULL AND alegra_reference = $1)
+              OR ($3 IS NOT NULL AND supplier_desc ILIKE $3)
+              OR ($3 IS NOT NULL AND alegra_name ILIKE $3)
+            )
+          ORDER BY confidence DESC, last_used_date DESC, times_used DESC
+          LIMIT 1`,
+        [
+          referencia,
+          proveedor,
+          nombreBusqueda ? `%${nombreBusqueda}%` : null
+        ]
+      );
+    };
+
     const productosEnriquecidos = [];
 
     for (const producto of productos) {
       try {
-        // Buscar por código de Alegra (reference) + proveedor EXACTO
-        // IMPORTANTE: También buscar por alegra_item_id porque puede haber múltiples mappings
-        // con diferentes references pero el mismo item_id (ej: "1084" y "0005" ambos apuntan al mismo producto)
-        // Priorizar mappings con datos REALES del proveedor (supplierCode !== alegraReference)
-        // También buscar por nombre del producto si no hay match por código
-        const mappingResult = await query(`
-          SELECT 
-            id,
-            supplier_code as "supplierCode",
-            supplier_desc as "supplierDesc",
-            supplier_name as "supplierName",
-            supplier_cedula as "supplierCedula",
-            alegra_reference as "alegraReference",
-            alegra_name as "alegraName",
-            alegra_item_id as "alegraItemId",
-            confidence,
-            origen,
-            factor_conversion as "factorConversion",
-            -- Calcular si tiene datos reales del proveedor
-            CASE 
-              WHEN supplier_code != alegra_reference OR supplier_desc != alegra_name 
-              THEN 1 
-              ELSE 0 
-            END as tiene_datos_reales
-          FROM supplier_product_mapping 
-          WHERE (
-            alegra_reference = $1 
-            OR alegra_item_id::text = $1
-            OR alegra_name ILIKE $3
-          )
-          AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
-          ORDER BY 
-            tiene_datos_reales DESC,  -- Priorizar mappings con datos reales
-            confidence DESC, 
-            last_used_date DESC, 
-            times_used DESC
-          LIMIT 1
-        `, [producto.codigo, proveedor, `%${producto.nombre}%`]);
-        
-        // Si no hay match exacto, NO usar mapping de otro proveedor
+        const payloadInfo = {
+          codigoInterno: producto.codigo || producto.codigoInterno || null,
+          nombreInterno: producto.nombre || producto.nombreInterno || null,
+          codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
+          nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
+          mappingId: producto.mappingId || producto.mapping_id || null,
+          alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
+          cantidadFinal: parseInt(producto.cantidad, 10) || 0,
+          factorConversion: producto.factorConversion || producto.factor_conversion || 1
+        };
 
-        let productoEnriquecido;
+        let mapping = await getMappingById(payloadInfo.mappingId);
 
-        if (mappingResult.rows.length > 0) {
-          const mapping = mappingResult.rows[0];
-          
-          // ✅ VERIFICAR que el proveedor coincida exactamente (doble verificación)
-          const proveedorCoincide = mapping.supplierName?.toLowerCase().trim() === proveedor?.toLowerCase().trim();
-          
-          if (!proveedorCoincide) {
-            console.error(`   ❌ ERROR: El mapping encontrado no coincide con el proveedor solicitado!`);
-            console.error(`   Proveedor solicitado: "${proveedor}"`);
-            console.error(`   Proveedor en mapping: "${mapping.supplierName}"`);
-            // Usar datos originales en lugar de mapping incorrecto
-            productoEnriquecido = {
-              codigo_pdf: producto.codigo,
-              nombre_pdf: producto.nombre,
-              cantidad: producto.cantidad,
-              codigo_interno: producto.codigo,
-              nombre_interno: producto.nombre,
-              confianza: 0,
-              origen: 'error_proveedor_no_coincide'
-            };
-          } else {
-            // 🔧 APLICAR FACTOR DE CONVERSIÓN si existe
-            // El factor es: cantidadMia / cantidadProveedor
-            // Para convertir cantidad del sistema a cantidad del proveedor: cantidad / factor
-            // IMPORTANTE: Usar cantidadOriginal (sin factor) si existe, sino usar cantidad
-            const cantidadBase = producto.cantidadOriginal || producto.cantidad;
-            let cantidadFinal = cantidadBase;
-            if (mapping.factorConversion && mapping.factorConversion !== 1) {
-              cantidadFinal = Math.ceil(cantidadBase / mapping.factorConversion);
-            }
-            
-            // Verificar si los datos del proveedor son REALES o solo temporales (de Alegra)
-            // Si supplierCode === alegraReference Y supplierDesc === alegraName, 
-            // significa que es un mapping manual SIN info real del proveedor
-            const datosProveedorSonReales = mapping.supplierCode !== mapping.alegraReference || 
-                                            mapping.supplierDesc !== mapping.alegraName;
-            
-            let codigoPDF, nombrePDF, tieneCodigoProveedor;
-            
-            if (datosProveedorSonReales) {
-              // Tiene datos REALES del proveedor - usar esos
-              codigoPDF = mapping.supplierCode;
-              nombrePDF = mapping.supplierDesc;
-              tieneCodigoProveedor = true;
-            } else {
-              // Datos del proveedor son iguales a Alegra (mapping manual sin info real)
-              // Usar datos locales de Alegra
-              codigoPDF = producto.codigo;
-              nombrePDF = producto.nombre;
-              tieneCodigoProveedor = false;
-            }
-            
-            productoEnriquecido = {
-              codigo_pdf: codigoPDF,
-              nombre_pdf: nombrePDF,
-              cantidad: cantidadFinal,
-              codigo_interno: producto.codigo,
-              nombre_interno: producto.nombre,
-              confianza: mapping.confidence,
-              factorConversion: mapping.factorConversion || 1,
-              origen: tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor',
-              datosProveedorReales: datosProveedorSonReales
-            };
-            
-          }
-        } else {
-          // Fallback: usar datos originales si no hay mapping exacto
-          productoEnriquecido = {
-            codigo_pdf: producto.codigo,
-            nombre_pdf: producto.nombre,
-            cantidad: producto.cantidad,
-            codigo_interno: producto.codigo,
-            nombre_interno: producto.nombre,
-            confianza: 0,
-            origen: 'sin_mapeo'
-          };
-
+        if (!mapping) {
+          mapping = await getMappingBySupplierCode(payloadInfo.codigoProveedorEntrada);
         }
 
-        productosEnriquecidos.push(productoEnriquecido);
+        if (!mapping) {
+          mapping = await getMappingByAlegraId(payloadInfo.alegraItemId);
+        }
 
+        if (!mapping) {
+          mapping = await getMappingByFlexibleSearch(payloadInfo);
+        }
+
+        if (!mappingMatchesProveedor(mapping)) {
+          mapping = null;
+        }
+
+        const codigoProveedorPreferido = payloadInfo.codigoProveedorEntrada || sanitizeCodigoProveedor(mapping?.supplierCode);
+        const nombreProveedorPreferido = payloadInfo.nombreProveedorEntrada || normalize(mapping?.supplierDesc);
+        const datosProveedorReales = Boolean(codigoProveedorPreferido && nombreProveedorPreferido);
+
+        const codigoPDF = codigoProveedorPreferido || payloadInfo.codigoInterno || mapping?.alegraReference || 'N/A';
+        const nombrePDF = nombreProveedorPreferido || payloadInfo.nombreInterno || mapping?.alegraName || 'Sin descripción';
+
+        let origenEtiqueta = 'sin_mapeo';
+        if (mapping) {
+          origenEtiqueta = datosProveedorReales ? 'con_codigo_proveedor' : 'sin_codigo_proveedor';
+        }
+
+        productosEnriquecidos.push({
+          codigo_pdf: codigoPDF,
+          nombre_pdf: nombrePDF,
+          cantidad: payloadInfo.cantidadFinal,
+          codigo_interno: payloadInfo.codigoInterno,
+          nombre_interno: payloadInfo.nombreInterno,
+          confianza: mapping?.confidence || 0,
+          factorConversion: payloadInfo.factorConversion,
+          origen: origenEtiqueta,
+          datosProveedorReales,
+          mappingId: mapping?.id || payloadInfo.mappingId || null
+        });
       } catch (mappingError) {
         console.error(`❌ Error buscando mapping para ${producto.codigo}:`, mappingError.message);
-
-        // Fallback en caso de error
         productosEnriquecidos.push({
-          codigo_pdf: producto.codigo,
-          nombre_pdf: producto.nombre,
-          cantidad: producto.cantidad,
-          codigo_interno: producto.codigo,
-          nombre_interno: producto.nombre,
+          codigo_pdf: producto.codigo || 'N/A',
+          nombre_pdf: producto.nombre || 'Sin descripción',
+          cantidad: parseInt(producto.cantidad, 10) || 0,
+          codigo_interno: producto.codigo || null,
+          nombre_interno: producto.nombre || null,
           confianza: 0,
+          factorConversion: producto.factorConversion || 1,
           origen: 'error'
         });
       }
@@ -4540,133 +4563,95 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       .lineTo(550, 160)
       .stroke();
 
-    // Headers de la tabla
     let yPos = 180;
-    doc.fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Código', 50, yPos)
-      .text('Descripción', 150, yPos)
-      .text('Cantidad', 450, yPos);
-
-    // Línea debajo del header
-    yPos += 20;
-    doc.moveTo(50, yPos)
-      .lineTo(550, yPos)
-      .stroke();
-
-    // Productos
-    yPos += 10;
     let totalUnidades = 0;
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
 
-    doc.font('Helvetica');
+    const drawTableHeader = () => {
+      doc.fontSize(12)
+        .font('Helvetica-Bold')
+        .text('Código', 50, yPos)
+        .text('Descripción', 150, yPos)
+        .text('Cantidad', 450, yPos);
 
-    // ✅ PRIMERO: Productos con código del proveedor (DATOS DEL PROVEEDOR)
-    productosConCodigoProveedor.forEach((producto, index) => {
-      yPos += 20;
+      yPos += 15;
+      doc.moveTo(50, yPos)
+        .lineTo(550, yPos)
+        .stroke();
+      yPos += 10;
+      doc.font('Helvetica').fillColor('#000000');
+    };
 
-      // Verificar si necesitamos nueva página
-      if (yPos > 700) {
-        doc.addPage();
-        yPos = 50;
+    const startNewPage = () => {
+      doc.addPage();
+      yPos = 50;
+      drawTableHeader();
+    };
 
-        // Repetir headers en nueva página
-        doc.fontSize(12)
-          .font('Helvetica-Bold')
-          .text('Código', 50, yPos)
-          .text('Descripción', 150, yPos)
-          .text('Cantidad', 450, yPos);
-
-        yPos += 20;
+    const ensureSpace = (needed = 50) => {
+      if (yPos + needed > pageBottom) {
+        startNewPage();
       }
+    };
 
-      // Mostrar CÓDIGO Y NOMBRE DEL PROVEEDOR
-      doc.fontSize(11)
-        .text(producto.codigo_pdf || 'N/A', 50, yPos)  // Código del proveedor
-        .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })  // Nombre del proveedor
-        .text(producto.cantidad?.toString() || '0', 450, yPos);
+    const rowHeightForDescription = (descripcion) => {
+      const text = descripcion || 'Sin descripción';
+      return Math.max(
+        doc.heightOfString(text, { width: 280, align: 'left' }),
+        14
+      );
+    };
 
+    const renderProducto = (producto) => {
+      const descripcion = producto.nombre_pdf || 'Sin descripción';
+      const codigo = producto.codigo_pdf || 'N/A';
+      const cantidadTexto = (producto.cantidad ?? 0).toString();
+
+      const rowHeight = rowHeightForDescription(descripcion);
+      ensureSpace(rowHeight + 15);
+
+      doc.fontSize(11).font('Helvetica');
+      doc.text(codigo, 50, yPos, { width: 80 });
+      doc.text(descripcion, 150, yPos, { width: 280 });
+      doc.text(cantidadTexto, 450, yPos, { width: 80 });
+
+      yPos += rowHeight + 8;
       totalUnidades += parseInt(producto.cantidad) || 0;
-    });
+    };
 
-    // ✅ SEGUNDO: Header sutil para productos sin código del proveedor (solo si hay con código antes)
-    if (productosSinCodigoProveedor.length > 0 && productosConCodigoProveedor.length > 0) {
-      yPos += 30; // Pequeño espacio
+    const renderSeccion = (lista) => {
+      lista.forEach(renderProducto);
+    };
 
-      // Verificar si necesitamos nueva página
-      if (yPos > 680) {
-        doc.addPage();
-        yPos = 50;
-      }
-
-      // Header discreto
+    const drawSectionLabel = (texto) => {
+      ensureSpace(25);
       doc.fontSize(10)
         .font('Helvetica-Oblique')
-        .fillColor('#666666')
-        .text('productos sin_codigo_provedor', 150, yPos);
+        .fillColor('#555555')
+        .text(texto, 50, yPos);
+      doc.fillColor('#000000').font('Helvetica');
+      yPos += 15;
+    };
 
-      doc.fillColor('#000000'); // Volver a negro
-      yPos += 10; // Pequeño espacio después del header
+    drawTableHeader();
+
+    // ✅ PRIMERO: Productos con código del proveedor
+    renderSeccion(productosConCodigoProveedor);
+
+    // ✅ SEGUNDO: Productos sin código del proveedor
+    if (productosSinCodigoProveedor.length > 0) {
+      drawSectionLabel('Productos sin código del proveedor (usar referencia interna)');
+      renderSeccion(productosSinCodigoProveedor);
     }
 
-    // ✅ TERCERO: Productos sin código del proveedor (DATOS LOCALES/ALEGRA)
-    productosSinCodigoProveedor.forEach((producto, index) => {
-      yPos += 20;
-
-      // Verificar si necesitamos nueva página
-      if (yPos > 700) {
-        doc.addPage();
-        yPos = 50;
-
-        // Repetir headers en nueva página
-        doc.fontSize(12)
-          .font('Helvetica-Bold')
-          .text('Código', 50, yPos)
-          .text('Descripción', 150, yPos)
-          .text('Cantidad', 450, yPos);
-
-        yPos += 20;
-      }
-
-      // Mostrar CÓDIGO Y NOMBRE LOCAL (Alegra) - sin código del proveedor
-      doc.fontSize(11)
-        .font('Helvetica')
-        .text(producto.codigo_pdf || 'N/A', 50, yPos)  // Código local (Alegra)
-        .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })  // Nombre local (Alegra)
-        .text(producto.cantidad?.toString() || '0', 450, yPos);
-
-      totalUnidades += parseInt(producto.cantidad) || 0;
-    });
-
-    // ✅ CUARTO: Productos sin mapeo (fallback)
-    productosSinMapeo.forEach((producto, index) => {
-      yPos += 20;
-
-      // Verificar si necesitamos nueva página
-      if (yPos > 700) {
-        doc.addPage();
-        yPos = 50;
-
-        // Repetir headers en nueva página
-        doc.fontSize(12)
-          .font('Helvetica-Bold')
-          .text('Código', 50, yPos)
-          .text('Descripción', 150, yPos)
-          .text('Cantidad', 450, yPos);
-
-        yPos += 20;
-      }
-
-      // Mostrar datos originales
-      doc.fontSize(11)
-        .text(producto.codigo_pdf || 'N/A', 50, yPos)
-        .text(producto.nombre_pdf || 'Sin descripción', 150, yPos, { width: 280 })
-        .text(producto.cantidad?.toString() || '0', 450, yPos);
-
-      totalUnidades += parseInt(producto.cantidad) || 0;
-    });
+    // ✅ TERCERO: Productos sin mapeo
+    if (productosSinMapeo.length > 0) {
+      drawSectionLabel('Productos sin mapeo (datos originales)');
+      renderSeccion(productosSinMapeo);
+    }
 
     // Línea separadora final
-    yPos += 30;
+    ensureSpace(40);
     doc.moveTo(50, yPos)
       .lineTo(550, yPos)
       .stroke();
@@ -4679,7 +4664,7 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       .text(`Total unidades: ${totalUnidades}`, 300, yPos);
 
     // Footer
-    yPos += 50;
+    yPos += 40;
     doc.fontSize(10)
       .font('Helvetica')
       .text(`Generado el ${new Date().toLocaleString('es-CR')}`, 50, yPos);

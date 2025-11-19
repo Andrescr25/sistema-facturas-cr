@@ -294,6 +294,10 @@ export default function ReporteProveedores() {
           return {
             codigo: producto.codigo,
             nombre: producto.nombre,
+            codigoProveedor: producto.codigo_proveedor || null,
+            nombreProveedor: producto.nombre_proveedor || producto.nombre,
+            mappingId: producto.mapping_id || null,
+            alegraItemId: producto.alegra_item_id || null,
             cantidad: cantidadParaProveedor, // ← Cantidad convertida para el proveedor
             cantidadOriginal: cantidadFinal, // ← Cantidad en tu sistema (para referencia)
             factorConversion: factorConversion
@@ -356,6 +360,10 @@ export default function ReporteProveedores() {
       const productosParaPDF = cantidadSugerida.map(p => ({
         codigo: p.producto_codigo,
         nombre: p.producto_nombre,
+        codigoProveedor: p.codigo_proveedor || null,
+        nombreProveedor: p.nombre_proveedor || p.producto_nombre,
+        mappingId: p.mapping_id || null,
+        alegraItemId: p.alegra_item_id || null,
         cantidad: p.cantidad_sugerida
       }))
 
