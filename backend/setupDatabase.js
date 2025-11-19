@@ -22,6 +22,7 @@ async function setupDatabase() {
     console.log('🗑️ ELIMINANDO TODAS LAS TABLAS...');
 
     // Eliminar en orden correcto (por dependencias)
+    await client.query('DROP TABLE IF EXISTS rotacion_productos CASCADE');
     await client.query('DROP TABLE IF EXISTS orden_compra_temporal CASCADE');
     await client.query('DROP TABLE IF EXISTS faltantes_ajustes CASCADE');
     await client.query('DROP TABLE IF EXISTS facturas_reimpresion CASCADE');
@@ -207,6 +208,30 @@ async function setupDatabase() {
       )
     `);
 
+    // Crear tabla para rotación histórica de productos
+    console.log('📋 Creando tabla rotacion_productos...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rotacion_productos (
+          id SERIAL PRIMARY KEY,
+          producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+          producto_codigo VARCHAR(100) NOT NULL,
+          producto_nombre VARCHAR(255) NOT NULL,
+          proveedor_id INTEGER REFERENCES proveedores(id),
+          proveedor_nombre VARCHAR(255),
+          semana INTEGER NOT NULL,
+          ano INTEGER NOT NULL,
+          fecha_inicio_semana DATE NOT NULL,
+          faltantes_registrados INTEGER DEFAULT 0,
+          cantidad_faltante_total INTEGER DEFAULT 0,
+          costo_total NUMERIC(18,2) DEFAULT 0,
+          venta_total NUMERIC(18,2) DEFAULT 0,
+          margen_total NUMERIC(18,2) DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (producto_id, semana, ano)
+      )
+    `);
+
     // Crear función para actualizar updated_at automáticamente
     console.log('📋 Creando función para updated_at...');
     await client.query(`
@@ -244,6 +269,11 @@ async function setupDatabase() {
         BEFORE UPDATE ON orden_compra_temporal 
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
     `);
+    await client.query(`
+      CREATE TRIGGER update_rotacion_productos_updated_at
+        BEFORE UPDATE ON rotacion_productos
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
 
     // Crear índices
     console.log('📋 Creando índices...');
@@ -279,6 +309,12 @@ async function setupDatabase() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_facturas_pendientes_alegra ON facturas_pendientes(alegra_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_rotacion_productos_producto ON rotacion_productos(producto_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_rotacion_productos_semana ON rotacion_productos(ano, semana)
     `);
 
     // Insertar datos de ejemplo

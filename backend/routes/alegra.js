@@ -16,6 +16,7 @@ router.use((req, res, next) => {
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService(); // Instanciar la clase
 const { obtenerRotacionProductos } = require('../services/rotacionProductosService');
+const { registrarRotacionProducto } = require('../services/rotacionProductosAggregator');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -1688,6 +1689,27 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         //    Ejemplo: ENVASE PLASTICO tiene alegra_id=705 pero reference="2016"
       }
 
+      const productoInfoResult = await query(`
+        SELECT 
+          p.id,
+          p.codigo,
+          p.nombre,
+          p.precio_unitario,
+          p.proveedor_id,
+          pr.nombre AS proveedor_nombre
+        FROM productos p
+        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+        WHERE p.id = $1
+      `, [productoId]);
+      const productoInfo = productoInfoResult.rows[0] || {
+        id: productoId,
+        codigo: codigoReferenceParaMapping,
+        nombre: nombre_producto,
+        precio_unitario: 0,
+        proveedor_id: null,
+        proveedor_nombre: null
+      };
+
 
       // Registrar el faltante
       // 🔧 CORREGIDO: Asegurar que el estado sea 'pendiente' explícitamente
@@ -1731,6 +1753,45 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         proveedor_asignado: asignacionResult.success ? asignacionResult.proveedor : 'Sin_Proveedor',
         precio_asignado: asignacionResult.precio || null
       });
+
+      const costoUnitario = productoInfo?.precio_unitario ? Number(productoInfo.precio_unitario) : 0;
+      const precioVentaUnitario = (() => {
+        if (!itemEnFactura) return null;
+        const candidates = [
+          itemEnFactura.price,
+          itemEnFactura.unit_price,
+          itemEnFactura.unitPrice,
+          itemEnFactura.precioUnitario
+        ];
+        for (const value of candidates) {
+          const num = Number(value);
+          if (!Number.isNaN(num) && value !== undefined && value !== null) {
+            return num;
+          }
+        }
+        const total = Number(itemEnFactura.total);
+        const qty = Number(itemEnFactura.quantity);
+        if (!Number.isNaN(total) && !Number.isNaN(qty) && qty > 0) {
+          return total / qty;
+        }
+        return null;
+      })();
+
+      try {
+        await registrarRotacionProducto({
+          productoId,
+          productoCodigo: productoInfo?.codigo || codigoReferenceParaMapping,
+          productoNombre: productoInfo?.nombre || nombre_producto,
+          proveedorId: productoInfo?.proveedor_id,
+          proveedorNombre: productoInfo?.proveedor_nombre,
+          fechaReferencia: facturaAlegra.data.date,
+          cantidadFaltante: cantidad_faltante,
+          costoUnitario,
+          precioVentaUnitario: precioVentaUnitario !== null ? precioVentaUnitario : costoUnitario || 0
+        });
+      } catch (rotacionError) {
+        console.error('⚠️ Error registrando rotación de producto:', rotacionError.message);
+      }
     }
 
     if (observaciones_adicionales) {
@@ -2007,6 +2068,7 @@ router.get('/reportes/rotacion/productos', async (req, res) => {
       success: true,
       data: resultado.productos,
       resumen: resultado.resumen,
+      insights: resultado.insights,
       filtros: resultado.filtros,
     });
   } catch (error) {

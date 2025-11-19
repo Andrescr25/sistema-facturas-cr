@@ -7,6 +7,7 @@ export function useRotacionProductos(initialConfig = DEFAULT_CONFIG) {
   const [config, setConfig] = useState({ ...DEFAULT_CONFIG, ...initialConfig })
   const [productos, setProductos] = useState([])
   const [resumen, setResumen] = useState(null)
+  const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -20,15 +21,18 @@ export function useRotacionProductos(initialConfig = DEFAULT_CONFIG) {
       if (result?.success === false) {
         setProductos([])
         setResumen(null)
+        setInsights(null)
         setError(result.message || 'No se pudo cargar la rotación')
         return
       }
 
       setProductos(result?.data || [])
       setResumen(result?.resumen || null)
+      setInsights(result?.insights || null)
     } catch (err) {
       setProductos([])
       setResumen(null)
+      setInsights(null)
       setError(err.message || 'Error desconocido')
     } finally {
       setLoading(false)
@@ -49,6 +53,7 @@ export function useRotacionProductos(initialConfig = DEFAULT_CONFIG) {
   return {
     productos,
     resumen,
+    insights,
     loading,
     error,
     config,
