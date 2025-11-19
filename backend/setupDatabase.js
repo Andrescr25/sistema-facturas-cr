@@ -212,6 +212,7 @@ async function setupDatabase() {
           monto_total NUMERIC(14,2) NOT NULL,
           saldo_pendiente NUMERIC(14,2) NOT NULL,
           estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE','PARCIAL','PAGADA','VENCIDA')),
+          liberada BOOLEAN DEFAULT FALSE,
           notas TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

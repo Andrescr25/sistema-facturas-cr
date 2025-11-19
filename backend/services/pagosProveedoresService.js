@@ -13,6 +13,7 @@ class PagosProveedoresService {
   async marcarVencidas() {
     await this.prisma.cuentaPorPagar.updateMany({
       where: {
+        liberada: true,
         estado: {
           in: [EstadoCuentaPorPagar.PENDIENTE, EstadoCuentaPorPagar.PARCIAL]
         },
@@ -154,7 +155,16 @@ class PagosProveedoresService {
   async listarCuentas(filtros = {}) {
     await this.marcarVencidas();
 
-    const where = this.buildWhereFilters(filtros);
+    const dynamicFilters = this.buildWhereFilters(filtros);
+    const where = {
+      ...(dynamicFilters || {})
+    };
+
+    if (filtros.incluirRevision === 'true') {
+      // no filter
+    } else {
+      where.liberada = true;
+    }
     const cuentas = await this.prisma.cuentaPorPagar.findMany({
       where,
       include: {
@@ -202,6 +212,31 @@ class PagosProveedoresService {
         search: filtros.search || ''
       }
     };
+  }
+
+  async liberarCuentaPorFactura(facturaId) {
+    if (!facturaId) return null;
+
+    const cuenta = await this.prisma.cuentaPorPagar.findUnique({
+      where: { facturaId }
+    });
+
+    if (!cuenta) {
+      return null;
+    }
+
+    const estado = cuenta.fechaVencimiento < new Date()
+      ? EstadoCuentaPorPagar.VENCIDA
+      : EstadoCuentaPorPagar.PENDIENTE;
+
+    return this.prisma.cuentaPorPagar.update({
+      where: { facturaId },
+      data: {
+        liberada: true,
+        estado,
+        saldoPendiente: cuenta.montoTotal
+      }
+    });
   }
 
   async actualizarCuenta(id, payload) {

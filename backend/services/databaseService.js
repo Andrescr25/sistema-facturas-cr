@@ -164,7 +164,8 @@ class DatabaseService {
                             fechaVencimiento,
                             montoTotal,
                             saldoPendiente,
-                            estado: estadoInicial
+                            estado: estadoInicial,
+                            liberada: false
                         },
                         create: {
                             facturaId: facturaGuardada.id,
@@ -177,7 +178,8 @@ class DatabaseService {
                             fechaVencimiento,
                             montoTotal,
                             saldoPendiente,
-                            estado: estadoInicial
+                            estado: estadoInicial,
+                            liberada: false
                         }
                     });
                 }

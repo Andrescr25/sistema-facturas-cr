@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const AlegraService = require('../services/alegraService');
+const pagosProveedoresService = require('../services/pagosProveedoresService');
 
 // Conectar con Prisma (la misma BD que el otro proyecto)
 const prisma = new PrismaClient({
@@ -663,6 +664,15 @@ router.post('/enviar-alegra', async (req, res) => {
       }
     });
     
+    try {
+      const cuentaLiberada = await pagosProveedoresService.liberarCuentaPorFactura(facturaId);
+      if (cuentaLiberada) {
+        console.log(`💳 Cuenta por pagar liberada para factura ${factura.numeroConsecutivo}`);
+      }
+    } catch (liberarError) {
+      console.warn('⚠️ No se pudo liberar la cuenta por pagar:', liberarError.message);
+    }
+
     if (alegraFacturaId) {
       console.log(`📝 Factura enviada a Alegra con ID: ${alegraFacturaId}`);
     }

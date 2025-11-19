@@ -60,6 +60,7 @@ model CuentaPorPagar {
   saldoPendiente   Float                   @map("saldo_pendiente")
   estado           EstadoCuentaPorPagar    @default(PENDIENTE) @map("estado")
   notas            String?                 @map("notas")
+  liberada         Boolean                 @default(false) @map("liberada")
   createdAt        DateTime                @default(now()) @map("created_at")
   updatedAt        DateTime                @updatedAt @map("updated_at")
 
