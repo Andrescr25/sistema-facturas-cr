@@ -1849,7 +1849,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         MAX(f.proveedor_cedula) as proveedor_cedula,
         MAX(f.precio_asignado) as precio_asignado,
         MAX(f.asignacion_tipo) as asignacion_tipo,
-        (array_agg(f.mapping_id ORDER BY f.fecha_asignacion DESC NULLS LAST))[1] as mapping_id
+        MAX(f.mapping_id) FILTER (WHERE f.mapping_id IS NOT NULL) as mapping_id
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
@@ -1924,7 +1924,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           MAX(f.proveedor_cedula) as proveedor_cedula,
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
-          (array_agg(f.mapping_id ORDER BY f.fecha_asignacion DESC NULLS LAST))[1] as mapping_id
+          MAX(f.mapping_id) FILTER (WHERE f.mapping_id IS NOT NULL) as mapping_id
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
         JOIN facturas fa ON f.factura_id = fa.id
@@ -3208,151 +3208,151 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           });
         }
       } else {
-        console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
-        console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
+      console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
+      console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
+      
+      try {
+        // Obtener factura actual de Alegra
+        const facturaActual = await alegraService.getInvoiceById(alegra_id);
         
-        try {
-          // Obtener factura actual de Alegra
-          const facturaActual = await alegraService.getInvoiceById(alegra_id);
-          
-          if (!facturaActual.success) {
-            console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
-          } else {
-            console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
-            facturaActual.data.items.forEach((item, index) => {
-              console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
-            });
-            // Construir items actualizados aplicando ajustes
-            // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
-            // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
-            const itemsActualizados = [];
-            let huboCambios = false;
+        if (!facturaActual.success) {
+          console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
+        } else {
+          console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
+          facturaActual.data.items.forEach((item, index) => {
+            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
+          });
+          // Construir items actualizados aplicando ajustes
+          // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
+          // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
+          const itemsActualizados = [];
+          let huboCambios = false;
 
-            for (const item of facturaActual.data.items) {
-              // Buscar ajuste para este item
-              console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
-              console.log(`      item.id.toString(): "${item.id.toString()}"`);
-              console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
+          for (const item of facturaActual.data.items) {
+            // Buscar ajuste para este item
+            console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
+            console.log(`      item.id.toString(): "${item.id.toString()}"`);
+            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
+            
+            const ajuste = ajustes.find(a => {
+              const match = a.producto_codigo === item.id.toString() ||
+                           a.producto_codigo === item.reference ||
+                           a.producto_codigo === item.reference?.reference;
               
-              const ajuste = ajustes.find(a => {
-                const match = a.producto_codigo === item.id.toString() ||
-                             a.producto_codigo === item.reference ||
-                             a.producto_codigo === item.reference?.reference;
-                
-                if (!match) {
-                  console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
-                }
-                return match;
+              if (!match) {
+                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
+              }
+              return match;
+            });
+
+            if (ajuste) {
+              console.log(`      ✅ Ajuste encontrado:`, {
+                codigo: ajuste.producto_codigo,
+                estado: ajuste.estado,
+                faltante: ajuste.cantidad_faltante,
+                entregada: ajuste.cantidad_entregada
               });
+              // Calcular cantidad final según el estado del ajuste
+              let cantidadFinal = item.quantity;
 
-              if (ajuste) {
-                console.log(`      ✅ Ajuste encontrado:`, {
-                  codigo: ajuste.producto_codigo,
-                  estado: ajuste.estado,
-                  faltante: ajuste.cantidad_faltante,
-                  entregada: ajuste.cantidad_entregada
-                });
-                // Calcular cantidad final según el estado del ajuste
-                let cantidadFinal = item.quantity;
-
-                if (ajuste.estado === 'no_llego') {
-                  const cantidadFaltante = ajuste.cantidad_faltante || 0;
-                  
-                  if (cantidadFaltante <= 0) {
-                    console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
-                    cantidadFinal = item.quantity; // Mantener cantidad original si hay error
-                  } else {
-                    cantidadFinal = item.quantity - cantidadFaltante;
-                    console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
-                  }
-                } else if (ajuste.estado === 'parcial') {
-                  const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
-                  cantidadFinal = item.quantity - cantidadQueAunFalta;
-                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
-                } else if (ajuste.estado === 'completo') {
-                  cantidadFinal = item.quantity;
-                  
-                  if (ajuste.tipo_ajuste === 'diferencia_precio') {
-                    console.log(`   💰 ${item.description}: ${item.quantity} (sin cambios cantidad, pero ${ajuste.diferencia_porcentual?.toFixed(2)}% diferencia precio)`);
-                  } else {
-                    console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
-                  }
-                }
-
-                // Determinar precio a usar
-                let precioAUsar = item.price;
+              if (ajuste.estado === 'no_llego') {
+                const cantidadFaltante = ajuste.cantidad_faltante || 0;
                 
-                if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
-                  precioAUsar = ajuste.precio_nuevo;
-                  console.log(`   💰 Actualizando precio: ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
-                  huboCambios = true;
-                }
-
-                if (cantidadFinal > 0) {
-                  itemsActualizados.push({
-                    id: item.id,
-                    reference: item.reference,
-                    description: item.description,
-                    quantity: cantidadFinal,
-                    price: precioAUsar,
-                    tax: item.tax || []
-                  });
-                  
-                  if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
-                    huboCambios = true;
-                    if (cantidadFinal !== item.quantity) {
-                      console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
-                    }
-                  }
+                if (cantidadFaltante <= 0) {
+                  console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
+                  cantidadFinal = item.quantity; // Mantener cantidad original si hay error
                 } else {
-                  huboCambios = true;
-                  console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
+                  cantidadFinal = item.quantity - cantidadFaltante;
+                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
                 }
-              } else {
+              } else if (ajuste.estado === 'parcial') {
+                const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+                cantidadFinal = item.quantity - cantidadQueAunFalta;
+                console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
+              } else if (ajuste.estado === 'completo') {
+                cantidadFinal = item.quantity;
+                
+                if (ajuste.tipo_ajuste === 'diferencia_precio') {
+                  console.log(`   💰 ${item.description}: ${item.quantity} (sin cambios cantidad, pero ${ajuste.diferencia_porcentual?.toFixed(2)}% diferencia precio)`);
+                } else {
+                  console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
+                }
+              }
+
+              // Determinar precio a usar
+              let precioAUsar = item.price;
+              
+              if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
+                precioAUsar = ajuste.precio_nuevo;
+                console.log(`   💰 Actualizando precio: ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
+                huboCambios = true;
+              }
+
+              if (cantidadFinal > 0) {
                 itemsActualizados.push({
                   id: item.id,
                   reference: item.reference,
                   description: item.description,
-                  quantity: item.quantity,
-                  price: item.price,
+                  quantity: cantidadFinal,
+                  price: precioAUsar,
                   tax: item.tax || []
                 });
-              }
-            }
-
-            console.log(`\n📊 Resultado de construcción de items:`);
-            console.log(`   huboCambios: ${huboCambios}`);
-            console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
-            console.log(`\n📋 Items a enviar a Alegra:`);
-            itemsActualizados.forEach((item, index) => {
-              console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
-            });
-            
-            if (huboCambios && itemsActualizados.length > 0) {
-              console.log(`\n📝 Actualizando factura en Alegra...`);
-              
-              const updateResult = await alegraService.updateInvoice(alegra_id, {
-                items: itemsActualizados
-              });
-
-              if (updateResult.success) {
-                console.log(`✅ Factura ${numero_factura} editada exitosamente en Alegra`);
                 
-                const facturaActualizada = await alegraService.getInvoiceById(alegra_id);
-                
-                if (facturaActualizada.success) {
-                  console.log(`✅ Factura ${numero_factura} actualizada obtenida de Alegra`);
+                if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
+                  huboCambios = true;
+                  if (cantidadFinal !== item.quantity) {
+                    console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
+                  }
                 }
               } else {
-                console.error(`❌ Error editando factura en Alegra: ${updateResult.message}`);
+                huboCambios = true;
+                console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
               }
             } else {
-              console.log(`ℹ️ No hubo cambios en la factura (todos los items sin ajustes o sin cambios)`);
+              itemsActualizados.push({
+                id: item.id,
+                reference: item.reference,
+                description: item.description,
+                quantity: item.quantity,
+                price: item.price,
+                tax: item.tax || []
+              });
             }
           }
-        } catch (error) {
-          console.error(`❌ Error editando factura en Alegra:`, error.message);
-          // Continuar aunque falle la edición en Alegra
+
+          console.log(`\n📊 Resultado de construcción de items:`);
+          console.log(`   huboCambios: ${huboCambios}`);
+          console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
+          console.log(`\n📋 Items a enviar a Alegra:`);
+          itemsActualizados.forEach((item, index) => {
+            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
+          });
+          
+          if (huboCambios && itemsActualizados.length > 0) {
+            console.log(`\n📝 Actualizando factura en Alegra...`);
+            
+            const updateResult = await alegraService.updateInvoice(alegra_id, {
+              items: itemsActualizados
+            });
+
+            if (updateResult.success) {
+              console.log(`✅ Factura ${numero_factura} editada exitosamente en Alegra`);
+              
+              const facturaActualizada = await alegraService.getInvoiceById(alegra_id);
+              
+              if (facturaActualizada.success) {
+                console.log(`✅ Factura ${numero_factura} actualizada obtenida de Alegra`);
+              }
+            } else {
+              console.error(`❌ Error editando factura en Alegra: ${updateResult.message}`);
+            }
+          } else {
+            console.log(`ℹ️ No hubo cambios en la factura (todos los items sin ajustes o sin cambios)`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error editando factura en Alegra:`, error.message);
+        // Continuar aunque falle la edición en Alegra
         }
       }
     } else if (!marcarComoProcesada && ajustes && ajustes.length > 0) {
@@ -4341,21 +4341,21 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     const proveedorNormalizado = normalizeLower(proveedor);
 
     const mappingSelect = `
-      SELECT 
-        id,
-        supplier_code as "supplierCode",
-        supplier_desc as "supplierDesc",
-        supplier_name as "supplierName",
-        supplier_cedula as "supplierCedula",
-        alegra_reference as "alegraReference",
-        alegra_name as "alegraName",
-        alegra_item_id as "alegraItemId",
-        confidence,
-        origen,
-        factor_conversion as "factorConversion",
+          SELECT 
+            id,
+            supplier_code as "supplierCode",
+            supplier_desc as "supplierDesc",
+            supplier_name as "supplierName",
+            supplier_cedula as "supplierCedula",
+            alegra_reference as "alegraReference",
+            alegra_name as "alegraName",
+            alegra_item_id as "alegraItemId",
+            confidence,
+            origen,
+            factor_conversion as "factorConversion",
         last_used_date as "lastUsedDate",
         times_used as "timesUsed"
-      FROM supplier_product_mapping
+          FROM supplier_product_mapping 
     `;
 
     const fetchSingleMapping = async (sql, params) => {
@@ -4568,23 +4568,23 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     const pageBottom = doc.page.height - doc.page.margins.bottom;
 
     const drawTableHeader = () => {
-      doc.fontSize(12)
-        .font('Helvetica-Bold')
-        .text('Código', 50, yPos)
-        .text('Descripción', 150, yPos)
-        .text('Cantidad', 450, yPos);
+    doc.fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Código', 50, yPos)
+      .text('Descripción', 150, yPos)
+      .text('Cantidad', 450, yPos);
 
       yPos += 15;
-      doc.moveTo(50, yPos)
-        .lineTo(550, yPos)
-        .stroke();
-      yPos += 10;
+    doc.moveTo(50, yPos)
+      .lineTo(550, yPos)
+      .stroke();
+    yPos += 10;
       doc.font('Helvetica').fillColor('#000000');
     };
 
     const startNewPage = () => {
-      doc.addPage();
-      yPos = 50;
+        doc.addPage();
+        yPos = 50;
       drawTableHeader();
     };
 
