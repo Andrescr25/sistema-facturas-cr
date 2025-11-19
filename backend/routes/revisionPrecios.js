@@ -13,6 +13,28 @@ const prisma = new PrismaClient({
 const alegraService = new AlegraService();
 
 /**
+ * Inferir el tipo de identificación según la cédula costarricense.
+ * 01: Física (9 dígitos), 02: Jurídica (10 dígitos), 03: DIMEX (11-12), 04: NITE (10 iniciando 4/5).
+ * Fallback a '02' (jurídica) porque la mayoría de proveedores son empresas.
+ */
+const inferirTipoIdentificacion = (cedulaRaw) => {
+  if (!cedulaRaw) return '02';
+
+  const cedula = cedulaRaw.toString().replace(/\D/g, '');
+
+  if (cedula.length === 9) return '01';
+
+  if (cedula.length === 10) {
+    if (cedula.startsWith('4') || cedula.startsWith('5')) return '04';
+    return '02';
+  }
+
+  if (cedula.length === 11 || cedula.length === 12) return '03';
+
+  return '02';
+};
+
+/**
  * Obtener facturas por estado
  */
 router.get('/facturas', async (req, res) => {
@@ -539,12 +561,17 @@ router.post('/enviar-alegra', async (req, res) => {
     let alegraFacturaId = null;
     try {
       // Buscar o crear contacto del proveedor
+      const identificacionTipo = inferirTipoIdentificacion(factura.proveedorCedula);
+
       const contacto = await alegraService.createOrGetContact({
         name: factura.proveedorNombre,
         identification: factura.proveedorCedula,
+        identificationType: identificacionTipo,
         phonePrimary: factura.proveedorTelefono || '',
         email: factura.proveedorEmail || '',
-        type: 'provider'
+        type: ['provider'],
+        status: 'active',
+        ignoreRepeated: true
       });
 
       // Preparar items de la factura con precios ORIGINALES del proveedor
