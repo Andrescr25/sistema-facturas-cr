@@ -5007,6 +5007,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
 // Reasignar proveedor de un producto que ya tiene proveedor
 router.post('/faltantes/reasignar-proveedor', async (req, res) => {
   const prisma = require('../lib/prisma');
+  const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
 
   try {
     const {
@@ -5150,15 +5151,28 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
         }
       });
 
+      // 💡 IMPORTANTE: Aunque ya existía el mapping, debemos actualizar TODOS los faltantes
+      // para que la reasignación manual tenga prioridad real en el reporte.
+      const faltantesActualizados = await asignarProveedorManual(
+        alegraReference,
+        alegraIdReal,
+        nuevoProveedor.name.trim(),
+        nuevaCedula,
+        mappingActualizado.id
+      );
+
+      console.log(`📋 ${faltantesActualizados} faltante(s) reforzados con asignación manual existente`);
+
       return res.json({
         success: true,
         data: {
-          proveedorAnterior: nuevoProveedor.name,
+          proveedorAnterior: mappingsExistentes.length > 0 ? mappingsExistentes[0].supplierName : nuevoProveedor.name,
           nuevoProveedor: nuevoProveedor.name,
           mapping: mappingActualizado,
-          mensaje: 'Producto ya estaba asignado a este proveedor (metadatos actualizados)'
+          faltantes_actualizados: faltantesActualizados,
+          mensaje: 'Proveedor ya existía, se reforzó la asignación manual'
         },
-        message: `Producto ya estaba asignado a ${nuevoProveedor.name}`
+        message: `Producto reasignado manualmente a ${nuevoProveedor.name}`
       });
     }
 
@@ -5218,7 +5232,6 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
 
     // 5. 👤 ACTUALIZAR FALTANTES con asignación manual
-    const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
     const faltantesActualizados = await asignarProveedorManual(
       alegraReference,
       alegraIdReal,

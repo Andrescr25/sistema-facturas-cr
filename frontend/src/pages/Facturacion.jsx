@@ -28,6 +28,7 @@ export default function Facturacion() {
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [items, setItems] = useState([]);
+  const DESCRIPCION_MAX = 500;
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [metodoPago, setMetodoPago] = useState('cash');
   const [observaciones, setObservaciones] = useState('');
@@ -531,7 +532,10 @@ export default function Facturacion() {
           quantity: item.quantity,
           price: item.price,
           tax: item.tax || [],
-          discount: item.discount || 0
+          discount: item.discount || 0,
+          description: typeof item.description === 'string'
+            ? item.description.slice(0, DESCRIPCION_MAX)
+            : ''
         }));
         setItems(itemsFormateados);
       }
@@ -661,7 +665,8 @@ export default function Facturacion() {
         quantity: cantidad,
         price: producto.price || 0,
         tax: impuestoDefault,
-        discount: 0
+        discount: 0,
+        description: (producto.description || producto.name || '').slice(0, DESCRIPCION_MAX)
       };
 
       setItems([...items, nuevoItem]);
@@ -705,6 +710,13 @@ export default function Facturacion() {
     const nuevoDescuento = parseFloat(descuento) || 0;
     setItems(items.map((item, i) =>
       i === index ? { ...item, discount: nuevoDescuento } : item
+    ));
+  };
+
+  const actualizarDescripcionItem = (index, descripcion) => {
+    const texto = (descripcion || '').slice(0, DESCRIPCION_MAX);
+    setItems(items.map((item, i) =>
+      i === index ? { ...item, description: texto } : item
     ));
   };
 
@@ -769,6 +781,10 @@ export default function Facturacion() {
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
           discount: item.discount || 0,
+          description: (item.description && item.description.trim()
+            ? item.description.trim()
+            : item.name
+          )?.slice(0, DESCRIPCION_MAX),
           tax: (item.tax || []).map(t => ({ id: t.id }))
         })),
         observations: observaciones || '',
@@ -788,6 +804,7 @@ export default function Facturacion() {
         quantity: item.quantity,
         price: item.price,
         discount: item.discount || 0,
+        description: (item.description || '').slice(0, DESCRIPCION_MAX),
         tax: item.tax || []
       }));
 
@@ -1595,6 +1612,21 @@ export default function Facturacion() {
                           inputMode="numeric"
                         />
                       </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="label text-xs">Descripción en factura</label>
+                      <textarea
+                        value={item.description || ''}
+                        onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
+                        maxLength={DESCRIPCION_MAX}
+                        rows={isMobile ? 2 : 3}
+                        className={`input w-full resize-none ${isMobile ? 'text-base' : 'text-sm'}`}
+                        placeholder="Detalle adicional que aparecerá en el PDF (opcional)"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Visible en el PDF. Máximo {DESCRIPCION_MAX} caracteres.
+                      </p>
                     </div>
 
                     <div className="mt-2 text-right">
