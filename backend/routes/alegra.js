@@ -15,6 +15,7 @@ router.use((req, res, next) => {
 });
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService(); // Instanciar la clase
+const { obtenerRotacionProductos } = require('../services/rotacionProductosService');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -1993,6 +1994,27 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error generando reporte por proveedor con mapping de Supabase'
+    });
+  }
+});
+
+router.get('/reportes/rotacion/productos', async (req, res) => {
+  try {
+    const { semanas, limite } = req.query;
+    const resultado = await obtenerRotacionProductos({ semanas, limite });
+
+    res.json({
+      success: true,
+      data: resultado.productos,
+      resumen: resultado.resumen,
+      filtros: resultado.filtros,
+    });
+  } catch (error) {
+    console.error('❌ Error generando rotación de productos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generando rotación de productos',
+      error: error.message,
     });
   }
 });

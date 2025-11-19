@@ -12,6 +12,7 @@ import RevisionPrecios from './pages/RevisionPrecios'
 import GestionarRelaciones from './pages/GestionarRelaciones'
 import Reimpresion from './pages/Reimpresion'
 import Configuracion from './pages/Configuracion'
+import RotacionProductos from './pages/RotacionProductos'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -60,6 +61,7 @@ function App() {
         <Route path="/revision-precios" element={<RevisionPrecios />} />
         <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
         <Route path="/reimpresion" element={<Reimpresion />} />
+        <Route path="/rotacion-productos" element={<RotacionProductos />} />
         <Route path="/configuracion" element={<Configuracion />} />
       </Routes>
     </Layout>
