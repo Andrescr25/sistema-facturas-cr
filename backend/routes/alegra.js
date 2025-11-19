@@ -1902,27 +1902,41 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     // PASO 4: Agrupar productos por proveedor (SUPER RÁPIDO)
     for (const faltante of faltantesResult.rows) {
       // Usar asignación guardada directamente
-      const proveedorNombre = faltante.proveedor_asignado || 'Sin_Proveedor';
-      const proveedorCedula = faltante.proveedor_cedula || 'SIN_PROVEEDOR';
+      const proveedorNombre = (faltante.proveedor_asignado || 'Sin_Proveedor').trim();
+      const proveedorCedulaRaw = faltante.proveedor_cedula && faltante.proveedor_cedula !== 'SIN_PROVEEDOR'
+        ? faltante.proveedor_cedula.trim()
+        : null;
+      const proveedorCedula = proveedorCedulaRaw || 'SIN_PROVEEDOR';
       const precioAsignado = faltante.precio_asignado ? parseFloat(faltante.precio_asignado) : null;
       const asignacionTipo = faltante.asignacion_tipo || 'automatica';
+      const proveedorKey = proveedorCedulaRaw || proveedorNombre.toUpperCase();
       
       // Obtener info del mapping si existe
       const mappingInfo = faltante.mapping_id ? mappingsInfo.get(faltante.mapping_id) : null;
 
       // Crear o obtener proveedor
-      if (!proveedoresMap.has(proveedorNombre)) {
-        proveedoresMap.set(proveedorNombre, {
-          id: proveedorCedula,
+      if (!proveedoresMap.has(proveedorKey)) {
+        proveedoresMap.set(proveedorKey, {
+          id: proveedorKey,
+          cedula: proveedorCedulaRaw,
           nombre: proveedorNombre,
           contacto: proveedorCedula,
           productos_faltantes: [],
           total_productos: 0,
-          total_cantidad: 0
+          total_cantidad: 0,
+          aliases: proveedorCedulaRaw ? [proveedorNombre] : []
         });
       }
 
-      const proveedor = proveedoresMap.get(proveedorNombre);
+      const proveedor = proveedoresMap.get(proveedorKey);
+
+      // Mantener registro de alias y preferir el nombre más reciente proveniente de Alegra
+      if (proveedorNombre && proveedor.nombre !== proveedorNombre) {
+        if (!proveedor.aliases.includes(proveedorNombre)) {
+          proveedor.aliases.push(proveedorNombre);
+        }
+        proveedor.nombre = proveedorNombre;
+      }
 
       // Agregar producto faltante con datos guardados
       proveedor.productos_faltantes.push({
@@ -1944,7 +1958,10 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       proveedor.total_cantidad += parseInt(faltante.total_faltante);
     }
 
-    const proveedoresArray = Array.from(proveedoresMap.values());
+    const proveedoresArray = Array.from(proveedoresMap.values()).map(proveedor => ({
+      ...proveedor,
+      aliases: proveedor.aliases && proveedor.aliases.length > 0 ? proveedor.aliases : undefined
+    }));
 
     // PASO 5: Estadísticas
     const totalProductos = faltantesResult.rows.length;
