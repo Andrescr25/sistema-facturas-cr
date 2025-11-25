@@ -1661,26 +1661,24 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         productoId = productoLocal.rows[0].id;
         const productoEncontrado = productoLocal.rows[0];
         
-        // ═════════════════════════════════════════════════════════════════════════════
-        // 🔑 CLAVE: Usar el "codigo" de la BD local, NO el itemReference de la factura
-        // ═════════════════════════════════════════════════════════════════════════════
-        //
-        // CORRECTO: codigoReferenceParaMapping = productoEncontrado.codigo (ej: "SED")
-        // ❌ MAL:   codigoReferenceParaMapping = itemReference (ej: "900")
-        //
-        // RAZÓN: El producto en BD ya tiene el reference correcto guardado
-        //        La factura solo trae el alegra_id, no el reference
-        //
-        // EJEMPLO:
-        //   Producto en BD: { id: 88, codigo: "SED", alegra_id: 900 }
-        //   Factura trae: item_id = 900
-        //   itemReference = "900" (porque reference viene null en factura)
-        //   ✅ Usamos: "SED" (de la BD)
-        //   ❌ NO usar: "900" (de la factura)
-        //
-        // ═════════════════════════════════════════════════════════════════════════════
-        
         codigoReferenceParaMapping = productoEncontrado.codigo;
+        
+        // Si el producto ya tenía alegra_id pero el reference real cambió, sincronizarlo
+        const referencePareceId = itemReference && itemAlegraId && itemReference.toString() === itemAlegraId.toString();
+        if (itemReference && !referencePareceId && productoEncontrado.codigo !== itemReference) {
+          try {
+            await query(`
+              UPDATE productos
+              SET codigo = $1
+              WHERE id = $2
+            `, [itemReference, productoId]);
+            codigoReferenceParaMapping = itemReference;
+            productoEncontrado.codigo = itemReference;
+            console.log(`🔄 Código actualizado para producto ${productoEncontrado.nombre}: ${productoEncontrado.codigo} → ${itemReference}`);
+          } catch (actualizarError) {
+            console.warn(`⚠️ No se pudo sincronizar código del producto ${productoId}:`, actualizarError.message);
+          }
+        }
         
         console.log(`✅ Producto encontrado: ID=${productoId}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}", alegra_id="${productoEncontrado.alegra_id || 'NULL'}"`);
 
@@ -3084,21 +3082,28 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       // Continuar aunque falle la verificación de precios
     }
 
-    // 3. Marcar faltantes como procesados
-    await query(`
-      UPDATE faltantes 
-      SET estado = 'procesado'
-      FROM facturas fa
-      WHERE faltantes.factura_id = fa.id 
-      AND fa.alegra_id = $1
-    `, [alegra_id]);
+    // 3. Marcar faltantes/facturas como procesados SOLO si se indica
+    if (marcar_como_procesada === true) {
+      await query(`
+        UPDATE faltantes 
+        SET estado = 'procesado'
+        FROM facturas fa
+        WHERE faltantes.factura_id = fa.id 
+        AND fa.alegra_id = $1
+      `, [alegra_id]);
 
-    // 4. Actualizar estado de la factura como procesada
-    await query(`
-      UPDATE facturas 
-      SET estado_procesamiento = 'procesado'
-      WHERE alegra_id = $1
-    `, [alegra_id]);
+      await query(`
+        UPDATE facturas 
+        SET estado_procesamiento = 'procesado'
+        WHERE alegra_id = $1
+      `, [alegra_id]);
+    } else {
+      await query(`
+        UPDATE facturas 
+        SET estado_procesamiento = 'pendiente'
+        WHERE alegra_id = $1
+      `, [alegra_id]);
+    }
 
     // Si estaba marcada como pendiente manual, removerla
     await query(`

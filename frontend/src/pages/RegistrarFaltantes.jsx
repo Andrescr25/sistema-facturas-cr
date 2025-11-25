@@ -14,6 +14,26 @@ export default function RegistrarFaltantes() {
   const [success, setSuccess] = useState(false)
   const [observacionesAdicionales, setObservacionesAdicionales] = useState('')
   const [tieneObservacionesAdicionales, setTieneObservacionesAdicionales] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia('(max-width: 768px)')
+    const updateMatches = () => setIsMobile(mediaQuery.matches)
+    updateMatches()
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', updateMatches)
+    } else {
+      mediaQuery.addListener(updateMatches)
+    }
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', updateMatches)
+      } else {
+        mediaQuery.removeListener(updateMatches)
+      }
+    }
+  }, [])
 
   const normalizeReferenceValue = (value) => {
     if (value === null || value === undefined) return ''
@@ -218,57 +238,29 @@ export default function RegistrarFaltantes() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center mb-8">
+    <div className="max-w-5xl mx-auto px-4 pb-6 md:px-0">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center mb-6">
         <button
           onClick={() => navigate('/buscar-factura')}
-          className="btn btn-outline mr-4"
+          className="btn btn-outline w-full md:w-auto"
         >
           <ArrowLeft size={16} className="mr-2" />
           Volver
         </button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Registrar Faltantes</h1>
-          <p className="text-gray-600 mt-1">Marca los productos que no pudieron ser entregados</p>
+        <div className="flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Registrar Faltantes</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Selecciona los productos y cantidades faltantes. Toda la interfaz se adapta automáticamente para pantallas pequeñas.</p>
         </div>
       </div>
 
       {/* Información de la factura */}
       {factura && (
-        <div className="card mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center">
-              <Package className="text-blue-600 mr-2" size={20} />
-              <div>
-                <p className="text-sm text-gray-600">Factura</p>
-                <p className="font-semibold">#{factura.numero_factura}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <User className="text-gray-400 mr-2" size={16} />
-              <div>
-                <p className="text-sm text-gray-600">Cliente</p>
-                <p className="font-semibold">{factura.cliente_nombre}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <Calendar className="text-gray-400 mr-2" size={16} />
-              <div>
-                <p className="text-sm text-gray-600">Fecha</p>
-                <p className="font-semibold">{new Date(factura.fecha_emision).toLocaleDateString('es-CR')}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <DollarSign className="text-gray-400 mr-2" size={16} />
-              <div>
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="font-semibold">{formatCurrency(factura.total)}</p>
-              </div>
-            </div>
+        <div className="card mb-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <InfoBadge icon={<Package className="text-blue-600" size={20} />} label="Factura" value={`#${factura.numero_factura}`} />
+            <InfoBadge icon={<User className="text-gray-400" size={18} />} label="Cliente" value={factura.cliente_nombre} />
+            <InfoBadge icon={<Calendar className="text-gray-400" size={18} />} label="Fecha" value={new Date(factura.fecha_emision).toLocaleDateString('es-CR')} />
+            <InfoBadge icon={<DollarSign className="text-gray-400" size={18} />} label="Total" value={formatCurrency(factura.total)} />
           </div>
         </div>
       )}
@@ -286,82 +278,36 @@ export default function RegistrarFaltantes() {
       {/* Formulario de productos */}
       {factura && (
         <form onSubmit={handleSubmit}>
-          <div className="card mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Productos de la Factura ({factura.items?.length || 0})
-            </h3>
+          <div className="card mb-6">
+            <div className="flex flex-col gap-2 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Productos de la factura</h3>
+              <p className="text-sm text-gray-500">Total de ítems: {factura.items?.length || 0}</p>
+            </div>
 
             <div className="space-y-4">
               {factura.items?.map((item, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-                    {/* Producto Info */}
-                    <div className="lg:col-span-4">
-                      <h4 className="font-medium text-gray-900">{item.nombre}</h4>
-                      <p className="text-sm text-gray-600">
-                        Cantidad: {item.cantidad} • {formatCurrency(item.precio_unitario)} c/u
-                      </p>
-                      {/* DEBUG: Mostrar referencias */}
-                      <p className="text-xs text-blue-600">
-                        Ref: {item.referencia} | ID: {item.codigo_alegra}
-                      </p>
-                    </div>
-
-                    {/* Tipo de Faltante */}
-                    <div className="lg:col-span-2">
-                      <label className="label">Estado</label>
-                      <select
-                        value={item.tipo_faltante}
-                        onChange={(e) => handleTipoFaltanteChange(index, e.target.value)}
-                        className="input"
-                      >
-                        <option value="ninguno">Sin faltante</option>
-                        <option value="parcial">Faltante parcial</option>
-                        <option value="total">Faltante total</option>
-                      </select>
-                    </div>
-
-                    {/* Cantidad Faltante */}
-                    <div className="lg:col-span-2">
-                      <label className="label">Cantidad faltante</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.cantidad}
-                        value={item.cantidad_faltante}
-                        onChange={(e) => handleItemChange(index, 'cantidad_faltante', parseInt(e.target.value) || 0)}
-                        disabled={item.tipo_faltante === 'ninguno'}
-                        className="input"
-                      />
-                    </div>
-
-                    {/* Observaciones */}
-                    <div className="lg:col-span-4">
-                      <label className="label">Observaciones</label>
-                      <input
-                        type="text"
-                        value={item.observaciones}
-                        onChange={(e) => handleItemChange(index, 'observaciones', e.target.value)}
-                        disabled={item.tipo_faltante === 'ninguno'}
-                        placeholder="Motivo del faltante..."
-                        className="input"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ProductCard
+                  key={`${item.codigo_alegra}-${index}`}
+                  item={item}
+                  index={index}
+                  isMobile={isMobile}
+                  formatCurrency={formatCurrency}
+                  handleTipoFaltanteChange={handleTipoFaltanteChange}
+                  handleItemChange={handleItemChange}
+                />
               ))}
             </div>
           </div>
 
           {/* NUEVO: Observaciones Adicionales - DESPUÉS de todos los productos */}
-          <div className="card mb-8">
-            <div className="flex items-center mb-4">
+          <div className="card mb-6">
+            <div className="flex items-center gap-3 mb-3">
               <input
                 type="checkbox"
                 id="observaciones-adicionales"
                 checked={tieneObservacionesAdicionales}
                 onChange={(e) => setTieneObservacionesAdicionales(e.target.checked)}
-                className="mr-3"
+                className="h-4 w-4 accent-indigo-600"
               />
               <label htmlFor="observaciones-adicionales" className="font-medium text-gray-900">
                 Esta factura lleva faltantes adicionales?
@@ -369,28 +315,32 @@ export default function RegistrarFaltantes() {
             </div>
 
             {tieneObservacionesAdicionales && (
-              <textarea
-                value={observacionesAdicionales}
-                onChange={(e) => setObservacionesAdicionales(e.target.value)}
-                className="input"
-                rows="3"
-              />
+              <div className="space-y-2">
+                <p className="text-sm text-gray-500">Detalla cualquier nota para el equipo de revisión.</p>
+                <textarea
+                  value={observacionesAdicionales}
+                  onChange={(e) => setObservacionesAdicionales(e.target.value)}
+                  className={`input w-full resize-none ${isMobile ? 'text-base h-28' : 'text-sm'}`}
+                  rows={isMobile ? 4 : 3}
+                  maxLength={600}
+                />
+              </div>
             )}
           </div>
 
           {/* Botones */}
-          <div className="flex justify-end space-x-4">
+          <div className={`${isMobile ? 'sticky bottom-0 left-0 right-0 z-10 bg-white/95 border-t border-gray-200 px-4 py-4 flex flex-col gap-3 shadow-[-4px_-4px_12px_rgba(15,23,42,0.06)]' : 'flex justify-end gap-4 mt-6'}`}>
             <button
               type="button"
               onClick={() => navigate('/buscar-factura')}
-              className="btn btn-outline"
+              className={`btn btn-outline ${isMobile ? 'w-full h-12 text-base' : ''}`}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="btn btn-primary"
+              className={`btn btn-primary ${isMobile ? 'w-full h-12 text-base flex items-center justify-center' : ''}`}
             >
               {saving ? (
                 <>
@@ -400,13 +350,85 @@ export default function RegistrarFaltantes() {
               ) : (
                 <>
                   <Save className="mr-2" size={16} />
-                  Guardar Faltantes
+                  Guardar faltantes
                 </>
               )}
             </button>
           </div>
         </form>
       )}
+    </div>
+  )
+}
+
+function InfoBadge({ icon, label, value }) {
+  return (
+    <div className="rounded-xl border border-gray-200 p-3 flex items-center gap-3 bg-slate-50">
+      {icon}
+      <div>
+        <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+        <p className="text-sm font-semibold text-gray-900 break-words">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function ProductCard({ item, index, isMobile, formatCurrency, handleTipoFaltanteChange, handleItemChange }) {
+  const inputClass = `input w-full ${isMobile ? 'text-base h-12' : 'text-sm'}`
+
+  return (
+    <div className="rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-12 md:items-center">
+        <div className="md:col-span-5 space-y-1">
+          <p className="font-semibold text-gray-900 text-base">{item.nombre}</p>
+          <p className="text-sm text-gray-600">
+            Cantidad solicitada: <span className="font-medium">{item.cantidad}</span> • {formatCurrency(item.precio_unitario)} c/u
+          </p>
+          <p className="text-xs text-indigo-600">
+            Ref: {item.referencia || 'N/A'} • ID Alegra: {item.codigo_alegra}
+          </p>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="label text-xs text-gray-500">Estado</label>
+          <select
+            value={item.tipo_faltante}
+            onChange={(e) => handleTipoFaltanteChange(index, e.target.value)}
+            className={inputClass}
+          >
+            <option value="ninguno">Sin faltante</option>
+            <option value="parcial">Faltante parcial</option>
+            <option value="total">Faltante total</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="label text-xs text-gray-500">Cantidad faltante</label>
+          <input
+            type="number"
+            min="0"
+            max={item.cantidad}
+            inputMode="numeric"
+            enterKeyHint="done"
+            value={item.cantidad_faltante}
+            onChange={(e) => handleItemChange(index, 'cantidad_faltante', parseInt(e.target.value) || 0)}
+            disabled={item.tipo_faltante === 'ninguno'}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="md:col-span-3">
+          <label className="label text-xs text-gray-500">Observaciones</label>
+          <textarea
+            value={item.observaciones}
+            onChange={(e) => handleItemChange(index, 'observaciones', e.target.value)}
+            disabled={item.tipo_faltante === 'ninguno'}
+            placeholder="Motivo del faltante..."
+            className={`${inputClass} resize-none ${isMobile ? 'h-24' : 'h-20'}`}
+            maxLength={200}
+          />
+        </div>
+      </div>
     </div>
   )
 }

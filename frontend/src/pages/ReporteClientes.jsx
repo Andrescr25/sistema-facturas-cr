@@ -128,7 +128,8 @@ export default function ReporteClientes() {
       ajustes: ajustesFactura,
       estado: ajustesFactura.length > 0 ?
         (ajustesFactura.some(aj => aj.requiere_actualizacion) ? 'requiere_reimpresion_con_ajustes' : 'requiere_reimpresion_solo_precios') :
-        'requiere_reimpresion_solo_precios'
+        'requiere_reimpresion_solo_precios',
+      marcar_como_procesada: false
     }
 
     const tieneAjustes = ajustesFactura.length > 0
