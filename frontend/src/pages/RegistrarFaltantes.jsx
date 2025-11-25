@@ -15,6 +15,44 @@ export default function RegistrarFaltantes() {
   const [observacionesAdicionales, setObservacionesAdicionales] = useState('')
   const [tieneObservacionesAdicionales, setTieneObservacionesAdicionales] = useState(false)
 
+  const normalizeReferenceValue = (value) => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' || typeof value === 'bigint') return value.toString()
+    if (typeof value === 'object') {
+      if (typeof value.reference === 'string' && value.reference.trim()) return value.reference.trim()
+      if (typeof value.code === 'string' && value.code.trim()) return value.code.trim()
+      if (typeof value.value === 'string' && value.value.trim()) return value.value.trim()
+    }
+    return ''
+  }
+
+  const normalizeFacturaItem = (item) => {
+    const nombre = item?.nombre || item?.name || 'Producto sin nombre'
+    const descripcion = item?.descripcion || item?.description || ''
+    const cantidad = Number(item?.cantidad ?? item?.quantity ?? 0)
+    const precioUnitario = Number(item?.precio_unitario ?? item?.price ?? 0)
+    const total = Number(item?.total ?? cantidad * precioUnitario)
+    const referencia = normalizeReferenceValue(item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra ?? '')
+    const codigoAlegra =
+      (item?.codigo_alegra ?? item?.alegra_id ?? item?.id ?? referencia)?.toString() || referencia
+
+    return {
+      alegra_id: codigoAlegra,
+      nombre,
+      descripcion,
+      cantidad,
+      precio_unitario: precioUnitario,
+      total,
+      referencia,
+      referencia_tipo: item?.referencia_tipo || item?.reference_type || null,
+      codigo_alegra: codigoAlegra,
+      cantidad_faltante: 0,
+      tipo_faltante: 'ninguno',
+      observaciones: ''
+    }
+  }
+
   useEffect(() => {
     if (facturaId) {
       loadFactura()
@@ -38,28 +76,7 @@ export default function RegistrarFaltantes() {
           cliente_nombre: response.data.client?.name,
           fecha_emision: response.data.date,
           total: response.data.total,
-          items: response.data.items?.map(item => {
-            // DEPURAR: Ver qué llega exactamente
-            console.log(`🔍 DEBUG Item procesado:`, {
-              id: item.id,
-              reference: item.reference,
-              name: item.name
-            });
-
-            return {
-              alegra_id: item.id,
-              nombre: item.name,
-              descripcion: item.description,
-              cantidad: item.quantity,
-              precio_unitario: item.price,
-              total: item.total,
-              referencia: item.reference, // ✅ Esta es la correcta: "011"
-              codigo_alegra: item.id,     // ✅ Para referencia: "1117"
-              cantidad_faltante: 0,
-              tipo_faltante: 'ninguno',
-              observaciones: ''
-            }
-          }) || []
+          items: response.data.items?.map(normalizeFacturaItem) || []
         }
         setFactura(facturaConFaltantes)
       } else {
@@ -106,13 +123,15 @@ export default function RegistrarFaltantes() {
     const faltantes = factura.items
       .filter(item => item.tipo_faltante !== 'ninguno' && item.cantidad_faltante > 0)
       .map(item => {
-        // CORREGIDO: Usar SIEMPRE la referencia primero
-        const item_id = item.referencia || item.codigo_alegra; // ✅ Priorizar referencia
+        const referenciaNormalizada = normalizeReferenceValue(item.referencia) || ''
+        const codigoAlegra = item.codigo_alegra ? item.codigo_alegra.toString() : ''
+        // Priorizar referencia limpia y caer al ID de Alegra
+        const item_id = (referenciaNormalizada || codigoAlegra || item.alegra_id || '').toString()
 
         console.log(`🔍 DEBUG Faltante generado:`, {
           nombre: item.nombre,
-          referencia: item.referencia,
-          codigo_alegra: item.codigo_alegra,
+          referencia: referenciaNormalizada,
+          codigo_alegra: codigoAlegra,
           item_id_final: item_id
         });
 

@@ -48,7 +48,8 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
         supplier_cedula as "supplierCedula",
         alegra_item_id as "alegraItemId",
         alegra_reference as "alegraReference",
-        confidence
+        confidence,
+        origen
       FROM supplier_product_mapping
       WHERE (
         (alegra_item_id::text = $1 AND $1 IS NOT NULL)
@@ -74,6 +75,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
     // Se busca la última factura que usó ese mapping
     // ─────────────────────────────────────────────────────────────────────────
     const proveedoresConPrecios = [];
+    let proveedorManualPrioritario = null;
 
     for (const mapping of mappings.rows) {
       try {
@@ -110,24 +112,38 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           precio = Math.round(costoConIva * 100) / 100;
         }
 
-        proveedoresConPrecios.push({
+        const registroProveedor = {
           mappingId: mapping.id,
           supplierName: mapping.supplierName,
           supplierCedula: mapping.supplierCedula,
           precio: precio,
-          confidence: mapping.confidence || 0
-        });
+          confidence: mapping.confidence || 0,
+          origen: mapping.origen || 'automatico'
+        };
+
+        proveedoresConPrecios.push(registroProveedor);
+
+        if (!proveedorManualPrioritario && registroProveedor.origen === 'manual') {
+          proveedorManualPrioritario = registroProveedor;
+        }
 
         console.log(`   - ${mapping.supplierName}: ${precio ? `₡${precio.toFixed(2)}` : 'Sin precio'}`);
       } catch (error) {
         console.warn(`   ⚠️ Error obteniendo precio para ${mapping.supplierName}:`, error.message);
-        proveedoresConPrecios.push({
+        const registroProveedor = {
           mappingId: mapping.id,
           supplierName: mapping.supplierName,
           supplierCedula: mapping.supplierCedula,
           precio: null,
-          confidence: mapping.confidence || 0
-        });
+          confidence: mapping.confidence || 0,
+          origen: mapping.origen || 'automatico'
+        };
+
+        proveedoresConPrecios.push(registroProveedor);
+
+        if (!proveedorManualPrioritario && registroProveedor.origen === 'manual') {
+          proveedorManualPrioritario = registroProveedor;
+        }
       }
     }
 
@@ -144,7 +160,11 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
     let proveedorSeleccionado;
     let precioAsignado;
 
-    if (proveedoresConPrecio.length > 0) {
+    if (proveedorManualPrioritario) {
+      proveedorSeleccionado = proveedorManualPrioritario;
+      precioAsignado = proveedorManualPrioritario.precio ?? null;
+      console.log(`🔒 Prioridad manual: ${proveedorSeleccionado.supplierName}`);
+    } else if (proveedoresConPrecio.length > 0) {
       // Ordenar por precio (ascendente) y confianza (descendente) como desempate
       proveedoresConPrecio.sort((a, b) => {
         if (a.precio !== b.precio) {

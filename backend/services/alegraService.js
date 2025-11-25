@@ -1032,20 +1032,83 @@ class AlegraService {
             return [];
         }
 
-        return items.map(item => ({
+        return items.map(item => this.normalizeInvoiceItem(item));
+    }
+
+    normalizeInvoiceItem(item = {}) {
+        const { referenceValue, referenceType } = this.normalizeItemReference(item);
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        const total = Number(item.total) || Number((quantity * price).toFixed(2));
+        const discount = Number(item.discount) || 0;
+
+        return {
             alegra_id: item.id,
-            nombre: item.name || 'Producto sin nombre',
+            codigo_alegra: item.id?.toString() || null,
+            nombre: item.name || item.description || 'Producto sin nombre',
+            name: item.name || item.description || 'Producto sin nombre',
             descripcion: item.description || '',
-            referencia: item.reference || null,
-            codigo_producto: item.productKey || null,
-            cantidad: parseInt(item.quantity || 0),
-            precio_unitario: parseFloat(item.price || 0),
-            descuento: parseFloat(item.discount || 0),
-            total: parseFloat(item.total || 0),
-            unidad: item.unit || 'unit',
-            tipo: item.type || 'product', // 'product' o 'service'
-            impuestos: item.tax || []
-        }));
+            description: item.description || '',
+            referencia: referenceValue,
+            reference: referenceValue,
+            referencia_tipo: referenceType,
+            reference_type: referenceType,
+            codigo_producto: referenceValue || (item.productKey ? String(item.productKey) : null) || (item.id ? String(item.id) : null),
+            productKey: item.productKey || referenceValue || null,
+            cantidad: quantity,
+            quantity,
+            precio_unitario: price,
+            price,
+            descuento,
+            total,
+            unidad: item.unit || item.unitType || 'unit',
+            unit: item.unit || item.unitType || 'unit',
+            unitType: item.unitType || item.unit || 'unit',
+            tipo: item.type || 'product',
+            impuestos: Array.isArray(item.tax) ? item.tax : [],
+            tax: Array.isArray(item.tax) ? item.tax : [],
+        };
+    }
+
+    normalizeItemReference(item = {}) {
+        const coerceString = (value) => {
+            if (value === null || value === undefined) return null;
+            if (typeof value === 'string' && value.trim()) return value.trim();
+            if (typeof value === 'number' || typeof value === 'bigint') return value.toString();
+            return null;
+        };
+
+        let referenceValue = null;
+        let referenceType = null;
+
+        const rawReference = item.reference;
+
+        if (typeof rawReference === 'string' || typeof rawReference === 'number' || typeof rawReference === 'bigint') {
+            referenceValue = coerceString(rawReference);
+        } else if (rawReference && typeof rawReference === 'object') {
+            referenceValue =
+                coerceString(rawReference.reference) ||
+                coerceString(rawReference.code) ||
+                coerceString(rawReference.value);
+            referenceType = rawReference.type || null;
+        }
+
+        if (!referenceValue) {
+            referenceValue =
+                coerceString(item.productKey) ||
+                coerceString(item.code) ||
+                coerceString(item.sku) ||
+                coerceString(item.id);
+        }
+
+        if (!referenceType) {
+            referenceType = item.referenceType || item.reference_type || null;
+        }
+
+        return {
+            referenceValue,
+            referenceType: referenceType || null
+        };
     }
     
     /**

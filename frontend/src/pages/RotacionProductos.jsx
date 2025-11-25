@@ -1,5 +1,7 @@
 import { Brain, RefreshCw } from 'lucide-react'
+import { useMemo } from 'react'
 import { useRotacionProductos } from '../hooks/useRotacionProductos'
+import { TopMargenChart, WeeklyTrendChart } from '../components/rotacion/RotacionCharts'
 
 const SEMANA_OPTIONS = [4, 8, 12, 24]
 const LIMITE_OPTIONS = [10, 25, 50, 100, 150]
@@ -53,6 +55,50 @@ export default function RotacionProductos() {
     setConfig,
     reload
   } = useRotacionProductos()
+
+  const weeklyStats = useMemo(() => {
+    const weeklyMap = new Map()
+
+    productos.forEach((producto) => {
+      producto.historial?.forEach((semana) => {
+        if (!semana) return
+        const key = `${semana.ano}-${String(semana.semana).padStart(2, '0')}`
+
+        if (!weeklyMap.has(key)) {
+          weeklyMap.set(key, {
+            label: `Sem ${semana.semana}/${semana.ano}`,
+            fecha: semana.fecha || `${semana.ano}-${String(semana.semana).padStart(2, '0')}`,
+            cantidad: 0,
+            margen: 0
+          })
+        }
+
+        const entry = weeklyMap.get(key)
+        entry.cantidad += Number(semana.cantidad) || 0
+        entry.margen += Number(semana.margen) || 0
+      })
+    })
+
+    const ordered = Array.from(weeklyMap.values()).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
+
+    return {
+      labels: ordered.map((item) => item.label),
+      cantidad: ordered.map((item) => Math.round(item.cantidad)),
+      margen: ordered.map((item) => Math.round(item.margen))
+    }
+  }, [productos])
+
+  const topMargenChart = useMemo(() => {
+    const topItems = [...productos]
+      .filter((item) => (item.margen_total || 0) > 0)
+      .sort((a, b) => b.margen_total - a.margen_total)
+      .slice(0, 5)
+
+    return {
+      labels: topItems.map((item) => item.nombre),
+      values: topItems.map((item) => Number(item.margen_total) || 0)
+    }
+  }, [productos])
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -178,6 +224,29 @@ export default function RotacionProductos() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && productos.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="card lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Tendencia semanal</h3>
+                <p className="text-sm text-gray-500">Comparativo entre unidades faltantes y margen perdido.</p>
+              </div>
+            </div>
+            <WeeklyTrendChart data={weeklyStats} />
+          </div>
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Productos con mayor impacto</h3>
+                <p className="text-sm text-gray-500">Participación del margen perdido en el top 5.</p>
+              </div>
+            </div>
+            <TopMargenChart data={topMargenChart} />
           </div>
         </div>
       )}

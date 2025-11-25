@@ -1293,16 +1293,16 @@ router.get('/facturas/detalle/:id', async (req, res) => {
     const result = await alegraService.getInvoiceById(id);
 
     if (result.success) {
-      // Procesar la factura para el frontend (registro de faltantes)
+      const itemsNormalizados = alegraService.processAlegraItems(result.data.items || []).map((item) => ({
+        ...item,
+        cantidad_faltante: 0,
+        tipo_faltante: 'ninguno',
+        observaciones: ''
+      }));
+
       const facturaDetallada = {
         ...result.data,
-        // Procesar items para el registro de faltantes
-        items: result.data.items?.map(item => ({
-          ...item,
-          cantidad_faltante: 0,
-          tipo_faltante: 'ninguno', // 'ninguno', 'parcial', 'total'
-          observaciones: ''
-        })) || []
+        items: itemsNormalizados
       };
 
       return res.json({
@@ -1522,36 +1522,47 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         }
       }
 
-      // SEGUNDA OPCIÓN: Buscar por reference (productos.codigo) como fallback
-      if (!productoLocal || productoLocal.rows.length === 0) {
-        console.log(`🔍 Producto no encontrado por alegra_id. Buscando por reference="${itemReference}" y nombre...`);
+      const buscarPorCodigo = async (codigo, motivo) => {
+        if (!codigo) {
+          return { rows: [] };
+        }
+        console.log(`🔍 Buscando producto por código "${codigo}" (${motivo})...`);
+        return await query(`
+          SELECT id, codigo, nombre, alegra_id 
+          FROM productos 
+          WHERE codigo = $1
+          LIMIT 1
+        `, [codigo]);
+      };
 
-        productoLocal = await query(`
-          SELECT id, codigo, nombre, alegra_id FROM productos 
-        WHERE codigo = $1 
-           OR codigo = $2
-           OR nombre ILIKE $3
-        ORDER BY 
-          CASE 
-              WHEN codigo = $1 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Reference Y nombre coinciden
-              WHEN codigo = $2 AND nombre ILIKE $3 THEN 1    -- ✅ MEJOR: Alegra ID Y nombre coinciden (fallback)
-              WHEN codigo = $1 THEN 2                        -- Coincidencia exacta con reference (sin nombre)
-              WHEN codigo = $2 THEN 3                        -- Coincidencia con alegra_id (sin nombre, menos confiable)
-              WHEN nombre ILIKE $3 THEN 4                     -- Solo coincidencia por nombre
-              ELSE 5 
-          END
-        LIMIT 1
-        `, [itemReference, itemAlegraId, `%${nombre_producto}%`]);
-      }
-
-      // NUEVO: Si no encuentra, intentar buscar por nombre más específico
-      if (productoLocal.rows.length === 0) {
+      const buscarPorNombreExacto = async () => {
         console.log(`⚠️ No encontrado por código, buscando por nombre exacto...`);
-        productoLocal = await query(`
-          SELECT id, codigo, nombre, alegra_id FROM productos 
+        return await query(`
+          SELECT id, codigo, nombre, alegra_id 
+          FROM productos 
           WHERE UPPER(nombre) = UPPER($1)
           LIMIT 1
         `, [nombre_producto]);
+      };
+
+      // SEGUNDA OPCIÓN: Buscar por reference (productos.codigo) como fallback
+      if (!productoLocal || productoLocal.rows.length === 0) {
+        if (itemReference) {
+          productoLocal = await buscarPorCodigo(itemReference, 'reference de Alegra');
+        }
+      }
+
+      // TERCERA OPCIÓN: Buscar por codigo = allegra_id SOLO si no tenemos reference o coincide exactamente
+      if ((!productoLocal || productoLocal.rows.length === 0) && itemAlegraId) {
+        const referenceIgualAId = itemReference && itemReference.toString() === itemAlegraId;
+        if (!itemReference || referenceIgualAId) {
+          productoLocal = await buscarPorCodigo(itemAlegraId, 'alegra_id como código');
+        }
+      }
+
+      // CUARTA OPCIÓN: Buscar por nombre
+      if (!productoLocal || productoLocal.rows.length === 0) {
+        productoLocal = await buscarPorNombreExacto();
       }
 
       // ✅ VALIDACIÓN: Verificar que el producto encontrado coincide con el nombre esperado
@@ -1561,10 +1572,10 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
                               nombre_producto.toLowerCase().includes(productoEncontrado.nombre.toLowerCase());
         
         if (!nombreCoincide) {
-          console.warn(`⚠️ ADVERTENCIA: Producto encontrado pero el nombre NO coincide:`);
+          console.warn(`⚠️ ADVERTENCIA: Producto encontrado pero el nombre NO coincide. Se descartará esta coincidencia para evitar mapeos erróneos.`);
           console.warn(`   Esperado: "${nombre_producto}"`);
           console.warn(`   Encontrado: "${productoEncontrado.nombre}" (reference: ${productoEncontrado.codigo}, alegra_id: ${productoEncontrado.alegra_id || 'N/A'})`);
-          console.warn(`   ⚠️ Esto puede causar relaciones incorrectas. Considerar crear nuevo producto o actualizar los datos locales.`);
+          productoLocal = { rows: [] };
         } else {
           console.log(`✅ Producto encontrado: ID=${productoEncontrado.id}, código="${productoEncontrado.codigo}", nombre="${productoEncontrado.nombre}"`);
         }
@@ -1754,7 +1765,22 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         precio_asignado: asignacionResult.precio || null
       });
 
-      const costoUnitario = productoInfo?.precio_unitario ? Number(productoInfo.precio_unitario) : 0;
+      const costoUnitario = (() => {
+        const candidates = [
+          asignacionResult?.precio,
+          productoInfo?.costo_promedio,
+          productoInfo?.precio_costo,
+          productoInfo?.precio_unitario
+        ];
+
+        for (const value of candidates) {
+          const parsed = Number(value);
+          if (!Number.isNaN(parsed) && parsed > 0) {
+            return parsed;
+          }
+        }
+        return 0;
+      })();
       const precioVentaUnitario = (() => {
         if (!itemEnFactura) return null;
         const candidates = [
@@ -5129,6 +5155,8 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           supplierName: nuevoProveedor.name,
           alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
           alegraName: productoAlegra?.name || alegraName,
+          confidence: 1000,
+          origen: 'manual',
           lastUsedDate: new Date(),
           timesUsed: {
             increment: 1
@@ -5161,57 +5189,47 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
       });
     }
 
-    // 4. Eliminar mappings antiguos y crear el nuevo (sin transacción para evitar timeout)
-    console.log('🔄 Reasignando producto sin transacción explícita...');
+    // 4. Crear o actualizar mapping con el nuevo proveedor (sin eliminar históricos)
+    console.log('🔄 Actualizando mapping manual prioritario...');
     let nuevoMapping;
-
-    // 4.1. Eliminar TODOS los mappings antiguos del producto
-    if (mappingsExistentes.length > 0) {
-      console.log('🗑️ Eliminando mappings antiguos...');
-      console.log(`   Buscando por alegraReference: "${alegraReference}"`);
-      try {
-        const deleteResult = await prisma.supplierProductMapping.deleteMany({
-          where: {
-            alegraReference: alegraReference
-          }
-        });
-        console.log(`✅ ${deleteResult.count} mapping(s) eliminado(s) de la BD`);
-
-        if (deleteResult.count === 0) {
-          console.warn(`⚠️ ADVERTENCIA: Se encontraron ${mappingsExistentes.length} mappings pero deleteMany eliminó 0`);
-        }
-      } catch (deleteError) {
-        console.error('❌ Error eliminando mappings:', deleteError.message);
-        throw new Error(`Error eliminando mappings: ${deleteError.message}`);
-      }
-    }
-
-    // 4.2. Crear nuevo mapping con el nuevo proveedor
-    console.log('➕ Creando nuevo mapping...');
-    console.log(`   Datos: ${nuevoProveedor.name} (${nuevaCedula}) → código: ${alegraReference}`);
     try {
-      nuevoMapping = await prisma.supplierProductMapping.create({
-        data: {
+      nuevoMapping = await prisma.supplierProductMapping.upsert({
+        where: {
+          supplierCedula_supplierCode: {
+            supplierCedula: nuevaCedula,
+            supplierCode: alegraReference
+          }
+        },
+        update: {
+          supplierName: nuevoProveedor.name.trim(),
+          supplierDesc: productoAlegra?.name || alegraName,
+          alegraItemId: alegraIdReal,
+          alegraReference: alegraReference,
+          alegraName: productoAlegra?.name || alegraName,
+          confidence: 1000,
+          origen: 'manual',
+          lastUsedDate: new Date(),
+          timesUsed: {
+            increment: 1
+          }
+        },
+        create: {
           supplierName: nuevoProveedor.name.trim(),
           supplierCedula: nuevaCedula,
           supplierCode: alegraReference,
           supplierDesc: productoAlegra?.name || alegraName,
-          alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
+          alegraItemId: alegraIdReal,
           alegraReference: alegraReference,
           alegraName: productoAlegra?.name || alegraName,
-          confidence: 100,
+          confidence: 1000,
           origen: 'manual',
           timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
         }
       });
-      console.log(`✅ Nuevo mapping creado con ID: ${nuevoMapping.id}`);
-      console.log(`   alegraItemId: ${nuevoMapping.alegraItemId} (ID real de Alegra)`);
-      console.log(`   alegraReference: ${nuevoMapping.alegraReference} (código interno)`);
-      console.log(`   Proveedor: ${nuevoMapping.supplierName} → Código: ${nuevoMapping.supplierCode}`);
+      console.log(`✅ Mapping manual prioritario listo: ${nuevoMapping.id}`);
     } catch (createError) {
-      console.error('❌ Error creando mapping:', createError.message);
-      console.error('Código Prisma:', createError.code);
-      throw new Error(`Error creando mapping: ${createError.message}`);
+      console.error('❌ Error creando/actualizando mapping:', createError.message);
+      throw new Error(`Error creando/actualizando mapping: ${createError.message}`);
     }
 
     console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
