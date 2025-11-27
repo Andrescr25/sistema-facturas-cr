@@ -327,70 +327,6 @@ La factura se marcará como procesada en la base de datos.
     }
   }
 
-  // MODIFICADO: Limpiar facturas procesadas del localStorage (no del backend)
-  const handleLimpiarFacturasListas = async () => {
-    // Filtrar solo facturas procesadas
-    const facturasProcessadas = []
-
-    clientes.forEach((cliente) => {
-      cliente.facturas_con_faltantes.forEach((factura) => {
-        const facturaKey = getFacturaKey(factura)
-        const estadoFactura = facturasEstado.get(facturaKey)
-
-        if (estadoFactura && estadoFactura.estado === 'procesado') {
-          facturasProcessadas.push({
-            facturaKey,
-            factura,
-            cliente: cliente.nombre
-          })
-        }
-      })
-    })
-
-    if (facturasProcessadas.length === 0) {
-      alert('ℹ️ No hay facturas procesadas para limpiar.\n\nPrimero marque facturas como "Factura Lista".')
-      return
-    }
-
-    const resumen = `🧹 Limpieza de facturas procesadas:
-
-- Total facturas procesadas: ${facturasProcessadas.length}
-- Estas facturas se eliminarán permanentemente de la vista
-- Los ajustes ya están guardados en historial/reimpresión
-- Esto actualiza la base de datos permanentemente
-
-¿Proceder con la limpieza?`
-
-    if (!window.confirm(resumen)) {
-      return
-    }
-
-    try {
-      // Preparar datos para eliminar de BD
-      const facturasIds = facturasProcessadas.map(({ factura }) => factura.alegra_id)
-
-      // NUEVO: Llamar endpoint que elimina de BD
-      const resultado = await alegraService.eliminarFacturasProceadas(facturasIds)
-
-      // Limpiar estados del frontend
-      const nuevosEstados = new Map()
-      facturasEstado.forEach((valor, key) => {
-        if (valor.estado !== 'procesado') {
-          nuevosEstados.set(key, valor)
-        }
-      })
-      setFacturasEstado(nuevosEstados)
-
-      // Recargar datos desde BD
-      await loadReporte()
-
-      alert(`✅ Limpieza completada:\n• ${facturasProcessadas.length} facturas eliminadas permanentemente de la base de datos\n• Los datos se mantienen en el historial\n\n🔄 Vista actualizada desde la base de datos`)
-
-    } catch (error) {
-      alert(`❌ Error en limpieza: ${error.message}`)
-    }
-  }
-
   const getFacturaKey = (factura) => {
     if (!factura) return 'factura-desconocida'
     const identifier = factura.alegra_id ?? factura.factura_local_id ?? factura.numero_factura ?? factura.id ?? 'sin-identificador'
@@ -707,16 +643,6 @@ La factura se marcará como procesada en la base de datos.
             placeholder="Buscar cliente por nombre..."
             className="input w-64"
           />
-          <button
-            onClick={handleLimpiarFacturasListas}
-            disabled={contarFacturasProcesadas() === 0}
-            className={`btn btn-outline text-green-600 border-green-600 hover:bg-green-50 ${contarFacturasProcesadas() === 0 ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            title={contarFacturasProcesadas() === 0 ? 'No hay facturas procesadas para limpiar' : `Limpiar ${contarFacturasProcesadas()} facturas procesadas`}
-          >
-            <Check size={16} className="mr-2" />
-            Limpiar Facturas Listas ({contarFacturasProcesadas()})
-          </button>
           <button
             onClick={loadReporte}
             className="btn btn-outline"

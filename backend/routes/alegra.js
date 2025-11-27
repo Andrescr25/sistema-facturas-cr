@@ -2513,66 +2513,132 @@ router.post('/facturas/limpiar', async (req, res) => {
 // Limpiar faltantes por proveedor (borrar de BD)
 router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
   try {
-    console.log('🗑️ Limpiando faltantes NO procesados de la BD...');
+    console.log('🗑️ Limpiando faltantes de la BD (pendientes y procesados)...');
 
     const { query } = require('../config/database');
 
-    // Obtener solo los faltantes pendientes (NO procesados)
-    const faltantesABorrar = await query(`
-      SELECT f.id, p.nombre as producto_nombre, pr.nombre as proveedor_nombre
+    // Obtener faltantes pendientes (vista proveedores)
+    const faltantesPendientes = await query(`
+      SELECT 
+        f.id, 
+        f.factura_id,
+        p.nombre as producto_nombre, 
+        pr.nombre as proveedor_nombre
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN proveedores pr ON p.proveedor_id = pr.id
       WHERE f.estado = 'pendiente'
     `);
 
-    if (faltantesABorrar.rows.length === 0) {
+    // Obtener faltantes procesados (vista clientes)
+    const faltantesProcesados = await query(`
+      SELECT 
+        f.id,
+        f.factura_id,
+        p.nombre as producto_nombre,
+        fa.numero_factura,
+        fa.cliente_nombre
+      FROM faltantes f
+      JOIN productos p ON f.producto_id = p.id
+      JOIN facturas fa ON f.factura_id = fa.id
+      WHERE f.estado = 'procesado'
+    `);
+
+    if (faltantesPendientes.rows.length === 0 && faltantesProcesados.rows.length === 0) {
       return res.json({
         success: true,
-        message: 'No hay faltantes pendientes para limpiar. Los datos procesados se mantienen en el historial.',
-        datos_borrados: 0
+        message: 'No hay faltantes pendientes ni procesados para limpiar.',
+        datos_borrados: 0,
+        procesados_borrados: 0
       });
     }
 
-    const faltantesIds = faltantesABorrar.rows.map(f => f.id);
+    const stats = {
+      pendientes: { faltantes: 0, ajustes: 0 },
+      procesados: { faltantes: 0, ajustes: 0 }
+    };
 
-    // Primero eliminar los ajustes asociados para respetar las FK
-    const ajustesEliminados = await query(`
-      DELETE FROM faltantes_ajustes
-      WHERE faltante_id = ANY($1::int[])
-      RETURNING id
-    `, [faltantesIds]);
+    // Eliminar faltantes pendientes
+    const faltantesPendientesIds = faltantesPendientes.rows.map(f => f.id);
+    if (faltantesPendientesIds.length > 0) {
+      const ajustesPendientes = await query(`
+        DELETE FROM faltantes_ajustes
+        WHERE faltante_id = ANY($1::int[])
+        RETURNING id
+      `, [faltantesPendientesIds]);
 
-    // Borrar SOLO los faltantes pendientes (preservar procesados)
-    const resultado = await query(`
-      DELETE FROM faltantes 
-      WHERE id = ANY($1::int[])
-      RETURNING id
-    `, [faltantesIds]);
+      const pendientesEliminados = await query(`
+        DELETE FROM faltantes 
+        WHERE id = ANY($1::int[])
+        RETURNING id
+      `, [faltantesPendientesIds]);
 
-    // Limpiar observaciones adicionales de facturas que ya no tienen faltantes pendientes
+      stats.pendientes.ajustes = ajustesPendientes.rows.length;
+      stats.pendientes.faltantes = pendientesEliminados.rows.length;
+    }
+
+    // Eliminar faltantes procesados (mantienen reporte clientes limpio)
+    const faltantesProcesadosIds = faltantesProcesados.rows.map(f => f.id);
+    if (faltantesProcesadosIds.length > 0) {
+      const ajustesProcesados = await query(`
+        DELETE FROM faltantes_ajustes
+        WHERE faltante_id = ANY($1::int[])
+        RETURNING id
+      `, [faltantesProcesadosIds]);
+
+      const procesadosEliminados = await query(`
+        DELETE FROM faltantes
+        WHERE id = ANY($1::int[])
+        RETURNING id
+      `, [faltantesProcesadosIds]);
+
+      stats.procesados.ajustes = ajustesProcesados.rows.length;
+      stats.procesados.faltantes = procesadosEliminados.rows.length;
+    }
+
+    // Limpiar facturas pendientes manualmente relacionadas
+    const facturaIdsParaLimpiar = Array.from(new Set([
+      ...faltantesPendientes.rows.map(f => f.factura_id),
+      ...faltantesProcesados.rows.map(f => f.factura_id)
+    ])).filter(Boolean);
+
+    let pendientesManualesEliminados = 0;
+    if (facturaIdsParaLimpiar.length > 0) {
+      const pendientesResult = await query(`
+        DELETE FROM facturas_pendientes
+        WHERE factura_id = ANY($1::int[])
+        RETURNING id
+      `, [facturaIdsParaLimpiar]);
+      pendientesManualesEliminados = pendientesResult.rows.length;
+    }
+
+    // Limpiar observaciones adicionales de facturas que ya no tienen faltantes
     await query(`
-    UPDATE facturas 
-    SET observaciones_adicionales = NULL
-    WHERE observaciones_adicionales IS NOT NULL
-    AND NOT EXISTS (
-    SELECT 1 FROM faltantes f 
-    WHERE f.factura_id = facturas.id 
-    AND f.estado = 'pendiente'
-     )
-  `);
+      UPDATE facturas 
+      SET observaciones_adicionales = NULL
+      WHERE observaciones_adicionales IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM faltantes f 
+        WHERE f.factura_id = facturas.id 
+        AND f.estado = 'pendiente'
+      )
+    `);
 
-    console.log(`✅ ${resultado.rows.length} faltantes pendientes borrados. Historial preservado.`);
-    console.log(`✅ ${ajustesEliminados.rows.length} ajustes asociados eliminados.`);
-    console.log(`✅ Observaciones adicionales limpiadas de facturas sin faltantes pendientes.`); // ← AGREGAR ESTE LOG
+    console.log(`✅ ${stats.pendientes.faltantes} faltantes pendientes borrados.`);
+    console.log(`✅ ${stats.procesados.faltantes} faltantes procesados borrados.`);
+    console.log(`✅ ${stats.pendientes.ajustes + stats.procesados.ajustes} ajustes asociados eliminados.`);
+    console.log(`✅ ${pendientesManualesEliminados} registros de facturas pendientes eliminados.`);
 
     res.json({
       success: true,
-      message: `${resultado.rows.length} faltantes pendientes eliminados. Los datos procesados se mantienen en el historial.`,
-      datos_borrados: resultado.rows.length,
+      message: `Faltantes limpiados: ${stats.pendientes.faltantes} pendientes y ${stats.procesados.faltantes} procesados.`,
+      datos_borrados: stats.pendientes.faltantes,
+      procesados_borrados: stats.procesados.faltantes,
       historial_preservado: true,
-      faltantes_eliminados: faltantesABorrar.rows,
-      ajustes_eliminados: ajustesEliminados.rows.length
+      ajustes_eliminados: stats.pendientes.ajustes + stats.procesados.ajustes,
+      facturas_pendientes_eliminadas: pendientesManualesEliminados,
+      faltantes_eliminados: faltantesPendientes.rows,
+      faltantes_procesados_eliminados: faltantesProcesados.rows
     });
 
   } catch (error) {

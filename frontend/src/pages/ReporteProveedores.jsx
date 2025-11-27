@@ -398,8 +398,10 @@ export default function ReporteProveedores() {
 - ${resumen?.total_productos_faltantes || 0} productos faltantes  
 - ${resumen?.total_cantidad_faltante || 0} unidades faltantes
 
-⚠️ ATENCIÓN: Esta acción elimina los datos permanentemente SOLO del sistema local.
-NO afecta la base de datos externa de facturas.
+⚠️ ATENCIÓN:
+- Se eliminarán los faltantes pendientes (vista Proveedores)
+- También se limpiarán los faltantes procesados (vista Clientes)
+- Se quitarán estados pendientes manuales y observaciones asociadas
 
 ¿Proceder con la eliminación?`
 
@@ -417,7 +419,14 @@ NO afecta la base de datos externa de facturas.
       setResumen(null)
       setEncargosEspeciales([]) // ✅ AGREGADO: Limpiar también encargos especiales
 
-      alert(`✅ Datos eliminados exitosamente de la base de datos LOCAL\n\n• ${resultado.datos_borrados} registros borrados\n• Los faltantes han sido eliminados permanentemente`)
+      alert(`✅ Datos eliminados de la base de datos LOCAL
+
+• ${resultado.datos_borrados || 0} faltantes pendientes borrados
+• ${resultado.procesados_borrados || 0} faltantes procesados borrados
+• ${resultado.ajustes_eliminados || 0} ajustes asociados eliminados
+• ${resultado.facturas_pendientes_eliminadas || 0} facturas pendientes liberadas
+
+🧹 Reporte de Proveedores y Clientes quedan sincronizados.`)
 
     } catch (error) {
       alert(`❌ Error eliminando datos: ${error.message}`)
