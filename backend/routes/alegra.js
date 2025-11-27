@@ -2534,12 +2534,21 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
       });
     }
 
+    const faltantesIds = faltantesABorrar.rows.map(f => f.id);
+
+    // Primero eliminar los ajustes asociados para respetar las FK
+    const ajustesEliminados = await query(`
+      DELETE FROM faltantes_ajustes
+      WHERE faltante_id = ANY($1::int[])
+      RETURNING id
+    `, [faltantesIds]);
+
     // Borrar SOLO los faltantes pendientes (preservar procesados)
     const resultado = await query(`
       DELETE FROM faltantes 
-      WHERE estado = 'pendiente'
+      WHERE id = ANY($1::int[])
       RETURNING id
-    `);
+    `, [faltantesIds]);
 
     // Limpiar observaciones adicionales de facturas que ya no tienen faltantes pendientes
     await query(`
@@ -2554,6 +2563,7 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
   `);
 
     console.log(`✅ ${resultado.rows.length} faltantes pendientes borrados. Historial preservado.`);
+    console.log(`✅ ${ajustesEliminados.rows.length} ajustes asociados eliminados.`);
     console.log(`✅ Observaciones adicionales limpiadas de facturas sin faltantes pendientes.`); // ← AGREGAR ESTE LOG
 
     res.json({
@@ -2561,7 +2571,8 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
       message: `${resultado.rows.length} faltantes pendientes eliminados. Los datos procesados se mantienen en el historial.`,
       datos_borrados: resultado.rows.length,
       historial_preservado: true,
-      faltantes_eliminados: faltantesABorrar.rows
+      faltantes_eliminados: faltantesABorrar.rows,
+      ajustes_eliminados: ajustesEliminados.rows.length
     });
 
   } catch (error) {
