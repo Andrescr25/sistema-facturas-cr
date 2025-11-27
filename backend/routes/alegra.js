@@ -2523,10 +2523,10 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
         f.id, 
         f.factura_id,
         p.nombre as producto_nombre, 
-        pr.nombre as proveedor_nombre
+        COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
-      JOIN proveedores pr ON p.proveedor_id = pr.id
+      LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       WHERE f.estado = 'pendiente'
     `);
 
