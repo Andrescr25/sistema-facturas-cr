@@ -20,6 +20,8 @@ const { registrarRotacionProducto } = require('../services/rotacionProductosAggr
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const MANUAL_MAPPING_CONFIDENCE = 999.99;
+
 // DEBUG: Test simple de conexión
 router.get('/debug/test-simple', async (req, res) => {
   const tests = [];
@@ -5237,7 +5239,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           supplierName: nuevoProveedor.name,
           alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
           alegraName: productoAlegra?.name || alegraName,
-          confidence: 1000,
+          confidence: MANUAL_MAPPING_CONFIDENCE,
           origen: 'manual',
           lastUsedDate: new Date(),
           timesUsed: {
@@ -5288,7 +5290,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           alegraItemId: alegraIdReal,
           alegraReference: alegraReference,
           alegraName: productoAlegra?.name || alegraName,
-          confidence: 1000,
+          confidence: MANUAL_MAPPING_CONFIDENCE,
           origen: 'manual',
           lastUsedDate: new Date(),
           timesUsed: {
@@ -5303,7 +5305,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           alegraItemId: alegraIdReal,
           alegraReference: alegraReference,
           alegraName: productoAlegra?.name || alegraName,
-          confidence: 1000,
+          confidence: MANUAL_MAPPING_CONFIDENCE,
           origen: 'manual',
           timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
         }
