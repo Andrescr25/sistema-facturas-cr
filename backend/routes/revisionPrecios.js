@@ -13,25 +13,39 @@ const prisma = new PrismaClient({
 const alegraService = new AlegraService();
 
 /**
- * Inferir el tipo de identificación según la cédula costarricense.
- * 01: Física (9 dígitos), 02: Jurídica (10 dígitos), 03: DIMEX (11-12), 04: NITE (10 iniciando 4/5).
- * Fallback a '02' (jurídica) porque la mayoría de proveedores son empresas.
+ * Inferir el tipo de identificación (códigos Alegra) según la cédula costarricense.
+ * CF: Física (9 dígitos)
+ * CJ: Jurídica (10 dígitos)
+ * NITE: Jurídica iniciando en 4/5 (10 dígitos)
+ * DIMEX: Identificación extranjera (11-12 dígitos)
+ * Fallback a CJ porque la mayoría de proveedores son empresas.
  */
+const TIPOS_IDENTIFICACION_ALEGRA = {
+  FISICA: 'CF',
+  JURIDICA: 'CJ',
+  NITE: 'NITE',
+  DIMEX: 'DIMEX'
+};
+
 const inferirTipoIdentificacion = (cedulaRaw) => {
-  if (!cedulaRaw) return '02';
+  if (!cedulaRaw) return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
 
   const cedula = cedulaRaw.toString().replace(/\D/g, '');
 
-  if (cedula.length === 9) return '01';
+  if (cedula.length === 9) return TIPOS_IDENTIFICACION_ALEGRA.FISICA;
 
   if (cedula.length === 10) {
-    if (cedula.startsWith('4') || cedula.startsWith('5')) return '04';
-    return '02';
+    if (cedula.startsWith('4') || cedula.startsWith('5')) {
+      return TIPOS_IDENTIFICACION_ALEGRA.NITE;
+    }
+    return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
   }
 
-  if (cedula.length === 11 || cedula.length === 12) return '03';
+  if (cedula.length === 11 || cedula.length === 12) {
+    return TIPOS_IDENTIFICACION_ALEGRA.DIMEX;
+  }
 
-  return '02';
+  return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
 };
 
 /**

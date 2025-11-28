@@ -684,7 +684,7 @@ class AlegraService {
                 identification: identification || undefined,
                 identificationObject: identification
                     ? {
-                        type: data.identificationType || data.identificationObject?.type || '02',
+                        type: data.identificationType || data.identificationObject?.type || 'CJ',
                         number: identification
                     }
                     : undefined,

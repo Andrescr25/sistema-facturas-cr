@@ -1296,10 +1296,10 @@ router.get('/facturas/detalle/:id', async (req, res) => {
 
     if (result.success) {
       const itemsNormalizados = alegraService.processAlegraItems(result.data.items || []).map((item) => ({
-        ...item,
-        cantidad_faltante: 0,
+          ...item,
+          cantidad_faltante: 0,
         tipo_faltante: 'ninguno',
-        observaciones: ''
+          observaciones: ''
       }));
 
       const facturaDetallada = {
@@ -1532,8 +1532,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         return await query(`
           SELECT id, codigo, nombre, alegra_id 
           FROM productos 
-          WHERE codigo = $1
-          LIMIT 1
+        WHERE codigo = $1 
+        LIMIT 1
         `, [codigo]);
       };
 
@@ -2570,9 +2570,9 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
       `, [faltantesPendientesIds]);
 
       const pendientesEliminados = await query(`
-        DELETE FROM faltantes 
+      DELETE FROM faltantes 
         WHERE id = ANY($1::int[])
-        RETURNING id
+      RETURNING id
       `, [faltantesPendientesIds]);
 
       stats.pendientes.ajustes = ajustesPendientes.rows.length;
@@ -2616,15 +2616,15 @@ router.delete('/reportes/faltantes/proveedor/limpiar', async (req, res) => {
 
     // Limpiar observaciones adicionales de facturas que ya no tienen faltantes
     await query(`
-      UPDATE facturas 
-      SET observaciones_adicionales = NULL
-      WHERE observaciones_adicionales IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM faltantes f 
-        WHERE f.factura_id = facturas.id 
-        AND f.estado = 'pendiente'
-      )
-    `);
+    UPDATE facturas 
+    SET observaciones_adicionales = NULL
+    WHERE observaciones_adicionales IS NOT NULL
+    AND NOT EXISTS (
+    SELECT 1 FROM faltantes f 
+    WHERE f.factura_id = facturas.id 
+    AND f.estado = 'pendiente'
+     )
+  `);
 
     console.log(`✅ ${stats.pendientes.faltantes} faltantes pendientes borrados.`);
     console.log(`✅ ${stats.procesados.faltantes} faltantes procesados borrados.`);
@@ -3163,26 +3163,20 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
     // 3. Marcar faltantes/facturas como procesados SOLO si se indica
     if (marcar_como_procesada === true) {
-      await query(`
-        UPDATE faltantes 
-        SET estado = 'procesado'
-        FROM facturas fa
-        WHERE faltantes.factura_id = fa.id 
-        AND fa.alegra_id = $1
-      `, [alegra_id]);
-
-      await query(`
-        UPDATE facturas 
-        SET estado_procesamiento = 'procesado'
-        WHERE alegra_id = $1
-      `, [alegra_id]);
-    } else {
-      await query(`
-        UPDATE facturas 
-        SET estado_procesamiento = 'pendiente'
-        WHERE alegra_id = $1
-      `, [alegra_id]);
+    await query(`
+      UPDATE faltantes 
+      SET estado = 'procesado'
+      FROM facturas fa
+      WHERE faltantes.factura_id = fa.id 
+      AND fa.alegra_id = $1
+    `, [alegra_id]);
     }
+
+    await query(`
+      UPDATE facturas 
+      SET estado_procesamiento = 'procesado'
+      WHERE alegra_id = $1
+    `, [alegra_id]);
 
     // Si estaba marcada como pendiente manual, removerla
     await query(`
@@ -4431,7 +4425,11 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
   try {
     console.log('📄 Generando PDF de orden de compra con datos del proveedor...');
 
-    const { proveedor, productos } = req.body;
+    const {
+      proveedor,
+      productos,
+      preferirDatosProveedor = true
+    } = req.body;
 
     if (!proveedor || !productos || !Array.isArray(productos)) {
       return res.status(400).json({
@@ -4439,6 +4437,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         message: 'Se requiere proveedor y array de productos'
       });
     }
+
+    const preferirDatosProveedorGlobal = preferirDatosProveedor !== false;
 
     // NUEVO: Enriquecer productos con información del proveedor desde Supabase
     const { query } = require('../config/database');
@@ -4448,7 +4448,17 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
     const normalize = (value) => value ? value.toString().trim() : '';
     const normalizeLower = (value) => value ? value.toString().toLowerCase().trim() : '';
+    const canonicalizeNombre = (value) => {
+      if (!value) return '';
+      return value
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+    };
     const proveedorNormalizado = normalizeLower(proveedor);
+    const proveedorCanonico = canonicalizeNombre(proveedor);
 
     const mappingSelect = `
           SELECT 
@@ -4468,9 +4478,9 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           FROM supplier_product_mapping 
     `;
 
-    const fetchSingleMapping = async (sql, params) => {
+    const fetchMappings = async (sql, params) => {
       const result = await query(sql, params);
-      return result.rows[0] || null;
+      return result.rows || [];
     };
 
     const sanitizeCodigoProveedor = (valor) => {
@@ -4480,39 +4490,54 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       return cleaned;
     };
 
-    const mappingMatchesProveedor = (mapping) =>
-      mapping && normalizeLower(mapping.supplierName) === proveedorNormalizado;
+    const mappingMatchesProveedor = (mapping, { skipStrictValidation = false } = {}) => {
+      if (!mapping) return false;
+      if (skipStrictValidation) return true;
+      if (!mapping.supplierName) return false;
+      return canonicalizeNombre(mapping.supplierName) === proveedorCanonico;
+    };
+
+    const pickFirstMatching = (rows, { skipStrictValidation = false } = {}) => {
+      if (!rows || rows.length === 0) {
+        return null;
+      }
+      if (skipStrictValidation) {
+        return rows[0];
+      }
+      return rows.find(row => mappingMatchesProveedor(row)) || null;
+    };
 
     const getMappingById = async (mappingId) => {
       if (!mappingId) return null;
-      return fetchSingleMapping(
+      const rows = await fetchMappings(
         `${mappingSelect} WHERE id = $1`,
         [mappingId]
       );
+      return rows[0] || null;
     };
 
     const getMappingBySupplierCode = async (codigoProveedor) => {
       if (!codigoProveedor) return null;
-      return fetchSingleMapping(
+      const rows = await fetchMappings(
         `${mappingSelect} 
           WHERE supplier_code = $1 
-            AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
           ORDER BY last_used_date DESC, times_used DESC
-          LIMIT 1`,
-        [codigoProveedor, proveedor]
+          LIMIT 10`,
+        [codigoProveedor]
       );
+      return pickFirstMatching(rows);
     };
 
     const getMappingByAlegraId = async (alegraItemId) => {
       if (!alegraItemId) return null;
-      return fetchSingleMapping(
+      const rows = await fetchMappings(
         `${mappingSelect}
           WHERE alegra_item_id::text = $1
-            AND LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
           ORDER BY last_used_date DESC, times_used DESC
-          LIMIT 1`,
-        [alegraItemId.toString(), proveedor]
+          LIMIT 10`,
+        [alegraItemId.toString()]
       );
+      return pickFirstMatching(rows);
     };
 
     const getMappingByFlexibleSearch = async (productoPayload) => {
@@ -4521,28 +4546,30 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
       if (!referencia && !nombreBusqueda) return null;
 
-      return fetchSingleMapping(
+      const rows = await fetchMappings(
         `${mappingSelect}
-          WHERE LOWER(TRIM(supplier_name)) = LOWER(TRIM($2))
-            AND (
+          WHERE 
               ($1 IS NOT NULL AND alegra_reference = $1)
-              OR ($3 IS NOT NULL AND supplier_desc ILIKE $3)
-              OR ($3 IS NOT NULL AND alegra_name ILIKE $3)
-            )
+              OR ($2 IS NOT NULL AND supplier_desc ILIKE $2)
+              OR ($2 IS NOT NULL AND alegra_name ILIKE $2)
           ORDER BY confidence DESC, last_used_date DESC, times_used DESC
-          LIMIT 1`,
+          LIMIT 20`,
         [
           referencia,
-          proveedor,
           nombreBusqueda ? `%${nombreBusqueda}%` : null
         ]
       );
+      return pickFirstMatching(rows);
     };
 
     const productosEnriquecidos = [];
 
     for (const producto of productos) {
       try {
+        const preferirDatosProveedorActual = typeof producto.preferirDatosProveedor === 'boolean'
+          ? producto.preferirDatosProveedor
+          : preferirDatosProveedorGlobal;
+
         const payloadInfo = {
           codigoInterno: producto.codigo || producto.codigoInterno || null,
           nombreInterno: producto.nombre || producto.nombreInterno || null,
@@ -4554,35 +4581,84 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           factorConversion: producto.factorConversion || producto.factor_conversion || 1
         };
 
-        let mapping = await getMappingById(payloadInfo.mappingId);
+        if (!preferirDatosProveedorActual) {
+          productosEnriquecidos.push({
+            codigo_pdf: payloadInfo.codigoInterno || payloadInfo.codigoProveedorEntrada || 'N/A',
+            nombre_pdf: payloadInfo.nombreInterno || payloadInfo.nombreProveedorEntrada || 'Sin descripción',
+            cantidad: payloadInfo.cantidadFinal,
+            codigo_interno: payloadInfo.codigoInterno,
+            nombre_interno: payloadInfo.nombreInterno,
+            confianza: 0,
+            factorConversion: payloadInfo.factorConversion,
+            origen: 'interno_manual',
+            datosProveedorReales: false,
+            mappingId: payloadInfo.mappingId || null
+          });
+          continue;
+        }
 
-        if (!mapping) {
-          mapping = await getMappingBySupplierCode(payloadInfo.codigoProveedorEntrada);
+        let mapping = null;
+        let mappingFuente = null;
+
+        if (payloadInfo.mappingId) {
+          mapping = await getMappingById(payloadInfo.mappingId);
+          mappingFuente = 'mappingId';
         }
 
         if (!mapping) {
-          mapping = await getMappingByAlegraId(payloadInfo.alegraItemId);
+          const mappingByCode = await getMappingBySupplierCode(payloadInfo.codigoProveedorEntrada);
+          if (mappingByCode) {
+            mapping = mappingByCode;
+            mappingFuente = 'supplierCode';
+          }
         }
 
         if (!mapping) {
-          mapping = await getMappingByFlexibleSearch(payloadInfo);
+          const mappingByAlegra = await getMappingByAlegraId(payloadInfo.alegraItemId);
+          if (mappingByAlegra) {
+            mapping = mappingByAlegra;
+            mappingFuente = 'alegraId';
+          }
         }
 
-        if (!mappingMatchesProveedor(mapping)) {
+        if (!mapping) {
+          const mappingBySearch = await getMappingByFlexibleSearch(payloadInfo);
+          if (mappingBySearch) {
+            mapping = mappingBySearch;
+            mappingFuente = 'flex';
+          }
+        }
+
+        if (mapping && mappingFuente !== 'mappingId' && !mappingMatchesProveedor(mapping)) {
           mapping = null;
         }
 
-        const codigoProveedorPreferido = payloadInfo.codigoProveedorEntrada || sanitizeCodigoProveedor(mapping?.supplierCode);
-        const nombreProveedorPreferido = payloadInfo.nombreProveedorEntrada || normalize(mapping?.supplierDesc);
-        const datosProveedorReales = Boolean(codigoProveedorPreferido && nombreProveedorPreferido);
+        const codigoProveedorPreferido =
+          sanitizeCodigoProveedor(payloadInfo.codigoProveedorEntrada) ||
+          sanitizeCodigoProveedor(mapping?.supplierCode) ||
+          null;
 
-        const codigoPDF = codigoProveedorPreferido || payloadInfo.codigoInterno || mapping?.alegraReference || 'N/A';
-        const nombrePDF = nombreProveedorPreferido || payloadInfo.nombreInterno || mapping?.alegraName || 'Sin descripción';
+        const nombreProveedorPreferido =
+          normalize(payloadInfo.nombreProveedorEntrada) ||
+          normalize(mapping?.supplierDesc || mapping?.alegraName) ||
+          null;
 
-        let origenEtiqueta = 'sin_mapeo';
-        if (mapping) {
-          origenEtiqueta = datosProveedorReales ? 'con_codigo_proveedor' : 'sin_codigo_proveedor';
-        }
+        const tieneMapping = Boolean(mapping);
+        const tieneCodigoProveedor = Boolean(codigoProveedorPreferido);
+
+        const codigoPDF = codigoProveedorPreferido
+          || payloadInfo.codigoInterno
+          || mapping?.alegraReference
+          || 'N/A';
+
+        const nombrePDF = nombreProveedorPreferido
+          || payloadInfo.nombreInterno
+          || mapping?.alegraName
+          || 'Sin descripción';
+
+        const origenEtiqueta = tieneMapping
+          ? (tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor')
+          : 'sin_mapeo';
 
         productosEnriquecidos.push({
           codigo_pdf: codigoPDF,
@@ -4593,11 +4669,11 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           confianza: mapping?.confidence || 0,
           factorConversion: payloadInfo.factorConversion,
           origen: origenEtiqueta,
-          datosProveedorReales,
+          datosProveedorReales: tieneMapping,
           mappingId: mapping?.id || payloadInfo.mappingId || null
         });
       } catch (mappingError) {
-        console.error(`❌ Error buscando mapping para ${producto.codigo}:`, mappingError.message);
+        console.error(`❌ Error buscando mapping para ${producto.codigo || producto.codigoInterno}:`, mappingError.message);
         productosEnriquecidos.push({
           codigo_pdf: producto.codigo || 'N/A',
           nombre_pdf: producto.nombre || 'Sin descripción',
@@ -4606,13 +4682,17 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           nombre_interno: producto.nombre || null,
           confianza: 0,
           factorConversion: producto.factorConversion || 1,
-          origen: 'error'
+          origen: 'error',
+          datosProveedorReales: false,
+          mappingId: producto.mappingId || producto.mapping_id || null
         });
       }
     }
 
     // ✅ SEPARAR productos según tengan o no código del proveedor
-    const productosConCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'con_codigo_proveedor');
+    const productosConCodigoProveedor = productosEnriquecidos.filter(p =>
+      p.origen === 'con_codigo_proveedor' || p.origen === 'interno_manual'
+    );
     const productosSinCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'sin_codigo_proveedor');
     const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
 
@@ -5276,9 +5356,9 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     // 4. Crear o actualizar mapping con el nuevo proveedor (sin eliminar históricos)
     console.log('🔄 Actualizando mapping manual prioritario...');
     let nuevoMapping;
-    try {
+      try {
       nuevoMapping = await prisma.supplierProductMapping.upsert({
-        where: {
+          where: {
           supplierCedula_supplierCode: {
             supplierCedula: nuevaCedula,
             supplierCode: alegraReference

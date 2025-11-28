@@ -561,12 +561,13 @@ export const alegraService = {
   },
 
   // Generar PDF de orden de compra
-  async generarPDFOrdenCompra(proveedor, productos) {
+  async generarPDFOrdenCompra(proveedor, productos, preferirDatosProveedor = true) {
     try {
       console.log('📄 Frontend: Generando PDF para:', proveedor);
       const response = await api.post('/alegra/orden-compra/generar-pdf', {
         proveedor,
-        productos
+        productos,
+        preferirDatosProveedor
       }, {
         responseType: 'blob' // Importante para recibir el PDF
       })

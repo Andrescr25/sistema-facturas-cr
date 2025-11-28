@@ -28,6 +28,7 @@ export default function ReporteProveedores() {
   
   // ✅ NUEVO: Estados para asignación en lote
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
+  const [preferenciasDatosProveedor, setPreferenciasDatosProveedor] = useState({})
   
   // ✅ NUEVO: Estados para edición de orden de compra
   const [productosEliminados, setProductosEliminados] = useState(new Set()) // Set de códigos eliminados
@@ -84,6 +85,18 @@ export default function ReporteProveedores() {
     } catch (err) {
       console.warn('Error cargando encargos especiales:', err)
     }
+  }
+
+  const usaDatosProveedor = (proveedorNombre) => {
+    const preferencia = preferenciasDatosProveedor[proveedorNombre]
+    return preferencia === undefined ? true : preferencia
+  }
+
+  const togglePreferenciaProveedor = (proveedorNombre, value) => {
+    setPreferenciasDatosProveedor(prev => ({
+      ...prev,
+      [proveedorNombre]: value
+    }))
   }
 
   const loadCantidadesGuardadas = async () => {
@@ -265,6 +278,7 @@ export default function ReporteProveedores() {
   const handleGenerarPDF = async (proveedor) => {
     try {
       setLoading(true)
+      const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
 
       // Preparar datos del proveedor con cantidades finales
       const productosParaPDF = proveedor.productos_faltantes
@@ -320,7 +334,7 @@ export default function ReporteProveedores() {
       }
 
       // ✅ OBTENER BLOB DIRECTAMENTE
-      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF)
+      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
 
       // ✅ CREAR URL Y DESCARGAR
       const url = window.URL.createObjectURL(blob)
@@ -357,6 +371,8 @@ export default function ReporteProveedores() {
     try {
       setLoading(true)
 
+      const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
+
       const productosParaPDF = cantidadSugerida.map(p => ({
         codigo: p.producto_codigo,
         nombre: p.producto_nombre,
@@ -367,7 +383,7 @@ export default function ReporteProveedores() {
         cantidad: p.cantidad_sugerida
       }))
 
-      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF)
+      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
 
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -1129,7 +1145,16 @@ export default function ReporteProveedores() {
                         <p className="text-gray-600">Orden de Compra</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap justify-end">
+                      <label className="flex items-center text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md">
+                        <input
+                          type="checkbox"
+                          className="mr-2"
+                          checked={usaDatosProveedor(proveedor.nombre)}
+                          onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)}
+                        />
+                        Usar datos del proveedor
+                      </label>
                       <button
                         onClick={() => {
                           const next = new Set(proveedoresColapsados)
