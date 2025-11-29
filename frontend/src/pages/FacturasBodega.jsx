@@ -172,30 +172,16 @@ export default function FacturasBodega() {
           )
         }
 
-        if (!seleccion) {
-          seleccion =
-            (activeTab === 'pendientes' ? pendientesApi[0] : listasApi[0]) ||
-            pendientesApi[0] ||
-            listasApi[0] ||
-            null
-          if (seleccion) {
-            setFaltantesDraft(buildDraftForFactura(seleccion))
-            setObservacionesAdicionales('')
-            setSelectedFacturaId(seleccion.alegra_id)
-          } else {
-            setFaltantesDraft({})
-            setObservacionesAdicionales('')
-            setSelectedFacturaId(null)
-          }
-        }
-
         if (seleccion) {
+          setFaltantesDraft(buildDraftForFactura(seleccion))
+          setFacturaSeleccionada(seleccion)
           localStorage.setItem(STORAGE_KEYS.selected, seleccion.alegra_id)
         } else {
+          setFacturaSeleccionada(null)
+          setFaltantesDraft({})
+          setSelectedFacturaId(null)
           localStorage.removeItem(STORAGE_KEYS.selected)
         }
-
-        setFacturaSeleccionada(seleccion || null)
       } catch (err) {
         console.error('❌ Error cargando facturas de bodega:', err)
         setError(err.message)
@@ -314,30 +300,6 @@ export default function FacturasBodega() {
     }
   }
 
-  const handleActualizarEstado = async (estado) => {
-    if (!facturaSeleccionada) return
-    try {
-      setRefreshing(true)
-      await alegraService.actualizarEstadoFacturaBodega(
-        facturaSeleccionada.alegra_id,
-        estado,
-        observacionesAdicionales
-      )
-      fetchFacturas(false)
-      alert(
-        estado === 'procesado'
-          ? 'Factura marcada como lista. ¡Buen trabajo!'
-          : 'Factura devuelta a pendientes.'
-      )
-    } catch (err) {
-      console.error('❌ Error actualizando estado de factura:', err)
-      alert(`Error actualizando estado: ${err.message}`)
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
-  const estadoFacturaSeleccionada = facturaSeleccionada?.estado_procesamiento || 'pendiente'
   const facturasMostradas = activeTab === 'pendientes' ? pendientes : listas
 
   return (
@@ -403,10 +365,10 @@ export default function FacturasBodega() {
                     onClick={() => {
                       setActiveTab(tab)
                       localStorage.setItem(STORAGE_KEYS.tab, tab)
-                      const source = tab === 'pendientes' ? pendientes : listas
-                      if (source.length > 0) {
-                        handleSeleccionarFactura(source[0])
-                      }
+                      setFacturaSeleccionada(null)
+                      setSelectedFacturaId(null)
+                      setFaltantesDraft({})
+                      localStorage.removeItem(STORAGE_KEYS.selected)
                     }}
                     className={`flex-1 btn ${
                       activeTab === tab
@@ -591,26 +553,14 @@ export default function FacturasBodega() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleRegistrarFaltantes}
-                        disabled={guardando || (!faltantesSeleccionados.length && !observacionesAdicionales.trim())}
+                        disabled={
+                          guardando ||
+                          (!faltantesSeleccionados.length && !observacionesAdicionales.trim())
+                        }
                         className="btn btn-primary"
                       >
                         {guardando ? 'Guardando...' : 'Registrar faltantes'}
                       </button>
-                      {estadoFacturaSeleccionada === 'pendiente' ? (
-                        <button
-                          onClick={() => handleActualizarEstado('procesado')}
-                          className="btn bg-green-600 text-white hover:bg-green-700"
-                        >
-                          Marcar como lista
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleActualizarEstado('pendiente')}
-                          className="btn btn-outline border-gray-300"
-                        >
-                          Volver a pendientes
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
