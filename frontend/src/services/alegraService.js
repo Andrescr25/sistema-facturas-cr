@@ -439,6 +439,34 @@ export const alegraService = {
   },
   */
 
+  async getFacturasBodega(params = {}) {
+    try {
+      const searchParams = new URLSearchParams();
+      if (params.dias) searchParams.append('dias', params.dias);
+      if (params.limit) searchParams.append('limit', params.limit);
+      const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
+
+      const response = await api.get(`/alegra/bodega/facturas${queryString}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Frontend: Error obteniendo facturas para bodega:', error);
+      throw new Error(`Error obteniendo facturas para bodega: ${error.message}`);
+    }
+  },
+
+  async actualizarEstadoFacturaBodega(alegraId, estado, observaciones) {
+    try {
+      const response = await api.post(`/alegra/bodega/facturas/${alegraId}/estado`, {
+        estado,
+        observaciones
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Frontend: Error actualizando estado de factura:', error);
+      throw new Error(`Error actualizando estado de factura: ${error.message}`);
+    }
+  },
+
   // Obtener reporte de faltantes por cliente
   async getReporteFaltantesCliente() {
     try {

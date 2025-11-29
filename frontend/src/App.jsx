@@ -3,8 +3,6 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Facturacion from './pages/Facturacion'
-import BuscarFactura from './pages/BuscarFactura'
-import RegistrarFaltantes from './pages/RegistrarFaltantes'
 import RelacionarProductos from './pages/RelacionarProductos'
 import ReporteProveedores from './pages/ReporteProveedores'
 import ReporteClientes from './pages/ReporteClientes'
@@ -14,6 +12,7 @@ import Reimpresion from './pages/Reimpresion'
 import Configuracion from './pages/Configuracion'
 import RotacionProductos from './pages/RotacionProductos'
 import PagosProveedores from './pages/PagosProveedores'
+import FacturasBodega from './pages/FacturasBodega'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -54,8 +53,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/facturacion" element={<Facturacion />} />
-        <Route path="/buscar-factura" element={<BuscarFactura />} />
-        <Route path="/registrar-faltantes/:facturaId?" element={<RegistrarFaltantes />} />
+        <Route path="/facturas-bodega" element={<FacturasBodega />} />
         <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />
         <Route path="/reportes/proveedores" element={<ReporteProveedores />} />
         <Route path="/reportes/clientes" element={<ReporteClientes />} />

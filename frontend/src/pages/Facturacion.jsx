@@ -7,6 +7,8 @@ import {
 import facturacionService from '../services/facturacionService';
 import { alegraService } from '../services/alegraService';
 
+const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha';
+
 export default function Facturacion() {
   // Estados principales
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -57,6 +59,7 @@ export default function Facturacion() {
   const [mostrarBusquedaProducto, setMostrarBusquedaProducto] = useState(false);
   const [cacheStats, setCacheStats] = useState(null);
   const [mensaje, setMensaje] = useState(null);
+  const [mostrarRecordatorioActualizacion, setMostrarRecordatorioActualizacion] = useState(false);
   
   // Modal de cantidad para móvil
   const [modalCantidadProducto, setModalCantidadProducto] = useState(false);
@@ -243,6 +246,18 @@ export default function Facturacion() {
     }
   }, [isMobile]);
 
+  useEffect(() => {
+    const hoy = new Date();
+    const dia = hoy.getDay(); // 0 = domingo, 1 = lunes
+    if (dia === 0 || dia === 1) {
+      const fechaHoy = hoy.toISOString().split('T')[0];
+      const fechaOculta = localStorage.getItem(RECORDATORIO_ACTUALIZACION_KEY);
+      if (fechaOculta !== fechaHoy) {
+        setMostrarRecordatorioActualizacion(true);
+      }
+    }
+  }, []);
+
   // Función para cargar facturas precargadas (definida antes de los useEffect que la llaman)
   const cargarFacturasPrecargadas = async () => {
     try {
@@ -381,6 +396,12 @@ export default function Facturacion() {
     } catch (error) {
       console.error('Error sincronizando:', error);
     }
+  };
+
+  const ocultarRecordatorioActualizacion = () => {
+    const fechaHoy = new Date().toISOString().split('T')[0];
+    localStorage.setItem(RECORDATORIO_ACTUALIZACION_KEY, fechaHoy);
+    setMostrarRecordatorioActualizacion(false);
   };
 
   const sincronizarEdiciones = async () => {
@@ -658,6 +679,7 @@ export default function Facturacion() {
           }]
         : [];
 
+      const descripcionBase = (producto.description || '').trim().slice(0, DESCRIPCION_MAX);
       const nuevoItem = {
         id: producto.id,
         reference: getReference(producto.reference),
@@ -666,7 +688,7 @@ export default function Facturacion() {
         price: producto.price || 0,
         tax: impuestoDefault,
         discount: 0,
-        description: (producto.description || producto.name || '').slice(0, DESCRIPCION_MAX)
+        description: descripcionBase || ''
       };
 
       setItems([...items, nuevoItem]);
@@ -1008,6 +1030,40 @@ export default function Facturacion() {
           </div>
         </div>
       </div>
+
+      {mostrarRecordatorioActualizacion && (
+        <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+          <div className="card border border-yellow-200 bg-gradient-to-r from-yellow-50 to-blue-50 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-yellow-600 flex-shrink-0" size={isMobile ? 20 : 24} />
+              <div>
+                <p className="text-base font-semibold text-yellow-900">
+                  Actualiza el sistema antes de facturar
+                </p>
+                <p className="text-sm text-yellow-800">
+                  Cada domingo y lunes recuerda sincronizar el catálogo para trabajar con precios y clientes actualizados.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <button
+                onClick={actualizarCache}
+                disabled={!isOnline || syncingCache}
+                className="btn btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-2"
+              >
+                <RefreshCw size={16} className={syncingCache ? 'animate-spin' : ''} />
+                Actualizar ahora
+              </button>
+              <button
+                onClick={ocultarRecordatorioActualizacion}
+                className="btn btn-ghost text-sm text-gray-600 hover:text-gray-900"
+              >
+                Ya actualicé
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mensaje flotante */}
       {mensaje && (
@@ -1622,7 +1678,7 @@ export default function Facturacion() {
                         maxLength={DESCRIPCION_MAX}
                         rows={isMobile ? 2 : 3}
                         className={`input w-full resize-none ${isMobile ? 'text-base' : 'text-sm'}`}
-                        placeholder="Detalle adicional que aparecerá en el PDF (opcional)"
+                        placeholder={item.name ? `*${item.name}*` : 'Detalle adicional que aparecerá en el PDF (opcional)'}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Visible en el PDF. Máximo {DESCRIPCION_MAX} caracteres.

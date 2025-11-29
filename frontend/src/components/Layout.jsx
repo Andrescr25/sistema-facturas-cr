@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  Home, 
-  Search, 
-  FileText, 
-  Users, 
+import {
+  Home,
+  FileText,
+  Users,
   TrendingUp,
   DollarSign,
   Link2,
@@ -13,7 +12,8 @@ import {
   Menu,
   X,
   Brain,
-  CreditCard
+  CreditCard,
+  ClipboardList
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 
@@ -24,15 +24,15 @@ export default function Layout({ children }) {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Facturación', href: '/facturacion', icon: FileText },
-    { name: 'Buscar Factura', href: '/buscar-factura', icon: Search },
+    { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
     { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
     { name: 'Rotación Productos', href: '/rotacion-productos', icon: Brain },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
-    { name: 'Reimpresión', href: '/reimpresion', icon: Printer }, 
-    { name: 'Configuración', href: '/configuracion', icon: Settings },
+    { name: 'Reimpresión', href: '/reimpresion', icon: Printer },
+    { name: 'Configuración', href: '/configuracion', icon: Settings }
   ]
 
   const isActive = (path) => location.pathname === path

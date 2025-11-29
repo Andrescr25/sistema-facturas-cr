@@ -1135,25 +1135,25 @@ export default function ReporteProveedores() {
               {proveedores.map((proveedor) => (
                 <div key={proveedor.id} className="card">
                   {/* Header del proveedor */}
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-green-100 rounded-lg mr-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4 pb-4 border-b border-gray-200">
+                    <div className="flex items-start md:items-center gap-3 w-full md:w-auto">
+                      <div className="p-2 bg-green-100 rounded-lg">
                         <Users className="text-green-600" size={24} />
                       </div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-900">{proveedor.nombre}</h3>
-                        <p className="text-gray-600">Orden de Compra</p>
+                      <div className="min-w-0">
+                        <h3 className="text-xl font-semibold text-gray-900 break-words">{proveedor.nombre}</h3>
+                        <p className="text-gray-600 whitespace-nowrap md:whitespace-normal">Orden de Compra</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 flex-wrap justify-end">
-                      <label className="flex items-center text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md">
+                    <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full md:w-auto md:justify-end">
+                      <label className="flex items-center justify-between sm:justify-start text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md w-full sm:w-auto gap-2">
+                        <span className="flex-1 text-left">Usar datos del proveedor</span>
                         <input
                           type="checkbox"
-                          className="mr-2"
+                          className="toggle toggle-sm"
                           checked={usaDatosProveedor(proveedor.nombre)}
                           onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)}
                         />
-                        Usar datos del proveedor
                       </label>
                       <button
                         onClick={() => {
@@ -1161,21 +1161,21 @@ export default function ReporteProveedores() {
                           if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
                           setProveedoresColapsados(next)
                         }}
-                        className="btn btn-outline whitespace-nowrap"
+                        className="btn btn-outline whitespace-nowrap w-full sm:w-auto"
                         title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
                       >
                         {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
                       </button>
                       <button
                         onClick={() => abrirModalAgregarProducto(proveedor)}
-                        className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                        className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                       >
                         <Package size={16} className="mr-2" />
                         + Agregar Producto
                       </button>
                       <button
                         onClick={() => handleGenerarPDF(proveedor)}
-                        className="btn bg-green-600 text-white border-green-600 hover:bg-green-700"
+                        className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 w-full sm:w-auto"
                       >
                         <Download size={16} className="mr-2" />
                         Generar PDF
