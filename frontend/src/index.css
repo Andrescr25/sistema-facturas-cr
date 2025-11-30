@@ -14,14 +14,20 @@
     /* Soporte para notch/isla dinámica en iOS */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     /* Prevenir scroll bounce en iOS */
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
     /* Ocultar barra de dirección en scroll */
     min-height: 100vh;
     min-height: -webkit-fill-available;
+    /* Evitar gestos inesperados en móvil */
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
   }
 
   html {
     height: -webkit-fill-available;
+    overscroll-behavior: none;
+    touch-action: pan-y;
   }
 }
 
@@ -96,6 +102,25 @@
 
 .fade-in {
   animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.check-pop {
+  animation: checkPop 0.45s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 
 .spinner {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ClipboardList,
   CheckCircle,
@@ -14,6 +14,7 @@ import {
 import { alegraService } from '../services/alegraService'
 
 const REFRESH_INTERVAL = 60 * 1000 // 60 segundos
+const CHECK_ANIMATION_DURATION = 600
 const STORAGE_KEYS = {
   data: 'facturasBodega:data',
   selected: 'facturasBodega:selectedId',
@@ -90,6 +91,8 @@ export default function FacturasBodega() {
   const [error, setError] = useState(null)
   const [ultimaSync, setUltimaSync] = useState(null)
   const [activeTab, setActiveTab] = useState('pendientes')
+  const [checkAnimations, setCheckAnimations] = useState({})
+  const checkAnimationTimeouts = useRef({})
 
   useEffect(() => {
     try {
@@ -128,6 +131,14 @@ export default function FacturasBodega() {
       }
     } catch (storageError) {
       console.warn('⚠️ No se pudo cargar cache local de facturas:', storageError)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      Object.values(checkAnimationTimeouts.current).forEach((timeoutId) => {
+        clearTimeout(timeoutId)
+      })
     }
   }, [])
 
@@ -224,9 +235,25 @@ export default function FacturasBodega() {
     })
   }
 
+  const triggerCheckAnimation = (key) => {
+    if (checkAnimationTimeouts.current[key]) {
+      clearTimeout(checkAnimationTimeouts.current[key])
+    }
+    setCheckAnimations((prev) => ({ ...prev, [key]: true }))
+    checkAnimationTimeouts.current[key] = setTimeout(() => {
+      setCheckAnimations((prev) => {
+        const updated = { ...prev }
+        delete updated[key]
+        return updated
+      })
+      delete checkAnimationTimeouts.current[key]
+    }, CHECK_ANIMATION_DURATION)
+  }
+
   const marcarModoFaltante = (key, modo, cantidadFactura) => {
     if (modo === 'ninguno') {
       actualizarEntradaFaltante(key, () => ({ tipo: 'ninguno', cantidadFaltante: 0 }))
+      triggerCheckAnimation(key)
     } else if (modo === 'total') {
       actualizarEntradaFaltante(key, () => ({
         tipo: 'total',
@@ -447,17 +474,31 @@ export default function FacturasBodega() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
-                  className={`btn ${
-                    draft?.tipo === 'ninguno'
-                      ? 'btn-primary'
-                      : 'btn-outline border-gray-200 text-gray-600'
-                  }`}
-                >
-                  Completo
-                </button>
+                <div className="relative inline-flex">
+                  <button
+                    type="button"
+                    onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
+                    className={`btn pr-8 ${
+                      draft?.tipo === 'ninguno'
+                        ? 'btn-primary'
+                        : 'btn-outline border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    Completo
+                  </button>
+                  <span
+                    className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${
+                      draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+                    }`}
+                  >
+                    <CheckCircle
+                      size={18}
+                      className={`text-green-500 ${
+                        checkAnimations[key] ? 'check-pop' : ''
+                      }`}
+                    />
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
