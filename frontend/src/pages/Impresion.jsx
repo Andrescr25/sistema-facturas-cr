@@ -1,5 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
-import { Printer, FileText, AlertCircle, Edit, Eye, Save, RotateCcw, CheckCircle, Plus, Search, Trash2, Loader, Package } from 'lucide-react'
+import {
+  Printer,
+  FileText,
+  AlertCircle,
+  Edit,
+  Eye,
+  Save,
+  RotateCcw,
+  CheckCircle,
+  Plus,
+  Search,
+  Trash2,
+  Loader,
+  Package,
+  Inbox
+} from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
 function extractStringValue(value) {
