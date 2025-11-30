@@ -302,39 +302,238 @@ export default function FacturasBodega() {
 
   const facturasMostradas = activeTab === 'pendientes' ? pendientes : listas
 
-  return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <ClipboardList className="text-blue-600" size={32} />
-            Facturas en Bodega
-          </h1>
-          <p className="text-gray-600">
-            Revisa pedidos pendientes, registra faltantes y marca facturas como listas desde un
-            solo lugar.
-          </p>
+  const renderHeader = () => (
+    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <ClipboardList className="text-blue-600" size={32} />
+          Facturas en Bodega
+        </h1>
+        <p className="text-gray-600">Mantén el foco en una factura a la vez.</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => fetchFacturas(false)}
+          className="btn btn-outline flex items-center gap-2"
+          disabled={refreshing}
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Actualizando...' : 'Refrescar'}
+        </button>
+        <div className="text-xs text-gray-500">
+          Última sincronización:{' '}
+          {ultimaSync
+            ? new Date(ultimaSync).toLocaleTimeString('es-CR', {
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '—'}
         </div>
-        <div className="flex items-center gap-2">
+      </div>
+    </div>
+  )
+
+  const renderListado = () => (
+    <div className="card space-y-6">
+      <div className="flex items-center gap-2">
+        {['pendientes', 'listas'].map((tab) => (
           <button
-            onClick={() => fetchFacturas(false)}
-            className="btn btn-outline flex items-center gap-2"
-            disabled={refreshing}
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab)
+              localStorage.setItem(STORAGE_KEYS.tab, tab)
+            }}
+            className={`flex-1 btn text-lg py-3 ${
+              activeTab === tab ? 'btn-primary' : 'btn-outline border-gray-200 text-gray-600'
+            }`}
           >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            {refreshing ? 'Actualizando...' : 'Refrescar'}
+            {tab === 'pendientes' ? 'Pendientes' : 'Listas'}
           </button>
-          <div className="text-xs text-gray-500">
-            Última sincronización:{' '}
-            {ultimaSync
-              ? new Date(ultimaSync).toLocaleTimeString('es-CR', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              : '—'}
+        ))}
+      </div>
+
+      {facturasMostradas.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          {activeTab === 'pendientes' ? (
+            <>
+              <CheckCircle className="mx-auto mb-2 text-green-500" size={40} />
+              Todo está al día en bodega.
+            </>
+          ) : (
+            <p>No hay facturas listas en este rango.</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {facturasMostradas.map((factura) => (
+            <button
+              key={`${activeTab}-${factura.alegra_id}`}
+              onClick={() => handleSeleccionarFactura(factura)}
+              className="w-full text-left border border-gray-200 hover:border-blue-300 hover:shadow-lg rounded-3xl px-6 py-5 transition bg-white"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase text-gray-500">Factura</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {factura.numero_completo || factura.numero_factura}
+                  </p>
+                </div>
+                <span className="text-sm font-medium text-blue-600">
+                  {formatCurrency(factura.total)}
+                </span>
+              </div>
+              <p className="text-lg text-gray-700 mt-2">{factura.cliente_nombre}</p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderDetalle = () => (
+    <div className="space-y-6">
+      <button
+        className="text-blue-600 flex items-center gap-2 text-sm"
+        onClick={() => {
+          setFacturaSeleccionada(null)
+          setSelectedFacturaId(null)
+          setFaltantesDraft({})
+          localStorage.removeItem(STORAGE_KEYS.selected)
+        }}
+      >
+        ← Volver al listado
+      </button>
+
+      <div className="bg-white rounded-3xl shadow overflow-hidden">
+        <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-wide text-gray-500">Cliente</p>
+            <p className="text-2xl font-bold text-gray-900">{facturaSeleccionada.cliente_nombre}</p>
+            <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+              <CalendarDays size={14} />
+              {formatDate(facturaSeleccionada.fecha_emision)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs uppercase text-gray-500">Factura</p>
+            <p className="text-3xl font-bold text-blue-700">
+              {facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}
+            </p>
+            <p className="text-sm text-gray-500">Total {formatCurrency(facturaSeleccionada.total)}</p>
           </div>
         </div>
       </div>
+
+      <div className="space-y-3">
+        {facturaSeleccionada.items?.map((item, index) => {
+          const key = getItemIdFromFacturaItem(item) || `item-${index}`
+          const draft = faltantesDraft[key]
+          const cantidadFactura = Number(item?.cantidad ?? item?.quantity ?? 0)
+
+          return (
+            <div
+              key={`${key}-${index}`}
+              className="border border-gray-200 rounded-3xl p-5 shadow-sm bg-white space-y-4"
+            >
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-xl font-semibold text-gray-900">{item.nombre || item.name}</p>
+                  <p className="text-sm text-gray-500">Referencia: {draft?.referencia || 'N/A'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Cantidad en factura</p>
+                  <p className="text-3xl font-bold text-gray-900">{cantidadFactura}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
+                  className={`btn ${
+                    draft?.tipo === 'ninguno'
+                      ? 'btn-primary'
+                      : 'btn-outline border-gray-200 text-gray-600'
+                  }`}
+                >
+                  Completo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
+                  className={`btn ${
+                    draft?.tipo === 'total'
+                      ? 'bg-orange-500 border-orange-500 text-white'
+                      : 'btn-outline border-orange-200 text-orange-600'
+                  }`}
+                >
+                  No llegó
+                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max={cantidadFactura}
+                    value={draft?.cantidadFaltante ?? 0}
+                    onChange={(e) => actualizarCantidadFaltante(key, e.target.value, cantidadFactura)}
+                    className="input w-24 text-lg"
+                  />
+                  <span className="text-sm text-gray-500">faltaron</span>
+                </div>
+              </div>
+
+              <textarea
+                rows={2}
+                className="input w-full text-base"
+                placeholder="Observación del producto (opcional)"
+                value={draft?.observaciones || ''}
+                onChange={(e) => actualizarObservacionItem(key, e.target.value)}
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="card space-y-4">
+        <div>
+          <label className="label text-sm">Observaciones generales</label>
+          <textarea
+            rows={3}
+            className="input w-full text-base"
+            placeholder="Notas generales sobre este pedido..."
+            value={observacionesAdicionales}
+            onChange={(e) => {
+              setObservacionesAdicionales(e.target.value)
+              localStorage.setItem(STORAGE_KEYS.observaciones, e.target.value)
+            }}
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-3 items-center justify-between bg-gray-50 rounded-3xl px-4 py-3">
+          <div>
+            <p className="text-sm text-gray-600">Faltantes seleccionados</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {faltantesSeleccionados.length} producto
+              {faltantesSeleccionados.length !== 1 && 's'} • {totalFaltantes} unidades
+            </p>
+          </div>
+          <button
+            onClick={handleRegistrarFaltantes}
+            disabled={
+              guardando || (!faltantesSeleccionados.length && !observacionesAdicionales.trim())
+            }
+            className="btn btn-primary text-lg"
+          >
+            {guardando ? 'Guardando...' : 'Registrar faltantes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      {renderHeader()}
 
       {error && (
         <div className="card border border-red-200 bg-red-50 flex items-center gap-3 text-red-700">
@@ -348,226 +547,10 @@ export default function FacturasBodega() {
           <div className="spinner mx-auto mb-4"></div>
           <p className="text-gray-600">Cargando facturas recientes...</p>
         </div>
+      ) : facturaSeleccionada ? (
+        renderDetalle()
       ) : (
-        <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 space-y-4">
-            <div className="card h-full">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Inbox className="text-blue-600" size={20} />
-                  <h2 className="text-lg font-semibold text-gray-900">Listado de facturas</h2>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                {['pendientes', 'listas'].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => {
-                      setActiveTab(tab)
-                      localStorage.setItem(STORAGE_KEYS.tab, tab)
-                      setFacturaSeleccionada(null)
-                      setSelectedFacturaId(null)
-                      setFaltantesDraft({})
-                      localStorage.removeItem(STORAGE_KEYS.selected)
-                    }}
-                    className={`flex-1 btn ${
-                      activeTab === tab
-                        ? 'btn-primary'
-                        : 'btn-outline border-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {tab === 'pendientes' ? 'Pendientes' : 'Listas'}
-                  </button>
-                ))}
-              </div>
-              {facturasMostradas.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">
-                  {activeTab === 'pendientes' ? (
-                    <>
-                      <CheckCircle className="mx-auto mb-2 text-green-500" size={28} />
-                      Todo está al día en bodega.
-                    </>
-                  ) : (
-                    <p>No hay facturas listas todavía.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[640px] overflow-y-auto pr-1">
-                  {facturasMostradas.map((factura) => {
-                    const isActive =
-                      facturaSeleccionada &&
-                      String(facturaSeleccionada.alegra_id) === String(factura.alegra_id)
-                    return (
-                      <button
-                        key={`${activeTab}-${factura.alegra_id}`}
-                        onClick={() => handleSeleccionarFactura(factura)}
-                        className={`w-full text-left border rounded-2xl px-4 py-3 transition ${
-                          isActive
-                            ? 'border-blue-400 bg-blue-50 shadow-sm'
-                            : 'border-gray-200 hover:border-blue-200 bg-white'
-                        }`}
-                      >
-                        <p className="font-semibold text-gray-900">
-                          {factura.numero_completo || factura.numero_factura}
-                        </p>
-                        <p className="text-sm text-gray-500">{factura.cliente_nombre}</p>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="lg:col-span-7 space-y-4">
-            {!facturaSeleccionada ? (
-              <div className="card text-center py-12">
-                <Package className="mx-auto text-gray-300 mb-3" size={48} />
-                <p className="text-gray-600">
-                  Selecciona una factura para ver sus productos y registrar faltantes.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="bg-white rounded-3xl shadow overflow-hidden">
-                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm uppercase tracking-wide text-gray-500">
-                        Distribuidora Tachi
-                      </p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {facturaSeleccionada.cliente_nombre}
-                      </p>
-                      <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-                        <CalendarDays size={14} />
-                        {formatDate(facturaSeleccionada.fecha_emision)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase text-gray-500">Factura</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}
-                      </p>
-                      <p className="text-sm text-gray-500">Total {formatCurrency(facturaSeleccionada.total)}</p>
-                    </div>
-                  </div>
-
-                  <div className="px-4 py-5 space-y-4 bg-white">
-                    {facturaSeleccionada.items?.map((item, index) => {
-                      const key = getItemIdFromFacturaItem(item) || `item-${index}`
-                      const draft = faltantesDraft[key]
-                      const cantidadFactura = Number(item?.cantidad ?? item?.quantity ?? 0)
-
-                      return (
-                        <div
-                          key={`${key}-${index}`}
-                          className="border border-gray-200 rounded-2xl p-4 shadow-sm"
-                        >
-                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div>
-                              <p className="font-semibold text-gray-900">{item.nombre || item.name}</p>
-                              <p className="text-xs text-gray-500">
-                                Ref: {draft?.referencia || 'N/A'}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500">Cantidad factura</p>
-                              <p className="text-2xl font-bold text-gray-900">{cantidadFactura}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
-                              className={`btn btn-sm ${
-                                draft?.tipo === 'ninguno'
-                                  ? 'btn-primary'
-                                  : 'btn-outline border-gray-200 text-gray-600'
-                              }`}
-                            >
-                              Completo
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
-                              className={`btn btn-sm ${
-                                draft?.tipo === 'total'
-                                  ? 'bg-orange-500 border-orange-500 text-white'
-                                  : 'btn-outline border-orange-200 text-orange-600'
-                              }`}
-                            >
-                              No llegó
-                            </button>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max={cantidadFactura}
-                                value={draft?.cantidadFaltante ?? 0}
-                                onChange={(e) =>
-                                  actualizarCantidadFaltante(key, e.target.value, cantidadFactura)
-                                }
-                                className="input input-sm w-24"
-                              />
-                              <span className="text-xs text-gray-500">faltaron</span>
-                            </div>
-                          </div>
-
-                          <textarea
-                            rows={2}
-                            className="input w-full mt-3 text-sm"
-                            placeholder="Observación opcional (ej. producto dañado, pendiente de otro pedido)"
-                            value={draft?.observaciones || ''}
-                            onChange={(e) => actualizarObservacionItem(key, e.target.value)}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="card space-y-4">
-                  <div>
-                    <label className="label text-sm">Observaciones generales</label>
-                    <textarea
-                      rows={3}
-                      className="input w-full"
-                      placeholder="Notas generales sobre esta factura (ej. entregas parciales, referencias internas, etc.)"
-                      value={observacionesAdicionales}
-                      onChange={(e) => {
-                        setObservacionesAdicionales(e.target.value)
-                        localStorage.setItem(STORAGE_KEYS.observaciones, e.target.value)
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 items-center justify-between bg-gray-50 rounded-2xl px-4 py-3">
-                    <div>
-                      <p className="text-sm text-gray-600">Faltantes seleccionados</p>
-                      <p className="text-xl font-semibold text-gray-900">
-                        {faltantesSeleccionados.length} producto
-                        {faltantesSeleccionados.length !== 1 && 's'} • {totalFaltantes} unidades
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={handleRegistrarFaltantes}
-                        disabled={
-                          guardando ||
-                          (!faltantesSeleccionados.length && !observacionesAdicionales.trim())
-                        }
-                        className="btn btn-primary"
-                      >
-                        {guardando ? 'Guardando...' : 'Registrar faltantes'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        renderListado()
       )}
     </div>
   )
