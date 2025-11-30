@@ -6,32 +6,6 @@ function sanitizeNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER, fallbac
   return Math.min(Math.max(parsed, min), max);
 }
 
-function inferPackSize(...texts) {
-  for (const text of texts) {
-    if (!text) continue;
-    const value = text.toString();
-
-    const matchMultipack = value.match(/(\d+)\s*[xX]\s*(\d+)/);
-    if (matchMultipack) {
-      const first = parseInt(matchMultipack[1], 10);
-      const second = parseInt(matchMultipack[2], 10);
-      const candidate = Math.max(first, second);
-      if (candidate > 1) {
-        return candidate;
-      }
-    }
-
-    const matchUnits = value.match(/(\d+)\s*(?:pz|pza|pzas|pzs|uds|und|unid|pcs)/i);
-    if (matchUnits) {
-      const units = parseInt(matchUnits[1], 10);
-      if (units > 1) {
-        return units;
-      }
-    }
-  }
-  return null;
-}
-
 async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
   const semanasAnalisis = sanitizeNumber(semanas, { min: 1, max: 52, fallback: 12 });
   const limiteProductos = sanitizeNumber(limite, { min: 5, max: 200, fallback: 50 });
@@ -45,20 +19,22 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
       ),
       ultimo_costos_proveedor AS (
         SELECT DISTINCT ON (alegra_item_id)
-          alegra_item_id::int AS alegra_id,
+          alegra_item_id AS alegra_id,
           precio_unitario::numeric AS costo_reciente,
           descripcion AS descripcion_proveedor
         FROM productos_factura_proveedor
         WHERE alegra_item_id IS NOT NULL
+          AND alegra_item_id ~ '^[0-9]+$'
           AND precio_unitario IS NOT NULL
         ORDER BY alegra_item_id, id DESC
       ),
       promedio_costos_proveedor AS (
         SELECT 
-          alegra_item_id::int AS alegra_id,
+          alegra_item_id AS alegra_id,
           AVG(precio_unitario)::numeric AS costo_promedio
         FROM productos_factura_proveedor
         WHERE alegra_item_id IS NOT NULL
+          AND alegra_item_id ~ '^[0-9]+$'
           AND precio_unitario IS NOT NULL
         GROUP BY alegra_item_id
       ),
@@ -71,6 +47,17 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         WHERE precio_asignado IS NOT NULL
           AND precio_asignado > 0
         GROUP BY producto_id
+      ),
+      factores_conversion AS (
+        SELECT 
+          alegra_item_id AS alegra_id,
+          MAX(factor_conversion)::numeric AS factor_conversion
+        FROM supplier_product_mapping
+        WHERE alegra_item_id IS NOT NULL
+          AND alegra_item_id ~ '^[0-9]+$'
+          AND factor_conversion IS NOT NULL
+          AND factor_conversion > 0
+        GROUP BY alegra_item_id
       )
       SELECT
         d.producto_id,
@@ -101,13 +88,15 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         COALESCE(ucp.costo_reciente, pcp.costo_promedio) AS proveedor_cost,
         cf.precio_asignado_reciente,
         cf.precio_asignado_promedio,
-        ucp.descripcion_proveedor
+        ucp.descripcion_proveedor,
+        fcm.factor_conversion
       FROM datos d
       LEFT JOIN productos p ON p.id = d.producto_id
       LEFT JOIN alegra_products_cache ap ON ap.alegra_id = p.alegra_id::text
-      LEFT JOIN ultimo_costos_proveedor ucp ON ucp.alegra_id = p.alegra_id
-      LEFT JOIN promedio_costos_proveedor pcp ON pcp.alegra_id = p.alegra_id
+      LEFT JOIN ultimo_costos_proveedor ucp ON ucp.alegra_id = p.alegra_id::text
+      LEFT JOIN promedio_costos_proveedor pcp ON pcp.alegra_id = p.alegra_id::text
       LEFT JOIN costos_faltantes cf ON cf.producto_id = d.producto_id
+      LEFT JOIN factores_conversion fcm ON fcm.alegra_id = p.alegra_id::text
       GROUP BY 
         d.producto_id, 
         d.producto_codigo, 
@@ -118,7 +107,8 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         pcp.costo_promedio,
         cf.precio_asignado_reciente,
         cf.precio_asignado_promedio,
-        ucp.descripcion_proveedor
+        ucp.descripcion_proveedor,
+        fcm.factor_conversion
       ORDER BY SUM(d.margen_total) DESC, SUM(d.cantidad_faltante_total) DESC
       LIMIT $1
     `,
@@ -144,11 +134,11 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
     const costoProveedorRaw = Number(row.proveedor_cost) || 0;
     const precioAsignadoReciente = Number(row.precio_asignado_reciente) || 0;
     const precioAsignadoPromedio = Number(row.precio_asignado_promedio) || 0;
-    const packSize = inferPackSize(row.producto_nombre, row.descripcion_proveedor);
+    const factorConversion = Number(row.factor_conversion) && Number(row.factor_conversion) > 0
+      ? Number(row.factor_conversion)
+      : 1;
     const costoProveedor =
-      packSize && packSize > 1 && costoProveedorRaw > 0
-        ? costoProveedorRaw / packSize
-        : costoProveedorRaw;
+      costoProveedorRaw > 0 ? costoProveedorRaw / factorConversion : costoProveedorRaw;
     const faltantesTotal = Number(row.faltantes_total) || 0;
     const semanasConMovimiento = historial.length || 1;
 
