@@ -805,6 +805,7 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
     console.log('📋 Obteniendo facturas pendientes de reimpresión...');
 
     const { query } = require('../config/database');
+    await ensureReimpresionSchema(query);
 
     const result = await query(`
       SELECT
@@ -880,6 +881,7 @@ router.get('/facturas/procesadas-reimpresion', async (req, res) => {
     console.log('📋 Obteniendo facturas procesadas (últimos 7 días)...');
 
     const { query } = require('../config/database');
+    await ensureReimpresionSchema(query);
 
     const result = await query(`
       SELECT
@@ -3083,6 +3085,7 @@ router.get('/reimpresion/pendientes', async (req, res) => {
     console.log('📋 Obteniendo facturas pendientes de reimpresión...');
 
     const { query } = require('../config/database');
+    await ensureReimpresionSchema(query);
 
     const result = await query(`
       SELECT 

@@ -94,7 +94,9 @@ CREATE TABLE facturas_reimpresion (
     ajustes_realizados JSONB NOT NULL,
     estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'procesada')),
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_procesamiento TIMESTAMP
+    fecha_procesamiento TIMESTAMP,
+    categoria VARCHAR(32) DEFAULT 'requiere_cambios',
+    total_ajustes INTEGER DEFAULT 0
 );
 
 -- Índices para optimizar consultas
