@@ -6,6 +6,32 @@ function sanitizeNumber(value, { min = 0, max = Number.MAX_SAFE_INTEGER, fallbac
   return Math.min(Math.max(parsed, min), max);
 }
 
+function inferPackSize(...texts) {
+  for (const text of texts) {
+    if (!text) continue;
+    const value = text.toString();
+
+    const matchMultipack = value.match(/(\d+)\s*[xX]\s*(\d+)/);
+    if (matchMultipack) {
+      const first = parseInt(matchMultipack[1], 10);
+      const second = parseInt(matchMultipack[2], 10);
+      const candidate = Math.max(first, second);
+      if (candidate > 1) {
+        return candidate;
+      }
+    }
+
+    const matchUnits = value.match(/(\d+)\s*(?:pz|pza|pzas|pzs|uds|und|unid|pcs)/i);
+    if (matchUnits) {
+      const units = parseInt(matchUnits[1], 10);
+      if (units > 1) {
+        return units;
+      }
+    }
+  }
+  return null;
+}
+
 async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
   const semanasAnalisis = sanitizeNumber(semanas, { min: 1, max: 52, fallback: 12 });
   const limiteProductos = sanitizeNumber(limite, { min: 5, max: 200, fallback: 50 });
@@ -16,6 +42,35 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         SELECT *
         FROM rotacion_productos
         WHERE fecha_inicio_semana >= CURRENT_DATE - ($2 * INTERVAL '1 week')
+      ),
+      ultimo_costos_proveedor AS (
+        SELECT DISTINCT ON (alegra_item_id)
+          alegra_item_id::int AS alegra_id,
+          precio_unitario::numeric AS costo_reciente,
+          descripcion AS descripcion_proveedor
+        FROM productos_factura_proveedor
+        WHERE alegra_item_id IS NOT NULL
+          AND precio_unitario IS NOT NULL
+        ORDER BY alegra_item_id, id DESC
+      ),
+      promedio_costos_proveedor AS (
+        SELECT 
+          alegra_item_id::int AS alegra_id,
+          AVG(precio_unitario)::numeric AS costo_promedio
+        FROM productos_factura_proveedor
+        WHERE alegra_item_id IS NOT NULL
+          AND precio_unitario IS NOT NULL
+        GROUP BY alegra_item_id
+      ),
+      costos_faltantes AS (
+        SELECT 
+          producto_id,
+          MAX(precio_asignado)::numeric AS precio_asignado_reciente,
+          AVG(precio_asignado)::numeric AS precio_asignado_promedio
+        FROM faltantes
+        WHERE precio_asignado IS NOT NULL
+          AND precio_asignado > 0
+        GROUP BY producto_id
       )
       SELECT
         d.producto_id,
@@ -42,11 +97,28 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         ) AS historial,
         MAX(p.alegra_id) AS producto_alegra_id,
         MAX(p.precio_unitario) AS producto_precio_unitario,
-        MAX(ap.cost) AS alegra_cost
+        MAX(ap.cost) AS alegra_cost,
+        COALESCE(ucp.costo_reciente, pcp.costo_promedio) AS proveedor_cost,
+        cf.precio_asignado_reciente,
+        cf.precio_asignado_promedio,
+        ucp.descripcion_proveedor
       FROM datos d
       LEFT JOIN productos p ON p.id = d.producto_id
       LEFT JOIN alegra_products_cache ap ON ap.alegra_id = p.alegra_id::text
-      GROUP BY d.producto_id, d.producto_codigo, d.producto_nombre, d.proveedor_id, d.proveedor_nombre
+      LEFT JOIN ultimo_costos_proveedor ucp ON ucp.alegra_id = p.alegra_id
+      LEFT JOIN promedio_costos_proveedor pcp ON pcp.alegra_id = p.alegra_id
+      LEFT JOIN costos_faltantes cf ON cf.producto_id = d.producto_id
+      GROUP BY 
+        d.producto_id, 
+        d.producto_codigo, 
+        d.producto_nombre, 
+        d.proveedor_id, 
+        d.proveedor_nombre,
+        ucp.costo_reciente,
+        pcp.costo_promedio,
+        cf.precio_asignado_reciente,
+        cf.precio_asignado_promedio,
+        ucp.descripcion_proveedor
       ORDER BY SUM(d.margen_total) DESC, SUM(d.cantidad_faltante_total) DESC
       LIMIT $1
     `,
@@ -69,6 +141,14 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
     const margenTotalRaw = Number(row.margen_total) || 0;
     const costoProducto = Number(row.producto_precio_unitario) || 0;
     const costoAlegra = Number(row.alegra_cost) || 0;
+    const costoProveedorRaw = Number(row.proveedor_cost) || 0;
+    const precioAsignadoReciente = Number(row.precio_asignado_reciente) || 0;
+    const precioAsignadoPromedio = Number(row.precio_asignado_promedio) || 0;
+    const packSize = inferPackSize(row.producto_nombre, row.descripcion_proveedor);
+    const costoProveedor =
+      packSize && packSize > 1 && costoProveedorRaw > 0
+        ? costoProveedorRaw / packSize
+        : costoProveedorRaw;
     const faltantesTotal = Number(row.faltantes_total) || 0;
     const semanasConMovimiento = historial.length || 1;
 
@@ -76,9 +156,14 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
 
     const unitCostFromTotals =
       cantidadTotal > 0 && costoTotalRaw > 0 ? costoTotalRaw / cantidadTotal : 0;
-    const unitCostFallbackCandidates = [unitCostFromTotals, costoAlegra, costoProducto].filter(
-      (value) => value && value > 0
-    );
+    const unitCostFallbackCandidates = [
+      unitCostFromTotals,
+      costoProveedor,
+      precioAsignadoReciente,
+      precioAsignadoPromedio,
+      costoAlegra,
+      costoProducto
+    ].filter((value) => value && value > 0);
     const unitCostFallback = unitCostFallbackCandidates.length > 0 ? unitCostFallbackCandidates[0] : 0;
 
     const costoTotalCalculado =
