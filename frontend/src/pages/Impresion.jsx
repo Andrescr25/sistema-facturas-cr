@@ -120,8 +120,9 @@ const getTaxesArray = (tax) => {
   return [tax]
 }
 
-export default function Reimpresion() {
-  const [activeTab, setActiveTab] = useState('pendientes')
+export default function Impresion() {
+const [activeTab, setActiveTab] = useState('requiereCambios')
+  const [facturasSinCambios, setFacturasSinCambios] = useState([])
   const [facturasPendientes, setFacturasPendientes] = useState([])
   const [facturasProcesadas, setFacturasProcesadas] = useState([])
   const [loading, setLoading] = useState(false)
@@ -143,10 +144,10 @@ export default function Reimpresion() {
   const cacheProductosRef = useRef(new Map())
 
   useEffect(() => {
-    if (activeTab === 'pendientes') {
-      loadFacturasPendientes()
-    } else if (activeTab === 'procesadas') {
+    if (activeTab === 'procesadas') {
       loadFacturasProcesadas()
+    } else {
+      loadFacturasPendientes()
     }
   }, [activeTab])
 
@@ -217,7 +218,10 @@ export default function Reimpresion() {
       const result = await alegraService.getFacturasPendientesReimpresion()
 
       if (result.success) {
-        setFacturasPendientes(result.data)
+        const sinCambios = result.data?.sin_cambios || []
+        const requiereCambios = result.data?.requiere_cambios || []
+        setFacturasSinCambios(sinCambios)
+        setFacturasPendientes(requiereCambios)
       } else {
         setError(result.message || 'Error cargando facturas pendientes')
       }
@@ -582,6 +586,40 @@ export default function Reimpresion() {
       }
     } catch (error) {
       alert(`❌ Error: ${error.message}`)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  const handleProcesarSinCambios = async (factura, imprimirDespues = false) => {
+    if (!factura) return
+
+    const confirmacion = window.confirm(
+      `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
+    )
+    if (!confirmacion) return
+
+    try {
+      setProcesando(true)
+      await alegraService.procesarFacturaIndividual({
+        alegra_id: factura.alegra_id,
+        numero_factura: factura.numero_factura,
+        cliente_nombre: factura.cliente_nombre,
+        fecha_emision: factura.fecha_emision,
+        ajustes: factura.ajustes_realizados || [],
+        estado: 'resuelto',
+        marcar_como_procesada: true
+      })
+
+      if (imprimirDespues) {
+        await alegraService.visualizarPDFFactura(factura.alegra_id)
+      }
+
+      await loadFacturasPendientes()
+      loadFacturasProcesadas()
+      alert(`✅ Factura ${factura.numero_factura} enviada al historial de impresión`)
+    } catch (error) {
+      alert(`❌ Error procesando factura: ${error.message}`)
     } finally {
       setProcesando(false)
     }
@@ -1092,10 +1130,10 @@ export default function Reimpresion() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center">
             <Printer className="mr-3" size={32} />
-            Sistema de Reimpresión Individual
+            Centro de Impresión
           </h1>
           <p className="text-gray-600 mt-1">
-            Procesa facturas una por una con actualización automática de precios
+            Imprime facturas resueltas o con cambios pendientes y refleja los precios revisados
           </p>
         </div>
       </div>
@@ -1112,40 +1150,53 @@ export default function Reimpresion() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-8">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('pendientes')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'pendientes'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <FileText className="inline mr-2" size={16} />
-            Facturas Pendientes
-            {facturasPendientes.length > 0 && (
-              <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {facturasPendientes.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('procesadas')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'procesadas'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <CheckCircle className="inline mr-2" size={16} />
-            Facturas Procesadas (7 días)
-            {facturasProcesadas.length > 0 && (
-              <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {facturasProcesadas.length}
-              </span>
-            )}
-          </button>
+        <nav className="-mb-px flex flex-wrap gap-4">
+          {[
+            {
+              key: 'sinCambios',
+              label: 'Facturas sin pendientes',
+              icon: FileText,
+              count: facturasSinCambios.length
+            },
+            {
+              key: 'requiereCambios',
+              label: 'Facturas que requieren cambios',
+              icon: AlertCircle,
+              count: facturasPendientes.length
+            },
+            {
+              key: 'procesadas',
+              label: 'Procesadas (7 días)',
+              icon: CheckCircle,
+              count: facturasProcesadas.length
+            }
+          ].map((tab) => {
+            const Icon = tab.icon
+            const isCurrent = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setFacturaEditando(null)
+                  setModoEdicion(false)
+                  setActiveTab(tab.key)
+                }}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  isCurrent
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon className="inline mr-2" size={16} />
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </nav>
       </div>
 
@@ -1160,7 +1211,81 @@ export default function Reimpresion() {
       )}
 
       {/* Tab Pendientes */}
-      {activeTab === 'pendientes' && !loading && (
+      {activeTab === 'sinCambios' && !loading && (
+        <div>
+          {facturasSinCambios.length === 0 ? (
+            <div className="card text-center py-12">
+              <Inbox className="mx-auto text-gray-400 mb-4" size={48} />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No hay facturas listas sin ajustes
+              </h3>
+              <p className="text-gray-600">
+                Cuando una factura no registre faltantes ni cambios aparecerá en esta pestaña.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {facturasSinCambios.map((factura) => (
+                <div key={factura.reimpresion_id} className="card">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Factura #{factura.numero_factura}
+                      </h3>
+                      <p className="text-gray-600">
+                        Cliente: {factura.cliente_nombre}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Fecha emisión: {formatDate(factura.fecha_emision)}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        ✅ Sin pendientes ni ajustes detectados
+                      </p>
+                      {factura.tiene_variacion_precio && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          💲 Precios revisados en este ciclo
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-gray-800">
+                        ₡{(factura.total || 0).toLocaleString('es-CR')}
+                      </p>
+                      <div className="flex flex-wrap gap-2 justify-end mt-3">
+                        <button
+                          onClick={() => handleVerPDF(factura)}
+                          className="btn btn-outline flex items-center gap-2"
+                        >
+                          <Eye size={16} />
+                          Ver PDF
+                        </button>
+                        <button
+                          onClick={() => handleProcesarSinCambios(factura, false)}
+                          disabled={procesando}
+                          className="btn btn-outline flex items-center gap-2"
+                        >
+                          <CheckCircle size={16} />
+                          Marcar como Impresa
+                        </button>
+                        <button
+                          onClick={() => handleProcesarSinCambios(factura, true)}
+                          disabled={procesando}
+                          className="btn btn-primary flex items-center gap-2"
+                        >
+                          <Printer size={16} />
+                          Imprimir y cerrar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'requiereCambios' && !loading && (
         <div>
           {facturaEditando ? (
             // Mostrar formulario de edición o vista de cambios
@@ -1171,10 +1296,10 @@ export default function Reimpresion() {
               <div className="card text-center py-12">
                 <CheckCircle className="mx-auto text-green-400 mb-4" size={48} />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  ¡No hay facturas pendientes!
+                  ¡No hay facturas con cambios pendientes!
                 </h3>
                 <p className="text-gray-600">
-                  Todas las facturas han sido procesadas correctamente.
+                  Todo está listo. Revisa la pestaña “Sin pendientes” para imprimir el resto.
                 </p>
               </div>
             ) : (

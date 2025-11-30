@@ -8,7 +8,7 @@ import ReporteProveedores from './pages/ReporteProveedores'
 import ReporteClientes from './pages/ReporteClientes'
 import RevisionPrecios from './pages/RevisionPrecios'
 import GestionarRelaciones from './pages/GestionarRelaciones'
-import Reimpresion from './pages/Reimpresion'
+import Impresion from './pages/Impresion'
 import Configuracion from './pages/Configuracion'
 import RotacionProductos from './pages/RotacionProductos'
 import PagosProveedores from './pages/PagosProveedores'
@@ -59,7 +59,7 @@ function App() {
         <Route path="/reportes/clientes" element={<ReporteClientes />} />
         <Route path="/revision-precios" element={<RevisionPrecios />} />
         <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
-        <Route path="/reimpresion" element={<Reimpresion />} />
+        <Route path="/impresion" element={<Impresion />} />
         <Route path="/pagos-proveedores" element={<PagosProveedores />} />
         <Route path="/rotacion-productos" element={<RotacionProductos />} />
         <Route path="/configuracion" element={<Configuracion />} />

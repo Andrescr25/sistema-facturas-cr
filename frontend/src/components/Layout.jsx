@@ -31,7 +31,7 @@ export default function Layout({ children }) {
     { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
     { name: 'Rotación Productos', href: '/rotacion-productos', icon: Brain },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
-    { name: 'Reimpresión', href: '/reimpresion', icon: Printer },
+    { name: 'Impresión', href: '/impresion', icon: Printer },
     { name: 'Configuración', href: '/configuracion', icon: Settings }
   ]
 

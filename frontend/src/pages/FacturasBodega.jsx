@@ -19,7 +19,8 @@ const STORAGE_KEYS = {
   data: 'facturasBodega:data',
   selected: 'facturasBodega:selectedId',
   tab: 'facturasBodega:tab',
-  observaciones: 'facturasBodega:obs'
+  observaciones: 'facturasBodega:obs',
+  filtros: 'facturasBodega:filtros'
 }
 
 const formatCurrency = (value) =>
@@ -92,6 +93,20 @@ export default function FacturasBodega() {
   const [ultimaSync, setUltimaSync] = useState(null)
   const [activeTab, setActiveTab] = useState('pendientes')
   const [checkAnimations, setCheckAnimations] = useState({})
+  const [successMessage, setSuccessMessage] = useState(null)
+  const [filters, setFilters] = useState(() => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.filtros)
+      if (savedFilters) return JSON.parse(savedFilters)
+    } catch (filtersError) {
+      console.warn('⚠️ No se pudieron cargar filtros de cache:', filtersError)
+    }
+    return {
+      fechaInicio: '',
+      fechaFin: '',
+      mostrarSinFecha: true
+    }
+  })
   const checkAnimationTimeouts = useRef({})
 
   useEffect(() => {
@@ -155,11 +170,36 @@ export default function FacturasBodega() {
           throw new Error(response.message || 'No se pudo cargar la información')
         }
 
-        const pendientesApi = response.data?.pendientes || []
+        const pendientesApiRaw = response.data?.pendientes || []
         const listasApi = response.data?.listas || []
 
+        const filtrarPendientes = (list) => {
+          if (!filters.fechaInicio && !filters.fechaFin && filters.mostrarSinFecha) return list
+          return list.filter((factura) => {
+            if (!factura.fecha_emision) {
+              return filters.mostrarSinFecha
+            }
+            const fechaFactura = new Date(factura.fecha_emision)
+            if (Number.isNaN(fechaFactura.getTime())) {
+              return filters.mostrarSinFecha
+            }
+            if (filters.fechaInicio) {
+              const inicio = new Date(filters.fechaInicio)
+              inicio.setHours(0, 0, 0, 0)
+              if (fechaFactura < inicio) return false
+            }
+            if (filters.fechaFin) {
+              const fin = new Date(filters.fechaFin)
+              fin.setHours(23, 59, 59, 999)
+              if (fechaFactura > fin) return false
+            }
+            return true
+          })
+        }
+        const pendientesFiltradas = filtrarPendientes(pendientesApiRaw)
+
         const syncTimestamp = response.metadata?.lastSync || new Date().toISOString()
-        setPendientes(pendientesApi)
+        setPendientes(pendientesFiltradas)
         setListas(listasApi)
         setUltimaSync(syncTimestamp)
         setError(null)
@@ -167,14 +207,14 @@ export default function FacturasBodega() {
         localStorage.setItem(
           STORAGE_KEYS.data,
           JSON.stringify({
-            pendientes: pendientesApi,
+            pendientes: pendientesApiRaw,
             listas: listasApi,
             ultimaSync: syncTimestamp
           })
         )
 
 
-        const todas = [...pendientesApi, ...listasApi]
+        const todas = [...pendientesApiRaw, ...listasApi]
         let seleccion = null
 
         if (selectedFacturaId) {
@@ -204,7 +244,7 @@ export default function FacturasBodega() {
         }
       }
     },
-    [selectedFacturaId, activeTab]
+    [selectedFacturaId, activeTab, filters]
   )
 
   useEffect(() => {
@@ -314,11 +354,16 @@ export default function FacturasBodega() {
         observacionesAdicionales
       )
 
-      alert('✅ Faltantes registrados correctamente.')
+      setSuccessMessage('Factura lista y registrada')
       setFaltantesDraft(buildDraftForFactura(facturaSeleccionada))
       setObservacionesAdicionales('')
       localStorage.removeItem(STORAGE_KEYS.observaciones)
-      fetchFacturas(false)
+      await fetchFacturas(false)
+      setFacturaSeleccionada(null)
+      setSelectedFacturaId(null)
+      setFaltantesDraft({})
+      localStorage.removeItem(STORAGE_KEYS.selected)
+      setTimeout(() => setSuccessMessage(null), 4000)
     } catch (err) {
       console.error('❌ Error registrando faltantes:', err)
       alert(`Error registrando faltantes: ${err.message}`)
@@ -328,6 +373,24 @@ export default function FacturasBodega() {
   }
 
   const facturasMostradas = activeTab === 'pendientes' ? pendientes : listas
+
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => {
+      const updated = { ...prev, [field]: value }
+      localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const clearFilters = () => {
+    const resetFilters = {
+      fechaInicio: '',
+      fechaFin: '',
+      mostrarSinFecha: true
+    }
+    setFilters(resetFilters)
+    localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(resetFilters))
+  }
 
   const renderHeader = () => (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -378,6 +441,45 @@ export default function FacturasBodega() {
           </button>
         ))}
       </div>
+
+      {activeTab === 'pendientes' && (
+        <div className="space-y-3 p-4 border rounded-2xl bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="label text-xs">Desde</label>
+              <input
+                type="date"
+                className="input"
+                value={filters.fechaInicio}
+                onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label text-xs">Hasta</label>
+              <input
+                type="date"
+                className="input"
+                value={filters.fechaFin}
+                onChange={(e) => handleFilterChange('fechaFin', e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center text-sm text-gray-600 gap-2">
+              <input
+                type="checkbox"
+                className="rounded text-blue-600"
+                checked={filters.mostrarSinFecha}
+                onChange={(e) => handleFilterChange('mostrarSinFecha', e.target.checked)}
+              />
+              Incluir facturas sin fecha
+            </label>
+            <button type="button" className="btn btn-outline btn-sm" onClick={clearFilters}>
+              Limpiar filtros
+            </button>
+          </div>
+        </div>
+      )}
 
       {facturasMostradas.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
@@ -575,6 +677,18 @@ export default function FacturasBodega() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {renderHeader()}
+
+      {successMessage && (
+        <div className="card border border-green-200 bg-green-50 flex items-center justify-between gap-3 text-green-800">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={20} className="text-green-500" />
+            <span>{successMessage}</span>
+          </div>
+          <button className="text-sm underline" onClick={() => setSuccessMessage(null)}>
+            Ocultar
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="card border border-red-200 bg-red-50 flex items-center gap-3 text-red-700">

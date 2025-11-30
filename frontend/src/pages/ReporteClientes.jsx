@@ -135,12 +135,12 @@ export default function ReporteClientes() {
     const tieneAjustes = ajustesFactura.length > 0
     const requiereReimpresion = true
 
-    const resumen = `📋 Procesar Factura #${factura.numero_factura}:
+      const resumen = `📋 Procesar Factura #${factura.numero_factura}:
 
 Cliente: ${clienteNombre}
 Ajustes realizados: ${ajustesFactura.length}
 ${tieneAjustes ?
-        `Estado: ${requiereReimpresion ? '🖨️ Requiere reimpresión en Alegra' : '✅ Resuelto sin cambios'}` :
+        `Estado: ${requiereReimpresion ? '🖨️ Requiere impresión con cambios' : '✅ Resuelto sin cambios'}` :
         'Estado: ℹ️ Sin ajustes - Solo se enviará al historial'
       }
 
@@ -186,7 +186,7 @@ La factura se marcará como procesada en la base de datos.
         })
       )
 
-      alert(`✅ Factura #${factura.numero_factura} procesada correctamente\n\n${requiereReimpresion ? '🖨️ Enviada a reimpresión' : '📚 Enviada solo al historial'}\n\n💡 La factura permanece visible (tachada). Use "Recuperar" si necesita editarla.\n\n🔄 El estado se mantiene permanentemente en la base de datos.`)
+      alert(`✅ Factura #${factura.numero_factura} procesada correctamente\n\n${requiereReimpresion ? '🖨️ Enviada al centro de impresión' : '📚 Enviada solo al historial'}\n\n💡 La factura permanece visible (tachada). Use "Recuperar" si necesita editarla.\n\n🔄 El estado se mantiene permanentemente en la base de datos.`)
 
     } catch (error) {
       alert(`❌ Error procesando factura: ${error.message}`)
@@ -841,7 +841,7 @@ La factura se marcará como procesada en la base de datos.
                               if (estaProcesada) {
                                 return (
                                   <p className="text-sm text-green-600 mt-1">
-                                    {estadoFactura.requiere_reimpresion ? '🖨️ En reimpresión' : '📚 En historial'}
+                                      {estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 En historial'}
                                   </p>
                                 )
                               }
@@ -1082,7 +1082,7 @@ La factura se marcará como procesada en la base de datos.
                                     <div className="flex items-center text-green-800">
                                       <Check size={14} className="mr-1" />
                                       <span>
-                                        Producto procesado - Ajustes guardados en {estadoFactura.requiere_reimpresion ? 'reimpresión' : 'historial'}
+                                        Producto procesado - Ajustes guardados en {estadoFactura.requiere_reimpresion ? 'impresión' : 'historial'}
                                       </span>
                                     </div>
                                     <span className="text-green-600 font-medium text-xs">

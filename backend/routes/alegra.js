@@ -22,6 +22,39 @@ const prisma = new PrismaClient();
 
 const MANUAL_MAPPING_CONFIDENCE = 999.99;
 
+const ensureReimpresionSchema = (() => {
+  let ensured = false;
+  return async (query) => {
+    if (ensured) return;
+    await query(`
+      ALTER TABLE facturas_reimpresion 
+      ADD COLUMN IF NOT EXISTS categoria VARCHAR(32) DEFAULT 'requiere_cambios'
+    `);
+    await query(`
+      ALTER TABLE facturas_reimpresion 
+      ADD COLUMN IF NOT EXISTS total_ajustes INTEGER DEFAULT 0
+    `);
+    ensured = true;
+  };
+})();
+
+const determineReimpresionCategoria = (ajustesRaw = []) => {
+  const ajustes = Array.isArray(ajustesRaw) ? ajustesRaw : [];
+  if (ajustes.length === 0) return 'sin_cambios';
+
+  const requiereCambios = ajustes.some((ajuste) => {
+    if (!ajuste) return false;
+    if (ajuste.requiere_actualizacion) return true;
+    const estado = (ajuste.estado || '').toLowerCase();
+    if (estado === 'parcial' || estado === 'no_llego') return true;
+    const faltante = Number(ajuste.cantidad_faltante || 0);
+    const entregada = Number(ajuste.cantidad_entregada || 0);
+    return faltante > entregada;
+  });
+
+  return requiereCambios ? 'requiere_cambios' : 'sin_cambios';
+};
+
 // DEBUG: Test simple de conexión
 router.get('/debug/test-simple', async (req, res) => {
   const tests = [];
@@ -142,6 +175,7 @@ router.get('/debug/test-simple', async (req, res) => {
 router.get('/debug/database', async (req, res) => {
   try {
     const { query } = require('../config/database');
+    await ensureReimpresionSchema(query);
     
     // Test 1: Verificar conexión
     const timeResult = await query('SELECT NOW() as time');
@@ -778,6 +812,8 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
         fr.ajustes_realizados,
         fr.estado as estado_reimpresion,
         fr.fecha_creacion,
+        fr.categoria,
+        fr.total_ajustes,
         fa.id as factura_id,
         fa.numero_factura,
         fa.alegra_id,
@@ -797,27 +833,33 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
         ? JSON.parse(factura.ajustes_realizados)
         : factura.ajustes_realizados;
 
+      const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
+      const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
+
       return {
         ...factura,
         ajustes_realizados: ajustes,
         total_ajustes: ajustes?.length || 0,
-        requiere_actualizacion: ajustes?.some(aj => aj.requiere_actualizacion) || false
+        requiere_actualizacion: requiereActualizacion,
+        tiene_variacion_precio: tieneVariacionPrecio,
+        categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
       };
     });
 
-    // 🔧 FILTRAR: Solo mostrar facturas que requieren actualización
-    const facturasFiltradas = facturasConAjustes.filter(f => f.requiere_actualizacion);
-
-    console.log(`✅ Facturas filtradas: ${facturasFiltradas.length} requieren cambios (${facturasConAjustes.length - facturasFiltradas.length} sin cambios ocultas)`);
+    const sinCambios = facturasConAjustes.filter(f => f.categoria === 'sin_cambios');
+    const requiereCambios = facturasConAjustes.filter(f => f.categoria !== 'sin_cambios');
 
     res.json({
       success: true,
-      data: facturasFiltradas,
-      total_pendientes: facturasFiltradas.length,
+      data: {
+        sin_cambios: sinCambios,
+        requiere_cambios: requiereCambios
+      },
+      total_pendientes: facturasConAjustes.length,
       resumen: {
-        facturas_pendientes: facturasFiltradas.length,
-        facturas_con_cambios: facturasFiltradas.length,
-        facturas_sin_cambios_ocultas: facturasConAjustes.length - facturasFiltradas.length
+        facturas_pendientes: facturasConAjustes.length,
+        facturas_sin_cambios: sinCambios.length,
+        facturas_con_cambios: requiereCambios.length
       }
     });
 
@@ -846,6 +888,8 @@ router.get('/facturas/procesadas-reimpresion', async (req, res) => {
         fr.estado as estado_reimpresion,
         fr.fecha_creacion,
         fr.fecha_procesamiento,
+        fr.categoria,
+        fr.total_ajustes,
         fa.id as factura_id,
         fa.numero_factura,
         fa.alegra_id,
@@ -867,12 +911,18 @@ router.get('/facturas/procesadas-reimpresion', async (req, res) => {
         ? JSON.parse(factura.ajustes_realizados)
         : factura.ajustes_realizados;
 
+      const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
+      const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
+
       return {
         ...factura,
         ajustes_realizados: ajustes,
         total_ajustes: ajustes?.length || 0,
         dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
-        puede_recuperar: factura.dias_desde_procesamiento <= 7
+        puede_recuperar: factura.dias_desde_procesamiento <= 7,
+        requiere_actualizacion: requiereActualizacion,
+        tiene_variacion_precio: tieneVariacionPrecio,
+        categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
       };
     });
 
@@ -2798,6 +2848,7 @@ router.post('/facturas/limpiar', async (req, res) => {
     console.log(`🧹 Procesando limpieza de facturas...`);
 
     const { query } = require('../config/database');
+    await ensureReimpresionSchema(query);
 
     // Registrar procesamiento
     const procesamiento = await query(`
@@ -2835,26 +2886,31 @@ router.post('/facturas/limpiar', async (req, res) => {
         WHERE fa.alegra_id = $1
       `, [factura.alegra_id]);
 
+      const categoria = determineReimpresionCategoria(factura.ajustes);
+      const totalAjustes = Array.isArray(factura.ajustes) ? factura.ajustes.length : 0;
+
       if (existeReimpresion.rows.length > 0) {
         // Actualizar existente
         await query(`
           UPDATE facturas_reimpresion 
           SET ajustes_realizados = $2,
               estado = 'pendiente',
+              categoria = $3,
+              total_ajustes = $4,
               fecha_creacion = CURRENT_TIMESTAMP,
               fecha_procesamiento = NULL
           FROM facturas fa
           WHERE facturas_reimpresion.factura_id = fa.id
           AND fa.alegra_id = $1
-        `, [factura.alegra_id, JSON.stringify(factura.ajustes)]);
+        `, [factura.alegra_id, JSON.stringify(factura.ajustes), categoria, totalAjustes]);
       } else {
         // Insertar nuevo
         await query(`
-          INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion)
-          SELECT fa.id, $2, 'pendiente', CURRENT_TIMESTAMP
+          INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
+          SELECT fa.id, $2, 'pendiente', $3, $4, CURRENT_TIMESTAMP
           FROM facturas fa 
           WHERE fa.alegra_id = $1
-        `, [factura.alegra_id, JSON.stringify(factura.ajustes)]);
+        `, [factura.alegra_id, JSON.stringify(factura.ajustes), categoria, totalAjustes]);
       }
     }
 
@@ -3034,6 +3090,8 @@ router.get('/reimpresion/pendientes', async (req, res) => {
         fr.ajustes_realizados,
         fr.estado as estado_reimpresion,
         fr.fecha_creacion,
+        fr.categoria,
+        fr.total_ajustes,
         fa.id as factura_id,
         fa.numero_factura,
         fa.alegra_id,
@@ -3053,22 +3111,33 @@ router.get('/reimpresion/pendientes', async (req, res) => {
         ? JSON.parse(factura.ajustes_realizados)
         : factura.ajustes_realizados;
 
+      const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
+      const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
+
       return {
         ...factura,
         ajustes_realizados: ajustes,
         total_ajustes: ajustes?.length || 0,
-        requiere_actualizacion: ajustes?.some(aj => aj.requiere_actualizacion) || false
+        requiere_actualizacion: requiereActualizacion,
+        tiene_variacion_precio: tieneVariacionPrecio,
+        categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
       };
     });
 
+    const sinCambios = facturasConAjustes.filter(f => f.categoria === 'sin_cambios');
+    const requiereCambios = facturasConAjustes.filter(f => f.categoria !== 'sin_cambios');
+
     res.json({
       success: true,
-      data: facturasConAjustes,
+      data: {
+        sin_cambios: sinCambios,
+        requiere_cambios: requiereCambios
+      },
       total_pendientes: facturasConAjustes.length,
       resumen: {
         facturas_pendientes: facturasConAjustes.length,
-        facturas_con_cambios: facturasConAjustes.filter(f => f.requiere_actualizacion).length,
-        facturas_resueltas: facturasConAjustes.filter(f => !f.requiere_actualizacion).length
+        facturas_sin_cambios: sinCambios.length,
+        facturas_con_cambios: requiereCambios.length
       }
     });
 
@@ -3271,7 +3340,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     `, [
       1, // Una sola factura
       1, // Siempre va al historial
-      estado.includes('requiere_reimpresion') ? 1 : 0,
+      1, // Todas las facturas pasan por impresión
       'Usuario Individual',
       JSON.stringify({
         factura_procesada: {
@@ -3285,9 +3354,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       })
     ]);
 
-    // 2. Si requiere reimpresión, guardar/actualizar en facturas_reimpresion
-    if (estado.includes('requiere_reimpresion')) {
-      // 🔧 CORREGIDO: Verificar si existe y actualizar, o insertar nuevo
+    const upsertFacturaEnReimpresion = async (estadoRegistro = 'pendiente', categoriaRegistro, totalAjustesRegistro) => {
       const existeReimpresion = await query(`
         SELECT fr.id FROM facturas_reimpresion fr
         JOIN facturas fa ON fr.factura_id = fa.id
@@ -3295,31 +3362,28 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       `, [alegra_id]);
 
       if (existeReimpresion.rows.length > 0) {
-        // Actualizar existente
         await query(`
           UPDATE facturas_reimpresion 
           SET ajustes_realizados = $2,
-              estado = 'pendiente',
-              fecha_creacion = CURRENT_TIMESTAMP,
-              fecha_procesamiento = NULL
+              estado = $3,
+              categoria = $4,
+              total_ajustes = $5,
+              fecha_creacion = CASE WHEN $3 = 'pendiente' THEN CURRENT_TIMESTAMP ELSE fecha_creacion END,
+              fecha_procesamiento = CASE WHEN $3 = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
           FROM facturas fa
           WHERE facturas_reimpresion.factura_id = fa.id
           AND fa.alegra_id = $1
-        `, [alegra_id, JSON.stringify(ajustes)]);
-
-        console.log(`🔄 Factura ${numero_factura} actualizada en reimpresión`);
+        `, [alegra_id, JSON.stringify(ajustes), estadoRegistro, categoriaRegistro, totalAjustesRegistro]);
       } else {
-        // Insertar nuevo
         await query(`
-          INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion)
-          SELECT fa.id, $2, 'pendiente', CURRENT_TIMESTAMP
+          INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion, fecha_procesamiento)
+          SELECT fa.id, $2, $3, $4, $5, CURRENT_TIMESTAMP,
+                 CASE WHEN $3 = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
           FROM facturas fa 
           WHERE fa.alegra_id = $1
-        `, [alegra_id, JSON.stringify(ajustes)]);
-
-        console.log(`➕ Factura ${numero_factura} agregada a reimpresión`);
+        `, [alegra_id, JSON.stringify(ajustes), estadoRegistro, categoriaRegistro, totalAjustesRegistro]);
       }
-    }
+    };
 
     // 🔧 NUEVO: 2.5 Guardar ajustes en faltantes_ajustes ANTES de procesar
     console.log(`💾 Guardando ${ajustes.length} ajustes en base de datos...`);
@@ -3492,41 +3556,23 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         
         // Si no estaba marcada para reimpresión, marcarla ahora
         if (!estado.includes('requiere_reimpresion')) {
-          console.log(`🔄 Factura ${numero_factura} marcada para reimpresión por diferencia de precio`);
-          // Actualizar estado para incluir requiere_reimpresion
-          const nuevoEstado = 'requiere_reimpresion';
-          
-          // Guardar en facturas_reimpresion
-          const existeReimpresion = await query(`
-            SELECT fr.id FROM facturas_reimpresion fr
-            JOIN facturas fa ON fr.factura_id = fa.id
-            WHERE fa.alegra_id = $1
-          `, [alegra_id]);
-
-          if (existeReimpresion.rows.length > 0) {
-            await query(`
-              UPDATE facturas_reimpresion 
-              SET ajustes_realizados = $2,
-                  estado = 'pendiente',
-                  fecha_creacion = CURRENT_TIMESTAMP,
-                  fecha_procesamiento = NULL
-              FROM facturas fa
-              WHERE facturas_reimpresion.factura_id = fa.id
-              AND fa.alegra_id = $1
-            `, [alegra_id, JSON.stringify(ajustes)]);
-          } else {
-            await query(`
-              INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion)
-              SELECT fa.id, $2, 'pendiente', CURRENT_TIMESTAMP
-              FROM facturas fa 
-              WHERE fa.alegra_id = $1
-            `, [alegra_id, JSON.stringify(ajustes)]);
-          }
+          console.log(`🔄 Factura ${numero_factura} marcada para impresión por diferencia de precio`);
+          const categoriaForzosa = determineReimpresionCategoria(ajustes);
+          await upsertFacturaEnReimpresion('pendiente', categoriaForzosa, ajustes.length);
         }
       }
     } catch (error) {
       console.error(`❌ Error verificando diferencias de precio:`, error.message);
       // Continuar aunque falle la verificación de precios
+    }
+
+    const categoria = determineReimpresionCategoria(ajustes);
+    const totalAjustes = ajustes.length;
+
+    if (marcar_como_procesada === true) {
+      await upsertFacturaEnReimpresion('procesada', categoria, totalAjustes);
+    } else {
+      await upsertFacturaEnReimpresion('pendiente', categoria, totalAjustes);
     }
 
     // 3. Marcar faltantes/facturas como procesados SOLO si se indica
