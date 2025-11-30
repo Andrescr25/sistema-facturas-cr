@@ -69,9 +69,9 @@ const buildDraftForFactura = (factura) => {
         normalizeReferenceValue(
           item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
-      cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
-      tipo: 'ninguno',
-      cantidadFaltante: 0,
+        cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
+        tipo: null,
+        cantidadFaltante: 0,
       observaciones: ''
     }
   })

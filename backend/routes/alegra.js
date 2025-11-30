@@ -1674,6 +1674,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
 
     const faltantesRegistrados = [];
+    const costoCachePorAlegraId = new Map();
+    const costoHistoricoPorProducto = new Map();
 
     for (const faltante of faltantes) {
       const {
@@ -1967,6 +1969,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           p.codigo,
           p.nombre,
           p.precio_unitario,
+          p.alegra_id,
           p.proveedor_id,
           pr.nombre AS proveedor_nombre
         FROM productos p
@@ -1978,6 +1981,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         codigo: codigoReferenceParaMapping,
         nombre: nombre_producto,
         precio_unitario: 0,
+        alegra_id: allegraIdEntero,
         proveedor_id: null,
         proveedor_nombre: null
       };
@@ -2026,7 +2030,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         precio_asignado: asignacionResult.precio || null
       });
 
-      const costoUnitario = (() => {
+      let costoUnitario = (() => {
         const candidates = [
           asignacionResult?.precio,
           productoInfo?.costo_promedio,
@@ -2042,6 +2046,109 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         }
         return 0;
       })();
+
+      const alegraIdParaCosto =
+        allegraIdEntero ||
+        (productoInfo?.alegra_id && /^\d+$/.test(productoInfo.alegra_id.toString())
+          ? parseInt(productoInfo.alegra_id, 10)
+          : null);
+
+      if ((costoUnitario === 0 || Number.isNaN(costoUnitario)) && alegraIdParaCosto) {
+        const cacheKey = alegraIdParaCosto.toString();
+        if (!costoCachePorAlegraId.has(cacheKey)) {
+          try {
+            const cachedProduct = await prisma.alegraProduct.findUnique({
+              where: { alegraId: cacheKey }
+            });
+            const costFromCache =
+              cachedProduct && Number(cachedProduct.cost) > 0 ? Number(cachedProduct.cost) : null;
+            costoCachePorAlegraId.set(cacheKey, costFromCache);
+          } catch (cacheError) {
+            console.warn(
+              `⚠️ No se pudo obtener costo de cache Alegra (${cacheKey}):`,
+              cacheError.message
+            );
+            costoCachePorAlegraId.set(cacheKey, null);
+          }
+        }
+        const cachedCost = costoCachePorAlegraId.get(cacheKey);
+        if (cachedCost && cachedCost > 0) {
+          costoUnitario = cachedCost;
+        }
+      }
+
+      if (costoUnitario === 0 || Number.isNaN(costoUnitario)) {
+        if (!costoHistoricoPorProducto.has(productoId)) {
+          let costoHistorico = null;
+          try {
+            const historialCosto = await query(
+              `
+              SELECT 
+                SUM(costo_total) AS costo_total,
+                SUM(cantidad_faltante_total) AS cantidad_total
+              FROM rotacion_productos
+              WHERE producto_id = $1
+            `,
+              [productoId]
+            );
+            if (historialCosto.rows.length > 0) {
+              const total = Number(historialCosto.rows[0].costo_total) || 0;
+              const qty = Number(historialCosto.rows[0].cantidad_total) || 0;
+              if (total > 0 && qty > 0) {
+                costoHistorico = total / qty;
+              }
+            }
+          } catch (histError) {
+            console.warn(
+              `⚠️ No se pudo leer historial de rotación para producto ${productoId}:`,
+              histError.message
+            );
+          }
+
+          if (!costoHistorico || costoHistorico <= 0) {
+            try {
+              const ultimoPrecio = await query(
+                `
+                SELECT precio_asignado
+                FROM faltantes
+                WHERE producto_id = $1 AND precio_asignado IS NOT NULL
+                ORDER BY updated_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+              `,
+                [productoId]
+              );
+              if (ultimoPrecio.rows.length > 0) {
+                const precio = Number(ultimoPrecio.rows[0].precio_asignado);
+                if (!Number.isNaN(precio) && precio > 0) {
+                  costoHistorico = precio;
+                }
+              }
+            } catch (precioError) {
+              console.warn(
+                `⚠️ No se pudo obtener precio histórico para producto ${productoId}:`,
+                precioError.message
+              );
+            }
+          }
+
+          costoHistoricoPorProducto.set(
+            productoId,
+            costoHistorico && costoHistorico > 0 ? costoHistorico : null
+          );
+        }
+
+        const costoFallback = costoHistoricoPorProducto.get(productoId);
+        if (costoFallback && costoFallback > 0) {
+          costoUnitario = costoFallback;
+        }
+      }
+
+      if (costoUnitario && !Number.isNaN(costoUnitario)) {
+        costoUnitario = Math.round(Number(costoUnitario) * 100) / 100;
+      } else {
+        costoUnitario = 0;
+      }
+
       const precioVentaUnitario = (() => {
         if (!itemEnFactura) return null;
         const candidates = [

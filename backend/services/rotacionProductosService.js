@@ -18,31 +18,36 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         WHERE fecha_inicio_semana >= CURRENT_DATE - ($2 * INTERVAL '1 week')
       )
       SELECT
-        producto_id,
-        producto_codigo,
-        producto_nombre,
-        proveedor_id,
-        proveedor_nombre,
-        SUM(cantidad_faltante_total) AS cantidad_total,
-        SUM(faltantes_registrados) AS faltantes_total,
-        SUM(costo_total) AS costo_total,
-        SUM(venta_total) AS venta_total,
-        SUM(margen_total) AS margen_total,
-        MIN(fecha_inicio_semana) AS primera_semana,
-        MAX(fecha_inicio_semana) AS ultima_semana,
+        d.producto_id,
+        d.producto_codigo,
+        d.producto_nombre,
+        d.proveedor_id,
+        d.proveedor_nombre,
+        SUM(d.cantidad_faltante_total) AS cantidad_total,
+        SUM(d.faltantes_registrados) AS faltantes_total,
+        SUM(d.costo_total) AS costo_total,
+        SUM(d.venta_total) AS venta_total,
+        SUM(d.margen_total) AS margen_total,
+        MIN(d.fecha_inicio_semana) AS primera_semana,
+        MAX(d.fecha_inicio_semana) AS ultima_semana,
         JSON_AGG(
           JSON_BUILD_OBJECT(
-            'semana', semana,
-            'ano', ano,
-            'fecha', TO_CHAR(fecha_inicio_semana, 'YYYY-MM-DD'),
-            'cantidad', cantidad_faltante_total,
-            'margen', margen_total
+            'semana', d.semana,
+            'ano', d.ano,
+            'fecha', TO_CHAR(d.fecha_inicio_semana, 'YYYY-MM-DD'),
+            'cantidad', d.cantidad_faltante_total,
+            'margen', d.margen_total
           )
-          ORDER BY fecha_inicio_semana ASC
-        ) AS historial
-      FROM datos
-      GROUP BY producto_id, producto_codigo, producto_nombre, proveedor_id, proveedor_nombre
-      ORDER BY SUM(margen_total) DESC, SUM(cantidad_faltante_total) DESC
+          ORDER BY d.fecha_inicio_semana ASC
+        ) AS historial,
+        MAX(p.alegra_id) AS producto_alegra_id,
+        MAX(p.precio_unitario) AS producto_precio_unitario,
+        MAX(ap.cost) AS alegra_cost
+      FROM datos d
+      LEFT JOIN productos p ON p.id = d.producto_id
+      LEFT JOIN alegra_products_cache ap ON ap.alegra_id = p.alegra_id::text
+      GROUP BY d.producto_id, d.producto_codigo, d.producto_nombre, d.proveedor_id, d.proveedor_nombre
+      ORDER BY SUM(d.margen_total) DESC, SUM(d.cantidad_faltante_total) DESC
       LIMIT $1
     `,
     [limiteProductos, semanasAnalisis]
@@ -59,19 +64,38 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
     }));
 
     const cantidadTotal = Number(row.cantidad_total) || 0;
-    const costoTotal = Number(row.costo_total) || 0;
+    const costoTotalRaw = Number(row.costo_total) || 0;
     const ventaTotal = Number(row.venta_total) || 0;
-    const margenTotal = Number(row.margen_total) || 0;
+    const margenTotalRaw = Number(row.margen_total) || 0;
+    const costoProducto = Number(row.producto_precio_unitario) || 0;
+    const costoAlegra = Number(row.alegra_cost) || 0;
     const faltantesTotal = Number(row.faltantes_total) || 0;
     const semanasConMovimiento = historial.length || 1;
 
-    const promedioSemanal = semanasConMovimiento > 0
-      ? cantidadTotal / semanasConMovimiento
-      : 0;
-    const precioCostoPromedio = cantidadTotal > 0 ? costoTotal / cantidadTotal : 0;
+    const promedioSemanal = semanasConMovimiento > 0 ? cantidadTotal / semanasConMovimiento : 0;
+
+    const unitCostFromTotals =
+      cantidadTotal > 0 && costoTotalRaw > 0 ? costoTotalRaw / cantidadTotal : 0;
+    const unitCostFallbackCandidates = [unitCostFromTotals, costoAlegra, costoProducto].filter(
+      (value) => value && value > 0
+    );
+    const unitCostFallback = unitCostFallbackCandidates.length > 0 ? unitCostFallbackCandidates[0] : 0;
+
+    const costoTotalCalculado =
+      costoTotalRaw > 0
+        ? costoTotalRaw
+        : Math.round(unitCostFallback * cantidadTotal * 100) / 100;
+
+    const margenTotalCalculado =
+      costoTotalRaw > 0
+        ? margenTotalRaw
+        : Math.round((ventaTotal - costoTotalCalculado) * 100) / 100;
+
+    const precioCostoPromedio = unitCostFromTotals > 0 ? unitCostFromTotals : unitCostFallback;
     const precioVentaPromedio = cantidadTotal > 0 ? ventaTotal / cantidadTotal : 0;
-    const margenUnitarioPromedio = cantidadTotal > 0 ? margenTotal / cantidadTotal : 0;
-    const costoBeneficio = ventaTotal > 0 ? margenTotal / ventaTotal : 0;
+    const margenUnitarioPromedio =
+      cantidadTotal > 0 ? margenTotalCalculado / cantidadTotal : 0;
+    const costoBeneficio = ventaTotal > 0 ? margenTotalCalculado / ventaTotal : 0;
 
     const tendenciaReciente = (() => {
       if (historial.length === 0) return 0;
@@ -88,9 +112,9 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
       proveedor_nombre: row.proveedor_nombre,
       cantidad_total: cantidadTotal,
       registros_total: faltantesTotal,
-      costo_total: costoTotal,
+      costo_total: costoTotalCalculado,
       venta_total: ventaTotal,
-      margen_total: margenTotal,
+      margen_total: margenTotalCalculado,
       precio_costo_promedio: parseFloat(precioCostoPromedio.toFixed(2)),
       precio_venta_promedio: parseFloat(precioVentaPromedio.toFixed(2)),
       margen_unitario_promedio: parseFloat(margenUnitarioPromedio.toFixed(2)),
