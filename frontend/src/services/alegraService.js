@@ -51,15 +51,15 @@ export const alegraService = {
       
       // 1. Hacer llamada al backend para obtener la URL del PDF
       const response = await api.get(`/alegra/facturas/${facturaId}/pdf`);
-
+      
       // 2. Verificar que tengamos la URL
       if (!response.data || !response.data.url) {
         ventana.close();
         throw new Error('El servidor no devolvió una URL de PDF válida');
       }
-
+      
       const pdfUrl = response.data.url;
-
+      
       // 3. Redirigir la ventana ya abierta a la URL del PDF
       ventana.location.href = pdfUrl;
       return { success: true };

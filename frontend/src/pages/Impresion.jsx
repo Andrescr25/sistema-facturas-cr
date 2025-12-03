@@ -1189,27 +1189,27 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
             const Icon = tab.icon
             const isCurrent = activeTab === tab.key
             return (
-              <button
+          <button
                 key={tab.key}
                 onClick={() => {
                   setFacturaEditando(null)
                   setModoEdicion(false)
                   setActiveTab(tab.key)
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   isCurrent
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
                 <Icon className="inline mr-2" size={16} />
                 {tab.label}
                 {tab.count > 0 && (
-                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                     {tab.count}
-                  </span>
-                )}
-              </button>
+              </span>
+            )}
+          </button>
             )
           })}
         </nav>

@@ -912,8 +912,8 @@ export default function Facturacion() {
         // Actualizar pendientes si es offline
         if (!resultado.online) {
           if (esFacturaLocalPendiente || !modoEdicion) {
-            const pendientes = await facturacionService.getFacturasPendientes();
-            setFacturasPendientes(pendientes);
+          const pendientes = await facturacionService.getFacturasPendientes();
+          setFacturasPendientes(pendientes);
           } else {
             const ediciones = await facturacionService.getEdicionesPendientes();
             setEdicionesPendientes(ediciones);

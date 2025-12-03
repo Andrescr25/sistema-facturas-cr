@@ -135,7 +135,7 @@ export default function ReporteClientes() {
     const tieneAjustes = ajustesFactura.length > 0
     const requiereReimpresion = true
 
-      const resumen = `📋 Procesar Factura #${factura.numero_factura}:
+    const resumen = `📋 Procesar Factura #${factura.numero_factura}:
 
 Cliente: ${clienteNombre}
 Ajustes realizados: ${ajustesFactura.length}
@@ -467,15 +467,15 @@ La factura se marcará como procesada en la base de datos.
       return
     }
 
-    newMap.set(key, {
+      newMap.set(key, {
       faltanteId: producto.faltante_id,
-      cantidadFaltante,
+        cantidadFaltante,
       cantidadEntregada: cantidadNormalizada,
-      cantidadAReducir,
-      estado,
-      tieneAjuste: true,
-      requiereActualizacion
-    })
+        cantidadAReducir,
+        estado,
+        tieneAjuste: true,
+        requiereActualizacion
+      })
 
     setEntregasAjustadas(newMap)
 
@@ -532,10 +532,10 @@ La factura se marcará como procesada en la base de datos.
 
     try {
       await guardarAjusteEnBD(producto, {
-        cantidad_entregada: 0,
-        estado: 'no_llego',
-        requiere_actualizacion: true
-      })
+      cantidad_entregada: 0,
+      estado: 'no_llego',
+      requiere_actualizacion: true
+    })
     } catch (error) {
       setEntregasAjustadas(prevMap)
     }
@@ -787,7 +787,7 @@ La factura se marcará como procesada en la base de datos.
                   const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
 
                   const facturaClase = estaProcesada
-                    ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
+                      ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
                     : estaPendienteManual
                       ? 'bg-yellow-50 border-2 border-yellow-300'
                       : 'bg-gray-50'
@@ -876,12 +876,12 @@ La factura se marcará como procesada en la base de datos.
                           <div className="flex flex-col space-y-2">
                             {!estaProcesada ? (
                               <>
-                                <button
+                              <button
                                   onClick={() => handleFacturaLista(cliente.nombre, factura)}
-                                  className="btn btn-primary flex items-center whitespace-nowrap"
-                                >
-                                  <Check size={16} className="mr-2" />
-                                  Factura Lista
+                                className="btn btn-primary flex items-center whitespace-nowrap"
+                              >
+                                <Check size={16} className="mr-2" />
+                                Factura Lista
                                 </button>
                                 {estaPendienteManual ? (
                                   <button
@@ -891,7 +891,7 @@ La factura se marcará como procesada en la base de datos.
                                   >
                                     <X size={16} className="mr-2" />
                                     Quitar Pendiente
-                                  </button>
+                              </button>
                                 ) : (
                                   <button
                                     onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)}

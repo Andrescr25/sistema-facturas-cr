@@ -47,6 +47,44 @@ const normalizeReferenceValue = (value) => {
   return ''
 }
 
+const filtrarPendientesPorFecha = (lista = [], filtros = {}) => {
+  if (!Array.isArray(lista) || lista.length === 0) return []
+  const {
+    fechaInicio = '',
+    fechaFin = '',
+    mostrarSinFecha = true
+  } = filtros || {}
+
+  if (!fechaInicio && !fechaFin && mostrarSinFecha) {
+    return lista
+  }
+
+  return lista.filter((factura) => {
+    if (!factura.fecha_emision) {
+      return Boolean(mostrarSinFecha)
+    }
+
+    const fechaFactura = new Date(factura.fecha_emision)
+    if (Number.isNaN(fechaFactura.getTime())) {
+      return Boolean(mostrarSinFecha)
+    }
+
+    if (fechaInicio) {
+      const inicio = new Date(fechaInicio)
+      inicio.setHours(0, 0, 0, 0)
+      if (fechaFactura < inicio) return false
+    }
+
+    if (fechaFin) {
+      const fin = new Date(fechaFin)
+      fin.setHours(23, 59, 59, 999)
+      if (fechaFactura > fin) return false
+    }
+
+    return true
+  })
+}
+
 const getItemIdFromFacturaItem = (item) => {
   const referencia = normalizeReferenceValue(
     item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra ?? ''
@@ -81,6 +119,7 @@ const buildDraftForFactura = (factura) => {
 
 export default function FacturasBodega() {
   const [pendientes, setPendientes] = useState([])
+  const [pendientesRaw, setPendientesRaw] = useState([])
   const [listas, setListas] = useState([])
   const [selectedFacturaId, setSelectedFacturaId] = useState(null)
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
@@ -107,7 +146,12 @@ export default function FacturasBodega() {
       mostrarSinFecha: true
     }
   })
+  const hasCacheRef = useRef(false)
   const checkAnimationTimeouts = useRef({})
+
+  useEffect(() => {
+    setPendientes(filtrarPendientesPorFecha(pendientesRaw, filters))
+  }, [pendientesRaw, filters])
 
   useEffect(() => {
     try {
@@ -122,10 +166,11 @@ export default function FacturasBodega() {
       }
       if (savedData) {
         const parsed = JSON.parse(savedData)
-        setPendientes(parsed.pendientes || [])
+        setPendientesRaw(parsed.pendientes || [])
         setListas(parsed.listas || [])
         setUltimaSync(parsed.ultimaSync || null)
         setLoading(false)
+        hasCacheRef.current = true
 
         const savedSelectedId = localStorage.getItem(STORAGE_KEYS.selected)
         const todas = [...(parsed.pendientes || []), ...(parsed.listas || [])]
@@ -159,8 +204,9 @@ export default function FacturasBodega() {
 
   const fetchFacturas = useCallback(
     async (showLoader = false) => {
+      const bloquearInterfaz = showLoader && !hasCacheRef.current
       try {
-        if (showLoader) {
+        if (bloquearInterfaz) {
           setLoading(true)
         } else {
           setRefreshing(true)
@@ -173,33 +219,8 @@ export default function FacturasBodega() {
         const pendientesApiRaw = response.data?.pendientes || []
         const listasApi = response.data?.listas || []
 
-        const filtrarPendientes = (list) => {
-          if (!filters.fechaInicio && !filters.fechaFin && filters.mostrarSinFecha) return list
-          return list.filter((factura) => {
-            if (!factura.fecha_emision) {
-              return filters.mostrarSinFecha
-            }
-            const fechaFactura = new Date(factura.fecha_emision)
-            if (Number.isNaN(fechaFactura.getTime())) {
-              return filters.mostrarSinFecha
-            }
-            if (filters.fechaInicio) {
-              const inicio = new Date(filters.fechaInicio)
-              inicio.setHours(0, 0, 0, 0)
-              if (fechaFactura < inicio) return false
-            }
-            if (filters.fechaFin) {
-              const fin = new Date(filters.fechaFin)
-              fin.setHours(23, 59, 59, 999)
-              if (fechaFactura > fin) return false
-            }
-            return true
-          })
-        }
-        const pendientesFiltradas = filtrarPendientes(pendientesApiRaw)
-
         const syncTimestamp = response.metadata?.lastSync || new Date().toISOString()
-        setPendientes(pendientesFiltradas)
+        setPendientesRaw(pendientesApiRaw)
         setListas(listasApi)
         setUltimaSync(syncTimestamp)
         setError(null)
@@ -212,7 +233,7 @@ export default function FacturasBodega() {
             ultimaSync: syncTimestamp
           })
         )
-
+        hasCacheRef.current = true
 
         const todas = [...pendientesApiRaw, ...listasApi]
         let seleccion = null
@@ -237,15 +258,27 @@ export default function FacturasBodega() {
         console.error('❌ Error cargando facturas de bodega:', err)
         setError(err.message)
       } finally {
-        if (showLoader) {
+        if (bloquearInterfaz) {
           setLoading(false)
         } else {
           setRefreshing(false)
         }
       }
     },
-    [selectedFacturaId, activeTab, filters]
+    [selectedFacturaId]
   )
+
+  const completarYVolverAlListado = useCallback(async () => {
+    setSuccessMessage('Factura lista y registrada')
+    setObservacionesAdicionales('')
+    localStorage.removeItem(STORAGE_KEYS.observaciones)
+    setFacturaSeleccionada(null)
+    setFaltantesDraft({})
+    await fetchFacturas(false)
+    setSelectedFacturaId(null)
+    localStorage.removeItem(STORAGE_KEYS.selected)
+    setTimeout(() => setSuccessMessage(null), 4000)
+  }, [fetchFacturas])
 
   useEffect(() => {
     fetchFacturas(true)
@@ -256,7 +289,7 @@ export default function FacturasBodega() {
   const handleSeleccionarFactura = (factura) => {
     setFacturaSeleccionada(factura)
     setSelectedFacturaId(factura.alegra_id)
-     localStorage.setItem(STORAGE_KEYS.selected, factura.alegra_id)
+    localStorage.setItem(STORAGE_KEYS.selected, factura.alegra_id)
     setFaltantesDraft(buildDraftForFactura(factura))
     setObservacionesAdicionales('')
     localStorage.removeItem(STORAGE_KEYS.observaciones)
@@ -328,12 +361,35 @@ export default function FacturasBodega() {
     () => faltantesSeleccionados.reduce((sum, item) => sum + item.cantidadFaltante, 0),
     [faltantesSeleccionados]
   )
+  const accionPrincipalLabel = guardando
+    ? 'Guardando...'
+    : faltantesSeleccionados.length > 0
+      ? 'Registrar faltantes'
+      : 'Factura lista'
+
+  const marcarFacturaLista = async () => {
+    if (!facturaSeleccionada) return
+    try {
+      setGuardando(true)
+      await alegraService.actualizarEstadoFacturaBodega(
+        facturaSeleccionada.alegra_id,
+        'procesado',
+        observacionesAdicionales.trim() || null
+      )
+      await completarYVolverAlListado()
+    } catch (err) {
+      console.error('❌ Error marcando factura como lista:', err)
+      alert(`Error marcando factura como lista: ${err.message}`)
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   const handleRegistrarFaltantes = async () => {
     if (!facturaSeleccionada) return
 
-    if (faltantesSeleccionados.length === 0 && !observacionesAdicionales.trim()) {
-      alert('Registra al menos un faltante o añade observaciones para el pedido.')
+    if (faltantesSeleccionados.length === 0) {
+      await marcarFacturaLista()
       return
     }
 
@@ -353,17 +409,12 @@ export default function FacturasBodega() {
         'Bodega',
         observacionesAdicionales
       )
-
-      setSuccessMessage('Factura lista y registrada')
-      setFaltantesDraft(buildDraftForFactura(facturaSeleccionada))
-      setObservacionesAdicionales('')
-      localStorage.removeItem(STORAGE_KEYS.observaciones)
-      await fetchFacturas(false)
-      setFacturaSeleccionada(null)
-      setSelectedFacturaId(null)
-      setFaltantesDraft({})
-      localStorage.removeItem(STORAGE_KEYS.selected)
-      setTimeout(() => setSuccessMessage(null), 4000)
+      await alegraService.actualizarEstadoFacturaBodega(
+        facturaSeleccionada.alegra_id,
+        'procesado',
+        observacionesAdicionales.trim() || null
+      )
+      await completarYVolverAlListado()
     } catch (err) {
       console.error('❌ Error registrando faltantes:', err)
       alert(`Error registrando faltantes: ${err.message}`)
@@ -662,12 +713,10 @@ export default function FacturasBodega() {
           </div>
           <button
             onClick={handleRegistrarFaltantes}
-            disabled={
-              guardando || (!faltantesSeleccionados.length && !observacionesAdicionales.trim())
-            }
+            disabled={guardando || !facturaSeleccionada}
             className="btn btn-primary text-lg"
           >
-            {guardando ? 'Guardando...' : 'Registrar faltantes'}
+            {accionPrincipalLabel}
           </button>
         </div>
       </div>

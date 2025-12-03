@@ -713,7 +713,7 @@ router.post('/enviar-alegra', async (req, res) => {
     } catch (liberarError) {
       console.warn('⚠️ No se pudo liberar la cuenta por pagar:', liberarError.message);
     }
-
+    
     if (alegraFacturaId) {
       console.log(`📝 Factura enviada a Alegra con ID: ${alegraFacturaId}`);
     }
