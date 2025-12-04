@@ -458,28 +458,52 @@ export default function FacturasBodega() {
     return filtrarPorBusqueda(lista)
   }, [activeTab, pendientes, listas, searchQuery])
 
-  const handleFilterChange = (field, value) => {
+  const handleFilterChange = async (field, value) => {
     const updated = { ...filters, [field]: value }
     setFilters(updated)
     localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(updated))
 
     // Si cambia la fecha de inicio, recargar facturas con el nuevo rango
-    if (field === 'fechaInicio' && value) {
-      const fechaInicio = new Date(value)
-      const hoy = new Date()
-      const diferenciaDias = Math.ceil((hoy - fechaInicio) / (1000 * 60 * 60 * 24))
-      const diasNecesarios = Math.min(Math.max(diferenciaDias + 1, 30), 365)
+    if (field === 'fechaInicio') {
+      setRefreshing(true)
+      try {
+        let diasNecesarios = 30
+        if (value) {
+          const fechaInicio = new Date(value)
+          const hoy = new Date()
+          const diferenciaDias = Math.ceil((hoy - fechaInicio) / (1000 * 60 * 60 * 24))
+          diasNecesarios = Math.min(Math.max(diferenciaDias + 1, 30), 365)
+        }
 
-      // Forzar recarga con el nuevo rango de días
-      alegraService.getFacturasBodega({ force_refresh: true, dias: diasNecesarios })
-        .then(response => {
-          if (response.success) {
-            setPendientesRaw(response.data?.pendientes || [])
-            setListas(response.data?.listas || [])
-            setUltimaSync(response.metadata?.lastSync || new Date().toISOString())
-          }
+        const response = await alegraService.getFacturasBodega({
+          force_refresh: true,
+          dias: diasNecesarios
         })
-        .catch(err => console.error('Error recargando facturas:', err))
+
+        if (response.success) {
+          const pendientesApiRaw = response.data?.pendientes || []
+          const listasApi = response.data?.listas || []
+          const syncTimestamp = response.metadata?.lastSync || new Date().toISOString()
+
+          setPendientesRaw(pendientesApiRaw)
+          setListas(listasApi)
+          setUltimaSync(syncTimestamp)
+
+          localStorage.setItem(
+            STORAGE_KEYS.data,
+            JSON.stringify({
+              pendientes: pendientesApiRaw,
+              listas: listasApi,
+              ultimaSync: syncTimestamp
+            })
+          )
+        }
+      } catch (err) {
+        console.error('Error recargando facturas:', err)
+        setError(err.message)
+      } finally {
+        setRefreshing(false)
+      }
     }
   }
 
