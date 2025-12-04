@@ -213,7 +213,20 @@ export default function FacturasBodega() {
         } else {
           setRefreshing(true)
         }
-        const response = await alegraService.getFacturasBodega({ force_refresh: forceRefresh })
+
+        // Calcular días necesarios basándose en el filtro de fecha de inicio
+        let dias = 30; // Por defecto 30 días
+        if (filters.fechaInicio) {
+          const fechaInicio = new Date(filters.fechaInicio);
+          const hoy = new Date();
+          const diferenciaDias = Math.ceil((hoy - fechaInicio) / (1000 * 60 * 60 * 24));
+          dias = Math.min(Math.max(diferenciaDias + 1, 30), 365); // Mínimo 30, máximo 365 días
+        }
+
+        const response = await alegraService.getFacturasBodega({
+          force_refresh: forceRefresh,
+          dias: dias
+        })
         if (!response.success) {
           throw new Error(response.message || 'No se pudo cargar la información')
         }
@@ -267,7 +280,7 @@ export default function FacturasBodega() {
         }
       }
     },
-    [selectedFacturaId]
+    [selectedFacturaId, filters.fechaInicio]
   )
 
   const completarYVolverAlListado = useCallback(async () => {
@@ -446,11 +459,28 @@ export default function FacturasBodega() {
   }, [activeTab, pendientes, listas, searchQuery])
 
   const handleFilterChange = (field, value) => {
-    setFilters((prev) => {
-      const updated = { ...prev, [field]: value }
-      localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(updated))
-      return updated
-    })
+    const updated = { ...filters, [field]: value }
+    setFilters(updated)
+    localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(updated))
+
+    // Si cambia la fecha de inicio, recargar facturas con el nuevo rango
+    if (field === 'fechaInicio' && value) {
+      const fechaInicio = new Date(value)
+      const hoy = new Date()
+      const diferenciaDias = Math.ceil((hoy - fechaInicio) / (1000 * 60 * 60 * 24))
+      const diasNecesarios = Math.min(Math.max(diferenciaDias + 1, 30), 365)
+
+      // Forzar recarga con el nuevo rango de días
+      alegraService.getFacturasBodega({ force_refresh: true, dias: diasNecesarios })
+        .then(response => {
+          if (response.success) {
+            setPendientesRaw(response.data?.pendientes || [])
+            setListas(response.data?.listas || [])
+            setUltimaSync(response.metadata?.lastSync || new Date().toISOString())
+          }
+        })
+        .catch(err => console.error('Error recargando facturas:', err))
+    }
   }
 
   const clearFilters = () => {
@@ -461,6 +491,9 @@ export default function FacturasBodega() {
     }
     setFilters(resetFilters)
     localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(resetFilters))
+
+    // Recargar facturas con rango predeterminado (30 días)
+    fetchFacturas(false, true)
   }
 
   const renderHeader = () => (

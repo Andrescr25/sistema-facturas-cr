@@ -625,7 +625,7 @@ router.get('/bodega/facturas', async (req, res) => {
     const limitParam = parseInt(req.query.limit, 10);
     const forceRefresh = req.query.force_refresh === 'true';
 
-    const dias = Math.min(Math.max(diasParam || 30, 1), 30);
+    const dias = Math.min(Math.max(diasParam || 30, 1), 365);
     const limit = Math.min(Math.max(limitParam || 40, 10), 120);
 
     // Verificar si hay datos en caché válidos
