@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
-const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutos
+const REFRESH_INTERVAL = 20 * 60 * 1000 // 5 minutos
 const CHECK_ANIMATION_DURATION = 600
 const STORAGE_KEYS = {
   data: 'facturasBodega:data',
@@ -291,9 +291,16 @@ export default function FacturasBodega() {
 
   useEffect(() => {
     fetchFacturas(true)
-    const interval = setInterval(() => fetchFacturas(false), REFRESH_INTERVAL)
+
+    // Solo auto-refrescar si NO hay una factura seleccionada (para no interrumpir el trabajo)
+    const interval = setInterval(() => {
+      if (!selectedFacturaId) {
+        fetchFacturas(false)
+      }
+    }, REFRESH_INTERVAL)
+
     return () => clearInterval(interval)
-  }, [fetchFacturas])
+  }, [fetchFacturas, selectedFacturaId])
 
   const handleSeleccionarFactura = (factura) => {
     setFacturaSeleccionada(factura)
