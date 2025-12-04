@@ -175,9 +175,10 @@ export default function FacturasBodega() {
             (factura) => String(factura.alegra_id) === String(savedSelectedId)
           )
         }
-        if (!seleccion && todas.length > 0) {
-          seleccion = todas[0]
-        }
+        // No seleccionar automáticamente la primera factura
+        // if (!seleccion && todas.length > 0) {
+        //   seleccion = todas[0]
+        // }
         if (seleccion) {
           setSelectedFacturaId(seleccion.alegra_id)
           setFacturaSeleccionada(seleccion)
