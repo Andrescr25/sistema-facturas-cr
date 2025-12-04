@@ -653,29 +653,43 @@ router.get('/bodega/facturas', async (req, res) => {
 
     while (fetched < limit) {
       const pageLimit = Math.min(30, limit - fetched);
-      const response = await alegraService.api.get('/invoices', {
-        params: {
-          start_date: startDate,
-          end_date: endDate,
-          start,
-          limit: pageLimit,
-          metadata: true,
-          order_field: 'date',
-          order_direction: 'DESC'
+
+      try {
+        const response = await alegraService.api.get('/invoices', {
+          params: {
+            start_date: startDate,
+            end_date: endDate,
+            start,
+            limit: pageLimit,
+            metadata: true,
+            order_field: 'date',
+            order_direction: 'DESC'
+          }
+        });
+
+        const pageData = response.data?.data || response.data || [];
+        if (!Array.isArray(pageData) || pageData.length === 0) {
+          break;
         }
-      });
 
-      const pageData = response.data?.data || response.data || [];
-      if (!Array.isArray(pageData) || pageData.length === 0) {
-        break;
-      }
+        invoicesRaw.push(...pageData);
+        fetched += pageData.length;
+        if (pageData.length < pageLimit) {
+          break;
+        }
+        start += pageLimit;
 
-      invoicesRaw.push(...pageData);
-      fetched += pageData.length;
-      if (pageData.length < pageLimit) {
-        break;
+        // Pequeño delay entre peticiones para evitar rate limiting
+        if (fetched < limit) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+        }
+      } catch (error) {
+        if (error.response?.status === 500) {
+          console.warn(`⚠️ Alegra API error 500 al obtener página ${start}, continuando con lo obtenido...`);
+          break; // Si hay error 500, usar lo que ya tenemos
+        }
+        throw error; // Re-lanzar otros errores
       }
-      start += pageLimit;
     }
 
     console.log(`✅ ${invoicesRaw.length} facturas sincronizadas desde Alegra`);
