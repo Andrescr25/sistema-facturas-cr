@@ -52,11 +52,10 @@ const filtrarPendientesPorFecha = (lista = [], filtros = {}) => {
   if (!Array.isArray(lista) || lista.length === 0) return []
   const {
     fechaInicio = '',
-    fechaFin = '',
     mostrarSinFecha = true
   } = filtros || {}
 
-  if (!fechaInicio && !fechaFin && mostrarSinFecha) {
+  if (!fechaInicio && mostrarSinFecha) {
     return lista
   }
 
@@ -76,12 +75,7 @@ const filtrarPendientesPorFecha = (lista = [], filtros = {}) => {
       if (fechaFactura < inicio) return false
     }
 
-    if (fechaFin) {
-      const fin = new Date(fechaFin)
-      fin.setHours(23, 59, 59, 999)
-      if (fechaFactura > fin) return false
-    }
-
+    // No filtramos por fecha fin - mostramos desde fechaInicio hasta hoy
     return true
   })
 }
@@ -144,7 +138,6 @@ export default function FacturasBodega() {
     }
     return {
       fechaInicio: '',
-      fechaFin: '',
       mostrarSinFecha: true
     }
   })
@@ -152,11 +145,7 @@ export default function FacturasBodega() {
   const checkAnimationTimeouts = useRef({})
 
   useEffect(() => {
-    const filtradas = filtrarPendientesPorFecha(pendientesRaw, filters)
-    console.log('🔍 DEBUG FILTRO: pendientesRaw.length:', pendientesRaw.length)
-    console.log('🔍 DEBUG FILTRO: filtradas.length:', filtradas.length)
-    console.log('🔍 DEBUG FILTRO: filters:', filters)
-    setPendientes(filtradas)
+    setPendientes(filtrarPendientesPorFecha(pendientesRaw, filters))
   }, [pendientesRaw, filters])
 
   useEffect(() => {
@@ -484,19 +473,10 @@ export default function FacturasBodega() {
           dias: diasNecesarios
         })
 
-        console.log('🔍 DEBUG: Días solicitados:', diasNecesarios)
-        console.log('🔍 DEBUG: Respuesta completa:', response)
-        console.log('🔍 DEBUG: Pendientes recibidas:', response.data?.pendientes?.length || 0)
-        console.log('🔍 DEBUG: Listas recibidas:', response.data?.listas?.length || 0)
-        console.log('🔍 DEBUG: Filtros actuales:', filters)
-
         if (response.success) {
           const pendientesApiRaw = response.data?.pendientes || []
           const listasApi = response.data?.listas || []
           const syncTimestamp = response.metadata?.lastSync || new Date().toISOString()
-
-          console.log('🔍 DEBUG: Facturas pendientes raw:', pendientesApiRaw)
-          console.log('🔍 DEBUG: Facturas listas:', listasApi)
 
           setPendientesRaw(pendientesApiRaw)
           setListas(listasApi)
@@ -523,7 +503,6 @@ export default function FacturasBodega() {
   const clearFilters = () => {
     const resetFilters = {
       fechaInicio: '',
-      fechaFin: '',
       mostrarSinFecha: true
     }
     setFilters(resetFilters)
@@ -604,25 +583,15 @@ export default function FacturasBodega() {
 
       {activeTab === 'pendientes' && (
         <div className="space-y-3 p-4 border rounded-2xl bg-gray-50">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="label text-xs">Desde</label>
-              <input
-                type="date"
-                className="input"
-                value={filters.fechaInicio}
-                onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label text-xs">Hasta</label>
-              <input
-                type="date"
-                className="input"
-                value={filters.fechaFin}
-                onChange={(e) => handleFilterChange('fechaFin', e.target.value)}
-              />
-            </div>
+          <div>
+            <label className="label text-xs">Ver facturas desde (deja vacío para últimos 30 días)</label>
+            <input
+              type="date"
+              className="input"
+              value={filters.fechaInicio}
+              onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
+              placeholder="Selecciona una fecha"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex items-center text-sm text-gray-600 gap-2">
