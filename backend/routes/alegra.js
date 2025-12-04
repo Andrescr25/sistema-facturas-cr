@@ -22,6 +22,13 @@ const prisma = new PrismaClient();
 
 const MANUAL_MAPPING_CONFIDENCE = 999.99;
 
+// Sistema de caché para facturas de bodega
+const bodegaFacturasCache = {
+  data: null,
+  timestamp: null,
+  TTL: 5 * 60 * 1000 // 5 minutos en milisegundos
+};
+
 const ensureReimpresionSchema = (() => {
   let ensured = false;
   return async (query) => {
@@ -616,11 +623,23 @@ router.get('/bodega/facturas', async (req, res) => {
   try {
     const diasParam = parseInt(req.query.dias, 10);
     const limitParam = parseInt(req.query.limit, 10);
+    const forceRefresh = req.query.force_refresh === 'true';
 
     const dias = Math.min(Math.max(diasParam || 30, 1), 30);
     const limit = Math.min(Math.max(limitParam || 40, 10), 120);
 
+    // Verificar si hay datos en caché válidos
     const now = new Date();
+    const cacheIsValid = !forceRefresh &&
+                        bodegaFacturasCache.data &&
+                        bodegaFacturasCache.timestamp &&
+                        (now.getTime() - bodegaFacturasCache.timestamp) < bodegaFacturasCache.TTL;
+
+    if (cacheIsValid) {
+      console.log(`📦 Sirviendo facturas de bodega desde caché (${Math.round((now.getTime() - bodegaFacturasCache.timestamp) / 1000)}s desde última actualización)`);
+      return res.json(bodegaFacturasCache.data);
+    }
+
     const endDate = normalizeDateOnly(now.toISOString());
     const startDateObj = new Date(now);
     startDateObj.setDate(startDateObj.getDate() - dias);
@@ -710,7 +729,7 @@ router.get('/bodega/facturas', async (req, res) => {
     const pendientes = enriched.filter((inv) => inv.estado_procesamiento !== 'procesado');
     const listas = enriched.filter((inv) => inv.estado_procesamiento === 'procesado');
 
-    res.json({
+    const response = {
       success: true,
       data: {
         pendientes,
@@ -730,7 +749,14 @@ router.get('/bodega/facturas', async (req, res) => {
         },
         lastSync: new Date().toISOString()
       }
-    });
+    };
+
+    // Guardar en caché
+    bodegaFacturasCache.data = response;
+    bodegaFacturasCache.timestamp = now.getTime();
+    console.log(`💾 Facturas de bodega guardadas en caché (válido por ${bodegaFacturasCache.TTL / 60000} minutos)`);
+
+    res.json(response);
   } catch (error) {
     console.error('❌ Error obteniendo facturas para bodega:', error);
     res.status(500).json({
@@ -783,6 +809,11 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
     `, [estado, observaciones, parseInt(alegraId, 10)]);
 
     console.log(`✅ Factura ${alegraId} marcada como ${estado}`);
+
+    // Invalidar caché para forzar actualización en próxima consulta
+    bodegaFacturasCache.data = null;
+    bodegaFacturasCache.timestamp = null;
+    console.log('🔄 Caché de facturas de bodega invalidado');
 
     res.json({
       success: true,
@@ -2250,6 +2281,11 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     }
 
     console.log(`✅ ${faltantesRegistrados.length} faltantes registrados exitosamente`);
+
+    // Invalidar caché para forzar actualización en próxima consulta
+    bodegaFacturasCache.data = null;
+    bodegaFacturasCache.timestamp = null;
+    console.log('🔄 Caché de facturas de bodega invalidado');
 
     res.status(201).json({
       success: true,

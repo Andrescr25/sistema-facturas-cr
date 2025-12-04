@@ -444,6 +444,7 @@ export const alegraService = {
       const searchParams = new URLSearchParams();
       if (params.dias) searchParams.append('dias', params.dias);
       if (params.limit) searchParams.append('limit', params.limit);
+      if (params.force_refresh) searchParams.append('force_refresh', 'true');
       const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
 
       const response = await api.get(`/alegra/bodega/facturas${queryString}`);

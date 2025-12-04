@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
-const REFRESH_INTERVAL = 60 * 1000 // 60 segundos
+const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutos
 const CHECK_ANIMATION_DURATION = 600
 const STORAGE_KEYS = {
   data: 'facturasBodega:data',
@@ -205,7 +205,7 @@ export default function FacturasBodega() {
   }, [])
 
   const fetchFacturas = useCallback(
-    async (showLoader = false) => {
+    async (showLoader = false, forceRefresh = false) => {
       const bloquearInterfaz = showLoader && !hasCacheRef.current
       try {
         if (bloquearInterfaz) {
@@ -213,7 +213,7 @@ export default function FacturasBodega() {
         } else {
           setRefreshing(true)
         }
-        const response = await alegraService.getFacturasBodega()
+        const response = await alegraService.getFacturasBodega({ force_refresh: forceRefresh })
         if (!response.success) {
           throw new Error(response.message || 'No se pudo cargar la información')
         }
@@ -474,7 +474,7 @@ export default function FacturasBodega() {
       </div>
       <div className="flex items-center gap-2">
         <button
-          onClick={() => fetchFacturas(false)}
+          onClick={() => fetchFacturas(false, true)}
           className="btn btn-outline flex items-center gap-2"
           disabled={refreshing}
         >
