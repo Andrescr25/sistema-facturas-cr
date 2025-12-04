@@ -209,16 +209,20 @@ export default function FacturasBodega() {
 
         // Calcular días necesarios basándose en el filtro de fecha de inicio
         let dias = 30; // Por defecto 30 días
+        let limit = 40; // Límite por defecto
+
         if (filters.fechaInicio) {
           const fechaInicio = new Date(filters.fechaInicio);
           const hoy = new Date();
           const diferenciaDias = Math.ceil((hoy - fechaInicio) / (1000 * 60 * 60 * 24));
           dias = Math.min(Math.max(diferenciaDias + 1, 30), 365); // Mínimo 30, máximo 365 días
+          limit = 120; // Aumentar límite cuando hay filtro de fecha
         }
 
         const response = await alegraService.getFacturasBodega({
           force_refresh: forceRefresh,
-          dias: dias
+          dias: dias,
+          limit: limit
         })
         if (!response.success) {
           throw new Error(response.message || 'No se pudo cargar la información')
@@ -468,9 +472,13 @@ export default function FacturasBodega() {
           diasNecesarios = Math.min(Math.max(diferenciaDias + 1, 30), 365)
         }
 
+        // Si hay un filtro de fecha específico, aumentar el límite de facturas
+        const limit = value ? 120 : 40; // Máximo permitido cuando hay filtro, normal sin filtro
+
         const response = await alegraService.getFacturasBodega({
           force_refresh: true,
-          dias: diasNecesarios
+          dias: diasNecesarios,
+          limit: limit
         })
 
         if (response.success) {
