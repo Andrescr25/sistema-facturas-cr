@@ -5045,7 +5045,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           mappingId: producto.mappingId || producto.mapping_id || null,
           alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
           cantidadFinal: parseInt(producto.cantidad, 10) || 0,
-          factorConversion: producto.factorConversion || producto.factor_conversion || 1
+          factorConversion: producto.factorConversion || producto.factor_conversion || 1,
+          observaciones: producto.observaciones || '' // ← Observaciones del producto
         };
 
         if (!preferirDatosProveedorActual) {
@@ -5059,7 +5060,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             factorConversion: payloadInfo.factorConversion,
             origen: 'interno_manual',
             datosProveedorReales: false,
-            mappingId: payloadInfo.mappingId || null
+            mappingId: payloadInfo.mappingId || null,
+            observaciones: payloadInfo.observaciones || '' // ← Observaciones del producto
           });
           continue;
         }
@@ -5137,7 +5139,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           factorConversion: payloadInfo.factorConversion,
           origen: origenEtiqueta,
           datosProveedorReales: tieneMapping,
-          mappingId: mapping?.id || payloadInfo.mappingId || null
+          mappingId: mapping?.id || payloadInfo.mappingId || null,
+          observaciones: payloadInfo.observaciones || '' // ← Observaciones del producto
         });
       } catch (mappingError) {
         console.error(`❌ Error buscando mapping para ${producto.codigo || producto.codigoInterno}:`, mappingError.message);
@@ -5151,7 +5154,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           factorConversion: producto.factorConversion || 1,
           origen: 'error',
           datosProveedorReales: false,
-          mappingId: producto.mappingId || producto.mapping_id || null
+          mappingId: producto.mappingId || producto.mapping_id || null,
+          observaciones: producto.observaciones || '' // ← Observaciones del producto
         });
       }
     }
@@ -5260,7 +5264,13 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     };
 
     const renderProducto = (producto) => {
-      const descripcion = producto.nombre_pdf || 'Sin descripción';
+      let descripcion = producto.nombre_pdf || 'Sin descripción';
+
+      // ✅ Agregar observaciones en paréntesis si existen
+      if (producto.observaciones && producto.observaciones.trim() !== '') {
+        descripcion += ` (${producto.observaciones.trim()})`;
+      }
+
       const codigo = producto.codigo_pdf || 'N/A';
       const cantidadTexto = (producto.cantidad ?? 0).toString();
 

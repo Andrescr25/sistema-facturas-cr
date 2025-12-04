@@ -314,7 +314,8 @@ export default function ReporteProveedores() {
             alegraItemId: producto.alegra_item_id || null,
             cantidad: cantidadParaProveedor, // ← Cantidad convertida para el proveedor
             cantidadOriginal: cantidadFinal, // ← Cantidad en tu sistema (para referencia)
-            factorConversion: factorConversion
+            factorConversion: factorConversion,
+            observaciones: producto.observaciones || '' // ← Observaciones del producto
           }
         })
       
@@ -380,7 +381,8 @@ export default function ReporteProveedores() {
         nombreProveedor: p.nombre_proveedor || p.producto_nombre,
         mappingId: p.mapping_id || null,
         alegraItemId: p.alegra_item_id || null,
-        cantidad: p.cantidad_sugerida
+        cantidad: p.cantidad_sugerida,
+        observaciones: p.observaciones || '' // ← Observaciones del producto
       }))
 
       const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
