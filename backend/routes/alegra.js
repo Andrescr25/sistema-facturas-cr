@@ -617,7 +617,7 @@ router.get('/bodega/facturas', async (req, res) => {
     const diasParam = parseInt(req.query.dias, 10);
     const limitParam = parseInt(req.query.limit, 10);
 
-    const dias = Math.min(Math.max(diasParam || 3, 1), 30);
+    const dias = Math.min(Math.max(diasParam || 30, 1), 30);
     const limit = Math.min(Math.max(limitParam || 40, 10), 120);
 
     const now = new Date();

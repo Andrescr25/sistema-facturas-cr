@@ -9,7 +9,8 @@ import {
   User,
   CalendarDays,
   Truck,
-  Inbox
+  Inbox,
+  Search
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
@@ -133,6 +134,7 @@ export default function FacturasBodega() {
   const [activeTab, setActiveTab] = useState('pendientes')
   const [checkAnimations, setCheckAnimations] = useState({})
   const [successMessage, setSuccessMessage] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState(() => {
     try {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.filtros)
@@ -423,7 +425,25 @@ export default function FacturasBodega() {
     }
   }
 
-  const facturasMostradas = activeTab === 'pendientes' ? pendientes : listas
+  const filtrarPorBusqueda = (lista) => {
+    if (!searchQuery.trim()) return lista
+
+    const query = searchQuery.toLowerCase().trim()
+    return lista.filter((factura) => {
+      const numeroFactura = (factura.numero_completo || factura.numero_factura || '').toLowerCase()
+      const clienteNombre = (factura.cliente_nombre || '').toLowerCase()
+      const total = (factura.total || 0).toString()
+
+      return numeroFactura.includes(query) ||
+             clienteNombre.includes(query) ||
+             total.includes(query)
+    })
+  }
+
+  const facturasMostradas = useMemo(() => {
+    const lista = activeTab === 'pendientes' ? pendientes : listas
+    return filtrarPorBusqueda(lista)
+  }, [activeTab, pendientes, listas, searchQuery])
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => {
@@ -491,6 +511,25 @@ export default function FacturasBodega() {
             {tab === 'pendientes' ? 'Pendientes' : 'Listas'}
           </button>
         ))}
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <input
+          type="text"
+          placeholder="Buscar por factura, cliente o monto..."
+          className="input pl-10 w-full"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {activeTab === 'pendientes' && (
