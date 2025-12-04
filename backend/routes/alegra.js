@@ -3416,13 +3416,13 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
       if (existeReimpresion.rows.length > 0) {
         await query(`
-          UPDATE facturas_reimpresion 
+          UPDATE facturas_reimpresion
           SET ajustes_realizados = $2,
-              estado = $3,
+              estado = $3::text,
               categoria = $4,
               total_ajustes = $5,
-              fecha_creacion = CASE WHEN $3 = 'pendiente' THEN CURRENT_TIMESTAMP ELSE fecha_creacion END,
-              fecha_procesamiento = CASE WHEN $3 = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
+              fecha_creacion = CASE WHEN $3::text = 'pendiente' THEN CURRENT_TIMESTAMP ELSE fecha_creacion END,
+              fecha_procesamiento = CASE WHEN $3::text = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
           FROM facturas fa
           WHERE facturas_reimpresion.factura_id = fa.id
           AND fa.alegra_id = $1
@@ -3430,9 +3430,9 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       } else {
         await query(`
           INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion, fecha_procesamiento)
-          SELECT fa.id, $2, $3, $4, $5, CURRENT_TIMESTAMP,
-                 CASE WHEN $3 = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
-          FROM facturas fa 
+          SELECT fa.id, $2, $3::text, $4, $5, CURRENT_TIMESTAMP,
+                 CASE WHEN $3::text = 'procesada' THEN CURRENT_TIMESTAMP ELSE NULL END
+          FROM facturas fa
           WHERE fa.alegra_id = $1
         `, [alegra_id, JSON.stringify(ajustes), estadoRegistro, categoriaRegistro, totalAjustesRegistro]);
       }
