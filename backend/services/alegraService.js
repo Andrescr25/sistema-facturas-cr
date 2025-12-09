@@ -24,7 +24,7 @@ class AlegraService {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-            timeout: 30000
+            timeout: 60000 // Aumentado a 60 segundos para evitar timeouts
         });
 
         this.prisma = global.prismaInstance;
@@ -54,6 +54,50 @@ class AlegraService {
       }
     );
   }
+
+    /**
+     * Realizar petición con reintentos y backoff exponencial
+     * @param {Function} requestFn - Función que retorna una promesa de la petición
+     * @param {number} maxRetries - Número máximo de reintentos (default: 3)
+     * @param {number} initialDelay - Delay inicial en ms (default: 1000)
+     */
+    async requestWithRetry(requestFn, maxRetries = 3, initialDelay = 1000) {
+        let lastError;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                return await requestFn();
+            } catch (error) {
+                lastError = error;
+
+                // Si es el último intento, lanzar el error
+                if (attempt === maxRetries) {
+                    console.error(`❌ Falló después de ${maxRetries + 1} intentos`);
+                    throw error;
+                }
+
+                // Solo reintentar en errores de timeout o errores de red
+                const shouldRetry = error.code === 'ECONNABORTED' ||
+                                   error.code === 'ETIMEDOUT' ||
+                                   error.code === 'ENOTFOUND' ||
+                                   error.code === 'ECONNRESET' ||
+                                   !error.response; // Errores de red sin respuesta
+
+                if (!shouldRetry) {
+                    throw error;
+                }
+
+                // Calcular delay con backoff exponencial
+                const delay = initialDelay * Math.pow(2, attempt);
+                console.log(`⏳ Reintento ${attempt + 1}/${maxRetries} en ${delay}ms...`);
+
+                // Esperar antes del siguiente reintento
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+
+        throw lastError;
+    }
 
     /**
      * Sincronizar productos desde Alegra

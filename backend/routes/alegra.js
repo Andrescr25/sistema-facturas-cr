@@ -655,17 +655,22 @@ router.get('/bodega/facturas', async (req, res) => {
       const pageLimit = Math.min(30, limit - fetched);
 
       try {
-        const response = await alegraService.api.get('/invoices', {
-          params: {
-            start_date: startDate,
-            end_date: endDate,
-            start,
-            limit: pageLimit,
-            metadata: true,
-            order_field: 'date',
-            order_direction: 'DESC'
-          }
-        });
+        // Usar requestWithRetry para manejar timeouts automáticamente
+        const response = await alegraService.requestWithRetry(
+          () => alegraService.api.get('/invoices', {
+            params: {
+              start_date: startDate,
+              end_date: endDate,
+              start,
+              limit: pageLimit,
+              metadata: true,
+              order_field: 'date',
+              order_direction: 'DESC'
+            }
+          }),
+          3, // 3 reintentos
+          1000 // Delay inicial de 1 segundo
+        );
 
         const pageData = response.data?.data || response.data || [];
         if (!Array.isArray(pageData) || pageData.length === 0) {
@@ -688,6 +693,19 @@ router.get('/bodega/facturas', async (req, res) => {
           console.warn(`⚠️ Alegra API error 500 al obtener página ${start}, continuando con lo obtenido...`);
           break; // Si hay error 500, usar lo que ya tenemos
         }
+
+        // Mejorar el mensaje de error para timeouts
+        if (error.code === 'ECONNABORTED') {
+          console.error(`❌ Error de timeout obteniendo facturas después de múltiples reintentos`);
+          console.error(`📊 Facturas obtenidas antes del timeout: ${invoicesRaw.length}`);
+
+          // Si ya obtuvimos algunas facturas, continuar con ellas
+          if (invoicesRaw.length > 0) {
+            console.log(`✅ Continuando con ${invoicesRaw.length} facturas obtenidas antes del error`);
+            break;
+          }
+        }
+
         throw error; // Re-lanzar otros errores
       }
     }
@@ -773,10 +791,31 @@ router.get('/bodega/facturas', async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('❌ Error obteniendo facturas para bodega:', error);
-    res.status(500).json({
+
+    // Determinar el código de estado y mensaje apropiado según el tipo de error
+    let statusCode = 500;
+    let mensaje = 'Error sincronizando facturas para bodega';
+    let detalles = error.message;
+
+    if (error.code === 'ECONNABORTED') {
+      statusCode = 504; // Gateway Timeout
+      mensaje = 'La API de Alegra tardó demasiado en responder';
+      detalles = 'El servidor de Alegra está experimentando demoras. Por favor, intenta nuevamente en unos momentos o reduce el rango de fechas.';
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND' || error.code === 'ECONNRESET') {
+      statusCode = 503; // Service Unavailable
+      mensaje = 'No se pudo conectar con la API de Alegra';
+      detalles = 'Problema de conectividad con el servidor de Alegra. Verifica tu conexión e intenta nuevamente.';
+    } else if (error.response?.status) {
+      statusCode = error.response.status;
+      mensaje = `Error de la API de Alegra: ${error.response.status}`;
+      detalles = error.response.data?.message || error.message;
+    }
+
+    res.status(statusCode).json({
       success: false,
-      message: 'Error sincronizando facturas para bodega',
-      error: error.message
+      message: mensaje,
+      error: detalles,
+      code: error.code
     });
   }
 });
