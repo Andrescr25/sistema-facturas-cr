@@ -792,6 +792,19 @@ router.get('/bodega/facturas', async (req, res) => {
   } catch (error) {
     console.error('❌ Error obteniendo facturas para bodega:', error);
 
+    // Si hay caché disponible (aunque esté expirado), usarlo como fallback
+    if (bodegaFacturasCache.data && bodegaFacturasCache.timestamp) {
+      const cacheAge = Math.round((Date.now() - bodegaFacturasCache.timestamp) / 1000);
+      console.log(`⚠️ Usando caché expirado como fallback (${cacheAge}s de antigüedad)`);
+
+      return res.json({
+        ...bodegaFacturasCache.data,
+        _fallback: true,
+        _cacheAge: cacheAge,
+        _warning: 'Datos del caché debido a que Alegra no está disponible'
+      });
+    }
+
     // Determinar el código de estado y mensaje apropiado según el tipo de error
     let statusCode = 500;
     let mensaje = 'Error sincronizando facturas para bodega';
@@ -807,15 +820,32 @@ router.get('/bodega/facturas', async (req, res) => {
       detalles = 'Problema de conectividad con el servidor de Alegra. Verifica tu conexión e intenta nuevamente.';
     } else if (error.response?.status) {
       statusCode = error.response.status;
-      mensaje = `Error de la API de Alegra: ${error.response.status}`;
-      detalles = error.response.data?.message || error.message;
+
+      // Mensajes específicos para códigos comunes
+      if (error.response.status === 503) {
+        mensaje = 'Servicio de Alegra no disponible';
+        detalles = 'El servidor de Alegra está temporalmente fuera de servicio o en mantenimiento. Por favor, intenta nuevamente en unos minutos.';
+      } else if (error.response.status === 502) {
+        mensaje = 'Error en el gateway de Alegra';
+        detalles = 'Problema temporal con el servidor de Alegra. Por favor, intenta nuevamente en unos momentos.';
+      } else if (error.response.status === 504) {
+        mensaje = 'Timeout del servidor de Alegra';
+        detalles = 'El servidor de Alegra tardó demasiado en procesar la solicitud. Intenta reducir el rango de fechas.';
+      } else if (error.response.status === 429) {
+        mensaje = 'Demasiadas peticiones a Alegra';
+        detalles = 'Has excedido el límite de peticiones permitidas. Por favor, espera unos momentos antes de intentar nuevamente.';
+      } else {
+        mensaje = `Error de la API de Alegra: ${error.response.status}`;
+        detalles = error.response.data?.message || error.message;
+      }
     }
 
     res.status(statusCode).json({
       success: false,
       message: mensaje,
       error: detalles,
-      code: error.code
+      code: error.code,
+      httpStatus: error.response?.status
     });
   }
 });

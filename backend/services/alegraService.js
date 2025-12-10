@@ -76,20 +76,39 @@ class AlegraService {
                     throw error;
                 }
 
-                // Solo reintentar en errores de timeout o errores de red
-                const shouldRetry = error.code === 'ECONNABORTED' ||
-                                   error.code === 'ETIMEDOUT' ||
-                                   error.code === 'ENOTFOUND' ||
-                                   error.code === 'ECONNRESET' ||
-                                   !error.response; // Errores de red sin respuesta
+                // Determinar si debemos reintentar
+                let shouldRetry = false;
+
+                // Reintentar en errores de timeout o errores de red
+                if (error.code === 'ECONNABORTED' ||
+                    error.code === 'ETIMEDOUT' ||
+                    error.code === 'ENOTFOUND' ||
+                    error.code === 'ECONNRESET' ||
+                    !error.response) {
+                    shouldRetry = true;
+                }
+
+                // Reintentar en errores del servidor (5xx) y rate limiting (429)
+                if (error.response?.status) {
+                    const status = error.response.status;
+                    // 429: Too Many Requests
+                    // 502: Bad Gateway
+                    // 503: Service Unavailable
+                    // 504: Gateway Timeout
+                    if (status === 429 || status === 502 || status === 503 || status === 504) {
+                        shouldRetry = true;
+                        console.log(`⚠️ Error del servidor: ${status} - ${error.response.statusText}`);
+                    }
+                }
 
                 if (!shouldRetry) {
+                    console.log(`❌ Error no recuperable (${error.code || error.response?.status}), abortando reintentos`);
                     throw error;
                 }
 
                 // Calcular delay con backoff exponencial
                 const delay = initialDelay * Math.pow(2, attempt);
-                console.log(`⏳ Reintento ${attempt + 1}/${maxRetries} en ${delay}ms...`);
+                console.log(`⏳ Reintento ${attempt + 1}/${maxRetries} en ${delay}ms... (Razón: ${error.code || error.response?.status})`);
 
                 // Esperar antes del siguiente reintento
                 await new Promise(resolve => setTimeout(resolve, delay));
