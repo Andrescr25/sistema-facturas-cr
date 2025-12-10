@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
-const REFRESH_INTERVAL = 20 * 60 * 1000 // 5 minutos
+const REFRESH_INTERVAL = 5 * 60 * 1000 // 5 minutos
 const CHECK_ANIMATION_DURATION = 600
 const STORAGE_KEYS = {
   data: 'facturasBodega:data',
