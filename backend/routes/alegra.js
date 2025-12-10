@@ -3699,20 +3699,20 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
     // 3. Marcar faltantes/facturas como procesados SOLO si se indica
     if (marcar_como_procesada === true) {
-    await query(`
-      UPDATE faltantes 
-      SET estado = 'procesado'
-      FROM facturas fa
-      WHERE faltantes.factura_id = fa.id 
-      AND fa.alegra_id = $1
-    `, [alegra_id]);
-    }
+      await query(`
+        UPDATE faltantes
+        SET estado = 'procesado'
+        FROM facturas fa
+        WHERE faltantes.factura_id = fa.id
+        AND fa.alegra_id = $1
+      `, [alegra_id]);
 
-    await query(`
-      UPDATE facturas 
-      SET estado_procesamiento = 'procesado'
-      WHERE alegra_id = $1
-    `, [alegra_id]);
+      await query(`
+        UPDATE facturas
+        SET estado_procesamiento = 'procesado'
+        WHERE alegra_id = $1
+      `, [alegra_id]);
+    }
 
     // Si estaba marcada como pendiente manual, removerla
     await query(`
