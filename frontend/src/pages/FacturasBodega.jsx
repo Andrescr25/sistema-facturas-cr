@@ -392,7 +392,24 @@ export default function FacturasBodega() {
         'procesado',
         observacionesAdicionales.trim() || null
       )
-      await completarYVolverAlListado()
+
+      // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo
+      // En su lugar, actualizar solo el estado local
+      setSuccessMessage('✅ Factura marcada como lista')
+
+      // Mover la factura de pendientes a listas localmente
+      const facturaActualizada = { ...facturaSeleccionada, estado_bodega: 'procesado' }
+      setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
+      setListas((prev) => [facturaActualizada, ...prev])
+
+      // Limpiar formulario
+      setObservacionesAdicionales('')
+      localStorage.removeItem(STORAGE_KEYS.observaciones)
+      setFacturaSeleccionada(null)
+      setSelectedFacturaId(null)
+      localStorage.removeItem(STORAGE_KEYS.selected)
+
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       console.error('❌ Error marcando factura como lista:', err)
       alert(`Error marcando factura como lista: ${err.message}`)
@@ -430,7 +447,29 @@ export default function FacturasBodega() {
         'procesado',
         observacionesAdicionales.trim() || null
       )
-      await completarYVolverAlListado()
+
+      // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo
+      // En su lugar, actualizar solo el estado local
+      setSuccessMessage(`✅ ${faltantesSeleccionados.length} faltante(s) registrado(s)`)
+
+      // Mover la factura de pendientes a listas localmente
+      const facturaActualizada = {
+        ...facturaSeleccionada,
+        estado_bodega: 'procesado',
+        faltantes_pendientes: faltantesSeleccionados.length
+      }
+      setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
+      setListas((prev) => [facturaActualizada, ...prev])
+
+      // Limpiar formulario
+      setObservacionesAdicionales('')
+      localStorage.removeItem(STORAGE_KEYS.observaciones)
+      setFacturaSeleccionada(null)
+      setFaltantesDraft({})
+      setSelectedFacturaId(null)
+      localStorage.removeItem(STORAGE_KEYS.selected)
+
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       console.error('❌ Error registrando faltantes:', err)
       alert(`Error registrando faltantes: ${err.message}`)
