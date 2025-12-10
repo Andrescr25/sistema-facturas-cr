@@ -89,6 +89,7 @@ async function setupDatabase() {
           ano INTEGER NOT NULL,
           total DECIMAL(10,2),
           procesada BOOLEAN DEFAULT FALSE,
+          estado_bodega VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_bodega IN ('pendiente', 'procesado')),
           estado_procesamiento VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_procesamiento IN ('pendiente', 'procesado')),
           observaciones_adicionales TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

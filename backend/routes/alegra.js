@@ -723,7 +723,7 @@ router.get('/bodega/facturas', async (req, res) => {
 
     if (numerosFactura.length > 0) {
       const estadosResult = await query(`
-        SELECT numero_factura, estado_procesamiento, observaciones_adicionales, id, alegra_id
+        SELECT numero_factura, estado_bodega, estado_procesamiento, observaciones_adicionales, id, alegra_id
         FROM facturas
         WHERE numero_factura = ANY($1::text[])
       `, [numerosFactura]);
@@ -731,7 +731,7 @@ router.get('/bodega/facturas', async (req, res) => {
       estadosMap = new Map(estadosResult.rows.map((row) => [row.numero_factura, row]));
 
       const faltantesResult = await query(`
-        SELECT 
+        SELECT
           fa.alegra_id,
           SUM(CASE WHEN f.estado = 'pendiente' THEN 1 ELSE 0 END) AS faltantes_pendientes,
           SUM(CASE WHEN f.estado = 'pendiente' THEN f.cantidad_faltante ELSE 0 END) AS cantidad_pendiente
@@ -750,6 +750,8 @@ router.get('/bodega/facturas', async (req, res) => {
 
       return {
         ...invoice,
+        // IMPORTANTE: Para bodega, usar estado_bodega (no estado_procesamiento)
+        estado_bodega: estadoLocal?.estado_bodega || 'pendiente',
         estado_procesamiento: estadoLocal?.estado_procesamiento || 'pendiente',
         observaciones_adicionales: estadoLocal?.observaciones_adicionales || null,
         factura_local_id: estadoLocal?.id || null,
@@ -758,8 +760,9 @@ router.get('/bodega/facturas', async (req, res) => {
       };
     });
 
-    const pendientes = enriched.filter((inv) => inv.estado_procesamiento !== 'procesado');
-    const listas = enriched.filter((inv) => inv.estado_procesamiento === 'procesado');
+    // IMPORTANTE: Filtrar por estado_bodega (no estado_procesamiento)
+    const pendientes = enriched.filter((inv) => inv.estado_bodega !== 'procesado');
+    const listas = enriched.filter((inv) => inv.estado_bodega === 'procesado');
 
     const response = {
       success: true,
@@ -880,18 +883,21 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
       facturaLocal = await query('SELECT * FROM facturas WHERE alegra_id = $1 LIMIT 1', [parseInt(alegraId, 10)]);
     }
 
+    // IMPORTANTE: Actualizar estado_bodega (NO estado_procesamiento)
+    // estado_bodega: para bodega (faltantes registrados)
+    // estado_procesamiento: solo para reporte clientes (lista para entregar)
     const updateResult = await query(`
       UPDATE facturas
-      SET estado_procesamiento = $1,
-          observaciones_adicionales = CASE 
-            WHEN $2::text IS NULL THEN observaciones_adicionales 
-            ELSE $2::text 
+      SET estado_bodega = $1,
+          observaciones_adicionales = CASE
+            WHEN $2::text IS NULL THEN observaciones_adicionales
+            ELSE $2::text
           END
       WHERE alegra_id = $3
       RETURNING *
     `, [estado, observaciones, parseInt(alegraId, 10)]);
 
-    console.log(`✅ Factura ${alegraId} marcada como ${estado}`);
+    console.log(`✅ Factura ${alegraId} marcada como ${estado} en BODEGA`);
 
     // Invalidar caché para forzar actualización en próxima consulta
     bodegaFacturasCache.data = null;
