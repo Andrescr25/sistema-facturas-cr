@@ -2347,7 +2347,7 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         await registrarRotacionProducto({
           productoId,
           productoCodigo: productoInfo?.codigo || codigoReferenceParaMapping,
-          productoNombre: productoInfo?.nombre || nombre_producto,
+          productoNombre: nombre_producto || productoInfo?.nombre, // ✅ CORREGIDO: Priorizar nombre de Alegra (factura original)
           proveedorId: productoInfo?.proveedor_id,
           proveedorNombre: productoInfo?.proveedor_nombre,
           fechaReferencia: facturaAlegra.data.date,
