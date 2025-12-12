@@ -107,6 +107,8 @@ export default function ReporteClientes() {
       const key = getProductKey(factura, producto)
       const ajuste = entregasAjustadas.get(key)
 
+      // 🔧 CORREGIDO: Incluir TODOS los faltantes, no solo los que tienen ajuste
+      // Si no hay ajuste, enviarlo como pendiente para que aparezca en impresión
       if (ajuste) {
         ajustesFactura.push({
           producto_codigo: producto.codigo,
@@ -115,6 +117,16 @@ export default function ReporteClientes() {
           cantidad_entregada: ajuste.cantidadEntregada,
           estado: ajuste.estado,
           requiere_actualizacion: ajuste.requiereActualizacion
+        })
+      } else {
+        // Producto faltante sin ajuste = requiere cambios en impresión
+        ajustesFactura.push({
+          producto_codigo: producto.codigo,
+          producto_nombre: producto.nombre,
+          cantidad_faltante: producto.cantidad_faltante,
+          cantidad_entregada: 0,
+          estado: 'pendiente',
+          requiere_actualizacion: true  // Marca que requiere actualización
         })
       }
     })
@@ -129,22 +141,25 @@ export default function ReporteClientes() {
       estado: ajustesFactura.length > 0 ?
         (ajustesFactura.some(aj => aj.requiere_actualizacion) ? 'requiere_reimpresion_con_ajustes' : 'requiere_reimpresion_solo_precios') :
         'requiere_reimpresion_solo_precios',
-      marcar_como_procesada: true  // ✅ CORREGIDO: Marcar como procesada en BD para que persista
+      marcar_como_procesada: false  // ❌ CORREGIDO: NO marcar como procesada - debe ir a impresión primero
     }
 
     const tieneAjustes = ajustesFactura.length > 0
-    const requiereReimpresion = true
+    const ajustesHechos = ajustesFactura.filter(aj => aj.cantidad_entregada > 0).length
+    const faltantesPendientes = ajustesFactura.filter(aj => aj.cantidad_entregada === 0).length
+    const requiereReimpresion = ajustesFactura.some(aj => aj.requiere_actualizacion)
 
     const resumen = `📋 Procesar Factura #${factura.numero_factura}:
 
 Cliente: ${clienteNombre}
-Ajustes realizados: ${ajustesFactura.length}
-${tieneAjustes ?
-        `Estado: ${requiereReimpresion ? '🖨️ Requiere impresión con cambios' : '✅ Resuelto sin cambios'}` :
-        'Estado: ℹ️ Sin ajustes - Solo se enviará al historial'
-      }
+Total productos con faltantes: ${ajustesFactura.length}
+  • Ajustados en este reporte: ${ajustesHechos}
+  • Pendientes de ajustar: ${faltantesPendientes}
 
-La factura se marcará como procesada en la base de datos.
+${requiereReimpresion ?
+  '🖨️ Se enviará a Impresión para hacer cambios' :
+  '✅ Se enviará a Impresión sin cambios necesarios'}
+
 ¿Continuar?`
 
     if (!window.confirm(resumen)) {
@@ -186,7 +201,7 @@ La factura se marcará como procesada en la base de datos.
         })
       )
 
-      alert(`✅ Factura #${factura.numero_factura} procesada correctamente\n\n${requiereReimpresion ? '🖨️ Enviada al centro de impresión' : '📚 Enviada solo al historial'}\n\n💡 La factura permanece visible (tachada). Use "Recuperar" si necesita editarla.\n\n🔄 El estado se mantiene permanentemente en la base de datos.`)
+      alert(`✅ Factura #${factura.numero_factura} enviada a Impresión\n\n📋 Resumen:\n• Productos con faltantes: ${ajustesFactura.length}\n• Requiere cambios: ${requiereReimpresion ? 'Sí' : 'No'}\n\n🖨️ Ve al Centro de Impresión para procesarla.\n\n💡 La factura permanece visible aquí (tachada).\nUsa "Recuperar" si necesitas editarla antes de imprimir.`)
 
     } catch (error) {
       alert(`❌ Error procesando factura: ${error.message}`)
