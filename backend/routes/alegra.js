@@ -2660,7 +2660,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
     const { query } = require('../config/database');
 
     const result = await query(`
-      SELECT 
+      SELECT
         f.id AS faltante_id,
         fa.cliente_nombre,
         fa.cliente_email,
@@ -2684,13 +2684,17 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         -- NUEVO: Traer ajustes guardados
         aj.cantidad_entregada,
         aj.estado as ajuste_estado,
-        aj.requiere_actualizacion
+        aj.requiere_actualizacion,
+        -- NUEVO: Verificar si está en cola de impresión
+        fr.id as reimpresion_id,
+        fr.estado as reimpresion_estado
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       JOIN facturas fa ON f.factura_id = fa.id
       LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
       LEFT JOIN faltantes_ajustes aj ON f.id = aj.faltante_id
+      LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
       WHERE f.estado IN ('pendiente', 'procesado')
       ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
     `);
@@ -2722,9 +2726,11 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
           estado_procesamiento: row.estado_procesamiento,
           fecha_procesamiento: row.fecha_procesamiento,
           observaciones_adicionales: row.observaciones_adicionales,
-        es_pendiente_manual: false,
-        pendiente_desde: null,
-        pendiente_motivo: null,
+          es_pendiente_manual: false,
+          pendiente_desde: null,
+          pendiente_motivo: null,
+          // NUEVO: Estado de cola de impresión
+          en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
           productos_faltantes: []
         });
       }

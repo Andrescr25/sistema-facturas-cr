@@ -46,8 +46,17 @@ export default function ReporteClientes() {
                 estado: 'procesado',
                 timestamp: factura.fecha_procesamiento || new Date().toISOString(),
                 ajustes: [],
-            requiere_reimpresion: false,
-            origen: 'procesado'
+                requiere_reimpresion: false,
+                origen: 'procesado'
+              })
+            } else if (factura.en_cola_impresion) {
+              // NUEVO: Si está en cola de impresión (pendiente), mostrar como procesado visualmente
+              estadosMap.set(facturaKey, {
+                estado: 'en_cola_impresion',
+                timestamp: new Date().toISOString(),
+                ajustes: [],
+                requiere_reimpresion: true,
+                origen: 'cola_impresion'
               })
             }
 
