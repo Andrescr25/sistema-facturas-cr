@@ -807,7 +807,7 @@ ${requiereReimpresion ?
                   // NUEVO: Obtener estado de la factura
                   const facturaKey = getFacturaKey(factura)
                   const estadoFactura = getFacturaEstado(factura)
-                  const estaProcesada = estadoFactura.estado === 'procesado'
+                  const estaProcesada = estadoFactura.estado === 'procesado' || estadoFactura.estado === 'en_cola_impresion'
                   const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
 
                   const facturaClase = estaProcesada
