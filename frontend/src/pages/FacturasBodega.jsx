@@ -81,13 +81,20 @@ const filtrarPendientesPorFecha = (lista = [], filtros = {}) => {
 }
 
 const getItemIdFromFacturaItem = (item) => {
+  // ✅ Usar prefijos para evitar confusión entre referencia "100" y alegra_id 100
   const referencia = normalizeReferenceValue(
-    item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra ?? ''
+    item?.referencia ?? item?.reference ?? ''
   )
+  if (referencia) return `REF-${referencia}`
+
   const codigoAlegra = item?.codigo_alegra ? item.codigo_alegra.toString() : ''
+  if (codigoAlegra) return `ALG-${codigoAlegra}`
+
   const alegraId = item?.alegra_id ? item.alegra_id.toString() : ''
+  if (alegraId) return `ALG-${alegraId}`
+
   const fallback = item?.id ? item.id.toString() : ''
-  return referencia || codigoAlegra || alegraId || fallback || ''
+  return fallback ? `ID-${fallback}` : ''
 }
 
 const buildDraftForFactura = (factura) => {
@@ -95,14 +102,25 @@ const buildDraftForFactura = (factura) => {
   const draft = {}
   factura.items.forEach((item, index) => {
     const key = getItemIdFromFacturaItem(item) || `item-${index}`
+
+    // ✅ Extraer el valor sin prefijo para enviar al backend
+    const referencia = normalizeReferenceValue(item?.referencia ?? item?.reference ?? '')
+    const rawItemId = referencia ||
+                      item?.codigo_alegra ||
+                      item?.alegra_id ||
+                      item?.id ||
+                      null
+
     draft[key] = {
       key,
-      itemId: getItemIdFromFacturaItem(item) || `item-${index}`,
+      itemId: rawItemId, // ← Sin prefijo para enviar al backend
       nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
+      // ✅ Mostrar referencia real o codigo_alegra como fallback (NO codigo_producto/CABYS)
       referencia:
         normalizeReferenceValue(
-          item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra
+          item?.referencia ?? item?.reference ?? ''
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
+      alegra_id: item.alegra_id || item.id,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
       tipo: null,
       cantidadFaltante: 0,

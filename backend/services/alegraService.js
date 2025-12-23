@@ -1116,8 +1116,10 @@ class AlegraService {
             reference: referenceValue,
             referencia_tipo: referenceType,
             reference_type: referenceType,
-            codigo_producto: referenceValue || (item.productKey ? String(item.productKey) : null) || (item.id ? String(item.id) : null),
-            productKey: item.productKey || referenceValue || null,
+            // ✅ codigo_producto solo usa la referencia real (NO productKey/CABYS)
+            codigo_producto: referenceValue || null,
+            // ⚠️ productKey es CABYS - mantenerlo separado, NO usarlo como identificador
+            productKey: item.productKey || null,
             cantidad: quantity,
             quantity,
             precio_unitario: price,
@@ -1157,9 +1159,9 @@ class AlegraService {
             referenceType = rawReference.type || null;
         }
 
+        // ❌ NO usar productKey (CABYS) como referencia - es un código general compartido
         if (!referenceValue) {
             referenceValue =
-                coerceString(item.productKey) ||
                 coerceString(item.code) ||
                 coerceString(item.sku) ||
                 coerceString(item.id);

@@ -1327,7 +1327,8 @@ router.post('/sincronizar/productos', async (req, res) => {
         if (totalSincronizados >= maxProducts) break;
 
         try {
-          const codigoProducto = producto.referencia || producto.codigo_producto || `ALG-${producto.alegra_id}`;
+          // ✅ codigo_producto ya contiene la referencia (sin CABYS)
+          const codigoProducto = producto.referencia || `ALG-${producto.alegra_id}`;
           const productoExistente = productosExistentesMap.get(codigoProducto);
 
           // Si solo queremos nuevos y ya existe, saltar
@@ -1766,10 +1767,9 @@ router.get('/facturas/detalle/:id', async (req, res) => {
 
           // 5. Fusionar datos guardados con items de Alegra
           itemsNormalizados = itemsNormalizados.map(item => {
-            // Intentar matchear por varias claves para mayor robustez
-            const savedData = mapaFaltantes.get(item.codigo_producto) || 
-                              mapaFaltantes.get(item.referencia) || 
-                              mapaFaltantes.get(item.productKey);
+            // ✅ Matchear por referencia o codigo_producto (NO usar productKey/CABYS)
+            const savedData = mapaFaltantes.get(item.referencia) ||
+                              mapaFaltantes.get(item.codigo_producto);
 
             if (savedData) {
               return {
