@@ -30,10 +30,10 @@ const formatCurrency = (value) =>
 const formatDate = (value) =>
   value
     ? new Date(value).toLocaleDateString('es-CR', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      })
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
     : 'Fecha no disponible'
 
 const normalizeReferenceValue = (value) => {
@@ -103,9 +103,9 @@ const buildDraftForFactura = (factura) => {
         normalizeReferenceValue(
           item?.referencia ?? item?.reference ?? item?.codigo_producto ?? item?.codigo_alegra
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
-        cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
-        tipo: null,
-        cantidadFaltante: 0,
+      cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
+      tipo: null,
+      cantidadFaltante: 0,
       observaciones: ''
     }
   })
@@ -302,13 +302,41 @@ export default function FacturasBodega() {
     return () => clearInterval(interval)
   }, [fetchFacturas, selectedFacturaId])
 
-  const handleSeleccionarFactura = (factura) => {
+  const handleSeleccionarFactura = async (factura) => {
     setFacturaSeleccionada(factura)
     setSelectedFacturaId(factura.alegra_id)
     localStorage.setItem(STORAGE_KEYS.selected, factura.alegra_id)
+
+    // Inicializar con datos actuales mientras carga el detalle completo
     setFaltantesDraft(buildDraftForFactura(factura))
     setObservacionesAdicionales('')
     localStorage.removeItem(STORAGE_KEYS.observaciones)
+
+    // Cargar detalle completo (incluye observaciones guardadas)
+    try {
+      const detalle = await alegraService.getFacturaDetalle(factura.alegra_id);
+      if (detalle && detalle.items) {
+        // Reconstruir draft con los datos detallados que incluyen persistencia
+        const nuevoDraft = {};
+        detalle.items.forEach((item, index) => {
+          const key = getItemIdFromFacturaItem(item) || `item-${index}`;
+          nuevoDraft[key] = {
+            key,
+            itemId: getItemIdFromFacturaItem(item),
+            nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
+            referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
+            cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),
+            // Usar datos persistidos del backend
+            tipo: item.tipo_faltante || 'ninguno',
+            cantidadFaltante: Number(item.cantidad_faltante || 0),
+            observaciones: item.observaciones || ''
+          };
+        });
+        setFaltantesDraft(nuevoDraft);
+      }
+    } catch (error) {
+      console.error('Error cargando detalle de factura:', error);
+    }
   }
 
   const actualizarEntradaFaltante = (key, updater) => {
@@ -488,8 +516,8 @@ export default function FacturasBodega() {
       const total = (factura.total || 0).toString()
 
       return numeroFactura.includes(query) ||
-             clienteNombre.includes(query) ||
-             total.includes(query)
+        clienteNombre.includes(query) ||
+        total.includes(query)
     })
   }
 
@@ -585,9 +613,9 @@ export default function FacturasBodega() {
           Última sincronización:{' '}
           {ultimaSync
             ? new Date(ultimaSync).toLocaleTimeString('es-CR', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })
+              hour: '2-digit',
+              minute: '2-digit'
+            })
             : '—'}
         </div>
       </div>
@@ -604,9 +632,8 @@ export default function FacturasBodega() {
               setActiveTab(tab)
               localStorage.setItem(STORAGE_KEYS.tab, tab)
             }}
-            className={`flex-1 btn text-lg py-3 ${
-              activeTab === tab ? 'btn-primary' : 'btn-outline border-gray-200 text-gray-600'
-            }`}
+            className={`flex-1 btn text-lg py-3 ${activeTab === tab ? 'btn-primary' : 'btn-outline border-gray-200 text-gray-600'
+              }`}
           >
             {tab === 'pendientes' ? 'Pendientes' : 'Listas'}
           </button>
@@ -748,6 +775,7 @@ export default function FacturasBodega() {
                 <div>
                   <p className="text-xl font-semibold text-gray-900">{item.nombre || item.name}</p>
                   <p className="text-sm text-gray-500">Referencia: {draft?.referencia || 'N/A'}</p>
+                  {item.description && <p className="text-xs text-gray-400 mt-1 italic">{item.description}</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500">Cantidad en factura</p>
@@ -760,35 +788,31 @@ export default function FacturasBodega() {
                   <button
                     type="button"
                     onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
-                    className={`btn pr-8 ${
-                      draft?.tipo === 'ninguno'
-                        ? 'btn-primary'
-                        : 'btn-outline border-gray-200 text-gray-600'
-                    }`}
+                    className={`btn pr-8 ${draft?.tipo === 'ninguno'
+                      ? 'btn-primary'
+                      : 'btn-outline border-gray-200 text-gray-600'
+                      }`}
                   >
                     Completo
                   </button>
                   <span
-                    className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${
-                      draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-                    }`}
+                    className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
+                      }`}
                   >
                     <CheckCircle
                       size={18}
-                      className={`text-green-500 ${
-                        checkAnimations[key] ? 'check-pop' : ''
-                      }`}
+                      className={`text-green-500 ${checkAnimations[key] ? 'check-pop' : ''
+                        }`}
                     />
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
-                  className={`btn ${
-                    draft?.tipo === 'total'
-                      ? 'bg-orange-500 border-orange-500 text-white'
-                      : 'btn-outline border-orange-200 text-orange-600'
-                  }`}
+                  className={`btn ${draft?.tipo === 'total'
+                    ? 'bg-orange-500 border-orange-500 text-white'
+                    : 'btn-outline border-orange-200 text-orange-600'
+                    }`}
                 >
                   No llegó
                 </button>

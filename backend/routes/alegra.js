@@ -1722,18 +1722,89 @@ router.get('/estadisticas/sincronizacion', async (req, res) => {
 router.get('/facturas/detalle/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { query } = require('../config/database'); // Importar cliente db 
 
     console.log(`📄 Obteniendo factura de Alegra ID: ${id}`);
 
+    // 1. Obtener datos frescos de Alegra
     const result = await alegraService.getInvoiceById(id);
 
     if (result.success) {
-      const itemsNormalizados = alegraService.processAlegraItems(result.data.items || []).map((item) => ({
+      // 2. Procesar items básicos
+      let itemsNormalizados = alegraService.processAlegraItems(result.data.items || []);
+
+      // 3. Buscar si tenemos datos guardados localmente para esta factura
+      // Primero buscamos el ID local de la factura usando el ID de Alegra
+      const facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(id)]);
+      
+      if (facturaLocal.rows.length > 0) {
+        const localId = facturaLocal.rows[0].id;
+        
+        // 4. Buscar faltantes/anotaciones guardadas
+        const faltantesGuardados = await query(`
+          SELECT 
+            p.codigo as codigo_producto,
+            f.producto_id,
+            f.cantidad_faltante,
+            f.tipo_faltante,
+            f.observaciones,
+            f.estado
+          FROM faltantes f
+          JOIN productos p ON f.producto_id = p.id
+          WHERE f.factura_id = $1
+        `, [localId]);
+
+        if (faltantesGuardados.rows.length > 0) {
+          console.log(`✅ Encontrados ${faltantesGuardados.rows.length} items con anotaciones guardadas`);
+          
+          // Crear mapa para búsqueda rápida (por código de producto)
+          // Nota: Sería ideal tener un ID único inmutable, pero el código suele ser lo más estable entre Alegra y local
+          const mapaFaltantes = new Map();
+          faltantesGuardados.rows.forEach(f => {
+             mapaFaltantes.set(f.codigo_producto, f);
+          });
+
+          // 5. Fusionar datos guardados con items de Alegra
+          itemsNormalizados = itemsNormalizados.map(item => {
+            // Intentar matchear por varias claves para mayor robustez
+            const savedData = mapaFaltantes.get(item.codigo_producto) || 
+                              mapaFaltantes.get(item.referencia) || 
+                              mapaFaltantes.get(item.productKey);
+
+            if (savedData) {
+              return {
+                ...item,
+                cantidad_faltante: savedData.cantidad_faltante,
+                tipo_faltante: savedData.tipo_faltante,
+                observaciones: savedData.observaciones || ''
+              };
+            }
+            // Si no hay datos guardados, retornar default
+            return {
+              ...item,
+              cantidad_faltante: 0,
+              tipo_faltante: 'ninguno',
+              observaciones: ''
+            };
+          });
+        } else {
+           // No hay faltantes, inicializar defaults
+           itemsNormalizados = itemsNormalizados.map(item => ({
+            ...item,
+            cantidad_faltante: 0,
+            tipo_faltante: 'ninguno',
+            observaciones: ''
+          }));
+        }
+      } else {
+        // Factura no existe localmente aún, inicializar defaults
+        itemsNormalizados = itemsNormalizados.map(item => ({
           ...item,
           cantidad_faltante: 0,
-        tipo_faltante: 'ninguno',
+          tipo_faltante: 'ninguno',
           observaciones: ''
-      }));
+        }));
+      }
 
       const facturaDetallada = {
         ...result.data,
