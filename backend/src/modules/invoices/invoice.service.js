@@ -300,6 +300,11 @@ class InvoiceService {
       const invoice = invoiceResult.data;
       const currentItems = invoice.items || [];
 
+      // DEBUG: Mostrar estructura completa del primer item
+      if (currentItems.length > 0) {
+        console.log(`🔍 DEBUG - Estructura del primer item:`, JSON.stringify(currentItems[0], null, 2));
+      }
+
       // 2. Identificar productos que necesitan actualización
       const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
 
@@ -337,8 +342,22 @@ class InvoiceService {
 
       // 4. Construir array de items actualizados
       const updatedItems = currentItems.map(item => {
+        // Intentar obtener la referencia de múltiples fuentes
         const itemReference = item.reference || item.item?.reference;
-        const ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
+
+        // Buscar ajuste por código de producto
+        let ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
+
+        // Si no encontró por referencia, intentar por nombre (fallback)
+        if (!ajuste && item.description) {
+          ajuste = ajustes.find(aj => {
+            const nombreSimilar = aj.producto_nombre?.toLowerCase().trim() === item.description?.toLowerCase().trim();
+            if (nombreSimilar) {
+              console.log(`  ℹ️ Match por nombre: "${item.description}" = "${aj.producto_nombre}" (código: ${aj.producto_codigo})`);
+            }
+            return nombreSimilar;
+          });
+        }
 
         // Si el producto tiene ajustes
         if (ajuste) {
