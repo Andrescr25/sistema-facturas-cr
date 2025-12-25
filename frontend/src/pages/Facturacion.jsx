@@ -800,6 +800,7 @@ export default function Facturacion() {
         client: parseInt(clienteSeleccionado.id),
         items: items.map(item => ({
           id: parseInt(item.id),
+          reference: item.reference || '', // ✅ AGREGADO: Campo reference
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
           discount: item.discount || 0,
