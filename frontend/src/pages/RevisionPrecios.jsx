@@ -35,7 +35,8 @@ export default function RevisionPrecios() {
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [devolviendo, setDevolviendo] = useState(false)
-  
+  const [sincronizando, setSincronizando] = useState(false)
+
   // Toast notifications
   const [toasts, setToasts] = useState([])
   
@@ -58,9 +59,9 @@ export default function RevisionPrecios() {
     try {
       setLoading(true)
       setError(null)
-      
+
       let response
-      
+
       if (tabActiva === 'PENDIENTE_RELACIONAR') {
         // Facturas procesadas pero sin relacionar completamente
         response = await api.get('/revision-precios/facturas?estado=PROCESADA')
@@ -71,7 +72,7 @@ export default function RevisionPrecios() {
         // Facturas ya enviadas a Alegra
         response = await api.get('/revision-precios/facturas?estado=ENVIADA')
       }
-      
+
       if (response && response.data.success) {
         setFacturas(response.data.facturas || [])
       }
@@ -79,6 +80,30 @@ export default function RevisionPrecios() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const sincronizarProductos = async () => {
+    try {
+      setSincronizando(true)
+      showToast('Sincronizando productos desde Alegra...', 'info')
+
+      const response = await api.post('/alegra/sincronizar/cache-productos')
+
+      if (response.data.success) {
+        showToast(
+          `Sincronización exitosa: ${response.data.total} productos actualizados`,
+          'success'
+        )
+      }
+    } catch (err) {
+      console.error('Error sincronizando productos:', err)
+      showToast(
+        `Error al sincronizar: ${err.message}`,
+        'error'
+      )
+    } finally {
+      setSincronizando(false)
     }
   }
 
@@ -355,15 +380,26 @@ export default function RevisionPrecios() {
       <>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-          <DollarSign className="mr-3" size={32} />
-          Revisión de Precios
-        </h1>
-        <p className="text-gray-600 mt-1">
-            Analiza costos, ajusta precios y envía facturas a Alegra
-        </p>
-      </div>
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <DollarSign className="mr-3" size={32} />
+                Revisión de Precios
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Analiza costos, ajusta precios y envía facturas a Alegra
+              </p>
+            </div>
+            <button
+              onClick={sincronizarProductos}
+              disabled={sincronizando}
+              className="btn btn-secondary flex items-center gap-2"
+              title="Sincronizar productos desde Alegra"
+            >
+              <RotateCcw className={sincronizando ? 'animate-spin' : ''} size={18} />
+              {sincronizando ? 'Sincronizando...' : 'Sincronizar Productos'}
+            </button>
+          </div>
 
       {/* Pestañas de filtrado */}
       <div className="card mb-6">

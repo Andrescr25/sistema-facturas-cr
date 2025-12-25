@@ -6430,7 +6430,7 @@ router.get('/facturacion/taxes', async (req, res) => {
 router.get('/facturacion/payment-methods', async (req, res) => {
   try {
     console.log('💳 Obteniendo métodos de pago de Alegra...');
-    
+
     // Métodos de pago comunes en Costa Rica según Alegra
     const paymentMethods = [
       { id: 'cash', name: 'Efectivo', type: 'cash' },
@@ -6451,6 +6451,34 @@ router.get('/facturacion/payment-methods', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error obteniendo métodos de pago'
+    });
+  }
+});
+
+/**
+ * Sincronizar caché de productos desde Alegra
+ * Actualiza la tabla alegra_products_cache con los productos más recientes
+ */
+router.post('/sincronizar/cache-productos', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando sincronización de caché de productos Alegra...');
+
+    // Llamar al método de sincronización del servicio
+    const productos = await alegraService.syncProductsFromAlegra();
+
+    res.json({
+      success: true,
+      message: 'Caché de productos sincronizada exitosamente',
+      total: productos.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error sincronizando caché de productos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error al sincronizar caché de productos'
     });
   }
 });

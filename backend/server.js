@@ -7,6 +7,7 @@ require('dotenv').config();
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
+const AlegraService = require('./services/alegraService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -189,6 +190,27 @@ app.get('*', (req, res) => {
 
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
+let alegraService = null;
+let productSyncInterval = null;
+
+// Función para sincronizar productos de Alegra
+async function syncAlegraProducts() {
+  try {
+    console.log('\n📦 ========================================');
+    console.log('📦 Sincronizando productos de Alegra...');
+    console.log('📦 ========================================\n');
+
+    if (!alegraService) {
+      alegraService = new AlegraService();
+    }
+
+    const productos = await alegraService.syncProductsFromAlegra();
+    console.log(`✅ Sincronización completada: ${productos.length} productos actualizados`);
+    console.log(`📅 Próxima sincronización en 6 horas\n`);
+  } catch (error) {
+    console.error('❌ Error sincronizando productos de Alegra:', error.message);
+  }
+}
 
 // Iniciar servidor
 const server = app.listen(PORT, () => {
@@ -201,13 +223,13 @@ const server = app.listen(PORT, () => {
   console.log(`   - http://localhost:5173`);
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
-  
+
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {
     console.log('\n📧 ========================================');
     console.log('📧 Iniciando monitoreo de emails...');
     console.log('📧 ========================================\n');
-    
+
     emailService = new EmailService();
     emailService.startMonitoring();
   } else {
@@ -215,24 +237,51 @@ const server = app.listen(PORT, () => {
     console.log('   Configura IMAP_USER e IMAP_PASSWORD en .env para activarlo');
     console.log('   O establece ENABLE_EMAIL_MONITORING=false para desactivar este mensaje\n');
   }
+
+  // Sincronizar productos de Alegra al iniciar
+  if (process.env.ENABLE_ALEGRA_SYNC !== 'false') {
+    // Ejecutar sincronización inicial después de 5 segundos (dar tiempo al servidor para estabilizarse)
+    setTimeout(() => {
+      syncAlegraProducts();
+    }, 5000);
+
+    // Programar sincronización periódica cada 6 horas (21600000 ms)
+    productSyncInterval = setInterval(() => {
+      syncAlegraProducts();
+    }, 6 * 60 * 60 * 1000);
+
+    console.log('\n📦 Sincronización de productos Alegra activada');
+    console.log('   - Sincronización inicial: En 5 segundos');
+    console.log('   - Sincronización periódica: Cada 6 horas');
+    console.log('   - Para desactivar: ENABLE_ALEGRA_SYNC=false en .env\n');
+  } else {
+    console.log('\n⚠️ Sincronización de productos Alegra desactivada');
+    console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
+  }
 });
 
 // Manejo de cierre graceful
 const gracefulShutdown = async (signal) => {
   console.log(`\n🛑 Señal ${signal} recibida. Cerrando servidor...`);
-  
+
+  // Detener sincronización de productos
+  if (productSyncInterval) {
+    console.log('📦 Deteniendo sincronización de productos...');
+    clearInterval(productSyncInterval);
+  }
+
   // Detener monitoreo de emails
   if (emailService) {
     console.log('📧 Deteniendo monitoreo de emails...');
     await emailService.disconnect();
   }
-  
+
   // Cerrar servidor HTTP
   server.close(() => {
     console.log('✅ Servidor cerrado correctamente');
     process.exit(0);
   });
-  
+
   // Forzar cierre después de 10 segundos
   setTimeout(() => {
     console.error('⚠️ Forzando cierre del servidor...');
