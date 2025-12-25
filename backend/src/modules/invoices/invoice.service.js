@@ -340,22 +340,50 @@ class InvoiceService {
         const itemReference = item.reference || item.item?.reference;
         const ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
 
-        // Si el producto requiere actualización y tenemos precio nuevo
-        if (ajuste && ajuste.requiere_actualizacion && preciosActualizados.has(itemReference)) {
-          const precioNuevo = preciosActualizados.get(itemReference);
+        // Si el producto tiene ajustes
+        if (ajuste) {
+          // Calcular nueva cantidad según el estado del ajuste
+          let nuevaCantidad = item.quantity;
+
+          if (ajuste.requiere_actualizacion) {
+            // Calcular cuánto hay que rebajar
+            const cantidadPendiente = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+
+            if (ajuste.estado === 'no_llego') {
+              // No llegó nada → Rebajar todo lo faltante
+              nuevaCantidad = Math.max(item.quantity - ajuste.cantidad_faltante, 0);
+              console.log(`  🔴 ${itemReference}: NO LLEGÓ - Rebajando ${ajuste.cantidad_faltante} unidades (${item.quantity} → ${nuevaCantidad})`);
+            } else if (ajuste.estado === 'parcial') {
+              // Llegó parte → Rebajar lo pendiente
+              nuevaCantidad = Math.max(item.quantity - cantidadPendiente, 0);
+              console.log(`  🟡 ${itemReference}: PARCIAL - Rebajando ${cantidadPendiente} unidades (${item.quantity} → ${nuevaCantidad})`);
+            } else if (ajuste.estado === 'completo') {
+              // Todo llegó → No rebajar
+              console.log(`  🟢 ${itemReference}: COMPLETO - Cantidad sin cambios (${item.quantity})`);
+            }
+          }
+
+          // Obtener precio actualizado (si está disponible)
+          const precioNuevo = preciosActualizados.has(itemReference)
+            ? preciosActualizados.get(itemReference)
+            : item.price;
+
+          if (preciosActualizados.has(itemReference)) {
+            console.log(`  💰 ${itemReference}: Precio actualizado (₡${item.price} → ₡${precioNuevo})`);
+          }
 
           return {
             id: item.id,
             reference: itemReference,
             description: item.description || item.name,
-            quantity: item.quantity,
+            quantity: nuevaCantidad, // CANTIDAD AJUSTADA
             price: precioNuevo, // PRECIO ACTUALIZADO
             tax: item.tax,
             item: item.item
           };
         }
 
-        // Si no requiere actualización, mantener original
+        // Si no tiene ajustes, mantener original
         return {
           id: item.id,
           reference: itemReference,
@@ -365,7 +393,7 @@ class InvoiceService {
           tax: item.tax,
           item: item.item
         };
-      });
+      }).filter(item => item.quantity > 0); // Filtrar items con cantidad 0
 
       // 5. Actualizar factura en Alegra con precios nuevos
       const updateResult = await this.alegraInvoiceService.updateInvoice(alegra_id, {
@@ -404,9 +432,15 @@ class InvoiceService {
       const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados } = invoiceData;
 
       console.log(`📋 Procesando factura individual: ${numero_factura}`);
+      console.log(`📦 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
+      console.log(`📊 Total ajustes: ${ajustes?.length || 0}`);
 
-      // NUEVO: Actualizar precios desde Alegra ANTES de procesar
+      // NUEVO: Actualizar precios y cantidades desde Alegra ANTES de procesar
       if (ajustes && ajustes.length > 0) {
+        const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
+        console.log(`🔍 Productos que requieren actualización: ${productosParaActualizar.length}`);
+        console.log(`📝 Detalles:`, JSON.stringify(productosParaActualizar, null, 2));
+
         await this.updateInvoicePricesFromAlegra(alegra_id, ajustes, items_editados);
       }
 
