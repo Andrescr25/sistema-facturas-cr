@@ -148,6 +148,8 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
   const [itemsEditados, setItemsEditados] = useState([])
   const [modoEdicion, setModoEdicion] = useState(false)
   const [procesando, setProcesando] = useState(false)
+  const [ajustandoPrecios, setAjustandoPrecios] = useState(false)
+  const [mensajeAjuste, setMensajeAjuste] = useState('')
   const [productoBusqueda, setProductoBusqueda] = useState({
     index: null,
     termino: '',
@@ -496,13 +498,15 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
 
     const confirmacion = window.confirm(
       `¿Confirmar ${imprimirDespues ? 'guardar e imprimir' : 'guardar'} factura ${facturaEditando.numero_factura}?\n\n` +
-      `Se actualizarán los precios automáticamente.`
+      `Se actualizarán los precios automáticamente desde Alegra.`
     )
 
     if (!confirmacion) return
 
     try {
       setProcesando(true)
+      setAjustandoPrecios(true)
+      setMensajeAjuste('Ajustando precios desde Alegra')
 
       if (modoEdicion && productoBusqueda.index !== null) {
         cerrarBusquedaProducto()
@@ -577,14 +581,20 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
         ...facturaEditando,
         marcar_como_procesada: true
       }
-      
+
+      setMensajeAjuste('Ya casi estamos listos')
+
       const result = await alegraService.procesarFacturaIndividual(
         facturaConFlag,
         modoEdicion ? itemsParaGuardar : null
       )
 
       if (result.success) {
-        alert(`✅ Factura ${facturaEditando.numero_factura} procesada exitosamente`)
+        setMensajeAjuste('Precios actualizados correctamente')
+
+        setTimeout(() => {
+          alert(`✅ Factura ${facturaEditando.numero_factura} procesada exitosamente`)
+        }, 500)
 
         // Si pidió imprimir, abrir PDF
         if (imprimirDespues) {
@@ -603,19 +613,34 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
       alert(`❌ Error: ${error.message}`)
     } finally {
       setProcesando(false)
+      setAjustandoPrecios(false)
+      setMensajeAjuste('')
     }
   }
 
   const handleProcesarSinCambios = async (factura, imprimirDespues = false) => {
     if (!factura) return
 
-    const confirmacion = window.confirm(
-      `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
-    )
+    const tieneAjustes = factura.ajustes_realizados && factura.ajustes_realizados.length > 0
+    const tieneProductosParaActualizar = tieneAjustes &&
+      factura.ajustes_realizados.some(aj => aj.requiere_actualizacion)
+
+    const mensajeConfirmacion = tieneProductosParaActualizar
+      ? `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe actualizarán los precios automáticamente desde Alegra.`
+      : `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
+
+    const confirmacion = window.confirm(mensajeConfirmacion)
     if (!confirmacion) return
 
     try {
       setProcesando(true)
+
+      // Mostrar mensaje de ajuste si hay productos para actualizar
+      if (tieneProductosParaActualizar) {
+        setAjustandoPrecios(true)
+        setMensajeAjuste('Ajustando precios desde Alegra')
+      }
+
       await alegraService.procesarFacturaIndividual({
         alegra_id: factura.alegra_id,
         numero_factura: factura.numero_factura,
@@ -625,6 +650,10 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
         estado: 'resuelto',
         marcar_como_procesada: true
       })
+
+      if (tieneProductosParaActualizar) {
+        setMensajeAjuste('Precios actualizados correctamente')
+      }
 
       if (imprimirDespues) {
         await alegraService.visualizarPDFFactura(factura.alegra_id)
@@ -637,6 +666,8 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
       alert(`❌ Error procesando factura: ${error.message}`)
     } finally {
       setProcesando(false)
+      setAjustandoPrecios(false)
+      setMensajeAjuste('')
     }
   }
 
@@ -1140,6 +1171,28 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Modal de Ajuste de Precios */}
+      {ajustandoPrecios && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <Loader className="mx-auto mb-4 text-blue-600 animate-spin" size={48} />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {mensajeAjuste}
+              </h3>
+              <div className="flex justify-center gap-1 mb-4">
+                <span className="animate-bounce delay-0">.</span>
+                <span className="animate-bounce delay-100">.</span>
+                <span className="animate-bounce delay-200">.</span>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Actualizando precios desde Alegra...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

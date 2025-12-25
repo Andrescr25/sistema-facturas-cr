@@ -3,13 +3,14 @@
  * Coordina operaciones entre la BD local y la API de Alegra
  */
 
-const { getInvoiceService: getAlegraInvoiceService } = require('../../integrations/alegra');
+const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
 const { query } = require('../../../config/database');
 
 class InvoiceService {
   constructor() {
     this.alegraInvoiceService = getAlegraInvoiceService();
+    this.alegraProductService = getAlegraProductService();
   }
 
   /**
@@ -283,13 +284,131 @@ class InvoiceService {
   }
 
   /**
+   * Actualizar precios de productos desde Alegra antes de procesar factura
+   * Solo actualiza productos que tienen requiere_actualizacion: true
+   */
+  async updateInvoicePricesFromAlegra(alegra_id, ajustes, itemsEditados = null) {
+    try {
+      console.log(`💰 Actualizando precios desde Alegra para factura ${alegra_id}...`);
+
+      // 1. Obtener factura actual de Alegra
+      const invoiceResult = await this.alegraInvoiceService.getInvoiceById(alegra_id);
+      if (!invoiceResult.success || !invoiceResult.data) {
+        throw new Error('No se pudo obtener la factura de Alegra');
+      }
+
+      const invoice = invoiceResult.data;
+      const currentItems = invoice.items || [];
+
+      // 2. Identificar productos que necesitan actualización
+      const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
+
+      if (productosParaActualizar.length === 0) {
+        console.log(`✅ No hay productos que requieran actualización de precios`);
+        return { success: true, updated: 0 };
+      }
+
+      console.log(`📦 ${productosParaActualizar.length} productos requieren actualización de precios`);
+
+      // 3. Obtener precios actualizados de Alegra (batch para optimizar)
+      const preciosActualizados = new Map();
+      const batchSize = 5; // Procesar de 5 en 5 para no saturar API
+
+      for (let i = 0; i < productosParaActualizar.length; i += batchSize) {
+        const batch = productosParaActualizar.slice(i, i + batchSize);
+
+        await Promise.all(batch.map(async (ajuste) => {
+          try {
+            const precio = await this.alegraInvoiceService.getUpdatedPrice(ajuste.producto_codigo);
+            if (precio !== null) {
+              preciosActualizados.set(ajuste.producto_codigo, precio);
+              console.log(`  ✓ Precio actualizado para ${ajuste.producto_codigo}: ₡${precio}`);
+            }
+          } catch (error) {
+            console.warn(`  ⚠️ No se pudo obtener precio para ${ajuste.producto_codigo}:`, error.message);
+          }
+        }));
+
+        // Pequeña pausa entre batches para no saturar la API
+        if (i + batchSize < productosParaActualizar.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+
+      // 4. Construir array de items actualizados
+      const updatedItems = currentItems.map(item => {
+        const itemReference = item.reference || item.item?.reference;
+        const ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
+
+        // Si el producto requiere actualización y tenemos precio nuevo
+        if (ajuste && ajuste.requiere_actualizacion && preciosActualizados.has(itemReference)) {
+          const precioNuevo = preciosActualizados.get(itemReference);
+
+          return {
+            id: item.id,
+            reference: itemReference,
+            description: item.description || item.name,
+            quantity: item.quantity,
+            price: precioNuevo, // PRECIO ACTUALIZADO
+            tax: item.tax,
+            item: item.item
+          };
+        }
+
+        // Si no requiere actualización, mantener original
+        return {
+          id: item.id,
+          reference: itemReference,
+          description: item.description || item.name,
+          quantity: item.quantity,
+          price: item.price,
+          tax: item.tax,
+          item: item.item
+        };
+      });
+
+      // 5. Actualizar factura en Alegra con precios nuevos
+      const updateResult = await this.alegraInvoiceService.updateInvoice(alegra_id, {
+        items: updatedItems
+      });
+
+      if (!updateResult.success) {
+        throw new Error('No se pudo actualizar la factura en Alegra');
+      }
+
+      console.log(`✅ Factura ${alegra_id} actualizada con ${preciosActualizados.size} precios nuevos`);
+
+      return {
+        success: true,
+        updated: preciosActualizados.size,
+        preciosActualizados: Array.from(preciosActualizados.entries()).map(([codigo, precio]) => ({
+          codigo,
+          precio
+        }))
+      };
+    } catch (error) {
+      console.error('❌ Error actualizando precios desde Alegra:', error);
+      return {
+        success: false,
+        error: error.message,
+        updated: 0
+      };
+    }
+  }
+
+  /**
    * Procesar factura individual
    */
   async processIndividualInvoice(invoiceData) {
     try {
-      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado } = invoiceData;
+      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados } = invoiceData;
 
       console.log(`📋 Procesando factura individual: ${numero_factura}`);
+
+      // NUEVO: Actualizar precios desde Alegra ANTES de procesar
+      if (ajustes && ajustes.length > 0) {
+        await this.updateInvoicePricesFromAlegra(alegra_id, ajustes, items_editados);
+      }
 
       // 1. Registrar en procesamientos
       const procesamiento = await query(`
