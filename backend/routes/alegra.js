@@ -3933,11 +3933,11 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       } else {
       console.log(`🔄 Editando factura ${numero_factura} en Alegra con ${ajustes.length} ajustes...`);
       console.log(`📋 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
-      
+
       try {
         // Obtener factura actual de Alegra
         const facturaActual = await alegraService.getInvoiceById(alegra_id);
-        
+
         if (!facturaActual.success) {
           console.error(`❌ No se pudo obtener factura ${alegra_id} de Alegra`);
         } else {
@@ -3945,6 +3945,31 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           facturaActual.data.items.forEach((item, index) => {
             console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
           });
+
+          // 🆕 Crear mapa de ID de Alegra → Código de producto
+          const alegraIdToCodigoMap = new Map();
+
+          try {
+            const productosEnFactura = facturaActual.data.items
+              .map(item => item.item?.id || item.id)
+              .filter(id => id);
+
+            if (productosEnFactura.length > 0) {
+              const productosDB = await query(`
+                SELECT alegra_id, codigo
+                FROM productos
+                WHERE alegra_id = ANY($1::int[])
+              `, [productosEnFactura]);
+
+              productosDB.rows.forEach(row => {
+                alegraIdToCodigoMap.set(row.alegra_id.toString(), row.codigo);
+                console.log(`  📌 Mapeado: Alegra ID ${row.alegra_id} → Código ${row.codigo}`);
+              });
+            }
+          } catch (error) {
+            console.warn('⚠️ No se pudo cargar mapa de IDs de Alegra:', error.message);
+          }
+
           // Construir items actualizados aplicando ajustes
           // IMPORTANTE: Según la documentación de Alegra, si un item NO está en el array items,
           // se ELIMINA de la factura. Por lo tanto, debemos incluir TODOS los items (modificados o no)
@@ -3954,19 +3979,42 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           for (const item of facturaActual.data.items) {
             // Buscar ajuste para este item
             console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
-            console.log(`      item.id.toString(): "${item.id.toString()}"`);
-            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
-            
-            const ajuste = ajustes.find(a => {
-              const match = a.producto_codigo === item.id.toString() ||
-                           a.producto_codigo === item.reference ||
-                           a.producto_codigo === item.reference?.reference;
-              
-              if (!match) {
-                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
+
+            // Intentar obtener código del producto
+            let itemCodigo = item.reference || item.item?.reference;
+
+            // Si reference es null, buscar en el mapa usando ID de Alegra
+            if (!itemCodigo) {
+              const alegraItemId = (item.item?.id || item.id)?.toString();
+              if (alegraItemId && alegraIdToCodigoMap.has(alegraItemId)) {
+                itemCodigo = alegraIdToCodigoMap.get(alegraItemId);
+                console.log(`      🔑 Match por ID de Alegra: ${alegraItemId} → Código ${itemCodigo}`);
               }
-              return match;
-            });
+            }
+
+            console.log(`      item.id: "${item.id}"`);
+            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
+            console.log(`      itemCodigo resuelto: "${itemCodigo}"`);
+
+            // Buscar ajuste por código
+            let ajuste = ajustes.find(a => a.producto_codigo === itemCodigo);
+
+            // Último fallback: buscar por nombre
+            if (!ajuste && item.description) {
+              ajuste = ajustes.find(a => {
+                const nombreSimilar = a.producto_nombre?.toLowerCase().trim() === item.description?.toLowerCase().trim();
+                if (nombreSimilar) {
+                  console.log(`      ℹ️ Match por nombre: "${item.description}"`);
+                }
+                return nombreSimilar;
+              });
+            }
+
+            if (!ajuste) {
+              ajustes.forEach(a => {
+                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
+              });
+            }
 
             if (ajuste) {
               console.log(`      ✅ Ajuste encontrado:`, {
