@@ -3979,10 +3979,11 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 const precio = parseFloat(row.price);
                 if (precio > 0) {
                   alegraIdToPrecioMap.set(row.alegra_id, precio);
+                  console.log(`  💰 Precio: Alegra ID ${row.alegra_id} → ₡${precio.toFixed(2)}`);
                 }
               });
 
-              console.log(`✅ Precios cargados desde caché: ${alegraIdToPrecioMap.size} productos`);
+              console.log(`✅ ${alegraIdToPrecioMap.size} precios desde caché`);
             }
           } catch (error) {
             console.error('❌ Error cargando precios:', error.message);
@@ -4057,47 +4058,50 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 return; // Skip este item
               }
 
-              // Si requiere actualización: eliminar y re-agregar con precio actualizado
+              // Si requiere actualización: re-agregar con precio actualizado
               if (ajuste.requiere_actualizacion) {
                 const alegraProductId = (item.item?.id || item.id)?.toString();
                 const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
 
                 if (precioNuevo) {
-                  // Re-agregar producto con precio del caché (elimina automáticamente el anterior)
-                  itemsActualizados.push({
-                    id: parseInt(alegraProductId), // ID del producto en Alegra
-                    quantity: cantidadFinal,
-                    price: precioNuevo
-                  });
-                  console.log(`   🔄 ${item.description}: Cantidad=${cantidadFinal}, Precio=₡${precioNuevo.toFixed(2)} (re-agregado)`);
-                  huboCambios = true;
-                } else {
-                  console.log(`   ⚠️ Precio no encontrado en caché, manteniendo original`);
                   itemsActualizados.push({
                     id: parseInt(alegraProductId),
                     quantity: cantidadFinal,
-                    price: item.price
+                    price: precioNuevo,
+                    tax: item.tax || []
+                  });
+                  console.log(`   🔄 ${item.description}: Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)}`);
+                  huboCambios = true;
+                } else {
+                  console.log(`   ⚠️ Precio no encontrado en caché`);
+                  itemsActualizados.push({
+                    id: parseInt(alegraProductId),
+                    quantity: cantidadFinal,
+                    price: item.price,
+                    tax: item.tax || []
                   });
                   if (cantidadFinal !== item.quantity) huboCambios = true;
                 }
               } else {
-                // Solo ajustar cantidad, sin cambio de precio
+                // Solo ajustar cantidad
                 itemsActualizados.push({
                   id: parseInt(item.item?.id || item.id),
                   quantity: cantidadFinal,
-                  price: item.price
+                  price: item.price,
+                  tax: item.tax || []
                 });
                 if (cantidadFinal !== item.quantity) {
-                  console.log(`   ✏️ Cantidad: ${item.quantity} → ${cantidadFinal}`);
+                  console.log(`   ✏️ Qty: ${item.quantity} → ${cantidadFinal}`);
                   huboCambios = true;
                 }
               }
             } else {
-              // Sin ajuste, mantener item como está
+              // Sin ajuste, mantener como está
               itemsActualizados.push({
                 id: parseInt(item.item?.id || item.id),
                 quantity: item.quantity,
-                price: item.price
+                price: item.price,
+                tax: item.tax || []
               });
             }
           }
