@@ -253,27 +253,46 @@ class AlegraService {
                 );
             }
 
+            // Actualizar en lotes para evitar saturar connection pool
             if (toUpdate.length > 0) {
-                const updatePromises = toUpdate.map(product =>
-                    this.prisma.alegraProduct.update({
-                        where: { alegraId: product.alegraId },
-                        data: {
-                            name: product.name,
-                            reference: product.reference,
-                            description: product.description,
-                            category: product.category,
-                            price: product.price,
-                            cost: product.cost,
-                            status: product.status,
-                            type: product.type,
-                            searchText: product.searchText,
-                            updatedAt: new Date()
-                        }
-                    }).catch(error => {
-                        console.warn(`⚠️ Error actualizando ${product.alegraId}:`, error.message);
-                    })
-                );
-                operations.push(Promise.all(updatePromises));
+                const BATCH_SIZE = 5;
+                const batches = [];
+
+                for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+                    batches.push(toUpdate.slice(i, i + BATCH_SIZE));
+                }
+
+                console.log(`📦 Actualizando ${toUpdate.length} productos en ${batches.length} lotes`);
+
+                for (let i = 0; i < batches.length; i++) {
+                    const batch = batches[i];
+                    const batchPromises = batch.map(product =>
+                        this.prisma.alegraProduct.update({
+                            where: { alegraId: product.alegraId },
+                            data: {
+                                name: product.name,
+                                reference: product.reference,
+                                description: product.description,
+                                category: product.category,
+                                price: product.price,
+                                cost: product.cost,
+                                status: product.status,
+                                type: product.type,
+                                searchText: product.searchText,
+                                updatedAt: new Date()
+                            }
+                        }).catch(error => {
+                            console.warn(`⚠️ Error actualizando ${product.alegraId}:`, error.message);
+                        })
+                    );
+
+                    await Promise.all(batchPromises);
+
+                    // Pequeña pausa entre lotes
+                    if (i < batches.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
             }
 
             if (toDelete.length > 0) {

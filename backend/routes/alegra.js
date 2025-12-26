@@ -3943,7 +3943,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         } else {
           console.log(`📄 Factura actual obtenida: ${facturaActual.data.items.length} items`);
           facturaActual.data.items.forEach((item, index) => {
-            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}`);
+            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Ref: ${JSON.stringify(item.reference)}, Tax: ${JSON.stringify(item.tax)}`);
           });
 
           // Crear mapas para matching y precios actualizados
