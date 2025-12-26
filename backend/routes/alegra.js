@@ -4035,97 +4035,74 @@ router.post('/facturas/procesar-individual', async (req, res) => {
             }
 
             if (ajuste) {
-              console.log(`      ✅ Ajuste encontrado:`, {
-                codigo: ajuste.producto_codigo,
-                estado: ajuste.estado,
-                faltante: ajuste.cantidad_faltante,
-                entregada: ajuste.cantidad_entregada
-              });
-              // Calcular cantidad final según el estado del ajuste
+              console.log(`      ✅ Ajuste encontrado: ${ajuste.producto_codigo} (${ajuste.estado})`);
+
+              // Calcular cantidad final
               let cantidadFinal = item.quantity;
 
               if (ajuste.estado === 'no_llego') {
-                const cantidadFaltante = ajuste.cantidad_faltante || 0;
-                
-                if (cantidadFaltante <= 0) {
-                  console.error(`   ❌ ERROR: cantidad_faltante inválida (${cantidadFaltante}) para ${item.description}`);
-                  cantidadFinal = item.quantity; // Mantener cantidad original si hay error
-                } else {
-                  cantidadFinal = item.quantity - cantidadFaltante;
-                  console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadFaltante} (faltante) = ${cantidadFinal}`);
-                }
+                cantidadFinal = item.quantity - (ajuste.cantidad_faltante || 0);
+                console.log(`   📊 NO LLEGÓ: ${item.quantity} - ${ajuste.cantidad_faltante} = ${cantidadFinal}`);
               } else if (ajuste.estado === 'parcial') {
-                const cantidadQueAunFalta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
-                cantidadFinal = item.quantity - cantidadQueAunFalta;
-                console.log(`   📊 ${item.description}: ${item.quantity} - ${cantidadQueAunFalta} (aún falta) = ${cantidadFinal}`);
-              } else if (ajuste.estado === 'completo') {
-                cantidadFinal = item.quantity;
-                
-                if (ajuste.tipo_ajuste === 'diferencia_precio') {
-                  console.log(`   💰 ${item.description}: ${item.quantity} (sin cambios cantidad, pero ${ajuste.diferencia_porcentual?.toFixed(2)}% diferencia precio)`);
-                } else {
-                  console.log(`   ✅ ${item.description}: ${item.quantity} (sin cambios, llegó completo)`);
-                }
+                const falta = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+                cantidadFinal = item.quantity - falta;
+                console.log(`   📊 PARCIAL: ${item.quantity} - ${falta} = ${cantidadFinal}`);
+              } else {
+                console.log(`   ✅ COMPLETO: ${item.quantity} (sin cambios)`);
               }
 
-              // Actualizar precio si requiere actualización
-              let precioAUsar = item.price;
+              if (cantidadFinal <= 0) {
+                console.log(`   🗑️ Eliminado (cantidad = 0)`);
+                huboCambios = true;
+                return; // Skip este item
+              }
 
+              // Si requiere actualización: eliminar y re-agregar con precio actualizado
               if (ajuste.requiere_actualizacion) {
-                const alegraItemId = (item.item?.id || item.id)?.toString();
+                const alegraProductId = (item.item?.id || item.id)?.toString();
+                const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
 
-                if (alegraItemId && alegraIdToPrecioMap.has(alegraItemId)) {
-                  const precioNuevo = alegraIdToPrecioMap.get(alegraItemId);
-
-                  if (Math.abs(precioNuevo - item.price) > 0.01) {
-                    precioAUsar = precioNuevo;
-                    console.log(`   💰 Precio: ₡${item.price.toFixed(2)} → ₡${precioNuevo.toFixed(2)}`);
-                    huboCambios = true;
-                  }
-                } else {
-                  console.log(`   ⚠️ Precio no encontrado en caché para Alegra ID ${alegraItemId}`);
-                }
-              }
-
-              if (cantidadFinal > 0) {
-                itemsActualizados.push({
-                  id: item.id,
-                  reference: item.reference,
-                  description: item.description,
-                  quantity: cantidadFinal,
-                  price: precioAUsar,
-                  tax: item.tax || []
-                });
-                
-                if (cantidadFinal !== item.quantity || precioAUsar !== item.price) {
+                if (precioNuevo) {
+                  // Re-agregar producto con precio del caché (elimina automáticamente el anterior)
+                  itemsActualizados.push({
+                    id: parseInt(alegraProductId), // ID del producto en Alegra
+                    quantity: cantidadFinal,
+                    price: precioNuevo
+                  });
+                  console.log(`   🔄 ${item.description}: Cantidad=${cantidadFinal}, Precio=₡${precioNuevo.toFixed(2)} (re-agregado)`);
                   huboCambios = true;
-                  if (cantidadFinal !== item.quantity) {
-                    console.log(`   ✏️ ${item.description}: ${item.quantity} → ${cantidadFinal}`);
-                  }
+                } else {
+                  console.log(`   ⚠️ Precio no encontrado en caché, manteniendo original`);
+                  itemsActualizados.push({
+                    id: parseInt(alegraProductId),
+                    quantity: cantidadFinal,
+                    price: item.price
+                  });
+                  if (cantidadFinal !== item.quantity) huboCambios = true;
                 }
               } else {
-                huboCambios = true;
-                console.log(`   🗑️ ${item.description}: eliminado (cantidad = 0)`);
+                // Solo ajustar cantidad, sin cambio de precio
+                itemsActualizados.push({
+                  id: parseInt(item.item?.id || item.id),
+                  quantity: cantidadFinal,
+                  price: item.price
+                });
+                if (cantidadFinal !== item.quantity) {
+                  console.log(`   ✏️ Cantidad: ${item.quantity} → ${cantidadFinal}`);
+                  huboCambios = true;
+                }
               }
             } else {
+              // Sin ajuste, mantener item como está
               itemsActualizados.push({
-                id: item.id,
-                reference: item.reference,
-                description: item.description,
+                id: parseInt(item.item?.id || item.id),
                 quantity: item.quantity,
-                price: item.price,
-                tax: item.tax || []
+                price: item.price
               });
             }
           }
 
-          console.log(`\n📊 Resultado de construcción de items:`);
-          console.log(`   huboCambios: ${huboCambios}`);
-          console.log(`   itemsActualizados.length: ${itemsActualizados.length}`);
-          console.log(`\n📋 Items a enviar a Alegra:`);
-          itemsActualizados.forEach((item, index) => {
-            console.log(`   ${index + 1}. ID: ${item.id}, Desc: ${item.description}, Qty: ${item.quantity}, Price: ${item.price}`);
-          });
+          console.log(`\n📊 Items a enviar: ${itemsActualizados.length}, huboCambios: ${huboCambios}`);
           
           if (huboCambios && itemsActualizados.length > 0) {
             console.log(`\n📝 Actualizando factura en Alegra...`);
