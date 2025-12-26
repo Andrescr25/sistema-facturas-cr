@@ -4064,30 +4064,42 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
 
                 if (precioNuevo) {
-                  // NO enviar tax - Alegra usará el impuesto del producto
-                  itemsActualizados.push({
+                  const itemData = {
                     id: parseInt(alegraProductId),
                     quantity: cantidadFinal,
                     price: precioNuevo
-                  });
+                  };
+                  // Incluir tax solo si existe y tiene contenido
+                  if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
+                    itemData.tax = item.tax;
+                  }
+                  itemsActualizados.push(itemData);
                   console.log(`   🔄 Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)}`);
                   huboCambios = true;
                 } else {
                   console.log(`   ⚠️ Precio no encontrado en caché`);
-                  itemsActualizados.push({
+                  const itemData = {
                     id: parseInt(alegraProductId),
                     quantity: cantidadFinal,
                     price: item.price
-                  });
+                  };
+                  if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
+                    itemData.tax = item.tax;
+                  }
+                  itemsActualizados.push(itemData);
                   if (cantidadFinal !== item.quantity) huboCambios = true;
                 }
               } else {
                 // Solo ajustar cantidad
-                itemsActualizados.push({
+                const itemData = {
                   id: parseInt(item.item?.id || item.id),
                   quantity: cantidadFinal,
                   price: item.price
-                });
+                };
+                if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
+                  itemData.tax = item.tax;
+                }
+                itemsActualizados.push(itemData);
                 if (cantidadFinal !== item.quantity) {
                   console.log(`   ✏️ Qty: ${item.quantity} → ${cantidadFinal}`);
                   huboCambios = true;
@@ -4095,11 +4107,15 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               }
             } else {
               // Sin ajuste, mantener como está
-              itemsActualizados.push({
+              const itemData = {
                 id: parseInt(item.item?.id || item.id),
                 quantity: item.quantity,
                 price: item.price
-              });
+              };
+              if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
+                itemData.tax = item.tax;
+              }
+              itemsActualizados.push(itemData);
             }
           }
 

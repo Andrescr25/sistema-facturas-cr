@@ -214,7 +214,8 @@ class AlegraService {
 
                 if (!existing) {
                     toInsert.push(productData);
-                } else if (existing.name !== product.name) {
+                } else {
+                    // Siempre actualizar para mantener precios actualizados
                     toUpdate.push(productData);
                 }
             });
