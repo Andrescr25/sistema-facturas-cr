@@ -3590,51 +3590,85 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       }
     };
 
-    // 🔧 NUEVO: 2.5 Guardar ajustes en faltantes_ajustes ANTES de procesar
+    // 🔧 NUEVO: 2.5 Guardar ajustes en faltantes_ajustes ANTES de procesar (OPTIMIZADO CON BATCH QUERIES)
     console.log(`💾 Guardando ${ajustes.length} ajustes en base de datos...`);
 
-    for (const ajuste of ajustes) {
-      try {
-        // Buscar el faltante_id correspondiente a este producto
-        const faltanteResult = await query(`
-          SELECT f.id as faltante_id
-          FROM faltantes f
-          JOIN productos p ON f.producto_id = p.id
-          JOIN facturas fa ON f.factura_id = fa.id
-          WHERE fa.alegra_id = $1 
-          AND p.codigo = $2
-          AND f.estado IN ('pendiente', 'procesado')
-          LIMIT 1
-        `, [alegra_id, ajuste.producto_codigo]);
+    try {
+      // 1. Obtener todos los códigos de productos de los ajustes
+      const todosCodigos = ajustes.map(a => a.producto_codigo);
 
-        if (faltanteResult.rows.length > 0) {
-          const faltante_id = faltanteResult.rows[0].faltante_id;
+      // 2. Buscar todos los faltante_ids en una sola query
+      const faltantesResult = await query(`
+        SELECT f.id as faltante_id, p.codigo
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE fa.alegra_id = $1
+        AND p.codigo = ANY($2)
+        AND f.estado IN ('pendiente', 'procesado')
+      `, [alegra_id, todosCodigos]);
 
-          // Guardar/actualizar ajuste en faltantes_ajustes
-          await query(`
-            INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (faltante_id) 
-            DO UPDATE SET 
-              cantidad_entregada = $2,
-              estado = $3,
-              requiere_actualizacion = $4,
-              updated_at = CURRENT_TIMESTAMP
-          `, [
-            faltante_id,
-            ajuste.cantidad_entregada,
-            ajuste.estado,
-            ajuste.requiere_actualizacion
-          ]);
+      // 3. Crear mapa de codigo -> faltante_id
+      const codigoToFaltanteId = new Map();
+      faltantesResult.rows.forEach(row => {
+        codigoToFaltanteId.set(row.codigo, row.faltante_id);
+      });
 
-          console.log(`💾 Ajuste guardado: ${ajuste.producto_codigo} → entregado ${ajuste.cantidad_entregada} (${ajuste.estado})`);
-        } else {
-          console.warn(`⚠️ No se encontró faltante para producto: ${ajuste.producto_codigo} en factura ${alegra_id}`);
+      console.log(`📦 Encontrados ${faltantesResult.rows.length}/${ajustes.length} faltantes`);
+
+      // 4. Preparar datos para inserción batch
+      const ajustesConFaltante = ajustes
+        .map(ajuste => ({
+          ...ajuste,
+          faltante_id: codigoToFaltanteId.get(ajuste.producto_codigo)
+        }))
+        .filter(ajuste => ajuste.faltante_id);
+
+      if (ajustesConFaltante.length > 0) {
+        // 5. Insertar/actualizar todos los ajustes en una sola query usando unnest
+        const faltanteIds = ajustesConFaltante.map(a => a.faltante_id);
+        const cantidades = ajustesConFaltante.map(a => a.cantidad_entregada);
+        const estados = ajustesConFaltante.map(a => a.estado);
+        const requiereActualizacion = ajustesConFaltante.map(a => a.requiere_actualizacion);
+
+        await query(`
+          INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion)
+          SELECT * FROM unnest(
+            $1::int[],
+            $2::numeric[],
+            $3::text[],
+            $4::boolean[]
+          ) AS t(faltante_id, cantidad_entregada, estado, requiere_actualizacion)
+          ON CONFLICT (faltante_id)
+          DO UPDATE SET
+            cantidad_entregada = EXCLUDED.cantidad_entregada,
+            estado = EXCLUDED.estado,
+            requiere_actualizacion = EXCLUDED.requiere_actualizacion,
+            updated_at = CURRENT_TIMESTAMP
+        `, [faltanteIds, cantidades, estados, requiereActualizacion]);
+
+        console.log(`✅ ${ajustesConFaltante.length} ajustes guardados correctamente`);
+
+        // Log detallado solo para debugging si hay pocos ajustes
+        if (ajustesConFaltante.length <= 10) {
+          ajustesConFaltante.forEach(a => {
+            console.log(`   💾 ${a.producto_codigo} → ${a.cantidad_entregada} (${a.estado})`);
+          });
         }
-      } catch (ajusteError) {
-        console.error(`❌ Error guardando ajuste para ${ajuste.producto_codigo}:`, ajusteError.message);
-        // Continuar con los demás ajustes aunque uno falle
       }
+
+      // 6. Advertir sobre ajustes sin faltante
+      const ajustesSinFaltante = ajustes.filter(a => !codigoToFaltanteId.get(a.producto_codigo));
+      if (ajustesSinFaltante.length > 0) {
+        console.warn(`⚠️ ${ajustesSinFaltante.length} ajustes sin faltante en DB:`);
+        ajustesSinFaltante.forEach(a => {
+          console.warn(`   - ${a.producto_codigo}`);
+        });
+      }
+
+    } catch (ajusteError) {
+      console.error(`❌ Error guardando ajustes:`, ajusteError.message);
+      // Continuar con el procesamiento de la factura
     }
 
     // 🔧 NUEVO: 3. Detectar diferencias de precio >5% para productos que NO requieren cambio de cantidad
