@@ -172,12 +172,19 @@ class AlegraService {
             const startTime = Date.now();
 
             const existingProducts = await this.prisma.alegraProduct.findMany({
-                select: { alegraId: true, updatedAt: true, name: true }
+                select: { alegraId: true, updatedAt: true, name: true, price: true, cost: true, reference: true, status: true }
             });
 
             const existingMap = new Map();
             existingProducts.forEach(p => {
-                existingMap.set(p.alegraId, { updatedAt: p.updatedAt, name: p.name });
+                existingMap.set(p.alegraId, {
+                    updatedAt: p.updatedAt,
+                    name: p.name,
+                    price: p.price,
+                    cost: p.cost,
+                    reference: p.reference,
+                    status: p.status
+                });
             });
 
             const uniqueProducts = products.filter((product, index, self) =>
@@ -215,8 +222,17 @@ class AlegraService {
                 if (!existing) {
                     toInsert.push(productData);
                 } else {
-                    // Siempre actualizar para mantener precios actualizados
-                    toUpdate.push(productData);
+                    // Solo actualizar si algo cambió
+                    const hasChanged =
+                        existing.name !== productData.name ||
+                        Math.abs(existing.price - productData.price) > 0.01 ||
+                        Math.abs(existing.cost - productData.cost) > 0.01 ||
+                        existing.reference !== productData.reference ||
+                        existing.status !== productData.status;
+
+                    if (hasChanged) {
+                        toUpdate.push(productData);
+                    }
                 }
             });
 
