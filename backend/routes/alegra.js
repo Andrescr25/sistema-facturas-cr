@@ -3949,6 +3949,9 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           // 🆕 Crear mapa de ID de Alegra → Código de producto
           const alegraIdToCodigoMap = new Map();
 
+          // 🆕 Crear mapa de ID de Alegra → Precio actual desde caché
+          const alegraIdToPrecioMap = new Map();
+
           try {
             const productosEnFactura = facturaActual.data.items
               .map(item => item.item?.id || item.id)
@@ -3965,9 +3968,23 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 alegraIdToCodigoMap.set(row.alegra_id.toString(), row.codigo);
                 console.log(`  📌 Mapeado: Alegra ID ${row.alegra_id} → Código ${row.codigo}`);
               });
+
+              // Obtener precios actuales desde el caché de Alegra
+              const preciosDB = await query(`
+                SELECT alegra_id, price
+                FROM alegra_products_cache
+                WHERE alegra_id = ANY($1::int[])
+              `, [productosEnFactura]);
+
+              preciosDB.rows.forEach(row => {
+                if (row.price && parseFloat(row.price) > 0) {
+                  alegraIdToPrecioMap.set(row.alegra_id.toString(), parseFloat(row.price));
+                  console.log(`  💰 Precio desde caché: Alegra ID ${row.alegra_id} → ₡${parseFloat(row.price).toFixed(2)}`);
+                }
+              });
             }
           } catch (error) {
-            console.warn('⚠️ No se pudo cargar mapa de IDs de Alegra:', error.message);
+            console.warn('⚠️ No se pudo cargar mapas de IDs de Alegra:', error.message);
           }
 
           // Construir items actualizados aplicando ajustes
@@ -4052,10 +4069,34 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
               // Determinar precio a usar
               let precioAUsar = item.price;
-              
-              if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
+
+              // 🆕 Si requiere actualización, obtener precio actual desde el caché
+              if (ajuste.requiere_actualizacion) {
+                const alegraItemId = (item.item?.id || item.id)?.toString();
+
+                // Intentar obtener precio desde el caché de Alegra
+                if (alegraItemId && alegraIdToPrecioMap.has(alegraItemId)) {
+                  const precioDesdeCache = alegraIdToPrecioMap.get(alegraItemId);
+
+                  if (precioDesdeCache !== item.price) {
+                    precioAUsar = precioDesdeCache;
+                    console.log(`   💰 Actualizando precio desde caché: ₡${item.price.toFixed(2)} → ₡${precioAUsar.toFixed(2)}`);
+                    huboCambios = true;
+                  } else {
+                    console.log(`   ✓ Precio ya está actualizado: ₡${item.price.toFixed(2)}`);
+                  }
+                }
+                // Fallback: si hay precio_nuevo en el ajuste (diferencia_precio)
+                else if (ajuste.precio_nuevo) {
+                  precioAUsar = ajuste.precio_nuevo;
+                  console.log(`   💰 Actualizando precio desde ajuste: ₡${item.price.toFixed(2)} → ₡${precioAUsar.toFixed(2)}`);
+                  huboCambios = true;
+                }
+              }
+              // Mantener compatibilidad con ajustes de diferencia_precio antiguos
+              else if (ajuste.tipo_ajuste === 'diferencia_precio' && ajuste.precio_nuevo) {
                 precioAUsar = ajuste.precio_nuevo;
-                console.log(`   💰 Actualizando precio: ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
+                console.log(`   💰 Actualizando precio (diferencia): ₡${item.price} → ₡${precioAUsar.toFixed(2)}`);
                 huboCambios = true;
               }
 
