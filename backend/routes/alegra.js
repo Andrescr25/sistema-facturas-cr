@@ -3996,9 +3996,6 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           let huboCambios = false;
 
           for (const item of facturaActual.data.items) {
-            // Buscar ajuste para este item
-            console.log(`\n   🔍 Buscando ajuste para item ID: ${item.id}, Desc: ${item.description}`);
-
             // Intentar obtener código del producto
             let itemCodigo = item.reference || item.item?.reference;
 
@@ -4007,13 +4004,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               const alegraItemId = (item.item?.id || item.id)?.toString();
               if (alegraItemId && alegraIdToCodigoMap.has(alegraItemId)) {
                 itemCodigo = alegraIdToCodigoMap.get(alegraItemId);
-                console.log(`      🔑 Match por ID de Alegra: ${alegraItemId} → Código ${itemCodigo}`);
               }
             }
-
-            console.log(`      item.id: "${item.id}"`);
-            console.log(`      item.reference: ${JSON.stringify(item.reference)}`);
-            console.log(`      itemCodigo resuelto: "${itemCodigo}"`);
 
             // Buscar ajuste por código
             let ajuste = ajustes.find(a => a.producto_codigo === itemCodigo);
@@ -4026,12 +4018,6 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                   console.log(`      ℹ️ Match por nombre: "${item.description}"`);
                 }
                 return nombreSimilar;
-              });
-            }
-
-            if (!ajuste) {
-              ajustes.forEach(a => {
-                console.log(`      ❌ No match con ajuste: ${a.producto_codigo} (${a.producto_nombre})`);
               });
             }
 
