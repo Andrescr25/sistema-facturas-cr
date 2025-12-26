@@ -305,6 +305,32 @@ class InvoiceService {
         console.log(`🔍 DEBUG - Estructura del primer item:`, JSON.stringify(currentItems[0], null, 2));
       }
 
+      // 1.5. Crear mapa de ID de Alegra → Código de producto
+      // Esto ayuda a hacer match cuando reference es null
+      const alegraIdToCodigoMap = new Map();
+
+      // Obtener códigos de productos desde la base de datos local
+      try {
+        const productosEnFactura = currentItems
+          .map(item => item.item?.id || item.id)
+          .filter(id => id);
+
+        if (productosEnFactura.length > 0) {
+          const productosDB = await query(`
+            SELECT alegra_id, codigo
+            FROM productos
+            WHERE alegra_id = ANY($1::int[])
+          `, [productosEnFactura]);
+
+          productosDB.rows.forEach(row => {
+            alegraIdToCodigoMap.set(row.alegra_id.toString(), row.codigo);
+            console.log(`  📌 Mapeado: Alegra ID ${row.alegra_id} → Código ${row.codigo}`);
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ No se pudo cargar mapa de IDs de Alegra:', error.message);
+      }
+
       // 2. Identificar productos que necesitan actualización
       const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
 
@@ -343,12 +369,21 @@ class InvoiceService {
       // 4. Construir array de items actualizados
       const updatedItems = currentItems.map(item => {
         // Intentar obtener la referencia de múltiples fuentes
-        const itemReference = item.reference || item.item?.reference;
+        let itemReference = item.reference || item.item?.reference;
+
+        // Si reference es null, intentar obtenerlo del mapa usando el ID de Alegra
+        if (!itemReference) {
+          const alegraItemId = (item.item?.id || item.id)?.toString();
+          if (alegraItemId && alegraIdToCodigoMap.has(alegraItemId)) {
+            itemReference = alegraIdToCodigoMap.get(alegraItemId);
+            console.log(`  🔑 Match por ID de Alegra: ${alegraItemId} → Código ${itemReference}`);
+          }
+        }
 
         // Buscar ajuste por código de producto
         let ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
 
-        // Si no encontró por referencia, intentar por nombre (fallback)
+        // Si no encontró por referencia/ID, intentar por nombre (último fallback)
         if (!ajuste && item.description) {
           ajuste = ajustes.find(aj => {
             const nombreSimilar = aj.producto_nombre?.toLowerCase().trim() === item.description?.toLowerCase().trim();
