@@ -4064,21 +4064,20 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
 
                 if (precioNuevo) {
+                  // NO enviar tax - Alegra usará el impuesto del producto
                   itemsActualizados.push({
                     id: parseInt(alegraProductId),
                     quantity: cantidadFinal,
-                    price: precioNuevo,
-                    tax: item.tax || []
+                    price: precioNuevo
                   });
-                  console.log(`   🔄 ${item.description}: Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)}`);
+                  console.log(`   🔄 Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)}`);
                   huboCambios = true;
                 } else {
                   console.log(`   ⚠️ Precio no encontrado en caché`);
                   itemsActualizados.push({
                     id: parseInt(alegraProductId),
                     quantity: cantidadFinal,
-                    price: item.price,
-                    tax: item.tax || []
+                    price: item.price
                   });
                   if (cantidadFinal !== item.quantity) huboCambios = true;
                 }
@@ -4087,8 +4086,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 itemsActualizados.push({
                   id: parseInt(item.item?.id || item.id),
                   quantity: cantidadFinal,
-                  price: item.price,
-                  tax: item.tax || []
+                  price: item.price
                 });
                 if (cantidadFinal !== item.quantity) {
                   console.log(`   ✏️ Qty: ${item.quantity} → ${cantidadFinal}`);
@@ -4100,8 +4098,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               itemsActualizados.push({
                 id: parseInt(item.item?.id || item.id),
                 quantity: item.quantity,
-                price: item.price,
-                tax: item.tax || []
+                price: item.price
               });
             }
           }
