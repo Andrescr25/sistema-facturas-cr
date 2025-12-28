@@ -4860,7 +4860,6 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
 
     const normalize = (value) => value ? value.toString().trim() : '';
-    const normalizeLower = (value) => value ? value.toString().toLowerCase().trim() : '';
     const canonicalizeNombre = (value) => {
       if (!value) return '';
       return value
