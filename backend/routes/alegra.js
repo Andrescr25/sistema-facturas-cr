@@ -955,14 +955,12 @@ router.get('/facturas/pendientes-reimpresion', async (req, res) => {
         : factura.ajustes_realizados;
 
       const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
-      const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
 
       return {
         ...factura,
         ajustes_realizados: ajustes,
         total_ajustes: ajustes?.length || 0,
         requiere_actualizacion: requiereActualizacion,
-        tiene_variacion_precio: tieneVariacionPrecio,
         categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
       };
     });
@@ -3317,14 +3315,12 @@ router.get('/reimpresion/pendientes', async (req, res) => {
         : factura.ajustes_realizados;
 
       const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
-      const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
 
       return {
         ...factura,
         ajustes_realizados: ajustes,
         total_ajustes: ajustes?.length || 0,
         requiere_actualizacion: requiereActualizacion,
-        tiene_variacion_precio: tieneVariacionPrecio,
         categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
       };
     });
@@ -3671,139 +3667,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       // Continuar con el procesamiento de la factura
     }
 
-    // 🔧 NUEVO: 3. Detectar diferencias de precio >5% para productos que NO requieren cambio de cantidad
-    console.log(`💰 Verificando diferencias de precio >5% para productos sin cambio de cantidad...`);
-    
-    const ajustesConDiferenciaPrecio = [];
-    const prisma = require('../lib/prisma');
-    
-    try {
-      // Obtener factura original de Alegra para tener precios originales
-      const facturaOriginal = await alegraService.getInvoiceById(alegra_id);
-      
-      if (facturaOriginal.success && facturaOriginal.data.items) {
-        for (const item of facturaOriginal.data.items) {
-          // Buscar ajuste para este item
-          const ajuste = ajustes.find(a =>
-            a.producto_codigo === item.id.toString() ||
-            a.producto_codigo === item.reference ||
-            a.producto_codigo === item.reference?.reference
-          );
-
-          // Solo verificar si el producto NO requiere cambio de cantidad (llegó completo)
-          if (ajuste && ajuste.estado === 'completo') {
-            const precioOriginal = parseFloat(item.price) || 0;
-            
-            if (precioOriginal > 0) {
-              // Buscar mapping del producto para obtener precio nuevo del proveedor
-              const mappingResult = await query(`
-                SELECT 
-                  id,
-                  alegra_reference as "alegraReference",
-                  alegra_item_id as "alegraItemId"
-                FROM supplier_product_mapping 
-                WHERE alegra_reference = $1 
-                OR alegra_item_id = $2
-                ORDER BY confidence DESC, last_used_date DESC
-                LIMIT 1
-              `, [item.reference?.reference || item.reference, item.id.toString()]);
-
-              if (mappingResult.rows.length > 0) {
-                const mappingId = mappingResult.rows[0].id;
-                
-                // Obtener último precio del proveedor (con descuentos e IVA)
-                const productoFactura = await prisma.productoFactura.findFirst({
-                  where: {
-                    mapeoId: mappingId
-                  },
-                  orderBy: {
-                    factura: {
-                      fechaEmision: 'desc'
-                    }
-                  },
-                  select: {
-                    precioUnitario: true,
-                    descuento: true,
-                    cantidad: true
-                  }
-                });
-
-                if (productoFactura && productoFactura.precioUnitario > 0) {
-                  // Calcular costo real con descuentos e IVA (igual que en gestionar relaciones)
-                  const precioUnitarioSinIva = parseFloat(productoFactura.precioUnitario);
-                  const descuento = parseFloat(productoFactura.descuento) || 0;
-                  const cantidad = parseFloat(productoFactura.cantidad) || 1;
-                  
-                  const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
-                  const descuentoPorcentaje = montoTotalSinDescuento > 0 
-                    ? (descuento / montoTotalSinDescuento) * 100
-                    : 0;
-                  
-                  const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
-                  const precioNuevo = costoSinIvaConDescuento * 1.13; // Agregar IVA 13%
-                  const precioNuevoRedondeado = Math.round(precioNuevo * 100) / 100;
-
-                  // Calcular diferencia porcentual
-                  // IMPORTANTE: Solo detectar si el precio nuevo es MÁS ALTO que el original
-                  const diferenciaAbsoluta = precioNuevoRedondeado - precioOriginal;
-                  const diferenciaPorcentual = precioOriginal > 0 
-                    ? (diferenciaAbsoluta / precioOriginal) * 100
-                    : 0;
-
-                  console.log(`   📊 ${item.description}:`);
-                  console.log(`      Precio original: ₡${precioOriginal.toFixed(2)}`);
-                  console.log(`      Precio nuevo: ₡${precioNuevoRedondeado.toFixed(2)}`);
-                  console.log(`      Diferencia: ${diferenciaPorcentual >= 0 ? '+' : ''}${diferenciaPorcentual.toFixed(2)}%`);
-
-                  // Solo detectar si el precio nuevo es MÁS ALTO (>5% de aumento)
-                  // Si el precio nuevo es más bajo, no hacer nada
-                  if (diferenciaPorcentual > 5) {
-                    console.log(`   ⚠️ Aumento de precio >5% detectado: +${diferenciaPorcentual.toFixed(2)}%`);
-                    console.log(`   📈 Precio aumentó de ₡${precioOriginal.toFixed(2)} a ₡${precioNuevoRedondeado.toFixed(2)}`);
-                    
-                    ajustesConDiferenciaPrecio.push({
-                      producto_codigo: item.reference?.reference || item.reference || item.id.toString(),
-                      producto_nombre: item.description,
-                      estado: 'completo',
-                      cantidad_entregada: item.quantity,
-                      cantidad_faltante: 0,
-                      requiere_actualizacion: true,
-                      motivo: `Aumento de precio >5%: +${diferenciaPorcentual.toFixed(2)}% (Original: ₡${precioOriginal.toFixed(2)}, Nuevo: ₡${precioNuevoRedondeado.toFixed(2)})`,
-                      tipo_ajuste: 'diferencia_precio',
-                      precio_original: precioOriginal,
-                      precio_nuevo: precioNuevoRedondeado,
-                      diferencia_porcentual: diferenciaPorcentual
-                    });
-                  } else if (diferenciaPorcentual < -5) {
-                    // Precio bajó más de 5% - no hacer nada (no mandar a reimpresión)
-                    console.log(`   ✅ Precio bajó ${Math.abs(diferenciaPorcentual).toFixed(2)}% - No requiere reimpresión`);
-                  } else {
-                    // Diferencia dentro del rango aceptable (-5% a +5%)
-                    console.log(`   ✅ Diferencia de precio dentro del rango aceptable (${diferenciaPorcentual >= 0 ? '+' : ''}${diferenciaPorcentual.toFixed(2)}%)`);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Si hay ajustes por diferencia de precio, agregarlos a la lista de ajustes
-      if (ajustesConDiferenciaPrecio.length > 0) {
-        console.log(`💰 ${ajustesConDiferenciaPrecio.length} producto(s) con diferencia de precio >5% detectados`);
-        ajustes.push(...ajustesConDiferenciaPrecio);
-        
-        // Si no estaba marcada para reimpresión, marcarla ahora
-        if (!estado.includes('requiere_reimpresion')) {
-          console.log(`🔄 Factura ${numero_factura} marcada para impresión por diferencia de precio`);
-          const categoriaForzosa = determineReimpresionCategoria(ajustes);
-          await upsertFacturaEnReimpresion('pendiente', categoriaForzosa, ajustes.length);
-        }
-      }
-    } catch (error) {
-      console.error(`❌ Error verificando diferencias de precio:`, error.message);
-      // Continuar aunque falle la verificación de precios
-    }
+    // Los precios se actualizan SIEMPRE desde alegra_products_cache (sincronización cada 6h)
+    // No hay verificación de porcentaje - TODOS los productos se actualizan al precio sincronizado
 
     const categoria = determineReimpresionCategoria(ajustes);
     const totalAjustes = ajustes.length;
@@ -3839,11 +3704,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
 
     // 5. 🔧 CAMBIO: Editar factura en Alegra SOLO cuando se reimprime (no al marcar como lista)
     const marcarComoProcesada = marcar_como_procesada === true;
-    
-    // Usar estado actualizado (puede haber cambiado por diferencia de precio)
-    const estadoFinal = ajustesConDiferenciaPrecio.length > 0 && !estado.includes('requiere_reimpresion')
-      ? 'requiere_reimpresion'
-      : estado;
+    const estadoFinal = estado;
     
     // NUEVO COMPORTAMIENTO:
     // - Si marcarComoProcesada = false → Viene desde "Reporte Clientes" (Factura Lista) → NO editar en Alegra
@@ -4078,52 +3939,31 @@ router.post('/facturas/procesar-individual', async (req, res) => {
                 return; // Skip este item
               }
 
-              // Si requiere actualización: re-agregar con precio actualizado
-              if (ajuste.requiere_actualizacion) {
-                const alegraProductId = (item.item?.id || item.id)?.toString();
-                const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
+              // SIEMPRE actualizar con precio desde caché (sincronización cada 6h)
+              const alegraProductId = (item.item?.id || item.id)?.toString();
+              const precioNuevo = alegraIdToPrecioMap.get(alegraProductId);
 
-                if (precioNuevo) {
-                  const itemData = {
-                    id: parseInt(alegraProductId),
-                    quantity: cantidadFinal,
-                    price: precioNuevo
-                  };
-                  // Incluir tax solo si existe y tiene contenido
-                  if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
-                    itemData.tax = item.tax;
-                  }
-                  itemsActualizados.push(itemData);
-                  console.log(`   🔄 Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)}`);
-                  huboCambios = true;
-                } else {
-                  console.log(`   ⚠️ Precio no encontrado en caché`);
-                  const itemData = {
-                    id: parseInt(alegraProductId),
-                    quantity: cantidadFinal,
-                    price: item.price
-                  };
-                  if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
-                    itemData.tax = item.tax;
-                  }
-                  itemsActualizados.push(itemData);
-                  if (cantidadFinal !== item.quantity) huboCambios = true;
-                }
-              } else {
-                // Solo ajustar cantidad
-                const itemData = {
-                  id: parseInt(item.item?.id || item.id),
-                  quantity: cantidadFinal,
-                  price: item.price
-                };
-                if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
-                  itemData.tax = item.tax;
-                }
-                itemsActualizados.push(itemData);
-                if (cantidadFinal !== item.quantity) {
-                  console.log(`   ✏️ Qty: ${item.quantity} → ${cantidadFinal}`);
-                  huboCambios = true;
-                }
+              const itemData = {
+                id: parseInt(alegraProductId),
+                quantity: cantidadFinal,
+                price: precioNuevo || item.price // Usar precio de caché, o mantener original si no se encuentra
+              };
+
+              if (item.tax && Array.isArray(item.tax) && item.tax.length > 0) {
+                itemData.tax = item.tax;
+              }
+
+              itemsActualizados.push(itemData);
+
+              // Log de cambios
+              if (precioNuevo && precioNuevo !== item.price) {
+                console.log(`   💰 Qty=${cantidadFinal}, Price: ₡${item.price.toFixed(2)} → ₡${precioNuevo.toFixed(2)}`);
+                huboCambios = true;
+              } else if (cantidadFinal !== item.quantity) {
+                console.log(`   ✏️ Qty: ${item.quantity} → ${cantidadFinal}`);
+                huboCambios = true;
+              } else if (precioNuevo) {
+                console.log(`   ✅ Qty=${cantidadFinal}, Price=₡${precioNuevo.toFixed(2)} (sin cambios)`);
               }
             } else {
               // Sin ajuste, mantener como está
@@ -4193,9 +4033,6 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     console.log(`✅ Factura ${numero_factura} procesada individualmente:`);
     console.log(`   📋 Faltantes marcados como procesados`);
     console.log(`   💾 ${ajustes.length} ajustes guardados permanentemente`);
-    if (ajustesConDiferenciaPrecio.length > 0) {
-      console.log(`   💰 ${ajustesConDiferenciaPrecio.length} producto(s) con diferencia de precio >5% detectados`);
-    }
     if (marcarComoProcesada && ((ajustes && ajustes.length > 0) || itemsEditados.length > 0)) {
       console.log(`   ✏️ Factura editada en Alegra ${itemsEditados.length > 0 ? 'con items manuales' : 'con ajustes aplicados'}`);
     } else if (!marcarComoProcesada && estadoFinal.includes('requiere_reimpresion')) {
@@ -4213,7 +4050,6 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         requiere_reimpresion: estadoFinal.includes('requiere_reimpresion'),
         ajustes_realizados: ajustes.length,
         ajustes_guardados: ajustes.length,
-        ajustes_diferencia_precio: ajustesConDiferenciaPrecio.length,
         factura_editada_en_alegra: marcarComoProcesada && (
           (ajustes && ajustes.length > 0) ||
           itemsEditados.length > 0
