@@ -4091,8 +4091,6 @@ router.post('/facturas/actualizar-masivo', async (req, res) => {
     console.log(`📊 Procesando ${facturas.length} facturas...`);
 
     for (const factura of facturas) {
-      let facturaExitosa = true;
-
       try {
         console.log(`🔄 Actualizando factura ${factura.numero_factura} en Alegra con precios actualizados...`);
 
@@ -4191,7 +4189,6 @@ router.post('/facturas/actualizar-masivo', async (req, res) => {
 
       } catch (error) {
         console.error(`❌ Error procesando factura ${factura.numero_factura}:`, error.message);
-        facturaExitosa = false;
         facturasConError++;
         errores.push(`Error en factura ${factura.numero_factura}: ${error.message}`);
       }
@@ -4216,135 +4213,6 @@ router.post('/facturas/actualizar-masivo', async (req, res) => {
     });
   }
 });
-
-// ❌ COMENTADO: Endpoint duplicado que estaba sobrescribiendo al endpoint principal
-// Este endpoint no se usa actualmente - el flujo principal usa el endpoint en línea 2301
-/*
-// Procesar factura individual con actualización automática de precios
-// Esta ruta borra y recrea los items para asegurar precios actualizados
-router.post('/facturas/procesar-individual', async (req, res) => {
-  try {
-    console.log('🖨️ Procesando factura individual con actualización de precios...');
-
-    const { factura, items_editados } = req.body;
-
-    if (!factura || !factura.alegra_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Se requiere una factura con alegra_id para procesar'
-      });
-    }
-
-    const { query } = require('../config/database');
-
-    console.log(`🔄 Procesando factura ${factura.numero_factura} (ID: ${factura.alegra_id})...`);
-
-    // 1. Obtener factura actual completa de Alegra
-    const facturaActual = await alegraService.getInvoiceById(factura.alegra_id);
-
-    if (!facturaActual.success) {
-      throw new Error('Factura no encontrada en Alegra');
-    }
-
-    console.log(`📋 Factura actual obtenida: ${facturaActual.data.items.length} items`);
-
-    // 2. Construir lista de items con precios actualizados
-    // Si hay items_editados (usuario hizo cambios manuales), usar esos
-    // Si no, aplicar ajustes automáticos por faltantes
-    let itemsActualizados = [];
-
-    if (items_editados && items_editados.length > 0) {
-      // Usuario editó manualmente
-      console.log('✏️ Usando items editados por el usuario');
-      itemsActualizados = items_editados;
-    } else {
-      // Aplicar ajustes automáticos
-      console.log('🔧 Aplicando ajustes automáticos por faltantes');
-
-      for (const item of facturaActual.data.items) {
-        // Buscar ajuste para este item
-        const ajuste = factura.ajustes_realizados?.find(a =>
-          a.producto_codigo === item.id.toString() ||
-          a.producto_codigo === item.reference
-        );
-
-        let cantidadFinal = item.quantity;
-
-        if (ajuste) {
-          // Calcular cantidad final según estado del ajuste
-          if (ajuste.estado === 'no_llego') {
-            cantidadFinal = item.quantity - ajuste.cantidad_faltante;
-          } else if (ajuste.estado === 'parcial') {
-            const cantidadQueAunFalta = ajuste.cantidad_faltante - ajuste.cantidad_entregada;
-            cantidadFinal = item.quantity - cantidadQueAunFalta;
-          }
-        }
-
-        // Solo incluir si cantidad > 0
-        if (cantidadFinal > 0) {
-          // Obtener precio actualizado
-          console.log(`💰 Obteniendo precio actualizado para ${item.reference}...`);
-          const precioActualizado = await alegraService.getUpdatedPrice(item.reference);
-
-          itemsActualizados.push({
-            id: item.id,
-            reference: item.reference,
-            quantity: cantidadFinal,
-            price: precioActualizado,
-            description: item.description,
-            tax: item.tax || []
-          });
-
-          console.log(`  ✅ ${item.reference}: ${item.quantity} → ${cantidadFinal} | ₡${item.price} → ₡${precioActualizado}`);
-        } else {
-          console.log(`  🗑️ ${item.reference}: cantidad = 0, se eliminará`);
-        }
-      }
-    }
-
-    // 3. Actualizar factura en Alegra con items reconstruidos
-    console.log(`🔄 Actualizando factura en Alegra con ${itemsActualizados.length} items...`);
-
-    const updateResult = await alegraService.updateInvoice(factura.alegra_id, {
-      items: itemsActualizados
-    });
-
-    if (!updateResult.success) {
-      throw new Error(`Error actualizando factura: ${updateResult.message || 'Actualización falló'}`);
-    }
-
-    console.log(`✅ Factura ${factura.numero_factura} actualizada exitosamente`);
-
-    // 4. Marcar como procesada en facturas_reimpresion
-    await query(`
-      UPDATE facturas_reimpresion
-      SET estado = 'procesada',
-          fecha_procesamiento = NOW()
-      WHERE id = $1
-    `, [factura.reimpresion_id]);
-
-    console.log(`✅ Registro de reimpresión marcado como procesado`);
-
-    res.json({
-      success: true,
-      message: 'Factura procesada exitosamente',
-      data: {
-        factura_id: factura.alegra_id,
-        numero_factura: factura.numero_factura,
-        items_actualizados: itemsActualizados.length
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error procesando factura individual:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Error procesando factura individual'
-    });
-  }
-});
-*/
 
 // Recuperar factura procesada - CORREGIDO (Preserva ajustes previos)
 router.post('/facturas/:id/recuperar', async (req, res) => {
@@ -4636,7 +4504,7 @@ router.delete('/faltantes/ajustes/:faltanteId', async (req, res) => {
 });
 
 // NUEVO: Limpiar historial de procesamientos
-router.delete('/reimpresion/historial', async (req, res) => {
+router.delete('/reimpresion/historial', async (_req, res) => {
   try {
     console.log('🗑️ Limpiando historial de procesamientos...');
 
@@ -5002,7 +4870,6 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]/g, '');
     };
-    const proveedorNormalizado = normalizeLower(proveedor);
     const proveedorCanonico = canonicalizeNombre(proveedor);
 
     const mappingSelect = `
