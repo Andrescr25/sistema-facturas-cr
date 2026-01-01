@@ -3936,7 +3936,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
               if (cantidadFinal <= 0) {
                 console.log(`   🗑️ Eliminado (cantidad = 0)`);
                 huboCambios = true;
-                return; // Skip este item
+                continue; // Skip este item
               }
 
               // SIEMPRE actualizar con precio desde caché (sincronización cada 6h)
