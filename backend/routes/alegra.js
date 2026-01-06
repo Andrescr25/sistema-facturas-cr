@@ -2493,7 +2493,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
-      WHERE f.estado = 'pendiente'
+      WHERE f.estado IN ('pendiente', 'procesado')
       GROUP BY p.codigo, p.alegra_id, p.nombre
       ORDER BY total_faltante DESC
     `);
@@ -2533,7 +2533,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           FROM faltantes f
           JOIN productos p ON f.producto_id = p.id
           WHERE p.codigo = $1
-            AND f.estado = 'pendiente'
+            AND f.estado IN ('pendiente', 'procesado')
             AND f.proveedor_asignado IS NULL
         `, [producto.producto_codigo]);
         
@@ -2568,7 +2568,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
         JOIN facturas fa ON f.factura_id = fa.id
-        WHERE f.estado = 'pendiente'
+        WHERE f.estado IN ('pendiente', 'procesado')
         GROUP BY p.codigo, p.alegra_id, p.nombre
         ORDER BY total_faltante DESC
       `);
