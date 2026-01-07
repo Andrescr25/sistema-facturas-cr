@@ -315,7 +315,8 @@ export default function ReporteProveedores() {
             cantidad: cantidadParaProveedor, // ← Cantidad convertida para el proveedor
             cantidadOriginal: cantidadFinal, // ← Cantidad en tu sistema (para referencia)
             factorConversion: factorConversion,
-            observaciones: producto.observaciones || '' // ← Observaciones del producto
+            observaciones: producto.observaciones || '', // ← Observaciones del producto
+            descripcionFactura: producto.descripcion_factura || '' // ← Descripción de la factura
           }
         })
       
@@ -382,7 +383,8 @@ export default function ReporteProveedores() {
         mappingId: p.mapping_id || null,
         alegraItemId: p.alegra_item_id || null,
         cantidad: p.cantidad_sugerida,
-        observaciones: p.observaciones || '' // ← Observaciones del producto
+        observaciones: p.observaciones || '', // ← Observaciones del producto
+        descripcionFactura: p.descripcion_factura || '' // ← Descripción de la factura
       }))
 
       const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
@@ -1056,7 +1058,14 @@ export default function ReporteProveedores() {
                             className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
                           />
                           <div className="flex-1">
-                            <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
+                            <h5 className="font-medium text-gray-900">
+                              {producto.nombre}
+                              {producto.descripcion_factura && (
+                                <span className="text-gray-600 font-normal text-sm ml-2">
+                                  ({producto.descripcion_factura})
+                                </span>
+                              )}
+                            </h5>
                             <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
                             <p className="text-sm text-gray-600">
                               Clientes afectados: {producto.clientes_afectados}
@@ -1210,6 +1219,11 @@ export default function ReporteProveedores() {
                             <div className="lg:col-span-5">
                               <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                                 {producto.nombre}
+                                {producto.descripcion_factura && (
+                                  <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    ({producto.descripcion_factura})
+                                  </span>
+                                )}
                               </h5>
                               <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
                               <p className="text-xs text-gray-500">

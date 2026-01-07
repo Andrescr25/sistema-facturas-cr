@@ -1969,12 +1969,14 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       //    Esto es normal en Alegra. Por eso después consultamos la API.
       // ─────────────────────────────────────────────────────────────────────────────
       
-      const itemEnFactura = facturaAlegra.data.items?.find(item => 
-        item.id?.toString() === item_id || 
+      const itemEnFactura = facturaAlegra.data.items?.find(item =>
+        item.id?.toString() === item_id ||
         item.reference === item_id ||
         item.reference?.reference === item_id
       );
-      
+
+      let descripcionFactura = null; // ✅ NUEVO: Capturar descripción del item
+
       if (itemEnFactura) {
         // El reference puede venir como string o como objeto { type, reference }
         if (typeof itemEnFactura.reference === 'string') {
@@ -1987,7 +1989,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
           itemReference = itemEnFactura.id?.toString() || item_id;
         }
         itemAlegraId = itemEnFactura.id?.toString() || item_id;
-        console.log(`   📋 Item encontrado en factura: ID=${itemAlegraId}, Reference="${itemReference}", Nombre="${itemEnFactura.name || itemEnFactura.description}"`);
+        descripcionFactura = itemEnFactura.description || null; // ✅ NUEVO: Extraer descripción
+        console.log(`   📋 Item encontrado en factura: ID=${itemAlegraId}, Reference="${itemReference}", Nombre="${itemEnFactura.name || itemEnFactura.description}", Descripción="${descripcionFactura || 'N/A'}"`);
       } else {
         console.warn(`   ⚠️ Item ${item_id} no encontrado en factura de Alegra. Se usará item_id como referencia e ID.`);
       }
@@ -2232,9 +2235,9 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       // 🔧 CORREGIDO: Asegurar que el estado sea 'pendiente' explícitamente
       const nuevoFaltante = await query(`
         INSERT INTO faltantes (
-          factura_id, producto_id, cantidad_faltante, 
-          tipo_faltante, observaciones, registrado_por, estado
-        ) VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
+          factura_id, producto_id, cantidad_faltante,
+          tipo_faltante, observaciones, registrado_por, estado, descripcion_factura
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', $7)
         RETURNING *
       `, [
         facturaLocalId,
@@ -2242,7 +2245,8 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         cantidad_faltante,
         tipo_faltante,
         observaciones || null,
-        registrado_por
+        registrado_por,
+        descripcionFactura
       ]);
 
       const faltanteId = nuevoFaltante.rows[0].id;
@@ -2484,6 +2488,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         SUM(f.cantidad_faltante) as total_faltante,
         COUNT(f.id) as facturas_afectadas,
         STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+        STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
         -- 🔧 NUEVO: Usar asignación guardada (tomar la más reciente si hay múltiples)
         MAX(f.proveedor_asignado) as proveedor_asignado,
         MAX(f.proveedor_cedula) as proveedor_cedula,
@@ -2560,6 +2565,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
           SUM(f.cantidad_faltante) as total_faltante,
           COUNT(f.id) as facturas_afectadas,
           STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+          STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
           MAX(f.proveedor_asignado) as proveedor_asignado,
           MAX(f.proveedor_cedula) as proveedor_cedula,
           MAX(f.precio_asignado) as precio_asignado,
@@ -2652,6 +2658,7 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         facturas_afectadas: parseInt(faltante.facturas_afectadas),
         tipo_faltante: faltante.tipo_faltante,
         clientes_afectados: faltante.clientes_afectados,
+        descripcion_factura: faltante.descripcion_factura || null,
         confianza_mapping: mappingInfo?.confidence || 0,
         factor_conversion: mappingInfo?.factorConversion || 1,
         precio_asignado: precioAsignado,
@@ -4990,7 +4997,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
           cantidadFinal: parseInt(producto.cantidad, 10) || 0,
           factorConversion: producto.factorConversion || producto.factor_conversion || 1,
-          observaciones: producto.observaciones || '' // ← Observaciones del producto
+          observaciones: producto.observaciones || '', // ← Observaciones del producto
+          descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || '' // ← Descripción de la factura
         };
 
         if (!preferirDatosProveedorActual) {
@@ -5005,7 +5013,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
             origen: 'interno_manual',
             datosProveedorReales: false,
             mappingId: payloadInfo.mappingId || null,
-            observaciones: payloadInfo.observaciones || '' // ← Observaciones del producto
+            observaciones: payloadInfo.observaciones || '', // ← Observaciones del producto
+            descripcionFactura: payloadInfo.descripcionFactura || '' // ← Descripción de la factura
           });
           continue;
         }
@@ -5084,7 +5093,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           origen: origenEtiqueta,
           datosProveedorReales: tieneMapping,
           mappingId: mapping?.id || payloadInfo.mappingId || null,
-          observaciones: payloadInfo.observaciones || '' // ← Observaciones del producto
+          observaciones: payloadInfo.observaciones || '', // ← Observaciones del producto
+          descripcionFactura: payloadInfo.descripcionFactura || '' // ← Descripción de la factura
         });
       } catch (mappingError) {
         console.error(`❌ Error buscando mapping para ${producto.codigo || producto.codigoInterno}:`, mappingError.message);
@@ -5099,7 +5109,8 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           origen: 'error',
           datosProveedorReales: false,
           mappingId: producto.mappingId || producto.mapping_id || null,
-          observaciones: producto.observaciones || '' // ← Observaciones del producto
+          observaciones: producto.observaciones || '', // ← Observaciones del producto
+          descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || '' // ← Descripción de la factura
         });
       }
     }
@@ -5210,9 +5221,14 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
     const renderProducto = (producto) => {
       let descripcion = producto.nombre_pdf || 'Sin descripción';
 
-      // ✅ Agregar observaciones en paréntesis si existen
+      // ✅ Agregar descripción de factura si existe (PRIMERO)
+      if (producto.descripcionFactura && producto.descripcionFactura.trim() !== '') {
+        descripcion += ` (${producto.descripcionFactura.trim()})`;
+      }
+
+      // ✅ Agregar observaciones si existen (SEGUNDO)
       if (producto.observaciones && producto.observaciones.trim() !== '') {
-        descripcion += ` (${producto.observaciones.trim()})`;
+        descripcion += ` - ${producto.observaciones.trim()}`;
       }
 
       const codigo = producto.codigo_pdf || 'N/A';
