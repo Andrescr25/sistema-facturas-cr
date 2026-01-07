@@ -1410,7 +1410,7 @@ export default function ReporteProveedores() {
             <div className="card text-center py-12">
               <Package className="mx-auto text-gray-400 mb-4" size={48} />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin datos históricos</h3>
-              <p className="text-gray-600">No hay suficientes datos históricos para este proveedor en los últimos 90 días.</p>
+              <p className="text-gray-600">No hay suficientes datos históricos para este proveedor en las últimas 8 semanas.</p>
             </div>
           ) : (
             /* Mostrar datos */
@@ -1472,7 +1472,7 @@ export default function ReporteProveedores() {
               <div className="card">
                 <div className="mb-4 pb-4 border-b border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-900">Productos con Cantidad Sugerida</h3>
-                  <p className="text-gray-600">Análisis inteligente basado en histórico de 90 días</p>
+                  <p className="text-gray-600">Basado en promedio de faltantes de las últimas 8 semanas</p>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1480,12 +1480,9 @@ export default function ReporteProveedores() {
                     <thead>
                       <tr className="bg-gray-50">
                         <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Producto</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Faltante Actual</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Clasificación</th>
                         <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Promedio/Semana</th>
                         <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Frecuencia</th>
                         <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Cantidad Sugerida</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Diferencia</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -1495,27 +1492,11 @@ export default function ReporteProveedores() {
                             <div>
                               <p className="font-medium text-gray-900">{producto.producto_nombre}</p>
                               <p className="text-sm text-gray-600">Código: {producto.producto_codigo}</p>
-                              <p className="text-xs text-gray-500" title={producto.razonamiento_calculo}>
-                                💡 {producto.razonamiento_calculo}
-                              </p>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                              {producto.cantidad_faltante_actual}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${producto.clasificacion_rotacion === 'alta'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-blue-100 text-blue-800'
-                              }`}>
-                              {producto.clasificacion_rotacion === 'alta' ? '🔥 Alta' : '📊 Baja'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {producto.promedio_semanal.toFixed(1)}
+                            <span className="text-lg font-medium text-gray-900">
+                              {producto.promedio_semanal}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -1533,16 +1514,6 @@ export default function ReporteProveedores() {
                               {producto.cantidad_sugerida}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`text-sm font-medium ${producto.diferencia_sugerida > 0
-                                ? 'text-orange-600'
-                                : producto.diferencia_sugerida < 0
-                                  ? 'text-green-600'
-                                  : 'text-gray-600'
-                              }`}>
-                              {producto.diferencia_sugerida > 0 ? '+' : ''}{producto.diferencia_sugerida}
-                            </span>
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1552,14 +1523,12 @@ export default function ReporteProveedores() {
                 {/* Info adicional */}
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">
-                    💡 <strong>Explicación:</strong> Las cantidades sugeridas consideran el patrón histórico de cada producto.
-                    Los productos de alta rotación incluyen buffer adicional, mientras que los de baja rotación se ajustan según frecuencia.
+                    💡 <strong>Explicación:</strong> La cantidad sugerida se calcula multiplicando el promedio semanal de faltantes por 4 semanas.
+                    Esto proporciona un stock suficiente basado en el comportamiento reciente del producto.
                   </p>
-                  {resumenSugerida && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Basado en {resumenSugerida.registros_historicos_total} registros históricos de los últimos 90 días.
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Análisis basado en las últimas 8 semanas. La frecuencia indica en cuántas semanas hubo faltantes.
+                  </p>
                 </div>
               </div>
             </div>

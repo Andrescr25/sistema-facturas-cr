@@ -411,11 +411,11 @@ router.get('/compras/sugeridas', async (req, res) => {
   }
 });
 
-// Endpoint para cantidad sugerida inteligente - USANDO HISTÓRICO
+// Endpoint para cantidad sugerida - SIMPLIFICADO (Solo promedio)
 router.get('/cantidad-sugerida', async (req, res) => {
   try {
     const { proveedor_id } = req.query;
-    
+
     if (!proveedor_id) {
       return res.status(400).json({
         success: false,
@@ -423,162 +423,93 @@ router.get('/cantidad-sugerida', async (req, res) => {
       });
     }
 
-    // 📊 PASO 1: Obtener faltantes actuales para mostrar solo productos con faltantes
-    const faltantesActuales = await query(`
-      SELECT DISTINCT
-        f.producto_id,
-        p.nombre as producto_nombre,
-        p.codigo as producto_codigo,
-        SUM(f.cantidad_faltante) as cantidad_faltante_actual
-      FROM faltantes f
-      JOIN productos p ON f.producto_id = p.id
-      JOIN facturas fa ON f.factura_id = fa.id
-      WHERE p.proveedor_id = $1
-        AND fa.procesada = false
-      GROUP BY f.producto_id, p.nombre, p.codigo
+    console.log(`📊 Calculando cantidad sugerida para proveedor ${proveedor_id}`);
+
+    // 📊 PASO 1: Obtener promedio de faltantes por producto en las últimas 8 semanas
+    const productosConPromedio = await query(`
+      WITH semanas_historico AS (
+        SELECT
+          f.producto_id,
+          p.nombre as producto_nombre,
+          p.codigo as producto_codigo,
+          p.proveedor_id,
+          DATE_TRUNC('week', fa.fecha_emision) as semana,
+          SUM(f.cantidad_faltante) as cantidad_semana
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE p.proveedor_id = $1
+          AND fa.fecha_emision >= CURRENT_DATE - INTERVAL '8 weeks'
+        GROUP BY f.producto_id, p.nombre, p.codigo, p.proveedor_id, DATE_TRUNC('week', fa.fecha_emision)
+      ),
+      faltantes_actuales AS (
+        SELECT
+          f.producto_id,
+          SUM(f.cantidad_faltante) as cantidad_actual
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE p.proveedor_id = $1
+          AND f.estado IN ('pendiente', 'procesado')
+        GROUP BY f.producto_id
+      )
+      SELECT
+        sh.producto_id,
+        sh.producto_nombre,
+        sh.producto_codigo,
+        COALESCE(fa_actual.cantidad_actual, 0) as cantidad_faltante_actual,
+        COUNT(DISTINCT sh.semana) as semanas_con_faltantes,
+        AVG(sh.cantidad_semana) as promedio_semanal,
+        CEIL(AVG(sh.cantidad_semana) * 4) as cantidad_sugerida
+      FROM semanas_historico sh
+      LEFT JOIN faltantes_actuales fa_actual ON sh.producto_id = fa_actual.producto_id
+      GROUP BY sh.producto_id, sh.producto_nombre, sh.producto_codigo, fa_actual.cantidad_actual
+      HAVING COUNT(DISTINCT sh.semana) > 0
+      ORDER BY cantidad_sugerida DESC
     `, [proveedor_id]);
 
-    if (faltantesActuales.rows.length === 0) {
+    if (productosConPromedio.rows.length === 0) {
       return res.json({
         success: true,
         data: [],
-        message: 'No hay faltantes actuales para este proveedor'
+        resumen: {
+          total_productos: 0,
+          cantidad_total_sugerida: 0
+        },
+        message: 'No hay histórico de faltantes para este proveedor en las últimas 8 semanas'
       });
     }
 
-    // 📊 PASO 2: Obtener histórico de los últimos 90 días desde faltantes_historico
-    const historico90Dias = await query(`
-      SELECT 
-        producto_id,
-        producto_nombre,
-        producto_codigo,
-        cantidad_faltante,
-        cantidad_entregada,
-        cantidad_ajustada,
-        fecha_faltante_original,
-        EXTRACT(WEEK FROM fecha_faltante_original) as semana_num,
-        EXTRACT(YEAR FROM fecha_faltante_original) as ano_num
-      FROM faltantes_historico
-      WHERE proveedor_id = $1
-        AND fecha_faltante_original >= CURRENT_DATE - INTERVAL '90 days'
-      ORDER BY producto_id, fecha_faltante_original
-    `, [proveedor_id]);
+    // Formatear resultados
+    const productos = productosConPromedio.rows.map(p => ({
+      producto_id: p.producto_id,
+      producto_nombre: p.producto_nombre,
+      producto_codigo: p.producto_codigo,
+      cantidad_faltante_actual: parseInt(p.cantidad_faltante_actual) || 0,
+      promedio_semanal: parseFloat(p.promedio_semanal).toFixed(1),
+      semanas_activas: parseInt(p.semanas_con_faltantes),
+      total_semanas: 8,
+      frecuencia_porcentaje: Math.round((parseInt(p.semanas_con_faltantes) / 8) * 100),
+      cantidad_sugerida: parseInt(p.cantidad_sugerida),
+      razonamiento_calculo: `Promedio semanal (${parseFloat(p.promedio_semanal).toFixed(1)}) × 4 semanas`
+    }));
 
-    console.log(`📊 Histórico encontrado: ${historico90Dias.rows.length} registros para proveedor ${proveedor_id}`);
-
-    // 📈 PASO 3: Calcular estadísticas por producto
-    const productosConEstadisticas = [];
-
-    for (const faltanteActual of faltantesActuales.rows) {
-      const productoId = faltanteActual.producto_id;
-      
-      // Filtrar histórico para este producto
-      const historicoProducto = historico90Dias.rows.filter(
-        h => h.producto_id === productoId
-      );
-
-      console.log(`📦 Producto ${productoId}: ${historicoProducto.length} registros históricos`);
-
-      // 🗓️ Agrupar por semanas y calcular cantidad efectiva
-      const faltantesPorSemana = {};
-      const semanasConPedidos = new Set();
-      
-      historicoProducto.forEach(registro => {
-        const semanaKey = `${registro.ano_num}-${registro.semana_num}`;
-        
-        if (!faltantesPorSemana[semanaKey]) {
-          faltantesPorSemana[semanaKey] = 0;
-        }
-        
-        // Cantidad efectiva = faltante original - lo que se entregó después
-        const cantidadEfectiva = registro.cantidad_faltante - (registro.cantidad_entregada || 0);
-        faltantesPorSemana[semanaKey] += Math.max(0, cantidadEfectiva); // No permitir negativos
-        
-        if (cantidadEfectiva > 0) {
-          semanasConPedidos.add(semanaKey);
-        }
-      });
-
-      // 📊 Calcular métricas
-      const totalSemanas = 12; // 90 días / 7 = ~12 semanas
-      const semanasActivas = semanasConPedidos.size;
-      const totalFaltantesEfectivos = Object.values(faltantesPorSemana).reduce((sum, val) => sum + val, 0);
-      const promedioSemanal = totalSemanas > 0 ? totalFaltantesEfectivos / totalSemanas : 0;
-
-      console.log(`📈 Producto ${productoId}: promedio ${promedioSemanal.toFixed(2)}/semana, ${semanasActivas} semanas activas`);
-
-      // 🎯 Clasificación de rotación
-      let clasificacion = 'baja';
-      if (promedioSemanal > 10 && semanasActivas >= 6) {
-        clasificacion = 'alta';
-      }
-
-      // 📈 Cálculo de cantidad sugerida
-      let cantidadSugerida = 0;
-      let razonamiento = '';
-      
-      if (clasificacion === 'alta') {
-        // Alta rotación: promedio semanal × 4 semanas de buffer
-        cantidadSugerida = Math.ceil(promedioSemanal * 4);
-        razonamiento = `Alta rotación: ${promedioSemanal.toFixed(1)}/sem × 4 semanas`;
-      } else {
-        // Baja rotación: verificar frecuencia en últimos 30 días
-        const fechaLimite = new Date();
-        fechaLimite.setDate(fechaLimite.getDate() - 30);
-        
-        const pedidosUltimos30Dias = historicoProducto.filter(
-          h => new Date(h.fecha_faltante_original) >= fechaLimite
-        ).length;
-
-        if (pedidosUltimos30Dias >= 4) {
-          // Stock mínimo basado en promedio histórico (2 semanas)
-          cantidadSugerida = Math.ceil(promedioSemanal * 2);
-          razonamiento = `Baja rotación frecuente: ${promedioSemanal.toFixed(1)}/sem × 2 semanas (${pedidosUltimos30Dias} pedidos/30d)`;
-        } else {
-          // Solo cubrir faltantes actuales
-          cantidadSugerida = faltanteActual.cantidad_faltante_actual;
-          razonamiento = `Baja rotación esporádica: solo faltantes actuales (${pedidosUltimos30Dias} pedidos/30d)`;
-        }
-      }
-
-      // Asegurar cantidad mínima (nunca menos que lo que falta actualmente)
-      cantidadSugerida = Math.max(cantidadSugerida, faltanteActual.cantidad_faltante_actual);
-
-      productosConEstadisticas.push({
-        producto_id: productoId,
-        producto_nombre: faltanteActual.producto_nombre,
-        producto_codigo: faltanteActual.producto_codigo,
-        cantidad_faltante_actual: faltanteActual.cantidad_faltante_actual,
-        clasificacion_rotacion: clasificacion,
-        promedio_semanal: Math.round(promedioSemanal * 100) / 100, // 2 decimales
-        semanas_activas: semanasActivas,
-        total_semanas: totalSemanas,
-        frecuencia_porcentaje: Math.round((semanasActivas / totalSemanas) * 100),
-        cantidad_sugerida: cantidadSugerida,
-        diferencia_sugerida: cantidadSugerida - faltanteActual.cantidad_faltante_actual,
-        razonamiento_calculo: razonamiento,
-        registros_historicos: historicoProducto.length
-      });
-    }
-
-    // 📋 Resumen general
+    // Resumen
     const resumen = {
-      total_productos: productosConEstadisticas.length,
-      productos_alta_rotacion: productosConEstadisticas.filter(p => p.clasificacion_rotacion === 'alta').length,
-      productos_baja_rotacion: productosConEstadisticas.filter(p => p.clasificacion_rotacion === 'baja').length,
-      cantidad_total_sugerida: productosConEstadisticas.reduce((sum, p) => sum + p.cantidad_sugerida, 0),
-      cantidad_total_faltante: productosConEstadisticas.reduce((sum, p) => sum + p.cantidad_faltante_actual, 0),
-      registros_historicos_total: historico90Dias.rows.length
+      total_productos: productos.length,
+      cantidad_total_sugerida: productos.reduce((sum, p) => sum + p.cantidad_sugerida, 0),
+      productos_alta_rotacion: productos.filter(p => p.frecuencia_porcentaje >= 50).length,
+      productos_baja_rotacion: productos.filter(p => p.frecuencia_porcentaje < 50).length
     };
 
-    console.log(`✅ Cantidad sugerida calculada: ${productosConEstadisticas.length} productos analizados`);
+    console.log(`✅ Cantidad sugerida calculada: ${productos.length} productos`);
 
     res.json({
       success: true,
-      data: productosConEstadisticas,
+      data: productos,
       resumen,
       proveedor_id: parseInt(proveedor_id),
-      periodo_analisis: '90 días (desde histórico)',
+      periodo_analisis: '8 semanas',
       timestamp: new Date().toISOString()
     });
 
