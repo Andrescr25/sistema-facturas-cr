@@ -1,7 +1,5 @@
 import { Brain, RefreshCw } from 'lucide-react'
-import { useMemo } from 'react'
 import { useRotacionProductos } from '../hooks/useRotacionProductos'
-import { TopMargenChart, WeeklyTrendChart } from '../components/rotacion/RotacionCharts'
 
 const SEMANA_OPTIONS = [4, 8, 12, 24]
 const LIMITE_OPTIONS = [10, 25, 50, 100, 150]
@@ -28,22 +26,6 @@ const formatDate = (value) => {
   })
 }
 
-const formatCurrency = (value) => {
-  return formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-const trendLabel = (value) => {
-  if (value > 0) return 'en aumento'
-  if (value < 0) return 'a la baja'
-  return 'estable'
-}
-
-const trendClass = (value) => {
-  if (value > 0) return 'text-green-600'
-  if (value < 0) return 'text-red-600'
-  return 'text-gray-600'
-}
-
 export default function RotacionProductos() {
   const {
     productos,
@@ -55,50 +37,6 @@ export default function RotacionProductos() {
     setConfig,
     reload
   } = useRotacionProductos()
-
-  const weeklyStats = useMemo(() => {
-    const weeklyMap = new Map()
-
-    productos.forEach((producto) => {
-      producto.historial?.forEach((semana) => {
-        if (!semana) return
-        const key = `${semana.ano}-${String(semana.semana).padStart(2, '0')}`
-
-        if (!weeklyMap.has(key)) {
-          weeklyMap.set(key, {
-            label: `Sem ${semana.semana}/${semana.ano}`,
-            fecha: semana.fecha || `${semana.ano}-${String(semana.semana).padStart(2, '0')}`,
-            cantidad: 0,
-            margen: 0
-          })
-        }
-
-        const entry = weeklyMap.get(key)
-        entry.cantidad += Number(semana.cantidad) || 0
-        entry.margen += Number(semana.margen) || 0
-      })
-    })
-
-    const ordered = Array.from(weeklyMap.values()).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
-
-    return {
-      labels: ordered.map((item) => item.label),
-      cantidad: ordered.map((item) => Math.round(item.cantidad)),
-      margen: ordered.map((item) => Math.round(item.margen))
-    }
-  }, [productos])
-
-  const topMargenChart = useMemo(() => {
-    const topItems = [...productos]
-      .filter((item) => (item.margen_total || 0) > 0)
-      .sort((a, b) => b.margen_total - a.margen_total)
-      .slice(0, 5)
-
-    return {
-      labels: topItems.map((item) => item.nombre),
-      values: topItems.map((item) => Number(item.margen_total) || 0)
-    }
-  }, [productos])
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -162,7 +100,7 @@ export default function RotacionProductos() {
       </div>
 
       {resumen && (
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <div className="card">
             <p className="text-sm text-gray-600">Semanas analizadas</p>
             <p className="text-2xl font-semibold text-gray-900">{resumen.semanas_analizadas}</p>
@@ -179,74 +117,21 @@ export default function RotacionProductos() {
             <p className="text-sm text-gray-600">Registros</p>
             <p className="text-2xl font-semibold text-gray-900">{formatNumber(resumen.total_registros)}</p>
           </div>
-          <div className="card">
-            <p className="text-sm text-gray-600">Costo estimado</p>
-            <p className="text-2xl font-semibold text-orange-600">₡{formatCurrency(resumen.costo_total)}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600">Margen perdido</p>
-            <p className="text-2xl font-semibold text-red-600">₡{formatCurrency(resumen.margen_total)}</p>
-          </div>
         </div>
       )}
 
       {insights && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 gap-6 mb-6">
           <div className="card">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Top margen perdido</h3>
-            <ul className="space-y-2">
-              {insights.top_margen.map((item) => (
-                <li key={`margen-${item.codigo}`} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{item.nombre}</span>
-                  <span className="font-semibold text-red-600">₡{formatCurrency(item.margen_total)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="card">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Mayor rotación</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Productos con más faltantes</h3>
             <ul className="space-y-2">
               {insights.top_rotacion.map((item) => (
                 <li key={`rotacion-${item.codigo}`} className="flex items-center justify-between text-sm">
                   <span className="text-gray-700">{item.nombre}</span>
-                  <span className="font-semibold text-blue-600">{formatNumber(item.cantidad_total)} und</span>
+                  <span className="font-semibold text-blue-600">{formatNumber(item.cantidad_total)} unidades</span>
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="card">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Mejor costo/beneficio</h3>
-            <ul className="space-y-2">
-              {insights.mejor_costo_beneficio.map((item) => (
-                <li key={`beneficio-${item.codigo}`} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{item.nombre}</span>
-                  <span className="font-semibold text-green-600">{(item.costo_beneficio * 100).toFixed(1)}%</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {!loading && !error && productos.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="card lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">Tendencia semanal</h3>
-                <p className="text-sm text-gray-500">Comparativo entre unidades faltantes y margen perdido.</p>
-              </div>
-            </div>
-            <WeeklyTrendChart data={weeklyStats} />
-          </div>
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">Productos con mayor impacto</h3>
-                <p className="text-sm text-gray-500">Participación del margen perdido en el top 5.</p>
-              </div>
-            </div>
-            <TopMargenChart data={topMargenChart} />
           </div>
         </div>
       )}
@@ -278,6 +163,7 @@ export default function RotacionProductos() {
         <div className="space-y-6">
           {productos.map((producto) => {
             const maxCantidad = Math.max(...producto.historial.map((h) => h.cantidad), 0) || 1
+            const promedioSemanal = (producto.cantidad_total / (producto.historial?.length || 1)).toFixed(1)
             return (
               <div key={producto.codigo} className="card border border-gray-200">
                 <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-gray-200">
@@ -289,56 +175,30 @@ export default function RotacionProductos() {
                     <p className="text-xs text-gray-500">Último registro: {formatDate(producto.ultimo_registro)}</p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-semibold ${trendClass(producto.tendencia_reciente)}`}>
-                      Tendencia {trendLabel(producto.tendencia_reciente)} (
-                      {producto.tendencia_reciente > 0 ? '+' : ''}
-                      {producto.tendencia_reciente} und)
+                    <p className="text-sm font-semibold text-gray-900">
+                      Promedio semanal: {promedioSemanal} unidades
                     </p>
-                    <p className="text-xs text-gray-500">Comparación últimas 2 vs 2 semanas previas</p>
+                    <p className="text-xs text-gray-500">En las últimas {producto.historial?.length || 0} semanas</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase">Unidades faltantes</p>
+                    <p className="text-xs text-gray-500 uppercase">Total unidades faltantes</p>
                     <p className="text-2xl font-semibold text-gray-900">
                       {formatNumber(producto.cantidad_total)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase">Margen perdido</p>
-                    <p className="text-2xl font-semibold text-red-600">
-                      ₡{formatCurrency(producto.margen_total)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Costo promedio</p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      ₡{formatCurrency(producto.precio_costo_promedio)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Precio venta prom.</p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      ₡{formatCurrency(producto.precio_venta_promedio)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Margen unitario</p>
-                    <p className="text-xl font-semibold text-gray-900">
-                      ₡{formatCurrency(producto.margen_unitario_promedio)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Costo/Beneficio</p>
-                    <p className="text-xl font-semibold text-green-700">
-                      {(producto.costo_beneficio * 100).toFixed(1)}%
+                    <p className="text-xs text-gray-500 uppercase">Registros</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {formatNumber(producto.faltantes_total)}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Historial semanal</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Historial semanal de faltantes</h4>
                   {producto.historial?.length > 0 ? (
                     <div className="flex gap-3 overflow-x-auto pb-2 h-32 items-end">
                       {producto.historial.map((semana) => {
