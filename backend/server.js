@@ -120,6 +120,7 @@ const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 
 // Módulos nuevos (arquitectura modular)
 const warehouseModule = require('./src/modules/warehouse');
+const missingItemsModule = require('./src/modules/missing-items');
 
 // Usar rutas de API
 app.use('/api/facturas', facturaRoutes);
@@ -133,9 +134,10 @@ app.use('/api/productos-revision', productosRevisionRoutes);
 app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 
 // Módulos nuevos (arquitectura modular)
-// NOTA: El módulo warehouse usa /api/bodega/* mientras que las rutas legacy están en /api/alegra/bodega/*
+// NOTA: Los módulos nuevos usan /api/<módulo>/* mientras que las rutas legacy están en /api/alegra/<módulo>/*
 // Una vez verificado que funciona, se puede deprecar las rutas en alegra.js
 app.use('/api/bodega', warehouseModule.routes);
+app.use('/api/faltantes', missingItemsModule.routes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
