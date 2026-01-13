@@ -806,7 +806,7 @@ export default function Facturacion() {
           discount: item.discount || 0,
           description: (item.description && item.description.trim()
             ? item.description.trim()
-            : item.name
+            : ''  // Si no hay descripción, dejar vacío
           )?.slice(0, DESCRIPCION_MAX),
           tax: (item.tax || []).map(t => ({ id: t.id }))
         })),
@@ -1066,9 +1066,9 @@ export default function Facturacion() {
       {/* Mensaje flotante */}
       {mensaje && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${mensaje.tipo === 'success' ? 'bg-green-500 text-white' :
-            mensaje.tipo === 'error' ? 'bg-red-500 text-white' :
-              mensaje.tipo === 'warning' ? 'bg-orange-500 text-white' :
-                'bg-blue-500 text-white'
+          mensaje.tipo === 'error' ? 'bg-red-500 text-white' :
+            mensaje.tipo === 'warning' ? 'bg-orange-500 text-white' :
+              'bg-blue-500 text-white'
           }`}>
           <Check size={20} />
           <span>{mensaje.texto}</span>
@@ -1086,8 +1086,8 @@ export default function Facturacion() {
               }
             }}
             className={`px-6 py-3 font-medium transition-colors relative ${tabActiva === 'nueva'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-800'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
               } ${isMobile ? 'flex-1 text-sm' : ''}`}
           >
             <FileText size={16} className="inline mr-2" />
@@ -1099,8 +1099,8 @@ export default function Facturacion() {
               limpiarFactura();
             }}
             className={`px-6 py-3 font-medium transition-colors relative ${tabActiva === 'editar'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-600 hover:text-gray-800'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
               } ${isMobile ? 'flex-1 text-sm' : ''}`}
           >
             <Edit size={16} className="inline mr-2" />
@@ -1278,8 +1278,8 @@ export default function Facturacion() {
       {tabActiva === 'nueva' && cacheStats && (
         <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
           <div className={`${isMobile
-              ? 'flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-hide'
-              : 'grid grid-cols-1 md:grid-cols-3 gap-4'
+            ? 'flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-hide'
+            : 'grid grid-cols-1 md:grid-cols-3 gap-4'
             }`}>
             <div className={`${isMobile ? 'flex-shrink-0 w-64 snap-start' : ''} card`}>
               <div className="flex items-center gap-3">
@@ -1447,8 +1447,8 @@ export default function Facturacion() {
                     <button
                       onClick={() => setModoEntradaRapida(true)}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${modoEntradaRapida
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                       <Package size={16} className="inline mr-2" />
@@ -1457,8 +1457,8 @@ export default function Facturacion() {
                     <button
                       onClick={() => setModoEntradaRapida(false)}
                       className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${!modoEntradaRapida
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                       <Search size={16} className="inline mr-2" />
