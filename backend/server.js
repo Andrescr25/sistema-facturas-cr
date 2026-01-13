@@ -122,6 +122,7 @@ const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 const warehouseModule = require('./src/modules/warehouse');
 const missingItemsModule = require('./src/modules/missing-items');
 const reprintingModule = require('./src/modules/reprinting');
+const adminModule = require('./src/modules/admin');
 
 // Usar rutas de API
 app.use('/api/facturas', facturaRoutes);
@@ -140,6 +141,7 @@ app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 app.use('/api/bodega', warehouseModule.routes);
 app.use('/api/faltantes', missingItemsModule.routes);
 app.use('/api/reimpresion', reprintingModule.routes);
+app.use('/api/admin', adminModule.routes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
