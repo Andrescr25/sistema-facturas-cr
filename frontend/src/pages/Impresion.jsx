@@ -136,7 +136,7 @@ const getTaxesArray = (tax) => {
 }
 
 export default function Impresion() {
-const [activeTab, setActiveTab] = useState('requiereCambios')
+  const [activeTab, setActiveTab] = useState('requiereCambios')
   const [facturasSinCambios, setFacturasSinCambios] = useState([])
   const [facturasPendientes, setFacturasPendientes] = useState([])
   const [facturasProcesadas, setFacturasProcesadas] = useState([])
@@ -516,44 +516,44 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
 
       if (modoEdicion) {
         itemsParaGuardar = itemsEditados.map(item => {
-        const descripcion = (item.description ?? '').trim()
-        const referencia = (item.reference ?? '').toString().trim()
-        const quantity = Number(item.quantity) || 0
-        const price = Number(item.price) || 0
-        const tax = Array.isArray(item.tax) ? item.tax : getTaxesArray(item.tax)
+          const descripcion = (item.description ?? '').trim()
+          const referencia = (item.reference ?? '').toString().trim()
+          const quantity = Number(item.quantity) || 0
+          const price = Number(item.price) || 0
+          const tax = Array.isArray(item.tax) ? item.tax : getTaxesArray(item.tax)
 
-        const payload = {
-          reference: referencia,
-          description: descripcion || referencia,
-          name: descripcion || referencia,
-          quantity,
-          price,
-          tax
-        }
+          const payload = {
+            reference: referencia,
+            description: descripcion || referencia,
+            name: descripcion || referencia,
+            quantity,
+            price,
+            tax
+          }
 
-        if (item.id) {
-          payload.id = item.id
-        }
+          if (item.id) {
+            payload.id = item.id
+          }
 
-        if (item.item && item.item.id) {
-          payload.item = { id: item.item.id }
-        } else if (item.itemId) {
-          payload.item = { id: item.itemId }
-        }
+          if (item.item && item.item.id) {
+            payload.item = { id: item.item.id }
+          } else if (item.itemId) {
+            payload.item = { id: item.itemId }
+          }
 
-        if (payload.tax.length === 0) {
-          delete payload.tax
-        }
+          if (payload.tax.length === 0) {
+            delete payload.tax
+          }
 
-        delete payload.esNuevo
-        if (payload.alegraItemId !== undefined) {
-          delete payload.alegraItemId
-        }
-        if (payload.itemId !== undefined) {
-          delete payload.itemId
-        }
+          delete payload.esNuevo
+          if (payload.alegraItemId !== undefined) {
+            delete payload.alegraItemId
+          }
+          if (payload.itemId !== undefined) {
+            delete payload.itemId
+          }
 
-        return payload
+          return payload
         })
 
         const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
@@ -621,13 +621,7 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
   const handleProcesarSinCambios = async (factura, imprimirDespues = false) => {
     if (!factura) return
 
-    const tieneAjustes = factura.ajustes_realizados && factura.ajustes_realizados.length > 0
-    const tieneProductosParaActualizar = tieneAjustes &&
-      factura.ajustes_realizados.some(aj => aj.requiere_actualizacion)
-
-    const mensajeConfirmacion = tieneProductosParaActualizar
-      ? `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe actualizarán los precios automáticamente desde Alegra.`
-      : `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
+    const mensajeConfirmacion = `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe actualizarán los precios automáticamente desde Alegra.`
 
     const confirmacion = window.confirm(mensajeConfirmacion)
     if (!confirmacion) return
@@ -635,11 +629,9 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
     try {
       setProcesando(true)
 
-      // Mostrar mensaje de ajuste si hay productos para actualizar
-      if (tieneProductosParaActualizar) {
-        setAjustandoPrecios(true)
-        setMensajeAjuste('Ajustando precios desde Alegra')
-      }
+      // Siempre mostrar mensaje de ajuste de precios
+      setAjustandoPrecios(true)
+      setMensajeAjuste('Ajustando precios desde Alegra')
 
       await alegraService.procesarFacturaIndividual({
         alegra_id: factura.alegra_id,
@@ -651,9 +643,7 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
         marcar_como_procesada: true
       })
 
-      if (tieneProductosParaActualizar) {
-        setMensajeAjuste('Precios actualizados correctamente')
-      }
+      setMensajeAjuste('Precios actualizados correctamente')
 
       if (imprimirDespues) {
         await alegraService.visualizarPDFFactura(factura.alegra_id)
@@ -968,13 +958,12 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
                   <p className="font-medium text-gray-900">{ajuste.producto_nombre}</p>
                   <p className="text-sm text-gray-600">Código: {ajuste.producto_codigo}</p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  ajuste.estado === 'completo' ? 'bg-green-100 text-green-800' :
-                  ajuste.estado === 'parcial' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${ajuste.estado === 'completo' ? 'bg-green-100 text-green-800' :
+                    ajuste.estado === 'parcial' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                  }`}>
                   {ajuste.estado === 'completo' ? '✅ Completo' :
-                   ajuste.estado === 'parcial' ? '◐ Parcial' : '❌ No llegó'}
+                    ajuste.estado === 'parcial' ? '◐ Parcial' : '❌ No llegó'}
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
@@ -1062,14 +1051,14 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-500">Producto #{index + 1}</p>
-              {!item.esNuevo && (
-                <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
-              )}
-              {!item.esNuevo && item.eliminar_por_faltante && (
-                <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded">
-                  Este producto se eliminará automáticamente al reimprimir (faltante sin recibir)
-                </p>
-              )}
+                  {!item.esNuevo && (
+                    <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
+                  )}
+                  {!item.esNuevo && item.eliminar_por_faltante && (
+                    <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                      Este producto se eliminará automáticamente al reimprimir (faltante sin recibir)
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1242,27 +1231,26 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
             const Icon = tab.icon
             const isCurrent = activeTab === tab.key
             return (
-          <button
+              <button
                 key={tab.key}
                 onClick={() => {
                   setFacturaEditando(null)
                   setModoEdicion(false)
                   setActiveTab(tab.key)
                 }}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  isCurrent
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${isCurrent
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
                 <Icon className="inline mr-2" size={16} />
                 {tab.label}
                 {tab.count > 0 && (
-              <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                     {tab.count}
-              </span>
-            )}
-          </button>
+                  </span>
+                )}
+              </button>
             )
           })}
         </nav>
@@ -1386,11 +1374,10 @@ const [activeTab, setActiveTab] = useState('requiereCambios')
                           Fecha emisión: {formatDate(factura.fecha_emision)}
                         </p>
                         <div className="mt-2 flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            factura.requiere_actualizacion
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${factura.requiere_actualizacion
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-green-100 text-green-800'
-                          }`}>
+                            }`}>
                             {factura.requiere_actualizacion ? '⚠️ Requiere Cambios' : '✅ Solo Resuelto'}
                           </span>
                           <span className="text-xs text-gray-500">
