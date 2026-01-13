@@ -6140,6 +6140,7 @@ router.get('/facturacion/contacts', async (req, res) => {
 router.post('/facturacion/invoices', async (req, res) => {
   try {
     const invoiceData = req.body;
+    const { query } = require('../config/database');
     
     console.log('🧾 Creando factura en Alegra:', {
       cliente: invoiceData.client,
@@ -6151,6 +6152,52 @@ router.post('/facturacion/invoices', async (req, res) => {
     const response = await alegraService.makeRequest('POST', '/invoices', invoiceData);
 
     console.log('✅ Factura creada exitosamente:', response.id);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 📦 REGISTRAR EN BD LOCAL CON estado_bodega = 'pendiente'
+    // Esto asegura que las facturas creadas desde Facturación aparezcan en
+    // "Facturas en Bodega" → Pendientes (no directamente en Listas)
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const numeroFactura = response.numberTemplate?.fullNumber || 
+                            response.numberTemplate?.formattedNumber || 
+                            response.id?.toString();
+      const alegraId = parseInt(response.id, 10);
+      const clienteNombre = response.client?.name || 'Cliente no especificado';
+      const clienteEmail = response.client?.email || null;
+      const fechaEmision = response.date || new Date().toISOString().split('T')[0];
+      const total = parseFloat(response.total || 0);
+
+      // Calcular semana, mes, año
+      const fecha = new Date(fechaEmision);
+      const startOfYear = new Date(fecha.getFullYear(), 0, 1);
+      const dayOfYear = Math.floor((fecha - startOfYear) / (24 * 60 * 60 * 1000));
+      const semana = Math.max(1, Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7));
+      const mes = fecha.getMonth() + 1;
+      const ano = fecha.getFullYear();
+
+      await query(`
+        INSERT INTO facturas (
+          numero_factura, alegra_id, cliente_nombre, cliente_email,
+          fecha_emision, semana, mes, ano, total, estado_bodega
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
+        ON CONFLICT (numero_factura) DO UPDATE SET
+          alegra_id = EXCLUDED.alegra_id,
+          cliente_nombre = EXCLUDED.cliente_nombre,
+          cliente_email = EXCLUDED.cliente_email,
+          fecha_emision = EXCLUDED.fecha_emision,
+          semana = EXCLUDED.semana,
+          mes = EXCLUDED.mes,
+          ano = EXCLUDED.ano,
+          total = EXCLUDED.total
+        -- NOTA: No actualizamos estado_bodega en UPDATE para preservar el estado actual
+      `, [numeroFactura, alegraId, clienteNombre, clienteEmail, fechaEmision, semana, mes, ano, total]);
+
+      console.log(`📦 Factura ${numeroFactura} registrada en BD local con estado_bodega='pendiente'`);
+    } catch (dbError) {
+      // No fallar si hay error de BD, la factura ya fue creada en Alegra
+      console.error('⚠️ Error registrando factura en BD local (no crítico):', dbError.message);
+    }
 
     res.json({
       success: true,
