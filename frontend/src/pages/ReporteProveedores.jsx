@@ -365,7 +365,9 @@ export default function ReporteProveedores() {
   // ✅ NUEVO: Abrir modal de WhatsApp
   const abrirModalWhatsApp = (proveedor) => {
     setProveedorParaWhatsApp(proveedor)
-    setTelefonoProveedor(proveedor.telefono || '') // Pre-cargar teléfono si existe
+    // Cargar teléfono guardado de localStorage o usar el del proveedor si existe
+    const telefonoGuardado = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
+    setTelefonoProveedor(telefonoGuardado || proveedor.telefono || '')
     setModalWhatsAppVisible(true)
   }
 
@@ -458,6 +460,9 @@ export default function ReporteProveedores() {
       // Abrir WhatsApp
       const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
       window.open(whatsappUrl, '_blank')
+
+      // Guardar teléfono para próximas veces
+      localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
 
       setModalWhatsAppVisible(false)
       alert(`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.`)
