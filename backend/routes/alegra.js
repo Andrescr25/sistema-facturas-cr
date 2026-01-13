@@ -858,7 +858,7 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
 
   try {
     const { alegraId } = req.params;
-    const { estado = 'pendiente', observaciones = null } = req.body;
+    const { estado = 'pendiente', observaciones = null, enviar_a_impresion = false } = req.body;
 
     if (!['pendiente', 'procesado'].includes(estado)) {
       return res.status(400).json({
@@ -899,6 +899,41 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
 
     console.log(`✅ Factura ${alegraId} marcada como ${estado} en BODEGA`);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🖨️ ENVIAR A COLA DE IMPRESIÓN (si se solicita y no tiene faltantes)
+    // Esto permite que facturas "listas" sin faltantes vayan directamente a impresión
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (estado === 'procesado' && enviar_a_impresion && facturaLocal.rows.length > 0) {
+      const facturaId = facturaLocal.rows[0].id;
+      
+      // Verificar si ya existe en facturas_reimpresion
+      const existeReimpresion = await query(`
+        SELECT id FROM facturas_reimpresion WHERE factura_id = $1
+      `, [facturaId]);
+
+      if (existeReimpresion.rows.length === 0) {
+        // Insertar en cola de impresión con ajustes vacíos (sin faltantes)
+        await query(`
+          INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
+          VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
+        `, [facturaId]);
+        console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin pendientes)`);
+      } else {
+        // Actualizar existente a pendiente
+        await query(`
+          UPDATE facturas_reimpresion 
+          SET estado = 'pendiente', 
+              ajustes_realizados = '[]'::jsonb,
+              categoria = 'sin_pendientes',
+              total_ajustes = 0,
+              fecha_creacion = CURRENT_TIMESTAMP,
+              fecha_procesamiento = NULL
+          WHERE factura_id = $1
+        `, [facturaId]);
+        console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin pendientes)`);
+      }
+    }
+
     // Invalidar caché para forzar actualización en próxima consulta
     bodegaFacturasCache.data = null;
     bodegaFacturasCache.timestamp = null;
@@ -906,7 +941,8 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
 
     res.json({
       success: true,
-      data: updateResult.rows[0]
+      data: updateResult.rows[0],
+      enviada_a_impresion: estado === 'procesado' && enviar_a_impresion
     });
   } catch (error) {
     console.error('❌ Error actualizando estado de factura de bodega:', error);

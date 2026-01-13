@@ -455,11 +455,12 @@ export const alegraService = {
     }
   },
 
-  async actualizarEstadoFacturaBodega(alegraId, estado, observaciones) {
+  async actualizarEstadoFacturaBodega(alegraId, estado, observaciones, enviarAImpresion = false) {
     try {
       const response = await api.post(`/alegra/bodega/facturas/${alegraId}/estado`, {
         estado,
-        observaciones
+        observaciones,
+        enviar_a_impresion: enviarAImpresion
       });
       return response.data;
     } catch (error) {

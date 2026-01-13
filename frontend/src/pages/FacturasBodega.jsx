@@ -106,10 +106,10 @@ const buildDraftForFactura = (factura) => {
     // ✅ Extraer el valor sin prefijo para enviar al backend
     const referencia = normalizeReferenceValue(item?.referencia ?? item?.reference ?? '')
     const rawItemId = referencia ||
-                      item?.codigo_alegra ||
-                      item?.alegra_id ||
-                      item?.id ||
-                      null
+      item?.codigo_alegra ||
+      item?.alegra_id ||
+      item?.id ||
+      null
 
     draft[key] = {
       key,
@@ -433,15 +433,17 @@ export default function FacturasBodega() {
     if (!facturaSeleccionada) return
     try {
       setGuardando(true)
+      // ✅ NUEVO: Pasar true en enviarAImpresion para enviar directamente a cola de impresión
       await alegraService.actualizarEstadoFacturaBodega(
         facturaSeleccionada.alegra_id,
         'procesado',
-        observacionesAdicionales.trim() || null
+        observacionesAdicionales.trim() || null,
+        true // enviar_a_impresion = true (sin faltantes → va directo a impresión)
       )
 
       // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo
       // En su lugar, actualizar solo el estado local
-      setSuccessMessage('✅ Factura marcada como lista')
+      setSuccessMessage('✅ Factura lista y enviada a impresión')
 
       // Mover la factura de pendientes a listas localmente
       const facturaActualizada = { ...facturaSeleccionada, estado_bodega: 'procesado' }
