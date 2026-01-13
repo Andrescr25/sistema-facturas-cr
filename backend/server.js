@@ -121,6 +121,7 @@ const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 // Módulos nuevos (arquitectura modular)
 const warehouseModule = require('./src/modules/warehouse');
 const missingItemsModule = require('./src/modules/missing-items');
+const reprintingModule = require('./src/modules/reprinting');
 
 // Usar rutas de API
 app.use('/api/facturas', facturaRoutes);
@@ -138,6 +139,7 @@ app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 // Una vez verificado que funciona, se puede deprecar las rutas en alegra.js
 app.use('/api/bodega', warehouseModule.routes);
 app.use('/api/faltantes', missingItemsModule.routes);
+app.use('/api/reimpresion', reprintingModule.routes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
