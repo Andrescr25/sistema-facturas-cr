@@ -10,7 +10,8 @@ import {
   CalendarDays,
   Truck,
   Inbox,
-  Search
+  Search,
+  Sparkles
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
@@ -147,6 +148,7 @@ export default function FacturasBodega() {
   const [checkAnimations, setCheckAnimations] = useState({})
   const [successMessage, setSuccessMessage] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [clienteCompletado, setClienteCompletado] = useState(null) // Modal de cliente completado
   const [filters, setFilters] = useState(() => {
     try {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.filtros)
@@ -458,6 +460,12 @@ export default function FacturasBodega() {
       localStorage.removeItem(STORAGE_KEYS.selected)
 
       setTimeout(() => setSuccessMessage(null), 3000)
+
+      // Mostrar modal con nombre del cliente
+      setClienteCompletado({
+        nombre: facturaSeleccionada.cliente_nombre || facturaSeleccionada.client?.name || 'Cliente',
+        tipo: 'listo'
+      })
     } catch (err) {
       console.error('❌ Error marcando factura como lista:', err)
       alert(`Error marcando factura como lista: ${err.message}`)
@@ -518,6 +526,13 @@ export default function FacturasBodega() {
       localStorage.removeItem(STORAGE_KEYS.selected)
 
       setTimeout(() => setSuccessMessage(null), 3000)
+
+      // Mostrar modal con nombre del cliente
+      setClienteCompletado({
+        nombre: facturaSeleccionada.cliente_nombre || facturaSeleccionada.client?.name || 'Cliente',
+        tipo: 'faltantes',
+        cantidad: faltantesSeleccionados.length
+      })
     } catch (err) {
       console.error('❌ Error registrando faltantes:', err)
       alert(`Error registrando faltantes: ${err.message}`)
@@ -928,6 +943,55 @@ export default function FacturasBodega() {
         renderDetalle()
       ) : (
         renderListado()
+      )}
+
+      {/* Modal de cliente completado */}
+      {clienteCompletado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 p-6 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
+                <Sparkles className="text-emerald-500" size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-white">¡Factura Completada!</h2>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 text-center">
+              <p className="text-gray-600 mb-2">El nombre de este cliente es:</p>
+              <p className="text-3xl font-bold text-gray-900 mb-4 break-words">
+                {clienteCompletado.nombre}
+              </p>
+
+              {clienteCompletado.tipo === 'faltantes' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  <p className="text-orange-700 font-medium">
+                    📦 {clienteCompletado.cantidad} faltante{clienteCompletado.cantidad > 1 ? 's' : ''} registrado{clienteCompletado.cantidad > 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
+
+              {clienteCompletado.tipo === 'listo' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <p className="text-green-700 font-medium">
+                    ✅ Enviada a cola de impresión
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 pt-0">
+              <button
+                onClick={() => setClienteCompletado(null)}
+                className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                ¡Entendido! 👍
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
