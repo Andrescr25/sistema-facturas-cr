@@ -356,11 +356,14 @@ export default function FacturasBodega() {
     // Cargar detalle completo (incluye observaciones guardadas del backend)
     try {
       const detalle = await alegraService.getFacturaDetalle(factura.alegra_id);
-      console.log('✅ Detalle recibido del backend:', detalle?.items?.length, 'items')
-      if (detalle && detalle.items) {
+      console.log('✅ Detalle recibido del backend:', detalle)
+      // ✅ FIX: Acceder a detalle.data.items (no detalle.items)
+      const items = detalle?.data?.items || detalle?.items || [];
+      console.log('📦 Items extraídos:', items.length)
+      if (items.length > 0) {
         // Reconstruir draft con los datos detallados que incluyen persistencia
         const nuevoDraft = {};
-        detalle.items.forEach((item, index) => {
+        items.forEach((item, index) => {
           const key = getItemIdFromFacturaItem(item) || `item-${index}`;
           nuevoDraft[key] = {
             key,
