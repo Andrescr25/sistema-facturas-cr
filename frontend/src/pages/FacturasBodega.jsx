@@ -902,7 +902,7 @@ export default function FacturasBodega() {
                       : 'btn-outline border-gray-200 text-gray-600'
                       }`}
                   >
-                    {draft?.tipo === 'ninguno' ? '✅ Completo' : 'Completo'}
+                    {draft?.tipo === 'ninguno' ? 'Completo' : 'Completo'}
                   </button>
                   <span
                     className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
