@@ -932,9 +932,15 @@ export default function FacturasBodega() {
                     max={cantidadFactura}
                     value={draft?.cantidadFaltante ?? 0}
                     onChange={(e) => actualizarCantidadFaltante(key, e.target.value, cantidadFactura)}
-                    className="input w-24 text-lg"
+                    className={`input w-24 text-lg ${draft?.tipo === 'parcial'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold ring-2 ring-blue-200'
+                      : ''}`}
                   />
-                  <span className="text-sm text-gray-500">faltaron</span>
+                  <span className={`text-sm ${draft?.tipo === 'parcial'
+                    ? 'text-blue-600 font-semibold'
+                    : 'text-gray-500'}`}>
+                    {draft?.tipo === 'parcial' ? '⚠️ faltaron' : 'faltaron'}
+                  </span>
                 </div>
               </div>
 
