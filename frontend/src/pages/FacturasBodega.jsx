@@ -327,9 +327,20 @@ export default function FacturasBodega() {
     setSelectedFacturaId(factura.alegra_id)
     localStorage.setItem(STORAGE_KEYS.selected, factura.alegra_id)
 
+    // 🔍 DIAGNÓSTICO FRONTEND
+    console.log('🔍 DIAGNÓSTICO handleSeleccionarFactura:', {
+      alegra_id: factura.alegra_id,
+      estado_bodega: factura.estado_bodega,
+      tieneEstadosProductos: factura.estadosProductos ? Object.keys(factura.estadosProductos).length : 0
+    })
+
     // 🆕 Si la factura tiene estadosProductos guardados (viene de listas), usarlos directamente
     if (factura.estadosProductos && Object.keys(factura.estadosProductos).length > 0) {
-      console.log('📋 Usando estados guardados localmente')
+      console.log('📋 Usando estados guardados localmente:', Object.keys(factura.estadosProductos).length, 'items')
+      // 🔍 Mostrar detalle de lo que se va a usar
+      Object.entries(factura.estadosProductos).forEach(([key, item]) => {
+        console.log(`   - ${item.referencia}: tipo="${item.tipo}", cantidad=${item.cantidadFaltante}`)
+      })
       setFaltantesDraft(factura.estadosProductos)
       setObservacionesAdicionales('')
       localStorage.removeItem(STORAGE_KEYS.observaciones)
@@ -337,6 +348,7 @@ export default function FacturasBodega() {
     }
 
     // Inicializar con datos actuales mientras carga el detalle completo
+    console.log('⏳ Cargando detalle desde backend...')
     setFaltantesDraft(buildDraftForFactura(factura))
     setObservacionesAdicionales('')
     localStorage.removeItem(STORAGE_KEYS.observaciones)
@@ -344,6 +356,7 @@ export default function FacturasBodega() {
     // Cargar detalle completo (incluye observaciones guardadas del backend)
     try {
       const detalle = await alegraService.getFacturaDetalle(factura.alegra_id);
+      console.log('✅ Detalle recibido del backend:', detalle?.items?.length, 'items')
       if (detalle && detalle.items) {
         // Reconstruir draft con los datos detallados que incluyen persistencia
         const nuevoDraft = {};
@@ -360,6 +373,8 @@ export default function FacturasBodega() {
             cantidadFaltante: Number(item.cantidad_faltante || 0),
             observaciones: item.observaciones || ''
           };
+          // 🔍 Log cada item
+          console.log(`   - ${nuevoDraft[key].referencia}: tipo="${nuevoDraft[key].tipo}", cantidad=${nuevoDraft[key].cantidadFaltante}`)
         });
         setFaltantesDraft(nuevoDraft);
       }
