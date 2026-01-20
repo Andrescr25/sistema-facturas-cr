@@ -1164,44 +1164,53 @@ export default function ReporteProveedores() {
                           Productos para comprar:
                         </h4>
 
-                        {proveedor.productos_faltantes.map((producto, index) => (
-                          <div key={index} className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              {/* ✅ ACTUALIZADO: Checkbox para selección individual (TODOS los proveedores) */}
-                              <input
-                                type="checkbox"
-                                checked={productosSeleccionados.has(producto.codigo)}
-                                onChange={() => toggleProductoSeleccionado(producto.codigo)}
-                                className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
-                              />
-                              <div className="flex-1">
-                                <h5 className="font-medium text-gray-900">
-                                  {producto.nombre}
-                                  {producto.descripcion_factura && (
-                                    <span className="text-gray-600 font-normal text-sm ml-2">
-                                      ({producto.descripcion_factura})
-                                    </span>
-                                  )}
-                                </h5>
-                                <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                <p className="text-sm text-gray-600">
-                                  Clientes afectados: {producto.clientes_afectados}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                                  Faltante
+                        {proveedor.productos_faltantes
+                          .filter(p => {
+                            const cant = Number(p.cantidad_faltante);
+                            if (cant <= 0) {
+                              console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Faltantes):", p);
+                              return false;
+                            }
+                            return true;
+                          })
+                          .map((producto, index) => (
+                            <div key={index} className="bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                {/* ✅ ACTUALIZADO: Checkbox para selección individual (TODOS los proveedores) */}
+                                <input
+                                  type="checkbox"
+                                  checked={productosSeleccionados.has(producto.codigo)}
+                                  onChange={() => toggleProductoSeleccionado(producto.codigo)}
+                                  className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
+                                />
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-gray-900">
+                                    {producto.nombre}
+                                    {producto.descripcion_factura && (
+                                      <span className="text-gray-600 font-normal text-sm ml-2">
+                                        ({producto.descripcion_factura})
+                                      </span>
+                                    )}
+                                  </h5>
+                                  <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                                  <p className="text-sm text-gray-600">
+                                    Clientes afectados: {producto.clientes_afectados}
+                                  </p>
                                 </div>
-                                <p className="text-lg font-bold text-gray-900 mt-1">
-                                  {producto.cantidad_faltante} unidades
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  En {producto.facturas_afectadas} factura{producto.facturas_afectadas > 1 ? 's' : ''}
-                                </p>
+                                <div className="text-right">
+                                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                                    Faltante
+                                  </div>
+                                  <p className="text-lg font-bold text-gray-900 mt-1">
+                                    {producto.cantidad_faltante} unidades
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    En {producto.facturas_afectadas} factura{producto.facturas_afectadas > 1 ? 's' : ''}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     )}
                   </div>
@@ -1319,103 +1328,112 @@ export default function ReporteProveedores() {
                         Productos para ordenar:
                       </h4>
 
-                      {proveedor.productos_faltantes.map((producto, index) => {
-                        const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
-                        const key = `${proveedor.nombre}-${producto.codigo}`
-                        const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
-                        const estaEliminado = productosEliminados.has(key)
+                      {proveedor.productos_faltantes
+                        .filter(p => {
+                          const cant = Number(p.cantidad_faltante);
+                          if (cant <= 0) {
+                            console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Modificar):", p);
+                            return false;
+                          }
+                          return true;
+                        })
+                        .map((producto, index) => {
+                          const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
+                          const key = `${proveedor.nombre}-${producto.codigo}`
+                          const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
+                          const estaEliminado = productosEliminados.has(key)
 
-                        return (
-                          <div key={index} className={`rounded-lg p-4 border ${estaEliminado ? 'bg-red-50 border-red-200 opacity-60' :
-                            tieneModificacion ? 'bg-yellow-50 border-yellow-200' :
-                              'bg-gray-50 border-gray-200'
-                            }`}>
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                              {/* Info del producto */}
-                              <div className="lg:col-span-5">
-                                <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                  {producto.nombre}
-                                  {producto.descripcion_factura && (
-                                    <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
-                                      ({producto.descripcion_factura})
+                          return (
+                            <div key={index} className={`rounded-lg p-4 border ${estaEliminado ? 'bg-red-50 border-red-200 opacity-60' :
+                              tieneModificacion ? 'bg-yellow-50 border-yellow-200' :
+                                'bg-gray-50 border-gray-200'
+                              }`}>
+                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                {/* Info del producto */}
+                                <div className="lg:col-span-5">
+                                  <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                    {producto.nombre}
+                                    {producto.descripcion_factura && (
+                                      <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        ({producto.descripcion_factura})
+                                      </span>
+                                    )}
+                                  </h5>
+                                  <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                                  <p className="text-xs text-gray-500">
+                                    Clientes afectados: {producto.clientes_afectados} •
+                                    Facturas: {producto.facturas_afectadas}
+                                  </p>
+                                  {estaEliminado && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
+                                      🗑️ Eliminado
                                     </span>
                                   )}
-                                </h5>
-                                <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                <p className="text-xs text-gray-500">
-                                  Clientes afectados: {producto.clientes_afectados} •
-                                  Facturas: {producto.facturas_afectadas}
-                                </p>
-                                {estaEliminado && (
-                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
-                                    🗑️ Eliminado
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Cantidad original */}
-                              <div className="lg:col-span-2">
-                                <label className="label">Original:</label>
-                                <div className="text-lg font-medium text-gray-700">
-                                  {producto.cantidad_faltante}
                                 </div>
-                                <p className="text-xs text-gray-500">De faltantes</p>
-                              </div>
 
-                              {/* Cantidad a ordenar */}
-                              <div className="lg:col-span-2">
-                                <label className="label">Cantidad a ordenar:</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={cantidadFinal}
-                                  onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
-                                  className="input"
-                                  placeholder="0"
-                                  disabled={estaEliminado}
-                                />
-                              </div>
-
-                              {/* Estado y Acciones */}
-                              <div className="lg:col-span-3">
-                                <label className="label">Estado:</label>
-                                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaEliminado ? 'bg-red-100 text-red-800' :
-                                  cantidadFinal !== producto.cantidad_faltante
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                  {estaEliminado ? '🗑️ Eliminado' :
-                                    cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
+                                {/* Cantidad original */}
+                                <div className="lg:col-span-2">
+                                  <label className="label">Original:</label>
+                                  <div className="text-lg font-medium text-gray-700">
+                                    {producto.cantidad_faltante}
+                                  </div>
+                                  <p className="text-xs text-gray-500">De faltantes</p>
                                 </div>
-                                {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
-                                  <p className="text-xs text-yellow-600 mt-1">
-                                    Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
-                                  </p>
-                                )}
-                                {/* Botones de acción */}
-                                <div className="mt-2 flex gap-2">
-                                  {estaEliminado ? (
-                                    <button
-                                      onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
-                                      className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
-                                    >
-                                      ↩️ Restaurar
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
-                                      className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
-                                    >
-                                      <Trash2 size={14} className="mr-1" />
-                                      Eliminar
-                                    </button>
+
+                                {/* Cantidad a ordenar */}
+                                <div className="lg:col-span-2">
+                                  <label className="label">Cantidad a ordenar:</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={cantidadFinal}
+                                    onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
+                                    className="input"
+                                    placeholder="0"
+                                    disabled={estaEliminado}
+                                  />
+                                </div>
+
+                                {/* Estado y Acciones */}
+                                <div className="lg:col-span-3">
+                                  <label className="label">Estado:</label>
+                                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaEliminado ? 'bg-red-100 text-red-800' :
+                                    cantidadFinal !== producto.cantidad_faltante
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    {estaEliminado ? '🗑️ Eliminado' :
+                                      cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
+                                  </div>
+                                  {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
+                                    <p className="text-xs text-yellow-600 mt-1">
+                                      Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
+                                    </p>
                                   )}
+                                  {/* Botones de acción */}
+                                  <div className="mt-2 flex gap-2">
+                                    {estaEliminado ? (
+                                      <button
+                                        onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
+                                        className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
+                                      >
+                                        ↩️ Restaurar
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
+                                        className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                                      >
+                                        <Trash2 size={14} className="mr-1" />
+                                        Eliminar
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
 
                       {/* ✅ NUEVO: Productos agregados manualmente */}
                       {(productosAgregados.get(proveedor.nombre) || []).map((producto, index) => (
