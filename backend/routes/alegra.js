@@ -1800,6 +1800,11 @@ router.get('/facturas/detalle/:id', async (req, res) => {
              mapaFaltantes.set(f.codigo_producto, f);
           });
 
+          // 🔍 DIAGNÓSTICO: Ver qué códigos tenemos guardados vs qué viene de Alegra
+          console.log(`🔍 DIAGNÓSTICO Detalle Factura ${id}:`);
+          console.log(`   📦 Códigos guardados en BD: [${Array.from(mapaFaltantes.keys()).join(', ')}]`);
+          console.log(`   📄 Códigos de Alegra: [${itemsNormalizados.map(i => i.referencia || i.codigo_producto).join(', ')}]`);
+
           // 5. Fusionar datos guardados con items de Alegra
           itemsNormalizados = itemsNormalizados.map(item => {
             // ✅ Matchear por referencia o codigo_producto (NO usar productKey/CABYS)
@@ -2826,7 +2831,13 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       JOIN facturas fa ON f.factura_id = fa.id
       LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
-      LEFT JOIN faltantes_ajustes aj ON f.id = aj.faltante_id
+      LEFT JOIN LATERAL (
+        SELECT faltante_id, cantidad_entregada, estado, requiere_actualizacion
+        FROM faltantes_ajustes
+        WHERE faltante_id = f.id
+        ORDER BY id DESC
+        LIMIT 1
+      ) aj ON true
       LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
       WHERE f.estado IN ('pendiente', 'procesado')
         AND f.tipo_faltante != 'completo' 
