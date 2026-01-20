@@ -1792,13 +1792,11 @@ router.get('/facturas/detalle/:id', async (req, res) => {
         `, [localId]);
 
         if (faltantesGuardados.rows.length > 0) {
-          console.log(`✅ [DEBUG] Encontrados ${faltantesGuardados.rows.length} items guardados locally para factura ${localId}`);
           
           // Crear mapa para búsqueda rápida (por código de producto)
           // Nota: Sería ideal tener un ID único inmutable, pero el código suele ser lo más estable entre Alegra y local
           const mapaFaltantes = new Map();
           faltantesGuardados.rows.forEach(f => {
-             // console.log(`   🔸 Guardado: Código=${f.codigo_producto}, Tipo=${f.tipo_faltante}, Cant=${f.cantidad_faltante}`);
              mapaFaltantes.set(f.codigo_producto, f);
           });
 
@@ -1809,7 +1807,6 @@ router.get('/facturas/detalle/:id', async (req, res) => {
                               mapaFaltantes.get(item.codigo_producto);
 
             if (savedData) {
-              console.log(`   🔹 MATCH! Item ${item.codigo_producto} -> Tipo guardado: ${savedData.tipo_faltante}`);
               // Mapear 'completo' de BD a 'ninguno' para el frontend
               const tipoParaFrontend = savedData.tipo_faltante === 'completo' ? 'ninguno' : savedData.tipo_faltante;
               return {
@@ -2550,6 +2547,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
       JOIN productos p ON f.producto_id = p.id
       JOIN facturas fa ON f.factura_id = fa.id
       WHERE f.estado IN ('pendiente', 'procesado')
+        AND f.tipo_faltante != 'completo' 
+        AND (f.cantidad_faltante::numeric > 0)
       GROUP BY p.codigo, p.alegra_id, p.nombre
       ORDER BY total_faltante DESC
     `);
@@ -2823,8 +2822,23 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
       LEFT JOIN faltantes_ajustes aj ON f.id = aj.faltante_id
       LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
       WHERE f.estado IN ('pendiente', 'procesado')
+        AND f.tipo_faltante != 'completo' 
+        AND (f.cantidad_faltante::numeric > 0)
       ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
     `);
+
+    // DIAGNÓSTICO: Verificar si siguen saliendo items con 0
+    const ceros = result.rows.filter(r => Number(r.cantidad_faltante) <= 0);
+    if (ceros.length > 0) {
+        console.error("🚨 CRITICAL: El SQL retornó items con cantidad <= 0:", ceros.map(c => ({
+            id: c.faltante_id, 
+            cant: c.cantidad_faltante, 
+            tipo: c.tipo_faltante,
+            factura: c.numero_factura
+        })));
+    } else {
+        console.log("✅ SQL Filter OK: No se encontraron items con cantidad 0");
+    }
 
     // Agrupar por cliente
     const clientesMap = new Map();

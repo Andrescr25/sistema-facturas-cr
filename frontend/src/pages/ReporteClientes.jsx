@@ -22,7 +22,7 @@ export default function ReporteClientes() {
       setLoading(true)
       setError(null)
 
-     const result = await alegraService.getReporteFaltantesCliente()
+      const result = await alegraService.getReporteFaltantesCliente()
 
       if (result.success) {
         console.log('🔍 DEBUG: Datos completos del backend:', result.data);
@@ -79,16 +79,16 @@ export default function ReporteClientes() {
               }
             })
 
-        if (factura.es_pendiente_manual && !estadosMap.has(facturaKey)) {
-          estadosMap.set(facturaKey, {
-            estado: 'pendiente',
-            timestamp: factura.pendiente_desde || new Date().toISOString(),
-            ajustes: [],
-            requiere_reimpresion: false,
-            origen: 'manual',
-            motivo: factura.pendiente_motivo || ''
-          })
-        }
+            if (factura.es_pendiente_manual && !estadosMap.has(facturaKey)) {
+              estadosMap.set(facturaKey, {
+                estado: 'pendiente',
+                timestamp: factura.pendiente_desde || new Date().toISOString(),
+                ajustes: [],
+                requiere_reimpresion: false,
+                origen: 'manual',
+                motivo: factura.pendiente_motivo || ''
+              })
+            }
           })
         })
 
@@ -166,8 +166,8 @@ Total productos con faltantes: ${ajustesFactura.length}
   • Pendientes de ajustar: ${faltantesPendientes}
 
 ${requiereReimpresion ?
-  '🖨️ Se enviará a Impresión para hacer cambios' :
-  '✅ Se enviará a Impresión sin cambios necesarios'}
+        '🖨️ Se enviará a Impresión para hacer cambios' :
+        '✅ Se enviará a Impresión sin cambios necesarios'}
 
 ¿Continuar?`
 
@@ -491,15 +491,15 @@ ${requiereReimpresion ?
       return
     }
 
-      newMap.set(key, {
+    newMap.set(key, {
       faltanteId: producto.faltante_id,
-        cantidadFaltante,
+      cantidadFaltante,
       cantidadEntregada: cantidadNormalizada,
-        cantidadAReducir,
-        estado,
-        tieneAjuste: true,
-        requiereActualizacion
-      })
+      cantidadAReducir,
+      estado,
+      tieneAjuste: true,
+      requiereActualizacion
+    })
 
     setEntregasAjustadas(newMap)
 
@@ -556,10 +556,10 @@ ${requiereReimpresion ?
 
     try {
       await guardarAjusteEnBD(producto, {
-      cantidad_entregada: 0,
-      estado: 'no_llego',
-      requiere_actualizacion: true
-    })
+        cantidad_entregada: 0,
+        estado: 'no_llego',
+        requiere_actualizacion: true
+      })
     } catch (error) {
       setEntregasAjustadas(prevMap)
     }
@@ -753,390 +753,399 @@ ${requiereReimpresion ?
           {clientes
             .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
             .map((cliente, clienteIndex) => (
-            <div key={clienteIndex} className="card">
-              {/* Header del cliente */}
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg mr-4">
-                    <User className="text-purple-600" size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{cliente.nombre}</h3>
-                    {cliente.email && (
-                      <p className="text-gray-600 flex items-center">
-                        <Mail size={14} className="mr-1" />
-                        {cliente.email}
+              <div key={clienteIndex} className="card">
+                {/* Header del cliente */}
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-lg mr-4">
+                      <User className="text-purple-600" size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">{cliente.nombre}</h3>
+                      {cliente.email && (
+                        <p className="text-gray-600 flex items-center">
+                          <Mail size={14} className="mr-1" />
+                          {cliente.email}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-500 flex items-center mt-1">
+                        <Clock size={14} className="mr-1" />
+                        Última actividad: {formatDateTime(cliente.ultima_actividad)}
                       </p>
-                    )}
-                    <p className="text-sm text-gray-500 flex items-center mt-1">
-                      <Clock size={14} className="mr-1" />
-                      Última actividad: {formatDateTime(cliente.ultima_actividad)}
-                    </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Productos pendientes</p>
+                      <p className="text-2xl font-bold text-purple-600">{cliente.total_cantidad}</p>
+                      <p className="text-sm text-gray-600">{cliente.facturas_con_faltantes.length} factura{cliente.facturas_con_faltantes.length > 1 ? 's' : ''}</p>
+                    </div>
+                    {/* NUEVO: Botón colapsar/expandir */}
+                    <button
+                      onClick={() => {
+                        const next = new Set(clientesColapsados)
+                        if (next.has(cliente.nombre)) next.delete(cliente.nombre); else next.add(cliente.nombre)
+                        setClientesColapsados(next)
+                      }}
+                      className="btn btn-outline whitespace-nowrap"
+                      title={clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
+                    >
+                      {clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Productos pendientes</p>
-                    <p className="text-2xl font-bold text-purple-600">{cliente.total_cantidad}</p>
-                    <p className="text-sm text-gray-600">{cliente.facturas_con_faltantes.length} factura{cliente.facturas_con_faltantes.length > 1 ? 's' : ''}</p>
-                  </div>
-                  {/* NUEVO: Botón colapsar/expandir */}
-                  <button
-                    onClick={() => {
-                      const next = new Set(clientesColapsados)
-                      if (next.has(cliente.nombre)) next.delete(cliente.nombre); else next.add(cliente.nombre)
-                      setClientesColapsados(next)
-                    }}
-                    className="btn btn-outline whitespace-nowrap"
-                    title={clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
-                  >
-                    {clientesColapsados.has(cliente.nombre) ? 'Expandir' : 'Comprimir'}
-                  </button>
-                </div>
-              </div>
 
-              {/* Facturas con faltantes */}
-              {!clientesColapsados.has(cliente.nombre) && (
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 flex items-center">
-                  <FileText size={16} className="mr-2" />
-                  Entregas pendientes:
-                </h4>
+                {/* Facturas con faltantes */}
+                {!clientesColapsados.has(cliente.nombre) && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900 flex items-center">
+                      <FileText size={16} className="mr-2" />
+                      Entregas pendientes:
+                    </h4>
 
-                {cliente.facturas_con_faltantes.map((factura) => {
-                  // NUEVO: Obtener estado de la factura
-                  const facturaKey = getFacturaKey(factura)
-                  const estadoFactura = getFacturaEstado(factura)
-                  const estaProcesada = estadoFactura.estado === 'procesado' || estadoFactura.estado === 'en_cola_impresion'
-                  const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
+                    {cliente.facturas_con_faltantes.map((factura) => {
+                      // NUEVO: Obtener estado de la factura
+                      const facturaKey = getFacturaKey(factura)
+                      const estadoFactura = getFacturaEstado(factura)
+                      const estaProcesada = estadoFactura.estado === 'procesado' || estadoFactura.estado === 'en_cola_impresion'
+                      const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
 
-                  const facturaClase = estaProcesada
-                      ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
-                    : estaPendienteManual
-                      ? 'bg-yellow-50 border-2 border-yellow-300'
-                      : 'bg-gray-50'
+                      const facturaClase = estaProcesada
+                        ? 'bg-gray-100 border-2 border-gray-300 opacity-75'
+                        : estaPendienteManual
+                          ? 'bg-yellow-50 border-2 border-yellow-300'
+                          : 'bg-gray-50'
 
-                  return (
-                    <div key={facturaKey} className={`rounded-lg p-4 transition-all ${facturaClase}`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h5 className={`font-medium ${estaProcesada ? 'text-gray-500 line-through' : estaPendienteManual ? 'text-yellow-800' : 'text-gray-900'}`}>
-                            {estaProcesada && <Check size={16} className="inline text-green-600 mr-1" />}
-                            Factura #{factura.numero_factura}
-                            {estaProcesada && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                                ✓ Procesada
-                              </span>
-                            )}
-                            {estaPendienteManual && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                                ⏳ Pendiente
-                              </span>
-                            )}
-                          </h5>
-                          <p className={`text-sm ${estaProcesada ? 'text-gray-400 line-through' : estaPendienteManual ? 'text-yellow-700' : 'text-gray-600'}`}>
-                            Fecha: {formatDate(factura.fecha_emision)}
-                          </p>
-                          {estaProcesada && estadoFactura.timestamp && (
-                            <p className="text-xs text-green-600 mt-1">
-                              Procesada: {formatDateTime(estadoFactura.timestamp)}
-                            </p>
-                          )}
-                          {estaPendienteManual && estadoFactura.timestamp && (
-                            <p className="text-xs text-yellow-700 mt-1">
-                              Pendiente desde: {formatDateTime(estadoFactura.timestamp)}
-                            </p>
-                          )}
-                          {estaPendienteManual && estadoFactura.motivo && (
-                            <p className="text-xs text-yellow-700 mt-1">
-                              Motivo: {estadoFactura.motivo}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <div className="text-right">
-                            <p className={`text-sm ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
-                              Productos faltantes
-                            </p>
-                            <p className={`text-lg font-bold ${estaProcesada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                              {factura.productos_faltantes.length}
-                            </p>
-                            {(() => {
-                              if (estaProcesada) {
-                                return (
-                                  <p className="text-sm text-green-600 mt-1">
-                                      {estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 En historial'}
-                                  </p>
-                                )
-                              }
-
-                              if (estaPendienteManual) {
-                                return <p className="text-sm text-yellow-600 mt-1">⌛ Pendiente: esperando entrega restante</p>
-                              }
-
-                              const ajustesEnFactura = factura.productos_faltantes.map((producto) => {
-                                const productoKey = getProductKey(factura, producto)
-                                return entregasAjustadas.get(productoKey)
-                              }).filter(Boolean)
-
-                              if (ajustesEnFactura.length === 0) {
-                                return null // Sin ajustes
-                              }
-
-                              const todosResueltos = ajustesEnFactura.every(ajuste => ajuste.estado === 'completo')
-                              const tieneNoResueltos = ajustesEnFactura.some(ajuste => ajuste.requiereActualizacion)
-
-                              if (todosResueltos) {
-                                return <p className="text-sm text-green-600 mt-1">✓ Faltantes resueltos - Sin cambios en factura</p>
-                              } else if (tieneNoResueltos) {
-                                return <p className="text-sm text-blue-600 mt-1">✓ Tiene ajustes pendientes</p>
-                              }
-
-                              return null
-                            })()}
-                          </div>
-
-                          {/* Botones de acción */}
-                          <div className="flex flex-col space-y-2">
-                            {!estaProcesada ? (
-                              <>
-                              <button
-                                  onClick={() => handleFacturaLista(cliente.nombre, factura)}
-                                className="btn btn-primary flex items-center whitespace-nowrap"
-                              >
-                                <Check size={16} className="mr-2" />
-                                Factura Lista
-                                </button>
-                                {estaPendienteManual ? (
-                                  <button
-                                    onClick={() => handleQuitarFacturaPendiente(factura, cliente.nombre)}
-                                    className="btn btn-outline text-yellow-800 border-yellow-700 hover:bg-yellow-50 flex items-center whitespace-nowrap"
-                                    title="Quitar estado pendiente manual"
-                                  >
-                                    <X size={16} className="mr-2" />
-                                    Quitar Pendiente
-                              </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)}
-                                    className="btn btn-outline text-yellow-700 border-yellow-600 hover:bg-yellow-50 flex items-center whitespace-nowrap"
-                                    title="Marcar factura como pendiente"
-                                  >
-                                    <Clock size={16} className="mr-2" />
-                                    Marcar Pendiente
-                                  </button>
+                      return (
+                        <div key={facturaKey} className={`rounded-lg p-4 transition-all ${facturaClase}`}>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h5 className={`font-medium ${estaProcesada ? 'text-gray-500 line-through' : estaPendienteManual ? 'text-yellow-800' : 'text-gray-900'}`}>
+                                {estaProcesada && <Check size={16} className="inline text-green-600 mr-1" />}
+                                Factura #{factura.numero_factura}
+                                {estaProcesada && (
+                                  <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                    ✓ Procesada
+                                  </span>
                                 )}
-                              </>
-                            ) : (
-                              // Botón recuperar para facturas procesadas
-                              <button
-                                onClick={() => handleRecuperarFactura(factura)}
-                                className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center whitespace-nowrap"
-                                title="Recuperar factura para editarla"
-                              >
-                                <RotateCcw size={16} className="mr-2" />
-                                Recuperar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Lista de productos faltantes */}
-                      <div className={`space-y-3 ${estaProcesada ? 'pointer-events-none' : ''}`}>
-                        {factura.productos_faltantes.map((producto) => {
-                          const productoKey = getProductKey(factura, producto)
-                          const entrega = getEntregaInfo(productoKey, producto)
-                          const estaCompleto = entrega.estado === 'completo'
-                          const estaParcial = entrega.estado === 'parcial'
-                          const noLlego = entrega.estado === 'no_llego'
-                          const tieneAjuste = entrega.tieneAjuste
-
-                          return (
-                            <div key={productoKey} className={`rounded-md p-4 border-2 transition-all ${estaProcesada
-                              ? 'border-gray-200 bg-gray-50 opacity-60'
-                              : estaCompleto ? 'border-green-200 bg-green-50' :
-                                estaParcial ? 'border-blue-200 bg-blue-50' :
-                                  noLlego ? 'border-red-200 bg-red-50' :
-                                    tieneAjuste ? 'border-yellow-200 bg-yellow-50' :
-                                      'border-gray-200 bg-white'
-                              }`}>
-                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                {/* Info del producto */}
-                                <div className="lg:col-span-5">
-                                  <h6 className={`font-medium ${estaProcesada
-                                    ? 'text-gray-400 line-through'
-                                    : estaCompleto ? 'line-through text-green-700' : 'text-gray-900'
-                                    }`}>
-                                    {(estaCompleto || estaProcesada) && <Check size={16} className="inline text-green-600 mr-1" />}
-                                    {producto.nombre}
-                                  </h6>
-                                  <p className={`text-sm ${estaProcesada
-                                    ? 'text-gray-400 line-through'
-                                    : estaCompleto ? 'line-through text-gray-500' : 'text-gray-600'
-                                    }`}>
-                                    Código: {producto.codigo} • Proveedor: {producto.proveedor}
-                                  </p>
-                                  {producto.observaciones && (
-                                    <p className={`text-sm text-orange-600 mt-1 ${(estaCompleto || estaProcesada) ? 'line-through opacity-60' : ''
-                                      }`}>
-                                      📝 {producto.observaciones}
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Estado original */}
-                                <div className="lg:col-span-2">
-                                  <p className={`text-sm mb-1 ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Faltante:
-                                  </p>
-                                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaProcesada
-                                    ? 'bg-gray-100 text-gray-500'
-                                    : producto.tipo_faltante === 'total'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                    {producto.cantidad_faltante} unidades
-                                  </div>
-                                </div>
-
-                                {/* Cantidad entregada */}
-                                <div className="lg:col-span-2">
-                                  <label className={`label ${estaProcesada ? 'text-gray-400' : ''}`}>
-                                    Entregado:
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={producto.cantidad_faltante}
-                                    value={entrega.cantidadEntregada}
-                                    onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
-                                    disabled={estaCompleto || estaProcesada}
-                                    className={`input ${(estaCompleto || estaProcesada) ? 'bg-gray-100 text-gray-500' : ''
-                                      }`}
-                                    placeholder="0"
-                                  />
-                                </div>
-
-                                {/* Estado resultado */}
-                                <div className="lg:col-span-2">
-                                  <p className={`text-sm mb-1 ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Estado:
-                                  </p>
-                                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaProcesada
-                                    ? 'bg-gray-100 text-gray-500'
-                                    : entrega.estado === 'completo'
-                                      ? 'bg-green-100 text-green-800'
-                                      : entrega.estado === 'parcial'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : entrega.estado === 'no_llego'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-gray-100 text-gray-800'
-                                    }`}>
-                                    {estaProcesada ? '✓ Procesado' :
-                                      entrega.estado === 'completo' ? '✓ Completo' :
-                                        entrega.estado === 'parcial' ? '◐ Parcial' :
-                                          entrega.estado === 'no_llego' ? '✗ No llegó' :
-                                            '○ Pendiente'}
-                                  </div>
-                                </div>
-
-                                {/* Acciones */}
-                                <div className="lg:col-span-1">
-                                  {!estaProcesada && (
-                                    <div className="flex flex-col space-y-2">
-                                      {!estaCompleto && entrega.estado !== 'no_llego' && (
-                                        <button
-                                          onClick={() => handleMarcarCompleto(productoKey, producto)}
-                                          className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center justify-center w-full"
-                                          title="Marcar como entregado completo"
-                                        >
-                                          <Check size={14} className="mr-1" />
-                                          Completo
-                                        </button>
-                                      )}
-                                      {!estaCompleto && entrega.estado !== 'no_llego' && (
-                                        <button
-                                          onClick={() => handleNoLlegoNada(productoKey, producto)}
-                                          className="btn bg-red-600 text-white border-red-600 hover:bg-red-700 flex items-center justify-center w-full whitespace-nowrap"
-                                          title="No llegó nada - Eliminar de factura"
-                                        >
-                                          <X size={14} className="mr-1" />
-                                          No llegó
-                                        </button>
-                                      )}
-                                      {tieneAjuste && (
-                                        <button
-                                          onClick={() => handleDeshacer(productoKey, producto)}
-                                          className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center justify-center w-full"
-                                          title="Deshacer cambios"
-                                        >
-                                          <Undo2 size={14} className="mr-1" />
-                                          Deshacer
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Información del cálculo */}
-                              {entrega.cantidadEntregada > 0 && !estaProcesada && (
-                                <div className="mt-3 p-2 bg-blue-50 rounded-md border border-blue-200">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center text-blue-800">
-                                      <Calculator size={14} className="mr-1" />
-                                      <span>
-                                        {entrega.estado === 'completo' ?
-                                          'Faltante resuelto - Sin cambios en factura' :
-                                          `Factura se reducirá en: ${entrega.cantidadAReducir} unidades`}
-                                      </span>
-                                    </div>
-                                    <span className="text-blue-600 font-medium">
-                                      {entrega.cantidadEntregada}/{producto.cantidad_faltante}
-                                    </span>
-                                  </div>
-                                </div>
+                                {estaPendienteManual && (
+                                  <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                    ⏳ Pendiente
+                                  </span>
+                                )}
+                              </h5>
+                              <p className={`text-sm ${estaProcesada ? 'text-gray-400 line-through' : estaPendienteManual ? 'text-yellow-700' : 'text-gray-600'}`}>
+                                Fecha: {formatDate(factura.fecha_emision)}
+                              </p>
+                              {estaProcesada && estadoFactura.timestamp && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  Procesada: {formatDateTime(estadoFactura.timestamp)}
+                                </p>
                               )}
-
-                              {/* Información de procesamiento */}
-                              {estaProcesada && estadoFactura.ajustes && (
-                                <div className="mt-3 p-2 bg-green-50 rounded-md border border-green-200">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center text-green-800">
-                                      <Check size={14} className="mr-1" />
-                                      <span>
-                                        Producto procesado - Ajustes guardados en {estadoFactura.requiere_reimpresion ? 'impresión' : 'historial'}
-                                      </span>
-                                    </div>
-                                    <span className="text-green-600 font-medium text-xs">
-                                      {formatDateTime(estadoFactura.timestamp)}
-                                    </span>
-                                  </div>
-                                </div>
+                              {estaPendienteManual && estadoFactura.timestamp && (
+                                <p className="text-xs text-yellow-700 mt-1">
+                                  Pendiente desde: {formatDateTime(estadoFactura.timestamp)}
+                                </p>
+                              )}
+                              {estaPendienteManual && estadoFactura.motivo && (
+                                <p className="text-xs text-yellow-700 mt-1">
+                                  Motivo: {estadoFactura.motivo}
+                                </p>
                               )}
                             </div>
-                          )
-                        })}
-                      </div>
-                      {/* NUEVO: Observaciones adicionales - AL FINAL DE LA FACTURA */}
-                      {factura.observaciones_adicionales && (
-                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <h6 className="font-medium text-yellow-900 mb-2">
-                            📝 Encargos adicionales:
-                          </h6>
-                          <p className="text-sm text-yellow-800">
-                            {factura.observaciones_adicionales}
-                          </p>
+                            <div className="flex items-center space-x-3">
+                              <div className="text-right">
+                                <p className={`text-sm ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  Productos faltantes
+                                </p>
+                                <p className={`text-lg font-bold ${estaProcesada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                  {factura.productos_faltantes.length}
+                                </p>
+                                {(() => {
+                                  if (estaProcesada) {
+                                    return (
+                                      <p className="text-sm text-green-600 mt-1">
+                                        {estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 En historial'}
+                                      </p>
+                                    )
+                                  }
+
+                                  if (estaPendienteManual) {
+                                    return <p className="text-sm text-yellow-600 mt-1">⌛ Pendiente: esperando entrega restante</p>
+                                  }
+
+                                  const ajustesEnFactura = factura.productos_faltantes.map((producto) => {
+                                    const productoKey = getProductKey(factura, producto)
+                                    return entregasAjustadas.get(productoKey)
+                                  }).filter(Boolean)
+
+                                  if (ajustesEnFactura.length === 0) {
+                                    return null // Sin ajustes
+                                  }
+
+                                  const todosResueltos = ajustesEnFactura.every(ajuste => ajuste.estado === 'completo')
+                                  const tieneNoResueltos = ajustesEnFactura.some(ajuste => ajuste.requiereActualizacion)
+
+                                  if (todosResueltos) {
+                                    return <p className="text-sm text-green-600 mt-1">✓ Faltantes resueltos - Sin cambios en factura</p>
+                                  } else if (tieneNoResueltos) {
+                                    return <p className="text-sm text-blue-600 mt-1">✓ Tiene ajustes pendientes</p>
+                                  }
+
+                                  return null
+                                })()}
+                              </div>
+
+                              {/* Botones de acción */}
+                              <div className="flex flex-col space-y-2">
+                                {!estaProcesada ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleFacturaLista(cliente.nombre, factura)}
+                                      className="btn btn-primary flex items-center whitespace-nowrap"
+                                    >
+                                      <Check size={16} className="mr-2" />
+                                      Factura Lista
+                                    </button>
+                                    {estaPendienteManual ? (
+                                      <button
+                                        onClick={() => handleQuitarFacturaPendiente(factura, cliente.nombre)}
+                                        className="btn btn-outline text-yellow-800 border-yellow-700 hover:bg-yellow-50 flex items-center whitespace-nowrap"
+                                        title="Quitar estado pendiente manual"
+                                      >
+                                        <X size={16} className="mr-2" />
+                                        Quitar Pendiente
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)}
+                                        className="btn btn-outline text-yellow-700 border-yellow-600 hover:bg-yellow-50 flex items-center whitespace-nowrap"
+                                        title="Marcar factura como pendiente"
+                                      >
+                                        <Clock size={16} className="mr-2" />
+                                        Marcar Pendiente
+                                      </button>
+                                    )}
+                                  </>
+                                ) : (
+                                  // Botón recuperar para facturas procesadas
+                                  <button
+                                    onClick={() => handleRecuperarFactura(factura)}
+                                    className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center whitespace-nowrap"
+                                    title="Recuperar factura para editarla"
+                                  >
+                                    <RotateCcw size={16} className="mr-2" />
+                                    Recuperar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Lista de productos faltantes */}
+                          <div className={`space-y-3 ${estaProcesada ? 'pointer-events-none' : ''}`}>
+                            {factura.productos_faltantes
+                              .filter(p => {
+                                const cantidad = Number(p.cantidad_faltante);
+                                if (cantidad <= 0) {
+                                  console.warn("👻 [FRONTEND] Ocultando item con faltante 0 que llegó del backend:", p);
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map((producto) => {
+                                const productoKey = getProductKey(factura, producto)
+                                const entrega = getEntregaInfo(productoKey, producto)
+                                const estaCompleto = entrega.estado === 'completo'
+                                const estaParcial = entrega.estado === 'parcial'
+                                const noLlego = entrega.estado === 'no_llego'
+                                const tieneAjuste = entrega.tieneAjuste
+
+                                return (
+                                  <div key={productoKey} className={`rounded-md p-4 border-2 transition-all ${estaProcesada
+                                    ? 'border-gray-200 bg-gray-50 opacity-60'
+                                    : estaCompleto ? 'border-green-200 bg-green-50' :
+                                      estaParcial ? 'border-blue-200 bg-blue-50' :
+                                        noLlego ? 'border-red-200 bg-red-50' :
+                                          tieneAjuste ? 'border-yellow-200 bg-yellow-50' :
+                                            'border-gray-200 bg-white'
+                                    }`}>
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                      {/* Info del producto */}
+                                      <div className="lg:col-span-5">
+                                        <h6 className={`font-medium ${estaProcesada
+                                          ? 'text-gray-400 line-through'
+                                          : estaCompleto ? 'line-through text-green-700' : 'text-gray-900'
+                                          }`}>
+                                          {(estaCompleto || estaProcesada) && <Check size={16} className="inline text-green-600 mr-1" />}
+                                          {producto.nombre}
+                                        </h6>
+                                        <p className={`text-sm ${estaProcesada
+                                          ? 'text-gray-400 line-through'
+                                          : estaCompleto ? 'line-through text-gray-500' : 'text-gray-600'
+                                          }`}>
+                                          Código: {producto.codigo} • Proveedor: {producto.proveedor}
+                                        </p>
+                                        {producto.observaciones && (
+                                          <p className={`text-sm text-orange-600 mt-1 ${(estaCompleto || estaProcesada) ? 'line-through opacity-60' : ''
+                                            }`}>
+                                            📝 {producto.observaciones}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {/* Estado original */}
+                                      <div className="lg:col-span-2">
+                                        <p className={`text-sm mb-1 ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
+                                          Faltante:
+                                        </p>
+                                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaProcesada
+                                          ? 'bg-gray-100 text-gray-500'
+                                          : producto.tipo_faltante === 'total'
+                                            ? 'bg-red-100 text-red-800'
+                                            : 'bg-yellow-100 text-yellow-800'
+                                          }`}>
+                                          {producto.cantidad_faltante} unidades
+                                        </div>
+                                      </div>
+
+                                      {/* Cantidad entregada */}
+                                      <div className="lg:col-span-2">
+                                        <label className={`label ${estaProcesada ? 'text-gray-400' : ''}`}>
+                                          Entregado:
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={producto.cantidad_faltante}
+                                          value={entrega.cantidadEntregada}
+                                          onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
+                                          disabled={estaCompleto || estaProcesada}
+                                          className={`input ${(estaCompleto || estaProcesada) ? 'bg-gray-100 text-gray-500' : ''
+                                            }`}
+                                          placeholder="0"
+                                        />
+                                      </div>
+
+                                      {/* Estado resultado */}
+                                      <div className="lg:col-span-2">
+                                        <p className={`text-sm mb-1 ${estaProcesada ? 'text-gray-400' : 'text-gray-600'}`}>
+                                          Estado:
+                                        </p>
+                                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaProcesada
+                                          ? 'bg-gray-100 text-gray-500'
+                                          : entrega.estado === 'completo'
+                                            ? 'bg-green-100 text-green-800'
+                                            : entrega.estado === 'parcial'
+                                              ? 'bg-blue-100 text-blue-800'
+                                              : entrega.estado === 'no_llego'
+                                                ? 'bg-red-100 text-red-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                          }`}>
+                                          {estaProcesada ? '✓ Procesado' :
+                                            entrega.estado === 'completo' ? '✓ Completo' :
+                                              entrega.estado === 'parcial' ? '◐ Parcial' :
+                                                entrega.estado === 'no_llego' ? '✗ No llegó' :
+                                                  '○ Pendiente'}
+                                        </div>
+                                      </div>
+
+                                      {/* Acciones */}
+                                      <div className="lg:col-span-1">
+                                        {!estaProcesada && (
+                                          <div className="flex flex-col space-y-2">
+                                            {!estaCompleto && entrega.estado !== 'no_llego' && (
+                                              <button
+                                                onClick={() => handleMarcarCompleto(productoKey, producto)}
+                                                className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center justify-center w-full"
+                                                title="Marcar como entregado completo"
+                                              >
+                                                <Check size={14} className="mr-1" />
+                                                Completo
+                                              </button>
+                                            )}
+                                            {!estaCompleto && entrega.estado !== 'no_llego' && (
+                                              <button
+                                                onClick={() => handleNoLlegoNada(productoKey, producto)}
+                                                className="btn bg-red-600 text-white border-red-600 hover:bg-red-700 flex items-center justify-center w-full whitespace-nowrap"
+                                                title="No llegó nada - Eliminar de factura"
+                                              >
+                                                <X size={14} className="mr-1" />
+                                                No llegó
+                                              </button>
+                                            )}
+                                            {tieneAjuste && (
+                                              <button
+                                                onClick={() => handleDeshacer(productoKey, producto)}
+                                                className="btn bg-orange-600 text-white border-orange-600 hover:bg-orange-700 flex items-center justify-center w-full"
+                                                title="Deshacer cambios"
+                                              >
+                                                <Undo2 size={14} className="mr-1" />
+                                                Deshacer
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Información del cálculo */}
+                                    {entrega.cantidadEntregada > 0 && !estaProcesada && (
+                                      <div className="mt-3 p-2 bg-blue-50 rounded-md border border-blue-200">
+                                        <div className="flex items-center justify-between text-sm">
+                                          <div className="flex items-center text-blue-800">
+                                            <Calculator size={14} className="mr-1" />
+                                            <span>
+                                              {entrega.estado === 'completo' ?
+                                                'Faltante resuelto - Sin cambios en factura' :
+                                                `Factura se reducirá en: ${entrega.cantidadAReducir} unidades`}
+                                            </span>
+                                          </div>
+                                          <span className="text-blue-600 font-medium">
+                                            {entrega.cantidadEntregada}/{producto.cantidad_faltante}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Información de procesamiento */}
+                                    {estaProcesada && estadoFactura.ajustes && (
+                                      <div className="mt-3 p-2 bg-green-50 rounded-md border border-green-200">
+                                        <div className="flex items-center justify-between text-sm">
+                                          <div className="flex items-center text-green-800">
+                                            <Check size={14} className="mr-1" />
+                                            <span>
+                                              Producto procesado - Ajustes guardados en {estadoFactura.requiere_reimpresion ? 'impresión' : 'historial'}
+                                            </span>
+                                          </div>
+                                          <span className="text-green-600 font-medium text-xs">
+                                            {formatDateTime(estadoFactura.timestamp)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                          </div>
+                          {/* NUEVO: Observaciones adicionales - AL FINAL DE LA FACTURA */}
+                          {factura.observaciones_adicionales && (
+                            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                              <h6 className="font-medium text-yellow-900 mb-2">
+                                📝 Encargos adicionales:
+                              </h6>
+                              <p className="text-sm text-yellow-800">
+                                {factura.observaciones_adicionales}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              )}
-            </div>
-          ))}
+            ))}
         </div>
       )}
     </div>
