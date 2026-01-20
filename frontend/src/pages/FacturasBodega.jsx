@@ -327,12 +327,21 @@ export default function FacturasBodega() {
     setSelectedFacturaId(factura.alegra_id)
     localStorage.setItem(STORAGE_KEYS.selected, factura.alegra_id)
 
+    // 🆕 Si la factura tiene estadosProductos guardados (viene de listas), usarlos directamente
+    if (factura.estadosProductos && Object.keys(factura.estadosProductos).length > 0) {
+      console.log('📋 Usando estados guardados localmente')
+      setFaltantesDraft(factura.estadosProductos)
+      setObservacionesAdicionales('')
+      localStorage.removeItem(STORAGE_KEYS.observaciones)
+      return
+    }
+
     // Inicializar con datos actuales mientras carga el detalle completo
     setFaltantesDraft(buildDraftForFactura(factura))
     setObservacionesAdicionales('')
     localStorage.removeItem(STORAGE_KEYS.observaciones)
 
-    // Cargar detalle completo (incluye observaciones guardadas)
+    // Cargar detalle completo (incluye observaciones guardadas del backend)
     try {
       const detalle = await alegraService.getFacturaDetalle(factura.alegra_id);
       if (detalle && detalle.items) {
@@ -468,7 +477,12 @@ export default function FacturasBodega() {
       setSuccessMessage('✅ Factura lista y enviada a impresión')
 
       // Mover la factura de pendientes a listas localmente
-      const facturaActualizada = { ...facturaSeleccionada, estado_bodega: 'procesado' }
+      // 🆕 Guardar copia de los estados de productos para que persistan al abrir desde listas
+      const facturaActualizada = {
+        ...facturaSeleccionada,
+        estado_bodega: 'procesado',
+        estadosProductos: { ...faltantesDraft } // Copia de los estados
+      }
       setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
       setListas((prev) => [facturaActualizada, ...prev])
 
@@ -533,10 +547,12 @@ export default function FacturasBodega() {
       setSuccessMessage(`✅ ${faltantesSeleccionados.length} faltante(s) registrado(s)`)
 
       // Mover la factura de pendientes a listas localmente
+      // 🆕 Guardar copia de los estados de productos para que persistan al abrir desde listas
       const facturaActualizada = {
         ...facturaSeleccionada,
         estado_bodega: 'procesado',
-        faltantes_pendientes: faltantesSeleccionados.length
+        faltantes_pendientes: faltantesSeleccionados.length,
+        estadosProductos: { ...faltantesDraft } // Copia de los estados
       }
       setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
       setListas((prev) => [facturaActualizada, ...prev])
