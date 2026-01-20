@@ -1792,12 +1792,13 @@ router.get('/facturas/detalle/:id', async (req, res) => {
         `, [localId]);
 
         if (faltantesGuardados.rows.length > 0) {
-          console.log(`✅ Encontrados ${faltantesGuardados.rows.length} items con anotaciones guardadas`);
+          console.log(`✅ [DEBUG] Encontrados ${faltantesGuardados.rows.length} items guardados locally para factura ${localId}`);
           
           // Crear mapa para búsqueda rápida (por código de producto)
           // Nota: Sería ideal tener un ID único inmutable, pero el código suele ser lo más estable entre Alegra y local
           const mapaFaltantes = new Map();
           faltantesGuardados.rows.forEach(f => {
+             // console.log(`   🔸 Guardado: Código=${f.codigo_producto}, Tipo=${f.tipo_faltante}, Cant=${f.cantidad_faltante}`);
              mapaFaltantes.set(f.codigo_producto, f);
           });
 
@@ -1808,6 +1809,7 @@ router.get('/facturas/detalle/:id', async (req, res) => {
                               mapaFaltantes.get(item.codigo_producto);
 
             if (savedData) {
+              console.log(`   🔹 MATCH! Item ${item.codigo_producto} -> Tipo guardado: ${savedData.tipo_faltante}`);
               // Mapear 'completo' de BD a 'ninguno' para el frontend
               const tipoParaFrontend = savedData.tipo_faltante === 'completo' ? 'ninguno' : savedData.tipo_faltante;
               return {
