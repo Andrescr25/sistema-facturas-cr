@@ -436,9 +436,11 @@ export default function FacturasBodega() {
   )
   const accionPrincipalLabel = guardando
     ? 'Guardando...'
-    : faltantesSeleccionados.length > 0
-      ? 'Registrar faltantes'
-      : 'Factura lista'
+    : facturaSeleccionada?.estado_bodega === 'procesado'
+      ? '💾 Guardar Modificación'
+      : faltantesSeleccionados.length > 0
+        ? 'Registrar faltantes'
+        : 'Factura lista'
 
   const marcarFacturaLista = async () => {
     if (!facturaSeleccionada) return
@@ -484,7 +486,14 @@ export default function FacturasBodega() {
         estadosProductos: { ...faltantesDraft } // Copia de los estados
       }
       setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
-      setListas((prev) => [facturaActualizada, ...prev])
+      setListas((prev) => {
+        // Si ya existe en listas (edición), actualizarla. Si no, agregarla al inicio.
+        const existe = prev.some(f => f.alegra_id === facturaActualizada.alegra_id)
+        if (existe) {
+          return prev.map(f => f.alegra_id === facturaActualizada.alegra_id ? facturaActualizada : f)
+        }
+        return [facturaActualizada, ...prev]
+      })
 
       // Limpiar formulario
       setObservacionesAdicionales('')
@@ -555,7 +564,14 @@ export default function FacturasBodega() {
         estadosProductos: { ...faltantesDraft } // Copia de los estados
       }
       setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
-      setListas((prev) => [facturaActualizada, ...prev])
+      setListas((prev) => {
+        // Si ya existe en listas (edición), actualizarla. Si no, agregarla al inicio.
+        const existe = prev.some(f => f.alegra_id === facturaActualizada.alegra_id)
+        if (existe) {
+          return prev.map(f => f.alegra_id === facturaActualizada.alegra_id ? facturaActualizada : f)
+        }
+        return [facturaActualizada, ...prev]
+      })
 
       // Limpiar formulario
       setObservacionesAdicionales('')
