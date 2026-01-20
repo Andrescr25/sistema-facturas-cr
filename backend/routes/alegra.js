@@ -1771,13 +1771,15 @@ router.get('/facturas/detalle/:id', async (req, res) => {
       let itemsNormalizados = alegraService.processAlegraItems(result.data.items || []);
 
       // 3. Buscar si tenemos datos guardados localmente para esta factura
-      // Primero buscamos el ID local de la factura usando el ID de Alegra
+      // Primero buscamos TODOS los IDs locales de la factura usando el ID de Alegra (puede haber duplicados)
       const facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(id)]);
       
       if (facturaLocal.rows.length > 0) {
-        const localId = facturaLocal.rows[0].id;
+        // ✅ FIX: Usar TODOS los IDs locales para buscar faltantes (evita problemas con duplicados)
+        const localIds = facturaLocal.rows.map(r => r.id);
+        console.log(`   🔑 IDs locales encontrados para alegra_id ${id}: [${localIds.join(', ')}]`);
         
-        // 4. Buscar faltantes/anotaciones guardadas
+        // 4. Buscar faltantes/anotaciones guardadas en CUALQUIERA de los IDs locales
         const faltantesGuardados = await query(`
           SELECT 
             p.codigo as codigo_producto,
@@ -1788,8 +1790,8 @@ router.get('/facturas/detalle/:id', async (req, res) => {
             f.estado
           FROM faltantes f
           JOIN productos p ON f.producto_id = p.id
-          WHERE f.factura_id = $1
-        `, [localId]);
+          WHERE f.factura_id = ANY($1::int[])
+        `, [localIds]);
 
         if (faltantesGuardados.rows.length > 0) {
           
