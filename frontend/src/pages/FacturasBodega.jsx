@@ -435,6 +435,26 @@ export default function FacturasBodega() {
     if (!facturaSeleccionada) return
     try {
       setGuardando(true)
+
+      // 🆕 Guardar estados de TODOS los productos (todos 'completo') para que persistan
+      if (Object.keys(faltantesDraft).length > 0) {
+        const todosLosProductos = Object.values(faltantesDraft)
+        const payload = todosLosProductos.map((item) => ({
+          item_id: item.itemId,
+          nombre_producto: item.nombre,
+          cantidad_faltante: item.cantidadFaltante || 0,
+          tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
+          observaciones: item.observaciones || ''
+        }))
+
+        await alegraService.registrarFaltantes(
+          facturaSeleccionada.alegra_id,
+          payload,
+          'Bodega',
+          observacionesAdicionales
+        )
+      }
+
       // Pasar true en enviarAImpresion para enviar a centro de impresión
       await alegraService.actualizarEstadoFacturaBodega(
         facturaSeleccionada.alegra_id,
@@ -456,6 +476,7 @@ export default function FacturasBodega() {
       setObservacionesAdicionales('')
       localStorage.removeItem(STORAGE_KEYS.observaciones)
       setFacturaSeleccionada(null)
+      setFaltantesDraft({})
       setSelectedFacturaId(null)
       localStorage.removeItem(STORAGE_KEYS.selected)
 
