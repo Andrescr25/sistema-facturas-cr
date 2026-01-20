@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
     `;
     
-    const conditions = [];
+    const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
     const params = [];
     let paramIndex = 1;
     
@@ -236,7 +236,7 @@ router.get('/factura/:id', async (req, res) => {
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
-      WHERE f.factura_id = $1
+      WHERE f.factura_id = $1 AND f.tipo_faltante != 'completo' AND f.cantidad_faltante > 0
       ORDER BY f.created_at DESC
     `, [id]);
     
@@ -364,6 +364,7 @@ router.get('/resumen/:ano/:mes/:semana', async (req, res) => {
       FROM faltantes f
       JOIN facturas fa ON f.factura_id = fa.id
       WHERE fa.ano = $1 AND fa.mes = $2 AND fa.semana = $3
+        AND f.tipo_faltante != 'completo' AND f.cantidad_faltante > 0
     `, [ano, mes, semana]);
     
     res.json({

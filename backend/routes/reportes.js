@@ -26,7 +26,7 @@ router.get('/faltantes/proveedor', async (req, res) => {
       JOIN facturas fa ON f.factura_id = fa.id
     `;
     
-    const conditions = [];
+    const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
     const params = [];
     let paramIndex = 1;
     
@@ -120,7 +120,7 @@ router.get('/faltantes/cliente', async (req, res) => {
       JOIN productos p ON f.producto_id = p.id
     `;
     
-    const conditions = [];
+    const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
     const params = [];
     let paramIndex = 1;
     
@@ -202,7 +202,7 @@ router.get('/faltantes/consolidado', async (req, res) => {
     const params = [];
     let paramIndex = 1;
     
-    const conditions = [];
+    const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
     if (ano) {
       conditions.push(`fa.ano = $${paramIndex++}`);
       params.push(ano);
@@ -330,7 +330,7 @@ router.get('/compras/sugeridas', async (req, res) => {
     const params = [];
     let paramIndex = 1;
     
-    const conditions = [];
+    const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
     if (ano) {
       conditions.push(`fa.ano = $${paramIndex++}`);
       params.push(ano);
@@ -440,6 +440,7 @@ router.get('/cantidad-sugerida', async (req, res) => {
         JOIN facturas fa ON f.factura_id = fa.id
         WHERE p.proveedor_id = $1
           AND fa.fecha_emision >= CURRENT_DATE - INTERVAL '8 weeks'
+          AND f.tipo_faltante != 'completo' AND f.cantidad_faltante > 0
         GROUP BY f.producto_id, p.nombre, p.codigo, p.proveedor_id, DATE_TRUNC('week', fa.fecha_emision)
       ),
       faltantes_actuales AS (
@@ -451,6 +452,7 @@ router.get('/cantidad-sugerida', async (req, res) => {
         JOIN facturas fa ON f.factura_id = fa.id
         WHERE p.proveedor_id = $1
           AND f.estado IN ('pendiente', 'procesado')
+          AND f.tipo_faltante != 'completo' AND f.cantidad_faltante > 0
         GROUP BY f.producto_id
       )
       SELECT
