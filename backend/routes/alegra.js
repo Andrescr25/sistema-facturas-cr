@@ -2630,6 +2630,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
         JOIN productos p ON f.producto_id = p.id
         JOIN facturas fa ON f.factura_id = fa.id
         WHERE f.estado IN ('pendiente', 'procesado')
+          AND f.tipo_faltante != 'completo'
+          AND (f.cantidad_faltante::numeric > 0)
         GROUP BY p.codigo, p.alegra_id, p.nombre
         ORDER BY total_faltante DESC
       `);
