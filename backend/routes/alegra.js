@@ -1806,10 +1806,12 @@ router.get('/facturas/detalle/:id', async (req, res) => {
                               mapaFaltantes.get(item.codigo_producto);
 
             if (savedData) {
+              // Mapear 'completo' de BD a 'ninguno' para el frontend
+              const tipoParaFrontend = savedData.tipo_faltante === 'completo' ? 'ninguno' : savedData.tipo_faltante;
               return {
                 ...item,
                 cantidad_faltante: savedData.cantidad_faltante,
-                tipo_faltante: savedData.tipo_faltante,
+                tipo_faltante: tipoParaFrontend,
                 observaciones: savedData.observaciones || ''
               };
             }
@@ -1963,8 +1965,13 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         observaciones
       } = faltante;
 
-      if (!item_id || !cantidad_faltante || cantidad_faltante <= 0) {
-        continue; // Saltar faltantes inválidos
+      if (!item_id) {
+        continue; // Saltar items sin ID
+      }
+      
+      // Permitir cantidad_faltante = 0 para productos con tipo 'completo'
+      if (tipo_faltante !== 'completo' && (!cantidad_faltante || cantidad_faltante <= 0)) {
+        continue; // Saltar faltantes inválidos (excepto tipo 'completo')
       }
 
       // ═══════════════════════════════════════════════════════════════════════════════

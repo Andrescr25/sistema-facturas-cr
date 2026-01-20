@@ -484,11 +484,14 @@ export default function FacturasBodega() {
 
     try {
       setGuardando(true)
-      const payload = faltantesSeleccionados.map((item) => ({
+
+      // Enviar TODOS los productos con sus estados (para persistir 'completo' también)
+      const todosLosProductos = Object.values(faltantesDraft)
+      const payload = todosLosProductos.map((item) => ({
         item_id: item.itemId,
         nombre_producto: item.nombre,
-        cantidad_faltante: item.cantidadFaltante,
-        tipo_faltante: item.tipo === 'total' ? 'total' : 'parcial',
+        cantidad_faltante: item.cantidadFaltante || 0,
+        tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
         observaciones: item.observaciones || ''
       }))
 
