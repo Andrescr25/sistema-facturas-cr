@@ -136,9 +136,9 @@ const getTaxesArray = (tax) => {
 }
 
 export default function Impresion() {
-  const [activeTab, setActiveTab] = useState('requiereCambios')
+  const [activeTab, setActiveTab] = useState('pendientes')
   const [facturasSinCambios, setFacturasSinCambios] = useState([])
-  const [facturasPendientes, setFacturasPendientes] = useState([])
+  const [facturasPendientes, setFacturasPendientes] = useState([]) // Ahora contiene TODAS las pendientes
   const [facturasProcesadas, setFacturasProcesadas] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -237,8 +237,9 @@ export default function Impresion() {
       if (result.success) {
         const sinCambios = result.data?.sin_cambios || []
         const requiereCambios = result.data?.requiere_cambios || []
-        setFacturasSinCambios(sinCambios)
-        setFacturasPendientes(requiereCambios)
+        // ✅ UNIFICACIÓN: Mostrar todas las pendientes en una sola lista
+        setFacturasPendientes([...requiereCambios, ...sinCambios])
+        setFacturasSinCambios([])
       } else {
         setError(result.message || 'Error cargando facturas pendientes')
       }
@@ -1229,15 +1230,9 @@ export default function Impresion() {
         <nav className="-mb-px flex flex-wrap gap-4">
           {[
             {
-              key: 'sinCambios',
-              label: 'Facturas sin pendientes',
-              icon: FileText,
-              count: facturasSinCambios.length
-            },
-            {
-              key: 'requiereCambios',
-              label: 'Facturas que requieren cambios',
-              icon: AlertCircle,
+              key: 'pendientes',
+              label: 'Facturas Pendientes',
+              icon: Inbox,
               count: facturasPendientes.length
             },
             {
@@ -1285,143 +1280,115 @@ export default function Impresion() {
         </div>
       )}
 
-      {/* Tab Pendientes */}
-      {activeTab === 'sinCambios' && !loading && (
-        <div>
-          {facturasSinCambios.length === 0 ? (
-            <div className="card text-center py-12">
-              <Inbox className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No hay facturas listas sin ajustes
-              </h3>
-              <p className="text-gray-600">
-                Cuando una factura no registre faltantes ni cambios aparecerá en esta pestaña.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {facturasSinCambios.map((factura) => (
-                <div key={factura.reimpresion_id} className="card">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Factura #{factura.numero_factura}
-                      </h3>
-                      <p className="text-gray-600">
-                        Cliente: {factura.cliente_nombre}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Fecha emisión: {formatDate(factura.fecha_emision)}
-                      </p>
-                      <p className="text-xs text-green-600 mt-1">
-                        ✅ Sin pendientes ni ajustes detectados
-                      </p>
-                      {factura.tiene_variacion_precio && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          💲 Precios revisados en este ciclo
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-gray-800">
-                        ₡{(factura.total || 0).toLocaleString('es-CR')}
-                      </p>
-                      <div className="flex flex-wrap gap-2 justify-end mt-3">
-                        <button
-                          onClick={() => handleVerPDF(factura)}
-                          className="btn btn-outline flex items-center gap-2"
-                        >
-                          <Eye size={16} />
-                          Ver PDF
-                        </button>
-                        <button
-                          onClick={() => handleProcesarSinCambios(factura, false)}
-                          disabled={procesando}
-                          className="btn btn-outline flex items-center gap-2"
-                        >
-                          <CheckCircle size={16} />
-                          Marcar como Impresa
-                        </button>
-                        <button
-                          onClick={() => handleProcesarSinCambios(factura, true)}
-                          disabled={procesando}
-                          className="btn btn-primary flex items-center gap-2"
-                        >
-                          <Printer size={16} />
-                          Imprimir y cerrar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'requiereCambios' && !loading && (
+      {/* 🟢 UNIFICADO: Lista de Pendientes (Con y Sin cambios) */}
+      {activeTab === 'pendientes' && !loading && (
         <div>
           {facturaEditando ? (
-            // Mostrar formulario de edición o vista de cambios
+            // Mostrar formulario de edición o vista de cambios (Igual que antes)
             modoEdicion ? renderFormularioEdicion() : renderCambiosAutomaticos(facturaEditando)
           ) : (
-            // Lista de facturas pendientes
+            // Lista unificada de facturas pendientes
             facturasPendientes.length === 0 ? (
               <div className="card text-center py-12">
                 <CheckCircle className="mx-auto text-green-400 mb-4" size={48} />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  ¡No hay facturas con cambios pendientes!
+                  ¡Todo al día!
                 </h3>
                 <p className="text-gray-600">
-                  Todo está listo. Revisa la pestaña “Sin pendientes” para imprimir el resto.
+                  No hay facturas pendientes de revisión ni impresión.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {facturasPendientes.map((factura) => (
-                  <div key={factura.reimpresion_id} className="card hover:shadow-lg transition-shadow">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Factura #{factura.numero_factura}
-                        </h3>
-                        <p className="text-gray-600">
-                          Cliente: {factura.cliente_nombre}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Fecha emisión: {formatDate(factura.fecha_emision)}
-                        </p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${factura.requiere_actualizacion
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                            }`}>
-                            {factura.requiere_actualizacion ? '⚠️ Requiere Cambios' : '✅ Solo Resuelto'}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {factura.total_ajustes} ajuste{factura.total_ajustes !== 1 ? 's' : ''}
-                          </span>
+                {facturasPendientes.map((factura) => {
+                  const esSinPendientes = factura.categoria === 'sin_pendientes'
+
+                  return (
+                    <div key={factura.reimpresion_id} className={`card hover:shadow-lg transition-shadow border-l-4 ${esSinPendientes ? 'border-l-green-500' : 'border-l-yellow-500'
+                      }`}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              Factura #{factura.numero_factura}
+                            </h3>
+                            {esSinPendientes ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✅ Lista (Bodega)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                ⚠️ Requiere Ajustes
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-600">
+                            Cliente: {factura.cliente_nombre}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Fecha emisión: {formatDate(factura.fecha_emision)}
+                          </p>
+                          {!esSinPendientes && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                {factura.total_ajustes} ajuste{factura.total_ajustes !== 1 ? 's' : ''} detectado{factura.total_ajustes !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-gray-800">
+                            ₡{(factura.total || 0).toLocaleString('es-CR')}
+                          </p>
+
+                          <div className="flex flex-wrap gap-2 justify-end mt-3">
+                            {esSinPendientes ? (
+                              // 🖨️ Acciones para Facturas LISTAS (Solo imprimir/cerrar)
+                              <>
+                                <button
+                                  onClick={() => handleVerPDF(factura)}
+                                  className="btn btn-outline flex items-center gap-2"
+                                >
+                                  <Eye size={16} />
+                                  Ver PDF
+                                </button>
+                                <button
+                                  onClick={() => handleProcesarSinCambios(factura, false)}
+                                  disabled={procesando}
+                                  className="btn btn-outline flex items-center gap-2"
+                                >
+                                  <CheckCircle size={16} />
+                                  Marcar Impresa
+                                </button>
+                                <button
+                                  onClick={() => handleProcesarSinCambios(factura, true)}
+                                  disabled={procesando}
+                                  className="btn btn-primary flex items-center gap-2"
+                                >
+                                  <Printer size={16} />
+                                  Imprimir y Cerrar
+                                </button>
+                              </>
+                            ) : (
+                              // ✏️ Acciones para Facturas CON CAMBIOS (Revisar/Editar)
+                              <button
+                                onClick={() => {
+                                  setFacturaEditando(factura)
+                                  setModoEdicion(false)
+                                }}
+                                className="btn btn-primary flex items-center gap-2"
+                              >
+                                <Edit size={16} />
+                                Revisar y Aplicar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">
-                          ₡{(factura.total || 0).toLocaleString('es-CR')}
-                        </p>
-                        <button
-                          onClick={() => {
-                            setFacturaEditando(factura)
-                            setModoEdicion(false)
-                          }}
-                          className="mt-3 btn btn-primary flex items-center gap-2"
-                        >
-                          <Printer size={16} />
-                          Reimprimir
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )
           )}
