@@ -324,6 +324,7 @@ export default function ReporteProveedores() {
             descripcionFactura: producto.descripcion_factura || '' // ← Descripción de la factura
           }
         })
+        .filter(p => p.cantidad > 0) // ✅ FIX: Filtrar items con cantidad 0
 
       // ✅ AGREGAR productos agregados manualmente
       const productosAgregadosDelProveedor = productosAgregados.get(proveedor.nombre) || []
@@ -415,6 +416,7 @@ export default function ReporteProveedores() {
             descripcionFactura: producto.descripcion_factura || ''
           }
         })
+        .filter(p => p.cantidad > 0) // ✅ FIX: Filtrar items con cantidad 0
 
       // Agregar productos agregados manualmente
       const productosAgregadosDelProveedor = productosAgregados.get(proveedor.nombre) || []

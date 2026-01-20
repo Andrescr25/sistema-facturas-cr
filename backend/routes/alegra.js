@@ -1953,6 +1953,11 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     // Asegurar que la columna alegra_id exista en productos
     await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
 
+    // ✅ FIX: Limpiar faltantes anteriores de esta factura antes de insertar los nuevos
+    // para evitar duplicados y conflictos de estado (ej: completo vs parcial)
+    console.log(`🧹 Limpiando faltantes anteriores para factura local ID: ${facturaLocalId}`);
+    await query('DELETE FROM faltantes WHERE factura_id = $1', [facturaLocalId]);
+
     const faltantesRegistrados = [];
     const costoCachePorAlegraId = new Map();
     const costoHistoricoPorProducto = new Map();
