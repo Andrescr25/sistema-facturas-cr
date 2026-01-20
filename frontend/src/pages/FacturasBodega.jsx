@@ -123,7 +123,7 @@ const buildDraftForFactura = (factura) => {
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
       alegra_id: item.alegra_id || item.id,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
-      tipo: 'ninguno', // ✅ Default a 'ninguno' (completo) para que persista correctamente
+      tipo: null, // ✅ Sin marcar por defecto en facturas pendientes
       cantidadFaltante: 0,
       observaciones: ''
     }
@@ -472,7 +472,7 @@ export default function FacturasBodega() {
           item_id: item.itemId,
           nombre_producto: item.nombre,
           cantidad_faltante: item.cantidadFaltante || 0,
-          tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
+          tipo_faltante: (!item.tipo || item.tipo === 'ninguno') ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
           observaciones: item.observaciones || ''
         }))
 
@@ -553,7 +553,7 @@ export default function FacturasBodega() {
         item_id: item.itemId,
         nombre_producto: item.nombre,
         cantidad_faltante: item.cantidadFaltante || 0,
-        tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
+        tipo_faltante: (!item.tipo || item.tipo === 'ninguno') ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
         observaciones: item.observaciones || ''
       }))
 
@@ -902,7 +902,7 @@ export default function FacturasBodega() {
                       : 'btn-outline border-gray-200 text-gray-600'
                       }`}
                   >
-                    Completo
+                    {draft?.tipo === 'ninguno' ? '✅ Completo' : 'Completo'}
                   </button>
                   <span
                     className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
