@@ -939,7 +939,7 @@ export default function FacturasBodega() {
                   <span className={`text-sm ${draft?.tipo === 'parcial'
                     ? 'text-blue-600 font-semibold'
                     : 'text-gray-500'}`}>
-                    {draft?.tipo === 'parcial' ? '⚠️ faltaron' : 'faltaron'}
+                    {draft?.tipo === 'parcial' ? 'faltaron' : 'faltaron'}
                   </span>
                 </div>
               </div>
