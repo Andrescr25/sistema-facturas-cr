@@ -1027,34 +1027,34 @@ export default function FacturasBodega() {
 
       {/* Modal de cliente completado */}
       {clienteCompletado && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
-            {/* Header con gradiente */}
-            <div className="bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 p-6 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-lg">
-                <Sparkles className="text-emerald-500" size={32} />
+            {/* Header con gradiente azul (paleta del sistema) */}
+            <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 p-6 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/90 rounded-full mb-4 shadow-lg">
+                <Sparkles className="text-indigo-500" size={32} />
               </div>
-              <h2 className="text-2xl font-bold text-white">¡Factura Completada!</h2>
+              <h2 className="text-2xl font-bold text-white">¡Factura Procesada!</h2>
             </div>
 
             {/* Body */}
             <div className="p-6 text-center">
-              <p className="text-gray-600 mb-2">El nombre de este cliente es:</p>
-              <p className="text-3xl font-bold text-gray-900 mb-4 break-words">
+              <p className="text-gray-500 text-sm mb-1">Cliente:</p>
+              <p className="text-2xl font-bold text-gray-900 mb-4 break-words">
                 {clienteCompletado.nombre}
               </p>
 
               {clienteCompletado.tipo === 'faltantes' && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                  <p className="text-orange-700 font-medium">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                  <p className="text-amber-700 font-semibold">
                     📦 {clienteCompletado.cantidad} faltante{clienteCompletado.cantidad > 1 ? 's' : ''} registrado{clienteCompletado.cantidad > 1 ? 's' : ''}
                   </p>
                 </div>
               )}
 
               {clienteCompletado.tipo === 'listo' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                  <p className="text-green-700 font-medium">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                  <p className="text-blue-700 font-semibold">
                     ✅ Enviada a cola de impresión
                   </p>
                 </div>
@@ -1065,9 +1065,9 @@ export default function FacturasBodega() {
             <div className="p-6 pt-0">
               <button
                 onClick={() => setClienteCompletado(null)}
-                className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl"
+                className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
               >
-                ¡Entendido! 👍
+                Continuar
               </button>
             </div>
           </div>
