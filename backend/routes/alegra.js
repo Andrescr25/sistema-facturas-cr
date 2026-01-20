@@ -1804,6 +1804,11 @@ router.get('/facturas/detalle/:id', async (req, res) => {
           console.log(`🔍 DIAGNÓSTICO Detalle Factura ${id}:`);
           console.log(`   📦 Códigos guardados en BD: [${Array.from(mapaFaltantes.keys()).join(', ')}]`);
           console.log(`   📄 Códigos de Alegra: [${itemsNormalizados.map(i => i.referencia || i.codigo_producto).join(', ')}]`);
+          // 🔍 DIAGNÓSTICO EXTRA: Ver tipo_faltante de cada producto
+          console.log(`   📋 Detalle por producto:`);
+          faltantesGuardados.rows.forEach(f => {
+            console.log(`      - ${f.codigo_producto}: tipo="${f.tipo_faltante}", cantidad=${f.cantidad_faltante}`);
+          });
 
           // 5. Fusionar datos guardados con items de Alegra
           itemsNormalizados = itemsNormalizados.map(item => {
