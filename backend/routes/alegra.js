@@ -902,6 +902,7 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
     // ═══════════════════════════════════════════════════════════════════════════
     // 🖨️ ENVIAR A COLA DE IMPRESIÓN (si se solicita y no tiene faltantes)
     // Esto permite que facturas "listas" sin faltantes vayan directamente a impresión
+    // NOTA: categoria = 'sin_pendientes' permite omitir ajuste de precios en centro de impresión
     // ═══════════════════════════════════════════════════════════════════════════
     if (estado === 'procesado' && enviar_a_impresion && facturaLocal.rows.length > 0) {
       const facturaId = facturaLocal.rows[0].id;
@@ -912,12 +913,13 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
       `, [facturaId]);
 
       if (existeReimpresion.rows.length === 0) {
-        // Insertar en cola de impresión con ajustes vacíos (sin faltantes)
+        // Insertar como 'pendiente' con categoría 'sin_pendientes'
+        // La categoría permite que el Centro de Impresión lo procese SIN ajuste de precios
         await query(`
           INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
           VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
         `, [facturaId]);
-        console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin pendientes)`);
+        console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin_pendientes)`);
       } else {
         // Actualizar existente a pendiente
         await query(`
@@ -930,7 +932,7 @@ router.post('/bodega/facturas/:alegraId/estado', async (req, res) => {
               fecha_procesamiento = NULL
           WHERE factura_id = $1
         `, [facturaId]);
-        console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin pendientes)`);
+        console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin_pendientes)`);
       }
     }
 
@@ -3566,7 +3568,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
       ajustes: ajustesRaw = [],
       estado,
       items_editados: itemsEditadosRaw = [],
-      marcar_como_procesada
+      marcar_como_procesada,
+      omitir_ajuste_precios = false // NUEVO: Flag para facturas sin faltantes
     } = req.body;
 
     if (!alegra_id || !numero_factura) {
@@ -3580,6 +3583,41 @@ router.post('/facturas/procesar-individual', async (req, res) => {
     const itemsEditados = Array.isArray(itemsEditadosRaw) ? itemsEditadosRaw : [];
 
     const { query } = require('../config/database');
+
+    // 🆕 RUTA RÁPIDA: Si omitir_ajuste_precios = true, solo marcar como procesada
+    if (omitir_ajuste_precios === true) {
+      console.log(`🚀 Procesando factura ${numero_factura} SIN ajuste de precios (bodega sin faltantes)`);
+      
+      // Solo actualizar el estado en facturas_reimpresion
+      const existeReimpresion = await query(`
+        SELECT fr.id FROM facturas_reimpresion fr
+        JOIN facturas fa ON fr.factura_id = fa.id
+        WHERE fa.alegra_id = $1
+      `, [alegra_id]);
+
+      if (existeReimpresion.rows.length > 0) {
+        await query(`
+          UPDATE facturas_reimpresion
+          SET estado = 'procesada',
+              fecha_procesamiento = CURRENT_TIMESTAMP
+          FROM facturas fa
+          WHERE facturas_reimpresion.factura_id = fa.id
+          AND fa.alegra_id = $1
+        `, [alegra_id]);
+      }
+
+      console.log(`✅ Factura ${numero_factura} procesada rápidamente (sin ajuste de precios)`);
+      
+      return res.json({
+        success: true,
+        message: `Factura ${numero_factura} procesada exitosamente (sin ajuste de precios)`,
+        data: {
+          alegra_id,
+          numero_factura,
+          omitido_ajuste_precios: true
+        }
+      });
+    }
 
     // 1. Registrar en procesamientos (historial individual)
     const procesamiento = await query(`

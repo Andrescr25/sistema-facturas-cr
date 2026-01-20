@@ -297,6 +297,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
   console.log(`✅ Factura ${alegraId} marcada como ${estado} en BODEGA`);
 
   // Enviar a cola de impresión si se solicita
+  // NOTA: categoria = 'sin_pendientes' permite omitir ajuste de precios en centro de impresión
   if (estado === 'procesado' && enviarAImpresion && facturaLocal.rows.length > 0) {
     const facturaId = facturaLocal.rows[0].id;
     
@@ -305,12 +306,14 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
     `, [facturaId]);
 
     if (existeReimpresion.rows.length === 0) {
+      // Insertar como 'pendiente' con categoría 'sin_pendientes'
       await query(`
         INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
         VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
       `, [facturaId]);
-      console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin pendientes)`);
+      console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin_pendientes)`);
     } else {
+      // Actualizar existente a pendiente
       await query(`
         UPDATE facturas_reimpresion 
         SET estado = 'pendiente', 
@@ -321,7 +324,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
             fecha_procesamiento = NULL
         WHERE factura_id = $1
       `, [facturaId]);
-      console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin pendientes)`);
+      console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin_pendientes)`);
     }
   }
 

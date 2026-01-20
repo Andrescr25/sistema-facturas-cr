@@ -435,12 +435,12 @@ export default function FacturasBodega() {
     if (!facturaSeleccionada) return
     try {
       setGuardando(true)
-      // ✅ NUEVO: Pasar true en enviarAImpresion para enviar directamente a cola de impresión
+      // Pasar true en enviarAImpresion para enviar a centro de impresión
       await alegraService.actualizarEstadoFacturaBodega(
         facturaSeleccionada.alegra_id,
         'procesado',
         observacionesAdicionales.trim() || null,
-        true // enviar_a_impresion = true (sin faltantes → va directo a impresión)
+        true // enviar_a_impresion = true (sin faltantes → va a centro de impresión)
       )
 
       // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo

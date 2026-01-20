@@ -621,7 +621,12 @@ export default function Impresion() {
   const handleProcesarSinCambios = async (factura, imprimirDespues = false) => {
     if (!factura) return
 
-    const mensajeConfirmacion = `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe actualizarán los precios automáticamente desde Alegra.`
+    // Determinar si es una factura de bodega sin faltantes (omitir ajuste de precios)
+    const esSinPendientes = factura.categoria === 'sin_pendientes'
+
+    const mensajeConfirmacion = esSinPendientes
+      ? `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
+      : `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe actualizarán los precios automáticamente desde Alegra.`
 
     const confirmacion = window.confirm(mensajeConfirmacion)
     if (!confirmacion) return
@@ -629,21 +634,35 @@ export default function Impresion() {
     try {
       setProcesando(true)
 
-      // Siempre mostrar mensaje de ajuste de precios
-      setAjustandoPrecios(true)
-      setMensajeAjuste('Ajustando precios desde Alegra')
+      // Solo ajustar precios si NO es 'sin_pendientes' (viene de bodega sin faltantes)
+      if (!esSinPendientes) {
+        setAjustandoPrecios(true)
+        setMensajeAjuste('Ajustando precios desde Alegra')
 
-      await alegraService.procesarFacturaIndividual({
-        alegra_id: factura.alegra_id,
-        numero_factura: factura.numero_factura,
-        cliente_nombre: factura.cliente_nombre,
-        fecha_emision: factura.fecha_emision,
-        ajustes: factura.ajustes_realizados || [],
-        estado: 'resuelto',
-        marcar_como_procesada: true
-      })
+        await alegraService.procesarFacturaIndividual({
+          alegra_id: factura.alegra_id,
+          numero_factura: factura.numero_factura,
+          cliente_nombre: factura.cliente_nombre,
+          fecha_emision: factura.fecha_emision,
+          ajustes: factura.ajustes_realizados || [],
+          estado: 'resuelto',
+          marcar_como_procesada: true
+        })
 
-      setMensajeAjuste('Precios actualizados correctamente')
+        setMensajeAjuste('Precios actualizados correctamente')
+      } else {
+        // Para facturas sin_pendientes, solo marcar como procesada sin ajustar precios
+        await alegraService.procesarFacturaIndividual({
+          alegra_id: factura.alegra_id,
+          numero_factura: factura.numero_factura,
+          cliente_nombre: factura.cliente_nombre,
+          fecha_emision: factura.fecha_emision,
+          ajustes: [],
+          estado: 'resuelto',
+          marcar_como_procesada: true,
+          omitir_ajuste_precios: true // Flag para omitir ajuste de precios
+        })
+      }
 
       if (imprimirDespues) {
         await alegraService.visualizarPDFFactura(factura.alegra_id)
@@ -959,8 +978,8 @@ export default function Impresion() {
                   <p className="text-sm text-gray-600">Código: {ajuste.producto_codigo}</p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-medium ${ajuste.estado === 'completo' ? 'bg-green-100 text-green-800' :
-                    ajuste.estado === 'parcial' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                  ajuste.estado === 'parcial' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
                   }`}>
                   {ajuste.estado === 'completo' ? '✅ Completo' :
                     ajuste.estado === 'parcial' ? '◐ Parcial' : '❌ No llegó'}
@@ -1239,8 +1258,8 @@ export default function Impresion() {
                   setActiveTab(tab.key)
                 }}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${isCurrent
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 <Icon className="inline mr-2" size={16} />
@@ -1375,8 +1394,8 @@ export default function Impresion() {
                         </p>
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${factura.requiere_actualizacion
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-green-100 text-green-800'
                             }`}>
                             {factura.requiere_actualizacion ? '⚠️ Requiere Cambios' : '✅ Solo Resuelto'}
                           </span>
