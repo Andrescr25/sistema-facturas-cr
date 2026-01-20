@@ -123,7 +123,7 @@ const buildDraftForFactura = (factura) => {
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
       alegra_id: item.alegra_id || item.id,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
-      tipo: null,
+      tipo: 'ninguno', // ✅ Default a 'ninguno' (completo) para que persista correctamente
       cantidadFaltante: 0,
       observaciones: ''
     }

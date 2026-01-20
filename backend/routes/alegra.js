@@ -1968,13 +1968,17 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       } = faltante;
 
       if (!item_id) {
+        console.log(`⏭️ Saltando item sin ID`);
         continue; // Saltar items sin ID
       }
       
       // Permitir cantidad_faltante = 0 para productos con tipo 'completo'
       if (tipo_faltante !== 'completo' && (!cantidad_faltante || cantidad_faltante <= 0)) {
+        console.log(`⏭️ Saltando item ${item_id}: tipo=${tipo_faltante}, cantidad=${cantidad_faltante}`);
         continue; // Saltar faltantes inválidos (excepto tipo 'completo')
       }
+      
+      console.log(`✅ Procesando item ${item_id}: tipo=${tipo_faltante}, cantidad=${cantidad_faltante}`);
 
       // ═══════════════════════════════════════════════════════════════════════════════
       // 📚 CONCEPTOS CLAVE: alegra_id vs reference
