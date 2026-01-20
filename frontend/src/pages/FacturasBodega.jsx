@@ -440,72 +440,67 @@ export default function FacturasBodega() {
       ? 'Registrar faltantes'
       : 'Factura lista'
 
-  // Función auxiliar para guardar en backend y actualizar estado local
-  const guardarYMoverAListas = async (enviarAImpresion, mensajeExito) => {
-    // 1. Guardar estados de TODOS los productos (para persistencia en BD)
-    if (Object.keys(faltantesDraft).length > 0) {
-      const todosLosProductos = Object.values(faltantesDraft)
-      const payload = todosLosProductos.map((item) => ({
-        item_id: item.itemId,
-        nombre_producto: item.nombre,
-        cantidad_faltante: item.cantidadFaltante || 0,
-        tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
-        observaciones: item.observaciones || ''
-      }))
-
-      await alegraService.registrarFaltantes(
-        facturaSeleccionada.alegra_id,
-        payload,
-        'Bodega',
-        observacionesAdicionales
-      )
-    }
-
-    // 2. Actualizar estado de la factura (procesado)
-    await alegraService.actualizarEstadoFacturaBodega(
-      facturaSeleccionada.alegra_id,
-      'procesado',
-      observacionesAdicionales.trim() || null,
-      enviarAImpresion
-    )
-
-    // 3. Feedback visual
-    setSuccessMessage(mensajeExito)
-
-    // 4. Mover a listas localmente (con copia de estados)
-    const facturaActualizada = {
-      ...facturaSeleccionada,
-      estado_bodega: 'procesado',
-      faltantes_pendientes: faltantesSeleccionados.length,
-      estadosProductos: { ...faltantesDraft } // Copia local para inmediatez
-    }
-    setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
-    setListas((prev) => [facturaActualizada, ...prev])
-
-    // 5. Limpieza
-    setObservacionesAdicionales('')
-    localStorage.removeItem(STORAGE_KEYS.observaciones)
-    setFacturaSeleccionada(null)
-    setFaltantesDraft({})
-    setSelectedFacturaId(null)
-    localStorage.removeItem(STORAGE_KEYS.selected)
-
-    setTimeout(() => setSuccessMessage(null), 3000)
-
-    if (enviarAImpresion) {
-      setClienteCompletado({
-        nombre: facturaSeleccionada.cliente_nombre || facturaSeleccionada.client?.name || 'Cliente',
-        tipo: 'listo'
-      })
-    }
-  }
-
   const marcarFacturaLista = async () => {
     if (!facturaSeleccionada) return
     try {
       setGuardando(true)
-      // enviarAImpresion = true (sin faltantes → va directo a centro de impresión)
-      await guardarYMoverAListas(true, '✅ Factura lista y enviada a impresión')
+
+      // 🆕 Guardar estados de TODOS los productos (todos 'completo') para que persistan
+      if (Object.keys(faltantesDraft).length > 0) {
+        const todosLosProductos = Object.values(faltantesDraft)
+        const payload = todosLosProductos.map((item) => ({
+          item_id: item.itemId,
+          nombre_producto: item.nombre,
+          cantidad_faltante: item.cantidadFaltante || 0,
+          tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
+          observaciones: item.observaciones || ''
+        }))
+
+        await alegraService.registrarFaltantes(
+          facturaSeleccionada.alegra_id,
+          payload,
+          'Bodega',
+          observacionesAdicionales
+        )
+      }
+
+      // Pasar true en enviarAImpresion para enviar a centro de impresión
+      await alegraService.actualizarEstadoFacturaBodega(
+        facturaSeleccionada.alegra_id,
+        'procesado',
+        observacionesAdicionales.trim() || null,
+        true // enviar_a_impresion = true (sin faltantes → va a centro de impresión)
+      )
+
+      // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo
+      // En su lugar, actualizar solo el estado local
+      setSuccessMessage('✅ Factura lista y enviada a impresión')
+
+      // Mover la factura de pendientes a listas localmente
+      // 🆕 Guardar copia de los estados de productos para que persistan al abrir desde listas
+      const facturaActualizada = {
+        ...facturaSeleccionada,
+        estado_bodega: 'procesado',
+        estadosProductos: { ...faltantesDraft } // Copia de los estados
+      }
+      setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
+      setListas((prev) => [facturaActualizada, ...prev])
+
+      // Limpiar formulario
+      setObservacionesAdicionales('')
+      localStorage.removeItem(STORAGE_KEYS.observaciones)
+      setFacturaSeleccionada(null)
+      setFaltantesDraft({})
+      setSelectedFacturaId(null)
+      localStorage.removeItem(STORAGE_KEYS.selected)
+
+      setTimeout(() => setSuccessMessage(null), 3000)
+
+      // Mostrar modal con nombre del cliente
+      setClienteCompletado({
+        nombre: facturaSeleccionada.cliente_nombre || facturaSeleccionada.client?.name || 'Cliente',
+        tipo: 'listo'
+      })
     } catch (err) {
       console.error('❌ Error marcando factura como lista:', err)
       alert(`Error marcando factura como lista: ${err.message}`)
@@ -524,8 +519,60 @@ export default function FacturasBodega() {
 
     try {
       setGuardando(true)
-      // enviarAImpresion = false (con faltantes → va a reporte clientes)
-      await guardarYMoverAListas(false, `✅ ${faltantesSeleccionados.length} faltante(s) registrado(s)`)
+
+      // Enviar TODOS los productos con sus estados (para persistir 'completo' también)
+      const todosLosProductos = Object.values(faltantesDraft)
+      const payload = todosLosProductos.map((item) => ({
+        item_id: item.itemId,
+        nombre_producto: item.nombre,
+        cantidad_faltante: item.cantidadFaltante || 0,
+        tipo_faltante: item.tipo === 'ninguno' ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
+        observaciones: item.observaciones || ''
+      }))
+
+      await alegraService.registrarFaltantes(
+        facturaSeleccionada.alegra_id,
+        payload,
+        'Bodega',
+        observacionesAdicionales
+      )
+      await alegraService.actualizarEstadoFacturaBodega(
+        facturaSeleccionada.alegra_id,
+        'procesado',
+        observacionesAdicionales.trim() || null
+      )
+
+      // ✅ NO llamar a completarYVolverAlListado para no interrumpir el trabajo
+      // En su lugar, actualizar solo el estado local
+      setSuccessMessage(`✅ ${faltantesSeleccionados.length} faltante(s) registrado(s)`)
+
+      // Mover la factura de pendientes a listas localmente
+      // 🆕 Guardar copia de los estados de productos para que persistan al abrir desde listas
+      const facturaActualizada = {
+        ...facturaSeleccionada,
+        estado_bodega: 'procesado',
+        faltantes_pendientes: faltantesSeleccionados.length,
+        estadosProductos: { ...faltantesDraft } // Copia de los estados
+      }
+      setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== facturaSeleccionada.alegra_id))
+      setListas((prev) => [facturaActualizada, ...prev])
+
+      // Limpiar formulario
+      setObservacionesAdicionales('')
+      localStorage.removeItem(STORAGE_KEYS.observaciones)
+      setFacturaSeleccionada(null)
+      setFaltantesDraft({})
+      setSelectedFacturaId(null)
+      localStorage.removeItem(STORAGE_KEYS.selected)
+
+      setTimeout(() => setSuccessMessage(null), 3000)
+
+      // Mostrar modal con nombre del cliente
+      setClienteCompletado({
+        nombre: facturaSeleccionada.cliente_nombre || facturaSeleccionada.client?.name || 'Cliente',
+        tipo: 'faltantes',
+        cantidad: faltantesSeleccionados.length
+      })
     } catch (err) {
       console.error('❌ Error registrando faltantes:', err)
       alert(`Error registrando faltantes: ${err.message}`)
