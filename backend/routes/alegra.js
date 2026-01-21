@@ -6464,4 +6464,73 @@ router.post('/sincronizar/cache-productos', async (req, res) => {
   }
 });
 
+// ========================================
+// ENDPOINTS PARA TELÉFONOS DE WHATSAPP DE PROVEEDORES
+// ========================================
+
+// Obtener teléfono de WhatsApp de un proveedor por nombre
+router.get('/proveedor-contacto/:nombreProveedor', async (req, res) => {
+  try {
+    const { query } = require('../config/database');
+    const { nombreProveedor } = req.params;
+
+    const result = await query(
+      'SELECT telefono_whatsapp FROM proveedor_contactos WHERE nombre_proveedor = $1',
+      [nombreProveedor]
+    );
+
+    if (result.rows.length > 0) {
+      res.json({
+        success: true,
+        telefono: result.rows[0].telefono_whatsapp
+      });
+    } else {
+      res.json({
+        success: true,
+        telefono: null
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo teléfono proveedor:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Guardar/Actualizar teléfono de WhatsApp de un proveedor
+router.put('/proveedor-contacto', async (req, res) => {
+  try {
+    const { query } = require('../config/database');
+    const { nombreProveedor, cedulaProveedor, telefono } = req.body;
+
+    if (!nombreProveedor || !telefono) {
+      return res.status(400).json({
+        success: false,
+        message: 'nombreProveedor y telefono son requeridos'
+      });
+    }
+
+    // Upsert: insertar o actualizar si ya existe
+    const result = await query(`
+      INSERT INTO proveedor_contactos (nombre_proveedor, cedula_proveedor, telefono_whatsapp, updated_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      ON CONFLICT (nombre_proveedor) DO UPDATE SET
+        telefono_whatsapp = EXCLUDED.telefono_whatsapp,
+        cedula_proveedor = COALESCE(EXCLUDED.cedula_proveedor, proveedor_contactos.cedula_proveedor),
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [nombreProveedor, cedulaProveedor || null, telefono]);
+
+    console.log(`📞 Teléfono guardado para ${nombreProveedor}: ${telefono}`);
+
+    res.json({
+      success: true,
+      message: 'Teléfono guardado correctamente',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('❌ Error guardando teléfono proveedor:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

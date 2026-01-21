@@ -364,12 +364,25 @@ export default function ReporteProveedores() {
   }
 
   // ✅ NUEVO: Abrir modal de WhatsApp
-  const abrirModalWhatsApp = (proveedor) => {
+  const abrirModalWhatsApp = async (proveedor) => {
     setProveedorParaWhatsApp(proveedor)
-    // Cargar teléfono guardado de localStorage o usar el del proveedor si existe
-    const telefonoGuardado = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
-    setTelefonoProveedor(telefonoGuardado || proveedor.telefono || '')
     setModalWhatsAppVisible(true)
+
+    // ✅ Cargar teléfono desde DB (primero intenta DB, luego localStorage como fallback)
+    try {
+      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor.nombre)
+      if (telefonoDB) {
+        setTelefonoProveedor(telefonoDB)
+      } else {
+        // Fallback a localStorage si no hay en DB
+        const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
+        setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
+      }
+    } catch (error) {
+      console.error('Error cargando teléfono:', error)
+      const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
+      setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
+    }
   }
 
   // ✅ NUEVO: Enviar a WhatsApp
@@ -468,8 +481,14 @@ export default function ReporteProveedores() {
       const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
       window.open(whatsappUrl, '_blank')
 
-      // Guardar teléfono para próximas veces
-      localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
+      // ✅ Guardar teléfono en DB para próximas veces (y localStorage como backup)
+      try {
+        await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
+        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
+      } catch (saveError) {
+        console.error('Error guardando teléfono:', saveError)
+        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
+      }
 
       setModalWhatsAppVisible(false)
       alert(`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.`)

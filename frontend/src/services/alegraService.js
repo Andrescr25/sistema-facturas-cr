@@ -648,6 +648,36 @@ export const alegraService = {
       console.error('❌ Frontend: Error eliminando ajuste:', error)
       throw new Error(`Error eliminando ajuste: ${error.message}`)
     }
+  },
+
+  // ========================================
+  // TELÉFONOS DE WHATSAPP DE PROVEEDORES
+  // ========================================
+
+  // Obtener teléfono guardado de un proveedor
+  async getTelefonoProveedor(nombreProveedor) {
+    try {
+      const response = await api.get(`/alegra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
+      return response.data.telefono || null
+    } catch (error) {
+      console.error('❌ Error obteniendo teléfono proveedor:', error)
+      return null
+    }
+  },
+
+  // Guardar teléfono de un proveedor
+  async guardarTelefonoProveedor(nombreProveedor, telefono, cedulaProveedor = null) {
+    try {
+      const response = await api.put('/alegra/proveedor-contacto', {
+        nombreProveedor,
+        cedulaProveedor,
+        telefono
+      })
+      return response.data
+    } catch (error) {
+      console.error('❌ Error guardando teléfono proveedor:', error)
+      throw new Error(`Error guardando teléfono: ${error.message}`)
+    }
   }
 
 }
