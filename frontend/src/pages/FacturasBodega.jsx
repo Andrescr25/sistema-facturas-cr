@@ -371,8 +371,6 @@ export default function FacturasBodega() {
             nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
             referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
             cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),
-            // ✅ FIX: Si es 'ninguno' (completo) con cantidad 0, tratar como sin marcar (null)
-            // Solo marcar visualmente si tiene faltantes reales (total/parcial) o si fue marcado explícitamente
             tipo: (item.tipo_faltante === 'ninguno' && Number(item.cantidad_faltante || 0) === 0)
               ? null
               : (item.tipo_faltante || null),
