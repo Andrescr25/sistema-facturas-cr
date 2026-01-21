@@ -459,7 +459,12 @@ export default function ReporteProveedores() {
       // Mensaje predefinido
       const mensaje = encodeURIComponent(`Hola buenas, me puedes hacer proforma de esto, Gracias`)
 
-      // Abrir WhatsApp
+      // ✅ FIX: Delay de 3 segundos para que el PDF termine de descargarse antes de abrir WhatsApp
+      alert('📥 Descargando PDF... WhatsApp se abrirá en 3 segundos.')
+
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Abrir WhatsApp después del delay
       const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
       window.open(whatsappUrl, '_blank')
 
