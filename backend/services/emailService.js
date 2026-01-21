@@ -88,8 +88,11 @@ class EmailService {
                 this.connect();
             }, delay);
         } else {
-            console.error('❌ Máximo de reintentos alcanzado. Esperando próximo ciclo de verificación...');
+            // ✅ FIX: En lugar de solo resetear, programar la próxima revisión
+            console.log('⚠️ Máximo de reintentos alcanzado. Programando próxima revisión en 15 minutos...');
             this.reconnectAttempts = 0;
+            // Programar siguiente check aunque hayan fallado los reintentos
+            this.scheduleNextCheck();
         }
     }
 
@@ -182,42 +185,50 @@ class EmailService {
      * Procesa los emails encontrados
      */
     processEmails(emailIds) {
-        const fetch = this.imap.fetch(emailIds, {
-            bodies: '',
-            markSeen: false
-        });
+        try {
+            const fetch = this.imap.fetch(emailIds, {
+                bodies: '',
+                markSeen: false
+            });
 
-        let emailsProcessed = 0;
-        let facturesFound = 0;
+            let emailsProcessed = 0;
+            let facturesFound = 0;
 
-        fetch.on('message', (msg, seqno) => {
-            msg.on('body', (stream, info) => {
-                simpleParser(stream, async (err, parsed) => {
-                    if (err) {
-                        console.error('❌ Error parseando email:', err);
-                        return;
-                    }
+            fetch.on('message', (msg, seqno) => {
+                msg.on('body', (stream, info) => {
+                    simpleParser(stream, async (err, parsed) => {
+                        if (err) {
+                            console.error('❌ Error parseando email:', err);
+                            return;
+                        }
 
-                    const isFactura = await this.handleParsedEmail(parsed, seqno);
-                    if (isFactura) facturesFound++;
+                        const isFactura = await this.handleParsedEmail(parsed, seqno);
+                        if (isFactura) facturesFound++;
 
-                    emailsProcessed++;
+                        emailsProcessed++;
+                    });
                 });
             });
-        });
 
-        fetch.once('error', (err) => {
-            console.error('❌ Error fetch:', err);
-        });
+            fetch.once('error', (err) => {
+                console.error('❌ Error fetch:', err);
+                // ✅ FIX: Siempre programar siguiente revisión aunque haya error
+                this.scheduleNextCheck();
+            });
 
-        fetch.once('end', () => {
-            console.log(`\n✅ Procesamiento completado:`);
-            console.log(`📧 Emails procesados: ${emailsProcessed}`);
-            console.log(`📄 Facturas encontradas: ${facturesFound}`);
-            
-            // Programar la próxima revisión
+            fetch.once('end', () => {
+                console.log(`\n✅ Procesamiento completado:`);
+                console.log(`📧 Emails procesados: ${emailsProcessed}`);
+                console.log(`📄 Facturas encontradas: ${facturesFound}`);
+                
+                // Programar la próxima revisión
+                this.scheduleNextCheck();
+            });
+        } catch (fetchError) {
+            // ✅ FIX: Capturar errores no manejados y programar siguiente revisión
+            console.error('❌ Error inesperado en processEmails:', fetchError);
             this.scheduleNextCheck();
-        });
+        }
     }
 
     /**
