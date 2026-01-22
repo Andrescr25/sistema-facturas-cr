@@ -16,10 +16,12 @@ class EmailService {
         this.alegraService = new AlegraService();
         this.isConnected = false;
         this.isMonitoring = false;
+        this.isClosingIntentionally = false; // ✅ Flag para evitar reconexión cuando cerramos a propósito
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 30000; // 30 segundos
         this.checkInterval = null;
+        this.lastCheckTime = null; // ✅ Para debugging
     }
 
     /**
@@ -29,6 +31,7 @@ class EmailService {
         this.imap.once('ready', () => {
             console.log('📧 ✅ Conectado al buzón de Gmail');
             this.isConnected = true;
+            this.isClosingIntentionally = false;
             this.reconnectAttempts = 0;
             this.checkForNewEmails();
         });
@@ -50,23 +53,35 @@ class EmailService {
                 return;
             }
             
-            this.handleDisconnection();
+            // ✅ Solo reconectar si no fue cierre intencional
+            if (!this.isClosingIntentionally) {
+                this.handleDisconnection();
+            }
         });
 
         this.imap.once('end', () => {
             console.log('📧 Conexión IMAP cerrada');
             this.isConnected = false;
-            this.handleDisconnection();
+            // ✅ Solo reconectar si no fue cierre intencional
+            if (!this.isClosingIntentionally) {
+                this.handleDisconnection();
+            }
         });
 
-        // Manejar cierre inesperado
+        // ✅ FIX: Manejar cierre inesperado - AHORA también llama handleDisconnection
         this.imap.on('close', (hadError) => {
             if (hadError) {
                 console.error('⚠️ Conexión cerrada con errores');
             } else {
-                console.log('📧 Conexión cerrada normalmente');
+                console.log('📧 Conexión cerrada (close event)');
             }
             this.isConnected = false;
+            
+            // ✅ FIX: Llamar handleDisconnection si no fue cierre intencional
+            if (!this.isClosingIntentionally && this.isMonitoring) {
+                console.log('🔄 Reconectando después de cierre inesperado...');
+                this.handleDisconnection();
+            }
         });
     }
 
@@ -102,6 +117,8 @@ class EmailService {
     async checkForNewEmails() {
         if (!this.imap || this.imap.state !== 'authenticated') {
             console.log('⚠️ IMAP no está autenticado. Estado:', this.imap?.state || 'no inicializado');
+            // ✅ FIX: Siempre programar siguiente revisión aunque haya error
+            this.scheduleNextCheck();
             return;
         }
 
@@ -110,6 +127,8 @@ class EmailService {
         this.imap.openBox('INBOX', false, (err, box) => {
             if (err) {
                 console.error('❌ Error abriendo INBOX:', err);
+                // ✅ FIX: Siempre programar siguiente revisión aunque haya error
+                this.scheduleNextCheck();
                 return;
             }
 
@@ -487,6 +506,9 @@ class EmailService {
      * Programa la próxima revisión
      */
     scheduleNextCheck() {
+        // ✅ Marcar que estamos cerrando intencionalmente
+        this.isClosingIntentionally = true;
+        
         // Cerrar la conexión actual
         if (this.imap && this.isConnected) {
             this.imap.end();
@@ -499,10 +521,13 @@ class EmailService {
 
         // Programar próxima revisión en 15 minutos
         const nextCheckDelay = 15 * 60 * 1000; // 15 minutos
-        console.log(`⏰ Próxima revisión en ${nextCheckDelay/60000} minutos...`);
+        this.lastCheckTime = new Date();
+        console.log(`⏰ Próxima revisión en ${nextCheckDelay/60000} minutos (${new Date(Date.now() + nextCheckDelay).toLocaleTimeString()})...`);
         
         this.checkInterval = setTimeout(() => {
             console.log('\n🔄 ========== NUEVA REVISIÓN DE EMAILS ==========');
+            console.log(`📅 Hora: ${new Date().toLocaleString()}`);
+            this.isClosingIntentionally = false; // ✅ Resetear flag antes de conectar
             this.connect();
         }, nextCheckDelay);
     }
@@ -519,10 +544,36 @@ class EmailService {
         console.log('🚀 ========== INICIANDO MONITOREO CONTINUO DE EMAILS ==========');
         console.log('📧 Sistema de extracción automática de facturas');
         console.log('🔄 Revisión cada 15 minutos');
-        console.log('📅 Busca facturas de los últimos 30 días\n');
+        console.log('📅 Busca facturas de los últimos 30 días');
+        console.log('🐕 Watchdog activo cada 20 minutos\n');
 
         this.isMonitoring = true;
+        this.lastCheckTime = new Date();
         this.connect();
+        
+        // ✅ WATCHDOG: Verificar cada 20 minutos que el polling sigue activo
+        this.watchdogInterval = setInterval(() => {
+            const now = new Date();
+            const minutesSinceLastCheck = (now - this.lastCheckTime) / (1000 * 60);
+            
+            console.log(`🐕 Watchdog: Última revisión hace ${minutesSinceLastCheck.toFixed(1)} minutos`);
+            
+            // Si han pasado más de 20 minutos sin un check, algo salió mal - reiniciar
+            if (minutesSinceLastCheck > 20 && this.isMonitoring) {
+                console.log('🐕⚠️ Watchdog: Polling parece detenido! Reiniciando...');
+                
+                // Limpiar cualquier timer pendiente
+                if (this.checkInterval) {
+                    clearTimeout(this.checkInterval);
+                    this.checkInterval = null;
+                }
+                
+                // Forzar nueva conexión
+                this.isClosingIntentionally = false;
+                this.reconnectAttempts = 0;
+                this.connect();
+            }
+        }, 20 * 60 * 1000); // Cada 20 minutos
     }
 
     /**
@@ -535,6 +586,12 @@ class EmailService {
         if (this.checkInterval) {
             clearTimeout(this.checkInterval);
             this.checkInterval = null;
+        }
+        
+        // ✅ Limpiar watchdog
+        if (this.watchdogInterval) {
+            clearInterval(this.watchdogInterval);
+            this.watchdogInterval = null;
         }
 
         if (this.imap && this.isConnected) {
