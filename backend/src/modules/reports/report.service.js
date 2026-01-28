@@ -9,25 +9,69 @@ class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor
    */
+  /**
+   * Obtener reporte de faltantes por proveedor (Optimizado: Menor Costo)
+   */
+  /**
+   * Obtener reporte de faltantes por proveedor (Optimizado: Menor Costo)
+   */
   async getMissingItemsBySupplier() {
     try {
-      console.log('📋 Generando reporte de faltantes por proveedor...');
+      console.log('📋 Generando reporte de faltantes por proveedor (Prioridad: Menor Costo)...');
 
+      // CTE para encontrar el mejor proveedor basado en historial de precios
       const sql = `
+        WITH BestProviderPerProduct AS (
+            SELECT DISTINCT ON (spm.alegra_item_id)
+                spm.alegra_item_id,
+                spm.supplier_name,
+                spm.supplier_cedula,
+                pfp.precio_unitario,
+                (pfp.total_linea / NULLIF(pfp.cantidad, 0)) as calculated_cost,
+                pfp.factura_id
+            FROM supplier_product_mapping spm
+            JOIN productos_factura_proveedor pfp ON pfp.mapeo_id = spm.id
+            JOIN facturas_proveedores fp ON fp.id = pfp.factura_id
+            ORDER BY 
+                spm.alegra_item_id, 
+                (pfp.total_linea / NULLIF(pfp.cantidad, 0)) ASC, -- Menor costo primero
+                fp.fecha_emision DESC
+        )
         SELECT
-          pr.id as proveedor_id,
-          pr.nombre as proveedor_nombre,
+          -- Usar datos del mapping (Mejor Proveedor) si existe, sino fallback al original
+          -- Convertimos ID a texto para consistencia
+          COALESCE(bp.supplier_cedula, CAST(pr.id AS TEXT)) as proveedor_id,
+          COALESCE(bp.supplier_name, pr.nombre) as proveedor_nombre,
+          
+          -- Datos del producto
           p.id as producto_id,
           p.codigo as producto_codigo,
           p.nombre as producto_nombre,
+          
+          -- Agregación
           SUM(f.cantidad_faltante) as cantidad_total_faltante,
-          COUNT(DISTINCT f.factura_id) as numero_facturas_afectadas
+          COUNT(DISTINCT f.factura_id) as numero_facturas_afectadas,
+          
+          -- Debug field
+          (bp.supplier_name IS NOT NULL AND bp.supplier_name != pr.nombre) as fue_reasignado
+          
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
+        
+        -- Join original (proveedor asignado en la ficha del producto)
         LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+        
+        -- Join con el mejor proveedor calculado
+        LEFT JOIN BestProviderPerProduct bp ON p.alegra_id = bp.alegra_item_id
+
         WHERE f.estado = 'pendiente'
-        GROUP BY pr.id, pr.nombre, p.id, p.codigo, p.nombre
-        ORDER BY pr.nombre, cantidad_total_faltante DESC
+        GROUP BY 
+            COALESCE(bp.supplier_cedula, CAST(pr.id AS TEXT)), 
+            COALESCE(bp.supplier_name, pr.nombre),
+            p.id, p.codigo, p.nombre,
+            bp.supplier_name, pr.nombre
+        ORDER BY 
+            proveedor_nombre, cantidad_total_faltante DESC
       `;
 
       const result = await query(sql);
@@ -36,7 +80,7 @@ class ReportService {
       const reporteAgrupado = {};
 
       result.rows.forEach(row => {
-        const proveedorKey = row.proveedor_id || 'sin_proveedor';
+        const proveedorKey = row.proveedor_id || `temp_${row.proveedor_nombre}` || 'sin_proveedor';
         const proveedorNombre = row.proveedor_nombre || 'Sin Proveedor';
 
         if (!reporteAgrupado[proveedorKey]) {
@@ -45,7 +89,8 @@ class ReportService {
             proveedor_nombre: proveedorNombre,
             productos_faltantes: [],
             total_cantidad: 0,
-            total_productos: 0
+            total_productos: 0,
+            reasignados: 0
           };
         }
 
@@ -54,14 +99,19 @@ class ReportService {
           producto_codigo: row.producto_codigo,
           producto_nombre: row.producto_nombre,
           cantidad_faltante: parseInt(row.cantidad_total_faltante),
-          facturas_afectadas: parseInt(row.numero_facturas_afectadas)
+          facturas_afectadas: parseInt(row.numero_facturas_afectadas),
+          fue_reasignado: row.fue_reasignado
         });
 
         reporteAgrupado[proveedorKey].total_cantidad += parseInt(row.cantidad_total_faltante);
         reporteAgrupado[proveedorKey].total_productos += 1;
+        if (row.fue_reasignado) reporteAgrupado[proveedorKey].reasignados += 1;
       });
 
       const reporteFinal = Object.values(reporteAgrupado);
+      
+      // Ordenar alfabéticamente por nombre de proveedor
+      reporteFinal.sort((a, b) => a.proveedor_nombre.localeCompare(b.proveedor_nombre));
 
       return {
         success: true,
@@ -69,7 +119,8 @@ class ReportService {
         total_proveedores: reporteFinal.length
       };
     } catch (error) {
-      console.error('❌ Error generando reporte por proveedor:', error);
+      console.error('❌ Error generando reporte por proveedor (Menor Costo):', error);
+      // Fallback a lógica simple si falla el SQL complejo
       return {
         success: false,
         error: error.message
