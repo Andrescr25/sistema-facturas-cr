@@ -428,9 +428,15 @@ class EmailService {
             for (const producto of facturaGuardada.productos) {
                 // ✅ VERIFICAR SI YA ESTÁ RELACIONADO (por mapeo existente)
                 if (producto.estadoRelacionado === 'RELACIONADO') {
-                    if (VERBOSE_LOGGING) console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
-                    productosRelacionados++;
-                    continue; // Saltar este producto
+                    // SI es 'manual_temp', PERMITIR que evalúe si tenemos mejor match automático
+                    if (producto.mapeo?.origen === 'manual_temp') {
+                        if (VERBOSE_LOGGING) console.log(`⚠️ ${producto.descripcion} - Relacionado temporalmente, buscando mejor match...`);
+                        // No hacemos continue, dejamos que fluya a la lógica de búsqueda
+                    } else {
+                        if (VERBOSE_LOGGING) console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
+                        productosRelacionados++;
+                        continue; // Saltar este producto
+                    }
                 }
 
                 // Solo procesar productos PENDIENTES

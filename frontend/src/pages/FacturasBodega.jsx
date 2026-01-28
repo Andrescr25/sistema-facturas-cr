@@ -367,7 +367,7 @@ export default function FacturasBodega() {
           const key = getItemIdFromFacturaItem(item) || `item-${index}`;
           nuevoDraft[key] = {
             key,
-            itemId: getItemIdFromFacturaItem(item),
+            itemId: normalizeReferenceValue(item.referencia || item.reference) || item.codigo_alegra || item.alegra_id || item.id, // ✅ FIX: Usar valor raw sin prefijo
             nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
             referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
             cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),

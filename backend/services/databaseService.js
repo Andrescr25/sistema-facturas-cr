@@ -114,7 +114,11 @@ class DatabaseService {
                     }
                 },
                 include: {
-                    productos: true
+                    productos: {
+                        include: {
+                            mapeo: true
+                        }
+                    }
                 }
             });
 

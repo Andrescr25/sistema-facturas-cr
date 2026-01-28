@@ -5688,7 +5688,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
         alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
         alegraReference: alegraReference,
         alegraName: productoAlegra?.name || alegraName,  // Usar nombre de Alegra si está disponible
-        origen: 'manual',
+        origen: 'manual_temp',
         lastUsedDate: new Date(),
         timesUsed: {
           increment: 1
@@ -5703,7 +5703,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
         alegraReference: alegraReference,
         alegraName: productoAlegra?.name || alegraName,
         confidence: 100,
-        origen: 'manual',
+        origen: 'manual_temp',
         timesUsed: 1
       }
     });
@@ -5883,7 +5883,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
           alegraName: productoAlegra?.name || alegraName,
           confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual',
+          origen: 'manual_temp',
           lastUsedDate: new Date(),
           timesUsed: {
             increment: 1
@@ -5934,7 +5934,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           alegraReference: alegraReference,
           alegraName: productoAlegra?.name || alegraName,
           confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual',
+          origen: 'manual_temp',
           lastUsedDate: new Date(),
           timesUsed: {
             increment: 1
@@ -5949,7 +5949,7 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
           alegraReference: alegraReference,
           alegraName: productoAlegra?.name || alegraName,
           confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual',
+          origen: 'manual_temp',
           timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
         }
       });
