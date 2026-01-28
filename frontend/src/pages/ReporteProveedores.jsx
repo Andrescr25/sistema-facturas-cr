@@ -311,8 +311,10 @@ export default function ReporteProveedores() {
             : cantidadFinal
 
           return {
-            codigo: producto.codigo,
-            nombre: producto.nombre,
+            codigo: producto.codigo_proveedor || producto.codigo, // ✅ PRIORIDAD: Código Proveedor
+            nombre: producto.nombre_proveedor || producto.nombre, // ✅ PRIORIDAD: Nombre Proveedor
+            codigoInterno: producto.codigo,
+            nombreInterno: producto.nombre,
             codigoProveedor: producto.codigo_proveedor || null,
             nombreProveedor: producto.nombre_proveedor || producto.nombre,
             mappingId: producto.mapping_id || null,
@@ -416,8 +418,10 @@ export default function ReporteProveedores() {
             : cantidadFinal
 
           return {
-            codigo: producto.codigo,
-            nombre: producto.nombre,
+            codigo: producto.codigo_proveedor || producto.codigo, // ✅ PRIORIDAD: Código Proveedor
+            nombre: producto.nombre_proveedor || producto.nombre, // ✅ PRIORIDAD: Nombre Proveedor
+            codigoInterno: producto.codigo,
+            nombreInterno: producto.nombre,
             codigoProveedor: producto.codigo_proveedor || null,
             nombreProveedor: producto.nombre_proveedor || producto.nombre,
             mappingId: producto.mapping_id || null,
@@ -519,8 +523,10 @@ export default function ReporteProveedores() {
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
 
       const productosParaPDF = cantidadSugerida.map(p => ({
-        codigo: p.producto_codigo,
-        nombre: p.producto_nombre,
+        codigo: p.codigo_proveedor || p.producto_codigo, // ✅ PRIORIDAD: Código Proveedor
+        nombre: p.nombre_proveedor || p.producto_nombre, // ✅ PRIORIDAD: Nombre Proveedor
+        codigoInterno: p.producto_codigo,
+        nombreInterno: p.producto_nombre,
         codigoProveedor: p.codigo_proveedor || null,
         nombreProveedor: p.nombre_proveedor || p.producto_nombre,
         mappingId: p.mapping_id || null,
