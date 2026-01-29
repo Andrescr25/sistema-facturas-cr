@@ -5045,10 +5045,17 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       if (!rows || rows.length === 0) {
         return null;
       }
+      // ✅ PRIMERO: Intentar encontrar uno que coincida con el proveedor actual
+      const matchingProvider = rows.find(row => mappingMatchesProveedor(row));
+      if (matchingProvider) {
+        return matchingProvider;
+      }
+      // ✅ Si no hay coincidencia y skipStrictValidation está activo, usar el primero como fallback
       if (skipStrictValidation) {
+        console.log(`⚠️ [PDF] No hay mapping para el proveedor actual, usando fallback del primero disponible`);
         return rows[0];
       }
-      return rows.find(row => mappingMatchesProveedor(row)) || null;
+      return null;
     };
 
     const getMappingById = async (mappingId) => {
