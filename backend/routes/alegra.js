@@ -5081,7 +5081,9 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           LIMIT 10`,
         [alegraItemId.toString()]
       );
-      return pickFirstMatching(rows);
+      // ✅ Para alegraId, devolver el primer resultado SIN validación de proveedor
+      // El alegraId es un identificador único del producto - si hay un mapping, lo usamos
+      return pickFirstMatching(rows, { skipStrictValidation: true });
     };
 
     const getMappingByFlexibleSearch = async (productoPayload) => {
