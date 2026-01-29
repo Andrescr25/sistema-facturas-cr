@@ -5197,6 +5197,12 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           if (mappingByAlegra) {
             mapping = mappingByAlegra;
             mappingFuente = 'alegraId';
+            // 🔍 DEBUG: Ver qué datos tiene el mapping encontrado
+            console.log(`✅ [PDF DEBUG] Mapping encontrado por alegraId:`);
+            console.log(`   - supplierCode: ${mapping.supplierCode}`);
+            console.log(`   - supplierDesc: ${mapping.supplierDesc || '(vacío)'}`);
+            console.log(`   - alegraName: ${mapping.alegraName}`);
+            console.log(`   - supplierName: ${mapping.supplierName}`);
           }
         }
 
