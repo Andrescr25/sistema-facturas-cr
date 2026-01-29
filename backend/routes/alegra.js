@@ -5233,10 +5233,25 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           sanitizeCodigoProveedor(mapping?.supplierCode) ||
           null;
 
-        const nombreProveedorPreferido =
+        // ✅ PRIORIDAD: 1. supplierDesc del mapping, 2. nombreProveedorEntrada del payload, 3. alegraName, 4. nombreInterno
+        const nombreProveedorPreferido = 
+          (mapping?.supplierDesc && normalize(mapping.supplierDesc)) ||
           normalize(payloadInfo.nombreProveedorEntrada) ||
-          normalize(mapping?.supplierDesc || mapping?.alegraName) ||
           null;
+
+        const nombrePDF = nombreProveedorPreferido
+          || (mapping?.alegraName && normalize(mapping.alegraName))
+          || payloadInfo.nombreInterno
+          || 'Sin descripción';
+        
+        // 🔍 DEBUG
+        if (productosEnriquecidos.length < 3) {
+          console.log(`📝 [PDF DEBUG] Nombre para ${payloadInfo.codigoInterno}:`);
+          console.log(`   - supplierDesc del mapping: ${mapping?.supplierDesc || '(vacío)'}`);
+          console.log(`   - nombreProveedorEntrada: ${payloadInfo.nombreProveedorEntrada || '(vacío)'}`);
+          console.log(`   - alegraName: ${mapping?.alegraName || '(vacío)'}`);
+          console.log(`   - nombrePDF final: ${nombrePDF}`);
+        }
 
         const tieneMapping = Boolean(mapping);
         const tieneCodigoProveedor = Boolean(codigoProveedorPreferido);
@@ -5245,11 +5260,6 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           || payloadInfo.codigoInterno
           || mapping?.alegraReference
           || 'N/A';
-
-        const nombrePDF = nombreProveedorPreferido
-          || payloadInfo.nombreInterno
-          || mapping?.alegraName
-          || 'Sin descripción';
 
         const origenEtiqueta = tieneMapping
           ? (tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor')
