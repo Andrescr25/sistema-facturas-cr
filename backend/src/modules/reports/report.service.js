@@ -23,6 +23,9 @@ class ReportService {
       const sql = `
         WITH BestProviderPerProduct AS (
             SELECT DISTINCT ON (spm.alegra_item_id)
+                spm.id, -- ✅ Incluir ID del mapeo
+                spm.supplier_code, -- ✅ Incluir Código Proveedor
+                spm.factor_conversion, -- ✅ Incluir Factor
                 spm.alegra_item_id,
                 spm.supplier_name,
                 spm.supplier_cedula,
@@ -48,6 +51,13 @@ class ReportService {
           p.codigo as producto_codigo,
           p.nombre as producto_nombre,
           
+          -- Datos del mapeo (para PDF)
+          bp.id as mapping_id,
+          bp.supplier_code as codigo_proveedor,
+          bp.supplier_name as nombre_proveedor_mapeo,
+          bp.factor_conversion,
+          bp.alegra_item_id,
+
           -- Agregación
           SUM(f.cantidad_faltante) as cantidad_total_faltante,
           COUNT(DISTINCT f.factura_id) as numero_facturas_afectadas,
@@ -69,6 +79,7 @@ class ReportService {
             COALESCE(bp.supplier_cedula, CAST(pr.id AS TEXT)), 
             COALESCE(bp.supplier_name, pr.nombre),
             p.id, p.codigo, p.nombre,
+            bp.id, bp.supplier_code, bp.supplier_name, bp.factor_conversion, bp.alegra_item_id, -- ✅ Group by mapping details
             bp.supplier_name, pr.nombre
         ORDER BY 
             proveedor_nombre, cantidad_total_faltante DESC
@@ -98,6 +109,11 @@ class ReportService {
           producto_id: row.producto_id,
           producto_codigo: row.producto_codigo,
           producto_nombre: row.producto_nombre,
+          mapping_id: row.mapping_id, // ✅ ID del mapeo
+          codigo_proveedor: row.codigo_proveedor, // ✅ Código del proveedor
+          nombre_proveedor: row.nombre_proveedor_mapeo, // ✅ Nombre según proveedor
+          factor_conversion: parseFloat(row.factor_conversion || 1), // ✅ Factor
+          alegra_item_id: row.alegra_item_id, // ✅ ID Alegra
           cantidad_faltante: parseInt(row.cantidad_total_faltante),
           facturas_afectadas: parseInt(row.numero_facturas_afectadas),
           fue_reasignado: row.fue_reasignado

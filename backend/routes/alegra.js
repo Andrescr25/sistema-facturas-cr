@@ -5090,18 +5090,32 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
 
       if (!referencia && !nombreBusqueda) return null;
 
+      // Build dynamic query to avoid NULL parameter type inference issues
+      const conditions = [];
+      const params = [];
+      let paramIdx = 1;
+
+      if (referencia) {
+        conditions.push(`alegra_reference = $${paramIdx}`);
+        params.push(referencia);
+        paramIdx++;
+      }
+
+      if (nombreBusqueda) {
+        const likePattern = `%${nombreBusqueda}%`;
+        conditions.push(`(supplier_desc ILIKE $${paramIdx} OR alegra_name ILIKE $${paramIdx})`);
+        params.push(likePattern);
+        paramIdx++;
+      }
+
+      if (conditions.length === 0) return null;
+
       const rows = await fetchMappings(
         `${mappingSelect}
-          WHERE 
-              ($1 IS NOT NULL AND alegra_reference = $1)
-              OR ($2 IS NOT NULL AND supplier_desc ILIKE $2)
-              OR ($2 IS NOT NULL AND alegra_name ILIKE $2)
+          WHERE ${conditions.join(' OR ')}
           ORDER BY confidence DESC, last_used_date DESC, times_used DESC
           LIMIT 20`,
-        [
-          referencia,
-          nombreBusqueda ? `%${nombreBusqueda}%` : null
-        ]
+        params
       );
       return pickFirstMatching(rows);
     };
@@ -5127,6 +5141,15 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || '' // ← Descripción de la factura
         };
 
+        // 🔍 DEBUG: Log the received input for first 3 products
+        if (productosEnriquecidos.length < 3) {
+          console.log(`📨 [PDF DEBUG] Producto recibido del frontend:`);
+          console.log(`   - codigo: ${payloadInfo.codigoInterno}`);
+          console.log(`   - codigoProveedorEntrada: ${payloadInfo.codigoProveedorEntrada}`);
+          console.log(`   - mappingId: ${payloadInfo.mappingId}`);
+          console.log(`   - alegraItemId: ${payloadInfo.alegraItemId}`);
+        }
+
         if (!preferirDatosProveedorActual) {
           productosEnriquecidos.push({
             codigo_pdf: payloadInfo.codigoInterno || payloadInfo.codigoProveedorEntrada || 'N/A',
@@ -5149,7 +5172,13 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
         let mappingFuente = null;
 
         if (payloadInfo.mappingId) {
+          console.log(`🔍 [PDF DEBUG] Buscando mapping por ID: ${payloadInfo.mappingId}`);
           mapping = await getMappingById(payloadInfo.mappingId);
+          if (mapping) {
+            console.log(`✅ [PDF DEBUG] Mapping encontrado: ${mapping.supplierCode} - ${mapping.supplierDesc || mapping.alegraName}`);
+          } else {
+            console.log(`❌ [PDF DEBUG] NO se encontró mapping con ID: ${payloadInfo.mappingId}`);
+          }
           mappingFuente = 'mappingId';
         }
 
@@ -5177,7 +5206,10 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
           }
         }
 
-        if (mapping && mappingFuente !== 'mappingId' && !mappingMatchesProveedor(mapping)) {
+        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'alegraId' && !mappingMatchesProveedor(mapping)) {
+          // Solo rechazar si NO es por mappingId NI por alegraId
+          // Los mappings encontrados por alegraId son confiables porque vinculan directamente el producto
+          console.log(`⚠️ [PDF] Mapping rechazado por nombre de proveedor: ${mapping.supplierName} vs ${proveedor}`);
           mapping = null;
         }
 
