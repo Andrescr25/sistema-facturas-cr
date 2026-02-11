@@ -49,6 +49,18 @@ router.get('/faltantes/proveedor', async (req, res) => {
       sql += ' WHERE ' + conditions.join(' AND ');
     }
     
+    // ✅ Agregado: Filtro por fecha de inicio (si se proporciona)
+    const { fecha_inicio } = req.query;
+    if (fecha_inicio) {
+       // SQL dinámico para la cláusula WHERE si ya existe o no
+       const operator = conditions.length > 0 ? ' AND ' : ' WHERE ';
+       sql += `${operator} fa.fecha_emision >= $${paramIndex++}`;
+       params.push(fecha_inicio);
+       
+       // Agregar también a conditions para el subquery
+       conditions.push(`fa.fecha_emision >= $${paramIndex-1}`); 
+    }
+    
     sql += `
       GROUP BY pr.id, pr.nombre, pr.contacto, pr.telefono, pr.email
       ORDER BY cantidad_total_faltante DESC, pr.nombre
@@ -58,6 +70,15 @@ router.get('/faltantes/proveedor', async (req, res) => {
     
     // Obtener detalles de productos por proveedor
     for (let proveedor of result.rows) {
+      // Reutilizar las mismas condiciones pero ajustando los índices de parámetros
+      // El parámetro $1 será el ID del proveedor
+      // Los parámetros de filtros (año, mes, fecha_inicio) empezarán desde $2
+      
+      const subqueryConditions = conditions.map((cond) => {
+        // Ajustar índice de parámetros: $1 -> $2, $2 -> $3, etc.
+        return cond.replace(/\$(\d+)/g, (match, number) => `$${parseInt(number) + 1}`);
+      });
+
       const productosDetalle = await query(`
         SELECT 
           p.id,
@@ -66,17 +87,31 @@ router.get('/faltantes/proveedor', async (req, res) => {
           SUM(f.cantidad_faltante) as cantidad_faltante,
           COUNT(f.id) as veces_faltante,
           COUNT(CASE WHEN f.tipo_faltante = 'total' THEN 1 END) as faltantes_totales,
-          COUNT(CASE WHEN f.tipo_faltante = 'parcial' THEN 1 END) as faltantes_parciales
+          COUNT(CASE WHEN f.tipo_faltante = 'parcial' THEN 1 END) as faltantes_parciales,
+          STRING_AGG(DISTINCT fa.numero_factura, ', ') as facturas_afectadas,
+          p.factor_conversion,
+          p.codigo_proveedor,
+          p.nombre_proveedor,
+          p.observaciones,
+          p.descripcion_factura
         FROM productos p
         JOIN faltantes f ON p.id = f.producto_id
         JOIN facturas fa ON f.factura_id = fa.id
         WHERE p.proveedor_id = $1
-        ${conditions.length > 0 ? ' AND ' + conditions.join(' AND ') : ''}
+        ${subqueryConditions.length > 0 ? ' AND ' + subqueryConditions.join(' AND ') : ''}
         GROUP BY p.id, p.nombre, p.codigo
         ORDER BY cantidad_faltante DESC
-      `, [proveedor.proveedor_id, ...params.slice(conditions.length === 0 ? 0 : 1)]);
+      `, [proveedor.proveedor_id, ...params]);
       
       proveedor.productos_detalle = productosDetalle.rows;
+      
+      // Mapeo para frontend (productos_faltantes es lo que espera el UI)
+      proveedor.productos_faltantes = productosDetalle.rows.map(p => ({
+        ...p,
+        // Asegurar campos calculados si faltan
+        clientes_afectados: 0, // Se podría calcular si fuera necesario en el query
+        facturas_afectadas: p.veces_faltante // Aproximación válida
+      }));
     }
     
     res.json({

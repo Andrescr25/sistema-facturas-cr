@@ -483,10 +483,13 @@ export const alegraService = {
   },
 
   // Obtener reporte de faltantes por proveedor
-  async getReporteFaltantesProveedor() {
+  async getReporteFaltantesProveedor(fechaInicio) {
     try {
-      console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor');
-      const response = await api.get('/alegra/reportes/faltantes/proveedor')
+      console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor', fechaInicio ? `desde ${fechaInicio}` : '');
+      const params = {};
+      if (fechaInicio) params.fecha_inicio = fechaInicio;
+
+      const response = await api.get('/alegra/reportes/faltantes/proveedor', { params })
       console.log('✅ Frontend: Reporte de proveedores obtenido:', response.data);
       return response.data
     } catch (error) {

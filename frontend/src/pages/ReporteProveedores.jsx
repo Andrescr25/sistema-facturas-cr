@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain, MessageCircle } from 'lucide-react'
+import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain, MessageCircle, Calendar } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 
@@ -25,6 +25,7 @@ export default function ReporteProveedores() {
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
+  const [fechaInicio, setFechaInicio] = useState('') // NUEVO: filtro fecha inicio
 
   // ✅ NUEVO: Estados para asignación en lote
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
@@ -51,14 +52,14 @@ export default function ReporteProveedores() {
     } else if (activeTab === 'cantidad-sugerida' && proveedorSeleccionado && proveedorSeleccionado !== '') {
       loadCantidadSugerida(proveedorSeleccionado)
     }
-  }, [activeTab, proveedorSeleccionado])
+  }, [activeTab, proveedorSeleccionado, fechaInicio]) // Recargar al cambiar fechaInicio
 
   const loadReporte = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const result = await alegraService.getReporteFaltantesProveedor()
+      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio)
 
       if (result.success) {
         setProveedores(result.data)
@@ -1021,6 +1022,28 @@ export default function ReporteProveedores() {
               Limpiar BD Local
             </button>
           )}
+          {/* NUEVO: Filtro de fecha */}
+          <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+            <Calendar size={16} className="text-gray-500 mr-2" />
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className="text-sm border-none focus:ring-0 p-0 text-gray-700"
+              placeholder="Fecha inicio"
+              title="Filtrar faltantes desde esta fecha"
+            />
+            {fechaInicio && (
+              <button
+                onClick={() => setFechaInicio('')}
+                className="ml-2 text-gray-400 hover:text-red-500"
+                title="Limpiar fecha"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
           <button
             onClick={loadReporte}
             className="btn btn-outline"
@@ -1032,14 +1055,16 @@ export default function ReporteProveedores() {
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="card bg-red-50 border-red-200 mb-8">
-          <div className="flex items-center">
-            <AlertCircle className="text-red-500 mr-2" size={20} />
-            <p className="text-red-700">Error: {error}</p>
+      {
+        error && (
+          <div className="card bg-red-50 border-red-200 mb-8">
+            <div className="flex items-center">
+              <AlertCircle className="text-red-500 mr-2" size={20} />
+              <p className="text-red-700">Error: {error}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-8">
@@ -1093,1037 +1118,1055 @@ export default function ReporteProveedores() {
       </div>
 
       {/* Resumen */}
-      {resumen && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="text-blue-600" size={24} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Proveedores con Faltantes</p>
-                <p className="text-2xl font-semibold text-gray-900">{proveedores.length}</p>
+      {
+        resumen && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="text-blue-600" size={24} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm text-gray-600">Proveedores con Faltantes</p>
+                  <p className="text-2xl font-semibold text-gray-900">{proveedores.length}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Package className="text-orange-600" size={24} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Productos Faltantes</p>
-                <p className="text-2xl font-semibold text-gray-900">{resumen.total_productos_faltantes}</p>
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Package className="text-orange-600" size={24} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm text-gray-600">Productos Faltantes</p>
+                  <p className="text-2xl font-semibold text-gray-900">{resumen.total_productos_faltantes}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <ShoppingCart className="text-red-600" size={24} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Unidades Faltantes</p>
-                <p className="text-2xl font-semibold text-gray-900">{resumen.total_cantidad_faltante}</p>
+            <div className="card">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <ShoppingCart className="text-red-600" size={24} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm text-gray-600">Unidades Faltantes</p>
+                  <p className="text-2xl font-semibold text-gray-900">{resumen.total_cantidad_faltante}</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Tab Faltantes Registrados */}
-      {activeTab === 'faltantes' && (
-        <div>
-          {proveedores.length === 0 ? (
-            <div className="card text-center py-12">
-              <Package className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay faltantes registrados</h3>
-              <p className="text-gray-600">Cuando registres faltantes en las facturas, aparecerán aquí organizados por proveedor.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {proveedores
-                .filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase()))
-                .map((proveedor) => (
-                  <div key={proveedor.id} className="card">
-                    {/* Header del proveedor */}
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                      <div className="flex items-center">
-                        {/* ✅ ACTUALIZADO: Checkbox para seleccionar todos (TODOS los proveedores) */}
-                        <input
-                          type="checkbox"
-                          checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))}
-                          onChange={() => toggleTodosProductos(proveedor)}
-                          className="w-5 h-5 mr-3 cursor-pointer"
-                          title="Seleccionar todos"
-                        />
-                        <div className="p-2 bg-blue-100 rounded-lg mr-4">
-                          <Users className="text-blue-600" size={24} />
+      {
+        activeTab === 'faltantes' && (
+          <div>
+            {proveedores.length === 0 ? (
+              <div className="card text-center py-12">
+                <Package className="mx-auto text-gray-400 mb-4" size={48} />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay faltantes registrados</h3>
+                <p className="text-gray-600">Cuando registres faltantes en las facturas, aparecerán aquí organizados por proveedor.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {proveedores
+                  .filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase()))
+                  .map((proveedor) => (
+                    <div key={proveedor.id} className="card">
+                      {/* Header del proveedor */}
+                      <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                        <div className="flex items-center">
+                          {/* ✅ ACTUALIZADO: Checkbox para seleccionar todos (TODOS los proveedores) */}
+                          <input
+                            type="checkbox"
+                            checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))}
+                            onChange={() => toggleTodosProductos(proveedor)}
+                            className="w-5 h-5 mr-3 cursor-pointer"
+                            title="Seleccionar todos"
+                          />
+                          <div className="p-2 bg-blue-100 rounded-lg mr-4">
+                            <Users className="text-blue-600" size={24} />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-semibold text-gray-900">{proveedor.nombre}</h3>
+                            <p className="text-gray-600">{proveedor.contacto}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">{proveedor.nombre}</h3>
-                          <p className="text-gray-600">{proveedor.contacto}</p>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600">Total productos</p>
+                            <p className="text-2xl font-bold text-blue-600">{proveedor.total_productos}</p>
+                            <p className="text-sm text-gray-600">{proveedor.total_cantidad} unidades</p>
+                          </div>
+                          {/* NUEVO: Botón colapsar/expandir */}
+                          <button
+                            onClick={() => {
+                              const next = new Set(proveedoresColapsados)
+                              if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
+                              setProveedoresColapsados(next)
+                            }}
+                            className="btn btn-outline whitespace-nowrap"
+                            title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                          >
+                            {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">Total productos</p>
-                          <p className="text-2xl font-bold text-blue-600">{proveedor.total_productos}</p>
-                          <p className="text-sm text-gray-600">{proveedor.total_cantidad} unidades</p>
+
+                      {/* Lista de productos faltantes */}
+                      {!proveedoresColapsados.has(proveedor.id) && (
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-gray-900 flex items-center">
+                            <FileText size={16} className="mr-2" />
+                            Productos para comprar:
+                          </h4>
+
+                          {proveedor.productos_faltantes
+                            .filter(p => {
+                              const cant = Number(p.cantidad_faltante);
+                              if (cant <= 0) {
+                                console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Faltantes):", p);
+                                return false;
+                              }
+                              return true;
+                            })
+                            .map((producto, index) => (
+                              <div key={index} className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  {/* ✅ ACTUALIZADO: Checkbox para selección individual (TODOS los proveedores) */}
+                                  <input
+                                    type="checkbox"
+                                    checked={productosSeleccionados.has(producto.codigo)}
+                                    onChange={() => toggleProductoSeleccionado(producto.codigo)}
+                                    className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
+                                  />
+                                  <div className="flex-1">
+                                    <h5 className="font-medium text-gray-900">
+                                      {producto.nombre}
+                                      {producto.descripcion_factura && (
+                                        <span className="text-gray-600 font-normal text-sm ml-2">
+                                          ({producto.descripcion_factura})
+                                        </span>
+                                      )}
+                                    </h5>
+                                    <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                                    <p className="text-sm text-gray-600">
+                                      Clientes afectados: {producto.clientes_afectados}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                                      Faltante
+                                    </div>
+                                    <p className="text-lg font-bold text-gray-900 mt-1">
+                                      {producto.cantidad_faltante} unidades
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      En {producto.facturas_afectadas} factura{producto.facturas_afectadas > 1 ? 's' : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                         </div>
-                        {/* NUEVO: Botón colapsar/expandir */}
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {/* ✅ ACTUALIZADO: Botón flotante para asignar/reasignar productos seleccionados */}
+            {productosSeleccionados.size > 0 && (
+              <div className="fixed bottom-8 right-8 z-50">
+                <button
+                  onClick={abrirModalAsignar}
+                  className="btn btn-primary shadow-2xl flex items-center space-x-2 text-lg px-6 py-4 rounded-full hover:scale-105 transition-transform"
+                >
+                  <Users size={20} />
+                  <span>Asignar/Reasignar {productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      {/* Tab Modificar Cantidades */}
+      {
+        activeTab === 'modificar' && (
+          <div>
+            {proveedores.length === 0 ? (
+              <div className="card text-center py-12">
+                <Edit3 className="mx-auto text-gray-400 mb-4" size={48} />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay productos para modificar</h3>
+                <p className="text-gray-600">Primero registra algunos faltantes para poder modificar las cantidades.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Header con botones de acción */}
+                <div className="card bg-blue-50 border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900">
+                        Modificación de Cantidades
+                      </h3>
+                      <p className="text-blue-700">
+                        Ajusta las cantidades según necesites para la orden de compra
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      {cantidadesModificadas.size > 0 && (
+                        <button
+                          onClick={handleGuardarCantidades}
+                          className="btn btn-primary"
+                        >
+                          <Package size={16} className="mr-2" />
+                          Guardar Cambios ({cantidadesModificadas.size})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {proveedores.map((proveedor) => (
+                  <div key={proveedor.id} className="card">
+                    {/* Header del proveedor */}
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4 pb-4 border-b border-gray-200">
+                      <div className="flex items-start md:items-center gap-3 w-full md:w-auto">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Users className="text-green-600" size={24} />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-xl font-semibold text-gray-900 break-words">{proveedor.nombre}</h3>
+                          <p className="text-gray-600 whitespace-nowrap md:whitespace-normal">Orden de Compra</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full md:w-auto md:justify-end">
+                        <label className="flex items-center justify-between sm:justify-start text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md w-full sm:w-auto gap-2">
+                          <span className="flex-1 text-left">Usar datos del proveedor</span>
+                          <input
+                            type="checkbox"
+                            className="toggle toggle-sm"
+                            checked={usaDatosProveedor(proveedor.nombre)}
+                            onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)}
+                          />
+                        </label>
                         <button
                           onClick={() => {
                             const next = new Set(proveedoresColapsados)
                             if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
                             setProveedoresColapsados(next)
                           }}
-                          className="btn btn-outline whitespace-nowrap"
+                          className="btn btn-outline whitespace-nowrap w-full sm:w-auto"
                           title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
                         >
                           {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
                         </button>
+                        <button
+                          onClick={() => abrirModalAgregarProducto(proveedor)}
+                          className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                        >
+                          <Package size={16} className="mr-2" />
+                          + Agregar Producto
+                        </button>
+                        <button
+                          onClick={() => abrirModalWhatsApp(proveedor)}
+                          className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 w-full sm:w-auto"
+                        >
+                          <MessageCircle size={16} className="mr-2" />
+                          WhatsApp
+                        </button>
                       </div>
                     </div>
 
-                    {/* Lista de productos faltantes */}
+                    {/* Lista de productos editables */}
                     {!proveedoresColapsados.has(proveedor.id) && (
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center">
-                          <FileText size={16} className="mr-2" />
-                          Productos para comprar:
+                          <Edit3 size={16} className="mr-2" />
+                          Productos para ordenar:
                         </h4>
 
                         {proveedor.productos_faltantes
                           .filter(p => {
                             const cant = Number(p.cantidad_faltante);
                             if (cant <= 0) {
-                              console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Faltantes):", p);
+                              console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Modificar):", p);
                               return false;
                             }
                             return true;
                           })
-                          .map((producto, index) => (
-                            <div key={index} className="bg-gray-50 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                {/* ✅ ACTUALIZADO: Checkbox para selección individual (TODOS los proveedores) */}
-                                <input
-                                  type="checkbox"
-                                  checked={productosSeleccionados.has(producto.codigo)}
-                                  onChange={() => toggleProductoSeleccionado(producto.codigo)}
-                                  className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
-                                />
-                                <div className="flex-1">
-                                  <h5 className="font-medium text-gray-900">
-                                    {producto.nombre}
-                                    {producto.descripcion_factura && (
-                                      <span className="text-gray-600 font-normal text-sm ml-2">
-                                        ({producto.descripcion_factura})
+                          .map((producto, index) => {
+                            const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
+                            const key = `${proveedor.nombre}-${producto.codigo}`
+                            const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
+                            const estaEliminado = productosEliminados.has(key)
+
+                            return (
+                              <div key={index} className={`rounded-lg p-4 border ${estaEliminado ? 'bg-red-50 border-red-200 opacity-60' :
+                                tieneModificacion ? 'bg-yellow-50 border-yellow-200' :
+                                  'bg-gray-50 border-gray-200'
+                                }`}>
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                  {/* Info del producto */}
+                                  <div className="lg:col-span-5">
+                                    <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                      {producto.nombre}
+                                      {producto.descripcion_factura && (
+                                        <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
+                                          ({producto.descripcion_factura})
+                                        </span>
+                                      )}
+                                    </h5>
+                                    <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Clientes afectados: {producto.clientes_afectados} •
+                                      Facturas: {producto.facturas_afectadas}
+                                    </p>
+                                    {estaEliminado && (
+                                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
+                                        🗑️ Eliminado
                                       </span>
                                     )}
-                                  </h5>
-                                  <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                  <p className="text-sm text-gray-600">
-                                    Clientes afectados: {producto.clientes_afectados}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                                    Faltante
                                   </div>
-                                  <p className="text-lg font-bold text-gray-900 mt-1">
-                                    {producto.cantidad_faltante} unidades
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    En {producto.facturas_afectadas} factura{producto.facturas_afectadas > 1 ? 's' : ''}
-                                  </p>
+
+                                  {/* Cantidad original */}
+                                  <div className="lg:col-span-2">
+                                    <label className="label">Original:</label>
+                                    <div className="text-lg font-medium text-gray-700">
+                                      {producto.cantidad_faltante}
+                                    </div>
+                                    <p className="text-xs text-gray-500">De faltantes</p>
+                                  </div>
+
+                                  {/* Cantidad a ordenar */}
+                                  <div className="lg:col-span-2">
+                                    <label className="label">Cantidad a ordenar:</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={cantidadFinal}
+                                      onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
+                                      className="input"
+                                      placeholder="0"
+                                      disabled={estaEliminado}
+                                    />
+                                  </div>
+
+                                  {/* Estado y Acciones */}
+                                  <div className="lg:col-span-3">
+                                    <label className="label">Estado:</label>
+                                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaEliminado ? 'bg-red-100 text-red-800' :
+                                      cantidadFinal !== producto.cantidad_faltante
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                      {estaEliminado ? '🗑️ Eliminado' :
+                                        cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
+                                    </div>
+                                    {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
+                                      <p className="text-xs text-yellow-600 mt-1">
+                                        Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
+                                      </p>
+                                    )}
+                                    {/* Botones de acción */}
+                                    <div className="mt-2 flex gap-2">
+                                      {estaEliminado ? (
+                                        <button
+                                          onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
+                                          className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
+                                        >
+                                          ↩️ Restaurar
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
+                                          className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                                        >
+                                          <Trash2 size={14} className="mr-1" />
+                                          Eliminar
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
+                            )
+                          })}
+
+                        {/* ✅ NUEVO: Productos agregados manualmente */}
+                        {(productosAgregados.get(proveedor.nombre) || []).map((producto, index) => (
+                          <div key={`agregado-${index}`} className="rounded-lg p-4 border bg-green-50 border-green-200">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                              {/* Info del producto */}
+                              <div className="lg:col-span-5">
+                                <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
+                                <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded mt-1">
+                                  ➕ Agregado manualmente
+                                </span>
+                              </div>
+
+                              {/* Cantidad Editable */}
+                              <div className="lg:col-span-4">
+                                <label className="label">Cantidad a ordenar:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={producto.cantidad}
+                                  onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, index, e.target.value)}
+                                  className="input w-full"
+                                  placeholder="0"
+                                />
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✏️ Editable
+                                </p>
+                              </div>
+
+                              {/* Acciones */}
+                              <div className="lg:col-span-3">
+                                <label className="label">Acción:</label>
+                                <button
+                                  onClick={() => eliminarProductoAgregado(proveedor.nombre, index)}
+                                  className="btn btn-sm bg-red-600 text-white hover:bg-red-700 w-full"
+                                >
+                                  <Trash2 size={14} className="mr-1" />
+                                  Eliminar
+                                </button>
+                              </div>
                             </div>
-                          ))}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )
+      }
 
-          {/* ✅ ACTUALIZADO: Botón flotante para asignar/reasignar productos seleccionados */}
-          {productosSeleccionados.size > 0 && (
-            <div className="fixed bottom-8 right-8 z-50">
-              <button
-                onClick={abrirModalAsignar}
-                className="btn btn-primary shadow-2xl flex items-center space-x-2 text-lg px-6 py-4 rounded-full hover:scale-105 transition-transform"
-              >
-                <Users size={20} />
-                <span>Asignar/Reasignar {productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab Modificar Cantidades */}
-      {activeTab === 'modificar' && (
-        <div>
-          {proveedores.length === 0 ? (
-            <div className="card text-center py-12">
-              <Edit3 className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay productos para modificar</h3>
-              <p className="text-gray-600">Primero registra algunos faltantes para poder modificar las cantidades.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Header con botones de acción */}
-              <div className="card bg-blue-50 border-blue-200">
-                <div className="flex items-center justify-between">
+      {/* Tab Cantidad Sugerida */}
+      {
+        activeTab === 'cantidad-sugerida' && (
+          <div>
+            {/* Filtro de proveedor */}
+            <div className="card bg-purple-50 border-purple-200 mb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-purple-900">
+                    🧠 Análisis Inteligente de Compras
+                  </h3>
+                  <p className="text-purple-700">
+                    Cantidades sugeridas basadas en 90 días de histórico de faltantes
+                  </p>
+                </div>
+                <div className="flex items-center space-x-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-blue-900">
-                      Modificación de Cantidades
-                    </h3>
-                    <p className="text-blue-700">
-                      Ajusta las cantidades según necesites para la orden de compra
-                    </p>
+                    <label className="label text-purple-800">Seleccionar Proveedor:</label>
+                    <select
+                      value={proveedorSeleccionado}
+                      onChange={(e) => setProveedorSeleccionado(e.target.value)}
+                      className="input min-w-48"
+                    >
+                      <option value="">-- Seleccione un proveedor --</option>
+                      {proveedores.map((proveedor) => (
+                        <option key={proveedor.id} value={proveedor.id}>
+                          {proveedor.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="flex space-x-2">
-                    {cantidadesModificadas.size > 0 && (
-                      <button
-                        onClick={handleGuardarCantidades}
-                        className="btn btn-primary"
-                      >
-                        <Package size={16} className="mr-2" />
-                        Guardar Cambios ({cantidadesModificadas.size})
-                      </button>
-                    )}
+                  {/* NUEVO: Generar PDF desde sugerida */}
+                  <button
+                    onClick={handleGenerarPDFDesdeSugerida}
+                    disabled={!proveedorSeleccionado || cantidadSugerida.length === 0}
+                    className={`btn bg-green-600 text-white border-green-600 hover:bg-green-700 ${(!proveedorSeleccionado || cantidadSugerida.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={!proveedorSeleccionado ? 'Seleccione un proveedor' : (cantidadSugerida.length === 0 ? 'No hay datos para PDF' : 'Generar PDF de sugerencias')}
+                  >
+                    <Download size={16} className="mr-2" />
+                    Generar PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {!proveedorSeleccionado ? (
+              /* Sin proveedor seleccionado */
+              <div className="card text-center py-12">
+                <Brain className="mx-auto text-purple-400 mb-4" size={48} />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona un proveedor</h3>
+                <p className="text-gray-600">Elige un proveedor del filtro superior para ver las cantidades sugeridas inteligentes.</p>
+              </div>
+            ) : cantidadSugerida.length === 0 ? (
+              /* Sin datos para el proveedor */
+              <div className="card text-center py-12">
+                <Package className="mx-auto text-gray-400 mb-4" size={48} />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin datos históricos</h3>
+                <p className="text-gray-600">No hay suficientes datos históricos para este proveedor en las últimas 8 semanas.</p>
+              </div>
+            ) : (
+              /* Mostrar datos */
+              <div className="space-y-6">
+                {/* Resumen de estadísticas */}
+                {resumenSugerida && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="card">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Package className="text-purple-600" size={24} />
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm text-gray-600">Total Productos</p>
+                          <p className="text-2xl font-semibold text-gray-900">{resumenSugerida.total_productos}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Users className="text-green-600" size={24} />
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm text-gray-600">Alta Rotación</p>
+                          <p className="text-2xl font-semibold text-green-900">{resumenSugerida.productos_alta_rotacion}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <ShoppingCart className="text-blue-600" size={24} />
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm text-gray-600">Baja Rotación</p>
+                          <p className="text-2xl font-semibold text-blue-900">{resumenSugerida.productos_baja_rotacion}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card">
+                      <div className="flex items-center">
+                        <div className="p-2 bg-orange-100 rounded-lg">
+                          <Package className="text-orange-600" size={24} />
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm text-gray-600">Total Sugerido</p>
+                          <p className="text-2xl font-semibold text-orange-900">{resumenSugerida.cantidad_total_sugerida}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabla de productos */}
+                <div className="card">
+                  <div className="mb-4 pb-4 border-b border-gray-200">
+                    <h3 className="text-xl font-semibold text-gray-900">Productos con Cantidad Sugerida</h3>
+                    <p className="text-gray-600">Basado en promedio de faltantes de las últimas 8 semanas</p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Producto</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Promedio/Semana</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Frecuencia</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Cantidad Sugerida</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {cantidadSugerida.map((producto, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="font-medium text-gray-900">{producto.producto_nombre}</p>
+                                <p className="text-sm text-gray-600">Código: {producto.producto_codigo}</p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-lg font-medium text-gray-900">
+                                {producto.promedio_semanal}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {producto.frecuencia_porcentaje}%
+                                </span>
+                                <p className="text-xs text-gray-500">
+                                  {producto.semanas_activas}/{producto.total_semanas} semanas
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-lg font-bold bg-purple-100 text-purple-800">
+                                {producto.cantidad_sugerida}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Info adicional */}
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">
+                      💡 <strong>Explicación:</strong> La cantidad sugerida se calcula multiplicando el promedio semanal de faltantes por 4 semanas.
+                      Esto proporciona un stock suficiente basado en el comportamiento reciente del producto.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Análisis basado en las últimas 8 semanas. La frecuencia indica en cuántas semanas hubo faltantes.
+                    </p>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+        )
+      }
 
-              {proveedores.map((proveedor) => (
-                <div key={proveedor.id} className="card">
-                  {/* Header del proveedor */}
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4 pb-4 border-b border-gray-200">
-                    <div className="flex items-start md:items-center gap-3 w-full md:w-auto">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <Users className="text-green-600" size={24} />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-xl font-semibold text-gray-900 break-words">{proveedor.nombre}</h3>
-                        <p className="text-gray-600 whitespace-nowrap md:whitespace-normal">Orden de Compra</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full md:w-auto md:justify-end">
-                      <label className="flex items-center justify-between sm:justify-start text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md w-full sm:w-auto gap-2">
-                        <span className="flex-1 text-left">Usar datos del proveedor</span>
-                        <input
-                          type="checkbox"
-                          className="toggle toggle-sm"
-                          checked={usaDatosProveedor(proveedor.nombre)}
-                          onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)}
-                        />
-                      </label>
-                      <button
-                        onClick={() => {
-                          const next = new Set(proveedoresColapsados)
-                          if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
-                          setProveedoresColapsados(next)
-                        }}
-                        className="btn btn-outline whitespace-nowrap w-full sm:w-auto"
-                        title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                      >
-                        {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                      </button>
-                      <button
-                        onClick={() => abrirModalAgregarProducto(proveedor)}
-                        className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                      >
-                        <Package size={16} className="mr-2" />
-                        + Agregar Producto
-                      </button>
-                      <button
-                        onClick={() => abrirModalWhatsApp(proveedor)}
-                        className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 w-full sm:w-auto"
-                      >
-                        <MessageCircle size={16} className="mr-2" />
-                        WhatsApp
-                      </button>
+      {/* ✅ AGREGADO: Sección de Encargos Especiales */}
+      {
+        activeTab === 'faltantes' && encargosEspeciales && encargosEspeciales.length > 0 && (
+          <div className="card mt-8">
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-lg mr-4">
+                  <FileText className="text-orange-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Encargos Especiales</h3>
+                  <p className="text-gray-600">Productos adicionales solicitados que no están en el sistema</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {encargosEspeciales.map((encargo, index) => (
+                <div key={index} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-orange-900">
+                        Factura #{encargo.numero_factura}
+                      </p>
+                      <p className="text-sm text-orange-800 mt-1">
+                        {encargo.observaciones_adicionales}
+                      </p>
+                      <p className="text-xs text-orange-600 mt-2">
+                        Cliente: {encargo.cliente_nombre} • Fecha: {new Date(encargo.fecha_emision).toLocaleDateString('es-CR')}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Lista de productos editables */}
-                  {!proveedoresColapsados.has(proveedor.id) && (
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-900 flex items-center">
-                        <Edit3 size={16} className="mr-2" />
-                        Productos para ordenar:
-                      </h4>
-
-                      {proveedor.productos_faltantes
-                        .filter(p => {
-                          const cant = Number(p.cantidad_faltante);
-                          if (cant <= 0) {
-                            console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Modificar):", p);
-                            return false;
-                          }
-                          return true;
-                        })
-                        .map((producto, index) => {
-                          const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
-                          const key = `${proveedor.nombre}-${producto.codigo}`
-                          const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
-                          const estaEliminado = productosEliminados.has(key)
-
-                          return (
-                            <div key={index} className={`rounded-lg p-4 border ${estaEliminado ? 'bg-red-50 border-red-200 opacity-60' :
-                              tieneModificacion ? 'bg-yellow-50 border-yellow-200' :
-                                'bg-gray-50 border-gray-200'
-                              }`}>
-                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                {/* Info del producto */}
-                                <div className="lg:col-span-5">
-                                  <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                    {producto.nombre}
-                                    {producto.descripcion_factura && (
-                                      <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        ({producto.descripcion_factura})
-                                      </span>
-                                    )}
-                                  </h5>
-                                  <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                  <p className="text-xs text-gray-500">
-                                    Clientes afectados: {producto.clientes_afectados} •
-                                    Facturas: {producto.facturas_afectadas}
-                                  </p>
-                                  {estaEliminado && (
-                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
-                                      🗑️ Eliminado
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Cantidad original */}
-                                <div className="lg:col-span-2">
-                                  <label className="label">Original:</label>
-                                  <div className="text-lg font-medium text-gray-700">
-                                    {producto.cantidad_faltante}
-                                  </div>
-                                  <p className="text-xs text-gray-500">De faltantes</p>
-                                </div>
-
-                                {/* Cantidad a ordenar */}
-                                <div className="lg:col-span-2">
-                                  <label className="label">Cantidad a ordenar:</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={cantidadFinal}
-                                    onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
-                                    className="input"
-                                    placeholder="0"
-                                    disabled={estaEliminado}
-                                  />
-                                </div>
-
-                                {/* Estado y Acciones */}
-                                <div className="lg:col-span-3">
-                                  <label className="label">Estado:</label>
-                                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaEliminado ? 'bg-red-100 text-red-800' :
-                                    cantidadFinal !== producto.cantidad_faltante
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                    }`}>
-                                    {estaEliminado ? '🗑️ Eliminado' :
-                                      cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
-                                  </div>
-                                  {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
-                                    <p className="text-xs text-yellow-600 mt-1">
-                                      Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
-                                    </p>
-                                  )}
-                                  {/* Botones de acción */}
-                                  <div className="mt-2 flex gap-2">
-                                    {estaEliminado ? (
-                                      <button
-                                        onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
-                                        className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
-                                      >
-                                        ↩️ Restaurar
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
-                                        className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
-                                      >
-                                        <Trash2 size={14} className="mr-1" />
-                                        Eliminar
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-
-                      {/* ✅ NUEVO: Productos agregados manualmente */}
-                      {(productosAgregados.get(proveedor.nombre) || []).map((producto, index) => (
-                        <div key={`agregado-${index}`} className="rounded-lg p-4 border bg-green-50 border-green-200">
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                            {/* Info del producto */}
-                            <div className="lg:col-span-5">
-                              <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
-                              <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded mt-1">
-                                ➕ Agregado manualmente
-                              </span>
-                            </div>
-
-                            {/* Cantidad Editable */}
-                            <div className="lg:col-span-4">
-                              <label className="label">Cantidad a ordenar:</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={producto.cantidad}
-                                onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, index, e.target.value)}
-                                className="input w-full"
-                                placeholder="0"
-                              />
-                              <p className="text-xs text-green-600 mt-1">
-                                ✏️ Editable
-                              </p>
-                            </div>
-
-                            {/* Acciones */}
-                            <div className="lg:col-span-3">
-                              <label className="label">Acción:</label>
-                              <button
-                                onClick={() => eliminarProductoAgregado(proveedor.nombre, index)}
-                                className="btn btn-sm bg-red-600 text-white hover:bg-red-700 w-full"
-                              >
-                                <Trash2 size={14} className="mr-1" />
-                                Eliminar
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab Cantidad Sugerida */}
-      {activeTab === 'cantidad-sugerida' && (
-        <div>
-          {/* Filtro de proveedor */}
-          <div className="card bg-purple-50 border-purple-200 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-purple-900">
-                  🧠 Análisis Inteligente de Compras
-                </h3>
-                <p className="text-purple-700">
-                  Cantidades sugeridas basadas en 90 días de histórico de faltantes
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div>
-                  <label className="label text-purple-800">Seleccionar Proveedor:</label>
-                  <select
-                    value={proveedorSeleccionado}
-                    onChange={(e) => setProveedorSeleccionado(e.target.value)}
-                    className="input min-w-48"
-                  >
-                    <option value="">-- Seleccione un proveedor --</option>
-                    {proveedores.map((proveedor) => (
-                      <option key={proveedor.id} value={proveedor.id}>
-                        {proveedor.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* NUEVO: Generar PDF desde sugerida */}
-                <button
-                  onClick={handleGenerarPDFDesdeSugerida}
-                  disabled={!proveedorSeleccionado || cantidadSugerida.length === 0}
-                  className={`btn bg-green-600 text-white border-green-600 hover:bg-green-700 ${(!proveedorSeleccionado || cantidadSugerida.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={!proveedorSeleccionado ? 'Seleccione un proveedor' : (cantidadSugerida.length === 0 ? 'No hay datos para PDF' : 'Generar PDF de sugerencias')}
-                >
-                  <Download size={16} className="mr-2" />
-                  Generar PDF
-                </button>
-              </div>
-            </div>
           </div>
-
-          {!proveedorSeleccionado ? (
-            /* Sin proveedor seleccionado */
-            <div className="card text-center py-12">
-              <Brain className="mx-auto text-purple-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona un proveedor</h3>
-              <p className="text-gray-600">Elige un proveedor del filtro superior para ver las cantidades sugeridas inteligentes.</p>
-            </div>
-          ) : cantidadSugerida.length === 0 ? (
-            /* Sin datos para el proveedor */
-            <div className="card text-center py-12">
-              <Package className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin datos históricos</h3>
-              <p className="text-gray-600">No hay suficientes datos históricos para este proveedor en las últimas 8 semanas.</p>
-            </div>
-          ) : (
-            /* Mostrar datos */
-            <div className="space-y-6">
-              {/* Resumen de estadísticas */}
-              {resumenSugerida && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="card">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Package className="text-purple-600" size={24} />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm text-gray-600">Total Productos</p>
-                        <p className="text-2xl font-semibold text-gray-900">{resumenSugerida.total_productos}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="card">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <Users className="text-green-600" size={24} />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm text-gray-600">Alta Rotación</p>
-                        <p className="text-2xl font-semibold text-green-900">{resumenSugerida.productos_alta_rotacion}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="card">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <ShoppingCart className="text-blue-600" size={24} />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm text-gray-600">Baja Rotación</p>
-                        <p className="text-2xl font-semibold text-blue-900">{resumenSugerida.productos_baja_rotacion}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="card">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-orange-100 rounded-lg">
-                        <Package className="text-orange-600" size={24} />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm text-gray-600">Total Sugerido</p>
-                        <p className="text-2xl font-semibold text-orange-900">{resumenSugerida.cantidad_total_sugerida}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tabla de productos */}
-              <div className="card">
-                <div className="mb-4 pb-4 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900">Productos con Cantidad Sugerida</h3>
-                  <p className="text-gray-600">Basado en promedio de faltantes de las últimas 8 semanas</p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Producto</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Promedio/Semana</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Frecuencia</th>
-                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Cantidad Sugerida</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {cantidadSugerida.map((producto, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-medium text-gray-900">{producto.producto_nombre}</p>
-                              <p className="text-sm text-gray-600">Código: {producto.producto_codigo}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-lg font-medium text-gray-900">
-                              {producto.promedio_semanal}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="text-center">
-                              <span className="text-sm font-medium text-gray-900">
-                                {producto.frecuencia_porcentaje}%
-                              </span>
-                              <p className="text-xs text-gray-500">
-                                {producto.semanas_activas}/{producto.total_semanas} semanas
-                              </p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-lg font-bold bg-purple-100 text-purple-800">
-                              {producto.cantidad_sugerida}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Info adicional */}
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    💡 <strong>Explicación:</strong> La cantidad sugerida se calcula multiplicando el promedio semanal de faltantes por 4 semanas.
-                    Esto proporciona un stock suficiente basado en el comportamiento reciente del producto.
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Análisis basado en las últimas 8 semanas. La frecuencia indica en cuántas semanas hubo faltantes.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ✅ AGREGADO: Sección de Encargos Especiales */}
-      {activeTab === 'faltantes' && encargosEspeciales && encargosEspeciales.length > 0 && (
-        <div className="card mt-8">
-          <div className="mb-4 pb-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg mr-4">
-                <FileText className="text-orange-600" size={24} />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Encargos Especiales</h3>
-                <p className="text-gray-600">Productos adicionales solicitados que no están en el sistema</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {encargosEspeciales.map((encargo, index) => (
-              <div key={index} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-orange-900">
-                      Factura #{encargo.numero_factura}
-                    </p>
-                    <p className="text-sm text-orange-800 mt-1">
-                      {encargo.observaciones_adicionales}
-                    </p>
-                    <p className="text-xs text-orange-600 mt-2">
-                      Cliente: {encargo.cliente_nombre} • Fecha: {new Date(encargo.fecha_emision).toLocaleDateString('es-CR')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )
+      }
 
       {/* ✅ ACTUALIZADO: Modal para asignar/reasignar proveedor (ahora soporta múltiples productos) */}
-      {modalAsignarVisible && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header del modal */}
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Asignar/Reasignar Proveedor</h2>
-              <p className="text-gray-600 mt-1">
-                Gestionar <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
-              </p>
-              <p className="text-sm text-gray-500">
-                Selecciona el proveedor de la lista o crea uno nuevo. Los productos que ya tienen proveedor serán reasignados.
-              </p>
-            </div>
-
-            {/* Buscador */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={busquedaProveedor}
-                  onChange={(e) => setBusquedaProveedor(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)
-                  }}
-                  placeholder="Buscar proveedor por nombre..."
-                  className="input flex-1"
-                />
-                <button
-                  onClick={() => cargarProveedoresAlegra(busquedaProveedor)}
-                  className="btn btn-primary"
-                  disabled={loadingProveedores}
-                >
-                  {loadingProveedores ? 'Buscando...' : 'Buscar'}
-                </button>
-                <button
-                  onClick={() => setModalCrearProveedor(true)}
-                  className="btn btn-outline"
-                >
-                  + Crear Nuevo
-                </button>
+      {
+        modalAsignarVisible && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header del modal */}
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Asignar/Reasignar Proveedor</h2>
+                <p className="text-gray-600 mt-1">
+                  Gestionar <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Selecciona el proveedor de la lista o crea uno nuevo. Los productos que ya tienen proveedor serán reasignados.
+                </p>
               </div>
-            </div>
 
-            {/* Lista de proveedores */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingProveedores ? (
-                <div className="text-center py-12">
-                  <div className="spinner mx-auto mb-4"></div>
-                  <p className="text-gray-600">Cargando proveedores...</p>
-                </div>
-              ) : proveedoresAlegra.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="mx-auto text-gray-400 mb-4" size={48} />
-                  <p className="text-gray-600">No se encontraron proveedores</p>
-                  <p className="text-sm text-gray-500 mt-2">Intenta otra búsqueda o crea uno nuevo</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {proveedoresAlegra.map((prov) => (
-                    <button
-                      key={prov.id}
-                      onClick={() => asignarProveedorManual(prov.id)}
-                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{prov.name}</p>
-                          {prov.identification && (
-                            <p className="text-sm text-gray-600">Cédula: {prov.identification}</p>
-                          )}
-                          {prov.email && (
-                            <p className="text-sm text-gray-600">Email: {prov.email}</p>
-                          )}
-                        </div>
-                        <div className="text-blue-600">
-                          <Users size={24} />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setModalAsignarVisible(false)
-                  setProductoParaAsignar(null)
-                  setBusquedaProveedor('')
-                  setProveedoresAlegra([])
-                }}
-                className="btn btn-outline w-full"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ✅ NUEVO: Modal para crear proveedor */}
-      {modalCrearProveedor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Crear Nuevo Proveedor</h2>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  const formData = new FormData(e.target)
-                  crearNuevoProveedor({
-                    name: formData.get('name'),
-                    identification: formData.get('identification'),
-                    identificationType: formData.get('identificationType'),
-                    email: formData.get('email'),
-                    phone: formData.get('phone'),
-                    address: formData.get('address')
-                  })
-                }}
-              >
-                <div className="space-y-4">
-                  <div>
-                    <label className="label">Nombre del Proveedor *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      required
-                      className="input w-full"
-                      placeholder="Ej: Distribuidora ABC S.A."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Tipo de Identificación</label>
-                    <select name="identificationType" className="input w-full">
-                      <option value="">-- Seleccione --</option>
-                      <option value="CF">Cédula Física</option>
-                      <option value="CJ">Cédula Jurídica</option>
-                      <option value="DIMEX">DIMEX</option>
-                      <option value="NITE">NITE</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="label">Número de Identificación</label>
-                    <input
-                      type="text"
-                      name="identification"
-                      className="input w-full"
-                      placeholder="Ej: 3101234567"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      className="input w-full"
-                      placeholder="proveedor@example.com"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Teléfono</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      className="input w-full"
-                      placeholder="Ej: 22001122"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Dirección</label>
-                    <textarea
-                      name="address"
-                      rows="2"
-                      className="input w-full"
-                      placeholder="Dirección completa del proveedor"
-                    ></textarea>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mt-6">
+              {/* Buscador */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={busquedaProveedor}
+                    onChange={(e) => setBusquedaProveedor(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)
+                    }}
+                    placeholder="Buscar proveedor por nombre..."
+                    className="input flex-1"
+                  />
                   <button
-                    type="button"
-                    onClick={() => setModalCrearProveedor(false)}
-                    className="btn btn-outline flex-1"
+                    onClick={() => cargarProveedoresAlegra(busquedaProveedor)}
+                    className="btn btn-primary"
+                    disabled={loadingProveedores}
                   >
-                    Cancelar
+                    {loadingProveedores ? 'Buscando...' : 'Buscar'}
                   </button>
                   <button
-                    type="submit"
-                    className="btn btn-primary flex-1"
-                    disabled={loading}
+                    onClick={() => setModalCrearProveedor(true)}
+                    className="btn btn-outline"
                   >
-                    {loading ? 'Creando...' : 'Crear Proveedor'}
+                    + Crear Nuevo
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
 
-      {/* ✅ NUEVO: Modal para agregar producto a la orden */}
-      {modalAgregarProducto && proveedorParaAgregar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Agregar Producto</h2>
-              <p className="text-gray-600 mt-1">
-                Proveedor: <span className="font-medium">{proveedorParaAgregar.nombre}</span>
-              </p>
-            </div>
-
-            {/* Buscador */}
-            <div className="p-6 border-b border-gray-200">
-              <input
-                type="text"
-                value={busquedaProducto}
-                onChange={(e) => {
-                  setBusquedaProducto(e.target.value)
-                  if (e.target.value.length >= 2) {
-                    buscarProductosAlegra(e.target.value)
-                  }
-                }}
-                placeholder="Buscar producto por código o nombre (mín. 2 caracteres)..."
-                className="input w-full"
-                autoFocus
-              />
-            </div>
-
-            {/* Lista de productos */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingProductos ? (
-                <div className="text-center py-8">
-                  <div className="spinner mx-auto mb-4"></div>
-                  <p className="text-gray-600">Buscando productos...</p>
-                </div>
-              ) : productosAlegra.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="mx-auto text-gray-400 mb-2" size={48} />
-                  <p className="text-gray-600">
-                    {busquedaProducto.length >= 2
-                      ? 'No se encontraron productos'
-                      : 'Escribe al menos 2 caracteres para buscar'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {productosAlegra.map((producto, idx) => {
-                    // Validar que reference sea string
-                    const reference = typeof producto.reference === 'object'
-                      ? producto.reference?.reference || producto.reference?.code || 'N/A'
-                      : producto.reference || 'N/A'
-
-                    const name = producto.name || 'Sin nombre'
-                    const price = typeof producto.price === 'number' ? producto.price : null
-
-                    return (
-                      <div
-                        key={producto.id || `producto-${idx}`}
-                        className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => {
-                          const cantidad = prompt(`¿Cuántas unidades de "${name}" deseas agregar?`, '1')
-                          if (cantidad && parseInt(cantidad) > 0) {
-                            agregarProductoAOrden({
-                              ...producto,
-                              reference: reference,
-                              name: name
-                            }, cantidad)
-                          }
-                        }}
+              {/* Lista de proveedores */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {loadingProveedores ? (
+                  <div className="text-center py-12">
+                    <div className="spinner mx-auto mb-4"></div>
+                    <p className="text-gray-600">Cargando proveedores...</p>
+                  </div>
+                ) : proveedoresAlegra.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="mx-auto text-gray-400 mb-4" size={48} />
+                    <p className="text-gray-600">No se encontraron proveedores</p>
+                    <p className="text-sm text-gray-500 mt-2">Intenta otra búsqueda o crea uno nuevo</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {proveedoresAlegra.map((prov) => (
+                      <button
+                        key={prov.id}
+                        onClick={() => asignarProveedorManual(prov.id)}
+                        className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <h5 className="font-medium text-gray-900">{name}</h5>
-                            <p className="text-sm text-gray-600">Código: {reference}</p>
-                            {price && (
-                              <p className="text-sm text-gray-500">Precio: ₡{price.toLocaleString()}</p>
+                            <p className="font-medium text-gray-900">{prov.name}</p>
+                            {prov.identification && (
+                              <p className="text-sm text-gray-600">Cédula: {prov.identification}</p>
+                            )}
+                            {prov.email && (
+                              <p className="text-sm text-gray-600">Email: {prov.email}</p>
                             )}
                           </div>
-                          <button className="btn btn-sm btn-primary">
-                            + Agregar
-                          </button>
+                          <div className="text-blue-600">
+                            <Users size={24} />
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            {/* Footer */}
-            <div className="p-6 border-t border-gray-200">
-              <button
-                onClick={() => setModalAgregarProducto(false)}
-                className="btn btn-outline w-full"
-              >
-                Cerrar
-              </button>
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setModalAsignarVisible(false)
+                    setProductoParaAsignar(null)
+                    setBusquedaProveedor('')
+                    setProveedoresAlegra([])
+                  }}
+                  className="btn btn-outline w-full"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* ✅ NUEVO: Modal para crear proveedor */}
+      {
+        modalCrearProveedor && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Crear Nuevo Proveedor</h2>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const formData = new FormData(e.target)
+                    crearNuevoProveedor({
+                      name: formData.get('name'),
+                      identification: formData.get('identification'),
+                      identificationType: formData.get('identificationType'),
+                      email: formData.get('email'),
+                      phone: formData.get('phone'),
+                      address: formData.get('address')
+                    })
+                  }}
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <label className="label">Nombre del Proveedor *</label>
+                      <input
+                        type="text"
+                        name="name"
+                        required
+                        className="input w-full"
+                        placeholder="Ej: Distribuidora ABC S.A."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">Tipo de Identificación</label>
+                      <select name="identificationType" className="input w-full">
+                        <option value="">-- Seleccione --</option>
+                        <option value="CF">Cédula Física</option>
+                        <option value="CJ">Cédula Jurídica</option>
+                        <option value="DIMEX">DIMEX</option>
+                        <option value="NITE">NITE</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Número de Identificación</label>
+                      <input
+                        type="text"
+                        name="identification"
+                        className="input w-full"
+                        placeholder="Ej: 3101234567"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        className="input w-full"
+                        placeholder="proveedor@example.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">Teléfono</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        className="input w-full"
+                        placeholder="Ej: 22001122"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">Dirección</label>
+                      <textarea
+                        name="address"
+                        rows="2"
+                        className="input w-full"
+                        placeholder="Dirección completa del proveedor"
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setModalCrearProveedor(false)}
+                      className="btn btn-outline flex-1"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary flex-1"
+                      disabled={loading}
+                    >
+                      {loading ? 'Creando...' : 'Crear Proveedor'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* ✅ NUEVO: Modal para agregar producto a la orden */}
+      {
+        modalAgregarProducto && proveedorParaAgregar && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-2xl font-bold text-gray-900">Agregar Producto</h2>
+                <p className="text-gray-600 mt-1">
+                  Proveedor: <span className="font-medium">{proveedorParaAgregar.nombre}</span>
+                </p>
+              </div>
+
+              {/* Buscador */}
+              <div className="p-6 border-b border-gray-200">
+                <input
+                  type="text"
+                  value={busquedaProducto}
+                  onChange={(e) => {
+                    setBusquedaProducto(e.target.value)
+                    if (e.target.value.length >= 2) {
+                      buscarProductosAlegra(e.target.value)
+                    }
+                  }}
+                  placeholder="Buscar producto por código o nombre (mín. 2 caracteres)..."
+                  className="input w-full"
+                  autoFocus
+                />
+              </div>
+
+              {/* Lista de productos */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {loadingProductos ? (
+                  <div className="text-center py-8">
+                    <div className="spinner mx-auto mb-4"></div>
+                    <p className="text-gray-600">Buscando productos...</p>
+                  </div>
+                ) : productosAlegra.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="mx-auto text-gray-400 mb-2" size={48} />
+                    <p className="text-gray-600">
+                      {busquedaProducto.length >= 2
+                        ? 'No se encontraron productos'
+                        : 'Escribe al menos 2 caracteres para buscar'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {productosAlegra.map((producto, idx) => {
+                      // Validar que reference sea string
+                      const reference = typeof producto.reference === 'object'
+                        ? producto.reference?.reference || producto.reference?.code || 'N/A'
+                        : producto.reference || 'N/A'
+
+                      const name = producto.name || 'Sin nombre'
+                      const price = typeof producto.price === 'number' ? producto.price : null
+
+                      return (
+                        <div
+                          key={producto.id || `producto-${idx}`}
+                          className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => {
+                            const cantidad = prompt(`¿Cuántas unidades de "${name}" deseas agregar?`, '1')
+                            if (cantidad && parseInt(cantidad) > 0) {
+                              agregarProductoAOrden({
+                                ...producto,
+                                reference: reference,
+                                name: name
+                              }, cantidad)
+                            }
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-900">{name}</h5>
+                              <p className="text-sm text-gray-600">Código: {reference}</p>
+                              {price && (
+                                <p className="text-sm text-gray-500">Precio: ₡{price.toLocaleString()}</p>
+                              )}
+                            </div>
+                            <button className="btn btn-sm btn-primary">
+                              + Agregar
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setModalAgregarProducto(false)}
+                  className="btn btn-outline w-full"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {/* ✅ NUEVO: Modal WhatsApp */}
-      {modalWhatsAppVisible && proveedorParaWhatsApp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            {/* Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <MessageCircle className="text-green-600" size={24} />
+      {
+        modalWhatsAppVisible && proveedorParaWhatsApp && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <MessageCircle className="text-green-600" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Enviar por WhatsApp</h2>
+                    <p className="text-gray-600 text-sm">{proveedorParaWhatsApp.nombre}</p>
+                  </div>
                 </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-blue-800 text-sm">
+                    <strong>¿Qué va a pasar?</strong>
+                  </p>
+                  <ul className="text-blue-700 text-sm mt-2 space-y-1">
+                    <li>1. Se descargará el PDF de la orden de compra</li>
+                    <li>2. Se abrirá WhatsApp con el mensaje predefinido</li>
+                    <li>3. Deberás adjuntar el PDF manualmente en el chat</li>
+                  </ul>
+                </div>
+
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Enviar por WhatsApp</h2>
-                  <p className="text-gray-600 text-sm">{proveedorParaWhatsApp.nombre}</p>
+                  <label className="label font-medium">Número de teléfono del proveedor</label>
+                  <input
+                    type="tel"
+                    value={telefonoProveedor}
+                    onChange={(e) => setTelefonoProveedor(e.target.value)}
+                    className="input w-full"
+                    placeholder="Ej: 8888-8888 o +506 8888 8888"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si no incluyes código de país, se usará +506 (Costa Rica)
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-gray-600 text-sm">
+                    <strong>Mensaje que se enviará:</strong>
+                  </p>
+                  <p className="text-gray-800 mt-1 italic">
+                    "Hola buenas, me puedes hacer proforma de esto, Gracias"
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Body */}
-            <div className="p-6 space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
-                  <strong>¿Qué va a pasar?</strong>
-                </p>
-                <ul className="text-blue-700 text-sm mt-2 space-y-1">
-                  <li>1. Se descargará el PDF de la orden de compra</li>
-                  <li>2. Se abrirá WhatsApp con el mensaje predefinido</li>
-                  <li>3. Deberás adjuntar el PDF manualmente en el chat</li>
-                </ul>
+              {/* Footer */}
+              <div className="p-6 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => setModalWhatsAppVisible(false)}
+                  className="btn btn-outline flex-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={enviarWhatsApp}
+                  disabled={loading || !telefonoProveedor.trim()}
+                  className="btn bg-green-600 text-white hover:bg-green-700 flex-1 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={16} />
+                  {loading ? 'Procesando...' : 'Enviar por WhatsApp'}
+                </button>
               </div>
-
-              <div>
-                <label className="label font-medium">Número de teléfono del proveedor</label>
-                <input
-                  type="tel"
-                  value={telefonoProveedor}
-                  onChange={(e) => setTelefonoProveedor(e.target.value)}
-                  className="input w-full"
-                  placeholder="Ej: 8888-8888 o +506 8888 8888"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Si no incluyes código de país, se usará +506 (Costa Rica)
-                </p>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-gray-600 text-sm">
-                  <strong>Mensaje que se enviará:</strong>
-                </p>
-                <p className="text-gray-800 mt-1 italic">
-                  "Hola buenas, me puedes hacer proforma de esto, Gracias"
-                </p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-gray-200 flex gap-3">
-              <button
-                onClick={() => setModalWhatsAppVisible(false)}
-                className="btn btn-outline flex-1"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={enviarWhatsApp}
-                disabled={loading || !telefonoProveedor.trim()}
-                className="btn bg-green-600 text-white hover:bg-green-700 flex-1 flex items-center justify-center gap-2"
-              >
-                <MessageCircle size={16} />
-                {loading ? 'Procesando...' : 'Enviar por WhatsApp'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }
