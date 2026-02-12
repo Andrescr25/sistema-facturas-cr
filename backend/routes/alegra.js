@@ -2838,13 +2838,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
       JOIN facturas fa ON f.factura_id = fa.id
       LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
-      LEFT JOIN LATERAL (
-        SELECT faltante_id, cantidad_entregada, estado, requiere_actualizacion
-        FROM faltantes_ajustes
-        WHERE faltante_id = f.id
-        ORDER BY id DESC
-        LIMIT 1
-      ) aj ON true
+      LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
       LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
       WHERE f.estado IN ('pendiente', 'procesado')
         AND f.tipo_faltante != 'completo' 
@@ -5640,7 +5634,7 @@ router.post('/proveedores', async (req, res) => {
   }
 });
 
-// Asignar proveedor manualmente a un producto
+// Asignar proveedor manualmente a un producto (TEMPORAL)
 router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
   try {
     const { 
@@ -5650,7 +5644,7 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
       proveedorId       // ID del proveedor en Alegra
     } = req.body;
 
-    console.log(`🔗 Asignando proveedor manualmente:`, {
+    console.log(`🔗 Asignando proveedor manualmente (TEMPORAL):`, {
       producto: alegraName,
       codigo: alegraReference,
       alegraItemIdRecibido: alegraItemId,
@@ -5658,70 +5652,35 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     });
 
     const prisma = require('../lib/prisma');
+    const { query } = require('../config/database');
 
     // 1. 🔍 OBTENER ID REAL DEL PRODUCTO
-    // Si alegraItemId es numérico, es el ID real de Alegra → Obtener producto directamente
-    // Si NO es numérico, es un fallback al código → Buscar por reference
-    console.log(`🔍 Validando alegraItemId recibido: ${alegraItemId} (tipo: ${typeof alegraItemId})`);
-    
     let productoAlegra;
     let alegraIdReal;
     
     const esIdNumerico = /^\d+$/.test(alegraItemId?.toString());
     
     if (esIdNumerico) {
-      // CASO 1: alegraItemId es un número → Es el ID real de Alegra
-      console.log(`✅ alegraItemId es numérico (${alegraItemId}) → Obteniendo producto directamente...`);
-      
       try {
         const response = await alegraService.api.get(`/items/${alegraItemId}`);
         productoAlegra = response.data;
         alegraIdReal = productoAlegra.id;
-        
-        console.log(`✅ Producto obtenido de Alegra:`);
-        console.log(`   ID: ${alegraIdReal}`);
-        console.log(`   Reference: ${productoAlegra.reference?.reference || productoAlegra.reference}`);
-        console.log(`   Nombre: ${productoAlegra.name}`);
       } catch (error) {
-        console.error(`❌ Error obteniendo producto ${alegraItemId}:`, error.response?.data?.message || error.message);
-        console.warn(`   Usando alegraItemId como fallback: ${alegraItemId}`);
+        console.warn(`⚠️ Error obteniendo producto ${alegraItemId}, usando fallback.`);
         alegraIdReal = alegraItemId;
       }
     } else {
-      // CASO 2: alegraItemId NO es numérico → Es un código, buscar por reference
-      console.log(`⚠️ alegraItemId NO es numérico ("${alegraItemId}") → Buscando por reference...`);
-      
       try {
         const itemsResponse = await alegraService.api.get('/items', {
-          params: {
-            query: alegraReference,
-            limit: 30
-          }
+          params: { query: alegraReference, limit: 30 }
         });
-        
         const items = itemsResponse.data;
         productoAlegra = items.find(item => {
-          const itemReference = typeof item.reference === 'object' 
-            ? item.reference?.reference 
-            : item.reference;
-          
+          const itemReference = typeof item.reference === 'object' ? item.reference?.reference : item.reference;
           return itemReference === alegraReference;
         });
-        
-        if (productoAlegra) {
-          alegraIdReal = productoAlegra.id;
-          console.log(`✅ Producto encontrado en Alegra:`);
-          console.log(`   ID real: ${alegraIdReal}`);
-          console.log(`   Reference: ${alegraReference}`);
-          console.log(`   Nombre: ${productoAlegra.name}`);
-        } else {
-          console.warn(`⚠️ No se encontró producto con reference="${alegraReference}"`);
-          console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
-          alegraIdReal = alegraItemId;
-        }
+        alegraIdReal = productoAlegra ? productoAlegra.id : alegraItemId;
       } catch (searchError) {
-        console.error(`❌ Error buscando producto:`, searchError.message);
-        console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
         alegraIdReal = alegraItemId;
       }
     }
@@ -5729,64 +5688,49 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
     // 2. Obtener información del proveedor de Alegra
     const proveedorResponse = await alegraService.api.get(`/contacts/${proveedorId}`);
     const proveedor = proveedorResponse.data;
+    console.log(`✅ Proveedor encontrado en Alegra:`, proveedor.name);
 
-    console.log(`✅ Proveedor encontrado:`, proveedor.name);
-
-    // 3. Crear o actualizar el mapping manual con el ID REAL
-    const mapping = await prisma.supplierProductMapping.upsert({
+    // 3. 🆕 ACTUALIZACIÓN DIRECTA DE PRODUCTOS (LOCAL)
+    // Buscamos el proveedor local por nombre para actualizar la tabla 'productos'
+    const proveedorLocal = await prisma.proveedores.findFirst({
       where: {
-        supplierCedula_supplierCode: {
-          supplierCedula: proveedor.identification || 'SIN_CEDULA',
-          supplierCode: alegraReference
-        }
-      },
-      update: {
-        supplierName: proveedor.name.trim(),
-        alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
-        alegraReference: alegraReference,
-        alegraName: productoAlegra?.name || alegraName,  // Usar nombre de Alegra si está disponible
-        origen: 'manual_temp',
-        lastUsedDate: new Date(),
-        timesUsed: {
-          increment: 1
-        }
-      },
-      create: {
-        supplierName: proveedor.name.trim(),
-        supplierCedula: proveedor.identification || 'SIN_CEDULA',
-        supplierCode: alegraReference,
-        supplierDesc: productoAlegra?.name || alegraName,
-        alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
-        alegraReference: alegraReference,
-        alegraName: productoAlegra?.name || alegraName,
-        confidence: 100,
-        origen: 'manual_temp',
-        timesUsed: 1
+        nombre: proveedor.name
       }
     });
 
-    console.log(`✅ Relación manual creada: ${alegraName} → ${proveedor.name}`);
-    console.log(`   Mapping ID: ${mapping.id}`);
-    console.log(`   alegraItemId: ${mapping.alegraItemId} (ID real de Alegra)`);
-    console.log(`   alegraReference: ${mapping.alegraReference} (código interno)`);
+    if (proveedorLocal) {
+      // Actualizamos directamente el producto para que el reporte lo refleje inmediatamente
+      await query(`
+        UPDATE productos 
+        SET proveedor_id = $1 
+        WHERE codigo = $2
+      `, [proveedorLocal.id, alegraReference]);
+      console.log(`✅ Tabla 'productos' actualizada: ${alegraReference} → Proveedor local ID ${proveedorLocal.id}`);
+    } else {
+      console.warn(`⚠️ Proveedor local no encontrado por nombre: "${proveedor.name}". No se actualizó la tabla 'productos'.`);
+    }
 
-    // 4. 👤 ACTUALIZAR FALTANTES con asignación manual
+    // 4. 👤 ACTUALIZAR FALTANTES con asignación manual (TEMPORAL)
+    // Pasamos mappingId = null porque NO creamos un mapping persistente
     const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
     const faltantesActualizados = await asignarProveedorManual(
       alegraReference,
       alegraIdReal,
       proveedor.name.trim(),
       proveedor.identification || 'SIN_CEDULA',
-      mapping.id
+      null // ✅ Relación temporal, sin mapping ID
     );
 
-    console.log(`📋 ${faltantesActualizados} faltante(s) actualizados con asignación manual`);
+    console.log(`📋 ${faltantesActualizados} faltante(s) actualizados con asignación manual temporal`);
 
     res.json({
       success: true,
-      data: mapping,
+      data: {
+        proveedor: proveedor.name,
+        temporal: true
+      },
       faltantes_actualizados: faltantesActualizados,
-      message: `Producto relacionado con ${proveedor.name}`
+      message: `Producto asignado temporalmente a ${proveedor.name}`
     });
 
   } catch (error) {
@@ -5799,14 +5743,15 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
   }
 });
 
-// Reasignar proveedor de un producto que ya tiene proveedor
+// Reasignar proveedor de un producto que ya tiene proveedor (TEMPORAL)
 router.post('/faltantes/reasignar-proveedor', async (req, res) => {
   const prisma = require('../lib/prisma');
   const { asignarProveedorManual } = require('../services/proveedorAsignacionService');
+  const { query } = require('../config/database');
 
   try {
     const {
-      alegraReference,  // Código del producto en Alegra (ej: "10053")
+      alegraReference,  // Código del producto en Alegra
       alegraItemId,     // ID del producto en Alegra
       alegraName,       // Nombre del producto en Alegra
       nuevoProveedorId  // ID del nuevo proveedor en Alegra
@@ -5814,243 +5759,57 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
 
     // Validar datos requeridos
     if (!alegraReference || !alegraName || !nuevoProveedorId) {
-      console.error('❌ Datos faltantes:', { alegraReference, alegraName, nuevoProveedorId });
       return res.status(400).json({
         success: false,
-        message: 'Faltan datos requeridos: alegraReference, alegraName, nuevoProveedorId'
+        message: 'Faltan datos requeridos'
       });
     }
 
-    console.log(`🔄 Reasignando proveedor:`, {
-      producto: alegraName,
-      codigo: alegraReference,
-      nuevoProveedorId,
-      body: req.body
+    console.log(`🔄 Reasignando proveedor (TEMPORAL) para ${alegraName} (${alegraReference})`);
+
+    // 1. 🔍 OBTENER ID REAL DEL PRODUCTO
+    let alegraIdReal = alegraItemId;
+
+    // 2. Obtener información del nuevo proveedor
+    const proveedorResponse = await alegraService.api.get(`/contacts/${nuevoProveedorId}`);
+    const proveedor = proveedorResponse.data;
+    console.log(`✅ Nuevo proveedor: ${proveedor.name}`);
+
+    // 3. 🆕 ACTUALIZACIÓN DIRECTA DE PRODUCTOS (LOCAL)
+    const proveedorLocal = await prisma.proveedores.findFirst({
+      where: { nombre: proveedor.name }
     });
 
-    // 1. Buscar TODOS los mappings existentes del producto (por alegraReference)
-    console.log('🔍 Buscando mappings existentes...');
-    const mappingsExistentes = await prisma.supplierProductMapping.findMany({
-      where: {
-        alegraReference: alegraReference
-      }
-    });
-
-    console.log(`📋 Mappings existentes encontrados: ${mappingsExistentes.length}`);
-    if (mappingsExistentes.length > 0) {
-      mappingsExistentes.forEach(m => {
-        console.log(`   - ${m.supplierName} (${m.supplierCedula})`);
-      });
+    if (proveedorLocal) {
+      await query(`
+        UPDATE productos 
+        SET proveedor_id = $1 
+        WHERE codigo = $2
+      `, [proveedorLocal.id, alegraReference]);
+      console.log(`✅ Tabla 'productos' actualizada: ${alegraReference} → ${proveedorLocal.id}`);
     }
 
-    // 2. 🔍 OBTENER ID REAL DEL PRODUCTO
-    console.log(`🔍 Validando alegraItemId recibido: ${alegraItemId} (tipo: ${typeof alegraItemId})`);
-    
-    let productoAlegra;
-    let alegraIdReal;
-    
-    const esIdNumerico = /^\d+$/.test(alegraItemId?.toString());
-    
-    if (esIdNumerico) {
-      // CASO 1: alegraItemId es un número → Es el ID real de Alegra
-      console.log(`✅ alegraItemId es numérico (${alegraItemId}) → Obteniendo producto directamente...`);
-      
-      try {
-        const response = await alegraService.api.get(`/items/${alegraItemId}`);
-        productoAlegra = response.data;
-        alegraIdReal = productoAlegra.id;
-        
-        console.log(`✅ Producto obtenido de Alegra:`);
-        console.log(`   ID: ${alegraIdReal}`);
-        console.log(`   Reference: ${productoAlegra.reference?.reference || productoAlegra.reference}`);
-        console.log(`   Nombre: ${productoAlegra.name}`);
-      } catch (error) {
-        console.error(`❌ Error obteniendo producto ${alegraItemId}:`, error.response?.data?.message || error.message);
-        console.warn(`   Usando alegraItemId como fallback: ${alegraItemId}`);
-        alegraIdReal = alegraItemId || alegraReference;
-      }
-    } else {
-      // CASO 2: alegraItemId NO es numérico → Es un código, buscar por reference
-      console.log(`⚠️ alegraItemId NO es numérico ("${alegraItemId}") → Buscando por reference...`);
-      
-      try {
-        const itemsResponse = await alegraService.api.get('/items', {
-          params: {
-            query: alegraReference,
-            limit: 30
-          }
-        });
-        
-        const items = itemsResponse.data;
-        productoAlegra = items.find(item => {
-          const itemReference = typeof item.reference === 'object' 
-            ? item.reference?.reference 
-            : item.reference;
-          
-          return itemReference === alegraReference;
-        });
-        
-        if (productoAlegra) {
-          alegraIdReal = productoAlegra.id;
-          console.log(`✅ Producto encontrado en Alegra:`);
-          console.log(`   ID real: ${alegraIdReal}`);
-          console.log(`   Reference: ${alegraReference}`);
-          console.log(`   Nombre: ${productoAlegra.name}`);
-        } else {
-          console.warn(`⚠️ No se encontró producto con reference="${alegraReference}"`);
-          console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
-          alegraIdReal = alegraItemId || alegraReference;
-        }
-      } catch (searchError) {
-        console.error(`❌ Error buscando producto:`, searchError.message);
-        console.warn(`   Usando alegraItemId recibido como fallback: ${alegraItemId}`);
-        alegraIdReal = alegraItemId || alegraReference;
-      }
-    }
-
-    // 3. Obtener información del nuevo proveedor de Alegra
-    console.log('🔍 Obteniendo información del proveedor de Alegra...');
-    let nuevoProveedor;
-    try {
-      const proveedorResponse = await alegraService.api.get(`/contacts/${nuevoProveedorId}`);
-      nuevoProveedor = proveedorResponse.data;
-      console.log(`✅ Nuevo proveedor encontrado: ${nuevoProveedor.name} (${nuevoProveedor.identification || 'SIN_CEDULA'})`);
-    } catch (alegraError) {
-      console.error('❌ Error obteniendo proveedor de Alegra:', alegraError.message);
-      throw new Error(`No se pudo obtener el proveedor ${nuevoProveedorId} de Alegra: ${alegraError.message}`);
-    }
-
-    const nuevaCedula = nuevoProveedor.identification || 'SIN_CEDULA';
-
-    // 4. Verificar si el producto ya está asignado a este proveedor
-    const mappingExistenteConMismoProveedor = mappingsExistentes.find(
-      m => m.supplierCedula === nuevaCedula
-    );
-
-    if (mappingExistenteConMismoProveedor) {
-      console.log('⚠️ El producto ya está asignado a este proveedor. Solo actualizando metadatos...');
-
-      // Actualizar solo los metadatos sin cambiar el mapping
-      const mappingActualizado = await prisma.supplierProductMapping.update({
-        where: {
-          id: mappingExistenteConMismoProveedor.id
-        },
-        data: {
-          supplierName: nuevoProveedor.name,
-          alegraItemId: alegraIdReal,  // ✅ Usar ID REAL de Alegra
-          alegraName: productoAlegra?.name || alegraName,
-          confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual_temp',
-          lastUsedDate: new Date(),
-          timesUsed: {
-            increment: 1
-          }
-        }
-      });
-
-      // 💡 IMPORTANTE: Aunque ya existía el mapping, debemos actualizar TODOS los faltantes
-      // para que la reasignación manual tenga prioridad real en el reporte.
-      const faltantesActualizados = await asignarProveedorManual(
-        alegraReference,
-        alegraIdReal,
-        nuevoProveedor.name.trim(),
-        nuevaCedula,
-        mappingActualizado.id
-      );
-
-      console.log(`📋 ${faltantesActualizados} faltante(s) reforzados con asignación manual existente`);
-
-      return res.json({
-        success: true,
-        data: {
-          proveedorAnterior: mappingsExistentes.length > 0 ? mappingsExistentes[0].supplierName : nuevoProveedor.name,
-          nuevoProveedor: nuevoProveedor.name,
-          mapping: mappingActualizado,
-          faltantes_actualizados: faltantesActualizados,
-          mensaje: 'Proveedor ya existía, se reforzó la asignación manual'
-        },
-        message: `Producto reasignado manualmente a ${nuevoProveedor.name}`
-      });
-    }
-
-    // 4. Crear o actualizar mapping con el nuevo proveedor (sin eliminar históricos)
-    console.log('🔄 Actualizando mapping manual prioritario...');
-    let nuevoMapping;
-      try {
-      nuevoMapping = await prisma.supplierProductMapping.upsert({
-          where: {
-          supplierCedula_supplierCode: {
-            supplierCedula: nuevaCedula,
-            supplierCode: alegraReference
-          }
-        },
-        update: {
-          supplierName: nuevoProveedor.name.trim(),
-          supplierDesc: productoAlegra?.name || alegraName,
-          alegraItemId: alegraIdReal,
-          alegraReference: alegraReference,
-          alegraName: productoAlegra?.name || alegraName,
-          confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual_temp',
-          lastUsedDate: new Date(),
-          timesUsed: {
-            increment: 1
-          }
-        },
-        create: {
-          supplierName: nuevoProveedor.name.trim(),
-          supplierCedula: nuevaCedula,
-          supplierCode: alegraReference,
-          supplierDesc: productoAlegra?.name || alegraName,
-          alegraItemId: alegraIdReal,
-          alegraReference: alegraReference,
-          alegraName: productoAlegra?.name || alegraName,
-          confidence: MANUAL_MAPPING_CONFIDENCE,
-          origen: 'manual_temp',
-          timesUsed: mappingsExistentes.length > 0 ? mappingsExistentes[0].timesUsed : 1
-        }
-      });
-      console.log(`✅ Mapping manual prioritario listo: ${nuevoMapping.id}`);
-    } catch (createError) {
-      console.error('❌ Error creando/actualizando mapping:', createError.message);
-      throw new Error(`Error creando/actualizando mapping: ${createError.message}`);
-    }
-
-    console.log(`✅ Producto reasignado: ${alegraName} → ${nuevoProveedor.name}`);
-
-    // 5. 👤 ACTUALIZAR FALTANTES con asignación manual
+    // 4. Actualizar los faltantes pendientes (SIN MAPPING)
     const faltantesActualizados = await asignarProveedorManual(
-      alegraReference,
-      alegraIdReal,
-      nuevoProveedor.name.trim(),
-      nuevaCedula,
-      nuevoMapping.id
+      alegraReference, 
+      alegraIdReal, 
+      proveedor.name.trim(), 
+      proveedor.identification || 'SIN_CEDULA', 
+      null // ✅ Sin mapping ID
     );
-
-    console.log(`📋 ${faltantesActualizados} faltante(s) actualizados con asignación manual`);
 
     res.json({
       success: true,
-      data: {
-        proveedorAnterior: mappingsExistentes.length > 0 ? mappingsExistentes[0].supplierName : 'Sin_Proveedor',
-        nuevoProveedor: nuevoProveedor.name,
-        mapping: nuevoMapping,
-        mappingsEliminados: mappingsExistentes.length,
-        faltantes_actualizados: faltantesActualizados
-      },
-      message: `Producto reasignado a ${nuevoProveedor.name}`
+      message: 'Proveedor re-asignado temporalmente con éxito',
+      faltantesActualizados,
+      proveedor: proveedor.name
     });
 
   } catch (error) {
-    console.error('❌ Error reasignando proveedor:', error);
-    console.error('Tipo de error:', error.constructor.name);
-    console.error('Mensaje:', error.message);
-    console.error('Stack:', error.stack);
+    console.error('Error re-asignando proveedor:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
-      message: 'Error reasignando proveedor',
-      errorType: error.constructor.name
+      error: error.message
     });
   }
 });
