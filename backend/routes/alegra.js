@@ -29,21 +29,8 @@ const bodegaFacturasCache = {
   TTL: 5 * 60 * 1000 // 5 minutos en milisegundos
 };
 
-const ensureReimpresionSchema = (() => {
-  let ensured = false;
-  return async (query) => {
-    if (ensured) return;
-    await query(`
-      ALTER TABLE facturas_reimpresion 
-      ADD COLUMN IF NOT EXISTS categoria VARCHAR(32) DEFAULT 'requiere_cambios'
-    `);
-    await query(`
-      ALTER TABLE facturas_reimpresion 
-      ADD COLUMN IF NOT EXISTS total_ajustes INTEGER DEFAULT 0
-    `);
-    ensured = true;
-  };
-})();
+// Schema migration removed to prevent timeouts
+
 
 const determineReimpresionCategoria = (ajustesRaw = []) => {
   const ajustes = Array.isArray(ajustesRaw) ? ajustesRaw : [];
@@ -182,7 +169,8 @@ router.get('/debug/test-simple', async (req, res) => {
 router.get('/debug/database', async (req, res) => {
   try {
     const { query } = require('../config/database');
-    await ensureReimpresionSchema(query);
+    // Schema check removed
+
     
     // Test 1: Verificar conexión
     const timeResult = await query('SELECT NOW() as time');
@@ -2542,7 +2530,8 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
     console.log('📋 Generando reporte de faltantes por proveedor con mapping...');
 
     // Asegurar que la columna alegra_id exista en productos
-    await query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS alegra_id INTEGER`);
+    // Schema check removed to prevent locking
+
 
     // PASO 1: Obtener faltantes de la BD local CON ASIGNACIÓN GUARDADA
     const faltantesResult = await query(`
@@ -3141,7 +3130,8 @@ router.post('/facturas/limpiar', async (req, res) => {
     console.log(`🧹 Procesando limpieza de facturas...`);
 
     const { query } = require('../config/database');
-    await ensureReimpresionSchema(query);
+    // Schema check removed
+
 
     // Registrar procesamiento
     const procesamiento = await query(`
