@@ -203,51 +203,89 @@ class EmailService {
     /**
      * Procesa los emails encontrados
      */
-    processEmails(emailIds) {
+    async processEmails(emailIds) {
         try {
-            const fetch = this.imap.fetch(emailIds, {
-                bodies: '',
-                markSeen: false
-            });
+            console.log(`📩 Procesando ${emailIds.length} emails en lotes de 3 para proteger la BD...`);
+
+            // Dividir en lotes de 3
+            const BATCH_SIZE = 3;
+            const batches = [];
+            for (let i = 0; i < emailIds.length; i += BATCH_SIZE) {
+                batches.push(emailIds.slice(i, i + BATCH_SIZE));
+            }
 
             let emailsProcessed = 0;
             let facturesFound = 0;
 
+            for (let i = 0; i < batches.length; i++) {
+                const batch = batches[i];
+                console.log(`🔄 Procesando lote ${i + 1}/${batches.length} (${batch.length} emails)...`);
+
+                // Procesar lote actual y ESPERAR a que termine
+                const results = await this.processEmailBatch(batch);
+                
+                emailsProcessed += results.processed;
+                facturesFound += results.found;
+
+                // Pequeña pausa entre lotes para dejar respirar a la BD
+                if (i < batches.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+
+            console.log(`\n✅ Procesamiento completado:`);
+            console.log(`📧 Emails procesados: ${emailsProcessed}`);
+            console.log(`📄 Facturas encontradas: ${facturesFound}`);
+            
+            this.scheduleNextCheck();
+
+        } catch (error) {
+            console.error('❌ Error en processEmails:', error);
+            this.scheduleNextCheck();
+        }
+    }
+
+    /**
+     * Procesa un lote específico de emails
+     */
+    processEmailBatch(batchIds) {
+        return new Promise((resolve) => {
+            let processed = 0;
+            let found = 0;
+            let pending = batchIds.length;
+
+            const fetch = this.imap.fetch(batchIds, {
+                bodies: '',
+                markSeen: false
+            });
+
             fetch.on('message', (msg, seqno) => {
                 msg.on('body', (stream, info) => {
                     simpleParser(stream, async (err, parsed) => {
-                        if (err) {
-                            console.error('❌ Error parseando email:', err);
-                            return;
+                        if (!err) {
+                            const isFactura = await this.handleParsedEmail(parsed, seqno);
+                            if (isFactura) found++;
                         }
-
-                        const isFactura = await this.handleParsedEmail(parsed, seqno);
-                        if (isFactura) facturesFound++;
-
-                        emailsProcessed++;
+                        processed++;
+                        pending--;
+                        if (pending === 0) resolve({ processed, found });
                     });
                 });
             });
 
             fetch.once('error', (err) => {
-                console.error('❌ Error fetch:', err);
-                // ✅ FIX: Siempre programar siguiente revisión aunque haya error
-                this.scheduleNextCheck();
+                console.error('❌ Error fetch batch:', err);
+                resolve({ processed, found }); // Resolver aunque falle para continuar con sgte lote
             });
 
             fetch.once('end', () => {
-                console.log(`\n✅ Procesamiento completado:`);
-                console.log(`📧 Emails procesados: ${emailsProcessed}`);
-                console.log(`📄 Facturas encontradas: ${facturesFound}`);
-                
-                // Programar la próxima revisión
-                this.scheduleNextCheck();
+                // Fallback por si el conteo manual falla
+                if (pending > 0) {
+                     // Esperar un poco más por si quedan parsers pendientes
+                     setTimeout(() => resolve({ processed, found }), 5000);
+                }
             });
-        } catch (fetchError) {
-            // ✅ FIX: Capturar errores no manejados y programar siguiente revisión
-            console.error('❌ Error inesperado en processEmails:', fetchError);
-            this.scheduleNextCheck();
-        }
+        });
     }
 
     /**
