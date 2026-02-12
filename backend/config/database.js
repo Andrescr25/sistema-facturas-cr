@@ -19,10 +19,10 @@ const pool = new Pool({
   } : false,
   // Configuración adicional para Supabase con PgBouncer
   ...(isSupabase && {
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 60000, // Aumentado a 60s para soportar lentitud
     idleTimeoutMillis: 30000,
-    max: 10,
-    allowExitOnIdle: true
+    // max: 10, // Eliminado para usar el valor de DATABASE_URL (connection_limit)
+    // allowExitOnIdle: true // Comentado para mantener conexiones vivas
   })
 });
 
