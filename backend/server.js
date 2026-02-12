@@ -238,6 +238,8 @@ const server = app.listen(PORT, () => {
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
 
+  // 🚨 EMERGENCIA: Desactivado forzosamente para recuperación de BD
+  /*
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {
     console.log('\n📧 ========================================');
@@ -272,6 +274,9 @@ const server = app.listen(PORT, () => {
     console.log('\n⚠️ Sincronización de productos Alegra desactivada');
     console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
   }
+  */
+  console.log('🚨 MODO RECUPERACIÓN: Servicios de fondo (Email/Sync) desactivados permanentemente por código.');
+
 });
 
 // Manejo de cierre graceful
