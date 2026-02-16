@@ -247,33 +247,32 @@ export default function Configuracion() {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Zona de Peligro / Mantenimiento */}
-      <div className="card border-red-200">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-700">
-          <Database size={24} />
-          Mantenimiento del Sistema
-        </h2>
+        {/* Zona de Peligro / Mantenimiento */}
+        <div className="card border-red-200">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-700">
+            <Database size={24} />
+            Mantenimiento del Sistema
+          </h2>
 
-        <div className="bg-red-50 p-4 rounded-lg border border-red-100 mb-4">
-          <h3 className="font-bold text-red-800 mb-2">Limpieza Manual de Faltantes</h3>
-          <p className="text-sm text-red-700 mb-4">
-            Esta acción ejecuta la misma limpieza automática de los domingos a las 23:59.<br />
-            Utilízala si necesitas "resetear" el ciclo de pedidos manualmente (por ejemplo, lunes por la mañana).
-          </p>
+          <div className="bg-red-50 p-4 rounded-lg border border-red-100 mb-4">
+            <h3 className="font-bold text-red-800 mb-2">Limpieza Manual de Faltantes</h3>
+            <p className="text-sm text-red-700 mb-4">
+              Esta acción ejecuta la misma limpieza automática de los domingos a las 23:59.<br />
+              Utilízala si necesitas "resetear" el ciclo de pedidos manualmente (por ejemplo, lunes por la mañana).
+            </p>
 
-          <button
-            onClick={handleLimpiarFaltantes}
-            disabled={loading}
-            className="btn bg-red-600 hover:bg-red-700 text-white border-none flex items-center gap-2"
-          >
-            <Trash2 size={18} />
-            Limpiar BD Faltantes Ahora
-          </button>
+            <button
+              onClick={handleLimpiarFaltantes}
+              disabled={loading}
+              className="btn bg-red-600 hover:bg-red-700 text-white border-none flex items-center gap-2"
+            >
+              <Trash2 size={18} />
+              Limpiar BD Faltantes Ahora
+            </button>
+          </div>
         </div>
       </div>
     </div>
-    </div >
   );
 }
