@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Building2, Save, CreditCard, Database, Trash2 } from 'lucide-react';
-import alegraService from '../services/alegraService';
+import { alegraService } from '../services/alegraService';
 
 export default function Configuracion() {
   const [loading, setLoading] = useState(false);
