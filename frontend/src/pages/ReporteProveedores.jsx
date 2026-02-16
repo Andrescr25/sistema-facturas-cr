@@ -1013,15 +1013,6 @@ export default function ReporteProveedores() {
               Limpiar Cantidades ({cantidadesGuardadas.size})
             </button>
           )}
-          {proveedores.length > 0 && activeTab === 'faltantes' && (
-            <button
-              onClick={handleLimpiarVista}
-              className="btn btn-outline text-red-600 border-red-600 hover:bg-red-50"
-            >
-              <Package size={16} className="mr-2" />
-              Limpiar BD Local
-            </button>
-          )}
           {/* NUEVO: Filtro de fecha */}
           <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
             <Calendar size={16} className="text-gray-500 mr-2" />

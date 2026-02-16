@@ -8,6 +8,7 @@ require('dotenv').config();
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
 const AlegraService = require('./services/alegraService');
+const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -237,6 +238,9 @@ const server = app.listen(PORT, () => {
   console.log(`   - http://localhost:5173`);
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
+
+  // Iniciar limpieza programada (Domingos 23:59)
+  iniciarLimpiezaProgramada();
 
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {
