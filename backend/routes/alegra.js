@@ -5682,11 +5682,9 @@ router.post('/faltantes/asignar-proveedor-manual', async (req, res) => {
 
     // 3. 🆕 ACTUALIZACIÓN DIRECTA DE PRODUCTOS (LOCAL)
     // Buscamos el proveedor local por nombre para actualizar la tabla 'productos'
-    const proveedorLocal = await prisma.proveedores.findFirst({
-      where: {
-        nombre: proveedor.name
-      }
-    });
+    // CORRECCIÓN: Usar SQL directo porque prisma.proveedores no está definido en el schema
+    const resultProveedor = await query('SELECT id, nombre FROM proveedores WHERE nombre = $1', [proveedor.name]);
+    const proveedorLocal = resultProveedor.rows[0];
 
     if (proveedorLocal) {
       // Actualizamos directamente el producto para que el reporte lo refleje inmediatamente
@@ -5766,9 +5764,10 @@ router.post('/faltantes/reasignar-proveedor', async (req, res) => {
     console.log(`✅ Nuevo proveedor: ${proveedor.name}`);
 
     // 3. 🆕 ACTUALIZACIÓN DIRECTA DE PRODUCTOS (LOCAL)
-    const proveedorLocal = await prisma.proveedores.findFirst({
-      where: { nombre: proveedor.name }
-    });
+    // 3. 🆕 ACTUALIZACIÓN DIRECTA DE PRODUCTOS (LOCAL)
+    // CORRECCIÓN: Usar SQL directo porque prisma.proveedores no está definido en el schema
+    const resultProveedor = await query('SELECT id, nombre FROM proveedores WHERE nombre = $1', [proveedor.name]);
+    const proveedorLocal = resultProveedor.rows[0];
 
     if (proveedorLocal) {
       await query(`
