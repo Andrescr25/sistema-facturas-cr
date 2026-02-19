@@ -1956,6 +1956,11 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
     // ✅ FIX: Limpiar faltantes anteriores de esta factura antes de insertar los nuevos
     // para evitar duplicados y conflictos de estado (ej: completo vs parcial)
     console.log(`🧹 Limpiando faltantes anteriores para factura local ID: ${facturaLocalId}`);
+    
+    // Primero eliminar los ajustes dependientes para evitar error de foreign key
+    await query('DELETE FROM faltantes_ajustes WHERE faltante_id IN (SELECT id FROM faltantes WHERE factura_id = $1)', [facturaLocalId]);
+    
+    // Luego eliminar los faltantes
     await query('DELETE FROM faltantes WHERE factura_id = $1', [facturaLocalId]);
 
     const faltantesRegistrados = [];
