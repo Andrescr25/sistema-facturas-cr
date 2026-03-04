@@ -1,73 +1,74 @@
 import { useState, useEffect } from 'react'
-import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain, MessageCircle, Calendar } from 'lucide-react'
+import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain, MessageCircle, Calendar, ArrowLeft } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 
 export default function ReporteProveedores() {
   const [proveedores, setProveedores] = useState([])
   const [resumen, setResumen] = useState(null)
-  const [encargosEspeciales, setEncargosEspeciales] = useState([]) // ✅ AGREGADO
+  const [encargosEspeciales, setEncargosEspeciales] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('faltantes') // 'faltantes' | 'modificar' | 'cantidad-sugerida'
+
+  // NUEVO: Navegación Principal
+  const [proveedorActivoId, setProveedorActivoId] = useState(null)
+
   const [cantidadesModificadas, setCantidadesModificadas] = useState(new Map())
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
-  const [cantidadSugerida, setCantidadSugerida] = useState([]) // Datos de cantidad sugerida
-  const [resumenSugerida, setResumenSugerida] = useState(null) // Resumen de cantidad sugerida
-  const [proveedorSeleccionado, setProveedorSeleccionado] = useState('') // Proveedor seleccionado para filtro
-  const [proveedorQuery, setProveedorQuery] = useState('') // NUEVO: búsqueda proveedores
-  const [proveedoresColapsados, setProveedoresColapsados] = useState(new Set()) // NUEVO: colapsables
+  const [cantidadSugerida, setCantidadSugerida] = useState([])
+  const [resumenSugerida, setResumenSugerida] = useState(null)
+  const [proveedorQuery, setProveedorQuery] = useState('')
+  const [fechaInicio, setFechaInicio] = useState('')
 
-  // ✅ NUEVO: Estados para modal de asignar proveedor
+  // Estados Modal Asignar Lotes
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false)
-  const [productoParaAsignar, setProductoParaAsignar] = useState(null)
   const [proveedoresAlegra, setProveedoresAlegra] = useState([])
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
-  const [fechaInicio, setFechaInicio] = useState('') // NUEVO: filtro fecha inicio
-
-  // ✅ NUEVO: Estados para asignación en lote
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
   const [preferenciasDatosProveedor, setPreferenciasDatosProveedor] = useState({})
 
-  // ✅ NUEVO: Estados para edición de orden de compra
-  const [productosEliminados, setProductosEliminados] = useState(new Set()) // Set de códigos eliminados
-  const [productosAgregados, setProductosAgregados] = useState(new Map()) // Map<proveedorNombre, [{producto, cantidad}]>
+  // Estados Edición Manual
+  const [productosEliminados, setProductosEliminados] = useState(new Set())
+  const [productosAgregados, setProductosAgregados] = useState(new Map())
   const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
   const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [productosAlegra, setProductosAlegra] = useState([])
   const [loadingProductos, setLoadingProductos] = useState(false)
 
-  // ✅ NUEVO: Estados para modal de WhatsApp
+  // Estados WhatsApp
   const [modalWhatsAppVisible, setModalWhatsAppVisible] = useState(false)
   const [proveedorParaWhatsApp, setProveedorParaWhatsApp] = useState(null)
   const [telefonoProveedor, setTelefonoProveedor] = useState('')
 
   useEffect(() => {
     loadReporte()
-    if (activeTab === 'modificar') {
-      loadCantidadesGuardadas()
-    } else if (activeTab === 'cantidad-sugerida' && proveedorSeleccionado && proveedorSeleccionado !== '') {
-      loadCantidadSugerida(proveedorSeleccionado)
+    loadCantidadesGuardadas()
+  }, [fechaInicio])
+
+  // Cargar cantidad sugerida automáticamente cuando entramos a un proveedor
+  useEffect(() => {
+    if (proveedorActivoId) {
+      loadCantidadSugerida(proveedorActivoId)
+    } else {
+      setCantidadSugerida([])
+      setResumenSugerida(null)
     }
-  }, [activeTab, proveedorSeleccionado, fechaInicio]) // Recargar al cambiar fechaInicio
+  }, [proveedorActivoId])
 
   const loadReporte = async () => {
     try {
       setLoading(true)
       setError(null)
-
       const result = await alegraService.getReporteFaltantesProveedor(fechaInicio)
 
       if (result.success) {
-        setProveedores(result.data)
+        // Filtrar proveedores que NO tienen productos para limpiar la vista principal
+        const proveedoresConProductos = result.data.filter(p => p.productos_faltantes && p.productos_faltantes.length > 0)
+        setProveedores(proveedoresConProductos)
         setResumen(result.resumen)
-        // Colapsar todos los proveedores por defecto
-        setProveedoresColapsados(new Set(result.data.map(p => p.id)))
-
-        // ✅ AGREGADO: Cargar encargos especiales
         loadEncargosEspeciales()
       } else {
         setError(result.message || 'Error cargando reporte')
@@ -79,17 +80,77 @@ export default function ReporteProveedores() {
     }
   }
 
-  // ✅ AGREGADO: Función para cargar encargos especiales
   const loadEncargosEspeciales = async () => {
     try {
       const result = await alegraService.getEncargosEspeciales()
-
-
       if (result.success) {
         setEncargosEspeciales(result.data)
       }
     } catch (err) {
       console.warn('Error cargando encargos especiales:', err)
+    }
+  }
+
+  const loadCantidadesGuardadas = async () => {
+    try {
+      const result = await alegraService.getCantidadesModificadas()
+      if (result.success) {
+        const cantidadesMap = new Map()
+        result.modificadas?.forEach(item => {
+          const key = \`\${item.proveedor_nombre}-\${item.producto_codigo}\`
+          cantidadesMap.set(key, {
+            cantidad_original: item.cantidad_original,
+            cantidad_modificada: item.cantidad_modificada
+          })
+        })
+        setCantidadesGuardadas(cantidadesMap)
+
+        const eliminados = new Set()
+        result.eliminadas?.forEach(item => {
+          const key = \`\${item.proveedor_nombre}-\${item.producto_codigo}\`
+          eliminados.add(key)
+        })
+        setProductosEliminados(eliminados)
+
+        const agregados = new Map()
+        result.agregadas?.forEach(item => {
+          const proveedorNombre = item.proveedor_nombre
+          const productosDelProveedor = agregados.get(proveedorNombre) || []
+          productosDelProveedor.push({
+            codigo: item.producto_codigo,
+            nombre: item.producto_nombre,
+            cantidad: item.cantidad_modificada,
+            agregadoManual: true
+          })
+          agregados.set(proveedorNombre, productosDelProveedor)
+        })
+        setProductosAgregados(agregados)
+      }
+    } catch (err) {
+      console.warn('Error cargando cantidades guardadas:', err)
+    }
+  }
+
+  const loadCantidadSugerida = async (proveedor_id) => {
+    if (!proveedor_id || proveedor_id === 'null' || proveedor_id === 'undefined') {
+      setCantidadSugerida([])
+      setResumenSugerida(null)
+      return
+    }
+
+    try {
+      const result = await alegraService.getCantidadSugerida(proveedor_id)
+      if (result.success) {
+        setCantidadSugerida(result.data)
+        setResumenSugerida(result.resumen)
+      } else {
+        setCantidadSugerida([])
+        setResumenSugerida(null)
+      }
+    } catch (err) {
+      console.error('Error cargando cantidad sugerida:', err)
+      setCantidadSugerida([])
+      setResumenSugerida(null)
     }
   }
 
@@ -105,89 +166,9 @@ export default function ReporteProveedores() {
     }))
   }
 
-  const loadCantidadesGuardadas = async () => {
-    try {
-      const result = await alegraService.getCantidadesModificadas()
-
-      if (result.success) {
-        // Cargar cantidades modificadas
-        const cantidadesMap = new Map()
-        result.modificadas?.forEach(item => {
-          const key = `${item.proveedor_nombre}-${item.producto_codigo}`
-          cantidadesMap.set(key, {
-            cantidad_original: item.cantidad_original,
-            cantidad_modificada: item.cantidad_modificada
-          })
-        })
-        setCantidadesGuardadas(cantidadesMap)
-
-        // Cargar productos eliminados
-        const eliminados = new Set()
-        result.eliminadas?.forEach(item => {
-          const key = `${item.proveedor_nombre}-${item.producto_codigo}`
-          eliminados.add(key)
-        })
-        setProductosEliminados(eliminados)
-
-        // Cargar productos agregados
-        const agregados = new Map()
-        result.agregadas?.forEach(item => {
-          const proveedorNombre = item.proveedor_nombre
-          const productosDelProveedor = agregados.get(proveedorNombre) || []
-          productosDelProveedor.push({
-            codigo: item.producto_codigo,
-            nombre: item.producto_nombre,
-            cantidad: item.cantidad_modificada,
-            agregadoManual: true
-          })
-          agregados.set(proveedorNombre, productosDelProveedor)
-        })
-        setProductosAgregados(agregados)
-
-        console.log(`✅ Cargadas: ${result.modificadas?.length || 0} modificadas, ${result.eliminadas?.length || 0} eliminadas, ${result.agregadas?.length || 0} agregadas`)
-      }
-    } catch (err) {
-      console.warn('Error cargando cantidades guardadas:', err)
-    }
-  }
-
-  const loadCantidadSugerida = async (proveedor_id) => {
-    if (!proveedor_id || proveedor_id === 'null' || proveedor_id === 'undefined') {
-      setCantidadSugerida([])
-      setResumenSugerida(null)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-
-      console.log('🧠 Frontend: Cargando cantidad sugerida para proveedor:', proveedor_id)
-      const result = await alegraService.getCantidadSugerida(proveedor_id)
-
-      if (result.success) {
-        setCantidadSugerida(result.data)
-        setResumenSugerida(result.resumen)
-        console.log('✅ Frontend: Cantidad sugerida cargada:', result.data.length, 'productos')
-      } else {
-        setError(result.message || 'Error cargando cantidad sugerida')
-        setCantidadSugerida([])
-        setResumenSugerida(null)
-      }
-    } catch (err) {
-      console.error('❌ Frontend: Error cargando cantidad sugerida:', err)
-      setError(err.message)
-      setCantidadSugerida([])
-      setResumenSugerida(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleCantidadChange = (proveedorNombre, productoCodigo, nuevaCantidad) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+    const key = \`\${proveedorNombre}-\${productoCodigo}\`
     const cantidadNum = parseInt(nuevaCantidad) || 0
-
     const nuevasCantidades = new Map(cantidadesModificadas)
     nuevasCantidades.set(key, cantidadNum)
     setCantidadesModificadas(nuevasCantidades)
@@ -201,15 +182,11 @@ export default function ReporteProveedores() {
 
     try {
       setLoading(true)
-
-      // Preparar datos para enviar
       const cantidadesParaGuardar = []
-
       proveedores.forEach(proveedor => {
         proveedor.productos_faltantes.forEach(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
+          const key = \`\${proveedor.nombre}-\${producto.codigo}\`
           const cantidadModificada = cantidadesModificadas.get(key)
-
           if (cantidadModificada !== undefined) {
             cantidadesParaGuardar.push({
               proveedor_nombre: proveedor.nombre,
@@ -223,172 +200,132 @@ export default function ReporteProveedores() {
       })
 
       const result = await alegraService.guardarCantidadesModificadas(cantidadesParaGuardar)
-
       if (result.success) {
-        // Actualizar cantidades guardadas
         await loadCantidadesGuardadas()
-        // Limpiar cantidades temporales
         setCantidadesModificadas(new Map())
-
-        alert(`✅ Cantidades guardadas correctamente\n\n• ${result.cantidades_guardadas} productos actualizados`)
+        alert(\`✅ Cantidades guardadas correctamente\\n\\n• \${result.cantidades_guardadas} productos actualizados\`)
       } else {
-        alert(`❌ Error guardando cantidades: ${result.message}`)
+        alert(\`❌ Error guardando cantidades: \${result.message}\`)
       }
-
     } catch (error) {
-      alert(`❌ Error guardando cantidades: ${error.message}`)
+      alert(\`❌ Error guardando cantidades: \${error.message}\`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleLimpiarCantidadesGuardadas = async () => {
-    if (cantidadesGuardadas.size === 0) {
-      alert('ℹ️ No hay cantidades guardadas para limpiar.')
-      return
-    }
-
-    const resumen = `🗑️ Limpiar cantidades modificadas:
-
-- Se eliminarán ${cantidadesGuardadas.size} productos con cantidades modificadas
-- Las cantidades volverán a los valores originales de faltantes
-- Esta acción es irreversible
-
-¿Continuar?`
-
-    if (!window.confirm(resumen)) {
-      return
-    }
+    if (cantidadesGuardadas.size === 0) return
+    if (!window.confirm('¿Deseas volver las cantidades modificadas a sus valores originales?')) return
 
     try {
       setLoading(true)
-
       const result = await alegraService.limpiarCantidadesModificadas()
-
       if (result.success) {
         setCantidadesGuardadas(new Map())
         setCantidadesModificadas(new Map())
-
-        alert(`✅ Cantidades limpiadas correctamente\n\n• ${result.registros_eliminados} registros eliminados`)
-      } else {
-        alert(`❌ Error limpiando cantidades: ${result.message}`)
+        alert('Cantidades restauradas.')
       }
-
     } catch (error) {
-      alert(`❌ Error limpiando cantidades: ${error.message}`)
+      alert(\`Error reseteando cantidades: \${error.message}\`)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleGenerarPDF = async (proveedor) => {
+  const handleGenerarPDF = async (proveedor, source = 'orden') => {
     try {
       setLoading(true)
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
+      let productosParaPDF = []
 
-      // Preparar datos del proveedor con cantidades finales
-      const productosParaPDF = proveedor.productos_faltantes
-        .filter(producto => {
-          // ✅ FILTRAR productos eliminados
-          const key = `${proveedor.nombre}-${producto.codigo}`
-          return !productosEliminados.has(key)
+      if (source === 'orden') {
+        productosParaPDF = proveedor.productos_faltantes
+          .filter(producto => !productosEliminados.has(\`\${proveedor.nombre}-\${producto.codigo}\`))
+          .map(producto => {
+            const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+            const mod = cantidadesModificadas.get(key)
+            const guardada = cantidadesGuardadas.get(key)
+            const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
+            const factorConversion = producto.factor_conversion || 1
+            const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
+            
+            return {
+              codigo: producto.codigo_proveedor || producto.codigo,
+              nombre: producto.nombre_proveedor || producto.nombre,
+              codigoInterno: producto.codigo,
+              nombreInterno: producto.nombre,
+              codigoProveedor: producto.codigo_proveedor || null,
+              nombreProveedor: producto.nombre_proveedor || producto.nombre,
+              cantidad: cantProv,
+              cantidadOriginal: cantFinal,
+              factorConversion: factorConversion,
+              observaciones: producto.observaciones || '',
+              descripcionFactura: producto.descripcion_factura || ''
+            }
+          })
+          .filter(p => p.cantidad > 0)
+        
+        const agregados = productosAgregados.get(proveedor.nombre) || []
+        agregados.forEach(p => {
+          productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
         })
-        .map(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
-          const cantidadModificada = cantidadesModificadas.get(key)
-          const cantidadGuardada = cantidadesGuardadas.get(key)
 
-          // Prioridad: modificada > guardada > original
-          const cantidadFinal = cantidadModificada !== undefined ?
-            cantidadModificada :
-            (cantidadGuardada ? cantidadGuardada.cantidad_modificada : producto.cantidad_faltante)
-
-          // ✅ APLICAR CONVERSIÓN INVERSA: cantidad en tu sistema → cantidad para proveedor
-          // Factor = cantidadMia / cantidadProveedor
-          // CantidadProveedor = cantidadMia / factor
-          const factorConversion = producto.factor_conversion || 1
-          const cantidadParaProveedor = factorConversion !== 1
-            ? Math.ceil(cantidadFinal / factorConversion) // Redondear hacia arriba
-            : cantidadFinal
-
-          return {
-            codigo: producto.codigo_proveedor || producto.codigo, // ✅ PRIORIDAD: Código Proveedor
-            nombre: producto.nombre_proveedor || producto.nombre, // ✅ PRIORIDAD: Nombre Proveedor
-            codigoInterno: producto.codigo,
-            nombreInterno: producto.nombre,
-            codigoProveedor: producto.codigo_proveedor || null,
-            nombreProveedor: producto.nombre_proveedor || producto.nombre,
-            mappingId: producto.mapping_id || null,
-            alegraItemId: producto.alegra_item_id || null,
-            cantidad: cantidadParaProveedor, // ← Cantidad convertida para el proveedor
-            cantidadOriginal: cantidadFinal, // ← Cantidad en tu sistema (para referencia)
-            factorConversion: factorConversion,
-            observaciones: producto.observaciones || '', // ← Observaciones del producto
-            descripcionFactura: producto.descripcion_factura || '' // ← Descripción de la factura
-          }
-        })
-        .filter(p => p.cantidad > 0) // ✅ FIX: Filtrar items con cantidad 0
-
-      // ✅ AGREGAR productos agregados manualmente
-      const productosAgregadosDelProveedor = productosAgregados.get(proveedor.nombre) || []
-      productosAgregadosDelProveedor.forEach(p => {
-        productosParaPDF.push({
-          codigo: p.codigo,
-          nombre: p.nombre,
-          cantidad: p.cantidad
-        })
-      })
+      } else if (source === 'sugerida') {
+        productosParaPDF = cantidadSugerida.map(p => ({
+          codigo: p.codigo_proveedor || p.producto_codigo,
+          nombre: p.nombre_proveedor || p.producto_nombre,
+          codigoInterno: p.producto_codigo,
+          nombreInterno: p.producto_nombre,
+          codigoProveedor: p.codigo_proveedor || null,
+          nombreProveedor: p.nombre_proveedor || p.producto_nombre,
+          cantidad: p.cantidad_sugerida,
+          observaciones: p.observaciones || '',
+          descripcionFactura: p.descripcion_factura || ''
+        }))
+      }
 
       if (productosParaPDF.length === 0) {
         alert('⚠️ No hay productos para generar la orden de compra')
         return
       }
 
-      // ✅ OBTENER BLOB DIRECTAMENTE
       const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
-
-      // ✅ CREAR URL Y DESCARGAR
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `orden-compra-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
+      const typeStr = source === 'sugerida' ? 'sugerida' : 'orden'
+      a.download = \`\${typeStr}-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf\`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
 
-      alert(`✅ PDF generado para ${proveedor.nombre}`)
-
+      alert(\`✅ PDF generado para \${proveedor.nombre}\`)
     } catch (error) {
-      alert(`❌ Error generando PDF: ${error.message}`)
+      alert(\`❌ Error generando PDF: \${error.message}\`)
     } finally {
       setLoading(false)
     }
   }
 
-  // ✅ NUEVO: Abrir modal de WhatsApp
   const abrirModalWhatsApp = async (proveedor) => {
     setProveedorParaWhatsApp(proveedor)
     setModalWhatsAppVisible(true)
-
-    // ✅ Cargar teléfono desde DB (primero intenta DB, luego localStorage como fallback)
     try {
       const telefonoDB = await alegraService.getTelefonoProveedor(proveedor.nombre)
       if (telefonoDB) {
         setTelefonoProveedor(telefonoDB)
       } else {
-        // Fallback a localStorage si no hay en DB
-        const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
+        const telefonoLocal = localStorage.getItem(\`whatsapp_tel_\${proveedor.nombre}\`)
         setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
       }
     } catch (error) {
-      console.error('Error cargando teléfono:', error)
-      const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
+      const telefonoLocal = localStorage.getItem(\`whatsapp_tel_\${proveedor.nombre}\`)
       setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
     }
   }
 
-  // ✅ NUEVO: Enviar a WhatsApp
   const enviarWhatsApp = async () => {
     if (!telefonoProveedor.trim()) {
       alert('⚠️ Ingresa el número de teléfono del proveedor')
@@ -400,50 +337,29 @@ export default function ReporteProveedores() {
       const proveedor = proveedorParaWhatsApp
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
 
-      // Preparar datos del proveedor con cantidades finales (misma lógica que handleGenerarPDF)
       const productosParaPDF = proveedor.productos_faltantes
-        .filter(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
-          return !productosEliminados.has(key)
-        })
+        .filter(producto => !productosEliminados.has(\`\${proveedor.nombre}-\${producto.codigo}\`))
         .map(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
-          const cantidadModificada = cantidadesModificadas.get(key)
-          const cantidadGuardada = cantidadesGuardadas.get(key)
-          const cantidadFinal = cantidadModificada !== undefined ?
-            cantidadModificada :
-            (cantidadGuardada ? cantidadGuardada.cantidad_modificada : producto.cantidad_faltante)
+          const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+          const mod = cantidadesModificadas.get(key)
+          const guardada = cantidadesGuardadas.get(key)
+          const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
           const factorConversion = producto.factor_conversion || 1
-          const cantidadParaProveedor = factorConversion !== 1
-            ? Math.ceil(cantidadFinal / factorConversion)
-            : cantidadFinal
+          const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
 
           return {
-            codigo: producto.codigo_proveedor || producto.codigo, // ✅ PRIORIDAD: Código Proveedor
-            nombre: producto.nombre_proveedor || producto.nombre, // ✅ PRIORIDAD: Nombre Proveedor
-            codigoInterno: producto.codigo,
-            nombreInterno: producto.nombre,
-            codigoProveedor: producto.codigo_proveedor || null,
-            nombreProveedor: producto.nombre_proveedor || producto.nombre,
-            mappingId: producto.mapping_id || null,
-            alegraItemId: producto.alegra_item_id || null,
-            cantidad: cantidadParaProveedor,
-            cantidadOriginal: cantidadFinal,
+            codigo: producto.codigo_proveedor || producto.codigo,
+            nombre: producto.nombre_proveedor || producto.nombre,
+            cantidad: cantProv,
             factorConversion: factorConversion,
             observaciones: producto.observaciones || '',
             descripcionFactura: producto.descripcion_factura || ''
           }
-        })
-        .filter(p => p.cantidad > 0) // ✅ FIX: Filtrar items con cantidad 0
+        }).filter(p => p.cantidad > 0)
 
-      // Agregar productos agregados manualmente
-      const productosAgregadosDelProveedor = productosAgregados.get(proveedor.nombre) || []
-      productosAgregadosDelProveedor.forEach(p => {
-        productosParaPDF.push({
-          codigo: p.codigo,
-          nombre: p.nombre,
-          cantidad: p.cantidad
-        })
+      const agregados = productosAgregados.get(proveedor.nombre) || []
+      agregados.forEach(p => {
+        productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
       })
 
       if (productosParaPDF.length === 0) {
@@ -451,199 +367,88 @@ export default function ReporteProveedores() {
         return
       }
 
-      // Generar PDF
       const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
-
-      // Descargar el PDF primero
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `orden-compra-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
+      a.download = \`orden-compra-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf\`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
 
-      // Formatear número de teléfono (quitar espacios, guiones, etc.)
-      let telefono = telefonoProveedor.replace(/[\s\-\(\)]/g, '')
-      // Si no empieza con + o código de país, asumir Costa Rica (+506)
-      if (!telefono.startsWith('+') && !telefono.startsWith('506')) {
-        telefono = '506' + telefono
-      }
-      if (telefono.startsWith('+')) {
-        telefono = telefono.substring(1)
-      }
+      let telefono = telefonoProveedor.replace(/[\\s\\-\\(\\)]/g, '')
+      if (!telefono.startsWith('+') && !telefono.startsWith('506')) telefono = '506' + telefono
+      if (telefono.startsWith('+')) telefono = telefono.substring(1)
 
-      // Mensaje predefinido
-      const mensaje = encodeURIComponent(`Hola buenas, me puedes hacer proforma de esto, Gracias`)
-
-      // ✅ FIX: Delay de 3 segundos para que el PDF termine de descargarse antes de abrir WhatsApp
+      const mensaje = encodeURIComponent(\`Hola buenas, me puedes hacer proforma de esto, Gracias\`)
+      
       alert('📥 Descargando PDF... WhatsApp se abrirá en 7 segundos.')
-
       await new Promise(resolve => setTimeout(resolve, 7000))
-
-      // Abrir WhatsApp después del delay
-      const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
+      
+      const whatsappUrl = \`https://wa.me/\${telefono}?text=\${mensaje}\`
       window.open(whatsappUrl, '_blank')
 
-      // ✅ Guardar teléfono en DB para próximas veces (y localStorage como backup)
       try {
         await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
-        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
-      } catch (saveError) {
-        console.error('Error guardando teléfono:', saveError)
-        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
+        localStorage.setItem(\`whatsapp_tel_\${proveedor.nombre}\`, telefonoProveedor)
+      } catch (e) {
+        localStorage.setItem(\`whatsapp_tel_\${proveedor.nombre}\`, telefonoProveedor)
       }
 
       setModalWhatsAppVisible(false)
-      alert(`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.`)
-
+      alert(\`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.\`)
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // NUEVO: Generar PDF desde Cantidad Sugerida
-  const handleGenerarPDFDesdeSugerida = async () => {
-    if (!proveedorSeleccionado || cantidadSugerida.length === 0) {
-      alert('Seleccione un proveedor con datos para generar el PDF')
-      return
-    }
-
-    const proveedor = proveedores.find(p => String(p.id) === String(proveedorSeleccionado))
-    if (!proveedor) {
-      alert('Proveedor no encontrado')
-      return
-    }
-
-    try {
-      setLoading(true)
-
-      const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
-
-      const productosParaPDF = cantidadSugerida.map(p => ({
-        codigo: p.codigo_proveedor || p.producto_codigo, // ✅ PRIORIDAD: Código Proveedor
-        nombre: p.nombre_proveedor || p.producto_nombre, // ✅ PRIORIDAD: Nombre Proveedor
-        codigoInterno: p.producto_codigo,
-        nombreInterno: p.producto_nombre,
-        codigoProveedor: p.codigo_proveedor || null,
-        nombreProveedor: p.nombre_proveedor || p.producto_nombre,
-        mappingId: p.mapping_id || null,
-        alegraItemId: p.alegra_item_id || null,
-        cantidad: p.cantidad_sugerida,
-        observaciones: p.observaciones || '', // ← Observaciones del producto
-        descripcionFactura: p.descripcion_factura || '' // ← Descripción de la factura
-      }))
-
-      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
-
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `orden-compra-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-
-      alert(`✅ PDF generado para ${proveedor.nombre}`)
-    } catch (error) {
-      alert(`❌ Error generando PDF: ${error.message}`)
+      alert(\`❌ Error: \${error.message}\`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleLimpiarVista = async () => {
-    if (proveedores.length === 0) {
-      alert('ℹ️ No hay datos para limpiar.')
-      return
-    }
-
-    const resumenLimpieza = `🗑️ ELIMINAR DEFINITIVAMENTE de la base de datos LOCAL:
-
-- ${proveedores.length} proveedores con faltantes
-- ${resumen?.total_productos_faltantes || 0} productos faltantes  
-- ${resumen?.total_cantidad_faltante || 0} unidades faltantes
-
-⚠️ ATENCIÓN:
-- Se eliminarán los faltantes pendientes (vista Proveedores)
-- También se limpiarán los faltantes procesados (vista Clientes)
-- Se quitarán estados pendientes manuales y observaciones asociadas
-
-¿Proceder con la eliminación?`
-
-    if (!window.confirm(resumenLimpieza)) {
-      return
-    }
+    if (proveedores.length === 0) return
+    if (!window.confirm('⚠️ ATENCIÓN:\\nSe eliminarán los faltantes pendientes localmente. ¿Proceder?')) return
 
     try {
       setLoading(true)
-
-      const resultado = await alegraService.limpiarFaltantesProveedor()
-
-      // Limpiar estados locales
+      await alegraService.limpiarFaltantesProveedor()
       setProveedores([])
       setResumen(null)
-      setEncargosEspeciales([]) // ✅ AGREGADO: Limpiar también encargos especiales
-
-      alert(`✅ Datos eliminados de la base de datos LOCAL
-
-• ${resultado.datos_borrados || 0} faltantes pendientes borrados
-• ${resultado.procesados_borrados || 0} faltantes procesados borrados
-• ${resultado.ajustes_eliminados || 0} ajustes asociados eliminados
-• ${resultado.facturas_pendientes_eliminadas || 0} facturas pendientes liberadas
-
-🧹 Reporte de Proveedores y Clientes quedan sincronizados.`)
-
+      setEncargosEspeciales([])
+      alert('✅ Datos eliminados localmente.')
     } catch (error) {
-      alert(`❌ Error eliminando datos: ${error.message}`)
+      alert(\`❌ Error eliminando datos: \${error.message}\`)
     } finally {
       setLoading(false)
     }
   }
 
   const getCantidadFinal = (proveedorNombre, productoCodigo, cantidadOriginal) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+    const key = \`\${proveedorNombre}-\${productoCodigo}\`
     const cantidadModificada = cantidadesModificadas.get(key)
     const cantidadGuardada = cantidadesGuardadas.get(key)
-
-    // Prioridad: modificada > guardada > original
-    return cantidadModificada !== undefined ?
-      cantidadModificada :
-      (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
+    return cantidadModificada !== undefined ? cantidadModificada : (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
   }
 
-  // ✅ NUEVO: Toggle selección de producto
+  // Selección de Múltiples Productos
   const toggleProductoSeleccionado = (codigo) => {
     const nuevaSeleccion = new Set(productosSeleccionados)
-    if (nuevaSeleccion.has(codigo)) {
-      nuevaSeleccion.delete(codigo)
-    } else {
-      nuevaSeleccion.add(codigo)
-    }
+    if (nuevaSeleccion.has(codigo)) nuevaSeleccion.delete(codigo); else nuevaSeleccion.add(codigo)
     setProductosSeleccionados(nuevaSeleccion)
   }
 
-  // ✅ ACTUALIZADO: Seleccionar/Deseleccionar todos (funciona con TODOS los proveedores)
   const toggleTodosProductos = (proveedor) => {
     const todosCodigos = proveedor.productos_faltantes.map(p => p.codigo)
     const todosSeleccionados = todosCodigos.every(codigo => productosSeleccionados.has(codigo))
-
     const nuevaSeleccion = new Set(productosSeleccionados)
     if (todosSeleccionados) {
-      // Deseleccionar todos
       todosCodigos.forEach(codigo => nuevaSeleccion.delete(codigo))
     } else {
-      // Seleccionar todos
       todosCodigos.forEach(codigo => nuevaSeleccion.add(codigo))
     }
     setProductosSeleccionados(nuevaSeleccion)
   }
 
-  // ✅ NUEVO: Abrir modal para asignar proveedor (ahora para múltiples productos)
   const abrirModalAsignar = async () => {
     if (productosSeleccionados.size === 0) {
       alert('⚠️ Selecciona al menos un producto')
@@ -654,190 +459,108 @@ export default function ReporteProveedores() {
     await cargarProveedoresAlegra('')
   }
 
-  // ✅ NUEVO: Cargar proveedores de Alegra
   const cargarProveedoresAlegra = async (busqueda) => {
     try {
       setLoadingProveedores(true)
-
-      console.log('🔍 Cargando proveedores con búsqueda:', busqueda)
-      console.log('🔗 Base URL configurada:', api.defaults.baseURL)
-
-      // Usar api configurado que apunta al backend correcto
-      const response = await api.get(`/alegra/proveedores`, {
-        params: { busqueda }
-      })
-
-      console.log('✅ Respuesta recibida:', response.data)
-
+      const response = await api.get(\`/alegra/proveedores\`, { params: { busqueda } })
       if (response.data.success) {
         setProveedoresAlegra(response.data.data)
       } else {
         alert('Error cargando proveedores: ' + response.data.message)
       }
     } catch (error) {
-      console.error('❌ Error cargando proveedores:', error)
-      console.error('URL intentada:', error.config?.url)
-      console.error('Base URL:', error.config?.baseURL)
-      alert(`❌ Error: ${error.message}\n\nURL: ${error.config?.baseURL}${error.config?.url}`)
+      alert(\`❌ Error: \${error.message}\`)
     } finally {
       setLoadingProveedores(false)
     }
   }
 
-  // ✅ NUEVO: Asignar proveedor manualmente (ahora soporta múltiples productos)
   const asignarProveedorManual = async (proveedorId) => {
     if (productosSeleccionados.size === 0) return
-
     try {
       setLoading(true)
-
-      // Obtener información completa de los productos seleccionados de TODOS los proveedores
       const productosAAsignar = []
-
       proveedores.forEach(proveedor => {
-        const productosDelProveedor = proveedor.productos_faltantes.filter(p =>
-          productosSeleccionados.has(p.codigo)
-        )
-
-        productosDelProveedor.forEach(producto => {
-          productosAAsignar.push({
-            producto,
-            proveedorActual: proveedor.nombre
-          })
-        })
+        const prod = proveedor.productos_faltantes.filter(p => productosSeleccionados.has(p.codigo))
+        prod.forEach(p => productosAAsignar.push({ producto: p, proveedorActual: proveedor.nombre }))
       })
 
-      if (productosAAsignar.length === 0) {
-        alert('⚠️ No se encontraron productos seleccionados')
-        return
-      }
-
-      console.log(`🔄 Asignando ${productosAAsignar.length} productos al proveedor ${proveedorId}`)
-
-      // Procesar en lotes de 3 para evitar saturar la conexión de BD
+      if (productosAAsignar.length === 0) return
+      
       const BATCH_SIZE = 3
       const resultados = []
 
       for (let i = 0; i < productosAAsignar.length; i += BATCH_SIZE) {
         const lote = productosAAsignar.slice(i, i + BATCH_SIZE)
-        console.log(`📦 Procesando lote ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(productosAAsignar.length / BATCH_SIZE)}`)
-
         const promesasLote = lote.map(({ producto, proveedorActual }) => {
-          const esReasignacion = proveedorActual !== 'Sin_Proveedor'
-          const endpoint = esReasignacion
-            ? '/alegra/faltantes/reasignar-proveedor'
-            : '/alegra/faltantes/asignar-proveedor-manual'
-
-          const body = esReasignacion ? {
+          const body = {
             alegraReference: producto.codigo,
             alegraItemId: producto.alegra_item_id || producto.codigo,
             alegraName: producto.nombre,
-            nuevoProveedorId: proveedorId
-          } : {
-            alegraReference: producto.codigo,
-            alegraItemId: producto.alegra_item_id || producto.codigo,
-            alegraName: producto.nombre,
-            proveedorId: proveedorId
+            [proveedorActual !== 'Sin_Proveedor' ? 'nuevoProveedorId' : 'proveedorId']: proveedorId
           }
-
-          return api.post(endpoint, body).catch(err => ({
-            data: { success: false },
-            error: err
-          }))
+          const endpoint = proveedorActual !== 'Sin_Proveedor' ? '/alegra/faltantes/reasignar-proveedor' : '/alegra/faltantes/asignar-proveedor-manual'
+          return api.post(endpoint, body).catch(err => ({ data: { success: false } }))
         })
-
-        const resultadosLote = await Promise.all(promesasLote)
-        resultados.push(...resultadosLote)
-
-        // Pequeña pausa entre lotes para no saturar
-        if (i + BATCH_SIZE < productosAAsignar.length) {
-          await new Promise(resolve => setTimeout(resolve, 300))
-        }
+        resultados.push(...(await Promise.all(promesasLote)))
       }
 
       const exitosos = resultados.filter(r => r.data?.success).length
-      const fallidos = resultados.length - exitosos
-
       if (exitosos > 0) {
-        alert(`✅ ${exitosos} producto(s) asignado(s) correctamente${fallidos > 0 ? `\n⚠️ ${fallidos} fallaron` : ''}`)
+        alert(\`✅ \${exitosos} producto(s) asignado(s)\`)
         setModalAsignarVisible(false)
-        setProductosSeleccionados(new Set()) // Limpiar selección
-        await loadReporte() // Recargar para ver cambios
-      } else {
-        alert(`❌ No se pudo asignar ningún producto`)
+        setProductosSeleccionados(new Set())
+        await loadReporte()
       }
     } catch (error) {
-      console.error('Error asignando proveedor:', error)
-      alert('Error asignando proveedor manualmente: ' + error.message)
+      alert('Error asignando proveedor: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
-  // ✅ NUEVO: Crear nuevo proveedor
   const crearNuevoProveedor = async (datosProveedor) => {
     try {
       setLoading(true)
-
       const response = await api.post('/alegra/proveedores', datosProveedor)
-
       if (response.data.success) {
-        alert(`✅ Proveedor creado: ${response.data.data.name}`)
+        alert(\`✅ Proveedor creado: \${response.data.data.name}\`)
         setModalCrearProveedor(false)
-        // Asignar automáticamente el nuevo proveedor
         await asignarProveedorManual(response.data.data.id)
       } else {
-        alert(`❌ Error: ${response.data.message}`)
+        alert(\`❌ Error: \${response.data.message}\`)
       }
     } catch (error) {
-      console.error('Error creando proveedor:', error)
-      alert('Error creando proveedor en Alegra: ' + error.message)
+      alert('Error creando proveedor: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
-  // ✅ NUEVO: Eliminar producto de la orden
   const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+    const key = \`\${proveedorNombre}-\${productoCodigo}\`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.add(key)
     setProductosEliminados(nuevosEliminados)
 
-    // Guardar en BD
     try {
-      await api.post('/alegra/orden-compra/producto-eliminado', {
-        proveedorNombre,
-        productoCodigo,
-        productoNombre,
-        cantidadOriginal: cantidadOriginal || 0
-      })
-      console.log(`🗑️ Producto eliminado y guardado en BD: ${key} (cantidad: ${cantidadOriginal})`)
+      await api.post('/alegra/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
     } catch (error) {
-      console.error('Error guardando producto eliminado:', error)
-      alert(`❌ Error: ${error.message}`)
+      console.error('Error:', error)
     }
   }
 
-  // ✅ NUEVO: Restaurar producto eliminado
   const restaurarProducto = async (proveedorNombre, productoCodigo) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+    const key = \`\${proveedorNombre}-\${productoCodigo}\`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.delete(key)
     setProductosEliminados(nuevosEliminados)
 
-    // Eliminar de BD
     try {
-      await api.delete('/alegra/orden-compra/producto-eliminado', {
-        data: { proveedorNombre, productoCodigo }
-      })
-      console.log(`↩️ Producto restaurado y eliminado de BD: ${key}`)
-    } catch (error) {
-      console.error('Error restaurando producto:', error)
-    }
+      await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
+    } catch (error) {}
   }
 
-  // ✅ NUEVO: Abrir modal para agregar producto
   const abrirModalAgregarProducto = (proveedor) => {
     setProveedorParaAgregar(proveedor)
     setModalAgregarProducto(true)
@@ -845,1319 +568,486 @@ export default function ReporteProveedores() {
     setProductosAlegra([])
   }
 
-  // ✅ NUEVO: Buscar productos de Alegra
   const buscarProductosAlegra = async (query) => {
-    if (!query || query.length < 2) {
-      setProductosAlegra([])
-      return
-    }
-
+    if (!query || query.length < 2) { setProductosAlegra([]); return }
     try {
       setLoadingProductos(true)
-      const response = await api.get('/alegra/productos/buscar', {
-        params: { query }
-      })
-
-      if (response.data.success) {
-        setProductosAlegra(response.data.data || [])
-      }
-    } catch (error) {
-      console.error('Error buscando productos:', error)
-      alert('Error buscando productos')
-    } finally {
-      setLoadingProductos(false)
-    }
+      const res = await api.get('/alegra/productos/buscar', { params: { query } })
+      if (res.data.success) setProductosAlegra(res.data.data || [])
+    } catch (e) {} finally { setLoadingProductos(false) }
   }
 
-  // ✅ NUEVO: Agregar producto a la orden
   const agregarProductoAOrden = async (producto, cantidad) => {
     if (!proveedorParaAgregar || cantidad <= 0) return
-
+    const keyProv = proveedorParaAgregar.nombre
     const nuevosAgregados = new Map(productosAgregados)
-    const keyProveedor = proveedorParaAgregar.nombre
-
-    const productosDelProveedor = nuevosAgregados.get(keyProveedor) || []
-    productosDelProveedor.push({
-      codigo: producto.reference,
-      nombre: producto.name,
-      cantidad: parseInt(cantidad),
-      agregadoManual: true
-    })
-
-    nuevosAgregados.set(keyProveedor, productosDelProveedor)
+    const list = nuevosAgregados.get(keyProv) || []
+    list.push({ codigo: producto.reference, nombre: producto.name, cantidad: parseInt(cantidad), agregadoManual: true })
+    nuevosAgregados.set(keyProv, list)
     setProductosAgregados(nuevosAgregados)
 
-    // Guardar en BD
     try {
-      await api.post('/alegra/orden-compra/producto-agregado', {
-        proveedorNombre: keyProveedor,
-        productoCodigo: producto.reference,
-        productoNombre: producto.name,
-        cantidad: parseInt(cantidad)
-      })
-      console.log(`➕ Producto agregado y guardado en BD: ${producto.reference} x${cantidad}`)
-    } catch (error) {
-      console.error('Error guardando producto agregado:', error)
-      alert(`❌ Error: ${error.message}`)
-      return
-    }
-
-    // Cerrar modal sin alert para no interrumpir
+      await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
+    } catch (error) {}
     setModalAgregarProducto(false)
-    console.log(`✅ ${producto.name} agregado a la orden de ${proveedorParaAgregar.nombre}`)
   }
 
-  // ✅ NUEVO: Eliminar producto agregado manualmente
   const eliminarProductoAgregado = async (proveedorNombre, index) => {
-    const nuevosAgregados = new Map(productosAgregados)
-    const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
-    const productoAEliminar = productosDelProveedor[index]
+    const nuevos = new Map(productosAgregados)
+    const list = nuevos.get(proveedorNombre) || []
+    const prod = list[index]
+    list.splice(index, 1)
+    if (list.length === 0) nuevos.delete(proveedorNombre); else nuevos.set(proveedorNombre, list)
+    setProductosAgregados(nuevos)
 
-    productosDelProveedor.splice(index, 1)
-
-    if (productosDelProveedor.length === 0) {
-      nuevosAgregados.delete(proveedorNombre)
-    } else {
-      nuevosAgregados.set(proveedorNombre, productosDelProveedor)
-    }
-
-    setProductosAgregados(nuevosAgregados)
-
-    // Eliminar de BD
     try {
-      await api.delete('/alegra/orden-compra/producto-agregado', {
-        data: {
-          proveedorNombre,
-          productoCodigo: productoAEliminar.codigo
-        }
-      })
-      console.log(`🗑️ Producto agregado eliminado de BD: ${productoAEliminar.codigo}`)
-    } catch (error) {
-      console.error('Error eliminando producto agregado:', error)
-      alert(`❌ Error: ${error.message}`)
-    }
+      await api.delete('/alegra/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
+    } catch (e) {}
   }
 
-  // ✅ NUEVO: Actualizar cantidad de producto agregado
   const actualizarCantidadAgregado = async (proveedorNombre, index, nuevaCantidad) => {
-    const cantidad = parseInt(nuevaCantidad)
+    const cant = parseInt(nuevaCantidad)
+    if (isNaN(cant) || cant <= 0) return
+    const nuevos = new Map(productosAgregados)
+    const list = nuevos.get(proveedorNombre) || []
+    if (list[index]) {
+      list[index] = { ...list[index], cantidad: cant }
+      nuevos.set(proveedorNombre, list)
+      setProductosAgregados(nuevos)
 
-    if (isNaN(cantidad) || cantidad <= 0) {
-      return // No actualizar si la cantidad no es válida
-    }
-
-    const nuevosAgregados = new Map(productosAgregados)
-    const productosDelProveedor = nuevosAgregados.get(proveedorNombre) || []
-
-    if (productosDelProveedor[index]) {
-      productosDelProveedor[index] = {
-        ...productosDelProveedor[index],
-        cantidad: cantidad
-      }
-      nuevosAgregados.set(proveedorNombre, productosDelProveedor)
-      setProductosAgregados(nuevosAgregados)
-
-      // Actualizar en BD (usar POST porque el endpoint hace upsert)
       try {
-        await api.post('/alegra/orden-compra/producto-agregado', {
-          proveedorNombre,
-          productoCodigo: productosDelProveedor[index].codigo,
-          productoNombre: productosDelProveedor[index].nombre,
-          cantidad
-        })
-        console.log(`✏️ Cantidad actualizada en BD: ${productosDelProveedor[index].codigo} = ${cantidad}`)
-      } catch (error) {
-        console.error('Error actualizando cantidad:', error)
-      }
+        await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
+      } catch (e) {}
     }
   }
 
-  if (loading) {
+  // --- RENDERIZADO PRINCIPAL ---
+  if (loading && !proveedores.length) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center py-8">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {activeTab === 'faltantes' ? 'Generando reporte de faltantes por proveedor...' : 'Cargando cantidades modificadas...'}
-          </p>
+      <div className="max-w-6xl mx-auto text-center py-12">
+        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-blue-500 rounded-full w-12 h-12 animate-spin"></div>
+        <p className="text-gray-600">Cargando reporte de proveedores...</p>
+      </div>
+    )
+  }
+
+  const renderProveedorSeleccionado = () => {
+    if (!proveedorActivoId) return null
+    const proveedor = proveedores.find(p => p.id === proveedorActivoId)
+    if (!proveedor) return null
+
+    return (
+      <div className="animate-fade-in-up">
+        {/* Cabecera Activa */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <button 
+            onClick={() => setProveedorActivoId(null)} 
+            className="flex items-center text-gray-500 hover:text-blue-600 transition-colors w-max"
+          >
+            <ArrowLeft className="mr-2" size={20} /> Volver a proveedores
+          </button>
+          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+            <button
+              onClick={handleGuardarCantidades}
+              disabled={cantidadesModificadas.size === 0}
+              className={\`btn \${cantidadesModificadas.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'btn-outline opacity-50 cursor-not-allowed'} whitespace-nowrap\`}
+            >
+              <FileText size={16} className="mr-2" /> Guardar Cambios
+            </button>
+            <button
+              onClick={() => handleGenerarPDF(proveedor)}
+              className="btn btn-outline whitespace-nowrap"
+            >
+              <Download size={16} className="mr-2" /> Generar PDF Orden
+            </button>
+            <button
+              onClick={() => abrirModalAgregarProducto(proveedor)}
+              className="btn btn-outline bg-green-50 text-green-700 border-green-200 hover:bg-green-100 whitespace-nowrap"
+            >
+              <Package size={16} className="mr-2" /> + Agregar Producto
+            </button>
+            <button
+              onClick={() => abrirModalWhatsApp(proveedor)}
+              className="btn bg-green-500 text-white hover:bg-green-600 border-none whitespace-nowrap"
+            >
+              <MessageCircle size={16} className="mr-2" /> WhatsApp
+            </button>
+          </div>
         </div>
+
+        {/* Tarjeta Stats Proveedor */}
+        <div className="card bg-white mb-6 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center">
+            <div className="p-4 bg-blue-100 rounded-xl mr-5">
+              <Users className="text-blue-600" size={32} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{proveedor.nombre}</h1>
+              <p className="text-gray-500 mt-1">{proveedor.contacto || 'Sin contacto'} | ID: {proveedor.id}</p>
+              <label className="flex items-center text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded w-max">
+                 <input type="checkbox" className="mr-2" checked={usaDatosProveedor(proveedor.nombre)} onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)} />
+                 Usar códigos/nombres propios del proveedor en PDFs
+              </label>
+            </div>
+          </div>
+          <div className="flex bg-gray-50 p-4 rounded-xl divide-x divide-gray-200 min-w-[200px]">
+            <div className="px-4 text-center">
+              <p className="text-sm text-gray-500 font-medium">Items Faltantes</p>
+              <p className="text-2xl font-bold text-gray-900">{proveedor.total_productos}</p>
+            </div>
+            <div className="px-4 text-center">
+              <p className="text-sm text-gray-500 font-medium">Total Unidades</p>
+              <p className="text-2xl font-bold text-blue-600">{proveedor.total_cantidad}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel Inteligente: Cantidad Sugerida */}
+        <div className="card bg-purple-50 border border-purple-100 mb-8 p-6 shadow-sm">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-purple-900 flex items-center">
+                <Brain className="mr-2" size={20} /> Análisis Inteligente (Sugerida)
+              </h3>
+              <p className="text-sm text-purple-700">Cantidades proyectadas usando faltantes de últimos 90 días</p>
+            </div>
+            {cantidadSugerida.length > 0 && (
+              <button onClick={() => handleGenerarPDF(proveedor, 'sugerida')} className="btn btn-sm bg-purple-600 hover:bg-purple-700 text-white border-none">
+                <Download size={14} className="mr-1" /> PDF Sugerencia
+              </button>
+            )}
+          </div>
+          
+          {cantidadSugerida.length === 0 ? (
+            <div className="text-center py-4 opacity-70">
+              <p className="text-sm">No hay histórico de compras suficiente para generar sugerencias predictivas todavía.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {cantidadSugerida.slice(0, 6).map((item, idx) => (
+                <div key={idx} className="bg-white p-3 rounded shadow-sm border border-purple-100 flex justify-between items-center">
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-semibold truncate" title={item.producto_nombre}>{item.producto_nombre}</p>
+                    <p className="text-xs text-gray-500">Promedio sem.: {item.promedio_semanal}</p>
+                  </div>
+                  <div className="ml-2 bg-purple-100 text-purple-800 font-bold px-3 py-1 rounded text-lg">
+                    {item.cantidad_sugerida}
+                  </div>
+                </div>
+              ))}
+              {cantidadSugerida.length > 6 && (
+                <div className="bg-white p-3 rounded shadow-sm border border-dashed border-purple-200 flex justify-center items-center text-sm text-purple-600 font-medium">
+                  + {cantidadSugerida.length - 6} sugerencias más en PDF
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Lista de Productos del Proveedor */}
+        <div className="card shadow-sm p-0 overflow-hidden border border-gray-200">
+          <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center">
+             <h3 className="font-bold text-gray-800 flex items-center">
+                <Package className="mr-2 text-gray-500" size={18} /> Detalle de Órdenes a Comprar
+             </h3>
+             {/* Checkbox global */}
+             <label className="flex items-center cursor-pointer">
+                <input type="checkbox" className="mr-2" checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))} onChange={() => toggleTodosProductos(proveedor)} />
+                <span className="text-sm font-medium">Seleccionar todos para reasignar</span>
+             </label>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {proveedor.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0).map((producto, idx) => {
+              const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
+              const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+              const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
+              const estaEliminado = productosEliminados.has(key)
+              const seleccionado = productosSeleccionados.has(producto.codigo)
+
+              return (
+                <div key={idx} className={\`p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row gap-4 md:items-center \${estaEliminado ? 'bg-red-50/50 opacity-60' : tieneModificacion ? 'bg-yellow-50/30' : ''}\`}>
+                  <div className="flex items-start md:items-center w-full md:w-5/12 gap-3">
+                    <input type="checkbox" checked={seleccionado} onChange={() => toggleProductoSeleccionado(producto.codigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-blue-600 rounded" />
+                    <div className="flex-1 min-w-0">
+                      <p className={\`font-semibold truncate \${estaEliminado ? 'line-through text-gray-400' : 'text-gray-900'}\`}>{producto.nombre}</p>
+                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo} {producto.descripcion_factura && \`| Nota: \${producto.descripcion_factura}\`}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full md:w-7/12 flex-row items-center justify-between gap-4">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Original</p>
+                      <span className="font-medium text-gray-600">{producto.cantidad_faltante}</span>
+                    </div>
+
+                    <div className="flex-1 px-4 border-l border-gray-200">
+                       <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
+                       <input 
+                         type="number" 
+                         min="0" 
+                         value={cantidadFinal} 
+                         onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
+                         className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                         disabled={estaEliminado}
+                       />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                       {estaEliminado ? (
+                         <button onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)} className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded transition">
+                           Restaurar
+                         </button>
+                       ) : (
+                         <button onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
+                           <Trash2 size={18} />
+                         </button>
+                       )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            
+            {/* AGREGADOS MANUALMENTE */}
+            {(productosAgregados.get(proveedor.nombre) || []).map((producto, idx) => (
+               <div key={\`agregado-\${idx}\`} className="p-4 bg-green-50/40 hover:bg-green-50/70 transition-colors flex flex-col md:flex-row gap-4 md:items-center">
+                  <div className="flex items-center w-full md:w-5/12 gap-3 pl-7">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{producto.nombre} <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded ml-1 tracking-wider uppercase">Extra</span></p>
+                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo}</p>
+                    </div>
+                  </div>
+                  <div className="flex w-full md:w-7/12 flex-row items-center justify-between gap-4">
+                    <div className="text-center opacity-0"><span className="font-medium">0</span></div>
+                    <div className="flex-1 px-4 border-l border-gray-200">
+                       <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
+                       <input 
+                         type="number" min="1" value={producto.cantidad} 
+                         onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, idx, e.target.value)}
+                         className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                       />
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => eliminarProductoAgregado(proveedor.nombre, idx)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
+                           <Trash2 size={18} />
+                       </button>
+                    </div>
+                  </div>
+               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Floating Action Button para Reasignar si hay seleccionados */}
+        {productosSeleccionados.size > 0 && (
+          <div className="fixed bottom-8 right-8 z-50 animate-bounce">
+            <button onClick={abrirModalAsignar} className="bg-indigo-600 text-white shadow-xl flex items-center space-x-2 text-md px-5 py-3 rounded-full hover:bg-indigo-700 hover:scale-105 transition-all">
+              <RefreshCw size={18} />
+              <span>Mover {productosSeleccionados.size} a otro proveedor</span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderVistaLista = () => {
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        {/* Filtros Globales */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex-1 w-full">
+            <input type="text" value={proveedorQuery} onChange={(e) => setProveedorQuery(e.target.value)} placeholder="Buscar nombre del proveedor..." className="input w-full md:max-w-md bg-gray-50" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+               <Calendar size={16} className="text-gray-500 mr-2" />
+               <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700" title="Fecha inicial"/>
+               {fechaInicio && <button onClick={() => setFechaInicio('')} className="ml-2 text-gray-400 hover:text-red-500">&times;</button>}
+            </div>
+            <button onClick={loadReporte} className="btn btn-outline" title="Refrescar">
+              <RefreshCw size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Grid de Proveedores */}
+        {proveedores.length === 0 ? (
+          <div className="card text-center py-16">
+            <Package className="mx-auto text-gray-300 mb-4" size={64} />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">No tienes faltantes pendientes</h3>
+            <p className="text-gray-500">Agrega Faltantes desde la vista de facturas.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => (
+              <div 
+                key={proveedor.id} 
+                onClick={() => setProveedorActivoId(proveedor.id)} 
+                className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-100 p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-[100px] -z-10 group-hover:bg-blue-100 transition-colors"></div>
+                
+                <h3 className="text-lg font-bold text-gray-900 mb-1 pr-4">{proveedor.nombre}</h3>
+                <p className="text-sm text-gray-500 mb-4">{proveedor.contacto || 'Sin info'}</p>
+                
+                <div className="flex items-center gap-4 pt-4 border-t border-gray-50">
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Productos</p>
+                    <p className="text-xl font-bold text-gray-800">{proveedor.total_productos}</p>
+                  </div>
+                  <div className="h-8 w-[1px] bg-gray-200"></div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Unidades</p>
+                    <p className="text-xl font-bold text-blue-600">{proveedor.total_cantidad}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Resumen Global Info */}
+        {resumen && (
+           <div className="mt-8 pt-6 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4 opacity-70">
+              <div className="text-center"><p className="text-sm text-gray-500">Proveedores con faltantes</p><p className="text-xl font-bold text-gray-800">{proveedores.length}</p></div>
+              <div className="text-center"><p className="text-sm text-gray-500">Tot. Productos Únicos</p><p className="text-xl font-bold text-gray-800">{resumen.total_productos_faltantes}</p></div>
+              <div className="text-center"><p className="text-sm text-gray-500">Volumen Unidades</p><p className="text-xl font-bold text-gray-800">{resumen.total_cantidad_faltante}</p></div>
+              <div className="text-center mt-2 md:mt-0"><button onClick={handleLimpiarVista} className="text-red-500 text-sm hover:underline">Limpiar BD Entera</button></div>
+           </div>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Reporte de Faltantes por Proveedor</h1>
-          <p className="text-gray-600 mt-1">Lista de productos faltantes organizados por proveedor para facilitar las compras</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          {/* NUEVO: Búsqueda de proveedores */}
-          {activeTab === 'faltantes' && (
-            <input
-              type="text"
-              value={proveedorQuery}
-              onChange={(e) => setProveedorQuery(e.target.value)}
-              placeholder="Buscar proveedor por nombre..."
-              className="input w-64"
-            />
-          )}
-          {activeTab === 'modificar' && cantidadesGuardadas.size > 0 && (
-            <button
-              onClick={handleLimpiarCantidadesGuardadas}
-              className="btn btn-outline text-red-600 border-red-600 hover:bg-red-50"
-            >
-              <Trash2 size={16} className="mr-2" />
-              Limpiar Cantidades ({cantidadesGuardadas.size})
-            </button>
-          )}
-          {/* NUEVO: Filtro de fecha */}
-          <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
-            <Calendar size={16} className="text-gray-500 mr-2" />
-            <input
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              className="text-sm border-none focus:ring-0 p-0 text-gray-700"
-              placeholder="Fecha inicio"
-              title="Filtrar faltantes desde esta fecha"
-            />
-            {fechaInicio && (
-              <button
-                onClick={() => setFechaInicio('')}
-                className="ml-2 text-gray-400 hover:text-red-500"
-                title="Limpiar fecha"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={loadReporte}
-            className="btn btn-outline"
-          >
-            <RefreshCw size={16} className="mr-2" />
-            Actualizar
-          </button>
-        </div>
+    <div className="max-w-[1400px] mx-auto pb-24">
+      <div className="mb-8 pl-1">
+         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Faltantes y Compras</h1>
+         <p className="text-gray-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
       </div>
+      
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded shadow-sm">
+          <div className="flex items-center"><AlertCircle className="text-red-500 mr-2"/><p className="text-red-700 font-medium">Error: {error}</p></div>
+        </div>
+      )}
 
-      {/* Error */}
-      {
-        error && (
-          <div className="card bg-red-50 border-red-200 mb-8">
-            <div className="flex items-center">
-              <AlertCircle className="text-red-500 mr-2" size={20} />
-              <p className="text-red-700">Error: {error}</p>
-            </div>
-          </div>
-        )
-      }
+      {/* Manejo de Vistas (Listado vs Panel Detalle) */}
+      {!proveedorActivoId ? renderVistaLista() : renderProveedorSeleccionado()}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-8">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('faltantes')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'faltantes'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            <FileText className="inline mr-2" size={16} />
-            Faltantes Registrados
-            {resumen && (
-              <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {proveedores.length}
-              </span>
-            )}
-          </button>
 
-          <button
-            onClick={() => setActiveTab('modificar')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'modificar'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            <Edit3 className="inline mr-2" size={16} />
-            Modificar Cantidades
-            {cantidadesGuardadas.size > 0 && (
-              <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {cantidadesGuardadas.size}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('cantidad-sugerida')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'cantidad-sugerida'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            🧠 Cantidad Sugerida
-            {resumenSugerida && (
-              <span className="ml-2 bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {cantidadSugerida.length}
-              </span>
-            )}
-          </button>
-        </nav>
-      </div>
-
-      {/* Resumen */}
-      {
-        resumen && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="text-blue-600" size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-600">Proveedores con Faltantes</p>
-                  <p className="text-2xl font-semibold text-gray-900">{proveedores.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Package className="text-orange-600" size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-600">Productos Faltantes</p>
-                  <p className="text-2xl font-semibold text-gray-900">{resumen.total_productos_faltantes}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <ShoppingCart className="text-red-600" size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-600">Unidades Faltantes</p>
-                  <p className="text-2xl font-semibold text-gray-900">{resumen.total_cantidad_faltante}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Tab Faltantes Registrados */}
-      {
-        activeTab === 'faltantes' && (
-          <div>
-            {proveedores.length === 0 ? (
-              <div className="card text-center py-12">
-                <Package className="mx-auto text-gray-400 mb-4" size={48} />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay faltantes registrados</h3>
-                <p className="text-gray-600">Cuando registres faltantes en las facturas, aparecerán aquí organizados por proveedor.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {proveedores
-                  .filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase()))
-                  .map((proveedor) => (
-                    <div key={proveedor.id} className="card">
-                      {/* Header del proveedor */}
-                      <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-                        <div className="flex items-center">
-                          {/* ✅ ACTUALIZADO: Checkbox para seleccionar todos (TODOS los proveedores) */}
-                          <input
-                            type="checkbox"
-                            checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))}
-                            onChange={() => toggleTodosProductos(proveedor)}
-                            className="w-5 h-5 mr-3 cursor-pointer"
-                            title="Seleccionar todos"
-                          />
-                          <div className="p-2 bg-blue-100 rounded-lg mr-4">
-                            <Users className="text-blue-600" size={24} />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-900">{proveedor.nombre}</h3>
-                            <p className="text-gray-600">{proveedor.contacto}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600">Total productos</p>
-                            <p className="text-2xl font-bold text-blue-600">{proveedor.total_productos}</p>
-                            <p className="text-sm text-gray-600">{proveedor.total_cantidad} unidades</p>
-                          </div>
-                          {/* NUEVO: Botón colapsar/expandir */}
-                          <button
-                            onClick={() => {
-                              const next = new Set(proveedoresColapsados)
-                              if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
-                              setProveedoresColapsados(next)
-                            }}
-                            className="btn btn-outline whitespace-nowrap"
-                            title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                          >
-                            {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Lista de productos faltantes */}
-                      {!proveedoresColapsados.has(proveedor.id) && (
-                        <div className="space-y-3">
-                          <h4 className="font-medium text-gray-900 flex items-center">
-                            <FileText size={16} className="mr-2" />
-                            Productos para comprar:
-                          </h4>
-
-                          {proveedor.productos_faltantes
-                            .filter(p => {
-                              const cant = Number(p.cantidad_faltante);
-                              if (cant <= 0) {
-                                console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Faltantes):", p);
-                                return false;
-                              }
-                              return true;
-                            })
-                            .map((producto, index) => (
-                              <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                <div className="flex items-center justify-between">
-                                  {/* ✅ ACTUALIZADO: Checkbox para selección individual (TODOS los proveedores) */}
-                                  <input
-                                    type="checkbox"
-                                    checked={productosSeleccionados.has(producto.codigo)}
-                                    onChange={() => toggleProductoSeleccionado(producto.codigo)}
-                                    className="w-5 h-5 mr-3 cursor-pointer flex-shrink-0"
-                                  />
-                                  <div className="flex-1">
-                                    <h5 className="font-medium text-gray-900">
-                                      {producto.nombre}
-                                      {producto.descripcion_factura && (
-                                        <span className="text-gray-600 font-normal text-sm ml-2">
-                                          ({producto.descripcion_factura})
-                                        </span>
-                                      )}
-                                    </h5>
-                                    <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                    <p className="text-sm text-gray-600">
-                                      Clientes afectados: {producto.clientes_afectados}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
-                                      Faltante
-                                    </div>
-                                    <p className="text-lg font-bold text-gray-900 mt-1">
-                                      {producto.cantidad_faltante} unidades
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      En {producto.facturas_afectadas} factura{producto.facturas_afectadas > 1 ? 's' : ''}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            {/* ✅ ACTUALIZADO: Botón flotante para asignar/reasignar productos seleccionados */}
-            {productosSeleccionados.size > 0 && (
-              <div className="fixed bottom-8 right-8 z-50">
-                <button
-                  onClick={abrirModalAsignar}
-                  className="btn btn-primary shadow-2xl flex items-center space-x-2 text-lg px-6 py-4 rounded-full hover:scale-105 transition-transform"
-                >
-                  <Users size={20} />
-                  <span>Asignar/Reasignar {productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )
-      }
-
-      {/* Tab Modificar Cantidades */}
-      {
-        activeTab === 'modificar' && (
-          <div>
-            {proveedores.length === 0 ? (
-              <div className="card text-center py-12">
-                <Edit3 className="mx-auto text-gray-400 mb-4" size={48} />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay productos para modificar</h3>
-                <p className="text-gray-600">Primero registra algunos faltantes para poder modificar las cantidades.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Header con botones de acción */}
-                <div className="card bg-blue-50 border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-blue-900">
-                        Modificación de Cantidades
-                      </h3>
-                      <p className="text-blue-700">
-                        Ajusta las cantidades según necesites para la orden de compra
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      {cantidadesModificadas.size > 0 && (
-                        <button
-                          onClick={handleGuardarCantidades}
-                          className="btn btn-primary"
-                        >
-                          <Package size={16} className="mr-2" />
-                          Guardar Cambios ({cantidadesModificadas.size})
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {proveedores.map((proveedor) => (
-                  <div key={proveedor.id} className="card">
-                    {/* Header del proveedor */}
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4 pb-4 border-b border-gray-200">
-                      <div className="flex items-start md:items-center gap-3 w-full md:w-auto">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <Users className="text-green-600" size={24} />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-xl font-semibold text-gray-900 break-words">{proveedor.nombre}</h3>
-                          <p className="text-gray-600 whitespace-nowrap md:whitespace-normal">Orden de Compra</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:flex-row md:flex-wrap gap-2 w-full md:w-auto md:justify-end">
-                        <label className="flex items-center justify-between sm:justify-start text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-md w-full sm:w-auto gap-2">
-                          <span className="flex-1 text-left">Usar datos del proveedor</span>
-                          <input
-                            type="checkbox"
-                            className="toggle toggle-sm"
-                            checked={usaDatosProveedor(proveedor.nombre)}
-                            onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)}
-                          />
-                        </label>
-                        <button
-                          onClick={() => {
-                            const next = new Set(proveedoresColapsados)
-                            if (next.has(proveedor.id)) next.delete(proveedor.id); else next.add(proveedor.id)
-                            setProveedoresColapsados(next)
-                          }}
-                          className="btn btn-outline whitespace-nowrap w-full sm:w-auto"
-                          title={proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                        >
-                          {proveedoresColapsados.has(proveedor.id) ? 'Expandir' : 'Comprimir'}
-                        </button>
-                        <button
-                          onClick={() => abrirModalAgregarProducto(proveedor)}
-                          className="btn bg-blue-600 text-white border-blue-600 hover:bg-blue-700 w-full sm:w-auto"
-                        >
-                          <Package size={16} className="mr-2" />
-                          + Agregar Producto
-                        </button>
-                        <button
-                          onClick={() => abrirModalWhatsApp(proveedor)}
-                          className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 w-full sm:w-auto"
-                        >
-                          <MessageCircle size={16} className="mr-2" />
-                          WhatsApp
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Lista de productos editables */}
-                    {!proveedoresColapsados.has(proveedor.id) && (
-                      <div className="space-y-3">
-                        <h4 className="font-medium text-gray-900 flex items-center">
-                          <Edit3 size={16} className="mr-2" />
-                          Productos para ordenar:
-                        </h4>
-
-                        {proveedor.productos_faltantes
-                          .filter(p => {
-                            const cant = Number(p.cantidad_faltante);
-                            if (cant <= 0) {
-                              console.warn("👻 [FRONTEND] Ocultando item 0 en proveedores (Modificar):", p);
-                              return false;
-                            }
-                            return true;
-                          })
-                          .map((producto, index) => {
-                            const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
-                            const key = `${proveedor.nombre}-${producto.codigo}`
-                            const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
-                            const estaEliminado = productosEliminados.has(key)
-
-                            return (
-                              <div key={index} className={`rounded-lg p-4 border ${estaEliminado ? 'bg-red-50 border-red-200 opacity-60' :
-                                tieneModificacion ? 'bg-yellow-50 border-yellow-200' :
-                                  'bg-gray-50 border-gray-200'
-                                }`}>
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                  {/* Info del producto */}
-                                  <div className="lg:col-span-5">
-                                    <h5 className={`font-medium ${estaEliminado ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                                      {producto.nombre}
-                                      {producto.descripcion_factura && (
-                                        <span className={`font-normal text-sm ml-2 ${estaEliminado ? 'text-gray-400' : 'text-gray-600'}`}>
-                                          ({producto.descripcion_factura})
-                                        </span>
-                                      )}
-                                    </h5>
-                                    <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                    <p className="text-xs text-gray-500">
-                                      Clientes afectados: {producto.clientes_afectados} •
-                                      Facturas: {producto.facturas_afectadas}
-                                    </p>
-                                    {estaEliminado && (
-                                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded mt-1">
-                                        🗑️ Eliminado
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Cantidad original */}
-                                  <div className="lg:col-span-2">
-                                    <label className="label">Original:</label>
-                                    <div className="text-lg font-medium text-gray-700">
-                                      {producto.cantidad_faltante}
-                                    </div>
-                                    <p className="text-xs text-gray-500">De faltantes</p>
-                                  </div>
-
-                                  {/* Cantidad a ordenar */}
-                                  <div className="lg:col-span-2">
-                                    <label className="label">Cantidad a ordenar:</label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={cantidadFinal}
-                                      onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
-                                      className="input"
-                                      placeholder="0"
-                                      disabled={estaEliminado}
-                                    />
-                                  </div>
-
-                                  {/* Estado y Acciones */}
-                                  <div className="lg:col-span-3">
-                                    <label className="label">Estado:</label>
-                                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${estaEliminado ? 'bg-red-100 text-red-800' :
-                                      cantidadFinal !== producto.cantidad_faltante
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-gray-100 text-gray-800'
-                                      }`}>
-                                      {estaEliminado ? '🗑️ Eliminado' :
-                                        cantidadFinal !== producto.cantidad_faltante ? '✏️ Modificado' : '📋 Original'}
-                                    </div>
-                                    {!estaEliminado && cantidadFinal !== producto.cantidad_faltante && (
-                                      <p className="text-xs text-yellow-600 mt-1">
-                                        Diferencia: {cantidadFinal - producto.cantidad_faltante > 0 ? '+' : ''}{cantidadFinal - producto.cantidad_faltante}
-                                      </p>
-                                    )}
-                                    {/* Botones de acción */}
-                                    <div className="mt-2 flex gap-2">
-                                      {estaEliminado ? (
-                                        <button
-                                          onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)}
-                                          className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700"
-                                        >
-                                          ↩️ Restaurar
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)}
-                                          className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
-                                        >
-                                          <Trash2 size={14} className="mr-1" />
-                                          Eliminar
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-
-                        {/* ✅ NUEVO: Productos agregados manualmente */}
-                        {(productosAgregados.get(proveedor.nombre) || []).map((producto, index) => (
-                          <div key={`agregado-${index}`} className="rounded-lg p-4 border bg-green-50 border-green-200">
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                              {/* Info del producto */}
-                              <div className="lg:col-span-5">
-                                <h5 className="font-medium text-gray-900">{producto.nombre}</h5>
-                                <p className="text-sm text-gray-600">Código: {producto.codigo}</p>
-                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded mt-1">
-                                  ➕ Agregado manualmente
-                                </span>
-                              </div>
-
-                              {/* Cantidad Editable */}
-                              <div className="lg:col-span-4">
-                                <label className="label">Cantidad a ordenar:</label>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={producto.cantidad}
-                                  onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, index, e.target.value)}
-                                  className="input w-full"
-                                  placeholder="0"
-                                />
-                                <p className="text-xs text-green-600 mt-1">
-                                  ✏️ Editable
-                                </p>
-                              </div>
-
-                              {/* Acciones */}
-                              <div className="lg:col-span-3">
-                                <label className="label">Acción:</label>
-                                <button
-                                  onClick={() => eliminarProductoAgregado(proveedor.nombre, index)}
-                                  className="btn btn-sm bg-red-600 text-white hover:bg-red-700 w-full"
-                                >
-                                  <Trash2 size={14} className="mr-1" />
-                                  Eliminar
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      }
-
-      {/* Tab Cantidad Sugerida */}
-      {
-        activeTab === 'cantidad-sugerida' && (
-          <div>
-            {/* Filtro de proveedor */}
-            <div className="card bg-purple-50 border-purple-200 mb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-purple-900">
-                    🧠 Análisis Inteligente de Compras
-                  </h3>
-                  <p className="text-purple-700">
-                    Cantidades sugeridas basadas en 90 días de histórico de faltantes
-                  </p>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <label className="label text-purple-800">Seleccionar Proveedor:</label>
-                    <select
-                      value={proveedorSeleccionado}
-                      onChange={(e) => setProveedorSeleccionado(e.target.value)}
-                      className="input min-w-48"
-                    >
-                      <option value="">-- Seleccione un proveedor --</option>
-                      {proveedores.map((proveedor) => (
-                        <option key={proveedor.id} value={proveedor.id}>
-                          {proveedor.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* NUEVO: Generar PDF desde sugerida */}
-                  <button
-                    onClick={handleGenerarPDFDesdeSugerida}
-                    disabled={!proveedorSeleccionado || cantidadSugerida.length === 0}
-                    className={`btn bg-green-600 text-white border-green-600 hover:bg-green-700 ${(!proveedorSeleccionado || cantidadSugerida.length === 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={!proveedorSeleccionado ? 'Seleccione un proveedor' : (cantidadSugerida.length === 0 ? 'No hay datos para PDF' : 'Generar PDF de sugerencias')}
-                  >
-                    <Download size={16} className="mr-2" />
-                    Generar PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {!proveedorSeleccionado ? (
-              /* Sin proveedor seleccionado */
-              <div className="card text-center py-12">
-                <Brain className="mx-auto text-purple-400 mb-4" size={48} />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Selecciona un proveedor</h3>
-                <p className="text-gray-600">Elige un proveedor del filtro superior para ver las cantidades sugeridas inteligentes.</p>
-              </div>
-            ) : cantidadSugerida.length === 0 ? (
-              /* Sin datos para el proveedor */
-              <div className="card text-center py-12">
-                <Package className="mx-auto text-gray-400 mb-4" size={48} />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin datos históricos</h3>
-                <p className="text-gray-600">No hay suficientes datos históricos para este proveedor en las últimas 8 semanas.</p>
-              </div>
-            ) : (
-              /* Mostrar datos */
-              <div className="space-y-6">
-                {/* Resumen de estadísticas */}
-                {resumenSugerida && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="card">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <Package className="text-purple-600" size={24} />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm text-gray-600">Total Productos</p>
-                          <p className="text-2xl font-semibold text-gray-900">{resumenSugerida.total_productos}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="card">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <Users className="text-green-600" size={24} />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm text-gray-600">Alta Rotación</p>
-                          <p className="text-2xl font-semibold text-green-900">{resumenSugerida.productos_alta_rotacion}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="card">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <ShoppingCart className="text-blue-600" size={24} />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm text-gray-600">Baja Rotación</p>
-                          <p className="text-2xl font-semibold text-blue-900">{resumenSugerida.productos_baja_rotacion}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="card">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-orange-100 rounded-lg">
-                          <Package className="text-orange-600" size={24} />
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm text-gray-600">Total Sugerido</p>
-                          <p className="text-2xl font-semibold text-orange-900">{resumenSugerida.cantidad_total_sugerida}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tabla de productos */}
-                <div className="card">
-                  <div className="mb-4 pb-4 border-b border-gray-200">
-                    <h3 className="text-xl font-semibold text-gray-900">Productos con Cantidad Sugerida</h3>
-                    <p className="text-gray-600">Basado en promedio de faltantes de las últimas 8 semanas</p>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-900">Producto</th>
-                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Promedio/Semana</th>
-                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Frecuencia</th>
-                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-900">Cantidad Sugerida</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {cantidadSugerida.map((producto, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div>
-                                <p className="font-medium text-gray-900">{producto.producto_nombre}</p>
-                                <p className="text-sm text-gray-600">Código: {producto.producto_codigo}</p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-lg font-medium text-gray-900">
-                                {producto.promedio_semanal}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <div className="text-center">
-                                <span className="text-sm font-medium text-gray-900">
-                                  {producto.frecuencia_porcentaje}%
-                                </span>
-                                <p className="text-xs text-gray-500">
-                                  {producto.semanas_activas}/{producto.total_semanas} semanas
-                                </p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-lg font-bold bg-purple-100 text-purple-800">
-                                {producto.cantidad_sugerida}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Info adicional */}
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">
-                      💡 <strong>Explicación:</strong> La cantidad sugerida se calcula multiplicando el promedio semanal de faltantes por 4 semanas.
-                      Esto proporciona un stock suficiente basado en el comportamiento reciente del producto.
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Análisis basado en las últimas 8 semanas. La frecuencia indica en cuántas semanas hubo faltantes.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      }
-
-      {/* ✅ AGREGADO: Sección de Encargos Especiales */}
-      {
-        activeTab === 'faltantes' && encargosEspeciales && encargosEspeciales.length > 0 && (
-          <div className="card mt-8">
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg mr-4">
-                  <FileText className="text-orange-600" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Encargos Especiales</h3>
-                  <p className="text-gray-600">Productos adicionales solicitados que no están en el sistema</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {encargosEspeciales.map((encargo, index) => (
-                <div key={index} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium text-orange-900">
-                        Factura #{encargo.numero_factura}
-                      </p>
-                      <p className="text-sm text-orange-800 mt-1">
-                        {encargo.observaciones_adicionales}
-                      </p>
-                      <p className="text-xs text-orange-600 mt-2">
-                        Cliente: {encargo.cliente_nombre} • Fecha: {new Date(encargo.fecha_emision).toLocaleDateString('es-CR')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      }
-
-      {/* ✅ ACTUALIZADO: Modal para asignar/reasignar proveedor (ahora soporta múltiples productos) */}
-      {
-        modalAsignarVisible && (
+      {/* MODALES REUTILIZADOS A CONTINUACIÓN */}
+      
+      {modalAsignarVisible && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Header del modal */}
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">Asignar/Reasignar Proveedor</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Reclasificar / Cambiar Proveedor</h2>
                 <p className="text-gray-600 mt-1">
-                  Gestionar <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span>
-                </p>
-                <p className="text-sm text-gray-500">
-                  Selecciona el proveedor de la lista o crea uno nuevo. Los productos que ya tienen proveedor serán reasignados.
+                  Mover <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span> al inventario de otra entidad.
                 </p>
               </div>
-
-              {/* Buscador */}
               <div className="p-6 border-b border-gray-200">
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={busquedaProveedor}
-                    onChange={(e) => setBusquedaProveedor(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)
-                    }}
-                    placeholder="Buscar proveedor por nombre..."
-                    className="input flex-1"
-                  />
-                  <button
-                    onClick={() => cargarProveedoresAlegra(busquedaProveedor)}
-                    className="btn btn-primary"
-                    disabled={loadingProveedores}
-                  >
-                    {loadingProveedores ? 'Buscando...' : 'Buscar'}
-                  </button>
-                  <button
-                    onClick={() => setModalCrearProveedor(true)}
-                    className="btn btn-outline"
-                  >
-                    + Crear Nuevo
-                  </button>
+                  <input type="text" value={busquedaProveedor} onChange={(e) => setBusquedaProveedor(e.target.value)} onKeyPress={(e) => {if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)}} placeholder="Buscar nombre de entidad..." className="input flex-1" />
+                  <button onClick={() => cargarProveedoresAlegra(busquedaProveedor)} className="btn btn-primary" disabled={loadingProveedores}>{loadingProveedores ? 'Cargando...' : 'Buscar'}</button>
+                  <button onClick={() => setModalCrearProveedor(true)} className="btn btn-outline">+ Registrar Nuevo</button>
                 </div>
               </div>
-
-              {/* Lista de proveedores */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
                 {loadingProveedores ? (
-                  <div className="text-center py-12">
-                    <div className="spinner mx-auto mb-4"></div>
-                    <p className="text-gray-600">Cargando proveedores...</p>
-                  </div>
+                  <div className="text-center py-8"><div className="spinner mx-auto mb-4"></div></div>
                 ) : proveedoresAlegra.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Users className="mx-auto text-gray-400 mb-4" size={48} />
-                    <p className="text-gray-600">No se encontraron proveedores</p>
-                    <p className="text-sm text-gray-500 mt-2">Intenta otra búsqueda o crea uno nuevo</p>
-                  </div>
+                  <div className="text-center py-8 text-gray-500">Busca el proveedor destino en la barra superior.</div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid gap-2">
                     {proveedoresAlegra.map((prov) => (
-                      <button
-                        key={prov.id}
-                        onClick={() => asignarProveedorManual(prov.id)}
-                        className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
-                      >
+                      <button key={prov.id} onClick={() => asignarProveedorManual(prov.id)} className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all">
                         <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{prov.name}</p>
-                            {prov.identification && (
-                              <p className="text-sm text-gray-600">Cédula: {prov.identification}</p>
-                            )}
-                            {prov.email && (
-                              <p className="text-sm text-gray-600">Email: {prov.email}</p>
-                            )}
-                          </div>
-                          <div className="text-blue-600">
-                            <Users size={24} />
-                          </div>
+                          <div><p className="font-bold text-gray-900">{prov.name}</p><p className="text-xs text-gray-500 mt-1">{prov.identification || 'Sin identificación'}</p></div>
+                          <Users className="text-blue-500" size={20} />
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setModalAsignarVisible(false)
-                    setProductoParaAsignar(null)
-                    setBusquedaProveedor('')
-                    setProveedoresAlegra([])
-                  }}
-                  className="btn btn-outline w-full"
-                >
-                  Cancelar
-                </button>
+              <div className="p-4 border-t border-gray-200 bg-white">
+                <button onClick={() => {setModalAsignarVisible(false); setBusquedaProveedor(''); setProveedoresAlegra([])}} className="btn btn-outline w-full py-3">Cancelar y Volver</button>
               </div>
             </div>
           </div>
-        )
-      }
+        )}
 
-      {/* ✅ NUEVO: Modal para crear proveedor */}
-      {
-        modalCrearProveedor && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Crear Nuevo Proveedor</h2>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    const formData = new FormData(e.target)
-                    crearNuevoProveedor({
-                      name: formData.get('name'),
-                      identification: formData.get('identification'),
-                      identificationType: formData.get('identificationType'),
-                      email: formData.get('email'),
-                      phone: formData.get('phone'),
-                      address: formData.get('address')
-                    })
-                  }}
-                >
-                  <div className="space-y-4">
-                    <div>
-                      <label className="label">Nombre del Proveedor *</label>
-                      <input
-                        type="text"
-                        name="name"
-                        required
-                        className="input w-full"
-                        placeholder="Ej: Distribuidora ABC S.A."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Tipo de Identificación</label>
-                      <select name="identificationType" className="input w-full">
-                        <option value="">-- Seleccione --</option>
-                        <option value="CF">Cédula Física</option>
-                        <option value="CJ">Cédula Jurídica</option>
-                        <option value="DIMEX">DIMEX</option>
-                        <option value="NITE">NITE</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="label">Número de Identificación</label>
-                      <input
-                        type="text"
-                        name="identification"
-                        className="input w-full"
-                        placeholder="Ej: 3101234567"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Email</label>
-                      <input
-                        type="email"
-                        name="email"
-                        className="input w-full"
-                        placeholder="proveedor@example.com"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Teléfono</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        className="input w-full"
-                        placeholder="Ej: 22001122"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Dirección</label>
-                      <textarea
-                        name="address"
-                        rows="2"
-                        className="input w-full"
-                        placeholder="Dirección completa del proveedor"
-                      ></textarea>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setModalCrearProveedor(false)}
-                      className="btn btn-outline flex-1"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-primary flex-1"
-                      disabled={loading}
-                    >
-                      {loading ? 'Creando...' : 'Crear Proveedor'}
-                    </button>
-                  </div>
-                </form>
+      {modalCrearProveedor && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Registrar en Alegra</h2>
+            <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target); crearNuevoProveedor({name: fd.get('name'), identification: fd.get('identification'), identificationType: fd.get('identificationType')}); }}>
+              <div className="space-y-4">
+                <input name="name" required className="input w-full" placeholder="Razón Social o Nombre *" />
+                <select name="identificationType" className="input w-full"><option value="">-- Doc. Tipo --</option><option value="CF">Física</option><option value="CJ">Jurídica</option></select>
+                <input name="identification" className="input w-full" placeholder="Número Documento" />
               </div>
-            </div>
+              <div className="flex gap-2 mt-6">
+                <button type="button" onClick={() => setModalCrearProveedor(false)} className="btn btn-outline flex-1">Atrás</button>
+                <button type="submit" className="btn btn-primary flex-1" disabled={loading}>Crear y Asignar</button>
+              </div>
+            </form>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {/* ✅ NUEVO: Modal para agregar producto a la orden */}
-      {
-        modalAgregarProducto && proveedorParaAgregar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">Agregar Producto</h2>
-                <p className="text-gray-600 mt-1">
-                  Proveedor: <span className="font-medium">{proveedorParaAgregar.nombre}</span>
-                </p>
-              </div>
-
-              {/* Buscador */}
-              <div className="p-6 border-b border-gray-200">
-                <input
-                  type="text"
-                  value={busquedaProducto}
-                  onChange={(e) => {
-                    setBusquedaProducto(e.target.value)
-                    if (e.target.value.length >= 2) {
-                      buscarProductosAlegra(e.target.value)
-                    }
-                  }}
-                  placeholder="Buscar producto por código o nombre (mín. 2 caracteres)..."
-                  className="input w-full"
-                  autoFocus
-                />
-              </div>
-
-              {/* Lista de productos */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {loadingProductos ? (
-                  <div className="text-center py-8">
-                    <div className="spinner mx-auto mb-4"></div>
-                    <p className="text-gray-600">Buscando productos...</p>
-                  </div>
-                ) : productosAlegra.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Package className="mx-auto text-gray-400 mb-2" size={48} />
-                    <p className="text-gray-600">
-                      {busquedaProducto.length >= 2
-                        ? 'No se encontraron productos'
-                        : 'Escribe al menos 2 caracteres para buscar'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {productosAlegra.map((producto, idx) => {
-                      // Validar que reference sea string
-                      const reference = typeof producto.reference === 'object'
-                        ? producto.reference?.reference || producto.reference?.code || 'N/A'
-                        : producto.reference || 'N/A'
-
-                      const name = producto.name || 'Sin nombre'
-                      const price = typeof producto.price === 'number' ? producto.price : null
-
-                      return (
-                        <div
-                          key={producto.id || `producto-${idx}`}
-                          className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                          onClick={() => {
-                            const cantidad = prompt(`¿Cuántas unidades de "${name}" deseas agregar?`, '1')
-                            if (cantidad && parseInt(cantidad) > 0) {
-                              agregarProductoAOrden({
-                                ...producto,
-                                reference: reference,
-                                name: name
-                              }, cantidad)
-                            }
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-900">{name}</h5>
-                              <p className="text-sm text-gray-600">Código: {reference}</p>
-                              {price && (
-                                <p className="text-sm text-gray-500">Precio: ₡{price.toLocaleString()}</p>
-                              )}
-                            </div>
-                            <button className="btn btn-sm btn-primary">
-                              + Agregar
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-gray-200">
-                <button
-                  onClick={() => setModalAgregarProducto(false)}
-                  className="btn btn-outline w-full"
-                >
-                  Cerrar
-                </button>
-              </div>
+      {modalAgregarProducto && proveedorParaAgregar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div><h2 className="text-2xl font-bold text-gray-900">Buscar Producto Adicional</h2><p className="text-gray-500 text-sm mt-1">Agregando a {proveedorParaAgregar.nombre}</p></div>
             </div>
-          </div>
-        )
-      }
-
-      {/* ✅ NUEVO: Modal WhatsApp */}
-      {
-        modalWhatsAppVisible && proveedorParaWhatsApp && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <MessageCircle className="text-green-600" size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Enviar por WhatsApp</h2>
-                    <p className="text-gray-600 text-sm">{proveedorParaWhatsApp.nombre}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-blue-800 text-sm">
-                    <strong>¿Qué va a pasar?</strong>
-                  </p>
-                  <ul className="text-blue-700 text-sm mt-2 space-y-1">
-                    <li>1. Se descargará el PDF de la orden de compra</li>
-                    <li>2. Se abrirá WhatsApp con el mensaje predefinido</li>
-                    <li>3. Deberás adjuntar el PDF manualmente en el chat</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <label className="label font-medium">Número de teléfono del proveedor</label>
-                  <input
-                    type="tel"
-                    value={telefonoProveedor}
-                    onChange={(e) => setTelefonoProveedor(e.target.value)}
-                    className="input w-full"
-                    placeholder="Ej: 8888-8888 o +506 8888 8888"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Si no incluyes código de país, se usará +506 (Costa Rica)
-                  </p>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-gray-600 text-sm">
-                    <strong>Mensaje que se enviará:</strong>
-                  </p>
-                  <p className="text-gray-800 mt-1 italic">
-                    "Hola buenas, me puedes hacer proforma de esto, Gracias"
-                  </p>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-gray-200 flex gap-3">
-                <button
-                  onClick={() => setModalWhatsAppVisible(false)}
-                  className="btn btn-outline flex-1"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={enviarWhatsApp}
-                  disabled={loading || !telefonoProveedor.trim()}
-                  className="btn bg-green-600 text-white hover:bg-green-700 flex-1 flex items-center justify-center gap-2"
-                >
-                  <MessageCircle size={16} />
-                  {loading ? 'Procesando...' : 'Enviar por WhatsApp'}
-                </button>
-              </div>
+            <div className="p-4 border-b border-gray-100 bg-gray-50">
+              <input type="text" value={busquedaProducto} onChange={(e) => { setBusquedaProducto(e.target.value); if (e.target.value.length >= 2) buscarProductosAlegra(e.target.value); }} placeholder="Tipea nombre o código referencial..." className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" autoFocus />
             </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-white">
+              {loadingProductos ? (<div className="text-center py-4"><div className="spinner mx-auto"></div></div>) : productosAlegra.length === 0 ? (<div className="text-center py-6 text-gray-400">Sin coincidencias.</div>) : (
+                <div className="grid gap-2">
+                  {productosAlegra.map((p, i) => {
+                    const reference = typeof p.reference === 'object' ? p.reference?.reference || p.reference?.code : p.reference;
+                    return (
+                      <div key={i} className="p-3 border border-gray-100 rounded-lg flex items-center justify-between hover:bg-gray-50">
+                        <div><p className="font-semibold text-gray-800">{p.name}</p><p className="text-xs text-gray-500">{reference}</p></div>
+                        <button onClick={() => { const q = prompt(\`\${p.name}\\n¿Cantidad a añadir a la orden?\`, '1'); if(q && parseInt(q)>0) agregarProductoAOrden({...p, reference: reference}, q); }} className="btn btn-sm btn-primary">+ Añadir</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-100"><button onClick={() => setModalAgregarProducto(false)} className="btn btn-outline w-full font-semibold border-gray-300 text-gray-600 hover:bg-gray-100">Cerrar buscador</button></div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+
+      {modalWhatsAppVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-up">
+           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+             <div className="bg-green-500 p-6 text-center">
+               <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"><MessageCircle className="text-white" size={32} /></div>
+               <h2 className="text-xl font-bold text-white mb-1">Enviar PDF por WhatsApp</h2>
+             </div>
+             <div className="p-6 pb-2">
+               <label className="block text-sm font-semibold text-gray-700 mb-2">Destino / Contacto</label>
+               <input type="tel" value={telefonoProveedor} onChange={e=>setTelefonoProveedor(e.target.value)} placeholder="Ej: +506 8888 8888" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-center font-medium placeholder-gray-400" />
+               <p className="text-xs text-center text-gray-500 mt-3 px-2 leading-relaxed">Se generará el archivo con la orden de compra y se abrirá WhatsApp Web/App para enviarla.</p>
+             </div>
+             <div className="p-6 grid grid-cols-2 gap-3">
+               <button onClick={()=>setModalWhatsAppVisible(false)} className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition text-sm">Cancelar</button>
+               <button onClick={enviarWhatsApp} disabled={!telefonoProveedor} className="py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-green-500/30"><Download size={16} className="mr-1"/> Enviar</button>
+             </div>
+           </div>
+        </div>
+      )}
+      
+    </div>
   )
 }
