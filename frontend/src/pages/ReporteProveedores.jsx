@@ -152,7 +152,7 @@ export default function ReporteProveedores() {
   }
 
   const loadCantidadSugerida = async (proveedor_id) => {
-    if (!proveedor_id) {
+    if (!proveedor_id || proveedor_id === 'null' || proveedor_id === 'undefined') {
       setCantidadSugerida([])
       setResumenSugerida(null)
       return

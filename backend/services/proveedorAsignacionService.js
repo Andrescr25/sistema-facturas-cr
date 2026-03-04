@@ -49,7 +49,8 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
         alegra_item_id as "alegraItemId",
         alegra_reference as "alegraReference",
         confidence,
-        origen
+        origen,
+        factor_conversion as "factorConversion"
       FROM supplier_product_mapping
       WHERE (
         (alegra_item_id::text = $1 AND $1 IS NOT NULL)
@@ -109,7 +110,10 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
           const costoConIva = costoSinIvaConDescuento * 1.13;
           
-          precio = Math.round(costoConIva * 100) / 100;
+          const factorConversion = parseFloat(mapping.factorConversion) || 1;
+          const costoRealPorUnidad = costoConIva / factorConversion;
+          
+          precio = Math.round(costoRealPorUnidad * 100) / 100;
         }
 
         const registroProveedor = {

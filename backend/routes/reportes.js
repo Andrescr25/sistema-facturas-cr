@@ -451,10 +451,17 @@ router.get('/cantidad-sugerida', async (req, res) => {
   try {
     const { proveedor_id } = req.query;
 
-    if (!proveedor_id) {
+    if (!proveedor_id || proveedor_id === 'null' || proveedor_id === 'undefined') {
       return res.status(400).json({
         success: false,
-        message: 'proveedor_id es requerido'
+        message: 'proveedor_id válido es requerido'
+      });
+    }
+
+    if (isNaN(parseInt(proveedor_id))) {
+      return res.status(400).json({
+        success: false,
+        message: 'proveedor_id debe ser un número entero'
       });
     }
 
