@@ -97,7 +97,7 @@ export default function ReporteProveedores() {
       if (result.success) {
         const cantidadesMap = new Map()
         result.modificadas?.forEach(item => {
-          const key = \`\${item.proveedor_nombre}-\${item.producto_codigo}\`
+          const key = `\${item.proveedor_nombre}-\${item.producto_codigo}`
           cantidadesMap.set(key, {
             cantidad_original: item.cantidad_original,
             cantidad_modificada: item.cantidad_modificada
@@ -107,7 +107,7 @@ export default function ReporteProveedores() {
 
         const eliminados = new Set()
         result.eliminadas?.forEach(item => {
-          const key = \`\${item.proveedor_nombre}-\${item.producto_codigo}\`
+          const key = `\${item.proveedor_nombre}-\${item.producto_codigo}`
           eliminados.add(key)
         })
         setProductosEliminados(eliminados)
@@ -167,7 +167,7 @@ export default function ReporteProveedores() {
   }
 
   const handleCantidadChange = (proveedorNombre, productoCodigo, nuevaCantidad) => {
-    const key = \`\${proveedorNombre}-\${productoCodigo}\`
+    const key = `\${proveedorNombre}-\${productoCodigo}`
     const cantidadNum = parseInt(nuevaCantidad) || 0
     const nuevasCantidades = new Map(cantidadesModificadas)
     nuevasCantidades.set(key, cantidadNum)
@@ -185,7 +185,7 @@ export default function ReporteProveedores() {
       const cantidadesParaGuardar = []
       proveedores.forEach(proveedor => {
         proveedor.productos_faltantes.forEach(producto => {
-          const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+          const key = `\${proveedor.nombre}-\${producto.codigo}`
           const cantidadModificada = cantidadesModificadas.get(key)
           if (cantidadModificada !== undefined) {
             cantidadesParaGuardar.push({
@@ -203,12 +203,12 @@ export default function ReporteProveedores() {
       if (result.success) {
         await loadCantidadesGuardadas()
         setCantidadesModificadas(new Map())
-        alert(\`✅ Cantidades guardadas correctamente\\n\\n• \${result.cantidades_guardadas} productos actualizados\`)
+        alert(`✅ Cantidades guardadas correctamente\\n\\n• \${result.cantidades_guardadas} productos actualizados`)
       } else {
-        alert(\`❌ Error guardando cantidades: \${result.message}\`)
+        alert(`❌ Error guardando cantidades: \${result.message}`)
       }
     } catch (error) {
-      alert(\`❌ Error guardando cantidades: \${error.message}\`)
+      alert(`❌ Error guardando cantidades: \${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -227,7 +227,7 @@ export default function ReporteProveedores() {
         alert('Cantidades restauradas.')
       }
     } catch (error) {
-      alert(\`Error reseteando cantidades: \${error.message}\`)
+      alert(`Error reseteando cantidades: \${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -241,9 +241,9 @@ export default function ReporteProveedores() {
 
       if (source === 'orden') {
         productosParaPDF = proveedor.productos_faltantes
-          .filter(producto => !productosEliminados.has(\`\${proveedor.nombre}-\${producto.codigo}\`))
+          .filter(producto => !productosEliminados.has(`\${proveedor.nombre}-\${producto.codigo}`))
           .map(producto => {
-            const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+            const key = `\${proveedor.nombre}-\${producto.codigo}`
             const mod = cantidadesModificadas.get(key)
             const guardada = cantidadesGuardadas.get(key)
             const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
@@ -295,15 +295,15 @@ export default function ReporteProveedores() {
       const a = document.createElement('a')
       a.href = url
       const typeStr = source === 'sugerida' ? 'sugerida' : 'orden'
-      a.download = \`\${typeStr}-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf\`
+      a.download = `\${typeStr}-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
 
-      alert(\`✅ PDF generado para \${proveedor.nombre}\`)
+      alert(`✅ PDF generado para \${proveedor.nombre}`)
     } catch (error) {
-      alert(\`❌ Error generando PDF: \${error.message}\`)
+      alert(`❌ Error generando PDF: \${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -317,11 +317,11 @@ export default function ReporteProveedores() {
       if (telefonoDB) {
         setTelefonoProveedor(telefonoDB)
       } else {
-        const telefonoLocal = localStorage.getItem(\`whatsapp_tel_\${proveedor.nombre}\`)
+        const telefonoLocal = localStorage.getItem(`whatsapp_tel_\${proveedor.nombre}`)
         setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
       }
     } catch (error) {
-      const telefonoLocal = localStorage.getItem(\`whatsapp_tel_\${proveedor.nombre}\`)
+      const telefonoLocal = localStorage.getItem(`whatsapp_tel_\${proveedor.nombre}`)
       setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
     }
   }
@@ -338,9 +338,9 @@ export default function ReporteProveedores() {
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
 
       const productosParaPDF = proveedor.productos_faltantes
-        .filter(producto => !productosEliminados.has(\`\${proveedor.nombre}-\${producto.codigo}\`))
+        .filter(producto => !productosEliminados.has(`\${proveedor.nombre}-\${producto.codigo}`))
         .map(producto => {
-          const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+          const key = `\${proveedor.nombre}-\${producto.codigo}`
           const mod = cantidadesModificadas.get(key)
           const guardada = cantidadesGuardadas.get(key)
           const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
@@ -371,7 +371,7 @@ export default function ReporteProveedores() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = \`orden-compra-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf\`
+      a.download = `orden-compra-\${proveedor.nombre.replace(/\\s+/g, '-')}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -381,25 +381,25 @@ export default function ReporteProveedores() {
       if (!telefono.startsWith('+') && !telefono.startsWith('506')) telefono = '506' + telefono
       if (telefono.startsWith('+')) telefono = telefono.substring(1)
 
-      const mensaje = encodeURIComponent(\`Hola buenas, me puedes hacer proforma de esto, Gracias\`)
+      const mensaje = encodeURIComponent(`Hola buenas, me puedes hacer proforma de esto, Gracias`)
       
       alert('📥 Descargando PDF... WhatsApp se abrirá en 7 segundos.')
       await new Promise(resolve => setTimeout(resolve, 7000))
       
-      const whatsappUrl = \`https://wa.me/\${telefono}?text=\${mensaje}\`
+      const whatsappUrl = `https://wa.me/\${telefono}?text=\${mensaje}`
       window.open(whatsappUrl, '_blank')
 
       try {
         await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
-        localStorage.setItem(\`whatsapp_tel_\${proveedor.nombre}\`, telefonoProveedor)
+        localStorage.setItem(`whatsapp_tel_\${proveedor.nombre}`, telefonoProveedor)
       } catch (e) {
-        localStorage.setItem(\`whatsapp_tel_\${proveedor.nombre}\`, telefonoProveedor)
+        localStorage.setItem(`whatsapp_tel_\${proveedor.nombre}`, telefonoProveedor)
       }
 
       setModalWhatsAppVisible(false)
-      alert(\`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.\`)
+      alert(`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.`)
     } catch (error) {
-      alert(\`❌ Error: \${error.message}\`)
+      alert(`❌ Error: \${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -417,14 +417,14 @@ export default function ReporteProveedores() {
       setEncargosEspeciales([])
       alert('✅ Datos eliminados localmente.')
     } catch (error) {
-      alert(\`❌ Error eliminando datos: \${error.message}\`)
+      alert(`❌ Error eliminando datos: \${error.message}`)
     } finally {
       setLoading(false)
     }
   }
 
   const getCantidadFinal = (proveedorNombre, productoCodigo, cantidadOriginal) => {
-    const key = \`\${proveedorNombre}-\${productoCodigo}\`
+    const key = `\${proveedorNombre}-\${productoCodigo}`
     const cantidadModificada = cantidadesModificadas.get(key)
     const cantidadGuardada = cantidadesGuardadas.get(key)
     return cantidadModificada !== undefined ? cantidadModificada : (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
@@ -462,14 +462,14 @@ export default function ReporteProveedores() {
   const cargarProveedoresAlegra = async (busqueda) => {
     try {
       setLoadingProveedores(true)
-      const response = await api.get(\`/alegra/proveedores\`, { params: { busqueda } })
+      const response = await api.get(`/alegra/proveedores`, { params: { busqueda } })
       if (response.data.success) {
         setProveedoresAlegra(response.data.data)
       } else {
         alert('Error cargando proveedores: ' + response.data.message)
       }
     } catch (error) {
-      alert(\`❌ Error: \${error.message}\`)
+      alert(`❌ Error: \${error.message}`)
     } finally {
       setLoadingProveedores(false)
     }
@@ -507,7 +507,7 @@ export default function ReporteProveedores() {
 
       const exitosos = resultados.filter(r => r.data?.success).length
       if (exitosos > 0) {
-        alert(\`✅ \${exitosos} producto(s) asignado(s)\`)
+        alert(`✅ \${exitosos} producto(s) asignado(s)`)
         setModalAsignarVisible(false)
         setProductosSeleccionados(new Set())
         await loadReporte()
@@ -524,11 +524,11 @@ export default function ReporteProveedores() {
       setLoading(true)
       const response = await api.post('/alegra/proveedores', datosProveedor)
       if (response.data.success) {
-        alert(\`✅ Proveedor creado: \${response.data.data.name}\`)
+        alert(`✅ Proveedor creado: \${response.data.data.name}`)
         setModalCrearProveedor(false)
         await asignarProveedorManual(response.data.data.id)
       } else {
-        alert(\`❌ Error: \${response.data.message}\`)
+        alert(`❌ Error: \${response.data.message}`)
       }
     } catch (error) {
       alert('Error creando proveedor: ' + error.message)
@@ -538,7 +538,7 @@ export default function ReporteProveedores() {
   }
 
   const eliminarProductoDeOrden = async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
-    const key = \`\${proveedorNombre}-\${productoCodigo}\`
+    const key = `\${proveedorNombre}-\${productoCodigo}`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.add(key)
     setProductosEliminados(nuevosEliminados)
@@ -551,7 +551,7 @@ export default function ReporteProveedores() {
   }
 
   const restaurarProducto = async (proveedorNombre, productoCodigo) => {
-    const key = \`\${proveedorNombre}-\${productoCodigo}\`
+    const key = `\${proveedorNombre}-\${productoCodigo}`
     const nuevosEliminados = new Set(productosEliminados)
     nuevosEliminados.delete(key)
     setProductosEliminados(nuevosEliminados)
@@ -650,7 +650,7 @@ export default function ReporteProveedores() {
             <button
               onClick={handleGuardarCantidades}
               disabled={cantidadesModificadas.size === 0}
-              className={\`btn \${cantidadesModificadas.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'btn-outline opacity-50 cursor-not-allowed'} whitespace-nowrap\`}
+              className={`btn \${cantidadesModificadas.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'btn-outline opacity-50 cursor-not-allowed'} whitespace-nowrap`}
             >
               <FileText size={16} className="mr-2" /> Guardar Cambios
             </button>
@@ -759,18 +759,18 @@ export default function ReporteProveedores() {
           <div className="divide-y divide-gray-100">
             {proveedor.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0).map((producto, idx) => {
               const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
-              const key = \`\${proveedor.nombre}-\${producto.codigo}\`
+              const key = `\${proveedor.nombre}-\${producto.codigo}`
               const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
               const estaEliminado = productosEliminados.has(key)
               const seleccionado = productosSeleccionados.has(producto.codigo)
 
               return (
-                <div key={idx} className={\`p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row gap-4 md:items-center \${estaEliminado ? 'bg-red-50/50 opacity-60' : tieneModificacion ? 'bg-yellow-50/30' : ''}\`}>
+                <div key={idx} className={`p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row gap-4 md:items-center \${estaEliminado ? 'bg-red-50/50 opacity-60' : tieneModificacion ? 'bg-yellow-50/30' : ''}`}>
                   <div className="flex items-start md:items-center w-full md:w-5/12 gap-3">
                     <input type="checkbox" checked={seleccionado} onChange={() => toggleProductoSeleccionado(producto.codigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-blue-600 rounded" />
                     <div className="flex-1 min-w-0">
-                      <p className={\`font-semibold truncate \${estaEliminado ? 'line-through text-gray-400' : 'text-gray-900'}\`}>{producto.nombre}</p>
-                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo} {producto.descripcion_factura && \`| Nota: \${producto.descripcion_factura}\`}</p>
+                      <p className={`font-semibold truncate \${estaEliminado ? 'line-through text-gray-400' : 'text-gray-900'}`}>{producto.nombre}</p>
+                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo} {producto.descripcion_factura && `| Nota: \${producto.descripcion_factura}`}</p>
                     </div>
                   </div>
 
@@ -810,7 +810,7 @@ export default function ReporteProveedores() {
             
             {/* AGREGADOS MANUALMENTE */}
             {(productosAgregados.get(proveedor.nombre) || []).map((producto, idx) => (
-               <div key={\`agregado-\${idx}\`} className="p-4 bg-green-50/40 hover:bg-green-50/70 transition-colors flex flex-col md:flex-row gap-4 md:items-center">
+               <div key={`agregado-\${idx}`} className="p-4 bg-green-50/40 hover:bg-green-50/70 transition-colors flex flex-col md:flex-row gap-4 md:items-center">
                   <div className="flex items-center w-full md:w-5/12 gap-3 pl-7">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 truncate">{producto.nombre} <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded ml-1 tracking-wider uppercase">Extra</span></p>
@@ -1016,7 +1016,7 @@ export default function ReporteProveedores() {
                     return (
                       <div key={i} className="p-3 border border-gray-100 rounded-lg flex items-center justify-between hover:bg-gray-50">
                         <div><p className="font-semibold text-gray-800">{p.name}</p><p className="text-xs text-gray-500">{reference}</p></div>
-                        <button onClick={() => { const q = prompt(\`\${p.name}\\n¿Cantidad a añadir a la orden?\`, '1'); if(q && parseInt(q)>0) agregarProductoAOrden({...p, reference: reference}, q); }} className="btn btn-sm btn-primary">+ Añadir</button>
+                        <button onClick={() => { const q = prompt(`\${p.name}\\n¿Cantidad a añadir a la orden?`, '1'); if(q && parseInt(q)>0) agregarProductoAOrden({...p, reference: reference}, q); }} className="btn btn-sm btn-primary">+ Añadir</button>
                       </div>
                     )
                   })}
