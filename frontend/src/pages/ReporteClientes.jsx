@@ -596,8 +596,8 @@ export default function ReporteClientes() {
             <button
               onClick={() => setShowProveedorDropdown(!showProveedorDropdown)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border shadow-sm w-full md:w-auto ${proveedoresFiltro.size > 0
-                  ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
+                ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
+                : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
                 }`}
             >
               <Package size={15} />
@@ -610,7 +610,7 @@ export default function ReporteClientes() {
                 {/* Overlay para cerrar al hacer click fuera */}
                 <div className="fixed inset-0 z-10" onClick={() => setShowProveedorDropdown(false)}></div>
 
-                <div className="absolute z-20 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                <div className="absolute z-20 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden" onClick={e => e.stopPropagation()}>
                   {/* Header */}
                   <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Proveedores</span>
@@ -624,17 +624,16 @@ export default function ReporteClientes() {
                     {proveedoresDisponibles.map(prov => {
                       const isActive = proveedoresFiltro.has(prov)
                       return (
-                        <label
+                        <div
                           key={prov}
-                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-gray-50 ${isActive ? 'bg-purple-50' : ''
-                            }`}
+                          onClick={() => toggleProveedor(prov)}
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-gray-50 ${isActive ? 'bg-purple-50' : ''}`}
                         >
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${isActive ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
-                            }`}>
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${isActive ? 'bg-purple-600 border-purple-600' : 'border-gray-300'}`}>
                             {isActive && <Check size={10} className="text-white" />}
                           </div>
                           <span className={`text-sm truncate ${isActive ? 'text-purple-800 font-medium' : 'text-gray-700'}`}>{prov}</span>
-                        </label>
+                        </div>
                       )
                     })}
                   </div>
