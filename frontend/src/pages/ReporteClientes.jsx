@@ -329,7 +329,10 @@ export default function ReporteClientes() {
     const renderFacturaActiva = (factura) => {
       const estadoFactura = getFacturaEstado(factura)
       const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
-      const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+      const productosValidos = factura.productos_faltantes
+        .filter(p => Number(p.cantidad_faltante) > 0)
+        .filter(p => proveedoresFiltro.size === 0 || proveedoresFiltro.has(p.proveedor_asignado || p.proveedor))
+      if (productosValidos.length === 0) return null
       const esFacturaSinCaja = (factura.total_items_factura || 0) > 0 && productosValidos.filter(p => p.tipo_faltante === 'total').length >= factura.total_items_factura
 
       return (
@@ -493,7 +496,7 @@ export default function ReporteClientes() {
         )}
 
         <div className="space-y-4">
-          {facturasActivas.map(renderFacturaActiva)}
+          {facturasActivas.map(renderFacturaActiva).filter(Boolean)}
         </div>
 
         {/* Separador + Facturas Procesadas al fondo */}
@@ -509,7 +512,10 @@ export default function ReporteClientes() {
             <div className="space-y-3">
               {facturasProcesadas.map((factura) => {
                 const estadoFactura = getFacturaEstado(factura)
-                const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+                const productosValidos = factura.productos_faltantes
+                  .filter(p => Number(p.cantidad_faltante) > 0)
+                  .filter(p => proveedoresFiltro.size === 0 || proveedoresFiltro.has(p.proveedor_asignado || p.proveedor))
+                if (productosValidos.length === 0) return null
                 return (
                   <div key={getFacturaKey(factura)} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden opacity-60 hover:opacity-80 transition-opacity">
                     <div className="p-4 flex items-center justify-between">
