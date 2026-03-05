@@ -2820,13 +2820,13 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         fa.observaciones_adicionales,
         f.created_at as fecha_registro,
         f.updated_at as fecha_procesamiento,
-        -- NUEVO: Traer ajustes guardados
         aj.cantidad_entregada,
         aj.estado as ajuste_estado,
         aj.requiere_actualizacion,
-        -- NUEVO: Verificar si está en cola de impresión
         fr.id as reimpresion_id,
-        fr.estado as reimpresion_estado
+        fr.estado as reimpresion_estado,
+        -- Total de items originales de la factura (para detectar sin caja)
+        (SELECT COUNT(*) FROM factura_items fi2 WHERE fi2.factura_id = fa.id) as total_items_factura
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
@@ -2883,8 +2883,8 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
           es_pendiente_manual: false,
           pendiente_desde: null,
           pendiente_motivo: null,
-          // NUEVO: Estado de cola de impresión
           en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
+          total_items_factura: parseInt(row.total_items_factura) || 0,
           productos_faltantes: []
         });
       }

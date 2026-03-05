@@ -280,13 +280,17 @@ export default function ReporteClientes() {
   }
 
   // Detectar si un cliente tiene facturas "sin caja"
+  // Sin caja = TODOS los items originales de la factura son faltante total
   const clienteTieneSinCaja = (cliente) => {
     return cliente.facturas_con_faltantes.some(factura => {
       const estadoFactura = getFacturaEstado(factura)
       if (estadoFactura.estado === 'procesado') return false
+      const totalItemsOriginal = factura.total_items_factura || 0
+      if (totalItemsOriginal === 0) return false
       const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
-      if (productosValidos.length === 0) return false
-      return productosValidos.every(p => p.tipo_faltante === 'total')
+      const faltantesTotales = productosValidos.filter(p => p.tipo_faltante === 'total')
+      // Solo es sin caja si la cantidad de faltantes totales == total de items originales
+      return faltantesTotales.length >= totalItemsOriginal
     })
   }
 
@@ -324,7 +328,7 @@ export default function ReporteClientes() {
       const estadoFactura = getFacturaEstado(factura)
       const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
       const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
-      const esFacturaSinCaja = productosValidos.length > 0 && productosValidos.every(p => p.tipo_faltante === 'total')
+      const esFacturaSinCaja = (factura.total_items_factura || 0) > 0 && productosValidos.filter(p => p.tipo_faltante === 'total').length >= factura.total_items_factura
 
       return (
         <div key={getFacturaKey(factura)} className={`bg-white rounded-xl shadow-sm overflow-hidden border-l-4 transition-all ${estaPendienteManual ? 'border-l-yellow-400' : esFacturaSinCaja ? 'border-l-red-400' : 'border-l-gray-200'
