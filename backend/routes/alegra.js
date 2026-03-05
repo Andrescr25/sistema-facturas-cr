@@ -2813,6 +2813,7 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         p.nombre as producto_nombre,
         p.codigo as producto_codigo,
         COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre,
+        f.proveedor_asignado,
         f.cantidad_faltante,
         f.tipo_faltante,
         f.observaciones,
@@ -2895,12 +2896,12 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         nombre: row.producto_nombre,
         codigo: row.producto_codigo,
         proveedor: row.proveedor_nombre,
+        proveedor_asignado: row.proveedor_asignado || row.proveedor_nombre,
         cantidad_faltante: parseInt(row.cantidad_faltante),
         tipo_faltante: row.tipo_faltante,
         observaciones: row.observaciones,
         fecha_registro: row.fecha_registro,
         estado: row.faltante_estado,
-        // NUEVO: Ajustes guardados
         cantidad_entregada: row.cantidad_entregada || 0,
         ajuste_estado: row.ajuste_estado || 'pendiente',
         requiere_actualizacion: row.requiere_actualizacion || false
