@@ -575,18 +575,16 @@ export default function ReporteClientes() {
       )
     )].filter(Boolean).sort()
 
-    // Filtrar clientes: solo mostrar clientes cuyos productos pertenezcan TODOS a los proveedores seleccionados
+    // Filtrar clientes: mostrar clientes que tengan al menos un producto de los proveedores seleccionados
     const clientesFiltrados = clientes
       .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
       .filter(c => {
         if (proveedoresFiltro.size === 0) return true
-        // Todos los productos válidos del cliente deben pertenecer a los proveedores seleccionados
-        const todosLosProductos = c.facturas_con_faltantes.flatMap(f =>
-          f.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
-        )
-        if (todosLosProductos.length === 0) return false
-        return todosLosProductos.every(p =>
-          proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
+        // Basta con que al menos un producto pertenezca a los proveedores seleccionados
+        return c.facturas_con_faltantes.some(f =>
+          f.productos_faltantes.some(p =>
+            Number(p.cantidad_faltante) > 0 && proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
+          )
         )
       })
 
