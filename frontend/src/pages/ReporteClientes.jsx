@@ -309,9 +309,134 @@ export default function ReporteClientes() {
     if (!cliente) return null
     const esSinCaja = clienteTieneSinCaja(cliente)
 
+    // Separar facturas activas de procesadas
+    const facturasActivas = cliente.facturas_con_faltantes.filter(f => {
+      const e = getFacturaEstado(f)
+      return e.estado !== 'procesado' && e.estado !== 'en_cola_impresion'
+    })
+    const facturasProcesadas = cliente.facturas_con_faltantes.filter(f => {
+      const e = getFacturaEstado(f)
+      return e.estado === 'procesado' || e.estado === 'en_cola_impresion'
+    })
+
+    // Renderizar una factura activa (con todos sus productos y acciones)
+    const renderFacturaActiva = (factura) => {
+      const estadoFactura = getFacturaEstado(factura)
+      const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
+      const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+      const esFacturaSinCaja = productosValidos.length > 0 && productosValidos.every(p => p.tipo_faltante === 'total')
+
+      return (
+        <div key={getFacturaKey(factura)} className={`bg-white rounded-xl shadow-sm overflow-hidden border-l-4 transition-all ${estaPendienteManual ? 'border-l-yellow-400' : esFacturaSinCaja ? 'border-l-red-400' : 'border-l-gray-200'
+          }`}>
+          {/* Header Factura */}
+          <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-50">
+            <div>
+              <h5 className="font-bold text-lg text-gray-900">
+                Factura #{factura.numero_factura}
+                {estaPendienteManual && <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>}
+                {esFacturaSinCaja && <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">📦 Sin Caja</span>}
+              </h5>
+              <p className="text-sm text-gray-500">Fecha: {formatDate(factura.fecha_emision)}</p>
+              {estaPendienteManual && estadoFactura.timestamp && <p className="text-xs text-yellow-700 mt-1">Pendiente desde: {formatDateTime(estadoFactura.timestamp)}</p>}
+              {estaPendienteManual && estadoFactura.motivo && <p className="text-xs text-yellow-700">Motivo: {estadoFactura.motivo}</p>}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right mr-2">
+                <p className="text-sm font-medium text-gray-700">{productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
+                {(() => {
+                  if (estaPendienteManual) return <p className="text-xs text-yellow-600">⌛ Esperando entrega</p>
+                  const ajustesF = factura.productos_faltantes.map(p => entregasAjustadas.get(getProductKey(factura, p))).filter(Boolean)
+                  if (ajustesF.length === 0) return null
+                  if (ajustesF.every(a => a.estado === 'completo')) return <p className="text-xs text-green-600">✓ Resuelto</p>
+                  if (ajustesF.some(a => a.requiereActualizacion)) return <p className="text-xs text-blue-600">✓ Con ajustes</p>
+                  return null
+                })()}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <button onClick={() => handleFacturaLista(cliente.nombre, factura)} className="btn btn-primary btn-sm whitespace-nowrap"><Check size={14} className="mr-1" /> Lista</button>
+                {estaPendienteManual ? (
+                  <button onClick={() => handleQuitarFacturaPendiente(factura, cliente.nombre)} className="btn btn-outline btn-sm text-yellow-800 border-yellow-500 hover:bg-yellow-50 whitespace-nowrap"><X size={14} className="mr-1" /> Quitar</button>
+                ) : (
+                  <button onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)} className="btn btn-outline btn-sm text-yellow-700 border-yellow-400 hover:bg-yellow-50 whitespace-nowrap"><Clock size={14} className="mr-1" /> Pendiente</button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Productos */}
+          <div className="divide-y divide-gray-50">
+            {productosValidos.map((producto) => {
+              const productoKey = getProductKey(factura, producto)
+              const entrega = getEntregaInfo(productoKey, producto)
+              const estaCompleto = entrega.estado === 'completo'
+              const noLlego = entrega.estado === 'no_llego'
+              const tieneAjuste = entrega.tieneAjuste
+
+              return (
+                <div key={productoKey} className={`p-4 transition-all ${estaCompleto ? 'bg-green-50/50' : entrega.estado === 'parcial' ? 'bg-blue-50/30' : noLlego ? 'bg-red-50/30' : 'hover:bg-gray-50/50'
+                  }`}>
+                  <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                    <div className="lg:w-5/12 min-w-0">
+                      <p className={`font-semibold truncate ${estaCompleto ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                        {estaCompleto && <Check size={14} className="inline text-green-600 mr-1" />}
+                        {producto.nombre}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{producto.codigo} • {producto.proveedor}</p>
+                      {producto.observaciones && <p className={`text-xs text-orange-600 mt-0.5 ${estaCompleto ? 'line-through opacity-60' : ''}`}>📝 {producto.observaciones}</p>}
+                    </div>
+                    <div className="lg:w-2/12">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${producto.tipo_faltante === 'total' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {producto.cantidad_faltante} {producto.tipo_faltante === 'total' ? 'total' : 'parcial'}
+                      </span>
+                    </div>
+                    <div className="lg:w-2/12">
+                      <input type="number" min="0" max={producto.cantidad_faltante} value={entrega.cantidadEntregada} placeholder="0"
+                        onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
+                        disabled={estaCompleto} className={`input w-full max-w-[100px] ${estaCompleto ? 'bg-gray-100 text-gray-400' : ''}`} />
+                    </div>
+                    <div className="lg:w-1/12">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ${estaCompleto ? 'bg-green-100 text-green-800' : entrega.estado === 'parcial' ? 'bg-blue-100 text-blue-800' : noLlego ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                        {estaCompleto ? '✓ Ok' : entrega.estado === 'parcial' ? '◐' : noLlego ? '✗' : '○'}
+                      </span>
+                    </div>
+                    <div className="lg:w-2/12">
+                      <div className="flex gap-1.5">
+                        {!estaCompleto && !noLlego && (
+                          <>
+                            <button onClick={() => handleMarcarCompleto(productoKey, producto)} className="btn btn-sm bg-green-600 text-white border-green-600 hover:bg-green-700" title="Completo"><Check size={13} /></button>
+                            <button onClick={() => handleNoLlegoNada(productoKey, producto)} className="btn btn-sm bg-red-600 text-white border-red-600 hover:bg-red-700" title="No llegó"><X size={13} /></button>
+                          </>
+                        )}
+                        {tieneAjuste && <button onClick={() => handleDeshacer(productoKey, producto)} className="btn btn-sm bg-orange-500 text-white border-orange-500 hover:bg-orange-600" title="Deshacer"><Undo2 size={13} /></button>}
+                      </div>
+                    </div>
+                  </div>
+                  {entrega.cantidadEntregada > 0 && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 flex items-center justify-between text-sm">
+                      <span className="text-blue-800 flex items-center"><Calculator size={14} className="mr-1" /> {entrega.estado === 'completo' ? 'Resuelto — sin cambios' : `Se reducirá en ${entrega.cantidadAReducir} uds`}</span>
+                      <span className="text-blue-600 font-medium">{entrega.cantidadEntregada}/{producto.cantidad_faltante}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Observaciones adicionales */}
+          {factura.observaciones_adicionales && (
+            <div className="p-4 bg-yellow-50 border-t border-yellow-200">
+              <p className="text-sm text-yellow-800"><strong>📝 Encargos:</strong> {factura.observaciones_adicionales}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div className="animate-fade-in-up">
-        {/* Barra superior: volver + acciones */}
+        {/* Barra superior */}
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setClienteActivoNombre(null)} className="flex items-center text-gray-500 hover:text-purple-600 transition-colors">
             <ArrowLeft className="mr-2" size={20} /> Volver a clientes
@@ -327,13 +452,9 @@ export default function ReporteClientes() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900">{cliente.nombre}</h1>
-                {esSinCaja && (
-                  <span className="text-[10px] bg-red-500 text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">📦 Sin Caja</span>
-                )}
+                {esSinCaja && <span className="text-[10px] bg-red-500 text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">📦 Sin Caja</span>}
               </div>
-              {cliente.email && (
-                <p className="text-gray-500 flex items-center mt-1"><Mail size={14} className="mr-1.5" /> {cliente.email}</p>
-              )}
+              {cliente.email && <p className="text-gray-500 flex items-center mt-1"><Mail size={14} className="mr-1.5" /> {cliente.email}</p>}
               <p className="text-xs text-gray-400 mt-1"><Clock size={12} className="inline mr-1" /> Última actividad: {formatDateTime(cliente.ultima_actividad)}</p>
             </div>
           </div>
@@ -349,182 +470,62 @@ export default function ReporteClientes() {
           </div>
         </div>
 
-        {/* Si es sin caja: aviso sutil dentro del detalle */}
+        {/* Aviso sin caja */}
         {esSinCaja && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
             <AlertTriangle className="text-red-500 flex-shrink-0" size={20} />
-            <p className="text-sm text-red-800">
-              Este cliente tiene facturas con <strong>100% de faltantes totales</strong> — no tiene caja ni empaque en bodega.
-            </p>
+            <p className="text-sm text-red-800">Este cliente tiene facturas con <strong>100% de faltantes totales</strong> — no tiene caja ni empaque en bodega.</p>
           </div>
         )}
 
-        {/* Lista de Facturas */}
+        {/* Facturas activas */}
+        {facturasActivas.length === 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center mb-6">
+            <Check className="mx-auto text-green-400 mb-2" size={32} />
+            <p className="text-green-800 font-medium">Todas las facturas de este cliente han sido procesadas.</p>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {cliente.facturas_con_faltantes.map((factura) => {
-            const estadoFactura = getFacturaEstado(factura)
-            const estaProcesada = estadoFactura.estado === 'procesado' || estadoFactura.estado === 'en_cola_impresion'
-            const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
-            const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
-            const esFacturaSinCaja = productosValidos.length > 0 && productosValidos.every(p => p.tipo_faltante === 'total') && !estaProcesada
-
-            return (
-              <div key={getFacturaKey(factura)} className={`bg-white rounded-xl shadow-sm overflow-hidden border-l-4 transition-all ${estaProcesada ? 'border-l-green-400 opacity-70' :
-                  estaPendienteManual ? 'border-l-yellow-400' :
-                    esFacturaSinCaja ? 'border-l-red-400' :
-                      'border-l-gray-200'
-                }`}>
-                {/* Header Factura */}
-                <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-50">
-                  <div>
-                    <h5 className={`font-bold text-lg ${estaProcesada ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                      {estaProcesada && <Check size={16} className="inline text-green-600 mr-1" />}
-                      Factura #{factura.numero_factura}
-                      {estaProcesada && <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">✓ Procesada</span>}
-                      {estaPendienteManual && <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">⏳ Pendiente</span>}
-                      {esFacturaSinCaja && <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">📦 Sin Caja</span>}
-                    </h5>
-                    <p className={`text-sm ${estaProcesada ? 'text-gray-400' : 'text-gray-500'}`}>Fecha: {formatDate(factura.fecha_emision)}</p>
-                    {estaProcesada && estadoFactura.timestamp && <p className="text-xs text-green-600 mt-1">Procesada: {formatDateTime(estadoFactura.timestamp)}</p>}
-                    {estaPendienteManual && estadoFactura.timestamp && <p className="text-xs text-yellow-700 mt-1">Pendiente desde: {formatDateTime(estadoFactura.timestamp)}</p>}
-                    {estaPendienteManual && estadoFactura.motivo && <p className="text-xs text-yellow-700">Motivo: {estadoFactura.motivo}</p>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right mr-2">
-                      <p className={`text-sm font-medium ${estaProcesada ? 'text-gray-400' : 'text-gray-700'}`}>{productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
-                      {(() => {
-                        if (estaProcesada) return <p className="text-xs text-green-600">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'}</p>
-                        if (estaPendienteManual) return <p className="text-xs text-yellow-600">⌛ Esperando entrega</p>
-                        const ajustesF = factura.productos_faltantes.map(p => entregasAjustadas.get(getProductKey(factura, p))).filter(Boolean)
-                        if (ajustesF.length === 0) return null
-                        if (ajustesF.every(a => a.estado === 'completo')) return <p className="text-xs text-green-600">✓ Resuelto</p>
-                        if (ajustesF.some(a => a.requiereActualizacion)) return <p className="text-xs text-blue-600">✓ Con ajustes</p>
-                        return null
-                      })()}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      {!estaProcesada ? (
-                        <>
-                          <button onClick={() => handleFacturaLista(cliente.nombre, factura)} className="btn btn-primary btn-sm whitespace-nowrap"><Check size={14} className="mr-1" /> Lista</button>
-                          {estaPendienteManual ? (
-                            <button onClick={() => handleQuitarFacturaPendiente(factura, cliente.nombre)} className="btn btn-outline btn-sm text-yellow-800 border-yellow-500 hover:bg-yellow-50 whitespace-nowrap"><X size={14} className="mr-1" /> Quitar</button>
-                          ) : (
-                            <button onClick={() => handleMarcarFacturaPendiente(factura, cliente.nombre)} className="btn btn-outline btn-sm text-yellow-700 border-yellow-400 hover:bg-yellow-50 whitespace-nowrap"><Clock size={14} className="mr-1" /> Pendiente</button>
-                          )}
-                        </>
-                      ) : (
-                        <button onClick={() => handleRecuperarFactura(factura)} className="btn btn-sm bg-orange-600 text-white border-orange-600 hover:bg-orange-700 whitespace-nowrap"><RotateCcw size={14} className="mr-1" /> Recuperar</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Productos */}
-                <div className={`divide-y divide-gray-50 ${estaProcesada ? 'pointer-events-none' : ''}`}>
-                  {productosValidos.map((producto) => {
-                    const productoKey = getProductKey(factura, producto)
-                    const entrega = getEntregaInfo(productoKey, producto)
-                    const estaCompleto = entrega.estado === 'completo'
-                    const noLlego = entrega.estado === 'no_llego'
-                    const tieneAjuste = entrega.tieneAjuste
-
-                    return (
-                      <div key={productoKey} className={`p-4 transition-all ${estaProcesada ? 'bg-gray-50/50 opacity-60' :
-                          estaCompleto ? 'bg-green-50/50' :
-                            entrega.estado === 'parcial' ? 'bg-blue-50/30' :
-                              noLlego ? 'bg-red-50/30' :
-                                'hover:bg-gray-50/50'
-                        }`}>
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                          {/* Info */}
-                          <div className="lg:w-5/12 min-w-0">
-                            <p className={`font-semibold truncate ${estaProcesada || estaCompleto ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                              {(estaCompleto || estaProcesada) && <Check size={14} className="inline text-green-600 mr-1" />}
-                              {producto.nombre}
-                            </p>
-                            <p className={`text-xs truncate ${estaProcesada ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {producto.codigo} • {producto.proveedor}
-                            </p>
-                            {producto.observaciones && <p className={`text-xs text-orange-600 mt-0.5 ${(estaCompleto || estaProcesada) ? 'line-through opacity-60' : ''}`}>📝 {producto.observaciones}</p>}
-                          </div>
-
-                          {/* Faltante */}
-                          <div className="lg:w-2/12">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${estaProcesada ? 'bg-gray-100 text-gray-500' :
-                                producto.tipo_faltante === 'total' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                              {producto.cantidad_faltante} {producto.tipo_faltante === 'total' ? 'total' : 'parcial'}
-                            </span>
-                          </div>
-
-                          {/* Input entregado */}
-                          <div className="lg:w-2/12">
-                            <input
-                              type="number" min="0" max={producto.cantidad_faltante}
-                              value={entrega.cantidadEntregada} placeholder="0"
-                              onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
-                              disabled={estaCompleto || estaProcesada}
-                              className={`input w-full max-w-[100px] ${(estaCompleto || estaProcesada) ? 'bg-gray-100 text-gray-400' : ''}`}
-                            />
-                          </div>
-
-                          {/* Estado badge */}
-                          <div className="lg:w-1/12">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ${estaProcesada ? 'bg-gray-100 text-gray-500' :
-                                estaCompleto ? 'bg-green-100 text-green-800' :
-                                  entrega.estado === 'parcial' ? 'bg-blue-100 text-blue-800' :
-                                    noLlego ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
-                              }`}>
-                              {estaProcesada ? '✓' : estaCompleto ? '✓ Ok' : entrega.estado === 'parcial' ? '◐' : noLlego ? '✗' : '○'}
-                            </span>
-                          </div>
-
-                          {/* Acciones */}
-                          <div className="lg:w-2/12">
-                            {!estaProcesada && (
-                              <div className="flex gap-1.5">
-                                {!estaCompleto && !noLlego && (
-                                  <>
-                                    <button onClick={() => handleMarcarCompleto(productoKey, producto)} className="btn btn-sm bg-green-600 text-white border-green-600 hover:bg-green-700" title="Completo"><Check size={13} /></button>
-                                    <button onClick={() => handleNoLlegoNada(productoKey, producto)} className="btn btn-sm bg-red-600 text-white border-red-600 hover:bg-red-700" title="No llegó"><X size={13} /></button>
-                                  </>
-                                )}
-                                {tieneAjuste && (
-                                  <button onClick={() => handleDeshacer(productoKey, producto)} className="btn btn-sm bg-orange-500 text-white border-orange-500 hover:bg-orange-600" title="Deshacer"><Undo2 size={13} /></button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Info cálculo */}
-                        {entrega.cantidadEntregada > 0 && !estaProcesada && (
-                          <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 flex items-center justify-between text-sm">
-                            <span className="text-blue-800 flex items-center"><Calculator size={14} className="mr-1" /> {entrega.estado === 'completo' ? 'Resuelto — sin cambios' : `Se reducirá en ${entrega.cantidadAReducir} uds`}</span>
-                            <span className="text-blue-600 font-medium">{entrega.cantidadEntregada}/{producto.cantidad_faltante}</span>
-                          </div>
-                        )}
-                        {estaProcesada && estadoFactura.ajustes && (
-                          <div className="mt-2 p-2 bg-green-50 rounded border border-green-200 flex items-center justify-between text-sm">
-                            <span className="text-green-800 flex items-center"><Check size={14} className="mr-1" /> Procesado</span>
-                            <span className="text-green-600 text-xs">{formatDateTime(estadoFactura.timestamp)}</span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Observaciones adicionales */}
-                {factura.observaciones_adicionales && (
-                  <div className="p-4 bg-yellow-50 border-t border-yellow-200">
-                    <p className="text-sm text-yellow-800"><strong>📝 Encargos:</strong> {factura.observaciones_adicionales}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {facturasActivas.map(renderFacturaActiva)}
         </div>
+
+        {/* Separador + Facturas Procesadas al fondo */}
+        {facturasProcesadas.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-[1px] flex-1 bg-gray-200"></div>
+              <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
+                <Check size={12} /> {facturasProcesadas.length} procesada{facturasProcesadas.length > 1 ? 's' : ''}
+              </span>
+              <div className="h-[1px] flex-1 bg-gray-200"></div>
+            </div>
+            <div className="space-y-3">
+              {facturasProcesadas.map((factura) => {
+                const estadoFactura = getFacturaEstado(factura)
+                const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+                return (
+                  <div key={getFacturaKey(factura)} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden opacity-60 hover:opacity-80 transition-opacity">
+                    <div className="p-4 flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-gray-400 line-through">
+                          <Check size={14} className="inline text-green-500 mr-1" />
+                          Factura #{factura.numero_factura}
+                          <span className="ml-2 px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full no-underline inline-block">✓ Procesada</span>
+                        </h5>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(factura.fecha_emision)} • {productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
+                        {estadoFactura.timestamp && <p className="text-[10px] text-green-600 mt-0.5">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'} — {formatDateTime(estadoFactura.timestamp)}</p>}
+                      </div>
+                      <button onClick={() => handleRecuperarFactura(factura)} className="btn btn-sm bg-orange-500 text-white border-orange-500 hover:bg-orange-600 whitespace-nowrap">
+                        <RotateCcw size={13} className="mr-1" /> Recuperar
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
