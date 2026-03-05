@@ -370,64 +370,88 @@ export default function ReporteClientes() {
             </div>
           </div>
 
-          {/* Productos */}
-          <div className="divide-y divide-gray-50">
-            {productosValidos.map((producto) => {
-              const productoKey = getProductKey(factura, producto)
-              const entrega = getEntregaInfo(productoKey, producto)
-              const estaCompleto = entrega.estado === 'completo'
-              const noLlego = entrega.estado === 'no_llego'
-              const tieneAjuste = entrega.tieneAjuste
+          {/* Productos agrupados por proveedor */}
+          <div>
+            {(() => {
+              // Agrupar productos por proveedor
+              const gruposPorProveedor = new Map()
+              productosValidos.forEach(producto => {
+                const prov = producto.proveedor_asignado || producto.proveedor || 'Sin proveedor'
+                if (!gruposPorProveedor.has(prov)) gruposPorProveedor.set(prov, [])
+                gruposPorProveedor.get(prov).push(producto)
+              })
 
-              return (
-                <div key={productoKey} className={`p-4 transition-all ${estaCompleto ? 'bg-green-50/50' : entrega.estado === 'parcial' ? 'bg-blue-50/30' : noLlego ? 'bg-red-50/30' : 'hover:bg-gray-50/50'
-                  }`}>
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                    <div className="lg:w-5/12 min-w-0">
-                      <p className={`font-semibold truncate ${estaCompleto ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                        {estaCompleto && <Check size={14} className="inline text-green-600 mr-1" />}
-                        {producto.nombre}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{producto.codigo} • <span className="text-purple-600 font-medium">{producto.proveedor_asignado || producto.proveedor}</span></p>
-                      {producto.observaciones && <p className={`text-xs text-orange-600 mt-0.5 ${estaCompleto ? 'line-through opacity-60' : ''}`}>📝 {producto.observaciones}</p>}
-                    </div>
-                    <div className="lg:w-2/12">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${producto.tipo_faltante === 'total' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {producto.cantidad_faltante} {producto.tipo_faltante === 'total' ? 'total' : 'parcial'}
-                      </span>
-                    </div>
-                    <div className="lg:w-2/12">
-                      <input type="number" min="0" max={producto.cantidad_faltante} value={entrega.cantidadEntregada} placeholder="0"
-                        onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
-                        disabled={estaCompleto} className={`input w-full max-w-[100px] ${estaCompleto ? 'bg-gray-100 text-gray-400' : ''}`} />
-                    </div>
-                    <div className="lg:w-1/12">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ${estaCompleto ? 'bg-green-100 text-green-800' : entrega.estado === 'parcial' ? 'bg-blue-100 text-blue-800' : noLlego ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                        {estaCompleto ? '✓ Ok' : entrega.estado === 'parcial' ? '◐' : noLlego ? '✗' : '○'}
-                      </span>
-                    </div>
-                    <div className="lg:w-2/12">
-                      <div className="flex gap-1.5">
-                        {!estaCompleto && !noLlego && (
-                          <>
-                            <button onClick={() => handleMarcarCompleto(productoKey, producto)} className="btn btn-sm bg-green-600 text-white border-green-600 hover:bg-green-700" title="Completo"><Check size={13} /></button>
-                            <button onClick={() => handleNoLlegoNada(productoKey, producto)} className="btn btn-sm bg-red-600 text-white border-red-600 hover:bg-red-700" title="No llegó"><X size={13} /></button>
-                          </>
-                        )}
-                        {tieneAjuste && <button onClick={() => handleDeshacer(productoKey, producto)} className="btn btn-sm bg-orange-500 text-white border-orange-500 hover:bg-orange-600" title="Deshacer"><Undo2 size={13} /></button>}
-                      </div>
-                    </div>
+              return [...gruposPorProveedor.entries()].map(([provNombre, productos]) => (
+                <div key={provNombre}>
+                  {/* Header del proveedor */}
+                  <div className="px-5 py-2 bg-purple-50 border-y border-purple-100 flex items-center gap-2">
+                    <Package size={13} className="text-purple-500" />
+                    <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">{provNombre}</span>
+                    <span className="text-[10px] text-purple-400 font-medium">({productos.length})</span>
                   </div>
-                  {entrega.cantidadEntregada > 0 && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 flex items-center justify-between text-sm">
-                      <span className="text-blue-800 flex items-center"><Calculator size={14} className="mr-1" /> {entrega.estado === 'completo' ? 'Resuelto — sin cambios' : `Se reducirá en ${entrega.cantidadAReducir} uds`}</span>
-                      <span className="text-blue-600 font-medium">{entrega.cantidadEntregada}/{producto.cantidad_faltante}</span>
-                    </div>
-                  )}
+
+                  {/* Productos del proveedor */}
+                  <div className="divide-y divide-gray-50">
+                    {productos.map((producto) => {
+                      const productoKey = getProductKey(factura, producto)
+                      const entrega = getEntregaInfo(productoKey, producto)
+                      const estaCompleto = entrega.estado === 'completo'
+                      const noLlego = entrega.estado === 'no_llego'
+                      const tieneAjuste = entrega.tieneAjuste
+
+                      return (
+                        <div key={productoKey} className={`p-4 transition-all ${estaCompleto ? 'bg-green-50/50' : entrega.estado === 'parcial' ? 'bg-blue-50/30' : noLlego ? 'bg-red-50/30' : 'hover:bg-gray-50/50'
+                          }`}>
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                            <div className="lg:w-5/12 min-w-0">
+                              <p className={`font-semibold truncate ${estaCompleto ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                {estaCompleto && <Check size={14} className="inline text-green-600 mr-1" />}
+                                {producto.nombre}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{producto.codigo}</p>
+                              {producto.observaciones && <p className={`text-xs text-orange-600 mt-0.5 ${estaCompleto ? 'line-through opacity-60' : ''}`}>📝 {producto.observaciones}</p>}
+                            </div>
+                            <div className="lg:w-2/12">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${producto.tipo_faltante === 'total' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {producto.cantidad_faltante} {producto.tipo_faltante === 'total' ? 'total' : 'parcial'}
+                              </span>
+                            </div>
+                            <div className="lg:w-2/12">
+                              <input type="number" min="0" max={producto.cantidad_faltante} value={entrega.cantidadEntregada} placeholder="0"
+                                onChange={(e) => handleCantidadEntregadaChange(productoKey, e.target.value, producto)}
+                                disabled={estaCompleto} className={`input w-full max-w-[100px] ${estaCompleto ? 'bg-gray-100 text-gray-400' : ''}`} />
+                            </div>
+                            <div className="lg:w-1/12">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium ${estaCompleto ? 'bg-green-100 text-green-800' : entrega.estado === 'parcial' ? 'bg-blue-100 text-blue-800' : noLlego ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                {estaCompleto ? '✓ Ok' : entrega.estado === 'parcial' ? '◐' : noLlego ? '✗' : '○'}
+                              </span>
+                            </div>
+                            <div className="lg:w-2/12">
+                              <div className="flex gap-1.5">
+                                {!estaCompleto && !noLlego && (
+                                  <>
+                                    <button onClick={() => handleMarcarCompleto(productoKey, producto)} className="btn btn-sm bg-green-600 text-white border-green-600 hover:bg-green-700" title="Completo"><Check size={13} /></button>
+                                    <button onClick={() => handleNoLlegoNada(productoKey, producto)} className="btn btn-sm bg-red-600 text-white border-red-600 hover:bg-red-700" title="No llegó"><X size={13} /></button>
+                                  </>
+                                )}
+                                {tieneAjuste && <button onClick={() => handleDeshacer(productoKey, producto)} className="btn btn-sm bg-orange-500 text-white border-orange-500 hover:bg-orange-600" title="Deshacer"><Undo2 size={13} /></button>}
+                              </div>
+                            </div>
+                          </div>
+                          {entrega.cantidadEntregada > 0 && (
+                            <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 flex items-center justify-between text-sm">
+                              <span className="text-blue-800 flex items-center"><Calculator size={14} className="mr-1" /> {entrega.estado === 'completo' ? 'Resuelto — sin cambios' : `Se reducirá en ${entrega.cantidadAReducir} uds`}</span>
+                              <span className="text-blue-600 font-medium">{entrega.cantidadEntregada}/{producto.cantidad_faltante}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              )
-            })}
+              ))
+            })()}
           </div>
 
           {/* Observaciones adicionales */}
