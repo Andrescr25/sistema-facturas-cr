@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, Package, FileText, AlertCircle, RefreshCw, Clock, Mail, Check, Calculator, Undo2, X, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { User, Package, FileText, AlertCircle, RefreshCw, Clock, Mail, Check, Calculator, Undo2, X, RotateCcw, ArrowLeft, AlertTriangle, ChevronDown } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
 export default function ReporteClientes() {
@@ -15,6 +15,7 @@ export default function ReporteClientes() {
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente
   const [clienteActivoNombre, setClienteActivoNombre] = useState(null)
+  const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
 
   useEffect(() => {
     loadReporte()
@@ -589,33 +590,67 @@ export default function ReporteClientes() {
           </div>
         </div>
 
-        {/* Filtro por proveedores — checkboxes */}
+        {/* Filtro por proveedores — dropdown con checkboxes */}
         {proveedoresDisponibles.length > 0 && (
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-3">Filtrar por proveedor</p>
-            <div className="flex flex-wrap gap-2">
-              {proveedoresDisponibles.map(prov => {
-                const isActive = proveedoresFiltro.has(prov)
-                return (
-                  <label
-                    key={prov}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm cursor-pointer transition-all border select-none ${isActive
-                        ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                      }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isActive}
-                      onChange={() => toggleProveedor(prov)}
-                      className="sr-only"
-                    />
-                    {isActive ? <Check size={12} /> : <Package size={12} />}
-                    {prov}
-                  </label>
-                )
-              })}
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowProveedorDropdown(!showProveedorDropdown)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border shadow-sm w-full md:w-auto ${proveedoresFiltro.size > 0
+                  ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
+                }`}
+            >
+              <Package size={15} />
+              {proveedoresFiltro.size > 0 ? `${proveedoresFiltro.size} proveedor${proveedoresFiltro.size > 1 ? 'es' : ''} seleccionado${proveedoresFiltro.size > 1 ? 's' : ''}` : 'Filtrar por proveedor'}
+              <ChevronDown size={14} className={`transition-transform ${showProveedorDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showProveedorDropdown && (
+              <>
+                {/* Overlay para cerrar al hacer click fuera */}
+                <div className="fixed inset-0 z-10" onClick={() => setShowProveedorDropdown(false)}></div>
+
+                <div className="absolute z-20 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Proveedores</span>
+                    {proveedoresFiltro.size > 0 && (
+                      <button onClick={() => setProveedoresFiltro(new Set())} className="text-xs text-purple-600 hover:text-purple-800 font-medium">Limpiar todo</button>
+                    )}
+                  </div>
+
+                  {/* Lista de checkboxes */}
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {proveedoresDisponibles.map(prov => {
+                      const isActive = proveedoresFiltro.has(prov)
+                      return (
+                        <label
+                          key={prov}
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-gray-50 ${isActive ? 'bg-purple-50' : ''
+                            }`}
+                        >
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${isActive ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                            }`}>
+                            {isActive && <Check size={10} className="text-white" />}
+                          </div>
+                          <span className={`text-sm truncate ${isActive ? 'text-purple-800 font-medium' : 'text-gray-700'}`}>{prov}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() => setShowProveedorDropdown(false)}
+                      className="w-full text-center text-sm text-purple-600 font-medium hover:text-purple-800"
+                    >
+                      Listo
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
