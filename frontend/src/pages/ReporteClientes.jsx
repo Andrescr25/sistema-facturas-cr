@@ -11,7 +11,7 @@ export default function ReporteClientes() {
   const [historialCambios, setHistorialCambios] = useState(new Map())
   const [facturasEstado, setFacturasEstado] = useState(new Map())
   const [clienteQuery, setClienteQuery] = useState('')
-  const [proveedorFiltro, setProveedorFiltro] = useState('')
+  const [proveedoresFiltro, setProveedoresFiltro] = useState(new Set())
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente
   const [clienteActivoNombre, setClienteActivoNombre] = useState(null)
@@ -550,38 +550,35 @@ export default function ReporteClientes() {
       )
     )].filter(Boolean).sort()
 
-    // Filtrar clientes por búsqueda y proveedor
+    // Filtrar clientes por búsqueda y proveedores seleccionados
     const clientesFiltrados = clientes
       .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
       .filter(c => {
-        if (!proveedorFiltro) return true
+        if (proveedoresFiltro.size === 0) return true
         return c.facturas_con_faltantes.some(f =>
           f.productos_faltantes.some(p =>
-            Number(p.cantidad_faltante) > 0 && (p.proveedor_asignado || p.proveedor) === proveedorFiltro
+            Number(p.cantidad_faltante) > 0 && proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
           )
         )
       })
 
+    const toggleProveedor = (prov) => {
+      setProveedoresFiltro(prev => {
+        const next = new Set(prev)
+        if (next.has(prov)) next.delete(prov)
+        else next.add(prov)
+        return next
+      })
+    }
+
     return (
       <div className="space-y-6 animate-fade-in-up">
-        {/* Filtros */}
+        {/* Barra de búsqueda + acciones */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex flex-1 items-center gap-3">
-            <input type="text" value={clienteQuery} onChange={(e) => setClienteQuery(e.target.value)} placeholder="Buscar cliente..." className="input flex-1 md:max-w-sm bg-gray-50" />
-            <select
-              value={proveedorFiltro}
-              onChange={(e) => setProveedorFiltro(e.target.value)}
-              className="input bg-gray-50 md:max-w-[220px] text-sm"
-            >
-              <option value="">Todos los proveedores</option>
-              {proveedoresDisponibles.map(prov => (
-                <option key={prov} value={prov}>{prov}</option>
-              ))}
-            </select>
-          </div>
+          <input type="text" value={clienteQuery} onChange={(e) => setClienteQuery(e.target.value)} placeholder="Buscar cliente..." className="input flex-1 md:max-w-sm bg-gray-50" />
           <div className="flex items-center gap-3">
-            {proveedorFiltro && (
-              <button onClick={() => setProveedorFiltro('')} className="text-xs text-purple-600 hover:text-purple-800 underline">Limpiar filtro</button>
+            {proveedoresFiltro.size > 0 && (
+              <button onClick={() => setProveedoresFiltro(new Set())} className="text-xs text-purple-600 hover:text-purple-800 underline whitespace-nowrap">Limpiar filtros ({proveedoresFiltro.size})</button>
             )}
             {sinCajaCount > 0 && (
               <span className="flex items-center gap-1.5 text-sm text-red-700 bg-red-50 px-3 py-1.5 rounded-full font-medium border border-red-200">
@@ -592,12 +589,42 @@ export default function ReporteClientes() {
           </div>
         </div>
 
+        {/* Filtro por proveedores — checkboxes */}
+        {proveedoresDisponibles.length > 0 && (
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-3">Filtrar por proveedor</p>
+            <div className="flex flex-wrap gap-2">
+              {proveedoresDisponibles.map(prov => {
+                const isActive = proveedoresFiltro.has(prov)
+                return (
+                  <label
+                    key={prov}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm cursor-pointer transition-all border select-none ${isActive
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                      }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={() => toggleProveedor(prov)}
+                      className="sr-only"
+                    />
+                    {isActive ? <Check size={12} /> : <Package size={12} />}
+                    {prov}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
         {clientesFiltrados.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 text-center py-16">
             <User className="mx-auto text-gray-300 mb-4" size={64} />
-            <h3 className="text-xl font-bold text-gray-900 mb-2">{proveedorFiltro ? 'Sin resultados para este proveedor' : 'No hay entregas pendientes'}</h3>
-            <p className="text-gray-500">{proveedorFiltro ? 'Prueba con otro proveedor o limpia el filtro.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">{proveedoresFiltro.size > 0 ? 'Sin resultados para estos proveedores' : 'No hay entregas pendientes'}</h3>
+            <p className="text-gray-500">{proveedoresFiltro.size > 0 ? 'Prueba con otros proveedores o limpia los filtros.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
