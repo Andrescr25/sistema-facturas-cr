@@ -329,10 +329,7 @@ export default function ReporteClientes() {
     const renderFacturaActiva = (factura) => {
       const estadoFactura = getFacturaEstado(factura)
       const estaPendienteManual = estadoFactura.estado === 'pendiente' && estadoFactura.origen === 'manual'
-      const productosValidos = factura.productos_faltantes
-        .filter(p => Number(p.cantidad_faltante) > 0)
-        .filter(p => proveedoresFiltro.size === 0 || proveedoresFiltro.has(p.proveedor_asignado || p.proveedor))
-      if (productosValidos.length === 0) return null
+      const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
       const esFacturaSinCaja = (factura.total_items_factura || 0) > 0 && productosValidos.filter(p => p.tipo_faltante === 'total').length >= factura.total_items_factura
 
       return (
@@ -496,7 +493,7 @@ export default function ReporteClientes() {
         )}
 
         <div className="space-y-4">
-          {facturasActivas.map(renderFacturaActiva).filter(Boolean)}
+          {facturasActivas.map(renderFacturaActiva)}
         </div>
 
         {/* Separador + Facturas Procesadas al fondo */}
@@ -512,10 +509,7 @@ export default function ReporteClientes() {
             <div className="space-y-3">
               {facturasProcesadas.map((factura) => {
                 const estadoFactura = getFacturaEstado(factura)
-                const productosValidos = factura.productos_faltantes
-                  .filter(p => Number(p.cantidad_faltante) > 0)
-                  .filter(p => proveedoresFiltro.size === 0 || proveedoresFiltro.has(p.proveedor_asignado || p.proveedor))
-                if (productosValidos.length === 0) return null
+                const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
                 return (
                   <div key={getFacturaKey(factura)} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden opacity-60 hover:opacity-80 transition-opacity">
                     <div className="p-4 flex items-center justify-between">
@@ -557,15 +551,18 @@ export default function ReporteClientes() {
       )
     )].filter(Boolean).sort()
 
-    // Filtrar clientes por búsqueda y proveedores seleccionados
+    // Filtrar clientes: solo mostrar clientes cuyos productos pertenezcan TODOS a los proveedores seleccionados
     const clientesFiltrados = clientes
       .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
       .filter(c => {
         if (proveedoresFiltro.size === 0) return true
-        return c.facturas_con_faltantes.some(f =>
-          f.productos_faltantes.some(p =>
-            Number(p.cantidad_faltante) > 0 && proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
-          )
+        // Todos los productos válidos del cliente deben pertenecer a los proveedores seleccionados
+        const todosLosProductos = c.facturas_con_faltantes.flatMap(f =>
+          f.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+        )
+        if (todosLosProductos.length === 0) return false
+        return todosLosProductos.every(p =>
+          proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
         )
       })
 
