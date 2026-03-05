@@ -2825,8 +2825,8 @@ router.get('/reportes/faltantes/cliente', async (req, res) => {
         aj.requiere_actualizacion,
         fr.id as reimpresion_id,
         fr.estado as reimpresion_estado,
-        -- Total de items originales de la factura (para detectar sin caja)
-        (SELECT COUNT(*) FROM factura_items fi2 WHERE fi2.factura_id = fa.id) as total_items_factura
+        -- Total de items registrados en la factura (incluye completos, para detectar sin caja)
+        (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_id = fa.id) as total_items_factura
       FROM faltantes f
       JOIN productos p ON f.producto_id = p.id
       LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
