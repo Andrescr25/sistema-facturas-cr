@@ -249,7 +249,7 @@ export default function ReporteProveedores() {
             const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
             const factorConversion = producto.factor_conversion || 1
             const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
-            
+
             return {
               codigo: producto.codigo_proveedor || producto.codigo,
               nombre: producto.nombre_proveedor || producto.nombre,
@@ -265,7 +265,7 @@ export default function ReporteProveedores() {
             }
           })
           .filter(p => p.cantidad > 0)
-        
+
         const agregados = productosAgregados.get(proveedor.nombre) || []
         agregados.forEach(p => {
           productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
@@ -382,10 +382,10 @@ export default function ReporteProveedores() {
       if (telefono.startsWith('+')) telefono = telefono.substring(1)
 
       const mensaje = encodeURIComponent(`Hola buenas, me puedes hacer proforma de esto, Gracias`)
-      
+
       alert('📥 Descargando PDF... WhatsApp se abrirá en 7 segundos.')
       await new Promise(resolve => setTimeout(resolve, 7000))
-      
+
       const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
       window.open(whatsappUrl, '_blank')
 
@@ -423,8 +423,9 @@ export default function ReporteProveedores() {
     }
   }
 
-  const getCantidadFinal = (proveedorNombre, productoCodigo, cantidadOriginal) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+  const getCantidadFinal = (proveedorNombre, producto, cantidadOriginal) => {
+    const pCodigo = producto.codigo || producto.producto_codigo || producto.id;
+    const key = `${proveedorNombre}-${pCodigo}`
     const cantidadModificada = cantidadesModificadas.get(key)
     const cantidadGuardada = cantidadesGuardadas.get(key)
     return cantidadModificada !== undefined ? cantidadModificada : (cantidadGuardada ? cantidadGuardada.cantidad_modificada : cantidadOriginal)
@@ -486,7 +487,7 @@ export default function ReporteProveedores() {
       })
 
       if (productosAAsignar.length === 0) return
-      
+
       const BATCH_SIZE = 3
       const resultados = []
 
@@ -558,7 +559,7 @@ export default function ReporteProveedores() {
 
     try {
       await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
-    } catch (error) {}
+    } catch (error) { }
   }
 
   const abrirModalAgregarProducto = (proveedor) => {
@@ -574,7 +575,7 @@ export default function ReporteProveedores() {
       setLoadingProductos(true)
       const res = await api.get('/alegra/productos/buscar', { params: { query } })
       if (res.data.success) setProductosAlegra(res.data.data || [])
-    } catch (e) {} finally { setLoadingProductos(false) }
+    } catch (e) { } finally { setLoadingProductos(false) }
   }
 
   const agregarProductoAOrden = async (producto, cantidad) => {
@@ -588,7 +589,7 @@ export default function ReporteProveedores() {
 
     try {
       await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
-    } catch (error) {}
+    } catch (error) { }
     setModalAgregarProducto(false)
   }
 
@@ -602,7 +603,7 @@ export default function ReporteProveedores() {
 
     try {
       await api.delete('/alegra/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const actualizarCantidadAgregado = async (proveedorNombre, index, nuevaCantidad) => {
@@ -617,7 +618,7 @@ export default function ReporteProveedores() {
 
       try {
         await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -640,8 +641,8 @@ export default function ReporteProveedores() {
       <div className="animate-fade-in-up">
         {/* Cabecera Activa */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <button 
-            onClick={() => setProveedorActivoId(null)} 
+          <button
+            onClick={() => setProveedorActivoId(null)}
             className="flex items-center text-gray-500 hover:text-blue-600 transition-colors w-max"
           >
             <ArrowLeft className="mr-2" size={20} /> Volver a proveedores
@@ -685,8 +686,8 @@ export default function ReporteProveedores() {
               <h1 className="text-3xl font-bold text-gray-900">{proveedor.nombre}</h1>
               <p className="text-gray-500 mt-1">{proveedor.contacto || 'Sin contacto'} | ID: {proveedor.id}</p>
               <label className="flex items-center text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded w-max">
-                 <input type="checkbox" className="mr-2" checked={usaDatosProveedor(proveedor.nombre)} onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)} />
-                 Usar códigos/nombres propios del proveedor en PDFs
+                <input type="checkbox" className="mr-2" checked={usaDatosProveedor(proveedor.nombre)} onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)} />
+                Usar códigos/nombres propios del proveedor en PDFs
               </label>
             </div>
           </div>
@@ -717,7 +718,7 @@ export default function ReporteProveedores() {
               </button>
             )}
           </div>
-          
+
           {cantidadSugerida.length === 0 ? (
             <div className="text-center py-4 opacity-70">
               <p className="text-sm">No hay histórico de compras suficiente para generar sugerencias predictivas todavía.</p>
@@ -747,30 +748,31 @@ export default function ReporteProveedores() {
         {/* Lista de Productos del Proveedor */}
         <div className="card shadow-sm p-0 overflow-hidden border border-gray-200">
           <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center">
-             <h3 className="font-bold text-gray-800 flex items-center">
-                <Package className="mr-2 text-gray-500" size={18} /> Detalle de Órdenes a Comprar
-             </h3>
-             {/* Checkbox global */}
-             <label className="flex items-center cursor-pointer">
-                <input type="checkbox" className="mr-2" checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))} onChange={() => toggleTodosProductos(proveedor)} />
-                <span className="text-sm font-medium">Seleccionar todos para reasignar</span>
-             </label>
+            <h3 className="font-bold text-gray-800 flex items-center">
+              <Package className="mr-2 text-gray-500" size={18} /> Detalle de Órdenes a Comprar
+            </h3>
+            {/* Checkbox global */}
+            <label className="flex items-center cursor-pointer">
+              <input type="checkbox" className="mr-2" checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))} onChange={() => toggleTodosProductos(proveedor)} />
+              <span className="text-sm font-medium">Seleccionar todos para reasignar</span>
+            </label>
           </div>
           <div className="divide-y divide-gray-100">
             {proveedor.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0).map((producto, idx) => {
-              const cantidadFinal = getCantidadFinal(proveedor.nombre, producto.codigo, producto.cantidad_faltante)
-              const key = `${proveedor.nombre}-${producto.codigo}`
+              const pCodigo = producto.codigo || producto.producto_codigo || producto.id || idx;
+              const cantidadFinal = getCantidadFinal(proveedor.nombre, producto, producto.cantidad_faltante)
+              const key = `${proveedor.nombre}-${pCodigo}`
               const tieneModificacion = cantidadesModificadas.has(key) || cantidadesGuardadas.has(key)
               const estaEliminado = productosEliminados.has(key)
-              const seleccionado = productosSeleccionados.has(producto.codigo)
+              const seleccionado = productosSeleccionados.has(pCodigo)
 
               return (
                 <div key={idx} className={`p-4 hover:bg-gray-50 transition-colors flex flex-col md:flex-row gap-4 md:items-center ${estaEliminado ? 'bg-red-50/50 opacity-60' : tieneModificacion ? 'bg-yellow-50/30' : ''}`}>
                   <div className="flex items-start md:items-center w-full md:w-5/12 gap-3">
-                    <input type="checkbox" checked={seleccionado} onChange={() => toggleProductoSeleccionado(producto.codigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-blue-600 rounded" />
+                    <input type="checkbox" checked={seleccionado} onChange={() => toggleProductoSeleccionado(pCodigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-blue-600 rounded" />
                     <div className="flex-1 min-w-0">
                       <p className={`font-semibold truncate ${estaEliminado ? 'line-through text-gray-400' : 'text-gray-900'}`}>{producto.nombre}</p>
-                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
+                      <p className="text-xs text-gray-500 truncate">Código: {pCodigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
                     </div>
                   </div>
 
@@ -781,59 +783,59 @@ export default function ReporteProveedores() {
                     </div>
 
                     <div className="flex-1 px-4 border-l border-gray-200">
-                       <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
-                       <input 
-                         type="number" 
-                         min="0" 
-                         value={cantidadFinal} 
-                         onChange={(e) => handleCantidadChange(proveedor.nombre, producto.codigo, e.target.value)}
-                         className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-                         disabled={estaEliminado}
-                       />
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={cantidadFinal === undefined ? '' : cantidadFinal}
+                        onChange={(e) => handleCantidadChange(proveedor.nombre, pCodigo, e.target.value)}
+                        className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                        disabled={estaEliminado}
+                      />
                     </div>
 
                     <div className="flex items-center gap-2">
-                       {estaEliminado ? (
-                         <button onClick={() => restaurarProducto(proveedor.nombre, producto.codigo)} className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded transition">
-                           Restaurar
-                         </button>
-                       ) : (
-                         <button onClick={() => eliminarProductoDeOrden(proveedor.nombre, producto.codigo, producto.nombre, producto.cantidad_faltante)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
-                           <Trash2 size={18} />
-                         </button>
-                       )}
+                      {estaEliminado ? (
+                        <button onClick={() => restaurarProducto(proveedor.nombre, pCodigo)} className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded transition">
+                          Restaurar
+                        </button>
+                      ) : (
+                        <button onClick={() => eliminarProductoDeOrden(proveedor.nombre, pCodigo, producto.nombre, producto.cantidad_faltante)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               )
             })}
-            
+
             {/* AGREGADOS MANUALMENTE */}
             {(productosAgregados.get(proveedor.nombre) || []).map((producto, idx) => (
-               <div key={`agregado-${idx}`} className="p-4 bg-green-50/40 hover:bg-green-50/70 transition-colors flex flex-col md:flex-row gap-4 md:items-center">
-                  <div className="flex items-center w-full md:w-5/12 gap-3 pl-7">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{producto.nombre} <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded ml-1 tracking-wider uppercase">Extra</span></p>
-                      <p className="text-xs text-gray-500 truncate">Código: {producto.codigo}</p>
-                    </div>
+              <div key={`agregado-${idx}`} className="p-4 bg-green-50/40 hover:bg-green-50/70 transition-colors flex flex-col md:flex-row gap-4 md:items-center">
+                <div className="flex items-center w-full md:w-5/12 gap-3 pl-7">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{producto.nombre} <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded ml-1 tracking-wider uppercase">Extra</span></p>
+                    <p className="text-xs text-gray-500 truncate">Código: {producto.codigo}</p>
                   </div>
-                  <div className="flex w-full md:w-7/12 flex-row items-center justify-between gap-4">
-                    <div className="text-center opacity-0"><span className="font-medium">0</span></div>
-                    <div className="flex-1 px-4 border-l border-gray-200">
-                       <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
-                       <input 
-                         type="number" min="1" value={producto.cantidad} 
-                         onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, idx, e.target.value)}
-                         className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                       />
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <button onClick={() => eliminarProductoAgregado(proveedor.nombre, idx)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
-                           <Trash2 size={18} />
-                       </button>
-                    </div>
+                </div>
+                <div className="flex w-full md:w-7/12 flex-row items-center justify-between gap-4">
+                  <div className="text-center opacity-0"><span className="font-medium">0</span></div>
+                  <div className="flex-1 px-4 border-l border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
+                    <input
+                      type="number" min="1" value={producto.cantidad}
+                      onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, idx, e.target.value)}
+                      className="w-full max-w-[120px] px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
                   </div>
-               </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => eliminarProductoAgregado(proveedor.nombre, idx)} className="text-gray-400 hover:text-red-600 p-2 rounded transition">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -861,9 +863,9 @@ export default function ReporteProveedores() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-               <Calendar size={16} className="text-gray-500 mr-2" />
-               <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700" title="Fecha inicial"/>
-               {fechaInicio && <button onClick={() => setFechaInicio('')} className="ml-2 text-gray-400 hover:text-red-500">&times;</button>}
+              <Calendar size={16} className="text-gray-500 mr-2" />
+              <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700" title="Fecha inicial" />
+              {fechaInicio && <button onClick={() => setFechaInicio('')} className="ml-2 text-gray-400 hover:text-red-500">&times;</button>}
             </div>
             <button onClick={loadReporte} className="btn btn-outline" title="Refrescar">
               <RefreshCw size={18} />
@@ -881,16 +883,16 @@ export default function ReporteProveedores() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => (
-              <div 
-                key={proveedor.id} 
-                onClick={() => setProveedorActivoId(proveedor.id)} 
+              <div
+                key={proveedor.id}
+                onClick={() => setProveedorActivoId(proveedor.id)}
                 className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-100 p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
               >
                 <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-[100px] -z-10 group-hover:bg-blue-100 transition-colors"></div>
-                
+
                 <h3 className="text-lg font-bold text-gray-900 mb-1 pr-4">{proveedor.nombre}</h3>
                 <p className="text-sm text-gray-500 mb-4">{proveedor.contacto || 'Sin info'}</p>
-                
+
                 <div className="flex items-center gap-4 pt-4 border-t border-gray-50">
                   <div>
                     <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Productos</p>
@@ -909,12 +911,11 @@ export default function ReporteProveedores() {
 
         {/* Resumen Global Info */}
         {resumen && (
-           <div className="mt-8 pt-6 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4 opacity-70">
-              <div className="text-center"><p className="text-sm text-gray-500">Proveedores con faltantes</p><p className="text-xl font-bold text-gray-800">{proveedores.length}</p></div>
-              <div className="text-center"><p className="text-sm text-gray-500">Tot. Productos Únicos</p><p className="text-xl font-bold text-gray-800">{resumen.total_productos_faltantes}</p></div>
-              <div className="text-center"><p className="text-sm text-gray-500">Volumen Unidades</p><p className="text-xl font-bold text-gray-800">{resumen.total_cantidad_faltante}</p></div>
-              <div className="text-center mt-2 md:mt-0"><button onClick={handleLimpiarVista} className="text-red-500 text-sm hover:underline">Limpiar BD Entera</button></div>
-           </div>
+          <div className="mt-8 pt-6 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 opacity-70">
+            <div className="text-center"><p className="text-sm text-gray-500">Proveedores con faltantes</p><p className="text-xl font-bold text-gray-800">{proveedores.length}</p></div>
+            <div className="text-center"><p className="text-sm text-gray-500">Tot. Productos Únicos</p><p className="text-xl font-bold text-gray-800">{resumen.total_productos_faltantes}</p></div>
+            <div className="text-center"><p className="text-sm text-gray-500">Volumen Unidades</p><p className="text-xl font-bold text-gray-800">{resumen.total_cantidad_faltante}</p></div>
+          </div>
         )}
       </div>
     )
@@ -923,13 +924,13 @@ export default function ReporteProveedores() {
   return (
     <div className="max-w-[1400px] mx-auto pb-24">
       <div className="mb-8 pl-1">
-         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Faltantes y Compras</h1>
-         <p className="text-gray-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Faltantes y Compras</h1>
+        <p className="text-gray-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded shadow-sm">
-          <div className="flex items-center"><AlertCircle className="text-red-500 mr-2"/><p className="text-red-700 font-medium">Error: {error}</p></div>
+          <div className="flex items-center"><AlertCircle className="text-red-500 mr-2" /><p className="text-red-700 font-medium">Error: {error}</p></div>
         </div>
       )}
 
@@ -938,53 +939,53 @@ export default function ReporteProveedores() {
 
 
       {/* MODALES REUTILIZADOS A CONTINUACIÓN */}
-      
+
       {modalAsignarVisible && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">Reclasificar / Cambiar Proveedor</h2>
-                <p className="text-gray-600 mt-1">
-                  Mover <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span> al inventario de otra entidad.
-                </p>
-              </div>
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex gap-2">
-                  <input type="text" value={busquedaProveedor} onChange={(e) => setBusquedaProveedor(e.target.value)} onKeyPress={(e) => {if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor)}} placeholder="Buscar nombre de entidad..." className="input flex-1" />
-                  <button onClick={() => cargarProveedoresAlegra(busquedaProveedor)} className="btn btn-primary" disabled={loadingProveedores}>{loadingProveedores ? 'Cargando...' : 'Buscar'}</button>
-                  <button onClick={() => setModalCrearProveedor(true)} className="btn btn-outline">+ Registrar Nuevo</button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                {loadingProveedores ? (
-                  <div className="text-center py-8"><div className="spinner mx-auto mb-4"></div></div>
-                ) : proveedoresAlegra.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">Busca el proveedor destino en la barra superior.</div>
-                ) : (
-                  <div className="grid gap-2">
-                    {proveedoresAlegra.map((prov) => (
-                      <button key={prov.id} onClick={() => asignarProveedorManual(prov.id)} className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all">
-                        <div className="flex items-center justify-between">
-                          <div><p className="font-bold text-gray-900">{prov.name}</p><p className="text-xs text-gray-500 mt-1">{prov.identification || 'Sin identificación'}</p></div>
-                          <Users className="text-blue-500" size={20} />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="p-4 border-t border-gray-200 bg-white">
-                <button onClick={() => {setModalAsignarVisible(false); setBusquedaProveedor(''); setProveedoresAlegra([])}} className="btn btn-outline w-full py-3">Cancelar y Volver</button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Reclasificar / Cambiar Proveedor</h2>
+              <p className="text-gray-600 mt-1">
+                Mover <span className="font-medium text-blue-600">{productosSeleccionados.size} producto{productosSeleccionados.size > 1 ? 's' : ''}</span> al inventario de otra entidad.
+              </p>
+            </div>
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex gap-2">
+                <input type="text" value={busquedaProveedor} onChange={(e) => setBusquedaProveedor(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter') cargarProveedoresAlegra(busquedaProveedor) }} placeholder="Buscar nombre de entidad..." className="input flex-1" />
+                <button onClick={() => cargarProveedoresAlegra(busquedaProveedor)} className="btn btn-primary" disabled={loadingProveedores}>{loadingProveedores ? 'Cargando...' : 'Buscar'}</button>
+                <button onClick={() => setModalCrearProveedor(true)} className="btn btn-outline">+ Registrar Nuevo</button>
               </div>
             </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+              {loadingProveedores ? (
+                <div className="text-center py-8"><div className="spinner mx-auto mb-4"></div></div>
+              ) : proveedoresAlegra.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">Busca el proveedor destino en la barra superior.</div>
+              ) : (
+                <div className="grid gap-2">
+                  {proveedoresAlegra.map((prov) => (
+                    <button key={prov.id} onClick={() => asignarProveedorManual(prov.id)} className="w-full text-left p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all">
+                      <div className="flex items-center justify-between">
+                        <div><p className="font-bold text-gray-900">{prov.name}</p><p className="text-xs text-gray-500 mt-1">{prov.identification || 'Sin identificación'}</p></div>
+                        <Users className="text-blue-500" size={20} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <button onClick={() => { setModalAsignarVisible(false); setBusquedaProveedor(''); setProveedoresAlegra([]) }} className="btn btn-outline w-full py-3">Cancelar y Volver</button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
       {modalCrearProveedor && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h2 className="text-2xl font-bold mb-4">Registrar en Alegra</h2>
-            <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target); crearNuevoProveedor({name: fd.get('name'), identification: fd.get('identification'), identificationType: fd.get('identificationType')}); }}>
+            <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target); crearNuevoProveedor({ name: fd.get('name'), identification: fd.get('identification'), identificationType: fd.get('identificationType') }); }}>
               <div className="space-y-4">
                 <input name="name" required className="input w-full" placeholder="Razón Social o Nombre *" />
                 <select name="identificationType" className="input w-full"><option value="">-- Doc. Tipo --</option><option value="CF">Física</option><option value="CJ">Jurídica</option></select>
@@ -1016,7 +1017,7 @@ export default function ReporteProveedores() {
                     return (
                       <div key={i} className="p-3 border border-gray-100 rounded-lg flex items-center justify-between hover:bg-gray-50">
                         <div><p className="font-semibold text-gray-800">{p.name}</p><p className="text-xs text-gray-500">{reference}</p></div>
-                        <button onClick={() => { const q = prompt(`${p.name}\\n¿Cantidad a añadir a la orden?`, '1'); if(q && parseInt(q)>0) agregarProductoAOrden({...p, reference: reference}, q); }} className="btn btn-sm btn-primary">+ Añadir</button>
+                        <button onClick={() => { const q = prompt(`${p.name}\\n¿Cantidad a añadir a la orden?`, '1'); if (q && parseInt(q) > 0) agregarProductoAOrden({ ...p, reference: reference }, q); }} className="btn btn-sm btn-primary">+ Añadir</button>
                       </div>
                     )
                   })}
@@ -1030,24 +1031,24 @@ export default function ReporteProveedores() {
 
       {modalWhatsAppVisible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in-up">
-           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
-             <div className="bg-green-500 p-6 text-center">
-               <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"><MessageCircle className="text-white" size={32} /></div>
-               <h2 className="text-xl font-bold text-white mb-1">Enviar PDF por WhatsApp</h2>
-             </div>
-             <div className="p-6 pb-2">
-               <label className="block text-sm font-semibold text-gray-700 mb-2">Destino / Contacto</label>
-               <input type="tel" value={telefonoProveedor} onChange={e=>setTelefonoProveedor(e.target.value)} placeholder="Ej: +506 8888 8888" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-center font-medium placeholder-gray-400" />
-               <p className="text-xs text-center text-gray-500 mt-3 px-2 leading-relaxed">Se generará el archivo con la orden de compra y se abrirá WhatsApp Web/App para enviarla.</p>
-             </div>
-             <div className="p-6 grid grid-cols-2 gap-3">
-               <button onClick={()=>setModalWhatsAppVisible(false)} className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition text-sm">Cancelar</button>
-               <button onClick={enviarWhatsApp} disabled={!telefonoProveedor} className="py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-green-500/30"><Download size={16} className="mr-1"/> Enviar</button>
-             </div>
-           </div>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+            <div className="bg-green-500 p-6 text-center">
+              <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"><MessageCircle className="text-white" size={32} /></div>
+              <h2 className="text-xl font-bold text-white mb-1">Enviar PDF por WhatsApp</h2>
+            </div>
+            <div className="p-6 pb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Destino / Contacto</label>
+              <input type="tel" value={telefonoProveedor} onChange={e => setTelefonoProveedor(e.target.value)} placeholder="Ej: +506 8888 8888" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-center font-medium placeholder-gray-400" />
+              <p className="text-xs text-center text-gray-500 mt-3 px-2 leading-relaxed">Se generará el archivo con la orden de compra y se abrirá WhatsApp Web/App para enviarla.</p>
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-3">
+              <button onClick={() => setModalWhatsAppVisible(false)} className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition text-sm">Cancelar</button>
+              <button onClick={enviarWhatsApp} disabled={!telefonoProveedor} className="py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-green-500/30"><Download size={16} className="mr-1" /> Enviar</button>
+            </div>
+          </div>
         </div>
       )}
-      
+
     </div>
   )
 }
