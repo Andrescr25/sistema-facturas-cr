@@ -2135,7 +2135,10 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
       // ✅ VALIDACIÓN: Verificar que el producto encontrado coincide con el nombre esperado
       if (productoLocal.rows.length > 0) {
         const productoEncontrado = productoLocal.rows[0];
-        const nombreCoincide = productoEncontrado.nombre.toLowerCase().includes(nombre_producto.toLowerCase()) ||
+        // Si el alegra_id coincide, es una coincidencia 100% segura por ID de Alegra, no validar por nombre
+        const matchedByAlegraId = allegraIdEntero !== null && productoEncontrado.alegra_id === allegraIdEntero;
+        const nombreCoincide = matchedByAlegraId ||
+                              productoEncontrado.nombre.toLowerCase().includes(nombre_producto.toLowerCase()) ||
                               nombre_producto.toLowerCase().includes(productoEncontrado.nombre.toLowerCase());
         
         if (!nombreCoincide) {

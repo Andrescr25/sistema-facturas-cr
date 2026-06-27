@@ -21,8 +21,6 @@ export default function GestionarRelaciones() {
   
   // Filtros
   const [filtroProveedor, setFiltroProveedor] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('RELACIONADO')
-  const [filtroConfianza, setFiltroConfianza] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [proveedores, setProveedores] = useState([])
   
@@ -52,7 +50,7 @@ export default function GestionarRelaciones() {
   useEffect(() => {
     loadProductos()
     loadProveedores()
-  }, [page, filtroEstado])
+  }, [page])
 
   const loadProductos = async () => {
     try {
@@ -62,7 +60,7 @@ export default function GestionarRelaciones() {
       const params = new URLSearchParams({
         page: page,
         limit: 20,
-        estado: filtroEstado !== 'TODOS' ? filtroEstado : '',
+        estado: 'RELACIONADO',
         proveedor: filtroProveedor,
         busqueda: busqueda
       })
@@ -100,8 +98,6 @@ export default function GestionarRelaciones() {
 
   const limpiarFiltros = () => {
     setFiltroProveedor('')
-    setFiltroEstado('RELACIONADO')
-    setFiltroConfianza('')
     setBusqueda('')
     setPage(1)
     setTimeout(loadProductos, 100)
@@ -261,89 +257,52 @@ export default function GestionarRelaciones() {
     }
   }
 
-  const getConfianzaBadge = (confianza) => {
-    if (!confianza) return { text: 'N/A', color: 'bg-gray-100 text-gray-800' }
-    if (confianza >= 80) return { text: `${confianza}%`, color: 'bg-green-100 text-green-800' }
-    if (confianza >= 60) return { text: `${confianza}%`, color: 'bg-yellow-100 text-yellow-800' }
-    return { text: `${confianza}%`, color: 'bg-red-100 text-red-800' }
-  }
-
-  // Filtrar por confianza localmente
-  const productosFiltrados = productos.filter(p => {
-    if (!filtroConfianza) return true
-    const conf = p.confianza || 0
-    if (filtroConfianza === '80-100') return conf >= 80
-    if (filtroConfianza === '60-79') return conf >= 60 && conf < 80
-    if (filtroConfianza === '0-59') return conf < 60
-    return true
-  })
-
-  const stats = {
-    total: total,
-    relacionados: productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length,
-    pendientes: productos.filter(p => p.estadoRelacionado === 'PENDIENTE').length,
-    ignorados: productos.filter(p => p.estadoRelacionado === 'IGNORADO').length
-  }
+  // No filter by confidence or state needed as all loaded items are manually related (100% confidence)
+  const productosFiltrados = productos;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <Link2 className="mr-3 text-purple-600" size={32} />
-              Gestionar Relaciones
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Edita y corrige las relaciones entre productos de proveedores y Alegra
-            </p>
-          </div>
-          <button
-            onClick={loadProductos}
-            disabled={loading}
-            className="btn btn-outline flex items-center"
-          >
-            <RefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} size={18} />
-            Actualizar
-          </button>
+      <div className="flex items-center justify-between border-b pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <Link2 className="text-purple-600" size={28} />
+            Gestionar Relaciones
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Consulta, edita o elimina las relaciones establecidas entre productos de proveedores y tu catálogo de Alegra.
+          </p>
         </div>
+        <button
+          onClick={loadProductos}
+          disabled={loading}
+          className="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition flex items-center gap-1.5"
+        >
+          <RefreshCw className={loading ? 'animate-spin' : ''} size={16} />
+          Actualizar
+        </button>
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="card bg-blue-50 border-blue-200">
-          <p className="text-sm text-blue-600 mb-1">Total Productos</p>
-          <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-        </div>
-        <div className="card bg-green-50 border-green-200">
-          <p className="text-sm text-green-600 mb-1">Relacionados</p>
-          <p className="text-3xl font-bold text-green-900">{stats.relacionados}</p>
-        </div>
-        <div className="card bg-yellow-50 border-yellow-200">
-          <p className="text-sm text-yellow-600 mb-1">Pendientes</p>
-          <p className="text-3xl font-bold text-yellow-900">{stats.pendientes}</p>
-        </div>
-        <div className="card bg-red-50 border-red-200">
-          <p className="text-sm text-red-600 mb-1">Ignorados</p>
-          <p className="text-3xl font-bold text-red-900">{stats.ignorados}</p>
-        </div>
+      {/* Estadísticas Simplificadas */}
+      <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-3xl max-w-sm shadow-xxs">
+        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">Total Relaciones Establecidas</p>
+        <p className="text-3xl font-black text-blue-900">{total}</p>
       </div>
 
-      {/* Filtros */}
-      <div className="card mb-6">
-        <div className="flex items-center mb-4">
-          <Filter className="mr-2 text-gray-600" size={20} />
-          <h3 className="font-semibold text-gray-900">Filtros de Búsqueda</h3>
+      {/* Filtros Simplificados */}
+      <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+          <Filter className="text-gray-500" size={18} />
+          <h3 className="font-bold text-sm text-gray-800 uppercase tracking-wider">Filtros</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="label">Proveedor</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Proveedor</label>
             <select
               value={filtroProveedor}
               onChange={(e) => setFiltroProveedor(e.target.value)}
-              className="input"
+              className="input w-full rounded-xl border-gray-200 text-sm"
             >
               <option value="">Todos los proveedores</option>
               {proveedores.map(p => (
@@ -353,53 +312,25 @@ export default function GestionarRelaciones() {
           </div>
 
           <div>
-            <label className="label">Estado</label>
-            <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="input"
-            >
-              <option value="TODOS">Todos los estados</option>
-              <option value="RELACIONADO">Relacionados</option>
-              <option value="PENDIENTE">Pendientes</option>
-              <option value="IGNORADO">Ignorados</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="label">Confianza</label>
-            <select
-              value={filtroConfianza}
-              onChange={(e) => setFiltroConfianza(e.target.value)}
-              className="input"
-            >
-              <option value="">Todas</option>
-              <option value="80-100">Alta (80-100%)</option>
-              <option value="60-79">Media (60-79%)</option>
-              <option value="0-59">Baja (0-59%)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="label">Buscar</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Buscar por descripción o código</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
-                placeholder="Descripción..."
+                placeholder="Escribe descripción o código..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="input pl-10"
+                className="input pl-10 w-full rounded-xl border-gray-200 text-sm"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={aplicarFiltros} className="btn btn-primary">
+        <div className="flex gap-2 pt-2">
+          <button onClick={aplicarFiltros} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-sm active:scale-[0.98] transition">
             Buscar
           </button>
-          <button onClick={limpiarFiltros} className="btn btn-outline">
+          <button onClick={limpiarFiltros} className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm transition">
             Limpiar
           </button>
         </div>
@@ -431,94 +362,77 @@ export default function GestionarRelaciones() {
         <>
           <div className="space-y-4">
             {productosFiltrados.map((producto) => {
-              const badge = getConfianzaBadge(producto.confianza)
-              
               return (
                 <div key={producto.id} className="card hover:shadow-lg transition-shadow">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Info del producto proveedor */}
-                    <div className="lg:col-span-4">
+                    <div className="lg:col-span-5">
                       <h4 className="font-semibold text-gray-900 mb-2">{producto.descripcion}</h4>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <p>Código: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{producto.codigo}</span></p>
-                        <p>Proveedor: {producto.proveedor?.nombre}</p>
-                        <p className="text-xs text-gray-500">
+                        <p>Código: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">{producto.codigo}</span></p>
+                        <p>Proveedor: <span className="font-medium text-gray-800">{producto.proveedor?.nombre}</span></p>
+                        <p className="text-xs text-gray-400">
                           ID Mapeo: <span className="font-mono">{producto.id}</span>
                         </p>
                       </div>
                     </div>
 
                     {/* Info producto Alegra */}
-                    <div className="lg:col-span-4">
+                    <div className="lg:col-span-5">
                       {producto.mapeo ? (
-                        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                          <p className="text-xs text-green-600 mb-1">Relacionado con:</p>
-                          <h5 className="font-semibold text-green-900 mb-1">{producto.mapeo.alegraName}</h5>
-                          <div className="text-sm text-green-700 space-y-1">
+                        <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">
+                          <p className="text-xxs font-bold uppercase tracking-wider text-emerald-600 mb-1.5">Relacionado con Alegra</p>
+                          <h5 className="font-semibold text-emerald-950 mb-1 text-sm">{producto.mapeo.alegraName}</h5>
+                          <div className="text-xs text-emerald-800 space-y-1 font-mono">
                             <p>Ref: {producto.mapeo.alegraReference || 'N/A'}</p>
                             {producto.factorConversion && producto.factorConversion !== 1 && (
-                              <p className="text-blue-600 font-medium">
+                              <p className="text-blue-600 font-bold mt-1 text-xs">
                                 🔄 Factor: {producto.factorConversion}
                               </p>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <p className="text-gray-600 text-sm">Sin relación</p>
+                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                          <p className="text-gray-600 text-sm font-medium">Sin relación</p>
                         </div>
                       )}
                     </div>
 
-                    {/* Confianza y estado */}
-                    <div className="lg:col-span-2 text-center">
-                      <p className="text-xs text-gray-600 mb-2">Confianza</p>
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${badge.color}`}>
-                        {badge.text}
-                      </span>
-                      <p className={`text-xs mt-2 ${
-                        producto.estadoRelacionado === 'RELACIONADO' ? 'text-green-600' :
-                        producto.estadoRelacionado === 'PENDIENTE' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {producto.estadoRelacionado}
-                      </p>
-                    </div>
-
                     {/* Acciones */}
-                    <div className="lg:col-span-2 flex flex-col gap-2">
+                    <div className="lg:col-span-2 flex flex-col gap-1.5 justify-center">
                       {producto.estadoRelacionado === 'RELACIONADO' && (
                         <>
                           <button
                             onClick={() => abrirRelaciones(producto)}
-                            className="btn bg-purple-600 text-white border-purple-600 hover:bg-purple-700 text-sm flex items-center justify-center"
+                            className="w-full px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                             title="Ver todas las relaciones de este producto con diferentes proveedores"
                           >
-                            <Package size={16} className="mr-1" />
+                            <Package size={14} className="mr-1" />
                             Ver Relaciones
                           </button>
                           <button
                             onClick={() => abrirEditar(producto)}
-                            className="btn btn-primary text-sm flex items-center justify-center"
+                            className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center transition"
                           >
-                            <Edit size={16} className="mr-1" />
+                            <Edit size={14} className="mr-1" />
                             Editar
                           </button>
                           <button
                             onClick={() => abrirFactor(producto)}
-                            className="btn btn-outline text-sm flex items-center justify-center text-blue-600 hover:bg-blue-50"
+                            className="w-full px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                           >
-                            <Settings size={16} className="mr-1" />
+                            <Settings size={14} className="mr-1" />
                             Factor
                             {producto.mapeo?.factorConversion && producto.mapeo.factorConversion !== 1 && (
-                              <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">✓</span>
+                              <span className="ml-1 text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded-full">✓</span>
                             )}
                           </button>
                           <button
                             onClick={() => abrirEliminar(producto)}
-                            className="btn btn-outline text-sm flex items-center justify-center text-red-600 hover:bg-red-50"
+                            className="w-full px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                           >
-                            <Trash2 size={16} className="mr-1" />
+                            <Trash2 size={14} className="mr-1" />
                             Eliminar
                           </button>
                         </>
@@ -650,73 +564,71 @@ export default function GestionarRelaciones() {
       {/* Modal Factor de Conversión */}
       {modalFactor && productoSeleccionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900">⚙️ Factor de Conversión</h3>
-                <button
-                  onClick={() => setModalFactor(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <XCircle size={24} />
-                </button>
-              </div>
+          <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-xl border border-gray-100 flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-gray-50 flex-shrink-0 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Factor de Conversión</h3>
+              <button
+                onClick={() => setModalFactor(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <XCircle size={22} />
+              </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 space-y-6 overflow-y-auto flex-grow">
               {/* Info del producto */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                <p className="text-sm text-gray-600 mb-2">Producto del proveedor:</p>
-                <p className="font-semibold text-gray-900">{productoSeleccionado.descripcion}</p>
-                <p className="text-sm text-gray-600">Relacionado con: {productoSeleccionado.mapeo?.alegraName}</p>
+              <div className="bg-gray-50/70 p-5 rounded-2xl border border-gray-100">
+                <p className="text-xxs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Producto del proveedor</p>
+                <p className="font-semibold text-gray-900 text-sm leading-snug">{productoSeleccionado.descripcion}</p>
+                <p className="text-xs text-gray-500 mt-1">Relacionado con: <span className="font-medium text-gray-700">{productoSeleccionado.mapeo?.alegraName}</span></p>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
-                <p className="text-sm font-semibold text-blue-900 mb-3">
-                  💡 Define la equivalencia entre las cantidades:
+              <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100/70">
+                <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-4">
+                  Define la equivalencia entre las cantidades
                 </p>
                 
                 <div className="grid grid-cols-5 gap-3 items-center">
                   {/* Cantidad Proveedor */}
-                  <div className="col-span-2">
-                    <label className="label text-xs">Cantidad Proveedor</label>
+                  <div className="col-span-2 space-y-1">
+                    <label className="block text-xxs font-bold text-gray-500 uppercase">Cantidad Proveedor</label>
                     <input
                       type="number"
                       value={cantidadProveedor}
                       onChange={(e) => setCantidadProveedor(e.target.value)}
                       step="1"
                       min="1"
-                      className="input"
+                      className="input w-full rounded-xl border-gray-200 text-sm py-2"
                       placeholder="Ej: 24"
                     />
-                    <p className="text-xs text-gray-600 mt-1">Unidades que factura</p>
+                    <p className="text-[10px] text-gray-400 font-medium">Unidades que factura</p>
                   </div>
 
                   {/* Icono = */}
-                  <div className="col-span-1 text-center">
-                    <span className="text-2xl text-blue-600 font-bold">=</span>
+                  <div className="col-span-1 text-center pt-3">
+                    <span className="text-xl text-blue-600 font-black">=</span>
                   </div>
 
                   {/* Cantidad Mía */}
-                  <div className="col-span-2">
-                    <label className="label text-xs">Cantidad en Tu Sistema</label>
+                  <div className="col-span-2 space-y-1">
+                    <label className="block text-xxs font-bold text-gray-500 uppercase">Cantidad en Tu Sistema</label>
                     <input
                       type="number"
                       value={cantidadMia}
                       onChange={(e) => setCantidadMia(e.target.value)}
                       step="1"
                       min="1"
-                      className="input"
+                      className="input w-full rounded-xl border-gray-200 text-sm py-2"
                       placeholder="Ej: 12"
                     />
-                    <p className="text-xs text-gray-600 mt-1">Unidades que registras</p>
+                    <p className="text-[10px] text-gray-400 font-medium">Unidades que registras</p>
                   </div>
                 </div>
               </div>
 
               {/* Vista Previa */}
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <p className="font-semibold text-gray-900 mb-2">📊 Vista Previa:</p>
+              <div className="bg-gray-50/70 p-5 rounded-2xl border border-gray-100 space-y-2">
+                <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Vista Previa</p>
                 {(() => {
                   const cantProv = parseFloat(cantidadProveedor) || 1
                   const cantMia = parseFloat(cantidadMia) || 1
@@ -725,11 +637,11 @@ export default function GestionarRelaciones() {
                   const ejemploResultado = (ejemploProveedor * factor).toFixed(2)
 
                   return (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-700">
+                    <div className="text-sm text-gray-600 space-y-1 leading-relaxed">
+                      <p>
                         <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
                       </p>
-                      <p className="text-sm text-blue-700 font-medium">
+                      <p className="text-blue-700 font-medium bg-blue-50/40 p-2 rounded-lg border border-blue-50/60 mt-1.5 text-xs">
                         <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>, 
                         en tu sistema se registrarán <strong>{ejemploResultado}</strong>
                       </p>
@@ -739,16 +651,16 @@ export default function GestionarRelaciones() {
               </div>
             </div>
 
-            <div className="p-6 border-t bg-gray-50 flex gap-3">
+            <div className="p-6 border-t border-gray-50 bg-gray-50/50 flex gap-3 flex-shrink-0">
               <button
                 onClick={guardarFactor}
-                className="btn btn-primary flex-1"
+                className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-sm active:scale-[0.98] transition flex-1"
               >
-                ✅ Guardar Factor
+                Guardar Factor
               </button>
               <button
                 onClick={() => setModalFactor(false)}
-                className="btn btn-outline flex-1"
+                className="px-5 py-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm transition flex-1"
               >
                 Cancelar
               </button>
@@ -894,11 +806,6 @@ export default function GestionarRelaciones() {
                                 <span className="font-semibold text-gray-900">
                                   {relacion.proveedor.nombre}
                                 </span>
-                                {relacion.confianza >= 80 && (
-                                  <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
-                                    {relacion.confianza}%
-                                  </span>
-                                )}
                               </div>
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 <span>

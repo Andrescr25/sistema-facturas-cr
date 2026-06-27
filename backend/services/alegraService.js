@@ -538,95 +538,175 @@ class AlegraService {
         try {
             console.log(`📦 Creando producto COMPLETO en Alegra: ${data.name}`);
             console.log('📤 Datos recibidos:', JSON.stringify(data, null, 2));
-            
-            // Preparar datos según la API de Alegra
-            const productData = {
-                name: data.name,
-                description: data.description || data.name,
-                status: data.status || 'active',
-                type: data.type || 'product', // 'product' para inventario, 'service' para servicios
-                
-                // Precio (Alegra requiere array de precios)
-                price: [{
-                    idPriceList: 1, // ID 1 = Lista de precios "General" por defecto
-                    price: parseFloat(data.price) || 0
-                }],
-                
-                // Unidad de medida (obligatoria)
-                unit: data.unit || 'unit'
-            };
-            
-            // Agregar referencia si se proporcionó
-            if (data.reference) {
-                productData.reference = {
-                    reference: data.reference,
-                    type: 'CODE_OF_INTERNAL_USE'
-                };
-            }
-            
-            // Agregar categoría si se especificó
-            if (data.itemCategory && data.itemCategory.id) {
-                productData.itemCategory = {
-                    id: parseInt(data.itemCategory.id)
-                };
-            }
 
-            // 🆕 Agregar código CABYS (productKey)
-            if (data.productKey) {
-                productData.productKey = data.productKey;
-                console.log(`✅ Código CABYS agregado: ${data.productKey}`);
-            }
+            const medicineFieldsRequested = Boolean(data.pharmaceuticalForm || data.sanitaryRegistry);
 
-            // 🆕 Agregar forma farmacéutica si se especificó (medicamentos)
-            // Nota: Alegra requiere este campo para medicamentos según normativa CR 2025
-            if (data.pharmaceuticalForm) {
-                productData.pharmaceuticalForm = data.pharmaceuticalForm;
-                console.log(`✅ Forma farmacéutica agregada: ${data.pharmaceuticalForm}`);
-            }
-            
-            // 🆕 Agregar registro sanitario si se especificó (medicamentos)
-            if (data.sanitaryRegistry) {
-                productData.sanitaryRegistry = data.sanitaryRegistry;
-                console.log(`✅ Registro sanitario agregado: ${data.sanitaryRegistry}`);
-            }
+            const buildProductData = ({ includeMedicineFields = true } = {}) => {
+                // Preparar datos según la API de Alegra
+                const productData = {
+                    name: data.name,
+                    description: data.description || data.name,
+                    status: data.status || 'active',
+                    type: data.type || 'product', // 'product' para inventario, 'service' para servicios
 
-            // 🆕 Agregar impuestos (tax)
-            if (data.tax && Array.isArray(data.tax)) {
-                productData.tax = data.tax;
-                console.log(`✅ Impuestos agregados: ${JSON.stringify(data.tax)}`);
-            }
+                    // Precio (Alegra requiere array de precios)
+                    price: [{
+                        idPriceList: 1, // ID 1 = Lista de precios "General" por defecto
+                        price: parseFloat(data.price) || 0
+                    }],
 
-            // 🆕 Agregar inventario (inventory) si es tipo producto
-            if (data.type === 'product') {
-                productData.inventory = {
-                    unit: data.unit || 'unit',
-                    unitCost: parseFloat(data.cost) || parseFloat(data.price) || 0
+                    // Unidad de medida (obligatoria)
+                    unit: data.unit || 'unit'
                 };
 
-                // Agregar cantidad inicial si se especificó
-                if (data.initialQuantity && parseFloat(data.initialQuantity) > 0) {
-                    productData.inventory.initialQuantity = parseFloat(data.initialQuantity);
-                    console.log(`✅ Cantidad inicial: ${data.initialQuantity}`);
+                // Agregar referencia si se proporcionó
+                if (data.reference) {
+                    productData.reference = {
+                        reference: data.reference,
+                        type: 'CODE_OF_INTERNAL_USE'
+                    };
                 }
-            }
 
-            console.log('📋 Datos formateados para Alegra:', JSON.stringify(productData, null, 2));
-            
-            const response = await this.api.post('/items', productData);
-            console.log(`✅ Producto creado exitosamente: ID ${response.data.id}`);
-            console.log(`📊 Respuesta completa:`, JSON.stringify(response.data, null, 2));
-            return response.data;
+                // Agregar categoría si se especificó
+                if (data.itemCategory && data.itemCategory.id) {
+                    productData.itemCategory = {
+                        id: parseInt(data.itemCategory.id)
+                    };
+                }
+
+                // 🆕 Agregar código CABYS (productKey)
+                if (data.productKey) {
+                    productData.productKey = data.productKey;
+                    console.log(`✅ Código CABYS agregado: ${data.productKey}`);
+                }
+
+                if (includeMedicineFields) {
+                    if (data.pharmaceuticalForm) {
+                        const pharmaFormMap = {
+                            '01': '158', // Líquidos -> Solución
+                            '02': '199', // Sólidos -> Tableta
+                            '03': '229', // Semisólidos -> Unguento
+                            '04': '163', // Gases -> Solución en aerosol
+                            '05': '105'  // Otros -> Líquido
+                        };
+                        const formId = pharmaFormMap[data.pharmaceuticalForm] || data.pharmaceuticalForm;
+                        productData.idPharmaceuticalForm = formId;
+                        console.log(`✅ Forma farmacéutica agregada (Alegra ID: ${formId}): ${data.pharmaceuticalForm}`);
+                    }
+
+                    if (data.sanitaryRegistry) {
+                        productData.drugRegistration = data.sanitaryRegistry;
+                        console.log(`✅ Registro sanitario agregado (Alegra drugRegistration): ${data.sanitaryRegistry}`);
+                    }
+                }
+
+                // Campos adicionales oficiales de Alegra, si se configuran desde otra capa.
+                if (Array.isArray(data.customFields) && data.customFields.length > 0) {
+                    productData.customFields = data.customFields;
+                    console.log(`✅ Campos personalizados agregados: ${JSON.stringify(data.customFields)}`);
+                }
+
+                // 🆕 Agregar impuestos (tax)
+                if (data.tax && Array.isArray(data.tax)) {
+                    productData.tax = data.tax;
+                    console.log(`✅ Impuestos agregados: ${JSON.stringify(data.tax)}`);
+                }
+
+                // 🆕 Agregar inventario (inventory) si es tipo producto
+                if (data.type === 'product') {
+                    productData.inventory = {
+                        unit: data.unit || 'unit',
+                        unitCost: parseFloat(data.cost) || parseFloat(data.price) || 0
+                    };
+
+                    // Agregar cantidad inicial si se especificó
+                    if (data.initialQuantity && parseFloat(data.initialQuantity) > 0) {
+                        productData.inventory.initialQuantity = parseFloat(data.initialQuantity);
+                        console.log(`✅ Cantidad inicial: ${data.initialQuantity}`);
+                    }
+                }
+
+                return productData;
+            };
+
+            const postProduct = async (productData) => {
+                console.log('📋 Datos formateados para Alegra:', JSON.stringify(productData, null, 2));
+
+                const response = await this.api.post('/items', productData);
+                console.log(`✅ Producto creado exitosamente: ID ${response.data.id}`);
+                console.log(`📊 Respuesta completa:`, JSON.stringify(response.data, null, 2));
+                return response.data;
+            };
+
+            try {
+                return await postProduct(buildProductData());
+            } catch (error) {
+                const rawAlegraError = JSON.stringify(error.response?.data || error.message || '').toLowerCase();
+                const canRetryWithoutMedicineFields =
+                    medicineFieldsRequested &&
+                    [400, 422].includes(error.response?.status) &&
+                    (
+                        rawAlegraError.includes('pharmaceuticalform') ||
+                        rawAlegraError.includes('sanitaryregistry') ||
+                        rawAlegraError.includes('sanitary registry') ||
+                        rawAlegraError.includes('not allowed') ||
+                        rawAlegraError.includes('unknown') ||
+                        rawAlegraError.includes('unrecognized') ||
+                        rawAlegraError.includes('unsupported') ||
+                        rawAlegraError.includes('no permitido') ||
+                        rawAlegraError.includes('no soportado')
+                    );
+
+                if (!canRetryWithoutMedicineFields) {
+                    throw error;
+                }
+
+                console.warn('⚠️ Alegra rechazó los campos farmacéuticos no documentados. Reintentando sin esos campos.');
+
+                const createdProduct = await postProduct(buildProductData({ includeMedicineFields: false }));
+                createdProduct._warnings = [
+                    'Alegra no aceptó los campos de forma farmacéutica y registro sanitario por API pública. El producto fue creado, pero esos datos deben completarse desde Alegra o con los nombres/endpoints internos correctos.'
+                ];
+
+                return createdProduct;
+            }
         } catch (error) {
             console.error(`❌ Error creando producto en Alegra:`);
             console.error('   Status:', error.response?.status);
             console.error('   Error:', error.response?.data);
             console.error('   Message:', error.message);
+
+            const buildAlegraMessage = (errorData) => {
+                if (!errorData) return error.message;
+                if (typeof errorData === 'string') return errorData;
+                if (errorData.message) return errorData.message;
+                if (errorData.error) return errorData.error;
+                if (Array.isArray(errorData.errors)) {
+                    return errorData.errors
+                        .map(err => err.message || err.error || JSON.stringify(err))
+                        .join('; ');
+                }
+
+                return JSON.stringify(errorData);
+            };
             
             // Proporcionar error más descriptivo al usuario
             if (error.response?.data?.code === 1093) {
-                throw new Error('Alegra requiere una "clave/referencia de producto". Verifica la configuración de tu cuenta en Alegra → Configuración → Productos.');
+                const friendlyError = new Error('Alegra requiere una "clave/referencia de producto". Verifica la configuración de tu cuenta en Alegra → Configuración → Productos.');
+                friendlyError.statusCode = 502;
+                throw friendlyError;
+            } else if (error.response?.data?.code === 1132) {
+                const friendlyError = new Error('Este CABYS corresponde a un medicamento y Alegra requiere forma farmacéutica. Marca el producto como medicamento y completa la información farmacéutica.');
+                friendlyError.statusCode = 400;
+                throw friendlyError;
             } else if (error.response?.data?.message) {
-                throw new Error(`Error de Alegra: ${error.response.data.message} (código ${error.response.data.code || 'N/A'})`);
+                const friendlyError = new Error(`Error de Alegra: ${error.response.data.message} (código ${error.response.data.code || 'N/A'})`);
+                friendlyError.statusCode = 502;
+                throw friendlyError;
+            } else if (error.response) {
+                const friendlyError = new Error(`Error de Alegra: ${buildAlegraMessage(error.response.data)} (HTTP ${error.response.status})`);
+                friendlyError.statusCode = 502;
+                throw friendlyError;
             } else {
                 throw error;
             }

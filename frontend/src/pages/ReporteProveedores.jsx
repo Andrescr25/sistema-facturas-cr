@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, Brain, MessageCircle, Calendar, ArrowLeft } from 'lucide-react'
+import { Users, Package, ShoppingCart, AlertCircle, RefreshCw, FileText, Edit3, Download, Trash2, MessageCircle, Calendar, ArrowLeft } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 
@@ -15,8 +15,6 @@ export default function ReporteProveedores() {
 
   const [cantidadesModificadas, setCantidadesModificadas] = useState(new Map())
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
-  const [cantidadSugerida, setCantidadSugerida] = useState([])
-  const [resumenSugerida, setResumenSugerida] = useState(null)
   const [proveedorQuery, setProveedorQuery] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
 
@@ -48,15 +46,7 @@ export default function ReporteProveedores() {
     loadCantidadesGuardadas()
   }, [fechaInicio])
 
-  // Cargar cantidad sugerida automáticamente cuando entramos a un proveedor
-  useEffect(() => {
-    if (proveedorActivoId) {
-      loadCantidadSugerida(proveedorActivoId)
-    } else {
-      setCantidadSugerida([])
-      setResumenSugerida(null)
-    }
-  }, [proveedorActivoId])
+
 
   const loadReporte = async () => {
     try {
@@ -131,28 +121,7 @@ export default function ReporteProveedores() {
     }
   }
 
-  const loadCantidadSugerida = async (proveedor_id) => {
-    if (!proveedor_id || proveedor_id === 'null' || proveedor_id === 'undefined') {
-      setCantidadSugerida([])
-      setResumenSugerida(null)
-      return
-    }
 
-    try {
-      const result = await alegraService.getCantidadSugerida(proveedor_id)
-      if (result.success) {
-        setCantidadSugerida(result.data)
-        setResumenSugerida(result.resumen)
-      } else {
-        setCantidadSugerida([])
-        setResumenSugerida(null)
-      }
-    } catch (err) {
-      console.error('Error cargando cantidad sugerida:', err)
-      setCantidadSugerida([])
-      setResumenSugerida(null)
-    }
-  }
 
   const usaDatosProveedor = (proveedorNombre) => {
     const preferencia = preferenciasDatosProveedor[proveedorNombre]
@@ -233,57 +202,42 @@ export default function ReporteProveedores() {
     }
   }
 
-  const handleGenerarPDF = async (proveedor, source = 'orden') => {
+  const handleGenerarPDF = async (proveedor) => {
     try {
       setLoading(true)
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
       let productosParaPDF = []
 
-      if (source === 'orden') {
-        productosParaPDF = proveedor.productos_faltantes
-          .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.codigo}`))
-          .map(producto => {
-            const key = `${proveedor.nombre}-${producto.codigo}`
-            const mod = cantidadesModificadas.get(key)
-            const guardada = cantidadesGuardadas.get(key)
-            const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
-            const factorConversion = producto.factor_conversion || 1
-            const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
+      productosParaPDF = proveedor.productos_faltantes
+        .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.codigo}`))
+        .map(producto => {
+          const key = `${proveedor.nombre}-${producto.codigo}`
+          const mod = cantidadesModificadas.get(key)
+          const guardada = cantidadesGuardadas.get(key)
+          const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
+          const factorConversion = producto.factor_conversion || 1
+          const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
 
-            return {
-              codigo: producto.codigo_proveedor || producto.codigo,
-              nombre: producto.nombre_proveedor || producto.nombre,
-              codigoInterno: producto.codigo,
-              nombreInterno: producto.nombre,
-              codigoProveedor: producto.codigo_proveedor || null,
-              nombreProveedor: producto.nombre_proveedor || producto.nombre,
-              cantidad: cantProv,
-              cantidadOriginal: cantFinal,
-              factorConversion: factorConversion,
-              observaciones: producto.observaciones || '',
-              descripcionFactura: producto.descripcion_factura || ''
-            }
-          })
-          .filter(p => p.cantidad > 0)
-
-        const agregados = productosAgregados.get(proveedor.nombre) || []
-        agregados.forEach(p => {
-          productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
+          return {
+            codigo: producto.codigo_proveedor || producto.codigo,
+            nombre: producto.nombre_proveedor || producto.nombre,
+            codigoInterno: producto.codigo,
+            nombreInterno: producto.nombre,
+            codigoProveedor: producto.codigo_proveedor || null,
+            nombreProveedor: producto.nombre_proveedor || producto.nombre,
+            cantidad: cantProv,
+            cantidadOriginal: cantFinal,
+            factorConversion: factorConversion,
+            observaciones: producto.observaciones || '',
+            descripcionFactura: producto.descripcion_factura || ''
+          }
         })
+        .filter(p => p.cantidad > 0)
 
-      } else if (source === 'sugerida') {
-        productosParaPDF = cantidadSugerida.map(p => ({
-          codigo: p.codigo_proveedor || p.producto_codigo,
-          nombre: p.nombre_proveedor || p.producto_nombre,
-          codigoInterno: p.producto_codigo,
-          nombreInterno: p.producto_nombre,
-          codigoProveedor: p.codigo_proveedor || null,
-          nombreProveedor: p.nombre_proveedor || p.producto_nombre,
-          cantidad: p.cantidad_sugerida,
-          observaciones: p.observaciones || '',
-          descripcionFactura: p.descripcion_factura || ''
-        }))
-      }
+      const agregados = productosAgregados.get(proveedor.nombre) || []
+      agregados.forEach(p => {
+        productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
+      })
 
       if (productosParaPDF.length === 0) {
         alert('⚠️ No hay productos para generar la orden de compra')
@@ -294,8 +248,7 @@ export default function ReporteProveedores() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const typeStr = source === 'sugerida' ? 'sugerida' : 'orden'
-      a.download = `${typeStr}-${proveedor.nombre.replace(/\\s+/g, '-')}.pdf`
+      a.download = `orden-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -703,47 +656,7 @@ export default function ReporteProveedores() {
           </div>
         </div>
 
-        {/* Panel Inteligente: Cantidad Sugerida */}
-        <div className="card bg-purple-50 border border-purple-100 mb-8 p-6 shadow-sm">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-purple-900 flex items-center">
-                <Brain className="mr-2" size={20} /> Análisis Inteligente (Sugerida)
-              </h3>
-              <p className="text-sm text-purple-700">Cantidades proyectadas usando faltantes de últimos 90 días</p>
-            </div>
-            {cantidadSugerida.length > 0 && (
-              <button onClick={() => handleGenerarPDF(proveedor, 'sugerida')} className="btn btn-sm bg-purple-600 hover:bg-purple-700 text-white border-none">
-                <Download size={14} className="mr-1" /> PDF Sugerencia
-              </button>
-            )}
-          </div>
 
-          {cantidadSugerida.length === 0 ? (
-            <div className="text-center py-4 opacity-70">
-              <p className="text-sm">No hay histórico de compras suficiente para generar sugerencias predictivas todavía.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {cantidadSugerida.slice(0, 6).map((item, idx) => (
-                <div key={idx} className="bg-white p-3 rounded shadow-sm border border-purple-100 flex justify-between items-center">
-                  <div className="overflow-hidden">
-                    <p className="text-sm font-semibold truncate" title={item.producto_nombre}>{item.producto_nombre}</p>
-                    <p className="text-xs text-gray-500">Promedio sem.: {item.promedio_semanal}</p>
-                  </div>
-                  <div className="ml-2 bg-purple-100 text-purple-800 font-bold px-3 py-1 rounded text-lg">
-                    {item.cantidad_sugerida}
-                  </div>
-                </div>
-              ))}
-              {cantidadSugerida.length > 6 && (
-                <div className="bg-white p-3 rounded shadow-sm border border-dashed border-purple-200 flex justify-center items-center text-sm text-purple-600 font-medium">
-                  + {cantidadSugerida.length - 6} sugerencias más en PDF
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Lista de Productos del Proveedor */}
         <div className="card shadow-sm p-0 overflow-hidden border border-gray-200">

@@ -283,7 +283,7 @@ export default function Impresion() {
     try {
       await alegraService.visualizarPDFFactura(factura.alegra_id)
     } catch (error) {
-      alert(`❌ Error abriendo PDF: ${error.message}`)
+      alert(`Error abriendo PDF: ${error.message}`)
     }
   }
 
@@ -370,7 +370,7 @@ export default function Impresion() {
         }
       } catch (error) {
         console.error('Error cargando factura desde Alegra:', error)
-        alert(`❌ No se pudo cargar la factura desde Alegra: ${error.message}`)
+        alert(`No se pudo cargar la factura desde Alegra: ${error.message}`)
       }
     }
 
@@ -559,7 +559,7 @@ export default function Impresion() {
 
         const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
         if (hayReferenciaVacia) {
-          alert('⚠️ Todos los productos deben tener una referencia antes de guardar.')
+          alert('Todos los productos deben tener una referencia antes de guardar.')
           setProcesando(false)
           return
         }
@@ -570,7 +570,7 @@ export default function Impresion() {
           return item.quantity <= 0 && !puedeEliminarse
         })
         if (hayCantidadInvalida) {
-          alert('⚠️ Las cantidades deben ser mayores a cero.')
+          alert('Las cantidades deben ser mayores a cero.')
           setProcesando(false)
           return
         }
@@ -594,7 +594,7 @@ export default function Impresion() {
         setMensajeAjuste('Precios actualizados correctamente')
 
         setTimeout(() => {
-          alert(`✅ Factura ${facturaEditando.numero_factura} procesada exitosamente`)
+          alert(`Factura ${facturaEditando.numero_factura} procesada exitosamente`)
         }, 500)
 
         // Si pidió imprimir, abrir PDF
@@ -611,7 +611,7 @@ export default function Impresion() {
         throw new Error(result.message || 'Error procesando factura')
       }
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
+      alert(`Error: ${error.message}`)
     } finally {
       setProcesando(false)
       setAjustandoPrecios(false)
@@ -671,9 +671,9 @@ export default function Impresion() {
 
       await loadFacturasPendientes()
       loadFacturasProcesadas()
-      alert(`✅ Factura ${factura.numero_factura} enviada al historial de impresión`)
+      alert(`Factura ${factura.numero_factura} enviada al historial de impresión`)
     } catch (error) {
-      alert(`❌ Error procesando factura: ${error.message}`)
+      alert(`Error procesando factura: ${error.message}`)
     } finally {
       setProcesando(false)
       setAjustandoPrecios(false)
@@ -694,13 +694,13 @@ export default function Impresion() {
       const result = await alegraService.recuperarFactura(factura.alegra_id)
 
       if (result.success) {
-        alert(`✅ Factura ${factura.numero_factura} recuperada`)
+        alert(`Factura ${factura.numero_factura} recuperada`)
         loadFacturasProcesadas()
       } else {
         throw new Error(result.message || 'Error recuperando factura')
       }
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
+      alert(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -942,29 +942,28 @@ export default function Impresion() {
   // Renderizar vista de cambios automáticos (sin modo edición)
   const renderCambiosAutomaticos = (factura) => {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border border-blue-200">
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 mb-6 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5">
           <div>
-            <h3 className="text-lg font-semibold text-blue-900 mb-1">
-              📋 Cambios por Ajustes Previos
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <FileText size={18} className="text-blue-600" />
+              Cambios por Ajustes Previos
             </h3>
-            <p className="text-sm text-blue-700">
-              Estos cambios se aplicarán automáticamente con precios actualizados
+            <p className="text-sm text-gray-500">
+              Estos cambios se aplicarán automáticamente con precios actualizados.
             </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => handleIniciarEdicion(factura)}
-              className="btn btn-outline flex items-center gap-2 text-sm"
+              className="px-4 py-2 border border-gray-200 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl transition active:scale-[0.98]"
             >
-              <Edit size={16} />
               Editar Factura
             </button>
             <button
               onClick={() => handleVerPDF(factura)}
-              className="btn btn-outline flex items-center gap-2 text-sm"
+              className="px-4 py-2 border border-gray-200 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl transition active:scale-[0.98]"
             >
-              <Eye size={16} />
               Ver PDF
             </button>
           </div>
@@ -972,33 +971,37 @@ export default function Impresion() {
 
         <div className="space-y-3">
           {factura.ajustes_realizados?.map((ajuste, index) => (
-            <div key={index} className="bg-white rounded-lg p-4 border border-blue-200">
+            <div key={index} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xxs">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900">{ajuste.producto_nombre}</p>
-                  <p className="text-sm text-gray-600">Código: {ajuste.producto_codigo}</p>
+                  <p className="font-bold text-gray-900">{ajuste.producto_nombre}</p>
+                  <p className="text-xs text-gray-400">Código: {ajuste.producto_codigo}</p>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-medium ${ajuste.estado === 'completo' ? 'bg-green-100 text-green-800' :
-                  ajuste.estado === 'parcial' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                  {ajuste.estado === 'completo' ? '✅ Completo' :
-                    ajuste.estado === 'parcial' ? '◐ Parcial' : '❌ No llegó'}
+                <div className={`px-3 py-1 rounded-xl text-xs font-semibold border ${
+                  ajuste.estado === 'completo' 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                    : ajuste.estado === 'parcial' 
+                      ? 'bg-amber-50 text-amber-700 border-amber-100' 
+                      : 'bg-rose-50 text-rose-700 border-rose-100'
+                }`}>
+                  {ajuste.estado === 'completo' ? 'Completo' :
+                    ajuste.estado === 'parcial' ? 'Parcial' : 'No llegó'}
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+              <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="text-gray-600">Faltante:</span>
-                  <span className="ml-2 font-medium">{ajuste.cantidad_faltante}</span>
+                  <span className="text-gray-500">Faltante:</span>
+                  <span className="ml-1.5 font-bold text-gray-800">{ajuste.cantidad_faltante}</span>
                 </div>
                 <div>
-                  <span className="text-gray-600">Entregado:</span>
-                  <span className="ml-2 font-medium">{ajuste.cantidad_entregada}</span>
+                  <span className="text-gray-500">Entregado:</span>
+                  <span className="ml-1.5 font-bold text-gray-800">{ajuste.cantidad_entregada}</span>
                 </div>
               </div>
               {ajuste.requiere_actualizacion && (
-                <p className="mt-2 text-sm text-yellow-700 font-medium">
-                  ⚠️ Se actualizará cantidad y precio en la factura
+                <p className="mt-2 text-xs text-amber-700 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 inline-flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  Se actualizará cantidad y precio en la factura
                 </p>
               )}
             </div>
@@ -1009,15 +1012,14 @@ export default function Impresion() {
           <button
             onClick={() => handleGuardarFactura(false)}
             disabled={procesando}
-            className="btn btn-primary flex items-center gap-2"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50"
           >
-            <Save size={16} />
             {procesando ? 'Procesando...' : 'Guardar'}
           </button>
           <button
             onClick={() => handleGuardarFactura(true)}
             disabled={procesando}
-            className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center gap-2"
+            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50 flex items-center gap-1.5"
           >
             <Printer size={16} />
             {procesando ? 'Procesando...' : 'Guardar e Imprimir'}
@@ -1032,21 +1034,21 @@ export default function Impresion() {
     if (!facturaEditando || !modoEdicion) return null
 
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <div className="bg-white border border-gray-100 rounded-3xl p-6 mb-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-gray-900">
-            ✏️ Editando Factura #{facturaEditando.numero_factura}
+            Editando Factura #{facturaEditando.numero_factura}
           </h3>
           <button
             onClick={handleCancelarEdicion}
-            className="btn btn-outline text-sm"
+            className="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition"
           >
             Cancelar
           </button>
         </div>
 
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
+        <div className="mb-5 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+          <p className="text-sm text-blue-900">
             <strong>Cliente:</strong> {facturaEditando.cliente_nombre} |
             <strong className="ml-3">Fecha:</strong> {formatDate(facturaEditando.fecha_emision)} |
             <strong className="ml-3">Total Original:</strong> ₡{(facturaEditando.total || 0).toLocaleString('es-CR')}
@@ -1054,10 +1056,10 @@ export default function Impresion() {
         </div>
 
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-lg font-semibold text-gray-900">Productos en la factura</h4>
+          <h4 className="text-base font-bold text-gray-900">Productos en la factura</h4>
           <button
             onClick={handleAgregarItem}
-            className="btn btn-outline btn-sm flex items-center gap-2"
+            className="px-3.5 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
             type="button"
           >
             <Plus size={14} />
@@ -1065,17 +1067,17 @@ export default function Impresion() {
           </button>
         </div>
 
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
           {itemsEditados.map((item, index) => (
-            <div key={index} className="bg-gray-50 rounded-lg border p-4 space-y-4">
+            <div key={index} className="bg-gray-50/50 rounded-2xl border border-gray-100 p-4 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Producto #{index + 1}</p>
+                  <p className="text-xs uppercase tracking-wider font-semibold text-gray-400">Producto #{index + 1}</p>
                   {!item.esNuevo && (
-                    <p className="text-[11px] text-gray-400">Importado desde Alegra</p>
+                    <p className="text-xxs text-gray-400 font-medium">Importado desde Alegra</p>
                   )}
                   {!item.esNuevo && item.eliminar_por_faltante && (
-                    <p className="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                    <p className="mt-1 text-xs text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1 rounded-xl">
                       Este producto se eliminará automáticamente al reimprimir (faltante sin recibir)
                     </p>
                   )}
@@ -1083,70 +1085,69 @@ export default function Impresion() {
                 <button
                   type="button"
                   onClick={() => handleEliminarItem(index)}
-                  className="btn btn-outline btn-xs border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-1"
+                  className="px-2.5 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-lg transition"
                 >
-                  <Trash2 size={14} />
                   Quitar
                 </button>
               </div>
               <div className="grid grid-cols-12 gap-3">
                 <div className="col-span-3">
-                  <label className="text-xs text-gray-600">Referencia</label>
+                  <label className="text-xxs uppercase tracking-wider text-gray-500 font-semibold mb-1 block">Referencia</label>
                   <input
                     type="text"
                     value={item.reference || ''}
                     onChange={(e) => handleItemChange(index, 'reference', e.target.value)}
                     onFocus={() => item.esNuevo && iniciarBusquedaProducto(index)}
-                    className="input input-sm w-full"
+                    className="input input-sm w-full rounded-xl border-gray-200 text-sm"
                     disabled={!item.esNuevo}
                     placeholder="Código o referencia"
                   />
                   {item.esNuevo ? (
-                    <span className="inline-block mt-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
+                    <span className="inline-block mt-1 text-xxs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 font-semibold">
                       Nuevo producto
                     </span>
                   ) : (
-                    <span className="inline-block mt-1 text-xs text-gray-500">
+                    <span className="inline-block mt-1 text-xxs text-gray-400 font-medium">
                       Código original (no editable)
                     </span>
                   )}
                 </div>
                 <div className="col-span-4">
-                  <label className="text-xs text-gray-600">Descripción</label>
+                  <label className="text-xxs uppercase tracking-wider text-gray-500 font-semibold mb-1 block">Descripción</label>
                   <input
                     type="text"
                     value={item.description || ''}
                     onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                    className={`input input-sm w-full ${item.esNuevo ? '' : 'bg-gray-100 text-gray-600'}`}
+                    className={`input input-sm w-full rounded-xl border-gray-200 text-sm ${item.esNuevo ? '' : 'bg-gray-100/50 text-gray-500'}`}
                     disabled={!item.esNuevo}
                     placeholder="Descripción del producto"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-600">Cantidad</label>
+                  <label className="text-xxs uppercase tracking-wider text-gray-500 font-semibold mb-1 block">Cantidad</label>
                   <input
                     type="number"
                     value={item.quantity}
                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                    className="input input-sm w-full"
+                    className="input input-sm w-full rounded-xl border-gray-200 text-sm"
                     min="0"
                     step="1"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-600">Precio Unit.</label>
+                  <label className="text-xxs uppercase tracking-wider text-gray-500 font-semibold mb-1 block">Precio Unit.</label>
                   <input
                     type="number"
                     value={item.price}
                     onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                    className="input input-sm w-full"
+                    className="input input-sm w-full rounded-xl border-gray-200 text-sm"
                     min="0"
                     step="0.01"
                   />
                 </div>
                 <div className="col-span-1">
-                  <label className="text-xs text-gray-600">Subtotal</label>
-                  <div className="input input-sm w-full bg-gray-100 flex items-center">
+                  <label className="text-xxs uppercase tracking-wider text-gray-500 font-semibold mb-1 block">Subtotal</label>
+                  <div className="input input-sm w-full bg-gray-100 flex items-center rounded-xl border-gray-200 text-sm">
                     ₡{(item.quantity * item.price).toLocaleString('es-CR')}
                   </div>
                 </div>
@@ -1160,15 +1161,14 @@ export default function Impresion() {
           <button
             onClick={() => handleGuardarFactura(false)}
             disabled={procesando}
-            className="btn btn-primary flex items-center gap-2"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50"
           >
-            <Save size={16} />
             {procesando ? 'Guardando...' : 'Guardar'}
           </button>
           <button
             onClick={() => handleGuardarFactura(true)}
             disabled={procesando}
-            className="btn bg-green-600 text-white border-green-600 hover:bg-green-700 flex items-center gap-2"
+            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50 flex items-center gap-1.5"
           >
             <Printer size={16} />
             {procesando ? 'Guardando...' : 'Guardar e Imprimir'}
@@ -1179,22 +1179,17 @@ export default function Impresion() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-6 px-3">
       {/* Modal de Ajuste de Precios */}
       {ajustandoPrecios && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl">
-            <div className="text-center">
-              <Loader className="mx-auto mb-4 text-blue-600 animate-spin" size={48} />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl text-center space-y-4">
+            <Loader className="mx-auto text-blue-600 animate-spin" size={40} />
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">
                 {mensajeAjuste}
               </h3>
-              <div className="flex justify-center gap-1 mb-4">
-                <span className="animate-bounce delay-0">.</span>
-                <span className="animate-bounce delay-100">.</span>
-                <span className="animate-bounce delay-200">.</span>
-              </div>
-              <p className="text-gray-600 text-sm">
+              <p className="text-sm text-gray-500 mt-1">
                 Actualizando precios desde Alegra...
               </p>
             </div>
@@ -1203,13 +1198,13 @@ export default function Impresion() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between border-b pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <Printer className="mr-3" size={32} />
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+            <Printer className="text-blue-600" size={28} />
             Centro de Impresión
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm text-gray-500 mt-0.5">
             Imprime facturas resueltas o con cambios pendientes y refleja los precios revisados
           </p>
         </div>
@@ -1217,174 +1212,163 @@ export default function Impresion() {
 
       {/* Error */}
       {error && (
-        <div className="card bg-red-50 border-red-200 mb-8">
-          <div className="flex items-center">
-            <AlertCircle className="text-red-500 mr-2" size={20} />
-            <p className="text-red-700">Error: {error}</p>
-          </div>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-2.5 text-red-800 text-sm">
+          <AlertCircle className="text-red-500" size={18} />
+          <p>Error: {error}</p>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-8">
-        <nav className="-mb-px flex flex-wrap gap-4">
-          {[
-            {
-              key: 'pendientes',
-              label: 'Facturas Pendientes',
-              icon: Inbox,
-              count: facturasPendientes.length
-            },
-            {
-              key: 'procesadas',
-              label: 'Procesadas (7 días)',
-              icon: CheckCircle,
-              count: facturasProcesadas.length
-            }
-          ].map((tab) => {
-            const Icon = tab.icon
-            const isCurrent = activeTab === tab.key
-            return (
-              <button
-                key={tab.key}
-                onClick={() => {
-                  setFacturaEditando(null)
-                  setModoEdicion(false)
-                  setActiveTab(tab.key)
-                }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${isCurrent
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                <Icon className="inline mr-2" size={16} />
-                {tab.label}
-                {tab.count > 0 && (
-                  <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </nav>
+      {/* Tabs segmentado móvil/escritorio */}
+      <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-md">
+        {[
+          {
+            key: 'pendientes',
+            label: 'Por Impresión',
+            icon: Inbox,
+            count: facturasPendientes.length
+          },
+          {
+            key: 'procesadas',
+            label: 'Historial 7 días',
+            icon: CheckCircle,
+            count: facturasProcesadas.length
+          }
+        ].map((tab) => {
+          const Icon = tab.icon
+          const isCurrent = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => {
+                setFacturaEditando(null)
+                setModoEdicion(false)
+                setActiveTab(tab.key)
+              }}
+              className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 ${
+                isCurrent 
+                  ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Icon size={16} />
+              <span>{tab.label}</span>
+              {tab.count > 0 && (
+                <span className={`text-xxs px-2 py-0.5 rounded-full ${
+                  isCurrent ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Loading */}
       {loading && (
-        <div className="text-center py-8">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">
+        <div className="text-center py-16 bg-white border border-gray-50 rounded-3xl">
+          <div className="spinner mx-auto mb-3"></div>
+          <p className="text-sm text-gray-500">
             {activeTab === 'pendientes' ? 'Cargando facturas pendientes...' : 'Cargando facturas procesadas...'}
           </p>
         </div>
       )}
 
-      {/* 🟢 UNIFICADO: Lista de Pendientes (Con y Sin cambios) */}
+      {/* Lista de Pendientes (Con y Sin cambios) */}
       {activeTab === 'pendientes' && !loading && (
         <div>
           {facturaEditando ? (
-            // Mostrar formulario de edición o vista de cambios (Igual que antes)
             modoEdicion ? renderFormularioEdicion() : renderCambiosAutomaticos(facturaEditando)
           ) : (
-            // Lista unificada de facturas pendientes
             facturasPendientes.length === 0 ? (
-              <div className="card text-center py-12">
-                <CheckCircle className="mx-auto text-green-400 mb-4" size={48} />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  ¡Todo al día!
-                </h3>
-                <p className="text-gray-600">
-                  No hay facturas pendientes de revisión ni impresión.
-                </p>
+              <div className="text-center py-12 bg-white border border-dashed rounded-3xl p-6 text-gray-400">
+                <CheckCircle className="mx-auto text-green-500 mb-2" size={36} />
+                <h3 className="font-semibold text-gray-700">¡Todo al día!</h3>
+                <p className="text-xs text-gray-400">No hay facturas pendientes de revisión ni impresión.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {facturasPendientes.map((factura) => {
                   const esSinPendientes = factura.categoria === 'sin_pendientes'
 
                   return (
-                    <div key={factura.reimpresion_id} className={`card hover:shadow-lg transition-shadow border-l-4 ${esSinPendientes ? 'border-l-green-500' : 'border-l-yellow-500'
-                      }`}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              Factura #{factura.numero_factura}
-                            </h3>
+                    <div
+                      key={factura.reimpresion_id}
+                      className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:border-blue-200 transition space-y-4"
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                              # {factura.numero_factura}
+                            </span>
                             {esSinPendientes ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                ✅ Lista (Bodega)
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                <CheckCircle size={12} />
+                                Lista (Bodega)
                               </span>
                             ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                ⚠️ Requiere Ajustes
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
+                                <AlertCircle size={12} className="animate-pulse" />
+                                Requiere Ajustes
                               </span>
                             )}
                           </div>
-                          <p className="text-gray-600">
-                            Cliente: {factura.cliente_nombre}
-                          </p>
-                          <p className="text-sm text-gray-500">
+                          <h3 className="text-lg font-bold text-gray-900">{factura.cliente_nombre}</h3>
+                          <p className="text-xs text-gray-400">
                             Fecha emisión: {formatDate(factura.fecha_emision)}
                           </p>
                           {!esSinPendientes && (
-                            <div className="mt-1 flex items-center gap-2">
-                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                {factura.total_ajustes} ajuste{factura.total_ajustes !== 1 ? 's' : ''} detectado{factura.total_ajustes !== 1 ? 's' : ''}
-                              </span>
-                            </div>
+                            <p className="text-xxs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 inline-block">
+                              {factura.total_ajustes} ajuste{factura.total_ajustes !== 1 ? 's' : ''} detectado{factura.total_ajustes !== 1 ? 's' : ''}
+                            </p>
                           )}
                         </div>
 
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-gray-800">
+                        <div className="text-left md:text-right shrink-0">
+                          <p className="text-2xl font-black text-gray-800">
                             ₡{(factura.total || 0).toLocaleString('es-CR')}
                           </p>
-
-                          <div className="flex flex-wrap gap-2 justify-end mt-3">
-                            {esSinPendientes ? (
-                              // 🖨️ Acciones para Facturas LISTAS (Solo imprimir/cerrar)
-                              <>
-                                <button
-                                  onClick={() => handleVerPDF(factura)}
-                                  className="btn btn-outline flex items-center gap-2"
-                                >
-                                  <Eye size={16} />
-                                  Ver PDF
-                                </button>
-                                <button
-                                  onClick={() => handleProcesarSinCambios(factura, false)}
-                                  disabled={procesando}
-                                  className="btn btn-outline flex items-center gap-2"
-                                >
-                                  <CheckCircle size={16} />
-                                  Marcar Impresa
-                                </button>
-                                <button
-                                  onClick={() => handleProcesarSinCambios(factura, true)}
-                                  disabled={procesando}
-                                  className="btn btn-primary flex items-center gap-2"
-                                >
-                                  <Printer size={16} />
-                                  Imprimir y Cerrar
-                                </button>
-                              </>
-                            ) : (
-                              // ✏️ Acciones para Facturas CON CAMBIOS (Revisar/Editar)
-                              <button
-                                onClick={() => {
-                                  setFacturaEditando(factura)
-                                  setModoEdicion(false)
-                                }}
-                                className="btn btn-primary flex items-center gap-2"
-                              >
-                                <Edit size={16} />
-                                Revisar y Aplicar
-                              </button>
-                            )}
-                          </div>
                         </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5 pt-3 border-t border-gray-50 justify-end">
+                        {esSinPendientes ? (
+                          <>
+                            <button
+                              onClick={() => handleVerPDF(factura)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition active:scale-[0.98]"
+                            >
+                              Ver PDF
+                            </button>
+                            <button
+                              onClick={() => handleProcesarSinCambios(factura, false)}
+                              disabled={procesando}
+                              className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition active:scale-[0.98]"
+                            >
+                              Marcar Impresa
+                            </button>
+                            <button
+                              onClick={() => handleProcesarSinCambios(factura, true)}
+                              disabled={procesando}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition active:scale-[0.98] flex items-center gap-1.5"
+                            >
+                              <Printer size={14} />
+                              Imprimir y Cerrar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setFacturaEditando(factura)
+                              setModoEdicion(false)
+                            }}
+                            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition active:scale-[0.98] flex items-center gap-1.5"
+                          >
+                            <Edit size={14} />
+                            Revisar y Aplicar
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
@@ -1399,78 +1383,70 @@ export default function Impresion() {
       {activeTab === 'procesadas' && !loading && (
         <div>
           {facturasProcesadas.length === 0 ? (
-            <div className="card text-center py-12">
-              <FileText className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No hay facturas procesadas
-              </h3>
-              <p className="text-gray-600">
-                Las facturas procesadas aparecerán aquí por 7 días.
-              </p>
+            <div className="text-center py-12 bg-white border border-dashed rounded-3xl p-6 text-gray-400">
+              <FileText className="mx-auto text-gray-400 mb-2" size={36} />
+              <h3 className="font-semibold text-gray-700">No hay facturas procesadas</h3>
+              <p className="text-xs text-gray-400">Las facturas procesadas aparecerán aquí por 7 días.</p>
             </div>
           ) : (
-            <div>
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  💡 <strong>Recuperación:</strong> Puedes recuperar facturas procesadas en los últimos 7 días.
-                  Para facturas más antiguas, edítalas desde la sección de Facturación.
-                </p>
+            <div className="space-y-4">
+              <div className="mb-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 text-blue-900 text-sm">
+                <strong>Recuperación:</strong> Puedes recuperar facturas procesadas en los últimos 7 días. Para facturas más antiguas, edítalas desde la sección de Facturación.
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {facturasProcesadas.map((factura) => (
-                  <div key={factura.reimpresion_id} className="card">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            Factura #{factura.numero_factura}
-                          </h3>
-                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                            ✅ Procesada
+                  <div key={factura.reimpresion_id} className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:border-blue-200 transition space-y-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                            # {factura.numero_factura}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            <CheckCircle size={12} />
+                            Procesada
                           </span>
                         </div>
-                        <p className="text-gray-600">
-                          Cliente: {factura.cliente_nombre}
-                        </p>
-                        <div className="mt-2 text-sm text-gray-500">
-                          <p>Procesada: {formatDate(factura.fecha_procesamiento)}</p>
-                          <p className="text-xs mt-1">
+                        <h3 className="text-lg font-bold text-gray-900">{factura.cliente_nombre}</h3>
+                        <div className="text-xs text-gray-500 space-y-0.5">
+                          <p>Procesamiento: {formatDate(factura.fecha_procesamiento)}</p>
+                          <p>
                             {factura.puede_recuperar ? (
-                              <span className="text-green-600">
-                                ⏰ {factura.dias_restantes_recuperacion} días restantes para recuperar
+                              <span className="text-emerald-600 font-medium">
+                                {factura.dias_restantes_recuperacion} días restantes para recuperar
                               </span>
                             ) : (
-                              <span className="text-red-600">
-                                ❌ Período de recuperación expirado
+                              <span className="text-rose-600 font-medium">
+                                Período de recuperación expirado
                               </span>
                             )}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-gray-700 mb-3">
+                      <div className="text-left md:text-right shrink-0">
+                        <p className="text-2xl font-black text-gray-800">
                           ₡{(factura.total || 0).toLocaleString('es-CR')}
                         </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleVerPDF(factura)}
-                            className="btn btn-outline btn-sm flex items-center gap-1"
-                          >
-                            <Eye size={14} />
-                            Ver PDF
-                          </button>
-                          {factura.puede_recuperar && (
-                            <button
-                              onClick={() => handleRecuperarFactura(factura)}
-                              className="btn btn-primary btn-sm flex items-center gap-1"
-                            >
-                              <RotateCcw size={14} />
-                              Recuperar
-                            </button>
-                          )}
-                        </div>
                       </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-3 border-t border-gray-50">
+                      <button
+                        onClick={() => handleVerPDF(factura)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition active:scale-[0.98]"
+                      >
+                        Ver PDF
+                      </button>
+                      {factura.puede_recuperar && (
+                        <button
+                          onClick={() => handleRecuperarFactura(factura)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition active:scale-[0.98] flex items-center gap-1"
+                        >
+                          <RotateCcw size={14} />
+                          Recuperar
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

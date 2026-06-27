@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm run build:*)",
+      "Bash(git checkout:*)",
+      "Bash(cat:*)",
+      "Bash(git submodule:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(npx vite build:*)",
+      "Bash(npm install:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(kill:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(node -c:*)",
+      "Bash(node check-duplicates.js:*)",
+      "Bash(node find-repuesto.js:*)",
+      "Bash(node check-mapping.js:*)",
+      "Bash(node:*)",
+      "Bash(xargs kill)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

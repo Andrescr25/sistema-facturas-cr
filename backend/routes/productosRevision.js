@@ -755,7 +755,7 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         const {
             productoId, nombre, descripcion, referencia, unidad, 
             precio, costo, categoria, cantidadInicial, formaFarmaceutica,
-            codigoCabys, registroSanitario
+            codigoCabys, registroSanitario, esMedicamento, categoriaNombre
         } = req.body;
 
         // Validaciones
@@ -776,6 +776,46 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
                 success: false,
                 error: 'Producto original no encontrado'
             });
+        }
+
+        const normalizarTexto = (texto) => (texto || '')
+            .toString()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+        const categoriaTexto = normalizarTexto(categoriaNombre);
+        const medicineCategoryIds = (process.env.ALEGRA_MEDICINE_CATEGORY_IDS || '22')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean);
+        const categoriaEsMedicamento =
+            medicineCategoryIds.includes(String(categoria)) ||
+            categoriaTexto.includes('medicamento') ||
+            categoriaTexto.includes('farmac');
+        
+        const cabysAUsar = codigoCabys?.trim() || productoOriginal.codigoCabys;
+        const cabysEsMedicamento = cabysAUsar && cabysAUsar.startsWith('35');
+        
+        const medicamentoMarcado = esMedicamento === 'true' || categoriaEsMedicamento || cabysEsMedicamento || Boolean(formaFarmaceutica || registroSanitario);
+        const formaFarmaceuticaLimpia = formaFarmaceutica?.trim();
+        const registroSanitarioLimpio = registroSanitario?.trim();
+
+        if (medicamentoMarcado && (!formaFarmaceuticaLimpia || !registroSanitarioLimpio)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Para medicamentos debes indicar forma farmacéutica y registro sanitario'
+            });
+        }
+
+        if (formaFarmaceuticaLimpia) {
+            const formCode = parseInt(formaFarmaceuticaLimpia, 10);
+            const isValidForm = !isNaN(formCode) && formCode >= 1 && formCode <= 229;
+            if (!isValidForm) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Forma farmacéutica inválida'
+                });
+            }
         }
 
         console.log('🔍 Producto original de la factura:', {
@@ -812,7 +852,6 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 
         // 🆕 Agregar código CABYS (productKey)
         // Usar el CABYS editado por el usuario, o el original si no fue editado
-        const cabysAUsar = codigoCabys?.trim() || productoOriginal.codigoCabys;
         if (cabysAUsar) {
             productoData.productKey = cabysAUsar;
             console.log('✅ Código CABYS agregado:', cabysAUsar);
@@ -822,15 +861,15 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         }
 
         // 🆕 Agregar forma farmacéutica y registro sanitario si se especificó (medicamentos)
-        if (formaFarmaceutica) {
-            productoData.pharmaceuticalForm = formaFarmaceutica;
-            console.log('✅ Forma farmacéutica agregada:', formaFarmaceutica);
+        if (formaFarmaceuticaLimpia) {
+            productoData.pharmaceuticalForm = formaFarmaceuticaLimpia;
+            console.log('✅ Forma farmacéutica agregada:', formaFarmaceuticaLimpia);
         }
         
         // 🆕 Agregar registro sanitario si se especificó (medicamentos)
-        if (registroSanitario) {
-            productoData.sanitaryRegistry = registroSanitario.trim();
-            console.log('✅ Registro sanitario agregado:', registroSanitario);
+        if (registroSanitarioLimpio) {
+            productoData.sanitaryRegistry = registroSanitarioLimpio;
+            console.log('✅ Registro sanitario agregado:', registroSanitarioLimpio);
         }
 
         // 🆕 Agregar impuestos (tax) - Detección automática
@@ -884,6 +923,8 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
         if (!nuevoProductoAlegra || !nuevoProductoAlegra.id) {
             throw new Error('No se pudo crear el producto en Alegra');
         }
+
+        const warnings = Array.isArray(nuevoProductoAlegra._warnings) ? nuevoProductoAlegra._warnings : [];
 
         console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
 
@@ -972,14 +1013,17 @@ router.post('/crear', upload.single('imagen'), async (req, res) => {
 
         res.json({
             success: true,
-            message: `Producto "${nombre}" creado y relacionado exitosamente`,
+            message: warnings.length > 0
+                ? `Producto "${nombre}" creado y relacionado exitosamente, con advertencias`
+                : `Producto "${nombre}" creado y relacionado exitosamente`,
             alegraProductId: nuevoProductoAlegra.id,
             mapeoId: nuevoMapeo.id,
-            imagenSubida: !!req.file
+            imagenSubida: !!req.file,
+            warnings
         });
     } catch (error) {
         console.error('❌ Error creando producto:', error);
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             success: false,
             error: error.message || 'Error creando producto en Alegra'
         });
@@ -1348,16 +1392,26 @@ router.get('/factura/:facturaId', async (req, res) => {
             });
         }
 
-        // Enriquecer productos con información de Alegra
+        // Enriquecer productos con información de Alegra en lote para optimizar velocidad (1 sola consulta en vez de N)
+        const alegraItemIds = factura.productos
+            .map(p => p.alegraItemId)
+            .filter(Boolean);
+        
+        const cachedProducts = alegraItemIds.length > 0
+            ? await prisma.alegraProduct.findMany({
+                where: { alegraId: { in: alegraItemIds } }
+              })
+            : [];
+            
+        const cacheMap = new Map(cachedProducts.map(p => [p.alegraId, p]));
+
         const productosEnriquecidos = await Promise.all(
             factura.productos.map(async (producto) => {
                 let alegraProductInfo = null;
 
                 if (producto.alegraItemId) {
-                    // Buscar en caché local
-                    const alegraProduct = await prisma.alegraProduct.findUnique({
-                        where: { alegraId: producto.alegraItemId }
-                    });
+                    // Buscar en el mapa de caché local
+                    const alegraProduct = cacheMap.get(producto.alegraItemId);
 
                     if (alegraProduct) {
                         alegraProductInfo = {
@@ -1367,7 +1421,7 @@ router.get('/factura/:facturaId', async (req, res) => {
                             price: parseFloat(alegraProduct.price || 0)
                         };
                     } else {
-                        // Si no está en caché, consultar API (opcional)
+                        // Si no está en caché, consultar API
                         try {
                             const alegraData = await alegraService.getProductById(producto.alegraItemId);
                             if (alegraData) {

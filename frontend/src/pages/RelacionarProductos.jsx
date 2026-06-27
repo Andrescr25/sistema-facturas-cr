@@ -17,6 +17,7 @@ import {
   Trash2
 } from 'lucide-react'
 import api from '../services/api'
+import { FORMAS_FARMACEUTICAS } from '../utils/formasFarmaceuticas'
 
 export default function RelacionarProductos() {
   const { facturaId } = useParams()
@@ -53,6 +54,7 @@ export default function RelacionarProductos() {
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
   const [esMedicamento, setEsMedicamento] = useState(false)
   const [registroSanitario, setRegistroSanitario] = useState('')
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('')
   
   // Estado para CABYS editable
   const [codigoCabys, setCodigoCabys] = useState('')
@@ -171,14 +173,6 @@ export default function RelacionarProductos() {
     }
   }
 
-  const ignorarProducto = async (producto) => {
-    const confirmar = window.confirm(`¿Ignorar "${producto.descripcion}"?`)
-    if (!confirmar) return
-
-    // Implementar lógica de ignorar
-    alert('Funcionalidad de ignorar producto - por implementar')
-  }
-
   // Funciones para crear producto
   const abrirModalCrear = (producto) => {
     setProductoSeleccionado(producto)
@@ -190,16 +184,34 @@ export default function RelacionarProductos() {
     const cabysInicial = producto.codigoCabys || ''
     setCodigoCabys(cabysInicial)
     
-    // NO detectar automáticamente - dejar al usuario decidir
-    setEsMedicamento(false)
-    setFormaFarmaceutica('')
-    setRegistroSanitario('')
+    // Auto-detectar si empieza por '35'
+    const cabysEsMedicamento = cabysInicial.startsWith('35')
+    setEsMedicamento(cabysEsMedicamento)
+    
+    if (cabysEsMedicamento) {
+      const formaSugerida = detectarFormaSugerida(producto.descripcion)
+      setFormaFarmaceutica(formaSugerida)
+      setRegistroSanitario('')
+    } else {
+      setFormaFarmaceutica('')
+      setRegistroSanitario('')
+    }
+    
+    setCategoriaSeleccionada('')
   }
   
   // Función para actualizar CABYS
   const handleCabysChange = (e) => {
     const nuevoCabys = e.target.value
     setCodigoCabys(nuevoCabys)
+    
+    // Si el nuevo CABYS empieza por '35', activar automáticamente campos de medicamento
+    if (nuevoCabys.startsWith('35')) {
+      setEsMedicamento(true)
+      if (!formaFarmaceutica && productoSeleccionado) {
+        setFormaFarmaceutica(detectarFormaSugerida(productoSeleccionado.descripcion))
+      }
+    }
   }
   
   // Función para manejar el cambio del checkbox de medicamento
@@ -218,7 +230,35 @@ export default function RelacionarProductos() {
     }
   }
 
+  const normalizarTexto = (texto) => {
+    return (texto || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+  }
+
+  const categoriaPareceMedicamento = (categoriaId) => {
+    const categoria = categorias.find(cat => String(cat.id) === String(categoriaId))
+    const textoCategoria = normalizarTexto(`${categoria?.name || ''} ${categoria?.description || ''}`)
+    return textoCategoria.includes('medicamento') || textoCategoria.includes('farmac')
+  }
+
+  const handleCategoriaChange = (e) => {
+    const nuevaCategoria = e.target.value
+    setCategoriaSeleccionada(nuevaCategoria)
+
+    if (categoriaPareceMedicamento(nuevaCategoria)) {
+      setEsMedicamento(true)
+
+      if (!formaFarmaceutica && productoSeleccionado) {
+        setFormaFarmaceutica(detectarFormaSugerida(productoSeleccionado.descripcion))
+      }
+    }
+  }
+
   const loadCategorias = async () => {
+    if (categorias.length > 0) return;
     try {
       const response = await api.get('/alegra/categorias')
       if (response.data.success) {
@@ -277,28 +317,56 @@ export default function RelacionarProductos() {
   const detectarFormaSugerida = (descripcion) => {
     const desc = (descripcion || '').toLowerCase()
     
-    // Sólidos (02)
-    if (desc.match(/tableta|capsula|comprimido|pastilla|polvo|granulo/i)) {
-      return '02'
+    // Jarabe (101)
+    if (desc.match(/jarabe/i)) {
+      return '101'
     }
     
-    // Semisólidos (03)
-    if (desc.match(/crema|unguento|gel|pomada|pasta/i)) {
-      return '03'
+    // Crema (65)
+    if (desc.match(/crema/i)) {
+      return '65'
     }
     
-    // Gases (04)
-    if (desc.match(/gas|aerosol|spray|inhalador/i)) {
+    // Ungüento (229)
+    if (desc.match(/ungue|pomada/i)) {
+      return '229'
+    }
+    
+    // Gel (79)
+    if (desc.match(/gel/i)) {
+      return '79'
+    }
+    
+    // Cápsula (04)
+    if (desc.match(/capsul|caps/i)) {
       return '04'
     }
     
-    // Por defecto: Líquidos (01) - alcohol, jarabe, solución, suspensión, etc.
-    return '01'
+    // Sólidos comunes (199) - tabletas, comprimidos, grageas, pastillas, polvos, granulos
+    if (desc.match(/tableta|comprimido|pastilla|polvo|granulo|blister|blist|compri|grag|pild/i)) {
+      return '199' // Tableta
+    }
+    
+    // Gases / Aerosoles (163)
+    if (desc.match(/gas|aerosol|spray|inhalador/i)) {
+      return '163'
+    }
+    
+    // Por defecto: Solución (158)
+    return '158'
   }
 
   const crearProducto = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
+    const categoriaActual = categorias.find(cat => String(cat.id) === String(categoriaSeleccionada))
+    const productoEsMedicamento = esMedicamento || categoriaPareceMedicamento(categoriaSeleccionada) || (codigoCabys && codigoCabys.startsWith('35'))
+
+    if (categoriaActual) {
+      formData.set('categoriaNombre', categoriaActual.name || '')
+    }
+
+    formData.set('esMedicamento', productoEsMedicamento ? 'true' : 'false')
 
     try {
       const response = await api.post('/productos-revision/crear', formData, {
@@ -308,7 +376,12 @@ export default function RelacionarProductos() {
       })
 
       if (response.data.success) {
-        alert('✅ Producto creado y relacionado exitosamente')
+        const warnings = response.data.warnings || []
+        const warningText = warnings.length > 0
+          ? `\n\n⚠️ ${warnings.join('\n')}`
+          : ''
+
+        alert(`✅ Producto creado y relacionado exitosamente${warningText}`)
         setModalCrear(false)
         removerImagen()
         setFormaFarmaceutica('')
@@ -319,7 +392,8 @@ export default function RelacionarProductos() {
         loadFactura()
       }
     } catch (err) {
-      alert('⚠️ Error: ' + err.message)
+      const apiError = err.response?.data?.error || err.response?.data?.message || err.message
+      alert('⚠️ Error: ' + apiError)
     }
   }
 
@@ -460,6 +534,9 @@ export default function RelacionarProductos() {
   }
 
   const progreso = stats.total > 0 ? Math.round((stats.relacionados / stats.total) * 100) : 0
+  const categoriaMedicamentoSeleccionada = categoriaPareceMedicamento(categoriaSeleccionada)
+  const cabysEsMedicamento = codigoCabys && codigoCabys.startsWith('35')
+  const mostrarCamposMedicamento = esMedicamento || categoriaMedicamentoSeleccionada || cabysEsMedicamento
 
   if (loading) {
     return (
@@ -485,77 +562,75 @@ export default function RelacionarProductos() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={() => navigate('/revision-precios')}
-          className="btn btn-outline flex items-center mb-4"
-        >
-          <ArrowLeft size={16} className="mr-2" />
-          Volver
-        </button>
-
-        <h1 className="text-3xl font-bold text-gray-900">
-          Relacionar Productos
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Factura #{factura.numeroConsecutivo} - {factura.proveedorNombre}
-        </p>
-      </div>
-
-      {/* Progreso */}
-      <div className="card mb-6">
-        <h3 className="font-bold text-gray-900 mb-3">Progreso de Relacionado</h3>
-        <div className="bg-gray-200 rounded-full h-4 mb-3">
-          <div
-            className="bg-green-600 h-4 rounded-full transition-all duration-300"
-            style={{ width: `${progreso}%` }}
-          ></div>
+      {/* Header & Progress */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-150 pb-6 mb-6">
+        <div>
+          <button
+            onClick={() => navigate('/revision-precios')}
+            className="inline-flex items-center text-xs font-bold text-gray-500 hover:text-gray-800 uppercase tracking-wider mb-2.5"
+          >
+            <ArrowLeft size={14} className="mr-1" />
+            Volver a la lista
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            Relacionar Productos
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5 font-medium">
+            Factura #{factura.numeroConsecutivo} &bull; {factura.proveedorNombre}
+          </p>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="font-bold text-gray-900">{progreso}% completado</span>
-          <div className="flex gap-4">
-            <span className="text-green-600">✓ Relacionados: {stats.relacionados}</span>
-            <span className="text-gray-600">Sin relacionar: {stats.noRelacionados}</span>
-            <span className="text-gray-600">Total: {stats.total}</span>
+
+        {/* Progreso Compacto */}
+        <div className="bg-gray-50 border border-gray-100 p-4 rounded-2xl w-full md:max-w-xs shadow-xxs">
+          <div className="flex justify-between text-xs font-bold text-gray-700 uppercase mb-2">
+            <span>Progreso</span>
+            <span>{progreso}%</span>
+          </div>
+          <div className="bg-gray-200 rounded-full h-2 mb-2">
+            <div
+              className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progreso}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between text-xxs text-gray-400 font-medium">
+            <span>Relacionados: {stats.relacionados}</span>
+            <span>Restantes: {stats.noRelacionados}</span>
           </div>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="card mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFiltro('todos')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${
-              filtro === 'todos'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Todos ({stats.total})
-          </button>
-          <button
-            onClick={() => setFiltro('relacionados')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${
-              filtro === 'relacionados'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Relacionados ({stats.relacionados})
-          </button>
-          <button
-            onClick={() => setFiltro('no-relacionados')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm ${
-              filtro === 'no-relacionados'
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Sin Relacionar ({stats.noRelacionados})
-          </button>
-        </div>
+      {/* Filtros Segmentados */}
+      <div className="flex bg-gray-100 p-1 rounded-2xl max-w-md gap-1 mb-6">
+        <button
+          onClick={() => setFiltro('todos')}
+          className={`flex-1 text-center py-2 text-xs font-bold rounded-xl transition-all ${
+            filtro === 'todos'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          Todos ({stats.total})
+        </button>
+        <button
+          onClick={() => setFiltro('relacionados')}
+          className={`flex-1 text-center py-2 text-xs font-bold rounded-xl transition-all ${
+            filtro === 'relacionados'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          Relacionados ({stats.relacionados})
+        </button>
+        <button
+          onClick={() => setFiltro('no-relacionados')}
+          className={`flex-1 text-center py-2 text-xs font-bold rounded-xl transition-all ${
+            filtro === 'no-relacionados'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          Sin Relacionar ({stats.noRelacionados})
+        </button>
       </div>
 
       {/* Lista de productos */}
@@ -563,50 +638,61 @@ export default function RelacionarProductos() {
         {productosFiltrados.map(producto => (
           <div
             key={producto.id}
-            className={`card border-l-4 ${
-              producto.estadoRelacionado === 'RELACIONADO' ? 'border-l-green-500' : 'border-l-orange-500'
-            }`}
+            className="card border border-gray-150 hover:shadow-md transition bg-white p-5 rounded-3xl"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  {producto.descripcion}
-                </h3>
-                <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-                  <span className="flex items-center">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center flex-wrap gap-2.5">
+                  <h3 className="font-bold text-gray-900 text-base leading-snug">
+                    {producto.descripcion}
+                  </h3>
+                  <span className={`px-2 py-0.5 text-xxs font-bold uppercase rounded-full tracking-wider ${
+                    producto.estadoRelacionado === 'RELACIONADO' 
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                      : 'bg-amber-50 text-amber-700 border border-amber-100'
+                  }`}>
+                    {producto.estadoRelacionado === 'RELACIONADO' ? 'Relacionado' : 'Sin Relacionar'}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-xs text-gray-500 font-medium">
+                  <span>
                     Código: 
-                    <span className={producto.codigoProveedor?.startsWith('DESC-') ? 'text-orange-600 font-mono ml-1' : 'ml-1'}>
+                    <span className={producto.codigoProveedor?.startsWith('DESC-') ? 'text-orange-600 font-mono ml-1 font-bold' : 'ml-1 font-mono text-gray-800'}>
                       {producto.codigoProveedor}
                     </span>
                     {producto.codigoProveedor?.startsWith('DESC-') && (
-                      <span className="ml-1 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="Código generado automáticamente porque el proveedor no envía código interno">
+                      <span className="ml-1 text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded-full font-bold" title="Código generado automáticamente porque el proveedor no envía código interno">
                         Auto-generado
                       </span>
                     )}
                   </span>
-                  <span>Cantidad: {producto.cantidad} {producto.unidadMedida}</span>
-                  <span className="font-semibold">Precio: ₡{producto.precioUnitario?.toLocaleString('es-CR')}</span>
+                  <span>&bull;</span>
+                  <span>Cantidad: <strong className="text-gray-800">{producto.cantidad} {producto.unidadMedida}</strong></span>
+                  <span>&bull;</span>
+                  <span>Precio: <strong className="text-gray-800">₡{producto.precioUnitario?.toLocaleString('es-CR')}</strong></span>
                 </div>
                 
                 {/* Info del producto relacionado */}
                 {producto.estadoRelacionado === 'RELACIONADO' && productoAlegraInfo[producto.id] && (
-                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="mt-3 bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center text-green-700 font-semibold mb-1">
-                          <Check size={16} className="mr-1" />
-                          Relacionado con:
+                        <div className="text-xxs font-bold uppercase tracking-wider text-emerald-600 mb-1.5">
+                          Relacionado con Alegra
                         </div>
-                        <p className="font-semibold text-gray-900">{productoAlegraInfo[producto.id].name}</p>
-                        <div className="flex flex-wrap gap-3 text-sm text-gray-600 mt-1">
+                        <p className="font-semibold text-emerald-950 text-sm leading-snug">{productoAlegraInfo[producto.id].name}</p>
+                        <div className="flex flex-wrap gap-3 text-xs text-emerald-800 mt-2 font-mono">
                           <span>Ref: {productoAlegraInfo[producto.id].reference || 'N/A'}</span>
-                          <span className="font-semibold text-green-700">
-                            Precio Venta: ₡{productoAlegraInfo[producto.id].price?.toLocaleString('es-CR')}
-                          </span>
+                          <span>&bull;</span>
+                          <span>Precio Venta: ₡{productoAlegraInfo[producto.id].price?.toLocaleString('es-CR')}</span>
                           {productoAlegraInfo[producto.id].factorConversion && productoAlegraInfo[producto.id].factorConversion !== 1 && (
-                            <span className="text-blue-600 font-medium">
-                              Factor: {productoAlegraInfo[producto.id].factorConversion}x
-                            </span>
+                            <>
+                              <span>&bull;</span>
+                              <span className="text-blue-700 font-bold">
+                                Factor: {productoAlegraInfo[producto.id].factorConversion}x
+                              </span>
+                            </>
                           )}
                         </div>
                       </div>
@@ -615,41 +701,40 @@ export default function RelacionarProductos() {
                 )}
                 
                 {producto.estadoRelacionado === 'RELACIONADO' && !productoAlegraInfo[producto.id] && (
-                  <div className="mt-2 text-sm text-green-700 flex items-center">
-                    <Check size={16} className="mr-1" />
+                  <div className="mt-2 text-xs text-emerald-600 flex items-center font-semibold">
+                    <Check size={14} className="mr-1" />
                     Relacionado (cargando información...)
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 ml-4">
+              <div className="flex flex-row sm:flex-col gap-2 min-w-[120px] self-end sm:self-center">
                 {producto.estadoRelacionado !== 'RELACIONADO' && (
-                  <>
-                    <button
-                      onClick={() => abrirModalBusqueda(producto)}
-                      className="btn btn-primary flex items-center whitespace-nowrap"
-                    >
-                      <Link2 size={16} className="mr-1" />
-                      Relacionar
-                    </button>
-                  </>
+                  <button
+                    onClick={() => abrirModalBusqueda(producto)}
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center transition"
+                  >
+                    <Link2 size={14} className="mr-1" />
+                    Relacionar
+                  </button>
                 )}
                 {producto.estadoRelacionado === 'RELACIONADO' && (
                   <>
                     <button
                       onClick={() => cambiarRelacion(producto)}
-                      className="btn btn-sm btn-outline flex items-center whitespace-nowrap text-orange-600 border-orange-300 hover:bg-orange-50"
+                      className="w-full px-3 py-1.5 border border-orange-200 text-orange-600 hover:bg-orange-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                       title="Cambiar relación"
                     >
-                      <Link2 size={14} className="mr-1" />
+                      <Link2 size={12} className="mr-1" />
                       Cambiar
                     </button>
                     <button
                       onClick={() => editarFactor(producto)}
-                      className="btn btn-sm btn-outline flex items-center whitespace-nowrap text-blue-600 border-blue-300 hover:bg-blue-50"
+                      className="w-full px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                       title="Editar factor de conversión"
                     >
-                      ⚙️ Factor
+                      <Settings size={12} className="mr-1" />
+                      Factor
                     </button>
                   </>
                 )}
@@ -855,6 +940,7 @@ export default function RelacionarProductos() {
 
               {/* Campo oculto con ID del producto */}
               <input type="hidden" name="productoId" value={productoSeleccionado.id} />
+              <input type="hidden" name="esMedicamento" value={mostrarCamposMedicamento ? 'true' : 'false'} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Columna izquierda */}
@@ -937,7 +1023,13 @@ export default function RelacionarProductos() {
                       </>
                     ) : (
                       <>
-                        <select name="categoria" className="input" required>
+                        <select
+                          name="categoria"
+                          className="input"
+                          value={categoriaSeleccionada}
+                          onChange={handleCategoriaChange}
+                          required
+                        >
                           <option value="">Selecciona una categoría</option>
                           {categorias.map(cat => (
                             <option key={cat.id} value={cat.id}>
@@ -1038,8 +1130,9 @@ export default function RelacionarProductos() {
                     <label className="flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={esMedicamento}
+                        checked={mostrarCamposMedicamento}
                         onChange={handleEsMedicamentoChange}
+                        disabled={categoriaMedicamentoSeleccionada}
                         className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 mr-3"
                       />
                       <span className="font-semibold text-blue-900 text-lg">
@@ -1052,7 +1145,7 @@ export default function RelacionarProductos() {
                   </div>
 
                   {/* Campos de Medicamento - Solo si el checkbox está marcado */}
-                  {esMedicamento && (
+                  {mostrarCamposMedicamento && (
                     <div className="space-y-4 border-2 border-yellow-300 rounded-lg p-4 bg-yellow-50">
                       <div className="flex items-center text-yellow-800 font-semibold mb-3">
                         <AlertCircle className="mr-2" size={20} />
@@ -1069,14 +1162,14 @@ export default function RelacionarProductos() {
                           className="input border-yellow-400 bg-white"
                           value={formaFarmaceutica}
                           onChange={(e) => setFormaFarmaceutica(e.target.value)}
-                          required={esMedicamento}
+                          required={mostrarCamposMedicamento}
                         >
                           <option value="">Seleccione forma farmacéutica</option>
-                          <option value="01">01 - Líquidos (alcohol, jarabe, solución, suspensión)</option>
-                          <option value="02">02 - Sólidos (tabletas, cápsulas, polvos)</option>
-                          <option value="03">03 - Semisólidos (cremas, ungüentos, geles)</option>
-                          <option value="04">04 - Gases (aerosoles, inhaladores)</option>
-                          <option value="05">05 - Otros</option>
+                          {FORMAS_FARMACEUTICAS.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.value} ({f.id})
+                            </option>
+                          ))}
                         </select>
                         <p className="text-xs text-yellow-700 mt-1">
                           Sugerido automáticamente según descripción. Verifica que sea correcto.
@@ -1095,7 +1188,7 @@ export default function RelacionarProductos() {
                           onChange={(e) => setRegistroSanitario(e.target.value)}
                           className="input border-yellow-400 bg-white"
                           placeholder="Ej: M-12345-2024"
-                          required={esMedicamento}
+                          required={mostrarCamposMedicamento}
                         />
                         <p className="text-xs text-yellow-700 mt-1">
                           Número de registro sanitario emitido por el Ministerio de Salud de Costa Rica
@@ -1192,81 +1285,83 @@ export default function RelacionarProductos() {
       {/* Modal de Conversión de Cantidad */}
       {modalConversion && productoRelacionado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
-            <div className="p-4 border-b flex-shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">⚙️ Configurar Conversión de Cantidad</h3>
-              <p className="text-xs text-gray-600 mt-1">
-                Define cómo convertir las cantidades entre el proveedor y tu sistema
-              </p>
+          <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-xl border border-gray-100 flex flex-col max-h-[85vh]">
+            <div className="p-6 border-b border-gray-50 flex-shrink-0 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Configurar Conversión de Cantidad</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Define cómo convertir las cantidades entre el proveedor y tu sistema
+                </p>
+              </div>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-1">
+            <div className="p-6 overflow-y-auto flex-1 space-y-6">
               {/* Info de productos */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                  <p className="text-xs font-medium text-orange-700 mb-1">PROVEEDOR</p>
-                  <p className="font-semibold text-gray-900">{productoRelacionado.descripcion}</p>
-                  <p className="text-sm text-gray-600">
-                    Cantidad: {productoRelacionado.cantidad} {productoRelacionado.unidadMedida}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100/70">
+                  <p className="text-xxs font-bold text-orange-700 mb-1.5 uppercase tracking-wider">PROVEEDOR</p>
+                  <p className="font-semibold text-gray-900 text-sm leading-snug">{productoRelacionado.descripcion}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Cantidad: <span className="font-semibold text-gray-800">{productoRelacionado.cantidad} {productoRelacionado.unidadMedida}</span>
                   </p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-xs font-medium text-blue-700 mb-1">TU SISTEMA (ALEGRA)</p>
-                  <p className="font-semibold text-gray-900">{productoRelacionado.alegraProducto.name}</p>
-                  <p className="text-sm text-gray-600">
-                    Ref: {productoRelacionado.alegraProducto.reference || 'N/A'}
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/70">
+                  <p className="text-xxs font-bold text-blue-700 mb-1.5 uppercase tracking-wider">TU SISTEMA (ALEGRA)</p>
+                  <p className="font-semibold text-gray-900 text-sm leading-snug">{productoRelacionado.alegraProducto.name}</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Ref: <span className="font-mono text-gray-800">{productoRelacionado.alegraProducto.reference || 'N/A'}</span>
                   </p>
                 </div>
               </div>
 
               {/* Opciones de conversión */}
               <div className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm font-semibold text-blue-900 mb-3">
-                    💡 Define la equivalencia entre las cantidades:
+                <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100/70">
+                  <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-4">
+                    Define la equivalencia entre las cantidades
                   </p>
                   
                   <div className="grid grid-cols-5 gap-3 items-center">
                     {/* Cantidad Proveedor */}
-                    <div className="col-span-2">
-                      <label className="label text-xs">Cantidad Proveedor</label>
+                    <div className="col-span-2 space-y-1">
+                      <label className="block text-xxs font-bold text-gray-500 uppercase">Cantidad Proveedor</label>
                       <input
                         type="number"
                         value={cantidadProveedor}
                         onChange={(e) => setCantidadProveedor(e.target.value)}
                         step="1"
                         min="1"
-                        className="input"
+                        className="input w-full rounded-xl border-gray-200 text-sm py-2"
                         placeholder="Ej: 24"
                       />
-                      <p className="text-xs text-gray-600 mt-1">Unidades que factura</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Unidades que factura</p>
                     </div>
 
                     {/* Icono = */}
-                    <div className="col-span-1 text-center">
-                      <span className="text-2xl text-blue-600 font-bold">=</span>
+                    <div className="col-span-1 text-center pt-3">
+                      <span className="text-xl text-blue-600 font-black">=</span>
                     </div>
 
                     {/* Cantidad Mía */}
-                    <div className="col-span-2">
-                      <label className="label text-xs">Cantidad en Tu Sistema</label>
+                    <div className="col-span-2 space-y-1">
+                      <label className="block text-xxs font-bold text-gray-500 uppercase">Cantidad en Tu Sistema</label>
                       <input
                         type="number"
                         value={cantidadMia}
                         onChange={(e) => setCantidadMia(e.target.value)}
                         step="1"
                         min="1"
-                        className="input"
+                        className="input w-full rounded-xl border-gray-200 text-sm py-2"
                         placeholder="Ej: 12"
                       />
-                      <p className="text-xs text-gray-600 mt-1">Unidades que registras</p>
+                      <p className="text-[10px] text-gray-400 font-medium">Unidades que registras</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Ejemplos dinámicos */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <p className="font-semibold text-gray-900 mb-2">📊 Vista Previa:</p>
+                <div className="bg-gray-50/70 p-5 rounded-2xl border border-gray-100 space-y-3">
+                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Vista Previa</p>
                   {(() => {
                     const cantProv = parseFloat(cantidadProveedor) || 1
                     const cantMia = parseFloat(cantidadMia) || 1
@@ -1280,18 +1375,18 @@ export default function RelacionarProductos() {
                     const ejemplo2Mia = (ejemplo2Prov * factor).toFixed(2)
 
                     return (
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-700 bg-blue-50 p-2 rounded">
+                      <div className="space-y-3 text-sm text-gray-600">
+                        <p className="bg-blue-50/40 p-2.5 rounded-lg border border-blue-50/60 text-xs">
                           <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
                         </p>
-                        <p className="text-xs text-gray-600 bg-gray-100 p-2 rounded font-mono">
+                        <p className="text-xs text-gray-500 bg-gray-100/60 p-2 rounded-lg font-mono">
                           Factor de conversión: <strong>{factor.toFixed(6)}</strong>
                         </p>
-                        <div className="bg-green-50 p-3 rounded border border-green-200">
-                          <p className="text-xs text-green-700 font-semibold mb-2">
-                            ✅ Este factor se aplicará automáticamente
+                        <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-100">
+                          <p className="text-xs text-emerald-800 font-bold mb-2">
+                            Este factor se aplicará automáticamente
                           </p>
-                          <div className="space-y-1 text-sm text-gray-700">
+                          <div className="space-y-1 text-xs text-gray-700 font-mono">
                             <p>• Proveedor factura <strong>{ejemplo2Prov}</strong> → Tú verás <strong>{ejemplo2Mia}</strong></p>
                             <p>• Proveedor factura <strong>{ejemplo1Prov}</strong> → Tú verás <strong>{ejemplo1Mia}</strong></p>
                           </div>
@@ -1299,23 +1394,23 @@ export default function RelacionarProductos() {
                         
                         {/* Casos comunes */}
                         {cantProv === 24 && cantMia === 12 && (
-                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
-                            ✅ Caso común: Proveedor vende 1x24, tú vendes 1x12
+                          <p className="text-xs text-emerald-800 bg-emerald-50/50 p-2 rounded-lg font-medium">
+                            Caso común: Proveedor vende 1x24, tú vendes 1x12
                           </p>
                         )}
                         {cantProv === 100 && cantMia === 1 && (
-                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
-                            ✅ Caso común: Proveedor vende 100 unidades sueltas, tú vendes 1x100
+                          <p className="text-xs text-emerald-800 bg-emerald-50/50 p-2 rounded-lg font-medium">
+                            Caso común: Proveedor vende 100 unidades sueltas, tú vendes 1x100
                           </p>
                         )}
                         {cantProv === 1 && cantMia === 24 && (
-                          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
-                            ✅ Caso común: Proveedor vende 1 caja, tú vendes 24 unidades
+                          <p className="text-xs text-emerald-800 bg-emerald-50/50 p-2 rounded-lg font-medium">
+                            Caso común: Proveedor vende 1 caja, tú vendes 24 unidades
                           </p>
                         )}
                         {cantProv === cantMia && (
-                          <p className="text-xs text-gray-600 bg-gray-100 p-2 rounded mt-2">
-                            ℹ️ Sin conversión: Las cantidades son iguales (1:1)
+                          <p className="text-xs text-gray-500 bg-gray-100/40 p-2 rounded-lg font-medium">
+                            Sin conversión: Las cantidades son iguales (1:1)
                           </p>
                         )}
                       </div>
@@ -1325,10 +1420,10 @@ export default function RelacionarProductos() {
 
                 {/* Advertencia */}
                 {parseFloat(cantidadProveedor) !== parseFloat(cantidadMia) && (
-                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 flex items-start">
+                  <div className="bg-yellow-50/50 p-3 rounded-xl border border-yellow-150 flex items-start">
                     <AlertCircle className="text-yellow-600 mr-2 flex-shrink-0 mt-0.5" size={16} />
-                    <div className="text-xs text-yellow-800">
-                      <p className="font-semibold">⚠️ Importante:</p>
+                    <div className="text-xs text-yellow-800 leading-normal">
+                      <p className="font-bold mb-0.5">Importante:</p>
                       <p>Se aplicará automáticamente en futuras facturas de este proveedor.</p>
                     </div>
                   </div>
@@ -1337,18 +1432,18 @@ export default function RelacionarProductos() {
             </div>
 
             {/* Botones */}
-            <div className="p-4 border-t bg-gray-50 flex gap-3 flex-shrink-0">
+            <div className="p-6 border-t border-gray-50 bg-gray-50/50 flex gap-3 flex-shrink-0">
               <button
                 onClick={guardarFactorConversion}
-                className="btn btn-primary flex-1"
+                className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-sm active:scale-[0.98] transition flex-1"
               >
-                ✅ Guardar Conversión
+                Guardar Conversión
               </button>
               <button
                 onClick={omitirConversion}
-                className="btn btn-outline flex-1"
+                className="px-5 py-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-sm transition flex-1"
               >
-                ⏭️ Omitir (1:1)
+                Omitir (1:1)
               </button>
             </div>
           </div>
@@ -1357,4 +1452,3 @@ export default function RelacionarProductos() {
     </div>
   )
 }
-

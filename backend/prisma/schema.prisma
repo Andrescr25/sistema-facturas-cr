@@ -103,6 +103,9 @@ model ProductoFactura {
   mapeo             SupplierProductMapping? @relation(fields: [mapeoId], references: [id])
   
   @@map("productos_factura_proveedor")
+  @@index([alegraItemId], map: "idx_producto_factura_alegra_item_id")
+  @@index([codigoCabys], map: "idx_producto_factura_codigo_cabys")
+  @@index([estadoRelacionado], map: "idx_producto_factura_estado_relacionado")
 }
 
 // Tabla para el relacionado inteligente
@@ -180,4 +183,6 @@ model AlegraProduct {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("alegra_products_cache")
+  @@index([searchText], map: "idx_alegra_product_search_text")
+  @@index([reference], map: "idx_alegra_product_reference")
 }

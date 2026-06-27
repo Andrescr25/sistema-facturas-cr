@@ -11,7 +11,16 @@ import {
   Truck,
   Inbox,
   Search,
-  Sparkles
+  Sparkles,
+  Check,
+  X,
+  AlertTriangle,
+  ArrowRight,
+  Play,
+  Minus,
+  Plus,
+  Calendar,
+  Printer
 } from 'lucide-react'
 import { alegraService } from '../services/alegraService'
 
@@ -696,32 +705,45 @@ export default function FacturasBodega() {
     }
     setFilters(resetFilters)
     localStorage.setItem(STORAGE_KEYS.filtros, JSON.stringify(resetFilters))
-
-    // Recargar facturas con rango predeterminado (30 días)
-    fetchFacturas(false, true)
   }
 
+  const checkedItemsCount = useMemo(() => {
+    if (!facturaSeleccionada || !facturaSeleccionada.items) return 0
+    return facturaSeleccionada.items.filter((item, index) => {
+      const key = getItemIdFromFacturaItem(item) || `item-${index}`
+      const draft = faltantesDraft[key]
+      return draft && draft.tipo !== null && draft.tipo !== undefined
+    }).length
+  }, [facturaSeleccionada, faltantesDraft])
+
+  const progressPercent = useMemo(() => {
+    if (!facturaSeleccionada || !facturaSeleccionada.items || facturaSeleccionada.items.length === 0) return 0
+    return Math.round((checkedItemsCount / facturaSeleccionada.items.length) * 100)
+  }, [facturaSeleccionada, checkedItemsCount])
+
+  const allItemsChecked = useMemo(() => {
+    if (!facturaSeleccionada || !facturaSeleccionada.items || facturaSeleccionada.items.length === 0) return false
+    return checkedItemsCount === facturaSeleccionada.items.length
+  }, [facturaSeleccionada, checkedItemsCount])
+
   const renderHeader = () => (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b pb-4 mb-4">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <ClipboardList className="text-blue-600" size={32} />
-          Facturas en Bodega
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <ClipboardList className="text-blue-600" size={24} />
+          Despacho en Bodega
         </h1>
-        <p className="text-gray-600">Mantén el foco en una factura a la vez.</p>
+        <p className="text-sm text-gray-500">Registra de manera ágil los pedidos que salen de bodega.</p>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => fetchFacturas(false, true)}
-          className="btn btn-outline flex items-center gap-2"
-          disabled={refreshing}
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Actualizando...' : 'Refrescar'}
-        </button>
-        <div className="text-xs text-gray-500">
-          Última sincronización:{' '}
-          {ultimaSync
+      <div className="flex items-center gap-3">
+        {refreshing && (
+          <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium animate-pulse">
+            <RefreshCw size={12} className="animate-spin" />
+            Sincronizando...
+          </span>
+        )}
+        <div className="text-xs text-gray-400">
+          Sync: {ultimaSync
             ? new Date(ultimaSync).toLocaleTimeString('es-CR', {
               hour: '2-digit',
               minute: '2-digit'
@@ -733,8 +755,9 @@ export default function FacturasBodega() {
   )
 
   const renderListado = () => (
-    <div className="card space-y-6">
-      <div className="flex items-center gap-2">
+    <div className="space-y-4">
+      {/* Selector de pestañas móvil superior */}
+      <div className="flex bg-gray-100 p-1.5 rounded-2xl">
         {['pendientes', 'listas'].map((tab) => (
           <button
             key={tab}
@@ -742,27 +765,31 @@ export default function FacturasBodega() {
               setActiveTab(tab)
               localStorage.setItem(STORAGE_KEYS.tab, tab)
             }}
-            className={`flex-1 btn text-lg py-3 ${activeTab === tab ? 'btn-primary' : 'btn-outline border-gray-200 text-gray-600'
-              }`}
+            className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl transition-all duration-200 ${
+              activeTab === tab 
+                ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            {tab === 'pendientes' ? 'Pendientes' : 'Listas'}
+            {tab === 'pendientes' ? 'Por Preparar' : 'Historial Listas'}
           </button>
         ))}
       </div>
 
+      {/* Buscador táctil */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
         <input
           type="text"
-          placeholder="Buscar por factura, cliente o monto..."
-          className="input pl-10 w-full"
+          placeholder="Buscar factura o cliente..."
+          className="input pl-10 w-full rounded-2xl border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-base py-3"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs hover:bg-gray-200"
           >
             ✕
           </button>
@@ -770,66 +797,120 @@ export default function FacturasBodega() {
       </div>
 
       {activeTab === 'pendientes' && (
-        <div className="space-y-3 p-4 border rounded-2xl bg-gray-50">
-          <div>
-            <label className="label text-xs">Ver facturas desde (deja vacío para últimos 30 días)</label>
-            <input
-              type="date"
-              className="input"
-              value={filters.fechaInicio}
-              onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
-              placeholder="Selecciona una fecha"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex items-center text-sm text-gray-600 gap-2">
+        <details className="group bg-white border border-gray-100 rounded-2xl overflow-hidden">
+          <summary className="flex items-center justify-between p-3.5 text-sm font-medium text-gray-700 cursor-pointer select-none hover:bg-gray-50 transition">
+            <span className="flex items-center gap-2">
+              <Calendar size={16} className="text-gray-500" /> Rango de Fechas
+            </span>
+            <span className="text-xs text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div className="p-3.5 border-t border-gray-50 space-y-3 bg-gray-50/50">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Ver facturas desde:</label>
               <input
-                type="checkbox"
-                className="rounded text-blue-600"
-                checked={filters.mostrarSinFecha}
-                onChange={(e) => handleFilterChange('mostrarSinFecha', e.target.checked)}
+                type="date"
+                className="input w-full rounded-xl border-gray-200 text-sm"
+                value={filters.fechaInicio}
+                onChange={(e) => handleFilterChange('fechaInicio', e.target.value)}
               />
-              Incluir facturas sin fecha
-            </label>
-            <button type="button" className="btn btn-outline btn-sm" onClick={clearFilters}>
-              Limpiar filtros
-            </button>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <label className="inline-flex items-center text-xs text-gray-600 gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                  checked={filters.mostrarSinFecha}
+                  onChange={(e) => handleFilterChange('mostrarSinFecha', e.target.checked)}
+                />
+                Incluir facturas sin fecha
+              </label>
+              <button 
+                type="button" 
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold" 
+                onClick={clearFilters}
+              >
+                Resetear Filtros
+              </button>
+            </div>
           </div>
-        </div>
+        </details>
       )}
 
+      {/* Listado de tarjetas de facturas */}
       {facturasMostradas.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-12 bg-white border border-dashed rounded-3xl p-6 text-gray-400">
           {activeTab === 'pendientes' ? (
-            <>
-              <CheckCircle className="mx-auto mb-2 text-green-500" size={40} />
-              Todo está al día en bodega.
-            </>
+            <div className="space-y-2">
+              <CheckCircle className="mx-auto text-green-500" size={36} />
+              <p className="font-semibold text-gray-700">¡Todo al día en bodega!</p>
+              <p className="text-xs text-gray-400">No hay facturas pendientes en la cola.</p>
+            </div>
           ) : (
-            <p>No hay facturas listas en este rango.</p>
+            <p className="text-sm">No hay facturas listas registradas.</p>
           )}
         </div>
       ) : (
         <div className="space-y-3">
           {facturasMostradas.map((factura) => (
-            <button
+            <div
               key={`${activeTab}-${factura.alegra_id}`}
-              onClick={() => handleSeleccionarFactura(factura)}
-              className="w-full text-left border border-gray-200 hover:border-blue-300 hover:shadow-lg rounded-3xl px-6 py-5 transition bg-white"
+              className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-4 hover:border-blue-200 transition"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-gray-500">Factura</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {factura.numero_completo || factura.numero_factura}
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                      # {factura.numero_completo || factura.numero_factura}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {formatDate(factura.fecha_emision)}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{factura.cliente_nombre}</h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-base font-bold text-gray-800">{formatCurrency(factura.total)}</p>
+                  <p className="text-xs text-gray-400">
+                    {factura.items ? factura.items.length : 0} ítems
                   </p>
                 </div>
-                <span className="text-sm font-medium text-blue-600">
-                  {formatCurrency(factura.total)}
-                </span>
               </div>
-              <p className="text-lg text-gray-700 mt-2">{factura.cliente_nombre}</p>
-            </button>
+
+              <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-50">
+                {factura.estado_bodega === 'procesado' ? (
+                  <div className="flex items-center gap-1.5 text-xs text-green-600 font-semibold bg-green-50 px-3 py-1.5 rounded-xl">
+                    <CheckCircle size={14} />
+                    Completado
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-600 font-semibold bg-amber-50 px-3 py-1.5 rounded-xl">
+                    <Package size={14} />
+                    Pendiente
+                  </div>
+                )}
+
+                <button
+                  onClick={() => handleSeleccionarFactura(factura)}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] active:shadow-none ${
+                    factura.estado_bodega === 'procesado'
+                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100'
+                  }`}
+                >
+                  {factura.estado_bodega === 'procesado' ? (
+                    <>
+                      <Search size={14} />
+                      Ver Detalle
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight size={14} />
+                      Iniciar Despacho
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -837,118 +918,185 @@ export default function FacturasBodega() {
   )
 
   const renderDetalle = () => (
-    <div className="space-y-6">
-      <button
-        className="text-blue-600 flex items-center gap-2 text-sm"
-        onClick={() => {
-          setFacturaSeleccionada(null)
-          setSelectedFacturaId(null)
-          setFaltantesDraft({})
-          localStorage.removeItem(STORAGE_KEYS.selected)
-        }}
-      >
-        ← Volver al listado
-      </button>
+    <div className="space-y-4 pb-24">
+      {/* Encabezado Fijo del Despacho Activo */}
+      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            className="text-gray-500 flex items-center gap-1.5 text-sm hover:text-gray-800 font-semibold"
+            onClick={() => {
+              setFacturaSeleccionada(null)
+              setSelectedFacturaId(null)
+              setFaltantesDraft({})
+              localStorage.removeItem(STORAGE_KEYS.selected)
+            }}
+          >
+            ← Cancelar y salir
+          </button>
+          <span className="text-xs text-gray-400">Despacho Activo</span>
+        </div>
 
-      <div className="bg-white rounded-3xl shadow overflow-hidden">
-        <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start justify-between border-t pt-3">
           <div>
-            <p className="text-sm uppercase tracking-wide text-gray-500">Cliente</p>
-            <p className="text-2xl font-bold text-gray-900">{facturaSeleccionada.cliente_nombre}</p>
-            <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-              <CalendarDays size={14} />
-              {formatDate(facturaSeleccionada.fecha_emision)}
+            <h2 className="text-xl font-bold text-gray-900 line-clamp-1">{facturaSeleccionada.cliente_nombre}</h2>
+            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+              <CalendarDays size={12} />
+              Emitido: {formatDate(facturaSeleccionada.fecha_emision)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-xs uppercase text-gray-500">Factura</p>
-            <p className="text-3xl font-bold text-blue-700">
-              {facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}
-            </p>
-            <p className="text-sm text-gray-500">Total {formatCurrency(facturaSeleccionada.total)}</p>
+            <p className="text-base font-bold text-blue-600">#{facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}</p>
+            <p className="text-xs text-gray-400">Total: {formatCurrency(facturaSeleccionada.total)}</p>
+          </div>
+        </div>
+
+        {/* Barra de Progreso del Picking */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between items-center text-xs font-semibold">
+            <span className="text-gray-500">Progreso del empaque:</span>
+            <span className={progressPercent === 100 ? 'text-green-600' : 'text-blue-600'}>
+              {checkedItemsCount} de {facturaSeleccionada.items?.length || 0} productos ({progressPercent}%)
+            </span>
+          </div>
+          <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-300 rounded-full ${
+                progressPercent === 100 ? 'bg-green-500 shadow-sm shadow-green-200' : 'bg-blue-600'
+              }`}
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
       </div>
 
+      {/* Lista de productos para verificar */}
       <div className="space-y-3">
         {facturaSeleccionada.items?.map((item, index) => {
           const key = getItemIdFromFacturaItem(item) || `item-${index}`
           const draft = faltantesDraft[key]
           const cantidadFactura = Number(item?.cantidad ?? item?.quantity ?? 0)
 
+          const esCompleto = draft?.tipo === 'ninguno' || draft?.tipo === 'completo'
+          const esTotal = draft?.tipo === 'total'
+          const esParcial = draft?.tipo === 'parcial'
+
           return (
             <div
               key={`${key}-${index}`}
-              className="border border-gray-200 rounded-3xl p-5 shadow-sm bg-white space-y-4"
+              className={`bg-white border rounded-3xl p-5 shadow-sm transition space-y-4 ${
+                esCompleto 
+                  ? 'border-green-100 bg-green-50/20' 
+                  : esTotal 
+                    ? 'border-orange-100 bg-orange-50/10' 
+                    : esParcial 
+                      ? 'border-blue-100 bg-blue-50/10' 
+                      : 'border-gray-100'
+              }`}
             >
-              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-xl font-semibold text-gray-900">{item.nombre || item.name}</p>
-                  <p className="text-sm text-gray-500">Referencia: {draft?.referencia || 'N/A'}</p>
-                  {item.description && <p className="text-xs text-gray-400 mt-1 italic">{item.description}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Cantidad en factura</p>
-                  <p className="text-3xl font-bold text-gray-900">{cantidadFactura}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1 flex-1">
+                  <h4 className="text-base font-bold text-gray-900 leading-tight">
+                    {item.nombre || item.name}
+                  </h4>
+                  <p className="text-sm font-semibold text-gray-600">
+                    Cantidad a despachar: {cantidadFactura}
+                  </p>
+                  <p className="text-xs text-gray-400">Referencia: {draft?.referencia || 'N/A'}</p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <div className="relative inline-flex">
+              {/* Botones de Selección Rápidos */}
+              <div className="flex flex-col gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
-                    className={`btn pr-8 ${draft?.tipo === 'ninguno'
-                      ? 'btn-primary'
-                      : 'btn-outline border-gray-200 text-gray-600'
-                      }`}
-                  >
-                    {draft?.tipo === 'ninguno' ? 'Completo' : 'Completo'}
-                  </button>
-                  <span
-                    className={`absolute -top-2 -right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 ${draft?.tipo === 'ninguno' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-                      }`}
-                  >
-                    <CheckCircle
-                      size={18}
-                      className={`text-green-500 ${checkAnimations[key] ? 'check-pop' : ''
-                        }`}
-                    />
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
-                  className={`btn ${draft?.tipo === 'total'
-                    ? 'bg-orange-500 border-orange-500 text-white'
-                    : 'btn-outline border-orange-200 text-orange-600'
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
+                      esCompleto
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-100'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
-                >
-                  No llegó
-                </button>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max={cantidadFactura}
-                    value={draft?.cantidadFaltante ?? 0}
-                    onChange={(e) => actualizarCantidadFaltante(key, e.target.value, cantidadFactura)}
-                    className={`input w-24 text-lg ${draft?.tipo === 'parcial'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold ring-2 ring-blue-200'
-                      : ''}`}
-                  />
-                  <span className={`text-sm ${draft?.tipo === 'parcial'
-                    ? 'text-blue-600 font-semibold'
-                    : 'text-gray-500'}`}>
-                    {draft?.tipo === 'parcial' ? 'faltaron' : 'faltaron'}
-                  </span>
+                  >
+                    <Check size={14} />
+                    Completo
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
+                      esTotal
+                        ? 'bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-100'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <X size={14} />
+                    Faltó Todo
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      actualizarCantidadFaltante(key, esParcial ? 0 : 1, cantidadFactura)
+                    }}
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
+                      esParcial
+                        ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-100'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <AlertTriangle size={14} />
+                    Parcial
+                  </button>
                 </div>
+
+                {/* Subpanel de Ajuste de Faltantes Parciales */}
+                {esParcial && (
+                  <div className="flex items-center justify-between bg-blue-50/50 border border-blue-100 rounded-2xl p-3 animate-fade-in">
+                    <span className="text-sm font-bold text-blue-700 flex items-center gap-1">
+                      <AlertTriangle size={14} className="text-blue-600" />
+                      Unidades Faltantes:
+                    </span>
+                    
+                    <div className="flex items-center gap-3">
+                      {/* Botón menos */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = draft?.cantidadFaltante || 0
+                          actualizarCantidadFaltante(key, Math.max(1, currentVal - 1), cantidadFactura)
+                        }}
+                        className="w-10 h-10 rounded-xl bg-white border border-blue-200 flex items-center justify-center text-lg font-black text-blue-700 shadow-sm active:scale-95 transition"
+                      >
+                        <Minus size={14} />
+                      </button>
+
+                      {/* Input de cantidad */}
+                      <span className="text-xl font-extrabold text-blue-900 w-8 text-center">
+                        {draft?.cantidadFaltante ?? 1}
+                      </span>
+
+                      {/* Botón más */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentVal = draft?.cantidadFaltante || 0
+                          actualizarCantidadFaltante(key, Math.min(cantidadFactura - 1, currentVal + 1), cantidadFactura)
+                        }}
+                        className="w-10 h-10 rounded-xl bg-white border border-blue-200 flex items-center justify-center text-lg font-black text-blue-700 shadow-sm active:scale-95 transition"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Notas del item */}
               <textarea
-                rows={2}
-                className="input w-full text-base"
-                placeholder="Observación del producto (opcional)"
+                rows={1}
+                className="input w-full rounded-xl border-gray-200 text-sm focus:border-blue-300 focus:ring-2 focus:ring-blue-50/50 py-2.5 px-3"
+                placeholder="Nota sobre este producto... (ej: caja dañada)"
                 value={draft?.observaciones || ''}
                 onChange={(e) => actualizarObservacionItem(key, e.target.value)}
               />
@@ -957,68 +1105,82 @@ export default function FacturasBodega() {
         })}
       </div>
 
-      <div className="card space-y-4">
-        <div>
-          <label className="label text-sm">Observaciones generales</label>
-          <textarea
-            rows={3}
-            className="input w-full text-base"
-            placeholder="Notas generales sobre este pedido..."
-            value={observacionesAdicionales}
-            onChange={(e) => {
-              setObservacionesAdicionales(e.target.value)
-              localStorage.setItem(STORAGE_KEYS.observaciones, e.target.value)
-            }}
-          />
-        </div>
+      {/* Notas Generales */}
+      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-2">
+        <label className="block text-xs font-semibold text-gray-500">Notas Adicionales del Despacho</label>
+        <textarea
+          rows={2}
+          className="input w-full rounded-2xl border-gray-200 text-sm focus:border-blue-300 focus:ring-2 focus:ring-blue-50/50 py-3"
+          placeholder="Escribe alguna nota general sobre la entrega..."
+          value={observacionesAdicionales}
+          onChange={(e) => {
+            setObservacionesAdicionales(e.target.value)
+            localStorage.setItem(STORAGE_KEYS.observaciones, e.target.value)
+          }}
+        />
+      </div>
 
-        <div className="flex flex-wrap gap-3 items-center justify-between bg-gray-50 rounded-3xl px-4 py-3">
-          <div>
-            <p className="text-sm text-gray-600">Faltantes seleccionados</p>
-            <p className="text-2xl font-semibold text-gray-900">
-              {faltantesSeleccionados.length} producto
-              {faltantesSeleccionados.length !== 1 && 's'} • {totalFaltantes} unidades
-            </p>
-          </div>
-          <button
-            onClick={handleRegistrarFaltantes}
-            disabled={guardando || !facturaSeleccionada}
-            className="btn btn-primary text-lg"
-          >
-            {accionPrincipalLabel}
-          </button>
-        </div>
+      {/* Barra de Acciones Flotante inferior en celular */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-5 py-4 flex flex-col gap-2 z-40 shadow-2xl">
+        <button
+          onClick={handleRegistrarFaltantes}
+          disabled={guardando || !facturaSeleccionada || !allItemsChecked}
+          className={`w-full py-4 rounded-2xl text-base font-bold text-white transition-all shadow-lg text-center flex items-center justify-center gap-2 ${
+            !allItemsChecked 
+              ? 'bg-gray-300 cursor-not-allowed shadow-none' 
+              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 active:scale-[0.98]'
+          }`}
+        >
+          {guardando ? (
+            <>
+              <RefreshCw size={18} className="animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            <>
+              <CheckCircle size={18} />
+              {accionPrincipalLabel}
+            </>
+          )}
+        </button>
+        
+        {!allItemsChecked && (
+          <p className="text-xxs text-center text-amber-600 font-semibold bg-amber-50 py-1.5 rounded-lg border border-amber-100 flex items-center justify-center gap-1 animate-pulse">
+            <AlertTriangle size={12} />
+            Debes verificar todos los productos para poder finalizar.
+          </p>
+        )}
       </div>
     </div>
   )
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-4 px-3 pt-2">
       {renderHeader()}
 
       {successMessage && (
-        <div className="card border border-green-200 bg-green-50 flex items-center justify-between gap-3 text-green-800">
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between text-green-800 text-sm animate-fade-in">
           <div className="flex items-center gap-2">
-            <CheckCircle size={20} className="text-green-500" />
+            <CheckCircle size={16} className="text-green-500" />
             <span>{successMessage}</span>
           </div>
-          <button className="text-sm underline" onClick={() => setSuccessMessage(null)}>
+          <button className="text-xs underline text-green-600" onClick={() => setSuccessMessage(null)}>
             Ocultar
           </button>
         </div>
       )}
 
       {error && (
-        <div className="card border border-red-200 bg-red-50 flex items-center gap-3 text-red-700">
-          <AlertCircle size={20} />
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-2 text-red-800 text-sm animate-fade-in">
+          <AlertCircle size={16} className="text-red-500" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="card text-center py-12">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando facturas recientes...</p>
+        <div className="text-center py-16 bg-white border border-gray-50 rounded-3xl">
+          <div className="spinner mx-auto mb-3"></div>
+          <p className="text-sm text-gray-500">Cargando facturas de bodega...</p>
         </div>
       ) : facturaSeleccionada ? (
         renderDetalle()
@@ -1028,47 +1190,46 @@ export default function FacturasBodega() {
 
       {/* Modal de cliente completado */}
       {clienteCompletado && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-bounce-in">
-            {/* Header con gradiente azul (paleta del sistema) */}
-            <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 p-6 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/90 rounded-full mb-4 shadow-lg">
-                <Sparkles className="text-indigo-500" size={32} />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-scale-up">
+            <div className="bg-blue-600 p-6 text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-white/90 rounded-full mb-3 shadow-lg">
+                <Sparkles className="text-indigo-500" size={28} />
               </div>
-              <h2 className="text-2xl font-bold text-white">¡Factura Procesada!</h2>
+              <h2 className="text-xl font-bold text-white">¡Despacho Procesado!</h2>
             </div>
 
-            {/* Body */}
             <div className="p-6 text-center">
-              <p className="text-gray-500 text-sm mb-1">Cliente:</p>
-              <p className="text-2xl font-bold text-gray-900 mb-4 break-words">
+              <p className="text-xs text-gray-400 uppercase font-medium mb-0.5">Cliente:</p>
+              <p className="text-xl font-bold text-gray-900 mb-4 break-words">
                 {clienteCompletado.nombre}
               </p>
 
               {clienteCompletado.tipo === 'faltantes' && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                  <p className="text-amber-700 font-semibold">
-                    📦 {clienteCompletado.cantidad} faltante{clienteCompletado.cantidad > 1 ? 's' : ''} registrado{clienteCompletado.cantidad > 1 ? 's' : ''}
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5 flex items-center justify-center gap-1.5">
+                  <Package size={16} className="text-amber-600" />
+                  <p className="text-amber-700 text-sm font-bold">
+                    {clienteCompletado.cantidad} faltante{clienteCompletado.cantidad > 1 ? 's' : ''} registrado{clienteCompletado.cantidad > 1 ? 's' : ''}
                   </p>
                 </div>
               )}
 
               {clienteCompletado.tipo === 'listo' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-                  <p className="text-blue-700 font-semibold">
-                    ✅ Enviada a cola de impresión
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3.5 flex items-center justify-center gap-1.5">
+                  <Printer size={16} className="text-blue-600" />
+                  <p className="text-blue-700 text-sm font-bold">
+                    Enviado a cola de impresión
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
             <div className="p-6 pt-0">
               <button
                 onClick={() => setClienteCompletado(null)}
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
+                className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-md active:scale-[0.98] transition"
               >
-                Continuar
+                Siguiente pedido
               </button>
             </div>
           </div>

@@ -662,14 +662,11 @@ export default function Facturacion() {
     const existente = items.find(item => item.id === producto.id);
 
     if (existente) {
-      // Actualizar cantidad
-      setItems(items.map(item =>
-        item.id === producto.id
-          ? { ...item, quantity: item.quantity + cantidad }
-          : item
-      ));
+      // Actualizar cantidad y mover al principio
+      const itemActualizado = { ...existente, quantity: existente.quantity + cantidad };
+      setItems([itemActualizado, ...items.filter(item => item.id !== producto.id)]);
     } else {
-      // Agregar nuevo
+      // Agregar nuevo al principio
       const impuestoDefault = impuestoPrincipal
         ? [{
           id: impuestoPrincipal.id,
@@ -679,7 +676,6 @@ export default function Facturacion() {
         }]
         : [];
 
-      const descripcionBase = (producto.description || '').trim().slice(0, DESCRIPCION_MAX);
       const nuevoItem = {
         id: producto.id,
         reference: getReference(producto.reference),
@@ -691,7 +687,7 @@ export default function Facturacion() {
         description: ''
       };
 
-      setItems([...items, nuevoItem]);
+      setItems([nuevoItem, ...items]);
     }
 
     mostrarMensaje(`${producto.name} agregado (${cantidad})`, 'success', 2000);
@@ -1357,444 +1353,379 @@ export default function Facturacion() {
         </div>
       )}
 
-      {/* Formulario de factura (Nueva/Edición) */}
       {tabActiva === 'nueva' && (
         <>
-          <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
-            {/* Columna principal: Entrada de datos */}
-            <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
+          {!clienteSeleccionado ? (
+            /* PASO 1: Buscar Cliente */
+            <div className={`${isMobile ? 'px-4' : 'max-w-3xl mx-auto'} mb-6`}>
+              <div className="card shadow-xl border-2 border-blue-100 p-6 md:p-8 bg-white rounded-2xl">
+                <div className="text-center mb-6">
+                  <div className="inline-flex p-4 bg-blue-50 text-blue-600 rounded-full mb-3">
+                    <Users size={isMobile ? 32 : 40} />
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Buscar Cliente</h2>
+                  <p className="text-gray-500 text-sm md:text-base mt-1">Busca y selecciona un cliente para comenzar a facturar</p>
+                </div>
 
-              {/* Selección de Cliente */}
-              <div className="card">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Users size={20} />
-                  Cliente
-                </h3>
+                <div className="relative mb-2">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={24} />
+                  <input
+                    type="text"
+                    value={busquedaCliente}
+                    onChange={(e) => {
+                      setBusquedaCliente(e.target.value);
+                      buscarClientesPorNombre(e.target.value);
+                    }}
+                    placeholder="Escribe el nombre del cliente..."
+                    className="input w-full pl-12 pr-12 py-4 text-lg border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                    style={{ fontSize: '18px', height: '56px' }}
+                    autoFocus
+                  />
+                  {busquedaCliente && (
+                    <button
+                      onClick={() => {
+                        setBusquedaCliente('');
+                        setClientesEncontrados([]);
+                      }}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                    >
+                      <X size={22} />
+                    </button>
+                  )}
+                </div>
 
-                {!clienteSeleccionado ? (
-                  <div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={busquedaCliente}
-                        onChange={(e) => {
-                          setBusquedaCliente(e.target.value);
-                          buscarClientesPorNombre(e.target.value);
+                {/* Resultados búsqueda clientes */}
+                {clientesEncontrados.length > 0 && (
+                  <div className="mt-4 border-2 border-gray-200 rounded-xl max-h-[350px] overflow-y-auto divide-y divide-gray-100 shadow-md">
+                    {clientesEncontrados.map((cliente) => (
+                      <button
+                        key={cliente.id}
+                        onClick={() => {
+                          setClienteSeleccionado(cliente);
+                          setBusquedaCliente('');
+                          setClientesEncontrados([]);
                         }}
-                        placeholder="Buscar cliente por nombre..."
-                        className="input flex-1"
-                      />
-                    </div>
-
-                    {/* Resultados búsqueda clientes */}
-                    {clientesEncontrados.length > 0 && (
-                      <div className="mt-2 border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                        {clientesEncontrados.map((cliente) => (
-                          <button
-                            key={cliente.id}
-                            onClick={() => {
-                              setClienteSeleccionado(cliente);
-                              setBusquedaCliente('');
-                              setClientesEncontrados([]);
-                            }}
-                            className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                          >
-                            <p className="font-medium">{cliente.name}</p>
+                        className="w-full text-left p-4 hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900 text-lg md:text-xl">{cliente.name}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
                             {cliente.identification && (
-                              <p className="text-sm text-gray-600">Cédula: {cliente.identification}</p>
+                              <span>Cédula: <strong>{cliente.identification}</strong></span>
                             )}
                             {cliente.email && (
-                              <p className="text-sm text-gray-500">{cliente.email}</p>
+                              <span className="truncate">{cliente.email}</span>
                             )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-green-900">{clienteSeleccionado.name}</p>
-                        {clienteSeleccionado.identification && (
-                          <p className="text-sm text-green-700">Cédula: {clienteSeleccionado.identification}</p>
-                        )}
-                        {clienteSeleccionado.email && (
-                          <p className="text-sm text-green-600">{clienteSeleccionado.email}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setClienteSeleccionado(null)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X size={20} />
+                          </div>
+                        </div>
+                        <div className="p-2 bg-blue-100 text-blue-700 rounded-lg flex-shrink-0">
+                          <Plus size={20} strokeWidth={3} />
+                        </div>
                       </button>
-                    </div>
+                    ))}
                   </div>
                 )}
               </div>
+            </div>
+          ) : (
+            /* PASO 2: Agregar Productos y Datos de Facturación */
+            <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
+              {/* Columna principal: Entrada de datos */}
+              <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
 
-              {/* Entrada de Productos */}
-              <div className={`card ${isMobile ? 'shadow-sm' : ''}`}>
-                <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
-                  <Package size={isMobile ? 18 : 20} />
-                  Agregar Productos
-                </h3>
-
-                {/* Toggle: Modo rápido vs Búsqueda (solo en desktop) */}
-                {!isMobile && (
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => setModoEntradaRapida(true)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${modoEntradaRapida
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                    >
-                      <Package size={16} className="inline mr-2" />
-                      Entrada Rápida (PC)
-                    </button>
-                    <button
-                      onClick={() => setModoEntradaRapida(false)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${!modoEntradaRapida
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                    >
-                      <Search size={16} className="inline mr-2" />
-                      Búsqueda por Nombre
-                    </button>
-                  </div>
-                )}
-
-                {/* Modo Entrada Rápida (PC) - Solo en desktop */}
-                {modoEntradaRapida && !isMobile && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="label">Código del Producto</label>
-                      <input
-                        ref={codigoInputRef}
-                        type="text"
-                        value={codigoProducto}
-                        onChange={(e) => setCodigoProducto(e.target.value)}
-                        onKeyPress={handleCodigoKeyPress}
-                        placeholder="Ingresa código y presiona Enter"
-                        className="input w-full text-lg"
-                        autoFocus
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">Cantidad</label>
-                      <input
-                        ref={cantidadInputRef}
-                        type="number"
-                        min="1"
-                        value={cantidadProducto}
-                        onChange={(e) => setCantidadProducto(e.target.value)}
-                        onKeyPress={handleCantidadKeyPress}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="Ingrese cantidad"
-                        className="input w-full text-lg"
-                      />
-                    </div>
-
-                    <p className="text-sm text-gray-500">
-                      💡 <strong>Flujo rápido:</strong> Ingresa código → Enter → Ingresa cantidad → Enter
-                    </p>
-                  </div>
-                )}
-
-                {/* Modo Búsqueda por Nombre - Desktop y Móvil */}
-                {(!modoEntradaRapida || isMobile) && (
-                  <div>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={isMobile ? 18 : 20} />
-                      <input
-                        ref={busquedaProductoInputRef}
-                        type="search"
-                        inputMode="search"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                        spellCheck="false"
-                        value={busquedaProducto}
-                        onChange={(e) => {
-                          setBusquedaProducto(e.target.value);
-                          buscarProductosPorNombre(e.target.value);
-                        }}
-                        onFocus={(e) => {
-                          // Ajustar scroll cuando aparece el teclado en móvil (scroll mínimo)
-                          if (isMobile) {
-                            setTimeout(() => {
-                              // Scroll manual más controlado
-                              const rect = e.target.getBoundingClientRect();
-                              const offset = window.pageYOffset || document.documentElement.scrollTop;
-                              const targetY = rect.top + offset - (window.innerHeight * 0.3); // Solo 30% desde arriba
-
-                              window.scrollTo({
-                                top: targetY,
-                                behavior: 'smooth'
-                              });
-                            }, 300);
-                          }
-                        }}
-                        placeholder={isMobile ? "Buscar producto..." : "Buscar producto por código o nombre..."}
-                        className={`input w-full ${isMobile ? 'text-base pl-10 py-3' : 'pl-10'}`}
-                        style={isMobile ? { fontSize: '16px' } : {}}
-                      />
-                      {busquedaProducto && (
-                        <button
-                          onClick={() => {
-                            setBusquedaProducto('');
-                            setProductosEncontrados([]);
-                          }}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          <X size={18} />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Resultados búsqueda productos */}
-                    {productosEncontrados.length > 0 && (
-                      <div className={`mt-2 border border-gray-200 rounded-lg max-h-80 overflow-y-auto ${isMobile ? 'shadow-lg' : ''
-                        }`}>
-                        {productosEncontrados.map((producto) => (
-                          <button
-                            key={producto.id}
-                            onClick={() => {
-                              abrirModalCantidadProducto(producto);
-                            }}
-                            className={`w-full text-left ${isMobile ? 'p-4 active:bg-blue-50' : 'p-3 hover:bg-gray-50'
-                              } border-b border-gray-100 last:border-b-0 transition-colors`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className={`font-medium truncate ${isMobile ? 'text-base' : ''}`}>{producto.name}</p>
-                                <p className={`text-gray-600 truncate ${isMobile ? 'text-sm' : 'text-sm'}`}>
-                                  {getReference(producto.reference)}
-                                </p>
-                                {producto.price && (
-                                  <p className={`text-green-600 font-semibold ${isMobile ? 'text-base mt-1' : 'text-sm'}`}>
-                                    ₡{producto.price.toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-                              <div className={`${isMobile ? 'p-2 bg-blue-100 rounded-full' : ''
-                                }`}>
-                                <Plus className="text-blue-600" size={isMobile ? 24 : 20} />
-                              </div>
-                            </div>
-                          </button>
-                        ))}
+                {/* Tarjeta del Cliente Seleccionado */}
+                <div className="card border-2 border-green-200 bg-green-50 shadow-sm p-4 md:p-6 rounded-2xl">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-green-100 text-green-700 rounded-xl">
+                        <Users size={isMobile ? 24 : 28} />
                       </div>
-                    )}
+                      <div>
+                        <span className="text-xs text-green-700 font-semibold tracking-wider uppercase block">Cliente Seleccionado</span>
+                        <h3 className="font-bold text-green-900 text-lg md:text-2xl leading-tight">
+                          {clienteSeleccionado.name}
+                        </h3>
+                        {clienteSeleccionado.identification && (
+                          <p className="text-sm text-green-700 mt-0.5">
+                            Cédula: <strong>{clienteSeleccionado.identification}</strong>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setClienteSeleccionado(null);
+                        setItems([]); // Limpiar items si cambia cliente
+                      }}
+                      className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-colors"
+                      title="Cambiar cliente"
+                    >
+                      <X size={24} strokeWidth={2.5} />
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Lista de Productos en Factura */}
-              {items.length > 0 && (
-                <div className="card">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <ShoppingCart size={20} />
-                    Productos en Factura ({items.length})
+                {/* Entrada de Productos */}
+                <div className="card shadow-md p-6 rounded-2xl">
+                  <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
+                    <Package size={22} className="text-blue-600" />
+                    Agregar Productos
                   </h3>
 
-                  <div className="space-y-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-600">Código: {getReference(item.reference)}</p>
-                          </div>
+                  {/* Toggle: Modo rápido vs Búsqueda (solo en desktop) */}
+                  {!isMobile && (
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => setModoEntradaRapida(true)}
+                        className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-colors ${modoEntradaRapida
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                      >
+                        <Package size={16} className="inline mr-2" />
+                        Entrada Rápida (PC)
+                      </button>
+                      <button
+                        onClick={() => setModoEntradaRapida(false)}
+                        className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-colors ${!modoEntradaRapida
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                      >
+                        <Search size={16} className="inline mr-2" />
+                        Búsqueda por Nombre
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Modo Entrada Rápida (PC) - Solo en desktop */}
+                  {modoEntradaRapida && !isMobile && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="label text-sm font-semibold text-gray-700">Código del Producto</label>
+                        <input
+                          ref={codigoInputRef}
+                          type="text"
+                          value={codigoProducto}
+                          onChange={(e) => setCodigoProducto(e.target.value)}
+                          onKeyPress={handleCodigoKeyPress}
+                          placeholder="Ingresa código y presiona Enter"
+                          className="input w-full text-lg py-3 px-4 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                          style={{ height: '48px' }}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label text-sm font-semibold text-gray-700">Cantidad</label>
+                        <input
+                          ref={cantidadInputRef}
+                          type="number"
+                          min="1"
+                          value={cantidadProducto}
+                          onChange={(e) => setCantidadProducto(e.target.value)}
+                          onKeyPress={handleCantidadKeyPress}
+                          onFocus={(e) => e.target.select()}
+                          placeholder="Ingrese cantidad"
+                          className="input w-full text-lg py-3 px-4 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                          style={{ height: '48px' }}
+                        />
+                      </div>
+
+                      <p className="text-sm text-gray-500">
+                        💡 <strong>Flujo rápido:</strong> Ingresa código → Enter → Ingresa cantidad → Enter
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Modo Búsqueda por Nombre - Desktop y Móvil */}
+                  {(!modoEntradaRapida || isMobile) && (
+                    <div>
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={22} />
+                        <input
+                          ref={busquedaProductoInputRef}
+                          type="search"
+                          inputMode="search"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck="false"
+                          value={busquedaProducto}
+                          onChange={(e) => {
+                            setBusquedaProducto(e.target.value);
+                            buscarProductosPorNombre(e.target.value);
+                          }}
+                          placeholder="Buscar producto por código o nombre..."
+                          className="input w-full pl-12 pr-12 py-4 text-lg border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                          style={{ fontSize: '18px', height: '56px' }}
+                        />
+                        {busquedaProducto && (
                           <button
-                            onClick={() => eliminarItem(index)}
-                            className="text-red-600 hover:text-red-800"
+                            onClick={() => {
+                              setBusquedaProducto('');
+                              setProductosEncontrados([]);
+                            }}
+                            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                           >
                             <X size={20} />
                           </button>
-                        </div>
-
-                        <div className={`grid ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-3'}`}>
-                          <div>
-                            <label className="label text-xs">Cantidad</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => actualizarCantidadItem(index, e.target.value)}
-                              onBlur={() => validarCantidadItem(index)}
-                              className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
-                              inputMode="numeric"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="label text-xs">Precio</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.price}
-                              onChange={(e) => actualizarPrecioItem(index, e.target.value)}
-                              className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
-                              inputMode="decimal"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="label text-xs">Descuento %</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={item.discount || 0}
-                              onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
-                              className={`input w-full ${isMobile ? 'text-base' : 'input-sm'}`}
-                              inputMode="numeric"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-3">
-                          <label className="label text-xs">Descripción en factura</label>
-                          <textarea
-                            value={item.description || ''}
-                            onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
-                            maxLength={DESCRIPCION_MAX}
-                            rows={isMobile ? 2 : 3}
-                            className={`input w-full resize-none ${isMobile ? 'text-base' : 'text-sm'}`}
-                            placeholder={item.name ? `*${item.name}*` : 'Detalle adicional que aparecerá en el PDF (opcional)'}
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Visible en el PDF. Máximo {DESCRIPCION_MAX} caracteres.
-                          </p>
-                        </div>
-
-                        <div className="mt-2 text-right">
-                          <span className="text-sm text-gray-600">Subtotal: </span>
-                          <span className="font-bold">
-                            ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Resultados búsqueda productos */}
+                      {productosEncontrados.length > 0 && (
+                        <div className="mt-3 border-2 border-gray-200 rounded-xl max-h-80 overflow-y-auto divide-y divide-gray-100 shadow-md">
+                          {productosEncontrados.map((producto) => (
+                            <button
+                              key={producto.id}
+                              onClick={() => {
+                                abrirModalCantidadProducto(producto);
+                              }}
+                              className="w-full text-left p-4 hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-gray-900 text-base md:text-lg truncate">{producto.name}</p>
+                                <p className="text-sm text-gray-600 truncate mt-0.5">
+                                  Ref: <strong>{getReference(producto.reference)}</strong>
+                                </p>
+                                {producto.price && (
+                                  <p className="text-green-600 font-bold text-base md:text-lg mt-1">
+                                    ₡{producto.price.toLocaleString('es-CR')}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="p-3 bg-blue-100 text-blue-700 rounded-full flex-shrink-0">
+                                <Plus size={24} strokeWidth={2.5} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Columna derecha: Resumen y configuración */}
-            <div className={`${isMobile ? 'space-y-4 pb-48' : 'space-y-6'}`}>
+                {/* Lista de Productos en Factura */}
+                {items.length > 0 && (
+                  <div className="card shadow-md p-6 rounded-2xl">
+                    <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
+                      <ShoppingCart size={22} className="text-blue-600" />
+                      Productos Agregados ({items.length})
+                    </h3>
 
-              {/* Configuración de Factura */}
-              <div className={`card ${isMobile ? 'shadow-sm overflow-hidden' : ''}`}>
-                <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold mb-4 flex items-center gap-2`}>
-                  <FileText size={isMobile ? 18 : 20} />
-                  Configuración
-                </h3>
+                    <div className="space-y-4">
+                      {items.map((item, index) => (
+                        <div key={item.id} className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50 flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 text-base md:text-lg leading-snug">{item.name}</p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Código: <strong>{getReference(item.reference)}</strong>
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => eliminarItem(index)}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                              title="Eliminar producto"
+                            >
+                              <X size={20} strokeWidth={2.5} />
+                            </button>
+                          </div>
 
-                <div className={`${isMobile ? 'space-y-3' : 'space-y-4'}`}>
-                  {/* Fecha */}
-                  <div className={isMobile ? 'overflow-hidden' : ''}>
-                    <label className={`label ${isMobile ? 'text-sm' : ''}`}>Fecha</label>
-                    <input
-                      type="date"
-                      value={fecha}
-                      onChange={(e) => setFecha(e.target.value)}
-                      className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                      style={{
-                        fontSize: '16px',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            {/* Cantidad con botones táctiles grandes */}
+                            <div>
+                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Cantidad</label>
+                              <div className="flex items-center gap-1 border-2 border-gray-300 rounded-xl overflow-hidden bg-white max-w-[160px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const val = parseInt(item.quantity) || 1;
+                                    if (val > 1) {
+                                      actualizarCantidadItem(index, val - 1);
+                                      validarCantidadItem(index);
+                                    }
+                                  }}
+                                  className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800 font-bold text-xl transition-colors flex-shrink-0"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => actualizarCantidadItem(index, e.target.value)}
+                                  onBlur={() => validarCantidadItem(index)}
+                                  className="w-full text-center font-bold text-lg border-0 focus:ring-0 focus:outline-none p-0"
+                                  style={{ border: 'none', background: 'transparent' }}
+                                  inputMode="numeric"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const val = parseInt(item.quantity) || 0;
+                                    actualizarCantidadItem(index, val + 1);
+                                    validarCantidadItem(index);
+                                  }}
+                                  className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl transition-colors flex-shrink-0"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
 
-                  {/* Método de Pago */}
-                  <div className={isMobile ? 'overflow-hidden' : ''}>
-                    <label className={`label ${isMobile ? 'text-sm' : ''}`}>Método de Pago</label>
-                    <select
-                      value={metodoPago}
-                      onChange={(e) => setMetodoPago(e.target.value)}
-                      className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                      style={{
-                        fontSize: '16px',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {metodosPago.map((metodo) => (
-                        <option key={metodo.id} value={metodo.id}>
-                          {metodo.name}
-                        </option>
+                            {/* Precio */}
+                            <div>
+                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Precio Unitario</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.price}
+                                onChange={(e) => actualizarPrecioItem(index, e.target.value)}
+                                className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                style={{ height: '40px' }}
+                                inputMode="decimal"
+                              />
+                            </div>
+
+                            {/* Descuento */}
+                            <div>
+                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descuento %</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={item.discount || 0}
+                                onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
+                                className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                style={{ height: '40px' }}
+                                inputMode="numeric"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-2">
+                            <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descripción en factura</label>
+                            <textarea
+                              value={item.description || ''}
+                              onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
+                              maxLength={DESCRIPCION_MAX}
+                              rows={2}
+                              className="input w-full resize-none text-sm py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                              placeholder={item.name ? `*${item.name}*` : 'Detalle adicional que aparecerá en el PDF (opcional)'}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-1">
+                            <span className="text-sm font-semibold text-gray-600">Subtotal Línea:</span>
+                            <span className="font-bold text-lg text-gray-900">
+                              ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
                       ))}
-                    </select>
-                  </div>
-
-                  {/* Descuento Global */}
-                  <div className={isMobile ? 'overflow-hidden' : ''}>
-                    <label className={`label ${isMobile ? 'text-sm' : ''}`}>Descuento Global %</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={descuentoGlobal}
-                      onChange={(e) => setDescuentoGlobal(parseFloat(e.target.value) || 0)}
-                      className={`input w-full ${isMobile ? 'text-base' : ''}`}
-                      inputMode="decimal"
-                      style={{
-                        fontSize: '16px',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  {/* Factura Electrónica */}
-                  <div className={`flex items-center gap-3 ${isMobile ? 'p-2.5' : 'p-3'} bg-blue-50 border border-blue-200 rounded-lg`}>
-                    <input
-                      type="checkbox"
-                      id="factura-electronica"
-                      checked={esElectronica}
-                      onChange={(e) => setEsElectronica(e.target.checked)}
-                      className={`${isMobile ? 'w-5 h-5' : 'w-5 h-5'} flex-shrink-0`}
-                    />
-                    <label htmlFor="factura-electronica" className="flex-1 cursor-pointer">
-                      <p className={`font-medium text-blue-900 ${isMobile ? 'text-sm' : ''}`}>Factura Electrónica</p>
-                      <p className={`text-blue-700 ${isMobile ? 'text-xs' : 'text-xs'}`}>
-                        {esElectronica ? 'Se enviará a Hacienda' : 'Factura simple sin envío a Hacienda'}
-                      </p>
-                    </label>
-                  </div>
-
-                  {/* Observaciones */}
-                  <div className={isMobile ? 'overflow-hidden' : ''}>
-                    <label className={`label ${isMobile ? 'text-sm' : ''}`}>Observaciones</label>
-                    <textarea
-                      value={observaciones}
-                      onChange={(e) => setObservaciones(e.target.value)}
-                      rows={isMobile ? "2" : "3"}
-                      placeholder="Notas o comentarios adicionales..."
-                      className={`input w-full resize-none ${isMobile ? 'text-base' : ''}`}
-                      style={{
-                        fontSize: '16px',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        minHeight: isMobile ? '60px' : 'auto'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Resumen de Totales - Solo desktop */}
-              {!isMobile && (
-                <div className="card bg-gradient-to-br from-blue-50 to-purple-50">
-                  <div className={isMobile ? 'px-4 pt-3 pb-safe' : ''}>
                     {/* Header del resumen - Solo desktop */}
                     {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
 
@@ -1865,6 +1796,7 @@ export default function Facturacion() {
               )}
             </div>
           </div>
+          )}
 
           {/* Bottom Sheet Móvil - Fijo fuera del scroll */}
           {isMobile && (

@@ -13,20 +13,35 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
   const rotacionResult = await query(
     `
       WITH datos AS (
-        SELECT *
+        SELECT 
+          producto_codigo,
+          MAX(producto_id) as producto_id,
+          MAX(producto_nombre) as producto_nombre,
+          MAX(proveedor_id) as proveedor_id,
+          MAX(proveedor_nombre) as proveedor_nombre,
+          semana,
+          ano,
+          MIN(fecha_inicio_semana) as fecha_inicio_semana,
+          SUM(faltantes_registrados) as faltantes_registrados,
+          SUM(cantidad_faltante_total) as cantidad_faltante_total,
+          SUM(costo_total) as costo_total,
+          SUM(venta_total) as venta_total,
+          SUM(margen_total) as margen_total
         FROM rotacion_productos
         WHERE fecha_inicio_semana >= CURRENT_DATE - ($2 * INTERVAL '1 week')
+        GROUP BY producto_codigo, semana, ano
       ),
       ultimo_costos_proveedor AS (
-        SELECT DISTINCT ON (alegra_item_id)
-          alegra_item_id AS alegra_id,
-          precio_unitario::numeric AS costo_reciente,
-          descripcion AS descripcion_proveedor
-        FROM productos_factura_proveedor
-        WHERE alegra_item_id IS NOT NULL
-          AND alegra_item_id ~ '^[0-9]+$'
-          AND precio_unitario IS NOT NULL
-        ORDER BY alegra_item_id, id DESC
+        SELECT DISTINCT ON (p.alegra_item_id)
+          p.alegra_item_id AS alegra_id,
+          p.precio_unitario::numeric AS costo_reciente,
+          p.descripcion AS descripcion_proveedor
+        FROM productos_factura_proveedor p
+        LEFT JOIN facturas_proveedores f ON f.id = p.factura_id
+        WHERE p.alegra_item_id IS NOT NULL
+          AND p.alegra_item_id ~ '^[0-9]+$'
+          AND p.precio_unitario IS NOT NULL
+        ORDER BY p.alegra_item_id, f.fecha_emision DESC, f.fecha_procesada DESC
       ),
       promedio_costos_proveedor AS (
         SELECT 
@@ -60,11 +75,11 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         GROUP BY alegra_item_id
       )
       SELECT
-        d.producto_id,
+        MAX(d.producto_id) AS producto_id,
         d.producto_codigo,
-        d.producto_nombre,
-        d.proveedor_id,
-        d.proveedor_nombre,
+        MAX(d.producto_nombre) AS producto_nombre,
+        MAX(d.proveedor_id) AS proveedor_id,
+        MAX(d.proveedor_nombre) AS proveedor_nombre,
         SUM(d.cantidad_faltante_total) AS cantidad_total,
         SUM(d.faltantes_registrados) AS faltantes_total,
         SUM(d.costo_total) AS costo_total,
@@ -85,11 +100,11 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
         MAX(p.alegra_id) AS producto_alegra_id,
         MAX(p.precio_unitario) AS producto_precio_unitario,
         MAX(ap.cost) AS alegra_cost,
-        COALESCE(ucp.costo_reciente, pcp.costo_promedio) AS proveedor_cost,
-        cf.precio_asignado_reciente,
-        cf.precio_asignado_promedio,
-        ucp.descripcion_proveedor,
-        fcm.factor_conversion
+        COALESCE(MAX(ucp.costo_reciente), MAX(pcp.costo_promedio)) AS proveedor_cost,
+        MAX(cf.precio_asignado_reciente) AS precio_asignado_reciente,
+        MAX(cf.precio_asignado_promedio) AS precio_asignado_promedio,
+        MAX(ucp.descripcion_proveedor) AS descripcion_proveedor,
+        MAX(fcm.factor_conversion) AS factor_conversion
       FROM datos d
       LEFT JOIN productos p ON p.id = d.producto_id
       LEFT JOIN alegra_products_cache ap ON ap.alegra_id = p.alegra_id::text
@@ -98,17 +113,7 @@ async function obtenerRotacionProductos({ semanas = 12, limite = 50 } = {}) {
       LEFT JOIN costos_faltantes cf ON cf.producto_id = d.producto_id
       LEFT JOIN factores_conversion fcm ON fcm.alegra_id = p.alegra_id::text
       GROUP BY 
-        d.producto_id, 
-        d.producto_codigo, 
-        d.producto_nombre, 
-        d.proveedor_id, 
-        d.proveedor_nombre,
-        ucp.costo_reciente,
-        pcp.costo_promedio,
-        cf.precio_asignado_reciente,
-        cf.precio_asignado_promedio,
-        ucp.descripcion_proveedor,
-        fcm.factor_conversion
+        d.producto_codigo
       ORDER BY SUM(d.margen_total) DESC, SUM(d.cantidad_faltante_total) DESC
       LIMIT $1
     `,

@@ -125,11 +125,10 @@ const missingItemsModule = require('./src/modules/missing-items');
 const reprintingModule = require('./src/modules/reprinting');
 const adminModule = require('./src/modules/admin');
 
-// Usar rutas de API
+// Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/proveedores', proveedorRoutes);
-app.use('/api/faltantes', faltanteRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosRoutes);
@@ -137,12 +136,15 @@ app.use('/api/productos-revision', productosRevisionRoutes);
 app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 
 // Módulos nuevos (arquitectura modular)
-// NOTA: Los módulos nuevos usan /api/<módulo>/* mientras que las rutas legacy están en /api/alegra/<módulo>/*
-// Una vez verificado que funciona, se puede deprecar las rutas en alegra.js
 app.use('/api/bodega', warehouseModule.routes);
-app.use('/api/faltantes', missingItemsModule.routes);
 app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);
+
+// ⚠️ NOTA: El endpoint /api/faltantes tiene ruteo híbrido (fall-through).
+// Las peticiones básicas de gestión de faltantes son procesadas por 'faltanteRoutes' (Legacy).
+// Las operaciones de ajustes y mantenimiento caen en 'missingItemsModule.routes' (Modular).
+app.use('/api/faltantes', faltanteRoutes);
+app.use('/api/faltantes', missingItemsModule.routes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
