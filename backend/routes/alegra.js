@@ -3878,7 +3878,7 @@ router.post('/facturas/procesar-individual', async (req, res) => {
         const normalizarItemEditado = async (item) => {
           if (!item) return null;
           const referencia = (item.reference || '').toString().trim();
-          const descripcionBase = (item.description || item.name || referencia || '').toString().trim();
+          const descripcionBase = (item.description || '').toString().trim();
           const cantidad = Number(item.quantity) || 0;
           const precio = Number(item.price) || 0;
           let alegraItemId = item.item?.id || item.itemId || item.alegraItemId || item.id;
@@ -3909,8 +3909,8 @@ router.post('/facturas/procesar-individual', async (req, res) => {
           const payload = {
             id: alegraItemId.toString(),
             reference: referencia,
-            description: descripcionBase || referencia,
-            name: item.name || descripcionBase || referencia,
+            description: descripcionBase,
+            name: item.name || referencia || '',
             quantity: cantidad,
             price: precio > 0 ? precio : 0,
             item: { id: alegraItemId.toString() }

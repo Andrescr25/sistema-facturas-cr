@@ -451,6 +451,13 @@ export default function RevisionPrecios() {
 
   // VISTA DE LISTA
   if (vista === 'lista') {
+    // Verificar si todas las facturas en la lista actual están 100% relacionadas
+    const todasFacturasRelacionadas = facturas.length > 0 && facturas.every(factura => {
+      const total = factura.productos?.length || 0;
+      const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO').length || 0;
+      return total > 0 && relacionados === total;
+    });
+
     return (
       <>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -644,7 +651,7 @@ export default function RevisionPrecios() {
           {/* Botones de Navegación Secuencial al Final de la Lista */}
           {!loading && (
             <div className="mt-8 pt-6 border-t-2 border-gray-200">
-              {tabActiva === 'PENDIENTE_RELACIONAR' && facturas.length > 0 && (
+              {tabActiva === 'PENDIENTE_RELACIONAR' && todasFacturasRelacionadas && (
                 <div className="flex justify-end">
                   <button
                     onClick={() => setTabActiva('LISTAS_REVISION')}

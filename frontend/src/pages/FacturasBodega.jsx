@@ -765,11 +765,10 @@ export default function FacturasBodega() {
               setActiveTab(tab)
               localStorage.setItem(STORAGE_KEYS.tab, tab)
             }}
-            className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl transition-all duration-200 ${
-              activeTab === tab 
-                ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl transition-all duration-200 ${activeTab === tab
+              ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             {tab === 'pendientes' ? 'Por Preparar' : 'Historial Listas'}
           </button>
@@ -824,9 +823,9 @@ export default function FacturasBodega() {
                 />
                 Incluir facturas sin fecha
               </label>
-              <button 
-                type="button" 
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold" 
+              <button
+                type="button"
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
                 onClick={clearFilters}
               >
                 Resetear Filtros
@@ -891,11 +890,10 @@ export default function FacturasBodega() {
 
                 <button
                   onClick={() => handleSeleccionarFactura(factura)}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] active:shadow-none ${
-                    factura.estado_bodega === 'procesado'
-                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100'
-                  }`}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] active:shadow-none ${factura.estado_bodega === 'procesado'
+                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100'
+                    }`}
                 >
                   {factura.estado_bodega === 'procesado' ? (
                     <>
@@ -959,10 +957,9 @@ export default function FacturasBodega() {
             </span>
           </div>
           <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-300 rounded-full ${
-                progressPercent === 100 ? 'bg-green-500 shadow-sm shadow-green-200' : 'bg-blue-600'
-              }`}
+            <div
+              className={`h-full transition-all duration-300 rounded-full ${progressPercent === 100 ? 'bg-green-500 shadow-sm shadow-green-200' : 'bg-blue-600'
+                }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -983,15 +980,14 @@ export default function FacturasBodega() {
           return (
             <div
               key={`${key}-${index}`}
-              className={`bg-white border rounded-3xl p-5 shadow-sm transition space-y-4 ${
-                esCompleto 
-                  ? 'border-green-100 bg-green-50/20' 
-                  : esTotal 
-                    ? 'border-orange-100 bg-orange-50/10' 
-                    : esParcial 
-                      ? 'border-blue-100 bg-blue-50/10' 
-                      : 'border-gray-100'
-              }`}
+              className={`bg-white border rounded-3xl p-5 shadow-sm transition space-y-4 ${esCompleto
+                ? 'border-green-100 bg-green-50/20'
+                : esTotal
+                  ? 'border-orange-100 bg-orange-50/10'
+                  : esParcial
+                    ? 'border-blue-100 bg-blue-50/10'
+                    : 'border-gray-100'
+                }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1 flex-1">
@@ -1011,11 +1007,10 @@ export default function FacturasBodega() {
                   <button
                     type="button"
                     onClick={() => marcarModoFaltante(key, 'ninguno', cantidadFactura)}
-                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
-                      esCompleto
-                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-100'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esCompleto
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-100'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
                   >
                     <Check size={14} />
                     Completo
@@ -1024,11 +1019,10 @@ export default function FacturasBodega() {
                   <button
                     type="button"
                     onClick={() => marcarModoFaltante(key, 'total', cantidadFactura)}
-                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
-                      esTotal
-                        ? 'bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-100'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esTotal
+                      ? 'bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-100'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
                   >
                     <X size={14} />
                     Faltó Todo
@@ -1039,11 +1033,10 @@ export default function FacturasBodega() {
                     onClick={() => {
                       actualizarCantidadFaltante(key, esParcial ? 0 : 1, cantidadFactura)
                     }}
-                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${
-                      esParcial
-                        ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-100'
-                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esParcial
+                      ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-100'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
                   >
                     <AlertTriangle size={14} />
                     Parcial
@@ -1057,7 +1050,7 @@ export default function FacturasBodega() {
                       <AlertTriangle size={14} className="text-blue-600" />
                       Unidades Faltantes:
                     </span>
-                    
+
                     <div className="flex items-center gap-3">
                       {/* Botón menos */}
                       <button
@@ -1096,7 +1089,7 @@ export default function FacturasBodega() {
               <textarea
                 rows={1}
                 className="input w-full rounded-xl border-gray-200 text-sm focus:border-blue-300 focus:ring-2 focus:ring-blue-50/50 py-2.5 px-3"
-                placeholder="Nota sobre este producto... (ej: caja dañada)"
+                placeholder="Nota sobre este producto"
                 value={draft?.observaciones || ''}
                 onChange={(e) => actualizarObservacionItem(key, e.target.value)}
               />
@@ -1105,31 +1098,16 @@ export default function FacturasBodega() {
         })}
       </div>
 
-      {/* Notas Generales */}
-      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-2">
-        <label className="block text-xs font-semibold text-gray-500">Notas Adicionales del Despacho</label>
-        <textarea
-          rows={2}
-          className="input w-full rounded-2xl border-gray-200 text-sm focus:border-blue-300 focus:ring-2 focus:ring-blue-50/50 py-3"
-          placeholder="Escribe alguna nota general sobre la entrega..."
-          value={observacionesAdicionales}
-          onChange={(e) => {
-            setObservacionesAdicionales(e.target.value)
-            localStorage.setItem(STORAGE_KEYS.observaciones, e.target.value)
-          }}
-        />
-      </div>
 
-      {/* Barra de Acciones Flotante inferior en celular */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-5 py-4 flex flex-col gap-2 z-40 shadow-2xl">
+      {/* Barra de Acciones al final de la página */}
+      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex flex-col gap-2 mt-4">
         <button
           onClick={handleRegistrarFaltantes}
           disabled={guardando || !facturaSeleccionada || !allItemsChecked}
-          className={`w-full py-4 rounded-2xl text-base font-bold text-white transition-all shadow-lg text-center flex items-center justify-center gap-2 ${
-            !allItemsChecked 
-              ? 'bg-gray-300 cursor-not-allowed shadow-none' 
-              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 active:scale-[0.98]'
-          }`}
+          className={`w-full py-4 rounded-2xl text-base font-bold text-white transition-all shadow-lg text-center flex items-center justify-center gap-2 ${!allItemsChecked
+            ? 'bg-gray-300 cursor-not-allowed shadow-none'
+            : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 active:scale-[0.98]'
+            }`}
         >
           {guardando ? (
             <>
@@ -1143,7 +1121,7 @@ export default function FacturasBodega() {
             </>
           )}
         </button>
-        
+
         {!allItemsChecked && (
           <p className="text-xxs text-center text-amber-600 font-semibold bg-amber-50 py-1.5 rounded-lg border border-amber-100 flex items-center justify-center gap-1 animate-pulse">
             <AlertTriangle size={12} />

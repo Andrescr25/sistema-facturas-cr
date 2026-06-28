@@ -14,7 +14,8 @@ import {
   Eye,
   Building2,
   FileText,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react'
 import api from '../services/api'
 import { FORMAS_FARMACEUTICAS } from '../utils/formasFarmaceuticas'

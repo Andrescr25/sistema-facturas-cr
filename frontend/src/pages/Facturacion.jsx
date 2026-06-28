@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Receipt, Package, Users, Wifi, WifiOff, RefreshCw, Save,
   Check, AlertCircle, Search, X, Plus, Minus, ShoppingCart,
-  CreditCard, Calendar, FileText, Download, Send, Edit
+  CreditCard, Calendar, FileText, Download, Send, Edit,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import facturacionService from '../services/facturacionService';
 import { alegraService } from '../services/alegraService';
@@ -65,6 +66,15 @@ export default function Facturacion() {
   const [modalCantidadProducto, setModalCantidadProducto] = useState(false);
   const [productoSeleccionadoCantidad, setProductoSeleccionadoCantidad] = useState(null);
   const [cantidadSeleccionada, setCantidadSeleccionada] = useState('');
+
+  // Detalles colapsables por item en el carrito de compras (móvil)
+  const [mostrarDetalles, setMostrarDetalles] = useState({});
+  const toggleDetalles = (itemId) => {
+    setMostrarDetalles(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
 
   // Referencias
   const codigoInputRef = useRef(null);
@@ -966,7 +976,7 @@ export default function Facturacion() {
   }
 
   return (
-    <div className={`${isMobile ? 'pb-20' : 'max-w-7xl mx-auto'}`}>
+    <div className={`${isMobile ? 'pb-10' : 'max-w-7xl mx-auto'}`}>
       {/* Header - Sticky en móvil */}
       <div className={`${isMobile ? 'sticky top-0 z-40 bg-white shadow-md px-4 py-3' : 'mb-6'}`}>
         <div className={`${isMobile ? '' : 'flex items-center justify-between'}`}>
@@ -1405,11 +1415,11 @@ export default function Facturacion() {
                           setBusquedaCliente('');
                           setClientesEncontrados([]);
                         }}
-                        className="w-full text-left p-4 hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-3"
+                        className={`w-full text-left ${isMobile ? 'p-6 py-6 border-2 border-blue-50 bg-blue-50/20' : 'p-4'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-gray-900 text-lg md:text-xl">{cliente.name}</p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-black text-gray-950 ${isMobile ? 'text-xl' : 'text-lg md:text-xl'} leading-snug`}>{cliente.name}</p>
+                          <div className={`flex flex-wrap gap-x-4 gap-y-1 mt-2 text-gray-700 ${isMobile ? 'text-base font-medium' : 'text-sm'}`}>
                             {cliente.identification && (
                               <span>Cédula: <strong>{cliente.identification}</strong></span>
                             )}
@@ -1418,8 +1428,8 @@ export default function Facturacion() {
                             )}
                           </div>
                         </div>
-                        <div className="p-2 bg-blue-100 text-blue-700 rounded-lg flex-shrink-0">
-                          <Plus size={20} strokeWidth={3} />
+                        <div className={`p-3 bg-blue-100 text-blue-700 rounded-xl flex-shrink-0 ${isMobile ? 'p-4' : ''}`}>
+                          <Plus size={isMobile ? 24 : 20} strokeWidth={3} />
                         </div>
                       </button>
                     ))}
@@ -1452,16 +1462,28 @@ export default function Facturacion() {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setClienteSeleccionado(null);
-                        setItems([]); // Limpiar items si cambia cliente
-                      }}
-                      className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-colors"
-                      title="Cambiar cliente"
-                    >
-                      <X size={24} strokeWidth={2.5} />
-                    </button>
+                    {isMobile ? (
+                      <button
+                        onClick={() => {
+                          setClienteSeleccionado(null);
+                          setItems([]); // Limpiar items si cambia cliente
+                        }}
+                        className="px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-extrabold text-sm rounded-xl transition-all flex-shrink-0"
+                      >
+                        Cambiar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setClienteSeleccionado(null);
+                          setItems([]); // Limpiar items si cambia cliente
+                        }}
+                        className="p-3 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-xl transition-colors"
+                        title="Cambiar cliente"
+                      >
+                        <X size={24} strokeWidth={2.5} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1582,21 +1604,21 @@ export default function Facturacion() {
                               onClick={() => {
                                 abrirModalCantidadProducto(producto);
                               }}
-                              className="w-full text-left p-4 hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-3"
+                              className={`w-full text-left ${isMobile ? 'p-5 py-6 border-2 border-blue-50 bg-blue-50/10' : 'p-4'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="font-bold text-gray-900 text-base md:text-lg truncate">{producto.name}</p>
-                                <p className="text-sm text-gray-600 truncate mt-0.5">
+                                <p className={`font-black text-gray-950 ${isMobile ? 'text-lg font-black' : 'font-bold text-base md:text-lg'} truncate`}>{producto.name}</p>
+                                <p className={`text-gray-650 truncate mt-1.5 ${isMobile ? 'text-sm font-medium' : 'text-sm'}`}>
                                   Ref: <strong>{getReference(producto.reference)}</strong>
                                 </p>
                                 {producto.price && (
-                                  <p className="text-green-600 font-bold text-base md:text-lg mt-1">
+                                  <p className={`text-green-600 font-extrabold mt-2 ${isMobile ? 'text-xl' : 'text-base md:text-lg'}`}>
                                     ₡{producto.price.toLocaleString('es-CR')}
                                   </p>
                                 )}
                               </div>
-                              <div className="p-3 bg-blue-100 text-blue-700 rounded-full flex-shrink-0">
-                                <Plus size={24} strokeWidth={2.5} />
+                              <div className={`p-3 bg-blue-100 text-blue-700 rounded-xl flex-shrink-0 ${isMobile ? 'p-4' : ''}`}>
+                                <Plus size={isMobile ? 24 : 20} strokeWidth={3} />
                               </div>
                             </button>
                           ))}
@@ -1618,215 +1640,314 @@ export default function Facturacion() {
                       {items.map((item, index) => (
                         <div key={item.id} className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50 flex flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="font-bold text-gray-900 text-base md:text-lg leading-snug">{item.name}</p>
-                              <p className="text-xs text-gray-600 mt-1">
+                            <div className="min-w-0 flex-1">
+                              <p className={`font-black text-gray-955 leading-snug ${isMobile ? 'text-lg' : 'text-base md:text-lg'}`}>{item.name}</p>
+                              <p className={`text-gray-650 mt-1.5 ${isMobile ? 'text-sm font-medium' : 'text-xs'}`}>
                                 Código: <strong>{getReference(item.reference)}</strong>
                               </p>
                             </div>
                             <button
                               onClick={() => eliminarItem(index)}
-                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                              className={`text-red-650 hover:text-red-800 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0 ${isMobile ? 'p-3 hover:bg-red-150' : 'p-2'}`}
                               title="Eliminar producto"
                             >
-                              <X size={20} strokeWidth={2.5} />
+                              <X size={isMobile ? 24 : 20} strokeWidth={isMobile ? 3 : 2.5} />
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                            {/* Cantidad con botones táctiles grandes */}
-                            <div>
-                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Cantidad</label>
-                              <div className="flex items-center gap-1 border-2 border-gray-300 rounded-xl overflow-hidden bg-white max-w-[160px]">
+                          {isMobile ? (
+                            <div className="flex flex-col gap-4">
+                              {/* Fila principal: Cantidad y Subtotal */}
+                              <div className="flex items-center justify-between gap-4 border-b border-gray-150 pb-3">
+                                {/* Selector de cantidad táctil gigante */}
+                                <div>
+                                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1.5">Cantidad</span>
+                                  <div className="flex items-center gap-1 border-2 border-gray-350 rounded-2xl overflow-hidden bg-white">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const val = parseInt(item.quantity) || 1;
+                                        if (val > 1) {
+                                          actualizarCantidadItem(index, val - 1);
+                                          validarCantidadItem(index);
+                                        }
+                                      }}
+                                      className="w-14 h-14 flex items-center justify-center bg-gray-100 active:bg-gray-200 text-gray-800 font-extrabold text-2xl"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => actualizarCantidadItem(index, e.target.value)}
+                                      onBlur={() => validarCantidadItem(index)}
+                                      className="w-14 text-center font-black text-2xl border-0 focus:ring-0 focus:outline-none p-0"
+                                      style={{ border: 'none', background: 'transparent' }}
+                                      inputMode="numeric"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const val = parseInt(item.quantity) || 0;
+                                        actualizarCantidadItem(index, val + 1);
+                                        validarCantidadItem(index);
+                                      }}
+                                      className="w-14 h-14 flex items-center justify-center bg-blue-100 active:bg-blue-200 text-blue-800 font-extrabold text-2xl"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Precio y Subtotal en grande */}
+                                <div className="text-right flex flex-col justify-end h-full pt-4">
+                                  <span className="text-sm font-bold text-gray-500 block">
+                                    ₡{item.price.toLocaleString('es-CR', { minimumFractionDigits: 2 })} c/u
+                                  </span>
+                                  {item.discount > 0 && (
+                                    <span className="text-xs font-bold text-orange-650 block">
+                                      Dcto: -{item.discount}%
+                                    </span>
+                                  )}
+                                  <span className="text-2xl font-black text-gray-950 block mt-1">
+                                    ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Botón para alternar Opciones Avanzadas en móvil */}
+                              <div className="flex justify-start">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const val = parseInt(item.quantity) || 1;
-                                    if (val > 1) {
-                                      actualizarCantidadItem(index, val - 1);
-                                      validarCantidadItem(index);
-                                    }
-                                  }}
-                                  className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800 font-bold text-xl transition-colors flex-shrink-0"
+                                  onClick={() => toggleDetalles(item.id)}
+                                  className="text-base font-extrabold text-blue-600 active:text-blue-800 flex items-center gap-1.5 py-2 px-3 bg-blue-50 rounded-xl transition-all"
                                 >
-                                  -
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => actualizarCantidadItem(index, e.target.value)}
-                                  onBlur={() => validarCantidadItem(index)}
-                                  className="w-full text-center font-bold text-lg border-0 focus:ring-0 focus:outline-none p-0"
-                                  style={{ border: 'none', background: 'transparent' }}
-                                  inputMode="numeric"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const val = parseInt(item.quantity) || 0;
-                                    actualizarCantidadItem(index, val + 1);
-                                    validarCantidadItem(index);
-                                  }}
-                                  className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl transition-colors flex-shrink-0"
-                                >
-                                  +
+                                  {mostrarDetalles[item.id] ? <ChevronUp size={20} /> : <FileText size={20} />}
+                                  <span>{mostrarDetalles[item.id] ? 'Ocultar detalle' : 'Agregar detalle / nota'}</span>
                                 </button>
                               </div>
+
+                              {/* Opciones Avanzadas colapsables */}
+                              {mostrarDetalles[item.id] && (
+                                <div className="border-t border-dashed border-gray-300 pt-3 mt-1 space-y-4">
+                                  {/* Opciones de precio y descuento comentadas a solicitud del usuario */}
+                                  {/* 
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="label text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">Precio Unitario</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={item.price}
+                                        onChange={(e) => actualizarPrecioItem(index, e.target.value)}
+                                        className="input w-full text-lg font-bold py-3 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                        style={{ height: '48px' }}
+                                        inputMode="decimal"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="label text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">Descuento %</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={item.discount || 0}
+                                        onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
+                                        className="input w-full text-lg font-bold py-3 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                        style={{ height: '48px' }}
+                                        inputMode="numeric"
+                                      />
+                                    </div>
+                                  </div>
+                                  */}
+
+                                  {/* Detalle o notas */}
+                                  <div>
+                                    <label className="label text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">Detalle / Notas de línea</label>
+                                    <textarea
+                                      value={item.description || ''}
+                                      onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
+                                      maxLength={DESCRIPCION_MAX}
+                                      rows={2}
+                                      className="input w-full resize-none text-base py-2.5 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                      placeholder="Detalle adicional"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                {/* Cantidad con botones táctiles grandes */}
+                                <div>
+                                  <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Cantidad</label>
+                                  <div className="flex items-center gap-1 border-2 border-gray-300 rounded-xl overflow-hidden bg-white max-w-[160px]">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const val = parseInt(item.quantity) || 1;
+                                        if (val > 1) {
+                                          actualizarCantidadItem(index, val - 1);
+                                          validarCantidadItem(index);
+                                        }
+                                      }}
+                                      className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800 font-bold text-xl transition-colors flex-shrink-0"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => actualizarCantidadItem(index, e.target.value)}
+                                      onBlur={() => validarCantidadItem(index)}
+                                      className="w-full text-center font-bold text-lg border-0 focus:ring-0 focus:outline-none p-0"
+                                      style={{ border: 'none', background: 'transparent' }}
+                                      inputMode="numeric"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const val = parseInt(item.quantity) || 0;
+                                        actualizarCantidadItem(index, val + 1);
+                                        validarCantidadItem(index);
+                                      }}
+                                      className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl transition-colors flex-shrink-0"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
 
-                            {/* Precio */}
-                            <div>
-                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Precio Unitario</label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.price}
-                                onChange={(e) => actualizarPrecioItem(index, e.target.value)}
-                                className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
-                                style={{ height: '40px' }}
-                                inputMode="decimal"
-                              />
-                            </div>
+                                {/* Precio */}
+                                <div>
+                                  <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Precio Unitario</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={item.price}
+                                    onChange={(e) => actualizarPrecioItem(index, e.target.value)}
+                                    className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                    style={{ height: '40px' }}
+                                    inputMode="decimal"
+                                  />
+                                </div>
 
-                            {/* Descuento */}
-                            <div>
-                              <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descuento %</label>
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={item.discount || 0}
-                                onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
-                                className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
-                                style={{ height: '40px' }}
-                                inputMode="numeric"
-                              />
-                            </div>
-                          </div>
+                                {/* Descuento */}
+                                <div>
+                                  <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descuento %</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={item.discount || 0}
+                                    onChange={(e) => actualizarDescuentoItem(index, e.target.value)}
+                                    className="input w-full text-base font-medium py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                    style={{ height: '40px' }}
+                                    inputMode="numeric"
+                                  />
+                                </div>
+                              </div>
 
-                          <div className="mt-2">
-                            <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descripción en factura</label>
-                            <textarea
-                              value={item.description || ''}
-                              onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
-                              maxLength={DESCRIPCION_MAX}
-                              rows={2}
-                              className="input w-full resize-none text-sm py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
-                              placeholder={item.name ? `*${item.name}*` : 'Detalle adicional que aparecerá en el PDF (opcional)'}
-                            />
-                          </div>
+                              <div className="mt-2">
+                                <label className="label text-xs font-semibold text-gray-700 uppercase tracking-wider block mb-1">Descripción en factura</label>
+                                <textarea
+                                  value={item.description || ''}
+                                  onChange={(e) => actualizarDescripcionItem(index, e.target.value)}
+                                  maxLength={DESCRIPCION_MAX}
+                                  rows={2}
+                                  className="input w-full resize-none text-sm py-2 px-3 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
+                                  placeholder="Detalle adicional"
+                                />
+                              </div>
 
-                          <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-1">
-                            <span className="text-sm font-semibold text-gray-600">Subtotal Línea:</span>
-                            <span className="font-bold text-lg text-gray-900">
-                              ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
+                              <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-1">
+                                <span className="text-sm font-semibold text-gray-600">Subtotal Línea:</span>
+                                <span className="font-bold text-lg text-gray-900">
+                                  ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
-                    {/* Header del resumen - Solo desktop */}
-                    {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
+                      {/* Header del resumen - Solo desktop */}
+                      {!isMobile && <h3 className="text-lg font-semibold mb-4">Resumen</h3>}
 
-                    {/* Totales compactos en móvil */}
-                    <div className={`${isMobile ? 'space-y-1 mb-3' : 'space-y-2 mb-4'}`}>
-                      {!isMobile && (
-                        <>
-                          <div className="flex justify-between text-gray-700">
-                            <span>Subtotal:</span>
-                            <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                          </div>
-
-                          {descuentoGlobal > 0 && (
-                            <div className="flex justify-between text-orange-600">
-                              <span>Descuento ({descuentoGlobal}%):</span>
-                              <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                      {/* Totales compactos en móvil */}
+                      <div className={`${isMobile ? 'space-y-1 mb-3' : 'space-y-2 mb-4'}`}>
+                        {!isMobile && (
+                          <>
+                            <div className="flex justify-between text-gray-700">
+                              <span>Subtotal:</span>
+                              <span className="font-medium">₡{calcularSubtotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                             </div>
-                          )}
 
-                          <div className="flex justify-between text-gray-700">
-                            <span>
-                              {impuestoPrincipal
-                                ? `${impuestoPrincipal.name || 'Impuestos'} (${Number(impuestoPrincipal.percentage) || 0}%)`
-                                : 'Impuestos estimados'}:
+                            {descuentoGlobal > 0 && (
+                              <div className="flex justify-between text-orange-600">
+                                <span>Descuento ({descuentoGlobal}%):</span>
+                                <span className="font-medium">-₡{calcularDescuentoGlobal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+
+                            <div className="flex justify-between text-gray-700">
+                              <span>
+                                {impuestoPrincipal
+                                  ? `${impuestoPrincipal.name || 'Impuestos'} (${Number(impuestoPrincipal.percentage) || 0}%)`
+                                  : 'Impuestos estimados'}:
+                              </span>
+                              <span className="font-medium">
+                                ₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Total - Siempre visible */}
+                        <div className={`${isMobile ? 'py-2' : 'border-t-2 border-gray-300 pt-2'
+                          } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}>
+                          <div>
+                            <span className={isMobile ? 'text-sm text-gray-600 block' : ''}>
+                              {isMobile && `${items.length} ${items.length === 1 ? 'producto' : 'productos'} •`}
                             </span>
-                            <span className="font-medium">
-                              ₡{calcularImpuestos().toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                            </span>
+                            <span>TOTAL:</span>
                           </div>
-                        </>
-                      )}
-
-                      {/* Total - Siempre visible */}
-                      <div className={`${isMobile ? 'py-2' : 'border-t-2 border-gray-300 pt-2'
-                        } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}>
-                        <div>
-                          <span className={isMobile ? 'text-sm text-gray-600 block' : ''}>
-                            {isMobile && `${items.length} ${items.length === 1 ? 'producto' : 'productos'} •`}
-                          </span>
-                          <span>TOTAL:</span>
+                          <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+
+                      {/* Botones de acción */}
+                      <div className={`${isMobile ? 'space-y-2' : 'space-y-2'}`}>
+                        <button
+                          onClick={finalizarFactura}
+                          disabled={!clienteSeleccionado || items.length === 0 || loading}
+                          className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 ${isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
+                            }`}
+                        >
+                          {modoEdicion ? <Edit size={isMobile ? 24 : 20} /> : <Check size={isMobile ? 24 : 20} />}
+                          {loading ? 'Procesando...' : (modoEdicion ? (isMobile ? 'Guardar Cambios' : 'Guardar Cambios') : (isMobile ? 'Finalizar' : 'Finalizar Factura'))}
+                        </button>
+
+                        <button
+                          onClick={limpiarFactura}
+                          className="btn btn-outline w-full flex items-center justify-center gap-2"
+                        >
+                          <X size={20} />
+                          Cancelar
+                        </button>
                       </div>
                     </div>
-
-                    {/* Botones de acción */}
-                    <div className={`${isMobile ? 'space-y-2' : 'space-y-2'}`}>
-                      <button
-                        onClick={finalizarFactura}
-                        disabled={!clienteSeleccionado || items.length === 0 || loading}
-                        className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 ${isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
-                          }`}
-                      >
-                        {modoEdicion ? <Edit size={isMobile ? 24 : 20} /> : <Check size={isMobile ? 24 : 20} />}
-                        {loading ? 'Procesando...' : (modoEdicion ? (isMobile ? 'Guardar Cambios' : 'Guardar Cambios') : (isMobile ? 'Finalizar' : 'Finalizar Factura'))}
-                      </button>
-
-                      <button
-                        onClick={limpiarFactura}
-                        className="btn btn-outline w-full flex items-center justify-center gap-2"
-                      >
-                        <X size={20} />
-                        Cancelar
-                      </button>
-                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-          )}
-
-          {/* Bottom Sheet Móvil - Fijo fuera del scroll */}
-          {isMobile && (
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl border-t-2 border-blue-200">
-              <div className="px-4 pt-3 pb-safe">
-                {/* Total compacto */}
-                <div className="space-y-1 mb-3">
-                  <div className="py-2 flex justify-between text-lg font-bold text-gray-900">
-                    <div>
-                      <span className="text-sm text-gray-600 block">
-                        {items.length} {items.length === 1 ? 'producto' : 'productos'} •
-                      </span>
-                      <span>TOTAL:</span>
-                    </div>
-                    <span className="text-green-600">₡{calcularTotal().toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-
-                {/* Botón de finalizar */}
-                <button
-                  onClick={finalizarFactura}
-                  disabled={!clienteSeleccionado || items.length === 0 || loading}
-                  className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg`}
-                >
-                  {modoEdicion ? <Edit size={24} /> : <Check size={24} />}
-                  {loading ? 'Procesando...' : (modoEdicion ? 'Guardar Cambios' : 'Finalizar')}
-                </button>
+                )}
               </div>
             </div>
           )}
+
         </>
       )}
       {/* Fin del formulario de factura */}
@@ -1874,7 +1995,7 @@ export default function Facturacion() {
                 Cantidad
               </label>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 justify-center flex-nowrap">
                 {/* Botón menos */}
                 <button
                   type="button"
@@ -1882,39 +2003,41 @@ export default function Facturacion() {
                     const current = parseInt(cantidadSeleccionada) || 1;
                     if (current > 1) setCantidadSeleccionada((current - 1).toString());
                   }}
-                  className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-xl text-gray-700 font-bold text-2xl transition-colors"
+                  className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-2xl text-gray-700 font-extrabold text-3xl transition-colors"
                 >
-                  <Minus size={24} />
+                  <Minus size={28} />
                 </button>
 
-                {/* Input numérico */}
-                <input
-                  ref={cantidadMovilInputRef}
-                  type="number"
-                  min="1"
-                  value={cantidadSeleccionada}
-                  onChange={(e) => setCantidadSeleccionada(e.target.value)}
-                  onFocus={(e) => {
-                    e.target.select();
-                    // Ajustar scroll cuando aparece el teclado
-                    setTimeout(() => {
-                      e.target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                      });
-                    }, 300);
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      confirmarCantidadProducto();
-                    }
-                  }}
-                  placeholder="1"
-                  className="w-full max-w-[120px] text-center text-2xl font-bold border-2 border-gray-300 rounded-xl py-3 px-2 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                />
+                {/* Input numérico envuelto en contenedor de tamaño fijo */}
+                <div className="w-16 h-16 flex-shrink-0">
+                  <input
+                    ref={cantidadMovilInputRef}
+                    type="number"
+                    min="1"
+                    value={cantidadSeleccionada}
+                    onChange={(e) => setCantidadSeleccionada(e.target.value)}
+                    onFocus={(e) => {
+                      e.target.select();
+                      // Ajustar scroll cuando aparece el teclado
+                      setTimeout(() => {
+                        e.target.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'center'
+                        });
+                      }, 300);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmarCantidadProducto();
+                      }
+                    }}
+                    placeholder="1"
+                    className="w-full h-full text-center text-2xl font-black border-2 border-gray-350 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                  />
+                </div>
 
                 {/* Botón más */}
                 <button
@@ -1923,15 +2046,15 @@ export default function Facturacion() {
                     const current = parseInt(cantidadSeleccionada) || 0;
                     setCantidadSeleccionada((current + 1).toString());
                   }}
-                  className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl text-white font-bold text-2xl transition-colors"
+                  className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-2xl text-white font-extrabold text-3xl transition-colors"
                 >
-                  <Plus size={24} />
+                  <Plus size={28} />
                 </button>
               </div>
             </div>
 
             {/* Botones de acción */}
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <button
                 type="button"
                 onClick={() => {
@@ -1939,7 +2062,7 @@ export default function Facturacion() {
                   setProductoSeleccionadoCantidad(null);
                   setCantidadSeleccionada('');
                 }}
-                className="flex-1 py-4 px-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 active:bg-gray-400 transition-colors text-base"
+                className="flex-1 py-5 px-4 bg-gray-200 text-gray-800 rounded-2xl font-black hover:bg-gray-300 active:bg-gray-400 transition-colors text-lg"
               >
                 Cancelar
               </button>
@@ -1947,9 +2070,9 @@ export default function Facturacion() {
                 type="button"
                 onClick={confirmarCantidadProducto}
                 disabled={!cantidadSeleccionada || parseInt(cantidadSeleccionada) <= 0}
-                className="flex-1 py-4 px-4 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base shadow-lg"
+                className="flex-1 py-5 px-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-350 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-xl"
               >
-                <Check size={24} strokeWidth={3} />
+                <Check size={26} strokeWidth={3} />
                 Agregar
               </button>
             </div>

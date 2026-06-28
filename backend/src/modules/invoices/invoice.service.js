@@ -429,7 +429,7 @@ class InvoiceService {
           return {
             id: item.id,
             reference: itemReference,
-            description: item.description || item.name,
+            description: item.description || '',
             quantity: nuevaCantidad, // CANTIDAD AJUSTADA
             price: precioNuevo, // PRECIO ACTUALIZADO
             tax: item.tax,
@@ -441,7 +441,7 @@ class InvoiceService {
         return {
           id: item.id,
           reference: itemReference,
-          description: item.description || item.name,
+          description: item.description || '',
           quantity: item.quantity,
           price: item.price,
           tax: item.tax,
