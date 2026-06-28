@@ -718,14 +718,14 @@ export default function Facturacion() {
     // Permitir valores vacíos temporalmente mientras el usuario edita
     const nuevaCantidad = cantidad === '' ? '' : (parseInt(cantidad) || 1);
 
-    setItems(items.map((item, i) =>
+    setItems(prevItems => prevItems.map((item, i) =>
       i === index ? { ...item, quantity: nuevaCantidad } : item
     ));
   };
 
   const validarCantidadItem = (index) => {
     // Al perder foco, validar que la cantidad sea válida
-    setItems(items.map((item, i) => {
+    setItems(prevItems => prevItems.map((item, i) => {
       if (i === index) {
         const cantidad = parseInt(item.quantity) || 1;
         return { ...item, quantity: cantidad >= 1 ? cantidad : 1 };
@@ -1676,7 +1676,6 @@ export default function Facturacion() {
                                         const val = parseInt(item.quantity) || 1;
                                         if (val > 1) {
                                           actualizarCantidadItem(index, val - 1);
-                                          validarCantidadItem(index);
                                         }
                                       }}
                                       className="w-14 h-14 flex items-center justify-center bg-gray-100 active:bg-gray-200 text-gray-800 font-extrabold text-2xl"
@@ -1698,7 +1697,6 @@ export default function Facturacion() {
                                       onClick={() => {
                                         const val = parseInt(item.quantity) || 0;
                                         actualizarCantidadItem(index, val + 1);
-                                        validarCantidadItem(index);
                                       }}
                                       className="w-14 h-14 flex items-center justify-center bg-blue-100 active:bg-blue-200 text-blue-800 font-extrabold text-2xl"
                                     >
@@ -1799,7 +1797,6 @@ export default function Facturacion() {
                                         const val = parseInt(item.quantity) || 1;
                                         if (val > 1) {
                                           actualizarCantidadItem(index, val - 1);
-                                          validarCantidadItem(index);
                                         }
                                       }}
                                       className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-800 font-bold text-xl transition-colors flex-shrink-0"
@@ -1821,7 +1818,6 @@ export default function Facturacion() {
                                       onClick={() => {
                                         const val = parseInt(item.quantity) || 0;
                                         actualizarCantidadItem(index, val + 1);
-                                        validarCantidadItem(index);
                                       }}
                                       className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xl transition-colors flex-shrink-0"
                                     >
