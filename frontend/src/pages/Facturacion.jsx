@@ -227,14 +227,6 @@ export default function Facturacion() {
         if (cantidadMovilInputRef.current) {
           cantidadMovilInputRef.current.focus();
           cantidadMovilInputRef.current.select();
-
-          // Hacer scroll para asegurar que el input sea visible
-          setTimeout(() => {
-            cantidadMovilInputRef.current?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center'
-            });
-          }, 100);
         }
       }, 400);
 
@@ -260,9 +252,20 @@ export default function Facturacion() {
     const hoy = new Date();
     const dia = hoy.getDay(); // 0 = domingo, 1 = lunes
     if (dia === 0 || dia === 1) {
-      const fechaHoy = hoy.toISOString().split('T')[0];
-      const fechaOculta = localStorage.getItem(RECORDATORIO_ACTUALIZACION_KEY);
-      if (fechaOculta !== fechaHoy) {
+      // Calcular el domingo más reciente de este ciclo de fin de semana
+      const ultimoDomingo = new Date(hoy);
+      ultimoDomingo.setDate(hoy.getDate() - dia); // Si es lunes (1), retrocede al domingo. Si es domingo (0), queda igual.
+      ultimoDomingo.setHours(0, 0, 0, 0);
+
+      const fechaUltimaActualizacionStr = localStorage.getItem(RECORDATORIO_ACTUALIZACION_KEY);
+      if (fechaUltimaActualizacionStr) {
+        const fechaUltimaActualizacion = new Date(fechaUltimaActualizacionStr);
+        // Si la última actualización ocurrió antes del domingo de esta semana, mostrar recordatorio
+        if (fechaUltimaActualizacion < ultimoDomingo) {
+          setMostrarRecordatorioActualizacion(true);
+        }
+      } else {
+        // Si nunca se ha guardado una actualización, mostrar
         setMostrarRecordatorioActualizacion(true);
       }
     }
@@ -379,6 +382,10 @@ export default function Facturacion() {
       setCacheStats(stats);
 
       mostrarMensaje(`Catálogo actualizado: ${resultado.productos} productos, ${resultado.clientes} clientes, ${resultado.facturas} facturas`, 'success');
+
+      // Ocultar recordatorio guardando la fecha y hora de la actualización
+      localStorage.setItem(RECORDATORIO_ACTUALIZACION_KEY, new Date().toISOString());
+      setMostrarRecordatorioActualizacion(false);
 
     } catch (error) {
       console.error('Error actualizando cache:', error);
@@ -2018,13 +2025,6 @@ export default function Facturacion() {
                     onChange={(e) => setCantidadSeleccionada(e.target.value)}
                     onFocus={(e) => {
                       e.target.select();
-                      // Ajustar scroll cuando aparece el teclado
-                      setTimeout(() => {
-                        e.target.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'center'
-                        });
-                      }, 300);
                     }}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {

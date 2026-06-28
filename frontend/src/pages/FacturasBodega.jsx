@@ -331,6 +331,15 @@ export default function FacturasBodega() {
     return () => clearInterval(interval)
   }, [fetchFacturas, selectedFacturaId])
 
+  // 🆕 Scroll hacia arriba cuando se abre el detalle de una factura
+  useEffect(() => {
+    if (facturaSeleccionada) {
+      window.scrollTo(0, 0)
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  }, [facturaSeleccionada])
+
   const handleSeleccionarFactura = async (factura) => {
     setFacturaSeleccionada(factura)
     setSelectedFacturaId(factura.alegra_id)
