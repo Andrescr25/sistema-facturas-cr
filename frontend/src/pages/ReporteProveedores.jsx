@@ -209,9 +209,9 @@ export default function ReporteProveedores() {
       let productosParaPDF = []
 
       productosParaPDF = proveedor.productos_faltantes
-        .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.codigo}`))
+        .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`))
         .map(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
+          const key = `${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`
           const mod = cantidadesModificadas.get(key)
           const guardada = cantidadesGuardadas.get(key)
           const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
@@ -219,17 +219,19 @@ export default function ReporteProveedores() {
           const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
 
           return {
-            codigo: producto.codigo_proveedor || producto.codigo,
-            nombre: producto.nombre_proveedor || producto.nombre,
-            codigoInterno: producto.codigo,
-            nombreInterno: producto.nombre,
+            codigo: producto.codigo_proveedor || producto.producto_codigo || producto.codigo,
+            nombre: producto.nombre_proveedor || producto.producto_nombre || producto.nombre,
+            codigoInterno: producto.producto_codigo || producto.codigo || null,
+            nombreInterno: producto.producto_nombre || producto.nombre || null,
             codigoProveedor: producto.codigo_proveedor || null,
-            nombreProveedor: producto.nombre_proveedor || producto.nombre,
+            nombreProveedor: producto.nombre_proveedor || producto.producto_nombre || producto.nombre || null,
             cantidad: cantProv,
             cantidadOriginal: cantFinal,
             factorConversion: factorConversion,
             observaciones: producto.observaciones || '',
-            descripcionFactura: producto.descripcion_factura || ''
+            descripcionFactura: producto.descripcion_factura || '',
+            mappingId: producto.mapping_id || producto.mappingId || null,
+            alegraItemId: producto.alegra_item_id || producto.alegraItemId || null
           }
         })
         .filter(p => p.cantidad > 0)
@@ -291,9 +293,9 @@ export default function ReporteProveedores() {
       const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
 
       const productosParaPDF = proveedor.productos_faltantes
-        .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.codigo}`))
+        .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`))
         .map(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
+          const key = `${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`
           const mod = cantidadesModificadas.get(key)
           const guardada = cantidadesGuardadas.get(key)
           const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
@@ -301,12 +303,19 @@ export default function ReporteProveedores() {
           const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
 
           return {
-            codigo: producto.codigo_proveedor || producto.codigo,
-            nombre: producto.nombre_proveedor || producto.nombre,
+            codigo: producto.codigo_proveedor || producto.producto_codigo || producto.codigo,
+            nombre: producto.nombre_proveedor || producto.producto_nombre || producto.nombre,
+            codigoInterno: producto.producto_codigo || producto.codigo || null,
+            nombreInterno: producto.producto_nombre || producto.nombre || null,
+            codigoProveedor: producto.codigo_proveedor || null,
+            nombreProveedor: producto.nombre_proveedor || producto.producto_nombre || producto.nombre || null,
             cantidad: cantProv,
+            cantidadOriginal: cantFinal,
             factorConversion: factorConversion,
             observaciones: producto.observaciones || '',
-            descripcionFactura: producto.descripcion_factura || ''
+            descripcionFactura: producto.descripcion_factura || '',
+            mappingId: producto.mapping_id || producto.mappingId || null,
+            alegraItemId: producto.alegra_item_id || producto.alegraItemId || null
           }
         }).filter(p => p.cantidad > 0)
 

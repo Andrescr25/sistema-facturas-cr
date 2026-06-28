@@ -30,14 +30,14 @@ class ReportService {
                 spm.supplier_name,
                 spm.supplier_cedula,
                 pfp.precio_unitario,
-                (pfp.total_linea / NULLIF(pfp.cantidad, 0)) as calculated_cost,
+                ((pfp.total_linea / NULLIF(pfp.cantidad, 0)) / COALESCE(NULLIF(spm.factor_conversion, 0), 1)) as calculated_cost,
                 pfp.factura_id
             FROM supplier_product_mapping spm
             JOIN productos_factura_proveedor pfp ON pfp.mapeo_id = spm.id
             JOIN facturas_proveedores fp ON fp.id = pfp.factura_id
             ORDER BY 
                 spm.alegra_item_id, 
-                (pfp.total_linea / NULLIF(pfp.cantidad, 0)) ASC, -- Menor costo primero
+                ((pfp.total_linea / NULLIF(pfp.cantidad, 0)) / COALESCE(NULLIF(spm.factor_conversion, 0), 1)) ASC, -- Menor costo primero
                 fp.fecha_emision DESC
         )
         SELECT
