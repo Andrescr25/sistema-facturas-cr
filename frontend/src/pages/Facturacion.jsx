@@ -81,6 +81,25 @@ export default function Facturacion() {
   const cantidadInputRef = useRef(null);
   const busquedaProductoInputRef = useRef(null);
   const cantidadMovilInputRef = useRef(null);
+  const clienteCardRef = useRef(null);
+  const productoCardRef = useRef(null);
+
+  const scrollElementIntoView = (ref, block = 'center') => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block });
+    }
+  };
+
+  const enfocarYMostrarBusquedaProducto = () => {
+    setTimeout(() => {
+      if (modoEntradaRapida && !isMobile) {
+        codigoInputRef.current?.focus();
+      } else {
+        busquedaProductoInputRef.current?.focus();
+      }
+      scrollElementIntoView(productoCardRef, 'center');
+    }, 150);
+  };
 
   // Helper: Obtener reference como string (puede venir como objeto o string desde Alegra)
   const getReference = (ref) => {
@@ -233,6 +252,20 @@ export default function Facturacion() {
       return () => clearTimeout(timer);
     }
   }, [modalCantidadProducto]);
+
+  // Auto-focus y auto-scroll a productos cuando se selecciona un cliente
+  useEffect(() => {
+    if (clienteSeleccionado) {
+      setTimeout(() => {
+        if (modoEntradaRapida && codigoInputRef.current && !isMobile) {
+          codigoInputRef.current.focus();
+        } else if (busquedaProductoInputRef.current) {
+          busquedaProductoInputRef.current.focus();
+        }
+        scrollElementIntoView(productoCardRef, 'center');
+      }, 300);
+    }
+  }, [clienteSeleccionado, modoEntradaRapida, isMobile]);
 
   useEffect(() => {
     if (!impuestoPrincipal && impuestos.length > 0) {
@@ -636,10 +669,13 @@ export default function Facturacion() {
       if (producto && cantidad > 0) {
         agregarProductoAFactura(producto, cantidad);
 
-        // Limpiar y volver al código
+        // Limpiar y volver al código con scroll
         setCodigoProducto('');
         setCantidadProducto('');
-        codigoInputRef.current?.focus();
+        setTimeout(() => {
+          codigoInputRef.current?.focus();
+          scrollElementIntoView(productoCardRef, 'center');
+        }, 50);
       } else if (producto && cantidad <= 0) {
         mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
         cantidadInputRef.current?.select();
@@ -663,12 +699,8 @@ export default function Facturacion() {
       setProductoSeleccionadoCantidad(null);
       setCantidadSeleccionada('');
 
-      // Enfocar el input de búsqueda para continuar con el siguiente producto
-      setTimeout(() => {
-        if (busquedaProductoInputRef.current) {
-          busquedaProductoInputRef.current.focus();
-        }
-      }, 100);
+      // Enfocar el input de búsqueda y centrar tarjeta de productos
+      enfocarYMostrarBusquedaProducto();
     } else {
       mostrarMensaje('La cantidad debe ser mayor a 0', 'warning');
     }
@@ -1375,7 +1407,7 @@ export default function Facturacion() {
           {!clienteSeleccionado ? (
             /* PASO 1: Buscar Cliente */
             <div className={`${isMobile ? 'px-4' : 'max-w-3xl mx-auto'} mb-6`}>
-              <div className="card shadow-xl border-2 border-blue-100 p-6 md:p-8 bg-white rounded-2xl">
+              <div ref={clienteCardRef} className="card shadow-xl border-2 border-blue-100 p-6 md:p-8 bg-white rounded-2xl">
                 <div className="text-center mb-6">
                   <div className="inline-flex p-4 bg-blue-50 text-blue-600 rounded-full mb-3">
                     <Users size={isMobile ? 32 : 40} />
@@ -1390,8 +1422,17 @@ export default function Facturacion() {
                     type="text"
                     value={busquedaCliente}
                     onChange={(e) => {
-                      setBusquedaCliente(e.target.value);
-                      buscarClientesPorNombre(e.target.value);
+                      const val = e.target.value;
+                      setBusquedaCliente(val);
+                      buscarClientesPorNombre(val);
+                      if (val && !busquedaCliente) {
+                        scrollElementIntoView(clienteCardRef);
+                      }
+                    }}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollElementIntoView(clienteCardRef);
+                      }, 150);
                     }}
                     placeholder="Escribe el nombre del cliente..."
                     className="input w-full pl-12 pr-12 py-4 text-lg border-2 border-gray-300 focus:border-blue-500 rounded-xl"
@@ -1425,7 +1466,7 @@ export default function Facturacion() {
                         className={`w-full text-left ${isMobile ? 'p-6 py-6 border-2 border-blue-50 bg-blue-50/20' : 'p-4'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className={`font-black text-gray-950 ${isMobile ? 'text-xl' : 'text-lg md:text-xl'} leading-snug`}>{cliente.name}</p>
+                          <p className={`font-black text-gray-950 ${isMobile ? 'text-sm' : 'text-lg md:text-sm'} leading-snug`}>{cliente.name}</p>
                           <div className={`flex flex-wrap gap-x-4 gap-y-1 mt-2 text-gray-700 ${isMobile ? 'text-base font-medium' : 'text-sm'}`}>
                             {cliente.identification && (
                               <span>Cédula: <strong>{cliente.identification}</strong></span>
@@ -1495,7 +1536,7 @@ export default function Facturacion() {
                 </div>
 
                 {/* Entrada de Productos */}
-                <div className="card shadow-md p-6 rounded-2xl">
+                <div ref={productoCardRef} className="card shadow-md p-6 rounded-2xl">
                   <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
                     <Package size={22} className="text-blue-600" />
                     Agregar Productos
@@ -1536,7 +1577,18 @@ export default function Facturacion() {
                           ref={codigoInputRef}
                           type="text"
                           value={codigoProducto}
-                          onChange={(e) => setCodigoProducto(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCodigoProducto(val);
+                            if (val && !codigoProducto) {
+                              scrollElementIntoView(productoCardRef);
+                            }
+                          }}
+                          onFocus={() => {
+                            setTimeout(() => {
+                              scrollElementIntoView(productoCardRef);
+                            }, 150);
+                          }}
                           onKeyPress={handleCodigoKeyPress}
                           placeholder="Ingresa código y presiona Enter"
                           className="input w-full text-lg py-3 px-4 border-2 border-gray-300 focus:border-blue-500 rounded-xl"
@@ -1582,8 +1634,17 @@ export default function Facturacion() {
                           spellCheck="false"
                           value={busquedaProducto}
                           onChange={(e) => {
-                            setBusquedaProducto(e.target.value);
-                            buscarProductosPorNombre(e.target.value);
+                            const val = e.target.value;
+                            setBusquedaProducto(val);
+                            buscarProductosPorNombre(val);
+                            if (val && !busquedaProducto) {
+                              scrollElementIntoView(productoCardRef);
+                            }
+                          }}
+                          onFocus={() => {
+                            setTimeout(() => {
+                              scrollElementIntoView(productoCardRef);
+                            }, 150);
                           }}
                           placeholder="Buscar producto por código o nombre..."
                           className="input w-full pl-12 pr-12 py-4 text-lg border-2 border-gray-300 focus:border-blue-500 rounded-xl"
@@ -1611,15 +1672,15 @@ export default function Facturacion() {
                               onClick={() => {
                                 abrirModalCantidadProducto(producto);
                               }}
-                              className={`w-full text-left ${isMobile ? 'p-5 py-6 border-2 border-blue-50 bg-blue-50/10' : 'p-4'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
+                              className={`w-full text-left ${isMobile ? 'p-4 py-4 border-2 border-blue-50 bg-blue-50/10' : 'p-3'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
                             >
                               <div className="min-w-0 flex-1">
-                                <p className={`font-black text-gray-950 ${isMobile ? 'text-lg font-black' : 'font-bold text-base md:text-lg'} truncate`}>{producto.name}</p>
-                                <p className={`text-gray-650 truncate mt-1.5 ${isMobile ? 'text-sm font-medium' : 'text-sm'}`}>
+                                <p className={`font-bold text-gray-950 ${isMobile ? 'text-sm' : 'text-sm md:text-base'} truncate`}>{producto.name}</p>
+                                <p className={`text-gray-500 truncate mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                                   Ref: <strong>{getReference(producto.reference)}</strong>
                                 </p>
                                 {producto.price && (
-                                  <p className={`text-green-600 font-extrabold mt-2 ${isMobile ? 'text-xl' : 'text-base md:text-lg'}`}>
+                                  <p className={`text-green-600 font-bold mt-1.5 ${isMobile ? 'text-base' : 'text-sm md:text-base'}`}>
                                     ₡{producto.price.toLocaleString('es-CR')}
                                   </p>
                                 )}
@@ -1648,8 +1709,8 @@ export default function Facturacion() {
                         <div key={item.id} className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50 flex flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className={`font-black text-gray-955 leading-snug ${isMobile ? 'text-lg' : 'text-base md:text-lg'}`}>{item.name}</p>
-                              <p className={`text-gray-650 mt-1.5 ${isMobile ? 'text-sm font-medium' : 'text-xs'}`}>
+                              <p className={`font-bold text-gray-955 leading-snug ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{item.name}</p>
+                              <p className={`text-gray-500 mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                                 Código: <strong>{getReference(item.reference)}</strong>
                               </p>
                             </div>
@@ -1707,7 +1768,7 @@ export default function Facturacion() {
 
                                 {/* Precio y Subtotal en grande */}
                                 <div className="text-right flex flex-col justify-end h-full pt-4">
-                                  <span className="text-sm font-bold text-gray-500 block">
+                                  <span className="text-xs text-gray-500 block">
                                     ₡{item.price.toLocaleString('es-CR', { minimumFractionDigits: 2 })} c/u
                                   </span>
                                   {item.discount > 0 && (
@@ -1715,7 +1776,7 @@ export default function Facturacion() {
                                       Dcto: -{item.discount}%
                                     </span>
                                   )}
-                                  <span className="text-2xl font-black text-gray-950 block mt-1">
+                                  <span className="text-lg font-bold text-gray-950 block mt-0.5">
                                     ₡{((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                                   </span>
                                 </div>
@@ -1963,6 +2024,7 @@ export default function Facturacion() {
             setModalCantidadProducto(false);
             setProductoSeleccionadoCantidad(null);
             setCantidadSeleccionada('');
+            enfocarYMostrarBusquedaProducto();
           }}
         >
           <div
@@ -1978,7 +2040,7 @@ export default function Facturacion() {
 
             {/* Producto seleccionado */}
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
                 {productoSeleccionadoCantidad.name}
               </h3>
               <p className="text-sm text-gray-600 flex items-center gap-2">
@@ -1986,7 +2048,7 @@ export default function Facturacion() {
                 {getReference(productoSeleccionadoCantidad.reference)}
               </p>
               {productoSeleccionadoCantidad.price && (
-                <p className="text-2xl font-bold text-green-600 mt-3">
+                <p className="text-xl font-bold text-green-600 mt-2">
                   ₡{productoSeleccionadoCantidad.price.toLocaleString()}
                 </p>
               )}
@@ -2057,6 +2119,7 @@ export default function Facturacion() {
                   setModalCantidadProducto(false);
                   setProductoSeleccionadoCantidad(null);
                   setCantidadSeleccionada('');
+                  enfocarYMostrarBusquedaProducto();
                 }}
                 className="flex-1 py-5 px-4 bg-gray-200 text-gray-800 rounded-2xl font-black hover:bg-gray-300 active:bg-gray-400 transition-colors text-lg"
               >
