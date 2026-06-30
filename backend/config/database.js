@@ -26,6 +26,11 @@ const pool = new Pool({
   })
 });
 
+// Manejo de errores inesperados en el pool de conexiones (PgBouncer/Supabase)
+pool.on('error', (err) => {
+  console.error('⚠️ Error inesperado en el pool de conexiones de base de datos:', err.message);
+});
+
 // Debug para verificar la conexión
 console.log('🔍 Database: Conectando usando DATABASE_URL');
 if (process.env.DATABASE_URL) {

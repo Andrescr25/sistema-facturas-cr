@@ -6,6 +6,10 @@ const externalPool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+externalPool.on('error', (err) => {
+  console.error('⚠️ Error inesperado en el pool de conexiones externo:', err.message);
+});
+
 async function queryExternal(text, params) {
   const client = await externalPool.connect();
   try {
