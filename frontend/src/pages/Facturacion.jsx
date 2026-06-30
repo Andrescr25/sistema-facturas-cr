@@ -1705,7 +1705,7 @@ export default function Facturacion() {
                               className={`w-full text-left ${isMobile ? 'p-4 py-4 border-2 border-blue-50 bg-blue-50/10' : 'p-3'} rounded-xl hover:bg-blue-50 active:bg-blue-100 transition-colors flex items-center justify-between gap-4 mb-2`}
                             >
                               <div className="min-w-0 flex-1">
-                                <p className={`font-bold text-gray-950 ${isMobile ? 'text-sm' : 'text-sm md:text-base'} truncate`}>{producto.name}</p>
+                                <p className={`font-bold text-gray-950 leading-tight ${isMobile ? 'text-sm whitespace-normal break-words' : 'text-sm md:text-base truncate'}`}>{producto.name}</p>
                                 <p className={`text-gray-500 truncate mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                                   Ref: <strong>{getReference(producto.reference)}</strong>
                                 </p>
