@@ -118,6 +118,7 @@ const alegraRoutes = require('./routes/alegra');
 const revisionPreciosRoutes = require('./routes/revisionPrecios');
 const productosRevisionRoutes = require('./routes/productosRevision');
 const pagosProveedoresRoutes = require('./routes/pagosProveedores');
+const inventarioAuditoriasRoutes = require('./routes/inventarioAuditorias');
 
 // Módulos nuevos (arquitectura modular)
 const warehouseModule = require('./src/modules/warehouse');
@@ -134,6 +135,7 @@ app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosRoutes);
 app.use('/api/productos-revision', productosRevisionRoutes);
 app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
+app.use('/api/inventario-auditorias', inventarioAuditoriasRoutes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);

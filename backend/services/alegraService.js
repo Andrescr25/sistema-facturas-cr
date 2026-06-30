@@ -1408,6 +1408,18 @@ class AlegraService {
         }
     }
 
+    async createInventoryAdjustment(adjustmentData) {
+        try {
+            console.log('📦 Creando ajuste de inventario en Alegra...');
+            const response = await this.api.post('/inventory-adjustments', adjustmentData);
+            console.log(`✅ Ajuste de inventario creado: ID ${response.data.id}`);
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error creando ajuste de inventario en Alegra:', error.response?.data || error.message);
+            throw error;
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }

@@ -12,6 +12,7 @@ import Impresion from './pages/Impresion'
 import Configuracion from './pages/Configuracion'
 import PagosProveedores from './pages/PagosProveedores'
 import FacturasBodega from './pages/FacturasBodega'
+import InventarioAuditoria from './pages/InventarioAuditoria'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -61,6 +62,7 @@ function App() {
         <Route path="/impresion" element={<Impresion />} />
         <Route path="/pagos-proveedores" element={<PagosProveedores />} />
         <Route path="/configuracion" element={<Configuracion />} />
+        <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
       </Routes>
     </Layout>
   )

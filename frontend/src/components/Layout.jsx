@@ -24,6 +24,7 @@ export default function Layout({ children }) {
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Facturación', href: '/facturacion', icon: FileText },
     { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
+    { name: 'Auditoría Inventario', href: '/inventario-auditoria', icon: ClipboardList },
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
