@@ -1420,6 +1420,43 @@ class AlegraService {
         }
     }
 
+    async getInventariableItems() {
+        try {
+            console.log('Obteniendo ítems inventariables de Alegra...');
+            let allItems = [];
+            let currentPage = 1;
+            let hasMore = true;
+
+            while (hasMore) {
+                const response = await this.api.get('/items', {
+                    params: {
+                        start: (currentPage - 1) * 30,
+                        limit: 30,
+                        inventariable: true,
+                        status: 'active'
+                    }
+                });
+
+                const items = response.data;
+                allItems = allItems.concat(items);
+
+                hasMore = items.length === 30;
+                currentPage++;
+
+                if (currentPage % 5 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                if (currentPage > 100) break;
+            }
+
+            return allItems;
+        } catch (error) {
+            console.error('Error obteniendo ítems inventariables de Alegra:', error.message);
+            throw error;
+        }
+    }
+
     async disconnect() {
         await this.prisma.$disconnect();
     }

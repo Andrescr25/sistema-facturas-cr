@@ -46,44 +46,6 @@ async function inicializarTablas() {
 
 inicializarTablas();
 
-// Helper para obtener stocks en tiempo real desde Alegra
-async function fetchAlegraStocks(items) {
-  const enrichedItems = [];
-  const batchSize = 10;
-  
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    
-    await Promise.all(batch.map(async (item) => {
-      try {
-        const details = await alegraService.getProductById(item.alegra_id);
-        const quantity = details?.success !== false ? Number(details.inventory?.quantity ?? 0) : 0;
-        const cost = details?.success !== false ? Number(details.inventory?.unitCost ?? item.cost ?? 0) : Number(item.cost || 0);
-        
-        enrichedItems.push({
-          ...item,
-          stock_sistema: quantity,
-          costo_unitario: cost
-        });
-      } catch (err) {
-        console.warn(`Error obteniendo stock para producto ${item.alegra_id}:`, err.message);
-        enrichedItems.push({
-          ...item,
-          stock_sistema: 0,
-          costo_unitario: Number(item.cost || 0)
-        });
-      }
-    }));
-
-    // Esperar 150ms entre lotes para respetar rate limits de Alegra
-    if (i + batchSize < items.length) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-    }
-  }
-  
-  return enrichedItems;
-}
-
 // 1. GET / - Listar todas las auditorías
 router.get('/', async (req, res) => {
   try {
@@ -115,66 +77,63 @@ router.get('/categorias', async (req, res) => {
   }
 });
 
-// 3. POST / - Crear nueva auditoría
+// 3. POST / - Crear nueva auditoría usando stock y productos en vivo de Alegra
 router.post('/', async (req, res) => {
   const { tipo, categoria, nombre } = req.body; // tipo: 'random', 'categoria', 'critico'
 
   try {
+    console.log('Obteniendo catálogo de inventario en vivo directamente de Alegra...');
+    const allAlegraItems = await alegraService.getInventariableItems();
+    
+    // Mapear los ítems de Alegra a nuestro formato uniforme
+    const mappedItems = allAlegraItems.map(product => {
+      const mainPrice = product.price?.find(p => p.main === true) || product.price?.[0];
+      const price = mainPrice ? parseFloat(mainPrice.price) : 0;
+      const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
+      const reference = product.reference?.reference || product.reference || '';
+      const catName = product.itemCategory?.name || product.category?.name || '';
+      const stock = product.inventory?.availableQuantity ? parseFloat(product.inventory.availableQuantity) : 0;
+
+      return {
+        alegra_id: product.id,
+        name: product.name,
+        reference: reference,
+        category: catName,
+        costo_unitario: cost,
+        price: price,
+        stock_sistema: stock
+      };
+    });
+
     let candidateProducts = [];
 
     if (tipo === 'random') {
-      const dbRes = await query(`
-        SELECT alegra_id, name, reference, category, cost, price 
-        FROM alegra_products_cache 
-        WHERE status = 'active' AND type = 'product'
-        ORDER BY RANDOM() 
-        LIMIT 50;
-      `);
-      candidateProducts = dbRes.rows;
+      const shuffled = [...mappedItems].sort(() => 0.5 - Math.random());
+      candidateProducts = shuffled.slice(0, 50);
     } else if (tipo === 'categoria') {
       if (!categoria) {
         return res.status(400).json({ success: false, message: 'La categoría es requerida para este tipo de auditoría.' });
       }
-      const dbRes = await query(`
-        SELECT alegra_id, name, reference, category, cost, price 
-        FROM alegra_products_cache 
-        WHERE status = 'active' AND type = 'product' AND category = $1
-        ORDER BY name;
-      `, [categoria]);
-      candidateProducts = dbRes.rows;
+      candidateProducts = mappedItems.filter(item => item.category === categoria);
     } else if (tipo === 'critico') {
       const dbRes = await query(`
-        SELECT 
-          ap.alegra_id, ap.name, ap.reference, ap.category, ap.cost, ap.price
-        FROM alegra_products_cache ap
-        JOIN (
-          SELECT p.alegra_id, COUNT(*) as total_incidencias
-          FROM faltantes f
-          JOIN productos p ON f.producto_id = p.id
-          WHERE p.alegra_id IS NOT NULL
-          GROUP BY p.alegra_id
-        ) f_count ON ap.alegra_id::varchar = f_count.alegra_id::varchar
-        WHERE ap.status = 'active' AND ap.type = 'product'
-        ORDER BY f_count.total_incidencias DESC
+        SELECT p.alegra_id, COUNT(*) as total_incidencias
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        WHERE p.alegra_id IS NOT NULL
+        GROUP BY p.alegra_id
+        ORDER BY total_incidencias DESC
         LIMIT 30;
       `);
-      candidateProducts = dbRes.rows;
-
-      // Si hay muy pocos críticos, completar con aleatorios
-      if (candidateProducts.length < 10) {
-        const randomRes = await query(`
-          SELECT alegra_id, name, reference, category, cost, price 
-          FROM alegra_products_cache 
-          WHERE status = 'active' AND type = 'product' AND alegra_id NOT IN (
-            SELECT p.alegra_id::varchar
-            FROM faltantes f
-            JOIN productos p ON f.producto_id = p.id
-            WHERE p.alegra_id IS NOT NULL
-          )
-          ORDER BY RANDOM()
-          LIMIT $1;
-        `, [30 - candidateProducts.length]);
-        candidateProducts = candidateProducts.concat(randomRes.rows);
+      const criticalIds = new Set(dbRes.rows.map(row => row.alegra_id.toString()));
+      
+      candidateProducts = mappedItems.filter(item => criticalIds.has(item.alegra_id.toString()));
+      
+      if (candidateProducts.length < 30) {
+        const remainingCount = 30 - candidateProducts.length;
+        const notCritical = mappedItems.filter(item => !criticalIds.has(item.alegra_id.toString()));
+        const shuffledNotCritical = notCritical.sort(() => 0.5 - Math.random());
+        candidateProducts = candidateProducts.concat(shuffledNotCritical.slice(0, remainingCount));
       }
     } else {
       return res.status(400).json({ success: false, message: 'Tipo de auditoría no válido.' });
@@ -183,9 +142,6 @@ router.post('/', async (req, res) => {
     if (candidateProducts.length === 0) {
       return res.status(400).json({ success: false, message: 'No se encontraron productos para auditar.' });
     }
-
-    console.log(`Obteniendo stock en tiempo real para ${candidateProducts.length} productos de Alegra...`);
-    const enriched = await fetchAlegraStocks(candidateProducts);
 
     // Insertar la auditoría
     const nombreFinal = nombre || `Auditoría ${tipo === 'random' ? 'Aleatoria 50' : tipo === 'categoria' ? `Categoría: ${categoria}` : 'Críticos'} - ${new Date().toLocaleDateString('es-CR')}`;
@@ -199,7 +155,7 @@ router.post('/', async (req, res) => {
     const audit = auditRes.rows[0];
 
     // Insertar los ítems de la auditoría
-    for (const item of enriched) {
+    for (const item of candidateProducts) {
       await query(`
         INSERT INTO inventario_auditoria_items 
           (auditoria_id, alegra_id, nombre_producto, referencia, category, stock_sistema, costo_unitario, precio_venta)
