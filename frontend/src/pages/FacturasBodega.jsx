@@ -132,7 +132,7 @@ const buildDraftForFactura = (factura) => {
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
       alegra_id: item.alegra_id || item.id,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
-      tipo: null, // ✅ Sin marcar por defecto en facturas pendientes
+      tipo: factura.estado_bodega === 'procesado' ? 'ninguno' : null,
       cantidadFaltante: 0,
       observaciones: ''
     }
@@ -390,7 +390,7 @@ export default function FacturasBodega() {
             referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
             cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),
             tipo: (item.tipo_faltante === 'ninguno' && Number(item.cantidad_faltante || 0) === 0)
-              ? null
+              ? (factura.estado_bodega === 'procesado' ? 'ninguno' : null)
               : (item.tipo_faltante || null),
             cantidadFaltante: Number(item.cantidad_faltante || 0),
             observaciones: item.observaciones || ''
@@ -874,7 +874,7 @@ export default function FacturasBodega() {
                       {formatDate(factura.fecha_emision)}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{factura.cliente_nombre}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 whitespace-normal break-words leading-tight">{factura.cliente_nombre}</h3>
                 </div>
                 <div className="text-right">
                   <p className="text-base font-bold text-gray-800">{formatCurrency(factura.total)}</p>
@@ -945,7 +945,7 @@ export default function FacturasBodega() {
 
         <div className="flex items-start justify-between border-t pt-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 line-clamp-1">{facturaSeleccionada.cliente_nombre}</h2>
+            <h2 className="text-xl font-bold text-gray-900 whitespace-normal break-words leading-tight">{facturaSeleccionada.cliente_nombre}</h2>
             <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
               <CalendarDays size={12} />
               Emitido: {formatDate(facturaSeleccionada.fecha_emision)}
@@ -1007,6 +1007,19 @@ export default function FacturasBodega() {
                     Cantidad a despachar: {cantidadFactura}
                   </p>
                   <p className="text-xs text-gray-400">Referencia: {draft?.referencia || 'N/A'}</p>
+                  {(item.descripcion || item.description) && (
+                    <div className="mt-3 bg-amber-50 border-2 border-amber-200 text-amber-900 rounded-2xl p-3 shadow-sm flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5 text-amber-700">
+                        <AlertTriangle size={15} strokeWidth={2.5} />
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                          Nota adicional / Detalle
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold leading-relaxed text-amber-950 whitespace-pre-wrap">
+                        {item.descripcion || item.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1130,13 +1143,6 @@ export default function FacturasBodega() {
             </>
           )}
         </button>
-
-        {!allItemsChecked && (
-          <p className="text-xxs text-center text-amber-600 font-semibold bg-amber-50 py-1.5 rounded-lg border border-amber-100 flex items-center justify-center gap-1 animate-pulse">
-            <AlertTriangle size={12} />
-            Debes verificar todos los productos para poder finalizar.
-          </p>
-        )}
       </div>
     </div>
   )
