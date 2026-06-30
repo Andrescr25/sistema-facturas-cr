@@ -62,10 +62,10 @@ export default function Facturacion() {
   const [mensaje, setMensaje] = useState(null);
   const [mostrarRecordatorioActualizacion, setMostrarRecordatorioActualizacion] = useState(false);
 
-  // Modal de cantidad para móvil
   const [modalCantidadProducto, setModalCantidadProducto] = useState(false);
   const [productoSeleccionadoCantidad, setProductoSeleccionadoCantidad] = useState(null);
   const [cantidadSeleccionada, setCantidadSeleccionada] = useState('');
+  const [productoPreviewRapido, setProductoPreviewRapido] = useState(null);
 
   // Detalles colapsables por item en el carrito de compras (móvil)
   const [mostrarDetalles, setMostrarDetalles] = useState({});
@@ -645,13 +645,18 @@ export default function Facturacion() {
     if (e.key === 'Enter') {
       e.preventDefault();
 
+      setProductoPreviewRapido(null); // Limpiar previa anterior
+
       const producto = await buscarProductoPorCodigo(codigoProducto);
 
       if (producto) {
+        setProductoPreviewRapido(producto); // Cargar previa
         // Producto encontrado, pasar a cantidad (vacío para que el usuario ingrese)
         setCantidadProducto('');
-        cantidadInputRef.current?.focus();
-        cantidadInputRef.current?.select(); // Seleccionar todo el contenido
+        setTimeout(() => {
+          cantidadInputRef.current?.focus();
+          cantidadInputRef.current?.select(); // Seleccionar todo el contenido
+        }, 50);
       } else {
         mostrarMensaje(`Producto "${codigoProducto}" no encontrado`, 'error');
         setCodigoProducto('');
@@ -663,7 +668,8 @@ export default function Facturacion() {
     if (e.key === 'Enter') {
       e.preventDefault();
 
-      const producto = await buscarProductoPorCodigo(codigoProducto);
+      // Utilizar el producto ya cargado en la previa o buscarlo como fallback
+      const producto = productoPreviewRapido || await buscarProductoPorCodigo(codigoProducto);
       const cantidad = parseInt(cantidadProducto) || 0;
 
       if (producto && cantidad > 0) {
@@ -672,6 +678,7 @@ export default function Facturacion() {
         // Limpiar y volver al código con scroll
         setCodigoProducto('');
         setCantidadProducto('');
+        setProductoPreviewRapido(null);
         setTimeout(() => {
           codigoInputRef.current?.focus();
           scrollElementIntoView(productoCardRef, 'center');
@@ -992,6 +999,7 @@ export default function Facturacion() {
     setEsElectronica(false);
     setCodigoProducto('');
     setCantidadProducto('');
+    setProductoPreviewRapido(null);
     setBusquedaCliente('');
     setClientesEncontrados([]);
     setModoEdicion(false);
@@ -1580,6 +1588,7 @@ export default function Facturacion() {
                           onChange={(e) => {
                             const val = e.target.value;
                             setCodigoProducto(val);
+                            setProductoPreviewRapido(null);
                             if (val && !codigoProducto) {
                               scrollElementIntoView(productoCardRef);
                             }
@@ -1596,6 +1605,27 @@ export default function Facturacion() {
                           autoFocus
                         />
                       </div>
+
+                      {/* Vista previa del producto detectado */}
+                      {productoPreviewRapido && (
+                        <div className="bg-blue-50/50 border-2 border-blue-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs text-blue-700 font-bold uppercase tracking-wider block mb-1">Producto Detectado</span>
+                            <h4 className="font-bold text-gray-900 text-base truncate">{productoPreviewRapido.name}</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Ref: <strong>{getReference(productoPreviewRapido.reference)}</strong>
+                            </p>
+                          </div>
+                          {productoPreviewRapido.price && (
+                            <div className="text-right">
+                              <span className="text-xs text-gray-405 block mb-1">Precio Unitario</span>
+                              <span className="text-lg font-black text-green-600 block">
+                                ₡{productoPreviewRapido.price.toLocaleString('es-CR')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div>
                         <label className="label text-sm font-semibold text-gray-700">Cantidad</label>
