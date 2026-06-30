@@ -10,7 +10,6 @@ import RevisionPrecios from './pages/RevisionPrecios'
 import GestionarRelaciones from './pages/GestionarRelaciones'
 import Impresion from './pages/Impresion'
 import Configuracion from './pages/Configuracion'
-import RotacionProductos from './pages/RotacionProductos'
 import PagosProveedores from './pages/PagosProveedores'
 import FacturasBodega from './pages/FacturasBodega'
 
@@ -61,7 +60,6 @@ function App() {
         <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
         <Route path="/impresion" element={<Impresion />} />
         <Route path="/pagos-proveedores" element={<PagosProveedores />} />
-        <Route path="/rotacion-productos" element={<RotacionProductos />} />
         <Route path="/configuracion" element={<Configuracion />} />
       </Routes>
     </Layout>

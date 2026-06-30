@@ -15,8 +15,6 @@ router.use((req, res, next) => {
 });
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService(); // Instanciar la clase
-const { obtenerRotacionProductos } = require('../services/rotacionProductosService');
-const { registrarRotacionProducto } = require('../services/rotacionProductosAggregator');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -2477,21 +2475,6 @@ router.post('/facturas/:id/faltantes', async (req, res) => {
         return null;
       })();
 
-      try {
-        await registrarRotacionProducto({
-          productoId,
-          productoCodigo: productoInfo?.codigo || codigoReferenceParaMapping,
-          productoNombre: nombre_producto || productoInfo?.nombre, // ✅ CORREGIDO: Priorizar nombre de Alegra (factura original)
-          proveedorId: productoInfo?.proveedor_id,
-          proveedorNombre: productoInfo?.proveedor_nombre,
-          fechaReferencia: facturaAlegra.data.date,
-          cantidadFaltante: cantidad_faltante,
-          costoUnitario,
-          precioVentaUnitario: precioVentaUnitario !== null ? precioVentaUnitario : costoUnitario || 0
-        });
-      } catch (rotacionError) {
-        console.error('⚠️ Error registrando rotación de producto:', rotacionError.message);
-      }
     }
 
     if (observaciones_adicionales) {
@@ -2774,27 +2757,6 @@ router.get('/reportes/faltantes/proveedor', async (req, res) => {
   }
 });
 
-router.get('/reportes/rotacion/productos', async (req, res) => {
-  try {
-    const { semanas, limite } = req.query;
-    const resultado = await obtenerRotacionProductos({ semanas, limite });
-
-    res.json({
-      success: true,
-      data: resultado.productos,
-      resumen: resultado.resumen,
-      insights: resultado.insights,
-      filtros: resultado.filtros,
-    });
-  } catch (error) {
-    console.error('❌ Error generando rotación de productos:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generando rotación de productos',
-      error: error.message,
-    });
-  }
-});
 
 // Reporte de faltantes por cliente - MODIFICADO
 router.get('/reportes/faltantes/cliente', async (req, res) => {

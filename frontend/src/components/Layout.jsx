@@ -11,7 +11,6 @@ import {
   Settings,
   Menu,
   X,
-  Brain,
   CreditCard,
   ClipboardList
 } from 'lucide-react'
@@ -29,7 +28,6 @@ export default function Layout({ children }) {
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
     { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
-    { name: 'Rotación Productos', href: '/rotacion-productos', icon: Brain },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Impresión', href: '/impresion', icon: Printer },
     { name: 'Configuración', href: '/configuracion', icon: Settings }
