@@ -46,22 +46,22 @@ export default function InventarioAuditoria() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Active states
   const [auditoriaActiva, setAuditoriaActiva] = useState(null);
   const [conteosDraft, setConteosDraft] = useState({}); // { itemId: stock_real }
   const [observacionesFinales, setObservacionesFinales] = useState('');
-  
+
   // Modal states
   const [showNewModal, setShowNewModal] = useState(false);
   const [newAuditTipo, setNewAuditTipo] = useState('random');
   const [newAuditCategoria, setNewAuditCategoria] = useState('');
   const [newAuditNombre, setNewAuditNombre] = useState('');
-  
+
   // Search & filter states for audit execution
   const [executionSearch, setExecutionSearch] = useState('');
   const [executionFilter, setExecutionFilter] = useState('todos'); // 'todos', 'pendiente', 'correcto', 'descuadre'
-  
+
   // Alegra adjustment state
   const [loadingAjuste, setLoadingAjuste] = useState(false);
   const [successAjuste, setSuccessAjuste] = useState(null);
@@ -75,7 +75,7 @@ export default function InventarioAuditoria() {
       if (data.success) {
         setAuditorias(data.data);
       }
-      
+
       const cats = await getCategorias();
       if (cats.success) {
         setCategorias(cats.data);
@@ -101,10 +101,10 @@ export default function InventarioAuditoria() {
     if (finalizadas.length === 0) {
       return { precision: 100, descuadre: 0, total: 0 };
     }
-    
+
     const sumPrecision = finalizadas.reduce((acc, curr) => acc + Number(curr.precision_porcentaje || 0), 0);
     const sumDescuadre = finalizadas.reduce((acc, curr) => acc + Number(curr.descuadre_dinero || 0), 0);
-    
+
     return {
       precision: sumPrecision / finalizadas.length,
       descuadre: sumDescuadre,
@@ -172,10 +172,10 @@ export default function InventarioAuditoria() {
         id: Number(id),
         stock_real: val !== '' ? Number(val) : null
       }));
-      
+
       const result = await guardarConteos(auditoriaActiva.id, itemsPayload);
       if (result.success) {
-        alert('📝 Borrador guardado correctamente.');
+        alert('Borrador guardado correctamente.');
         // Refresh detail
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
         if (updatedDetail.success) {
@@ -193,11 +193,11 @@ export default function InventarioAuditoria() {
   // Finalize audit
   const handleFinalize = async () => {
     if (!auditoriaActiva) return;
-    
+
     // Check if there are empty counts
     const emptyCount = Object.values(conteosDraft).some(val => val === '');
     if (emptyCount) {
-      const confirm = window.confirm('⚠️ Hay productos sin conteo real. Se asumirá que coinciden con el stock de sistema. ¿Desea continuar?');
+      const confirm = window.confirm('Hay productos sin conteo real. Se asumirá que coinciden con el stock de sistema. ¿Desea continuar?');
       if (!confirm) return;
     }
 
@@ -213,7 +213,7 @@ export default function InventarioAuditoria() {
       // Finalize
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales);
       if (result.success) {
-        alert('✅ Auditoría finalizada con éxito.');
+        alert('Auditoría finalizada con éxito.');
         // Refresh details and dashboard list
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
         if (updatedDetail.success) {
@@ -235,8 +235,8 @@ export default function InventarioAuditoria() {
   // Send adjustments to Alegra API
   const handleApplyAlegraAdjustment = async () => {
     if (!auditoriaActiva) return;
-    
-    const confirm = window.confirm('⚠️ Esto enviará una transacción de Ajuste de Inventario a Alegra y actualizará de forma irreversible el stock de los productos. ¿Está completamente seguro?');
+
+    const confirm = window.confirm('Esto enviará una transacción de Ajuste de Inventario a Alegra y actualizará de forma irreversible el stock de los productos. ¿Está completamente seguro?');
     if (!confirm) return;
 
     setLoadingAjuste(true);
@@ -266,19 +266,19 @@ export default function InventarioAuditoria() {
   // Filter items in active audit
   const filteredItems = useMemo(() => {
     if (!auditoriaActiva || !auditoriaActiva.items) return [];
-    
+
     return auditoriaActiva.items.filter(item => {
       // 1. Search text
-      const searchMatch = 
+      const searchMatch =
         item.nombre_producto.toLowerCase().includes(executionSearch.toLowerCase()) ||
         (item.referencia && item.referencia.toLowerCase().includes(executionSearch.toLowerCase()));
-      
+
       if (!searchMatch) return false;
-      
+
       // 2. Filter status
       const conteoReal = conteosDraft[item.id];
       const stockSistema = Number(item.stock_sistema);
-      
+
       if (executionFilter === 'pendiente') {
         return conteoReal === '';
       }
@@ -288,7 +288,7 @@ export default function InventarioAuditoria() {
       if (executionFilter === 'descuadre') {
         return conteoReal !== '' && Number(conteoReal) !== stockSistema;
       }
-      
+
       return true;
     });
   }, [auditoriaActiva, executionSearch, executionFilter, conteosDraft]);
@@ -296,11 +296,11 @@ export default function InventarioAuditoria() {
   // Items count summaries
   const itemsStats = useMemo(() => {
     if (!auditoriaActiva || !auditoriaActiva.items) return { total: 0, pendientes: 0, correctos: 0, descuadres: 0 };
-    
+
     let pendientes = 0;
     let correctos = 0;
     let descuadres = 0;
-    
+
     auditoriaActiva.items.forEach(item => {
       const conteo = conteosDraft[item.id];
       const stockSistema = Number(item.stock_sistema);
@@ -312,7 +312,7 @@ export default function InventarioAuditoria() {
         descuadres++;
       }
     });
-    
+
     return {
       total: auditoriaActiva.items.length,
       pendientes,
@@ -372,7 +372,7 @@ export default function InventarioAuditoria() {
               Controla el inventario de la distribuidora mediante auditorías selectivas cíclicas de stock en tiempo real.
             </p>
           </div>
-          
+
           <button
             onClick={() => setShowNewModal(true)}
             className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition-all transform active:scale-95"
@@ -396,7 +396,7 @@ export default function InventarioAuditoria() {
               </h3>
             </div>
           </div>
-          
+
           {/* KPI 2 */}
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
             <div className={`p-4 rounded-2xl ${kpis.descuadre >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
@@ -409,7 +409,7 @@ export default function InventarioAuditoria() {
               </h3>
             </div>
           </div>
-          
+
           {/* KPI 3 */}
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-gray-50 rounded-2xl text-gray-600">
@@ -428,7 +428,7 @@ export default function InventarioAuditoria() {
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
             <h2 className="text-xl font-bold text-gray-900">Historial de Sesiones</h2>
-            <button 
+            <button
               onClick={loadDashboard}
               className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
               title="Recargar"
@@ -436,7 +436,7 @@ export default function InventarioAuditoria() {
               <RefreshCw size={18} className={loading ? 'animate-spin text-emerald-600' : ''} />
             </button>
           </div>
-          
+
           {loading && auditorias.length === 0 ? (
             <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-3">
               <RefreshCw className="animate-spin text-emerald-600" size={32} />
@@ -451,69 +451,117 @@ export default function InventarioAuditoria() {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                    <th className="px-6 py-4">Nombre / Sesión</th>
-                    <th className="px-6 py-4">Tipo</th>
-                    <th className="px-6 py-4">Fecha</th>
-                    <th className="px-6 py-4">Estado</th>
-                    <th className="px-6 py-4 text-right">Precisión</th>
-                    <th className="px-6 py-4 text-right">Descuadre</th>
-                    <th className="px-6 py-4"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {auditorias.map((audit) => (
-                    <tr 
-                      key={audit.id} 
-                      className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
-                      onClick={() => handleSelectAuditoria(audit.id)}
-                    >
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{audit.nombre}</p>
-                        {audit.categoria && (
-                          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">
-                            {audit.categoria}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 capitalize text-gray-600 font-medium">
-                        {audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
-                      </td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {formatDate(audit.fecha_creacion)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${
-                          audit.estado === 'finalizado' 
-                            ? 'bg-green-50 text-green-700 border border-green-150' 
-                            : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
-                        }`}>
-                          {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-extrabold text-gray-900">
-                        {audit.estado === 'finalizado' ? `${Number(audit.precision_porcentaje).toFixed(1)}%` : '—'}
-                      </td>
-                      <td className={`px-6 py-4 text-right font-extrabold ${
-                        audit.estado !== 'finalizado' 
-                          ? 'text-gray-400' 
-                          : Number(audit.descuadre_dinero) >= 0 
-                            ? 'text-blue-600' 
-                            : 'text-red-600'
+            <>
+              {/* Mobile Card List */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {auditorias.map((audit) => (
+                  <div
+                    key={audit.id}
+                    onClick={() => handleSelectAuditoria(audit.id)}
+                    className="p-4 active:bg-gray-50 flex flex-col gap-2.5 cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-gray-900">{audit.nombre}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(audit.fecha_creacion)}</p>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        audit.estado === 'finalizado'
+                          ? 'bg-green-50 text-green-700 border border-green-150'
+                          : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
                       }`}>
-                        {audit.estado === 'finalizado' ? formatCurrency(audit.descuadre_dinero) : '—'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <ChevronRight className="text-gray-400 group-hover:text-emerald-600 transition-colors inline-block" size={20} />
-                      </td>
+                        {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-500">
+                        Tipo: <strong className="text-gray-700 capitalize">{audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}</strong>
+                        {audit.categoria && ` (${audit.categoria})`}
+                      </span>
+                      
+                      <div className="text-right">
+                        {audit.estado === 'finalizado' ? (
+                          <div className="flex flex-col items-end">
+                            <span className="font-extrabold text-gray-900">Precisión: {Number(audit.precision_porcentaje).toFixed(1)}%</span>
+                            <span className={`font-extrabold text-xs ${Number(audit.descuadre_dinero) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                              {formatCurrency(audit.descuadre_dinero)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">Conteo en curso</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                      <th className="px-6 py-4">Nombre / Sesión</th>
+                      <th className="px-6 py-4">Tipo</th>
+                      <th className="px-6 py-4">Fecha</th>
+                      <th className="px-6 py-4">Estado</th>
+                      <th className="px-6 py-4 text-right">Precisión</th>
+                      <th className="px-6 py-4 text-right">Descuadre</th>
+                      <th className="px-6 py-4"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-sm">
+                    {auditorias.map((audit) => (
+                      <tr
+                        key={audit.id}
+                        className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
+                        onClick={() => handleSelectAuditoria(audit.id)}
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{audit.nombre}</p>
+                          {audit.categoria && (
+                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">
+                              {audit.categoria}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 capitalize text-gray-600 font-medium">
+                          {audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {formatDate(audit.fecha_creacion)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${
+                            audit.estado === 'finalizado'
+                              ? 'bg-green-50 text-green-700 border border-green-150'
+                              : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
+                          }`}>
+                            {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-extrabold text-gray-900">
+                          {audit.estado === 'finalizado' ? `${Number(audit.precision_porcentaje).toFixed(1)}%` : '—'}
+                        </td>
+                        <td className={`px-6 py-4 text-right font-extrabold ${
+                          audit.estado !== 'finalizado'
+                            ? 'text-gray-400'
+                            : Number(audit.descuadre_dinero) >= 0
+                              ? 'text-blue-600'
+                              : 'text-red-600'
+                        }`}>
+                          {audit.estado === 'finalizado' ? formatCurrency(audit.descuadre_dinero) : '—'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <ChevronRight className="text-gray-400 group-hover:text-emerald-600 transition-colors inline-block" size={20} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
@@ -521,7 +569,7 @@ export default function InventarioAuditoria() {
         {showNewModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowNewModal(false)} />
-            
+
             <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-6 transform transition-all border border-gray-150">
               <div className="flex items-center justify-between border-b pb-3">
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -541,7 +589,6 @@ export default function InventarioAuditoria() {
                     type="text"
                     value={newAuditNombre}
                     onChange={(e) => setNewAuditNombre(e.target.value)}
-                    placeholder="Ej: Conteo Matutino Desechables"
                     className="input w-full py-2.5 px-3 border-2 border-gray-300 focus:border-emerald-500 rounded-xl text-base"
                   />
                 </div>
@@ -553,11 +600,10 @@ export default function InventarioAuditoria() {
                     <button
                       type="button"
                       onClick={() => setNewAuditTipo('random')}
-                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${
-                        newAuditTipo === 'random' 
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${newAuditTipo === 'random'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
                           : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                      }`}
+                        }`}
                     >
                       <span className="text-xs font-bold uppercase tracking-wide">Random 50</span>
                     </button>
@@ -565,11 +611,10 @@ export default function InventarioAuditoria() {
                     <button
                       type="button"
                       onClick={() => setNewAuditTipo('categoria')}
-                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${
-                        newAuditTipo === 'categoria' 
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${newAuditTipo === 'categoria'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
                           : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                      }`}
+                        }`}
                     >
                       <span className="text-xs font-bold uppercase tracking-wide">Categoría</span>
                     </button>
@@ -577,11 +622,10 @@ export default function InventarioAuditoria() {
                     <button
                       type="button"
                       onClick={() => setNewAuditTipo('critico')}
-                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${
-                        newAuditTipo === 'critico' 
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800' 
+                      className={`p-3 rounded-2xl border-2 flex flex-col items-center gap-1.5 justify-center transition-all ${newAuditTipo === 'critico'
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
                           : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                      }`}
+                        }`}
                     >
                       <span className="text-xs font-bold uppercase tracking-wide">Críticos 30</span>
                     </button>
@@ -635,7 +679,7 @@ export default function InventarioAuditoria() {
   const esActiva = auditoriaActiva.estado === 'en_progreso';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 px-4 pb-20">
+    <div className="max-w-6xl mx-auto space-y-6 px-4 pb-28 sm:pb-20">
       {/* Header back button */}
       <div className="flex items-center justify-between">
         <button
@@ -648,9 +692,8 @@ export default function InventarioAuditoria() {
           <ArrowLeft size={20} />
           Volver a auditorías
         </button>
-        <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${
-          esActiva ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' : 'bg-green-50 text-green-700 border border-green-150'
-        }`}>
+        <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${esActiva ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' : 'bg-green-50 text-green-700 border border-green-150'
+          }`}>
           {esActiva ? 'En Progreso' : 'Finalizada'}
         </span>
       </div>
@@ -698,46 +741,42 @@ export default function InventarioAuditoria() {
               className="input w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-base"
             />
           </div>
-          
+
           {/* Status filters */}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setExecutionFilter('todos')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                executionFilter === 'todos' 
-                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm' 
+              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'todos'
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+                }`}
             >
               Todos ({itemsStats.total})
             </button>
             <button
               onClick={() => setExecutionFilter('pendiente')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                executionFilter === 'pendiente' 
-                  ? 'bg-amber-600 border-amber-600 text-white shadow-sm' 
+              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'pendiente'
+                  ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+                }`}
             >
               Pendientes ({itemsStats.pendientes})
             </button>
             <button
               onClick={() => setExecutionFilter('correcto')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                executionFilter === 'correcto' 
-                  ? 'bg-green-600 border-green-600 text-white shadow-sm' 
+              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'correcto'
+                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+                }`}
             >
               Coincide ({itemsStats.correctos})
             </button>
             <button
               onClick={() => setExecutionFilter('descuadre')}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                executionFilter === 'descuadre' 
-                  ? 'bg-red-600 border-red-600 text-white shadow-sm' 
+              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'descuadre'
+                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+                }`}
             >
               Descuadre ({itemsStats.descuadres})
             </button>
@@ -751,7 +790,7 @@ export default function InventarioAuditoria() {
           {/* Left / Middle: Products counting sheet */}
           <div className="md:col-span-2 space-y-4">
             <h3 className="text-lg font-bold text-gray-900">Hoja de Conteo Físico ({filteredItems.length} mostrados)</h3>
-            
+
             {filteredItems.length === 0 ? (
               <div className="bg-white p-12 text-center text-gray-400 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-3">
                 <Search size={32} className="text-gray-300" />
@@ -762,16 +801,16 @@ export default function InventarioAuditoria() {
                 {filteredItems.map(item => {
                   const conteoRaw = conteosDraft[item.id];
                   const stockSis = Number(item.stock_sistema);
-                  
+
                   // Compute state classes
                   let cardBorder = 'border-gray-100 hover:border-gray-200';
                   let badge = <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-md uppercase">Pendiente</span>;
                   let financialNode = null;
-                  
+
                   if (conteoRaw !== '') {
                     const diff = Number(conteoRaw) - stockSis;
                     const diffCost = diff * Number(item.costo_unitario || 0);
-                    
+
                     if (diff === 0) {
                       cardBorder = 'border-green-300 bg-green-50/20';
                       badge = <span className="bg-green-150 text-green-700 text-xs font-extrabold px-2.5 py-0.5 rounded-md uppercase">Coincide</span>;
@@ -786,44 +825,48 @@ export default function InventarioAuditoria() {
                     }
                   }
 
-                  return (
-                    <div key={item.id} className={`bg-white p-4 rounded-3xl border shadow-sm transition-all flex items-center justify-between gap-4 ${cardBorder}`}>
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="font-bold text-gray-900 truncate leading-snug">{item.nombre_producto}</h4>
-                          {badge}
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          Ref: <strong className="text-gray-600 font-semibold">{item.referencia || 'N/A'}</strong> 
-                          {item.category && ` • Cat: ${item.category}`}
-                        </p>
-                      </div>
-
-                      {/* Stock Comparison area */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        {/* Cost impact */}
-                        {financialNode}
-                        
-                        {/* Expected stock */}
-                        <div className="text-center bg-gray-50 px-3 py-1.5 rounded-2xl border border-gray-150 min-w-[70px]">
-                          <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 block">Sistema</span>
-                          <span className="text-sm font-extrabold text-gray-700">{stockSis}</span>
-                        </div>
-                        
-                        {/* Input stock real */}
-                        <div className="text-center min-w-[90px]">
-                          <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 block mb-0.5">Conteo Real</span>
-                          <input
-                            type="number"
-                            value={conteoRaw}
-                            min="0"
-                            onChange={(e) => handleConteoChange(item.id, e.target.value)}
-                            placeholder="Cantidad"
-                            className="w-20 text-center py-1 px-2 border-2 border-gray-300 focus:border-emerald-500 rounded-xl font-extrabold text-sm focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                   return (
+                     <div key={item.id} className={`bg-white p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${cardBorder}`}>
+                       <div className="space-y-1 min-w-0 flex-1">
+                         <div className="flex flex-wrap items-center gap-2">
+                           <h4 className="font-bold text-gray-900 leading-snug">{item.nombre_producto}</h4>
+                           {badge}
+                         </div>
+                         <p className="text-xs text-gray-400">
+                           Ref: <strong className="text-gray-600 font-semibold">{item.referencia || 'N/A'}</strong>
+                           {item.category && ` • Cat: ${item.category}`}
+                         </p>
+                       </div>
+ 
+                       {/* Stock Comparison area */}
+                       <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-150 shrink-0 w-full sm:w-auto">
+                         {/* Cost impact */}
+                         <div className="flex items-center">
+                           {financialNode}
+                         </div>
+ 
+                         <div className="flex items-center gap-3">
+                           {/* Expected stock */}
+                           <div className="text-center bg-gray-50 px-3 py-1.5 rounded-2xl border border-gray-150 min-w-[70px]">
+                             <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 block">Sistema</span>
+                             <span className="text-sm font-extrabold text-gray-700">{stockSis}</span>
+                           </div>
+ 
+                           {/* Input stock real */}
+                           <div className="text-center min-w-[90px]">
+                             <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 block mb-0.5">Conteo Real</span>
+                             <input
+                               type="number"
+                               value={conteoRaw}
+                               min="0"
+                               onChange={(e) => handleConteoChange(item.id, e.target.value)}
+                               placeholder="Cantidad"
+                               className="w-20 text-center py-1 px-2 border-2 border-gray-300 focus:border-emerald-500 rounded-xl font-extrabold text-sm focus:outline-none bg-white"
+                             />
+                           </div>
+                         </div>
+                       </div>
+                     </div>
                   );
                 })}
               </div>
@@ -837,7 +880,7 @@ export default function InventarioAuditoria() {
                 <CheckSquare className="text-emerald-600" size={18} />
                 Progreso del Conteo
               </h3>
-              
+
               {/* Progress bar */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold text-gray-500">
@@ -845,7 +888,7 @@ export default function InventarioAuditoria() {
                   <span>{itemsStats.total - itemsStats.pendientes} / {itemsStats.total}</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-emerald-500 h-full rounded-full transition-all duration-300"
                     style={{ width: `${((itemsStats.total - itemsStats.pendientes) / itemsStats.total) * 100}%` }}
                   />
@@ -937,7 +980,7 @@ export default function InventarioAuditoria() {
                   Detalle de Ajustes Requeridos ({adjustmentsPreview.length} discrepancias)
                 </h3>
               </div>
-              
+
               {adjustmentsPreview.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
                   <CheckCircle2 size={36} className="text-green-500 mx-auto mb-2" />
@@ -951,20 +994,18 @@ export default function InventarioAuditoria() {
                       <div className="space-y-0.5">
                         <p className="font-bold text-gray-900">{adj.nombre}</p>
                         <p className="text-xs text-gray-400">
-                          Ref: <strong className="text-gray-600 font-semibold">{adj.referencia || 'N/A'}</strong> 
+                          Ref: <strong className="text-gray-600 font-semibold">{adj.referencia || 'N/A'}</strong>
                           {adj.costo_unitario > 0 && ` • Costo: ${formatCurrency(adj.costo_unitario)}`}
                         </p>
                       </div>
-                      
+
                       <div className="text-right shrink-0">
-                        <span className={`inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase ${
-                          adj.diferencia > 0 ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase ${adj.diferencia > 0 ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                          }`}>
                           {adj.diferencia > 0 ? `+${adj.diferencia}` : adj.diferencia} unid.
                         </span>
-                        <p className={`text-xs font-bold mt-1 ${
-                          adj.diferencia > 0 ? 'text-blue-600' : 'text-red-600'
-                        }`}>
+                        <p className={`text-xs font-bold mt-1 ${adj.diferencia > 0 ? 'text-blue-600' : 'text-red-600'
+                          }`}>
                           {adj.diferencia > 0 ? '+' : ''}{formatCurrency(adj.impacto_dinero)}
                         </p>
                       </div>
@@ -1011,13 +1052,46 @@ export default function InventarioAuditoria() {
                 {loadingAjuste ? <RefreshCw className="animate-spin" size={18} /> : <CheckCircle size={18} />}
                 {loadingAjuste ? 'Sincronizando...' : 'Ajustar Inventario en Alegra'}
               </button>
-              
+
               {adjustmentsPreview.length === 0 && (
                 <p className="text-[10px] text-gray-400 text-center">
                   * No se requieren ajustes ya que no hay discrepancias.
                 </p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Floating Action Summary Bar (Sticky at the bottom of the viewport) */}
+      {esActiva && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3.5 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] md:hidden flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Conteo: {itemsStats.total - itemsStats.pendientes}/{itemsStats.total}
+            </p>
+            <p className={`text-xs font-extrabold ${liveFinancialImpact >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              {formatCurrency(liveFinancialImpact)}
+            </p>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveDraft}
+              disabled={loading}
+              className="bg-gray-50 text-gray-700 active:bg-gray-150 p-2.5 rounded-xl border border-gray-200"
+              title="Guardar Borrador"
+            >
+              <Save size={20} />
+            </button>
+            <button
+              onClick={handleFinalize}
+              disabled={loading}
+              className="bg-emerald-600 text-white active:bg-emerald-700 font-extrabold px-4 py-2.5 rounded-xl shadow flex items-center gap-1.5 text-sm"
+            >
+              <CheckCircle size={18} />
+              Finalizar
+            </button>
           </div>
         </div>
       )}

@@ -28,7 +28,7 @@ const pool = new Pool({
 
 // Manejo de errores inesperados en el pool de conexiones (PgBouncer/Supabase)
 pool.on('error', (err) => {
-  console.error('⚠️ Error inesperado en el pool de conexiones de base de datos:', err.message);
+  console.error(' Error inesperado en el pool de conexiones de base de datos:', err.message);
 });
 
 // Debug para verificar la conexión
@@ -82,15 +82,15 @@ const getClient = async () => {
 const initializeDatabase = async () => {
   try {
     console.log('🔄 Verificando conexión a base de datos...');
-    
+
     // Solo verificar que la conexión funcione
     const result = await query(`SELECT NOW() as current_time`);
     console.log('✅ Conexión a base de datos establecida:', result.rows[0].current_time);
-    
+
     // Las tablas ya existen en la BD (ambos sistemas usan la misma BD)
     // - Sistema de Faltantes: facturas, productos, proveedores, faltantes, etc.
     // - Sistema IMAP: facturas_proveedores, ProductoFactura, etc. (Prisma)
-    
+
   } catch (error) {
     console.error('❌ Error conectando a base de datos:', error.message);
     throw error;

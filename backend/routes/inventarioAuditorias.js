@@ -38,9 +38,9 @@ async function inicializarTablas() {
       );
     `);
 
-    console.log('✅ Tablas de auditoría de inventario inicializadas/verificadas');
+    console.log('Tablas de auditoría de inventario inicializadas/verificadas');
   } catch (err) {
-    console.error('❌ Error inicializando tablas de inventario:', err);
+    console.error('Error inicializando tablas de inventario:', err);
   }
 }
 
@@ -66,7 +66,7 @@ async function fetchAlegraStocks(items) {
           costo_unitario: cost
         });
       } catch (err) {
-        console.warn(`⚠️ Error obteniendo stock para producto ${item.alegra_id}:`, err.message);
+        console.warn(`Error obteniendo stock para producto ${item.alegra_id}:`, err.message);
         enrichedItems.push({
           ...item,
           stock_sistema: 0,
@@ -184,7 +184,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se encontraron productos para auditar.' });
     }
 
-    console.log(`⏱️ Obteniendo stock en tiempo real para ${candidateProducts.length} productos de Alegra...`);
+    console.log(`Obteniendo stock en tiempo real para ${candidateProducts.length} productos de Alegra...`);
     const enriched = await fetchAlegraStocks(candidateProducts);
 
     // Insertar la auditoría
