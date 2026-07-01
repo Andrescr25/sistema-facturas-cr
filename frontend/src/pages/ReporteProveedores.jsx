@@ -40,6 +40,7 @@ export default function ReporteProveedores() {
   const [modalWhatsAppVisible, setModalWhatsAppVisible] = useState(false)
   const [proveedorParaWhatsApp, setProveedorParaWhatsApp] = useState(null)
   const [telefonoProveedor, setTelefonoProveedor] = useState('')
+  const [mensajeWhatsApp, setMensajeWhatsApp] = useState("Hola buenas, adjunto el pedido\ngracias")
 
   useEffect(() => {
     loadReporte()
@@ -266,6 +267,7 @@ export default function ReporteProveedores() {
 
   const abrirModalWhatsApp = async (proveedor) => {
     setProveedorParaWhatsApp(proveedor)
+    setMensajeWhatsApp("Hola buenas, adjunto el pedido\ngracias")
     setModalWhatsAppVisible(true)
     try {
       const telefonoDB = await alegraService.getTelefonoProveedor(proveedor.nombre)
@@ -342,7 +344,8 @@ export default function ReporteProveedores() {
         proveedor.nombre,
         telefonoProveedor,
         productosParaPDF,
-        preferirDatosProveedor
+        preferirDatosProveedor,
+        mensajeWhatsApp
       )
 
       if (result.success) {
@@ -951,12 +954,18 @@ export default function ReporteProveedores() {
             </div>
             <div className="p-6 pb-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">Destino / Contacto</label>
-              <input type="tel" value={telefonoProveedor} onChange={e => setTelefonoProveedor(e.target.value)} placeholder="Ej: +506 8888 8888" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-center font-medium placeholder-gray-400" />
-              <p className="text-xs text-center text-gray-500 mt-3 px-2 leading-relaxed">Se generará el archivo con la orden de compra y se abrirá WhatsApp Web/App para enviarla.</p>
+              <input type="tel" value={telefonoProveedor} onChange={e => setTelefonoProveedor(e.target.value)} placeholder="Ej: +506 8888 8888" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-lg text-center font-medium placeholder-gray-400 mb-4" />
+              
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Mensaje Adicional</label>
+              <textarea value={mensajeWhatsApp} onChange={e => setMensajeWhatsApp(e.target.value)} placeholder="Escribe el mensaje..." rows={3} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm placeholder-gray-400 resize-none font-normal" />
+              
+              <p className="text-xs text-center text-gray-500 mt-3 px-2 leading-relaxed">Se generará el archivo con la orden de compra y se enviará de fondo con el mensaje redactado.</p>
             </div>
             <div className="p-6 grid grid-cols-2 gap-3">
               <button onClick={() => setModalWhatsAppVisible(false)} className="py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition text-sm">Cancelar</button>
-              <button onClick={enviarWhatsApp} disabled={!telefonoProveedor} className="py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-green-500/30"><Download size={16} className="mr-1" /> Enviar</button>
+              <button onClick={enviarWhatsApp} disabled={!telefonoProveedor || loading} className="py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center justify-center shadow-md shadow-green-500/30">
+                {loading ? 'Enviando...' : 'Enviar'}
+              </button>
             </div>
           </div>
         </div>

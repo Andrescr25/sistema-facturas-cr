@@ -5398,7 +5398,8 @@ router.post('/orden-compra/enviar-whatsapp', async (req, res) => {
       proveedor,
       telefono,
       productos,
-      preferirDatosProveedor = true
+      preferirDatosProveedor = true,
+      mensaje
     } = req.body;
 
     if (!proveedor || !telefono || !productos || !Array.isArray(productos)) {
@@ -5424,13 +5425,14 @@ router.post('/orden-compra/enviar-whatsapp', async (req, res) => {
 
     // 4. Preparar payload de Evolution API (se envía el base64 puro sin prefijo para v2)
     const rawBase64 = pdfBuffer.toString('base64');
+    const captionTexto = mensaje || "Hola buenas, adjunto el pedido\ngracias";
     const payload = {
       number: telefonoLimpio,
       mediatype: 'document',
       mimetype: 'application/pdf',
       media: rawBase64,
       fileName: `orden-${proveedor.replace(/\s+/g, '-')}.pdf`,
-      caption: 'Hola buenas, me puedes hacer proforma de esto, Gracias'
+      caption: captionTexto
     };
 
     console.log(`📤 Enviando orden de compra a Evolution API en ${waUrl}/message/sendMedia/${waInstance} para el número ${telefonoLimpio}`);

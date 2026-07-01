@@ -684,14 +684,15 @@ export const alegraService = {
   },
 
   // Enviar PDF de orden de compra por WhatsApp usando Evolution API
-  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true) {
+  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '') {
     try {
       console.log('📤 Enviando orden de compra por WhatsApp desde frontend...', proveedor);
       const response = await api.post('/alegra/orden-compra/enviar-whatsapp', {
         proveedor,
         telefono,
         productos,
-        preferirDatosProveedor
+        preferirDatosProveedor,
+        mensaje
       })
       return response.data
     } catch (error) {
