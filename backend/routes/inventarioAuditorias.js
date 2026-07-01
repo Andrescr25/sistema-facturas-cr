@@ -256,10 +256,15 @@ router.put('/:id/items', async (req, res) => {
 
     if (itemsAJustar.length > 0) {
       const today = new Date().toISOString().split('T')[0];
-      const adjustmentItems = itemsAJustar.map(item => ({
-        id: String(item.alegra_id),
-        quantity: Number(item.stock_real) - Number(item.stock_sistema)
-      }));
+      const adjustmentItems = itemsAJustar.map(item => {
+        const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
+        return {
+          id: String(item.alegra_id),
+          type: qtyDiff > 0 ? 'in' : 'out',
+          unitCost: Number(item.costo_unitario || 0),
+          quantity: Math.abs(qtyDiff)
+        };
+      });
 
       const payload = {
         date: today,
@@ -385,7 +390,9 @@ router.post('/:id/ajustar-alegra', async (req, res) => {
       const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
       return {
         id: String(item.alegra_id),
-        quantity: qtyDiff
+        type: qtyDiff > 0 ? 'in' : 'out',
+        unitCost: Number(item.costo_unitario || 0),
+        quantity: Math.abs(qtyDiff)
       };
     });
 
