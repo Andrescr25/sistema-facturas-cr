@@ -983,7 +983,7 @@ export default function InventarioAuditoria() {
 
               {adjustmentsPreview.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
-                  <CheckCircle2 size={36} className="text-green-500 mx-auto mb-2" />
+                  <CheckCircle size={36} className="text-green-500 mx-auto mb-2" />
                   <p className="font-bold text-gray-700">¡Perfecto! No se encontraron discrepancias</p>
                   <p className="text-xs text-gray-500 mt-0.5">El conteo físico de todos los productos coincidió 100% con el sistema.</p>
                 </div>
