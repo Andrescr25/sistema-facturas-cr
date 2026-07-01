@@ -480,25 +480,24 @@ export default function InventarioAuditoria() {
 
         {/* Minimalist Control Panel or History */}
         {!showHistory ? (
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Distribución inteligente de inventario</h2>
-              <p className="text-emerald-100 text-sm max-w-xl">
-                Genera auditorías aleatorias de 50 productos, por categoría, o de productos críticos. 
-                Audita el stock en tiempo real desde tu móvil y sincroniza los descuadres al instante.
+          <div className="bg-white border border-gray-100 shadow-sm rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Control de Existencias</h2>
+              <p className="text-gray-500 text-sm">
+                Inicia un conteo rápido de 50 productos, por categoría o productos críticos.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
               <button
                 onClick={() => setShowNewModal(true)}
-                className="bg-white hover:bg-emerald-50 text-emerald-800 font-extrabold px-6 py-3.5 rounded-2xl shadow-lg transition-all active:scale-95 text-center flex items-center justify-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-3.5 rounded-2xl shadow-md transition-all active:scale-95 text-center flex items-center justify-center gap-2"
               >
                 <Plus size={20} />
                 Nueva Auditoría
               </button>
               <button
                 onClick={() => setShowHistory(true)}
-                className="bg-emerald-700/50 hover:bg-emerald-700/70 border border-emerald-500/30 text-white font-bold px-6 py-3.5 rounded-2xl transition-all active:scale-95 text-center flex items-center justify-center gap-2"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-6 py-3.5 rounded-2xl transition-all active:scale-95 text-center flex items-center justify-center gap-2"
               >
                 <Boxes size={18} />
                 Ver Historial
