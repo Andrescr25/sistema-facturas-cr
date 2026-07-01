@@ -38,6 +38,11 @@ async function inicializarTablas() {
       );
     `);
 
+    await query(`
+      ALTER TABLE inventario_auditoria_items 
+      ADD COLUMN IF NOT EXISTS ajustado_alegra BOOLEAN DEFAULT FALSE;
+    `);
+
     console.log('Tablas de auditoría de inventario inicializadas/verificadas');
   } catch (err) {
     console.error('Error inicializando tablas de inventario:', err);
@@ -208,12 +213,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 5. PUT /:id/items - Guardar conteos (borrador)
+// 5. PUT /:id/items - Guardar conteos y aplicar ajustes en Alegra de inmediato
 router.put('/:id/items', async (req, res) => {
   const { id } = req.params;
   const { items } = req.body; // Array de { id, stock_real }
 
   try {
+    // 1. Guardar todos los conteos en la base de datos local
     for (const item of items) {
       const stockVal = item.stock_real !== null && item.stock_real !== undefined && item.stock_real !== '' ? Number(item.stock_real) : null;
       
@@ -224,7 +230,61 @@ router.put('/:id/items', async (req, res) => {
       `, [stockVal, item.id, id]);
     }
 
-    res.json({ success: true, message: 'Conteos guardados exitosamente como borrador.' });
+    // 2. Obtener la sesión de auditoría para el historial de observaciones
+    const auditRes = await query(`SELECT nombre FROM inventario_auditorias WHERE id = $1;`, [id]);
+    const auditNombre = auditRes.rows[0]?.nombre || 'Auditoría';
+
+    // 3. Obtener los ítems para ver cuáles necesitan ajuste (con conteo, con diferencia y no ajustados previamente)
+    const itemsRes = await query(`
+      SELECT id, alegra_id, stock_sistema, stock_real, ajustado_alegra
+      FROM inventario_auditoria_items
+      WHERE auditoria_id = $1 AND stock_real IS NOT NULL AND ajustado_alegra = FALSE;
+    `, [id]);
+
+    const itemsAJustar = itemsRes.rows.filter(
+      item => Number(item.stock_real) !== Number(item.stock_sistema)
+    );
+
+    let message = 'Conteos guardados exitosamente.';
+
+    if (itemsAJustar.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const adjustmentItems = itemsAJustar.map(item => ({
+        id: Number(item.alegra_id),
+        quantity: Number(item.stock_real) - Number(item.stock_sistema)
+      }));
+
+      const payload = {
+        date: today,
+        observations: `Ajuste incremental automático desde Módulo de Auditoría (ID: ${id} - ${auditNombre})`,
+        items: adjustmentItems
+      };
+
+      console.log(`Enviando ajuste de inventario incremental a Alegra para ${adjustmentItems.length} ítems...`);
+      const responseData = await alegraService.createInventoryAdjustment(payload);
+
+      // Marcar los ítems procesados como ajustados
+      const idsAjustados = itemsRes.rows.map(item => item.id);
+      await query(`
+        UPDATE inventario_auditoria_items
+        SET ajustado_alegra = TRUE
+        WHERE id = ANY($1::int[]);
+      `, [idsAjustados]);
+
+      message = `Conteos guardados y ajuste de inventario aplicado con éxito en Alegra.`;
+    } else {
+      // Si no hay diferencias pero tienen conteo real, también los marcamos como ajustados (su diferencia fue 0)
+      const idsSinDiferencia = itemsRes.rows.map(item => item.id);
+      if (idsSinDiferencia.length > 0) {
+        await query(`
+          UPDATE inventario_auditoria_items
+          SET ajustado_alegra = TRUE
+          WHERE id = ANY($1::int[]);
+        `, [idsSinDiferencia]);
+      }
+    }
+
+    res.json({ success: true, message });
   } catch (error) {
     console.error('Error actualizando conteos:', error);
     res.status(500).json({ success: false, error: error.message });

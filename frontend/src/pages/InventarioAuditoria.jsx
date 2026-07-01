@@ -164,27 +164,47 @@ export default function InventarioAuditoria() {
   };
 
   // Save draft counts
+  // Save counts and immediately apply adjustments in Alegra
   const handleSaveDraft = async () => {
     if (!auditoriaActiva) return;
     setLoading(true);
     try {
-      const itemsPayload = Object.entries(conteosDraft).map(([id, val]) => ({
-        id: Number(id),
-        stock_real: val !== '' ? Number(val) : null
-      }));
+      // Filtrar sólo ítems no ajustados que tengan un conteo real ingresado
+      const itemsPayload = Object.entries(conteosDraft)
+        .map(([id, val]) => {
+          const item = auditoriaActiva.items.find(i => i.id === Number(id));
+          return {
+            id: Number(id),
+            stock_real: val !== '' ? Number(val) : null,
+            ajustado_alegra: item?.ajustado_alegra
+          };
+        })
+        .filter(p => !p.ajustado_alegra && p.stock_real !== null);
+
+      if (itemsPayload.length === 0) {
+        alert('No hay nuevos conteos ingresados para guardar y ajustar.');
+        setLoading(false);
+        return;
+      }
 
       const result = await guardarConteos(auditoriaActiva.id, itemsPayload);
       if (result.success) {
-        alert('Borrador guardado correctamente.');
+        alert(result.message || 'Conteos guardados y ajustados en Alegra exitosamente.');
         // Refresh detail
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
         if (updatedDetail.success) {
           setAuditoriaActiva(updatedDetail.data);
+          // Actualizar conteosDraft con los valores del servidor
+          const draft = {};
+          updatedDetail.data.items.forEach(item => {
+            draft[item.id] = item.stock_real !== null ? item.stock_real : '';
+          });
+          setConteosDraft(draft);
         }
       }
     } catch (err) {
-      console.error('Error guardando borrador:', err);
-      alert('Error al guardar el borrador.');
+      console.error('Error guardando y ajustando inventario:', err);
+      alert(err.response?.data?.message || 'Error al guardar y ajustar el inventario.');
     } finally {
       setLoading(false);
     }
@@ -283,10 +303,10 @@ export default function InventarioAuditoria() {
         return conteoReal === '';
       }
       if (executionFilter === 'correcto') {
-        return conteoReal !== '' && Number(conteoReal) === stockSistema;
+        return item.ajustado_alegra || (conteoReal !== '' && Number(conteoReal) === stockSistema);
       }
       if (executionFilter === 'descuadre') {
-        return conteoReal !== '' && Number(conteoReal) !== stockSistema;
+        return !item.ajustado_alegra && conteoReal !== '' && Number(conteoReal) !== stockSistema;
       }
 
       return true;
@@ -304,7 +324,10 @@ export default function InventarioAuditoria() {
     auditoriaActiva.items.forEach(item => {
       const conteo = conteosDraft[item.id];
       const stockSistema = Number(item.stock_sistema);
-      if (conteo === '') {
+      
+      if (item.ajustado_alegra) {
+        correctos++;
+      } else if (conteo === '') {
         pendientes++;
       } else if (Number(conteo) === stockSistema) {
         correctos++;
@@ -339,18 +362,19 @@ export default function InventarioAuditoria() {
         stock_real: conteoVal,
         diferencia: diff,
         costo_unitario: costoVal,
-        impacto_dinero: diff * costoVal
+        impacto_dinero: diff * costoVal,
+        ajustado_alegra: item.ajustado_alegra
       };
     });
   }, [auditoriaActiva, conteosDraft]);
 
-  // Calculate live financial impact during execution
+  // Calculate live financial impact during execution (only for pending adjustments)
   const liveFinancialImpact = useMemo(() => {
     let sum = 0;
     Object.entries(conteosDraft).forEach(([itemId, val]) => {
       if (val === '') return;
       const item = auditoriaActiva?.items?.find(i => i.id === Number(itemId));
-      if (!item) return;
+      if (!item || item.ajustado_alegra) return;
       const diff = Number(val) - Number(item.stock_sistema);
       sum += (diff * Number(item.costo_unitario || 0));
     });
@@ -800,14 +824,18 @@ export default function InventarioAuditoria() {
               <div className="space-y-3">
                 {filteredItems.map(item => {
                   const conteoRaw = conteosDraft[item.id];
-                  const stockSis = Number(item.stock_sistema);
-
-                  // Compute state classes
+                    // Compute state classes
                   let cardBorder = 'border-gray-100 hover:border-gray-200';
                   let badge = <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-md uppercase">Pendiente</span>;
                   let financialNode = null;
 
-                  if (conteoRaw !== '') {
+                  if (item.ajustado_alegra) {
+                    const realVal = item.stock_real !== null ? Number(item.stock_real) : stockSis;
+                    const diff = realVal - stockSis;
+                    cardBorder = 'border-emerald-300 bg-emerald-50/10';
+                    badge = <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase">Ajustado ({diff > 0 ? '+' : ''}{diff})</span>;
+                    financialNode = <span className="text-xs font-extrabold text-emerald-600 shrink-0">Sincronizado</span>;
+                  } else if (conteoRaw !== '') {
                     const diff = Number(conteoRaw) - stockSis;
                     const diffCost = diff * Number(item.costo_unitario || 0);
 
@@ -859,16 +887,17 @@ export default function InventarioAuditoria() {
                                type="number"
                                value={conteoRaw}
                                min="0"
+                               disabled={item.ajustado_alegra}
                                onChange={(e) => handleConteoChange(item.id, e.target.value)}
                                placeholder="Cantidad"
-                               className="w-20 text-center py-1 px-2 border-2 border-gray-300 focus:border-emerald-500 rounded-xl font-extrabold text-sm focus:outline-none bg-white"
+                               className="w-20 text-center py-1 px-2 border-2 border-gray-300 focus:border-emerald-500 rounded-xl font-extrabold text-sm focus:outline-none bg-white disabled:bg-gray-100 disabled:text-gray-500"
                              />
                            </div>
                          </div>
                        </div>
                      </div>
-                  );
-                })}
+                   );
+                 })}
               </div>
             )}
           </div>
@@ -934,15 +963,15 @@ export default function InventarioAuditoria() {
                 <button
                   onClick={handleSaveDraft}
                   disabled={loading}
-                  className="w-full bg-white hover:bg-gray-50 text-gray-700 font-bold border-2 border-gray-200 py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Save size={18} />
-                  Guardar Borrador
+                  Guardar y Ajustar
                 </button>
                 <button
                   onClick={handleFinalize}
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+                  className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <CheckCircle size={18} />
                   Finalizar Auditoría
@@ -1079,15 +1108,16 @@ export default function InventarioAuditoria() {
             <button
               onClick={handleSaveDraft}
               disabled={loading}
-              className="bg-gray-50 text-gray-700 active:bg-gray-150 p-2.5 rounded-xl border border-gray-200"
-              title="Guardar Borrador"
+              className="bg-emerald-600 text-white active:bg-emerald-700 font-extrabold px-4 py-2.5 rounded-xl shadow flex items-center gap-1.5 text-sm"
+              title="Guardar y Sincronizar"
             >
-              <Save size={20} />
+              <Save size={18} />
+              Guardar
             </button>
             <button
               onClick={handleFinalize}
               disabled={loading}
-              className="bg-emerald-600 text-white active:bg-emerald-700 font-extrabold px-4 py-2.5 rounded-xl shadow flex items-center gap-1.5 text-sm"
+              className="bg-gray-800 text-white active:bg-gray-900 font-bold px-4 py-2.5 rounded-xl shadow flex items-center gap-1.5 text-sm"
             >
               <CheckCircle size={18} />
               Finalizar
