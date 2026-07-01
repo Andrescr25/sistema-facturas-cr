@@ -480,7 +480,7 @@ export default function InventarioAuditoria() {
 
         {/* Minimalist Control Panel or History */}
         {!showHistory ? (
-          <div className="bg-white border border-gray-100 shadow-sm rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="bg-emerald-50/50 border border-emerald-100 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-gray-900">Control de Existencias</h2>
               <p className="text-gray-500 text-sm">
@@ -927,7 +927,8 @@ export default function InventarioAuditoria() {
               <div className="space-y-3">
                 {filteredItems.map(item => {
                   const conteoRaw = conteosDraft[item.id];
-                    // Compute state classes
+                  const stockSis = Number(item.stock_sistema);
+                  // Compute state classes
                   let cardBorder = 'border-gray-100 hover:border-gray-200';
                   let badge = <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-md uppercase">Pendiente</span>;
                   let financialNode = null;
