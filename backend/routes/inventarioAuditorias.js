@@ -257,7 +257,7 @@ router.put('/:id/items', async (req, res) => {
     if (itemsAJustar.length > 0) {
       const today = new Date().toISOString().split('T')[0];
       const adjustmentItems = itemsAJustar.map(item => ({
-        id: Number(item.alegra_id),
+        id: String(item.alegra_id),
         quantity: Number(item.stock_real) - Number(item.stock_sistema)
       }));
 
@@ -384,7 +384,7 @@ router.post('/:id/ajustar-alegra', async (req, res) => {
       // Diferencia = Real - Sistema
       const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
       return {
-        id: Number(item.alegra_id),
+        id: String(item.alegra_id),
         quantity: qtyDiff
       };
     });
