@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  ClipboardList,
+  Boxes,
   Plus,
   Search,
   Check,
@@ -365,7 +365,7 @@ export default function InventarioAuditoria() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-              <ClipboardList className="text-emerald-600" size={32} />
+              <Boxes className="text-emerald-600" size={32} />
               Auditoría de Inventarios
             </h1>
             <p className="text-gray-500 mt-1">
@@ -413,7 +413,7 @@ export default function InventarioAuditoria() {
           {/* KPI 3 */}
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-gray-50 rounded-2xl text-gray-600">
-              <ClipboardList size={28} />
+              <Boxes size={28} />
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Auditorías Realizadas</p>
@@ -444,7 +444,7 @@ export default function InventarioAuditoria() {
             </div>
           ) : auditorias.length === 0 ? (
             <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-4">
-              <ClipboardList size={48} className="text-gray-300" />
+              <Boxes size={48} className="text-gray-300" />
               <div>
                 <p className="text-lg font-bold text-gray-700">No hay auditorías registradas</p>
                 <p className="text-sm text-gray-500 mt-1">Presiona "Nueva Auditoría" para comenzar tu primer conteo de stock.</p>
