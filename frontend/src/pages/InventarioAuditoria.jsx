@@ -138,7 +138,7 @@ export default function InventarioAuditoria() {
         // Initialize draft counts
         const draft = {};
         result.data.items.forEach(item => {
-          draft[item.id] = item.stock_real !== null ? item.stock_real : '';
+          draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : '';
         });
         setConteosDraft(draft);
         setObservacionesFinales(result.data.observaciones || '');
@@ -211,7 +211,7 @@ export default function InventarioAuditoria() {
           // Actualizar conteosDraft con los valores del servidor
           const draft = {};
           updatedDetail.data.items.forEach(item => {
-            draft[item.id] = item.stock_real !== null ? item.stock_real : '';
+            draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : '';
           });
           setConteosDraft(draft);
         }
@@ -317,7 +317,7 @@ export default function InventarioAuditoria() {
   const handleConteoChange = (itemId, val) => {
     setConteosDraft(prev => ({
       ...prev,
-      [itemId]: val === '' ? '' : Number(val)
+      [itemId]: val === '' ? '' : Math.round(Number(val))
     }));
   };
 
@@ -927,7 +927,7 @@ export default function InventarioAuditoria() {
               <div className="space-y-3">
                 {filteredItems.map(item => {
                   const conteoRaw = conteosDraft[item.id];
-                  const stockSis = Number(item.stock_sistema);
+                  const stockSis = Math.round(Number(item.stock_sistema));
                   // Compute state classes
                   let cardBorder = 'border-gray-100 hover:border-gray-200';
                   let badge = <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-md uppercase">Pendiente</span>;
@@ -991,6 +991,7 @@ export default function InventarioAuditoria() {
                                type="number"
                                value={conteoRaw}
                                min="0"
+                               step="1"
                                disabled={item.ajustado_alegra}
                                onChange={(e) => handleConteoChange(item.id, e.target.value)}
                                placeholder="Cantidad"
