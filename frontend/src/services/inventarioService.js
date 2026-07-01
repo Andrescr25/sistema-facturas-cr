@@ -34,3 +34,8 @@ export async function ajustarAlegra(id) {
   const response = await api.post(`/inventario-auditorias/${id}/ajustar-alegra`);
   return response.data;
 }
+
+export async function resyncAuditoria(id) {
+  const response = await api.post(`/inventario-auditorias/${id}/resync`);
+  return response.data;
+}

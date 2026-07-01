@@ -184,7 +184,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 4. GET /:id - Obtener una auditoría específica con sus ítems
+// 4. GET /:id - Obtener una auditoría específica con sus ítems (y validar expiración de 24h)
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
 
@@ -193,6 +193,12 @@ router.get('/:id', async (req, res) => {
     if (auditRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Auditoría no encontrada.' });
     }
+
+    const audit = auditRes.rows[0];
+    const fechaCreacion = new Date(audit.fecha_creacion);
+    const ahora = new Date();
+    const difHoras = (ahora - fechaCreacion) / (1000 * 60 * 60);
+    const expirada = audit.estado === 'en_progreso' && difHoras >= 24;
 
     const itemsRes = await query(`
       SELECT * FROM inventario_auditoria_items 
@@ -203,7 +209,8 @@ router.get('/:id', async (req, res) => {
     res.json({
       success: true,
       data: {
-        ...auditRes.rows[0],
+        ...audit,
+        expirada,
         items: itemsRes.rows
       }
     });
@@ -403,6 +410,57 @@ router.post('/:id/ajustar-alegra', async (req, res) => {
       message: 'No se pudo aplicar el ajuste en Alegra. Verifique los detalles de error.',
       error: error.response?.data || error.message
     });
+  }
+});
+
+// 8. POST /:id/resync - Re-sincronizar stocks desde Alegra para auditorías expiradas
+router.post('/:id/resync', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const auditRes = await query(`SELECT * FROM inventario_auditorias WHERE id = $1;`, [id]);
+    if (auditRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Auditoría no encontrada.' });
+    }
+
+    console.log(`🔄 Re-sincronizando catálogo en vivo de Alegra para auditoría ID: ${id}...`);
+    const allAlegraItems = await alegraService.getInventariableItems();
+
+    // Mapear los ítems a un mapa rápido de buscar por alegra_id
+    const alegraMap = new Map();
+    allAlegraItems.forEach(product => {
+      const mainPrice = product.price?.find(p => p.main === true) || product.price?.[0];
+      const price = mainPrice ? parseFloat(mainPrice.price) : 0;
+      const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
+      const stock = product.inventory?.availableQuantity ? parseFloat(product.inventory.availableQuantity) : 0;
+      alegraMap.set(product.id.toString(), { price, cost, stock });
+    });
+
+    const itemsRes = await query(`SELECT id, alegra_id FROM inventario_auditoria_items WHERE auditoria_id = $1;`, [id]);
+    
+    // Actualizar cada ítem en la base de datos con los datos actuales de Alegra
+    for (const item of itemsRes.rows) {
+      const liveData = alegraMap.get(item.alegra_id.toString());
+      if (liveData) {
+        await query(`
+          UPDATE inventario_auditoria_items
+          SET stock_sistema = $1, costo_unitario = $2, precio_venta = $3
+          WHERE id = $4;
+        `, [liveData.stock, liveData.cost, liveData.price, item.id]);
+      }
+    }
+
+    // Reiniciar la fecha de creación a NOW() para renovar el plazo de 24 horas y vaciar conteos no ajustados
+    await query(`
+      UPDATE inventario_auditorias
+      SET fecha_creacion = CURRENT_TIMESTAMP
+      WHERE id = $1;
+    `, [id]);
+
+    res.json({ success: true, message: 'Auditoría re-sincronizada correctamente con los stocks y costos actuales de Alegra.' });
+  } catch (error) {
+    console.error('Error re-sincronizando auditoría:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

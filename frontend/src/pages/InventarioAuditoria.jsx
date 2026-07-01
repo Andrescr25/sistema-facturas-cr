@@ -25,8 +25,11 @@ import {
   getAuditoriaDetalle,
   guardarConteos,
   finalizarAuditoria,
-  ajustarAlegra
+  ajustarAlegra,
+  resyncAuditoria
 } from '../services/inventarioService';
+
+import ToastContainer from '../components/ToastContainer';
 
 const formatCurrency = (value) =>
   `₡${(Number(value) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })}`;
@@ -46,6 +49,17 @@ export default function InventarioAuditoria() {
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'info', duration = 5000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Active states
   const [auditoriaActiva, setAuditoriaActiva] = useState(null);
@@ -182,14 +196,14 @@ export default function InventarioAuditoria() {
         .filter(p => !p.ajustado_alegra && p.stock_real !== null);
 
       if (itemsPayload.length === 0) {
-        alert('No hay nuevos conteos ingresados para guardar y ajustar.');
+        showToast('No hay nuevos conteos ingresados para guardar y ajustar.', 'info');
         setLoading(false);
         return;
       }
 
       const result = await guardarConteos(auditoriaActiva.id, itemsPayload);
       if (result.success) {
-        alert(result.message || 'Conteos guardados y ajustados en Alegra exitosamente.');
+        showToast(result.message || 'Conteos guardados y ajustados en Alegra exitosamente.', 'success');
         // Refresh detail
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
         if (updatedDetail.success) {
@@ -204,7 +218,31 @@ export default function InventarioAuditoria() {
       }
     } catch (err) {
       console.error('Error guardando y ajustando inventario:', err);
-      alert(err.response?.data?.message || 'Error al guardar y ajustar el inventario.');
+      showToast(err.response?.data?.message || 'Error al guardar y ajustar el inventario.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resync expired audit stocks from Alegra
+  const handleResyncAuditoria = async () => {
+    if (!auditoriaActiva) return;
+    setLoading(true);
+    setError(null);
+    showToast('Re-sincronizando stocks de Alegra en vivo...', 'info');
+    try {
+      const result = await resyncAuditoria(auditoriaActiva.id);
+      if (result.success) {
+        showToast(result.message || 'Stocks sincronizados con éxito. Ya puede continuar con la auditoría.', 'success');
+        // Refresh the detail to clear the expired flag
+        const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
+        if (updatedDetail.success) {
+          setAuditoriaActiva(updatedDetail.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error re-sincronizando auditoría:', err);
+      showToast(err.response?.data?.message || 'Error al intentar re-sincronizar stocks.', 'error');
     } finally {
       setLoading(false);
     }
@@ -233,7 +271,7 @@ export default function InventarioAuditoria() {
       // Finalize
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales);
       if (result.success) {
-        alert('Auditoría finalizada con éxito.');
+        showToast('Auditoría finalizada con éxito.', 'success');
         // Refresh details and dashboard list
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id);
         if (updatedDetail.success) {
@@ -246,7 +284,7 @@ export default function InventarioAuditoria() {
       }
     } catch (err) {
       console.error('Error finalizando auditoría:', err);
-      alert('Error al finalizar la auditoría.');
+      showToast('Error al finalizar la auditoría.', 'error');
     } finally {
       setLoading(false);
     }
@@ -396,14 +434,6 @@ export default function InventarioAuditoria() {
               Controla el inventario de la distribuidora mediante auditorías selectivas cíclicas de stock en tiempo real.
             </p>
           </div>
-
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition-all transform active:scale-95"
-          >
-            <Plus size={20} />
-            Nueva Auditoría
-          </button>
         </div>
 
         {/* Dashboard KPIs */}
@@ -427,7 +457,7 @@ export default function InventarioAuditoria() {
               <DollarSign size={28} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Descuadre Acumulado (Costo)</p>
+              <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Descuadre Acumulado</p>
               <h3 className={`text-3xl font-extrabold mt-1 ${kpis.descuadre >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                 {formatCurrency(kpis.descuadre)}
               </h3>
@@ -448,146 +478,185 @@ export default function InventarioAuditoria() {
           </div>
         </div>
 
-        {/* Auditorias List */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h2 className="text-xl font-bold text-gray-900">Historial de Sesiones</h2>
-            <button
-              onClick={loadDashboard}
-              className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
-              title="Recargar"
-            >
-              <RefreshCw size={18} className={loading ? 'animate-spin text-emerald-600' : ''} />
-            </button>
+        {/* Minimalist Control Panel or History */}
+        {!showHistory ? (
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Distribución inteligente de inventario</h2>
+              <p className="text-emerald-100 text-sm max-w-xl">
+                Genera auditorías aleatorias de 50 productos, por categoría, o de productos críticos. 
+                Audita el stock en tiempo real desde tu móvil y sincroniza los descuadres al instante.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
+              <button
+                onClick={() => setShowNewModal(true)}
+                className="bg-white hover:bg-emerald-50 text-emerald-800 font-extrabold px-6 py-3.5 rounded-2xl shadow-lg transition-all active:scale-95 text-center flex items-center justify-center gap-2"
+              >
+                <Plus size={20} />
+                Nueva Auditoría
+              </button>
+              <button
+                onClick={() => setShowHistory(true)}
+                className="bg-emerald-700/50 hover:bg-emerald-700/70 border border-emerald-500/30 text-white font-bold px-6 py-3.5 rounded-2xl transition-all active:scale-95 text-center flex items-center justify-center gap-2"
+              >
+                <Boxes size={18} />
+                Ver Historial
+              </button>
+            </div>
           </div>
-
-          {loading && auditorias.length === 0 ? (
-            <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-3">
-              <RefreshCw className="animate-spin text-emerald-600" size={32} />
-              <span>Cargando historial de auditorías...</span>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowHistory(false)}
+                className="text-sm font-bold text-gray-500 hover:text-emerald-600 flex items-center gap-1.5 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Volver a Auditoría
+              </button>
+              <h2 className="text-xl font-extrabold text-gray-900">Historial de Sesiones</h2>
             </div>
-          ) : auditorias.length === 0 ? (
-            <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-4">
-              <Boxes size={48} className="text-gray-300" />
-              <div>
-                <p className="text-lg font-bold text-gray-700">No hay auditorías registradas</p>
-                <p className="text-sm text-gray-500 mt-1">Presiona "Nueva Auditoría" para comenzar tu primer conteo de stock.</p>
+
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h2 className="text-xl font-bold text-gray-900">Historial de Sesiones</h2>
+                <button
+                  onClick={loadDashboard}
+                  className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"
+                  title="Recargar"
+                >
+                  <RefreshCw size={18} className={loading ? 'animate-spin text-emerald-600' : ''} />
+                </button>
               </div>
-            </div>
-          ) : (
-            <>
-              {/* Mobile Card List */}
-              <div className="block sm:hidden divide-y divide-gray-100">
-                {auditorias.map((audit) => (
-                  <div
-                    key={audit.id}
-                    onClick={() => handleSelectAuditoria(audit.id)}
-                    className="p-4 active:bg-gray-50 flex flex-col gap-2.5 cursor-pointer"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-gray-900">{audit.nombre}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(audit.fecha_creacion)}</p>
-                      </div>
-                      <span className={`inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        audit.estado === 'finalizado'
-                          ? 'bg-green-50 text-green-700 border border-green-150'
-                          : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
-                      }`}>
-                        {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
-                      </span>
-                    </div>
 
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-500">
-                        Tipo: <strong className="text-gray-700 capitalize">{audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}</strong>
-                        {audit.categoria && ` (${audit.categoria})`}
-                      </span>
-                      
-                      <div className="text-right">
-                        {audit.estado === 'finalizado' ? (
-                          <div className="flex flex-col items-end">
-                            <span className="font-extrabold text-gray-900">Precisión: {Number(audit.precision_porcentaje).toFixed(1)}%</span>
-                            <span className={`font-extrabold text-xs ${Number(audit.descuadre_dinero) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                              {formatCurrency(audit.descuadre_dinero)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic">Conteo en curso</span>
-                        )}
-                      </div>
-                    </div>
+              {loading && auditorias.length === 0 ? (
+                <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-3">
+                  <RefreshCw className="animate-spin text-emerald-600" size={32} />
+                  <span>Cargando historial de auditorías...</span>
+                </div>
+              ) : auditorias.length === 0 ? (
+                <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center gap-4">
+                  <Boxes size={48} className="text-gray-300" />
+                  <div>
+                    <p className="text-lg font-bold text-gray-700">No hay auditorías registradas</p>
+                    <p className="text-sm text-gray-500 mt-1">Presiona "Nueva Auditoría" para comenzar tu primer conteo de stock.</p>
                   </div>
-                ))}
-              </div>
-
-              {/* Desktop Table View */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                      <th className="px-6 py-4">Nombre / Sesión</th>
-                      <th className="px-6 py-4">Tipo</th>
-                      <th className="px-6 py-4">Fecha</th>
-                      <th className="px-6 py-4">Estado</th>
-                      <th className="px-6 py-4 text-right">Precisión</th>
-                      <th className="px-6 py-4 text-right">Descuadre</th>
-                      <th className="px-6 py-4"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm">
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Card List */}
+                  <div className="block sm:hidden divide-y divide-gray-100">
                     {auditorias.map((audit) => (
-                      <tr
+                      <div
                         key={audit.id}
-                        className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
                         onClick={() => handleSelectAuditoria(audit.id)}
+                        className="p-4 active:bg-gray-50 cursor-pointer flex flex-col gap-2"
                       >
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{audit.nombre}</p>
-                          {audit.categoria && (
-                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">
-                              {audit.categoria}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 capitalize text-gray-600 font-medium">
-                          {audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500">
-                          {formatDate(audit.fecha_creacion)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-gray-900">{audit.nombre}</h4>
+                            <p className="text-xs text-gray-400">
+                              {formatDate(audit.fecha_creacion)} • <span className="capitalize">{audit.tipo}</span>
+                            </p>
+                          </div>
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                             audit.estado === 'finalizado'
                               ? 'bg-green-50 text-green-700 border border-green-150'
                               : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
                           }`}>
                             {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-extrabold text-gray-900">
-                          {audit.estado === 'finalizado' ? `${Number(audit.precision_porcentaje).toFixed(1)}%` : '—'}
-                        </td>
-                        <td className={`px-6 py-4 text-right font-extrabold ${
-                          audit.estado !== 'finalizado'
-                            ? 'text-gray-400'
-                            : Number(audit.descuadre_dinero) >= 0
-                              ? 'text-blue-600'
-                              : 'text-red-600'
-                        }`}>
-                          {audit.estado === 'finalizado' ? formatCurrency(audit.descuadre_dinero) : '—'}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <ChevronRight className="text-gray-400 group-hover:text-emerald-600 transition-colors inline-block" size={20} />
-                        </td>
-                      </tr>
+                        </div>
+                        <div className="flex justify-between items-center text-xs pt-1">
+                          {audit.estado === 'finalizado' ? (
+                            <div className="flex gap-4">
+                              <span>
+                                Precisión: <strong className="text-gray-800">{Number(audit.precision_porcentaje).toFixed(1)}%</strong>
+                              </span>
+                              <span>
+                                Descuadre: <span className={`font-extrabold ${Number(audit.descuadre_dinero) >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                  {formatCurrency(audit.descuadre_dinero)}
+                                </span>
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">Conteo en curso</span>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                          <th className="px-6 py-4">Nombre / Sesión</th>
+                          <th className="px-6 py-4">Tipo</th>
+                          <th className="px-6 py-4">Fecha</th>
+                          <th className="px-6 py-4">Estado</th>
+                          <th className="px-6 py-4 text-right">Precisión</th>
+                          <th className="px-6 py-4 text-right">Descuadre</th>
+                          <th className="px-6 py-4"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-sm">
+                        {auditorias.map((audit) => (
+                          <tr
+                            key={audit.id}
+                            className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
+                            onClick={() => handleSelectAuditoria(audit.id)}
+                          >
+                            <td className="px-6 py-4">
+                              <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{audit.nombre}</p>
+                              {audit.categoria && (
+                                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">
+                                  {audit.categoria}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 capitalize text-gray-600 font-medium">
+                              {audit.tipo === 'random' ? 'Aleatoria 50' : audit.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
+                            </td>
+                            <td className="px-6 py-4 text-gray-500">
+                              {formatDate(audit.fecha_creacion)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${
+                                audit.estado === 'finalizado'
+                                  ? 'bg-green-50 text-green-700 border border-green-150'
+                                  : 'bg-yellow-50 text-yellow-700 border border-yellow-150'
+                              }`}>
+                                {audit.estado === 'finalizado' ? 'Finalizada' : 'En Progreso'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-extrabold text-gray-900">
+                              {audit.estado === 'finalizado' ? `${Number(audit.precision_porcentaje).toFixed(1)}%` : '—'}
+                            </td>
+                            <td className={`px-6 py-4 text-right font-extrabold ${
+                              audit.estado !== 'finalizado'
+                                ? 'text-gray-400'
+                                : Number(audit.descuadre_dinero) >= 0
+                                  ? 'text-blue-600'
+                                  : 'text-red-600'
+                            }`}>
+                              {audit.estado === 'finalizado' ? formatCurrency(audit.descuadre_dinero) : '—'}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <ChevronRight className="text-gray-400 group-hover:text-emerald-600 transition-colors inline-block" size={20} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Modal: New Audit */}
         {showNewModal && (
@@ -716,14 +785,49 @@ export default function InventarioAuditoria() {
           <ArrowLeft size={20} />
           Volver a auditorías
         </button>
-        <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${esActiva ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' : 'bg-green-50 text-green-700 border border-green-150'
-          }`}>
+        <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${esActiva ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
           {esActiva ? 'En Progreso' : 'Finalizada'}
         </span>
       </div>
 
-      {/* Audit Identity Card */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {auditoriaActiva.expirada ? (
+        <div className="max-w-md mx-auto bg-white p-8 rounded-3xl border border-gray-100 shadow-lg text-center space-y-6 mt-12">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mx-auto">
+            <AlertTriangle size={32} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-gray-950">Auditoría Expirada</h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Esta sesión de auditoría fue creada hace más de 24 horas y no fue finalizada. Los stocks en Alegra pueden estar desactualizados.
+            </p>
+            <p className="text-xs text-amber-600 font-bold bg-amber-50 py-2 px-3 rounded-xl inline-block mt-2">
+              Debe volver a sincronizar la auditoría con los stocks actuales para poder acceder.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col gap-2">
+            <button
+              onClick={handleResyncAuditoria}
+              disabled={loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:bg-emerald-400"
+            >
+              {loading ? <RefreshCw className="animate-spin" size={20} /> : <RefreshCw size={20} />}
+              Re-sincronizar Stocks de Alegra
+            </button>
+            <button
+              onClick={() => {
+                setAuditoriaActiva(null);
+                loadDashboard();
+              }}
+              className="w-full bg-white hover:bg-gray-50 text-gray-700 font-bold border border-gray-200 py-3 px-6 rounded-2xl transition-all active:scale-95"
+            >
+              Volver al Inicio
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Audit Identity Card */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{auditoriaActiva.nombre}</h1>
           <p className="text-sm text-gray-500 flex items-center gap-3">
@@ -1125,6 +1229,9 @@ export default function InventarioAuditoria() {
           </div>
         </div>
       )}
+      </>
+      )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
