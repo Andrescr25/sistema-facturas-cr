@@ -329,28 +329,7 @@ export default function ReporteProveedores() {
         return
       }
 
-      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `orden-compra-${proveedor.nombre.replace(/\\s+/g, '-')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-
-      let telefono = telefonoProveedor.replace(/[\\s\\-\\(\\)]/g, '')
-      if (!telefono.startsWith('+') && !telefono.startsWith('506')) telefono = '506' + telefono
-      if (telefono.startsWith('+')) telefono = telefono.substring(1)
-
-      const mensaje = encodeURIComponent(`Hola buenas, me puedes hacer proforma de esto, Gracias`)
-
-      alert('📥 Descargando PDF... WhatsApp se abrirá en 7 segundos.')
-      await new Promise(resolve => setTimeout(resolve, 7000))
-
-      const whatsappUrl = `https://wa.me/${telefono}?text=${mensaje}`
-      window.open(whatsappUrl, '_blank')
-
+      // Guardar/Actualizar teléfono del proveedor de una vez
       try {
         await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
@@ -358,8 +337,20 @@ export default function ReporteProveedores() {
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
       }
 
-      setModalWhatsAppVisible(false)
-      alert(`✅ PDF descargado. Ahora adjunta el PDF en WhatsApp.`)
+      // Enviar directamente mediante el backend + Evolution API
+      const result = await alegraService.enviarOrdenCompraWhatsApp(
+        proveedor.nombre,
+        telefonoProveedor,
+        productosParaPDF,
+        preferirDatosProveedor
+      )
+
+      if (result.success) {
+        alert(`✅ Orden de compra enviada con éxito a ${proveedor.nombre} por WhatsApp.`)
+        setModalWhatsAppVisible(false)
+      } else {
+        alert(`❌ Error enviando por WhatsApp: ${result.message}`)
+      }
     } catch (error) {
       alert(`❌ Error: ${error.message}`)
     } finally {

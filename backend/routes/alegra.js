@@ -4921,6 +4921,437 @@ router.delete('/orden-compra/producto-agregado', async (req, res) => {
   }
 });
 
+// Función helper para generar el PDF de orden de compra en memoria como Buffer
+async function generarOrdenCompraPDFBuffer(proveedor, productos, preferirDatosProveedor = true) {
+  const preferirDatosProveedorGlobal = preferirDatosProveedor !== false;
+
+  // Enriquecer productos con información del proveedor desde Supabase
+  const { query } = require('../config/database');
+
+  const normalize = (value) => value ? value.toString().trim() : '';
+  const canonicalizeNombre = (value) => {
+    if (!value) return '';
+    return value
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  };
+  const proveedorCanonico = canonicalizeNombre(proveedor);
+
+  const mappingSelect = `
+        SELECT 
+          id,
+          supplier_code as "supplierCode",
+          supplier_desc as "supplierDesc",
+          supplier_name as "supplierName",
+          supplier_cedula as "supplierCedula",
+          alegra_reference as "alegraReference",
+          alegra_name as "alegraName",
+          alegra_item_id as "alegraItemId",
+          confidence,
+          origen,
+          factor_conversion as "factorConversion",
+      last_used_date as "lastUsedDate",
+      times_used as "timesUsed"
+        FROM supplier_product_mapping 
+  `;
+
+  const fetchMappings = async (sql, params) => {
+    const result = await query(sql, params);
+    return result.rows || [];
+  };
+
+  const sanitizeCodigoProveedor = (valor) => {
+    if (!valor) return null;
+    const cleaned = valor.toString().trim();
+    if (!cleaned || cleaned.toUpperCase() === 'N/A') return null;
+    return cleaned;
+  };
+
+  const mappingMatchesProveedor = (mapping, { skipStrictValidation = false } = {}) => {
+    if (!mapping) return false;
+    if (skipStrictValidation) return true;
+    if (!mapping.supplierName) return false;
+    return canonicalizeNombre(mapping.supplierName) === proveedorCanonico;
+  };
+
+  const pickFirstMatching = (rows, { skipStrictValidation = false } = {}) => {
+    if (!rows || rows.length === 0) {
+      return null;
+    }
+    const matchingProvider = rows.find(row => mappingMatchesProveedor(row));
+    if (matchingProvider) {
+      return matchingProvider;
+    }
+    if (skipStrictValidation) {
+      console.log(`⚠️ [PDF] No hay mapping para el proveedor actual, usando fallback del primero disponible`);
+      return rows[0];
+    }
+    return null;
+  };
+
+  const getMappingById = async (mappingId) => {
+    if (!mappingId) return null;
+    const rows = await fetchMappings(
+      `${mappingSelect} WHERE id = $1`,
+      [mappingId]
+    );
+    return rows[0] || null;
+  };
+
+  const getMappingBySupplierCode = async (codigoProveedor) => {
+    if (!codigoProveedor) return null;
+    const rows = await fetchMappings(
+      `${mappingSelect} 
+        WHERE supplier_code = $1 
+        ORDER BY last_used_date DESC, times_used DESC
+        LIMIT 10`,
+      [codigoProveedor]
+    );
+    return pickFirstMatching(rows);
+  };
+
+  const getMappingByAlegraId = async (alegraItemId) => {
+    if (!alegraItemId) return null;
+    const rows = await fetchMappings(
+      `${mappingSelect}
+        WHERE alegra_item_id::text = $1
+        ORDER BY last_used_date DESC, times_used DESC
+        LIMIT 10`,
+      [alegraItemId.toString()]
+    );
+    return pickFirstMatching(rows, { skipStrictValidation: true });
+  };
+
+  const getMappingByFlexibleSearch = async (productoPayload) => {
+    const referencia = productoPayload.codigoInterno || null;
+    const nombreBusqueda = productoPayload.nombreProveedorEntrada || productoPayload.nombreInterno || null;
+
+    if (!referencia && !nombreBusqueda) return null;
+
+    const conditions = [];
+    const params = [];
+    let paramIdx = 1;
+
+    if (referencia) {
+      conditions.push(`alegra_reference = $${paramIdx}`);
+      params.push(referencia);
+      paramIdx++;
+    }
+
+    if (nombreBusqueda) {
+      const likePattern = `%${nombreBusqueda}%`;
+      conditions.push(`(supplier_desc ILIKE $${paramIdx} OR alegra_name ILIKE $${paramIdx})`);
+      params.push(likePattern);
+      paramIdx++;
+    }
+
+    if (conditions.length === 0) return null;
+
+    const rows = await fetchMappings(
+      `${mappingSelect}
+        WHERE ${conditions.join(' OR ')}
+        ORDER BY confidence DESC, last_used_date DESC, times_used DESC
+        LIMIT 20`,
+      params
+    );
+    return pickFirstMatching(rows);
+  };
+
+  const productosEnriquecidos = [];
+
+  for (const producto of productos) {
+    try {
+      const preferirDatosProveedorActual = typeof producto.preferirDatosProveedor === 'boolean'
+        ? producto.preferirDatosProveedor
+        : preferirDatosProveedorGlobal;
+
+      const payloadInfo = {
+        codigoInterno: producto.codigo || producto.codigoInterno || null,
+        nombreInterno: producto.nombre || producto.nombreInterno || null,
+        codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
+        nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
+        mappingId: producto.mappingId || producto.mapping_id || null,
+        alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
+        cantidadFinal: parseInt(producto.cantidad, 10) || 0,
+        factorConversion: producto.factorConversion || producto.factor_conversion || 1,
+        observaciones: producto.observaciones || '',
+        descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || ''
+      };
+
+      if (!preferirDatosProveedorActual) {
+        productosEnriquecidos.push({
+          codigo_pdf: payloadInfo.codigoInterno || payloadInfo.codigoProveedorEntrada || 'N/A',
+          nombre_pdf: payloadInfo.nombreInterno || payloadInfo.nombreProveedorEntrada || 'Sin descripción',
+          cantidad: payloadInfo.cantidadFinal,
+          codigo_interno: payloadInfo.codigoInterno,
+          nombre_interno: payloadInfo.nombreInterno,
+          confianza: 0,
+          factorConversion: payloadInfo.factorConversion,
+          origen: 'interno_manual',
+          datosProveedorReales: false,
+          mappingId: payloadInfo.mappingId || null,
+          observaciones: payloadInfo.observaciones || '',
+          descripcionFactura: payloadInfo.descripcionFactura || ''
+        });
+        continue;
+      }
+
+      let mapping = null;
+      let mappingFuente = null;
+
+      if (payloadInfo.mappingId) {
+        mapping = await getMappingById(payloadInfo.mappingId);
+        mappingFuente = 'mappingId';
+      }
+
+      if (!mapping) {
+        const mappingByCode = await getMappingBySupplierCode(payloadInfo.codigoProveedorEntrada);
+        if (mappingByCode) {
+          mapping = mappingByCode;
+          mappingFuente = 'supplierCode';
+        }
+      }
+
+      if (!mapping) {
+        const mappingByAlegra = await getMappingByAlegraId(payloadInfo.alegraItemId);
+        if (mappingByAlegra) {
+          mapping = mappingByAlegra;
+          mappingFuente = 'alegraId';
+        }
+      }
+
+      if (!mapping) {
+        const mappingBySearch = await getMappingByFlexibleSearch(payloadInfo);
+        if (mappingBySearch) {
+          mapping = mappingBySearch;
+          mappingFuente = 'flex';
+        }
+      }
+
+      if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'alegraId' && !mappingMatchesProveedor(mapping)) {
+        mapping = null;
+      }
+
+      const codigoProveedorPreferido =
+        sanitizeCodigoProveedor(payloadInfo.codigoProveedorEntrada) ||
+        sanitizeCodigoProveedor(mapping?.supplierCode) ||
+        null;
+
+      const nombreProveedorPreferido = 
+        (mapping?.supplierDesc && normalize(mapping.supplierDesc)) ||
+        normalize(payloadInfo.nombreProveedorEntrada) ||
+        null;
+
+      const nombrePDF = nombreProveedorPreferido
+        || (mapping?.alegraName && normalize(mapping.alegraName))
+        || payloadInfo.nombreInterno
+        || 'Sin descripción';
+      
+      const tieneMapping = Boolean(mapping);
+
+      const codigoPDF = codigoProveedorPreferido
+        || payloadInfo.codigoInterno
+        || mapping?.alegraReference
+        || 'N/A';
+
+      const origenEtiqueta = tieneMapping
+        ? (codigoProveedorPreferido ? 'con_codigo_proveedor' : 'sin_codigo_proveedor')
+        : 'sin_mapeo';
+
+      productosEnriquecidos.push({
+        codigo_pdf: codigoPDF,
+        nombre_pdf: nombrePDF,
+        cantidad: payloadInfo.cantidadFinal,
+        codigo_interno: payloadInfo.codigoInterno,
+        nombre_interno: payloadInfo.nombreInterno,
+        confianza: mapping?.confidence || 0,
+        factorConversion: payloadInfo.factorConversion,
+        origen: origenEtiqueta,
+        datosProveedorReales: tieneMapping,
+        mappingId: mapping?.id || payloadInfo.mappingId || null,
+        observaciones: payloadInfo.observaciones || '',
+        descripcionFactura: payloadInfo.descripcionFactura || ''
+      });
+    } catch (mappingError) {
+      console.error(`❌ Error buscando mapping para ${producto.codigo || producto.codigoInterno}:`, mappingError.message);
+      productosEnriquecidos.push({
+        codigo_pdf: producto.codigo || 'N/A',
+        nombre_pdf: producto.nombre || 'Sin descripción',
+        cantidad: parseInt(producto.cantidad, 10) || 0,
+        codigo_interno: producto.codigo || null,
+        nombre_interno: producto.nombre || null,
+        confianza: 0,
+        factorConversion: producto.factorConversion || 1,
+        origen: 'error',
+        datosProveedorReales: false,
+        mappingId: producto.mappingId || producto.mapping_id || null,
+        observaciones: producto.observaciones || '',
+        descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || ''
+      });
+    }
+  }
+
+  const productosConCodigoProveedor = productosEnriquecidos.filter(p =>
+    p.origen === 'con_codigo_proveedor' || p.origen === 'interno_manual'
+  );
+  const productosSinCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'sin_codigo_proveedor');
+  const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
+
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ margin: 50 });
+  const chunks = [];
+  doc.on('data', chunk => chunks.push(chunk));
+
+  const pdfPromise = new Promise((resolve) => {
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      resolve(pdfBuffer);
+    });
+  });
+
+  // Header principal
+  doc.fontSize(20)
+    .font('Helvetica-Bold')
+    .text('ORDEN DE COMPRA', 50, 50);
+
+  // Información del proveedor
+  doc.fontSize(16)
+    .font('Helvetica-Bold')
+    .text(`Proveedor: ${proveedor}`, 50, 100);
+
+  // Fecha
+  const fecha = new Date().toLocaleDateString('es-CR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  doc.fontSize(12)
+    .font('Helvetica')
+    .text(`Fecha: ${fecha}`, 50, 130);
+
+  // Línea separadora
+  doc.moveTo(50, 160)
+    .lineTo(550, 160)
+    .stroke();
+
+  let yPos = 180;
+  let totalUnidades = 0;
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
+
+  const drawTableHeader = () => {
+    doc.fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Código', 50, yPos)
+      .text('Descripción', 150, yPos)
+      .text('Cantidad', 450, yPos);
+
+    yPos += 15;
+    doc.moveTo(50, yPos)
+      .lineTo(550, yPos)
+      .stroke();
+    yPos += 10;
+    doc.font('Helvetica').fillColor('#000000');
+  };
+
+  const startNewPage = () => {
+    doc.addPage();
+    yPos = 50;
+    drawTableHeader();
+  };
+
+  const ensureSpace = (needed = 50) => {
+    if (yPos + needed > pageBottom) {
+      startNewPage();
+    }
+  };
+
+  const rowHeightForDescription = (descripcion) => {
+    const text = descripcion || 'Sin descripción';
+    return Math.max(
+      doc.heightOfString(text, { width: 280, align: 'left' }),
+      14
+    );
+  };
+
+  const renderProducto = (producto) => {
+    let descripcion = producto.nombre_pdf || 'Sin descripción';
+
+    if (producto.descripcionFactura && producto.descripcionFactura.trim() !== '') {
+      descripcion += ` (${producto.descripcionFactura.trim()})`;
+    }
+
+    if (producto.observaciones && producto.observaciones.trim() !== '') {
+      descripcion += ` - ${producto.observaciones.trim()}`;
+    }
+
+    const codigo = producto.codigo_pdf || 'N/A';
+    const cantidadTexto = (producto.cantidad ?? 0).toString();
+
+    const rowHeight = rowHeightForDescription(descripcion);
+    ensureSpace(rowHeight + 15);
+
+    doc.fontSize(11).font('Helvetica');
+    doc.text(codigo, 50, yPos, { width: 80 });
+    doc.text(descripcion, 150, yPos, { width: 280 });
+    doc.text(cantidadTexto, 450, yPos, { width: 80 });
+
+    yPos += rowHeight + 8;
+    totalUnidades += parseInt(producto.cantidad) || 0;
+  };
+
+  const renderSeccion = (lista) => {
+    lista.forEach(renderProducto);
+  };
+
+  const drawSectionLabel = (texto) => {
+    ensureSpace(25);
+    doc.fontSize(10)
+      .font('Helvetica-Oblique')
+      .fillColor('#555555')
+      .text(texto, 50, yPos);
+    doc.fillColor('#000000').font('Helvetica');
+    yPos += 15;
+  };
+
+  drawTableHeader();
+
+  renderSeccion(productosConCodigoProveedor);
+
+  if (productosSinCodigoProveedor.length > 0) {
+    drawSectionLabel('Productos sin código del proveedor (usar referencia interna)');
+    renderSeccion(productosSinCodigoProveedor);
+  }
+
+  if (productosSinMapeo.length > 0) {
+    drawSectionLabel('Productos sin mapeo (datos originales)');
+    renderSeccion(productosSinMapeo);
+  }
+
+  ensureSpace(40);
+  doc.moveTo(50, yPos)
+    .lineTo(550, yPos)
+    .stroke();
+
+  yPos += 20;
+  doc.fontSize(12)
+    .font('Helvetica-Bold')
+    .text(`Total productos: ${productosEnriquecidos.length}`, 50, yPos)
+    .text(`Total unidades: ${totalUnidades}`, 300, yPos);
+
+  yPos += 40;
+  doc.fontSize(10)
+    .font('Helvetica')
+    .text(`Generado el ${new Date().toLocaleString('es-CR')}`, 50, yPos);
+
+  doc.end();
+
+  const pdfBuffer = await pdfPromise;
+  return { pdfBuffer, cantidadProductos: productosEnriquecidos.length };
+}
+
 // Generar PDF de orden de compra - CORREGIDO CON INFO DEL PROVEEDOR
 router.post('/orden-compra/generar-pdf', async (req, res) => {
   try {
@@ -4939,508 +5370,9 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       });
     }
 
-    const preferirDatosProveedorGlobal = preferirDatosProveedor !== false;
+    const { pdfBuffer, cantidadProductos } = await generarOrdenCompraPDFBuffer(proveedor, productos, preferirDatosProveedor);
 
-    // NUEVO: Enriquecer productos con información del proveedor desde Supabase
-    const { query } = require('../config/database');
-    // Eliminamos la línea de queryExternal
-    // const { queryExternal } = require('../config/external-database');
-
-
-    const normalize = (value) => value ? value.toString().trim() : '';
-    const canonicalizeNombre = (value) => {
-      if (!value) return '';
-      return value
-        .toString()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]/g, '');
-    };
-    const proveedorCanonico = canonicalizeNombre(proveedor);
-
-    const mappingSelect = `
-          SELECT 
-            id,
-            supplier_code as "supplierCode",
-            supplier_desc as "supplierDesc",
-            supplier_name as "supplierName",
-            supplier_cedula as "supplierCedula",
-            alegra_reference as "alegraReference",
-            alegra_name as "alegraName",
-            alegra_item_id as "alegraItemId",
-            confidence,
-            origen,
-            factor_conversion as "factorConversion",
-        last_used_date as "lastUsedDate",
-        times_used as "timesUsed"
-          FROM supplier_product_mapping 
-    `;
-
-    const fetchMappings = async (sql, params) => {
-      const result = await query(sql, params);
-      return result.rows || [];
-    };
-
-    const sanitizeCodigoProveedor = (valor) => {
-      if (!valor) return null;
-      const cleaned = valor.toString().trim();
-      if (!cleaned || cleaned.toUpperCase() === 'N/A') return null;
-      return cleaned;
-    };
-
-    const mappingMatchesProveedor = (mapping, { skipStrictValidation = false } = {}) => {
-      if (!mapping) return false;
-      if (skipStrictValidation) return true;
-      if (!mapping.supplierName) return false;
-      return canonicalizeNombre(mapping.supplierName) === proveedorCanonico;
-    };
-
-    const pickFirstMatching = (rows, { skipStrictValidation = false } = {}) => {
-      if (!rows || rows.length === 0) {
-        return null;
-      }
-      // ✅ PRIMERO: Intentar encontrar uno que coincida con el proveedor actual
-      const matchingProvider = rows.find(row => mappingMatchesProveedor(row));
-      if (matchingProvider) {
-        return matchingProvider;
-      }
-      // ✅ Si no hay coincidencia y skipStrictValidation está activo, usar el primero como fallback
-      if (skipStrictValidation) {
-        console.log(`⚠️ [PDF] No hay mapping para el proveedor actual, usando fallback del primero disponible`);
-        return rows[0];
-      }
-      return null;
-    };
-
-    const getMappingById = async (mappingId) => {
-      if (!mappingId) return null;
-      const rows = await fetchMappings(
-        `${mappingSelect} WHERE id = $1`,
-        [mappingId]
-      );
-      return rows[0] || null;
-    };
-
-    const getMappingBySupplierCode = async (codigoProveedor) => {
-      if (!codigoProveedor) return null;
-      const rows = await fetchMappings(
-        `${mappingSelect} 
-          WHERE supplier_code = $1 
-          ORDER BY last_used_date DESC, times_used DESC
-          LIMIT 10`,
-        [codigoProveedor]
-      );
-      return pickFirstMatching(rows);
-    };
-
-    const getMappingByAlegraId = async (alegraItemId) => {
-      if (!alegraItemId) return null;
-      const rows = await fetchMappings(
-        `${mappingSelect}
-          WHERE alegra_item_id::text = $1
-          ORDER BY last_used_date DESC, times_used DESC
-          LIMIT 10`,
-        [alegraItemId.toString()]
-      );
-      // ✅ Para alegraId, devolver el primer resultado SIN validación de proveedor
-      // El alegraId es un identificador único del producto - si hay un mapping, lo usamos
-      return pickFirstMatching(rows, { skipStrictValidation: true });
-    };
-
-    const getMappingByFlexibleSearch = async (productoPayload) => {
-      const referencia = productoPayload.codigoInterno || null;
-      const nombreBusqueda = productoPayload.nombreProveedorEntrada || productoPayload.nombreInterno || null;
-
-      if (!referencia && !nombreBusqueda) return null;
-
-      // Build dynamic query to avoid NULL parameter type inference issues
-      const conditions = [];
-      const params = [];
-      let paramIdx = 1;
-
-      if (referencia) {
-        conditions.push(`alegra_reference = $${paramIdx}`);
-        params.push(referencia);
-        paramIdx++;
-      }
-
-      if (nombreBusqueda) {
-        const likePattern = `%${nombreBusqueda}%`;
-        conditions.push(`(supplier_desc ILIKE $${paramIdx} OR alegra_name ILIKE $${paramIdx})`);
-        params.push(likePattern);
-        paramIdx++;
-      }
-
-      if (conditions.length === 0) return null;
-
-      const rows = await fetchMappings(
-        `${mappingSelect}
-          WHERE ${conditions.join(' OR ')}
-          ORDER BY confidence DESC, last_used_date DESC, times_used DESC
-          LIMIT 20`,
-        params
-      );
-      return pickFirstMatching(rows);
-    };
-
-    const productosEnriquecidos = [];
-
-    for (const producto of productos) {
-      try {
-        const preferirDatosProveedorActual = typeof producto.preferirDatosProveedor === 'boolean'
-          ? producto.preferirDatosProveedor
-          : preferirDatosProveedorGlobal;
-
-        const payloadInfo = {
-          codigoInterno: producto.codigo || producto.codigoInterno || null,
-          nombreInterno: producto.nombre || producto.nombreInterno || null,
-          codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
-          nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
-          mappingId: producto.mappingId || producto.mapping_id || null,
-          alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
-          cantidadFinal: parseInt(producto.cantidad, 10) || 0,
-          factorConversion: producto.factorConversion || producto.factor_conversion || 1,
-          observaciones: producto.observaciones || '', // ← Observaciones del producto
-          descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || '' // ← Descripción de la factura
-        };
-
-        // 🔍 DEBUG: Log the received input for first 3 products
-        if (productosEnriquecidos.length < 3) {
-          console.log(`📨 [PDF DEBUG] Producto recibido del frontend:`);
-          console.log(`   - codigo: ${payloadInfo.codigoInterno}`);
-          console.log(`   - codigoProveedorEntrada: ${payloadInfo.codigoProveedorEntrada}`);
-          console.log(`   - mappingId: ${payloadInfo.mappingId}`);
-          console.log(`   - alegraItemId: ${payloadInfo.alegraItemId}`);
-        }
-
-        if (!preferirDatosProveedorActual) {
-          productosEnriquecidos.push({
-            codigo_pdf: payloadInfo.codigoInterno || payloadInfo.codigoProveedorEntrada || 'N/A',
-            nombre_pdf: payloadInfo.nombreInterno || payloadInfo.nombreProveedorEntrada || 'Sin descripción',
-            cantidad: payloadInfo.cantidadFinal,
-            codigo_interno: payloadInfo.codigoInterno,
-            nombre_interno: payloadInfo.nombreInterno,
-            confianza: 0,
-            factorConversion: payloadInfo.factorConversion,
-            origen: 'interno_manual',
-            datosProveedorReales: false,
-            mappingId: payloadInfo.mappingId || null,
-            observaciones: payloadInfo.observaciones || '', // ← Observaciones del producto
-            descripcionFactura: payloadInfo.descripcionFactura || '' // ← Descripción de la factura
-          });
-          continue;
-        }
-
-        let mapping = null;
-        let mappingFuente = null;
-
-        if (payloadInfo.mappingId) {
-          console.log(`🔍 [PDF DEBUG] Buscando mapping por ID: ${payloadInfo.mappingId}`);
-          mapping = await getMappingById(payloadInfo.mappingId);
-          if (mapping) {
-            console.log(`✅ [PDF DEBUG] Mapping encontrado: ${mapping.supplierCode} - ${mapping.supplierDesc || mapping.alegraName}`);
-          } else {
-            console.log(`❌ [PDF DEBUG] NO se encontró mapping con ID: ${payloadInfo.mappingId}`);
-          }
-          mappingFuente = 'mappingId';
-        }
-
-        if (!mapping) {
-          const mappingByCode = await getMappingBySupplierCode(payloadInfo.codigoProveedorEntrada);
-          if (mappingByCode) {
-            mapping = mappingByCode;
-            mappingFuente = 'supplierCode';
-          }
-        }
-
-        if (!mapping) {
-          const mappingByAlegra = await getMappingByAlegraId(payloadInfo.alegraItemId);
-          if (mappingByAlegra) {
-            mapping = mappingByAlegra;
-            mappingFuente = 'alegraId';
-            // 🔍 DEBUG: Ver qué datos tiene el mapping encontrado
-            console.log(`✅ [PDF DEBUG] Mapping encontrado por alegraId:`);
-            console.log(`   - supplierCode: ${mapping.supplierCode}`);
-            console.log(`   - supplierDesc: ${mapping.supplierDesc || '(vacío)'}`);
-            console.log(`   - alegraName: ${mapping.alegraName}`);
-            console.log(`   - supplierName: ${mapping.supplierName}`);
-          }
-        }
-
-        if (!mapping) {
-          const mappingBySearch = await getMappingByFlexibleSearch(payloadInfo);
-          if (mappingBySearch) {
-            mapping = mappingBySearch;
-            mappingFuente = 'flex';
-          }
-        }
-
-        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'alegraId' && !mappingMatchesProveedor(mapping)) {
-          // Solo rechazar si NO es por mappingId NI por alegraId
-          // Los mappings encontrados por alegraId son confiables porque vinculan directamente el producto
-          console.log(`⚠️ [PDF] Mapping rechazado por nombre de proveedor: ${mapping.supplierName} vs ${proveedor}`);
-          mapping = null;
-        }
-
-        const codigoProveedorPreferido =
-          sanitizeCodigoProveedor(payloadInfo.codigoProveedorEntrada) ||
-          sanitizeCodigoProveedor(mapping?.supplierCode) ||
-          null;
-
-        // ✅ PRIORIDAD: 1. supplierDesc del mapping, 2. nombreProveedorEntrada del payload, 3. alegraName, 4. nombreInterno
-        const nombreProveedorPreferido = 
-          (mapping?.supplierDesc && normalize(mapping.supplierDesc)) ||
-          normalize(payloadInfo.nombreProveedorEntrada) ||
-          null;
-
-        const nombrePDF = nombreProveedorPreferido
-          || (mapping?.alegraName && normalize(mapping.alegraName))
-          || payloadInfo.nombreInterno
-          || 'Sin descripción';
-        
-        // 🔍 DEBUG
-        if (productosEnriquecidos.length < 3) {
-          console.log(`📝 [PDF DEBUG] Nombre para ${payloadInfo.codigoInterno}:`);
-          console.log(`   - supplierDesc del mapping: ${mapping?.supplierDesc || '(vacío)'}`);
-          console.log(`   - nombreProveedorEntrada: ${payloadInfo.nombreProveedorEntrada || '(vacío)'}`);
-          console.log(`   - alegraName: ${mapping?.alegraName || '(vacío)'}`);
-          console.log(`   - nombrePDF final: ${nombrePDF}`);
-        }
-
-        const tieneMapping = Boolean(mapping);
-        const tieneCodigoProveedor = Boolean(codigoProveedorPreferido);
-
-        const codigoPDF = codigoProveedorPreferido
-          || payloadInfo.codigoInterno
-          || mapping?.alegraReference
-          || 'N/A';
-
-        const origenEtiqueta = tieneMapping
-          ? (tieneCodigoProveedor ? 'con_codigo_proveedor' : 'sin_codigo_proveedor')
-          : 'sin_mapeo';
-
-        productosEnriquecidos.push({
-          codigo_pdf: codigoPDF,
-          nombre_pdf: nombrePDF,
-          cantidad: payloadInfo.cantidadFinal,
-          codigo_interno: payloadInfo.codigoInterno,
-          nombre_interno: payloadInfo.nombreInterno,
-          confianza: mapping?.confidence || 0,
-          factorConversion: payloadInfo.factorConversion,
-          origen: origenEtiqueta,
-          datosProveedorReales: tieneMapping,
-          mappingId: mapping?.id || payloadInfo.mappingId || null,
-          observaciones: payloadInfo.observaciones || '', // ← Observaciones del producto
-          descripcionFactura: payloadInfo.descripcionFactura || '' // ← Descripción de la factura
-        });
-      } catch (mappingError) {
-        console.error(`❌ Error buscando mapping para ${producto.codigo || producto.codigoInterno}:`, mappingError.message);
-        productosEnriquecidos.push({
-          codigo_pdf: producto.codigo || 'N/A',
-          nombre_pdf: producto.nombre || 'Sin descripción',
-          cantidad: parseInt(producto.cantidad, 10) || 0,
-          codigo_interno: producto.codigo || null,
-          nombre_interno: producto.nombre || null,
-          confianza: 0,
-          factorConversion: producto.factorConversion || 1,
-          origen: 'error',
-          datosProveedorReales: false,
-          mappingId: producto.mappingId || producto.mapping_id || null,
-          observaciones: producto.observaciones || '', // ← Observaciones del producto
-          descripcionFactura: producto.descripcionFactura || producto.descripcion_factura || '' // ← Descripción de la factura
-        });
-      }
-    }
-
-    // ✅ SEPARAR productos según tengan o no código del proveedor
-    const productosConCodigoProveedor = productosEnriquecidos.filter(p =>
-      p.origen === 'con_codigo_proveedor' || p.origen === 'interno_manual'
-    );
-    const productosSinCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'sin_codigo_proveedor');
-    const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
-
-    console.log(`\n📊 RESUMEN DE ENRIQUECIMIENTO:`);
-    console.log(`   Con código proveedor: ${productosConCodigoProveedor.length}`);
-    console.log(`   Sin código proveedor: ${productosSinCodigoProveedor.length}`);
-    console.log(`   Sin mapeo: ${productosSinMapeo.length}`);
-    
-    console.log(`\n📋 PRODUCTOS FINALES PARA PDF:`);
-    productosEnriquecidos.forEach((p, i) => {
-      console.log(`   ${i + 1}. "${p.codigo_pdf}" - "${p.nombre_pdf}" x${p.cantidad} [${p.origen}]`);
-    });
-
-    // Importar PDFKit
-    const PDFDocument = require('pdfkit');
-
-    // Crear documento PDF
-    const doc = new PDFDocument({ margin: 50 });
-
-    // Buffer para almacenar el PDF
-    const chunks = [];
-    doc.on('data', chunk => chunks.push(chunk));
-
-    // Promesa para esperar a que termine la generación
-    const pdfPromise = new Promise((resolve) => {
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(chunks);
-        resolve(pdfBuffer);
-      });
-    });
-
-    // ============================================
-    // CONTENIDO DEL PDF
-    // ============================================
-
-    // Header principal
-    doc.fontSize(20)
-      .font('Helvetica-Bold')
-      .text('ORDEN DE COMPRA', 50, 50);
-
-    // Información del proveedor
-    doc.fontSize(16)
-      .font('Helvetica-Bold')
-      .text(`Proveedor: ${proveedor}`, 50, 100);
-
-    // Fecha
-    const fecha = new Date().toLocaleDateString('es-CR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    doc.fontSize(12)
-      .font('Helvetica')
-      .text(`Fecha: ${fecha}`, 50, 130);
-
-    // Línea separadora
-    doc.moveTo(50, 160)
-      .lineTo(550, 160)
-      .stroke();
-
-    let yPos = 180;
-    let totalUnidades = 0;
-    const pageBottom = doc.page.height - doc.page.margins.bottom;
-
-    const drawTableHeader = () => {
-    doc.fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Código', 50, yPos)
-      .text('Descripción', 150, yPos)
-      .text('Cantidad', 450, yPos);
-
-      yPos += 15;
-    doc.moveTo(50, yPos)
-      .lineTo(550, yPos)
-      .stroke();
-    yPos += 10;
-      doc.font('Helvetica').fillColor('#000000');
-    };
-
-    const startNewPage = () => {
-        doc.addPage();
-        yPos = 50;
-      drawTableHeader();
-    };
-
-    const ensureSpace = (needed = 50) => {
-      if (yPos + needed > pageBottom) {
-        startNewPage();
-      }
-    };
-
-    const rowHeightForDescription = (descripcion) => {
-      const text = descripcion || 'Sin descripción';
-      return Math.max(
-        doc.heightOfString(text, { width: 280, align: 'left' }),
-        14
-      );
-    };
-
-    const renderProducto = (producto) => {
-      let descripcion = producto.nombre_pdf || 'Sin descripción';
-
-      // ✅ Agregar descripción de factura si existe (PRIMERO)
-      if (producto.descripcionFactura && producto.descripcionFactura.trim() !== '') {
-        descripcion += ` (${producto.descripcionFactura.trim()})`;
-      }
-
-      // ✅ Agregar observaciones si existen (SEGUNDO)
-      if (producto.observaciones && producto.observaciones.trim() !== '') {
-        descripcion += ` - ${producto.observaciones.trim()}`;
-      }
-
-      const codigo = producto.codigo_pdf || 'N/A';
-      const cantidadTexto = (producto.cantidad ?? 0).toString();
-
-      const rowHeight = rowHeightForDescription(descripcion);
-      ensureSpace(rowHeight + 15);
-
-      doc.fontSize(11).font('Helvetica');
-      doc.text(codigo, 50, yPos, { width: 80 });
-      doc.text(descripcion, 150, yPos, { width: 280 });
-      doc.text(cantidadTexto, 450, yPos, { width: 80 });
-
-      yPos += rowHeight + 8;
-      totalUnidades += parseInt(producto.cantidad) || 0;
-    };
-
-    const renderSeccion = (lista) => {
-      lista.forEach(renderProducto);
-    };
-
-    const drawSectionLabel = (texto) => {
-      ensureSpace(25);
-      doc.fontSize(10)
-        .font('Helvetica-Oblique')
-        .fillColor('#555555')
-        .text(texto, 50, yPos);
-      doc.fillColor('#000000').font('Helvetica');
-      yPos += 15;
-    };
-
-    drawTableHeader();
-
-    // ✅ PRIMERO: Productos con código del proveedor
-    renderSeccion(productosConCodigoProveedor);
-
-    // ✅ SEGUNDO: Productos sin código del proveedor
-    if (productosSinCodigoProveedor.length > 0) {
-      drawSectionLabel('Productos sin código del proveedor (usar referencia interna)');
-      renderSeccion(productosSinCodigoProveedor);
-    }
-
-    // ✅ TERCERO: Productos sin mapeo
-    if (productosSinMapeo.length > 0) {
-      drawSectionLabel('Productos sin mapeo (datos originales)');
-      renderSeccion(productosSinMapeo);
-    }
-
-    // Línea separadora final
-    ensureSpace(40);
-    doc.moveTo(50, yPos)
-      .lineTo(550, yPos)
-      .stroke();
-
-    // Totales
-    yPos += 20;
-    doc.fontSize(12)
-      .font('Helvetica-Bold')
-      .text(`Total productos: ${productosEnriquecidos.length}`, 50, yPos)
-      .text(`Total unidades: ${totalUnidades}`, 300, yPos);
-
-    // Footer
-    yPos += 40;
-    doc.fontSize(10)
-      .font('Helvetica')
-      .text(`Generado el ${new Date().toLocaleString('es-CR')}`, 50, yPos);
-
-    // Finalizar el documento
-    doc.end();
-
-    // Esperar a que se complete la generación
-    const pdfBuffer = await pdfPromise;
-
-    console.log(`✅ PDF generado para ${proveedor} con ${productosEnriquecidos.length} productos`);
+    console.log(`✅ PDF generado para ${proveedor} con ${cantidadProductos} productos`);
 
     // Enviar el PDF
     res.setHeader('Content-Type', 'application/pdf');
@@ -5453,6 +5385,79 @@ router.post('/orden-compra/generar-pdf', async (req, res) => {
       success: false,
       error: error.message,
       message: 'Error generando PDF de orden de compra con datos del proveedor desde Supabase'
+    });
+  }
+});
+
+// Enviar PDF de orden de compra por WhatsApp usando Evolution API
+router.post('/orden-compra/enviar-whatsapp', async (req, res) => {
+  try {
+    console.log('📱 Enviando PDF de orden de compra por WhatsApp...');
+
+    const {
+      proveedor,
+      telefono,
+      productos,
+      preferirDatosProveedor = true
+    } = req.body;
+
+    if (!proveedor || !telefono || !productos || !Array.isArray(productos)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere proveedor, telefono y array de productos'
+      });
+    }
+
+    // 1. Generar el PDF en memoria
+    const { pdfBuffer } = await generarOrdenCompraPDFBuffer(proveedor, productos, preferirDatosProveedor);
+
+    // 2. Limpiar y formatear número telefónico (ej: "50688888888")
+    let telefonoLimpio = telefono.replace(/[\s\-\(\)\+]/g, '');
+    if (!telefonoLimpio.startsWith('506') && telefonoLimpio.length === 8) {
+      telefonoLimpio = '506' + telefonoLimpio;
+    }
+
+    // 3. Obtener variables de entorno o usar defaults para local
+    const waUrl = process.env.WHATSAPP_API_URL || 'http://localhost:8080';
+    const waApiKey = process.env.WHATSAPP_API_KEY || 'facturas_cr_secret_key_2026';
+    const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
+
+    // 4. Preparar payload de Evolution API (se envía el base64 puro sin prefijo para v2)
+    const rawBase64 = pdfBuffer.toString('base64');
+    const payload = {
+      number: telefonoLimpio,
+      mediatype: 'document',
+      mimetype: 'application/pdf',
+      media: rawBase64,
+      fileName: `orden-${proveedor.replace(/\s+/g, '-')}.pdf`,
+      caption: 'Hola buenas, me puedes hacer proforma de esto, Gracias'
+    };
+
+    console.log(`📤 Enviando orden de compra a Evolution API en ${waUrl}/message/sendMedia/${waInstance} para el número ${telefonoLimpio}`);
+
+    const axios = require('axios');
+    const response = await axios.post(`${waUrl}/message/sendMedia/${waInstance}`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': waApiKey
+      }
+    });
+
+    console.log('✅ Respuesta de Evolution API:', response.data);
+
+    res.json({
+      success: true,
+      message: 'Orden de compra enviada con éxito por WhatsApp',
+      data: response.data
+    });
+
+  } catch (error) {
+    console.error('❌ Error enviando por WhatsApp:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || null,
+      message: 'Error al enviar la orden de compra por WhatsApp'
     });
   }
 });

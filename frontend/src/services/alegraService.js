@@ -681,6 +681,24 @@ export const alegraService = {
       console.error('❌ Error guardando teléfono proveedor:', error)
       throw new Error(`Error guardando teléfono: ${error.message}`)
     }
+  },
+
+  // Enviar PDF de orden de compra por WhatsApp usando Evolution API
+  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true) {
+    try {
+      console.log('📤 Enviando orden de compra por WhatsApp desde frontend...', proveedor);
+      const response = await api.post('/alegra/orden-compra/enviar-whatsapp', {
+        proveedor,
+        telefono,
+        productos,
+        preferirDatosProveedor
+      })
+      return response.data
+    } catch (error) {
+      console.error('❌ Error enviando PDF por WhatsApp:', error)
+      const errorMsg = error.response?.data?.message || error.message;
+      throw new Error(`Error enviando por WhatsApp: ${errorMsg}`)
+    }
   }
 
 }
