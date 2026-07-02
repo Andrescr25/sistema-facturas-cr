@@ -20,6 +20,12 @@ router.delete('/faltantes/proveedor/limpiar', reportController.clearProcessedSup
 // Encargos especiales
 router.get('/encargos-especiales', reportController.getEncargosEspeciales);
 
+// Reporte consolidado de faltantes
+router.get('/faltantes/consolidado', reportController.getMissingItemsConsolidated);
+
+// Reporte de compras sugeridas por proveedor
+router.get('/compras/sugeridas', reportController.getSuggestedPurchases);
+
 // Historial de procesamientos
 router.get('/historial', reportController.getProcessingHistory);
 

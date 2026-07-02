@@ -287,6 +287,109 @@ class InvoiceController {
       return ResponseHelper.error(res, error.message, 500);
     }
   };
+
+  /**
+   * Obtener todas las facturas locales con filtros
+   */
+  getInvoices = async (req, res) => {
+    try {
+      const result = await this.invoiceService.getInvoices(req.query);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Facturas obtenidas');
+      }
+      return ResponseHelper.error(res, result.error, 500);
+    } catch (error) {
+      console.error('❌ Error en getInvoices:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * Obtener una factura específica con items y faltantes asociados
+   */
+  getInvoiceWithRelations = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await this.invoiceService.getInvoiceWithRelations(id);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Factura obtenida');
+      }
+      return ResponseHelper.error(res, result.message || result.error, result.statusCode || 500);
+    } catch (error) {
+      console.error('❌ Error en getInvoiceWithRelations:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * Crear nueva factura local
+   */
+  createInvoiceLocal = async (req, res) => {
+    try {
+      const result = await this.invoiceService.createInvoiceLocal(req.body);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Factura creada exitosamente', 201);
+      }
+      if (result.code === '23505') {
+        return ResponseHelper.error(res, 'Ya existe una factura con ese número', 409);
+      }
+      return ResponseHelper.error(res, result.error, 500);
+    } catch (error) {
+      console.error('❌ Error en createInvoiceLocal:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * Actualizar estado de factura local
+   */
+  updateInvoiceLocal = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await this.invoiceService.updateInvoiceLocal(id, req.body);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Factura actualizada exitosamente');
+      }
+      return ResponseHelper.error(res, result.message || result.error, result.statusCode || 500);
+    } catch (error) {
+      console.error('❌ Error en updateInvoiceLocal:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * Marcar factura local como procesada
+   */
+  markAsProcessedLocal = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await this.invoiceService.markAsProcessedLocal(id);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Factura marcada como procesada');
+      }
+      return ResponseHelper.error(res, result.message || result.error, result.statusCode || 500);
+    } catch (error) {
+      console.error('❌ Error en markAsProcessedLocal:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * Buscar facturas locales
+   */
+  searchInvoicesLocal = async (req, res) => {
+    try {
+      const { termino } = req.params;
+      const result = await this.invoiceService.searchInvoicesLocal(termino);
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Facturas encontradas');
+      }
+      return ResponseHelper.error(res, result.error, 500);
+    } catch (error) {
+      console.error('❌ Error en searchInvoicesLocal:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
 }
 
 module.exports = InvoiceController;

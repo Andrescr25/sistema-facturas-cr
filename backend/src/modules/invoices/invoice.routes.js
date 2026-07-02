@@ -9,9 +9,14 @@ const InvoiceController = require('./invoice.controller');
 const router = express.Router();
 const invoiceController = new InvoiceController();
 
+// ===== BASE Y CREACIÓN LOCAL =====
+router.get('/', invoiceController.getInvoices);
+router.post('/', invoiceController.createInvoiceLocal);
+
 // ===== BÚSQUEDA =====
 router.get('/buscar/numero/:numero', invoiceController.searchByNumber);
 router.get('/buscar/cliente/:cliente', invoiceController.searchByClient);
+router.get('/buscar/:termino', invoiceController.searchInvoicesLocal);
 
 // ===== CONSECUTIVOS =====
 router.get('/siguiente-consecutivo', invoiceController.getNextConsecutive);
@@ -36,5 +41,10 @@ router.post('/:id/recuperar', invoiceController.recoverProcessedInvoice);
 
 // ===== FALTANTES =====
 router.post('/:id/faltantes', invoiceController.registerMissingItems);
+
+// ===== OPERACIONES LOCALES (Parámetros comodín al final) =====
+router.get('/:id', invoiceController.getInvoiceWithRelations);
+router.put('/:id', invoiceController.updateInvoiceLocal);
+router.patch('/:id/procesada', invoiceController.markAsProcessedLocal);
 
 module.exports = router;

@@ -534,6 +534,212 @@ class ReportService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Reporte consolidado de faltantes
+   */
+  async getMissingItemsConsolidated(filters = {}) {
+    try {
+      const { semana, mes, ano } = filters;
+      
+      let whereClause = '';
+      const params = [];
+      let paramIndex = 1;
+      
+      const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
+      if (ano) {
+        conditions.push(`fa.ano = $${paramIndex++}`);
+        params.push(ano);
+      }
+      
+      if (mes) {
+        conditions.push(`fa.mes = $${paramIndex++}`);
+        params.push(mes);
+      }
+      
+      if (semana) {
+        conditions.push(`fa.semana = $${paramIndex++}`);
+        params.push(semana);
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = ' WHERE ' + conditions.join(' AND ');
+      }
+      
+      // Resumen general
+      const resumenGeneral = await query(`
+        SELECT 
+          COUNT(DISTINCT f.id) as total_faltantes,
+          COUNT(DISTINCT f.factura_id) as facturas_afectadas,
+          COUNT(DISTINCT f.producto_id) as productos_afectados,
+          COUNT(DISTINCT p.proveedor_id) as proveedores_afectados,
+          SUM(f.cantidad_faltante) as cantidad_total_faltante,
+          COUNT(CASE WHEN f.tipo_faltante = 'total' THEN 1 END) as faltantes_totales,
+          COUNT(CASE WHEN f.tipo_faltante = 'parcial' THEN 1 END) as faltantes_parciales,
+          AVG(f.cantidad_faltante) as promedio_cantidad_faltante
+        FROM faltantes f
+        JOIN facturas fa ON f.factura_id = fa.id
+        JOIN productos p ON f.producto_id = p.id
+        ${whereClause}
+      `, params);
+      
+      // Top 5 productos más faltantes
+      const topProductos = await query(`
+        SELECT 
+          p.id,
+          p.nombre,
+          p.codigo,
+          pr.nombre as proveedor_nombre,
+          SUM(f.cantidad_faltante) as cantidad_total_faltante,
+          COUNT(f.id) as veces_faltante,
+          COUNT(DISTINCT f.factura_id) as facturas_afectadas
+        FROM productos p
+        JOIN faltantes f ON p.id = f.producto_id
+        JOIN facturas fa ON f.factura_id = fa.id
+        JOIN proveedores pr ON p.proveedor_id = pr.id
+        ${whereClause}
+        GROUP BY p.id, p.nombre, p.codigo, pr.nombre
+        ORDER BY cantidad_total_faltante DESC
+        LIMIT 5
+      `, params);
+      
+      // Top 5 proveedores más afectados
+      const topProveedores = await query(`
+        SELECT 
+          pr.id,
+          pr.nombre,
+          pr.contacto,
+          COUNT(DISTINCT f.id) as total_faltantes,
+          SUM(f.cantidad_faltante) as cantidad_total_faltante,
+          COUNT(DISTINCT f.producto_id) as productos_afectados
+        FROM proveedores pr
+        JOIN productos p ON pr.id = p.proveedor_id
+        JOIN faltantes f ON p.id = f.producto_id
+        JOIN facturas fa ON f.factura_id = fa.id
+        ${whereClause}
+        GROUP BY pr.id, pr.nombre, pr.contacto
+        ORDER BY cantidad_total_faltante DESC
+        LIMIT 5
+      `, params);
+      
+      // Faltantes por día de la semana (últimas 4 semanas)
+      const faltantesPorDia = await query(`
+        SELECT 
+          EXTRACT(DOW FROM fa.fecha_emision) as dia_semana,
+          CASE EXTRACT(DOW FROM fa.fecha_emision)
+            WHEN 0 THEN 'Domingo'
+            WHEN 1 THEN 'Lunes'
+            WHEN 2 THEN 'Martes'
+            WHEN 3 THEN 'Miércoles'
+            WHEN 4 THEN 'Jueves'
+            WHEN 5 THEN 'Viernes'
+            WHEN 6 THEN 'Sábado'
+          END as nombre_dia,
+          COUNT(f.id) as total_faltantes,
+          SUM(f.cantidad_faltante) as cantidad_total
+        FROM faltantes f
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE fa.fecha_emision >= CURRENT_DATE - INTERVAL '28 days'
+        GROUP BY EXTRACT(DOW FROM fa.fecha_emision)
+        ORDER BY dia_semana
+      `);
+      
+      return {
+        success: true,
+        data: {
+          resumen_general: resumenGeneral.rows[0],
+          top_productos: topProductos.rows,
+          top_proveedores: topProveedores.rows,
+          faltantes_por_dia: faltantesPorDia.rows
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo reporte consolidado:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Reporte de compras sugeridas
+   */
+  async getSuggestedPurchases(filters = {}) {
+    try {
+      const { semana, mes, ano, multiplicador = 1.2 } = filters;
+      
+      let whereClause = '';
+      const params = [];
+      let paramIndex = 1;
+      
+      const conditions = ["f.tipo_faltante != 'completo'", "f.cantidad_faltante > 0"];
+      if (ano) {
+        conditions.push(`fa.ano = $${paramIndex++}`);
+        params.push(ano);
+      }
+      
+      if (mes) {
+        conditions.push(`fa.mes = $${paramIndex++}`);
+        params.push(mes);
+      }
+      
+      if (semana) {
+        conditions.push(`fa.semana = $${paramIndex++}`);
+        params.push(semana);
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = ' WHERE ' + conditions.join(' AND ');
+      }
+      
+      const result = await query(`
+        SELECT 
+          pr.id as proveedor_id,
+          pr.nombre as proveedor_nombre,
+          pr.contacto as proveedor_contacto,
+          pr.telefono as proveedor_telefono,
+          pr.email as proveedor_email,
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'producto_id', p.id,
+              'producto_nombre', p.nombre,
+              'producto_codigo', p.codigo,
+              'cantidad_faltante', total_faltante,
+              'cantidad_sugerida', CEIL(total_faltante * $${paramIndex}),
+              'precio_unitario', p.precio_unitario,
+              'subtotal_sugerido', CEIL(total_faltante * $${paramIndex}) * COALESCE(p.precio_unitario, 0),
+              'veces_faltante', veces_faltante
+            )
+            ORDER BY total_faltante DESC
+          ) as productos_sugeridos,
+          SUM(CEIL(total_faltante * $${paramIndex}) * COALESCE(p.precio_unitario, 0)) as total_compra_sugerida
+        FROM (
+          SELECT 
+            p.id,
+            p.nombre,
+            p.codigo,
+            p.proveedor_id,
+            p.precio_unitario,
+            SUM(f.cantidad_faltante) as total_faltante,
+            COUNT(f.id) as veces_faltante
+          FROM productos p
+          JOIN faltantes f ON p.id = f.producto_id
+          JOIN facturas fa ON f.factura_id = fa.id
+          ${whereClause}
+          GROUP BY p.id, p.nombre, p.codigo, p.proveedor_id, p.precio_unitario
+        ) p
+        JOIN proveedores pr ON p.proveedor_id = pr.id
+        GROUP BY pr.id, pr.nombre, pr.contacto, pr.telefono, pr.email
+        ORDER BY total_compra_sugerida DESC
+      `, [...params, parseFloat(multiplicador)]);
+      
+      return {
+        success: true,
+        data: result.rows
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo reporte de compras sugeridas:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = ReportService;

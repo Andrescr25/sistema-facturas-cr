@@ -109,11 +109,11 @@ if (isLocalDevelopment) {
 }
 
 // Importar rutas
-const facturaRoutes = require('./routes/facturas');
-const productoRoutes = require('./routes/productos');
+const facturaRoutes = require('./src/modules/invoices/invoice.routes');
+const productoRoutes = require('./src/modules/products/product.routes');
 const proveedorRoutes = require('./routes/proveedores');
 const faltanteRoutes = require('./routes/faltantes');
-const reporteRoutes = require('./routes/reportes');
+const reporteRoutes = require('./src/modules/reports/report.routes');
 const alegraRoutes = require('./routes/alegra');
 const revisionPreciosRoutes = require('./routes/revisionPrecios');
 const productosRevisionRoutes = require('./routes/productosRevision');

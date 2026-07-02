@@ -159,6 +159,187 @@ class ProductService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Obtener productos locales con paginación y filtros
+   */
+  async getProductsLocal(filters = {}) {
+    try {
+      const { proveedor_id, search, page = 1, limit = 50 } = filters;
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      
+      let sql = `
+        SELECT p.id, p.nombre, p.codigo, p.descripcion, p.precio_unitario, p.created_at,
+               pr.nombre as proveedor_nombre
+        FROM productos p
+        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+      `;
+      
+      let countSql = 'SELECT COUNT(*) FROM productos p';
+      
+      const params = [];
+      const countParams = [];
+      const conditions = [];
+      
+      if (proveedor_id) {
+        conditions.push('p.proveedor_id = $' + (params.length + 1));
+        params.push(proveedor_id);
+        countParams.push(proveedor_id);
+      }
+      
+      if (search) {
+        conditions.push('(p.nombre ILIKE $' + (params.length + 1) + ' OR p.codigo ILIKE $' + (params.length + 1) + ')');
+        params.push(`%${search}%`);
+        countParams.push(`%${search}%`);
+      }
+      
+      if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+        countSql += ' WHERE ' + conditions.join(' AND ');
+      }
+      
+      sql += ' ORDER BY p.nombre';
+      sql += ' LIMIT $' + (params.length + 1);
+      sql += ' OFFSET $' + (params.length + 2);
+      
+      params.push(parseInt(limit));
+      params.push(offset);
+      
+      const result = await query(sql, params);
+      const countResult = await query(countSql, countParams);
+      const total = parseInt(countResult.rows[0].count);
+      
+      return {
+        success: true,
+        data: result.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / parseInt(limit))
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo productos locales:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Obtener un producto local específico por ID
+   */
+  async getProductLocal(id) {
+    try {
+      const result = await query(`
+        SELECT p.*, pr.nombre as proveedor_nombre, pr.contacto as proveedor_contacto
+        FROM productos p
+        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+        WHERE p.id = $1
+      `, [id]);
+      
+      if (result.rows.length === 0) {
+        return {
+          success: false,
+          statusCode: 404,
+          message: 'Producto no encontrado'
+        };
+      }
+      
+      return {
+        success: true,
+        data: result.rows[0]
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo producto local:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Crear nuevo producto local
+   */
+  async createProductLocal(productData) {
+    try {
+      const { nombre, codigo, descripcion, proveedor_id, precio_unitario } = productData;
+      
+      // Verificar que el proveedor existe
+      const proveedorCheck = await query('SELECT id FROM proveedores WHERE id = $1', [proveedor_id]);
+      if (proveedorCheck.rows.length === 0) {
+        return {
+          success: false,
+          statusCode: 404,
+          message: 'Proveedor no encontrado'
+        };
+      }
+      
+      const result = await query(`
+        INSERT INTO productos (nombre, codigo, descripcion, proveedor_id, precio_unitario)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `, [nombre, codigo, descripcion, proveedor_id, precio_unitario]);
+      
+      return {
+        success: true,
+        data: result.rows[0]
+      };
+    } catch (error) {
+      console.error('❌ Error creando producto local:', error);
+      return {
+        success: false,
+        error: error.message,
+        code: error.code
+      };
+    }
+  }
+
+  /**
+   * Buscar productos locales por término
+   */
+  async searchProductsLocal(termino) {
+    try {
+      const result = await query(`
+        SELECT p.*, pr.nombre as proveedor_nombre
+        FROM productos p
+        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+        WHERE p.nombre ILIKE $1 
+           OR p.codigo ILIKE $1
+           OR p.descripcion ILIKE $1
+        ORDER BY p.nombre
+        LIMIT 50
+      `, [`%${termino}%`]);
+      
+      return {
+        success: true,
+        data: result.rows
+      };
+    } catch (error) {
+      console.error('❌ Error buscando productos locales:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Obtener productos locales por proveedor
+   */
+  async getProductsBySupplierLocal(proveedor_id) {
+    try {
+      const result = await query(`
+        SELECT p.*, pr.nombre as proveedor_nombre
+        FROM productos p
+        JOIN proveedores pr ON p.proveedor_id = pr.id
+        WHERE p.proveedor_id = $1
+        ORDER BY p.nombre
+      `, [proveedor_id]);
+      
+      return {
+        success: true,
+        data: result.rows
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo productos por proveedor:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = ProductService;
