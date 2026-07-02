@@ -65,7 +65,7 @@ async function getDiagnostic(alegraReference) {
   const productoLocal = await query(`
     SELECT id, nombre, codigo, alegra_id, proveedor_id
     FROM productos
-    WHERE codigo = $1 OR alegra_id = $1 OR nombre ILIKE $2
+    WHERE codigo = $1 OR alegra_id::text = $1 OR nombre ILIKE $2
     LIMIT 5
   `, [alegraReference, `%${alegraReference}%`]);
 
@@ -82,10 +82,9 @@ async function getDiagnostic(alegraReference) {
 
   // Buscar mappings de proveedor
   const mappings = await query(`
-    SELECT spm.*, p.nombre as supplier_name
+    SELECT spm.*
     FROM supplier_product_mapping spm
-    JOIN proveedores p ON spm.supplier_id = p.id
-    WHERE spm.product_code = $1 OR spm.product_name ILIKE $2
+    WHERE spm.supplier_code = $1 OR spm.alegra_reference = $1 OR spm.alegra_name ILIKE $2
     LIMIT 10
   `, [alegraReference, `%${alegraReference}%`]);
 
