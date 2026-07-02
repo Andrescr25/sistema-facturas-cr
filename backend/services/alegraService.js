@@ -1398,7 +1398,7 @@ class AlegraService {
                 data: method.toUpperCase() !== 'GET' ? params : undefined
             };
             
-            const response = await this.api.request(config);
+            const response = await this.requestWithRetry(() => this.api.request(config));
             
             // Devolver solo los datos (sin el wrapper de axios)
             return response.data;

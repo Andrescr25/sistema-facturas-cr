@@ -14,7 +14,7 @@ class FacturacionService {
   /**
    * Obtiene todos los registros paginados de un endpoint en lotes paralelos (concurrencia controlada)
    */
-  async fetchAllParallel(endpoint, additionalParams = {}, concurrency = 10, limit = 30) {
+  async fetchAllParallel(endpoint, additionalParams = {}, concurrency = 5, limit = 30) {
     const allResults = [];
     let page = 1;
     let hasMore = true;
@@ -69,6 +69,9 @@ class FacturacionService {
 
       // Avanzar al siguiente lote
       page += concurrency;
+
+      // Pequeño delay de 500ms entre lotes para respirar
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     return allResults;
@@ -79,7 +82,7 @@ class FacturacionService {
    */
   async getItems() {
     console.log('📦 Obteniendo todos los productos de Alegra para cache (paralelo)...');
-    const allItems = await this.fetchAllParallel('/items', { type: 'product' }, 10, 30);
+    const allItems = await this.fetchAllParallel('/items', { type: 'product' }, 5, 30);
 
     return {
       success: true,
@@ -94,7 +97,7 @@ class FacturacionService {
    */
   async getContacts() {
     console.log('👥 Obteniendo todos los contactos de Alegra (paralelo)...');
-    const allContacts = await this.fetchAllParallel('/contacts', {}, 10, 30);
+    const allContacts = await this.fetchAllParallel('/contacts', {}, 5, 30);
 
     return {
       success: true,

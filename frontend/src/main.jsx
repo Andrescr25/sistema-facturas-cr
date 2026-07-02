@@ -57,11 +57,47 @@ const initGestureGuards = () => {
   })
 }
 
+// Filtro de consola para eliminar logs ruidosos y emojis de debug en desarrollo y producción
+const originalLog = console.log;
+console.log = (...args) => {
+  if (args.length > 0 && typeof args[0] === 'string') {
+    const msg = args[0];
+    if (
+      msg.includes('🔍') ||
+      msg.includes('✅') ||
+      msg.includes('🔄') ||
+      msg.includes('⏳') ||
+      msg.includes('👥') ||
+      msg.includes('📦') ||
+      msg.includes('📱') ||
+      msg.includes('👍') ||
+      msg.includes('🗑️') ||
+      msg.includes('💾') ||
+      msg.includes('📋') ||
+      msg.includes('✏️') ||
+      msg.includes('IndexedDB') ||
+      msg.includes('Service Worker') ||
+      msg.includes('Sincronización') ||
+      msg.includes('Servicio') ||
+      msg.includes('Dispositivo detectado') ||
+      msg.includes('Cambiado a modo') ||
+      msg.includes('inicializada') ||
+      msg.includes('precargadas listas') ||
+      msg.includes('Servicio inicializado') ||
+      msg.includes('Ping inicial') ||
+      msg.includes('Backend conectado')
+    ) {
+      return;
+    }
+  }
+  originalLog(...args);
+};
+
 initGestureGuards()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <App />
     </BrowserRouter>
   </React.StrictMode>,
@@ -73,10 +109,10 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
-        console.log('✅ Service Worker registrado exitosamente:', registration.scope);
+        // Service worker registrado
       })
       .catch((error) => {
-        console.log('❌ Error al registrar Service Worker:', error);
+        console.error('Error al registrar Service Worker:', error);
       });
   });
 }

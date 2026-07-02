@@ -169,15 +169,7 @@ export default function Facturacion() {
         }
       }
 
-      console.log('🔍 Dispositivo detectado:', {
-        mobile,
-        isTouchDevice,
-        isMobileUserAgent,
-        isSmallScreen,
-        isTablet,
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
+      // Dispositivo configurado
     };
 
     checkDevice();
@@ -277,7 +269,6 @@ export default function Facturacion() {
   useEffect(() => {
     if (isMobile && modoEntradaRapida) {
       setModoEntradaRapida(false);
-      console.log('📱 Cambiado a modo búsqueda (dispositivo móvil)');
     }
   }, [isMobile]);
 
@@ -311,7 +302,6 @@ export default function Facturacion() {
       const facturas = await facturacionService.getFacturasPrecargadas();
       setFacturasPrecargadas(facturas);
       setFacturasEncontradas(facturas); // Mostrar todas inicialmente
-      console.log(`✅ ${facturas.length} facturas precargadas listas para edición`);
     } catch (error) {
       console.error('Error cargando facturas precargadas:', error);
       mostrarMensaje('Error cargando facturas: ' + error.message, 'error');
@@ -381,12 +371,7 @@ export default function Facturacion() {
         }
       }
 
-      console.log('✅ Servicio inicializado:', {
-        productos: productosCache.length,
-        clientes: clientesCache.length,
-        pendientes: pendientes.length
-      });
-
+      // Servicio inicializado de facturación
     } catch (error) {
       console.error('Error inicializando servicio:', error);
       mostrarMensaje('Error inicializando sistema: ' + error.message, 'error');

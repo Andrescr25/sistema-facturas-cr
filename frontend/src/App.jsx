@@ -35,13 +35,9 @@ function App() {
     // Ping inicial inmediato
     setTimeout(async () => {
       try {
-        console.log('🔄 Ping inicial al backend...');
-        const response = await fetch(`${backendURL}/health`);
-        if (response.ok) {
-          console.log('✅ Backend conectado al iniciar');
-        }
+        await fetch(`${backendURL}/health`);
       } catch (error) {
-        console.log('⚠️ Backend no responde inmediatamente al iniciar');
+        // Ignorar error de ping inicial
       }
     }, 2000); // Esperar 2 segundos después de cargar
 
