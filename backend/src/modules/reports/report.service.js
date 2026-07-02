@@ -4,310 +4,534 @@
  */
 
 const { query } = require('../../../config/database');
+const { asignarProveedorAutomatico } = require('../../../services/proveedorAsignacionService');
 
 class ReportService {
   /**
-   * Obtener reporte de faltantes por proveedor
+   * Obtener reporte de faltantes por proveedor con mapping
    */
-  /**
-   * Obtener reporte de faltantes por proveedor (Optimizado: Menor Costo)
-   */
-  /**
-   * Obtener reporte de faltantes por proveedor (Optimizado: Menor Costo)
-   */
-  async getMissingItemsBySupplier() {
+  async getMissingItemsBySupplier(fechaInicio = null) {
     try {
-      console.log('📋 Generando reporte de faltantes por proveedor (Prioridad: Menor Costo)...');
+      console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
-      // CTE para encontrar el mejor proveedor basado en historial de precios
-      const sql = `
-        WITH BestProviderPerProduct AS (
-            SELECT DISTINCT ON (spm.alegra_item_id)
-                spm.id, -- ✅ Incluir ID del mapeo
-                spm.supplier_code, -- ✅ Incluir Código Proveedor
-                spm.factor_conversion, -- ✅ Incluir Factor
-                spm.alegra_item_id,
-                spm.supplier_name,
-                spm.supplier_cedula,
-                pfp.precio_unitario,
-                ((pfp.total_linea / NULLIF(pfp.cantidad, 0)) / COALESCE(NULLIF(spm.factor_conversion, 0), 1)) as calculated_cost,
-                pfp.factura_id
-            FROM supplier_product_mapping spm
-            JOIN productos_factura_proveedor pfp ON pfp.mapeo_id = spm.id
-            JOIN facturas_proveedores fp ON fp.id = pfp.factura_id
-            ORDER BY 
-                spm.alegra_item_id, 
-                ((pfp.total_linea / NULLIF(pfp.cantidad, 0)) / COALESCE(NULLIF(spm.factor_conversion, 0), 1)) ASC, -- Menor costo primero
-                fp.fecha_emision DESC
-        )
+      // PASO 1: Obtener faltantes de la BD local
+      let whereClause = `
+        f.estado IN ('pendiente', 'procesado')
+        AND f.tipo_faltante != 'completo' 
+        AND (f.cantidad_faltante::numeric > 0)
+      `;
+      const queryParams = [];
+
+      if (fechaInicio) {
+        whereClause += ` AND fa.fecha_emision >= $1`;
+        queryParams.push(fechaInicio);
+      }
+
+      const sqlFaltantes = `
         SELECT
-          -- Usar datos del mapping (Mejor Proveedor) si existe, sino fallback al original
-          -- Convertimos ID a texto para consistencia
-          COALESCE(bp.supplier_cedula, CAST(pr.id AS TEXT)) as proveedor_id,
-          COALESCE(bp.supplier_name, pr.nombre) as proveedor_nombre,
-          
-          -- Datos del producto
-          p.id as producto_id,
           p.codigo as producto_codigo,
+          p.alegra_id as producto_alegra_id,
           p.nombre as producto_nombre,
-          
-          -- Datos del mapeo (para PDF)
-          bp.id as mapping_id,
-          bp.supplier_code as codigo_proveedor,
-          bp.supplier_name as nombre_proveedor_mapeo,
-          bp.factor_conversion,
-          bp.alegra_item_id,
-
-          -- Agregación
-          SUM(f.cantidad_faltante) as cantidad_total_faltante,
-          COUNT(DISTINCT f.factura_id) as numero_facturas_afectadas,
-          
-          -- Debug field
-          (bp.supplier_name IS NOT NULL AND bp.supplier_name != pr.nombre) as fue_reasignado
-          
+          SUM(f.cantidad_faltante) as total_faltante,
+          COUNT(f.id) as facturas_afectadas,
+          STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+          STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
+          MAX(f.proveedor_asignado) as proveedor_asignado,
+          MAX(f.proveedor_cedula) as proveedor_cedula,
+          MAX(f.precio_asignado) as precio_asignado,
+          MAX(f.asignacion_tipo) as asignacion_tipo,
+          (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
-        
-        -- Join original (proveedor asignado en la ficha del producto)
-        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
-        
-        -- Join con el mejor proveedor calculado
-        LEFT JOIN BestProviderPerProduct bp ON CAST(p.alegra_id AS VARCHAR) = CAST(bp.alegra_item_id AS VARCHAR)
-
-        WHERE f.estado = 'pendiente'
-        GROUP BY 
-            COALESCE(bp.supplier_cedula, CAST(pr.id AS TEXT)), 
-            COALESCE(bp.supplier_name, pr.nombre),
-            p.id, p.codigo, p.nombre,
-            bp.id, bp.supplier_code, bp.supplier_name, bp.factor_conversion, bp.alegra_item_id, -- ✅ Group by mapping details
-            bp.supplier_name, pr.nombre
-        ORDER BY 
-            proveedor_nombre, cantidad_total_faltante DESC
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE ${whereClause}
+        GROUP BY p.codigo, p.alegra_id, p.nombre
+        ORDER BY total_faltante DESC
       `;
 
-      const result = await query(sql);
+      const faltantesResult = await query(sqlFaltantes, queryParams);
+      console.log(`📊 Encontrados ${faltantesResult.rows.length} productos con faltantes`);
 
-      // Agrupar por proveedor
-      const reporteAgrupado = {};
+      if (faltantesResult.rows.length === 0) {
+        return {
+          success: true,
+          data: [],
+          total_proveedores: 0,
+          resumen: {
+            total_productos_faltantes: 0,
+            total_cantidad_faltante: 0
+          }
+        };
+      }
 
-      result.rows.forEach(row => {
-        const proveedorKey = row.proveedor_id || `temp_${row.proveedor_nombre}` || 'sin_proveedor';
-        const proveedorNombre = row.proveedor_nombre || 'Sin Proveedor';
+      // PASO 2: Asignar automáticamente productos sin asignación
+      const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
+      if (productosSinAsignacion.length > 0) {
+        console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada. Asignando automáticamente...`);
+        
+        for (const producto of productosSinAsignacion) {
+          const faltantesDelProducto = await query(`
+            SELECT f.id, f.producto_id
+            FROM faltantes f
+            JOIN productos p ON f.producto_id = p.id
+            WHERE p.codigo = $1
+              AND f.estado IN ('pendiente', 'procesado')
+              AND f.proveedor_asignado IS NULL
+          `, [producto.producto_codigo]);
+          
+          for (const faltante of faltantesDelProducto.rows) {
+            await asignarProveedorAutomatico(
+              faltante.id,
+              faltante.producto_id,
+              producto.producto_alegra_id,
+              producto.producto_codigo
+            );
+          }
+        }
+        
+        console.log(`✅ ${productosSinAsignacion.length} productos asignados automáticamente`);
+        
+        // Recargar faltantes ahora con asignaciones
+        const faltantesActualizados = await query(`
+          SELECT
+            p.codigo as producto_codigo,
+            p.alegra_id as producto_alegra_id,
+            p.nombre as producto_nombre,
+            SUM(f.cantidad_faltante) as total_faltante,
+            COUNT(f.id) as facturas_afectadas,
+            STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+            STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
+            MAX(f.proveedor_asignado) as proveedor_asignado,
+            MAX(f.proveedor_cedula) as proveedor_cedula,
+            MAX(f.precio_asignado) as precio_asignado,
+            MAX(f.asignacion_tipo) as asignacion_tipo,
+            (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
+          FROM faltantes f
+          JOIN productos p ON f.producto_id = p.id
+          JOIN facturas fa ON f.factura_id = fa.id
+          WHERE ${whereClause}
+          GROUP BY p.codigo, p.alegra_id, p.nombre
+          ORDER BY total_faltante DESC
+        `, queryParams);
+        
+        faltantesResult.rows = faltantesActualizados.rows;
+      }
 
-        if (!reporteAgrupado[proveedorKey]) {
-          reporteAgrupado[proveedorKey] = {
-            proveedor_id: row.proveedor_id,
-            proveedor_nombre: proveedorNombre,
+      // PASO 3: Obtener mapping info solo para productos con asignación
+      const mappingIds = faltantesResult.rows
+        .filter(f => f.mapping_id)
+        .map(f => f.mapping_id);
+      
+      let mappingsInfo = new Map();
+      if (mappingIds.length > 0) {
+        const mappingsResult = await query(`
+          SELECT
+            id,
+            supplier_code as "supplierCode",
+            supplier_desc as "supplierDesc",
+            alegra_name as "alegraName",
+            confidence,
+            factor_conversion as "factorConversion"
+          FROM supplier_product_mapping
+          WHERE id = ANY($1::uuid[])
+        `, [mappingIds]);
+        
+        mappingsResult.rows.forEach(m => {
+          mappingsInfo.set(m.id, m);
+        });
+      }
+
+      // PASO 4: Agrupar productos por proveedor
+      const proveedoresMap = new Map();
+      for (const faltante of faltantesResult.rows) {
+        const proveedorNombre = (faltante.proveedor_asignado || 'Sin_Proveedor').trim();
+        const proveedorCedulaRaw = faltante.proveedor_cedula && faltante.proveedor_cedula !== 'SIN_PROVEEDOR'
+          ? faltante.proveedor_cedula.trim()
+          : null;
+        const proveedorCedula = proveedorCedulaRaw || 'SIN_PROVEEDOR';
+        const precioAsignado = faltante.precio_asignado ? parseFloat(faltante.precio_asignado) : null;
+        const asignacionTipo = faltante.asignacion_tipo || 'automatica';
+        const proveedorKey = proveedorCedulaRaw || proveedorNombre.toUpperCase();
+        
+        const mappingInfo = faltante.mapping_id ? mappingsInfo.get(faltante.mapping_id) : null;
+
+        if (!proveedoresMap.has(proveedorKey)) {
+          proveedoresMap.set(proveedorKey, {
+            id: proveedorKey,
+            cedula: proveedorCedulaRaw,
+            nombre: proveedorNombre,
+            contacto: proveedorCedula,
             productos_faltantes: [],
-            total_cantidad: 0,
             total_productos: 0,
-            reasignados: 0
-          };
+            total_cantidad: 0,
+            aliases: proveedorCedulaRaw ? [proveedorNombre] : []
+          });
         }
 
-        reporteAgrupado[proveedorKey].productos_faltantes.push({
-          producto_id: row.producto_id,
-          producto_codigo: row.producto_codigo,
-          producto_nombre: row.producto_nombre,
-          mapping_id: row.mapping_id, // ✅ ID del mapeo
-          codigo_proveedor: row.codigo_proveedor, // ✅ Código del proveedor
-          nombre_proveedor: row.nombre_proveedor_mapeo, // ✅ Nombre según proveedor
-          factor_conversion: parseFloat(row.factor_conversion || 1), // ✅ Factor
-          alegra_item_id: row.alegra_item_id, // ✅ ID Alegra
-          cantidad_faltante: parseInt(row.cantidad_total_faltante),
-          facturas_afectadas: parseInt(row.numero_facturas_afectadas),
-          fue_reasignado: row.fue_reasignado
+        const proveedor = proveedoresMap.get(proveedorKey);
+
+        if (proveedorNombre && proveedor.nombre !== proveedorNombre) {
+          if (!proveedor.aliases.includes(proveedorNombre)) {
+            proveedor.aliases.push(proveedorNombre);
+          }
+          proveedor.nombre = proveedorNombre;
+        }
+
+        proveedor.productos_faltantes.push({
+          nombre: mappingInfo?.alegraName || faltante.producto_nombre,
+          nombre_proveedor: mappingInfo?.supplierDesc || null,
+          codigo: faltante.producto_codigo,
+          alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo,
+          codigo_proveedor: mappingInfo?.supplierCode || null,
+          mapping_id: faltante.mapping_id || null,
+          cantidad_faltante: parseInt(faltante.total_faltante),
+          facturas_afectadas: parseInt(faltante.facturas_afectadas),
+          tipo_faltante: faltante.tipo_faltante,
+          clientes_afectados: faltante.clientes_afectados,
+          descripcion_factura: faltante.descripcion_factura || null,
+          confianza_mapping: mappingInfo?.confidence || 0,
+          factor_conversion: mappingInfo?.factorConversion || 1,
+          precio_asignado: precioAsignado,
+          asignacion_automatica: asignacionTipo === 'automatica'
         });
 
-        reporteAgrupado[proveedorKey].total_cantidad += parseInt(row.cantidad_total_faltante);
-        reporteAgrupado[proveedorKey].total_productos += 1;
-        if (row.fue_reasignado) reporteAgrupado[proveedorKey].reasignados += 1;
-      });
+        proveedor.total_productos++;
+        proveedor.total_cantidad += parseInt(faltante.total_faltante);
+      }
 
-      const reporteFinal = Object.values(reporteAgrupado);
-      
-      // Ordenar alfabéticamente por nombre de proveedor
-      reporteFinal.sort((a, b) => a.proveedor_nombre.localeCompare(b.proveedor_nombre));
+      const proveedoresArray = Array.from(proveedoresMap.values()).map(proveedor => ({
+        ...proveedor,
+        aliases: proveedor.aliases && proveedor.aliases.length > 0 ? proveedor.aliases : undefined
+      }));
+
+      const totalProductos = faltantesResult.rows.length;
+      const productosConAsignacion = faltantesResult.rows.filter(f => f.proveedor_asignado && f.proveedor_asignado !== 'Sin_Proveedor').length;
+      const productosAsignacionManual = faltantesResult.rows.filter(f => f.asignacion_tipo === 'manual').length;
+      const productosAsignacionAutomatica = faltantesResult.rows.filter(f => f.asignacion_tipo === 'automatica').length;
 
       return {
         success: true,
-        data: reporteFinal,
-        total_proveedores: reporteFinal.length
+        data: proveedoresArray,
+        total_proveedores: proveedoresArray.length,
+        resumen: {
+          total_productos_faltantes: totalProductos,
+          total_cantidad_faltante: proveedoresArray.reduce((sum, p) => sum + p.total_cantidad, 0),
+          productos_con_asignacion: productosConAsignacion,
+          productos_sin_asignacion: totalProductos - productosConAsignacion,
+          asignaciones_manuales: productosAsignacionManual,
+          asignaciones_automaticas: productosAsignacionAutomatica,
+          porcentaje_asignado: totalProductos > 0 ? Math.round((productosConAsignacion / totalProductos) * 100) : 0
+        }
       };
+
     } catch (error) {
-      console.error('❌ Error generando reporte por proveedor (Menor Costo):', error);
-      // Fallback a lógica simple si falla el SQL complejo
-      return {
-        success: false,
-        error: error.message
-      };
+      console.error('❌ Error generando reporte por proveedor:', error);
+      return { success: false, error: error.message };
     }
   }
 
   /**
-   * Obtener reporte de faltantes por cliente
+   * Obtener reporte de faltantes por cliente (Lógica original de reportes.js/alegra.js)
    */
   async getMissingItemsByClient() {
     try {
-      console.log('📋 Generando reporte de faltantes por cliente...');
+      console.log('📋 Generando reporte de faltantes por cliente (Lógica original)...');
 
-      const sql = `
+      const result = await query(`
         SELECT
-          c.id as cliente_id,
-          c.nombre as cliente_nombre,
-          c.email as cliente_email,
-          fa.id as factura_local_id,
-          fa.alegra_id,
+          f.id AS faltante_id,
+          fa.cliente_nombre,
+          fa.cliente_email,
           fa.numero_factura,
           fa.fecha_emision,
+          fa.alegra_id as factura_alegra_id,
           fa.estado_procesamiento,
-          fa.fecha_procesamiento,
-          p.id as producto_id,
-          p.codigo as producto_codigo,
+          fp.id as factura_pendiente_id,
+          fp.motivo as factura_pendiente_motivo,
+          fp.created_at as factura_pendiente_desde,
           p.nombre as producto_nombre,
-          pr.nombre as proveedor,
+          p.codigo as producto_codigo,
+          COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre,
+          f.proveedor_asignado,
           f.cantidad_faltante,
           f.tipo_faltante,
           f.observaciones,
+          f.estado as faltante_estado,
           fa.observaciones_adicionales,
-          COALESCE(faj.cantidad_entregada, 0) as cantidad_entregada,
-          COALESCE(faj.estado, 'pendiente') as ajuste_estado,
-          COALESCE(faj.requiere_actualizacion, false) as requiere_actualizacion
+          f.created_at as fecha_registro,
+          f.updated_at as fecha_procesamiento,
+          aj.cantidad_entregada,
+          aj.estado as ajuste_estado,
+          aj.requiere_actualizacion,
+          fr.id as reimpresion_id,
+          fr.estado as reimpresion_estado,
+          (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_id = fa.id) as total_items_factura
         FROM faltantes f
-        JOIN facturas fa ON f.factura_id = fa.id
-        LEFT JOIN clientes c ON fa.cliente_id = c.id
         JOIN productos p ON f.producto_id = p.id
         LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
-        LEFT JOIN faltantes_ajustes faj ON f.id = faj.faltante_id
-        WHERE f.estado = 'pendiente'
-        ORDER BY c.nombre, fa.fecha_emision DESC
-      `;
+        JOIN facturas fa ON f.factura_id = fa.id
+        LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
+        LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
+        LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
+        WHERE f.estado IN ('pendiente', 'procesado')
+          AND f.tipo_faltante != 'completo' 
+          AND (f.cantidad_faltante::numeric > 0)
+        ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
+      `);
 
-      const result = await query(sql);
-
-      // Agrupar por cliente
-      const reporteAgrupado = {};
+      const clientesMap = new Map();
 
       result.rows.forEach(row => {
-        const clienteKey = row.cliente_id || 'sin_cliente';
-        const clienteNombre = row.cliente_nombre || 'Sin Cliente';
-
-        if (!reporteAgrupado[clienteKey]) {
-          reporteAgrupado[clienteKey] = {
-            cliente_id: row.cliente_id,
-            nombre: clienteNombre,
+        if (!clientesMap.has(row.cliente_nombre)) {
+          clientesMap.set(row.cliente_nombre, {
+            nombre: row.cliente_nombre,
             email: row.cliente_email,
-            facturas_con_faltantes: [],
+            facturas_con_faltantes: new Map(),
+            total_productos: 0,
             total_cantidad: 0,
-            ultima_actividad: row.fecha_emision
-          };
+            ultima_actividad: null
+          });
         }
 
-        // Buscar si ya existe la factura
-        let factura = reporteAgrupado[clienteKey].facturas_con_faltantes.find(
-          f => f.factura_local_id === row.factura_local_id
-        );
+        const cliente = clientesMap.get(row.cliente_nombre);
+        const facturaKey = row.numero_factura;
 
-        if (!factura) {
-          factura = {
-            factura_local_id: row.factura_local_id,
-            alegra_id: row.alegra_id,
+        if (!cliente.facturas_con_faltantes.has(facturaKey)) {
+          cliente.facturas_con_faltantes.set(facturaKey, {
             numero_factura: row.numero_factura,
             fecha_emision: row.fecha_emision,
+            alegra_id: row.factura_alegra_id,
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
             observaciones_adicionales: row.observaciones_adicionales,
+            es_pendiente_manual: false,
+            pendiente_desde: null,
+            pendiente_motivo: null,
+            en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
+            total_items_factura: parseInt(row.total_items_factura) || 0,
             productos_faltantes: []
-          };
-          reporteAgrupado[clienteKey].facturas_con_faltantes.push(factura);
+          });
         }
 
+        const factura = cliente.facturas_con_faltantes.get(facturaKey);
         factura.productos_faltantes.push({
-          producto_id: row.producto_id,
-          codigo: row.producto_codigo,
+          faltante_id: row.faltante_id,
           nombre: row.producto_nombre,
-          proveedor: row.proveedor,
+          codigo: row.producto_codigo,
+          proveedor: row.proveedor_nombre,
+          proveedor_asignado: row.proveedor_asignado || row.proveedor_nombre,
           cantidad_faltante: parseInt(row.cantidad_faltante),
-          cantidad_entregada: parseInt(row.cantidad_entregada),
           tipo_faltante: row.tipo_faltante,
           observaciones: row.observaciones,
-          ajuste_estado: row.ajuste_estado,
-          requiere_actualizacion: row.requiere_actualizacion
+          fecha_registro: row.fecha_registro,
+          estado: row.faltante_estado,
+          cantidad_entregada: row.cantidad_entregada || 0,
+          ajuste_estado: row.ajuste_estado || 'pendiente',
+          requiere_actualizacion: row.requiere_actualizacion || false
         });
 
-        reporteAgrupado[clienteKey].total_cantidad += parseInt(row.cantidad_faltante);
+        const esPendiente = Boolean(row.factura_pendiente_id);
+        factura.es_pendiente_manual = factura.es_pendiente_manual || esPendiente;
+        if (esPendiente) {
+          factura.pendiente_desde = row.factura_pendiente_desde;
+          factura.pendiente_motivo = row.factura_pendiente_motivo;
+        }
+
+        if (row.faltante_estado === 'pendiente') {
+          cliente.total_productos++;
+          cliente.total_cantidad += parseInt(row.cantidad_faltante);
+        }
+
+        if (!cliente.ultima_actividad || new Date(row.fecha_registro) > new Date(cliente.ultima_actividad)) {
+          cliente.ultima_actividad = row.fecha_registro;
+        }
       });
 
-      const reporteFinal = Object.values(reporteAgrupado);
+      const clientesArray = Array.from(clientesMap.values()).map(cliente => ({
+        ...cliente,
+        facturas_con_faltantes: Array.from(cliente.facturas_con_faltantes.values())
+      }));
 
       return {
         success: true,
-        data: reporteFinal,
-        total_clientes: reporteFinal.length,
+        data: clientesArray,
+        total_clientes: clientesArray.length,
         resumen: {
-          total_facturas_afectadas: reporteFinal.reduce((sum, c) => sum + c.facturas_con_faltantes.length, 0),
-          total_cantidad_faltante: reporteFinal.reduce((sum, c) => sum + c.total_cantidad, 0)
+          total_productos_faltantes: result.rows.filter(r => r.faltante_estado === 'pendiente').length,
+          total_cantidad_faltante: clientesArray.reduce((sum, c) => sum + c.total_cantidad, 0),
+          total_facturas_afectadas: Array.from(new Set(result.rows.map(r => r.numero_factura))).length
         }
       };
+
     } catch (error) {
       console.error('❌ Error generando reporte por cliente:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 
   /**
-   * Limpiar faltantes de proveedor procesados
+   * Limpiar faltantes por proveedor y procesados (Lógica original)
    */
   async clearProcessedSupplierMissingItems() {
     try {
-      console.log('🗑️ Limpiando faltantes de proveedores procesados...');
+      console.log('🗑️ Limpiando faltantes de la BD (pendientes y procesados)...');
 
-      const result = await query(`
-        DELETE FROM faltantes
-        WHERE estado = 'procesado'
-        RETURNING id
+      // Obtener faltantes pendientes
+      const faltantesPendientes = await query(`
+        SELECT 
+          f.id, 
+          f.factura_id,
+          p.nombre as producto_nombre, 
+          COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+        WHERE f.estado = 'pendiente'
+      `);
+
+      // Obtener faltantes procesados
+      const faltantesProcesados = await query(`
+        SELECT 
+          f.id,
+          f.factura_id,
+          p.nombre as producto_nombre,
+          fa.numero_factura,
+          fa.cliente_nombre
+        FROM faltantes f
+        JOIN productos p ON f.producto_id = p.id
+        JOIN facturas fa ON f.factura_id = fa.id
+        WHERE f.estado = 'procesado'
+      `);
+
+      if (faltantesPendientes.rows.length === 0 && faltantesProcesados.rows.length === 0) {
+        return {
+          success: true,
+          message: 'No hay faltantes pendientes ni procesados para limpiar.',
+          eliminados: 0
+        };
+      }
+
+      const stats = {
+        pendientes: { faltantes: 0, ajustes: 0 },
+        procesados: { faltantes: 0, ajustes: 0 }
+      };
+
+      const faltantesPendientesIds = faltantesPendientes.rows.map(f => f.id);
+      if (faltantesPendientesIds.length > 0) {
+        const ajustesPendientes = await query(`
+          DELETE FROM faltantes_ajustes
+          WHERE faltante_id = ANY($1::int[])
+          RETURNING id
+        `, [faltantesPendientesIds]);
+
+        const pendientesEliminados = await query(`
+          DELETE FROM faltantes 
+          WHERE id = ANY($1::int[])
+          RETURNING id
+        `, [faltantesPendientesIds]);
+
+        stats.pendientes.ajustes = ajustesPendientes.rows.length;
+        stats.pendientes.faltantes = pendientesEliminados.rows.length;
+      }
+
+      const faltantesProcesadosIds = faltantesProcesados.rows.map(f => f.id);
+      if (faltantesProcesadosIds.length > 0) {
+        const ajustesProcesados = await query(`
+          DELETE FROM faltantes_ajustes
+          WHERE faltante_id = ANY($1::int[])
+          RETURNING id
+        `, [faltantesProcesadosIds]);
+
+        const procesadosEliminados = await query(`
+          DELETE FROM faltantes
+          WHERE id = ANY($1::int[])
+          RETURNING id
+        `, [faltantesProcesadosIds]);
+
+        stats.procesados.ajustes = ajustesProcesados.rows.length;
+        stats.procesados.faltantes = procesadosEliminados.rows.length;
+      }
+
+      const facturaIdsParaLimpiar = Array.from(new Set([
+        ...faltantesPendientes.rows.map(f => f.factura_id),
+        ...faltantesProcesados.rows.map(f => f.factura_id)
+      ])).filter(Boolean);
+
+      let pendientesManualesEliminados = 0;
+      if (facturaIdsParaLimpiar.length > 0) {
+        const pendientesResult = await query(`
+          DELETE FROM facturas_pendientes
+          WHERE factura_id = ANY($1::int[])
+          RETURNING id
+        `, [facturaIdsParaLimpiar]);
+        pendientesManualesEliminados = pendientesResult.rows.length;
+      }
+
+      await query(`
+        UPDATE facturas 
+        SET observaciones_adicionales = NULL
+        WHERE observaciones_adicionales IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM faltantes f 
+            WHERE f.factura_id = facturas.id 
+              AND f.estado = 'pendiente'
+          )
       `);
 
       return {
         success: true,
-        message: 'Faltantes procesados eliminados',
-        eliminados: result.rows.length
+        message: `Faltantes limpiados: ${stats.pendientes.faltantes} pendientes y ${stats.procesados.faltantes} procesados.`,
+        eliminados: stats.pendientes.faltantes + stats.procesados.faltantes
       };
+
     } catch (error) {
       console.error('❌ Error limpiando faltantes:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 
   /**
-   * Obtener historial de procesamientos
+   * Obtener encargos especiales (Lógica original)
    */
-  async getProcessingHistory() {
+  async getEncargosEspeciales() {
     try {
-      const sql = `
-        SELECT * FROM procesamientos
-        ORDER BY fecha_procesamiento DESC
-        LIMIT 50
-      `;
-
-      const result = await query(sql);
+      console.log('📋 Obteniendo encargos especiales...');
+      const result = await query(`
+        SELECT 
+          fa.numero_factura,
+          fa.cliente_nombre,
+          fa.fecha_emision,
+          fa.observaciones_adicionales
+        FROM facturas fa
+        WHERE fa.observaciones_adicionales IS NOT NULL 
+        AND fa.observaciones_adicionales != ''
+        ORDER BY fa.fecha_emision DESC
+      `);
 
       return {
         success: true,
         data: result.rows
       };
     } catch (error) {
+      console.error('❌ Error obteniendo encargos especiales:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Obtener historial (No usado en vistas directas del reporte de proveedores pero mantenido por compatibilidad)
+   */
+  async getProcessingHistory() {
+    try {
+      const result = await query(`
+        SELECT * FROM procesamientos
+        ORDER BY fecha_procesamiento DESC
+        LIMIT 50
+      `);
+      return { success: true, data: result.rows };
+    } catch (error) {
       console.error('❌ Error obteniendo historial:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 }

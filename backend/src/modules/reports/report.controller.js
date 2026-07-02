@@ -12,10 +12,14 @@ class ReportController {
 
   getMissingItemsBySupplier = async (req, res) => {
     try {
-      const result = await this.reportService.getMissingItemsBySupplier();
+      const { fecha_inicio } = req.query;
+      const result = await this.reportService.getMissingItemsBySupplier(fecha_inicio);
 
       if (result.success) {
-        return ResponseHelper.success(res, result.data, 'Reporte generado');
+        return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
+          total_proveedores: result.total_proveedores,
+          resumen: result.resumen
+        });
       }
 
       return ResponseHelper.error(res, result.error, 400);
@@ -29,11 +33,10 @@ class ReportController {
       const result = await this.reportService.getMissingItemsByClient();
 
       if (result.success) {
-        return ResponseHelper.success(res, {
-          data: result.data,
+        return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
           total_clientes: result.total_clientes,
           resumen: result.resumen
-        }, 'Reporte generado');
+        });
       }
 
       return ResponseHelper.error(res, result.error, 400);
@@ -48,6 +51,20 @@ class ReportController {
 
       if (result.success) {
         return ResponseHelper.success(res, { eliminados: result.eliminados }, result.message);
+      }
+
+      return ResponseHelper.error(res, result.error, 400);
+    } catch (error) {
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  getEncargosEspeciales = async (req, res) => {
+    try {
+      const result = await this.reportService.getEncargosEspeciales();
+
+      if (result.success) {
+        return ResponseHelper.success(res, result.data, 'Encargos especiales obtenidos');
       }
 
       return ResponseHelper.error(res, result.error, 400);

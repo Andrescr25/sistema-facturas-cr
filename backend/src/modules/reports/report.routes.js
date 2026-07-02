@@ -17,6 +17,9 @@ router.get('/faltantes/cliente', reportController.getMissingItemsByClient);
 // Limpiar faltantes procesados
 router.delete('/faltantes/proveedor/limpiar', reportController.clearProcessedSupplierMissingItems);
 
+// Encargos especiales
+router.get('/encargos-especiales', reportController.getEncargosEspeciales);
+
 // Historial de procesamientos
 router.get('/historial', reportController.getProcessingHistory);
 
