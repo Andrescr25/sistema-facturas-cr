@@ -371,32 +371,29 @@ export default function FacturasBodega() {
     setObservacionesAdicionales('')
     localStorage.removeItem(STORAGE_KEYS.observaciones)
 
-    // Cargar detalle completo (incluye observaciones guardadas del backend)
+    // Cargar detalle completo (incluye estados guardados del backend)
     try {
       const detalle = await alegraService.getFacturaDetalle(factura.alegra_id);
-      console.log('✅ Detalle recibido del backend:', detalle)
-      // ✅ FIX: Acceder a detalle.data.items (no detalle.items)
       const items = detalle?.data?.items || detalle?.items || [];
-      console.log('📦 Items extraídos:', items.length)
       if (items.length > 0) {
-        // Reconstruir draft con los datos detallados que incluyen persistencia
         const nuevoDraft = {};
         items.forEach((item, index) => {
           const key = getItemIdFromFacturaItem(item) || `item-${index}`;
+          // El backend ya fusiona tipo_faltante/cantidad_faltante desde la tabla faltantes.
+          // Mapeamos directamente: 'ninguno' → 'ninguno', 'completo' → 'completo', etc.
+          // Solo dejamos null si el backend no tiene nada guardado (tipo_faltante === null).
+          const tipoBackend = item.tipo_faltante || null;
+
           nuevoDraft[key] = {
             key,
-            itemId: normalizeReferenceValue(item.referencia || item.reference) || item.codigo_alegra || item.alegra_id || item.id, // ✅ FIX: Usar valor raw sin prefijo
+            itemId: normalizeReferenceValue(item.referencia || item.reference) || item.codigo_alegra || item.alegra_id || item.id,
             nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
             referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
             cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),
-            tipo: (item.tipo_faltante === 'ninguno' && Number(item.cantidad_faltante || 0) === 0)
-              ? (factura.estado_bodega === 'procesado' ? 'ninguno' : null)
-              : (item.tipo_faltante || null),
+            tipo: tipoBackend,
             cantidadFaltante: Number(item.cantidad_faltante || 0),
             observaciones: item.observaciones || ''
           };
-          // 🔍 Log cada item
-          console.log(`   - ${nuevoDraft[key].referencia}: tipo="${nuevoDraft[key].tipo}", cantidad=${nuevoDraft[key].cantidadFaltante}`)
         });
         setFaltantesDraft(nuevoDraft);
       }

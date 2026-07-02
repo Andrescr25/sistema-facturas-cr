@@ -305,36 +305,80 @@ class InvoiceService {
   }
 
   /**
-   * Obtener detalle de factura para registro de faltantes
+   * Obtener detalle de factura para registro de faltantes.
+   * Combina los ítems de Alegra con los estados persistidos en la BD local (tipo_faltante, cantidad_faltante, observaciones).
    */
   async getInvoiceDetail(invoiceId) {
     try {
-      console.log(`🔍 Obteniendo detalle de factura: ${invoiceId}`);
-
-      // Primero buscar en BD local
+      // Buscar en BD local para obtener el id interno
       const localResult = await query(
         'SELECT * FROM facturas WHERE alegra_id = $1',
         [invoiceId]
       );
 
-      // Obtener de Alegra
+      // Obtener ítems de Alegra
       const alegraResult = await this.alegraInvoiceService.getInvoiceById(invoiceId);
 
-      if (alegraResult.success) {
-        const factura = alegraResult.data;
-
-        return {
-          success: true,
-          data: {
-            ...factura,
-            local_data: localResult.rows[0] || null
-          }
-        };
+      if (!alegraResult.success) {
+        return alegraResult;
       }
 
-      return alegraResult;
+      const factura = alegraResult.data;
+      const facturaLocalId = localResult.rows[0]?.id || null;
+
+      // Si existe en BD local, obtener los faltantes guardados para esta factura
+      let faltantesMap = {};
+      if (facturaLocalId) {
+        const faltantesResult = await query(`
+          SELECT
+            f.tipo_faltante,
+            f.cantidad_faltante,
+            f.observaciones,
+            p.codigo AS producto_codigo,
+            p.alegra_id AS producto_alegra_id
+          FROM faltantes f
+          JOIN productos p ON f.producto_id = p.id
+          WHERE f.factura_id = $1
+        `, [facturaLocalId]);
+
+        // Construir mapa por código de producto (y por alegra_id como fallback)
+        faltantesResult.rows.forEach(row => {
+          if (row.producto_codigo) {
+            faltantesMap[String(row.producto_codigo).trim()] = row;
+          }
+          if (row.producto_alegra_id) {
+            faltantesMap[String(row.producto_alegra_id).trim()] = row;
+          }
+        });
+      }
+
+      // Fusionar tipo_faltante en cada ítem de Alegra
+      const itemsConEstado = (factura.items || []).map(item => {
+        // Obtener referencia del ítem (código de producto)
+        const referencia = String(
+          item.item?.reference || item.reference || item.item?.id || item.id || ''
+        ).trim();
+
+        const faltante = faltantesMap[referencia] || null;
+
+        return {
+          ...item,
+          tipo_faltante: faltante ? faltante.tipo_faltante : null,
+          cantidad_faltante: faltante ? Number(faltante.cantidad_faltante) : 0,
+          observaciones: faltante ? (faltante.observaciones || '') : ''
+        };
+      });
+
+      return {
+        success: true,
+        data: {
+          ...factura,
+          items: itemsConEstado,
+          local_data: localResult.rows[0] || null
+        }
+      };
     } catch (error) {
-      console.error('❌ Error obteniendo detalle de factura:', error);
+      console.error('Error obteniendo detalle de factura:', error);
       return {
         success: false,
         error: error.message
