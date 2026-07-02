@@ -3,7 +3,8 @@
  * Lógica de negocio para operaciones de bodega/almacén
  */
 
-const alegraService = require('../../../services/alegraService');
+const AlegraService = require('../../../services/alegraService');
+const alegraService = new AlegraService();
 const { query } = require('../../../config/database');
 
 // Sistema de caché para facturas de bodega
