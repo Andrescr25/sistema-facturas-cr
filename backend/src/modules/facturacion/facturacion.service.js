@@ -12,31 +12,74 @@ class FacturacionService {
   }
 
   /**
-   * Obtiene todos los productos de Alegra para cache offline
+   * Obtiene todos los registros paginados de un endpoint en lotes paralelos (concurrencia controlada)
    */
-  async getItems() {
-    console.log('📦 Obteniendo todos los productos de Alegra para cache...');
-    const allItems = [];
+  async fetchAllParallel(endpoint, additionalParams = {}, concurrency = 10, limit = 30) {
+    const allResults = [];
     let page = 1;
-    const limit = 30;
     let hasMore = true;
 
     while (hasMore) {
-      const response = await this.alegraService.makeRequest('GET', '/items', {
-        start: (page - 1) * limit,
-        limit: limit
+      // Crear un lote de páginas a solicitar en paralelo
+      const pageBatch = [];
+      for (let i = 0; i < concurrency; i++) {
+        pageBatch.push(page + i);
+      }
+
+      console.log(`🔄 Sincronizando lote de ${concurrency} páginas para ${endpoint} (páginas ${pageBatch[0]} a ${pageBatch[pageBatch.length - 1]})...`);
+
+      // Ejecutar el lote en paralelo
+      const promises = pageBatch.map(p => {
+        const start = (p - 1) * limit;
+        return this.alegraService.makeRequest('GET', endpoint, {
+          ...additionalParams,
+          start,
+          limit
+        })
+          .then(data => ({ success: true, data, page: p }))
+          .catch(error => ({ success: false, error: error.message, page: p }));
       });
 
-      if (response && response.length > 0) {
-        allItems.push(...response);
-        page++;
-        if (response.length < limit) {
-          hasMore = false;
+      const batchResults = await Promise.all(promises);
+
+      // Ordenar por página para asegurar la secuencia original
+      batchResults.sort((a, b) => a.page - b.page);
+
+      let foundEnd = false;
+      for (const result of batchResults) {
+        if (!result.success) {
+          console.error(`❌ Error en página ${result.page} de ${endpoint}:`, result.error);
+          throw new Error(result.error);
         }
-      } else {
-        hasMore = false;
+
+        const data = result.data || [];
+        allResults.push(...data);
+
+        // Si una página devuelve menos elementos que el límite, hemos llegado al final
+        if (data.length < limit) {
+          foundEnd = true;
+          hasMore = false;
+          break;
+        }
       }
+
+      if (foundEnd) {
+        break;
+      }
+
+      // Avanzar al siguiente lote
+      page += concurrency;
     }
+
+    return allResults;
+  }
+
+  /**
+   * Obtiene todos los productos de Alegra para cache offline
+   */
+  async getItems() {
+    console.log('📦 Obteniendo todos los productos de Alegra para cache (paralelo)...');
+    const allItems = await this.fetchAllParallel('/items', { type: 'product' }, 10, 30);
 
     return {
       success: true,
@@ -50,28 +93,8 @@ class FacturacionService {
    * Obtiene todos los contactos de Alegra para cache offline
    */
   async getContacts() {
-    console.log('👥 Obteniendo todos los contactos de Alegra...');
-    const allContacts = [];
-    let page = 1;
-    const limit = 30;
-    let hasMore = true;
-
-    while (hasMore) {
-      const response = await this.alegraService.makeRequest('GET', '/contacts', {
-        start: (page - 1) * limit,
-        limit: limit
-      });
-
-      if (response && response.length > 0) {
-        allContacts.push(...response);
-        page++;
-        if (response.length < limit) {
-          hasMore = false;
-        }
-      } else {
-        hasMore = false;
-      }
-    }
+    console.log('👥 Obteniendo todos los contactos de Alegra (paralelo)...');
+    const allContacts = await this.fetchAllParallel('/contacts', {}, 10, 30);
 
     return {
       success: true,
