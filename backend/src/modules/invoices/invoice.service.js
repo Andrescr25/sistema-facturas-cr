@@ -6,11 +6,13 @@
 const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
 const { query } = require('../../../config/database');
+const AlegraService = require('../../../services/alegraService');
 
 class InvoiceService {
   constructor() {
     this.alegraInvoiceService = getAlegraInvoiceService();
     this.alegraProductService = getAlegraProductService();
+    this.alegraServiceInstance = new AlegraService();
   }
 
   /**
@@ -310,13 +312,7 @@ class InvoiceService {
    */
   async getInvoiceDetail(invoiceId) {
     try {
-      // Buscar en BD local para obtener el id interno
-      const localResult = await query(
-        'SELECT * FROM facturas WHERE alegra_id = $1',
-        [invoiceId]
-      );
-
-      // Obtener ítems de Alegra
+      // Obtener ítems de Alegra primero (así tenemos el numero_factura real)
       const alegraResult = await this.alegraInvoiceService.getInvoiceById(invoiceId);
 
       if (!alegraResult.success) {
@@ -324,6 +320,24 @@ class InvoiceService {
       }
 
       const factura = alegraResult.data;
+
+      // Buscar en BD local por alegra_id (cast a INTEGER)
+      const alegraIdInt = parseInt(invoiceId, 10);
+      const numeroFacturaCompleto = factura.numberTemplate?.fullNumber || null;
+
+      let localResult = await query(
+        'SELECT * FROM facturas WHERE alegra_id = $1 ORDER BY id DESC LIMIT 1',
+        [alegraIdInt]
+      );
+
+      // Fallback: buscar por numero_factura completo (ej: "001000014480") si no se encontró por alegra_id
+      if (localResult.rows.length === 0 && numeroFacturaCompleto) {
+        localResult = await query(
+          'SELECT * FROM facturas WHERE numero_factura = $1 ORDER BY id DESC LIMIT 1',
+          [numeroFacturaCompleto]
+        );
+      }
+
       const facturaLocalId = localResult.rows[0]?.id || null;
 
       // Si existe en BD local, obtener los faltantes guardados para esta factura
@@ -352,17 +366,19 @@ class InvoiceService {
         });
       }
 
-      // Fusionar tipo_faltante en cada ítem de Alegra
+      // Normalizar ítems crudos de Alegra (añade referencia, nombre, cantidad, etc.)
+      // y fusionar tipo_faltante desde la tabla de faltantes local
       const itemsConEstado = (factura.items || []).map(item => {
-        // Obtener referencia del ítem (código de producto)
-        const referencia = String(
-          item.item?.reference || item.reference || item.item?.id || item.id || ''
-        ).trim();
+        // Normalizar el ítem crudo para obtener referencia, nombre, cantidad correctos
+        const normalizado = this.alegraServiceInstance.normalizeInvoiceItem(item);
 
-        const faltante = faltantesMap[referencia] || null;
+        // Buscar faltante primero por referencia (código) y luego por alegra_id
+        const refByCodigo = normalizado.referencia ? faltantesMap[String(normalizado.referencia).trim()] : null;
+        const refByAlegraId = normalizado.alegra_id ? faltantesMap[String(normalizado.alegra_id).trim()] : null;
+        const faltante = refByCodigo || refByAlegraId || null;
 
         return {
-          ...item,
+          ...normalizado,
           tipo_faltante: faltante ? faltante.tipo_faltante : null,
           cantidad_faltante: faltante ? Number(faltante.cantidad_faltante) : 0,
           observaciones: faltante ? (faltante.observaciones || '') : ''
