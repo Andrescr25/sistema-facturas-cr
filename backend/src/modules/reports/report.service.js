@@ -72,7 +72,7 @@ class ReportService {
         LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
         
         -- Join con el mejor proveedor calculado
-        LEFT JOIN BestProviderPerProduct bp ON p.alegra_id = bp.alegra_item_id
+        LEFT JOIN BestProviderPerProduct bp ON CAST(p.alegra_id AS VARCHAR) = CAST(bp.alegra_item_id AS VARCHAR)
 
         WHERE f.estado = 'pendiente'
         GROUP BY 
