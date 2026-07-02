@@ -171,28 +171,60 @@ class InvoiceService {
       console.log('📋 Obteniendo facturas pendientes de reimpresión...');
 
       const sql = `
-        SELECT
-          fr.id as reimpresion_id,
+        SELECT 
+          fr.id as id,
           fr.ajustes_realizados,
           fr.estado,
           fr.fecha_creacion,
-          f.alegra_id,
-          f.numero_factura,
-          f.fecha_emision,
-          c.nombre as cliente_nombre
+          fr.categoria,
+          fr.total_ajustes,
+          fa.id as factura_id,
+          fa.numero_factura,
+          fa.alegra_id,
+          fa.cliente_nombre,
+          fa.cliente_email,
+          fa.fecha_emision,
+          fa.total
         FROM facturas_reimpresion fr
-        JOIN facturas f ON fr.factura_id = f.id
-        LEFT JOIN clientes c ON f.cliente_id = c.id
+        JOIN facturas fa ON fr.factura_id = fa.id
         WHERE fr.estado = 'pendiente'
-        ORDER BY fr.fecha_creacion ASC
+        ORDER BY fr.fecha_creacion DESC
       `;
 
       const result = await query(sql);
 
+      // Procesar los ajustes JSONB para mejor visualización
+      const facturasConAjustes = result.rows.map(factura => {
+        const ajustes = typeof factura.ajustes_realizados === 'string'
+          ? JSON.parse(factura.ajustes_realizados)
+          : factura.ajustes_realizados;
+
+        const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
+
+        return {
+          ...factura,
+          ajustes_realizados: ajustes,
+          total_ajustes: ajustes?.length || 0,
+          requiere_actualizacion: requiereActualizacion,
+          categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
+        };
+      });
+
+      const sinCambios = facturasConAjustes.filter(f => f.categoria === 'sin_cambios');
+      const requiereCambios = facturasConAjustes.filter(f => f.categoria !== 'sin_cambios');
+
       return {
         success: true,
-        data: result.rows,
-        total: result.rows.length
+        data: {
+          sin_cambios: sinCambios,
+          requiere_cambios: requiereCambios
+        },
+        total_pendientes: facturasConAjustes.length,
+        resumen: {
+          facturas_pendientes: facturasConAjustes.length,
+          facturas_sin_cambios: sinCambios.length,
+          facturas_con_cambios: requiereCambios.length
+        }
       };
     } catch (error) {
       console.error('❌ Error obteniendo facturas pendientes:', error);
@@ -214,27 +246,57 @@ class InvoiceService {
         SELECT
           fr.id as reimpresion_id,
           fr.ajustes_realizados,
-          fr.estado,
+          fr.estado as estado_reimpresion,
           fr.fecha_creacion,
           fr.fecha_procesamiento,
-          f.alegra_id,
-          f.numero_factura,
-          f.fecha_emision,
-          c.nombre as cliente_nombre
+          fr.categoria,
+          fr.total_ajustes,
+          fa.id as factura_id,
+          fa.numero_factura,
+          fa.alegra_id,
+          fa.cliente_nombre,
+          fa.cliente_email,
+          fa.fecha_emision,
+          fa.total,
+          EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) as dias_desde_procesamiento
         FROM facturas_reimpresion fr
-        JOIN facturas f ON fr.factura_id = f.id
-        LEFT JOIN clientes c ON f.cliente_id = c.id
+        JOIN facturas fa ON fr.factura_id = fa.id
         WHERE fr.estado = 'procesada'
-        AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
+          AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
         ORDER BY fr.fecha_procesamiento DESC
       `;
 
       const result = await query(sql);
 
+      // Procesar los ajustes JSONB
+      const facturasConAjustes = result.rows.map(factura => {
+        const ajustes = typeof factura.ajustes_realizados === 'string'
+          ? JSON.parse(factura.ajustes_realizados)
+          : factura.ajustes_realizados;
+
+        const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
+        const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
+
+        return {
+          ...factura,
+          ajustes_realizados: ajustes,
+          total_ajustes: ajustes?.length || 0,
+          dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
+          puede_recuperar: factura.dias_desde_procesamiento <= 7,
+          requiere_actualizacion: requiereActualizacion,
+          tiene_variacion_precio: tieneVariacionPrecio,
+          categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
+        };
+      });
+
       return {
         success: true,
-        data: result.rows,
-        total: result.rows.length
+        data: facturasConAjustes,
+        total: facturasConAjustes.length,
+        resumen: {
+          facturas_procesadas: facturasConAjustes.length,
+          recuperables: facturasConAjustes.filter(f => f.puede_recuperar).length
+        }
       };
     } catch (error) {
       console.error('❌ Error obteniendo facturas procesadas:', error);
