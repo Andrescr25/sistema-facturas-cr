@@ -1,3 +1,4 @@
+// Cache-buster: 2026-07-02
 import { useState, useEffect, useMemo } from 'react';
 import {
   Boxes,
