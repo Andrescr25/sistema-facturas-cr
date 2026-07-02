@@ -129,11 +129,8 @@ class InvoiceService {
 
       // Obtener desde BD local
       let sql = `
-        SELECT f.*,
-               c.nombre as cliente_nombre,
-               c.email as cliente_email
+        SELECT f.*
         FROM facturas f
-        LEFT JOIN clientes c ON f.cliente_id = c.id
         WHERE EXTRACT(YEAR FROM f.fecha_emision) = $1
         AND EXTRACT(MONTH FROM f.fecha_emision) = $2
       `;
