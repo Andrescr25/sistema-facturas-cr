@@ -1293,7 +1293,7 @@ export default function Impresion() {
 
                   return (
                     <div
-                      key={factura.reimpresion_id}
+                      key={factura.reimpresion_id || factura.id}
                       className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:border-blue-200 transition space-y-4"
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
