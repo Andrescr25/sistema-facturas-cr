@@ -321,28 +321,23 @@ class InvoiceService {
 
       const factura = alegraResult.data;
 
-      // Buscar en BD local por alegra_id (cast a INTEGER)
+      // Buscar en BD local por alegra_id (cast a INTEGER) o número de factura completo
       const alegraIdInt = parseInt(invoiceId, 10);
       const numeroFacturaCompleto = factura.numberTemplate?.fullNumber || null;
 
-      let localResult = await query(
-        'SELECT * FROM facturas WHERE alegra_id = $1 ORDER BY id DESC LIMIT 1',
-        [alegraIdInt]
+      const localResult = await query(
+        `SELECT id, estado_bodega, estado_procesamiento, observaciones_adicionales 
+         FROM facturas 
+         WHERE alegra_id = $1 OR (numero_factura = $2 AND $2 IS NOT NULL)
+         ORDER BY CASE WHEN estado_bodega = 'procesado' THEN 1 ELSE 2 END, id DESC`,
+        [alegraIdInt, numeroFacturaCompleto]
       );
 
-      // Fallback: buscar por numero_factura completo (ej: "001000014480") si no se encontró por alegra_id
-      if (localResult.rows.length === 0 && numeroFacturaCompleto) {
-        localResult = await query(
-          'SELECT * FROM facturas WHERE numero_factura = $1 ORDER BY id DESC LIMIT 1',
-          [numeroFacturaCompleto]
-        );
-      }
-
-      const facturaLocalId = localResult.rows[0]?.id || null;
+      const localInvoiceIds = localResult.rows.map(r => r.id);
 
       // Si existe en BD local, obtener los faltantes guardados para esta factura
       let faltantesMap = {};
-      if (facturaLocalId) {
+      if (localInvoiceIds.length > 0) {
         const faltantesResult = await query(`
           SELECT
             f.tipo_faltante,
@@ -352,8 +347,8 @@ class InvoiceService {
             p.alegra_id AS producto_alegra_id
           FROM faltantes f
           JOIN productos p ON f.producto_id = p.id
-          WHERE f.factura_id = $1
-        `, [facturaLocalId]);
+          WHERE f.factura_id = ANY($1::int[])
+        `, [localInvoiceIds]);
 
         // Construir mapa por código de producto (y por alegra_id como fallback)
         faltantesResult.rows.forEach(row => {
