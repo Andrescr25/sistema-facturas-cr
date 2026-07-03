@@ -1076,9 +1076,23 @@ class FacturacionService {
   async getFacturasPrecargadas() {
     try {
       const facturas = await indexedDBService.getFacturasCache();
+      
+      // Filtrar duplicados históricos por ID (casteado a String)
+      const vistos = new Set();
+      const facturasUnicas = [];
+      
+      for (const f of facturas) {
+        if (!f || !f.id) continue;
+        const key = String(f.id);
+        if (!vistos.has(key)) {
+          vistos.add(key);
+          facturasUnicas.push(f);
+        }
+      }
+
       // Ordenar por fecha descendente (más recientes primero)
-      facturas.sort((a, b) => new Date(b.date) - new Date(a.date));
-      return facturas;
+      facturasUnicas.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return facturasUnicas;
     } catch (error) {
       console.error('❌ Error obteniendo facturas precargadas:', error);
       throw error;

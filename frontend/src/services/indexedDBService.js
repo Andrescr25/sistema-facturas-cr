@@ -563,6 +563,11 @@ class IndexedDBService {
         facturaNormalizada.id = facturaNormalizada.alegra_id;
       }
 
+      // Convertir siempre el ID a String para evitar duplicados por tipo (number vs string)
+      if (facturaNormalizada.id) {
+        facturaNormalizada.id = String(facturaNormalizada.id);
+      }
+
       // Verificar que la factura tenga id (clave primaria)
       if (facturaNormalizada.id) {
         try {
