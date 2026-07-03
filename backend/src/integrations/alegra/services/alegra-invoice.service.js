@@ -166,7 +166,20 @@ class AlegraInvoiceService {
       });
 
       if (result.success && result.data && result.data.length > 0) {
-        return result.data[0].price;
+        const item = result.data[0];
+        const priceField = item.price;
+        
+        let priceValue = 0;
+        if (Array.isArray(priceField)) {
+          const main = priceField.find(p => p.main) || priceField[0];
+          priceValue = Number(main?.price ?? 0);
+        } else if (priceField && typeof priceField === 'object') {
+          priceValue = Number(priceField.price ?? priceField.value ?? 0);
+        } else {
+          priceValue = Number(priceField ?? 0);
+        }
+        
+        return priceValue;
       }
 
       return null;

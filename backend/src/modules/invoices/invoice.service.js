@@ -693,7 +693,7 @@ class InvoiceService {
               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
               RETURNING id
             `, [
-              alegraResult.data.numberTemplate?.formattedNumber || numero_factura || String(alegra_id),
+              alegraResult.data.numberTemplate?.fullNumber || alegraResult.data.numberTemplate?.formattedNumber || numero_factura || String(alegra_id),
               parseInt(alegra_id),
               alegraResult.data.client?.name || cliente_nombre || 'Cliente no especificado',
               alegraResult.data.client?.email || null,

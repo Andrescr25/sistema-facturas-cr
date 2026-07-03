@@ -48,6 +48,7 @@ async function upsertFacturaDesdeAlegra(invoice) {
   if (!invoice) return null;
 
   const numeroFactura =
+    invoice.numberTemplate?.fullNumber ||
     invoice.numero_factura ||
     invoice.numberTemplate?.formattedNumber ||
     invoice.numero_completo ||
