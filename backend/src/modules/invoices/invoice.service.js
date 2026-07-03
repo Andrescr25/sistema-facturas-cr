@@ -204,24 +204,27 @@ class InvoiceService {
       console.log('📋 Obteniendo facturas pendientes de reimpresión...');
 
       const sql = `
-        SELECT 
-          fr.id as id,
-          fr.ajustes_realizados,
-          fr.estado,
-          fr.fecha_creacion,
-          fr.categoria,
-          fr.total_ajustes,
-          fa.id as factura_id,
-          fa.numero_factura,
-          fa.alegra_id,
-          fa.cliente_nombre,
-          fa.cliente_email,
-          fa.fecha_emision,
-          fa.total
-        FROM facturas_reimpresion fr
-        JOIN facturas fa ON fr.factura_id = fa.id
-        WHERE fr.estado = 'pendiente'
-        ORDER BY fr.fecha_creacion DESC
+        SELECT * FROM (
+          SELECT DISTINCT ON (fa.alegra_id)
+            fr.id as id,
+            fr.ajustes_realizados,
+            fr.estado,
+            fr.fecha_creacion,
+            fr.categoria,
+            fr.total_ajustes,
+            fa.id as factura_id,
+            fa.numero_factura,
+            fa.alegra_id,
+            fa.cliente_nombre,
+            fa.cliente_email,
+            fa.fecha_emision,
+            fa.total
+          FROM facturas_reimpresion fr
+          JOIN facturas fa ON fr.factura_id = fa.id
+          WHERE fr.estado = 'pendiente'
+          ORDER BY fa.alegra_id, fr.fecha_creacion DESC
+        ) t
+        ORDER BY t.fecha_creacion DESC
       `;
 
       const result = await query(sql);
@@ -631,11 +634,77 @@ class InvoiceService {
    */
   async processIndividualInvoice(invoiceData) {
     try {
-      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados } = invoiceData;
+      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados, marcar_como_procesada } = invoiceData;
 
       console.log(`📋 Procesando factura individual: ${numero_factura}`);
       console.log(`📦 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
       console.log(`📊 Total ajustes: ${ajustes?.length || 0}`);
+
+      // Asegurar que la factura exista en la base de datos local
+      let facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [parseInt(alegra_id)]);
+      let facturaLocalId;
+
+      if (facturaLocal.rows.length === 0) {
+        console.log(`📝 Factura ${alegra_id} no existe en BD local al procesar, creándola desde Alegra...`);
+        try {
+          const alegraResult = await this.alegraInvoiceService.getInvoiceById(alegra_id);
+          if (alegraResult.success && alegraResult.data) {
+            const date = new Date(alegraResult.data.date);
+            const startOfYear = new Date(date.getFullYear(), 0, 1);
+            const dayOfYear = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
+            const semanaDelAno = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
+
+            const nuevaFactura = await query(`
+              INSERT INTO facturas (
+                numero_factura, alegra_id, cliente_nombre, cliente_email,
+                fecha_emision, semana, mes, ano, total
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              RETURNING id
+            `, [
+              alegraResult.data.numberTemplate?.formattedNumber || numero_factura || String(alegra_id),
+              parseInt(alegra_id),
+              alegraResult.data.client?.name || cliente_nombre || 'Cliente no especificado',
+              alegraResult.data.client?.email || null,
+              alegraResult.data.date,
+              semanaDelAno,
+              parseInt(alegraResult.data.date?.split('-')[1]) || 1,
+              parseInt(alegraResult.data.date?.split('-')[0]) || 2026,
+              parseFloat(alegraResult.data.total || 0)
+            ]);
+            facturaLocalId = nuevaFactura.rows[0].id;
+            console.log(`✅ Factura creada localmente desde Alegra con ID: ${facturaLocalId}`);
+          } else {
+            throw new Error('No se pudo obtener factura de Alegra');
+          }
+        } catch (alegraError) {
+          console.warn(`⚠️ Error obteniendo de Alegra, usando fallback de payload:`, alegraError.message);
+          const date = new Date(fecha_emision || new Date());
+          const startOfYear = new Date(date.getFullYear(), 0, 1);
+          const dayOfYear = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
+          const semanaDelAno = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
+
+          const nuevaFactura = await query(`
+            INSERT INTO facturas (
+              numero_factura, alegra_id, cliente_nombre,
+              fecha_emision, semana, mes, ano, total
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id
+          `, [
+            numero_factura || String(alegra_id),
+            parseInt(alegra_id),
+            cliente_nombre || 'Cliente no especificado',
+            fecha_emision || new Date().toISOString(),
+            semanaDelAno,
+            parseInt(String(fecha_emision || '').split('-')[1]) || 1,
+            parseInt(String(fecha_emision || '').split('-')[0]) || 2026,
+            0
+          ]);
+          facturaLocalId = nuevaFactura.rows[0].id;
+          console.log(`✅ Factura creada localmente (fallback payload) con ID: ${facturaLocalId}`);
+        }
+      } else {
+        facturaLocalId = facturaLocal.rows[0].id;
+      }
 
       // NUEVO: Actualizar precios y cantidades desde Alegra ANTES de procesar
       if (ajustes && ajustes.length > 0) {
@@ -670,7 +739,7 @@ class InvoiceService {
         })
       ]);
 
-      // 2. Si requiere reimpresión, guardar en facturas_reimpresion
+      // 2. Si requiere reimpresión, guardar o actualizar en facturas_reimpresion
       if (estado.includes('requiere_reimpresion')) {
         const existeReimpresion = await query(`
           SELECT fr.id FROM facturas_reimpresion fr
@@ -682,20 +751,28 @@ class InvoiceService {
           await query(`
             UPDATE facturas_reimpresion
             SET ajustes_realizados = $2,
-                estado = 'pendiente',
+                estado = $3,
                 fecha_creacion = CURRENT_TIMESTAMP,
-                fecha_procesamiento = NULL
+                fecha_procesamiento = $4
             FROM facturas fa
             WHERE facturas_reimpresion.factura_id = fa.id
             AND fa.alegra_id = $1
-          `, [alegra_id, JSON.stringify(ajustes)]);
+          `, [
+            alegra_id, 
+            JSON.stringify(ajustes), 
+            marcar_como_procesada ? 'procesado' : 'pendiente', 
+            marcar_como_procesada ? new Date() : null
+          ]);
         } else {
           await query(`
-            INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion)
-            SELECT fa.id, $2, 'pendiente', CURRENT_TIMESTAMP
-            FROM facturas fa
-            WHERE fa.alegra_id = $1
-          `, [alegra_id, JSON.stringify(ajustes)]);
+            INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion, fecha_procesamiento)
+            VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
+          `, [
+            facturaLocalId, 
+            JSON.stringify(ajustes), 
+            marcar_como_procesada ? 'procesado' : 'pendiente', 
+            marcar_como_procesada ? new Date() : null
+          ]);
         }
       }
 
