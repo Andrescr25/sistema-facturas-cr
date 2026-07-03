@@ -148,9 +148,43 @@ class InvoiceService {
 
       const result = await query(sql, params);
 
+      // Mapear los registros de la base de datos local al formato original de Alegra
+      // para que el frontend pueda leer .client?.name, .date, .id etc.
+      const mappedRows = result.rows.map(row => {
+        let formattedDate = null;
+        if (row.fecha_emision) {
+          try {
+            formattedDate = new Date(row.fecha_emision).toISOString().split('T')[0];
+          } catch (e) {
+            formattedDate = String(row.fecha_emision).split('T')[0];
+          }
+        }
+
+        return {
+          id: row.alegra_id ? String(row.alegra_id) : String(row.id),
+          alegra_id: row.alegra_id,
+          numberTemplate: {
+            fullNumber: row.numero_factura || String(row.id),
+            formattedNumber: row.numero_factura || String(row.id)
+          },
+          client: {
+            name: row.cliente_nombre || 'Cliente no especificado',
+            email: row.cliente_email || null
+          },
+          date: formattedDate,
+          total: Number(row.total || 0),
+          // Mantener metadatos locales útiles
+          local_data: {
+            id: row.id,
+            estado_bodega: row.estado_bodega || 'pendiente',
+            estado_procesamiento: row.estado_procesamiento || 'pendiente'
+          }
+        };
+      });
+
       return {
         success: true,
-        data: result.rows,
+        data: mappedRows,
         period: { year, month, week }
       };
     } catch (error) {
