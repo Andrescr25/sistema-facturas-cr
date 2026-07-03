@@ -281,9 +281,10 @@ export default function Impresion() {
 
   const handleVerPDF = async (factura) => {
     try {
+      setError(null)
       await alegraService.visualizarPDFFactura(factura.alegra_id)
     } catch (error) {
-      alert(`Error abriendo PDF: ${error.message}`)
+      setError(`Error abriendo PDF: ${error.message}`)
     }
   }
 
@@ -370,7 +371,7 @@ export default function Impresion() {
         }
       } catch (error) {
         console.error('Error cargando factura desde Alegra:', error)
-        alert(`No se pudo cargar la factura desde Alegra: ${error.message}`)
+        setError(`No se pudo cargar la factura desde Alegra: ${error.message}`)
       }
     }
 
@@ -497,13 +498,6 @@ export default function Impresion() {
   const handleGuardarFactura = async (imprimirDespues = false) => {
     if (!facturaEditando) return
 
-    const confirmacion = window.confirm(
-      `¿Confirmar ${imprimirDespues ? 'guardar e imprimir' : 'guardar'} factura ${facturaEditando.numero_factura}?\n\n` +
-      `Se actualizarán los precios automáticamente desde Alegra.`
-    )
-
-    if (!confirmacion) return
-
     try {
       setProcesando(true)
       setAjustandoPrecios(true)
@@ -607,7 +601,7 @@ export default function Impresion() {
         throw new Error(result.message || 'Error procesando factura')
       }
     } catch (error) {
-      alert(`Error: ${error.message}`)
+      setError(`Error: ${error.message}`)
     } finally {
       setProcesando(false)
       setAjustandoPrecios(false)
@@ -668,7 +662,7 @@ export default function Impresion() {
       await loadFacturasPendientes()
       loadFacturasProcesadas()
     } catch (error) {
-      alert(`Error procesando factura: ${error.message}`)
+      setError(`Error procesando factura: ${error.message}`)
     } finally {
       setProcesando(false)
       setAjustandoPrecios(false)
@@ -677,13 +671,6 @@ export default function Impresion() {
   }
 
   const handleRecuperarFactura = async (factura) => {
-    const confirmacion = window.confirm(
-      `¿Recuperar factura ${factura.numero_factura}?\n\n` +
-      `La factura volverá a la lista de pendientes.`
-    )
-
-    if (!confirmacion) return
-
     try {
       setLoading(true)
       const result = await alegraService.recuperarFactura(factura.alegra_id)
@@ -694,7 +681,7 @@ export default function Impresion() {
         throw new Error(result.message || 'Error recuperando factura')
       }
     } catch (error) {
-      alert(`Error: ${error.message}`)
+      setError(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
