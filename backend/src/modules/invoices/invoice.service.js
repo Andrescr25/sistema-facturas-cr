@@ -482,39 +482,38 @@ class InvoiceService {
         console.warn('⚠️ No se pudo cargar mapa de IDs de Alegra:', error.message);
       }
 
-      // 2. Identificar productos que necesitan actualización
+      // 2. Identificar productos que necesitan actualización de precios
       const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
-
-      if (productosParaActualizar.length === 0) {
-        console.log(`✅ No hay productos que requieran actualización de precios`);
-        return { success: true, updated: 0 };
-      }
-
-      console.log(`📦 ${productosParaActualizar.length} productos requieren actualización de precios`);
-
-      // 3. Obtener precios actualizados de Alegra (batch para optimizar)
       const preciosActualizados = new Map();
-      const batchSize = 5; // Procesar de 5 en 5 para no saturar API
 
-      for (let i = 0; i < productosParaActualizar.length; i += batchSize) {
-        const batch = productosParaActualizar.slice(i, i + batchSize);
+      if (productosParaActualizar.length > 0) {
+        console.log(`📦 ${productosParaActualizar.length} productos requieren actualización de precios`);
 
-        await Promise.all(batch.map(async (ajuste) => {
-          try {
-            const precio = await this.alegraInvoiceService.getUpdatedPrice(ajuste.producto_codigo);
-            if (precio !== null) {
-              preciosActualizados.set(ajuste.producto_codigo, precio);
-              console.log(`  ✓ Precio actualizado para ${ajuste.producto_codigo}: ₡${precio}`);
+        // 3. Obtener precios actualizados de Alegra (batch para optimizar)
+        const batchSize = 5; // Procesar de 5 en 5 para no saturar API
+
+        for (let i = 0; i < productosParaActualizar.length; i += batchSize) {
+          const batch = productosParaActualizar.slice(i, i + batchSize);
+
+          await Promise.all(batch.map(async (ajuste) => {
+            try {
+              const precio = await this.alegraInvoiceService.getUpdatedPrice(ajuste.producto_codigo);
+              if (precio !== null) {
+                preciosActualizados.set(ajuste.producto_codigo, precio);
+                console.log(`  ✓ Precio actualizado para ${ajuste.producto_codigo}: ₡${precio}`);
+              }
+            } catch (error) {
+              console.warn(`  ⚠️ No se pudo obtener precio para ${ajuste.producto_codigo}:`, error.message);
             }
-          } catch (error) {
-            console.warn(`  ⚠️ No se pudo obtener precio para ${ajuste.producto_codigo}:`, error.message);
-          }
-        }));
+          }));
 
-        // Pequeña pausa entre batches para no saturar la API
-        if (i + batchSize < productosParaActualizar.length) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // Pequeña pausa entre batches para no saturar la API
+          if (i + batchSize < productosParaActualizar.length) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
+      } else {
+        console.log(`✅ No hay productos que requieran actualización de precios. Se continuará con el ajuste de faltantes.`);
       }
 
       // 4. Construir array de items actualizados
@@ -550,22 +549,20 @@ class InvoiceService {
           // Calcular nueva cantidad según el estado del ajuste
           let nuevaCantidad = item.quantity;
 
-          if (ajuste.requiere_actualizacion) {
-            // Calcular cuánto hay que rebajar
-            const cantidadPendiente = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
+          // Calcular cuánto hay que rebajar
+          const cantidadPendiente = ajuste.cantidad_faltante - (ajuste.cantidad_entregada || 0);
 
-            if (ajuste.estado === 'no_llego') {
-              // No llegó nada → Rebajar todo lo faltante
-              nuevaCantidad = Math.max(item.quantity - ajuste.cantidad_faltante, 0);
-              console.log(`  🔴 ${itemReference}: NO LLEGÓ - Rebajando ${ajuste.cantidad_faltante} unidades (${item.quantity} → ${nuevaCantidad})`);
-            } else if (ajuste.estado === 'parcial') {
-              // Llegó parte → Rebajar lo pendiente
-              nuevaCantidad = Math.max(item.quantity - cantidadPendiente, 0);
-              console.log(`  🟡 ${itemReference}: PARCIAL - Rebajando ${cantidadPendiente} unidades (${item.quantity} → ${nuevaCantidad})`);
-            } else if (ajuste.estado === 'completo') {
-              // Todo llegó → No rebajar
-              console.log(`  🟢 ${itemReference}: COMPLETO - Cantidad sin cambios (${item.quantity})`);
-            }
+          if (ajuste.estado === 'no_llego') {
+            // No llegó nada → Rebajar todo lo faltante
+            nuevaCantidad = Math.max(item.quantity - ajuste.cantidad_faltante, 0);
+            console.log(`  🔴 ${itemReference}: NO LLEGÓ - Rebajando ${ajuste.cantidad_faltante} unidades (${item.quantity} → ${nuevaCantidad})`);
+          } else if (ajuste.estado === 'parcial') {
+            // Llegó parte → Rebajar lo pendiente
+            nuevaCantidad = Math.max(item.quantity - cantidadPendiente, 0);
+            console.log(`  🟡 ${itemReference}: PARCIAL - Rebajando ${cantidadPendiente} unidades (${item.quantity} → ${nuevaCantidad})`);
+          } else if (ajuste.estado === 'completo') {
+            // Todo llegó → No rebajar
+            console.log(`  🟢 ${itemReference}: COMPLETO - Cantidad sin cambios (${item.quantity})`);
           }
 
           // Obtener precio actualizado (si está disponible)
