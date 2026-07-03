@@ -103,35 +103,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 )
 
-// Registro/Desregistro del Service Worker para PWA
+// Registro del Service Worker para PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // En desarrollo local (localhost), desregistrar los Service Workers activos para evitar problemas de caché
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        let desregistrado = false;
-        for (const registration of registrations) {
-          registration.unregister();
-          desregistrado = true;
-        }
-        if (desregistrado) {
-          console.log('🗑️ Service Worker desregistrado en desarrollo local para evitar caché');
-          // Recargar la página una vez para limpiar los interceptores del SW de red
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
-        }
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        // Service worker registrado
+      })
+      .catch((error) => {
+        console.error('Error al registrar Service Worker:', error);
       });
-    } else {
-      // Registrar en producción
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          // Service worker registrado
-        })
-        .catch((error) => {
-          console.error('Error al registrar Service Worker:', error);
-        });
-    }
   });
 }
