@@ -1216,10 +1216,14 @@ export default function Facturacion() {
                             Factura #{factura.numberTemplate?.fullNumber || factura.id}
                           </p>
                           <p className="text-sm text-gray-600">
-                            Cliente: {factura.client?.name || 'N/A'}
+                            Cliente: {factura.client?.name || factura.cliente_nombre || 'N/A'}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Fecha: {factura.date ? new Date(factura.date).toLocaleDateString('es-CR') : 'N/A'}
+                            Fecha: {factura.date 
+                               ? new Date(factura.date).toLocaleDateString('es-CR') 
+                               : factura.fecha_emision 
+                                 ? new Date(factura.fecha_emision).toLocaleDateString('es-CR') 
+                                 : 'N/A'}
                           </p>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {factura.pendienteSincronizar && (
