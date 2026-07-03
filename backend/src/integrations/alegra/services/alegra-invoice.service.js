@@ -134,22 +134,35 @@ class AlegraInvoiceService {
     }
   }
 
-  /**
-   * Obtener PDF de factura
-   */
   async getInvoicePDF(invoiceId) {
     try {
-      const result = await this.getInvoiceById(invoiceId);
+      // 1. Obtener la información de la factura para tener el número
+      const invoiceResult = await this.getInvoiceById(invoiceId);
+      const invoiceNumber = invoiceResult.success && invoiceResult.data
+        ? invoiceResult.data.numberTemplate?.fullNumber
+        : null;
 
-      if (result.success && result.data) {
+      // 2. Hacer la llamada específica para obtener la URL del PDF de Alegra
+      const pdfResult = await this.client.get(`/invoices/${invoiceId}/pdf`);
+
+      if (pdfResult.success && pdfResult.data && (pdfResult.data.pdf || pdfResult.data.url)) {
         return {
           success: true,
-          url: result.data.pdf?.url || null,
-          invoiceNumber: result.data.numberTemplate?.fullNumber
+          url: pdfResult.data.pdf || pdfResult.data.url || null,
+          invoiceNumber: invoiceNumber
         };
       }
 
-      return { success: false, error: 'Factura no encontrada' };
+      // Fallback: si falla el endpoint específico pero la factura tiene pdf en su data
+      if (invoiceResult.success && invoiceResult.data && invoiceResult.data.pdf?.url) {
+        return {
+          success: true,
+          url: invoiceResult.data.pdf.url,
+          invoiceNumber: invoiceNumber
+        };
+      }
+
+      return { success: false, error: 'No se pudo obtener el PDF de la factura en Alegra' };
     } catch (error) {
       return { success: false, error: error.message };
     }
