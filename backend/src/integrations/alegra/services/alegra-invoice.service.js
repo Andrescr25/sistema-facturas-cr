@@ -166,7 +166,12 @@ class AlegraInvoiceService {
       });
 
       if (result.success && result.data && result.data.length > 0) {
-        const item = result.data[0];
+        // Encontrar coincidencia exacta por referencia para evitar falsos positivos por LIKE
+        const targetRef = productReference.toString().trim().toLowerCase();
+        const item = result.data.find(it => 
+          (it.reference || '').toString().trim().toLowerCase() === targetRef
+        ) || result.data[0];
+        
         const priceField = item.price;
         
         let priceValue = 0;
