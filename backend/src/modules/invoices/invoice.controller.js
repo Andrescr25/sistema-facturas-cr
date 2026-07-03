@@ -91,10 +91,11 @@ class InvoiceController {
       const result = await this.invoiceService.getInvoicePDF(id);
 
       if (result.success) {
-        return ResponseHelper.success(res, {
+        return res.json({
+          success: true,
           url: result.url,
           invoiceNumber: result.invoiceNumber
-        }, 'PDF obtenido');
+        });
       }
 
       return ResponseHelper.error(res, result.error, 404);
