@@ -200,7 +200,16 @@ class InvoiceController {
    */
   processIndividualInvoice = async (req, res) => {
     try {
-      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado } = req.body;
+      const { 
+        alegra_id, 
+        numero_factura, 
+        cliente_nombre, 
+        fecha_emision, 
+        ajustes, 
+        estado,
+        items_editados,
+        marcar_como_procesada
+      } = req.body;
 
       if (!alegra_id || !numero_factura) {
         return ResponseHelper.validationError(res, {
@@ -215,7 +224,9 @@ class InvoiceController {
         cliente_nombre,
         fecha_emision,
         ajustes: ajustes || [],
-        estado: estado || 'procesado'
+        estado: estado || 'procesado',
+        items_editados,
+        marcar_como_procesada
       });
 
       if (result.success) {
