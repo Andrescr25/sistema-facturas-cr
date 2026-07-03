@@ -469,11 +469,14 @@ class InvoiceService {
           items: updatedItems
         });
 
-        if (!updateResult.success) {
+        if (!updateResult.success || !updateResult.data) {
           throw new Error('No se pudo actualizar la factura con los items editados en Alegra');
         }
 
-        console.log(`✅ Factura ${alegra_id} actualizada exitosamente con items editados manualmente`);
+        // Sincronizar localmente en PostgreSQL
+        await this.syncLocalInvoiceWithAlegraData(updateResult.data);
+
+        console.log(`✅ Factura ${alegra_id} actualizada exitosamente con items editados manualmente y sincronizada localmente`);
         return { success: true, updated: itemsEditados.length };
       }
 
@@ -637,11 +640,14 @@ class InvoiceService {
         items: updatedItems
       });
 
-      if (!updateResult.success) {
+      if (!updateResult.success || !updateResult.data) {
         throw new Error('No se pudo actualizar la factura en Alegra');
       }
 
-      console.log(`✅ Factura ${alegra_id} actualizada con ${preciosActualizados.size} precios nuevos`);
+      // Sincronizar localmente en PostgreSQL
+      await this.syncLocalInvoiceWithAlegraData(updateResult.data);
+
+      console.log(`✅ Factura ${alegra_id} actualizada con ${preciosActualizados.size} precios nuevos y sincronizada localmente`);
 
       return {
         success: true,
@@ -658,6 +664,106 @@ class InvoiceService {
         error: error.message,
         updated: 0
       };
+    }
+  }
+
+  /**
+   * Sincronizar datos de factura de Alegra en la base de datos PostgreSQL local
+   */
+  async syncLocalInvoiceWithAlegraData(alegraInvoiceData) {
+    try {
+      const alegra_id = parseInt(alegraInvoiceData.id);
+      const total = Number(alegraInvoiceData.total) || 0;
+      const cliente_nombre = alegraInvoiceData.client?.name || 'Cliente no especificado';
+      const cliente_email = alegraInvoiceData.client?.email || null;
+      const fecha_emision = alegraInvoiceData.date || new Date().toISOString().split('T')[0];
+
+      console.log(`🔄 Sincronizando factura local ${alegra_id} con datos de Alegra. Nuevo total: ₡${total}...`);
+
+      // 1. Obtener o verificar que la factura local existe en 'facturas'
+      let facturaLocal = await query('SELECT id FROM facturas WHERE alegra_id = $1', [alegra_id]);
+      let facturaId;
+
+      if (facturaLocal.rows.length > 0) {
+        facturaId = facturaLocal.rows[0].id;
+        // Actualizar datos de la factura
+        await query(`
+          UPDATE facturas
+          SET total = $1,
+              cliente_nombre = $2,
+              cliente_email = $3,
+              fecha_emision = $4
+          WHERE id = $5
+        `, [total, cliente_nombre, cliente_email, fecha_emision, facturaId]);
+      } else {
+        // Si no existiera por algún motivo, la creamos
+        const fecha = new Date(fecha_emision);
+        const calculateWeekOfMonth = (date) => {
+          const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+          const dayOfMonth = date.getDate();
+          const dayOfWeek = firstDay.getDay();
+          return Math.ceil((dayOfMonth + dayOfWeek) / 7);
+        };
+        const semana = calculateWeekOfMonth(fecha);
+        const mes = fecha.getMonth() + 1;
+        const ano = fecha.getFullYear();
+
+        const insertResult = await query(`
+          INSERT INTO facturas (numero_factura, alegra_id, cliente_nombre, cliente_email, 
+                                fecha_emision, semana, mes, ano, total)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING id
+        `, [
+          alegraInvoiceData.numberTemplate?.fullNumber || String(alegra_id),
+          alegra_id,
+          cliente_nombre,
+          cliente_email,
+          fecha_emision,
+          semana,
+          mes,
+          ano,
+          total
+        ]);
+        facturaId = insertResult.rows[0].id;
+      }
+
+      // 2. Sincronizar items de la factura en 'factura_items'
+      // Borrar items viejos
+      await query('DELETE FROM factura_items WHERE factura_id = $1', [facturaId]);
+
+      // Insertar los items nuevos
+      const items = alegraInvoiceData.items || [];
+      for (const item of items) {
+        // Intentar obtener el producto local por su referencia/código
+        const itemReference = item.reference || item.item?.reference || '';
+        let productoId = null;
+
+        if (itemReference) {
+          const prodResult = await query('SELECT id FROM productos WHERE codigo = $1 LIMIT 1', [itemReference]);
+          if (prodResult.rows.length > 0) {
+            productoId = prodResult.rows[0].id;
+          }
+        }
+
+        await query(`
+          INSERT INTO factura_items (factura_id, producto_id, cantidad_original, 
+                                    cantidad_entregada, precio_unitario, subtotal)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          facturaId,
+          productoId,
+          Number(item.quantity) || 0,
+          Number(item.quantity) || 0,
+          Number(item.price) || 0,
+          Number(item.total) || (Number(item.quantity) * Number(item.price)) || 0
+        ]);
+      }
+
+      console.log(`✅ Sincronización local de factura ${alegra_id} completada exitosamente`);
+      return { success: true };
+    } catch (error) {
+      console.error(`❌ Error en syncLocalInvoiceWithAlegraData para ${alegraInvoiceData.id}:`, error.message);
+      return { success: false, error: error.message };
     }
   }
 
