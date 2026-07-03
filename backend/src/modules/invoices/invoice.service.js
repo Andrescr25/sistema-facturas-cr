@@ -1064,48 +1064,125 @@ class InvoiceService {
    */
   async getInvoiceWithRelations(id) {
     try {
-      // Obtener datos de la factura
-      const facturaResult = await query(
-        'SELECT * FROM facturas WHERE id = $1',
-        [id]
-      );
+      // 1. Intentar obtener la factura de Alegra
+      const alegraResult = await this.alegraInvoiceService.getInvoiceById(id);
       
-      if (facturaResult.rows.length === 0) {
+      if (alegraResult.success) {
+        const facturaAlegra = alegraResult.data;
+        
+        // Buscar datos locales complementarios usando alegra_id
+        const alegraIdInt = parseInt(id, 10);
+        const localResult = await query(
+          'SELECT * FROM facturas WHERE alegra_id = $1 ORDER BY id DESC LIMIT 1',
+          [alegraIdInt]
+        );
+        
+        let localData = null;
+        let localItems = [];
+        let localFaltantes = [];
+        
+        if (localResult.rows.length > 0) {
+          const localId = localResult.rows[0].id;
+          localData = localResult.rows[0];
+          
+          // Obtener items locales
+          const itemsResult = await query(`
+            SELECT fi.*, p.nombre as producto_nombre, p.codigo as producto_codigo
+            FROM factura_items fi
+            LEFT JOIN productos p ON fi.producto_id = p.id
+            WHERE fi.factura_id = $1
+            ORDER BY fi.id
+          `, [localId]);
+          localItems = itemsResult.rows;
+          
+          // Obtener faltantes
+          const faltantesResult = await query(`
+            SELECT fa.*, p.nombre as producto_nombre, p.codigo as producto_codigo
+            FROM faltantes fa
+            LEFT JOIN productos p ON fa.producto_id = p.id
+            WHERE fa.factura_id = $1
+            ORDER BY fa.created_at DESC
+          `, [localId]);
+          localFaltantes = faltantesResult.rows;
+        }
+        
+        // Devolver la factura de Alegra con los datos locales adjuntos
         return {
-          success: false,
-          statusCode: 404,
-          message: 'Factura no encontrada'
+          success: true,
+          data: {
+            ...facturaAlegra,
+            local_data: localData,
+            local_items: localItems,
+            local_faltantes: localFaltantes
+          }
         };
       }
       
-      // Obtener items de la factura
-      const itemsResult = await query(`
-        SELECT fi.*, p.nombre as producto_nombre, p.codigo as producto_codigo,
-               pr.nombre as proveedor_nombre
-        FROM factura_items fi
-        LEFT JOIN productos p ON fi.producto_id = p.id
-        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
-        WHERE fi.factura_id = $1
-        ORDER BY fi.id
-      `, [id]);
+      // 2. Fallback: buscar en la base de datos local si no se encontró en Alegra (ej: facturas offline locales)
+      const localIdInt = parseInt(id, 10);
+      const facturaLocal = await query(
+        'SELECT * FROM facturas WHERE id = $1 OR alegra_id = $2',
+        [isNaN(localIdInt) ? -1 : localIdInt, isNaN(localIdInt) ? -1 : localIdInt]
+      );
       
-      // Obtener faltantes registrados
-      const faltantesResult = await query(`
-        SELECT fa.*, p.nombre as producto_nombre, p.codigo as producto_codigo
-        FROM faltantes fa
-        LEFT JOIN productos p ON fa.producto_id = p.id
-        WHERE fa.factura_id = $1
-        ORDER BY fa.created_at DESC
-      `, [id]);
-      
-      const factura = facturaResult.rows[0];
-      factura.items = itemsResult.rows;
-      factura.faltantes = faltantesResult.rows;
+      if (facturaLocal.rows.length > 0) {
+        const localId = facturaLocal.rows[0].id;
+        const factura = facturaLocal.rows[0];
+        
+        const itemsResult = await query(`
+          SELECT fi.*, p.nombre as producto_nombre, p.codigo as producto_codigo,
+                 pr.nombre as proveedor_nombre
+          FROM factura_items fi
+          LEFT JOIN productos p ON fi.producto_id = p.id
+          LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+          WHERE fi.factura_id = $1
+          ORDER BY fi.id
+        `, [localId]);
+        
+        const faltantesResult = await query(`
+          SELECT fa.*, p.nombre as producto_nombre, p.codigo as producto_codigo
+          FROM faltantes fa
+          LEFT JOIN productos p ON fa.producto_id = p.id
+          WHERE fa.factura_id = $1
+          ORDER BY fa.created_at DESC
+        `, [localId]);
+        
+        // Convertir estructura local a estructura básica de Alegra para compatibilidad del frontend
+        return {
+          success: true,
+          data: {
+            id: factura.alegra_id || factura.id,
+            date: factura.fecha_emision ? new Date(factura.fecha_emision).toISOString().split('T')[0] : null,
+            total: Number(factura.total || 0),
+            client: {
+              name: factura.cliente_nombre || 'Cliente no especificado',
+              email: factura.cliente_email || null
+            },
+            numberTemplate: {
+              fullNumber: factura.numero_factura,
+              formattedNumber: factura.numero_factura
+            },
+            items: itemsResult.rows.map(it => ({
+              id: it.alegra_id || it.id,
+              name: it.producto_nombre,
+              reference: it.producto_codigo,
+              quantity: Number(it.cantidad || 0),
+              price: Number(it.precio_unitario || 0),
+              total: Number(it.total || 0)
+            })),
+            local_data: factura,
+            local_items: itemsResult.rows,
+            local_faltantes: faltantesResult.rows
+          }
+        };
+      }
       
       return {
-        success: true,
-        data: factura
+        success: false,
+        statusCode: 404,
+        message: 'Factura no encontrada en Alegra ni en base de datos local'
       };
+      
     } catch (error) {
       console.error('❌ Error obteniendo factura con relaciones:', error);
       return {
