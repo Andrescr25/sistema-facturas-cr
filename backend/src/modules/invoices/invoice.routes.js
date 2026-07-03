@@ -23,7 +23,6 @@ router.get('/siguiente-consecutivo', invoiceController.getNextConsecutive);
 
 // ===== PDF =====
 router.get('/:id/pdf', invoiceController.getInvoicePDF);
-router.get('/:id/pdf/download', invoiceController.downloadInvoicePDFBinary);
 
 // ===== PERÍODOS =====
 router.get('/:ano/:mes/todas', invoiceController.getInvoicesByPeriod);

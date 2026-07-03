@@ -136,33 +136,21 @@ class AlegraInvoiceService {
 
   async getInvoicePDF(invoiceId) {
     try {
-      // 1. Obtener la información de la factura para tener el número
-      const invoiceResult = await this.getInvoiceById(invoiceId);
-      const invoiceNumber = invoiceResult.success && invoiceResult.data
-        ? invoiceResult.data.numberTemplate?.fullNumber
-        : null;
+      console.log(`📄 Obteniendo PDF de Alegra para factura ${invoiceId}...`);
+      
+      // Llamar al detalle de la factura pidiendo específicamente el campo pdf
+      const result = await this.client.get(`/invoices/${invoiceId}`, { fields: 'pdf' });
 
-      // 2. Hacer la llamada específica para obtener la URL del PDF de Alegra
-      const pdfResult = await this.client.get(`/invoices/${invoiceId}/pdf`);
-
-      if (pdfResult.success && pdfResult.data && (pdfResult.data.pdf || pdfResult.data.url)) {
+      if (result.success && result.data && result.data.pdf) {
+        const pdfUrl = typeof result.data.pdf === 'object' ? result.data.pdf.url : result.data.pdf;
         return {
           success: true,
-          url: pdfResult.data.pdf || pdfResult.data.url || null,
-          invoiceNumber: invoiceNumber
+          url: pdfUrl,
+          invoiceNumber: result.data.numberTemplate?.fullNumber || null
         };
       }
 
-      // Fallback: si falla el endpoint específico pero la factura tiene pdf en su data
-      if (invoiceResult.success && invoiceResult.data && invoiceResult.data.pdf?.url) {
-        return {
-          success: true,
-          url: invoiceResult.data.pdf.url,
-          invoiceNumber: invoiceNumber
-        };
-      }
-
-      return { success: false, error: 'No se pudo obtener el PDF de la factura en Alegra' };
+      return { success: false, error: 'No se pudo obtener la URL del PDF de la factura en Alegra' };
     } catch (error) {
       return { success: false, error: error.message };
     }

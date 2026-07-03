@@ -78,7 +78,7 @@ class InvoiceController {
   };
 
   /**
-   * Obtener PDF de factura (retorna la URL local de descarga)
+   * Obtener PDF de factura
    */
   getInvoicePDF = async (req, res) => {
     try {
@@ -88,44 +88,20 @@ class InvoiceController {
         return ResponseHelper.validationError(res, { id: ['ID es requerido'] });
       }
 
-      // Devolvemos al frontend la URL del endpoint local que sirve el PDF como stream.
-      // Esto es 100% confiable y compatible con visualización directa.
-      const baseUrl = `${req.protocol}://${req.get('host')}/api`;
-      return res.json({
-        success: true,
-        url: `${baseUrl}/facturas/${id}/pdf/download`,
-        invoiceNumber: id
-      });
+      const result = await this.invoiceService.getInvoicePDF(id);
+
+      if (result.success) {
+        return res.json({
+          success: true,
+          url: result.url,
+          invoiceNumber: result.invoiceNumber
+        });
+      }
+
+      return ResponseHelper.error(res, result.error, 404);
     } catch (error) {
       console.error('❌ Error en getInvoicePDF:', error);
       return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  /**
-   * Transmitir el archivo PDF binario real desde la API de Alegra
-   */
-  downloadInvoicePDFBinary = async (req, res) => {
-    try {
-      const { id } = req.params;
-      console.log(`📄 Descargando PDF binario de Alegra para factura ${id}...`);
-
-      const alegraClient = require('../../integrations/alegra/alegra.client').getInstance();
-      
-      // Realizar petición de red directa a Alegra pidiendo stream/arraybuffer
-      const response = await alegraClient.api.get(`/invoices/${id}/pdf`, {
-        responseType: 'arraybuffer',
-        headers: {
-          'Accept': 'application/pdf'
-        }
-      });
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=factura-${id}.pdf`);
-      return res.send(response.data);
-    } catch (error) {
-      console.error('❌ Error transmitiendo PDF binario de factura:', error.message);
-      return res.status(500).send('Error obteniendo el archivo PDF desde Alegra: ' + error.message);
     }
   };
 
