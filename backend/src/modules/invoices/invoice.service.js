@@ -739,11 +739,7 @@ class InvoiceService {
       }
 
       // NUEVO: Actualizar precios y cantidades desde Alegra ANTES de procesar
-      if (ajustes && ajustes.length > 0) {
-        const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
-        console.log(`🔍 Productos que requieren actualización: ${productosParaActualizar.length}`);
-        console.log(`📝 Detalles:`, JSON.stringify(productosParaActualizar, null, 2));
-
+      if ((ajustes && ajustes.length > 0) || (items_editados && items_editados.length > 0)) {
         await this.updateInvoicePricesFromAlegra(alegra_id, ajustes, items_editados);
       }
 
