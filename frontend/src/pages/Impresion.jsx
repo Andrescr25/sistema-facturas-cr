@@ -593,10 +593,6 @@ export default function Impresion() {
       if (result.success) {
         setMensajeAjuste('Precios actualizados correctamente')
 
-        setTimeout(() => {
-          alert(`Factura ${facturaEditando.numero_factura} procesada exitosamente`)
-        }, 500)
-
         // Si pidió imprimir, abrir PDF
         if (imprimirDespues) {
           await alegraService.visualizarPDFFactura(facturaEditando.alegra_id)
@@ -671,7 +667,6 @@ export default function Impresion() {
 
       await loadFacturasPendientes()
       loadFacturasProcesadas()
-      alert(`Factura ${factura.numero_factura} enviada al historial de impresión`)
     } catch (error) {
       alert(`Error procesando factura: ${error.message}`)
     } finally {
@@ -694,7 +689,6 @@ export default function Impresion() {
       const result = await alegraService.recuperarFactura(factura.alegra_id)
 
       if (result.success) {
-        alert(`Factura ${factura.numero_factura} recuperada`)
         loadFacturasProcesadas()
       } else {
         throw new Error(result.message || 'Error recuperando factura')
