@@ -57,41 +57,8 @@ const initGestureGuards = () => {
   })
 }
 
-// Filtro de consola para eliminar logs ruidosos y emojis de debug en desarrollo y producción
-const originalLog = console.log;
-console.log = (...args) => {
-  if (args.length > 0 && typeof args[0] === 'string') {
-    const msg = args[0];
-    if (
-      msg.includes('🔍') ||
-      msg.includes('✅') ||
-      msg.includes('🔄') ||
-      msg.includes('⏳') ||
-      msg.includes('👥') ||
-      msg.includes('📦') ||
-      msg.includes('📱') ||
-      msg.includes('👍') ||
-      msg.includes('🗑️') ||
-      msg.includes('💾') ||
-      msg.includes('📋') ||
-      msg.includes('✏️') ||
-      msg.includes('IndexedDB') ||
-      msg.includes('Service Worker') ||
-      msg.includes('Sincronización') ||
-      msg.includes('Servicio') ||
-      msg.includes('Dispositivo detectado') ||
-      msg.includes('Cambiado a modo') ||
-      msg.includes('inicializada') ||
-      msg.includes('precargadas listas') ||
-      msg.includes('Servicio inicializado') ||
-      msg.includes('Ping inicial') ||
-      msg.includes('Backend conectado')
-    ) {
-      return;
-    }
-  }
-  originalLog(...args);
-};
+// Silenciar todos los logs informativos para mantener la consola libre de ruidos
+console.log = () => {};
 
 initGestureGuards()
 

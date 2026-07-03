@@ -440,7 +440,42 @@ class InvoiceService {
    */
   async updateInvoicePricesFromAlegra(alegra_id, ajustes, itemsEditados = null) {
     try {
-      console.log(`💰 Actualizando precios desde Alegra para factura ${alegra_id}...`);
+      console.log(`💰 Actualizando precios y cantidades para factura ${alegra_id}...`);
+
+      // 0. Si el usuario envió items editados manualmente, usarlos directamente
+      if (itemsEditados && itemsEditados.length > 0) {
+        console.log(`✏️ Usando ${itemsEditados.length} items editados manualmente por el usuario`);
+
+        // Formatear items para Alegra
+        const updatedItems = itemsEditados.map(item => {
+          // Extraer ID del item
+          let itemId = item.id || item.itemId;
+          if (!itemId && item.item) {
+            itemId = item.item.id;
+          }
+          
+          return {
+            id: itemId ? Number(itemId) : undefined,
+            reference: item.reference || item.item?.reference || '',
+            description: item.description || item.name || '',
+            quantity: Number(item.quantity) || 0,
+            price: Number(item.price) || 0,
+            tax: Array.isArray(item.tax) ? item.tax : []
+          };
+        }).filter(item => item.quantity > 0);
+
+        // Actualizar factura en Alegra
+        const updateResult = await this.alegraInvoiceService.updateInvoice(alegra_id, {
+          items: updatedItems
+        });
+
+        if (!updateResult.success) {
+          throw new Error('No se pudo actualizar la factura con los items editados en Alegra');
+        }
+
+        console.log(`✅ Factura ${alegra_id} actualizada exitosamente con items editados manualmente`);
+        return { success: true, updated: itemsEditados.length };
+      }
 
       // 1. Obtener factura actual de Alegra
       const invoiceResult = await this.alegraInvoiceService.getInvoiceById(alegra_id);
