@@ -208,7 +208,8 @@ class InvoiceController {
         ajustes, 
         estado,
         items_editados,
-        marcar_como_procesada
+        marcar_como_procesada,
+        actualizar_precios
       } = req.body;
 
       if (!alegra_id || !numero_factura) {
@@ -226,7 +227,8 @@ class InvoiceController {
         ajustes: ajustes || [],
         estado: estado || 'procesado',
         items_editados,
-        marcar_como_procesada
+        marcar_como_procesada,
+        actualizar_precios
       });
 
       if (result.success) {

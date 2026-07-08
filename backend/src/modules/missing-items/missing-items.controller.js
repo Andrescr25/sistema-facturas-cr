@@ -87,10 +87,32 @@ async function cleanDuplicates(req, res) {
   }
 }
 
+/**
+ * POST /faltantes/reasignar-proveedor
+ * POST /faltantes/asignar-proveedor-manual
+ */
+async function assignSupplierManual(req, res) {
+  try {
+    const { alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId } = req.body;
+    const result = await missingItemsService.assignSupplierManual({
+      alegraReference,
+      alegraItemId,
+      alegraName,
+      proveedorId,
+      nuevoProveedorId
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Error asignando proveedor:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   saveAdjustment,
   deleteAdjustment,
   cleanProviderMissingItems,
   getDiagnostic,
-  cleanDuplicates
+  cleanDuplicates,
+  assignSupplierManual
 };

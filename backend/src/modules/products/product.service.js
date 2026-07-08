@@ -66,14 +66,14 @@ class ProductService {
           // Actualizar
           await query(`
             UPDATE productos
-            SET nombre = $1, codigo = $2, precio = $3, updated_at = CURRENT_TIMESTAMP
+            SET nombre = $1, codigo = $2, precio_unitario = $3
             WHERE alegra_id = $4
           `, [product.name, product.reference, product.price, product.id]);
           actualizados++;
         } else {
           // Insertar
           await query(`
-            INSERT INTO productos (alegra_id, nombre, codigo, precio)
+            INSERT INTO productos (alegra_id, nombre, codigo, precio_unitario)
             VALUES ($1, $2, $3, $4)
           `, [product.id, product.name, product.reference, product.price]);
           insertados++;
@@ -123,7 +123,7 @@ class ProductService {
     try {
       await query(`
         UPDATE productos
-        SET proveedor_id = $1, updated_at = CURRENT_TIMESTAMP
+        SET proveedor_id = $1
         WHERE id = $2
       `, [proveedorId, productoId]);
 

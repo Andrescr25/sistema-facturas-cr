@@ -150,7 +150,8 @@ class FacturacionService {
           semana = EXCLUDED.semana,
           mes = EXCLUDED.mes,
           ano = EXCLUDED.ano,
-          total = EXCLUDED.total
+          total = EXCLUDED.total,
+          estado_bodega = 'pendiente'
       `, [numeroFactura, alegraId, clienteNombre, clienteEmail, fechaEmision, semana, mes, ano, total]);
 
       console.log(`📦 Factura ${numeroFactura} registrada en BD local con estado_bodega='pendiente'`);

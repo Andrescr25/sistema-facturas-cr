@@ -178,6 +178,7 @@ model AlegraProduct {
   cost        Float  @default(0)
   status      String @default("active")
   type        String @default("product")
+  imageUrl    String?   @map("image_url")
   searchText  String @map("search_text") // Para búsquedas rápidas
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

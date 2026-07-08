@@ -164,6 +164,40 @@ class AlegraService {
     }
 
     /**
+     * Sincronizar cache de productos (alegra_products_cache / AlegraProduct)
+     */
+    async syncProductsCache() {
+        console.log('🔄 Sincronizando caché de productos de Alegra...');
+        const products = await this.syncProductsFromAlegra();
+        return {
+            success: true,
+            message: 'Caché de productos sincronizada exitosamente',
+            count: products.length
+        };
+    }
+
+    /**
+     * Sincronizar automáticamente (sincroniza caché y productos locales legacy)
+     */
+    async syncProductsAutomatically() {
+        console.log('🔄 Sincronización automática de productos iniciada...');
+        // 1. Sincronizar caché de Alegra (Prisma)
+        const cacheProducts = await this.syncProductsFromAlegra();
+        
+        // 2. Sincronizar productos locales legacy (direct pg)
+        const ProductService = require('../src/modules/products/product.service');
+        const productService = new ProductService();
+        const localSyncResult = await productService.syncProducts(100, false, true);
+
+        return {
+            success: true,
+            message: 'Sincronización automática completada con éxito',
+            cacheCount: cacheProducts.length,
+            localSync: localSyncResult
+        };
+    }
+
+    /**
      * Guardar productos en BD local
      */
     async saveProductsToLocal(products) {
@@ -172,7 +206,7 @@ class AlegraService {
             const startTime = Date.now();
 
             const existingProducts = await this.prisma.alegraProduct.findMany({
-                select: { alegraId: true, updatedAt: true, name: true, price: true, cost: true, reference: true, status: true }
+                select: { alegraId: true, updatedAt: true, name: true, price: true, cost: true, reference: true, status: true, imageUrl: true }
             });
 
             const existingMap = new Map();
@@ -183,7 +217,8 @@ class AlegraService {
                     price: p.price,
                     cost: p.cost,
                     reference: p.reference,
-                    status: p.status
+                    status: p.status,
+                    imageUrl: p.imageUrl
                 });
             });
 
@@ -203,6 +238,9 @@ class AlegraService {
                 const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
                 const reference = product.reference?.reference || product.reference || '';
                 const category = product.itemCategory?.name || product.category?.name || '';
+                
+                const favoriteImage = product.images?.find(img => img.favorite === true) || product.images?.[0];
+                const imageUrl = favoriteImage ? favoriteImage.url : '';
 
                 const productData = {
                     alegraId: product.id,
@@ -214,6 +252,7 @@ class AlegraService {
                     cost: cost,
                     status: product.status || 'active',
                     type: product.type || 'product',
+                    imageUrl: imageUrl,
                     searchText: `${product.name} ${reference} ${product.description || ''}`.toLowerCase()
                 };
 
@@ -223,12 +262,25 @@ class AlegraService {
                     toInsert.push(productData);
                 } else {
                     // Solo actualizar si algo cambió
-                    const hasChanged =
-                        existing.name !== productData.name ||
-                        Math.abs(existing.price - productData.price) > 0.01 ||
-                        Math.abs(existing.cost - productData.cost) > 0.01 ||
-                        existing.reference !== productData.reference ||
-                        existing.status !== productData.status;
+                    const nameDiff = existing.name !== productData.name;
+                    const priceDiff = Math.abs(existing.price - productData.price) > 0.01;
+                    const costDiff = Math.abs(existing.cost - productData.cost) > 0.01;
+                    const refDiff = existing.reference !== productData.reference;
+                    const statusDiff = existing.status !== productData.status;
+                    const imgDiff = (existing.imageUrl || '').split('?')[0] !== (productData.imageUrl || '').split('?')[0];
+
+                    const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || imgDiff;
+
+                    if (hasChanged && toUpdate.length < 5) {
+                        console.log(`🔍 Mismatch for ${productData.alegraId} (${productData.name}):`, {
+                            name: nameDiff ? `${existing.name} vs ${productData.name}` : 'OK',
+                            price: priceDiff ? `${existing.price} vs ${productData.price}` : 'OK',
+                            cost: costDiff ? `${existing.cost} vs ${productData.cost}` : 'OK',
+                            ref: refDiff ? `'${existing.reference}' vs '${productData.reference}'` : 'OK',
+                            status: statusDiff ? `${existing.status} vs ${productData.status}` : 'OK',
+                            img: imgDiff ? `'${existing.imageUrl}' vs '${productData.imageUrl}'` : 'OK'
+                        });
+                    }
 
                     if (hasChanged) {
                         toUpdate.push(productData);
@@ -278,6 +330,7 @@ class AlegraService {
                                 cost: product.cost,
                                 status: product.status,
                                 type: product.type,
+                                imageUrl: product.imageUrl,
                                 searchText: product.searchText,
                                 updatedAt: new Date()
                             }
@@ -750,6 +803,43 @@ class AlegraService {
             } else {
                 throw error;
             }
+        }
+    }
+
+    /**
+     * Descargar imagen de una URL y subirla a Alegra
+     */
+    async downloadAndUploadProductImage(alegraItemId, imageUrl) {
+        try {
+            console.log(`📥 Descargando imagen desde URL: ${imageUrl}...`);
+            const imageResponse = await axios.get(imageUrl, {
+                responseType: 'arraybuffer',
+                timeout: 30000
+            });
+
+            const buffer = Buffer.from(imageResponse.data, 'binary');
+            const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+            
+            // Determinar extensión del archivo basada en el content-type
+            let extension = 'jpg';
+            if (contentType.includes('png')) extension = 'png';
+            else if (contentType.includes('webp')) extension = 'webp';
+            else if (contentType.includes('gif')) extension = 'gif';
+
+            const filename = `product_${alegraItemId}.${extension}`;
+
+            const FormData = require('form-data');
+            const formData = new FormData();
+            formData.append('image', buffer, {
+                filename: filename,
+                contentType: contentType
+            });
+
+            console.log(`📸 Subiendo imagen descargada al producto ${alegraItemId}...`);
+            return await this.uploadProductImage(alegraItemId, formData);
+        } catch (error) {
+            console.error(`❌ Error en downloadAndUploadProductImage para producto ${alegraItemId}:`, error.message);
+            throw error;
         }
     }
 

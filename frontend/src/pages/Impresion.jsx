@@ -201,9 +201,9 @@ export default function Impresion() {
     let descripcion = itemBase.description?.trim() ? itemBase.description : ''
     let referenciaTipo = itemBase.referencia_tipo || itemBase.reference_type || itemBase.referenceType || null
     const alegraItemId = itemBase.alegraItemId || itemBase.itemId || itemBase.item?.id || itemBase.id
-    const referenciaIgualId = alegraItemId && referencia === alegraItemId.toString()
+    let price = getPriceValue(itemBase.price)
 
-    if ((!referencia || referenciaIgualId) && alegraItemId) {
+    if (alegraItemId) {
       const producto = await obtenerProductoAlegra(alegraItemId)
       if (producto) {
         const refNormalizada = getReferenceFromSearchProduct(producto)
@@ -215,6 +215,13 @@ export default function Impresion() {
           descripcion = descNormalizada || producto.name || descripcion
         }
         referenciaTipo = producto.reference?.type || referenciaTipo || 'CODE_OF_INTERNAL_USE'
+
+        // Sincronizar con el precio de catálogo de Alegra (que tiene el precio actualizado de revisión de precios)
+        const catalogPrice = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
+        if (catalogPrice > 0) {
+          price = catalogPrice
+          console.log(`💰 Precio actualizado de catálogo para ${referencia || alegraItemId}: ₡${price}`)
+        }
       }
     }
 
@@ -222,6 +229,7 @@ export default function Impresion() {
       ...itemBase,
       reference: referencia,
       description: descripcion,
+      price,
       alegraItemId,
       referencia_tipo: referenciaTipo || 'CODE_OF_INTERNAL_USE'
     }
@@ -574,7 +582,8 @@ export default function Impresion() {
       // 🔧 Marcar como procesada porque viene desde Reimpresión (reimprimiendo)
       const facturaConFlag = {
         ...facturaEditando,
-        marcar_como_procesada: true
+        marcar_como_procesada: true,
+        actualizar_precios: true // Actualizar precios con los cargados en revisión de precios
       }
 
       setMensajeAjuste('Ya casi estamos listos')
@@ -637,7 +646,8 @@ export default function Impresion() {
           fecha_emision: factura.fecha_emision,
           ajustes: factura.ajustes_realizados || [],
           estado: 'resuelto',
-          marcar_como_procesada: true
+          marcar_como_procesada: true,
+          actualizar_precios: true // Sincronizar precios desde Alegra ya que el usuario procesó "sin cambios"
         })
 
         setMensajeAjuste('Precios actualizados correctamente')
@@ -651,7 +661,8 @@ export default function Impresion() {
           ajustes: [],
           estado: 'resuelto',
           marcar_como_procesada: true,
-          omitir_ajuste_precios: true // Flag para omitir ajuste de precios
+          omitir_ajuste_precios: true, // Flag para omitir ajuste de precios
+          actualizar_precios: false
         })
       }
 

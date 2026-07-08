@@ -1,3 +1,4 @@
+process.env.TZ = 'America/Costa_Rica';
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

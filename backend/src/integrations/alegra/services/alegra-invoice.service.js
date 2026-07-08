@@ -170,7 +170,12 @@ class AlegraInvoiceService {
         const targetRef = productReference.toString().trim().toLowerCase();
         const item = result.data.find(it => 
           (it.reference || '').toString().trim().toLowerCase() === targetRef
-        ) || result.data[0];
+        );
+        
+        if (!item) {
+          console.log(`⚠️ Coincidencia exacta de referencia no encontrada en Alegra para: ${productReference}`);
+          return null;
+        }
         
         const priceField = item.price;
         
@@ -190,6 +195,35 @@ class AlegraInvoiceService {
       return null;
     } catch (error) {
       console.error('Error obteniendo precio:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtener precio actualizado de un producto por su ID de Alegra
+   */
+  async getUpdatedPriceById(itemId) {
+    try {
+      const result = await this.client.get(`/items/${itemId}`);
+      if (result.success && result.data) {
+        const item = result.data;
+        const priceField = item.price;
+        
+        let priceValue = 0;
+        if (Array.isArray(priceField)) {
+          const main = priceField.find(p => p.main) || priceField[0];
+          priceValue = Number(main?.price ?? 0);
+        } else if (priceField && typeof priceField === 'object') {
+          priceValue = Number(priceField.price ?? priceField.value ?? 0);
+        } else {
+          priceValue = Number(priceField ?? 0);
+        }
+        
+        return priceValue;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Error obteniendo precio por ID ${itemId}:`, error);
       return null;
     }
   }

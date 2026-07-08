@@ -18,4 +18,8 @@ router.delete('/proveedor/limpiar', missingItemsController.cleanProviderMissingI
 router.get('/diagnostico/:alegraReference', missingItemsController.getDiagnostic);
 router.post('/limpiar-duplicados/:alegraReference', missingItemsController.cleanDuplicates);
 
+// Asignación manual/reasignación de proveedores desde ReporteProveedores
+router.post('/reasignar-proveedor', missingItemsController.assignSupplierManual);
+router.post('/asignar-proveedor-manual', missingItemsController.assignSupplierManual);
+
 module.exports = router;

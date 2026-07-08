@@ -106,7 +106,7 @@ class OrdersWhatsappService {
           LIMIT 10`,
         [alegraItemId.toString()]
       );
-      return pickFirstMatching(rows, { skipStrictValidation: true });
+      return pickFirstMatching(rows, { skipStrictValidation: false });
     };
 
     const getMappingByFlexibleSearch = async (productoPayload) => {

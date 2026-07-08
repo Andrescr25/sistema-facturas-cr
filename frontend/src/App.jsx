@@ -13,6 +13,7 @@ import Configuracion from './pages/Configuracion'
 import PagosProveedores from './pages/PagosProveedores'
 import FacturasBodega from './pages/FacturasBodega'
 import InventarioAuditoria from './pages/InventarioAuditoria'
+import GestionCatalogo from './pages/GestionCatalogo'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -57,6 +58,7 @@ function App() {
         <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
         <Route path="/impresion" element={<Impresion />} />
         <Route path="/pagos-proveedores" element={<PagosProveedores />} />
+        <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
         <Route path="/configuracion" element={<Configuracion />} />
         <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
       </Routes>

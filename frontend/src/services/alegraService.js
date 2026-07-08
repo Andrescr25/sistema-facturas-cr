@@ -299,7 +299,8 @@ export const alegraService = {
         ajustes: ajustes,
         estado: estado,  // Backend espera string que contenga 'requiere_reimpresion'
         items_editados: itemsEditados,  // ← pasar items editados si existen
-        marcar_como_procesada: factura.marcar_como_procesada !== undefined ? factura.marcar_como_procesada : false  // Por defecto false (desde ReporteClientes)
+        marcar_como_procesada: factura.marcar_como_procesada !== undefined ? factura.marcar_como_procesada : false,  // Por defecto false (desde ReporteClientes)
+        actualizar_precios: factura.actualizar_precios !== undefined ? factura.actualizar_precios : false
       };
 
       console.log('📤 Payload enviado:', payload);

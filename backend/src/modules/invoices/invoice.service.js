@@ -438,9 +438,9 @@ class InvoiceService {
    * Actualizar precios de productos desde Alegra antes de procesar factura
    * Solo actualiza productos que tienen requiere_actualizacion: true
    */
-  async updateInvoicePricesFromAlegra(alegra_id, ajustes, itemsEditados = null) {
+  async updateInvoicePricesFromAlegra(alegra_id, ajustes, itemsEditados = null, actualizarPrecios = true) {
     try {
-      console.log(`💰 Actualizando precios y cantidades para factura ${alegra_id}...`);
+      console.log(`💰 Actualizando precios y cantidades para factura ${alegra_id}... (Actualizar precios: ${actualizarPrecios})`);
 
       // 0. Si el usuario envió items editados manualmente, usarlos directamente
       if (itemsEditados && itemsEditados.length > 0) {
@@ -518,8 +518,27 @@ class InvoiceService {
       }
 
       // 2. Identificar productos que necesitan actualización de precios
-      const productosParaActualizar = ajustes.filter(aj => aj.requiere_actualizacion);
-      const preciosActualizados = new Map();
+      // Si actualizarPrecios es true, actualizamos todos los productos de la factura.
+      // Si es false, no actualizamos ninguno.
+      let productosParaActualizar = [];
+      if (actualizarPrecios) {
+        productosParaActualizar = currentItems.map(item => {
+          const alegraItemId = item.item?.id || item.id;
+          let ref = item.reference || item.item?.reference;
+          if (!ref && alegraItemId) {
+            const idStr = alegraItemId.toString();
+            if (alegraIdToCodigoMap.has(idStr)) {
+              ref = alegraIdToCodigoMap.get(idStr);
+            }
+          }
+          return {
+            alegraItemId,
+            reference: ref
+          };
+        }).filter(p => p.alegraItemId);
+      }
+
+      const preciosActualizadosPorId = new Map();
 
       if (productosParaActualizar.length > 0) {
         console.log(`📦 ${productosParaActualizar.length} productos requieren actualización de precios`);
@@ -530,15 +549,24 @@ class InvoiceService {
         for (let i = 0; i < productosParaActualizar.length; i += batchSize) {
           const batch = productosParaActualizar.slice(i, i + batchSize);
 
-          await Promise.all(batch.map(async (ajuste) => {
+          await Promise.all(batch.map(async (prod) => {
             try {
-              const precio = await this.alegraInvoiceService.getUpdatedPrice(ajuste.producto_codigo);
+              let precio = null;
+              // Primero intentar obtener por ID de item de Alegra (más exacto)
+              if (prod.alegraItemId) {
+                precio = await this.alegraInvoiceService.getUpdatedPriceById(prod.alegraItemId);
+              }
+              // Fallback por referencia si no funcionó por ID
+              if (precio === null && prod.reference) {
+                precio = await this.alegraInvoiceService.getUpdatedPrice(prod.reference);
+              }
+
               if (precio !== null) {
-                preciosActualizados.set(ajuste.producto_codigo, precio);
-                console.log(`  ✓ Precio actualizado para ${ajuste.producto_codigo}: ₡${precio}`);
+                preciosActualizadosPorId.set(prod.alegraItemId.toString(), precio);
+                console.log(`  ✓ Precio actualizado para ID ${prod.alegraItemId} (${prod.reference || 'sin ref'}): ₡${precio}`);
               }
             } catch (error) {
-              console.warn(`  ⚠️ No se pudo obtener precio para ${ajuste.producto_codigo}:`, error.message);
+              console.warn(`  ⚠️ No se pudo obtener precio para ID ${prod.alegraItemId}:`, error.message);
             }
           }));
 
@@ -553,19 +581,22 @@ class InvoiceService {
 
       // 4. Construir array de items actualizados
       const updatedItems = currentItems.map(item => {
+        const alegraItemId = item.item?.id || item.id;
+        const alegraItemIdStr = alegraItemId ? alegraItemId.toString() : '';
+
         // Intentar obtener la referencia de múltiples fuentes
         let itemReference = item.reference || item.item?.reference;
 
         // Si reference es null, intentar obtenerlo del mapa usando el ID de Alegra
-        if (!itemReference) {
-          const alegraItemId = (item.item?.id || item.id)?.toString();
-          if (alegraItemId && alegraIdToCodigoMap.has(alegraItemId)) {
-            itemReference = alegraIdToCodigoMap.get(alegraItemId);
+        if (!itemReference && alegraItemId) {
+          const idStr = alegraItemId.toString();
+          if (alegraIdToCodigoMap.has(idStr)) {
+            itemReference = alegraIdToCodigoMap.get(idStr);
             console.log(`  🔑 Match por ID de Alegra: ${alegraItemId} → Código ${itemReference}`);
           }
         }
 
-        // Buscar ajuste por código de producto
+        // Buscar ajuste por código de producto o ID
         let ajuste = ajustes.find(aj => aj.producto_codigo === itemReference);
 
         // Si no encontró por referencia/ID, intentar por nombre (último fallback)
@@ -579,6 +610,15 @@ class InvoiceService {
           });
         }
 
+        // Obtener precio de catálogo actualizado (si está disponible en nuestro mapa)
+        const precioNuevo = (actualizarPrecios && preciosActualizadosPorId.has(alegraItemIdStr))
+          ? preciosActualizadosPorId.get(alegraItemIdStr)
+          : item.price;
+
+        if (preciosActualizadosPorId.has(alegraItemIdStr) && item.price !== precioNuevo) {
+          console.log(`  💰 ${itemReference || alegraItemIdStr}: Precio actualizado (₡${item.price} → ₡${precioNuevo})`);
+        }
+
         // Si el producto tiene ajustes
         if (ajuste) {
           // Calcular nueva cantidad según el estado del ajuste
@@ -590,28 +630,19 @@ class InvoiceService {
           if (ajuste.estado === 'no_llego') {
             // No llegó nada → Rebajar todo lo faltante
             nuevaCantidad = Math.max(item.quantity - ajuste.cantidad_faltante, 0);
-            console.log(`  🔴 ${itemReference}: NO LLEGÓ - Rebajando ${ajuste.cantidad_faltante} unidades (${item.quantity} → ${nuevaCantidad})`);
+            console.log(`  🔴 ${itemReference || alegraItemIdStr}: NO LLEGÓ - Rebajando ${ajuste.cantidad_faltante} unidades (${item.quantity} → ${nuevaCantidad})`);
           } else if (ajuste.estado === 'parcial') {
             // Llegó parte → Rebajar lo pendiente
             nuevaCantidad = Math.max(item.quantity - cantidadPendiente, 0);
-            console.log(`  🟡 ${itemReference}: PARCIAL - Rebajando ${cantidadPendiente} unidades (${item.quantity} → ${nuevaCantidad})`);
+            console.log(`  🟡 ${itemReference || alegraItemIdStr}: PARCIAL - Rebajando ${cantidadPendiente} unidades (${item.quantity} → ${nuevaCantidad})`);
           } else if (ajuste.estado === 'completo') {
             // Todo llegó → No rebajar
-            console.log(`  🟢 ${itemReference}: COMPLETO - Cantidad sin cambios (${item.quantity})`);
-          }
-
-          // Obtener precio actualizado (si está disponible)
-          const precioNuevo = preciosActualizados.has(itemReference)
-            ? preciosActualizados.get(itemReference)
-            : item.price;
-
-          if (preciosActualizados.has(itemReference)) {
-            console.log(`  💰 ${itemReference}: Precio actualizado (₡${item.price} → ₡${precioNuevo})`);
+            console.log(`  🟢 ${itemReference || alegraItemIdStr}: COMPLETO - Cantidad sin cambios (${item.quantity})`);
           }
 
           return {
             id: item.id,
-            reference: itemReference,
+            reference: itemReference || '',
             description: item.description || '',
             quantity: nuevaCantidad, // CANTIDAD AJUSTADA
             price: precioNuevo, // PRECIO ACTUALIZADO
@@ -620,13 +651,12 @@ class InvoiceService {
           };
         }
 
-        // Si no tiene ajustes, mantener original
         return {
           id: item.id,
-          reference: itemReference,
+          reference: itemReference || '',
           description: item.description || '',
           quantity: item.quantity,
-          price: item.price,
+          price: precioNuevo,
           tax: item.tax,
           item: item.item
         };
@@ -641,13 +671,13 @@ class InvoiceService {
         throw new Error('No se pudo actualizar la factura en Alegra');
       }
 
-      console.log(`✅ Factura ${alegra_id} actualizada con ${preciosActualizados.size} precios nuevos`);
+      console.log(`✅ Factura ${alegra_id} actualizada con ${preciosActualizadosPorId.size} precios nuevos`);
 
       return {
         success: true,
-        updated: preciosActualizados.size,
-        preciosActualizados: Array.from(preciosActualizados.entries()).map(([codigo, precio]) => ({
-          codigo,
+        updated: preciosActualizadosPorId.size,
+        preciosActualizados: Array.from(preciosActualizadosPorId.entries()).map(([alegraId, precio]) => ({
+          alegraId,
           precio
         }))
       };
@@ -666,7 +696,7 @@ class InvoiceService {
    */
   async processIndividualInvoice(invoiceData) {
     try {
-      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados, marcar_como_procesada } = invoiceData;
+      const { alegra_id, numero_factura, cliente_nombre, fecha_emision, ajustes, estado, items_editados, marcar_como_procesada, actualizar_precios } = invoiceData;
 
       console.log(`📋 Procesando factura individual: ${numero_factura}`);
       console.log(`📦 Ajustes recibidos:`, JSON.stringify(ajustes, null, 2));
@@ -738,43 +768,22 @@ class InvoiceService {
         facturaLocalId = facturaLocal.rows[0].id;
       }
 
-      // NUEVO: Actualizar precios y cantidades desde Alegra ANTES de procesar
-      if ((ajustes && ajustes.length > 0) || (items_editados && items_editados.length > 0)) {
-        await this.updateInvoicePricesFromAlegra(alegra_id, ajustes, items_editados);
+      // NUEVO: Actualizar precios y cantidades desde Alegra SOLO al procesar (marcar_como_procesada === true)
+      let alegraResult = null;
+      if (marcar_como_procesada) {
+        if ((ajustes && ajustes.length > 0) || (items_editados && items_editados.length > 0)) {
+          alegraResult = await this.updateInvoicePricesFromAlegra(alegra_id, ajustes, items_editados, actualizar_precios);
+        }
       }
 
-      // 1. Registrar en procesamientos
-      const procesamiento = await query(`
-        INSERT INTO procesamientos (
-          total_facturas, facturas_para_historial, facturas_para_reimpresion,
-          procesado_por, detalles
-        ) VALUES ($1, $2, $3, $4, $5)
-        RETURNING id
-      `, [
-        1,
-        1,
-        estado.includes('requiere_reimpresion') ? 1 : 0,
-        'Usuario Individual',
-        JSON.stringify({
-          factura_procesada: {
-            alegra_id,
-            numero_factura,
-            cliente_nombre,
-            fecha_emision,
-            ajustes,
-            estado
-          }
-        })
-      ]);
+      // 1. Si requiere reimpresión o se indica marcar como procesada, guardar o actualizar en facturas_reimpresion
+      const existeReimpresion = await query(`
+        SELECT fr.id FROM facturas_reimpresion fr
+        JOIN facturas fa ON fr.factura_id = fa.id
+        WHERE fa.alegra_id = $1
+      `, [alegra_id]);
 
-      // 2. Si requiere reimpresión, guardar o actualizar en facturas_reimpresion
-      if (estado.includes('requiere_reimpresion')) {
-        const existeReimpresion = await query(`
-          SELECT fr.id FROM facturas_reimpresion fr
-          JOIN facturas fa ON fr.factura_id = fa.id
-          WHERE fa.alegra_id = $1
-        `, [alegra_id]);
-
+      if (existeReimpresion.rows.length > 0 || estado.includes('requiere_reimpresion') || marcar_como_procesada) {
         if (existeReimpresion.rows.length > 0) {
           await query(`
             UPDATE facturas_reimpresion
@@ -804,32 +813,64 @@ class InvoiceService {
         }
       }
 
-      // 3. Guardar ajustes
+      // 2. Guardar ajustes locales temporales
       await this._saveAdjustments(alegra_id, ajustes);
 
-      // 4. Marcar faltantes como procesados
-      await query(`
-        UPDATE faltantes
-        SET estado = 'procesado'
-        FROM facturas fa
-        WHERE faltantes.factura_id = fa.id
-        AND fa.alegra_id = $1
-      `, [alegra_id]);
+      let procesamientoId = null;
 
-      // 5. Actualizar estado de factura
-      await query(`
-        UPDATE facturas
-        SET estado_procesamiento = 'procesado'
-        WHERE alegra_id = $1
-      `, [alegra_id]);
+      if (marcar_como_procesada) {
+        // Solo registrar procesamiento final cuando se procesa de verdad
+        const procesamiento = await query(`
+          INSERT INTO procesamientos (
+            total_facturas, facturas_para_historial, facturas_para_reimpresion,
+            procesado_por, detalles
+          ) VALUES ($1, $2, $3, $4, $5)
+          RETURNING id
+        `, [
+          1,
+          1,
+          1,
+          'Usuario Individual',
+          JSON.stringify({
+            factura_procesada: {
+              alegra_id,
+              numero_factura,
+              cliente_nombre,
+              fecha_emision,
+              ajustes,
+              estado,
+              alegraResult
+            }
+          })
+        ]);
+        procesamientoId = procesamiento.rows[0].id;
 
-      console.log(`✅ Factura ${numero_factura} procesada`);
+        // 3. Marcar faltantes como procesados en DB local solo al finalizar
+        await query(`
+          UPDATE faltantes
+          SET estado = 'procesado'
+          FROM facturas fa
+          WHERE faltantes.factura_id = fa.id
+          AND fa.alegra_id = $1
+        `, [alegra_id]);
+
+        // 4. Actualizar estado de factura a procesado en DB local solo al finalizar
+        await query(`
+          UPDATE facturas
+          SET estado_procesamiento = 'procesado'
+          WHERE alegra_id = $1
+        `, [alegra_id]);
+      }
+
+      console.log(`✅ Factura ${numero_factura} procesada (marcar_como_procesada: ${marcar_como_procesada})`);
 
       return {
         success: true,
-        message: `Factura ${numero_factura} procesada correctamente`,
+        message: marcar_como_procesada 
+          ? `Factura ${numero_factura} procesada y actualizada en Alegra correctamente`
+          : `Factura ${numero_factura} agregada a la cola de reimpresión`,
         data: {
-          procesamiento_id: procesamiento.rows[0].id,
+          procesamiento_id: procesamientoId,
           factura_procesada: numero_factura,
           ajustes_guardados: ajustes.length
         }
@@ -990,36 +1031,53 @@ class InvoiceService {
           productoId = productoResult.rows[0].id;
         }
 
-        await query(`
-          INSERT INTO faltantes (
-            factura_id, producto_id, cantidad_faltante, tipo_faltante,
-            observaciones, registrado_por, estado
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
-          ON CONFLICT (factura_id, producto_id)
-          DO UPDATE SET
-            cantidad_faltante = $3,
-            tipo_faltante = $4,
-            observaciones = $5,
-            fecha_registro = CURRENT_TIMESTAMP
-        `, [
-          facturaLocalId,
-          productoId,
-          faltante.cantidad_faltante,
-          faltante.tipo_faltante,
-          faltante.observaciones || '',
-          registradoPor
-        ]);
+        const existingFaltante = await query(`
+          SELECT id FROM faltantes 
+          WHERE factura_id = $1 AND producto_id = $2
+          LIMIT 1
+        `, [facturaLocalId, productoId]);
+
+        if (existingFaltante.rows.length > 0) {
+          await query(`
+            UPDATE faltantes
+            SET cantidad_faltante = $1,
+                tipo_faltante = $2,
+                observaciones = $3,
+                registrado_por = $4,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5
+          `, [
+            faltante.cantidad_faltante,
+            faltante.tipo_faltante,
+            faltante.observaciones || '',
+            registradoPor,
+            existingFaltante.rows[0].id
+          ]);
+        } else {
+          await query(`
+            INSERT INTO faltantes (
+              factura_id, producto_id, cantidad_faltante, tipo_faltante,
+              observaciones, registrado_por, estado
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
+          `, [
+            facturaLocalId,
+            productoId,
+            faltante.cantidad_faltante,
+            faltante.tipo_faltante,
+            faltante.observaciones || '',
+            registradoPor
+          ]);
+        }
       }
 
       // 3. Guardar observaciones adicionales si existen
       if (observacionesAdicionales) {
         await query(`
-          INSERT INTO observaciones_adicionales (factura_id, observaciones)
-          VALUES ($1, $2)
-          ON CONFLICT (factura_id)
-          DO UPDATE SET observaciones = $2, fecha_registro = CURRENT_TIMESTAMP
-        `, [facturaLocalId, observacionesAdicionales]);
+          UPDATE facturas
+          SET observaciones_adicionales = $1
+          WHERE id = $2
+        `, [observacionesAdicionales, facturaLocalId]);
       }
 
       console.log(`✅ ${faltantes.length} faltantes registrados`);
@@ -1377,8 +1435,7 @@ class InvoiceService {
       
       const result = await query(`
         UPDATE facturas 
-        SET procesada = COALESCE($1, procesada),
-            updated_at = CURRENT_TIMESTAMP
+        SET procesada = COALESCE($1, procesada)
         WHERE id = $2
         RETURNING *
       `, [procesada, id]);
@@ -1411,8 +1468,7 @@ class InvoiceService {
     try {
       const result = await query(`
         UPDATE facturas 
-        SET procesada = true,
-            updated_at = CURRENT_TIMESTAMP
+        SET procesada = true
         WHERE id = $1
         RETURNING *
       `, [id]);

@@ -10,6 +10,8 @@ const router = express.Router();
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
 const { query } = require('../config/database');
+const { getContactService } = require('../src/integrations/alegra');
+const contactService = getContactService();
 
 // Importar los nuevos enrutadores modulares
 const productsRoutes = require('../src/modules/products');
@@ -20,6 +22,7 @@ const reprintingRoutes = require('../src/modules/reprinting').routes;
 const warehouseRoutes = require('../src/modules/warehouse').routes;
 const missingItemsRoutes = require('../src/modules/missing-items').routes;
 const facturacionRoutes = require('../src/modules/facturacion');
+const catalogRoutes = require('./alegraCatalog');
 
 // Importar controladores para mapeo explícito de endpoints legacy
 const ProductController = require('../src/modules/products/product.controller');
@@ -27,6 +30,11 @@ const ReportController = require('../src/modules/reports/report.controller');
 
 const productController = new ProductController();
 const reportController = new ReportController();
+
+// ========================================
+// 0. MODULO DE GESTIÓN DE CATÁLOGO (/catalog)
+// ========================================
+router.use('/catalog', catalogRoutes);
 
 // ========================================
 // 1. MODULO DE PRODUCTOS (/productos)
@@ -180,9 +188,26 @@ router.get('/facturas/historial-procesamientos', reportController.getProcessingH
 router.get('/contactos', async (req, res) => {
   try {
     const { page = 1, limit = 30, type } = req.query;
-    const result = await alegraService.getContacts(page, limit, type);
+    const result = await contactService.getContacts(page, limit, type);
     if (result.success) {
       res.json({ success: true, data: result.data, pagination: result.pagination });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========================================
+// 5.5. MODULO DE PROVEEDORES (/proveedores)
+// ========================================
+router.get('/proveedores', async (req, res) => {
+  try {
+    const { busqueda, limit } = req.query;
+    const result = await alegraService.getProveedores(busqueda, limit);
+    if (result.success) {
+      res.json(result);
     } else {
       res.status(400).json(result);
     }

@@ -13,7 +13,8 @@ import {
   X,
   CreditCard,
   ClipboardList,
-  Boxes
+  Boxes,
+  Image
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 
@@ -32,6 +33,7 @@ export default function Layout({ children }) {
     { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Impresión', href: '/impresion', icon: Printer },
+    { name: 'Gestión de Catálogo', href: '/gestion-catalogo', icon: Image },
     { name: 'Configuración', href: '/configuracion', icon: Settings }
   ]
 

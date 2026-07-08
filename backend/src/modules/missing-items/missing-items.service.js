@@ -4,6 +4,8 @@
  */
 
 const { query } = require('../../../config/database');
+const AlegraService = require('../../../services/alegraService');
+const alegraService = new AlegraService();
 
 /**
  * Guarda o actualiza un ajuste de faltante
@@ -153,10 +155,155 @@ async function cleanDuplicates(alegraReference) {
   };
 }
 
+/**
+ * Asigna manualmente un proveedor a un producto (usado por ReporteProveedores)
+ */
+async function assignSupplierManual({ alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId }) {
+  const targetProveedorId = proveedorId || nuevoProveedorId;
+
+  if (!alegraReference && !alegraItemId) {
+    throw new Error('Se requiere alegraReference o alegraItemId');
+  }
+
+  if (!targetProveedorId) {
+    throw new Error('Se requiere proveedorId o nuevoProveedorId');
+  }
+
+  // 1. Obtener la información del contacto desde Alegra usando su ID de Alegra
+  console.log(`📡 Consultando proveedor en Alegra con ID: ${targetProveedorId}...`);
+  const contactResponse = await alegraService.api.get(`/contacts/${targetProveedorId}`);
+  const contactData = contactResponse.data;
+  
+  if (!contactData || !contactData.name) {
+    throw new Error(`No se pudo obtener la información del proveedor ${targetProveedorId} desde Alegra`);
+  }
+
+  const supplierName = contactData.name.trim();
+  const email = contactData.email || null;
+  const phone = contactData.phonePrimary || contactData.mobile || null;
+  const contactPerson = contactData.contact?.name || null;
+  const supplierCedula = contactData.identification || null;
+
+  // 2. Buscar o crear el proveedor en la tabla local 'proveedores'
+  let localProveedorId = null;
+  const existingProveedor = await query('SELECT id FROM proveedores WHERE nombre = $1', [supplierName]);
+
+  if (existingProveedor.rows.length > 0) {
+    localProveedorId = existingProveedor.rows[0].id;
+    console.log(`✅ Proveedor local encontrado: ${supplierName} (ID local: ${localProveedorId})`);
+  } else {
+    // Si no existe localmente, lo insertamos
+    const insertProveedor = await query(`
+      INSERT INTO proveedores (nombre, contacto, telefono, email, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      RETURNING id
+    `, [supplierName, contactPerson, phone, email]);
+    
+    localProveedorId = insertProveedor.rows[0].id;
+    console.log(`✅ Nuevo proveedor local registrado: ${supplierName} (ID local: ${localProveedorId})`);
+  }
+
+  // 3. Buscar el producto en la tabla local 'productos'
+  let queryStr = 'SELECT id FROM productos WHERE codigo = $1';
+  let params = [alegraReference || alegraItemId];
+  let result = await query(queryStr, params);
+
+  if (result.rows.length === 0 && alegraItemId) {
+    // Intentar por ID si es un número válido
+    const idNum = parseInt(alegraItemId);
+    if (!isNaN(idNum)) {
+      queryStr = 'SELECT id FROM productos WHERE id = $1';
+      params = [idNum];
+      result = await query(queryStr, params);
+    }
+  }
+
+  if (result.rows.length === 0 && alegraItemId) {
+    // Intentar por código = alegraItemId
+    queryStr = 'SELECT id FROM productos WHERE codigo = $1';
+    params = [alegraItemId];
+    result = await query(queryStr, params);
+  }
+
+  let productoId = null;
+
+  if (result.rows.length === 0) {
+    // Si no existe el producto localmente, lo creamos
+    console.log(`Product ${alegraReference || alegraName} not found in local DB. Creating it...`);
+    const insertResult = await query(`
+      INSERT INTO productos (nombre, codigo, descripcion, proveedor_id, precio_unitario)
+      VALUES ($1, $2, $3, $4, 0)
+      RETURNING id
+    `, [alegraName || alegraReference || 'Producto Sincronizado', alegraReference || alegraItemId, 'Creado desde asignación manual de proveedor', localProveedorId]);
+    productoId = insertResult.rows[0].id;
+  } else {
+    productoId = result.rows[0].id;
+    // Actualizar el proveedor del producto en la BD local
+    await query(`
+      UPDATE productos
+      SET proveedor_id = $1
+      WHERE id = $2
+    `, [localProveedorId, productoId]);
+  }
+
+  // 4. Buscar mapping ID opcional en la tabla supplier_product_mapping si existiese para el nuevo proveedor
+  let mappingId = null;
+  const mappingConditions = [];
+  const mappingParams = [alegraItemId?.toString(), alegraReference];
+  let mappingParamIdx = 3;
+
+  if (supplierCedula) {
+    mappingConditions.push(`supplier_cedula = $${mappingParamIdx}`);
+    mappingParams.push(supplierCedula);
+    mappingParamIdx++;
+  }
+  if (supplierName) {
+    mappingConditions.push(`supplier_name ILIKE $${mappingParamIdx}`);
+    mappingParams.push(`%${supplierName}%`);
+    mappingParamIdx++;
+  }
+
+  if (mappingConditions.length > 0) {
+    const mappingResult = await query(`
+      SELECT id FROM supplier_product_mapping
+      WHERE (alegra_item_id::text = $1 OR alegra_reference = $2)
+        AND (${mappingConditions.join(' OR ')})
+      LIMIT 1
+    `, mappingParams);
+
+    if (mappingResult.rows.length > 0) {
+      mappingId = mappingResult.rows[0].id;
+    }
+  }
+
+  // 5. Actualizar los faltantes pendientes de este producto con el nombre y cédula del proveedor
+  const updateFaltantesResult = await query(`
+    UPDATE faltantes
+    SET 
+      proveedor_asignado = $1,
+      proveedor_cedula = $2,
+      asignacion_tipo = 'manual',
+      fecha_asignacion = CURRENT_TIMESTAMP,
+      mapping_id = $3
+    WHERE producto_id = $4 AND estado = 'pendiente'
+  `, [supplierName, supplierCedula, mappingId, productoId]);
+
+  console.log(`✅ Asignación manual completada: ${updateFaltantesResult.rowCount} faltante(s) actualizados`);
+
+  return {
+    success: true,
+    message: 'Proveedor asignado exitosamente al producto y sus faltantes pendientes',
+    localProveedorId,
+    productoId,
+    faltantesActualizados: updateFaltantesResult.rowCount
+  };
+}
+
 module.exports = {
   saveAdjustment,
   deleteAdjustment,
   cleanProviderMissingItems,
   getDiagnostic,
-  cleanDuplicates
+  cleanDuplicates,
+  assignSupplierManual
 };

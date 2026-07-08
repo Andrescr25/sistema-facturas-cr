@@ -31,6 +31,12 @@ pool.on('error', (err) => {
   console.error(' Error inesperado en el pool de conexiones de base de datos:', err.message);
 });
 
+// Configurar zona horaria de Costa Rica para cada cliente que se conecte
+pool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'America/Costa_Rica'")
+    .catch(err => console.error('Error setting America/Costa_Rica timezone on connection:', err));
+});
+
 // Debug para verificar la conexión
 console.log('🔍 Database: Conectando usando DATABASE_URL');
 if (process.env.DATABASE_URL) {

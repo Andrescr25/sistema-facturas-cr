@@ -74,9 +74,24 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
+      .catch(async () => {
         // Si falla la red, intentar obtener del cache
-        return caches.match(event.request);
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        
+        // Si no hay cache para esta ruta específica, y es una navegación HTML, devolver index.html
+        if (event.request.mode === 'navigate') {
+          const indexResponse = await caches.match('/index.html');
+          if (indexResponse) return indexResponse;
+        }
+        
+        // Retornar una respuesta de error controlada en vez de undefined
+        return new Response('Network error or resource not cached', { 
+          status: 408, 
+          headers: { 'Content-Type': 'text/plain' } 
+        });
       })
   );
 });

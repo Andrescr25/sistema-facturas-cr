@@ -10,6 +10,12 @@ externalPool.on('error', (err) => {
   console.error('⚠️ Error inesperado en el pool de conexiones externo:', err.message);
 });
 
+// Configurar zona horaria de Costa Rica para cada cliente que se conecte
+externalPool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'America/Costa_Rica'")
+    .catch(err => console.error('Error setting America/Costa_Rica timezone on external connection:', err));
+});
+
 async function queryExternal(text, params) {
   const client = await externalPool.connect();
   try {
