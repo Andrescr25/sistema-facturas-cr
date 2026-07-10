@@ -399,10 +399,13 @@ class AlegraProductService {
       const buffer = Buffer.from(imageResponse.data, 'binary');
       const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
 
-      let extension = 'jpg';
-      if (contentType.includes('png')) extension = 'png';
-      else if (contentType.includes('webp')) extension = 'webp';
-      else if (contentType.includes('gif')) extension = 'gif';
+      // Alegra rechaza el adjunto con "El archivo adjunto no tiene una
+      // extensión válida" para cualquier extensión que no sea jpg/jpeg/png
+      // (valida el nombre del archivo, no el contenido). Muchas fuentes de
+      // imagen sirven webp/gif por defecto, así que el nombre SIEMPRE se
+      // fuerza a jpg o png; el contentType real se preserva en el multipart
+      // para que Alegra sirva el archivo con su tipo correcto.
+      const extension = contentType.includes('png') ? 'png' : 'jpg';
 
       const filename = `product_${alegraItemId}.${extension}`;
 
