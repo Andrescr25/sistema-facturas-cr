@@ -1,5 +1,6 @@
 const { query } = require('../config/database');
 const prisma = require('../lib/prisma');
+const { calcularPorcentajeIva } = require('../utils/impuestosAlegra');
 
 /**
  * ═════════════════════════════════════════════════════════════════════════════
@@ -92,7 +93,9 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           select: {
             precioUnitario: true,
             descuento: true,
-            cantidad: true
+            cantidad: true,
+            impuesto: true,
+            totalLinea: true
           }
         });
 
@@ -101,14 +104,18 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           const precioUnitarioSinIva = parseFloat(productoFactura.precioUnitario);
           const descuento = parseFloat(productoFactura.descuento) || 0;
           const cantidad = parseFloat(productoFactura.cantidad) || 1;
-          
+
           const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
-          const descuentoPorcentaje = montoTotalSinDescuento > 0 
+          const descuentoPorcentaje = montoTotalSinDescuento > 0
             ? (descuento / montoTotalSinDescuento) * 100
             : 0;
-          
+
           const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
-          const costoConIva = costoSinIvaConDescuento * 1.13;
+          const porcentajeIva = calcularPorcentajeIva({
+            impuesto: productoFactura.impuesto,
+            totalLinea: productoFactura.totalLinea
+          });
+          const costoConIva = costoSinIvaConDescuento * (1 + porcentajeIva / 100);
           
           const factorConversion = parseFloat(mapping.factorConversion) || 1;
           const costoRealPorUnidad = costoConIva / factorConversion;
