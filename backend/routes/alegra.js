@@ -10,8 +10,9 @@ const router = express.Router();
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
 const { query } = require('../config/database');
-const { getContactService } = require('../src/integrations/alegra');
+const { getContactService, getInvoiceService } = require('../src/integrations/alegra');
 const contactService = getContactService();
+const invoiceService = getInvoiceService();
 
 // Importar los nuevos enrutadores modulares
 const productsRoutes = require('../src/modules/products');
@@ -74,7 +75,7 @@ router.use('/bodega', warehouseRoutes);
 // Endpoints legacy para operaciones CRUD de items de factura
 router.get('/facturas/:id', async (req, res) => {
   try {
-    const result = await alegraService.getInvoiceById(req.params.id);
+    const result = await invoiceService.getInvoiceById(req.params.id);
     if (result.success) {
       res.json({ success: true, data: result.data });
     } else {
@@ -87,7 +88,7 @@ router.get('/facturas/:id', async (req, res) => {
 
 router.put('/facturas/:id', async (req, res) => {
   try {
-    const result = await alegraService.updateInvoice(req.params.id, req.body);
+    const result = await invoiceService.updateInvoice(req.params.id, req.body);
     if (result.success) {
       res.json({ success: true, data: result.data, message: 'Factura actualizada exitosamente' });
     } else {

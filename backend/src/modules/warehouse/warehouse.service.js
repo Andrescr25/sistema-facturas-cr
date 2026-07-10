@@ -5,6 +5,8 @@
 
 const AlegraService = require('../../../services/alegraService');
 const alegraService = new AlegraService();
+const { getInvoiceService } = require('../../integrations/alegra');
+const invoiceService = getInvoiceService();
 const { query } = require('../../../config/database');
 
 // Sistema de caché para facturas de bodega
@@ -281,7 +283,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
 
   if (facturaLocal.rows.length === 0) {
     console.log(`ℹ️ Factura ${alegraId} no existe localmente. Recuperando desde Alegra...`);
-    const detalle = await alegraService.getInvoiceById(alegraId);
+    const detalle = await invoiceService.getInvoiceById(alegraId);
     if (!detalle.success) {
       throw new Error('Factura no encontrada en Alegra');
     }

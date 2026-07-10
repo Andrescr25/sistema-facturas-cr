@@ -1,13 +1,12 @@
 const axios = require('axios');
 const prisma = require('../lib/prisma');
+const alegraConfig = require('../src/integrations/alegra/alegra.config');
 
 class AlegraService {
   constructor() {
-        this.baseURL = 'https://api.alegra.com/api/v1';
-        this.credentials = {
-            user: process.env.ALEGRA_USER || 'tachifacturas@gmail.com',
-            token: process.env.ALEGRA_TOKEN || 'b3a84abb6897180d3889'
-        };
+        // Configuración compartida con src/integrations/alegra (credenciales solo por env)
+        this.baseURL = alegraConfig.baseURL;
+        this.credentials = alegraConfig.credentials;
 
     this.api = axios.create({
       baseURL: this.baseURL,
@@ -1026,201 +1025,13 @@ class AlegraService {
         }
     }
 
-    /**
-     * Obtener una factura específica por ID de Alegra
-     */
-    async getInvoiceById(invoiceId) {
-        try {
-            const response = await this.api.get(`/invoices/${invoiceId}`);
+    // getInvoiceById y updateInvoice viven ahora en
+    // src/integrations/alegra/services/alegra-invoice.service.js
 
-            console.log(`📄 Factura obtenida: ${invoiceId}`);
+    // searchInvoicesByNumber y searchInvoicesByClient viven ahora en
+    // src/integrations/alegra/services/alegra-invoice.service.js (los consume
+    // src/modules/invoices/invoice.service.js)
 
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            console.error(`❌ Error obteniendo factura ${invoiceId}:`, error.message);
-            return {
-                success: false,
-                error: error.message,
-                message: `Error al obtener factura: ${error.message}`
-            };
-        }
-    }
-
-    /**
-     * Actualizar factura en Alegra
-     */
-    async updateInvoice(invoiceId, datosEdicion) {
-        try {
-            console.log(`✏️ Actualizando factura ${invoiceId} en Alegra`);
-            console.log('📝 Datos de edición:', JSON.stringify(datosEdicion, null, 2));
-
-            const response = await this.api.put(`/invoices/${invoiceId}`, datosEdicion);
-
-            console.log(`✅ Factura ${invoiceId} actualizada exitosamente`);
-
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            console.error(`❌ Error actualizando factura ${invoiceId}:`, error.message);
-            console.error('Detalles del error:', error.response?.data || error);
-
-            return {
-                success: false,
-                error: error.message,
-                message: `Error al actualizar factura: ${error.message}`,
-                details: error.response?.data || null
-            };
-        }
-    }
-
-    /**
-     * Buscar facturas por número en Alegra
-     */
-    async searchInvoicesByNumber(numero) {
-        try {
-            console.log(`🔍 Buscando facturas en Alegra con número: ${numero}`);
-            
-            // Paginación: obtener hasta 3 páginas (90 facturas)
-            let allInvoices = [];
-            let start = 0;
-            const limit = 30; // Máximo permitido por Alegra
-            let hasMore = true;
-            let totalPages = 0;
-
-            while (hasMore && totalPages < 3) {
-                const response = await this.api.get('/invoices', {
-                    params: {
-                        start: start,
-                        limit: limit,
-                        order_field: 'date',
-                        order_direction: 'DESC',
-                        metadata: true
-                    }
-                });
-
-                // Alegra devuelve: { metadata: {...}, data: [...] }
-                const invoices = response.data.data || response.data || [];
-                
-                console.log(`📊 Página ${totalPages + 1}: Obtenidas ${invoices.length} facturas`);
-
-                if (invoices.length === 0) {
-                    hasMore = false;
-                    break;
-                }
-
-                allInvoices = allInvoices.concat(invoices);
-
-                // Siguiente página
-                start += limit;
-                totalPages++;
-
-                // Si obtuvo menos facturas que el límite, es la última página
-                if (invoices.length < limit) {
-                    hasMore = false;
-                }
-            }
-
-            console.log(`🔍 Total facturas revisadas: ${allInvoices.length} en ${totalPages} páginas`);
-            
-            // Filtrar por número (buscar en formattedNumber, number o fullNumber)
-            const facturasFiltradas = allInvoices.filter(f => {
-                const num = numero.toLowerCase();
-                return (
-                    f.numberTemplate?.formattedNumber?.toLowerCase().includes(num) ||
-                    f.numberTemplate?.number?.toString().includes(num) ||
-                    f.numberTemplate?.fullNumber?.toLowerCase().includes(num)
-                );
-            });
-            
-            console.log(`✅ Encontradas ${facturasFiltradas.length} facturas que coinciden con "${numero}"`);
-            
-            // Transformar al formato esperado por el frontend
-            const facturasTransformadas = facturasFiltradas.map(f => this.transformInvoiceForFrontend(f));
-            
-            return {
-                success: true,
-                data: facturasTransformadas
-            };
-        } catch (error) {
-            console.error('❌ Error buscando facturas por número:', error.message);
-            return {
-                success: false,
-                data: [],
-                error: error.message,
-                message: `Error en búsqueda: ${error.message}`
-            };
-        }
-    }
-
-    /**
-     * Buscar facturas por cliente en Alegra
-     */
-    async searchInvoicesByClient(cliente) {
-        try {
-            console.log(`🔍 Buscando facturas del cliente: ${cliente}`);
-            
-            // Primero buscar el contacto - Alegra devuelve array directo para contacts
-            const contactsResponse = await this.api.get('/contacts', {
-                params: {
-                    query: cliente,
-                    type: 'client'
-                }
-            });
-            
-            // Contacts devuelve array directo (sin wrapper metadata/data)
-            const contacts = contactsResponse.data || [];
-            
-            if (contacts.length === 0) {
-                console.log('⚠️ No se encontró el cliente');
-                return {
-                    success: true,
-                    data: [],
-                    client: null
-                };
-            }
-            
-            const contact = contacts[0];
-            console.log(`✅ Cliente encontrado: ${contact.name} (ID: ${contact.id})`);
-            
-            // Buscar facturas del cliente
-            const invoicesResponse = await this.api.get('/invoices', {
-                params: {
-                    client: contact.id,
-                    metadata: true,
-                    order_field: 'date',
-                    order_direction: 'DESC'
-                }
-            });
-            
-            // Invoices devuelve: { metadata: {...}, data: [...] }
-            const facturas = invoicesResponse.data.data || invoicesResponse.data || [];
-            console.log(`✅ Encontradas ${facturas.length} facturas del cliente`);
-            
-            // Transformar al formato esperado por el frontend
-            const facturasTransformadas = facturas.map(f => this.transformInvoiceForFrontend(f));
-            
-            return {
-                success: true,
-                data: facturasTransformadas,
-                client: contact,
-                metadata: invoicesResponse.data.metadata
-            };
-        } catch (error) {
-            console.error('❌ Error buscando facturas por cliente:', error.message);
-            return {
-                success: false,
-                data: [],
-                client: null,
-                error: error.message
-            };
-        }
-    }
-    
     /**
      * Transformar factura de Alegra al formato esperado por el frontend
      * Copiado del sistema original proyecto-faltantes
