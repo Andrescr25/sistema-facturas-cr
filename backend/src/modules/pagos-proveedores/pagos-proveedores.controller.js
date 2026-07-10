@@ -1,8 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const pagosProveedoresService = require('../services/pagosProveedoresService');
+/**
+ * Pagos-Proveedores Module - Controller
+ * Controladores HTTP para cuentas por pagar a proveedores
+ */
 
-router.get('/', async (req, res) => {
+const pagosProveedoresService = require('../../../services/pagosProveedoresService');
+
+/**
+ * GET /pagos-proveedores
+ */
+async function listarCuentas(req, res) {
   try {
     const {
       estado,
@@ -38,9 +44,12 @@ router.get('/', async (req, res) => {
       error: error.message
     });
   }
-});
+}
 
-router.patch('/:id', async (req, res) => {
+/**
+ * PATCH /pagos-proveedores/:id
+ */
+async function actualizarCuenta(req, res) {
   try {
     const { estado, saldoPendiente, notas } = req.body;
     if (!estado && saldoPendiente === undefined && notas === undefined) {
@@ -68,7 +77,9 @@ router.patch('/:id', async (req, res) => {
       error: error.message
     });
   }
-});
+}
 
-module.exports = router;
-
+module.exports = {
+  listarCuentas,
+  actualizarCuenta
+};

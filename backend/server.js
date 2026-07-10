@@ -116,7 +116,6 @@ const proveedorRoutes = require('./routes/proveedores');
 const faltanteRoutes = require('./routes/faltantes');
 const reporteRoutes = require('./src/modules/reports/report.routes');
 const alegraRoutes = require('./routes/alegra');
-const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 const inventarioAuditoriasRoutes = require('./routes/inventarioAuditorias');
 
 // Módulos nuevos (arquitectura modular)
@@ -126,6 +125,7 @@ const reprintingModule = require('./src/modules/reprinting');
 const adminModule = require('./src/modules/admin');
 const revisionPreciosModule = require('./src/modules/revision-precios');
 const productosRevisionModule = require('./src/modules/productos-revision');
+const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
@@ -138,7 +138,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
-app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
+app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasRoutes);
 
 // Módulos nuevos (arquitectura modular)
