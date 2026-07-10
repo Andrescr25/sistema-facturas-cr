@@ -109,7 +109,18 @@ router.put('/facturas/:id', async (req, res) => {
     if (result.success) {
       res.json({ success: true, data: result.data, message: 'Factura actualizada exitosamente' });
     } else {
-      res.status(400).json({ success: false, message: result.message || 'Error actualizando' });
+      // result.data trae el body de error real de Alegra ({ message, code }), p.ej.
+      // code 3070 "La factura de venta no se puede editar". El frontend
+      // (facturacionService.sincronizarEdicionesPendientes) usa ese code para
+      // descartar automáticamente ediciones que Alegra rechaza por regla de
+      // negocio en vez de reintentarlas para siempre — antes se perdía porque
+      // aquí solo se mandaba un mensaje genérico sin code ni details.
+      res.status(400).json({
+        success: false,
+        message: result.data?.message || result.error || 'Error actualizando',
+        code: result.data?.code,
+        details: result.data
+      });
     }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
