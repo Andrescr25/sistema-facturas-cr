@@ -95,6 +95,27 @@ router.post('/sincronizar/cache-productos', async (req, res) => {
 // ========================================
 // 2. MODULO DE FACTURAS Y BODEGA (/facturas)
 // ========================================
+
+// IMPORTANTE: este PUT se registra ANTES de montar invoicesRoutes.
+// invoicesRoutes también define PUT /:id (updateInvoiceLocal), que solo
+// actualiza el flag "procesada" en la BD local por id local — un propósito
+// completamente distinto que quedaba ganando por orden de registro y
+// devolvía 404 al editar facturas reales en Alegra. Este es el que edita
+// la factura EN ALEGRA (lo usa facturacionService.js al sincronizar
+// ediciones pendientes, con el id numérico de Alegra).
+router.put('/facturas/:id', async (req, res) => {
+  try {
+    const result = await invoiceService.updateInvoice(req.params.id, req.body);
+    if (result.success) {
+      res.json({ success: true, data: result.data, message: 'Factura actualizada exitosamente' });
+    } else {
+      res.status(400).json({ success: false, message: result.message || 'Error actualizando' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.use('/facturas', invoicesRoutes);
 router.use('/bodega', warehouseRoutes);
 
@@ -106,19 +127,6 @@ router.get('/facturas/:id', async (req, res) => {
       res.json({ success: true, data: result.data });
     } else {
       res.status(404).json({ success: false, message: 'Factura no encontrada' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.put('/facturas/:id', async (req, res) => {
-  try {
-    const result = await invoiceService.updateInvoice(req.params.id, req.body);
-    if (result.success) {
-      res.json({ success: true, data: result.data, message: 'Factura actualizada exitosamente' });
-    } else {
-      res.status(400).json({ success: false, message: result.message || 'Error actualizando' });
     }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
