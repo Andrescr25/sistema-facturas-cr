@@ -6,10 +6,13 @@
 
 const prisma = require('../../../lib/prisma');
 const AlegraService = require('../../../services/alegraService');
+const { getProductService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 
+// Legacy: solo para createOrGetContact y createPurchaseInvoice (aún no migrados a integrations)
 const alegraService = new AlegraService();
+const productService = getProductService();
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -406,7 +409,8 @@ async function getProductosBatch(alegraIds) {
   await Promise.all(
     alegraIds.map(async (alegraId) => {
       try {
-        const producto = await alegraService.getProductById(alegraId);
+        const resultado = await productService.getProductById(alegraId);
+        const producto = resultado.success ? resultado.data : null;
         if (producto) {
           const precioSinIva = producto.price?.[0]?.price || 0;
 
@@ -548,7 +552,10 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
         console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
       }
 
-      await alegraService.updateProduct(alegraId, updateData);
+      const actualizacion = await productService.updateProduct(alegraId, updateData);
+      if (!actualizacion.success) {
+        throw new Error(actualizacion.error || `Error actualizando producto ${alegraId} en Alegra`);
+      }
 
       console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevo.toFixed(2)}`);
       return { success: true, precioAjustado };

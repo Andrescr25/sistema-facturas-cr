@@ -6,10 +6,26 @@
 
 const prisma = require('../../../lib/prisma');
 const AlegraService = require('../../../services/alegraService');
+const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 
+// Legacy: solo para createProduct (lógica de medicamentos aún no migrada a integrations)
 const alegraService = new AlegraService();
+const productService = getProductService();
+
+/**
+ * getProductById del servicio de integrations devuelve {success, data};
+ * este helper restaura la semántica de data directa o throw que esperan
+ * los call sites de este módulo.
+ */
+async function obtenerProductoAlegra(alegraItemId) {
+  const resultado = await productService.getProductById(alegraItemId);
+  if (!resultado.success) {
+    throw new Error(resultado.error || `No se pudo obtener el producto ${alegraItemId} de Alegra`);
+  }
+  return resultado.data;
+}
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -267,7 +283,7 @@ async function crearRelacion({ productoProveedorId, alegraItemId }) {
   if (!alegraProduct) {
     console.log(`📡 Producto ${alegraItemId} no en caché, consultando Alegra API...`);
     try {
-      const alegraData = await alegraService.getProductById(alegraItemId);
+      const alegraData = await obtenerProductoAlegra(alegraItemId);
 
       // Extraer reference como string
       const refStr = typeof alegraData.reference === 'object'
@@ -417,7 +433,7 @@ async function ajustarProducto({ productoId, nuevaCantidad, nuevoPrecio, alegraI
       const factorIVA = 1 + (porcentajeImpuesto / 100);
       const precioSinIVA = nuevoPrecio / factorIVA;
 
-      await alegraService.updateProductPrice(alegraItemId, precioSinIVA);
+      await productService.updateProductPrice(alegraItemId, precioSinIVA);
       console.log(`✅ Precio actualizado en Alegra: ${alegraItemId}`);
     } catch (alegraError) {
       console.error('❌ Error actualizando precio en Alegra:', alegraError);
@@ -751,7 +767,7 @@ async function crearProducto(datos, imagen) {
         contentType: imagen.mimetype
       });
 
-      await alegraService.uploadProductImage(nuevoProductoAlegra.id, formData);
+      await productService.uploadProductImage(nuevoProductoAlegra.id, formData);
       console.log('✅ Imagen subida exitosamente a Alegra');
     } catch (imgError) {
       console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
@@ -893,7 +909,8 @@ async function buscarEnCache(q) {
 async function buscarEnAlegra(q) {
   console.log(`🔍 Buscando en Alegra API: "${q}"`);
 
-  const productos = await alegraService.searchProducts(q);
+  const resultado = await productService.searchProducts(q.trim());
+  const productos = resultado.success ? resultado.data : [];
 
   return { productos, total: productos.length };
 }
@@ -910,7 +927,7 @@ async function getInfoAlegra(alegraItemId) {
 
   // Si no está en caché, consultar API
   if (!producto) {
-    const alegraData = await alegraService.getProductById(alegraItemId);
+    const alegraData = await obtenerProductoAlegra(alegraItemId);
 
     // Extraer reference como string
     const refStr = typeof alegraData.reference === 'object'
@@ -1069,7 +1086,7 @@ async function getFacturaConProductos(facturaId) {
         } else {
           // Si no está en caché, consultar API
           try {
-            const alegraData = await alegraService.getProductById(producto.alegraItemId);
+            const alegraData = await obtenerProductoAlegra(producto.alegraItemId);
             if (alegraData) {
               const refStr = typeof alegraData.reference === 'object'
                 ? alegraData.reference?.reference || ''

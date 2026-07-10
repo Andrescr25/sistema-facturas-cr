@@ -3,6 +3,8 @@ const router = express.Router();
 const axios = require('axios');
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
+const { getProductService } = require('../src/integrations/alegra');
+const productService = getProductService();
 
 const prisma = require('../lib/prisma');
 
@@ -182,7 +184,7 @@ router.post('/upload-image-url', async (req, res) => {
         }
         
         console.log(`🖼️ Asignando imagen a producto ${alegraId} desde URL...`);
-        const result = await alegraService.downloadAndUploadProductImage(alegraId, imageUrl);
+        const result = await productService.downloadAndUploadProductImage(alegraId, imageUrl);
         
         if (result.success) {
             // Actualizar la base de datos local
@@ -271,7 +273,7 @@ router.post('/duplicate-brand', async (req, res) => {
         if (imageUrl) {
             try {
                 console.log(`🖼️ Subiendo imagen a producto duplicado ${newProductAlegra.id}...`);
-                const imgResult = await alegraService.downloadAndUploadProductImage(newProductAlegra.id, imageUrl);
+                const imgResult = await productService.downloadAndUploadProductImage(newProductAlegra.id, imageUrl);
                 if (imgResult.success) {
                     finalImageUrl = imageUrl;
                 }

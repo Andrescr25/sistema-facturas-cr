@@ -439,66 +439,7 @@ class AlegraService {
         }
     }
 
-    /**
-     * Actualizar precio de producto
-     */
-    async updateProductPrice(alegraItemId, newPrice) {
-        try {
-            console.log(`💰 Actualizando precio: ${alegraItemId} → ₡${newPrice}`);
 
-            const currentProduct = await this.api.get(`/items/${alegraItemId}`);
-            const productData = currentProduct.data;
-
-      const updateData = {
-                name: productData.name,
-                reference: productData.reference,
-                price: [{
-                    price: parseFloat(newPrice).toFixed(2),
-                    main: true
-                }],
-                inventory: productData.inventory
-            };
-
-            const response = await this.api.put(`/items/${alegraItemId}`, updateData);
-            console.log(`✅ Precio actualizado en Alegra`);
-            
-            return response.data;
-    } catch (error) {
-            console.error(`❌ Error actualizando precio:`, error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Buscar productos en Alegra API
-     */
-    async searchProducts(query) {
-        try {
-            const response = await this.api.get('/items', {
-                params: {
-                    query: query.trim(),
-                    limit: 20
-                }
-            });
-
-            // Alegra retorna un array directamente
-            const items = Array.isArray(response.data) ? response.data : [];
-            
-            console.log(`✅ Búsqueda exitosa: ${items.length} productos encontrados`);
-            
-            return {
-                success: true,
-                data: items
-            };
-        } catch (error) {
-            console.error('❌ Error buscando productos en Alegra:', error.response?.data || error.message);
-            return {
-                success: false,
-                message: error.response?.data?.message || error.message,
-                data: []
-            };
-        }
-    }
 
     /**
      * Obtener categorías de Alegra (cuentas contables) - DEPRECATED
@@ -564,18 +505,11 @@ class AlegraService {
         }
     }
 
-    /**
-     * Obtener producto por ID
-     */
-    async getProductById(alegraId) {
-        try {
-            const response = await this.api.get(`/items/${alegraId}`);
-            return response.data;
-    } catch (error) {
-            console.error('❌ Error obteniendo producto:', error);
-            throw error;
-        }
-    }
+
+    // Métodos de producto (getProductById, searchProducts, updateProduct,
+    // deleteProduct, updateProductPrice, uploadProductImage,
+    // downloadAndUploadProductImage) viven ahora en
+    // src/integrations/alegra/services/alegra-product.service.js
 
     /**
      * Crear un nuevo producto en Alegra con TODOS los datos
@@ -760,118 +694,9 @@ class AlegraService {
         }
     }
 
-    /**
-     * 🆕 Subir imagen a un producto en Alegra
-     * Usa el endpoint /items/{id}/attachment con multipart/form-data
-     */
-    async uploadProductImage(alegraItemId, formData) {
-        try {
-            console.log(`📸 Subiendo imagen al producto ${alegraItemId}...`);
-            
-            // El endpoint correcto es /items/{id}/attachment
-            const response = await this.api.post(`/items/${alegraItemId}/attachment`, formData, {
-                headers: {
-                    ...formData.getHeaders()
-                },
-                timeout: 60000 // 60 segundos para subida de imagen
-            });
-            
-            console.log(`✅ Imagen subida exitosamente: ${response.data.url || 'URL generada'}`);
-            return {
-                success: true,
-                url: response.data.url,
-                data: response.data
-            };
-        } catch (error) {
-            console.error(`❌ Error subiendo imagen al producto ${alegraItemId}:`);
-            console.error('   Status:', error.response?.status);
-            console.error('   Error:', error.response?.data);
-            console.error('   Message:', error.message);
-            
-            if (error.response?.status === 404) {
-                throw new Error('El endpoint de imágenes no está disponible en tu versión de Alegra');
-            } else if (error.response?.status === 403) {
-                throw new Error('No tienes permisos para subir imágenes. Verifica tu plan de Alegra.');
-            } else if (error.response?.data?.message) {
-                throw new Error(`Error de Alegra: ${error.response.data.message}`);
-            } else {
-                throw error;
-            }
-        }
-    }
 
-    /**
-     * Descargar imagen de una URL y subirla a Alegra
-     */
-    async downloadAndUploadProductImage(alegraItemId, imageUrl) {
-        try {
-            console.log(`📥 Descargando imagen desde URL: ${imageUrl}...`);
-            const imageResponse = await axios.get(imageUrl, {
-                responseType: 'arraybuffer',
-                timeout: 30000
-            });
 
-            const buffer = Buffer.from(imageResponse.data, 'binary');
-            const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
-            
-            // Determinar extensión del archivo basada en el content-type
-            let extension = 'jpg';
-            if (contentType.includes('png')) extension = 'png';
-            else if (contentType.includes('webp')) extension = 'webp';
-            else if (contentType.includes('gif')) extension = 'gif';
 
-            const filename = `product_${alegraItemId}.${extension}`;
-
-            const FormData = require('form-data');
-            const formData = new FormData();
-            formData.append('image', buffer, {
-                filename: filename,
-                contentType: contentType
-            });
-
-            console.log(`📸 Subiendo imagen descargada al producto ${alegraItemId}...`);
-            return await this.uploadProductImage(alegraItemId, formData);
-        } catch (error) {
-            console.error(`❌ Error en downloadAndUploadProductImage para producto ${alegraItemId}:`, error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Actualizar producto (cost, price, etc, image URL)
-     */
-    async updateProduct(alegraId, data) {
-        try {
-            console.log(`📝 Actualizando producto ${alegraId}...`);
-            console.log('📋 Datos de actualización:', JSON.stringify(data, null, 2));
-            
-            const response = await this.api.put(`/items/${alegraId}`, data);
-            console.log(`✅ Producto ${alegraId} actualizado exitosamente`);
-            
-            return response.data;
-        } catch (error) {
-            console.error(`❌ Error actualizando producto ${alegraId}:`);
-            console.error('   Status:', error.response?.status);
-            console.error('   Error:', error.response?.data);
-            console.error('   Message:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Eliminar producto
-     */
-    async deleteProduct(alegraId) {
-        try {
-            console.log(`🗑️ Eliminando producto ${alegraId}...`);
-            await this.api.delete(`/items/${alegraId}`);
-            console.log(`✅ Producto ${alegraId} eliminado`);
-            return true;
-        } catch (error) {
-            console.error(`❌ Error eliminando producto ${alegraId}:`, error);
-            throw error;
-        }
-    }
 
     /**
      * Crear o recuperar un contacto en Alegra (proveedor/cliente) siguiendo el formato oficial.
