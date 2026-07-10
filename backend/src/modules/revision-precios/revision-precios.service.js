@@ -1,0 +1,627 @@
+/**
+ * Revision-Precios Module - Service
+ * Lógica de negocio para la revisión de precios de facturas de proveedores
+ * y su envío a Alegra como facturas de compra.
+ */
+
+const prisma = require('../../../lib/prisma');
+const AlegraService = require('../../../services/alegraService');
+const pagosProveedoresService = require('../../../services/pagosProveedoresService');
+const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+
+const alegraService = new AlegraService();
+
+/**
+ * Error con código de estado HTTP para que el controller responda con el status correcto.
+ */
+function httpError(status, message) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+/**
+ * Inferir el tipo de identificación (códigos Alegra) según la cédula costarricense.
+ * CF: Física (9 dígitos)
+ * CJ: Jurídica (10 dígitos)
+ * NITE: Jurídica iniciando en 4/5 (10 dígitos)
+ * DIMEX: Identificación extranjera (11-12 dígitos)
+ * Fallback a CJ porque la mayoría de proveedores son empresas.
+ */
+const TIPOS_IDENTIFICACION_ALEGRA = {
+  FISICA: 'CF',
+  JURIDICA: 'CJ',
+  NITE: 'NITE',
+  DIMEX: 'DIMEX'
+};
+
+function inferirTipoIdentificacion(cedulaRaw) {
+  if (!cedulaRaw) return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
+
+  const cedula = cedulaRaw.toString().replace(/\D/g, '');
+
+  if (cedula.length === 9) return TIPOS_IDENTIFICACION_ALEGRA.FISICA;
+
+  if (cedula.length === 10) {
+    if (cedula.startsWith('4') || cedula.startsWith('5')) {
+      return TIPOS_IDENTIFICACION_ALEGRA.NITE;
+    }
+    return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
+  }
+
+  if (cedula.length === 11 || cedula.length === 12) {
+    return TIPOS_IDENTIFICACION_ALEGRA.DIMEX;
+  }
+
+  return TIPOS_IDENTIFICACION_ALEGRA.JURIDICA;
+}
+
+/**
+ * Construir los items del payload de factura de compra para Alegra a partir
+ * de los productos de la factura del proveedor. Función pura (testeable):
+ * - price: precio original SIN IVA del XML, redondeado a 2 decimales
+ * - discount: porcentaje derivado del monto de descuento de la línea
+ * - tax: tarifa REAL de la línea (0/1/2/4/8/13%); si no se reconoce,
+ *   se omite para que Alegra use el impuesto configurado en el producto
+ */
+function construirItemsFactura(productos) {
+  return productos.map(p => {
+    // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
+    const precioUnitarioSinIva = parseFloat(p.precioUnitario) || 0;
+
+    // Calcular porcentaje de descuento
+    const montoTotalSinDescuento = precioUnitarioSinIva * p.cantidad;
+    const descuentoPorcentaje = montoTotalSinDescuento > 0
+      ? ((p.descuento || 0) / montoTotalSinDescuento) * 100
+      : 0;
+
+    const item = {
+      id: p.alegraItemId?.toString() || p.alegraItemId,
+      quantity: parseFloat(p.cantidad) || 1,
+      price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio ORIGINAL del proveedor
+      discount: Math.round(descuentoPorcentaje * 100) / 100
+    };
+
+    // Tarifa de IVA real de la línea (0/1/2/4/8/13%), NO se asume 13% fijo
+    const impuestoDetectado = obtenerImpuestoAlegra({ impuesto: p.impuesto, totalLinea: p.totalLinea });
+    if (impuestoDetectado) {
+      item.tax = [{ id: impuestoDetectado.id, percentage: impuestoDetectado.porcentaje }];
+    } else {
+      console.warn(`⚠️ No se pudo determinar la tarifa de IVA de "${p.descripcion}" (impuesto=${p.impuesto}, totalLinea=${p.totalLinea}). Se enviará sin forzar impuesto; Alegra usará el impuesto configurado en el producto.`);
+    }
+
+    return item;
+  });
+}
+
+/**
+ * Obtener facturas por estado
+ */
+async function getFacturas(estado) {
+  console.log(`📄 Obteniendo facturas con estado: ${estado || 'PROCESADA'}`);
+
+  const facturas = await prisma.factura.findMany({
+    where: estado ? { estado: estado } : undefined,
+    include: {
+      productos: {
+        include: {
+          mapeo: true
+        }
+      }
+    },
+    orderBy: {
+      fechaEmision: 'desc'
+    },
+    take: 50
+  });
+
+  return { facturas, total: facturas.length };
+}
+
+/**
+ * Obtener productos pendientes de confirmación con sugerencias desde la caché de Alegra
+ */
+async function getProductosPendientes() {
+  console.log('📦 Obteniendo productos pendientes...');
+
+  const productosPendientes = await prisma.productoFactura.findMany({
+    where: { estadoRelacionado: 'PENDIENTE' },
+    include: { factura: true },
+    orderBy: {
+      factura: {
+        fechaProcesada: 'desc'
+      }
+    },
+    take: 50
+  });
+
+  const productosConSugerencias = [];
+
+  for (const producto of productosPendientes) {
+    // Buscar productos similares en la caché de Alegra
+    const palabrasClave = producto.descripcion.toLowerCase()
+      .split(' ')
+      .filter(palabra => palabra.length > 3)
+      .slice(0, 3);
+
+    if (palabrasClave.length > 0) {
+      const similares = await prisma.alegraProduct.findMany({
+        where: {
+          OR: palabrasClave.map(palabra => ({
+            searchText: {
+              contains: palabra,
+              mode: 'insensitive'
+            }
+          }))
+        },
+        take: 3
+      });
+
+      if (similares.length > 0) {
+        // Calcular scores de similitud simples
+        const sugerencias = similares.map(sim => {
+          const matches = palabrasClave.filter(palabra =>
+            sim.name.toLowerCase().includes(palabra)
+          ).length;
+          const similarityScore = Math.round((matches / palabrasClave.length) * 100);
+
+          return {
+            alegraId: sim.alegraId,
+            name: sim.name,
+            reference: sim.reference,
+            price: sim.price,
+            similarityScore: similarityScore
+          };
+        }).filter(s => s.similarityScore >= 40);
+
+        if (sugerencias.length > 0) {
+          productosConSugerencias.push({
+            ...producto,
+            sugerencias: sugerencias
+          });
+        }
+      }
+    }
+  }
+
+  return { productos: productosConSugerencias, total: productosConSugerencias.length };
+}
+
+/**
+ * Confirmar relación de producto (crea/actualiza el mapeo proveedor→Alegra)
+ */
+async function confirmarProducto({ productoId, alegraItemId, confianza }) {
+  console.log(`✅ Confirmando producto: ${productoId} → ${alegraItemId}`);
+
+  const producto = await prisma.productoFactura.findUnique({
+    where: { id: productoId },
+    include: { factura: true }
+  });
+
+  if (!producto) {
+    throw httpError(404, 'Producto no encontrado');
+  }
+
+  // Obtener info del producto de Alegra desde cache local
+  const alegraProduct = await prisma.alegraProduct.findUnique({
+    where: { alegraId: alegraItemId }
+  });
+
+  if (!alegraProduct) {
+    throw httpError(404, 'Producto de Alegra no encontrado');
+  }
+
+  const mapeo = await prisma.supplierProductMapping.upsert({
+    where: {
+      supplierCedula_supplierCode: {
+        supplierCedula: producto.factura.proveedorCedula,
+        supplierCode: producto.codigoProveedor
+      }
+    },
+    update: {
+      supplierName: producto.factura.proveedorNombre.trim(),
+      supplierDesc: producto.descripcion,
+      alegraItemId: alegraProduct.alegraId,
+      alegraReference: alegraProduct.reference,
+      alegraName: alegraProduct.name,
+      confidence: confianza || 100,
+      lastUsedDate: new Date(),
+      timesUsed: { increment: 1 }
+    },
+    create: {
+      supplierName: producto.factura.proveedorNombre.trim(),
+      supplierCedula: producto.factura.proveedorCedula,
+      supplierCode: producto.codigoProveedor,
+      supplierDesc: producto.descripcion,
+      alegraItemId: alegraProduct.alegraId,
+      alegraReference: alegraProduct.reference,
+      alegraName: alegraProduct.name,
+      confidence: confianza || 100,
+      origen: 'manual'
+    }
+  });
+
+  await prisma.productoFactura.update({
+    where: { id: productoId },
+    data: {
+      alegraItemId: alegraItemId,
+      estadoRelacionado: 'RELACIONADO',
+      confianza: confianza || 100,
+      mapeoId: mapeo.id
+    }
+  });
+
+  console.log(`✅ Producto confirmado: ${producto.descripcion} → ${alegraProduct.name}`);
+
+  return { message: 'Producto confirmado exitosamente', mapeo };
+}
+
+/**
+ * Rechazar relación de producto (lo devuelve a PENDIENTE sin relación)
+ */
+async function rechazarProducto(productoId) {
+  console.log(`🔄 Rechazando producto: ${productoId}`);
+
+  const producto = await prisma.productoFactura.findUnique({
+    where: { id: productoId }
+  });
+
+  if (!producto) {
+    throw httpError(404, 'Producto no encontrado');
+  }
+
+  await prisma.productoFactura.update({
+    where: { id: productoId },
+    data: {
+      alegraItemId: null,
+      estadoRelacionado: 'PENDIENTE',
+      confianza: null,
+      mapeoId: null
+    }
+  });
+
+  return { message: 'Producto rechazado exitosamente' };
+}
+
+/**
+ * Actualizar precio unitario de un producto de factura
+ */
+async function actualizarPrecio(productoId, nuevoPrecio) {
+  console.log(`💰 Actualizando precio: ${productoId} → ₡${nuevoPrecio}`);
+
+  await prisma.productoFactura.update({
+    where: { id: productoId },
+    data: { precioUnitario: nuevoPrecio }
+  });
+
+  return { message: 'Precio actualizado exitosamente' };
+}
+
+/**
+ * Obtener estadísticas de revisión de precios
+ */
+async function getEstadisticas() {
+  const [
+    totalFacturas,
+    facturasProcesadas,
+    facturasRelacionadas,
+    productosPendientes
+  ] = await Promise.all([
+    prisma.factura.count(),
+    prisma.factura.count({ where: { estado: 'PROCESADA' } }),
+    prisma.factura.count({ where: { estado: 'RELACIONADA' } }),
+    prisma.productoFactura.count({ where: { estadoRelacionado: 'PENDIENTE' } })
+  ]);
+
+  return {
+    stats: {
+      totalFacturas,
+      facturasProcesadas,
+      facturasRelacionadas,
+      productosPendientes
+    }
+  };
+}
+
+/**
+ * Devolver factura al estado PROCESADA (para hacer correcciones)
+ */
+async function devolverFactura(facturaId) {
+  console.log(`🔄 Devolviendo factura ${facturaId} al estado PROCESADA...`);
+
+  const factura = await prisma.factura.findUnique({
+    where: { id: facturaId },
+    include: {
+      productos: true
+    }
+  });
+
+  if (!factura) {
+    throw httpError(404, 'Factura no encontrada');
+  }
+
+  await prisma.factura.update({
+    where: { id: facturaId },
+    data: {
+      estado: 'PROCESADA'
+    }
+  });
+
+  console.log(`✅ Factura ${factura.numeroConsecutivo} devuelta al estado PROCESADA`);
+
+  return {
+    message: `Factura ${factura.numeroConsecutivo} devuelta al estado PROCESADA`,
+    factura: {
+      id: factura.id,
+      numeroConsecutivo: factura.numeroConsecutivo,
+      nuevoEstado: 'PROCESADA'
+    }
+  };
+}
+
+/**
+ * Obtener facturas 100% relacionadas (listas para revisión de precios)
+ */
+async function getFacturasRelacionadas() {
+  console.log('📋 Obteniendo facturas 100% relacionadas para revisión de precios...');
+
+  const facturas = await prisma.factura.findMany({
+    where: {
+      estado: {
+        in: ['RELACIONADA', 'PROCESADA']
+      }
+    },
+    include: {
+      productos: {
+        include: {
+          mapeo: true
+        }
+      }
+    },
+    orderBy: {
+      fechaEmision: 'desc'
+    }
+  });
+
+  // Filtrar solo facturas 100% relacionadas
+  const facturasCompletas = facturas.filter(factura => {
+    const total = factura.productos.length;
+    const relacionados = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
+    return total > 0 && relacionados === total;
+  });
+
+  console.log(`✅ ${facturasCompletas.length} facturas 100% relacionadas encontradas`);
+
+  return { facturas: facturasCompletas };
+}
+
+/**
+ * Obtener datos de productos en Alegra (batch) para comparación de precios
+ */
+async function getProductosBatch(alegraIds) {
+  console.log(`🔍 Obteniendo datos de ${alegraIds.length} productos en batch...`);
+
+  const productos = {};
+
+  await Promise.all(
+    alegraIds.map(async (alegraId) => {
+      try {
+        const producto = await alegraService.getProductById(alegraId);
+        if (producto) {
+          const precioSinIva = producto.price?.[0]?.price || 0;
+
+          // Precio con el IVA propio del producto (por defecto 13%)
+          const ivaPorcentaje = producto.tax?.[0]?.percentage || 13;
+          const precioConIva = precioSinIva * (1 + ivaPorcentaje / 100);
+
+          productos[alegraId] = {
+            id: producto.id,
+            name: producto.name,
+            reference: producto.reference,
+            price: precioConIva,  // Precio CON IVA para mostrar al usuario
+            priceWithoutTax: precioSinIva,  // Precio sin IVA (por si se necesita)
+            cost: producto.cost || 0,
+            taxPercentage: ivaPorcentaje
+          };
+        }
+      } catch (error) {
+        console.error(`⚠️ Error obteniendo producto ${alegraId}:`, error.message);
+      }
+    })
+  );
+
+  console.log(`✅ ${Object.keys(productos).length}/${alegraIds.length} productos obtenidos`);
+
+  return {
+    productos,
+    total: Object.keys(productos).length,
+    solicitados: alegraIds.length
+  };
+}
+
+/**
+ * Enviar factura completa a Alegra:
+ * 1. Crear factura de compra en Alegra con precios originales e IVA real por línea
+ * 2. Actualizar costos y precios de los productos en Alegra en paralelo
+ * 3. Marcar la factura como ENVIADA y liberar la cuenta por pagar
+ */
+async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
+  console.log(`🚀 Enviando factura ${facturaId} a Alegra...`);
+
+  const factura = await prisma.factura.findUnique({
+    where: { id: facturaId },
+    include: {
+      productos: {
+        include: {
+          mapeo: true
+        }
+      }
+    }
+  });
+
+  if (!factura) {
+    throw httpError(404, 'Factura no encontrada');
+  }
+
+  // Todos los productos relacionados
+  const productos = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO');
+
+  console.log(`📦 Procesando ${productos.length} productos...`);
+
+  // PASO 1: Crear factura de proveedor en Alegra PRIMERO (con precios originales)
+  // Esto evita que los precios ajustados afecten la factura de compra
+  let alegraFacturaId = null;
+  try {
+    // Buscar o crear contacto del proveedor
+    const identificacionTipo = inferirTipoIdentificacion(factura.proveedorCedula);
+
+    const contacto = await alegraService.createOrGetContact({
+      name: factura.proveedorNombre,
+      identification: factura.proveedorCedula,
+      identificationType: identificacionTipo,
+      phonePrimary: factura.proveedorTelefono || '',
+      email: factura.proveedorEmail || '',
+      type: ['provider'],
+      status: 'active',
+      ignoreRepeated: true
+    });
+
+    // Preparar items de la factura con precios ORIGINALES del proveedor
+    const items = construirItemsFactura(productos);
+
+    console.log(`📋 Items preparados para Alegra (precios originales):`, JSON.stringify(items, null, 2));
+
+    // Crear factura de compra en Alegra
+    const alegraFactura = await alegraService.createPurchaseInvoice({
+      date: factura.fechaEmision,
+      client: contacto.id?.toString() || contacto.id,
+      numberTemplate: {
+        id: 10,
+        number: factura.numeroConsecutivo,
+        fullNumber: factura.numeroConsecutivo
+      },
+      observations: `Factura ${factura.numeroConsecutivo} - Importada automáticamente`,
+      items: items
+    });
+
+    alegraFacturaId = alegraFactura.id;
+    console.log(`✅ Factura de compra creada en Alegra: ID ${alegraFacturaId}`);
+  } catch (facturaError) {
+    console.warn('⚠️ Error creando factura de compra:', facturaError.message);
+    // Continuar para actualizar costos y precios incluso si falla la factura
+  }
+
+  // PASO 2: Actualizar costos Y precios en Alegra EN PARALELO
+  // Esto se hace DESPUÉS de crear la factura para no afectar su total
+  console.log(`⚡ Actualizando ${productos.length} productos en paralelo...`);
+
+  const updatePromises = productos.map(async (producto) => {
+    try {
+      const alegraId = producto.alegraItemId;
+      if (!alegraId) return { success: false, precioAjustado: false };
+
+      // El costo nuevo considerando descuentos
+      // En XML de Costa Rica, precioUnitario es SIN IVA
+      const precioUnitarioSinIva = parseFloat(producto.precioUnitario) || 0;
+
+      // Calcular el porcentaje de descuento
+      const montoTotalSinDescuento = precioUnitarioSinIva * producto.cantidad;
+      const descuentoPorcentaje = montoTotalSinDescuento > 0
+        ? ((producto.descuento || 0) / montoTotalSinDescuento) * 100
+        : 0;
+
+      // Costo = precioUnitario SIN IVA con descuento aplicado, más el IVA real de la línea
+      const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
+      const porcentajeIva = calcularPorcentajeIva({ impuesto: producto.impuesto, totalLinea: producto.totalLinea });
+      const costoNuevo = costoSinIvaConDescuento * (1 + porcentajeIva / 100);
+
+      const updateData = {
+        cost: Math.round(costoNuevo * 100) / 100
+      };
+
+      let precioAjustado = false;
+
+      // Si el usuario ajustó el precio, incluirlo
+      if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
+        updateData.price = parseFloat(preciosAjustados[producto.id]);
+        precioAjustado = true;
+        console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
+      }
+
+      await alegraService.updateProduct(alegraId, updateData);
+
+      console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevo.toFixed(2)}`);
+      return { success: true, precioAjustado };
+    } catch (error) {
+      console.error(`⚠️ Error actualizando ${producto.descripcion}:`, error.message);
+      return { success: false, precioAjustado: false };
+    }
+  });
+
+  const results = await Promise.all(updatePromises);
+
+  const costosActualizados = results.filter(r => r.success).length;
+  const preciosActualizados = results.filter(r => r.precioAjustado).length;
+
+  console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
+
+  // PASO 3: Marcar factura como ENVIADA
+  await prisma.factura.update({
+    where: { id: facturaId },
+    data: {
+      estado: 'ENVIADA'
+      // Nota: alegraFacturaId no está en el schema, se registra en logs
+    }
+  });
+
+  try {
+    const cuentaLiberada = await pagosProveedoresService.liberarCuentaPorFactura(facturaId);
+    if (cuentaLiberada) {
+      console.log(`💳 Cuenta por pagar liberada para factura ${factura.numeroConsecutivo}`);
+    }
+  } catch (liberarError) {
+    console.warn('⚠️ No se pudo liberar la cuenta por pagar:', liberarError.message);
+  }
+
+  if (alegraFacturaId) {
+    console.log(`📝 Factura enviada a Alegra con ID: ${alegraFacturaId}`);
+  }
+
+  console.log(`✅ Factura ${factura.numeroConsecutivo} procesada exitosamente`);
+
+  let mensaje = 'Factura procesada exitosamente';
+  if (alegraFacturaId) {
+    mensaje = `Factura creada en Alegra (ID: ${alegraFacturaId})`;
+  } else {
+    mensaje = 'Costos y precios actualizados (factura no creada en Alegra por falta de permisos)';
+  }
+
+  return {
+    mensaje,
+    facturaCreada: !!alegraFacturaId,
+    resultado: {
+      numeroConsecutivo: factura.numeroConsecutivo,
+      proveedor: factura.proveedorNombre,
+      alegraFacturaId: alegraFacturaId,
+      totalProductos: productos.length,
+      costosActualizados: costosActualizados,
+      preciosActualizados: preciosActualizados
+    }
+  };
+}
+
+module.exports = {
+  getFacturas,
+  getProductosPendientes,
+  confirmarProducto,
+  rechazarProducto,
+  actualizarPrecio,
+  getEstadisticas,
+  devolverFactura,
+  getFacturasRelacionadas,
+  getProductosBatch,
+  enviarFacturaAlegra,
+  // Funciones puras exportadas para tests
+  construirItemsFactura,
+  inferirTipoIdentificacion
+};

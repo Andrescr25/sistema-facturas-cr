@@ -116,8 +116,6 @@ const proveedorRoutes = require('./routes/proveedores');
 const faltanteRoutes = require('./routes/faltantes');
 const reporteRoutes = require('./src/modules/reports/report.routes');
 const alegraRoutes = require('./routes/alegra');
-const revisionPreciosRoutes = require('./routes/revisionPrecios');
-const productosRevisionRoutes = require('./routes/productosRevision');
 const pagosProveedoresRoutes = require('./routes/pagosProveedores');
 const inventarioAuditoriasRoutes = require('./routes/inventarioAuditorias');
 
@@ -126,15 +124,20 @@ const warehouseModule = require('./src/modules/warehouse');
 const missingItemsModule = require('./src/modules/missing-items');
 const reprintingModule = require('./src/modules/reprinting');
 const adminModule = require('./src/modules/admin');
+const revisionPreciosModule = require('./src/modules/revision-precios');
+const productosRevisionModule = require('./src/modules/productos-revision');
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/proveedores', proveedorRoutes);
 app.use('/api/reportes', reporteRoutes);
+// /api/alegra es un router adaptador (routes/alegra.js) que monta debajo:
+// /catalog, /productos, /facturas, /bodega, /reimpresion, /reportes,
+// /contactos, /proveedores, /faltantes, /orden-compra y /facturacion
 app.use('/api/alegra', alegraRoutes);
-app.use('/api/revision-precios', revisionPreciosRoutes);
-app.use('/api/productos-revision', productosRevisionRoutes);
+app.use('/api/revision-precios', revisionPreciosModule.routes);
+app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresRoutes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasRoutes);
 
