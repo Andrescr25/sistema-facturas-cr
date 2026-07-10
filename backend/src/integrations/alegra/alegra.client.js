@@ -105,6 +105,33 @@ class AlegraClient {
   }
 
   /**
+   * Petición genérica con reintentos, devolviendo response.data DIRECTO
+   * (sin el envelope {success,data} de get/post/put/delete). LANZA en
+   * error. Migrado de AlegraService.makeRequest para casos de uso
+   * genéricos/paginados (fetchAllParallel de facturación) que no encajan
+   * en un servicio de dominio específico.
+   */
+  async request(method, endpoint, params = {}) {
+    try {
+      console.log(`📡 request: ${method} ${endpoint}`);
+
+      const config = {
+        method: method.toLowerCase(),
+        url: endpoint,
+        params: method.toUpperCase() === 'GET' ? params : undefined,
+        data: method.toUpperCase() !== 'GET' ? params : undefined
+      };
+
+      const response = await this.requestWithRetry(() => this.api.request(config));
+
+      return response.data;
+    } catch (error) {
+      console.error(`❌ request error:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Ejecutar una petición con reintentos y backoff exponencial.
    * Reintenta en errores de red/timeout y en 429/502/503/504.
    * @param {Function} requestFn - Función que retorna la promesa de la petición

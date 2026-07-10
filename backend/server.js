@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
-const AlegraService = require('./services/alegraService');
+const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 
 const app = express();
@@ -213,7 +213,6 @@ app.get('*', (req, res) => {
 
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
-let alegraService = null;
 let productSyncInterval = null;
 
 // Función para sincronizar productos de Alegra
@@ -223,11 +222,8 @@ async function syncAlegraProducts() {
     console.log('📦 Sincronizando productos de Alegra...');
     console.log('📦 ========================================\n');
 
-    if (!alegraService) {
-      alegraService = new AlegraService();
-    }
-
-    const productos = await alegraService.syncProductsFromAlegra();
+    const syncService = getSyncService();
+    const productos = await syncService.syncProductsFromAlegra();
     console.log(`✅ Sincronización completada: ${productos.length} productos actualizados`);
     console.log(`📅 Próxima sincronización en 6 horas\n`);
   } catch (error) {

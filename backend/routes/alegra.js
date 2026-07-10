@@ -7,13 +7,12 @@
 const express = require('express');
 const router = express.Router();
 
-const AlegraService = require('../services/alegraService');
-const alegraService = new AlegraService();
 const { query } = require('../config/database');
-const { getContactService, getInvoiceService, getProductService } = require('../src/integrations/alegra');
+const { getContactService, getInvoiceService, getProductService, getSyncService } = require('../src/integrations/alegra');
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
 const productService = getProductService();
+const syncService = getSyncService();
 
 // Importar los nuevos enrutadores modulares
 const productsRoutes = require('../src/modules/products');
@@ -73,7 +72,7 @@ router.get('/categorias', async (req, res) => {
 // Sincronización automática (Alegra API)
 router.post('/sincronizar/automatica', async (req, res) => {
   try {
-    const result = await alegraService.syncProductsAutomatically();
+    const result = await syncService.syncProductsAutomatically();
     res.json(result);
   } catch (error) {
     console.error('❌ Error en sincronización automática:', error);
@@ -84,7 +83,7 @@ router.post('/sincronizar/automatica', async (req, res) => {
 // Sincronizar cache de productos
 router.post('/sincronizar/cache-productos', async (req, res) => {
   try {
-    const result = await alegraService.syncProductsCache();
+    const result = await syncService.syncProductsCache();
     res.json(result);
   } catch (error) {
     console.error('❌ Error en sincronización de caché:', error);
@@ -144,78 +143,15 @@ router.get('/facturas/:id', async (req, res) => {
   }
 });
 
-router.delete('/facturas/:id/items/:itemId', async (req, res) => {
-  try {
-    const result = await alegraService.removeItemFromInvoice(req.params.id, req.params.itemId);
-    if (result.success) {
-      res.json({ success: true, data: result.data, message: 'Producto eliminado de la factura' });
-    } else {
-      res.status(400).json(result);
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.put('/facturas/:id/items/:itemId', async (req, res) => {
-  try {
-    const { cantidad } = req.body;
-    const result = await alegraService.updateItemQuantity(req.params.id, req.params.itemId, cantidad);
-    if (result.success) {
-      res.json({ success: true, data: result.data, message: `Cantidad actualizada a ${cantidad}` });
-    } else {
-      res.status(400).json(result);
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Limpieza de colas / Logs de procesamiento
-router.post('/facturas/limpiar', async (req, res) => {
-  try {
-    const result = await alegraService.clearAllQueues(req.body);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.post('/facturas/actualizar-masivo', async (req, res) => {
-  try {
-    const result = await alegraService.updateInvoicesBulk(req.body);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.post('/facturas/:id/pendiente', async (req, res) => {
-  try {
-    const result = await alegraService.setPendingStatus(req.params.id, req.body);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.delete('/facturas/:id/pendiente', async (req, res) => {
-  try {
-    const result = await alegraService.deletePendingStatus(req.params.id);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.post('/facturas/eliminar-procesadas', async (req, res) => {
-  try {
-    const result = await alegraService.clearProcessedLogs(req.body);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// NOTA: aquí vivían 7 endpoints (DELETE/PUT .../items/:itemId, POST
+// /facturas/limpiar, /actualizar-masivo, /:id/pendiente (POST y DELETE),
+// /eliminar-procesadas) que llamaban métodos que nunca existieron en
+// ningún servicio (removeItemFromInvoice, updateItemQuantity,
+// clearAllQueues, updateInvoicesBulk, setPendingStatus,
+// deletePendingStatus, clearProcessedLogs) — siempre daban 500 y no
+// tenían ningún consumidor en el frontend (verificado con grep). Se
+// eliminaron el 2026-07-10 al retirar el servicio legacy que los
+// referenciaba.
 
 // ========================================
 // 3. MODULO DE REIMPRESIÓN (/reimpresion)

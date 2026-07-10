@@ -4,8 +4,8 @@
  */
 
 const { query } = require('../../../config/database');
-const AlegraService = require('../../../services/alegraService');
-const alegraService = new AlegraService();
+const { getClient } = require('../../integrations/alegra');
+const client = getClient();
 
 /**
  * Guarda o actualiza un ajuste de faltante
@@ -171,7 +171,7 @@ async function assignSupplierManual({ alegraReference, alegraItemId, alegraName,
 
   // 1. Obtener la información del contacto desde Alegra usando su ID de Alegra
   console.log(`📡 Consultando proveedor en Alegra con ID: ${targetProveedorId}...`);
-  const contactResponse = await alegraService.api.get(`/contacts/${targetProveedorId}`);
+  const contactResponse = await client.api.get(`/contacts/${targetProveedorId}`);
   const contactData = contactResponse.data;
   
   if (!contactData || !contactData.name) {

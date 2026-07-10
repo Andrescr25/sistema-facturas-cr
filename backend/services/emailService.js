@@ -3,7 +3,7 @@ const { simpleParser } = require('mailparser');
 const imapConfig = require('../config/imap');
 const XmlParser = require('./xmlParser');
 const DatabaseService = require('./databaseService');
-const AlegraService = require('./alegraService');
+const { getProductService } = require('../src/integrations/alegra');
 
 // Configuración de logging
 const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === 'true' || false;
@@ -13,7 +13,7 @@ class EmailService {
         this.imap = null;
         this.xmlParser = new XmlParser();
         this.dbService = new DatabaseService();
-        this.alegraService = new AlegraService();
+        this.alegraProductService = getProductService();
         this.isConnected = false;
         this.isMonitoring = false;
         this.isClosingIntentionally = false; // ✅ Flag para evitar reconexión cuando cerramos a propósito
@@ -480,7 +480,7 @@ class EmailService {
                 // Solo procesar productos PENDIENTES
                 if (VERBOSE_LOGGING) console.log(`\n🔍 Procesando: ${producto.descripcion}`);
 
-                const similares = await this.alegraService.findSimilarProducts(
+                const similares = await this.alegraProductService.findSimilarProducts(
                     producto.descripcion,
                     producto.codigoProveedor
                 );

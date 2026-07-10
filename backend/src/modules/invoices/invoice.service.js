@@ -6,13 +6,11 @@
 const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
 const { query } = require('../../../config/database');
-const AlegraService = require('../../../services/alegraService');
 
 class InvoiceService {
   constructor() {
     this.alegraInvoiceService = getAlegraInvoiceService();
     this.alegraProductService = getAlegraProductService();
-    this.alegraServiceInstance = new AlegraService();
   }
 
   /**
@@ -402,7 +400,7 @@ class InvoiceService {
       // y fusionar tipo_faltante desde la tabla de faltantes local
       const itemsConEstado = (factura.items || []).map(item => {
         // Normalizar el ítem crudo para obtener referencia, nombre, cantidad correctos
-        const normalizado = this.alegraServiceInstance.normalizeInvoiceItem(item);
+        const normalizado = this.alegraInvoiceService.normalizeInvoiceItem(item);
 
         // Buscar faltante primero por referencia (código) y luego por alegra_id
         const refByCodigo = normalizado.referencia ? faltantesMap[String(normalizado.referencia).trim()] : null;

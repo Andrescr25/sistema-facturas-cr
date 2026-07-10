@@ -3,10 +3,9 @@
  * Lógica de negocio para operaciones de bodega/almacén
  */
 
-const AlegraService = require('../../../services/alegraService');
-const alegraService = new AlegraService();
-const { getInvoiceService } = require('../../integrations/alegra');
+const { getInvoiceService, getClient } = require('../../integrations/alegra');
 const invoiceService = getInvoiceService();
+const client = getClient();
 const { query } = require('../../../config/database');
 
 // Sistema de caché para facturas de bodega
@@ -143,8 +142,11 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
     const pageLimit = Math.min(30, limit - fetched);
 
     try {
-      const response = await alegraService.requestWithRetry(
-        () => alegraService.api.get('/invoices', {
+      // timeout explícito a 60s: el cliente compartido usa 30s por defecto
+      // (alegra.config.js), pero esta sincronización masiva por rango de
+      // fechas necesitaba los 60s que tenía el axios del servicio legacy.
+      const response = await client.requestWithRetry(
+        () => client.api.get('/invoices', {
           params: {
             start_date: startDate,
             end_date: endDate,
@@ -153,7 +155,8 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
             metadata: true,
             order_field: 'date',
             order_direction: 'DESC'
-          }
+          },
+          timeout: 60000
         }),
         3,
         1000
@@ -196,7 +199,7 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
 
   console.log(`✅ ${invoicesRaw.length} facturas sincronizadas desde Alegra`);
 
-  const invoicesNormalized = invoicesRaw.map((invoice) => alegraService.transformInvoiceForFrontend(invoice));
+  const invoicesNormalized = invoicesRaw.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
 
   // Actualizar/insertar en BD local para mantener tracking de estados
   await Promise.all(invoicesNormalized.map((invoice) => upsertFacturaDesdeAlegra(invoice)));
@@ -287,7 +290,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
     if (!detalle.success) {
       throw new Error('Factura no encontrada en Alegra');
     }
-    const transformada = alegraService.transformInvoiceForFrontend(detalle.data);
+    const transformada = invoiceService.transformInvoiceForFrontend(detalle.data);
     await upsertFacturaDesdeAlegra(transformada);
     facturaLocal = await query('SELECT * FROM facturas WHERE alegra_id = $1 LIMIT 1', [parseInt(alegraId, 10)]);
   }

@@ -3,12 +3,12 @@
  * Lógica de negocio para operaciones de facturación rápida en Alegra
  */
 
-const AlegraService = require('../../../services/alegraService');
+const { getClient } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 
 class FacturacionService {
   constructor() {
-    this.alegraService = new AlegraService();
+    this.client = getClient();
   }
 
   /**
@@ -31,7 +31,7 @@ class FacturacionService {
       // Ejecutar el lote en paralelo
       const promises = pageBatch.map(p => {
         const start = (p - 1) * limit;
-        return this.alegraService.makeRequest('GET', endpoint, {
+        return this.client.request('GET', endpoint, {
           ...additionalParams,
           start,
           limit
@@ -116,7 +116,7 @@ class FacturacionService {
       items: invoiceData.items?.length
     });
 
-    const response = await this.alegraService.makeRequest('POST', '/invoices', invoiceData);
+    const response = await this.client.request('POST', '/invoices', invoiceData);
     console.log('✅ Factura creada exitosamente:', response.id);
 
     // Registrar en BD local
@@ -171,7 +171,7 @@ class FacturacionService {
    */
   async getInvoicePDF(id) {
     console.log(`📄 Obteniendo PDF de factura ${id}...`);
-    return await this.alegraService.makeRequest('GET', `/invoices/${id}/pdf`);
+    return await this.client.request('GET', `/invoices/${id}/pdf`);
   }
 
   /**
@@ -179,7 +179,7 @@ class FacturacionService {
    */
   async getTaxes() {
     console.log('💰 Obteniendo impuestos de Alegra...');
-    const response = await this.alegraService.makeRequest('GET', '/taxes');
+    const response = await this.client.request('GET', '/taxes');
     return {
       success: true,
       data: response

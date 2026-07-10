@@ -290,6 +290,179 @@ class AlegraInvoiceService {
   async updateInvoiceItem(invoiceId, itemId, itemData) {
     return await this.client.put(`/invoices/${invoiceId}/items/${itemId}`, itemData);
   }
+
+  // ── Helpers de transformación (migrados literal del servicio legacy) ──
+  // Son funciones puras (no usan this.client); se mantienen como métodos
+  // de instancia para no romper la forma en que ya se llaman.
+
+  /**
+   * Transformar factura de Alegra al formato esperado por el frontend
+   * Copiado del sistema original proyecto-faltantes
+   */
+  transformInvoiceForFrontend(invoice) {
+    try {
+      const fecha = new Date(invoice.date);
+
+      return {
+      // ID y números
+      alegra_id: parseInt(invoice.id),
+      numero_factura: invoice.numberTemplate?.formattedNumber || invoice.numberTemplate?.number || 'N/A',
+      numero_completo: invoice.numberTemplate?.fullNumber || 'N/A',
+
+      // Cliente
+      cliente_id: parseInt(invoice.client?.id || 0),
+      cliente_nombre: invoice.client?.name || 'Cliente no especificado',
+      cliente_email: invoice.client?.email || null,
+      cliente_identificacion: invoice.client?.identification || null,
+      cliente_telefono: invoice.client?.phonePrimary || null,
+
+      // Fechas
+      fecha_emision: invoice.date,
+      fecha_vencimiento: invoice.dueDate || invoice.date,
+      fecha_hora: invoice.datetime || invoice.date,
+
+      // Montos
+      subtotal: parseFloat(invoice.subtotal || 0),
+      descuento: parseFloat(invoice.discount || 0),
+      impuestos: parseFloat(invoice.tax || 0),
+      total: parseFloat(invoice.total || 0),
+      total_pagado: parseFloat(invoice.totalPaid || 0),
+      saldo: parseFloat(invoice.balance || 0),
+
+      // Estado y condiciones
+      estado: invoice.status || 'unknown',
+      condicion_venta: invoice.saleCondition || null,
+      metodo_pago: invoice.paymentMethod || null,
+      terminos: invoice.term || null,
+
+      // Información adicional
+      observaciones: invoice.observations || null,
+      anotaciones: invoice.anotation || null,
+      terminos_condiciones: invoice.termsConditions || null,
+
+      // Bodega y vendedor
+      bodega: invoice.warehouse?.name || 'Principal',
+      vendedor: invoice.seller?.name || null,
+
+      // Semana, mes, año (calculados)
+      semana: this.calculateWeekOfMonth(invoice.date),
+      mes: fecha.getMonth() + 1,
+      ano: fecha.getFullYear(),
+
+      // Items procesados
+      items: this.processAlegraItems(invoice.items || []),
+
+      // Datos originales para referencia
+      alegra_data: invoice
+      };
+    } catch (error) {
+      console.error('❌ Error en transformInvoiceForFrontend:', error);
+      console.error('❌ Factura problemática:', invoice);
+      throw new Error(`Error transformando factura: ${error.message}`);
+    }
+  }
+
+  /**
+   * Procesar items de factura de Alegra
+   */
+  processAlegraItems(items) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items.map(item => this.normalizeInvoiceItem(item));
+  }
+
+  normalizeInvoiceItem(item = {}) {
+    const { referenceValue, referenceType } = this.normalizeItemReference(item);
+    const quantity = Number(item.quantity) || 0;
+    const price = Number(item.price) || 0;
+    const total = Number(item.total) || Number((quantity * price).toFixed(2));
+    const discount = Number(item.discount) || 0;
+
+    return {
+      alegra_id: item.id,
+      codigo_alegra: item.id?.toString() || null,
+      nombre: item.name || item.description || 'Producto sin nombre',
+      name: item.name || item.description || 'Producto sin nombre',
+      descripcion: item.description || '',
+      description: item.description || '',
+      referencia: referenceValue,
+      reference: referenceValue,
+      referencia_tipo: referenceType,
+      reference_type: referenceType,
+      // ✅ codigo_producto solo usa la referencia real (NO productKey/CABYS)
+      codigo_producto: referenceValue || null,
+      // ⚠️ productKey es CABYS - mantenerlo separado, NO usarlo como identificador
+      productKey: item.productKey || null,
+      cantidad: quantity,
+      quantity,
+      precio_unitario: price,
+      price,
+      descuento: discount,
+      discount,
+      total,
+      unidad: item.unit || item.unitType || 'unit',
+      unit: item.unit || item.unitType || 'unit',
+      unitType: item.unitType || item.unit || 'unit',
+      tipo: item.type || 'product',
+      impuestos: Array.isArray(item.tax) ? item.tax : [],
+      tax: Array.isArray(item.tax) ? item.tax : [],
+    };
+  }
+
+  normalizeItemReference(item = {}) {
+    const coerceString = (value) => {
+      if (value === null || value === undefined) return null;
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (typeof value === 'number' || typeof value === 'bigint') return value.toString();
+      return null;
+    };
+
+    let referenceValue = null;
+    let referenceType = null;
+
+    const rawReference = item.reference;
+
+    if (typeof rawReference === 'string' || typeof rawReference === 'number' || typeof rawReference === 'bigint') {
+      referenceValue = coerceString(rawReference);
+    } else if (rawReference && typeof rawReference === 'object') {
+      referenceValue =
+        coerceString(rawReference.reference) ||
+        coerceString(rawReference.code) ||
+        coerceString(rawReference.value);
+      referenceType = rawReference.type || null;
+    }
+
+    // ❌ NO usar productKey (CABYS) como referencia - es un código general compartido
+    if (!referenceValue) {
+      referenceValue =
+        coerceString(item.code) ||
+        coerceString(item.sku) ||
+        coerceString(item.id);
+    }
+
+    if (!referenceType) {
+      referenceType = item.referenceType || item.reference_type || null;
+    }
+
+    return {
+      referenceValue,
+      referenceType: referenceType || null
+    };
+  }
+
+  /**
+   * Calcular semana del mes
+   */
+  calculateWeekOfMonth(dateString) {
+    const date = new Date(dateString);
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+    const dayOfMonth = date.getDate();
+    const dayOfWeek = firstDay.getDay();
+
+    return Math.ceil((dayOfMonth + dayOfWeek) / 7);
+  }
 }
 
 module.exports = AlegraInvoiceService;

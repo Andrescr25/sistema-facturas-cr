@@ -5,10 +5,12 @@
 
 const axios = require('axios');
 const { getInstance: getAlegraClient } = require('../alegra.client');
+const prisma = require('../../../../lib/prisma');
 
 class AlegraProductService {
   constructor() {
     this.client = getAlegraClient();
+    this.prisma = prisma;
   }
 
   /**
@@ -451,6 +453,64 @@ class AlegraProductService {
         error: error.message
       };
     }
+  }
+
+  /**
+   * Buscar productos similares en el caché local (AlegraProduct) por
+   * palabras clave de la descripción del proveedor, con un score de
+   * similitud simple. Migrado literal del servicio legacy: usado por
+   * emailService para el relacionado inteligente automático de productos
+   * de facturas de proveedor entrantes por IMAP. Nunca lanza (devuelve []).
+   */
+  async findSimilarProducts(description, supplierCode) {
+    try {
+      const keywords = description.toLowerCase()
+        .split(' ')
+        .filter(word => word.length > 2)
+        .slice(0, 5);
+
+      if (keywords.length === 0) return [];
+
+      const products = await this.prisma.alegraProduct.findMany({
+        where: {
+          OR: keywords.map(keyword => ({
+            searchText: {
+              contains: keyword,
+              mode: 'insensitive'
+            }
+          }))
+        },
+        take: 10
+      });
+
+      const productsWithScore = products.map(product => {
+        const score = this.calculateSimilarityScore(description, product);
+        return {
+          ...product,
+          similarityScore: score
+        };
+      })
+        .filter(product => product.similarityScore > 30)
+        .sort((a, b) => b.similarityScore - a.similarityScore);
+
+      return productsWithScore;
+    } catch (error) {
+      console.error('❌ Error buscando similares:', error.message);
+      return [];
+    }
+  }
+
+  calculateSimilarityScore(supplierDesc, alegraProduct) {
+    const supplierWords = supplierDesc.toLowerCase().split(' ').filter(w => w.length > 2);
+    const alegraText = `${alegraProduct.name} ${alegraProduct.reference} ${alegraProduct.description}`.toLowerCase();
+
+    let matches = 0;
+    supplierWords.forEach(word => {
+      if (alegraText.includes(word)) matches++;
+    });
+
+    const score = Math.round((matches / supplierWords.length) * 100);
+    return Math.min(score, 100);
   }
 }
 

@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const AlegraService = require('../services/alegraService');
-const alegraService = new AlegraService();
-const { getProductService } = require('../src/integrations/alegra');
+const { getProductService, getClient } = require('../src/integrations/alegra');
 const productService = getProductService();
+const client = getClient();
 
 const prisma = require('../lib/prisma');
 
@@ -221,7 +220,7 @@ router.post('/duplicate-brand', async (req, res) => {
         console.log(`📋 Duplicando producto ${originalProductId} para marca "${brandName}"...`);
         
         // 1. Obtener detalles del producto original de Alegra
-        const originalProduct = await alegraService.api.get(`/items/${originalProductId}`)
+        const originalProduct = await client.api.get(`/items/${originalProductId}`)
             .then(res => res.data)
             .catch(err => {
                 console.error(`❌ Error obteniendo producto original ${originalProductId} de Alegra:`, err.message);
@@ -263,7 +262,7 @@ router.post('/duplicate-brand', async (req, res) => {
         
         // 3. Crear el nuevo producto en Alegra
         console.log('➕ Creando producto duplicado en Alegra...');
-        const createResponse = await alegraService.api.post('/items', newProductData);
+        const createResponse = await client.api.post('/items', newProductData);
         const newProductAlegra = createResponse.data;
         
         console.log(`✅ Producto creado exitosamente en Alegra con ID: ${newProductAlegra.id}`);
@@ -328,7 +327,7 @@ router.put('/productos/:id', async (req, res) => {
         console.log(`📝 Editando producto ${id} en Alegra...`);
         
         // Cargar producto original de Alegra para obtener la estructura de precios actual
-        const originalProduct = await alegraService.api.get(`/items/${id}`).then(res => res.data);
+        const originalProduct = await client.api.get(`/items/${id}`).then(res => res.data);
         const priceList = originalProduct.price || [];
         const newPriceVal = parseFloat(price);
         const newCostVal = parseFloat(cost) || 0;
@@ -360,7 +359,7 @@ router.put('/productos/:id', async (req, res) => {
         };
         
         // Actualizar en Alegra
-        const updateResponse = await alegraService.api.put(`/items/${id}`, updateData);
+        const updateResponse = await client.api.put(`/items/${id}`, updateData);
         const updatedAlegra = updateResponse.data;
         
         // Actualizar en caché local
@@ -398,7 +397,7 @@ router.delete('/productos/:id', async (req, res) => {
         console.log(`🗑️ Eliminando producto ${id} en Alegra...`);
 
         // 1. Eliminar en Alegra
-        await alegraService.api.delete(`/items/${id}`);
+        await client.api.delete(`/items/${id}`);
 
         // 2. Eliminar en la caché local (Prisma)
         await prisma.alegraProduct.delete({

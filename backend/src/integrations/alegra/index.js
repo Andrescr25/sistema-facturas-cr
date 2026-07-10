@@ -7,12 +7,15 @@ const AlegraInvoiceService = require('./services/alegra-invoice.service');
 const AlegraProductService = require('./services/alegra-product.service');
 const AlegraContactService = require('./services/alegra-contact.service');
 const AlegraInventoryService = require('./services/alegra-inventory.service');
+const AlegraSyncService = require('./services/alegra-sync.service');
+const { getInstance: getAlegraClient } = require('./alegra.client');
 
 // Singleton instances
 let invoiceServiceInstance = null;
 let productServiceInstance = null;
 let contactServiceInstance = null;
 let inventoryServiceInstance = null;
+let syncServiceInstance = null;
 
 module.exports = {
   /**
@@ -53,5 +56,22 @@ module.exports = {
       inventoryServiceInstance = new AlegraInventoryService();
     }
     return inventoryServiceInstance;
-  }
+  },
+
+  /**
+   * Servicio de sincronización del caché local de productos
+   */
+  getSyncService: () => {
+    if (!syncServiceInstance) {
+      syncServiceInstance = new AlegraSyncService();
+    }
+    return syncServiceInstance;
+  },
+
+  /**
+   * Cliente HTTP crudo, para casos de uso genéricos/legacy que necesitan
+   * acceso directo a axios (this.api) o requestWithRetry sin pasar por un
+   * servicio de dominio específico.
+   */
+  getClient: () => getAlegraClient()
 };
