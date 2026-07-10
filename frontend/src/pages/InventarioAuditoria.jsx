@@ -81,6 +81,9 @@ export default function InventarioAuditoria() {
   const [loadingAjuste, setLoadingAjuste] = useState(false);
   const [successAjuste, setSuccessAjuste] = useState(null);
 
+  // Shown while conteos/ajustes se están enviando a Alegra (puede tardar varios segundos por el loteo)
+  const [applyingAdjustments, setApplyingAdjustments] = useState(false);
+
   // Load initial dashboard data
   const loadDashboard = async () => {
     setLoading(true);
@@ -202,6 +205,7 @@ export default function InventarioAuditoria() {
         return;
       }
 
+      setApplyingAdjustments(true);
       const result = await guardarConteos(auditoriaActiva.id, itemsPayload);
       if (result.success) {
         showToast(result.message || 'Conteos guardados y ajustados en Alegra exitosamente.', 'success');
@@ -222,6 +226,7 @@ export default function InventarioAuditoria() {
       showToast(err.response?.data?.message || 'Error al guardar y ajustar el inventario.', 'error');
     } finally {
       setLoading(false);
+      setApplyingAdjustments(false);
     }
   };
 
@@ -267,7 +272,9 @@ export default function InventarioAuditoria() {
         id: Number(id),
         stock_real: val !== '' ? Number(val) : null
       }));
+      setApplyingAdjustments(true);
       await guardarConteos(auditoriaActiva.id, itemsPayload);
+      setApplyingAdjustments(false);
 
       // Finalize
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales);
@@ -288,6 +295,7 @@ export default function InventarioAuditoria() {
       showToast('Error al finalizar la auditoría.', 'error');
     } finally {
       setLoading(false);
+      setApplyingAdjustments(false);
     }
   };
 
@@ -299,6 +307,7 @@ export default function InventarioAuditoria() {
     if (!confirm) return;
 
     setLoadingAjuste(true);
+    setApplyingAdjustments(true);
     setSuccessAjuste(null);
     setError(null);
     try {
@@ -311,6 +320,7 @@ export default function InventarioAuditoria() {
       setError(err.response?.data?.message || 'Error al aplicar ajustes en Alegra. Verifique los logs.');
     } finally {
       setLoadingAjuste(false);
+      setApplyingAdjustments(false);
     }
   };
 
@@ -1233,6 +1243,24 @@ export default function InventarioAuditoria() {
       )}
       </>
       )}
+
+      {/* Overlay: aplicando ajustes de inventario en Alegra (puede tardar varios segundos por el loteo) */}
+      {applyingAdjustments && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75" />
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center border border-gray-150">
+            <RefreshCw className="animate-spin text-emerald-600 mx-auto" size={32} />
+            <div>
+              <p className="font-bold text-gray-900">Aplicando ajustes de inventario en Alegra</p>
+              <p className="text-xs text-gray-500 mt-1">Esto puede tardar varios segundos. No cierres esta ventana.</p>
+            </div>
+            <div className="w-full h-2 bg-emerald-100 rounded-full overflow-hidden relative">
+              <div className="absolute h-full w-2/5 bg-emerald-600 rounded-full animate-indeterminate-bar" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );

@@ -225,7 +225,6 @@ router.use('/faltantes', missingItemsRoutes);
 // 7. MODULO DE ORDENES DE COMPRA Y WHATSAPP (/orden-compra)
 // ========================================
 router.use('/orden-compra', ordersWhatsappRoutes);
-router.use('/proveedor-contacto', ordersWhatsappRoutes);
 
 // ========================================
 // 9. MODULO DE FACTURACIÓN RÁPIDA (/facturacion)

@@ -453,7 +453,7 @@ class InvoiceService {
           if (!itemId && item.item) {
             itemId = item.item.id;
           }
-          
+
           return {
             id: itemId ? Number(itemId) : undefined,
             reference: item.reference || item.item?.reference || '',
@@ -795,9 +795,9 @@ class InvoiceService {
             WHERE facturas_reimpresion.factura_id = fa.id
             AND fa.alegra_id = $1
           `, [
-            alegra_id, 
-            JSON.stringify(ajustes), 
-            marcar_como_procesada ? 'procesada' : 'pendiente', 
+            alegra_id,
+            JSON.stringify(ajustes),
+            marcar_como_procesada ? 'procesada' : 'pendiente',
             marcar_como_procesada ? new Date() : null
           ]);
         } else {
@@ -805,9 +805,9 @@ class InvoiceService {
             INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion, fecha_procesamiento)
             VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
           `, [
-            facturaLocalId, 
-            JSON.stringify(ajustes), 
-            marcar_como_procesada ? 'procesada' : 'pendiente', 
+            facturaLocalId,
+            JSON.stringify(ajustes),
+            marcar_como_procesada ? 'procesada' : 'pendiente',
             marcar_como_procesada ? new Date() : null
           ]);
         }
@@ -866,7 +866,7 @@ class InvoiceService {
 
       return {
         success: true,
-        message: marcar_como_procesada 
+        message: marcar_como_procesada
           ? `Factura ${numero_factura} procesada y actualizada en Alegra correctamente`
           : `Factura ${numero_factura} agregada a la cola de reimpresión`,
         data: {
@@ -1160,7 +1160,7 @@ class InvoiceService {
   async getInvoices(filters = {}) {
     try {
       const { semana, mes, ano, procesada, cliente } = filters;
-      
+
       let sql = `
         SELECT f.*, 
                COUNT(fi.id) as total_items,
@@ -1169,47 +1169,47 @@ class InvoiceService {
         LEFT JOIN factura_items fi ON f.id = fi.factura_id
         LEFT JOIN faltantes fa ON f.id = fa.factura_id
       `;
-      
+
       const conditions = [];
       const params = [];
       let paramIndex = 1;
-      
+
       if (semana) {
         conditions.push(`f.semana = $${paramIndex++}`);
         params.push(semana);
       }
-      
+
       if (mes) {
         conditions.push(`f.mes = $${paramIndex++}`);
         params.push(mes);
       }
-      
+
       if (ano) {
         conditions.push(`f.ano = $${paramIndex++}`);
         params.push(ano);
       }
-      
+
       if (procesada !== undefined) {
         conditions.push(`f.procesada = $${paramIndex++}`);
         params.push(procesada === 'true');
       }
-      
+
       if (cliente) {
         conditions.push(`f.cliente_nombre ILIKE $${paramIndex++}`);
         params.push(`%${cliente}%`);
       }
-      
+
       if (conditions.length > 0) {
         sql += ' WHERE ' + conditions.join(' AND ');
       }
-      
+
       sql += `
         GROUP BY f.id
         ORDER BY f.fecha_emision DESC, f.numero_factura DESC
       `;
-      
+
       const result = await query(sql, params);
-      
+
       return {
         success: true,
         data: result.rows,
@@ -1231,25 +1231,25 @@ class InvoiceService {
     try {
       // 1. Intentar obtener la factura de Alegra
       const alegraResult = await this.alegraInvoiceService.getInvoiceById(id);
-      
+
       if (alegraResult.success) {
         const facturaAlegra = alegraResult.data;
-        
+
         // Buscar datos locales complementarios usando alegra_id
         const alegraIdInt = parseInt(id, 10);
         const localResult = await query(
           'SELECT * FROM facturas WHERE alegra_id = $1 ORDER BY id DESC LIMIT 1',
           [alegraIdInt]
         );
-        
+
         let localData = null;
         let localItems = [];
         let localFaltantes = [];
-        
+
         if (localResult.rows.length > 0) {
           const localId = localResult.rows[0].id;
           localData = localResult.rows[0];
-          
+
           // Obtener items locales
           const itemsResult = await query(`
             SELECT fi.*, p.nombre as producto_nombre, p.codigo as producto_codigo
@@ -1259,7 +1259,7 @@ class InvoiceService {
             ORDER BY fi.id
           `, [localId]);
           localItems = itemsResult.rows;
-          
+
           // Obtener faltantes
           const faltantesResult = await query(`
             SELECT fa.*, p.nombre as producto_nombre, p.codigo as producto_codigo
@@ -1270,7 +1270,7 @@ class InvoiceService {
           `, [localId]);
           localFaltantes = faltantesResult.rows;
         }
-        
+
         // Devolver la factura de Alegra con los datos locales adjuntos
         return {
           success: true,
@@ -1282,18 +1282,18 @@ class InvoiceService {
           }
         };
       }
-      
+
       // 2. Fallback: buscar en la base de datos local si no se encontró en Alegra (ej: facturas offline locales)
       const localIdInt = parseInt(id, 10);
       const facturaLocal = await query(
         'SELECT * FROM facturas WHERE id = $1 OR alegra_id = $2',
         [isNaN(localIdInt) ? -1 : localIdInt, isNaN(localIdInt) ? -1 : localIdInt]
       );
-      
+
       if (facturaLocal.rows.length > 0) {
         const localId = facturaLocal.rows[0].id;
         const factura = facturaLocal.rows[0];
-        
+
         const itemsResult = await query(`
           SELECT fi.*, p.nombre as producto_nombre, p.codigo as producto_codigo,
                  pr.nombre as proveedor_nombre
@@ -1303,7 +1303,7 @@ class InvoiceService {
           WHERE fi.factura_id = $1
           ORDER BY fi.id
         `, [localId]);
-        
+
         const faltantesResult = await query(`
           SELECT fa.*, p.nombre as producto_nombre, p.codigo as producto_codigo
           FROM faltantes fa
@@ -1311,7 +1311,7 @@ class InvoiceService {
           WHERE fa.factura_id = $1
           ORDER BY fa.created_at DESC
         `, [localId]);
-        
+
         // Convertir estructura local a estructura básica de Alegra para compatibilidad del frontend
         return {
           success: true,
@@ -1341,13 +1341,13 @@ class InvoiceService {
           }
         };
       }
-      
+
       return {
         success: false,
         statusCode: 404,
         message: 'Factura no encontrada en Alegra ni en base de datos local'
       };
-      
+
     } catch (error) {
       console.error('❌ Error obteniendo factura con relaciones:', error);
       return {
@@ -1371,9 +1371,9 @@ class InvoiceService {
         total,
         items
       } = invoiceData;
-      
+
       const fecha = new Date(fecha_emision);
-      
+
       // Función helper para calcular semana del mes
       const calculateWeekOfMonth = (date) => {
         const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -1381,20 +1381,20 @@ class InvoiceService {
         const dayOfWeek = firstDay.getDay();
         return Math.ceil((dayOfMonth + dayOfWeek) / 7);
       };
-      
+
       const semana = calculateWeekOfMonth(fecha);
       const mes = fecha.getMonth() + 1;
       const ano = fecha.getFullYear();
-      
+
       const facturaResult = await query(`
         INSERT INTO facturas (numero_factura, alegra_id, cliente_nombre, cliente_email, 
                              fecha_emision, semana, mes, ano, total)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `, [numero_factura, alegra_id, cliente_nombre, cliente_email, fecha_emision, semana, mes, ano, total]);
-      
+
       const facturaId = facturaResult.rows[0].id;
-      
+
       if (items && items.length > 0) {
         for (const item of items) {
           await query(`
@@ -1411,7 +1411,7 @@ class InvoiceService {
           ]);
         }
       }
-      
+
       return {
         success: true,
         data: facturaResult.rows[0]
@@ -1432,14 +1432,14 @@ class InvoiceService {
   async updateInvoiceLocal(id, data) {
     try {
       const { procesada } = data;
-      
+
       const result = await query(`
         UPDATE facturas 
         SET procesada = COALESCE($1, procesada)
         WHERE id = $2
         RETURNING *
       `, [procesada, id]);
-      
+
       if (result.rows.length === 0) {
         return {
           success: false,
@@ -1447,7 +1447,7 @@ class InvoiceService {
           message: 'Factura no encontrada'
         };
       }
-      
+
       return {
         success: true,
         data: result.rows[0]
@@ -1472,7 +1472,7 @@ class InvoiceService {
         WHERE id = $1
         RETURNING *
       `, [id]);
-      
+
       if (result.rows.length === 0) {
         return {
           success: false,
@@ -1480,7 +1480,7 @@ class InvoiceService {
           message: 'Factura no encontrada'
         };
       }
-      
+
       return {
         success: true,
         data: result.rows[0]
@@ -1513,7 +1513,7 @@ class InvoiceService {
         ORDER BY f.fecha_emision DESC
         LIMIT 50
       `, [`%${termino}%`]);
-      
+
       return {
         success: true,
         data: result.rows

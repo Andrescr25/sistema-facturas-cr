@@ -4,6 +4,75 @@ const { query } = require('../config/database');
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
 
+// Máximo de ítems permitidos por solicitud a la API de Alegra (POST /inventory-adjustments).
+// Alegra no documenta este límite, pero en producción se confirmó que enviar ~390 ítems en un solo
+// llamado devuelve HTTP 400 (code 14009, "El campo 'items' debe ser un arreglo no vacío"), un mensaje
+// engañoso que en realidad indica que se excedió un límite de tamaño no documentado.
+const ALEGRA_ADJUSTMENT_BATCH_SIZE = 100;
+
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+/**
+ * Envía a Alegra los ajustes de inventario de `items` (filas de inventario_auditoria_items con
+ * id, alegra_id, stock_sistema, stock_real, costo_unitario) en lotes secuenciales de tamaño
+ * ALEGRA_ADJUSTMENT_BATCH_SIZE. Tras confirmar éxito de un lote, marca ESE lote como ajustado en
+ * la base de datos antes de continuar: si un lote posterior falla, el progreso de los lotes
+ * anteriores ya quedó persistido y un reintento sólo reprocesará lo que sigue en FALSE.
+ * Nunca lanza: un error de Alegra en un lote se devuelve en el resultado para que cada endpoint
+ * decida cómo formatear su propia respuesta.
+ */
+async function applyBatchedAdjustments(items, baseObservations) {
+  const batches = chunkArray(items, ALEGRA_ADJUSTMENT_BATCH_SIZE);
+  const today = new Date().toISOString().split('T')[0];
+  const adjustmentIds = [];
+  let itemsAdjusted = 0;
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const adjustmentItems = batch.map(item => {
+      const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
+      return {
+        id: String(item.alegra_id),
+        type: qtyDiff > 0 ? 'in' : 'out',
+        unitCost: Number(item.costo_unitario || 0),
+        quantity: Math.abs(qtyDiff)
+      };
+    });
+
+    const payload = {
+      date: today,
+      observations: batches.length > 1 ? `${baseObservations} - Lote ${i + 1}/${batches.length}` : baseObservations,
+      items: adjustmentItems
+    };
+
+    let responseData;
+    try {
+      console.log(`Enviando lote ${i + 1}/${batches.length} de ajuste de inventario a Alegra (${adjustmentItems.length} ítems)...`);
+      responseData = await alegraService.createInventoryAdjustment(payload);
+    } catch (error) {
+      const errorDetail = error.response?.data || error.message;
+      console.error(`Error enviando lote ${i + 1}/${batches.length} de ajuste de inventario a Alegra:`, errorDetail);
+      return { ok: false, itemsAdjusted, totalBatches: batches.length, totalItems: items.length, batchesCompleted: i, errorDetail };
+    }
+
+    // Marcar SOLO los ítems de este lote como ajustados de inmediato.
+    await query(`
+      UPDATE inventario_auditoria_items
+      SET ajustado_alegra = TRUE
+      WHERE id = ANY($1::int[]);
+    `, [batch.map(item => item.id)]);
+
+    adjustmentIds.push(responseData.id);
+    itemsAdjusted += batch.length;
+  }
+
+  return { ok: true, itemsAdjusted, totalBatches: batches.length, totalItems: items.length, adjustmentIds };
+}
+
 // Inicializar tablas de auditoría de inventario
 async function inicializarTablas() {
   try {
@@ -243,7 +312,7 @@ router.put('/:id/items', async (req, res) => {
 
     // 3. Obtener los ítems para ver cuáles necesitan ajuste (con conteo, con diferencia y no ajustados previamente)
     const itemsRes = await query(`
-      SELECT id, alegra_id, stock_sistema, stock_real, ajustado_alegra
+      SELECT id, alegra_id, stock_sistema, stock_real, ajustado_alegra, costo_unitario
       FROM inventario_auditoria_items
       WHERE auditoria_id = $1 AND stock_real IS NOT NULL AND ajustado_alegra = FALSE;
     `, [id]);
@@ -251,55 +320,52 @@ router.put('/:id/items', async (req, res) => {
     const itemsAJustar = itemsRes.rows.filter(
       item => Number(item.stock_real) !== Number(item.stock_sistema)
     );
+    const itemsSinDiferencia = itemsRes.rows.filter(
+      item => Number(item.stock_real) === Number(item.stock_sistema)
+    );
 
     let message = 'Conteos guardados exitosamente.';
 
-    if (itemsAJustar.length > 0) {
-      const today = new Date().toISOString().split('T')[0];
-      const adjustmentItems = itemsAJustar.map(item => {
-        const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
-        return {
-          id: String(item.alegra_id),
-          type: qtyDiff > 0 ? 'in' : 'out',
-          unitCost: Number(item.costo_unitario || 0),
-          quantity: Math.abs(qtyDiff)
-        };
-      });
-
-      const payload = {
-        date: today,
-        observations: `Ajuste incremental automático desde Módulo de Auditoría (ID: ${id} - ${auditNombre})`,
-        items: adjustmentItems
-      };
-
-      console.log(`Enviando ajuste de inventario incremental a Alegra para ${adjustmentItems.length} ítems...`);
-      const responseData = await alegraService.createInventoryAdjustment(payload);
-
-      // Marcar los ítems procesados como ajustados
-      const idsAjustados = itemsRes.rows.map(item => item.id);
+    // Los que no tienen diferencia no requieren llamada a Alegra: marcar de una vez.
+    if (itemsSinDiferencia.length > 0) {
       await query(`
         UPDATE inventario_auditoria_items
         SET ajustado_alegra = TRUE
         WHERE id = ANY($1::int[]);
-      `, [idsAjustados]);
+      `, [itemsSinDiferencia.map(item => item.id)]);
+    }
 
-      message = `Conteos guardados y ajuste de inventario aplicado con éxito en Alegra.`;
-    } else {
-      // Si no hay diferencias pero tienen conteo real, también los marcamos como ajustados (su diferencia fue 0)
-      const idsSinDiferencia = itemsRes.rows.map(item => item.id);
-      if (idsSinDiferencia.length > 0) {
-        await query(`
-          UPDATE inventario_auditoria_items
-          SET ajustado_alegra = TRUE
-          WHERE id = ANY($1::int[]);
-        `, [idsSinDiferencia]);
+    if (itemsAJustar.length > 0) {
+      const result = await applyBatchedAdjustments(
+        itemsAJustar,
+        `Ajuste incremental automático desde Módulo de Auditoría (ID: ${id} - ${auditNombre})`
+      );
+
+      if (!result.ok) {
+        // Progreso parcial ya persistido por applyBatchedAdjustments: los lotes previos ya están
+        // marcados ajustado_alegra = TRUE, así que volver a guardar sólo reintenta lo pendiente.
+        return res.status(500).json({
+          success: false,
+          message: result.itemsAdjusted > 0
+            ? `Conteos guardados. Se aplicó el ajuste en Alegra para ${result.itemsAdjusted} de ${result.totalItems} ítems (lote ${result.batchesCompleted} de ${result.totalBatches}) antes de un error. Guarda de nuevo para reintentar los restantes.`
+            : 'Los conteos se guardaron, pero no se pudo aplicar el ajuste de inventario en Alegra. Guarda de nuevo para reintentarlo.',
+          error: result.errorDetail
+        });
       }
+
+      message = result.totalBatches > 1
+        ? `Conteos guardados y ajuste de inventario aplicado con éxito en Alegra (${result.itemsAdjusted} ítems en ${result.totalBatches} lotes).`
+        : 'Conteos guardados y ajuste de inventario aplicado con éxito en Alegra.';
     }
 
     res.json({ success: true, message });
   } catch (error) {
     console.error('Error actualizando conteos:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'No se pudieron guardar los conteos.',
+      error: error.response?.data || error.message
+    });
   }
 });
 
@@ -369,46 +435,61 @@ router.post('/:id/ajustar-alegra', async (req, res) => {
     }
     const audit = auditRes.rows[0];
 
+    // Igual que en PUT /:id/items: sólo ítems con conteo real y aún NO ajustados en Alegra. Evita
+    // reenviar el mismo ajuste si este botón se presiona más de una vez, o si ya se aplicó vía
+    // el guardado incremental automático.
     const itemsRes = await query(`
-      SELECT id, alegra_id, stock_sistema, stock_real 
-      FROM inventario_auditoria_items 
-      WHERE auditoria_id = $1 AND stock_real IS NOT NULL;
+      SELECT id, alegra_id, stock_sistema, stock_real, costo_unitario
+      FROM inventario_auditoria_items
+      WHERE auditoria_id = $1 AND stock_real IS NOT NULL AND ajustado_alegra = FALSE;
     `, [id]);
 
     const itemsConDiferencia = itemsRes.rows.filter(
       item => Number(item.stock_real) !== Number(item.stock_sistema)
     );
+    const itemsSinDiferencia = itemsRes.rows.filter(
+      item => Number(item.stock_real) === Number(item.stock_sistema)
+    );
 
-    if (itemsConDiferencia.length === 0) {
-      return res.json({ success: true, message: 'No hay diferencias de stock para ajustar.' });
+    // Ítems contados sin diferencia real: no requieren ajuste en Alegra, se marcan de una vez.
+    if (itemsSinDiferencia.length > 0) {
+      await query(`
+        UPDATE inventario_auditoria_items
+        SET ajustado_alegra = TRUE
+        WHERE id = ANY($1::int[]);
+      `, [itemsSinDiferencia.map(item => item.id)]);
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    if (itemsConDiferencia.length === 0) {
+      return res.json({
+        success: true,
+        message: itemsRes.rows.length > 0
+          ? 'No hay diferencias de stock para ajustar. Los ítems contados ya estaban conciliados.'
+          : 'No hay diferencias de stock pendientes de ajustar.'
+      });
+    }
 
-    const adjustmentItems = itemsConDiferencia.map(item => {
-      // Diferencia = Real - Sistema
-      const qtyDiff = Number(item.stock_real) - Number(item.stock_sistema);
-      return {
-        id: String(item.alegra_id),
-        type: qtyDiff > 0 ? 'in' : 'out',
-        unitCost: Number(item.costo_unitario || 0),
-        quantity: Math.abs(qtyDiff)
-      };
-    });
+    const result = await applyBatchedAdjustments(
+      itemsConDiferencia,
+      `Ajuste automático generado desde Módulo de Auditoría de Inventario (Auditoría ID: ${id} - ${audit.nombre})`
+    );
 
-    const payload = {
-      date: today,
-      observations: `Ajuste automático generado desde Módulo de Auditoría de Inventario (Auditoría ID: ${id} - ${audit.nombre})`,
-      items: adjustmentItems
-    };
-
-    console.log(`📤 Enviando ajuste de inventario a Alegra para ${adjustmentItems.length} ítems...`);
-    const responseData = await alegraService.createInventoryAdjustment(payload);
+    if (!result.ok) {
+      return res.status(500).json({
+        success: false,
+        message: result.itemsAdjusted > 0
+          ? `Se aplicó el ajuste en Alegra para ${result.itemsAdjusted} de ${result.totalItems} ítems (lote ${result.batchesCompleted} de ${result.totalBatches}) antes de un error. Presiona "Aplicar Ajuste en Alegra" nuevamente para reintentar los restantes.`
+          : 'No se pudo aplicar el ajuste en Alegra. Verifique los detalles de error.',
+        error: result.errorDetail
+      });
+    }
 
     res.json({
       success: true,
-      message: `Se aplicó con éxito el ajuste de inventario en Alegra con ID ${responseData.id}`,
-      data: responseData
+      message: result.totalBatches > 1
+        ? `Se aplicó con éxito el ajuste de inventario en Alegra (${result.itemsAdjusted} ítems en ${result.totalBatches} lotes, IDs: ${result.adjustmentIds.join(', ')}).`
+        : `Se aplicó con éxito el ajuste de inventario en Alegra con ID ${result.adjustmentIds[0]}`,
+      data: { adjustmentIds: result.adjustmentIds, totalBatches: result.totalBatches, itemsAdjusted: result.itemsAdjusted }
     });
   } catch (error) {
     console.error('Error aplicando ajuste en Alegra:', error);

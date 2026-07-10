@@ -25,7 +25,13 @@
       "Bash(node find-repuesto.js:*)",
       "Bash(node check-mapping.js:*)",
       "Bash(node:*)",
-      "Bash(xargs kill)"
+      "Bash(xargs kill)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(PORT=3001 npm run dev)",
+      "Bash(disown)",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(nohup npm run dev)"
     ],
     "deny": [],
     "ask": []

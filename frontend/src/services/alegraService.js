@@ -661,7 +661,7 @@ export const alegraService = {
   // Obtener teléfono guardado de un proveedor
   async getTelefonoProveedor(nombreProveedor) {
     try {
-      const response = await api.get(`/alegra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
+      const response = await api.get(`/alegra/orden-compra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
       return response.data.telefono || null
     } catch (error) {
       console.error('❌ Error obteniendo teléfono proveedor:', error)
@@ -672,7 +672,7 @@ export const alegraService = {
   // Guardar teléfono de un proveedor
   async guardarTelefonoProveedor(nombreProveedor, telefono, cedulaProveedor = null) {
     try {
-      const response = await api.put('/alegra/proveedor-contacto', {
+      const response = await api.put('/alegra/orden-compra/proveedor-contacto', {
         nombreProveedor,
         cedulaProveedor,
         telefono

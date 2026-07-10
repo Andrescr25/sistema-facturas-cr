@@ -12,7 +12,8 @@ import {
   FileText, 
   ChevronLeft, 
   ChevronRight, 
-  Loader2 
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import api from '../services/api';
 import Toast from '../components/Toast';
@@ -59,6 +60,10 @@ export default function GestionCatalogo() {
   const [editPrice, setEditPrice] = useState(0);
   const [editCost, setEditCost] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete product states
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState(false);
 
   // Toast / Messages state
   const [toast, setToast] = useState(null);
@@ -326,6 +331,35 @@ export default function GestionCatalogo() {
     }
   };
 
+  const handleDeleteProduct = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeletingProduct(true);
+    try {
+      const response = await api.delete(`/alegra/catalog/productos/${selectedProduct.alegraId}`);
+      if (response.data?.success) {
+        const message = response.data.hidden
+          ? `"${selectedProduct.name}" tiene facturas asociadas en Alegra y no se puede eliminar, se ocultó del catálogo`
+          : `Producto "${selectedProduct.name}" eliminado correctamente`;
+        showToast(response.data.hidden ? 'info' : 'success', message);
+        setProductos(prev => prev.filter(p => p.alegraId !== selectedProduct.alegraId));
+        setTotalProductos(prev => prev - 1);
+        setConfirmDelete(false);
+        setIsEditModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      const hint = error.response?.data?.hint;
+      const msg = error.response?.data?.error;
+      showToast('error', hint || msg || 'No se pudo eliminar el producto');
+      setConfirmDelete(false);
+    } finally {
+      setDeletingProduct(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -585,7 +619,13 @@ export default function GestionCatalogo() {
                         alt="Suggestion"
                         className="object-contain h-full w-full max-h-[120px] p-1"
                         loading="lazy"
-                        onError={(e) => { e.target.src = 'https://placehold.co/150?text=Error+Carga'; }}
+                        onError={(e) => {
+                          if (e.target.src !== img.url) {
+                            e.target.src = img.url;
+                          } else {
+                            e.target.src = 'https://placehold.co/150?text=Error+Carga';
+                          }
+                        }}
                       />
                       
                       {/* Hover status select */}
@@ -773,7 +813,13 @@ export default function GestionCatalogo() {
                             src={img.thumbnail} 
                             alt="Brand suggestion" 
                             className="object-contain max-h-[50px]"
-                            onError={(e) => { e.target.src = 'https://placehold.co/100?text=Error'; }}
+                            onError={(e) => {
+                              if (e.target.src !== img.url) {
+                                e.target.src = img.url;
+                              } else {
+                                e.target.src = 'https://placehold.co/100?text=Error';
+                              }
+                            }}
                           />
                           {brandImageUrl === img.url && (
                             <div className="absolute top-1 right-1 bg-indigo-600 text-white rounded-full p-0.5">
@@ -829,7 +875,7 @@ export default function GestionCatalogo() {
                 <Edit className="h-5 w-5 text-blue-500" /> Editar Producto
               </h3>
               <button 
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={() => { setConfirmDelete(false); setIsEditModalOpen(false); }}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -886,10 +932,31 @@ export default function GestionCatalogo() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3 mt-6">
+              <div className="pt-4 border-t border-gray-100 flex justify-between items-center gap-3 mt-6">
+                {/* Delete button (left side) */}
                 <button
                   type="button"
-                  onClick={() => setIsEditModalOpen(false)}
+                  onClick={handleDeleteProduct}
+                  disabled={deletingProduct || savingEdit}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-all duration-200 disabled:opacity-50 ${
+                    confirmDelete
+                      ? 'bg-red-600 text-white hover:bg-red-700 shadow-md'
+                      : 'border border-red-200 text-red-500 hover:bg-red-50'
+                  }`}
+                >
+                  {deletingProduct ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {confirmDelete ? '¿Confirmar?' : 'Eliminar'}
+                </button>
+
+                {/* Right side actions */}
+                <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setConfirmDelete(false); setIsEditModalOpen(false); }}
                   className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 font-semibold hover:bg-gray-100 transition-colors"
                 >
                   Cancelar
@@ -911,6 +978,7 @@ export default function GestionCatalogo() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
             </form>
           </div>

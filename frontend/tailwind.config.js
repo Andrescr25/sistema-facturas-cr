@@ -35,6 +35,16 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      keyframes: {
+        'indeterminate-bar': {
+          '0%': { left: '-40%' },
+          '60%': { left: '100%' },
+          '100%': { left: '100%' },
+        },
+      },
+      animation: {
+        'indeterminate-bar': 'indeterminate-bar 1.4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
