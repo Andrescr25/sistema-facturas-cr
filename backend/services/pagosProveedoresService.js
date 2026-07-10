@@ -1,13 +1,9 @@
-const { PrismaClient, EstadoCuentaPorPagar } = require('@prisma/client');
+const { EstadoCuentaPorPagar } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 
 class PagosProveedoresService {
   constructor() {
-    if (global.prismaInstance) {
-      this.prisma = global.prismaInstance;
-    } else {
-      this.prisma = new PrismaClient();
-      global.prismaInstance = this.prisma;
-    }
+    this.prisma = prisma;
   }
 
   async marcarVencidas() {

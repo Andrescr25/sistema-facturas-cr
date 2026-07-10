@@ -4,8 +4,7 @@ const axios = require('axios');
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
 
-// Helper to get Prisma client
-const prisma = global.prismaInstance;
+const prisma = require('../lib/prisma');
 
 /**
  * GET /api/alegra/catalog/productos
@@ -23,7 +22,8 @@ router.get('/productos', async (req, res) => {
         
         // Construir filtros de Prisma
         const whereClause = {
-            status: 'active'
+            status: 'active',
+            hiddenLocally: false
         };
         
         if (search.trim()) {
@@ -96,49 +96,69 @@ router.get('/search-images', async (req, res) => {
         const html = response.data;
         const images = [];
         
-        // Bing usa: mediaurl=https%3a%2f%2f... y cdnurl=https%3a%2f%2f...
-        const mediaUrlRegex = /mediaurl=([^&"'\s>]+)/g;
-        const cdnUrlRegex = /cdnurl=([^&"'\s>]+)/g;
-        
-        const originalUrls = [];
-        const thumbUrls = [];
-        
+        // Intentar extraer metadatos JSON del atributo m de la clase iusc de Bing (Método moderno)
+        const mRegex = /m=\"(\{[^\"]+\})\"/g;
         let match;
-        while ((match = mediaUrlRegex.exec(html)) !== null && originalUrls.length < 40) {
+        
+        while ((match = mRegex.exec(html)) !== null && images.length < 40) {
             try {
-                const decoded = decodeURIComponent(match[1]);
-                if (!originalUrls.includes(decoded) && decoded.startsWith('http')) {
-                    originalUrls.push(decoded);
+                const cleanJson = match[1]
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&amp;/g, '&');
+                
+                const m = JSON.parse(cleanJson);
+                if (m.murl && m.turl) {
+                    images.push({
+                        url: m.murl,
+                        thumbnail: m.turl
+                    });
                 }
             } catch (e) { /* ignore */ }
         }
         
-        while ((match = cdnUrlRegex.exec(html)) !== null && thumbUrls.length < 40) {
-            try {
-                const decoded = decodeURIComponent(match[1]);
-                if (!thumbUrls.includes(decoded) && decoded.startsWith('http')) {
-                    thumbUrls.push(decoded);
-                }
-            } catch (e) { /* ignore */ }
-        }
-        
-        // Emparejar URLs originales con miniaturas
-        const limitCount = Math.min(originalUrls.length, thumbUrls.length);
-        for (let i = 0; i < limitCount; i++) {
-            images.push({
-                url: originalUrls[i],
-                thumbnail: thumbUrls[i]
-            });
-        }
-        
-        // En caso de que no encontremos miniaturas, usar url original como miniatura
-        if (images.length === 0 && originalUrls.length > 0) {
-            originalUrls.forEach(url => {
+        // Fallback: Si no se encontró ninguna imagen con el método moderno, usar el método regex tradicional
+        if (images.length === 0) {
+            const mediaUrlRegex = /mediaurl=([^&"'\s>]+)/g;
+            const cdnUrlRegex = /cdnurl=([^&"'\s>]+)/g;
+            const originalUrls = [];
+            const thumbUrls = [];
+            
+            let matchFallback;
+            while ((matchFallback = mediaUrlRegex.exec(html)) !== null && originalUrls.length < 40) {
+                try {
+                    const decoded = decodeURIComponent(matchFallback[1]);
+                    if (!originalUrls.includes(decoded) && decoded.startsWith('http')) {
+                        originalUrls.push(decoded);
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            
+            while ((matchFallback = cdnUrlRegex.exec(html)) !== null && thumbUrls.length < 40) {
+                try {
+                    const decoded = decodeURIComponent(matchFallback[1]);
+                    if (!thumbUrls.includes(decoded) && decoded.startsWith('http')) {
+                        thumbUrls.push(decoded);
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            
+            const limitCount = Math.min(originalUrls.length, thumbUrls.length);
+            for (let i = 0; i < limitCount; i++) {
                 images.push({
-                    url: url,
-                    thumbnail: url
+                    url: originalUrls[i],
+                    thumbnail: thumbUrls[i]
                 });
-            });
+            }
+            
+            if (images.length === 0 && originalUrls.length > 0) {
+                originalUrls.forEach(url => {
+                    images.push({
+                        url: url,
+                        thumbnail: url
+                    });
+                });
+            }
         }
         
         console.log(`✅ Búsqueda finalizada: se encontraron ${images.length} imágenes para "${queryStr}"`);
@@ -321,9 +341,16 @@ router.put('/productos/:id', async (req, res) => {
             newPriceArray.push({ price: newPriceVal.toString(), main: true });
         }
         
+        // Alegra espera que la referencia sea un objeto en solicitudes PUT
+        const originalRefType = originalProduct.reference?.type || 'CODE_OF_INTERNAL_USE';
+        const referenceObject = {
+            type: originalRefType,
+            reference: reference.trim()
+        };
+
         const updateData = {
             name: name.trim(),
-            reference: reference.trim(),
+            reference: referenceObject,
             price: newPriceArray,
             inventory: {
                 unitCost: newCostVal.toString()
@@ -339,10 +366,10 @@ router.put('/productos/:id', async (req, res) => {
             where: { alegraId: String(id) },
             data: {
                 name: updatedAlegra.name,
-                reference: updatedAlegra.reference || '',
+                reference: updatedAlegra.reference?.reference || updatedAlegra.reference || '',
                 price: newPriceVal,
                 cost: newCostVal,
-                searchText: `${updatedAlegra.name} ${updatedAlegra.reference || ''} ${updatedAlegra.description || ''}`.toLowerCase(),
+                searchText: `${updatedAlegra.name} ${updatedAlegra.reference?.reference || updatedAlegra.reference || ''} ${updatedAlegra.description || ''}`.toLowerCase(),
                 updatedAt: new Date()
             }
         });
@@ -355,6 +382,58 @@ router.put('/productos/:id', async (req, res) => {
     } catch (error) {
         console.error(`❌ Error en PUT /catalog/productos/${req.params.id}:`, error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/alegra/catalog/productos/:id
+ * Eliminar un producto en Alegra y en la caché local
+ */
+router.delete('/productos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        console.log(`🗑️ Eliminando producto ${id} en Alegra...`);
+
+        // 1. Eliminar en Alegra
+        await alegraService.api.delete(`/items/${id}`);
+
+        // 2. Eliminar en la caché local (Prisma)
+        await prisma.alegraProduct.delete({
+            where: { alegraId: String(id) }
+        });
+
+        console.log(`✅ Producto ${id} eliminado correctamente`);
+        res.json({ success: true, hidden: false, message: 'Producto eliminado exitosamente' });
+    } catch (error) {
+        const id = req.params.id;
+        const alegraCode = error.response?.data?.code;
+        const alegraMsg = error.response?.data?.message;
+
+        // Alegra no permite eliminar ítems con documentos asociados (code 1015).
+        // En ese caso lo ocultamos localmente en vez de fallar.
+        if (alegraCode === 1015) {
+            console.warn(`⚠️ Producto ${id} tiene documentos asociados en Alegra, ocultando localmente en vez de eliminar`);
+            await prisma.alegraProduct.update({
+                where: { alegraId: String(id) },
+                data: { hiddenLocally: true }
+            });
+            return res.json({
+                success: true,
+                hidden: true,
+                message: 'El producto tiene facturas asociadas en Alegra y no puede eliminarse, así que se ocultó del catálogo local'
+            });
+        }
+
+        console.error(`❌ Error en DELETE /catalog/productos/${req.params.id}:`, error.message);
+        const status = error.response?.status || 500;
+        res.status(status).json({
+            success: false,
+            error: alegraMsg || error.message,
+            hint: alegraMsg
+                ? 'El producto puede tener facturas o movimientos asociados en Alegra y no puede eliminarse'
+                : undefined
+        });
     }
 });
 

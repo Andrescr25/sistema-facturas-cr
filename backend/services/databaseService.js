@@ -1,14 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 
 class DatabaseService {
     constructor() {
-        // Usar singleton de Prisma si existe
-        if (global.prismaInstance) {
-            this.prisma = global.prismaInstance;
-        } else {
-            this.prisma = new PrismaClient();
-            global.prismaInstance = this.prisma;
-        }
+        this.prisma = prisma;
     }
 
     /**
@@ -492,14 +486,10 @@ class DatabaseService {
     }
 
     /**
-     * Cierra la conexión con la base de datos
+     * El cliente Prisma es compartido (lib/prisma.js) y se desconecta solo
+     * al cerrar el proceso, así que aquí no hay nada que cerrar.
      */
-    async disconnect() {
-        // No desconectar si se está usando el singleton global
-        if (!global.prismaInstance) {
-            await this.prisma.$disconnect();
-        }
-    }
+    async disconnect() {}
 }
 
 module.exports = DatabaseService;

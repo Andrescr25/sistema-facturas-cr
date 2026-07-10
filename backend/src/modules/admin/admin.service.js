@@ -4,14 +4,7 @@
  */
 
 const { query } = require('../../../config/database');
-const { PrismaClient } = require('@prisma/client');
-
-let prisma = null;
-try {
-  prisma = new PrismaClient();
-} catch (e) {
-  console.log('⚠️ Prisma no disponible para módulo admin');
-}
+const prisma = require('../../../lib/prisma');
 
 /**
  * Test simple de conexión a la base de datos

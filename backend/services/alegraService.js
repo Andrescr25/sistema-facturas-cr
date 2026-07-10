@@ -1,10 +1,5 @@
 const axios = require('axios');
-const { PrismaClient } = require('@prisma/client');
-
-// Singleton de Prisma
-if (!global.prismaInstance) {
-    global.prismaInstance = new PrismaClient();
-}
+const prisma = require('../lib/prisma');
 
 class AlegraService {
   constructor() {
@@ -27,7 +22,7 @@ class AlegraService {
             timeout: 60000 // Aumentado a 60 segundos para evitar timeouts
         });
 
-        this.prisma = global.prismaInstance;
+        this.prisma = prisma;
         this.setupInterceptors();
     }
 
@@ -1501,7 +1496,7 @@ class AlegraService {
     async createInventoryAdjustment(adjustmentData) {
         try {
             console.log('Creando ajuste de inventario en Alegra...');
-            const response = await this.api.post('/inventory-adjustments', adjustmentData);
+            const response = await this.requestWithRetry(() => this.api.post('/inventory-adjustments', adjustmentData));
             console.log(`Ajuste de inventario creado: ID ${response.data.id}`);
             return response.data;
         } catch (error) {
@@ -1547,9 +1542,11 @@ class AlegraService {
         }
     }
 
-    async disconnect() {
-        await this.prisma.$disconnect();
-    }
+    /**
+     * El cliente Prisma es compartido (lib/prisma.js) y se desconecta solo
+     * al cerrar el proceso, así que aquí no hay nada que cerrar.
+     */
+    async disconnect() {}
 }
 
 module.exports = AlegraService;
