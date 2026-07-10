@@ -25,6 +25,35 @@ class AlegraProductService {
   }
 
   /**
+   * Obtener categorías de productos (item-categories) de Alegra.
+   * Migrado del servicio legacy: LANZA en error (el consumidor decide el
+   * mensaje al usuario); devuelve [] si la respuesta no es la esperada.
+   */
+  async getItemCategories() {
+    try {
+      console.log('📦 Obteniendo categorías de productos (item-categories) de Alegra...');
+
+      const response = await this.client.api.get('/item-categories');
+
+      if (response.data && Array.isArray(response.data)) {
+        console.log(`✅ ${response.data.length} categorías de productos obtenidas de Alegra`);
+        return response.data.map(cat => ({
+          id: cat.id,
+          name: cat.name || cat.description,
+          description: cat.description,
+          status: cat.status
+        }));
+      }
+
+      console.warn('⚠️ La respuesta no es un array válido');
+      return [];
+    } catch (error) {
+      console.error('❌ Error obteniendo categorías de productos de Alegra:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Buscar productos
    */
   async searchProducts(query) {

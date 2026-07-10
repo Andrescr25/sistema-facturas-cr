@@ -10,9 +10,10 @@ const router = express.Router();
 const AlegraService = require('../services/alegraService');
 const alegraService = new AlegraService();
 const { query } = require('../config/database');
-const { getContactService, getInvoiceService } = require('../src/integrations/alegra');
+const { getContactService, getInvoiceService, getProductService } = require('../src/integrations/alegra');
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
+const productService = getProductService();
 
 // Importar los nuevos enrutadores modulares
 const productsRoutes = require('../src/modules/products');
@@ -43,6 +44,31 @@ router.use('/catalog', catalogRoutes);
 router.use('/productos', productsRoutes);
 router.post('/sincronizar/productos', productController.syncProducts);
 router.get('/estadisticas/sincronizacion', productController.getSyncStatistics);
+
+// Categorías de productos (item-categories) — usado por RelacionarProductos.jsx
+router.get('/categorias', async (req, res) => {
+  try {
+    const categorias = await productService.getItemCategories();
+
+    if (categorias.length > 0) {
+      res.json({ success: true, categorias });
+    } else {
+      res.json({
+        success: true,
+        categorias: [],
+        message: 'No se encontraron categorías. Crea categorías en Alegra primero.'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo categorías de productos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error obteniendo categorías de productos. Verifica tu configuración de Alegra.',
+      categorias: []
+    });
+  }
+});
 
 // Sincronización automática (Alegra API)
 router.post('/sincronizar/automatica', async (req, res) => {
