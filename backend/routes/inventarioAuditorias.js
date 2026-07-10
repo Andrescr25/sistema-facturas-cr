@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const AlegraService = require('../services/alegraService');
-const alegraService = new AlegraService();
+const { getInventoryService } = require('../src/integrations/alegra');
+const inventoryService = getInventoryService();
 
 // Máximo de ítems permitidos por solicitud a la API de Alegra (POST /inventory-adjustments).
 // Alegra no documenta este límite, pero en producción se confirmó que enviar ~390 ítems en un solo
@@ -52,7 +52,7 @@ async function applyBatchedAdjustments(items, baseObservations) {
     let responseData;
     try {
       console.log(`Enviando lote ${i + 1}/${batches.length} de ajuste de inventario a Alegra (${adjustmentItems.length} ítems)...`);
-      responseData = await alegraService.createInventoryAdjustment(payload);
+      responseData = await inventoryService.createInventoryAdjustment(payload);
     } catch (error) {
       const errorDetail = error.response?.data || error.message;
       console.error(`Error enviando lote ${i + 1}/${batches.length} de ajuste de inventario a Alegra:`, errorDetail);
@@ -157,7 +157,7 @@ router.post('/', async (req, res) => {
 
   try {
     console.log('Obteniendo catálogo de inventario en vivo directamente de Alegra...');
-    const allAlegraItems = await alegraService.getInventariableItems();
+    const allAlegraItems = await inventoryService.getInventariableItems();
     
     // Mapear los ítems de Alegra a nuestro formato uniforme
     const mappedItems = allAlegraItems.map(product => {
@@ -512,7 +512,7 @@ router.post('/:id/resync', async (req, res) => {
     }
 
     console.log(`🔄 Re-sincronizando catálogo en vivo de Alegra para auditoría ID: ${id}...`);
-    const allAlegraItems = await alegraService.getInventariableItems();
+    const allAlegraItems = await inventoryService.getInventariableItems();
 
     // Mapear los ítems a un mapa rápido de buscar por alegra_id
     const alegraMap = new Map();

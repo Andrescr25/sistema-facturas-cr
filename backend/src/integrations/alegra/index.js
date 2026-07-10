@@ -6,11 +6,13 @@
 const AlegraInvoiceService = require('./services/alegra-invoice.service');
 const AlegraProductService = require('./services/alegra-product.service');
 const AlegraContactService = require('./services/alegra-contact.service');
+const AlegraInventoryService = require('./services/alegra-inventory.service');
 
 // Singleton instances
 let invoiceServiceInstance = null;
 let productServiceInstance = null;
 let contactServiceInstance = null;
+let inventoryServiceInstance = null;
 
 module.exports = {
   /**
@@ -41,5 +43,15 @@ module.exports = {
       contactServiceInstance = new AlegraContactService();
     }
     return contactServiceInstance;
+  },
+
+  /**
+   * Servicio de Inventario
+   */
+  getInventoryService: () => {
+    if (!inventoryServiceInstance) {
+      inventoryServiceInstance = new AlegraInventoryService();
+    }
+    return inventoryServiceInstance;
   }
 };

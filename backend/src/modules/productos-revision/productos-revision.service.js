@@ -5,13 +5,10 @@
  */
 
 const prisma = require('../../../lib/prisma');
-const AlegraService = require('../../../services/alegraService');
 const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 
-// Legacy: solo para createProduct (lógica de medicamentos aún no migrada a integrations)
-const alegraService = new AlegraService();
 const productService = getProductService();
 
 /**
@@ -745,7 +742,7 @@ async function crearProducto(datos, imagen) {
   console.log('📤 Datos a enviar a Alegra:', productoData);
 
   // Crear producto en Alegra
-  const nuevoProductoAlegra = await alegraService.createProduct(productoData);
+  const nuevoProductoAlegra = await productService.createProduct(productoData);
 
   if (!nuevoProductoAlegra || !nuevoProductoAlegra.id) {
     throw new Error('No se pudo crear el producto en Alegra');

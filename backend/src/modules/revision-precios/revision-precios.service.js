@@ -5,14 +5,13 @@
  */
 
 const prisma = require('../../../lib/prisma');
-const AlegraService = require('../../../services/alegraService');
-const { getProductService } = require('../../integrations/alegra');
+const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 
-// Legacy: solo para createOrGetContact y createPurchaseInvoice (aún no migrados a integrations)
-const alegraService = new AlegraService();
 const productService = getProductService();
+const contactService = getContactService();
+const invoiceService = getInvoiceService();
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -479,7 +478,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
     // Buscar o crear contacto del proveedor
     const identificacionTipo = inferirTipoIdentificacion(factura.proveedorCedula);
 
-    const contacto = await alegraService.createOrGetContact({
+    const contacto = await contactService.createOrGetContact({
       name: factura.proveedorNombre,
       identification: factura.proveedorCedula,
       identificationType: identificacionTipo,
@@ -496,7 +495,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
     console.log(`📋 Items preparados para Alegra (precios originales):`, JSON.stringify(items, null, 2));
 
     // Crear factura de compra en Alegra
-    const alegraFactura = await alegraService.createPurchaseInvoice({
+    const alegraFactura = await invoiceService.createPurchaseInvoice({
       date: factura.fechaEmision,
       client: contacto.id?.toString() || contacto.id,
       numberTemplate: {

@@ -105,6 +105,56 @@ class AlegraClient {
   }
 
   /**
+   * Ejecutar una petición con reintentos y backoff exponencial.
+   * Reintenta en errores de red/timeout y en 429/502/503/504.
+   * @param {Function} requestFn - Función que retorna la promesa de la petición
+   */
+  async requestWithRetry(requestFn, maxRetries = 3, initialDelay = 1000) {
+    let lastError;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        lastError = error;
+
+        if (attempt === maxRetries) {
+          console.error(`❌ Falló después de ${maxRetries + 1} intentos`);
+          throw error;
+        }
+
+        let shouldRetry = false;
+
+        if (error.code === 'ECONNABORTED' ||
+            error.code === 'ETIMEDOUT' ||
+            error.code === 'ENOTFOUND' ||
+            error.code === 'ECONNRESET' ||
+            !error.response) {
+          shouldRetry = true;
+        }
+
+        if (error.response?.status) {
+          const status = error.response.status;
+          if (status === 429 || status === 502 || status === 503 || status === 504) {
+            shouldRetry = true;
+            console.log(`⚠️ Error del servidor: ${status} - ${error.response.statusText}`);
+          }
+        }
+
+        if (!shouldRetry) {
+          throw error;
+        }
+
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`⏳ Reintento ${attempt + 1}/${maxRetries} en ${delay}ms... (Razón: ${error.code || error.response?.status})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Manejo centralizado de errores
    */
   handleError(error) {

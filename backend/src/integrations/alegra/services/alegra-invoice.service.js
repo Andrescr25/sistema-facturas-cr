@@ -99,6 +99,55 @@ class AlegraInvoiceService {
   }
 
   /**
+   * Crear factura de compra (endpoint /bills).
+   * Documentación: https://developer.alegra.com/reference/post_bills
+   * Migrado del servicio legacy: devuelve la factura RAW y LANZA en error.
+   */
+  async createPurchaseInvoice(data) {
+    try {
+      console.log(`📄 Creando factura de compra en Alegra...`);
+
+      // Transformar datos al formato correcto de /bills
+      const billData = {
+        date: data.date,
+        dueDate: data.date, // Misma fecha si es contado
+        provider: data.client, // ← CLAVE: usar 'provider' no 'contact'
+        numberTemplate: data.numberTemplate || { id: 10 }, // ID 10 = Factura de compra electrónica
+        observations: data.observations || '',
+        purchases: {
+          items: data.items
+        },
+        saleCondition: 'CASH', // Contado por defecto
+        paymentMethod: 'CASH' // Efectivo por defecto
+      };
+
+      console.log(`📋 Datos de factura:`, JSON.stringify(billData, null, 2));
+
+      const response = await this.client.api.post('/bills', billData);
+      console.log(`✅ Factura de compra creada: ID ${response.data.id}`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error creando factura de compra:');
+      console.error('   Status:', error.response?.status);
+      console.error('   Message:', error.response?.data?.message || error.message);
+      console.error('   Data:', JSON.stringify(error.response?.data, null, 2));
+
+      if (error.response?.status === 403) {
+        console.warn('⚠️ Error 403: Sin permisos para crear facturas de compra');
+        console.warn('💡 Posibles causas:');
+        console.warn('   1. Tu plan no incluye facturas de proveedor');
+        console.warn('   2. El usuario no tiene permisos suficientes');
+        console.warn('   3. Verifica en Alegra: Configuración > Usuarios y permisos');
+      } else if (error.response?.status === 400) {
+        console.warn('⚠️ Error 400: Datos inválidos');
+        console.warn('   Datos enviados:', JSON.stringify(error.config?.data, null, 2));
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Actualizar factura
    */
   async updateInvoice(invoiceId, updateData) {

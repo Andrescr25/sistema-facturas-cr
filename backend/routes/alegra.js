@@ -206,7 +206,7 @@ router.get('/contactos', async (req, res) => {
 router.get('/proveedores', async (req, res) => {
   try {
     const { busqueda, limit } = req.query;
-    const result = await alegraService.getProveedores(busqueda, limit);
+    const result = await contactService.getProveedores(busqueda, limit);
     if (result.success) {
       res.json(result);
     } else {
