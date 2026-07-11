@@ -3,6 +3,8 @@ import { AlertCircle } from 'lucide-react'
 import { useReporteClientes } from '../hooks/useReporteClientes'
 import ListaClientes from '../components/reporte-clientes/ListaClientes'
 import ClienteDetalle from '../components/reporte-clientes/ClienteDetalle'
+import ConfirmModal from '../components/ConfirmModal'
+import ToastContainer from '../components/ToastContainer'
 
 export default function ReporteClientes() {
   const {
@@ -21,7 +23,10 @@ export default function ReporteClientes() {
     handleMarcarCompleto,
     handleDeshacer,
     handleNoLlegoNada,
-    contarAjustes
+    contarAjustes,
+    dialogProps,
+    toasts,
+    removeToast
   } = useReporteClientes()
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente
@@ -76,6 +81,9 @@ export default function ReporteClientes() {
           onDeshacer={handleDeshacer}
         />
       )}
+
+      <ConfirmModal {...dialogProps} />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   )
 }

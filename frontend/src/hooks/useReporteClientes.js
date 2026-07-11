@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { alegraService } from '../services/alegraService'
 import { getFacturaKey, getProductKey, getEntregaInfo, clienteTieneSinCaja } from '../utils/reporteClientesUtils'
+import { useDialog } from './useDialog'
+import { useToast } from './useToast'
 
 /**
  * Estado y lógica de negocio del reporte de faltantes por cliente: carga,
  * ajustes de entrega por producto, y acciones sobre facturas (procesar,
  * recuperar, marcar/quitar pendiente). Extraído de ReporteClientes.jsx.
+ *
+ * Incluye confirm()/prompt() (useDialog) y showToast() (useToast) en vez de
+ * window.confirm/window.prompt/window.alert. La página debe renderizar
+ * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteClientes() {
+  const { confirm, prompt, dialogProps } = useDialog()
+  const { toasts, showToast, removeToast } = useToast()
+
   const [clientes, setClientes] = useState([])
   const [resumen, setResumen] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -94,8 +103,12 @@ export function useReporteClientes() {
     const faltantesPendientes = ajustesFactura.filter(aj => aj.cantidad_entregada === 0).length
     const requiereReimpresion = ajustesFactura.some(aj => aj.requiere_actualizacion)
 
-    const resumenMsg = `📋 Procesar Factura #${factura.numero_factura}:\n\nCliente: ${clienteNombre}\nTotal productos con faltantes: ${ajustesFactura.length}\n  • Ajustados: ${ajustesHechos}\n  • Pendientes: ${faltantesPendientes}\n\n${requiereReimpresion ? '🖨️ Se enviará a Impresión para hacer cambios' : '✅ Sin cambios necesarios'}\n\n¿Continuar?`
-    if (!window.confirm(resumenMsg)) return
+    const resumenMsg = `Cliente: ${clienteNombre}\nTotal productos con faltantes: ${ajustesFactura.length}\n  • Ajustados: ${ajustesHechos}\n  • Pendientes: ${faltantesPendientes}\n\n${requiereReimpresion ? '🖨️ Se enviará a Impresión para hacer cambios' : '✅ Sin cambios necesarios'}`
+    const confirmado = await confirm(resumenMsg, {
+      title: `Procesar Factura #${factura.numero_factura}`,
+      confirmLabel: 'Procesar'
+    })
+    if (!confirmado) return
 
     try {
       await alegraService.procesarFacturaIndividual(facturaData)
@@ -110,15 +123,16 @@ export function useReporteClientes() {
         return { ...cliente, facturas_con_faltantes: facturasActualizadas }
       }))
 
-      alert(`✅ Factura #${factura.numero_factura} enviada a Impresión\n\n• Productos: ${ajustesFactura.length}\n• Requiere cambios: ${requiereReimpresion ? 'Sí' : 'No'}\n\n🖨️ Ve al Centro de Impresión.\nUsa "Recuperar" si necesitas editarla.`)
+      showToast(`Factura #${factura.numero_factura} enviada a Impresión (${ajustesFactura.length} productos${requiereReimpresion ? ', requiere cambios' : ''}). Usa "Recuperar" si necesitas editarla.`, 'success')
     } catch (error) {
-      alert(`❌ Error procesando factura: ${error.message}`)
+      showToast(`Error procesando factura: ${error.message}`, 'error')
     }
-  }, [entregasAjustadas, facturasEstado])
+  }, [entregasAjustadas, facturasEstado, confirm, showToast])
 
   const handleRecuperarFactura = useCallback(async (factura) => {
     const facturaKey = getFacturaKey(factura)
-    if (!window.confirm(`¿Recuperar factura #${factura.numero_factura} para editarla?`)) return
+    const confirmado = await confirm(`¿Recuperar factura #${factura.numero_factura} para editarla?`, { title: 'Recuperar factura' })
+    if (!confirmado) return
     try {
       await alegraService.recuperarFactura(factura.alegra_id)
       const nuevosEstados = new Map(facturasEstado)
@@ -128,15 +142,19 @@ export function useReporteClientes() {
         const facturasActualizadas = cliente.facturas_con_faltantes.map(f => { if (getFacturaKey(f) !== facturaKey) return f; return { ...f, es_pendiente_manual: false, pendiente_desde: null, pendiente_motivo: null } })
         return { ...cliente, facturas_con_faltantes: facturasActualizadas }
       }))
-      alert(`✅ Factura #${factura.numero_factura} recuperada.`)
+      showToast(`Factura #${factura.numero_factura} recuperada.`, 'success')
     } catch (error) {
-      alert(`❌ Error recuperando factura: ${error.message}`)
+      showToast(`Error recuperando factura: ${error.message}`, 'error')
     }
-  }, [facturasEstado])
+  }, [facturasEstado, confirm, showToast])
 
   const handleMarcarFacturaPendiente = useCallback(async (factura, clienteNombre) => {
     const facturaKey = getFacturaKey(factura)
-    const motivo = window.prompt(`Notas para la factura #${factura.numero_factura} (opcional):`, '') || null
+    const motivo = await prompt(`Notas para la factura #${factura.numero_factura} (opcional):`, {
+      title: 'Marcar como pendiente',
+      inputPlaceholder: 'Ej: esperando entrega del proveedor...',
+      confirmLabel: 'Marcar pendiente'
+    })
     try {
       await alegraService.marcarFacturaPendiente(factura.alegra_id, motivo)
       const timestamp = new Date().toISOString()
@@ -148,15 +166,16 @@ export function useReporteClientes() {
         const facturasActualizadas = cliente.facturas_con_faltantes.map(f => { if (getFacturaKey(f) !== facturaKey) return f; return { ...f, es_pendiente_manual: true, pendiente_desde: timestamp, pendiente_motivo: motivo } })
         return { ...cliente, facturas_con_faltantes: facturasActualizadas }
       }))
-      alert(`⌛ Factura #${factura.numero_factura} marcada como pendiente.`)
+      showToast(`Factura #${factura.numero_factura} marcada como pendiente.`, 'info')
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
+      showToast(`Error: ${error.message}`, 'error')
     }
-  }, [facturasEstado])
+  }, [facturasEstado, prompt, showToast])
 
   const handleQuitarFacturaPendiente = useCallback(async (factura, clienteNombre) => {
     const facturaKey = getFacturaKey(factura)
-    if (!window.confirm(`¿Quitar estado pendiente de #${factura.numero_factura}?`)) return
+    const confirmado = await confirm(`¿Quitar estado pendiente de #${factura.numero_factura}?`, { title: 'Quitar pendiente' })
+    if (!confirmado) return
     try {
       await alegraService.quitarFacturaPendiente(factura.alegra_id)
       const nuevosEstados = new Map(facturasEstado)
@@ -167,11 +186,11 @@ export function useReporteClientes() {
         const facturasActualizadas = cliente.facturas_con_faltantes.map(f => { if (getFacturaKey(f) !== facturaKey) return f; return { ...f, es_pendiente_manual: false, pendiente_desde: null, pendiente_motivo: null } })
         return { ...cliente, facturas_con_faltantes: facturasActualizadas }
       }))
-      alert(`✅ Estado pendiente removido.`)
+      showToast('Estado pendiente removido.', 'success')
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
+      showToast(`Error: ${error.message}`, 'error')
     }
-  }, [facturasEstado])
+  }, [facturasEstado, confirm, showToast])
 
   // ==================== AJUSTES DE ENTREGA POR PRODUCTO ====================
 
@@ -272,6 +291,9 @@ export function useReporteClientes() {
     contarAjustes,
     contarFacturasProcesadas,
     contarFacturasPendientes,
-    contarClientesSinCaja
+    contarClientesSinCaja,
+    dialogProps,
+    toasts,
+    removeToast
   }
 }
