@@ -23,7 +23,7 @@ const reprintingRoutes = require('../src/modules/reprinting').routes;
 const warehouseRoutes = require('../src/modules/warehouse').routes;
 const missingItemsRoutes = require('../src/modules/missing-items').routes;
 const facturacionRoutes = require('../src/modules/facturacion');
-const catalogRoutes = require('./alegraCatalog');
+const catalogRoutes = require('../src/modules/catalogo').routes;
 
 // Importar controladores para mapeo explícito de endpoints legacy
 const ProductController = require('../src/modules/products/product.controller');
