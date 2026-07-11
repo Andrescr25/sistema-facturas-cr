@@ -11,17 +11,16 @@ import { useToast } from './useToast'
  * reasignación de productos a otro proveedor, y edición manual de la orden
  * (agregar/eliminar productos). Extraído de ReporteProveedores.jsx.
  *
- * Incluye confirm()/prompt() (useDialog) y showToast() (useToast) en vez de
- * window.confirm/prompt/alert. La página debe renderizar
+ * Incluye prompt() (useDialog) y showToast() (useToast) en vez de
+ * window.prompt/alert. La página debe renderizar
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteProveedores() {
-  const { confirm, prompt, dialogProps } = useDialog()
+  const { prompt, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
   const [proveedores, setProveedores] = useState([])
   const [resumen, setResumen] = useState(null)
-  const [encargosEspeciales, setEncargosEspeciales] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -53,17 +52,6 @@ export function useReporteProveedores() {
   const [telefonoProveedor, setTelefonoProveedor] = useState('')
   const [mensajeWhatsApp, setMensajeWhatsApp] = useState('Hola buenas, adjunto el pedido\ngracias')
 
-  const loadEncargosEspeciales = useCallback(async () => {
-    try {
-      const result = await alegraService.getEncargosEspeciales()
-      if (result.success) {
-        setEncargosEspeciales(result.data)
-      }
-    } catch (err) {
-      console.warn('Error cargando encargos especiales:', err)
-    }
-  }, [])
-
   const loadReporte = useCallback(async () => {
     try {
       setLoading(true)
@@ -75,7 +63,6 @@ export function useReporteProveedores() {
         const proveedoresConProductos = result.data.filter(p => p.productos_faltantes && p.productos_faltantes.length > 0)
         setProveedores(proveedoresConProductos)
         setResumen(result.resumen)
-        loadEncargosEspeciales()
       } else {
         setError(result.message || 'Error cargando reporte')
       }
@@ -84,7 +71,7 @@ export function useReporteProveedores() {
     } finally {
       setLoading(false)
     }
-  }, [fechaInicio, loadEncargosEspeciales])
+  }, [fechaInicio])
 
   const loadCantidadesGuardadas = useCallback(async () => {
     try {
@@ -183,7 +170,7 @@ export function useReporteProveedores() {
       if (result.success) {
         await loadCantidadesGuardadas()
         setCantidadesModificadas(new Map())
-        showToast(`Cantidades guardadas correctamente\\n\\n• ${result.cantidades_guardadas} productos actualizados`, 'success')
+        showToast(`Cantidades guardadas correctamente\n\n• ${result.cantidades_guardadas} productos actualizados`, 'success')
       } else {
         showToast(`Error guardando cantidades: ${result.message}`, 'error')
       }
@@ -193,26 +180,6 @@ export function useReporteProveedores() {
       setLoading(false)
     }
   }, [cantidadesModificadas, proveedores, loadCantidadesGuardadas, showToast])
-
-  const handleLimpiarCantidadesGuardadas = useCallback(async () => {
-    if (cantidadesGuardadas.size === 0) return
-    const confirmado = await confirm('¿Deseas volver las cantidades modificadas a sus valores originales?')
-    if (!confirmado) return
-
-    try {
-      setLoading(true)
-      const result = await alegraService.limpiarCantidadesModificadas()
-      if (result.success) {
-        setCantidadesGuardadas(new Map())
-        setCantidadesModificadas(new Map())
-        showToast('Cantidades restauradas.', 'success')
-      }
-    } catch (error) {
-      showToast(`Error reseteando cantidades: ${error.message}`, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [cantidadesGuardadas, confirm, showToast])
 
   const handleGenerarPDF = useCallback(async (proveedor) => {
     try {
@@ -312,25 +279,6 @@ export function useReporteProveedores() {
       setLoading(false)
     }
   }, [telefonoProveedor, proveedorParaWhatsApp, usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, mensajeWhatsApp, showToast])
-
-  const handleLimpiarVista = useCallback(async () => {
-    if (proveedores.length === 0) return
-    const confirmado = await confirm('⚠️ ATENCIÓN:\\nSe eliminarán los faltantes pendientes localmente. ¿Proceder?')
-    if (!confirmado) return
-
-    try {
-      setLoading(true)
-      await alegraService.limpiarFaltantesProveedor()
-      setProveedores([])
-      setResumen(null)
-      setEncargosEspeciales([])
-      showToast('Datos eliminados localmente.', 'success')
-    } catch (error) {
-      showToast(`Error eliminando datos: ${error.message}`, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [proveedores, confirm, showToast])
 
   // Selección de Múltiples Productos
   const toggleProductoSeleccionado = useCallback((codigo) => {
@@ -499,7 +447,7 @@ export function useReporteProveedores() {
   }, [proveedorParaAgregar, productosAgregados])
 
   const solicitarCantidadYAgregar = useCallback(async (producto, reference) => {
-    const q = await prompt(`${producto.name}\\n¿Cantidad a añadir a la orden?`, { inputDefaultValue: '1' })
+    const q = await prompt(`${producto.name}\n¿Cantidad a añadir a la orden?`, { inputDefaultValue: '1' })
     if (q && parseInt(q) > 0) {
       await agregarProductoAOrden({ ...producto, reference }, q)
     }
@@ -537,7 +485,6 @@ export function useReporteProveedores() {
   return {
     proveedores,
     resumen,
-    encargosEspeciales,
     loading,
     error,
     fechaInicio,
@@ -548,14 +495,12 @@ export function useReporteProveedores() {
     cantidadesGuardadas,
     handleCantidadChange,
     handleGuardarCantidades,
-    handleLimpiarCantidadesGuardadas,
 
     preferenciasDatosProveedor,
     usaDatosProveedor,
     togglePreferenciaProveedor,
 
     handleGenerarPDF,
-    handleLimpiarVista,
 
     modalWhatsAppVisible,
     setModalWhatsAppVisible,
