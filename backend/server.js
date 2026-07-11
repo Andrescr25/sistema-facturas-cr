@@ -112,7 +112,6 @@ if (isLocalDevelopment) {
 // Importar rutas
 const facturaRoutes = require('./src/modules/invoices/invoice.routes');
 const productoRoutes = require('./src/modules/products/product.routes');
-const faltanteRoutes = require('./routes/faltantes');
 const reporteRoutes = require('./src/modules/reports/report.routes');
 const alegraRoutes = require('./routes/alegra');
 const inventarioAuditoriasRoutes = require('./routes/inventarioAuditorias');
@@ -126,6 +125,7 @@ const revisionPreciosModule = require('./src/modules/revision-precios');
 const productosRevisionModule = require('./src/modules/productos-revision');
 const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
 const proveedoresModule = require('./src/modules/proveedores');
+const faltantesModule = require('./src/modules/faltantes');
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
@@ -147,9 +147,9 @@ app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);
 
 // ⚠️ NOTA: El endpoint /api/faltantes tiene ruteo híbrido (fall-through).
-// Las peticiones básicas de gestión de faltantes son procesadas por 'faltanteRoutes' (Legacy).
+// Las peticiones básicas de gestión de faltantes son procesadas por 'faltantesModule.routes'.
 // Las operaciones de ajustes y mantenimiento caen en 'missingItemsModule.routes' (Modular).
-app.use('/api/faltantes', faltanteRoutes);
+app.use('/api/faltantes', faltantesModule.routes);
 app.use('/api/faltantes', missingItemsModule.routes);
 
 // Ruta para verificar estado de la API
