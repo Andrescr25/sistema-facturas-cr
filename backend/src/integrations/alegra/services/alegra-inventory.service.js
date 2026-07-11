@@ -14,7 +14,7 @@ class AlegraInventoryService {
   /**
    * Crear ajuste de inventario (POST /inventory-adjustments) con reintentos.
    * Ojo: enviar demasiados items en un solo llamado produce un 400 code 14009
-   * engañoso; el loteo lo maneja el consumidor (routes/inventarioAuditorias.js).
+   * engañoso; el loteo lo maneja el consumidor (src/modules/inventario-auditorias).
    */
   async createInventoryAdjustment(adjustmentData) {
     try {
