@@ -78,7 +78,10 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
 async function buscarImagenes(queryStr) {
   console.log(`🔍 Buscando imágenes sugeridas en Bing para: "${queryStr}"...`);
 
-  const url = `https://www.bing.com/images/search?q=${encodeURIComponent(queryStr)}`;
+  // adlt=strict fuerza SafeSearch: sin este parámetro Bing sirve resultados sin
+  // filtrar a tráfico anónimo/sin sesión, incluyendo contenido explícito o de
+  // baja relevancia cuando la consulta no tiene una coincidencia clara.
+  const url = `https://www.bing.com/images/search?q=${encodeURIComponent(queryStr)}&adlt=strict`;
 
   const response = await axios.get(url, {
     headers: {
