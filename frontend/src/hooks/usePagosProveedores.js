@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getPagosProveedores, actualizarPagoProveedor } from '../services/pagosProveedoresService'
+import api from '../services/api'
+import { useToast } from './useToast'
 
-const defaultFilters = {
+export const defaultFilters = {
   estado: 'pendiente',
   proveedor: 'todos',
   dias: 'todos',
@@ -9,11 +11,15 @@ const defaultFilters = {
 }
 
 export function usePagosProveedores(initialFilters = {}) {
+  const { toasts, showToast, removeToast } = useToast()
+
   const [filters, setFilters] = useState({ ...defaultFilters, ...initialFilters })
   const [cuentas, setCuentas] = useState([])
   const [resumen, setResumen] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [proveedoresDisponibles, setProveedoresDisponibles] = useState([])
+  const [procesandoId, setProcesandoId] = useState(null)
 
   const loadCuentas = useCallback(async (overrideFilters) => {
     const params = overrideFilters || filters
@@ -44,20 +50,41 @@ export function usePagosProveedores(initialFilters = {}) {
     loadCuentas(filters)
   }, [filters, loadCuentas])
 
-  const proveedoresDisponibles = useMemo(() => {
-    const set = new Map()
-    cuentas.forEach((cuenta) => {
-      if (!set.has(cuenta.proveedorCedula)) {
-        set.set(cuenta.proveedorCedula, cuenta.proveedorNombre)
-      }
-    })
-    return Array.from(set, ([cedula, nombre]) => ({ cedula, nombre }))
-  }, [cuentas])
+  // Lista de proveedores independiente de los filtros activos (antes se derivaba
+  // de `cuentas`, así que al filtrar por estado/fecha el dropdown perdía opciones).
+  useEffect(() => {
+    let cancelado = false
+    api.get('/proveedores')
+      .then((response) => {
+        if (cancelado) return
+        const lista = response.data?.proveedores || response.data?.data || []
+        setProveedoresDisponibles(lista.map((p) => ({ cedula: p.cedula, nombre: p.nombre })))
+      })
+      .catch(() => {
+        // Silencioso: si falla, el filtro de proveedor simplemente queda vacío,
+        // no bloquea el resto de la página.
+      })
+    return () => { cancelado = true }
+  }, [])
 
-  const handleActualizarEstado = useCallback(async (id, payload) => {
-    await actualizarPagoProveedor(id, payload)
-    await loadCuentas(filters)
-  }, [filters, loadCuentas])
+  const resetFilters = useCallback(() => {
+    setFilters({ ...defaultFilters })
+  }, [])
+
+  const handleActualizarEstado = useCallback(async (id, payload, mensajeExito) => {
+    setProcesandoId(id)
+    try {
+      await actualizarPagoProveedor(id, payload)
+      await loadCuentas(filters)
+      showToast(mensajeExito || 'Cuenta actualizada correctamente', 'success')
+      return true
+    } catch (err) {
+      showToast(err.message || 'Error actualizando la cuenta', 'error')
+      return false
+    } finally {
+      setProcesandoId(null)
+    }
+  }, [filters, loadCuentas, showToast])
 
   return {
     cuentas,
@@ -66,9 +93,12 @@ export function usePagosProveedores(initialFilters = {}) {
     error,
     filters,
     setFilters,
+    resetFilters,
     proveedoresDisponibles,
     actualizarEstado: handleActualizarEstado,
-    reload: () => loadCuentas(filters)
+    procesandoId,
+    reload: () => loadCuentas(filters),
+    toasts,
+    removeToast
   }
 }
-
