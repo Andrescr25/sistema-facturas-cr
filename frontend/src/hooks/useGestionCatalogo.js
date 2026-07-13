@@ -232,7 +232,7 @@ export function useGestionCatalogo() {
 
     setCreatingDuplicate(true)
     try {
-      const response = await api.post('/api/alegra/catalog/duplicate-brand', {
+      const response = await api.post('/alegra/catalog/duplicate-brand', {
         originalProductId: selectedProduct.alegraId,
         brandName: brandName.trim(),
         newCode: brandRef.trim(),
