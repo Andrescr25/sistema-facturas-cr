@@ -16,6 +16,7 @@ import {
 
 const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha'
 const DESCRIPCION_MAX = 500
+const REINTENTO_PENDIENTES_INTERVALO = 2 * 60 * 1000 // 2 minutos
 
 /**
  * Estado y lógica de negocio completa de facturación en vivo: catálogo con
@@ -420,6 +421,22 @@ export function useFacturacion() {
     sincronizarEdiciones()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, edicionesPendientes.length])
+
+  // Reintento automático periódico de facturas/ediciones pendientes. No depende
+  // del evento 'online' del navegador (que solo refleja si la interfaz de red
+  // está conectada, no si Alegra es realmente alcanzable) — así una factura que
+  // quedó pendiente por un fallo puntual se reintenta sola sin que haga falta
+  // recargar la página.
+  useEffect(() => {
+    if (!isOnline) return
+
+    const interval = setInterval(() => {
+      sincronizarFacturas()
+    }, REINTENTO_PENDIENTES_INTERVALO)
+
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline])
 
   const buscarProductoPorCodigo = async (codigo) => {
     if (!codigo.trim()) return null
