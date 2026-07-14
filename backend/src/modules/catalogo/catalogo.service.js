@@ -93,7 +93,7 @@ async function buscarImagenes(queryStr) {
     const response = await axios.get('https://api.search.brave.com/res/v1/images/search', {
       params: {
         q: queryStr,
-        count: 10,
+        count: 30,
         safesearch: 'strict'
       },
       headers: {
