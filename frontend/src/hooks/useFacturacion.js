@@ -47,6 +47,7 @@ export function useFacturacion() {
   const [impuestos, setImpuestos] = useState([])
   const [impuestoPrincipal, setImpuestoPrincipal] = useState(null)
   const [facturasPendientes, setFacturasPendientes] = useState([])
+  const [reintentandoLocalId, setReintentandoLocalId] = useState(null)
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
@@ -315,6 +316,22 @@ export function useFacturacion() {
     } catch (error) {
       console.error('Error descartando factura pendiente:', error)
       mostrarMensaje('Error descartando factura: ' + error.message, 'error')
+    }
+  }
+
+  const reintentarFacturaPendiente = async (localId) => {
+    setReintentandoLocalId(localId)
+    try {
+      await facturacionService.reintentarFacturaPendiente(localId)
+      mostrarMensaje('Factura enviada a Alegra correctamente', 'success')
+    } catch (error) {
+      console.error('Error reintentando factura pendiente:', error)
+      mostrarMensaje('No se pudo enviar la factura: ' + error.message, 'error')
+    } finally {
+      const pendientes = await facturacionService.getFacturasPendientes()
+      setFacturasPendientes(pendientes)
+      await refrescarFacturasLocales()
+      setReintentandoLocalId(null)
     }
   }
 
@@ -1096,6 +1113,7 @@ export function useFacturacion() {
     buscandoFacturas,
     edicionesPendientes,
     facturasPendientesDetalle,
+    reintentandoLocalId,
 
     // UI
     cacheStats,
@@ -1128,6 +1146,7 @@ export function useFacturacion() {
     actualizarCache,
     descartarEdicionPendiente,
     descartarFacturaPendiente,
+    reintentarFacturaPendiente,
     buscarProductosPorNombre,
     buscarClientesPorNombre,
     buscarFacturas,

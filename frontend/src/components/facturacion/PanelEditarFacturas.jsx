@@ -1,9 +1,10 @@
-import { Search, X, AlertCircle, Edit, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { Search, X, AlertCircle, Edit, RefreshCw, RotateCw, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 
 /**
  * Contenido de la pestaña "Editar Facturas": búsqueda de facturas
- * (local + online), listado, y las ediciones pendientes de sincronizar.
- * Extraído de Facturacion.jsx.
+ * (local + online), listado, y las ediciones/facturas pendientes de
+ * sincronizar. Extraído de Facturacion.jsx.
  */
 export default function PanelEditarFacturas({
   isMobile,
@@ -18,11 +19,19 @@ export default function PanelEditarFacturas({
   edicionesPendientes,
   onDescartarEdicionPendiente,
   facturasPendientesDetalle,
-  onDescartarFacturaPendiente
+  onDescartarFacturaPendiente,
+  onReintentarFacturaPendiente,
+  reintentandoLocalId
 }) {
+  const [productosVisibles, setProductosVisibles] = useState({})
+
+  const toggleProductos = (localId) => {
+    setProductosVisibles(prev => ({ ...prev, [localId]: !prev[localId] }))
+  }
+
   return (
     <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
-      <div className="card">
+      <div className="card p-4 sm:p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Search size={20} />
           Editar Facturas
@@ -69,14 +78,14 @@ export default function PanelEditarFacturas({
                 <button
                   key={factura.id}
                   onClick={() => onCargarFacturaParaEdicion(factura)}
-                  className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  className="w-full text-left p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
                         Factura #{factura.numberTemplate?.fullNumber || factura.id}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 truncate">
                         Cliente: {factura.client?.name || factura.cliente_nombre || 'N/A'}
                       </p>
                       <p className="text-sm text-gray-500">
@@ -99,11 +108,11 @@ export default function PanelEditarFacturas({
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-green-600">
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-bold text-green-600 whitespace-nowrap">
                         ₡{(factura.total || 0).toLocaleString('es-CR')}
                       </p>
-                      <span className="text-xs text-blue-600 flex items-center gap-1">
+                      <span className="text-xs text-blue-600 flex items-center gap-1 justify-end">
                         <Edit size={12} />
                         Editar
                       </span>
@@ -142,7 +151,7 @@ export default function PanelEditarFacturas({
         )}
 
         {facturasPendientesDetalle.length > 0 && (
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mt-6 p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
               <AlertCircle size={18} />
               Facturas Pendientes de Envío
@@ -150,40 +159,97 @@ export default function PanelEditarFacturas({
             <p className="text-sm text-yellow-800 mb-3">
               Hay {facturasPendientesDetalle.length} factura(s) que se enviarán a Alegra cuando haya conexión.
             </p>
-            <div className="space-y-2">
-              {facturasPendientesDetalle.map((factura) => (
-                <div key={factura.localId} className="bg-white p-3 rounded border border-yellow-200">
-                  <p className="text-sm font-medium">{factura.clienteNombre}</p>
-                  <p className="text-xs text-gray-600">
-                    {factura.cantidadItems} producto(s) · ₡{factura.total.toLocaleString('es-CR')}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Creada: {new Date(factura.timestamp).toLocaleString('es-CR')}
-                  </p>
-                  {factura.intentosSincronizacion > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Intentos de envío: {factura.intentosSincronizacion}
+            <div className="space-y-3">
+              {facturasPendientesDetalle.map((factura) => {
+                const procesando = reintentandoLocalId === factura.localId
+                const mostrarProductos = Boolean(productosVisibles[factura.localId])
+
+                return (
+                  <div
+                    key={factura.localId}
+                    className={`relative bg-white p-3 rounded-lg border border-yellow-200 shadow-sm transition-opacity ${procesando ? 'opacity-60 pointer-events-none' : ''}`}
+                  >
+                    {procesando && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg z-10">
+                        <Loader2 size={22} className="animate-spin text-blue-500" />
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-900">{factura.clienteNombre}</p>
+                      <p className="text-sm font-bold text-green-600 whitespace-nowrap">
+                        ₡{factura.total.toLocaleString('es-CR')}
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Creada: {new Date(factura.timestamp).toLocaleString('es-CR')}
                     </p>
-                  )}
-                  {factura.errorSincronizacion && (
-                    <p className="text-xs text-red-600 mt-1">Error: {factura.errorSincronizacion}</p>
-                  )}
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => onDescartarFacturaPendiente(factura.localId)}
-                      className="btn btn-xs btn-outline text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      Descartar
-                    </button>
+
+                    {factura.intentosSincronizacion > 0 && (
+                      <p className="text-xs text-gray-500">
+                        Intentos de envío: {factura.intentosSincronizacion}
+                      </p>
+                    )}
+
+                    {factura.errorSincronizacion && (
+                      <p className="text-xs text-red-600 mt-1 bg-red-50 border border-red-100 rounded px-2 py-1">
+                        Error: {factura.errorSincronizacion}
+                      </p>
+                    )}
+
+                    {factura.items.length > 0 && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleProductos(factura.localId)}
+                          className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                        >
+                          {mostrarProductos ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {factura.cantidadItems} producto(s)
+                        </button>
+
+                        {mostrarProductos && (
+                          <ul className="mt-2 space-y-1 border-t border-gray-100 pt-2">
+                            {factura.items.map((item, idx) => (
+                              <li key={idx} className="flex items-center justify-between gap-2 text-xs text-gray-700">
+                                <span className="truncate">{item.cantidad} × {item.nombre}</span>
+                                <span className="shrink-0 text-gray-500">₡{item.precio.toLocaleString('es-CR')}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => onReintentarFacturaPendiente(factura.localId)}
+                        disabled={procesando || !isOnline}
+                        title={!isOnline ? 'Necesitas conexión para reintentar' : undefined}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        <RotateCw size={14} />
+                        Reintentar
+                      </button>
+                      <button
+                        onClick={() => onDescartarFacturaPendiente(factura.localId)}
+                        disabled={procesando}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                        Descartar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
 
         {edicionesPendientes.length > 0 && (
-          <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="mt-6 p-3 sm:p-4 bg-orange-50 border border-orange-200 rounded-lg">
             <h4 className="font-semibold text-orange-900 mb-2 flex items-center gap-2">
               <AlertCircle size={18} />
               Ediciones Pendientes de Sincronización
@@ -193,19 +259,22 @@ export default function PanelEditarFacturas({
             </p>
             <div className="space-y-2">
               {edicionesPendientes.map((edicion) => (
-                <div key={edicion.localId} className="bg-white p-3 rounded border border-orange-200">
+                <div key={edicion.localId} className="bg-white p-3 rounded-lg border border-orange-200 shadow-sm">
                   <p className="text-sm font-medium">Factura ID: {edicion.facturaId}</p>
                   <p className="text-xs text-gray-600">
                     Editada: {new Date(edicion.timestamp).toLocaleString('es-CR')}
                   </p>
                   {edicion.errorSincronizacion && (
-                    <p className="text-xs text-red-600 mt-1">Error: {edicion.errorSincronizacion}</p>
+                    <p className="text-xs text-red-600 mt-1 bg-red-50 border border-red-100 rounded px-2 py-1">
+                      Error: {edicion.errorSincronizacion}
+                    </p>
                   )}
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-2">
                     <button
                       onClick={() => onDescartarEdicionPendiente(edicion.localId, edicion.facturaId)}
-                      className="btn btn-xs btn-outline text-red-600 border-red-200 hover:bg-red-50"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                     >
+                      <Trash2 size={14} />
                       Descartar
                     </button>
                   </div>

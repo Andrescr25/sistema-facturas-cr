@@ -584,6 +584,40 @@ class FacturacionService {
   }
 
   /**
+   * Reintentar el envío de una factura pendiente puntual (a diferencia de
+   * sincronizarFacturasPendientes, que reintenta todas). Se usa desde el
+   * botón "Reintentar" en la pestaña Editar Facturas para forzar el envío
+   * ya mismo en vez de esperar el reintento automático periódico.
+   */
+  async reintentarFacturaPendiente(localId) {
+    const numeroLocal = Number(localId);
+    const pendientes = await indexedDBService.getFacturasPendientes();
+    const factura = pendientes.find(f => f.localId === numeroLocal);
+
+    if (!factura) {
+      throw new Error('Factura pendiente no encontrada');
+    }
+
+    try {
+      const response = await api.post('/alegra/facturacion/invoices', factura);
+
+      if (response.data.success) {
+        await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
+        await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
+        await indexedDBService.saveFacturasCache([response.data.data]);
+
+        return { success: true, data: response.data.data };
+      }
+
+      throw new Error(response.data.message || 'Error enviando factura pendiente');
+    } catch (error) {
+      const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+      await indexedDBService.markFacturaError(numeroLocal, alegraMessage);
+      throw new Error(alegraMessage);
+    }
+  }
+
+  /**
    * Obtener estadísticas del cache
    */
   async getCacheStats() {

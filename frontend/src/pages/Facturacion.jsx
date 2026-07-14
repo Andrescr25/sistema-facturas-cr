@@ -48,6 +48,7 @@ export default function Facturacion() {
     buscandoFacturas,
     edicionesPendientes,
     facturasPendientesDetalle,
+    reintentandoLocalId,
 
     cacheStats,
     mensaje,
@@ -73,6 +74,7 @@ export default function Facturacion() {
     actualizarCache,
     descartarEdicionPendiente,
     descartarFacturaPendiente,
+    reintentarFacturaPendiente,
     cargarFacturaParaEdicion,
     handleCodigoKeyPress,
     handleCantidadKeyPress,
@@ -174,6 +176,8 @@ export default function Facturacion() {
           onDescartarEdicionPendiente={descartarEdicionPendiente}
           facturasPendientesDetalle={facturasPendientesDetalle}
           onDescartarFacturaPendiente={descartarFacturaPendiente}
+          onReintentarFacturaPendiente={reintentarFacturaPendiente}
+          reintentandoLocalId={reintentandoLocalId}
         />
       )}
 

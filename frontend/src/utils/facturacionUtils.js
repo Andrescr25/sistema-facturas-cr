@@ -106,12 +106,21 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
       (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0),
       0
     )
+    // El cache local (facturaVista) trae los items con nombre legible;
+    // el registro crudo de facturas_pendientes solo trae id/referencia.
+    const items = (cache?.items && cache.items.length > 0 ? cache.items : pendiente.items || [])
+      .map(item => ({
+        nombre: item.name || item.description || `Referencia ${item.reference || item.id}`,
+        cantidad: parseFloat(item.quantity) || 0,
+        precio: parseFloat(item.price) || 0
+      }))
 
     return {
       localId: pendiente.localId,
       clienteNombre: cache?.client?.name || clienteInfo?.name || `Cliente #${pendiente.client}`,
       total,
-      cantidadItems: (pendiente.items || []).length,
+      items,
+      cantidadItems: items.length,
       timestamp: pendiente.timestamp,
       intentosSincronizacion: pendiente.intentosSincronizacion || 0,
       errorSincronizacion: pendiente.errorSincronizacion || null
