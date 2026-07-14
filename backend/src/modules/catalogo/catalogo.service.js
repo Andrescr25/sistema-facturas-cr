@@ -72,150 +72,54 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
   };
 }
 
-const STOPWORDS = new Set([
-  'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'para', 'con', 'por', 'en', 'del', 'al',
-  'y', 'o', 'the', 'and', 'for', 'with', 'of', 'a', 'an', 'to', 'in', 'on'
-]);
-
-function normalizarTexto(str) {
-  return (str || '')
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
-function tokenizar(str) {
-  return normalizarTexto(str)
-    .split(/[^a-z0-9]+/)
-    .filter(t => t.length >= 3 && !STOPWORDS.has(t));
-}
-
-// Compara por raíz compartida (primeros hasta 5 caracteres) en vez de
-// igualdad exacta, para que singular/plural y variaciones simples del
-// español ("cadena"/"cadenas", "aceite"/"aceitera") sigan contando como
-// la misma palabra. Palabras muy cortas (<4) sí requieren igualdad exacta.
-function compartenRaiz(a, b) {
-  const minLen = Math.min(a.length, b.length);
-  if (minLen < 4) return a === b;
-  const raizLen = Math.min(5, minLen);
-  return a.slice(0, raizLen) === b.slice(0, raizLen);
-}
-
-// Bing, cuando detecta trafico automatizado (como el de un servidor en la
-// nube pegandole a bing.com/images/search sin sesion de navegador real), no
-// devuelve un error: sirve en su lugar un carrusel generico de imagenes
-// "trending" con la misma forma que un resultado real, pero sin relacion
-// alguna con la consulta. Como filtro de defensa, solo se aceptan imagenes
-// cuyo titulo comparta al menos una palabra significativa con la consulta.
-function esRelevante(queryTokens, tituloImagen) {
-  if (queryTokens.length === 0) return true;
-  const tituloTokens = tokenizar(tituloImagen);
-  return queryTokens.some(qt => tituloTokens.some(tt => compartenRaiz(qt, tt)));
-}
-
 /**
- * Buscar sugerencias de imágenes en la web utilizando Bing Images Scraping
+ * Buscar sugerencias de imágenes usando la API oficial de Brave Search.
+ * Segundo reemplazo del scraping de Bing (2026-07): primero se intentó
+ * Google Custom Search JSON API, pero Google cerró esa API a cuentas/
+ * proyectos nuevos desde 2026 (confirmado con múltiples proyectos de
+ * prueba, todos con el mismo error de acceso denegado sin importar la
+ * configuración). Brave Search sí da resultados reales y relevantes.
  */
 async function buscarImagenes(queryStr) {
-  console.log(`🔍 Buscando imágenes sugeridas en Bing para: "${queryStr}"...`);
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
 
-  // adlt=strict fuerza SafeSearch: sin este parámetro Bing sirve resultados sin
-  // filtrar a tráfico anónimo/sin sesión, incluyendo contenido explícito o de
-  // baja relevancia cuando la consulta no tiene una coincidencia clara.
-  const url = `https://www.bing.com/images/search?q=${encodeURIComponent(queryStr)}&adlt=strict`;
-
-  const response = await axios.get(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-    },
-    timeout: 15000
-  });
-
-  const html = response.data;
-  const images = [];
-  const queryTokens = tokenizar(queryStr);
-  let descartadasPorIrrelevantes = 0;
-
-  // Intentar extraer metadatos JSON del atributo m de la clase iusc de Bing (Método moderno)
-  const mRegex = /m=\"(\{[^\"]+\})\"/g;
-  let match;
-
-  while ((match = mRegex.exec(html)) !== null && images.length < 40) {
-    try {
-      const cleanJson = match[1]
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&');
-
-      const m = JSON.parse(cleanJson);
-      if (m.murl && m.turl) {
-        const titulo = m.t || m.desc || '';
-        if (!esRelevante(queryTokens, titulo)) {
-          descartadasPorIrrelevantes++;
-          continue;
-        }
-        images.push({
-          url: m.murl,
-          thumbnail: m.turl
-        });
-      }
-    } catch (e) { /* ignore */ }
+  if (!apiKey) {
+    throw httpError(500, 'Búsqueda de imágenes no configurada: falta la variable de entorno BRAVE_SEARCH_API_KEY');
   }
 
-  if (descartadasPorIrrelevantes > 0) {
-    console.warn(`⚠️ ${descartadasPorIrrelevantes} imagen(es) descartadas por no compartir ninguna palabra con "${queryStr}" (probable carrusel "trending" de Bing por tráfico automatizado, no resultados reales)`);
+  console.log(`🔍 Buscando imágenes sugeridas en Brave Search para: "${queryStr}"...`);
+
+  try {
+    const response = await axios.get('https://api.search.brave.com/res/v1/images/search', {
+      params: {
+        q: queryStr,
+        count: 10,
+        safesearch: 'strict'
+      },
+      headers: {
+        'Accept': 'application/json',
+        'X-Subscription-Token': apiKey
+      },
+      timeout: 15000
+    });
+
+    const results = response.data.results || [];
+    const images = results.map(item => ({
+      url: item.properties?.url || item.url,
+      thumbnail: item.thumbnail?.src || item.properties?.url || item.url
+    }));
+
+    console.log(`✅ Búsqueda finalizada: se encontraron ${images.length} imágenes para "${queryStr}"`);
+    return images;
+  } catch (error) {
+    if (error.response?.status === 429) {
+      console.warn(`⚠️ Límite de Brave Search alcanzado buscando "${queryStr}"`);
+      return [];
+    }
+
+    console.error('❌ Error en Brave Search:', error.response?.data || error.message);
+    throw httpError(500, 'Error buscando imágenes sugeridas');
   }
-
-  // Fallback: Si no se encontró ninguna imagen con el método moderno, usar el método regex tradicional
-  if (images.length === 0) {
-    const mediaUrlRegex = /mediaurl=([^&"'\s>]+)/g;
-    const cdnUrlRegex = /cdnurl=([^&"'\s>]+)/g;
-    const originalUrls = [];
-    const thumbUrls = [];
-
-    let matchFallback;
-    while ((matchFallback = mediaUrlRegex.exec(html)) !== null && originalUrls.length < 40) {
-      try {
-        const decoded = decodeURIComponent(matchFallback[1]);
-        if (!originalUrls.includes(decoded) && decoded.startsWith('http')) {
-          originalUrls.push(decoded);
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    while ((matchFallback = cdnUrlRegex.exec(html)) !== null && thumbUrls.length < 40) {
-      try {
-        const decoded = decodeURIComponent(matchFallback[1]);
-        if (!thumbUrls.includes(decoded) && decoded.startsWith('http')) {
-          thumbUrls.push(decoded);
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    const limitCount = Math.min(originalUrls.length, thumbUrls.length);
-    for (let i = 0; i < limitCount; i++) {
-      images.push({
-        url: originalUrls[i],
-        thumbnail: thumbUrls[i]
-      });
-    }
-
-    if (images.length === 0 && originalUrls.length > 0) {
-      originalUrls.forEach(url => {
-        images.push({
-          url: url,
-          thumbnail: url
-        });
-      });
-    }
-  }
-
-  console.log(`✅ Búsqueda finalizada: se encontraron ${images.length} imágenes para "${queryStr}"`);
-
-  return images;
 }
 
 /**
