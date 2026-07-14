@@ -306,7 +306,7 @@ class AlegraInvoiceService {
       return {
       // ID y números
       alegra_id: parseInt(invoice.id),
-      numero_factura: invoice.numberTemplate?.formattedNumber || invoice.numberTemplate?.number || 'N/A',
+      numero_factura: invoice.numberTemplate?.fullNumber || invoice.numberTemplate?.formattedNumber || invoice.numberTemplate?.number || 'N/A',
       numero_completo: invoice.numberTemplate?.fullNumber || 'N/A',
 
       // Cliente

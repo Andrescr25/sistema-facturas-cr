@@ -83,19 +83,18 @@ async function upsertFacturaDesdeAlegra(invoice) {
       numero_factura, alegra_id, cliente_nombre, cliente_email,
       fecha_emision, semana, mes, ano, total, estado_bodega
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, 'pendiente')
-    ON CONFLICT (numero_factura) DO UPDATE SET
-      alegra_id = EXCLUDED.alegra_id,
+    ON CONFLICT (alegra_id) DO UPDATE SET
+      numero_factura = EXCLUDED.numero_factura,
       cliente_nombre = EXCLUDED.cliente_nombre,
       cliente_email = EXCLUDED.cliente_email,
       fecha_emision = EXCLUDED.fecha_emision,
       semana = EXCLUDED.semana,
       mes = EXCLUDED.mes,
       ano = EXCLUDED.ano,
-      total = EXCLUDED.total,
-      estado_bodega = CASE
-        WHEN facturas.alegra_id IS DISTINCT FROM EXCLUDED.alegra_id THEN 'pendiente'
-        ELSE facturas.estado_bodega
-      END
+      total = EXCLUDED.total
+      -- estado_bodega no se toca: con el conflicto en alegra_id (la
+      -- identidad real de la factura) esta fila ya es la misma factura,
+      -- nunca una distinta reusando el mismo numero.
     RETURNING *
   `, values);
 
