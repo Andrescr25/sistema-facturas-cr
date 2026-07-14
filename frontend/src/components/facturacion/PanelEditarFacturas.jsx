@@ -16,7 +16,9 @@ export default function PanelEditarFacturas({
   onCargarFacturaParaEdicion,
   onActualizarCache,
   edicionesPendientes,
-  onDescartarEdicionPendiente
+  onDescartarEdicionPendiente,
+  facturasPendientesDetalle,
+  onDescartarFacturaPendiente
 }) {
   return (
     <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
@@ -136,6 +138,47 @@ export default function PanelEditarFacturas({
                 Actualizar Cache
               </button>
             )}
+          </div>
+        )}
+
+        {facturasPendientesDetalle.length > 0 && (
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 className="font-semibold text-yellow-900 mb-2 flex items-center gap-2">
+              <AlertCircle size={18} />
+              Facturas Pendientes de Envío
+            </h4>
+            <p className="text-sm text-yellow-800 mb-3">
+              Hay {facturasPendientesDetalle.length} factura(s) que se enviarán a Alegra cuando haya conexión.
+            </p>
+            <div className="space-y-2">
+              {facturasPendientesDetalle.map((factura) => (
+                <div key={factura.localId} className="bg-white p-3 rounded border border-yellow-200">
+                  <p className="text-sm font-medium">{factura.clienteNombre}</p>
+                  <p className="text-xs text-gray-600">
+                    {factura.cantidadItems} producto(s) · ₡{factura.total.toLocaleString('es-CR')}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Creada: {new Date(factura.timestamp).toLocaleString('es-CR')}
+                  </p>
+                  {factura.intentosSincronizacion > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Intentos de envío: {factura.intentosSincronizacion}
+                    </p>
+                  )}
+                  {factura.errorSincronizacion && (
+                    <p className="text-xs text-red-600 mt-1">Error: {factura.errorSincronizacion}</p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => onDescartarFacturaPendiente(factura.localId)}
+                      className="btn btn-xs btn-outline text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

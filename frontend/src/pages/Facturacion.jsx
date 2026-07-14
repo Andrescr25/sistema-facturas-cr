@@ -47,6 +47,7 @@ export default function Facturacion() {
     facturasEncontradas,
     buscandoFacturas,
     edicionesPendientes,
+    facturasPendientesDetalle,
 
     cacheStats,
     mensaje,
@@ -71,6 +72,7 @@ export default function Facturacion() {
 
     actualizarCache,
     descartarEdicionPendiente,
+    descartarFacturaPendiente,
     cargarFacturaParaEdicion,
     handleCodigoKeyPress,
     handleCantidadKeyPress,
@@ -170,6 +172,8 @@ export default function Facturacion() {
           onActualizarCache={actualizarCache}
           edicionesPendientes={edicionesPendientes}
           onDescartarEdicionPendiente={descartarEdicionPendiente}
+          facturasPendientesDetalle={facturasPendientesDetalle}
+          onDescartarFacturaPendiente={descartarFacturaPendiente}
         />
       )}
 

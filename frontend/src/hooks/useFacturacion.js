@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import facturacionService from '../services/facturacionService'
 import { alegraService } from '../services/alegraService'
 import {
@@ -11,7 +11,8 @@ import {
   calcularDescuentoGlobal,
   calcularTotal,
   detectarEsMobile,
-  scrollElementIntoView
+  scrollElementIntoView,
+  enriquecerFacturasPendientes
 } from '../utils/facturacionUtils'
 
 const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha'
@@ -301,6 +302,19 @@ export function useFacturacion() {
     } catch (error) {
       console.error('Error descartando edición pendiente:', error)
       mostrarMensaje('Error descartando edición: ' + error.message, 'error')
+    }
+  }
+
+  const descartarFacturaPendiente = async (localId) => {
+    try {
+      await facturacionService.eliminarFacturaPendiente(localId)
+      const pendientes = await facturacionService.getFacturasPendientes()
+      setFacturasPendientes(pendientes)
+      mostrarMensaje('Factura descartada', 'info', 3000)
+      await refrescarFacturasLocales()
+    } catch (error) {
+      console.error('Error descartando factura pendiente:', error)
+      mostrarMensaje('Error descartando factura: ' + error.message, 'error')
     }
   }
 
@@ -1016,6 +1030,11 @@ export function useFacturacion() {
     setFacturasEncontradas(facturasPrecargadas) // Volver a mostrar todas
   }
 
+  const facturasPendientesDetalle = useMemo(
+    () => enriquecerFacturasPendientes(facturasPendientes, facturasPrecargadas, clientes),
+    [facturasPendientes, facturasPrecargadas, clientes]
+  )
+
   const cambiarTab = (tab) => {
     if (tab === 'nueva') {
       setTabActiva('nueva')
@@ -1076,6 +1095,7 @@ export function useFacturacion() {
     setFacturasEncontradas,
     buscandoFacturas,
     edicionesPendientes,
+    facturasPendientesDetalle,
 
     // UI
     cacheStats,
@@ -1107,6 +1127,7 @@ export function useFacturacion() {
     // Acciones
     actualizarCache,
     descartarEdicionPendiente,
+    descartarFacturaPendiente,
     buscarProductosPorNombre,
     buscarClientesPorNombre,
     buscarFacturas,

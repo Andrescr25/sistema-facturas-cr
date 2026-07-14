@@ -91,3 +91,30 @@ export function scrollElementIntoView(ref, block = 'center') {
     ref.current.scrollIntoView({ behavior: 'smooth', block })
   }
 }
+
+// Combina las facturas pendientes de envío (cola de sincronización, con el
+// error real de Alegra si lo hay) con su copia legible en el cache local
+// (nombre de cliente, total) para poder mostrarlas de forma identificable
+// en la pestaña "Editar Facturas" y que el usuario pueda diagnosticarlas.
+export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecargadas, clientes) {
+  return facturasPendientes.map(pendiente => {
+    const cache = facturasPrecargadas.find(
+      f => f.localId === pendiente.localId || f.id === `local-${pendiente.localId}`
+    )
+    const clienteInfo = clientes.find(c => String(c.id) === String(pendiente.client))
+    const total = cache?.total ?? (pendiente.items || []).reduce(
+      (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0),
+      0
+    )
+
+    return {
+      localId: pendiente.localId,
+      clienteNombre: cache?.client?.name || clienteInfo?.name || `Cliente #${pendiente.client}`,
+      total,
+      cantidadItems: (pendiente.items || []).length,
+      timestamp: pendiente.timestamp,
+      intentosSincronizacion: pendiente.intentosSincronizacion || 0,
+      errorSincronizacion: pendiente.errorSincronizacion || null
+    }
+  })
+}

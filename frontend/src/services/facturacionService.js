@@ -1039,6 +1039,16 @@ class FacturacionService {
     }
   }
 
+  /**
+   * Descartar una factura que quedó pendiente de envío (no sincronizada con Alegra).
+   * Elimina el registro de la cola de sincronización y su copia en el cache local
+   * de edición, para que deje de aparecer como "Pendiente de envío".
+   */
+  async eliminarFacturaPendiente(localId) {
+    await indexedDBService.deleteFactura(localId);
+    await indexedDBService.deleteFacturaCache(`local-${localId}`);
+  }
+
   async guardarFacturaLocalEnCache(facturaVista) {
     if (!facturaVista) return;
 
