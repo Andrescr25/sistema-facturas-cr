@@ -10,6 +10,7 @@ const catalogoController = require('./catalogo.controller');
 
 router.get('/productos', catalogoController.listarProductos);
 router.get('/search-images', catalogoController.buscarImagenes);
+router.get('/image-proxy', catalogoController.proxyImagen);
 router.post('/upload-image-url', catalogoController.asignarImagenDesdeUrl);
 router.post('/duplicate-brand', catalogoController.duplicarConMarca);
 router.put('/productos/:id', catalogoController.editarProducto);

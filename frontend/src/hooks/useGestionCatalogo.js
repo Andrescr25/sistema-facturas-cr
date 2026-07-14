@@ -4,6 +4,18 @@ import { generarReferenciaMarca } from '../utils/gestionCatalogoUtils'
 
 const LIMIT = 24 // Grilla de 4x6
 
+// Varias fuentes de miniaturas (el CDN de Brave, sitios de origen) bloquean la
+// carga directa (hotlinking) desde otro dominio. Se pasan por el proxy del
+// backend, que las descarga server-side y evita ese bloqueo. La URL de origen
+// (img.url) NO se toca: se usa tal cual al asignar la imagen a un producto,
+// flujo que ya descarga server-side por su cuenta.
+function conMiniaturasProxeadas(images) {
+  return images.map(img => ({
+    ...img,
+    thumbnail: `${api.defaults.baseURL}/alegra/catalog/image-proxy?url=${encodeURIComponent(img.thumbnail)}`
+  }))
+}
+
 /**
  * Estado y lógica de negocio de la gestión de catálogo: listado paginado con
  * búsqueda/filtro, sincronización con Alegra, sugerencia de imágenes,
@@ -132,7 +144,7 @@ export function useGestionCatalogo() {
         params: { q: query }
       })
       if (response.data?.success) {
-        setImageSuggestions(response.data.images)
+        setImageSuggestions(conMiniaturasProxeadas(response.data.images))
       }
     } catch (error) {
       console.error('Error searching images:', error)
@@ -202,7 +214,7 @@ export function useGestionCatalogo() {
         params: { q: searchQueryStr }
       })
       if (response.data?.success) {
-        setBrandSuggestions(response.data.images)
+        setBrandSuggestions(conMiniaturasProxeadas(response.data.images))
       }
     } catch (error) {
       console.error('Error searching brand images:', error)

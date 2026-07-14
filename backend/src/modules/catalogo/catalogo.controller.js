@@ -38,6 +38,29 @@ async function buscarImagenes(req, res) {
 }
 
 /**
+ * GET /catalog/image-proxy?url=...
+ * Descarga la imagen en el servidor y la sirve al navegador. Necesario porque
+ * varias fuentes de imagen (thumbnails de Brave, sitios de origen) bloquean
+ * la carga directa (hotlinking) desde otro dominio.
+ */
+async function proxyImagen(req, res) {
+  try {
+    const { url } = req.query;
+    if (!url || !/^https?:\/\//i.test(url)) {
+      return res.status(400).json({ success: false, message: 'URL de imagen inválida' });
+    }
+
+    const { buffer, contentType } = await catalogoService.descargarImagen(url);
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } catch (error) {
+    console.error('❌ Error en GET /catalog/image-proxy:', error.message);
+    res.status(502).json({ success: false, error: 'No se pudo cargar la imagen' });
+  }
+}
+
+/**
  * POST /catalog/upload-image-url
  */
 async function asignarImagenDesdeUrl(req, res) {
@@ -127,6 +150,7 @@ async function eliminarProducto(req, res) {
 module.exports = {
   listarProductos,
   buscarImagenes,
+  proxyImagen,
   asignarImagenDesdeUrl,
   duplicarConMarca,
   editarProducto,

@@ -123,6 +123,23 @@ async function buscarImagenes(queryStr) {
 }
 
 /**
+ * Descargar una imagen desde una URL externa (server-side) para servirla al
+ * frontend, evitando el bloqueo de hotlinking que aplican varios CDNs/sitios
+ * de origen cuando el navegador intenta cargarlas directamente.
+ */
+async function descargarImagen(url) {
+  const response = await axios.get(url, {
+    responseType: 'arraybuffer',
+    timeout: 15000
+  });
+
+  return {
+    buffer: Buffer.from(response.data, 'binary'),
+    contentType: response.headers['content-type'] || 'image/jpeg'
+  };
+}
+
+/**
  * Asignar imagen a un producto descargándola de una URL
  */
 async function asignarImagenDesdeUrl(alegraId, imageUrl) {
@@ -341,6 +358,7 @@ async function eliminarProducto(id) {
 module.exports = {
   listarProductos,
   buscarImagenes,
+  descargarImagen,
   asignarImagenDesdeUrl,
   duplicarConMarca,
   editarProducto,
