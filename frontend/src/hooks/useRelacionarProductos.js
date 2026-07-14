@@ -4,6 +4,7 @@ import {
   categoriaPareceMedicamento as categoriaPareceMedicamentoUtil,
   detectarFormaSugerida,
   calcularFactorConversion,
+  inferirCantidadesDesdeFactor,
   calcularStatsProductos,
   filtrarProductosPorEstado
 } from '../utils/relacionarProductosUtils'
@@ -448,11 +449,9 @@ export function useRelacionarProductos(facturaId) {
 
         // Configurar valores actuales del factor
         if (mapeo.factorConversion && mapeo.factorConversion !== 1) {
-          // Si existe factor, calcular cantidades originales
-          // factor = cantMia / cantProv
-          // Si factor = 0.5, significa 1 del proveedor = 0.5 mío
-          setCantidadProveedor(1)
-          setCantidadMia(mapeo.factorConversion)
+          const { cantidadProveedor: cp, cantidadMia: cm } = inferirCantidadesDesdeFactor(mapeo.factorConversion)
+          setCantidadProveedor(cp)
+          setCantidadMia(cm)
         } else {
           setCantidadProveedor(1)
           setCantidadMia(1)

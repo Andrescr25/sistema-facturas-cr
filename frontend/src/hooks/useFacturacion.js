@@ -44,17 +44,14 @@ export function useFacturacion() {
   const [clientes, setClientes] = useState([])
   const [impuestos, setImpuestos] = useState([])
   const [impuestoPrincipal, setImpuestoPrincipal] = useState(null)
-  const [metodosPago, setMetodosPago] = useState([])
   const [facturasPendientes, setFacturasPendientes] = useState([])
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
   const [items, setItems] = useState([])
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
-  const [metodoPago, setMetodoPago] = useState('cash')
   const [observaciones, setObservaciones] = useState('')
   const [descuentoGlobal, setDescuentoGlobal] = useState(0)
-  const [esElectronica, setEsElectronica] = useState(false)
 
   // Estados de búsqueda y entrada rápida
   const [codigoProducto, setCodigoProducto] = useState('')
@@ -73,9 +70,6 @@ export function useFacturacion() {
   const [edicionesPendientes, setEdicionesPendientes] = useState([])
 
   // Estados UI
-  const [itemEditando, setItemEditando] = useState(null)
-  const [mostrarBusquedaCliente, setMostrarBusquedaCliente] = useState(false)
-  const [mostrarBusquedaProducto, setMostrarBusquedaProducto] = useState(false)
   const [cacheStats, setCacheStats] = useState(null)
   const [mensaje, setMensaje] = useState(null)
   const [mostrarRecordatorioActualizacion, setMostrarRecordatorioActualizacion] = useState(false)
@@ -317,11 +311,10 @@ export function useFacturacion() {
       await facturacionService.init()
 
       // Cargar datos del cache
-      const [productosCache, clientesCache, impuestosData, metodosPagoData, pendientes, stats] = await Promise.all([
+      const [productosCache, clientesCache, impuestosData, pendientes, stats] = await Promise.all([
         facturacionService.getProductos(),
         facturacionService.getClientes(),
         facturacionService.getImpuestos(),
-        facturacionService.getMetodosPago(),
         facturacionService.getFacturasPendientes(),
         facturacionService.getCacheStats()
       ])
@@ -329,7 +322,6 @@ export function useFacturacion() {
       setProductos(productosCache)
       setClientes(clientesCache)
       prepararImpuestosIniciales(impuestosData)
-      setMetodosPago(metodosPagoData)
       setFacturasPendientes(pendientes)
       setCacheStats(stats)
 
@@ -787,8 +779,7 @@ export function useFacturacion() {
           tax: (item.tax || []).map(t => ({ id: t.id }))
         })),
         observations: observaciones || '',
-        status: 'open',
-        ...(esElectronica && { stamp: { generateStamp: true } })
+        status: 'open'
       }
 
       // Guardar con descuento global si existe
@@ -916,10 +907,8 @@ export function useFacturacion() {
     setClienteSeleccionado(null)
     setItems([])
     setFecha(new Date().toISOString().split('T')[0])
-    setMetodoPago('cash')
     setObservaciones('')
     setDescuentoGlobal(0)
-    setEsElectronica(false)
     setCodigoProducto('')
     setCantidadProducto('')
     setProductoPreviewRapido(null)
