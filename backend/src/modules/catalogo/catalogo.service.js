@@ -72,6 +72,48 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
   };
 }
 
+const STOPWORDS = new Set([
+  'de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'para', 'con', 'por', 'en', 'del', 'al',
+  'y', 'o', 'the', 'and', 'for', 'with', 'of', 'a', 'an', 'to', 'in', 'on'
+]);
+
+function normalizarTexto(str) {
+  return (str || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function tokenizar(str) {
+  return normalizarTexto(str)
+    .split(/[^a-z0-9]+/)
+    .filter(t => t.length >= 3 && !STOPWORDS.has(t));
+}
+
+// Compara por raíz compartida (primeros hasta 5 caracteres) en vez de
+// igualdad exacta, para que singular/plural y variaciones simples del
+// español ("cadena"/"cadenas", "aceite"/"aceitera") sigan contando como
+// la misma palabra. Palabras muy cortas (<4) sí requieren igualdad exacta.
+function compartenRaiz(a, b) {
+  const minLen = Math.min(a.length, b.length);
+  if (minLen < 4) return a === b;
+  const raizLen = Math.min(5, minLen);
+  return a.slice(0, raizLen) === b.slice(0, raizLen);
+}
+
+// Bing, cuando detecta trafico automatizado (como el de un servidor en la
+// nube pegandole a bing.com/images/search sin sesion de navegador real), no
+// devuelve un error: sirve en su lugar un carrusel generico de imagenes
+// "trending" con la misma forma que un resultado real, pero sin relacion
+// alguna con la consulta. Como filtro de defensa, solo se aceptan imagenes
+// cuyo titulo comparta al menos una palabra significativa con la consulta.
+function esRelevante(queryTokens, tituloImagen) {
+  if (queryTokens.length === 0) return true;
+  const tituloTokens = tokenizar(tituloImagen);
+  return queryTokens.some(qt => tituloTokens.some(tt => compartenRaiz(qt, tt)));
+}
+
 /**
  * Buscar sugerencias de imágenes en la web utilizando Bing Images Scraping
  */
@@ -94,6 +136,8 @@ async function buscarImagenes(queryStr) {
 
   const html = response.data;
   const images = [];
+  const queryTokens = tokenizar(queryStr);
+  let descartadasPorIrrelevantes = 0;
 
   // Intentar extraer metadatos JSON del atributo m de la clase iusc de Bing (Método moderno)
   const mRegex = /m=\"(\{[^\"]+\})\"/g;
@@ -108,12 +152,21 @@ async function buscarImagenes(queryStr) {
 
       const m = JSON.parse(cleanJson);
       if (m.murl && m.turl) {
+        const titulo = m.t || m.desc || '';
+        if (!esRelevante(queryTokens, titulo)) {
+          descartadasPorIrrelevantes++;
+          continue;
+        }
         images.push({
           url: m.murl,
           thumbnail: m.turl
         });
       }
     } catch (e) { /* ignore */ }
+  }
+
+  if (descartadasPorIrrelevantes > 0) {
+    console.warn(`⚠️ ${descartadasPorIrrelevantes} imagen(es) descartadas por no compartir ninguna palabra con "${queryStr}" (probable carrusel "trending" de Bing por tráfico automatizado, no resultados reales)`);
   }
 
   // Fallback: Si no se encontró ninguna imagen con el método moderno, usar el método regex tradicional
