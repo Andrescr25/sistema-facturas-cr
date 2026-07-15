@@ -10,6 +10,7 @@ import ModalNuevaAuditoria from '../components/inventario-auditoria/ModalNuevaAu
 import AuditoriaExpirada from '../components/inventario-auditoria/AuditoriaExpirada'
 import FiltrosEjecucion from '../components/inventario-auditoria/FiltrosEjecucion'
 import ItemAuditoriaCard from '../components/inventario-auditoria/ItemAuditoriaCard'
+import ModalImagenProducto from '../components/inventario-auditoria/ModalImagenProducto'
 import PanelProgresoConteo from '../components/inventario-auditoria/PanelProgresoConteo'
 import ReporteFinalizado from '../components/inventario-auditoria/ReporteFinalizado'
 import BarraAccionMovil from '../components/inventario-auditoria/BarraAccionMovil'
@@ -56,6 +57,9 @@ export default function InventarioAuditoria() {
     handleFinalize,
     handleApplyAlegraAdjustment,
     handleConteoChange,
+    imagenProductoActivo,
+    handleVerImagenProducto,
+    handleCerrarImagenProducto,
 
     filteredItems,
     itemsStats,
@@ -209,6 +213,7 @@ export default function InventarioAuditoria() {
                         item={item}
                         conteoRaw={conteosDraft[item.id]}
                         onConteoChange={handleConteoChange}
+                        onVerImagen={handleVerImagenProducto}
                       />
                     ))}
                   </div>
@@ -267,6 +272,13 @@ export default function InventarioAuditoria() {
             </div>
           </div>
         </div>
+      )}
+
+      {imagenProductoActivo && (
+        <ModalImagenProducto
+          item={imagenProductoActivo}
+          onCerrar={handleCerrarImagenProducto}
+        />
       )}
 
       <ConfirmModal {...dialogProps} />

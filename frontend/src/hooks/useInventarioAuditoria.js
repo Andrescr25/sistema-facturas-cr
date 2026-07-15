@@ -50,6 +50,7 @@ export function useInventarioAuditoria() {
   const [newAuditTipo, setNewAuditTipo] = useState('random')
   const [newAuditCategoria, setNewAuditCategoria] = useState('')
   const [newAuditNombre, setNewAuditNombre] = useState('')
+  const [imagenProductoActivo, setImagenProductoActivo] = useState(null) // item completo, o null
 
   // Search & filter states for audit execution
   const [executionSearch, setExecutionSearch] = useState('')
@@ -296,6 +297,9 @@ export function useInventarioAuditoria() {
     }))
   }
 
+  const handleVerImagenProducto = (item) => setImagenProductoActivo(item)
+  const handleCerrarImagenProducto = () => setImagenProductoActivo(null)
+
   const volverAlDashboard = () => {
     setAuditoriaActiva(null)
     loadDashboard()
@@ -366,6 +370,9 @@ export function useInventarioAuditoria() {
     handleFinalize,
     handleApplyAlegraAdjustment,
     handleConteoChange,
+    imagenProductoActivo,
+    handleVerImagenProducto,
+    handleCerrarImagenProducto,
 
     filteredItems,
     itemsStats,

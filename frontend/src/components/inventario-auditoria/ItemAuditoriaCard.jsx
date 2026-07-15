@@ -1,3 +1,4 @@
+import { ImageIcon } from 'lucide-react'
 import { formatCurrency, clasificarItemConteo } from '../../utils/inventarioAuditoriaUtils'
 
 const ESTADO_CONFIG = {
@@ -36,7 +37,7 @@ const ESTADO_CONFIG = {
  * conteo real. Extraído de InventarioAuditoria.jsx (era el cuerpo del .map
  * de items en la hoja de conteo).
  */
-export default function ItemAuditoriaCard({ item, conteoRaw, onConteoChange }) {
+export default function ItemAuditoriaCard({ item, conteoRaw, onConteoChange, onVerImagen }) {
   const { estado, stockSis, diff, diffCost } = clasificarItemConteo(item, conteoRaw)
   const config = ESTADO_CONFIG[estado]
 
@@ -45,6 +46,14 @@ export default function ItemAuditoriaCard({ item, conteoRaw, onConteoChange }) {
       <div className="space-y-1 min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="font-bold text-gray-900 leading-snug">{item.nombre_producto}</h4>
+          <button
+            type="button"
+            onClick={() => onVerImagen(item)}
+            aria-label={`Ver foto de ${item.nombre_producto}`}
+            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors shrink-0"
+          >
+            <ImageIcon size={16} />
+          </button>
           {config.badge(diff)}
         </div>
         <p className="text-xs text-gray-400">

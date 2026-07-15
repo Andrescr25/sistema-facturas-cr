@@ -271,9 +271,15 @@ async function getAuditoria(id) {
   const expirada = audit.estado === 'en_progreso' && difHoras >= 24;
 
   const itemsRes = await query(`
-    SELECT * FROM inventario_auditoria_items
-    WHERE auditoria_id = $1
-    ORDER BY nombre_producto;
+    SELECT
+      iai.id, iai.auditoria_id, iai.alegra_id, iai.nombre_producto, iai.referencia,
+      iai.category, iai.stock_sistema, iai.stock_real, iai.costo_unitario,
+      iai.precio_venta, iai.created_at, iai.ajustado_alegra,
+      apc.image_url
+    FROM inventario_auditoria_items iai
+    LEFT JOIN alegra_products_cache apc ON apc.alegra_id = iai.alegra_id
+    WHERE iai.auditoria_id = $1
+    ORDER BY iai.nombre_producto;
   `, [id]);
 
   return {
