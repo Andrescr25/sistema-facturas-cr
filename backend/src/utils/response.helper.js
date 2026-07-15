@@ -7,12 +7,13 @@ class ResponseHelper {
   /**
    * Respuesta exitosa
    */
-  static success(res, data = {}, message = 'Operación exitosa', statusCode = 200) {
+  static success(res, data = {}, message = 'Operación exitosa', statusCode = 200, extra = {}) {
     return res.status(statusCode).json({
       success: true,
       message,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      ...extra
     });
   }
 

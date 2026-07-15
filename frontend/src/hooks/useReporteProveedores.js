@@ -78,7 +78,7 @@ export function useReporteProveedores() {
       const result = await alegraService.getCantidadesModificadas()
       if (result.success) {
         const cantidadesMap = new Map()
-        result.modificadas?.forEach(item => {
+        result.data?.modificadas?.forEach(item => {
           const key = `${item.proveedor_nombre}-${item.producto_codigo}`
           cantidadesMap.set(key, {
             cantidad_original: item.cantidad_original,
@@ -88,14 +88,14 @@ export function useReporteProveedores() {
         setCantidadesGuardadas(cantidadesMap)
 
         const eliminados = new Set()
-        result.eliminadas?.forEach(item => {
+        result.data?.eliminadas?.forEach(item => {
           const key = `${item.proveedor_nombre}-${item.producto_codigo}`
           eliminados.add(key)
         })
         setProductosEliminados(eliminados)
 
         const agregados = new Map()
-        result.agregadas?.forEach(item => {
+        result.data?.agregadas?.forEach(item => {
           const proveedorNombre = item.proveedor_nombre
           const productosDelProveedor = agregados.get(proveedorNombre) || []
           productosDelProveedor.push({
@@ -170,7 +170,7 @@ export function useReporteProveedores() {
       if (result.success) {
         await loadCantidadesGuardadas()
         setCantidadesModificadas(new Map())
-        showToast(`Cantidades guardadas correctamente\n\n• ${result.cantidades_guardadas} productos actualizados`, 'success')
+        showToast(`Cantidades guardadas correctamente\n\n• ${result.data?.cantidades_guardadas ?? 0} productos actualizados`, 'success')
       } else {
         showToast(`Error guardando cantidades: ${result.message}`, 'error')
       }
