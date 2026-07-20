@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getPagosProveedores, actualizarPagoProveedor } from '../services/pagosProveedoresService'
-import api from '../services/api'
+import { getPagosProveedores, actualizarPagoProveedor, getProveedoresConCuentas } from '../services/pagosProveedoresService'
 import { useToast } from './useToast'
 
 export const defaultFilters = {
@@ -52,13 +51,17 @@ export function usePagosProveedores(initialFilters = {}) {
 
   // Lista de proveedores independiente de los filtros activos (antes se derivaba
   // de `cuentas`, así que al filtrar por estado/fecha el dropdown perdía opciones).
+  // Viene de /pagos-proveedores/proveedores (solo proveedores con al menos una
+  // cuenta por pagar registrada) — no del maestro completo de /proveedores,
+  // que traía también proveedores sin ninguna cuenta en el sistema.
   useEffect(() => {
     let cancelado = false
-    api.get('/proveedores')
-      .then((response) => {
+    getProveedoresConCuentas()
+      .then((result) => {
         if (cancelado) return
-        const lista = response.data?.proveedores || response.data?.data || []
-        setProveedoresDisponibles(lista.map((p) => ({ cedula: p.cedula, nombre: p.nombre })))
+        if (result?.success) {
+          setProveedoresDisponibles(result.data || [])
+        }
       })
       .catch(() => {
         // Silencioso: si falla, el filtro de proveedor simplemente queda vacío,

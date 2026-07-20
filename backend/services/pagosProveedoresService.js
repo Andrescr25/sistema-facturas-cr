@@ -6,6 +6,25 @@ class PagosProveedoresService {
     this.prisma = prisma;
   }
 
+  /**
+   * Proveedores que tienen al menos una cuenta por pagar registrada (para el
+   * dropdown de filtro) — a diferencia de GET /api/proveedores (el maestro
+   * completo de proveedores de Alegra), esto no incluye proveedores sin
+   * ninguna cuenta por pagar en el sistema. Independiente del filtro de
+   * estado/fecha activo, para no perder opciones del dropdown al filtrar.
+   */
+  async listarProveedoresConCuentas() {
+    const cuentas = await this.prisma.cuentaPorPagar.findMany({
+      where: { liberada: true },
+      distinct: ['proveedorCedula'],
+      select: { proveedorCedula: true, proveedorNombre: true }
+    });
+
+    return cuentas
+      .map((c) => ({ cedula: c.proveedorCedula, nombre: c.proveedorNombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }
+
   async marcarVencidas() {
     await this.prisma.cuentaPorPagar.updateMany({
       where: {

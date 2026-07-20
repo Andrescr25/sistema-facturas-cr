@@ -47,6 +47,23 @@ async function listarCuentas(req, res) {
 }
 
 /**
+ * GET /pagos-proveedores/proveedores
+ */
+async function listarProveedoresConCuentas(req, res) {
+  try {
+    const data = await pagosProveedoresService.listarProveedoresConCuentas();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error obteniendo proveedores con cuentas por pagar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error obteniendo proveedores con cuentas por pagar',
+      error: error.message
+    });
+  }
+}
+
+/**
  * PATCH /pagos-proveedores/:id
  */
 async function actualizarCuenta(req, res) {
@@ -81,5 +98,6 @@ async function actualizarCuenta(req, res) {
 
 module.exports = {
   listarCuentas,
+  listarProveedoresConCuentas,
   actualizarCuenta
 };

@@ -10,3 +10,8 @@ export async function actualizarPagoProveedor(id, payload) {
   return response.data
 }
 
+export async function getProveedoresConCuentas() {
+  const response = await api.get('/pagos-proveedores/proveedores')
+  return response.data
+}
+

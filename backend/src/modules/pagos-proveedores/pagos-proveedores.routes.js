@@ -8,6 +8,7 @@ const router = express.Router();
 const pagosProveedoresController = require('./pagos-proveedores.controller');
 
 router.get('/', pagosProveedoresController.listarCuentas);
+router.get('/proveedores', pagosProveedoresController.listarProveedoresConCuentas);
 router.patch('/:id', pagosProveedoresController.actualizarCuenta);
 
 module.exports = router;
