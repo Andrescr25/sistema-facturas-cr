@@ -65,6 +65,9 @@ export default function GestionCatalogo() {
     setEditPrice,
     editCost,
     setEditCost,
+    editCategoria,
+    setEditCategoria,
+    categorias,
     savingEdit,
     openEditProduct,
     handleSaveEdit,
@@ -176,6 +179,9 @@ export default function GestionCatalogo() {
           setEditPrice={setEditPrice}
           editCost={editCost}
           setEditCost={setEditCost}
+          editCategoria={editCategoria}
+          setEditCategoria={setEditCategoria}
+          categorias={categorias}
           savingEdit={savingEdit}
           confirmDelete={confirmDelete}
           deletingProduct={deletingProduct}

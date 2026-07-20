@@ -350,7 +350,7 @@ async function duplicarConMarca({ originalProductId, brandName, newCode, newPric
 /**
  * Editar datos básicos de un producto en Alegra y en la caché local
  */
-async function editarProducto(id, { name, reference, price, cost }) {
+async function editarProducto(id, { name, reference, price, cost, category }) {
   console.log(`📝 Editando producto ${id} en Alegra...`);
 
   // Cargar producto original de Alegra para obtener la estructura de precios actual
@@ -385,6 +385,12 @@ async function editarProducto(id, { name, reference, price, cost }) {
     }
   };
 
+  // Categoría opcional: si no se manda, Alegra conserva la categoría actual
+  // del producto (el PUT es un merge parcial, no reemplaza lo que no se envía).
+  if (category) {
+    updateData.itemCategory = { id: parseInt(category, 10) };
+  }
+
   // Actualizar en Alegra
   let updateResponse;
   try {
@@ -407,6 +413,7 @@ async function editarProducto(id, { name, reference, price, cost }) {
       reference: updatedAlegra.reference?.reference || updatedAlegra.reference || '',
       price: newPriceVal,
       cost: newCostVal,
+      category: updatedAlegra.itemCategory?.name || updatedAlegra.category?.name || '',
       searchText: `${updatedAlegra.name} ${updatedAlegra.reference?.reference || updatedAlegra.reference || ''} ${updatedAlegra.description || ''}`.toLowerCase(),
       updatedAt: new Date()
     }

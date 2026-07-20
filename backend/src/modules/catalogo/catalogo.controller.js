@@ -133,13 +133,13 @@ async function duplicarConMarca(req, res) {
 async function editarProducto(req, res) {
   try {
     const { id } = req.params;
-    const { name, reference, price, cost } = req.body;
+    const { name, reference, price, cost, category } = req.body;
 
     if (!name || !reference || price === undefined) {
       return res.status(400).json({ success: false, message: 'name, reference y price son requeridos' });
     }
 
-    const cachedProduct = await catalogoService.editarProducto(id, { name, reference, price, cost });
+    const cachedProduct = await catalogoService.editarProducto(id, { name, reference, price, cost, category });
     res.json({
       success: true,
       data: cachedProduct,

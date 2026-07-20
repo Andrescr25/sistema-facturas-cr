@@ -55,6 +55,8 @@ export function useGestionCatalogo() {
   const [editRef, setEditRef] = useState('')
   const [editPrice, setEditPrice] = useState(0)
   const [editCost, setEditCost] = useState(0)
+  const [editCategoria, setEditCategoria] = useState('')
+  const [categorias, setCategorias] = useState([])
   const [savingEdit, setSavingEdit] = useState(false)
 
   // Delete product states
@@ -296,13 +298,33 @@ export function useGestionCatalogo() {
   }
 
   // --- EDIT PRODUCT ACTION ---
-  const openEditProduct = (product) => {
+  // Categorías de producto (Alegra item-categories), cargadas una sola vez
+  const loadCategorias = async () => {
+    if (categorias.length > 0) return categorias
+    try {
+      const response = await api.get('/alegra/categorias')
+      if (response.data?.success) {
+        const cats = response.data.categorias || []
+        setCategorias(cats)
+        return cats
+      }
+    } catch (err) {
+      console.error('Error cargando categorías:', err)
+    }
+    return []
+  }
+
+  const openEditProduct = async (product) => {
     setSelectedProduct(product)
     setEditName(product.name)
     setEditRef(product.reference || '')
     setEditPrice(product.price || 0)
     setEditCost(product.cost || 0)
     setIsEditModalOpen(true)
+
+    const cats = await loadCategorias()
+    const categoriaActual = cats.find((cat) => cat.name === product.category)
+    setEditCategoria(categoriaActual ? String(categoriaActual.id) : '')
   }
 
   const handleSaveEdit = async (e) => {
@@ -322,11 +344,13 @@ export function useGestionCatalogo() {
         name: editName.trim(),
         reference: editRef.trim(),
         price: editPrice,
-        cost: editCost
+        cost: editCost,
+        category: editCategoria || undefined
       })
 
       if (response.data?.success) {
         showToast('success', 'Producto actualizado correctamente')
+        const categoriaNueva = categorias.find((cat) => String(cat.id) === String(editCategoria))
         // Update product list state locally
         setProductos(prev => prev.map(p => {
           if (p.alegraId === selectedProduct.alegraId) {
@@ -335,7 +359,8 @@ export function useGestionCatalogo() {
               name: editName.trim(),
               reference: editRef.trim(),
               price: parseFloat(editPrice),
-              cost: parseFloat(editCost)
+              cost: parseFloat(editCost),
+              category: categoriaNueva ? categoriaNueva.name : p.category
             }
           }
           return p
@@ -441,6 +466,9 @@ export function useGestionCatalogo() {
     setEditPrice,
     editCost,
     setEditCost,
+    editCategoria,
+    setEditCategoria,
+    categorias,
     savingEdit,
     openEditProduct,
     handleSaveEdit,
