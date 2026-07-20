@@ -137,11 +137,13 @@ inicializarTablas();
 /**
  * Listar todas las auditorías
  */
-async function listarAuditorias() {
-  const result = await query(`
-    SELECT * FROM inventario_auditorias
-    ORDER BY fecha_creacion DESC;
-  `);
+async function listarAuditorias(tipo) {
+  // Sin tipo: auditorías cíclicas normales (se excluyen las devoluciones para
+  // no mezclarlas en el historial de auditorías). Con tipo: filtra exacto —
+  // usado por la pestaña de Devoluciones (tipo='devolucion').
+  const result = tipo
+    ? await query(`SELECT * FROM inventario_auditorias WHERE tipo = $1 ORDER BY fecha_creacion DESC;`, [tipo])
+    : await query(`SELECT * FROM inventario_auditorias WHERE tipo != 'devolucion' ORDER BY fecha_creacion DESC;`);
   return result.rows;
 }
 
@@ -268,7 +270,11 @@ async function getAuditoria(id) {
   const fechaCreacion = new Date(audit.fecha_creacion);
   const ahora = new Date();
   const difHoras = (ahora - fechaCreacion) / (1000 * 60 * 60);
-  const expirada = audit.estado === 'en_progreso' && difHoras >= 24;
+  // Las devoluciones no expiran a las 24h: cada ítem captura su propio stock
+  // fresco al agregarse (no hay un baseline único que se vuelva obsoleto como
+  // en una auditoría cíclica), y pueden quedar abiertas varios días mientras
+  // van llegando productos devueltos.
+  const expirada = audit.tipo !== 'devolucion' && audit.estado === 'en_progreso' && difHoras >= 24;
 
   const itemsRes = await query(`
     SELECT
@@ -506,6 +512,149 @@ async function resincronizarAuditoria(id) {
   `, [id]);
 }
 
+/**
+ * Crear una devolución vacía (tipo='devolucion'): a diferencia de crearAuditoria, no precarga
+ * ningún producto — se van agregando uno por uno con agregarItemDevolucion a medida que llegan.
+ */
+async function crearDevolucion() {
+  // Nombre autoincremental "Ajuste N": se busca el número más alto ya usado
+  // entre las devoluciones existentes (sin asumir que son consecutivas, por
+  // si alguna vez se borra una a mano) y se usa el siguiente.
+  const existentes = await query(`SELECT nombre FROM inventario_auditorias WHERE tipo = 'devolucion';`);
+  let maxNumero = 0;
+  existentes.rows.forEach(row => {
+    const match = /^ajuste\s+(\d+)$/i.exec((row.nombre || '').trim());
+    if (match) {
+      const numero = parseInt(match[1], 10);
+      if (numero > maxNumero) maxNumero = numero;
+    }
+  });
+  const nombre = `Ajuste ${maxNumero + 1}`;
+
+  const result = await query(`
+    INSERT INTO inventario_auditorias (nombre, tipo, estado)
+    VALUES ($1, 'devolucion', 'en_progreso')
+    RETURNING *;
+  `, [nombre]);
+
+  return result.rows[0];
+}
+
+/**
+ * Buscar productos inventariables en vivo en Alegra por nombre/referencia, para agregarlos a una
+ * devolución. Mismo dato fresco (stock/costo) que usa crearAuditoria, filtrado por texto.
+ */
+async function buscarProductosParaDevolucion(q) {
+  if (!q || !q.trim()) return [];
+
+  // Búsqueda contra la caché local (alegra_products_cache), no en vivo contra
+  // Alegra: getInventariableItems() pagina TODO el catálogo (2000+ productos,
+  // ~80s medido en producción) — inviable para una búsqueda en cada tecleo.
+  // La caché no guarda existencias, así que el stock/costo frescos se
+  // consultan puntualmente (1 sola llamada) recién al agregar el producto,
+  // en agregarItemDevolucion.
+  const result = await query(`
+    SELECT alegra_id, name, reference, category, cost, price
+    FROM alegra_products_cache
+    WHERE status = 'active' AND hidden_locally = FALSE
+      AND search_text ILIKE '%' || $1 || '%'
+    ORDER BY name ASC
+    LIMIT 30;
+  `, [q.trim().toLowerCase()]);
+
+  return result.rows.map(row => ({
+    alegraId: row.alegra_id,
+    nombre: row.name,
+    referencia: row.reference,
+    categoria: row.category,
+    costoUnitario: Number(row.cost) || 0,
+    precioVenta: Number(row.price) || 0
+  }));
+}
+
+/**
+ * Agregar un producto devuelto a una devolución en progreso. Los datos del producto (nombre,
+ * referencia, categoría, costo, stock actual) vienen del resultado de buscarProductosParaDevolucion
+ * que el frontend acaba de mostrar — no se re-consulta Alegra para evitar una llamada extra por
+ * cada producto agregado. stock_real se calcula de una vez (stock actual + cantidad devuelta), así
+ * que finalizarAuditoria/ajustarEnAlegra (genéricos, comparan stock_sistema vs stock_real) funcionan
+ * sin ningún cambio para este tipo de registro.
+ */
+async function agregarItemDevolucion(auditoriaId, item) {
+  const auditRes = await query(`SELECT * FROM inventario_auditorias WHERE id = $1;`, [auditoriaId]);
+  if (auditRes.rows.length === 0) {
+    throw httpError(404, 'Devolución no encontrada.');
+  }
+  const devolucion = auditRes.rows[0];
+  if (devolucion.tipo !== 'devolucion') {
+    throw httpError(400, 'Este registro no es una devolución.');
+  }
+  if (devolucion.estado !== 'en_progreso') {
+    throw httpError(400, 'Esta devolución ya fue finalizada.');
+  }
+
+  const { alegraId, cantidadDevuelta } = item;
+  const cantidad = Number(cantidadDevuelta);
+
+  if (!alegraId) {
+    throw httpError(400, 'Producto inválido.');
+  }
+  if (!cantidad || cantidad <= 0) {
+    throw httpError(400, 'La cantidad devuelta debe ser mayor a 0.');
+  }
+
+  // El buscador usa la caché local (rápida, sin existencias) — se consulta
+  // el producto puntual en vivo en Alegra (1 sola llamada, rápida) para tener
+  // el stock/costo frescos justo al momento de agregarlo a la devolución.
+  let productoAlegra;
+  try {
+    productoAlegra = await inventoryService.getItemById(alegraId);
+  } catch (error) {
+    throw httpError(400, 'No se pudo obtener el producto desde Alegra. Intenta de nuevo.');
+  }
+
+  const mainPrice = productoAlegra.price?.find(p => p.main === true) || productoAlegra.price?.[0];
+  const precioVenta = mainPrice ? parseFloat(mainPrice.price) : 0;
+  const costoUnitario = productoAlegra.inventory?.unitCost ? parseFloat(productoAlegra.inventory.unitCost) : 0;
+  const referencia = productoAlegra.reference?.reference || productoAlegra.reference || '';
+  const categoria = productoAlegra.itemCategory?.name || productoAlegra.category?.name || '';
+  const stockActual = productoAlegra.inventory?.availableQuantity ? parseFloat(productoAlegra.inventory.availableQuantity) : 0;
+
+  const result = await query(`
+    INSERT INTO inventario_auditoria_items
+      (auditoria_id, alegra_id, nombre_producto, referencia, category, stock_sistema, stock_real, costo_unitario, precio_venta)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *;
+  `, [
+    auditoriaId,
+    String(alegraId),
+    productoAlegra.name,
+    referencia,
+    categoria,
+    stockActual,
+    stockActual + cantidad,
+    costoUnitario,
+    precioVenta
+  ]);
+
+  return result.rows[0];
+}
+
+/**
+ * Quitar un producto agregado por error a una devolución, antes de aplicar el ajuste en Alegra.
+ */
+async function eliminarItemDevolucion(auditoriaId, itemId) {
+  const result = await query(`
+    DELETE FROM inventario_auditoria_items
+    WHERE id = $1 AND auditoria_id = $2 AND ajustado_alegra = FALSE
+    RETURNING id;
+  `, [itemId, auditoriaId]);
+
+  if (result.rows.length === 0) {
+    throw httpError(404, 'Ítem no encontrado o ya fue ajustado en Alegra.');
+  }
+}
+
 module.exports = {
   listarAuditorias,
   listarCategorias,
@@ -514,5 +663,9 @@ module.exports = {
   guardarConteos,
   finalizarAuditoria,
   ajustarEnAlegra,
-  resincronizarAuditoria
+  resincronizarAuditoria,
+  crearDevolucion,
+  buscarProductosParaDevolucion,
+  agregarItemDevolucion,
+  eliminarItemDevolucion
 };

@@ -1,5 +1,5 @@
 import { TrendingUp, DollarSign, Boxes } from 'lucide-react'
-import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
+import { formatCurrency, tamanoTextoMonto } from '../../utils/inventarioAuditoriaUtils'
 
 /**
  * Las 3 tarjetas de KPIs del dashboard de auditorías: precisión, descuadre
@@ -27,9 +27,9 @@ export default function DashboardKpis({ kpis }) {
         <div className={`p-4 rounded-2xl ${kpis.descuadre >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
           <DollarSign size={28} />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Descuadre Acumulado</p>
-          <h3 className={`text-3xl font-extrabold mt-1 ${kpis.descuadre >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+          <h3 className={`font-extrabold mt-1 break-words ${tamanoTextoMonto(formatCurrency(kpis.descuadre))} ${kpis.descuadre >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
             {formatCurrency(kpis.descuadre)}
           </h3>
         </div>

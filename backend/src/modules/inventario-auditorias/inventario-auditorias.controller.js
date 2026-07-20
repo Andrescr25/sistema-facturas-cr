@@ -10,7 +10,8 @@ const inventarioAuditoriasService = require('./inventario-auditorias.service');
  */
 async function listarAuditorias(req, res) {
   try {
-    const data = await inventarioAuditoriasService.listarAuditorias();
+    const { tipo } = req.query;
+    const data = await inventarioAuditoriasService.listarAuditorias(tipo);
     res.json({ success: true, data });
   } catch (error) {
     console.error('Error listando auditorías:', error);
@@ -167,6 +168,70 @@ async function resincronizarAuditoria(req, res) {
   }
 }
 
+/**
+ * POST /inventario-auditorias/devolucion
+ */
+async function crearDevolucion(req, res) {
+  try {
+    const devolucion = await inventarioAuditoriasService.crearDevolucion();
+    res.json({ success: true, data: devolucion });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    console.error('Error creando devolución:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /inventario-auditorias/buscar-productos?q=
+ */
+async function buscarProductosParaDevolucion(req, res) {
+  const { q } = req.query;
+  try {
+    const data = await inventarioAuditoriasService.buscarProductosParaDevolucion(q);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error buscando productos para devolución:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * POST /inventario-auditorias/:id/items
+ */
+async function agregarItemDevolucion(req, res) {
+  const { id } = req.params;
+  try {
+    const item = await inventarioAuditoriasService.agregarItemDevolucion(id, req.body);
+    res.json({ success: true, data: item });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    console.error('Error agregando producto a devolución:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * DELETE /inventario-auditorias/:id/items/:itemId
+ */
+async function eliminarItemDevolucion(req, res) {
+  const { id, itemId } = req.params;
+  try {
+    await inventarioAuditoriasService.eliminarItemDevolucion(id, itemId);
+    res.json({ success: true, message: 'Producto eliminado de la devolución.' });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    console.error('Error eliminando producto de devolución:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   listarAuditorias,
   listarCategorias,
@@ -175,5 +240,9 @@ module.exports = {
   guardarConteos,
   finalizarAuditoria,
   ajustarEnAlegra,
-  resincronizarAuditoria
+  resincronizarAuditoria,
+  crearDevolucion,
+  buscarProductosParaDevolucion,
+  agregarItemDevolucion,
+  eliminarItemDevolucion
 };

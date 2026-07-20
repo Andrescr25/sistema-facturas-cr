@@ -2,9 +2,11 @@ import { CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/inventarioAuditoriaUtils'
 
 /**
- * Reporte de una auditoría ya finalizada: resumen + lista de discrepancias
- * (izquierda), y la acción correctiva de ajustar el inventario en Alegra
- * (derecha). Extraído de InventarioAuditoria.jsx.
+ * Reporte de una auditoría (o devolución) ya finalizada: resumen + lista de
+ * discrepancias/productos (izquierda), y la acción correctiva de ajustar el
+ * inventario en Alegra (derecha). Extraído de InventarioAuditoria.jsx.
+ * `esDevolucion` solo cambia los textos — el cálculo (adjustmentsPreview) y
+ * la acción de aplicar el ajuste son exactamente los mismos.
  */
 export default function ReporteFinalizado({
   auditoriaActiva,
@@ -12,7 +14,8 @@ export default function ReporteFinalizado({
   loadingAjuste,
   successAjuste,
   error,
-  onAplicarAjuste
+  onAplicarAjuste,
+  esDevolucion = false
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -22,9 +25,15 @@ export default function ReporteFinalizado({
         <div className="bg-green-50 text-green-950 border border-green-200 p-5 rounded-3xl flex items-start gap-4">
           <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={28} />
           <div className="space-y-1.5 text-sm">
-            <h4 className="font-extrabold text-green-900 text-base">Auditoría Cerrada Exitosamente</h4>
+            <h4 className="font-extrabold text-green-900 text-base">
+              {esDevolucion ? 'Devolución Finalizada' : 'Auditoría Cerrada Exitosamente'}
+            </h4>
             <p>
-              El conteo físico de stock concluyó el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con un porcentaje de precisión de <strong>{Number(auditoriaActiva.precision_porcentaje).toFixed(1)}%</strong>.
+              {esDevolucion ? (
+                <>La devolución se cerró el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con {adjustmentsPreview.length} producto(s) listos para reingresar al inventario.</>
+              ) : (
+                <>El conteo físico de stock concluyó el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con un porcentaje de precisión de <strong>{Number(auditoriaActiva.precision_porcentaje).toFixed(1)}%</strong>.</>
+              )}
             </p>
             {auditoriaActiva.observaciones && (
               <p className="italic bg-white/50 p-2.5 rounded-xl border border-green-150 text-xs text-green-800 mt-2 block">
@@ -39,15 +48,21 @@ export default function ReporteFinalizado({
           <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
               <AlertTriangle className="text-red-500" size={18} />
-              Detalle de Ajustes Requeridos ({adjustmentsPreview.length} discrepancias)
+              {esDevolucion
+                ? `Productos a Reingresar (${adjustmentsPreview.length})`
+                : `Detalle de Ajustes Requeridos (${adjustmentsPreview.length} discrepancias)`}
             </h3>
           </div>
 
           {adjustmentsPreview.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
               <CheckCircle size={36} className="text-green-500 mx-auto mb-2" />
-              <p className="font-bold text-gray-700">¡Perfecto! No se encontraron discrepancias</p>
-              <p className="text-xs text-gray-500 mt-0.5">El conteo físico de todos los productos coincidió 100% con el sistema.</p>
+              <p className="font-bold text-gray-700">
+                {esDevolucion ? 'No hay productos agregados' : '¡Perfecto! No se encontraron discrepancias'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {esDevolucion ? 'Esta devolución se finalizó sin productos.' : 'El conteo físico de todos los productos coincidió 100% con el sistema.'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100 text-sm">
@@ -87,7 +102,9 @@ export default function ReporteFinalizado({
           </h3>
 
           <p className="text-xs text-gray-500 leading-relaxed">
-            Una vez auditado el stock, es fundamental corregir los descuadres en el inventario oficial de Alegra para que coincidan con la existencia física real de la distribuidora.
+            {esDevolucion
+              ? 'Al aplicar el ajuste, Alegra sumará estas cantidades al stock actual de cada producto.'
+              : 'Una vez auditado el stock, es fundamental corregir los descuadres en el inventario oficial de Alegra para que coincidan con la existencia física real de la distribuidora.'}
           </p>
 
           {/* Success adjustment message */}

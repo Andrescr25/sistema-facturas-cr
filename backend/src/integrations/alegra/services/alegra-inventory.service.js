@@ -69,6 +69,22 @@ class AlegraInventoryService {
       throw error;
     }
   }
+
+  /**
+   * Obtener un solo ítem por su ID (GET /items/:id) — rápido, a diferencia de
+   * getInventariableItems() que pagina todo el catálogo. Usado cuando se
+   * necesita el stock/costo frescos de UN producto puntual (ej. al agregarlo
+   * a una devolución), sin pagar el costo de traer todo el catálogo.
+   */
+  async getItemById(alegraId) {
+    try {
+      const response = await this.client.api.get(`/items/${alegraId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error obteniendo ítem ${alegraId} de Alegra:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
 module.exports = AlegraInventoryService;

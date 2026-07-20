@@ -7,6 +7,15 @@
 export const formatCurrency = (value) =>
   `₡${(Number(value) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })}`
 
+// Tamaño de fuente para un monto en un KPI, según la longitud del texto ya
+// formateado: montos grandes (muchos dígitos) se ven cada vez más chicos
+// para no desbordar la tarjeta, en vez de quedar fijos en un tamaño enorme.
+export function tamanoTextoMonto(valorFormateado) {
+  if (valorFormateado.length > 16) return 'text-lg'
+  if (valorFormateado.length > 12) return 'text-2xl'
+  return 'text-3xl'
+}
+
 export const formatDate = (value) =>
   new Date(value).toLocaleDateString('es-CR', {
     year: 'numeric',
@@ -124,6 +133,21 @@ export function calcularImpactoFinanciero(conteosDraft, items) {
     sum += (diff * Number(item.costo_unitario || 0))
   })
   return sum
+}
+
+// Vista previa del nombre autoincremental "Ajuste N" que asignará el backend
+// al crear la próxima devolución (el backend es quien decide el nombre real
+// — esto es solo informativo para el modal, calculado del mismo modo).
+export function calcularSiguienteNombreDevolucion(devoluciones) {
+  let maxNumero = 0
+  ;(devoluciones || []).forEach(dev => {
+    const match = /^ajuste\s+(\d+)$/i.exec((dev.nombre || '').trim())
+    if (match) {
+      const numero = parseInt(match[1], 10)
+      if (numero > maxNumero) maxNumero = numero
+    }
+  })
+  return `Ajuste ${maxNumero + 1}`
 }
 
 // Clasifica un producto de la hoja de conteo según su estado actual, para

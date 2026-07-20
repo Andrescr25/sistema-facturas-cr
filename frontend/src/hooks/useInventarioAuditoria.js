@@ -7,14 +7,20 @@ import {
   guardarConteos,
   finalizarAuditoria,
   ajustarAlegra,
-  resyncAuditoria
+  resyncAuditoria,
+  getDevoluciones,
+  crearDevolucion as crearDevolucionApi,
+  buscarProductosDevolucion,
+  agregarItemDevolucion as agregarItemDevolucionApi,
+  eliminarItemDevolucion as eliminarItemDevolucionApi
 } from '../services/inventarioService'
 import {
   calcularKpis,
   filtrarItemsAuditoria,
   calcularItemsStats,
   calcularAjustesPreview,
-  calcularImpactoFinanciero
+  calcularImpactoFinanciero,
+  calcularSiguienteNombreDevolucion
 } from '../utils/inventarioAuditoriaUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
@@ -63,6 +69,19 @@ export function useInventarioAuditoria() {
   // Shown while conteos/ajustes se están enviando a Alegra (puede tardar varios segundos por el loteo)
   const [applyingAdjustments, setApplyingAdjustments] = useState(false)
 
+  // Pestaña de nivel de página: Auditorías (conteo cíclico) o Devoluciones
+  // (reingreso de productos devueltos). auditoriaActiva se reutiliza para
+  // ambas — se distingue por auditoriaActiva.tipo === 'devolucion'.
+  const [vistaActiva, setVistaActiva] = useState('auditorias')
+  const [devoluciones, setDevoluciones] = useState([])
+  const [showNewDevolucionModal, setShowNewDevolucionModal] = useState(false)
+
+  // Búsqueda de producto para agregar a la devolución activa
+  const [busquedaProductoDevolucion, setBusquedaProductoDevolucion] = useState('')
+  const [resultadosProductoDevolucion, setResultadosProductoDevolucion] = useState([])
+  const [buscandoProductoDevolucion, setBuscandoProductoDevolucion] = useState(false)
+  const [agregandoItemDevolucion, setAgregandoItemDevolucion] = useState(false)
+
   // Load initial dashboard data
   const loadDashboard = async () => {
     setLoading(true)
@@ -92,8 +111,36 @@ export function useInventarioAuditoria() {
     loadDashboard()
   }, [])
 
+  // Load devoluciones history (tipo='devolucion', filtradas en el backend)
+  const loadDevoluciones = async () => {
+    setLoading(true)
+    try {
+      const data = await getDevoluciones()
+      if (data.success) {
+        setDevoluciones(data.data)
+      }
+    } catch (err) {
+      console.error('Error cargando devoluciones:', err)
+      showToast('No se pudo cargar el historial de devoluciones.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Cambiar entre la pestaña de Auditorías y Devoluciones, cargando la lista
+  // correspondiente la primera vez que se entra a Devoluciones.
+  const cambiarVista = (vista) => {
+    setVistaActiva(vista)
+    if (vista === 'devoluciones' && devoluciones.length === 0) {
+      loadDevoluciones()
+    }
+  }
+
   // Compute KPIs
   const kpis = useMemo(() => calcularKpis(auditorias), [auditorias])
+
+  // Vista previa informativa del nombre "Ajuste N" que asignará el backend
+  const siguienteNombreDevolucion = useMemo(() => calcularSiguienteNombreDevolucion(devoluciones), [devoluciones])
 
   // Load details of a specific audit
   const handleSelectAuditoria = async (id) => {
@@ -301,8 +348,148 @@ export function useInventarioAuditoria() {
   const handleCerrarImagenProducto = () => setImagenProductoActivo(null)
 
   const volverAlDashboard = () => {
+    const eraDevolucion = auditoriaActiva?.tipo === 'devolucion'
     setAuditoriaActiva(null)
-    loadDashboard()
+    if (eraDevolucion) {
+      loadDevoluciones()
+    } else {
+      loadDashboard()
+    }
+  }
+
+  // --- Devoluciones ---
+
+  const handleCreateDevolucion = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await crearDevolucionApi()
+      if (result.success) {
+        setShowNewDevolucionModal(false)
+        await handleSelectAuditoria(result.data.id)
+        const data = await getDevoluciones()
+        if (data.success) setDevoluciones(data.data)
+      }
+    } catch (err) {
+      console.error('Error creando devolución:', err)
+      showToast(err.response?.data?.message || 'Error al crear la devolución.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const buscarProductoDevolucion = async (q) => {
+    if (!q || q.length < 2) {
+      setResultadosProductoDevolucion([])
+      return
+    }
+    setBuscandoProductoDevolucion(true)
+    try {
+      const result = await buscarProductosDevolucion(q)
+      if (result.success) setResultadosProductoDevolucion(result.data)
+    } catch (err) {
+      console.error('Error buscando productos para devolución:', err)
+    } finally {
+      setBuscandoProductoDevolucion(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      buscarProductoDevolucion(busquedaProductoDevolucion)
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busquedaProductoDevolucion])
+
+  // Refresca el detalle de la devolución activa y su conteosDraft (que ya
+  // trae cada stock_real calculado, así que ReporteFinalizado/adjustmentsPreview
+  // funcionan igual que para una auditoría normal sin ningún cambio).
+  const refrescarDevolucionActiva = async () => {
+    const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id)
+    if (updatedDetail.success) {
+      setAuditoriaActiva(updatedDetail.data)
+      const draft = {}
+      updatedDetail.data.items.forEach(item => {
+        draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : ''
+      })
+      setConteosDraft(draft)
+    }
+  }
+
+  const handleAgregarItemDevolucion = async (producto, cantidad) => {
+    if (!auditoriaActiva) return
+    const cantidadNum = Number(cantidad)
+    if (!cantidadNum || cantidadNum <= 0) {
+      showToast('Ingresa una cantidad devuelta válida.', 'warning')
+      return
+    }
+
+    setAgregandoItemDevolucion(true)
+    try {
+      // El backend consulta el producto en vivo en Alegra (stock/costo
+      // frescos) al momento de agregarlo — solo hace falta mandar cuál y cuántos.
+      const result = await agregarItemDevolucionApi(auditoriaActiva.id, {
+        alegraId: producto.alegraId,
+        cantidadDevuelta: cantidadNum
+      })
+      if (result.success) {
+        showToast(`"${producto.nombre}" agregado (${cantidadNum} unid.)`, 'success')
+        setBusquedaProductoDevolucion('')
+        setResultadosProductoDevolucion([])
+        await refrescarDevolucionActiva()
+      }
+    } catch (err) {
+      console.error('Error agregando producto a devolución:', err)
+      showToast(err.response?.data?.message || 'Error al agregar el producto.', 'error')
+    } finally {
+      setAgregandoItemDevolucion(false)
+    }
+  }
+
+  const handleEliminarItemDevolucion = async (itemId) => {
+    if (!auditoriaActiva) return
+    const confirmado = await confirm('¿Quitar este producto de la devolución?')
+    if (!confirmado) return
+
+    try {
+      await eliminarItemDevolucionApi(auditoriaActiva.id, itemId)
+      await refrescarDevolucionActiva()
+    } catch (err) {
+      console.error('Error quitando producto de devolución:', err)
+      showToast(err.response?.data?.message || 'Error al quitar el producto.', 'error')
+    }
+  }
+
+  // Finalizar una devolución: a diferencia de handleFinalize (auditorías),
+  // NO llama guardarConteos primero — los ítems ya quedaron guardados con su
+  // stock_real correcto al agregarlos, y ninguno debe aplicarse a Alegra
+  // todavía. El único paso explícito y confirmado que sí aplica el ajuste en
+  // Alegra sigue siendo el botón "Aplicar Ajuste en Alegra" (handleApplyAlegraAdjustment),
+  // reutilizado sin cambios.
+  const handleFinalizeDevolucion = async () => {
+    if (!auditoriaActiva) return
+    if (!auditoriaActiva.items || auditoriaActiva.items.length === 0) {
+      showToast('Agrega al menos un producto devuelto antes de finalizar.', 'warning')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
+      if (result.success) {
+        showToast('Devolución finalizada. Ahora puedes aplicar el ajuste en Alegra.', 'success')
+        await refrescarDevolucionActiva()
+        const data = await getDevoluciones()
+        if (data.success) setDevoluciones(data.data)
+      }
+    } catch (err) {
+      console.error('Error finalizando devolución:', err)
+      showToast('Error al finalizar la devolución.', 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Filter items in active audit
@@ -338,6 +525,23 @@ export function useInventarioAuditoria() {
     setShowHistory,
     loadDashboard,
     kpis,
+
+    vistaActiva,
+    cambiarVista,
+    devoluciones,
+    loadDevoluciones,
+    showNewDevolucionModal,
+    setShowNewDevolucionModal,
+    siguienteNombreDevolucion,
+    handleCreateDevolucion,
+    busquedaProductoDevolucion,
+    setBusquedaProductoDevolucion,
+    resultadosProductoDevolucion,
+    buscandoProductoDevolucion,
+    agregandoItemDevolucion,
+    handleAgregarItemDevolucion,
+    handleEliminarItemDevolucion,
+    handleFinalizeDevolucion,
 
     auditoriaActiva,
     conteosDraft,
