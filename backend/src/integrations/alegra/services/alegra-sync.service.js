@@ -163,7 +163,14 @@ class AlegraSyncService {
           const costDiff = Math.abs(existing.cost - productData.cost) > 0.01;
           const refDiff = existing.reference !== productData.reference;
           const statusDiff = existing.status !== productData.status;
-          const imgDiff = (existing.imageUrl || '').split('?')[0] !== (productData.imageUrl || '').split('?')[0];
+          // Comparación completa (con query string): las URLs de imagen de
+          // Alegra son firmadas con expiración (?Expires=...&Signature=...)
+          // que Alegra regenera en cada respuesta aunque la foto no cambie.
+          // Comparar solo la parte antes de "?" hacía que nunca se detectara
+          // como "cambio" y la URL vieja quedaba cacheada para siempre hasta
+          // que la firma vencía (imagen rota sin forma de repararse solo con
+          // sincronizar).
+          const imgDiff = (existing.imageUrl || '') !== (productData.imageUrl || '');
 
           const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || imgDiff;
 
