@@ -218,6 +218,46 @@ async function asignarImagenDesdeUrl(alegraId, imageUrl, fallbackImageUrl) {
 }
 
 /**
+ * Asignar imagen a un producto subiendo un archivo elegido manualmente por el
+ * usuario (en vez de una sugerencia buscada) — mismo endpoint de Alegra
+ * (/items/:id/attachment) que ya usa downloadAndUploadProductImage, sin el
+ * paso de descarga porque ya se tienen los bytes del archivo.
+ */
+async function subirImagenDesdeArchivo(alegraId, file) {
+  console.log(`🖼️ Subiendo imagen manual a producto ${alegraId}...`);
+
+  const FormData = require('form-data');
+  const formData = new FormData();
+  formData.append('image', file.buffer, {
+    filename: file.originalname,
+    contentType: file.mimetype
+  });
+
+  let result;
+  try {
+    result = await productService.uploadProductImage(alegraId, formData);
+  } catch (error) {
+    throw httpError(400, error.message || 'No se pudo subir la imagen a Alegra');
+  }
+
+  if (!result.success) {
+    throw httpError(400, result.error || 'No se pudo subir la imagen a Alegra');
+  }
+
+  const finalImageUrl = result.url || '';
+
+  await prisma.alegraProduct.update({
+    where: { alegraId: String(alegraId) },
+    data: {
+      imageUrl: finalImageUrl,
+      updatedAt: new Date()
+    }
+  });
+
+  return finalImageUrl;
+}
+
+/**
  * Duplicar un producto agregándole una nueva marca (crea un producto nuevo en
  * Alegra con la misma info base, pero código/precio/costo/imagen propios)
  */
@@ -346,7 +386,17 @@ async function editarProducto(id, { name, reference, price, cost }) {
   };
 
   // Actualizar en Alegra
-  const updateResponse = await client.api.put(`/items/${id}`, updateData);
+  let updateResponse;
+  try {
+    updateResponse = await client.api.put(`/items/${id}`, updateData);
+  } catch (error) {
+    // Ej: code 1009 "La referencia ya ha sido asignada a otro ítem" cuando
+    // hay un producto duplicado con la misma referencia — se propaga el
+    // mensaje real de Alegra en vez de un 500 genérico.
+    const alegraMsg = error.response?.data?.message;
+    console.error(`❌ Error editando producto ${id} en Alegra:`, error.response?.data || error.message);
+    throw httpError(error.response?.status || 500, alegraMsg || 'No se pudo actualizar el producto en Alegra');
+  }
   const updatedAlegra = updateResponse.data;
 
   // Actualizar en caché local
@@ -368,7 +418,9 @@ async function editarProducto(id, { name, reference, price, cost }) {
 /**
  * Eliminar un producto en Alegra y en la caché local. Si Alegra rechaza el
  * borrado porque el producto tiene documentos asociados (code 1015), se
- * oculta localmente en vez de fallar.
+ * desactiva de verdad en Alegra (PUT /items/:id con status:"inactive" — no
+ * hay un endpoint de "desactivar" separado, Alegra lo maneja con el mismo
+ * PUT de edición) y además se oculta localmente.
  */
 async function eliminarProducto(id) {
   console.log(`🗑️ Eliminando producto ${id} en Alegra...`);
@@ -389,16 +441,31 @@ async function eliminarProducto(id) {
     const alegraMsg = error.response?.data?.message;
 
     // Alegra no permite eliminar ítems con documentos asociados (code 1015).
-    // En ese caso lo ocultamos localmente en vez de fallar.
+    // En ese caso se desactiva en Alegra en vez de solo ocultarlo localmente
+    // (antes se ocultaba solo acá, pero el producto seguía activo en Alegra).
     if (alegraCode === 1015) {
-      console.warn(`⚠️ Producto ${id} tiene documentos asociados en Alegra, ocultando localmente en vez de eliminar`);
+      console.warn(`⚠️ Producto ${id} tiene documentos asociados en Alegra, desactivando en Alegra en vez de eliminar`);
+
+      try {
+        // PUT es de reemplazo completo en Alegra: se trae el ítem actual y se
+        // reenvía tal cual, solo agregando status:"inactive", para no perder
+        // ningún otro campo (precio, categoría, inventario, etc.).
+        const original = await client.api.get(`/items/${id}`).then(res => res.data);
+        await client.api.put(`/items/${id}`, { ...original, status: 'inactive' });
+        console.log(`✅ Producto ${id} desactivado en Alegra`);
+      } catch (deactivateError) {
+        console.error(`❌ Error desactivando producto ${id} en Alegra:`, deactivateError.response?.data || deactivateError.message);
+        throw httpError(500, 'El producto tiene facturas asociadas y no se pudo desactivar en Alegra. Intenta de nuevo.');
+      }
+
       await prisma.alegraProduct.update({
         where: { alegraId: String(id) },
-        data: { hiddenLocally: true }
+        data: { hiddenLocally: true, status: 'inactive' }
       });
+
       return {
         hidden: true,
-        message: 'El producto tiene facturas asociadas en Alegra y no puede eliminarse, así que se ocultó del catálogo local'
+        message: 'El producto tiene facturas asociadas en Alegra: se desactivó en Alegra y se ocultó del catálogo local'
       };
     }
 
@@ -416,6 +483,7 @@ module.exports = {
   buscarImagenes,
   descargarImagen,
   asignarImagenDesdeUrl,
+  subirImagenDesdeArchivo,
   duplicarConMarca,
   editarProducto,
   eliminarProducto

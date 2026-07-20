@@ -38,6 +38,7 @@ export default function GestionCatalogo() {
     openImageSuggestions,
     fetchImageSuggestions,
     handleAssignImage,
+    handleSubirArchivoImagen,
 
     brandName,
     brandRef,
@@ -138,6 +139,7 @@ export default function GestionCatalogo() {
           assigningImage={assigningImage}
           onBuscar={fetchImageSuggestions}
           onAsignar={handleAssignImage}
+          onSubirArchivo={handleSubirArchivoImagen}
           onCerrar={() => setIsImageModalOpen(false)}
         />
       )}

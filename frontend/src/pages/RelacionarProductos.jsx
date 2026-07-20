@@ -52,6 +52,7 @@ export default function RelacionarProductos() {
     buscarSugerenciasImagen,
     cerrarBuscadorImagen,
     seleccionarImagenSugerida,
+    handleSubirArchivoDesdeModal,
 
     modalConversion,
     productoRelacionado,
@@ -174,6 +175,7 @@ export default function RelacionarProductos() {
           assigningImage={false}
           onBuscar={buscarSugerenciasImagen}
           onAsignar={seleccionarImagenSugerida}
+          onSubirArchivo={handleSubirArchivoDesdeModal}
           onCerrar={cerrarBuscadorImagen}
         />
       )}

@@ -1,9 +1,12 @@
-import { X, Search, Loader2, AlertCircle, Check } from 'lucide-react'
+import { X, Search, Loader2, AlertCircle, Check, Upload } from 'lucide-react'
 
 /**
  * Modal de sugerencias automáticas de imagen para un producto, con barra de
- * búsqueda editable. Extraído de GestionCatalogo.jsx; reusado también por
- * Relacionar Productos al crear un producto nuevo.
+ * búsqueda editable y opción de subir una imagen manualmente desde el
+ * computador. Extraído de GestionCatalogo.jsx; reusado también por
+ * Relacionar Productos al crear un producto nuevo. La validación del
+ * archivo (tamaño/tipo) y el feedback de error quedan del lado de quien usa
+ * el modal, que ya tiene su propio sistema de toasts.
  */
 export default function ModalSugerirImagen({
   producto,
@@ -14,8 +17,15 @@ export default function ModalSugerirImagen({
   assigningImage,
   onBuscar,
   onAsignar,
+  onSubirArchivo,
   onCerrar
 }) {
+  const handleArchivoChange = (e) => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (file) onSubirArchivo(file)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
@@ -54,6 +64,17 @@ export default function ModalSugerirImagen({
             {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             Buscar
           </button>
+          <label className={`px-4 py-2 border border-gray-200 text-gray-700 font-semibold rounded-lg text-sm hover:bg-gray-50 transition-colors flex items-center gap-1.5 shrink-0 ${assigningImage ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+            <Upload className="h-4 w-4" />
+            Subir de mi PC
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleArchivoChange}
+              disabled={assigningImage}
+              className="hidden"
+            />
+          </label>
         </div>
 
         {/* Modal Body / Images Grid */}

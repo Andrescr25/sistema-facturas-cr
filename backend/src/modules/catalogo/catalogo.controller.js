@@ -83,6 +83,28 @@ async function asignarImagenDesdeUrl(req, res) {
 }
 
 /**
+ * POST /catalog/upload-image-file/:id (multipart, imagen requerida)
+ */
+async function subirImagenDesdeArchivo(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'La imagen es requerida' });
+    }
+
+    const finalImageUrl = await catalogoService.subirImagenDesdeArchivo(id, req.file);
+    res.json({ success: true, imageUrl: finalImageUrl, message: 'Imagen asignada exitosamente al producto' });
+  } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    console.error('❌ Error en POST /catalog/upload-image-file:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * POST /catalog/duplicate-brand
  */
 async function duplicarConMarca(req, res) {
@@ -125,7 +147,7 @@ async function editarProducto(req, res) {
     });
   } catch (error) {
     console.error(`❌ Error en PUT /catalog/productos/${req.params.id}:`, error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message, error: error.message });
   }
 }
 
@@ -152,6 +174,7 @@ module.exports = {
   buscarImagenes,
   proxyImagen,
   asignarImagenDesdeUrl,
+  subirImagenDesdeArchivo,
   duplicarConMarca,
   editarProducto,
   eliminarProducto

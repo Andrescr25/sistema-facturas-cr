@@ -179,6 +179,44 @@ export function useGestionCatalogo() {
     }
   }
 
+  const handleSubirArchivoImagen = async (file) => {
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('error', 'La imagen debe ser menor a 2MB')
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      showToast('error', 'Solo se permiten archivos de imagen')
+      return
+    }
+
+    setAssigningImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const response = await api.post(`/alegra/catalog/upload-image-file/${selectedProduct.alegraId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+
+      if (response.data?.success) {
+        const finalImageUrl = response.data.imageUrl
+        showToast('success', 'Imagen asignada correctamente')
+        setProductos(prev => prev.map(p => {
+          if (p.alegraId === selectedProduct.alegraId) {
+            return { ...p, imageUrl: finalImageUrl }
+          }
+          return p
+        }))
+        setIsImageModalOpen(false)
+      }
+    } catch (error) {
+      console.error('Error uploading image file:', error)
+      showToast('error', error.response?.data?.message || 'Error al subir la imagen al producto en Alegra')
+    } finally {
+      setAssigningImage(false)
+    }
+  }
+
   // --- BRAND DUPLICATION ACTION ---
   const openBrandDuplication = (product) => {
     setSelectedProduct(product)
@@ -306,7 +344,7 @@ export function useGestionCatalogo() {
       }
     } catch (error) {
       console.error('Error saving edits:', error)
-      showToast('error', 'Error al guardar los cambios en el servidor')
+      showToast('error', error.response?.data?.message || 'Error al guardar los cambios en el servidor')
     } finally {
       setSavingEdit(false)
     }
@@ -376,6 +414,7 @@ export function useGestionCatalogo() {
     openImageSuggestions,
     fetchImageSuggestions,
     handleAssignImage,
+    handleSubirArchivoImagen,
 
     brandName,
     brandRef,

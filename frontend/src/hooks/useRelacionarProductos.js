@@ -54,6 +54,11 @@ export function useRelacionarProductos(facturaId) {
   const [cargandoImagenSugerencias, setCargandoImagenSugerencias] = useState(false)
   const [imagenSugeridaUrl, setImagenSugeridaUrl] = useState(null)
   const [imagenSugeridaFallbackUrl, setImagenSugeridaFallbackUrl] = useState(null)
+  // Archivo elegido manualmente (desde el input externo del formulario, o
+  // desde "Subir de mi PC" dentro del modal de sugerencias) — se guarda acá
+  // en vez de depender solo del <input type="file"> nativo, porque el
+  // archivo elegido dentro del modal no pasa por ese input.
+  const [archivoImagenSeleccionado, setArchivoImagenSeleccionado] = useState(null)
 
   // Modal ajuste de conversión
   const [modalConversion, setModalConversion] = useState(false)
@@ -215,6 +220,7 @@ export function useRelacionarProductos(facturaId) {
     setImagenPreview(null)
     setImagenSugeridaUrl(null)
     setImagenSugeridaFallbackUrl(null)
+    setArchivoImagenSeleccionado(null)
     setImagenSugerencias([])
     setImagenBusqueda('')
     loadCategorias()
@@ -284,26 +290,17 @@ export function useRelacionarProductos(facturaId) {
     }
   }
 
-  const handleImagenChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) {
-      setImagenPreview(null)
-      return
-    }
-
-    // Validar tamaño (2MB máximo)
+  // Valida y guarda un archivo elegido manualmente (desde el input externo o
+  // desde "Subir de mi PC" en el modal de sugerencias) — misma validación,
+  // mismo resultado (preview + reemplaza cualquier sugerencia ya elegida)
+  // sin importar de dónde vino el archivo.
+  const procesarArchivoImagen = (file) => {
     if (file.size > 2 * 1024 * 1024) {
       showToast('La imagen debe ser menor a 2MB', 'warning')
-      e.target.value = ''
-      setImagenPreview(null)
       return
     }
-
-    // Validar tipo
     if (!file.type.startsWith('image/')) {
       showToast('Solo se permiten archivos de imagen', 'warning')
-      e.target.value = ''
-      setImagenPreview(null)
       return
     }
 
@@ -311,8 +308,8 @@ export function useRelacionarProductos(facturaId) {
     // fuente de imagen va en el formulario.
     setImagenSugeridaUrl(null)
     setImagenSugeridaFallbackUrl(null)
+    setArchivoImagenSeleccionado(file)
 
-    // Preview
     const reader = new FileReader()
     reader.onload = (event) => {
       setImagenPreview(event.target.result)
@@ -320,10 +317,29 @@ export function useRelacionarProductos(facturaId) {
     reader.readAsDataURL(file)
   }
 
+  const handleImagenChange = (e) => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) {
+      setImagenPreview(null)
+      setArchivoImagenSeleccionado(null)
+      return
+    }
+    procesarArchivoImagen(file)
+  }
+
+  // Subir imagen manualmente desde el modal de sugerencias (en vez de elegir
+  // una sugerencia buscada). El modal ya se encarga de cerrarse solo.
+  const handleSubirArchivoDesdeModal = (file) => {
+    procesarArchivoImagen(file)
+    setImagenModalOpen(false)
+  }
+
   const removerImagen = () => {
     setImagenPreview(null)
     setImagenSugeridaUrl(null)
     setImagenSugeridaFallbackUrl(null)
+    setArchivoImagenSeleccionado(null)
     const input = document.getElementById('imagenProducto')
     if (input) input.value = ''
   }
@@ -377,6 +393,14 @@ export function useRelacionarProductos(facturaId) {
     }
 
     formData.set('esMedicamento', productoEsMedicamento ? 'true' : 'false')
+
+    // Si el archivo se eligió desde el modal de sugerencias (no desde el
+    // input nativo del formulario), FormData(e.target) no lo tiene — se
+    // agrega acá explícitamente. Si vino del input nativo, esto solo
+    // reemplaza el mismo archivo que FormData ya había tomado.
+    if (archivoImagenSeleccionado) {
+      formData.set('imagen', archivoImagenSeleccionado)
+    }
 
     // Si se eligió una sugerencia de imagen (en vez de subir un archivo), se
     // manda la URL para que el backend la descargue y suba después de crear
@@ -581,6 +605,7 @@ export function useRelacionarProductos(facturaId) {
     buscarSugerenciasImagen,
     cerrarBuscadorImagen,
     seleccionarImagenSugerida,
+    handleSubirArchivoDesdeModal,
 
     modalConversion,
     setModalConversion,
