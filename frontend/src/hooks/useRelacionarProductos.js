@@ -8,6 +8,7 @@ import {
   calcularStatsProductos,
   filtrarProductosPorEstado
 } from '../utils/relacionarProductosUtils'
+import { conMiniaturasProxeadas } from '../utils/imagenSugeridaUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
 
@@ -42,6 +43,17 @@ export function useRelacionarProductos(facturaId) {
   const [modalCrear, setModalCrear] = useState(false)
   const [categorias, setCategorias] = useState([])
   const [imagenPreview, setImagenPreview] = useState(null)
+
+  // Sugerencia automática de imagen (mismo modal que Gestión de Catálogo). El
+  // producto todavía no existe en Alegra en este punto, así que la sugerencia
+  // elegida solo se guarda como pendiente: se sube recién al crear el
+  // producto (ver crearProducto), no al seleccionarla.
+  const [imagenModalOpen, setImagenModalOpen] = useState(false)
+  const [imagenBusqueda, setImagenBusqueda] = useState('')
+  const [imagenSugerencias, setImagenSugerencias] = useState([])
+  const [cargandoImagenSugerencias, setCargandoImagenSugerencias] = useState(false)
+  const [imagenSugeridaUrl, setImagenSugeridaUrl] = useState(null)
+  const [imagenSugeridaFallbackUrl, setImagenSugeridaFallbackUrl] = useState(null)
 
   // Modal ajuste de conversión
   const [modalConversion, setModalConversion] = useState(false)
@@ -201,6 +213,10 @@ export function useRelacionarProductos(facturaId) {
     setProductoSeleccionado(producto)
     setModalCrear(true)
     setImagenPreview(null)
+    setImagenSugeridaUrl(null)
+    setImagenSugeridaFallbackUrl(null)
+    setImagenSugerencias([])
+    setImagenBusqueda('')
     loadCategorias()
 
     // Inicializar CABYS editable
@@ -291,6 +307,11 @@ export function useRelacionarProductos(facturaId) {
       return
     }
 
+    // Un archivo manual reemplaza cualquier sugerencia ya elegida: solo una
+    // fuente de imagen va en el formulario.
+    setImagenSugeridaUrl(null)
+    setImagenSugeridaFallbackUrl(null)
+
     // Preview
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -301,8 +322,48 @@ export function useRelacionarProductos(facturaId) {
 
   const removerImagen = () => {
     setImagenPreview(null)
+    setImagenSugeridaUrl(null)
+    setImagenSugeridaFallbackUrl(null)
     const input = document.getElementById('imagenProducto')
     if (input) input.value = ''
+  }
+
+  const buscarSugerenciasImagen = async (query) => {
+    setCargandoImagenSugerencias(true)
+    setImagenSugerencias([])
+    try {
+      const response = await api.get('/alegra/catalog/search-images', { params: { q: query } })
+      if (response.data?.success) {
+        setImagenSugerencias(conMiniaturasProxeadas(response.data.images))
+      }
+    } catch (err) {
+      console.error('Error buscando sugerencias de imagen:', err)
+      showToast('No se pudieron buscar sugerencias de imágenes', 'error')
+    } finally {
+      setCargandoImagenSugerencias(false)
+    }
+  }
+
+  const abrirBuscadorImagen = () => {
+    const queryInicial = productoSeleccionado?.descripcion || ''
+    setImagenBusqueda(queryInicial)
+    setImagenModalOpen(true)
+    buscarSugerenciasImagen(queryInicial)
+  }
+
+  const cerrarBuscadorImagen = () => {
+    setImagenModalOpen(false)
+  }
+
+  const seleccionarImagenSugerida = (img) => {
+    // Una sugerencia reemplaza cualquier archivo elegido manualmente.
+    const inputArchivo = document.getElementById('imagenProducto')
+    if (inputArchivo) inputArchivo.value = ''
+
+    setImagenSugeridaUrl(img.url)
+    setImagenSugeridaFallbackUrl(img.thumbnailOriginal)
+    setImagenPreview(img.thumbnail)
+    setImagenModalOpen(false)
   }
 
   const crearProducto = async (e) => {
@@ -316,6 +377,16 @@ export function useRelacionarProductos(facturaId) {
     }
 
     formData.set('esMedicamento', productoEsMedicamento ? 'true' : 'false')
+
+    // Si se eligió una sugerencia de imagen (en vez de subir un archivo), se
+    // manda la URL para que el backend la descargue y suba después de crear
+    // el producto en Alegra (recién ahí existe el alegraId).
+    if (imagenSugeridaUrl) {
+      formData.set('imageUrl', imagenSugeridaUrl)
+      if (imagenSugeridaFallbackUrl) {
+        formData.set('fallbackImageUrl', imagenSugeridaFallbackUrl)
+      }
+    }
 
     try {
       const response = await api.post('/productos-revision/crear', formData, {
@@ -500,6 +571,16 @@ export function useRelacionarProductos(facturaId) {
     handleImagenChange,
     removerImagen,
     crearProducto,
+
+    imagenModalOpen,
+    imagenBusqueda,
+    setImagenBusqueda,
+    imagenSugerencias,
+    cargandoImagenSugerencias,
+    abrirBuscadorImagen,
+    buscarSugerenciasImagen,
+    cerrarBuscadorImagen,
+    seleccionarImagenSugerida,
 
     modalConversion,
     setModalConversion,

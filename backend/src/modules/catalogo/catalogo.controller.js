@@ -65,13 +65,13 @@ async function proxyImagen(req, res) {
  */
 async function asignarImagenDesdeUrl(req, res) {
   try {
-    const { alegraId, imageUrl } = req.body;
+    const { alegraId, imageUrl, fallbackImageUrl } = req.body;
 
     if (!alegraId || !imageUrl) {
       return res.status(400).json({ success: false, message: 'alegraId e imageUrl son requeridos' });
     }
 
-    const finalImageUrl = await catalogoService.asignarImagenDesdeUrl(alegraId, imageUrl);
+    const finalImageUrl = await catalogoService.asignarImagenDesdeUrl(alegraId, imageUrl, fallbackImageUrl);
     res.json({ success: true, imageUrl: finalImageUrl, message: 'Imagen asignada exitosamente al producto' });
   } catch (error) {
     if (error.status === 400) {

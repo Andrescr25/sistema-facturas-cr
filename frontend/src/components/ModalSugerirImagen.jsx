@@ -2,7 +2,8 @@ import { X, Search, Loader2, AlertCircle, Check } from 'lucide-react'
 
 /**
  * Modal de sugerencias automáticas de imagen para un producto, con barra de
- * búsqueda editable. Extraído de GestionCatalogo.jsx.
+ * búsqueda editable. Extraído de GestionCatalogo.jsx; reusado también por
+ * Relacionar Productos al crear un producto nuevo.
  */
 export default function ModalSugerirImagen({
   producto,
@@ -75,7 +76,7 @@ export default function ModalSugerirImagen({
               {imageSuggestions.map((img, i) => (
                 <button
                   key={i}
-                  onClick={() => onAsignar(img.url)}
+                  onClick={() => onAsignar(img)}
                   disabled={assigningImage}
                   className="group relative bg-white border border-gray-200 rounded-xl overflow-hidden p-2 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:shadow-md transition-all flex flex-col items-center justify-center aspect-square"
                 >
@@ -85,11 +86,11 @@ export default function ModalSugerirImagen({
                     className="object-contain h-full w-full max-h-[120px] p-1"
                     loading="lazy"
                     onError={(e) => {
-                      if (e.target.src !== img.url) {
-                        e.target.src = img.url
-                      } else {
-                        e.target.src = 'https://placehold.co/150?text=Error+Carga'
-                      }
+                      // Si la miniatura ya proxeada por nuestro backend falló,
+                      // reintentar con la URL cruda del sitio de origen no
+                      // sirve: casi siempre es el mismo bloqueo de hotlinking.
+                      e.target.onerror = null
+                      e.target.src = 'https://placehold.co/150?text=Error+Carga'
                     }}
                   />
 

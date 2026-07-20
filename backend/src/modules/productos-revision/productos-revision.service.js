@@ -622,7 +622,8 @@ async function crearProducto(datos, imagen) {
   const {
     productoId, nombre, descripcion, referencia, unidad,
     precio, costo, categoria, cantidadInicial, formaFarmaceutica,
-    codigoCabys, registroSanitario, esMedicamento, categoriaNombre
+    codigoCabys, registroSanitario, esMedicamento, categoriaNombre,
+    imageUrl, fallbackImageUrl
   } = datos;
 
   const productoOriginal = await prisma.productoFactura.findUnique({
@@ -770,6 +771,24 @@ async function crearProducto(datos, imagen) {
       console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
       console.error('   Stack:', imgError.stack);
       // No fallar si la imagen no se puede subir
+    }
+  } else if (imageUrl) {
+    // Imagen elegida desde el buscador de sugerencias (Brave) en vez de un
+    // archivo manual: se descarga server-side y se sube a Alegra. Si la
+    // imagen de tamaño completo falla (sitio de origen bloqueado), reintenta
+    // con la miniatura de respaldo antes de rendirse — mismo comportamiento
+    // que el buscador de imágenes en Gestión de Catálogo.
+    try {
+      console.log('📸 Subiendo imagen sugerida a Alegra...');
+      const resultado = await productService.downloadAndUploadProductImage(nuevoProductoAlegra.id, imageUrl, fallbackImageUrl);
+      if (resultado.success) {
+        console.log('✅ Imagen sugerida subida exitosamente a Alegra');
+      } else {
+        console.error('⚠️ No se pudo subir la imagen sugerida (continuando):', resultado.error);
+      }
+    } catch (imgError) {
+      console.error('⚠️ Error subiendo imagen sugerida (continuando):', imgError.message);
+      // No fallar la creación del producto si la imagen no se puede subir
     }
   }
 

@@ -1,4 +1,4 @@
-import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2 } from 'lucide-react'
+import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2, Search } from 'lucide-react'
 import { FORMAS_FARMACEUTICAS } from '../../utils/formasFarmaceuticas'
 
 /**
@@ -24,6 +24,7 @@ export default function ModalCrearProducto({
   imagenPreview,
   onImagenChange,
   onRemoverImagen,
+  onBuscarSugerenciaImagen,
   onSubmit,
   onCerrar
 }) {
@@ -351,6 +352,14 @@ export default function ModalCrearProducto({
                   className="input file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
                 <p className="text-xs text-gray-500 mt-1">JPG, PNG o GIF - Máximo 2MB</p>
+                <button
+                  type="button"
+                  onClick={onBuscarSugerenciaImagen}
+                  className="btn btn-outline text-sm mt-2 flex items-center"
+                >
+                  <Search size={14} className="mr-1.5" />
+                  Buscar sugerencia de imagen
+                </button>
               </div>
 
               {/* Preview de imagen */}

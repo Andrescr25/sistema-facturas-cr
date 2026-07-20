@@ -7,6 +7,11 @@ const axios = require('axios');
 const { getInstance: getAlegraClient } = require('../alegra.client');
 const prisma = require('../../../../lib/prisma');
 
+// Algunos sitios de origen rechazan descargas server-side que no parezcan
+// venir de un navegador real. No evita bloqueos serios (WAFs tipo Cloudflare
+// bot-fight), pero sí filtros simples por User-Agent.
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 class AlegraProductService {
   constructor() {
     this.client = getAlegraClient();
@@ -391,38 +396,51 @@ class AlegraProductService {
    * Descargar imagen de una URL y subirla a Alegra
    */
   async downloadAndUploadProductImage(alegraItemId, imageUrl) {
+    let buffer, contentType;
     try {
       console.log(`📥 Descargando imagen desde URL: ${imageUrl}...`);
       const imageResponse = await axios.get(imageUrl, {
         responseType: 'arraybuffer',
-        timeout: 30000
+        timeout: 30000,
+        headers: { 'User-Agent': BROWSER_USER_AGENT }
       });
 
-      const buffer = Buffer.from(imageResponse.data, 'binary');
-      const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+      buffer = Buffer.from(imageResponse.data, 'binary');
+      contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+    } catch (error) {
+      // Fuentes externas (thumbnails de búsqueda, sitios de origen) a veces
+      // devuelven enlaces rotos o que bloquean la descarga fuera de su propio
+      // dominio (DNS inexistente, hotlink protection, 404, etc.) — se trata
+      // como fallo esperado, no como 500: se le pide al usuario otra sugerencia.
+      console.error(`❌ Error descargando imagen para producto ${alegraItemId}:`, error.message);
+      return {
+        success: false,
+        error: 'No se pudo descargar la imagen desde su origen (el enlace puede estar roto o bloqueado). Intenta con otra sugerencia.'
+      };
+    }
 
-      // Alegra rechaza el adjunto con "El archivo adjunto no tiene una
-      // extensión válida" para cualquier extensión que no sea jpg/jpeg/png
-      // (valida el nombre del archivo, no el contenido). Muchas fuentes de
-      // imagen sirven webp/gif por defecto, así que el nombre SIEMPRE se
-      // fuerza a jpg o png; el contentType real se preserva en el multipart
-      // para que Alegra sirva el archivo con su tipo correcto.
-      const extension = contentType.includes('png') ? 'png' : 'jpg';
+    // Alegra rechaza el adjunto con "El archivo adjunto no tiene una
+    // extensión válida" para cualquier extensión que no sea jpg/jpeg/png
+    // (valida el nombre del archivo, no el contenido). Muchas fuentes de
+    // imagen sirven webp/gif por defecto, así que el nombre SIEMPRE se
+    // fuerza a jpg o png; el contentType real se preserva en el multipart
+    // para que Alegra sirva el archivo con su tipo correcto.
+    const extension = contentType.includes('png') ? 'png' : 'jpg';
+    const filename = `product_${alegraItemId}.${extension}`;
 
-      const filename = `product_${alegraItemId}.${extension}`;
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('image', buffer, {
+      filename: filename,
+      contentType: contentType
+    });
 
-      const FormData = require('form-data');
-      const formData = new FormData();
-      formData.append('image', buffer, {
-        filename: filename,
-        contentType: contentType
-      });
-
+    try {
       console.log(`📸 Subiendo imagen descargada al producto ${alegraItemId}...`);
       return await this.uploadProductImage(alegraItemId, formData);
     } catch (error) {
-      console.error(`❌ Error en downloadAndUploadProductImage para producto ${alegraItemId}:`, error.message);
-      throw error;
+      console.error(`❌ Error subiendo imagen descargada para producto ${alegraItemId}:`, error.message);
+      return { success: false, error: error.message };
     }
   }
 

@@ -123,7 +123,7 @@ async function crearProducto(req, res) {
   try {
     console.log('📦 Creando producto nuevo en Alegra...');
     console.log('📝 Datos recibidos:', req.body);
-    console.log('🖼️ Imagen recibida:', req.file ? req.file.originalname : 'Sin imagen');
+    console.log('🖼️ Imagen recibida:', req.file ? req.file.originalname : (req.body.imageUrl || 'Sin imagen'));
 
     const { nombre, precio, costo, productoId } = req.body;
 

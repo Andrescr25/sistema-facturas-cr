@@ -9,6 +9,7 @@ import ProductoRelacionarCard from '../components/relacionar-productos/ProductoR
 import ModalBuscarProducto from '../components/relacionar-productos/ModalBuscarProducto'
 import ModalCrearProducto from '../components/relacionar-productos/ModalCrearProducto'
 import ModalConversionCantidad from '../components/relacionar-productos/ModalConversionCantidad'
+import ModalSugerirImagen from '../components/ModalSugerirImagen'
 
 export default function RelacionarProductos() {
   const { facturaId } = useParams()
@@ -41,6 +42,16 @@ export default function RelacionarProductos() {
     handleImagenChange,
     removerImagen,
     crearProducto,
+
+    imagenModalOpen,
+    imagenBusqueda,
+    setImagenBusqueda,
+    imagenSugerencias,
+    cargandoImagenSugerencias,
+    abrirBuscadorImagen,
+    buscarSugerenciasImagen,
+    cerrarBuscadorImagen,
+    seleccionarImagenSugerida,
 
     modalConversion,
     productoRelacionado,
@@ -147,8 +158,23 @@ export default function RelacionarProductos() {
           imagenPreview={imagenPreview}
           onImagenChange={handleImagenChange}
           onRemoverImagen={removerImagen}
+          onBuscarSugerenciaImagen={abrirBuscadorImagen}
           onSubmit={crearProducto}
           onCerrar={() => { setModalCrear(false); removerImagen() }}
+        />
+      )}
+
+      {imagenModalOpen && productoSeleccionado && (
+        <ModalSugerirImagen
+          producto={{ name: productoSeleccionado.descripcion }}
+          customSearchQuery={imagenBusqueda}
+          setCustomSearchQuery={setImagenBusqueda}
+          imageSuggestions={imagenSugerencias}
+          loadingSuggestions={cargandoImagenSugerencias}
+          assigningImage={false}
+          onBuscar={buscarSugerenciasImagen}
+          onAsignar={seleccionarImagenSugerida}
+          onCerrar={cerrarBuscadorImagen}
         />
       )}
 

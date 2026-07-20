@@ -11,6 +11,32 @@ const { getProductService, getClient } = require('../../integrations/alegra');
 const productService = getProductService();
 const client = getClient();
 
+// Varios sitios de origen (y algunos CDNs) rechazan descargas server-side que
+// no parezcan venir de un navegador real. No evita bloqueos serios (WAFs tipo
+// Cloudflare bot-fight), pero sí algunos filtros simples por User-Agent.
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+function normalizarTexto(str) {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+// Cuenta cuántas palabras significativas (>2 letras) del nombre del producto
+// aparecen en el título del resultado de imagen. Mismo enfoque que
+// calculateSimilarityScore en alegra-product.service.js (usado para
+// relacionar productos de proveedor), adaptado acá para ORDENAR resultados de
+// búsqueda de imágenes de más a menos parecido al nombre del producto, en vez
+// de un porcentaje: nombres largos casi nunca coinciden al 100% en la web
+// (unidades, medidas, abreviaturas locales), así que exigir un % alto dejaría
+// la búsqueda vacía casi siempre — confirmado probando con nombres reales del
+// catálogo.
+function contarCoincidencias(queryWords, texto) {
+  const textoNorm = normalizarTexto(texto);
+  return queryWords.reduce((total, palabra) => total + (textoNorm.includes(palabra) ? 1 : 0), 0);
+}
+
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
  */
@@ -93,7 +119,10 @@ async function buscarImagenes(queryStr) {
     const response = await axios.get('https://api.search.brave.com/res/v1/images/search', {
       params: {
         q: queryStr,
-        count: 30,
+        // Pedimos un lote grande (mismo costo de 1 sola consulta a la API,
+        // el conteo de resultados no afecta el consumo de créditos) para
+        // tener margen después de filtrar las que no van a cargar bien.
+        count: 100,
         safesearch: 'strict'
       },
       headers: {
@@ -104,12 +133,27 @@ async function buscarImagenes(queryStr) {
     });
 
     const results = response.data.results || [];
-    const images = results.map(item => ({
-      url: item.properties?.url || item.url,
-      thumbnail: item.thumbnail?.src || item.properties?.url || item.url
-    }));
+    const queryWords = normalizarTexto(queryStr).split(/\W+/).filter(w => w.length > 2);
 
-    console.log(`✅ Búsqueda finalizada: se encontraron ${images.length} imágenes para "${queryStr}"`);
+    const images = results
+      // Sin thumbnail.src propio de Brave, la miniatura cae al link crudo del
+      // sitio de origen — el mismo que casi siempre bloquea hotlinking/scraping
+      // (403, WAF, etc.), así que ni la miniatura ni la imagen final cargan.
+      // Se descartan para no mostrar sugerencias que probablemente fallen.
+      .filter(item => item.thumbnail?.src)
+      .map(item => ({
+        url: item.properties?.url || item.url,
+        thumbnail: item.thumbnail.src,
+        _coincidencias: contarCoincidencias(queryWords, item.title)
+      }))
+      // Fuera las que no comparten ni una sola palabra significativa con el
+      // nombre del producto — el ruido real (fotos sin relación alguna).
+      .filter(img => queryWords.length === 0 || img._coincidencias > 0)
+      // Las más parecidas al nombre del producto van primero.
+      .sort((a, b) => b._coincidencias - a._coincidencias)
+      .map(({ _coincidencias, ...img }) => img);
+
+    console.log(`✅ Búsqueda finalizada: se encontraron ${images.length} imágenes confiables y relevantes para "${queryStr}" (de ${results.length} resultados de Brave)`);
     return images;
   } catch (error) {
     if (error.response?.status === 429) {
@@ -130,7 +174,8 @@ async function buscarImagenes(queryStr) {
 async function descargarImagen(url) {
   const response = await axios.get(url, {
     responseType: 'arraybuffer',
-    timeout: 15000
+    timeout: 15000,
+    headers: { 'User-Agent': BROWSER_USER_AGENT }
   });
 
   return {
@@ -142,23 +187,34 @@ async function descargarImagen(url) {
 /**
  * Asignar imagen a un producto descargándola de una URL
  */
-async function asignarImagenDesdeUrl(alegraId, imageUrl) {
+async function asignarImagenDesdeUrl(alegraId, imageUrl, fallbackImageUrl) {
   console.log(`🖼️ Asignando imagen a producto ${alegraId} desde URL...`);
-  const result = await productService.downloadAndUploadProductImage(alegraId, imageUrl);
+  let result = await productService.downloadAndUploadProductImage(alegraId, imageUrl);
+  let finalImageUrl = imageUrl;
+
+  // La URL principal es la imagen de tamaño completo del sitio de origen, que
+  // a veces bloquea la descarga (hotlinking/WAF). Si falla, se reintenta con
+  // la miniatura ya redimensionada por Brave (menor calidad, pero mucho más
+  // confiable) en vez de dejar al usuario sin poder asignar ninguna imagen.
+  if (!result.success && fallbackImageUrl && fallbackImageUrl !== imageUrl) {
+    console.log(`↩️ Falló la imagen original para el producto ${alegraId}, reintentando con la miniatura de respaldo...`);
+    result = await productService.downloadAndUploadProductImage(alegraId, fallbackImageUrl);
+    finalImageUrl = fallbackImageUrl;
+  }
 
   if (!result.success) {
-    throw httpError(400, 'No se pudo subir la imagen a Alegra');
+    throw httpError(400, result.error || 'No se pudo subir la imagen a Alegra');
   }
 
   await prisma.alegraProduct.update({
     where: { alegraId: String(alegraId) },
     data: {
-      imageUrl: imageUrl,
+      imageUrl: finalImageUrl,
       updatedAt: new Date()
     }
   });
 
-  return imageUrl;
+  return finalImageUrl;
 }
 
 /**

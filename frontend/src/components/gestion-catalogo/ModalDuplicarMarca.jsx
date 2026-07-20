@@ -183,11 +183,10 @@ export default function ModalDuplicarMarca({
                         alt="Brand suggestion"
                         className="object-contain max-h-[50px]"
                         onError={(e) => {
-                          if (e.target.src !== img.url) {
-                            e.target.src = img.url
-                          } else {
-                            e.target.src = 'https://placehold.co/100?text=Error'
-                          }
+                          // Si la miniatura ya proxeada falló, la URL cruda del
+                          // sitio de origen casi siempre tiene el mismo bloqueo.
+                          e.target.onerror = null
+                          e.target.src = 'https://placehold.co/100?text=Error'
                         }}
                       />
                       {brandImageUrl === img.url && (

@@ -1,20 +1,9 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { generarReferenciaMarca } from '../utils/gestionCatalogoUtils'
+import { conMiniaturasProxeadas } from '../utils/imagenSugeridaUtils'
 
 const LIMIT = 24 // Grilla de 4x6
-
-// Varias fuentes de miniaturas (el CDN de Brave, sitios de origen) bloquean la
-// carga directa (hotlinking) desde otro dominio. Se pasan por el proxy del
-// backend, que las descarga server-side y evita ese bloqueo. La URL de origen
-// (img.url) NO se toca: se usa tal cual al asignar la imagen a un producto,
-// flujo que ya descarga server-side por su cuenta.
-function conMiniaturasProxeadas(images) {
-  return images.map(img => ({
-    ...img,
-    thumbnail: `${api.defaults.baseURL}/alegra/catalog/image-proxy?url=${encodeURIComponent(img.thumbnail)}`
-  }))
-}
 
 /**
  * Estado y lógica de negocio de la gestión de catálogo: listado paginado con
@@ -161,20 +150,22 @@ export function useGestionCatalogo() {
     fetchImageSuggestions(product.name)
   }
 
-  const handleAssignImage = async (imageUrl) => {
+  const handleAssignImage = async (img) => {
     setAssigningImage(true)
     try {
       const response = await api.post('/alegra/catalog/upload-image-url', {
         alegraId: selectedProduct.alegraId,
-        imageUrl: imageUrl
+        imageUrl: img.url,
+        fallbackImageUrl: img.thumbnailOriginal
       })
 
       if (response.data?.success) {
+        const finalImageUrl = response.data.imageUrl || img.url
         showToast('success', 'Imagen asignada correctamente')
         // Update product in local state
         setProductos(prev => prev.map(p => {
           if (p.alegraId === selectedProduct.alegraId) {
-            return { ...p, imageUrl: imageUrl }
+            return { ...p, imageUrl: finalImageUrl }
           }
           return p
         }))
@@ -182,7 +173,7 @@ export function useGestionCatalogo() {
       }
     } catch (error) {
       console.error('Error assigning image:', error)
-      showToast('error', 'Error al asociar la imagen al producto en Alegra')
+      showToast('error', error.response?.data?.message || 'Error al asociar la imagen al producto en Alegra')
     } finally {
       setAssigningImage(false)
     }

@@ -3,7 +3,7 @@ import { useGestionCatalogo } from '../hooks/useGestionCatalogo'
 import Toast from '../components/Toast'
 import FiltrosCatalogo from '../components/gestion-catalogo/FiltrosCatalogo'
 import GridProductos from '../components/gestion-catalogo/GridProductos'
-import ModalSugerirImagen from '../components/gestion-catalogo/ModalSugerirImagen'
+import ModalSugerirImagen from '../components/ModalSugerirImagen'
 import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
 import ModalEditarProducto from '../components/gestion-catalogo/ModalEditarProducto'
 
