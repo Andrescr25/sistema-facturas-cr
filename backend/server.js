@@ -126,6 +126,7 @@ const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
 const proveedoresModule = require('./src/modules/proveedores');
 const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
+const catalogoPublicoModule = require('./src/modules/catalogo-publico');
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
@@ -140,6 +141,7 @@ app.use('/api/revision-precios', revisionPreciosModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
+app.use('/api/catalogo-publico', catalogoPublicoModule.routes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);

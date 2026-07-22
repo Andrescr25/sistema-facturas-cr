@@ -1,4 +1,4 @@
-import { Image as ImageIcon, RefreshCw } from 'lucide-react'
+import { Image as ImageIcon, RefreshCw, ExternalLink, Link as LinkIcon } from 'lucide-react'
 import { useGestionCatalogo } from '../hooks/useGestionCatalogo'
 import Toast from '../components/Toast'
 import FiltrosCatalogo from '../components/gestion-catalogo/FiltrosCatalogo'
@@ -81,6 +81,17 @@ export default function GestionCatalogo() {
     setToast
   } = useGestionCatalogo()
 
+  const catalogoPublicoUrl = `${window.location.origin}/catalogo-publico`
+
+  const handleCopiarLinkCatalogo = async () => {
+    try {
+      await navigator.clipboard.writeText(catalogoPublicoUrl)
+      setToast({ type: 'success', message: 'Link del catálogo copiado.' })
+    } catch (error) {
+      setToast({ type: 'error', message: 'No se pudo copiar el link.' })
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -101,6 +112,25 @@ export default function GestionCatalogo() {
           <p className="text-blue-100 mt-1">
             Administra imágenes de productos, duplica ítems por marcas y sincroniza tu inventario de Alegra.
           </p>
+          <div className="flex flex-wrap items-center gap-2 mt-3 text-sm">
+            <span className="text-blue-100">Ver catálogo:</span>
+            <a
+              href="/catalogo-publico"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-white underline underline-offset-2 hover:text-blue-100"
+            >
+              {catalogoPublicoUrl}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <button
+              onClick={handleCopiarLinkCatalogo}
+              className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 rounded-md transition-colors"
+              title="Copiar link para compartir"
+            >
+              <LinkIcon className="h-3.5 w-3.5" /> Copiar link
+            </button>
+          </div>
         </div>
 
         <button

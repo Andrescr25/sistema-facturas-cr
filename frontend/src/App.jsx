@@ -14,6 +14,7 @@ import PagosProveedores from './pages/PagosProveedores'
 import FacturasBodega from './pages/FacturasBodega'
 import InventarioAuditoria from './pages/InventarioAuditoria'
 import GestionCatalogo from './pages/GestionCatalogo'
+import CatalogoPublico from './pages/CatalogoPublico'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -46,23 +47,35 @@ function App() {
   }, []);
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/facturacion" element={<Facturacion />} />
-        <Route path="/facturas-bodega" element={<FacturasBodega />} />
-        <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />
-        <Route path="/reportes/proveedores" element={<ReporteProveedores />} />
-        <Route path="/reportes/clientes" element={<ReporteClientes />} />
-        <Route path="/revision-precios" element={<RevisionPrecios />} />
-        <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
-        <Route path="/impresion" element={<Impresion />} />
-        <Route path="/pagos-proveedores" element={<PagosProveedores />} />
-        <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
-        <Route path="/configuracion" element={<Configuracion />} />
-        <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      {/* Catálogo público (tablets de agentes de venta / link compartido con
+          clientes): fuera de Layout a propósito, sin barra lateral ni acceso
+          visible al resto del sistema interno. */}
+      <Route path="/catalogo-publico" element={<CatalogoPublico />} />
+
+      <Route
+        path="/*"
+        element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/facturacion" element={<Facturacion />} />
+              <Route path="/facturas-bodega" element={<FacturasBodega />} />
+              <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />
+              <Route path="/reportes/proveedores" element={<ReporteProveedores />} />
+              <Route path="/reportes/clientes" element={<ReporteClientes />} />
+              <Route path="/revision-precios" element={<RevisionPrecios />} />
+              <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
+              <Route path="/impresion" element={<Impresion />} />
+              <Route path="/pagos-proveedores" element={<PagosProveedores />} />
+              <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
+              <Route path="/configuracion" element={<Configuracion />} />
+              <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
+            </Routes>
+          </Layout>
+        }
+      />
+    </Routes>
   )
 }
 
