@@ -99,6 +99,24 @@ async function guardarConteos(req, res) {
 }
 
 /**
+ * PATCH /inventario-auditorias/:id/items/:itemId/conteo
+ * Guarda solo el conteo de un ítem (sin ajuste en Alegra), para que no se
+ * pierda si el navegador se cierra antes de "Guardar y Ajustar".
+ */
+async function guardarConteoIndividual(req, res) {
+  const { id, itemId } = req.params;
+  const { stockReal } = req.body;
+
+  try {
+    await inventarioAuditoriasService.guardarConteoIndividual(id, itemId, stockReal);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error guardando conteo individual:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * POST /inventario-auditorias/:id/finalizar
  */
 async function finalizarAuditoria(req, res) {
@@ -113,6 +131,9 @@ async function finalizarAuditoria(req, res) {
       data
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
     console.error('Error finalizando auditoría:', error);
     res.status(500).json({ success: false, error: error.message });
   }
@@ -232,17 +253,74 @@ async function eliminarItemDevolucion(req, res) {
   }
 }
 
+/**
+ * POST /inventario-auditorias/generar-excesos (disparo manual — el cron
+ * automático corre los domingos, esto es para probar/forzar una corrida ya)
+ */
+async function generarExcesos(req, res) {
+  try {
+    const result = await inventarioAuditoriasService.generarExcesosSemanales();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error generando excesos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * PATCH /inventario-auditorias/:id/items/:itemId/exceso
+ */
+async function actualizarItemExceso(req, res) {
+  const { id, itemId } = req.params;
+  const { empacado, stockReal } = req.body;
+
+  try {
+    const item = await inventarioAuditoriasService.actualizarItemExceso(id, itemId, { empacado, stockReal });
+    res.json({ success: true, data: item });
+  } catch (error) {
+    if (error.partialResult) {
+      return res.status(500).json({
+        success: false,
+        message: 'La cantidad se guardó, pero no se pudo aplicar el ajuste en Alegra. Intenta de nuevo.',
+        error: error.partialResult.errorDetail
+      });
+    }
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    console.error('Error actualizando producto de exceso:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /inventario-auditorias/regalos
+ */
+async function listarRegalos(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.listarRegalos();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error listando regalías:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   listarAuditorias,
   listarCategorias,
   crearAuditoria,
   getAuditoria,
   guardarConteos,
+  guardarConteoIndividual,
   finalizarAuditoria,
   ajustarEnAlegra,
   resincronizarAuditoria,
   crearDevolucion,
   buscarProductosParaDevolucion,
   agregarItemDevolucion,
-  eliminarItemDevolucion
+  eliminarItemDevolucion,
+  generarExcesos,
+  actualizarItemExceso,
+  listarRegalos
 };

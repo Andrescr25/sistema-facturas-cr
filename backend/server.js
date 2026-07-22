@@ -10,6 +10,7 @@ require('dotenv').config();
 const EmailService = require('./services/emailService');
 const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
+const { iniciarDeteccionSemanalExcesos } = require('./src/modules/inventario-auditorias/inventario-auditorias.service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -247,6 +248,14 @@ const server = app.listen(PORT, () => {
 
   // Iniciar limpieza programada (Domingos 23:59)
   iniciarLimpiezaProgramada();
+
+  // Detección semanal automática de excesos de inventario (Domingos 22:00)
+  if (process.env.ENABLE_EXCESOS_AUTO !== 'false') {
+    iniciarDeteccionSemanalExcesos();
+  } else {
+    console.log('\n⚠️ Detección automática de excesos desactivada');
+    console.log('   Establece ENABLE_EXCESOS_AUTO=true en .env para activarla\n');
+  }
 
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {

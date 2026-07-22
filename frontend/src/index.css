@@ -165,6 +165,12 @@
 /* Mejoras para inputs en móvil (evitar zoom en iOS y overflow) */
 @media screen and (max-width: 768px) {
 
+  /* NOTA: sin "width: 100% !important" a propósito — la clase .input ya
+     aplica w-full por su cuenta (@apply w-full ...), así que forzarlo acá
+     era redundante para la mayoría de inputs, pero rompía los pocos inputs
+     deliberadamente angostos (ej. cantidad/conteo en tarjetas de producto,
+     que usan w-20) estirándolos a ancho completo en móvil. max-width sigue
+     evitando cualquier desborde real sin forzar el estirado. */
   input[type="text"],
   input[type="number"],
   input[type="search"],
@@ -179,7 +185,6 @@
     box-sizing: border-box !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    width: 100% !important;
   }
 
   /* Prevenir desbordamiento en cards */

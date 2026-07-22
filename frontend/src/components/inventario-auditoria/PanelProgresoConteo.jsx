@@ -1,4 +1,4 @@
-import { CheckSquare, Save, CheckCircle } from 'lucide-react'
+import { CheckSquare, CheckCircle, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 
 /**
@@ -12,7 +12,6 @@ export default function PanelProgresoConteo({
   observacionesFinales,
   setObservacionesFinales,
   loading,
-  onGuardar,
   onFinalizar
 }) {
   return (
@@ -72,18 +71,16 @@ export default function PanelProgresoConteo({
 
       {/* Actions */}
       <div className="space-y-2 pt-2">
-        <button
-          onClick={onGuardar}
-          disabled={loading}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
-        >
-          <Save size={18} />
-          Guardar y Ajustar
-        </button>
+        {itemsStats.pendientes > 0 && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+            <AlertTriangle size={13} className="shrink-0" />
+            Faltan {itemsStats.pendientes} producto(s) por contar antes de poder finalizar.
+          </p>
+        )}
         <button
           onClick={onFinalizar}
-          disabled={loading}
-          className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
+          disabled={loading || itemsStats.pendientes > 0}
+          className="w-full bg-gray-800 hover:bg-gray-900 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
         >
           <CheckCircle size={18} />
           Finalizar Auditoría

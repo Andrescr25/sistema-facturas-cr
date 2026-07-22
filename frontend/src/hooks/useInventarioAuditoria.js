@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   getAuditorias,
   getCategorias,
   crearAuditoria,
   getAuditoriaDetalle,
   guardarConteos,
+  guardarConteoIndividual,
   finalizarAuditoria,
   ajustarAlegra,
   resyncAuditoria,
@@ -12,7 +13,11 @@ import {
   crearDevolucion as crearDevolucionApi,
   buscarProductosDevolucion,
   agregarItemDevolucion as agregarItemDevolucionApi,
-  eliminarItemDevolucion as eliminarItemDevolucionApi
+  eliminarItemDevolucion as eliminarItemDevolucionApi,
+  getExcesos,
+  generarExcesosAhora,
+  actualizarItemExceso,
+  getRegalos
 } from '../services/inventarioService'
 import {
   calcularKpis,
@@ -82,6 +87,16 @@ export function useInventarioAuditoria() {
   const [buscandoProductoDevolucion, setBuscandoProductoDevolucion] = useState(false)
   const [agregandoItemDevolucion, setAgregandoItemDevolucion] = useState(false)
 
+  // Excesos de inventario: reporte de solo lectura generado automáticamente
+  // (cron semanal) — auditoriaActiva.tipo === 'exceso' reusa la misma
+  // pantalla de detalle que auditorías/devoluciones, sin conteo ni ajuste.
+  const [excesos, setExcesos] = useState([])
+  const [generandoExcesos, setGenerandoExcesos] = useState(false)
+
+  // Regalías: productos que llegaron a 100% de descuento acumulado y ya
+  // fueron entregados a un cliente elegido al azar (ver escalarDescuentosExceso).
+  const [regalos, setRegalos] = useState([])
+
   // Load initial dashboard data
   const loadDashboard = async () => {
     setLoading(true)
@@ -127,12 +142,71 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Cambiar entre la pestaña de Auditorías y Devoluciones, cargando la lista
-  // correspondiente la primera vez que se entra a Devoluciones.
+  // Load excesos history (tipo='exceso', filtrados en el backend)
+  const loadExcesos = async () => {
+    setLoading(true)
+    try {
+      const data = await getExcesos()
+      if (data.success) {
+        setExcesos(data.data)
+      }
+    } catch (err) {
+      console.error('Error cargando excesos:', err)
+      showToast('No se pudo cargar el historial de excesos.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load regalías history (productos que llegaron a 100% de descuento)
+  const loadRegalos = async () => {
+    try {
+      const data = await getRegalos()
+      if (data.success) {
+        setRegalos(data.data)
+      }
+    } catch (err) {
+      console.error('Error cargando regalías:', err)
+    }
+  }
+
+  // Cambiar entre pestañas, cargando la lista correspondiente la primera
+  // vez que se entra a cada una.
   const cambiarVista = (vista) => {
     setVistaActiva(vista)
     if (vista === 'devoluciones' && devoluciones.length === 0) {
       loadDevoluciones()
+    }
+    if (vista === 'excesos' && excesos.length === 0) {
+      loadExcesos()
+      loadRegalos()
+    }
+  }
+
+  const handleGenerarExcesosAhora = async () => {
+    setGenerandoExcesos(true)
+    showToast('Generando excesos: consulta el stock completo en vivo de Alegra, puede tardar varios minutos...', 'info', 15000)
+    try {
+      const result = await generarExcesosAhora()
+      if (result.success) {
+        const regalosNuevos = result.regalosNuevos || []
+        const sufijoRegalos = regalosNuevos.length > 0
+          ? ` 🎁 ${regalosNuevos.length} producto(s) llegaron a 100% de descuento y fueron regalados.`
+          : ''
+        showToast(
+          (result.creado
+            ? `"${result.nombre}" creado con ${result.total} producto(s) (de ${result.totalDetectados} detectados en total).`
+            : (result.message || 'No se detectaron productos en exceso.')) + sufijoRegalos,
+          'success'
+        )
+        await loadExcesos()
+        await loadRegalos()
+      }
+    } catch (err) {
+      console.error('Error generando excesos:', err)
+      showToast(err.response?.data?.error || 'Error generando excesos. Puede que siga corriendo en segundo plano — revisa el historial en unos minutos.', 'error')
+    } finally {
+      setGenerandoExcesos(false)
     }
   }
 
@@ -193,55 +267,6 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Save draft counts
-  // Save counts and immediately apply adjustments in Alegra
-  const handleSaveDraft = async () => {
-    if (!auditoriaActiva) return
-    setLoading(true)
-    try {
-      // Filtrar sólo ítems no ajustados que tengan un conteo real ingresado
-      const itemsPayload = Object.entries(conteosDraft)
-        .map(([id, val]) => {
-          const item = auditoriaActiva.items.find(i => i.id === Number(id))
-          return {
-            id: Number(id),
-            stock_real: val !== '' ? Number(val) : null,
-            ajustado_alegra: item?.ajustado_alegra
-          }
-        })
-        .filter(p => !p.ajustado_alegra && p.stock_real !== null)
-
-      if (itemsPayload.length === 0) {
-        showToast('No hay nuevos conteos ingresados para guardar y ajustar.', 'info')
-        setLoading(false)
-        return
-      }
-
-      setApplyingAdjustments(true)
-      const result = await guardarConteos(auditoriaActiva.id, itemsPayload)
-      if (result.success) {
-        showToast(result.message || 'Conteos guardados y ajustados en Alegra exitosamente.', 'success')
-        // Refresh detail
-        const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id)
-        if (updatedDetail.success) {
-          setAuditoriaActiva(updatedDetail.data)
-          // Actualizar conteosDraft con los valores del servidor
-          const draft = {}
-          updatedDetail.data.items.forEach(item => {
-            draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : ''
-          })
-          setConteosDraft(draft)
-        }
-      }
-    } catch (err) {
-      console.error('Error guardando y ajustando inventario:', err)
-      showToast(err.response?.data?.message || 'Error al guardar y ajustar el inventario.', 'error')
-    } finally {
-      setLoading(false)
-      setApplyingAdjustments(false)
-    }
-  }
-
   // Resync expired audit stocks from Alegra
   const handleResyncAuditoria = async () => {
     if (!auditoriaActiva) return
@@ -270,11 +295,11 @@ export function useInventarioAuditoria() {
   const handleFinalize = async () => {
     if (!auditoriaActiva) return
 
-    // Check if there are empty counts
-    const emptyCount = Object.values(conteosDraft).some(val => val === '')
-    if (emptyCount) {
-      const confirmado = await confirm('Hay productos sin conteo real. Se asumirá que coinciden con el stock de sistema. ¿Desea continuar?')
-      if (!confirmado) return
+    // El botón ya viene deshabilitado mientras itemsStats.pendientes > 0 — esto
+    // es solo un respaldo defensivo, nunca debería alcanzarse desde la UI.
+    if (itemsStats.pendientes > 0) {
+      showToast(`Faltan ${itemsStats.pendientes} producto(s) por contar antes de finalizar.`, 'error')
+      return
     }
 
     setLoading(true)
@@ -336,22 +361,39 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Handle key digit/conteo changes
+  // Handle key digit/conteo changes — se guarda en la db unos milisegundos
+  // después de dejar de teclear, para que un conteo ya escrito no se pierda
+  // si el navegador se recarga o se cierra antes de "Guardar y Ajustar".
+  // Es solo un borrador persistido: no dispara ningún ajuste en Alegra (eso
+  // sigue siendo la acción explícita de guardarConteos/finalizarAuditoria).
+  const conteoSaveTimers = useRef({})
+
   const handleConteoChange = (itemId, val) => {
+    const parsed = val === '' ? '' : Math.round(Number(val))
     setConteosDraft(prev => ({
       ...prev,
-      [itemId]: val === '' ? '' : Math.round(Number(val))
+      [itemId]: parsed
     }))
+
+    if (!auditoriaActiva) return
+    clearTimeout(conteoSaveTimers.current[itemId])
+    conteoSaveTimers.current[itemId] = setTimeout(() => {
+      guardarConteoIndividual(auditoriaActiva.id, itemId, parsed === '' ? null : parsed).catch(err => {
+        console.error('No se pudo autoguardar el conteo:', err)
+      })
+    }, 700)
   }
 
   const handleVerImagenProducto = (item) => setImagenProductoActivo(item)
   const handleCerrarImagenProducto = () => setImagenProductoActivo(null)
 
   const volverAlDashboard = () => {
-    const eraDevolucion = auditoriaActiva?.tipo === 'devolucion'
+    const tipoActivo = auditoriaActiva?.tipo
     setAuditoriaActiva(null)
-    if (eraDevolucion) {
+    if (tipoActivo === 'devolucion') {
       loadDevoluciones()
+    } else if (tipoActivo === 'exceso') {
+      loadExcesos()
     } else {
       loadDashboard()
     }
@@ -492,6 +534,42 @@ export function useInventarioAuditoria() {
     }
   }
 
+  // --- Excesos: ejecución (empacar producto por producto) ---
+
+  const handleActualizarItemExceso = async (itemId, payload) => {
+    try {
+      const result = await actualizarItemExceso(auditoriaActiva.id, itemId, payload)
+      if (result.success) {
+        await refrescarDevolucionActiva()
+      }
+    } catch (err) {
+      console.error('Error actualizando producto de exceso:', err)
+      showToast(err.response?.data?.message || 'Error actualizando el producto.', 'error')
+    }
+  }
+
+  // A diferencia de handleFinalize (auditorías normales), acá no hay
+  // conteosDraft que guardar primero — cada producto ya se guarda al
+  // marcarlo como empacado (handleActualizarItemExceso).
+  const handleFinalizeExceso = async () => {
+    if (!auditoriaActiva) return
+    setLoading(true)
+    try {
+      const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
+      if (result.success) {
+        showToast('Exceso finalizado con éxito.', 'success')
+        await refrescarDevolucionActiva()
+        const data = await getExcesos()
+        if (data.success) setExcesos(data.data)
+      }
+    } catch (err) {
+      console.error('Error finalizando exceso:', err)
+      showToast(err.response?.data?.message || 'Error al finalizar el exceso.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Filter items in active audit
   const filteredItems = useMemo(
     () => filtrarItemsAuditoria(auditoriaActiva?.items, { executionSearch, executionFilter, conteosDraft }),
@@ -543,6 +621,15 @@ export function useInventarioAuditoria() {
     handleEliminarItemDevolucion,
     handleFinalizeDevolucion,
 
+    excesos,
+    loadExcesos,
+    generandoExcesos,
+    handleGenerarExcesosAhora,
+    handleActualizarItemExceso,
+    handleFinalizeExceso,
+    regalos,
+    loadRegalos,
+
     auditoriaActiva,
     conteosDraft,
     observacionesFinales,
@@ -569,7 +656,6 @@ export function useInventarioAuditoria() {
     successAjuste,
     applyingAdjustments,
 
-    handleSaveDraft,
     handleResyncAuditoria,
     handleFinalize,
     handleApplyAlegraAdjustment,

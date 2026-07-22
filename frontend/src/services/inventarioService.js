@@ -64,3 +64,30 @@ export async function eliminarItemDevolucion(id, itemId) {
   const response = await api.delete(`/inventario-auditorias/${id}/items/${itemId}`);
   return response.data;
 }
+
+export async function getExcesos() {
+  const response = await api.get('/inventario-auditorias', { params: { tipo: 'exceso' } });
+  return response.data;
+}
+
+export async function generarExcesosAhora() {
+  // Corre en vivo contra Alegra (stock de todo el catálogo) y puede tardar
+  // varios minutos — timeout largo a propósito.
+  const response = await api.post('/inventario-auditorias/generar-excesos', {}, { timeout: 10 * 60 * 1000 });
+  return response.data;
+}
+
+export async function actualizarItemExceso(id, itemId, payload) {
+  const response = await api.patch(`/inventario-auditorias/${id}/items/${itemId}/exceso`, payload);
+  return response.data;
+}
+
+export async function guardarConteoIndividual(id, itemId, stockReal) {
+  const response = await api.patch(`/inventario-auditorias/${id}/items/${itemId}/conteo`, { stockReal });
+  return response.data;
+}
+
+export async function getRegalos() {
+  const response = await api.get('/inventario-auditorias/regalos');
+  return response.data;
+}

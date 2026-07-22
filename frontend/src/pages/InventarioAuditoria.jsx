@@ -20,6 +20,11 @@ import HistorialDevoluciones from '../components/inventario-auditoria/HistorialD
 import BuscadorProductoDevolucion from '../components/inventario-auditoria/BuscadorProductoDevolucion'
 import ListaItemsDevolucion from '../components/inventario-auditoria/ListaItemsDevolucion'
 import PanelFinalizarDevolucion from '../components/inventario-auditoria/PanelFinalizarDevolucion'
+import HistorialExcesos from '../components/inventario-auditoria/HistorialExcesos'
+import ReporteExceso from '../components/inventario-auditoria/ReporteExceso'
+import EjecucionExceso from '../components/inventario-auditoria/EjecucionExceso'
+import PanelFinalizarExceso from '../components/inventario-auditoria/PanelFinalizarExceso'
+import SeccionRegalias from '../components/inventario-auditoria/SeccionRegalias'
 
 export default function InventarioAuditoria() {
   const {
@@ -49,6 +54,14 @@ export default function InventarioAuditoria() {
     handleEliminarItemDevolucion,
     handleFinalizeDevolucion,
 
+    excesos,
+    loadExcesos,
+    generandoExcesos,
+    handleGenerarExcesosAhora,
+    handleActualizarItemExceso,
+    handleFinalizeExceso,
+    regalos,
+
     auditoriaActiva,
     conteosDraft,
     observacionesFinales,
@@ -75,7 +88,6 @@ export default function InventarioAuditoria() {
     successAjuste,
     applyingAdjustments,
 
-    handleSaveDraft,
     handleResyncAuditoria,
     handleFinalize,
     handleApplyAlegraAdjustment,
@@ -133,7 +145,7 @@ export default function InventarioAuditoria() {
               />
             )}
           </>
-        ) : (
+        ) : vistaActiva === 'devoluciones' ? (
           <>
             <div className="flex justify-end">
               <button
@@ -151,6 +163,18 @@ export default function InventarioAuditoria() {
               onRefresh={loadDevoluciones}
               onSelectDevolucion={handleSelectAuditoria}
             />
+          </>
+        ) : (
+          <>
+            <HistorialExcesos
+              excesos={excesos}
+              loading={loading}
+              generando={generandoExcesos}
+              onRefresh={loadExcesos}
+              onGenerarAhora={handleGenerarExcesosAhora}
+              onSelectExceso={handleSelectAuditoria}
+            />
+            <SeccionRegalias regalos={regalos} />
           </>
         )}
 
@@ -186,9 +210,10 @@ export default function InventarioAuditoria() {
     )
   }
 
-  // Active Audit / Devolución Screen
+  // Active Audit / Devolución / Exceso Screen
   const esActiva = auditoriaActiva.estado === 'en_progreso'
   const esDevolucion = auditoriaActiva.tipo === 'devolucion'
+  const esExceso = auditoriaActiva.tipo === 'exceso'
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 px-4 pb-28 sm:pb-20">
@@ -199,7 +224,7 @@ export default function InventarioAuditoria() {
           className="flex items-center gap-2 text-gray-500 hover:text-emerald-600 font-bold transition-colors"
         >
           <ArrowLeft size={20} />
-          {esDevolucion ? 'Volver a devoluciones' : 'Volver a auditorías'}
+          {esDevolucion ? 'Volver a devoluciones' : esExceso ? 'Volver a excesos' : 'Volver a auditorías'}
         </button>
         <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${esActiva ? 'bg-yellow-50 text-yellow-700 border border-yellow-150' : 'bg-green-50 text-green-700 border border-green-150'}`}>
           {esActiva ? 'En Progreso' : 'Finalizada'}
@@ -220,14 +245,14 @@ export default function InventarioAuditoria() {
               <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{auditoriaActiva.nombre}</h1>
               <p className="text-sm text-gray-500 flex items-center gap-3">
                 <span>Tipo: <strong className="text-gray-700 capitalize">
-                  {esDevolucion ? 'Devolución' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
+                  {esDevolucion ? 'Devolución' : esExceso ? 'Exceso de Inventario' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
                 </strong></span>
                 <span>•</span>
                 <span>Creada: <strong className="text-gray-700">{formatDate(auditoriaActiva.fecha_creacion)}</strong></span>
               </p>
             </div>
 
-            {!esActiva && !esDevolucion && (
+            {!esActiva && !esDevolucion && !esExceso && (
               <div className="flex flex-wrap items-center gap-6 border-t md:border-t-0 pt-4 md:pt-0">
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Precisión</p>
@@ -243,8 +268,8 @@ export default function InventarioAuditoria() {
             )}
           </div>
 
-          {/* Execution filters (solo auditorías, no devoluciones) */}
-          {esActiva && !esDevolucion && (
+          {/* Execution filters (solo auditorías normales, no devoluciones ni excesos) */}
+          {esActiva && !esDevolucion && !esExceso && (
             <FiltrosEjecucion
               executionSearch={executionSearch}
               setExecutionSearch={setExecutionSearch}
@@ -283,6 +308,26 @@ export default function InventarioAuditoria() {
                 />
               </div>
             </div>
+          ) : esActiva && esExceso ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              <div className="md:col-span-2 space-y-4">
+                <EjecucionExceso
+                  items={auditoriaActiva.items}
+                  onActualizarItem={handleActualizarItemExceso}
+                  onVerImagen={handleVerImagenProducto}
+                />
+              </div>
+
+              <div className="space-y-6">
+                <PanelFinalizarExceso
+                  items={auditoriaActiva.items}
+                  observacionesFinales={observacionesFinales}
+                  setObservacionesFinales={setObservacionesFinales}
+                  loading={loading}
+                  onFinalizar={handleFinalizeExceso}
+                />
+              </div>
+            </div>
           ) : esActiva ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
               {/* Left / Middle: Products counting sheet */}
@@ -317,11 +362,12 @@ export default function InventarioAuditoria() {
                   observacionesFinales={observacionesFinales}
                   setObservacionesFinales={setObservacionesFinales}
                   loading={loading}
-                  onGuardar={handleSaveDraft}
                   onFinalizar={handleFinalize}
                 />
               </div>
             </div>
+          ) : esExceso ? (
+            <ReporteExceso auditoriaActiva={auditoriaActiva} />
           ) : (
             <ReporteFinalizado
               auditoriaActiva={auditoriaActiva}
@@ -334,13 +380,12 @@ export default function InventarioAuditoria() {
             />
           )}
 
-          {/* Mobile Floating Action Summary Bar (Sticky at the bottom of the viewport) — solo auditorías */}
-          {esActiva && !esDevolucion && (
+          {/* Mobile Floating Action Summary Bar (Sticky at the bottom of the viewport) — solo auditorías normales */}
+          {esActiva && !esDevolucion && !esExceso && (
             <BarraAccionMovil
               itemsStats={itemsStats}
               liveFinancialImpact={liveFinancialImpact}
               loading={loading}
-              onGuardar={handleSaveDraft}
               onFinalizar={handleFinalize}
             />
           )}

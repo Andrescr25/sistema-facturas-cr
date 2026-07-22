@@ -4,10 +4,37 @@
  * vs. sistema) y su ajuste en Alegra.
  */
 
+const cron = require('node-cron');
 const { query } = require('../../../config/database');
-const { getInventoryService } = require('../../integrations/alegra');
+const { getInventoryService, getClient } = require('../../integrations/alegra');
 
 const inventoryService = getInventoryService();
+const client = getClient();
+
+// Ventana móvil de historial de ventas que se mantiene en venta_items: más
+// grande que VENTANA_DIAS_SIN_VENTA para tener margen, pero acotada (no todo
+// el histórico) porque solo hace falta saber si algo se vendió "recientemente".
+const VENTANA_DIAS_HISTORIAL_VENTAS = 120;
+// Días sin venta para considerar un producto "exceso" (decisión de negocio,
+// acordada con el usuario 2026-07-20).
+const VENTANA_DIAS_SIN_VENTA = 60;
+// Tope semanal de productos a liquidar (decisión de negocio, acordada con el
+// usuario 2026-07-20) — de todos los candidatos detectados, solo se crean
+// los N con más valor inmovilizado (stock × costo), para que la lista sea
+// manejable en vez de volcar todo lo detectado de una sola vez.
+const MAX_EXCESOS_POR_SEMANA = 10;
+// Escalamiento de descuento por producto (decisión de negocio, acordada con
+// el usuario 2026-07-21, ajustable): arranca en DESCUENTO_INICIAL la primera
+// vez que se detecta como exceso, y sube DESCUENTO_INCREMENTO cada semana
+// que sigue sin venderse, hasta llegar a 100% (ahí se dispara la regalía).
+const DESCUENTO_INICIAL = 10;
+const DESCUENTO_INCREMENTO = 10;
+
+// IDs de Alegra que nunca deben salir como "exceso": no son inventario real,
+// son productos comodín que el usuario usa para registrar gastos (recepción
+// de facturas de comida, combustible, etc. que no ingresa como compra real).
+// COMBUSTIBLE (ref 10062, id 1322), No inv (ref 0000, id 1245).
+const PRODUCTOS_EXCLUIDOS_EXCESO = ['1322', '1245'];
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -124,6 +151,79 @@ async function inicializarTablas() {
     await query(`
       ALTER TABLE inventario_auditoria_items
       ADD COLUMN IF NOT EXISTS ajustado_alegra BOOLEAN DEFAULT FALSE;
+    `);
+
+    await query(`
+      ALTER TABLE inventario_auditoria_items
+      ADD COLUMN IF NOT EXISTS ultima_venta DATE;
+    `);
+
+    // Marca que un producto de un exceso ya fue revisado/empacado por un
+    // empleado (independiente de si su stock_real coincide o no con Alegra).
+    await query(`
+      ALTER TABLE inventario_auditoria_items
+      ADD COLUMN IF NOT EXISTS empacado BOOLEAN DEFAULT FALSE;
+    `);
+
+    // Historial reciente de ventas por producto (ventana móvil, no histórico
+    // completo) — usado para detectar excesos de inventario (productos con
+    // stock que no se han vendido en los últimos N días). Alegra no expone
+    // un endpoint de "última venta por producto", así que se arma acá a
+    // partir de las facturas de venta sincronizadas periódicamente.
+    await query(`
+      CREATE TABLE IF NOT EXISTS venta_items (
+          id SERIAL PRIMARY KEY,
+          alegra_invoice_id INTEGER NOT NULL,
+          alegra_item_id VARCHAR(100) NOT NULL,
+          cantidad DECIMAL(10,2) NOT NULL DEFAULT 0,
+          fecha_emision DATE NOT NULL,
+          precio_unitario DECIMAL(12,2) DEFAULT 0.00,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (alegra_invoice_id, alegra_item_id)
+      );
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_venta_items_alegra_item_id ON venta_items(alegra_item_id);
+    `);
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_venta_items_fecha ON venta_items(fecha_emision);
+    `);
+
+    // Nombre del cliente de la factura — se usa como bolsa de donde elegir al
+    // azar el destinatario de una regalía (ver regalos_exceso más abajo).
+    await query(`
+      ALTER TABLE venta_items ADD COLUMN IF NOT EXISTS cliente_nombre VARCHAR(255);
+    `);
+
+    // Descuento acumulado por producto (no por tanda de exceso): un producto
+    // que sigue sin venderse semana tras semana va subiendo su descuento acá,
+    // independiente de en cuántas tandas de "Excesos N" haya aparecido.
+    await query(`
+      CREATE TABLE IF NOT EXISTS producto_descuento_exceso (
+          id SERIAL PRIMARY KEY,
+          alegra_item_id VARCHAR(100) NOT NULL UNIQUE,
+          nombre_producto VARCHAR(255) NOT NULL,
+          referencia VARCHAR(100),
+          descuento_porcentaje INTEGER NOT NULL DEFAULT 0,
+          veces_detectado INTEGER NOT NULL DEFAULT 0,
+          primera_deteccion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          regalado BOOLEAN DEFAULT FALSE
+      );
+    `);
+
+    // Registro de productos que llegaron a 100% de descuento y a qué
+    // cliente (elegido al azar entre los clientes reales recientes) se le
+    // regaló.
+    await query(`
+      CREATE TABLE IF NOT EXISTS regalos_exceso (
+          id SERIAL PRIMARY KEY,
+          alegra_item_id VARCHAR(100) NOT NULL,
+          nombre_producto VARCHAR(255) NOT NULL,
+          cliente_nombre VARCHAR(255),
+          fecha_regalo TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     console.log('Tablas de auditoría de inventario inicializadas/verificadas');
@@ -270,18 +370,19 @@ async function getAuditoria(id) {
   const fechaCreacion = new Date(audit.fecha_creacion);
   const ahora = new Date();
   const difHoras = (ahora - fechaCreacion) / (1000 * 60 * 60);
-  // Las devoluciones no expiran a las 24h: cada ítem captura su propio stock
-  // fresco al agregarse (no hay un baseline único que se vuelva obsoleto como
-  // en una auditoría cíclica), y pueden quedar abiertas varios días mientras
-  // van llegando productos devueltos.
-  const expirada = audit.tipo !== 'devolucion' && audit.estado === 'en_progreso' && difHoras >= 24;
+  // Las devoluciones y excesos no expiran a las 24h: cada ítem de devolución
+  // captura su propio stock fresco al agregarse (no hay un baseline único
+  // que se vuelva obsoleto como en una auditoría cíclica), y los excesos son
+  // una "factura de empaque" que puede quedar abierta varios días mientras
+  // los empleados van revisando producto por producto.
+  const expirada = !['devolucion', 'exceso'].includes(audit.tipo) && audit.estado === 'en_progreso' && difHoras >= 24;
 
   const itemsRes = await query(`
     SELECT
       iai.id, iai.auditoria_id, iai.alegra_id, iai.nombre_producto, iai.referencia,
       iai.category, iai.stock_sistema, iai.stock_real, iai.costo_unitario,
-      iai.precio_venta, iai.created_at, iai.ajustado_alegra,
-      apc.image_url
+      iai.precio_venta, iai.created_at, iai.ajustado_alegra, iai.empacado,
+      iai.ultima_venta, apc.image_url
     FROM inventario_auditoria_items iai
     LEFT JOIN alegra_products_cache apc ON apc.alegra_id = iai.alegra_id
     WHERE iai.auditoria_id = $1
@@ -362,9 +463,55 @@ async function guardarConteos(id, items) {
 }
 
 /**
+ * Guarda el conteo de UN solo ítem apenas el usuario lo escribe (sin
+ * disparar ningún ajuste en Alegra — eso sigue siendo una acción explícita
+ * vía guardarConteos/finalizarAuditoria). El único propósito es que un
+ * conteo ya tecleado no se pierda si el navegador se recarga o se cierra
+ * antes de presionar "Guardar y Ajustar".
+ */
+async function guardarConteoIndividual(auditoriaId, itemId, stockReal) {
+  const stockVal = stockReal !== null && stockReal !== undefined && stockReal !== ''
+    ? Number(stockReal)
+    : null;
+
+  await query(`
+    UPDATE inventario_auditoria_items
+    SET stock_real = $1
+    WHERE id = $2 AND auditoria_id = $3 AND ajustado_alegra = FALSE;
+  `, [stockVal, itemId, auditoriaId]);
+}
+
+/**
  * Finalizar una auditoría calculando sus estadísticas de precisión y descuadre
  */
 async function finalizarAuditoria(id, observaciones) {
+  // Un exceso ("factura de empaque") no puede finalizarse hasta que el
+  // empleado marcó todos los productos como empacados.
+  const auditRes = await query(`SELECT tipo FROM inventario_auditorias WHERE id = $1;`, [id]);
+  const tipoAuditoria = auditRes.rows[0]?.tipo;
+  if (tipoAuditoria === 'exceso') {
+    const pendientesRes = await query(`
+      SELECT COUNT(*) FROM inventario_auditoria_items WHERE auditoria_id = $1 AND empacado = FALSE;
+    `, [id]);
+    const pendientes = parseInt(pendientesRes.rows[0].count, 10);
+    if (pendientes > 0) {
+      throw httpError(400, `Todavía quedan ${pendientes} producto(s) sin marcar como empacados.`);
+    }
+  } else if (tipoAuditoria !== 'devolucion') {
+    // Una auditoría normal (categoria/random/critico) tampoco puede finalizarse
+    // hasta que todos los productos tengan un conteo real registrado — igual
+    // que Excesos, esto respalda del lado del servidor el bloqueo que ya
+    // existe en el botón "Finalizar Auditoría" del frontend.
+    const pendientesRes = await query(`
+      SELECT COUNT(*) FROM inventario_auditoria_items
+      WHERE auditoria_id = $1 AND ajustado_alegra = FALSE AND stock_real IS NULL;
+    `, [id]);
+    const pendientes = parseInt(pendientesRes.rows[0].count, 10);
+    if (pendientes > 0) {
+      throw httpError(400, `Todavía quedan ${pendientes} producto(s) sin contar.`);
+    }
+  }
+
   const itemsRes = await query(`
     SELECT stock_sistema, stock_real, costo_unitario
     FROM inventario_auditoria_items
@@ -655,17 +802,391 @@ async function eliminarItemDevolucion(auditoriaId, itemId) {
   }
 }
 
+// --- Excesos de inventario ---
+
+/**
+ * Sincroniza venta_items con las facturas de venta de los últimos
+ * VENTANA_DIAS_HISTORIAL_VENTAS días (GET /invoices ya trae el array
+ * "items" completo por factura, confirmado en vivo — no hace falta pedir
+ * cada factura por separado). Poda filas fuera de la ventana para que la
+ * tabla no crezca indefinidamente: solo importa saber qué se vendió
+ * recientemente, no guardar histórico completo.
+ */
+async function sincronizarVentasRecientes() {
+  const hoy = new Date();
+  const ventanaDesde = new Date(hoy);
+  ventanaDesde.setDate(ventanaDesde.getDate() - VENTANA_DIAS_HISTORIAL_VENTAS);
+  const ventanaDesdeStr = ventanaDesde.toISOString().split('T')[0];
+  const endDate = hoy.toISOString().split('T')[0];
+
+  // Incremental: se pide solo desde la última factura ya sincronizada (con
+  // 1 día de margen, por si quedaron facturas del mismo día sin traer por
+  // límite de paginación) en vez de repetir la ventana completa de
+  // VENTANA_DIAS_HISTORIAL_VENTAS días en cada corrida — la mayoría de esos
+  // días ya están guardados de la corrida anterior. El ON CONFLICT hace que
+  // volver a traer un día ya sincronizado sea inofensivo.
+  const ultimaRes = await query(`SELECT MAX(fecha_emision) as ultima FROM venta_items;`);
+  const ultimaFecha = ultimaRes.rows[0]?.ultima;
+  let startDate = ventanaDesdeStr;
+  if (ultimaFecha) {
+    const margen = new Date(ultimaFecha);
+    margen.setDate(margen.getDate() - 1);
+    const margenStr = margen.toISOString().split('T')[0];
+    startDate = margenStr > ventanaDesdeStr ? margenStr : ventanaDesdeStr;
+  }
+
+  console.log(`🔄 Sincronizando ventas desde ${startDate} → ${endDate}${ultimaFecha ? ' (incremental)' : ' (primera vez, ventana completa de ' + VENTANA_DIAS_HISTORIAL_VENTAS + ' días)'}...`);
+
+  let start = 0;
+  const limit = 30;
+  let totalFacturas = 0;
+  let totalItems = 0;
+
+  while (true) {
+    const response = await client.requestWithRetry(
+      () => client.api.get('/invoices', {
+        params: {
+          date_after: startDate,
+          date_before: endDate,
+          start,
+          limit,
+          order_field: 'date',
+          order_direction: 'DESC'
+        },
+        timeout: 60000
+      })
+    );
+
+    const invoices = response.data?.data || response.data || [];
+    if (!Array.isArray(invoices) || invoices.length === 0) break;
+
+    for (const invoice of invoices) {
+      const fecha = (invoice.date || '').split('T')[0];
+      if (!fecha) continue;
+      const clienteNombre = invoice.client?.name || null;
+
+      for (const item of invoice.items || []) {
+        if (!item.id) continue;
+        await query(`
+          INSERT INTO venta_items (alegra_invoice_id, alegra_item_id, cantidad, fecha_emision, precio_unitario, cliente_nombre)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (alegra_invoice_id, alegra_item_id) DO UPDATE SET
+            cantidad = EXCLUDED.cantidad,
+            fecha_emision = EXCLUDED.fecha_emision,
+            precio_unitario = EXCLUDED.precio_unitario,
+            cliente_nombre = EXCLUDED.cliente_nombre;
+        `, [
+          parseInt(invoice.id, 10),
+          String(item.id),
+          parseFloat(item.quantity) || 0,
+          fecha,
+          parseFloat(item.price) || 0,
+          clienteNombre
+        ]);
+        totalItems++;
+      }
+    }
+
+    totalFacturas += invoices.length;
+    if (invoices.length < limit) break;
+    start += limit;
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  // Podar filas fuera de la ventana móvil (siempre contra el límite fijo de
+  // VENTANA_DIAS_HISTORIAL_VENTAS días, no contra el punto de arranque
+  // incremental de esta corrida en particular)
+  const podado = await query(`DELETE FROM venta_items WHERE fecha_emision < $1 RETURNING id;`, [ventanaDesdeStr]);
+
+  console.log(`✅ Ventas sincronizadas: ${totalFacturas} facturas, ${totalItems} líneas procesadas, ${podado.rows.length} filas viejas podadas`);
+  return { facturas: totalFacturas, items: totalItems, podadas: podado.rows.length };
+}
+
+/**
+ * Sube el descuento de CADA producto detectado como exceso esta semana
+ * (sin el tope de MAX_EXCESOS_POR_SEMANA — el descuento es por producto,
+ * independiente de cuántos entren a la tanda física de empaque de la
+ * semana). La primera vez que se detecta arranca en DESCUENTO_INICIAL; cada
+ * vez que reaparece sube DESCUENTO_INCREMENTO. Al llegar a 100% se marca
+ * "regalado" y se elige al azar un cliente real (de los de ventas
+ * recientes) para la regalía — no se vuelve a tocar después de eso.
+ * Devuelve la lista de regalos nuevos generados en esta corrida.
+ */
+async function escalarDescuentosExceso(candidatos) {
+  const regalosNuevos = [];
+
+  for (const item of candidatos) {
+    const alegraItemId = String(item.alegra_id);
+    const existente = await query(`SELECT * FROM producto_descuento_exceso WHERE alegra_item_id = $1;`, [alegraItemId]);
+
+    if (existente.rows.length === 0) {
+      await query(`
+        INSERT INTO producto_descuento_exceso (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado)
+        VALUES ($1, $2, $3, $4, 1);
+      `, [alegraItemId, item.name, item.reference, DESCUENTO_INICIAL]);
+      continue;
+    }
+
+    const row = existente.rows[0];
+    if (row.regalado) continue; // ya se regaló, no se sigue escalando
+
+    const nuevoDescuento = Math.min(100, Number(row.descuento_porcentaje) + DESCUENTO_INCREMENTO);
+    const llegaA100 = nuevoDescuento >= 100;
+
+    // OJO: "regalado" se marca aparte, sólo después de crear el registro en
+    // regalos_exceso con éxito (ver más abajo) — así, si esa parte falla, el
+    // producto no queda marcado como regalado sin una regalía real que lo
+    // respalde (lo que lo dejaría atascado para siempre, por el `continue`
+    // de arriba en la próxima corrida).
+    await query(`
+      UPDATE producto_descuento_exceso
+      SET descuento_porcentaje = $1, veces_detectado = veces_detectado + 1,
+          ultima_actualizacion = CURRENT_TIMESTAMP
+      WHERE alegra_item_id = $2;
+    `, [nuevoDescuento, alegraItemId]);
+
+    if (llegaA100) {
+      // DISTINCT + ORDER BY random() no es válido en Postgres si random() no
+      // está en el select list — se resuelve el DISTINCT en una subconsulta.
+      const clienteRes = await query(`
+        SELECT cliente_nombre FROM (
+          SELECT DISTINCT cliente_nombre FROM venta_items WHERE cliente_nombre IS NOT NULL
+        ) clientes
+        ORDER BY random() LIMIT 1;
+      `);
+      const clienteElegido = clienteRes.rows[0]?.cliente_nombre || 'Cliente no identificado';
+
+      await query(`
+        INSERT INTO regalos_exceso (alegra_item_id, nombre_producto, cliente_nombre)
+        VALUES ($1, $2, $3);
+      `, [alegraItemId, item.name, clienteElegido]);
+
+      await query(`UPDATE producto_descuento_exceso SET regalado = TRUE WHERE alegra_item_id = $1;`, [alegraItemId]);
+
+      console.log(`🎁 "${item.name}" llegó a 100% de descuento — regalado a ${clienteElegido}`);
+      regalosNuevos.push({ alegraItemId, nombre: item.name, cliente: clienteElegido });
+    }
+  }
+
+  return regalosNuevos;
+}
+
+/**
+ * Detecta productos "exceso" (con stock y sin venta en VENTANA_DIAS_SIN_VENTA
+ * días) y crea automáticamente un registro "Excesos N" con ellos — mismo
+ * mecanismo de nombre autoincremental que las devoluciones ("Ajuste N").
+ * Un exceso ahora es una "factura de empaque" en progreso (ver
+ * actualizarItemExceso): los empleados revisan producto por producto y, si
+ * la cantidad física real difiere de la que muestra Alegra, la corrigen ahí
+ * mismo. Además, por cada producto detectado (sin el tope semanal) se le
+ * sube el descuento acumulado — ver escalarDescuentosExceso.
+ */
+async function generarExcesosSemanales() {
+  await sincronizarVentasRecientes();
+
+  console.log('🔍 Detectando productos en exceso...');
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() - VENTANA_DIAS_SIN_VENTA);
+  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+
+  // Última venta conocida (dentro de la ventana de historial) por producto
+  const ultimasVentasRes = await query(`
+    SELECT alegra_item_id, MAX(fecha_emision) as ultima_venta
+    FROM venta_items
+    GROUP BY alegra_item_id;
+  `);
+  const ultimaVentaMap = new Map(
+    ultimasVentasRes.rows.map(row => [row.alegra_item_id, row.ultima_venta])
+  );
+
+  // Stock/costo actuales en vivo de Alegra (mismo dato fresco que ya usa
+  // crearAuditoria — es un fetch pesado, ~1 minuto, aceptable acá porque
+  // corre desatendido, no bloqueando a un usuario esperando en pantalla).
+  const allAlegraItems = await inventoryService.getInventariableItems();
+
+  const candidatos = allAlegraItems
+    .map(product => {
+      const stock = product.inventory?.availableQuantity ? parseFloat(product.inventory.availableQuantity) : 0;
+      const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
+      const mainPrice = product.price?.find(p => p.main === true) || product.price?.[0];
+      const price = mainPrice ? parseFloat(mainPrice.price) : 0;
+      const reference = product.reference?.reference || product.reference || '';
+      const category = product.itemCategory?.name || product.category?.name || '';
+      const ultimaVenta = ultimaVentaMap.get(String(product.id)) || null;
+
+      return {
+        alegra_id: product.id,
+        name: product.name,
+        reference,
+        category,
+        stock,
+        cost,
+        price,
+        ultimaVenta
+      };
+    })
+    // Con stock, y sin venta registrada en la ventana de historial O cuya
+    // última venta conocida es anterior al límite de días. Se excluyen los
+    // productos comodín de gastos (ver PRODUCTOS_EXCLUIDOS_EXCESO).
+    .filter(item =>
+      item.stock > 0 &&
+      (!item.ultimaVenta || item.ultimaVenta < fechaLimiteStr) &&
+      !PRODUCTOS_EXCLUIDOS_EXCESO.includes(String(item.alegra_id))
+    )
+    // Los que más plata tienen inmovilizada primero.
+    .sort((a, b) => (b.stock * b.cost) - (a.stock * a.cost));
+
+  const totalDetectados = candidatos.length;
+  const seleccionados = candidatos.slice(0, MAX_EXCESOS_POR_SEMANA);
+
+  console.log(`📊 ${totalDetectados} productos en exceso detectados (de ${allAlegraItems.length} inventariables), se toman los ${seleccionados.length} de mayor valor inmovilizado`);
+
+  // El descuento sube para TODOS los detectados, no solo los seleccionados
+  // para empacar esta semana — es un problema de venta, no de capacidad de
+  // los empleados para revisarlos físicamente.
+  const regalosNuevos = await escalarDescuentosExceso(candidatos);
+
+  if (seleccionados.length === 0) {
+    return { creado: false, message: 'No se detectaron productos en exceso esta semana.', regalosNuevos };
+  }
+
+  // Nombre autoincremental "Excesos N", mismo mecanismo que "Ajuste N" en devoluciones.
+  const existentes = await query(`SELECT nombre FROM inventario_auditorias WHERE tipo = 'exceso';`);
+  let maxNumero = 0;
+  existentes.rows.forEach(row => {
+    const match = /^excesos\s+(\d+)$/i.exec((row.nombre || '').trim());
+    if (match) {
+      const numero = parseInt(match[1], 10);
+      if (numero > maxNumero) maxNumero = numero;
+    }
+  });
+  const nombre = `Excesos ${maxNumero + 1}`;
+
+  const auditRes = await query(`
+    INSERT INTO inventario_auditorias (nombre, tipo, estado)
+    VALUES ($1, 'exceso', 'en_progreso')
+    RETURNING *;
+  `, [nombre]);
+  const registro = auditRes.rows[0];
+
+  // stock_real queda pendiente (NULL) y ajustado_alegra en FALSE — a
+  // diferencia del diseño anterior (solo lectura), un exceso ahora es una
+  // "factura de empaque": el empleado revisa cada producto y, si la
+  // cantidad física real difiere de la que muestra Alegra, la corrige ahí
+  // mismo reusando el mismo guardarConteos/ajustarEnAlegra que ya usan las
+  // auditorías normales.
+  for (const item of seleccionados) {
+    await query(`
+      INSERT INTO inventario_auditoria_items
+        (auditoria_id, alegra_id, nombre_producto, referencia, category, stock_sistema, costo_unitario, precio_venta, ultima_venta)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+    `, [
+      registro.id,
+      String(item.alegra_id),
+      item.name,
+      item.reference,
+      item.category,
+      item.stock,
+      item.cost,
+      item.price,
+      item.ultimaVenta
+    ]);
+  }
+
+  console.log(`✅ "${nombre}" creado con ${seleccionados.length} productos (de ${totalDetectados} detectados en total).`);
+  return { creado: true, id: registro.id, nombre, total: seleccionados.length, totalDetectados, regalosNuevos };
+}
+
+/**
+ * Marcar/desmarcar un producto de un exceso como empacado, y opcionalmente
+ * corregir su cantidad física (si el empleado la encontró distinta a la que
+ * muestra Alegra). La corrección de cantidad reusa applyBatchedAdjustments
+ * — el mismo mecanismo que ya usan las auditorías normales — para aplicar
+ * el ajuste real en Alegra de inmediato.
+ */
+async function actualizarItemExceso(auditoriaId, itemId, { empacado, stockReal }) {
+  const itemRes = await query(`
+    SELECT * FROM inventario_auditoria_items WHERE id = $1 AND auditoria_id = $2;
+  `, [itemId, auditoriaId]);
+  if (itemRes.rows.length === 0) {
+    throw httpError(404, 'Producto no encontrado en este exceso.');
+  }
+  const item = itemRes.rows[0];
+
+  if (stockReal !== undefined && stockReal !== null && stockReal !== '') {
+    const nuevoStockReal = Number(stockReal);
+    if (isNaN(nuevoStockReal) || nuevoStockReal < 0) {
+      throw httpError(400, 'Cantidad inválida.');
+    }
+
+    await query(`UPDATE inventario_auditoria_items SET stock_real = $1 WHERE id = $2;`, [nuevoStockReal, itemId]);
+
+    if (!item.ajustado_alegra && nuevoStockReal !== Number(item.stock_sistema)) {
+      const result = await applyBatchedAdjustments(
+        [{ ...item, stock_real: nuevoStockReal }],
+        `Corrección de cantidad al empacar exceso (Auditoría ID: ${auditoriaId})`
+      );
+      if (!result.ok) {
+        throw Object.assign(httpError(500, 'No se pudo aplicar el ajuste de inventario en Alegra.'), {
+          partialResult: result
+        });
+      }
+    }
+  }
+
+  if (empacado !== undefined) {
+    await query(`UPDATE inventario_auditoria_items SET empacado = $1 WHERE id = $2;`, [Boolean(empacado), itemId]);
+  }
+
+  const actualizado = await query(`SELECT * FROM inventario_auditoria_items WHERE id = $1;`, [itemId]);
+  return actualizado.rows[0];
+}
+
+/**
+ * Cron semanal: Domingos 22:00 (America/Costa_Rica), una hora antes de la
+ * limpieza semanal de faltantes, para no correr ambos al mismo tiempo.
+ */
+function iniciarDeteccionSemanalExcesos() {
+  const task = cron.schedule('0 22 * * 0', () => {
+    console.log('⏰ [CRON] Disparando detección semanal de excesos de inventario (Domingo 22:00)...');
+    generarExcesosSemanales().catch(err => {
+      console.error('❌ [CRON] Error generando excesos semanales:', err.message);
+    });
+  }, {
+    timezone: 'America/Costa_Rica'
+  });
+
+  console.log('⏰ Detección de excesos programada: Domingos a las 22:00 (America/Costa_Rica)');
+  return task;
+}
+
+/**
+ * Listar regalías entregadas (productos que llegaron a 100% de descuento).
+ */
+async function listarRegalos() {
+  const result = await query(`
+    SELECT * FROM regalos_exceso ORDER BY fecha_regalo DESC;
+  `);
+  return result.rows;
+}
+
 module.exports = {
   listarAuditorias,
   listarCategorias,
   crearAuditoria,
   getAuditoria,
   guardarConteos,
+  guardarConteoIndividual,
   finalizarAuditoria,
   ajustarEnAlegra,
   resincronizarAuditoria,
   crearDevolucion,
   buscarProductosParaDevolucion,
   agregarItemDevolucion,
-  eliminarItemDevolucion
+  eliminarItemDevolucion,
+  sincronizarVentasRecientes,
+  generarExcesosSemanales,
+  iniciarDeteccionSemanalExcesos,
+  actualizarItemExceso,
+  listarRegalos
 };
