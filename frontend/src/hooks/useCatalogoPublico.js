@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import api from '../services/api'
 import { catalogoPublicoDb } from '../utils/catalogoPublicoDb'
 
-const API_URL = '/api/catalogo-publico/productos'
-const OFERTAS_URL = '/api/catalogo-publico/ofertas'
+const PRODUCTOS_PATH = '/catalogo-publico/productos'
+const OFERTAS_PATH = '/catalogo-publico/ofertas'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
 const IMAGE_PREFETCH_CONCURRENCY = 10
+const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
 
 export function useCatalogoPublico() {
   const [products, setProducts] = useState([])
@@ -106,14 +108,16 @@ export function useCatalogoPublico() {
 
       await catalogoPublicoDb.clearProducts()
 
+      let lotesFallidosConsecutivos = 0
+
       while (hasMore) {
         const promises = []
         for (let i = 0; i < SYNC_CONCURRENCY; i++) {
           if (!hasMore) break
           const currentStart = start + i * ALEGRA_PAGE_LIMIT
-          const p = fetch(`${window.location.origin}${API_URL}?start=${currentStart}&limit=${ALEGRA_PAGE_LIMIT}`)
-            .then((res) => (res.ok ? res.json() : Promise.reject(`Status ${res.status}`)))
-            .then((data) => ({ start: currentStart, data, ok: true }))
+          const p = api
+            .get(PRODUCTOS_PATH, { params: { start: currentStart, limit: ALEGRA_PAGE_LIMIT } })
+            .then((res) => ({ start: currentStart, data: res.data, ok: true }))
             .catch((err) => ({ start: currentStart, err, ok: false }))
           promises.push(p)
         }
@@ -121,6 +125,15 @@ export function useCatalogoPublico() {
         if (promises.length === 0) break
 
         const results = await Promise.all(promises)
+
+        if (results.every((result) => !result.ok)) {
+          lotesFallidosConsecutivos++
+          if (lotesFallidosConsecutivos >= MAX_LOTES_FALLIDOS_CONSECUTIVOS) {
+            throw new Error('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.')
+          }
+        } else {
+          lotesFallidosConsecutivos = 0
+        }
 
         for (const result of results) {
           if (!result.ok) continue
@@ -191,13 +204,10 @@ export function useCatalogoPublico() {
 
       updateSyncUI('Actualizando ofertas...', 98)
       try {
-        const ofertasRes = await fetch(`${window.location.origin}${OFERTAS_URL}`)
-        if (ofertasRes.ok) {
-          const ofertasData = await ofertasRes.json()
-          const nuevasOfertas = ofertasData.ofertas || []
-          await catalogoPublicoDb.saveOfertas(nuevasOfertas)
-          setOfertas(nuevasOfertas)
-        }
+        const ofertasRes = await api.get(OFERTAS_PATH)
+        const nuevasOfertas = ofertasRes.data.ofertas || []
+        await catalogoPublicoDb.saveOfertas(nuevasOfertas)
+        setOfertas(nuevasOfertas)
       } catch (ofertasError) {
         console.error('No se pudieron actualizar las ofertas:', ofertasError)
       }
@@ -211,6 +221,7 @@ export function useCatalogoPublico() {
     } catch (error) {
       console.error('Error sincronizando catálogo:', error)
       setIsSyncing(false)
+      window.alert(error.message || 'No se pudo sincronizar el catálogo. Intenta de nuevo.')
       return { success: false, error: error.message }
     }
   }, [updateSyncUI])
