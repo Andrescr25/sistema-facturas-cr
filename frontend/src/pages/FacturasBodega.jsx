@@ -4,6 +4,7 @@ import HeaderBodega from '../components/facturas-bodega/HeaderBodega'
 import ListadoFacturas from '../components/facturas-bodega/ListadoFacturas'
 import DetalleDespacho from '../components/facturas-bodega/DetalleDespacho'
 import ModalClienteCompletado from '../components/facturas-bodega/ModalClienteCompletado'
+import ModalImagenProducto from '../components/inventario-auditoria/ModalImagenProducto'
 
 export default function FacturasBodega() {
   const {
@@ -25,6 +26,10 @@ export default function FacturasBodega() {
     filters,
     handleFilterChange,
     clearFilters,
+
+    imagenProductoActivo,
+    handleVerImagenProducto,
+    handleCerrarImagenProducto,
 
     handleSeleccionarFactura,
     cancelarDespacho,
@@ -83,6 +88,7 @@ export default function FacturasBodega() {
           onCambiarCantidad={actualizarCantidadFaltante}
           onCambiarObservacion={actualizarObservacionItem}
           onRegistrarFaltantes={handleRegistrarFaltantes}
+          onVerImagen={handleVerImagenProducto}
         />
       ) : (
         <ListadoFacturas
@@ -102,6 +108,13 @@ export default function FacturasBodega() {
         <ModalClienteCompletado
           clienteCompletado={clienteCompletado}
           onCerrar={() => setClienteCompletado(null)}
+        />
+      )}
+
+      {imagenProductoActivo && (
+        <ModalImagenProducto
+          item={imagenProductoActivo}
+          onCerrar={handleCerrarImagenProducto}
         />
       )}
     </div>

@@ -456,6 +456,19 @@ export const alegraService = {
     }
   },
 
+  async getImagenesPorReferencia(referencias) {
+    try {
+      if (!referencias || referencias.length === 0) return { success: true, data: [] };
+      const response = await api.get('/alegra/catalog/imagenes-por-referencia', {
+        params: { referencias: referencias.join(',') }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Frontend: Error obteniendo imágenes por referencia:', error);
+      return { success: false, data: [] };
+    }
+  },
+
   async actualizarEstadoFacturaBodega(alegraId, estado, observaciones, enviarAImpresion = false) {
     try {
       const response = await api.post(`/alegra/bodega/facturas/${alegraId}/estado`, {

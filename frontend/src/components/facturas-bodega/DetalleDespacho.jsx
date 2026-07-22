@@ -19,7 +19,8 @@ export default function DetalleDespacho({
   onMarcarModo,
   onCambiarCantidad,
   onCambiarObservacion,
-  onRegistrarFaltantes
+  onRegistrarFaltantes,
+  onVerImagen
 }) {
   return (
     <div className="space-y-4 pb-24">
@@ -83,6 +84,7 @@ export default function DetalleDespacho({
               onMarcarModo={(modo) => onMarcarModo(key, modo, cantidadFactura)}
               onCambiarCantidad={(valor) => onCambiarCantidad(key, valor, cantidadFactura)}
               onCambiarObservacion={(texto) => onCambiarObservacion(key, texto)}
+              onVerImagen={() => onVerImagen(item)}
             />
           )
         })}

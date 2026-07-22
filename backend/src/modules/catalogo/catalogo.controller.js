@@ -20,6 +20,21 @@ async function listarProductos(req, res) {
 }
 
 /**
+ * GET /catalog/imagenes-por-referencia?referencias=ref1,ref2,ref3
+ */
+async function buscarImagenesPorReferencia(req, res) {
+  try {
+    const { referencias } = req.query;
+    const lista = (referencias || '').split(',').map((r) => r.trim()).filter(Boolean);
+    const data = await catalogoService.buscarImagenesPorReferencia(lista);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('❌ Error en GET /catalog/imagenes-por-referencia:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * GET /catalog/search-images
  */
 async function buscarImagenes(req, res) {
@@ -171,6 +186,7 @@ async function eliminarProducto(req, res) {
 
 module.exports = {
   listarProductos,
+  buscarImagenesPorReferencia,
   buscarImagenes,
   proxyImagen,
   asignarImagenDesdeUrl,

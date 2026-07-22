@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Minus, Plus, X } from 'lucide-react'
+import { AlertTriangle, Check, ImageIcon, Minus, Plus, X } from 'lucide-react'
 
 /**
  * Tarjeta de un producto de la factura, con los botones rápidos
@@ -11,7 +11,8 @@ export default function ItemFaltanteCard({
   cantidadFactura,
   onMarcarModo,
   onCambiarCantidad,
-  onCambiarObservacion
+  onCambiarObservacion,
+  onVerImagen
 }) {
   const esCompleto = draft?.tipo === 'ninguno' || draft?.tipo === 'completo'
   const esTotal = draft?.tipo === 'total'
@@ -30,8 +31,16 @@ export default function ItemFaltanteCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 flex-1">
-          <h4 className="text-base font-bold text-gray-900 leading-tight">
+          <h4 className="text-base font-bold text-gray-900 leading-tight flex items-center gap-1.5">
             {item.nombre || item.name}
+            <button
+              type="button"
+              onClick={onVerImagen}
+              aria-label={`Ver foto de ${item.nombre || item.name}`}
+              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shrink-0"
+            >
+              <ImageIcon size={15} />
+            </button>
           </h4>
           <p className="text-sm font-semibold text-gray-600">
             Cantidad a despachar: {cantidadFactura}

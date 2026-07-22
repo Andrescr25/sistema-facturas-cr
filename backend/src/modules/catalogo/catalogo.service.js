@@ -99,6 +99,24 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
 }
 
 /**
+ * Busca en la caché local (alegra_products_cache) la foto ya asignada de
+ * cada referencia, en un solo query — usado por pantallas que no tienen la
+ * imagen embebida en sus propios datos (ej. líneas de una factura de
+ * Alegra, que no traen fotos), a diferencia de Auditoría/Excesos donde
+ * cada ítem ya guarda su propio image_url desde que se creó.
+ */
+async function buscarImagenesPorReferencia(referencias) {
+  if (!Array.isArray(referencias) || referencias.length === 0) return [];
+
+  const productos = await prisma.alegraProduct.findMany({
+    where: { reference: { in: referencias } },
+    select: { reference: true, imageUrl: true }
+  });
+
+  return productos.map((p) => ({ referencia: p.reference, imageUrl: p.imageUrl }));
+}
+
+/**
  * Buscar sugerencias de imágenes usando la API oficial de Brave Search.
  * Segundo reemplazo del scraping de Bing (2026-07): primero se intentó
  * Google Custom Search JSON API, pero Google cerró esa API a cuentas/
@@ -487,6 +505,7 @@ async function eliminarProducto(id) {
 
 module.exports = {
   listarProductos,
+  buscarImagenesPorReferencia,
   buscarImagenes,
   descargarImagen,
   asignarImagenDesdeUrl,

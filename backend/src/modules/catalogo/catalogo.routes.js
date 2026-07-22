@@ -23,6 +23,7 @@ const upload = multer({
 });
 
 router.get('/productos', catalogoController.listarProductos);
+router.get('/imagenes-por-referencia', catalogoController.buscarImagenesPorReferencia);
 router.get('/search-images', catalogoController.buscarImagenes);
 router.get('/image-proxy', catalogoController.proxyImagen);
 router.post('/upload-image-url', catalogoController.asignarImagenDesdeUrl);

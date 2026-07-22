@@ -49,6 +49,8 @@ export function useFacturasBodega() {
   const [successMessage, setSuccessMessage] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [clienteCompletado, setClienteCompletado] = useState(null) // Modal de cliente completado
+  const [imagenesPorReferencia, setImagenesPorReferencia] = useState({}) // { referencia: imageUrl }
+  const [imagenProductoActivo, setImagenProductoActivo] = useState(null) // item para el modal de foto, o null
   const [filters, setFilters] = useState(() => {
     try {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.filtros)
@@ -220,6 +222,50 @@ export function useFacturasBodega() {
       document.body.scrollTop = 0
     }
   }, [facturaSeleccionada])
+
+  // Traer las fotos ya asignadas en el catálogo para los productos de la
+  // factura activa — las líneas de una factura de Alegra no traen foto
+  // propia, a diferencia de los ítems de Auditoría/Excesos.
+  useEffect(() => {
+    const items = facturaSeleccionada?.items
+    if (!items || items.length === 0) {
+      setImagenesPorReferencia({})
+      return
+    }
+
+    const referencias = Array.from(
+      new Set(
+        items
+          .map((item) => normalizeReferenceValue(item?.referencia ?? item?.reference ?? ''))
+          .filter(Boolean)
+      )
+    )
+
+    if (referencias.length === 0) {
+      setImagenesPorReferencia({})
+      return
+    }
+
+    alegraService.getImagenesPorReferencia(referencias).then((result) => {
+      if (result.success) {
+        const mapa = {}
+        result.data.forEach((row) => {
+          if (row.imageUrl) mapa[row.referencia] = row.imageUrl
+        })
+        setImagenesPorReferencia(mapa)
+      }
+    })
+  }, [facturaSeleccionada])
+
+  const handleVerImagenProducto = (item) => {
+    const referencia = normalizeReferenceValue(item?.referencia ?? item?.reference ?? '')
+    setImagenProductoActivo({
+      nombre_producto: item?.nombre || item?.name || 'Producto',
+      referencia: referencia || 'N/A',
+      image_url: imagenesPorReferencia[referencia] || null
+    })
+  }
+  const handleCerrarImagenProducto = () => setImagenProductoActivo(null)
 
   const handleSeleccionarFactura = async (factura) => {
     setFacturaSeleccionada(factura)
@@ -618,6 +664,11 @@ export function useFacturasBodega() {
     filters,
     handleFilterChange,
     clearFilters,
+
+    imagenesPorReferencia,
+    imagenProductoActivo,
+    handleVerImagenProducto,
+    handleCerrarImagenProducto,
 
     handleSeleccionarFactura,
     cancelarDespacho,
