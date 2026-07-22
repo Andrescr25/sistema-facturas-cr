@@ -73,21 +73,6 @@ async function getDiagnostic(req, res) {
 }
 
 /**
- * POST /faltantes/limpiar-duplicados/:alegraReference
- * Limpia productos duplicados
- */
-async function cleanDuplicates(req, res) {
-  try {
-    const { alegraReference } = req.params;
-    const result = await missingItemsService.cleanDuplicates(alegraReference);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ Error limpiando duplicados:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-}
-
-/**
  * POST /faltantes/reasignar-proveedor
  * POST /faltantes/asignar-proveedor-manual
  */
@@ -113,6 +98,5 @@ module.exports = {
   deleteAdjustment,
   cleanProviderMissingItems,
   getDiagnostic,
-  cleanDuplicates,
   assignSupplierManual
 };

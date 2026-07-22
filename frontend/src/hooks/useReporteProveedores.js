@@ -349,7 +349,7 @@ export function useReporteProveedores() {
         const promesasLote = lote.map(({ producto, proveedorActual }) => {
           const body = {
             alegraReference: producto.codigo,
-            alegraItemId: producto.alegra_item_id || producto.codigo,
+            alegraItemId: producto.alegra_item_id || null,
             alegraName: producto.nombre,
             [proveedorActual !== 'Sin_Proveedor' ? 'nuevoProveedorId' : 'proveedorId']: proveedorId
           }

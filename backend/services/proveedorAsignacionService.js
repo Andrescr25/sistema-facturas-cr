@@ -240,45 +240,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
   }
 }
 
-/**
- * Asignar proveedor manual a faltantes de un producto
- * @param {string} productoCodigo - Código del producto
- * @param {number} allegraId - ID de Alegra del producto
- * @param {string} proveedorNombre - Nombre del proveedor
- * @param {string} proveedorCedula - Cédula del proveedor
- * @param {string} mappingId - ID del mapping
- * @returns {Promise<number>} Cantidad de faltantes actualizados
- */
-async function asignarProveedorManual(productoCodigo, allegraId, proveedorNombre, proveedorCedula, mappingId) {
-  try {
-    console.log(`👤 Asignación manual: ${productoCodigo} → ${proveedorNombre}`);
-
-    // Actualizar TODOS los faltantes pendientes de ese producto
-    const result = await query(`
-      UPDATE faltantes f
-      SET 
-        proveedor_asignado = $1,
-        proveedor_cedula = $2,
-        asignacion_tipo = 'manual',
-        fecha_asignacion = CURRENT_TIMESTAMP,
-        mapping_id = $3
-      FROM productos p
-      WHERE f.producto_id = p.id
-        AND f.estado = 'pendiente'
-        AND (p.codigo = $4 OR p.alegra_id = $5)
-    `, [proveedorNombre.trim(), proveedorCedula, mappingId, productoCodigo, allegraId]);
-
-    console.log(`✅ ${result.rowCount} faltante(s) actualizados con asignación manual`);
-
-    return result.rowCount;
-  } catch (error) {
-    console.error(`❌ Error asignando proveedor manual:`, error);
-    throw error;
-  }
-}
-
 module.exports = {
-  asignarProveedorAutomatico,
-  asignarProveedorManual
+  asignarProveedorAutomatico
 };
 

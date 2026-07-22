@@ -14,9 +14,8 @@ router.delete('/ajustes/:faltanteId', missingItemsController.deleteAdjustment);
 // Limpieza
 router.delete('/proveedor/limpiar', missingItemsController.cleanProviderMissingItems);
 
-// Diagnóstico y mantenimiento
+// Diagnóstico
 router.get('/diagnostico/:alegraReference', missingItemsController.getDiagnostic);
-router.post('/limpiar-duplicados/:alegraReference', missingItemsController.cleanDuplicates);
 
 // Asignación manual/reasignación de proveedores desde ReporteProveedores
 router.post('/reasignar-proveedor', missingItemsController.assignSupplierManual);

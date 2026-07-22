@@ -252,11 +252,15 @@ export function useFacturasBodega() {
           // Solo dejamos null si el backend no tiene nada guardado (tipo_faltante === null).
           const tipoBackend = item.tipo_faltante || null
 
+          const referenciaReal = normalizeReferenceValue(item.referencia || item.reference) || null
+
           nuevoDraft[key] = {
             key,
-            itemId: normalizeReferenceValue(item.referencia || item.reference) || item.codigo_alegra || item.alegra_id || item.id,
+            itemId: referenciaReal || item.codigo_alegra || item.alegra_id || item.id, // Solo para depurar, no mandar al backend
             nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
-            referencia: normalizeReferenceValue(item.referencia || item.reference) || 'N/A',
+            referencia: referenciaReal || 'N/A',
+            referenciaReal,
+            alegra_id: item.alegra_id || item.id || null,
             cantidadFactura: Number(item.cantidad ?? item.quantity ?? 0),
             tipo: tipoBackend,
             cantidadFaltante: Number(item.cantidad_faltante || 0),
@@ -354,7 +358,8 @@ export function useFacturasBodega() {
       if (Object.keys(faltantesDraft).length > 0) {
         const todosLosProductos = Object.values(faltantesDraft)
         const payload = todosLosProductos.map((item) => ({
-          item_id: item.itemId,
+          referencia: item.referenciaReal || null,
+          alegra_item_id: item.alegra_id || null,
           nombre_producto: item.nombre,
           cantidad_faltante: item.cantidadFaltante || 0,
           tipo_faltante: (!item.tipo || item.tipo === 'ninguno') ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),
@@ -435,7 +440,8 @@ export function useFacturasBodega() {
       // Enviar TODOS los productos con sus estados (para persistir 'completo' también)
       const todosLosProductos = Object.values(faltantesDraft)
       const payload = todosLosProductos.map((item) => ({
-        item_id: item.itemId,
+        referencia: item.referenciaReal || null,
+        alegra_item_id: item.alegra_id || null,
         nombre_producto: item.nombre,
         cantidad_faltante: item.cantidadFaltante || 0,
         tipo_faltante: (!item.tipo || item.tipo === 'ninguno') ? 'completo' : (item.tipo === 'total' ? 'total' : 'parcial'),

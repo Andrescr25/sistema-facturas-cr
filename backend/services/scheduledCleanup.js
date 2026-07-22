@@ -1,5 +1,25 @@
 const cron = require('node-cron');
 const { query } = require('../config/database');
+const OrdersWhatsappService = require('../src/modules/orders-whatsapp/orders-whatsapp.service');
+
+const ordersWhatsappService = new OrdersWhatsappService();
+
+/**
+ * Reinicia a automáticas las asignaciones de proveedor que se forzaron
+ * manualmente esta semana (ej. el proveedor habitual no tenía stock o
+ * estaba cerrado) — la próxima asignación vuelve a competir por precio
+ * en vez de quedar pegada al proveedor elegido a mano indefinidamente.
+ */
+async function reiniciarAsignacionesManuales() {
+  const result = await query(`
+    UPDATE supplier_product_mapping
+    SET origen = 'imap'
+    WHERE origen = 'manual'
+    RETURNING id;
+  `);
+  console.log(`🧹 [CRON] Asignaciones manuales reiniciadas a automático: ${result.rows.length}`);
+  return result.rows.length;
+}
 
 /**
  * Limpieza automática de faltantes pendientes y procesados.
@@ -118,9 +138,12 @@ async function ejecutarLimpiezaFaltantes() {
  */
 function iniciarLimpiezaProgramada() {
   // '59 23 * * 0' = minuto 59, hora 23, cualquier día del mes, cualquier mes, domingo (0)
-  const task = cron.schedule('59 23 * * 0', () => {
+  const task = cron.schedule('59 23 * * 0', async () => {
     console.log('⏰ [CRON] Disparando limpieza semanal (Domingo 23:59)...');
-    ejecutarLimpiezaFaltantes();
+    await ejecutarLimpiezaFaltantes();
+    await reiniciarAsignacionesManuales();
+    const eliminadosOrden = await ordersWhatsappService.limpiarCantidades();
+    console.log(`🧹 [CRON] Orden de compra temporal reiniciada: ${eliminadosOrden} registro(s) borrados`);
   }, {
     timezone: 'America/Costa_Rica'
   });
@@ -129,4 +152,4 @@ function iniciarLimpiezaProgramada() {
   return task;
 }
 
-module.exports = { iniciarLimpiezaProgramada, ejecutarLimpiezaFaltantes };
+module.exports = { iniciarLimpiezaProgramada, ejecutarLimpiezaFaltantes, reiniciarAsignacionesManuales };

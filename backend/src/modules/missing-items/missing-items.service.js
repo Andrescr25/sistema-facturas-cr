@@ -5,6 +5,7 @@
 
 const { query } = require('../../../config/database');
 const { getClient } = require('../../integrations/alegra');
+const { resolverProductoLocal } = require('../../utils/resolverProducto');
 const client = getClient();
 
 /**
@@ -101,61 +102,6 @@ async function getDiagnostic(alegraReference) {
 }
 
 /**
- * Limpia duplicados de un producto
- */
-async function cleanDuplicates(alegraReference) {
-  console.log(`🧹 Limpiando duplicados para ${alegraReference}...`);
-
-  // Encontrar productos duplicados (mismo codigo)
-  const duplicados = await query(`
-    WITH duplicates AS (
-      SELECT id, codigo, nombre, created_at,
-             ROW_NUMBER() OVER (PARTITION BY codigo ORDER BY created_at ASC) as rn
-      FROM productos
-      WHERE codigo = $1
-    )
-    SELECT * FROM duplicates WHERE rn > 1
-  `, [alegraReference]);
-
-  if (duplicados.rows.length === 0) {
-    return {
-      success: true,
-      message: 'No se encontraron duplicados',
-      eliminados: 0
-    };
-  }
-
-  const idsToDelete = duplicados.rows.map(r => r.id);
-  
-  // Actualizar faltantes que apuntan a duplicados al producto original
-  const productoOriginal = await query(`
-    SELECT id FROM productos 
-    WHERE codigo = $1 
-    ORDER BY created_at ASC 
-    LIMIT 1
-  `, [alegraReference]);
-
-  if (productoOriginal.rows.length > 0) {
-    await query(`
-      UPDATE faltantes 
-      SET producto_id = $1 
-      WHERE producto_id = ANY($2::int[])
-    `, [productoOriginal.rows[0].id, idsToDelete]);
-  }
-
-  // Eliminar duplicados
-  await query(`
-    DELETE FROM productos WHERE id = ANY($1::int[])
-  `, [idsToDelete]);
-
-  return {
-    success: true,
-    message: `Duplicados eliminados: ${idsToDelete.length}`,
-    eliminados: idsToDelete.length
-  };
-}
-
-/**
  * Asigna manualmente un proveedor a un producto (usado por ReporteProveedores)
  */
 async function assignSupplierManual({ alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId }) {
@@ -203,48 +149,24 @@ async function assignSupplierManual({ alegraReference, alegraItemId, alegraName,
     console.log(`✅ Nuevo proveedor local registrado: ${supplierName} (ID local: ${localProveedorId})`);
   }
 
-  // 3. Buscar el producto en la tabla local 'productos'
-  let queryStr = 'SELECT id FROM productos WHERE codigo = $1';
-  let params = [alegraReference || alegraItemId];
-  let result = await query(queryStr, params);
+  // 3. Resolver el producto real anclado en alegra_products_cache.
+  const resuelto = await resolverProductoLocal({
+    alegraId: alegraItemId,
+    referencia: alegraReference,
+    nombreFallback: alegraName
+  });
 
-  if (result.rows.length === 0 && alegraItemId) {
-    // Intentar por ID si es un número válido
-    const idNum = parseInt(alegraItemId);
-    if (!isNaN(idNum)) {
-      queryStr = 'SELECT id FROM productos WHERE id = $1';
-      params = [idNum];
-      result = await query(queryStr, params);
-    }
+  if (!resuelto) {
+    throw new Error(`No se pudo resolver el producto (referencia=${alegraReference}, alegraItemId=${alegraItemId})`);
   }
 
-  if (result.rows.length === 0 && alegraItemId) {
-    // Intentar por código = alegraItemId
-    queryStr = 'SELECT id FROM productos WHERE codigo = $1';
-    params = [alegraItemId];
-    result = await query(queryStr, params);
-  }
+  const productoId = resuelto.productoId;
 
-  let productoId = null;
-
-  if (result.rows.length === 0) {
-    // Si no existe el producto localmente, lo creamos
-    console.log(`Product ${alegraReference || alegraName} not found in local DB. Creating it...`);
-    const insertResult = await query(`
-      INSERT INTO productos (nombre, codigo, descripcion, proveedor_id, precio_unitario)
-      VALUES ($1, $2, $3, $4, 0)
-      RETURNING id
-    `, [alegraName || alegraReference || 'Producto Sincronizado', alegraReference || alegraItemId, 'Creado desde asignación manual de proveedor', localProveedorId]);
-    productoId = insertResult.rows[0].id;
-  } else {
-    productoId = result.rows[0].id;
-    // Actualizar el proveedor del producto en la BD local
-    await query(`
-      UPDATE productos
-      SET proveedor_id = $1
-      WHERE id = $2
-    `, [localProveedorId, productoId]);
-  }
+  await query(`
+    UPDATE productos
+    SET proveedor_id = $1
+    WHERE id = $2
+  `, [localProveedorId, productoId]);
 
   // 4. Buscar mapping ID opcional en la tabla supplier_product_mapping si existiese para el nuevo proveedor
   let mappingId = null;
@@ -304,6 +226,5 @@ module.exports = {
   deleteAdjustment,
   cleanProviderMissingItems,
   getDiagnostic,
-  cleanDuplicates,
   assignSupplierManual
 };

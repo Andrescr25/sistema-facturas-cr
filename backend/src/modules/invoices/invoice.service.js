@@ -5,6 +5,7 @@
 
 const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
+const { resolverProductoLocal } = require('../../utils/resolverProducto');
 const { query } = require('../../../config/database');
 
 class InvoiceService {
@@ -983,51 +984,28 @@ class InvoiceService {
 
       // 2. Guardar faltantes
       for (const faltante of faltantes) {
-        // El frontend envía item_id que puede ser la referencia del producto o el ID de Alegra
-        const itemIdentifier = faltante.item_id || faltante.producto_codigo;
+        // item_id/producto_codigo (si llegan) se tratan siempre como
+        // referencia, nunca como alegra_id.
+        const referencia = faltante.referencia || faltante.item_id || faltante.producto_codigo || null;
+        const alegraItemId = faltante.alegra_item_id || null;
 
-        if (!itemIdentifier) {
+        if (!referencia && !alegraItemId) {
           console.warn('⚠️ Faltante sin identificador:', faltante);
           continue;
         }
 
-        // Buscar producto por código
-        const productoResult = await query(`
-          SELECT id FROM productos
-          WHERE codigo = $1
-          LIMIT 1
-        `, [itemIdentifier]);
+        const resuelto = await resolverProductoLocal({
+          alegraId: alegraItemId,
+          referencia,
+          nombreFallback: faltante.nombre_producto
+        });
 
-        let productoId = null;
-
-        if (productoResult.rows.length === 0) {
-          // Si no existe el producto, crearlo temporalmente con la información disponible
-          console.log(`⚠️ Producto ${itemIdentifier} no encontrado, creando registro temporal...`);
-
-          try {
-            const newProducto = await query(`
-              INSERT INTO productos (codigo, nombre)
-              VALUES ($1, $2)
-              RETURNING id
-            `, [itemIdentifier, faltante.nombre_producto || 'Producto sin nombre']);
-
-            productoId = newProducto.rows[0].id;
-          } catch (insertError) {
-            // Si falla el INSERT (por ejemplo, por duplicado), intentar buscar de nuevo
-            console.warn(`⚠️ Error al insertar producto, buscando de nuevo:`, insertError.message);
-            const retryResult = await query(`
-              SELECT id FROM productos WHERE codigo = $1 LIMIT 1
-            `, [itemIdentifier]);
-
-            if (retryResult.rows.length > 0) {
-              productoId = retryResult.rows[0].id;
-            } else {
-              throw new Error(`No se pudo obtener o crear el producto con código ${itemIdentifier}`);
-            }
-          }
-        } else {
-          productoId = productoResult.rows[0].id;
+        if (!resuelto) {
+          console.warn(`⚠️ No se pudo resolver el producto (ref=${referencia}, alegraId=${alegraItemId}), se omite el faltante.`);
+          continue;
         }
+
+        const productoId = resuelto.productoId;
 
         const existingFaltante = await query(`
           SELECT id FROM faltantes 

@@ -181,7 +181,7 @@ class ReportService {
           nombre: mappingInfo?.alegraName || faltante.producto_nombre,
           nombre_proveedor: mappingInfo?.supplierDesc || null,
           codigo: faltante.producto_codigo,
-          alegra_item_id: faltante.producto_alegra_id || faltante.producto_codigo,
+          alegra_item_id: faltante.producto_alegra_id || null,
           codigo_proveedor: mappingInfo?.supplierCode || null,
           mapping_id: faltante.mapping_id || null,
           cantidad_faltante: parseInt(faltante.total_faltante),

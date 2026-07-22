@@ -93,14 +93,17 @@ export const buildDraftForFactura = (factura) => {
 
     draft[key] = {
       key,
-      itemId: rawItemId, // Sin prefijo para enviar al backend
+      itemId: rawItemId, // Solo para mostrar/depurar — NUNCA mandar esto al backend, ver referenciaReal/alegra_id
       nombre: item.nombre || item.name || item.description || 'Producto sin nombre',
       // Mostrar referencia real o codigo_alegra como fallback (NO codigo_producto/CABYS)
       referencia:
         normalizeReferenceValue(
           item?.referencia ?? item?.reference ?? ''
         ) || item?.codigo_alegra || item?.alegra_id || 'N/A',
-      alegra_id: item.alegra_id || item.id,
+      // Estos dos SÍ son seguros para mandar al backend: nunca se mezclan
+      // entre sí, cada uno queda null si no se conoce con certeza.
+      referenciaReal: referencia || null,
+      alegra_id: item.alegra_id || item.id || null,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
       tipo: factura.estado_bodega === 'procesado' ? 'ninguno' : null,
       cantidadFaltante: 0,
