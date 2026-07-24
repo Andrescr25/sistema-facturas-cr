@@ -77,10 +77,17 @@ function construirItemsFactura(productos) {
       ? ((p.descuento || 0) / montoTotalSinDescuento) * 100
       : 0;
 
+    // Factor de conversión (ej: proveedor factura 25 sueltos, yo lo vendo
+    // como 1 paquete de 25 → factor 1/25). Se aplica a la cantidad Y al
+    // precio en sentido inverso, para que el total de la línea (cantidad ×
+    // precio) siga siendo el mismo monto real de la factura del proveedor —
+    // solo cambia cómo se reparte entre cantidad y precio unitario.
+    const factor = parseFloat(p.mapeo?.factorConversion) || 1;
+
     const item = {
       id: p.alegraItemId?.toString() || p.alegraItemId,
-      quantity: parseFloat(p.cantidad) || 1,
-      price: Math.round(precioUnitarioSinIva * 100) / 100, // Precio ORIGINAL del proveedor
+      quantity: Math.round((parseFloat(p.cantidad) || 1) * factor * 10000) / 10000,
+      price: Math.round((precioUnitarioSinIva / factor) * 100) / 100, // Precio por unidad PROPIA, no del proveedor
       discount: Math.round(descuentoPorcentaje * 100) / 100
     };
 
@@ -538,8 +545,21 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       const porcentajeIva = calcularPorcentajeIva({ impuesto: producto.impuesto, totalLinea: producto.totalLinea });
       const costoNuevo = costoSinIvaConDescuento * (1 + porcentajeIva / 100);
 
+      // Igual que en construirItemsFactura: costoNuevo está en "unidades del
+      // proveedor", hay que llevarlo a "unidades propias" antes de guardarlo
+      // en Alegra. Mismo patrón que backend/services/proveedorAsignacionService.js.
+      const factor = parseFloat(producto.mapeo?.factorConversion) || 1;
+      const costoNuevoNegocio = costoNuevo / factor;
+
+      // OJO: a diferencia de "price" (que Alegra sí acepta como número suelto),
+      // "cost" tiene que ir anidado en inventory.unitCost — confirmado en vivo
+      // que un "cost" suelto en la raíz del payload se ignora silenciosamente
+      // (el PUT responde 200 pero el costo nunca cambia). Este bug es previo
+      // al factor de conversión: existía incluso con factor=1.
       const updateData = {
-        cost: Math.round(costoNuevo * 100) / 100
+        inventory: {
+          unitCost: (Math.round(costoNuevoNegocio * 100) / 100).toString()
+        }
       };
 
       let precioAjustado = false;
@@ -556,7 +576,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
         throw new Error(actualizacion.error || `Error actualizando producto ${alegraId} en Alegra`);
       }
 
-      console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevo.toFixed(2)}`);
+      console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevoNegocio.toFixed(2)}`);
       return { success: true, precioAjustado };
     } catch (error) {
       console.error(`⚠️ Error actualizando ${producto.descripcion}:`, error.message);

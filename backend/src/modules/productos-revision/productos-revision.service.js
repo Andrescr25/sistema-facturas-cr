@@ -623,8 +623,15 @@ async function crearProducto(datos, imagen) {
     productoId, nombre, descripcion, referencia, unidad,
     precio, costo, categoria, cantidadInicial, formaFarmaceutica,
     codigoCabys, registroSanitario, esMedicamento, categoriaNombre,
-    imageUrl, fallbackImageUrl
+    imageUrl, fallbackImageUrl, factorConversion
   } = datos;
+
+  // Si el proveedor factura este producto en una unidad distinta a como se
+  // vende (ej: factura 25 sueltos, se vende como 1 paquete de 25), el
+  // formulario ya manda "Cantidad Inicial" convertida a la unidad propia —
+  // acá solo se normaliza el factor para guardarlo en el mapeo, no se vuelve
+  // a aplicar a la cantidad.
+  const factorConversionNum = factorConversion ? parseFloat(factorConversion) : null;
 
   const productoOriginal = await prisma.productoFactura.findUnique({
     where: { id: productoId },
@@ -825,7 +832,8 @@ async function crearProducto(datos, imagen) {
       confidence: 100,
       lastUsedDate: new Date(),
       timesUsed: { increment: 1 },
-      origen: 'manual'
+      origen: 'manual',
+      ...(factorConversionNum ? { factorConversion: factorConversionNum } : {})
     },
     create: {
       supplierName: productoOriginal.factura.proveedorNombre,
@@ -836,7 +844,8 @@ async function crearProducto(datos, imagen) {
       alegraReference: refString || referencia || '',
       alegraName: nuevoProductoAlegra.name,
       confidence: 100,
-      origen: 'manual'
+      origen: 'manual',
+      ...(factorConversionNum ? { factorConversion: factorConversionNum } : {})
     }
   });
 

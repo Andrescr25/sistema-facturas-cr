@@ -1,4 +1,5 @@
-import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2, Search, Scale } from 'lucide-react'
 import { FORMAS_FARMACEUTICAS } from '../../utils/formasFarmaceuticas'
 
 /**
@@ -28,6 +29,26 @@ export default function ModalCrearProducto({
   onSubmit,
   onCerrar
 }) {
+  // Si el proveedor factura este producto en una unidad distinta a como se
+  // vende (ej: factura 25 sueltos, se vende como 1 paquete de 25), declarar
+  // el factor acá mismo — evita que "Cantidad Inicial" se mande a Alegra en
+  // la unidad equivocada, y lo guarda para que las próximas facturas de este
+  // proveedor ya vengan convertidas solas.
+  const cantidadProveedor = parseFloat(productoSeleccionado.cantidad) || 0
+  const [cantidadInicial, setCantidadInicial] = useState(cantidadProveedor || 0)
+  const [mostrarFactor, setMostrarFactor] = useState(false)
+  const [cantidadPropia, setCantidadPropia] = useState('')
+
+  const factorCalculado = mostrarFactor && cantidadPropia !== '' && cantidadProveedor > 0
+    ? parseFloat(cantidadPropia) / cantidadProveedor
+    : null
+
+  const handleCantidadPropiaChange = (e) => {
+    const val = e.target.value
+    setCantidadPropia(val)
+    if (val !== '') setCantidadInicial(val)
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
@@ -225,13 +246,56 @@ export default function ModalCrearProducto({
                 <input
                   type="number"
                   name="cantidadInicial"
-                  defaultValue={productoSeleccionado.cantidad || 0}
+                  value={cantidadInicial}
+                  onChange={(e) => setCantidadInicial(e.target.value)}
                   step="0.01"
                   min="0"
                   className="input"
                   placeholder="0"
                 />
                 <p className="text-xs text-gray-500 mt-1">Inventario inicial en Alegra</p>
+              </div>
+
+              {/* Factor de conversión */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <label className="flex items-center cursor-pointer text-sm font-semibold text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={mostrarFactor}
+                    onChange={(e) => setMostrarFactor(e.target.checked)}
+                    className="mr-2 w-4 h-4"
+                  />
+                  <Scale size={14} className="mr-1.5 shrink-0" />
+                  El proveedor lo vende distinto a como yo lo vendo
+                </label>
+                {mostrarFactor && (
+                  <>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-amber-700 block mb-1">Proveedor factura:</span>
+                        <p className="font-bold text-amber-900">{cantidadProveedor}</p>
+                      </div>
+                      <div>
+                        <label className="text-amber-700 block mb-1">Yo lo cuento como:</label>
+                        <input
+                          type="number"
+                          value={cantidadPropia}
+                          onChange={handleCantidadPropiaChange}
+                          step="0.01"
+                          min="0"
+                          className="input"
+                          placeholder="Ej: 1"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-2">
+                      Se guarda para que las próximas facturas de este proveedor ya vengan convertidas solas.
+                    </p>
+                  </>
+                )}
+                {factorCalculado !== null && (
+                  <input type="hidden" name="factorConversion" value={factorCalculado} />
+                )}
               </div>
 
               {/* Código CABYS - Editable */}
