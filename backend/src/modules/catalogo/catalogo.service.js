@@ -203,6 +203,36 @@ async function descargarImagen(url) {
 }
 
 /**
+ * Alegra NO reemplaza la imagen de un producto al subir una nueva — la
+ * agrega como adjunto adicional, dejando la anterior marcada como
+ * "favorite" (la que Alegra y cualquier integración externa muestran como
+ * LA foto del producto). Tampoco existe ningún endpoint para cambiar cuál
+ * imagen es la favorita (confirmado contra la documentación y probando en
+ * vivo). La única forma de que la imagen nueva quede como la definitiva es
+ * borrar las anteriores después de subirla, para que no quede ninguna otra
+ * compitiendo. Nunca lanza: si la limpieza falla, la imagen nueva ya quedó
+ * subida correctamente, así que no vale la pena reventar la operación por
+ * esto — solo se registra el error.
+ */
+async function limpiarImagenesAnteriores(alegraId, idImagenNueva) {
+  try {
+    const itemRes = await client.api.get(`/items/${alegraId}`);
+    const imagenes = itemRes.data.images || [];
+    const idsAntiguos = imagenes
+      .map(img => img.id)
+      .filter(id => String(id) !== String(idImagenNueva));
+
+    for (const idAntiguo of idsAntiguos) {
+      await client.api.delete(`/items/attachment/${idAntiguo}`).catch(err => {
+        console.error(`⚠️ No se pudo borrar la imagen antigua ${idAntiguo} del producto ${alegraId}:`, err.response?.data || err.message);
+      });
+    }
+  } catch (error) {
+    console.error(`⚠️ No se pudieron limpiar las imágenes antiguas del producto ${alegraId}:`, error.response?.data || error.message);
+  }
+}
+
+/**
  * Asignar imagen a un producto descargándola de una URL
  */
 async function asignarImagenDesdeUrl(alegraId, imageUrl, fallbackImageUrl) {
@@ -223,6 +253,8 @@ async function asignarImagenDesdeUrl(alegraId, imageUrl, fallbackImageUrl) {
   if (!result.success) {
     throw httpError(400, result.error || 'No se pudo subir la imagen a Alegra');
   }
+
+  await limpiarImagenesAnteriores(alegraId, result.data?.id);
 
   await prisma.alegraProduct.update({
     where: { alegraId: String(alegraId) },
@@ -263,6 +295,8 @@ async function subirImagenDesdeArchivo(alegraId, file) {
   }
 
   const finalImageUrl = result.url || '';
+
+  await limpiarImagenesAnteriores(alegraId, result.data?.id);
 
   await prisma.alegraProduct.update({
     where: { alegraId: String(alegraId) },

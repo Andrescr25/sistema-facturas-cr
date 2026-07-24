@@ -21,32 +21,50 @@ class AlegraSyncService {
     try {
       console.log('📦 Sincronizando productos de Alegra...');
 
+      const LIMIT = 30;
+      const CONCURRENCY = 5; // mismo valor ya usado en el sync del catálogo público de tablets
+
       let allProducts = [];
-      let currentPage = 1;
+      let start = 0;
       let hasMore = true;
 
+      // Antes se traía página por página en serie (una espera tras otra).
+      // Ahora se piden CONCURRENCY páginas a la vez y se espera el lote
+      // completo antes de pedir el siguiente — mismo patrón ya probado en
+      // frontend/src/hooks/useCatalogoPublico.js.
       while (hasMore) {
-        console.log(`📄 Página ${currentPage}...`);
-
-        const response = await this.client.api.get('/items', {
-          params: {
-            start: (currentPage - 1) * 30,
-            limit: 30,
-            type: 'product'
-          }
-        });
-
-        const products = response.data;
-        allProducts = allProducts.concat(products);
-
-        hasMore = products.length === 30;
-        currentPage++;
-
-        if (currentPage % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+        const promises = [];
+        for (let i = 0; i < CONCURRENCY; i++) {
+          if (!hasMore) break;
+          const currentStart = start + i * LIMIT;
+          promises.push(
+            this.client.api.get('/items', {
+              params: { start: currentStart, limit: LIMIT, type: 'product' }
+            })
+              .then(response => ({ ok: true, data: response.data }))
+              .catch(error => {
+                console.error(`❌ Error obteniendo página start=${currentStart}:`, error.message);
+                return { ok: false };
+              })
+          );
         }
 
-        if (currentPage > 100) break;
+        if (promises.length === 0) break;
+
+        const results = await Promise.all(promises);
+
+        for (const result of results) {
+          if (!result.ok) continue;
+          allProducts = allProducts.concat(result.data);
+          if (result.data.length < LIMIT) hasMore = false;
+        }
+
+        start += promises.length * LIMIT;
+
+        // Pausa entre rondas para no saturar la API de Alegra.
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (start > 100 * LIMIT) break;
       }
 
       console.log(`📦 ${allProducts.length} productos obtenidos`);
@@ -127,7 +145,18 @@ class AlegraSyncService {
       const currentAlegraIds = new Set();
 
       uniqueProducts.forEach(product => {
+        // Sigue existiendo en Alegra (activo o no) — nunca debe borrarse de
+        // la caché solo por estar inactivo, ver el "return" de abajo.
         currentAlegraIds.add(product.id);
+
+        // Un producto inactivo no se inserta ni se actualiza — se deja tal
+        // cual estaba en caché (o simplemente no se agrega si es nuevo).
+        // Una desactivación en Alegra puede ser momentánea y reactivarse en
+        // la próxima sincronización; no vale la pena reflejar ese estado
+        // intermedio ni "parpadear" el catálogo local por eso.
+        if (product.status && product.status !== 'active') {
+          return;
+        }
 
         const mainPrice = product.price?.find(p => p.main === true);
         const price = mainPrice ? parseFloat(mainPrice.price) : 0;

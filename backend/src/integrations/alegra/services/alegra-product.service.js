@@ -420,19 +420,22 @@ class AlegraProductService {
     }
 
     // Alegra rechaza el adjunto con "El archivo adjunto no tiene una
-    // extensión válida" para cualquier extensión que no sea jpg/jpeg/png
-    // (valida el nombre del archivo, no el contenido). Muchas fuentes de
-    // imagen sirven webp/gif por defecto, así que el nombre SIEMPRE se
-    // fuerza a jpg o png; el contentType real se preserva en el multipart
-    // para que Alegra sirva el archivo con su tipo correcto.
+    // extensión válida" para cualquier extensión que no sea jpg/jpeg/png —
+    // y confirmado en vivo, también rechaza el content-type del multipart
+    // si no es exactamente image/jpeg o image/png (algunas fuentes, incluido
+    // el propio CDN de Alegra, sirven las imágenes como
+    // application/octet-stream). Por eso tanto el nombre de archivo COMO el
+    // content-type que se le declara a Alegra se fuerzan juntos, en vez de
+    // reenviar el content-type crudo que devolvió el origen.
     const extension = contentType.includes('png') ? 'png' : 'jpg';
     const filename = `product_${alegraItemId}.${extension}`;
+    const contentTypeParaAlegra = extension === 'png' ? 'image/png' : 'image/jpeg';
 
     const FormData = require('form-data');
     const formData = new FormData();
     formData.append('image', buffer, {
       filename: filename,
-      contentType: contentType
+      contentType: contentTypeParaAlegra
     });
 
     try {

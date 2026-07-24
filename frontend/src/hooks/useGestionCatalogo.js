@@ -111,7 +111,10 @@ export function useGestionCatalogo() {
     setSyncing(true)
     showToast('info', 'Sincronizando inventario con Alegra... Por favor espere.')
     try {
-      const response = await api.post('/alegra/sincronizar/cache-productos', {}, { timeout: 180000 })
+      // Trae todo el catálogo paginado de Alegra (2000+ productos) — en
+      // producción ya se vio tardar más de 3 minutos, por eso el mismo
+      // timeout largo que ya usa Excesos para el mismo tipo de operación.
+      const response = await api.post('/alegra/sincronizar/cache-productos', {}, { timeout: 10 * 60 * 1000 })
       if (response.data?.success) {
         showToast('success', `Sincronización finalizada. ${response.data.count} productos cargados.`)
         fetchProducts()
