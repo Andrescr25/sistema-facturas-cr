@@ -153,8 +153,8 @@ class OrdersWhatsappService {
           : preferirDatosProveedorGlobal;
 
         const payloadInfo = {
-          codigoInterno: producto.codigo || producto.codigoInterno || null,
-          nombreInterno: producto.nombre || producto.nombreInterno || null,
+          codigoInterno: producto.codigoInterno || producto.codigo || null,
+          nombreInterno: producto.nombreInterno || producto.nombre || null,
           codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
           nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
           mappingId: producto.mappingId || producto.mapping_id || null,
