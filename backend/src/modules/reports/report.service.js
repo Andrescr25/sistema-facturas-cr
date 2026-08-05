@@ -32,6 +32,7 @@ class ReportService {
           p.codigo as producto_codigo,
           p.alegra_id as producto_alegra_id,
           p.nombre as producto_nombre,
+          MAX(apc.name) as producto_nombre_actual,
           SUM(f.cantidad_faltante) as total_faltante,
           COUNT(f.id) as facturas_afectadas,
           STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
@@ -44,6 +45,7 @@ class ReportService {
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
         JOIN facturas fa ON f.factura_id = fa.id
+        LEFT JOIN alegra_products_cache apc ON apc.alegra_id = p.alegra_id::text
         WHERE ${whereClause}
         GROUP BY p.codigo, p.alegra_id, p.nombre
         ORDER BY total_faltante DESC
@@ -97,6 +99,7 @@ class ReportService {
             p.codigo as producto_codigo,
             p.alegra_id as producto_alegra_id,
             p.nombre as producto_nombre,
+            MAX(apc.name) as producto_nombre_actual,
             SUM(f.cantidad_faltante) as total_faltante,
             COUNT(f.id) as facturas_afectadas,
             STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
@@ -109,6 +112,7 @@ class ReportService {
           FROM faltantes f
           JOIN productos p ON f.producto_id = p.id
           JOIN facturas fa ON f.factura_id = fa.id
+          LEFT JOIN alegra_products_cache apc ON apc.alegra_id = p.alegra_id::text
           WHERE ${whereClause}
           GROUP BY p.codigo, p.alegra_id, p.nombre
           ORDER BY total_faltante DESC
@@ -178,7 +182,7 @@ class ReportService {
         }
 
         proveedor.productos_faltantes.push({
-          nombre: mappingInfo?.alegraName || faltante.producto_nombre,
+          nombre: faltante.producto_nombre_actual || mappingInfo?.alegraName || faltante.producto_nombre,
           nombre_proveedor: mappingInfo?.supplierDesc || null,
           codigo: faltante.producto_codigo,
           alegra_item_id: faltante.producto_alegra_id || null,
