@@ -1,6 +1,6 @@
 import { User, Mail, Clock, Check, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react'
 import FacturaActivaCard from './FacturaActivaCard'
-import { getFacturaKey, getFacturaEstado, clienteTieneSinCaja, formatDate, formatDateTime } from '../../utils/reporteClientesUtils'
+import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaja, formatDate, formatDateTime } from '../../utils/reporteClientesUtils'
 
 /**
  * Vista de detalle de un cliente: header con stats, facturas activas
@@ -14,14 +14,13 @@ export default function ClienteDetalle({
   onVolver,
   onFacturaLista,
   onRecuperarFactura,
-  onMarcarPendiente,
-  onQuitarPendiente,
   onCantidadEntregadaChange,
   onMarcarCompleto,
   onNoLlegoNada,
   onDeshacer
 }) {
   const esSinCaja = clienteTieneSinCaja(cliente, facturasEstado)
+  const progreso = getClienteProgreso(cliente, facturasEstado, entregasAjustadas)
 
   // Separar facturas activas de procesadas
   const facturasActivas = cliente.facturas_con_faltantes.filter(f => {
@@ -60,11 +59,15 @@ export default function ClienteDetalle({
         <div className="flex bg-gray-50 p-4 rounded-xl divide-x divide-gray-200">
           <div className="px-5 text-center">
             <p className="text-sm text-gray-500 font-medium">Facturas</p>
-            <p className="text-2xl font-bold text-gray-900">{cliente.facturas_con_faltantes.length}</p>
+            <p className="text-2xl font-bold text-gray-900">{facturasActivas.length}</p>
           </div>
           <div className="px-5 text-center">
-            <p className="text-sm text-gray-500 font-medium">Pendientes</p>
-            <p className="text-2xl font-bold text-purple-600">{cliente.total_cantidad}</p>
+            <p className="text-sm text-gray-500 font-medium">Por revisar</p>
+            <p className={`text-2xl font-bold ${progreso.porRevisar === 0 ? 'text-green-600' : 'text-amber-600'}`}>{progreso.porRevisar}</p>
+          </div>
+          <div className="px-5 text-center">
+            <p className="text-sm text-gray-500 font-medium">Revisados</p>
+            <p className="text-2xl font-bold text-gray-900">{progreso.revisados}</p>
           </div>
         </div>
       </div>
@@ -91,11 +94,8 @@ export default function ClienteDetalle({
             key={getFacturaKey(factura)}
             factura={factura}
             clienteNombre={cliente.nombre}
-            facturasEstado={facturasEstado}
             entregasAjustadas={entregasAjustadas}
             onFacturaLista={onFacturaLista}
-            onMarcarPendiente={onMarcarPendiente}
-            onQuitarPendiente={onQuitarPendiente}
             onCantidadEntregadaChange={onCantidadEntregadaChange}
             onMarcarCompleto={onMarcarCompleto}
             onNoLlegoNada={onNoLlegoNada}

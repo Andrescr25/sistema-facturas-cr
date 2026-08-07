@@ -250,12 +250,10 @@ class ReportService {
           fa.fecha_emision,
           fa.alegra_id as factura_alegra_id,
           fa.estado_procesamiento,
-          fp.id as factura_pendiente_id,
-          fp.motivo as factura_pendiente_motivo,
-          fp.created_at as factura_pendiente_desde,
+          p.id as producto_id,
           p.nombre as producto_nombre,
           p.codigo as producto_codigo,
-          COALESCE(pr.nombre, 'Sin proveedor') as proveedor_nombre,
+          p.alegra_id as producto_alegra_id,
           f.proveedor_asignado,
           f.cantidad_faltante,
           f.tipo_faltante,
@@ -272,16 +270,38 @@ class ReportService {
           (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_id = fa.id) as total_items_factura
         FROM faltantes f
         JOIN productos p ON f.producto_id = p.id
-        LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
         JOIN facturas fa ON f.factura_id = fa.id
-        LEFT JOIN facturas_pendientes fp ON fa.id = fp.factura_id
         LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
         LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
         WHERE f.estado IN ('pendiente', 'procesado')
-          AND f.tipo_faltante != 'completo' 
+          AND f.tipo_faltante != 'completo'
           AND (f.cantidad_faltante::numeric > 0)
         ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
       `);
+
+      // PASO 2: Asignar automáticamente el proveedor de los faltantes que aún no
+      // lo tienen (mismo mecanismo que usa Reporte Proveedores). Sin esto, un
+      // faltante nuevo cae al fallback de la tabla legacy `proveedores` aunque el
+      // producto ya tenga una relación real y vigente en supplier_product_mapping.
+      const sinAsignar = result.rows.filter(row => !row.proveedor_asignado);
+      if (sinAsignar.length > 0) {
+        console.log(`⚠️ ${sinAsignar.length} faltantes sin proveedor asignado. Asignando automáticamente...`);
+        for (const row of sinAsignar) {
+          await asignarProveedorAutomatico(row.faltante_id, row.producto_id, row.producto_alegra_id, row.producto_codigo);
+        }
+
+        const idsAsignados = sinAsignar.map(row => row.faltante_id);
+        const actualizados = await query(
+          `SELECT id, proveedor_asignado FROM faltantes WHERE id = ANY($1::int[])`,
+          [idsAsignados]
+        );
+        const proveedorPorFaltante = new Map(actualizados.rows.map(r => [r.id, r.proveedor_asignado]));
+        result.rows.forEach(row => {
+          if (proveedorPorFaltante.has(row.faltante_id)) {
+            row.proveedor_asignado = proveedorPorFaltante.get(row.faltante_id);
+          }
+        });
+      }
 
       const clientesMap = new Map();
 
@@ -308,9 +328,6 @@ class ReportService {
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
             observaciones_adicionales: row.observaciones_adicionales,
-            es_pendiente_manual: false,
-            pendiente_desde: null,
-            pendiente_motivo: null,
             en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
             total_items_factura: parseInt(row.total_items_factura) || 0,
             productos_faltantes: []
@@ -322,8 +339,8 @@ class ReportService {
           faltante_id: row.faltante_id,
           nombre: row.producto_nombre,
           codigo: row.producto_codigo,
-          proveedor: row.proveedor_nombre,
-          proveedor_asignado: row.proveedor_asignado || row.proveedor_nombre,
+          proveedor: row.proveedor_asignado || 'Sin proveedor',
+          proveedor_asignado: row.proveedor_asignado || 'Sin proveedor',
           cantidad_faltante: parseInt(row.cantidad_faltante),
           tipo_faltante: row.tipo_faltante,
           observaciones: row.observaciones,
@@ -333,13 +350,6 @@ class ReportService {
           ajuste_estado: row.ajuste_estado || 'pendiente',
           requiere_actualizacion: row.requiere_actualizacion || false
         });
-
-        const esPendiente = Boolean(row.factura_pendiente_id);
-        factura.es_pendiente_manual = factura.es_pendiente_manual || esPendiente;
-        if (esPendiente) {
-          factura.pendiente_desde = row.factura_pendiente_desde;
-          factura.pendiente_motivo = row.factura_pendiente_motivo;
-        }
 
         if (row.faltante_estado === 'pendiente') {
           cliente.total_productos++;

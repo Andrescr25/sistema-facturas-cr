@@ -49,6 +49,84 @@ export function formatDateTime(dateString) {
   }
 }
 
+// ==================== CHECKLIST DE BODEGA ====================
+// Un producto está "revisado" cuando ya se decidió qué llegó de él: todo,
+// una parte, o nada. Mientras no haya decisión sigue "por revisar". Esto es
+// lo que alimenta el progreso de la factura y el estado de la card del cliente.
+
+export function productosValidosDe(factura) {
+  return factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
+}
+
+export function productoEstaRevisado(factura, producto, entregasAjustadas) {
+  return entregasAjustadas.has(getProductKey(factura, producto))
+}
+
+export function getFacturaProgreso(factura, entregasAjustadas) {
+  const productos = productosValidosDe(factura)
+  const revisados = productos.filter(p => productoEstaRevisado(factura, p, entregasAjustadas)).length
+  return {
+    total: productos.length,
+    revisados,
+    porRevisar: productos.length - revisados,
+    porcentaje: productos.length === 0 ? 100 : Math.round((revisados / productos.length) * 100)
+  }
+}
+
+export const CLIENTE_ESTADO = {
+  LISTA: 'lista',                            // todas las facturas ya procesadas
+  LISTO_PARA_PROCESAR: 'listo_para_procesar', // todo revisado, falta enviar a impresión
+  EN_PROGRESO: 'en_progreso',                // empezado, quedan productos por revisar
+  SIN_EMPEZAR: 'sin_empezar'                 // nada revisado todavía
+}
+
+export function facturaEstaActiva(factura, facturasEstado) {
+  const e = getFacturaEstado(factura, facturasEstado)
+  return e.estado !== 'procesado' && e.estado !== 'en_cola_impresion'
+}
+
+/**
+ * Estado agregado de un cliente para la card del listado. `esSinCaja` es una
+ * alerta que se superpone al estado de progreso, no lo reemplaza.
+ */
+export function getClienteProgreso(cliente, facturasEstado, entregasAjustadas) {
+  const facturasActivas = cliente.facturas_con_faltantes.filter(f => facturaEstaActiva(f, facturasEstado))
+
+  let total = 0
+  let revisados = 0
+  facturasActivas.forEach(f => {
+    const p = getFacturaProgreso(f, entregasAjustadas)
+    total += p.total
+    revisados += p.revisados
+  })
+  const porRevisar = total - revisados
+
+  let estado
+  if (facturasActivas.length === 0) estado = CLIENTE_ESTADO.LISTA
+  else if (porRevisar === 0) estado = CLIENTE_ESTADO.LISTO_PARA_PROCESAR
+  else if (revisados > 0) estado = CLIENTE_ESTADO.EN_PROGRESO
+  else estado = CLIENTE_ESTADO.SIN_EMPEZAR
+
+  return {
+    estado,
+    esSinCaja: clienteTieneSinCaja(cliente, facturasEstado),
+    total,
+    revisados,
+    porRevisar,
+    facturasActivas: facturasActivas.length,
+    facturasProcesadas: cliente.facturas_con_faltantes.length - facturasActivas.length
+  }
+}
+
+// Orden en el listado: las alertas primero, lo terminado al fondo.
+export function ordenClienteProgreso(progreso) {
+  if (progreso.estado === CLIENTE_ESTADO.LISTA) return 4
+  if (progreso.esSinCaja) return 0
+  if (progreso.estado === CLIENTE_ESTADO.EN_PROGRESO) return 1
+  if (progreso.estado === CLIENTE_ESTADO.LISTO_PARA_PROCESAR) return 2
+  return 3
+}
+
 // Sin caja = TODOS los items originales de la factura son faltante total
 export function clienteTieneSinCaja(cliente, facturasEstado) {
   return cliente.facturas_con_faltantes.some(factura => {

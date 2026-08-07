@@ -17,8 +17,6 @@ export default function ReporteClientes() {
     loadReporte,
     handleFacturaLista,
     handleRecuperarFactura,
-    handleMarcarFacturaPendiente,
-    handleQuitarFacturaPendiente,
     handleCantidadEntregadaChange,
     handleMarcarCompleto,
     handleDeshacer,
@@ -61,6 +59,7 @@ export default function ReporteClientes() {
           clientes={clientes}
           resumen={resumen}
           facturasEstado={facturasEstado}
+          entregasAjustadas={entregasAjustadas}
           contarAjustes={contarAjustes}
           onSelectCliente={setClienteActivoNombre}
           onRefresh={loadReporte}
@@ -73,8 +72,6 @@ export default function ReporteClientes() {
           onVolver={() => setClienteActivoNombre(null)}
           onFacturaLista={handleFacturaLista}
           onRecuperarFactura={handleRecuperarFactura}
-          onMarcarPendiente={handleMarcarFacturaPendiente}
-          onQuitarPendiente={handleQuitarFacturaPendiente}
           onCantidadEntregadaChange={handleCantidadEntregadaChange}
           onMarcarCompleto={handleMarcarCompleto}
           onNoLlegoNada={handleNoLlegoNada}

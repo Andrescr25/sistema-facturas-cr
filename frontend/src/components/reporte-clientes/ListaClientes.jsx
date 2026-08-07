@@ -1,13 +1,47 @@
 import { useState } from 'react'
 import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown } from 'lucide-react'
-import { getFacturaEstado, clienteTieneSinCaja } from '../../utils/reporteClientesUtils'
+import { getClienteProgreso, ordenClienteProgreso, clienteTieneSinCaja, CLIENTE_ESTADO } from '../../utils/reporteClientesUtils'
+
+// Cómo se ve cada estado de la card. La alerta de "sin caja" se superpone a
+// todos porque es la que no se puede pasar por alto.
+const ESTILO_ESTADO = {
+  [CLIENTE_ESTADO.EN_PROGRESO]: {
+    card: 'border-amber-300 bg-amber-50/40 ring-1 ring-amber-100',
+    icono: 'bg-amber-100',
+    iconoColor: 'text-amber-600'
+  },
+  [CLIENTE_ESTADO.LISTO_PARA_PROCESAR]: {
+    card: 'border-blue-200 bg-blue-50/30',
+    icono: 'bg-blue-100',
+    iconoColor: 'text-blue-600'
+  },
+  [CLIENTE_ESTADO.SIN_EMPEZAR]: {
+    card: 'border-gray-100',
+    icono: 'bg-purple-100',
+    iconoColor: 'text-purple-600'
+  },
+  [CLIENTE_ESTADO.LISTA]: {
+    card: 'border-green-200 bg-green-50/30',
+    icono: 'bg-green-100',
+    iconoColor: 'text-green-600'
+  }
+}
+
+const ESTILO_SIN_CAJA = {
+  card: 'border-red-200 ring-1 ring-red-100',
+  icono: 'bg-red-100',
+  iconoColor: 'text-red-600'
+}
 
 /**
  * Vista de listado (grid) de clientes con búsqueda y filtro por proveedor,
  * más el resumen global al fondo. Extraído de ReporteClientes.jsx (antes
  * renderListaClientes). El estado de búsqueda/filtro es local a esta vista.
+ *
+ * Las cards se ordenan por urgencia (sin caja → en progreso → listo para
+ * procesar → sin empezar) y las ya terminadas bajan a su propia sección.
  */
-export default function ListaClientes({ clientes, resumen, facturasEstado, contarAjustes, onSelectCliente, onRefresh }) {
+export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, onSelectCliente, onRefresh }) {
   const [clienteQuery, setClienteQuery] = useState('')
   const [proveedoresFiltro, setProveedoresFiltro] = useState(new Set())
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
@@ -37,6 +71,14 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, conta
         )
       )
     })
+    .map(cliente => ({ cliente, progreso: getClienteProgreso(cliente, facturasEstado, entregasAjustadas) }))
+    .sort((a, b) => {
+      const orden = ordenClienteProgreso(a.progreso) - ordenClienteProgreso(b.progreso)
+      return orden !== 0 ? orden : a.cliente.nombre.localeCompare(b.cliente.nombre)
+    })
+
+  const clientesPendientes = clientesFiltrados.filter(({ progreso }) => progreso.estado !== CLIENTE_ESTADO.LISTA)
+  const clientesListos = clientesFiltrados.filter(({ progreso }) => progreso.estado === CLIENTE_ESTADO.LISTA)
 
   const toggleProveedor = (prov) => {
     setProveedoresFiltro(prev => {
@@ -136,61 +178,42 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, conta
           <p className="text-gray-500">{proveedoresFiltro.size > 0 ? 'Prueba con otros proveedores o limpia los filtros.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {clientesFiltrados
-            .map((cliente, idx) => {
-              const esSinCaja = clienteTieneSinCaja(cliente, facturasEstado)
-              const procesadas = cliente.facturas_con_faltantes.filter(f => { const e = getFacturaEstado(f, facturasEstado); return e.estado === 'procesado' }).length
-              const pendientes = cliente.facturas_con_faltantes.filter(f => { const e = getFacturaEstado(f, facturasEstado); return e.estado === 'pendiente' && e.origen === 'manual' }).length
+        <>
+          {/* Clientes con trabajo pendiente */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {clientesPendientes.map(({ cliente, progreso }) => (
+              <ClienteCard
+                key={cliente.nombre}
+                cliente={cliente}
+                progreso={progreso}
+                onSelectCliente={onSelectCliente}
+              />
+            ))}
+          </div>
 
-              return (
-                <div
-                  key={idx}
-                  onClick={() => onSelectCliente(cliente.nombre)}
-                  className={`group bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${esSinCaja ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-100'
-                    }`}
-                >
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-[100px] -z-10 group-hover:bg-purple-100 transition-colors"></div>
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2.5 rounded-lg ${esSinCaja ? 'bg-red-100' : 'bg-purple-100'}`}>
-                      <User className={esSinCaja ? 'text-red-600' : 'text-purple-600'} size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-gray-900 truncate">{cliente.nombre}</h3>
-                      {cliente.email && <p className="text-xs text-gray-500 truncate">{cliente.email}</p>}
-                    </div>
-                  </div>
-
-                  {/* Badges */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {esSinCaja && (
-                      <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase">📦 Sin Caja</span>
-                    )}
-                    {procesadas > 0 && (
-                      <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">✓ {procesadas} procesada{procesadas > 1 ? 's' : ''}</span>
-                    )}
-                    {pendientes > 0 && (
-                      <span className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">⏳ {pendientes} pendiente{pendientes > 1 ? 's' : ''}</span>
-                    )}
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 pt-3 border-t border-gray-50">
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Facturas</p>
-                      <p className="text-xl font-bold text-gray-800">{cliente.facturas_con_faltantes.length}</p>
-                    </div>
-                    <div className="h-8 w-[1px] bg-gray-200"></div>
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Pendientes</p>
-                      <p className="text-xl font-bold text-purple-600">{cliente.total_cantidad}</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-        </div>
+          {/* Divisor + clientes ya terminados al fondo */}
+          {clientesListos.length > 0 && (
+            <div className="mt-10">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-[1px] flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400 uppercase tracking-widest font-semibold flex items-center gap-1.5 whitespace-nowrap">
+                  <Check size={12} /> {clientesListos.length} cliente{clientesListos.length !== 1 ? 's' : ''} listo{clientesListos.length !== 1 ? 's' : ''}
+                </span>
+                <div className="h-[1px] flex-1 bg-gray-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {clientesListos.map(({ cliente, progreso }) => (
+                  <ClienteCard
+                    key={cliente.nombre}
+                    cliente={cliente}
+                    progreso={progreso}
+                    onSelectCliente={onSelectCliente}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Resumen Global */}
@@ -202,6 +225,90 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, conta
           <div className="text-center"><p className="text-sm text-gray-500">Ajustes Hechos</p><p className="text-xl font-bold text-gray-800">{contarAjustes()}</p></div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Card de un cliente. El color y el mensaje salen de su progreso real de
+ * revisión, para que de un vistazo se sepa si hay que entrarle, si solo falta
+ * enviarla a impresión, o si ya está terminada.
+ */
+function ClienteCard({ cliente, progreso, onSelectCliente }) {
+  const estilo = progreso.esSinCaja
+    ? ESTILO_SIN_CAJA
+    : (ESTILO_ESTADO[progreso.estado] || ESTILO_ESTADO[CLIENTE_ESTADO.SIN_EMPEZAR])
+
+  const esLista = progreso.estado === CLIENTE_ESTADO.LISTA
+
+  return (
+    <div
+      onClick={() => onSelectCliente(cliente.nombre)}
+      className={`group bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${estilo.card} ${esLista ? 'opacity-75 hover:opacity-100' : ''}`}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2.5 rounded-lg ${estilo.icono}`}>
+          <User className={estilo.iconoColor} size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-gray-900 truncate">{cliente.nombre}</h3>
+          {cliente.email && <p className="text-xs text-gray-500 truncate">{cliente.email}</p>}
+        </div>
+      </div>
+
+      {/* Estado dicho en palabras */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {progreso.esSinCaja && (
+          <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase">📦 Sin Caja</span>
+        )}
+        {progreso.estado === CLIENTE_ESTADO.EN_PROGRESO && (
+          <span className="text-[11px] bg-amber-400 text-amber-950 px-2.5 py-0.5 rounded-full font-bold">
+            ⏳ {progreso.porRevisar} producto{progreso.porRevisar !== 1 ? 's' : ''} pendiente{progreso.porRevisar !== 1 ? 's' : ''}
+          </span>
+        )}
+        {progreso.estado === CLIENTE_ESTADO.LISTO_PARA_PROCESAR && (
+          <span className="text-[11px] bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold">
+            ✓ Todo revisado — falta enviar a impresión
+          </span>
+        )}
+        {progreso.estado === CLIENTE_ESTADO.SIN_EMPEZAR && (
+          <span className="text-[11px] bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full font-medium">
+            {progreso.total} producto{progreso.total !== 1 ? 's' : ''} por revisar
+          </span>
+        )}
+        {esLista && (
+          <span className="text-[11px] bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full font-semibold">✓ Lista</span>
+        )}
+      </div>
+
+      {/* Progreso de revisión — solo cuando ya se empezó */}
+      {progreso.revisados > 0 && progreso.total > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-[11px] mb-1">
+            <span className="text-gray-500 font-medium">{progreso.revisados} de {progreso.total} revisados</span>
+            <span className="text-gray-400">{Math.round((progreso.revisados / progreso.total) * 100)}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${progreso.porRevisar === 0 ? 'bg-green-500' : 'bg-amber-400'}`}
+              style={{ width: `${Math.round((progreso.revisados / progreso.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
+        <div>
+          <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Facturas</p>
+          <p className="text-xl font-bold text-gray-800">{cliente.facturas_con_faltantes.length}</p>
+        </div>
+        <div className="h-8 w-[1px] bg-gray-200"></div>
+        <div>
+          <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Unidades</p>
+          <p className={`text-xl font-bold ${esLista ? 'text-green-600' : 'text-purple-600'}`}>{cliente.total_cantidad}</p>
+        </div>
+      </div>
     </div>
   )
 }
