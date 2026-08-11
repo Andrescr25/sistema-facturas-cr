@@ -3,6 +3,7 @@ const { simpleParser } = require('mailparser');
 const imapConfig = require('../config/imap');
 const XmlParser = require('./xmlParser');
 const DatabaseService = require('./databaseService');
+const notasCreditoService = require('./notasCreditoService');
 const { getProductService } = require('../src/integrations/alegra');
 
 // Configuración de logging
@@ -124,7 +125,10 @@ class EmailService {
 
         console.log('🔍 Buscando facturas de los últimos 30 días...');
 
-        this.imap.openBox('INBOX', false, (err, box) => {
+        // openBox también puede lanzar de forma síncrona si la conexión murió
+        // justo después del 'ready'.
+        try {
+            this.imap.openBox('INBOX', false, (err, box) => {
             if (err) {
                 console.error('❌ Error abriendo INBOX:', err);
                 // ✅ FIX: Siempre programar siguiente revisión aunque haya error
@@ -141,23 +145,39 @@ class EmailService {
 
             const searchCriteria = [['SINCE', fechaIMAPString]];
 
-            this.imap.search(searchCriteria, (err, results) => {
-                if (err) {
-                    console.error('❌ Error buscando emails:', err);
-                    this.fallbackSearch(fechaIMAPString);
-                    return;
-                }
+            // OJO: imap.search() lanza la excepción de forma SÍNCRONA cuando la
+            // conexión se cayó entre el openBox y este punto ("No mailbox is
+            // currently selected") — no la reporta por el callback. Como esto
+            // corre dentro de un callback, sin este try/catch esa excepción sube
+            // hasta el handler de uncaughtException de server.js y apaga el
+            // servidor ENTERO: un tropiezo de Gmail dejaba sin API a facturación,
+            // catálogo y todo lo demás. Visto en producción local.
+            try {
+                this.imap.search(searchCriteria, (err, results) => {
+                    if (err) {
+                        console.error('❌ Error buscando emails:', err);
+                        this.fallbackSearch(fechaIMAPString);
+                        return;
+                    }
 
-                if (results.length === 0) {
-                    console.log('📭 No hay emails con facturas en los últimos 30 días');
-                    this.scheduleNextCheck();
-                    return;
-                }
+                    if (results.length === 0) {
+                        console.log('📭 No hay emails con facturas en los últimos 30 días');
+                        this.scheduleNextCheck();
+                        return;
+                    }
 
-                console.log(`📬 Emails encontrados: ${results.length}`);
-                this.processEmails(results);
+                    console.log(`📬 Emails encontrados: ${results.length}`);
+                    this.processEmails(results);
+                });
+            } catch (error) {
+                console.error('❌ La conexión IMAP se cayó antes de poder buscar:', error.message);
+                this.scheduleNextCheck();
+            }
             });
-        });
+        } catch (error) {
+            console.error('❌ La conexión IMAP se cayó antes de abrir el buzón:', error.message);
+            this.scheduleNextCheck();
+        }
     }
 
     /**
@@ -166,22 +186,29 @@ class EmailService {
     fallbackSearch(fechaIMAPString) {
         console.log('🔄 Búsqueda alternativa: solo por fecha...');
 
-        this.imap.search(['SINCE', fechaIMAPString], (err, results) => {
-            if (err) {
-                console.error('❌ Error en búsqueda alternativa:', err);
-                this.scheduleNextCheck();
-                return;
-            }
+        // Mismo motivo que en checkForNewEmails: search() puede lanzar de forma
+        // síncrona si la conexión ya no tiene buzón seleccionado.
+        try {
+            this.imap.search(['SINCE', fechaIMAPString], (err, results) => {
+                if (err) {
+                    console.error('❌ Error en búsqueda alternativa:', err);
+                    this.scheduleNextCheck();
+                    return;
+                }
 
-            if (results.length === 0) {
-                console.log('📭 No hay emails en los últimos 30 días');
-                this.scheduleNextCheck();
-                return;
-            }
+                if (results.length === 0) {
+                    console.log('📭 No hay emails en los últimos 30 días');
+                    this.scheduleNextCheck();
+                    return;
+                }
 
-            console.log(`📬 Emails encontrados (sin filtro de asunto): ${results.length}`);
-            this.processEmails(results);
-        });
+                console.log(`📬 Emails encontrados (sin filtro de asunto): ${results.length}`);
+                this.processEmails(results);
+            });
+        } catch (error) {
+            console.error('❌ La conexión IMAP se cayó en la búsqueda alternativa:', error.message);
+            this.scheduleNextCheck();
+        }
     }
 
     /**
@@ -236,7 +263,19 @@ class EmailService {
             console.log(`\n✅ Procesamiento completado:`);
             console.log(`📧 Emails procesados: ${emailsProcessed}`);
             console.log(`📄 Facturas encontradas: ${facturesFound}`);
-            
+
+            // Al final y no por cada NC: una nota puede llegar en el mismo
+            // lote que su factura, así que aplicarlas cuando ya se ingirió
+            // todo evita dejarlas pendientes hasta la próxima corrida.
+            try {
+                const aplicadas = await notasCreditoService.aplicarNotasCreditoPendientes();
+                if (aplicadas.length > 0) {
+                    console.log(`💳 Notas de crédito aplicadas: ${aplicadas.length}`);
+                }
+            } catch (error) {
+                console.error('❌ Error aplicando notas de crédito:', error.message);
+            }
+
             this.scheduleNextCheck();
 
         } catch (error) {
@@ -380,6 +419,14 @@ class EmailService {
 
         if (VERBOSE_LOGGING) console.log(`\n📄 Documento electrónico CR detectado: ${filename}`);
 
+        // Las notas de crédito se desvían ANTES del flujo de compra: no son
+        // una compra, son un descuento sobre una factura anterior. Meterlas
+        // por el camino normal sumaría productos al inventario que en
+        // realidad se devolvieron o ni siquiera se movieron.
+        if (XmlParser.esNotaCredito(attachment.content)) {
+            return this.procesarNotaCredito(attachment.content, filename);
+        }
+
         try {
             // Verificar si ya existe en BD
             let claveFactura = claveMatch ? claveMatch[1] : null;
@@ -440,6 +487,37 @@ class EmailService {
 
         } catch (error) {
             console.error(`❌ Error procesando ${filename}:`, error.message);
+        }
+    }
+
+    /**
+     * Guarda una nota de crédito de proveedor. Solo afecta el dinero que se
+     * le debe (ver notasCreditoService); el inventario queda marcado para
+     * revisión humana porque el XML no distingue una devolución física de una
+     * corrección de precio.
+     */
+    async procesarNotaCredito(contenido, filename) {
+        try {
+            const nc = await this.xmlParser.parseNotaCreditoXML(contenido);
+            this.xmlParser.validateNotaCredito(nc);
+
+            // Las notas emitidas por nosotros mismos no son un crédito a
+            // nuestro favor — mismo criterio que con las facturas.
+            if (nc.emisor.identificacion?.numero === '204050474') {
+                if (VERBOSE_LOGGING) console.log('🚫 Nota de crédito emitida por nosotros, ignorando');
+                return false;
+            }
+
+            const { guardada } = await notasCreditoService.guardarNotaCredito(nc);
+            if (guardada) {
+                console.log(`💳 Nota de crédito de ${nc.emisor.nombre}: ₡${nc.montoTotal} sobre la factura ${nc.claveReferencia} (${nc.razon || 'sin razón'})`);
+            } else if (VERBOSE_LOGGING) {
+                console.log(`⚠️ Nota de crédito ya registrada: ${nc.clave}`);
+            }
+            return true;
+        } catch (error) {
+            console.error(`❌ Error procesando nota de crédito ${filename}:`, error.message);
+            return false;
         }
     }
 

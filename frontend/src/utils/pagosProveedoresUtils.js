@@ -3,8 +3,11 @@
  * texto descriptivo de días para vencer/vencidos.
  */
 
+// maximumFractionDigits explícito: sin él toLocaleString permite hasta 3
+// decimales, así que cualquier valor calculado (un techo de precio, un
+// prorrateo) se imprimía como "₡1 133,333". Dinero siempre 2 decimales.
 export function formatCurrency(value) {
-  return `₡${(Number(value) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2 })}`
+  return `₡${(Number(value) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function formatDate(value) {

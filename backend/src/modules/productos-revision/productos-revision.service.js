@@ -8,6 +8,7 @@ const prisma = require('../../../lib/prisma');
 const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { calcularCostoUnitarioPropio } = require('../precios/costo');
 
 const productService = getProductService();
 
@@ -182,37 +183,35 @@ async function getRelacionesDeProducto(alegraItemId) {
   });
 
   const relacionesFormateadas = relaciones.map((mapeo) => {
-    // Último precio de costo de ESTE PROVEEDOR desde facturas (con descuento e IVA real)
+    // Último costo de ESTE PROVEEDOR desde facturas (con descuento e IVA real).
+    //
+    // Se devuelven DOS cifras y la que manda es `precioCosto`, ya dividido por
+    // el factor de conversión: es el costo de UNA unidad mía. Antes se
+    // mostraba solo el costo en la unidad del proveedor, y como cada
+    // proveedor vende en presentaciones distintas (uno la caja de 60, otro la
+    // unidad), los números de esta pantalla no eran comparables entre sí —
+    // que es justo para lo que se abre.
+    //
+    // `precioCostoProveedor` se mantiene aparte para poder cotejar contra el
+    // papel de la factura, donde aparece el precio de la caja.
+    let precioCosto = null;
     let precioCostoProveedor = null;
+    const factor = parseFloat(mapeo.factorConversion) || 1;
 
     if (mapeo.productos && mapeo.productos.length > 0) {
       // Los productos ya están ordenados por fecha descendente (más reciente primero)
       const productoConPrecio = mapeo.productos.find(p => p.precioUnitario && p.precioUnitario > 0);
       if (productoConPrecio) {
-        // En XML de Costa Rica, precioUnitario es SIN IVA
-        const precioUnitarioSinIva = parseFloat(productoConPrecio.precioUnitario) || 0;
-        const descuento = parseFloat(productoConPrecio.descuento) || 0;
-        const cantidad = parseFloat(productoConPrecio.cantidad) || 1;
-
-        const montoTotalSinDescuento = precioUnitarioSinIva * cantidad;
-        const descuentoPorcentaje = montoTotalSinDescuento > 0
-          ? (descuento / montoTotalSinDescuento) * 100
-          : 0;
-
-        // Costo = precioUnitario SIN IVA con descuento aplicado, más el IVA real de la línea
-        const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
-        const porcentajeIva = calcularPorcentajeIva({
-          impuesto: productoConPrecio.impuesto,
-          totalLinea: productoConPrecio.totalLinea
-        });
-        const costoConIva = costoSinIvaConDescuento * (1 + porcentajeIva / 100);
+        const { costoConIva, costoUnitario, descuentoPorcentaje } =
+          calcularCostoUnitarioPropio(productoConPrecio, factor);
 
         precioCostoProveedor = Math.round(costoConIva * 100) / 100;
+        precioCosto = Math.round(costoUnitario * 100) / 100;
 
         console.log(`   💰 Costo calculado para ${mapeo.supplierName}:`);
-        console.log(`      Precio sin IVA: ₡${precioUnitarioSinIva.toFixed(2)}`);
-        console.log(`      Descuento: ${descuentoPorcentaje.toFixed(2)}% (₡${descuento.toFixed(2)})`);
-        console.log(`      Costo final con IVA: ₡${precioCostoProveedor.toFixed(2)}`);
+        console.log(`      Precio sin IVA: ₡${parseFloat(productoConPrecio.precioUnitario).toFixed(2)}`);
+        console.log(`      Descuento: ${descuentoPorcentaje.toFixed(2)}% (₡${(parseFloat(productoConPrecio.descuento) || 0).toFixed(2)})`);
+        console.log(`      Costo unidad proveedor: ₡${precioCostoProveedor.toFixed(2)} · factor ${factor} → costo unidad mía: ₡${precioCosto.toFixed(2)}`);
       }
     }
 
@@ -230,14 +229,22 @@ async function getRelacionesDeProducto(alegraItemId) {
         name: mapeo.alegraName
       },
       confianza: mapeo.confidence,
-      factorConversion: mapeo.factorConversion || 1,
+      factorConversion: factor,
       vecesUsado: mapeo.timesUsed,
-      // Precio de costo del proveedor (último precio pagado con descuentos e IVA aplicados)
-      precio: precioCostoProveedor
+      // `precio` = costo de UNA unidad mía (con descuento, IVA y factor).
+      // Es el que se muestra y por el que se ordena.
+      precio: precioCosto,
+      // Costo en la unidad en que factura el proveedor (la caja, el fardo),
+      // para poder cotejar contra el papel.
+      precioProveedor: precioCostoProveedor
     };
   });
 
-  // Ordenar por precio de costo (ascendente); los que no tienen precio van al final
+  // Ordenar por costo por unidad propia. Antes se ordenaba por el costo en
+  // unidad de proveedor, así que "el más barato" salía mal en cuanto dos
+  // proveedores facturaban en presentaciones distintas: una caja de 60 a
+  // ₡3.551 se veía más cara que una unidad suelta a ₡80, cuando en realidad
+  // sale a ₡59 la unidad.
   relacionesFormateadas.sort((a, b) => {
     if (a.precio === null && b.precio === null) return 0;
     if (a.precio === null) return 1;

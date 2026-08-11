@@ -11,10 +11,13 @@ import GestionarRelaciones from './pages/GestionarRelaciones'
 import Impresion from './pages/Impresion'
 import Configuracion from './pages/Configuracion'
 import PagosProveedores from './pages/PagosProveedores'
+import PagosRecurrentes from './pages/PagosRecurrentes'
+import CuentasPorCobrar from './pages/CuentasPorCobrar'
 import FacturasBodega from './pages/FacturasBodega'
 import InventarioAuditoria from './pages/InventarioAuditoria'
 import GestionCatalogo from './pages/GestionCatalogo'
 import CatalogoPublico from './pages/CatalogoPublico'
+import Rentabilidad from './pages/Rentabilidad'
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -65,9 +68,12 @@ function App() {
               <Route path="/reportes/proveedores" element={<ReporteProveedores />} />
               <Route path="/reportes/clientes" element={<ReporteClientes />} />
               <Route path="/revision-precios" element={<RevisionPrecios />} />
+              <Route path="/rentabilidad" element={<Rentabilidad />} />
               <Route path="/gestionar-relaciones" element={<GestionarRelaciones />} />
               <Route path="/impresion" element={<Impresion />} />
               <Route path="/pagos-proveedores" element={<PagosProveedores />} />
+              <Route path="/pagos-recurrentes" element={<PagosRecurrentes />} />
+              <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />
               <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />

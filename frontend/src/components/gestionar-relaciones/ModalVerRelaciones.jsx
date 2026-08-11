@@ -90,6 +90,11 @@ export default function ModalVerRelaciones({ producto, relaciones, cargando, onC
                               <span className="font-medium">Código:</span>{' '}
                               <span className="font-mono text-gray-900">{relacion.codigoProveedor || 'N/A'}</span>
                             </span>
+                            {relacion.factorConversion > 1 && (
+                              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                factor {relacion.factorConversion}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">
@@ -100,7 +105,15 @@ export default function ModalVerRelaciones({ producto, relaciones, cargando, onC
                               <span className="text-gray-400 text-sm">Sin precio</span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">Precio de costo</div>
+                          <div className="text-xs text-gray-500 mt-1">Costo por unidad mía</div>
+                          {/* Solo cuando el proveedor factura en otra presentación:
+                              si el factor es 1 ambas cifras son la misma y repetirla confunde. */}
+                          {relacion.factorConversion > 1 && relacion.precioProveedor && (
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              ₡{relacion.precioProveedor.toLocaleString('es-CR', { minimumFractionDigits: 2 })} por{' '}
+                              {relacion.factorConversion} unid.
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -1,13 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import api from '../services/api'
 import { catalogoPublicoDb } from '../utils/catalogoPublicoDb'
+import { construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente } from '../utils/catalogoClienteUtils'
 
 const PRODUCTOS_PATH = '/catalogo-publico/productos'
 const OFERTAS_PATH = '/catalogo-publico/ofertas'
+const HISTORIAL_CLIENTES_PATH = '/catalogo-publico/historial-clientes'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
 const IMAGE_PREFETCH_CONCURRENCY = 10
 const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
+
+const SIN_STATS = new Map()
 
 export function useCatalogoPublico() {
   const [products, setProducts] = useState([])
@@ -19,18 +23,30 @@ export function useCatalogoPublico() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState({ message: '', percent: 0 })
 
+  // ---- Personalización por cliente ----
+  const [clientes, setClientes] = useState([])
+  const [clienteActivoId, setClienteActivoId] = useState(null)
+
   useEffect(() => {
     const loadFromCache = async () => {
       try {
         const storedProducts = await catalogoPublicoDb.getAllProducts()
         const lastUpdate = await catalogoPublicoDb.getLastUpdate()
         const storedOfertas = await catalogoPublicoDb.getOfertas()
+        const storedClientes = await catalogoPublicoDb.getAllClientes()
+        const storedClienteActivoId = await catalogoPublicoDb.getClienteActivo()
         if (storedProducts && storedProducts.length > 0) {
           setProducts(storedProducts)
           setLastSync(lastUpdate)
         }
         if (storedOfertas) {
           setOfertas(storedOfertas)
+        }
+        if (storedClientes) {
+          setClientes(storedClientes)
+        }
+        if (storedClienteActivoId) {
+          setClienteActivoId(storedClienteActivoId)
         }
       } catch (error) {
         console.error('No se pudo cargar el catálogo local:', error)
@@ -52,6 +68,49 @@ export function useCatalogoPublico() {
     }
   }, [])
 
+  const clienteActivo = useMemo(
+    () => clientes.find((c) => c.id === clienteActivoId) || null,
+    [clientes, clienteActivoId]
+  )
+
+  // Recalcula contra la fecha real de HOY en cada carga — no se guarda el
+  // score, se guarda la compra cruda (ver catalogoClienteUtils.js), así que
+  // sigue siendo correcto días después de sincronizar.
+  const statsPorProducto = useMemo(() => {
+    if (!clienteActivo) return SIN_STATS
+    return construirStats(clienteActivo)
+  }, [clienteActivo])
+
+  const seleccionarCliente = useCallback(async (id) => {
+    setClienteActivoId(id)
+    try {
+      await catalogoPublicoDb.saveClienteActivo(id)
+    } catch (error) {
+      console.error('No se pudo guardar el cliente activo:', error)
+    }
+  }, [])
+
+  const salirDeCliente = useCallback(async () => {
+    setClienteActivoId(null)
+    try {
+      await catalogoPublicoDb.saveClienteActivo(null)
+    } catch (error) {
+      console.error('No se pudo limpiar el cliente activo:', error)
+    }
+  }, [])
+
+  // Se calculan antes que filteredData porque el agrupado por categoría los
+  // necesita para excluirlos y no duplicarlos. Vacías (sin recalcular nada)
+  // cuando no hay cliente seleccionado.
+  const habitualesCliente = useMemo(
+    () => productosHabituales(products, statsPorProducto),
+    [products, statsPorProducto]
+  )
+  const perdidosCliente = useMemo(
+    () => productosPerdidos(products, statsPorProducto),
+    [products, statsPorProducto]
+  )
+
   const filteredData = useMemo(() => {
     let result = products
 
@@ -64,21 +123,34 @@ export function useCatalogoPublico() {
       })
     }
 
-    const categories = {}
-    result.forEach((p) => {
-      const catName = p.itemCategory?.name || 'Otros'
-      if (!categories[catName]) categories[catName] = []
-      categories[catName].push(p)
-    })
+    // Los productos que ya salen destacados arriba ("compra seguido" y "dejó
+    // de comprar") se sacan del agrupado por categoría: si no, aparecen dos
+    // veces y el agente cree que son productos distintos.
+    //
+    // Solo cuando NO hay búsqueda: durante una búsqueda esas dos secciones no
+    // se renderizan (ver CatalogoPublico.jsx), así que excluirlos ahí los
+    // haría desaparecer del catálogo por completo.
+    //
+    // `flat` se deja SIN filtrar a propósito — alimenta el estado "Catálogo
+    // Vacío", y un cliente cuyos productos estén todos destacados arriba no
+    // tiene un catálogo vacío.
+    let paraCategorias = result
+    if (!searchQuery) {
+      const yaDestacados = new Set(
+        [...habitualesCliente, ...perdidosCliente].map((p) => String(p.id))
+      )
+      if (yaDestacados.size > 0) {
+        paraCategorias = result.filter((p) => !yaDestacados.has(String(p.id)))
+      }
+    }
 
-    const sortedKeys = Object.keys(categories).sort((a, b) => {
-      if (a === 'Otros') return 1
-      if (b === 'Otros') return -1
-      return a.localeCompare(b)
-    })
+    // Sin cliente activo, ordenarCatalogoParaCliente con un Map vacío se
+    // comporta idéntico al agrupado alfabético de siempre — no hay una rama
+    // "especial" que mantener sincronizada con la de antes.
+    const { grouped, sortedKeys } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
 
-    return { flat: result, grouped: categories, sortedKeys }
-  }, [products, searchQuery])
+    return { flat: result, grouped, sortedKeys }
+  }, [products, searchQuery, statsPorProducto, habitualesCliente, perdidosCliente])
 
   const featuredProducts = useMemo(() => {
     if (!ofertas || ofertas.length === 0) return []
@@ -91,6 +163,7 @@ export function useCatalogoPublico() {
       .filter(Boolean)
       .sort((a, b) => b.descuentoPorcentaje - a.descuentoPorcentaje)
   }, [products, ofertas])
+
 
   const updateSyncUI = useCallback((message, percent) => {
     setSyncProgress({ message, percent })
@@ -165,6 +238,33 @@ export function useCatalogoPublico() {
 
       await catalogoPublicoDb.saveProducts(newBuffer)
 
+      // Ofertas e historial de clientes se guardan ANTES del prefetch de
+      // imágenes (que sigue abajo) a propósito: ese prefetch puede llenar la
+      // cuota de almacenamiento del dispositivo con ~2000 fotos y hacer que
+      // el guardado de estos dos, que pesa muchísimo menos, falle por
+      // QuotaExceededError si quedara después (visto en pruebas). Un fallo
+      // acá no debe tumbar el resto de la sincronización.
+      updateSyncUI('Actualizando ofertas...', 90)
+      try {
+        const ofertasRes = await api.get(OFERTAS_PATH)
+        const nuevasOfertas = ofertasRes.data.ofertas || []
+        await catalogoPublicoDb.saveOfertas(nuevasOfertas)
+        setOfertas(nuevasOfertas)
+      } catch (ofertasError) {
+        console.error('No se pudieron actualizar las ofertas:', ofertasError)
+      }
+
+      updateSyncUI('Actualizando historial de clientes...', 92)
+      try {
+        const historialRes = await api.get(HISTORIAL_CLIENTES_PATH)
+        const nuevosClientes = historialRes.data?.clientes || []
+        await catalogoPublicoDb.clearClientes()
+        await catalogoPublicoDb.saveClientes(nuevosClientes)
+        setClientes(nuevosClientes)
+      } catch (historialError) {
+        console.error('No se pudo actualizar el historial de clientes:', historialError)
+      }
+
       updateSyncUI('Preparando descarga de imágenes...', 95)
       const imageUrls = new Set()
       newBuffer.forEach((product) => {
@@ -202,16 +302,6 @@ export function useCatalogoPublico() {
         }
       }
 
-      updateSyncUI('Actualizando ofertas...', 98)
-      try {
-        const ofertasRes = await api.get(OFERTAS_PATH)
-        const nuevasOfertas = ofertasRes.data.ofertas || []
-        await catalogoPublicoDb.saveOfertas(nuevasOfertas)
-        setOfertas(nuevasOfertas)
-      } catch (ofertasError) {
-        console.error('No se pudieron actualizar las ofertas:', ofertasError)
-      }
-
       const timestamp = Date.now()
       await catalogoPublicoDb.saveLastUpdate(timestamp)
       setProducts(newBuffer)
@@ -236,6 +326,13 @@ export function useCatalogoPublico() {
     setSearchQuery,
     filteredData,
     featuredProducts,
-    synchronize
+    synchronize,
+    clientes,
+    clienteActivo,
+    statsPorProducto,
+    seleccionarCliente,
+    salirDeCliente,
+    productosHabitualesDelCliente: habitualesCliente,
+    productosPerdidosDelCliente: perdidosCliente
   }
 }

@@ -166,6 +166,51 @@ enum EstadoCuentaPorPagar {
   @@map("estado_cuenta_por_pagar")
 }
 
+// Espejo local de facturas de VENTA con saldo pendiente en Alegra. Alegra es
+// la fuente de verdad del saldo (invoice.balance/totalPaid); esta tabla
+// existe solo porque /invoices es lenta de recorrer en vivo (máx 30 por
+// página) — se sincroniza periódicamente y la UI lee de aquí.
+model CuentaPorCobrar {
+  id               String   @id @default(uuid())
+  alegraInvoiceId  String   @unique @map("alegra_invoice_id")
+  numeroFactura    String   @map("numero_factura")
+  clienteId        String   @map("cliente_id")
+  clienteNombre    String   @map("cliente_nombre")
+  fechaEmision     DateTime @map("fecha_emision")
+  fechaVencimiento DateTime @map("fecha_vencimiento")
+  total            Float
+  totalPagado      Float    @map("total_pagado")
+  saldo            Float
+  condicionVenta   String?  @map("condicion_venta")
+  plazo            String?
+  estadoAlegra     String   @map("estado_alegra") // 'open' | 'closed' | 'draft' | 'void'
+  syncedAt         DateTime @default(now()) @map("synced_at")
+
+  @@map("cuentas_por_cobrar")
+  @@index([clienteId], map: "idx_cuentas_por_cobrar_cliente")
+  @@index([fechaVencimiento], map: "idx_cuentas_por_cobrar_vencimiento")
+  @@index([saldo], map: "idx_cuentas_por_cobrar_saldo")
+}
+
+// Bitácora de abonos registrados desde este sistema. NO es la fuente del
+// saldo (eso es Alegra) — es auditoría de quién/cuándo/cómo se cobró.
+model AbonoCobro {
+  id              String   @id @default(uuid())
+  alegraInvoiceId String   @map("alegra_invoice_id")
+  alegraPaymentId String?  @map("alegra_payment_id")
+  clienteId       String?  @map("cliente_id")
+  clienteNombre   String   @map("cliente_nombre")
+  numeroFactura   String   @map("numero_factura")
+  monto           Float
+  fecha           DateTime
+  metodoPago      String   @map("metodo_pago")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("abonos_cobro")
+  @@index([alegraInvoiceId], map: "idx_abonos_cobro_factura")
+  @@index([clienteId], map: "idx_abonos_cobro_cliente")
+}
+
 // Tabla para productos de Alegra (cache local)
 model AlegraProduct {
   id          String @id @default(uuid())

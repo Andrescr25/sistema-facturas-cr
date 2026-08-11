@@ -25,6 +25,7 @@ import ReporteExceso from '../components/inventario-auditoria/ReporteExceso'
 import EjecucionExceso from '../components/inventario-auditoria/EjecucionExceso'
 import PanelFinalizarExceso from '../components/inventario-auditoria/PanelFinalizarExceso'
 import SeccionRegalias from '../components/inventario-auditoria/SeccionRegalias'
+import SeccionDescuentos from '../components/inventario-auditoria/SeccionDescuentos'
 
 export default function InventarioAuditoria() {
   const {
@@ -61,6 +62,23 @@ export default function InventarioAuditoria() {
     handleActualizarItemExceso,
     handleFinalizeExceso,
     regalos,
+
+    creandoExceso,
+    handleCrearExcesoManual,
+    handleEliminarExceso,
+    busquedaProductoExceso,
+    setBusquedaProductoExceso,
+    resultadosProductoExceso,
+    buscandoProductoExceso,
+    agregandoItemExceso,
+    handleAgregarItemExceso,
+    handleEliminarItemExceso,
+
+    descuentos,
+    loadingDescuentos,
+    loadDescuentos,
+    handleGuardarDescuento,
+    handleEliminarDescuento,
 
     auditoriaActiva,
     conteosDraft,
@@ -170,9 +188,24 @@ export default function InventarioAuditoria() {
               excesos={excesos}
               loading={loading}
               generando={generandoExcesos}
+              creando={creandoExceso}
               onRefresh={loadExcesos}
               onGenerarAhora={handleGenerarExcesosAhora}
               onSelectExceso={handleSelectAuditoria}
+              onCrearManual={handleCrearExcesoManual}
+              onEliminar={handleEliminarExceso}
+            />
+            <SeccionDescuentos
+              descuentos={descuentos}
+              loading={loadingDescuentos}
+              onRefresh={loadDescuentos}
+              onGuardar={handleGuardarDescuento}
+              onEliminar={handleEliminarDescuento}
+              busquedaProducto={busquedaProductoExceso}
+              setBusquedaProducto={setBusquedaProductoExceso}
+              resultadosProducto={resultadosProductoExceso}
+              buscandoProducto={buscandoProductoExceso}
+              onAgregarProducto={(p) => handleGuardarDescuento(p.alegraId, 40, p.nombre)}
             />
             <SeccionRegalias regalos={regalos} />
           </>
@@ -315,6 +348,13 @@ export default function InventarioAuditoria() {
                   items={auditoriaActiva.items}
                   onActualizarItem={handleActualizarItemExceso}
                   onVerImagen={handleVerImagenProducto}
+                  onEliminarItem={handleEliminarItemExceso}
+                  busquedaProducto={busquedaProductoExceso}
+                  setBusquedaProducto={setBusquedaProductoExceso}
+                  resultadosProducto={resultadosProductoExceso}
+                  buscandoProducto={buscandoProductoExceso}
+                  agregandoItem={agregandoItemExceso}
+                  onAgregarItem={handleAgregarItemExceso}
                 />
               </div>
 

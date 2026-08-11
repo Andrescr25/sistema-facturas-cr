@@ -1,112 +1,103 @@
-import { Filter, Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 
-const estadoOptions = [
-  { value: 'todos', label: 'Todos los estados' },
+/**
+ * Filtros de cuentas por pagar: UN control por dimensión.
+ *
+ * Antes el estado tenía dos controles en la misma tarjeta — un desplegable y
+ * una fila de chips con las mismas opciones — así que "Pendientes" aparecía
+ * dos veces y no quedaba claro cuál mandaba. El estado son 5 opciones
+ * excluyentes: los chips las muestran todas a la vista y se cambian con un
+ * click, así que el desplegable sobraba.
+ *
+ * También se quitó "Solo vencidas" del filtro de fecha: pedía exactamente lo
+ * mismo que el chip "Vencidas" pero por otro camino (días restantes < 0 en
+ * vez del estado guardado), y dos rutas al mismo resultado es justo lo que
+ * confunde.
+ */
+
+const ESTADOS = [
+  { value: 'todos', label: 'Todos' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'vencida', label: 'Vencidas' },
   { value: 'parcial', label: 'En seguimiento' },
   { value: 'pagada', label: 'Pagadas' }
 ]
 
-const diasOptions = [
-  { value: 'todos', label: 'Cualquier fecha' },
+const VENCIMIENTOS = [
+  { value: 'todos', label: 'Cualquier vencimiento' },
   { value: 'vence7', label: 'Vence en 7 días' },
   { value: 'vence15', label: 'Vence en 15 días' },
-  { value: 'vence30', label: 'Vence en 30 días' },
-  { value: 'vencidas', label: 'Solo vencidas' }
+  { value: 'vence30', label: 'Vence en 30 días' }
 ]
 
-const quickActions = [
-  { label: 'Pendientes', value: 'pendiente' },
-  { label: 'Vencidas', value: 'vencida' },
-  { label: 'En seguimiento', value: 'parcial' },
-  { label: 'Pagadas', value: 'pagada' }
-]
-
-/**
- * Barra de filtros (estado, fecha, proveedor, búsqueda) + accesos rápidos
- * por estado + botón de limpiar. Extraído de PagosProveedores.jsx.
- */
 export default function FiltrosPagos({ filters, setFilters, proveedoresDisponibles, onLimpiar }) {
-  const proveedoresOptions = [
-    { value: 'todos', label: 'Todos los proveedores' },
-    ...proveedoresDisponibles.map((prov) => ({
-      value: prov.cedula,
-      label: `${prov.nombre} (${prov.cedula})`
-    }))
-  ]
+  // "Pendientes" es el estado por defecto, así que no cuenta como filtro
+  // activo: si contara, el botón de limpiar estaría siempre visible.
+  const hayFiltrosActivos =
+    filters.estado !== 'pendiente' ||
+    filters.dias !== 'todos' ||
+    filters.proveedor !== 'todos' ||
+    Boolean(filters.search)
 
   return (
-    <div className="card space-y-4">
-      <div className="flex items-center gap-2 text-gray-600">
-        <Filter size={16} />
-        <span className="font-medium text-sm">Filtros</span>
+    <div className="card space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {ESTADOS.map((estado) => (
+          <button
+            key={estado.value}
+            onClick={() => setFilters((prev) => ({ ...prev, estado: estado.value }))}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition ${
+              filters.estado === estado.value
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'border-gray-200 text-gray-600 hover:border-blue-400'
+            }`}
+          >
+            {estado.label}
+          </button>
+        ))}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <select
-          className="input"
-          value={filters.estado}
-          onChange={(e) => setFilters((prev) => ({ ...prev, estado: e.target.value }))}
-        >
-          {estadoOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input"
-          value={filters.dias}
-          onChange={(e) => setFilters((prev) => ({ ...prev, dias: e.target.value }))}
-        >
-          {diasOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input"
-          value={filters.proveedor}
-          onChange={(e) => setFilters((prev) => ({ ...prev, proveedor: e.target.value }))}
-        >
-          {proveedoresOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <div className="relative">
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            className="input pl-9"
+            className="input pl-9 w-full"
             placeholder="Buscar proveedor o factura..."
             value={filters.search}
             onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
           />
         </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {quickActions.map((action) => (
-          <button
-            key={action.value}
-            className={`px-3 py-1 rounded-full text-sm border transition ${
-              filters.estado === action.value
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'border-gray-300 text-gray-600 hover:border-blue-400'
-            }`}
-            onClick={() => setFilters((prev) => ({ ...prev, estado: action.value }))}
-          >
-            {action.label}
-          </button>
-        ))}
-        <button
-          className="px-3 py-1 rounded-full text-sm border border-gray-300 text-gray-600 hover:border-red-400"
-          onClick={onLimpiar}
+
+        <select
+          className="input sm:w-52"
+          value={filters.dias}
+          onChange={(e) => setFilters((prev) => ({ ...prev, dias: e.target.value }))}
         >
-          Limpiar filtros
-        </button>
+          {VENCIMIENTOS.map((opcion) => (
+            <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
+          ))}
+        </select>
+
+        <select
+          className="input sm:w-64"
+          value={filters.proveedor}
+          onChange={(e) => setFilters((prev) => ({ ...prev, proveedor: e.target.value }))}
+        >
+          <option value="todos">Todos los proveedores</option>
+          {proveedoresDisponibles.map((prov) => (
+            <option key={prov.cedula} value={prov.cedula}>{prov.nombre}</option>
+          ))}
+        </select>
+
+        {hayFiltrosActivos && (
+          <button
+            onClick={onLimpiar}
+            className="btn btn-outline flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <X size={14} /> Limpiar
+          </button>
+        )}
       </div>
     </div>
   )

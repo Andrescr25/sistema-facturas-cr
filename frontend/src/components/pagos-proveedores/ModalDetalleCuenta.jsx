@@ -29,7 +29,12 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
   }
 
   const handleRevertir = async () => {
-    const exito = await onRegistrarPago(cuenta.id, { estado: 'PENDIENTE', saldoPendiente: cuenta.montoTotal, notas: notas.trim() || null })
+    // Revertir vuelve al monto original MENOS las notas de crédito ya
+    // aplicadas: esas no dependen de si se pagó o no, siguen siendo un
+    // descuento del proveedor. Restaurar el monto total pelado las borraría
+    // y terminaríamos pagando de más.
+    const saldoSinPagos = Math.max(0, cuenta.montoTotal - (cuenta.creditoAplicado || 0))
+    const exito = await onRegistrarPago(cuenta.id, { estado: 'PENDIENTE', saldoPendiente: saldoSinPagos, notas: notas.trim() || null })
     if (exito) onCerrar()
   }
 
@@ -69,6 +74,45 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
               <p className="text-lg font-bold text-blue-900 mt-0.5">{formatCurrency(cuenta.saldoPendiente)}</p>
             </div>
           </div>
+
+          {/* Notas de crédito aplicadas */}
+          {cuenta.notasCredito?.length > 0 && (
+            <div className="border border-emerald-200 bg-emerald-50/50 rounded-xl p-3">
+              <div className="flex items-baseline justify-between mb-2">
+                <h4 className="text-sm font-semibold text-emerald-800">
+                  Notas de crédito aplicadas ({cuenta.notasCredito.length})
+                </h4>
+                <span className="text-sm font-bold text-emerald-700">
+                  −{formatCurrency(cuenta.creditoAplicado)}
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700/80 mb-2">
+                Ya están restadas del saldo. El inventario NO se ajustó: revisá si hubo devolución física.
+              </p>
+              <div className="space-y-2">
+                {cuenta.notasCredito.map((nc) => (
+                  <div key={nc.id} className="bg-white rounded-lg p-2.5 border border-emerald-100">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-xs font-semibold text-gray-800">
+                        {nc.numeroConsecutivo || nc.clave.slice(-10)}
+                      </span>
+                      <span className="text-sm font-bold text-gray-900">{formatCurrency(nc.monto)}</span>
+                    </div>
+                    {nc.razon && <p className="text-xs text-gray-500 mt-0.5">Razón: {nc.razon}</p>}
+                    {nc.lineas?.length > 0 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {nc.lineas.map((l, i) => (
+                          <li key={i} className="text-xs text-gray-600">
+                            • {l.descripcion} — {l.cantidad} {l.unidadMedida || 'unid'}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Productos */}
           <div>

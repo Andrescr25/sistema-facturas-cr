@@ -14,20 +14,126 @@ class XmlParser {
         });
     }
 
-    async parseFacturaXML(xmlContent) {
+    /**
+     * Tipos de comprobante que representan una COMPRA y por lo tanto se
+     * ingestan como factura de proveedor (productos, inventario, costos).
+     *
+     * A propósito NO incluye notas de crédito ni de débito: esas son ajustes
+     * sobre un comprobante anterior y meterlas por acá sumaría productos que
+     * en realidad se devolvieron. Las notas de crédito tienen su propio
+     * camino — ver parseNotaCreditoXML — que solo afecta el dinero que se le
+     * debe al proveedor, nunca el inventario.
+     */
+    static get TIPOS_COMPRA() {
+        return ['FacturaElectronica', 'TiqueteElectronico'];
+    }
+
+    static get TIPO_NOTA_CREDITO() {
+        return 'NotaCreditoElectronica';
+    }
+
+    /**
+     * ¿Este XML es una nota de crédito? Se usa para enrutar antes de parsear,
+     * sin tener que intentar el parseo de compra y fallar.
+     */
+    static esNotaCredito(xmlContent) {
+        return /<(\w+:)?NotaCreditoElectronica/i.test(String(xmlContent).slice(0, 4096));
+    }
+
+    /**
+     * Parsea una nota de crédito de proveedor.
+     *
+     * Lo que importa es InformacionReferencia.Numero: trae la clave de 50
+     * dígitos de la factura que se está acreditando, que es el vínculo para
+     * rebajar el saldo correcto. Verificado contra NC reales de proveedores.
+     *
+     * Se guardan también las líneas y la razón, pero SOLO como evidencia para
+     * que una persona decida si hubo devolución física: contra datos reales
+     * hay NC con razón "no sirve precio" que igual listan 12 unidades (es una
+     * corrección de precio, la mercadería nunca volvió), y todas llegan con
+     * Codigo "01" sin importar el caso. No se puede inferir el inventario de
+     * acá, y por eso este parser no lo intenta.
+     */
+    async parseNotaCreditoXML(xmlContent) {
         try {
-            if (VERBOSE_LOGGING) console.log('🔍 Parseando XML de factura CR...');
-
             const result = await this.parser.parseStringPromise(xmlContent);
-            const factura = result.FacturaElectronica;
+            const nc = result[XmlParser.TIPO_NOTA_CREDITO];
 
-            if (!factura) {
-                throw new Error('XML no es una factura electrónica válida');
+            if (!nc) {
+                throw new Error('XML no es una nota de crédito electrónica');
             }
 
-            const facturaData = this.extractFacturaData(factura);
+            const ref = nc.InformacionReferencia || {};
+            const referencias = Array.isArray(ref) ? ref : [ref];
+            const principal = referencias[0] || {};
 
-            if (VERBOSE_LOGGING) console.log(`✅ XML parseado: ${facturaData.numeroConsecutivo}`);
+            const detalle = nc.DetalleServicio?.LineaDetalle;
+            const lineas = detalle ? (Array.isArray(detalle) ? detalle : [detalle]) : [];
+
+            return {
+                clave: nc.Clave,
+                numeroConsecutivo: nc.NumeroConsecutivo,
+                fechaEmision: this.parseDate(nc.FechaEmision),
+                emisor: this.extractEmisorData(nc.Emisor),
+                receptor: this.extractReceptorData(nc.Receptor),
+                // Clave de la factura acreditada. Sin esto la NC no se puede
+                // aplicar a nada y queda huérfana.
+                claveReferencia: principal.Numero || null,
+                codigoReferencia: principal.Codigo || null,
+                razon: principal.Razon || null,
+                montoTotal: parseFloat(nc.ResumenFactura?.TotalComprobante) || 0,
+                moneda: nc.ResumenFactura?.CodigoTipoMoneda?.CodigoMoneda || 'CRC',
+                lineas: lineas.map(l => ({
+                    descripcion: l.Detalle,
+                    cantidad: parseFloat(l.Cantidad) || 0,
+                    unidadMedida: l.UnidadMedida,
+                    montoTotal: parseFloat(l.MontoTotal) || 0
+                })),
+                metadata: {
+                    fechaProcesamiento: new Date().toISOString(),
+                    tipoDocumento: XmlParser.TIPO_NOTA_CREDITO,
+                    pais: 'CR'
+                }
+            };
+        } catch (error) {
+            console.error('❌ Error parseando nota de crédito:', error.message);
+            throw error;
+        }
+    }
+
+    validateNotaCredito(nc) {
+        const errors = [];
+        if (!nc.clave) errors.push('Falta clave de la nota de crédito');
+        if (nc.clave && !/^\d{50}$/.test(nc.clave)) errors.push('Formato de clave inválido');
+        if (!nc.claveReferencia) errors.push('No referencia ninguna factura (InformacionReferencia.Numero)');
+        if (!nc.montoTotal || nc.montoTotal <= 0) errors.push('Monto total inválido');
+        if (!nc.emisor || !nc.emisor.nombre) errors.push('Falta información del emisor');
+
+        if (errors.length > 0) {
+            throw new Error(`Nota de crédito inválida: ${errors.join(', ')}`);
+        }
+        return true;
+    }
+
+    async parseFacturaXML(xmlContent) {
+        try {
+            if (VERBOSE_LOGGING) console.log('🔍 Parseando XML de comprobante CR...');
+
+            const result = await this.parser.parseStringPromise(xmlContent);
+
+            // El tiquete electrónico se emite cuando el comprador no da su
+            // cédula; es una compra igual de válida que una factura y comparte
+            // toda la estructura salvo el Receptor, que no trae.
+            const tipoDocumento = XmlParser.TIPOS_COMPRA.find(tipo => result[tipo]);
+
+            if (!tipoDocumento) {
+                const raices = Object.keys(result).join(', ') || 'ninguna';
+                throw new Error(`XML no es un comprobante de compra (raíz: ${raices})`);
+            }
+
+            const facturaData = this.extractFacturaData(result[tipoDocumento], tipoDocumento);
+
+            if (VERBOSE_LOGGING) console.log(`✅ XML parseado (${tipoDocumento}): ${facturaData.numeroConsecutivo}`);
             return facturaData;
         } catch (error) {
             console.error('❌ Error parseando XML:', error.message);
@@ -35,13 +141,16 @@ class XmlParser {
         }
     }
 
-    extractFacturaData(factura) {
+    extractFacturaData(factura, tipoDocumento = 'FacturaElectronica') {
         return {
             clave: factura.Clave,
             numeroConsecutivo: factura.NumeroConsecutivo,
             fechaEmision: this.parseDate(factura.FechaEmision),
-            codigoActividad: factura.CodigoActividad,
+            // La versión 4.4 del formato de Hacienda lo renombró a
+            // CodigoActividadEmisor; se aceptan ambos.
+            codigoActividad: factura.CodigoActividad || factura.CodigoActividadEmisor,
             emisor: this.extractEmisorData(factura.Emisor),
+            // Un tiquete no lleva Receptor — por eso puede venir null.
             receptor: this.extractReceptorData(factura.Receptor),
             condicionVenta: factura.CondicionVenta,
             plazoCredito: factura.PlazoCredito,
@@ -50,7 +159,7 @@ class XmlParser {
             resumen: this.extractResumenData(factura.ResumenFactura),
             metadata: {
                 fechaProcesamiento: new Date().toISOString(),
-                tipoDocumento: 'FacturaElectronica',
+                tipoDocumento,
                 pais: 'CR'
             }
         };
@@ -70,13 +179,20 @@ class XmlParser {
         };
     }
 
+    /**
+     * Los tiquetes electrónicos no llevan Receptor (se emiten sin identificar
+     * al comprador), así que puede venir ausente. Devuelve null en ese caso en
+     * vez de reventar.
+     */
     extractReceptorData(receptor) {
+        if (!receptor) return null;
+
         return {
             nombre: receptor.Nombre,
-            identificacion: {
+            identificacion: receptor.Identificacion ? {
                 tipo: receptor.Identificacion.Tipo,
                 numero: receptor.Identificacion.Numero
-            },
+            } : null,
             telefono: receptor.Telefono ? this.extractTelefonoData(receptor.Telefono) : null,
             correoElectronico: receptor.CorreoElectronico
         };

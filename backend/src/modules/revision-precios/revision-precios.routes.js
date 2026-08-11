@@ -20,6 +20,7 @@ router.post('/actualizar-precio', revisionPreciosController.actualizarPrecio);
 
 // Comparación de precios y envío a Alegra
 router.post('/productos-batch', revisionPreciosController.getProductosBatch);
+router.get('/facturas/:facturaId/sugerencias-precio', revisionPreciosController.getSugerenciasPrecio);
 router.post('/enviar-alegra', revisionPreciosController.enviarAlegra);
 
 // Estadísticas

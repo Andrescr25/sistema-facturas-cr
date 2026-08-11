@@ -124,21 +124,21 @@ async function subirImagenDesdeArchivo(req, res) {
  */
 async function duplicarConMarca(req, res) {
   try {
-    const { originalProductId, brandName, newCode, newPrice, newCost, imageUrl } = req.body;
+    const { originalProductId, name, newCode, newPrice, newCost, imageUrl } = req.body;
 
-    if (!originalProductId || !brandName || !newCode || newPrice === undefined) {
-      return res.status(400).json({ success: false, message: 'Campos requeridos faltantes (originalProductId, brandName, newCode, newPrice)' });
+    if (!originalProductId || !name || !newCode || newPrice === undefined) {
+      return res.status(400).json({ success: false, message: 'Campos requeridos faltantes (originalProductId, name, newCode, newPrice)' });
     }
 
-    const cachedProduct = await catalogoService.duplicarConMarca({ originalProductId, brandName, newCode, newPrice, newCost, imageUrl });
+    const cachedProduct = await catalogoService.duplicarConMarca({ originalProductId, name, newCode, newPrice, newCost, imageUrl });
     res.json({
       success: true,
       data: cachedProduct,
-      message: 'Producto duplicado para la marca creado exitosamente'
+      message: 'Producto duplicado creado exitosamente'
     });
   } catch (error) {
     console.error('❌ Error en POST /catalog/duplicate-brand:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message, error: error.message });
   }
 }
 

@@ -313,8 +313,8 @@ async function subirImagenDesdeArchivo(alegraId, file) {
  * Duplicar un producto agregándole una nueva marca (crea un producto nuevo en
  * Alegra con la misma info base, pero código/precio/costo/imagen propios)
  */
-async function duplicarConMarca({ originalProductId, brandName, newCode, newPrice, newCost, imageUrl }) {
-  console.log(`📋 Duplicando producto ${originalProductId} para marca "${brandName}"...`);
+async function duplicarConMarca({ originalProductId, name, newCode, newPrice, newCost, imageUrl }) {
+  console.log(`📋 Duplicando producto ${originalProductId} como "${name}"...`);
 
   // 1. Obtener detalles del producto original de Alegra
   const originalProduct = await client.api.get(`/items/${originalProductId}`)
@@ -341,15 +341,27 @@ async function duplicarConMarca({ originalProductId, brandName, newCode, newPric
     newPriceArray.push({ price: newPriceVal.toString(), main: true });
   }
 
+  // Alegra espera que la referencia sea un objeto en POST /items, igual que en
+  // el PUT de editarProducto — mandarla como string plano hace que Alegra
+  // rechace la creación.
+  const originalRefType = originalProduct.reference?.type || 'CODE_OF_INTERNAL_USE';
+  // La unidad de medida vive en inventory.unit en la respuesta de Alegra, no
+  // en un campo `unit` de nivel superior (ese siempre viene undefined). Se
+  // manda en ambos lugares en el payload, igual que el flujo de creación
+  // "oficial" en alegra-product.service.js — Alegra la exige dentro de
+  // inventory para ítems inventariables.
+  const unitMedida = originalProduct.inventory?.unit || 'unit';
+
   const newProductData = {
-    name: `${originalProduct.name} - ${brandName}`,
-    reference: newCode.trim(),
+    name: name.trim(),
+    reference: { type: originalRefType, reference: newCode.trim() },
     description: originalProduct.description || '',
     itemCategory: originalProduct.itemCategory ? { id: originalProduct.itemCategory.id } : undefined,
     price: newPriceArray,
     tax: originalProduct.tax || [],
-    unit: originalProduct.unit || 'unit',
+    unit: unitMedida,
     inventory: {
+      unit: unitMedida,
       unitCost: newCostVal.toString(),
       initialQuantity: '0' // Iniciamos en 0 unidades
     },
@@ -357,10 +369,48 @@ async function duplicarConMarca({ originalProductId, brandName, newCode, newPric
     type: originalProduct.type || 'product'
   };
 
+  // Resto de campos que se heredan tal cual del producto original (todo
+  // menos imagen/nombre/referencia/cantidad, que son distintos a propósito
+  // en cada duplicado). Se agregan solo si el original los trae, para no
+  // mandarle a Alegra un campo vacío que no espera.
+
+  // Código CABYS (productKey): esta cuenta de Alegra lo exige por la
+  // facturación electrónica de Costa Rica (error 1093 "clave de producto
+  // requerida" si falta).
+  if (originalProduct.productKey) {
+    newProductData.productKey = originalProduct.productKey;
+  }
+
+  // Clave adicional (poco usada en esta cuenta, pero es el mismo tipo de
+  // dato que productKey — si el original la tiene, se hereda igual).
+  if (originalProduct.extraProductKey) {
+    newProductData.extraProductKey = originalProduct.extraProductKey;
+  }
+
+  // Escala de cálculo (decimales de precisión) — varía por producto según
+  // muestreo real (5 o 6), no es un valor fijo de cuenta.
+  if (originalProduct.calculationScale !== undefined && originalProduct.calculationScale !== null) {
+    newProductData.calculationScale = originalProduct.calculationScale;
+  }
+
+  // Campos personalizados configurados en Alegra para este ítem.
+  if (Array.isArray(originalProduct.customFields) && originalProduct.customFields.length > 0) {
+    newProductData.customFields = originalProduct.customFields;
+  }
+
   // 3. Crear el nuevo producto en Alegra
   console.log('➕ Creando producto duplicado en Alegra...');
-  const createResponse = await client.api.post('/items', newProductData);
-  const newProductAlegra = createResponse.data;
+  let newProductAlegra;
+  try {
+    const createResponse = await client.api.post('/items', newProductData);
+    newProductAlegra = createResponse.data;
+  } catch (error) {
+    // Ej: referencia duplicada — se propaga el mensaje real de Alegra en vez
+    // de un 500 genérico, mismo patrón que editarProducto.
+    const alegraMsg = error.response?.data?.message;
+    console.error('❌ Error creando producto duplicado en Alegra:', error.response?.data || error.message);
+    throw httpError(error.response?.status || 500, alegraMsg || 'No se pudo crear el producto duplicado en Alegra');
+  }
 
   console.log(`✅ Producto creado exitosamente en Alegra con ID: ${newProductAlegra.id}`);
 
@@ -384,7 +434,7 @@ async function duplicarConMarca({ originalProductId, brandName, newCode, newPric
     data: {
       alegraId: String(newProductAlegra.id),
       name: newProductAlegra.name,
-      reference: newProductAlegra.reference || '',
+      reference: newProductAlegra.reference?.reference || newProductAlegra.reference || '',
       description: newProductAlegra.description || '',
       category: categoryName,
       price: newPriceVal,
@@ -392,7 +442,7 @@ async function duplicarConMarca({ originalProductId, brandName, newCode, newPric
       status: 'active',
       type: newProductAlegra.type || 'product',
       imageUrl: finalImageUrl,
-      searchText: `${newProductAlegra.name} ${newProductAlegra.reference || ''} ${newProductAlegra.description || ''}`.toLowerCase()
+      searchText: `${newProductAlegra.name} ${newProductAlegra.reference?.reference || newProductAlegra.reference || ''} ${newProductAlegra.description || ''}`.toLowerCase()
     }
   });
 

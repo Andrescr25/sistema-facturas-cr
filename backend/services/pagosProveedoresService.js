@@ -1,5 +1,6 @@
 const { EstadoCuentaPorPagar } = require('@prisma/client');
 const prisma = require('../lib/prisma');
+const notasCreditoService = require('./notasCreditoService');
 
 class PagosProveedoresService {
   constructor() {
@@ -215,6 +216,18 @@ class PagosProveedoresService {
 
     const filtradas = this.aplicarFiltrosDias(enriquecidas, filtros);
     const data = this.prepararSalida(filtradas);
+
+    // El saldo que llega de la BD YA tiene los créditos restados (se aplican
+    // al recibir la nota, ver notasCreditoService). Esto es para poder
+    // EXPLICAR el número: sin mostrar la nota, una factura de ₡60.000 que
+    // aparece con saldo ₡30.000 se lee como un error.
+    const notasPorCuenta = await notasCreditoService.listarPorCuentas(data.map((c) => c.id));
+    for (const cuenta of data) {
+      const notas = notasPorCuenta.get(cuenta.id) || [];
+      cuenta.notasCredito = notas;
+      cuenta.creditoAplicado = notas.reduce((suma, n) => suma + n.monto, 0);
+    }
+
     const resumen = this.calcularResumen(data);
 
     return {
@@ -244,12 +257,19 @@ class PagosProveedoresService {
       ? EstadoCuentaPorPagar.VENCIDA
       : EstadoCuentaPorPagar.PENDIENTE;
 
+    // Liberar reinicia el saldo al monto total, así que hay que volver a
+    // descontar las notas de crédito que ya se habían aplicado — si no, una
+    // NC que llegó antes de liberar la factura se perdería y se terminaría
+    // pagando de más.
+    const credito = await notasCreditoService.totalAplicadoEnCuenta(cuenta.id);
+    const saldo = Math.max(0, Math.round((Number(cuenta.montoTotal) - credito) * 100) / 100);
+
     return this.prisma.cuentaPorPagar.update({
       where: { facturaId },
       data: {
         liberada: true,
-        estado,
-        saldoPendiente: cuenta.montoTotal
+        estado: saldo <= 0 ? EstadoCuentaPorPagar.PAGADA : estado,
+        saldoPendiente: saldo
       }
     });
   }

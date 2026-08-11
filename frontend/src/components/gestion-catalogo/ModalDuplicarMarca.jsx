@@ -7,7 +7,7 @@ import { X, RefreshCw, Loader2, ImageIcon, Check, Plus } from 'lucide-react'
  */
 export default function ModalDuplicarMarca({
   producto,
-  brandName,
+  newProductName,
   brandRef,
   setBrandRef,
   brandPrice,
@@ -19,7 +19,7 @@ export default function ModalDuplicarMarca({
   brandSuggestions,
   loadingBrandSuggestions,
   creatingDuplicate,
-  onBrandNameChange,
+  onNewProductNameChange,
   onBuscarSugerencias,
   onSubmit,
   onCerrar
@@ -53,48 +53,27 @@ export default function ModalDuplicarMarca({
             <h4 className="text-xs font-extrabold uppercase tracking-wide text-gray-400">Detalles de la nueva marca</h4>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600">Nombre del Producto Base:</label>
+              <label className="text-xs font-bold text-gray-700">Nombre del Producto (edítalo para agregar la marca):</label>
               <input
                 type="text"
-                disabled
-                value={producto.name}
-                className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-700">Nombre de la Marca (ej: Pepsi, Link, etc.):</label>
-              <input
-                type="text"
-                value={brandName}
-                onChange={onBrandNameChange}
-                placeholder="Escribe la marca comercial..."
+                value={newProductName}
+                onChange={onNewProductNameChange}
+                placeholder="Nombre del producto duplicado..."
                 required
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">Nuevo Nombre Generado:</label>
-                <input
-                  type="text"
-                  disabled
-                  value={brandName.trim() ? `${producto.name} - ${brandName.trim()}` : producto.name}
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-[11px] text-gray-500"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">Nueva Referencia (Código):</label>
-                <input
-                  type="text"
-                  value={brandRef}
-                  onChange={(e) => setBrandRef(e.target.value)}
-                  required
-                  placeholder="Código del producto..."
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-700">Nueva Referencia (Código):</label>
+              <input
+                type="text"
+                value={brandRef}
+                onChange={(e) => setBrandRef(e.target.value)}
+                required
+                placeholder="Código del producto..."
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -146,7 +125,7 @@ export default function ModalDuplicarMarca({
                 <button
                   type="button"
                   onClick={onBuscarSugerencias}
-                  disabled={loadingBrandSuggestions || !brandName.trim()}
+                  disabled={loadingBrandSuggestions || !newProductName.trim()}
                   className="px-3 py-1 bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50 active:scale-95 text-xs font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 disabled:opacity-50"
                 >
                   {loadingBrandSuggestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
@@ -164,7 +143,7 @@ export default function ModalDuplicarMarca({
                   <ImageIcon className="h-8 w-8 text-gray-300 mb-1" />
                   <span className="text-xs font-medium text-gray-500">Sin sugerencias cargadas</span>
                   <span className="text-[10px] text-gray-400 mt-0.5">
-                    Completa el nombre de la marca y haz clic en "Buscar Fotos"
+                    Escribe el nombre del producto y haz clic en "Buscar Fotos"
                   </span>
                 </div>
               ) : (

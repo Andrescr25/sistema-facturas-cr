@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getPagosProveedores, actualizarPagoProveedor, getProveedoresConCuentas } from '../services/pagosProveedoresService'
+import {
+  getPagosProveedores,
+  actualizarPagoProveedor,
+  getProveedoresConCuentas,
+  getSaldosAFavor,
+  aplicarNotaACuenta,
+  eliminarNotaCredito
+} from '../services/pagosProveedoresService'
+import { formatCurrency } from '../utils/pagosProveedoresUtils'
 import { useToast } from './useToast'
 
 export const defaultFilters = {
@@ -89,6 +97,73 @@ export function usePagosProveedores(initialFilters = {}) {
     }
   }, [filters, loadCuentas, showToast])
 
+  // --- Saldos a favor (notas de crédito sin aplicar) ---
+
+  const [saldosAFavor, setSaldosAFavor] = useState([])
+  const [totalAFavor, setTotalAFavor] = useState(0)
+  const [loadingFavor, setLoadingFavor] = useState(false)
+  const [eliminandoNota, setEliminandoNota] = useState(null)
+
+  const cargarSaldosAFavor = useCallback(async () => {
+    setLoadingFavor(true)
+    try {
+      const data = await getSaldosAFavor()
+      if (data.success) {
+        setSaldosAFavor(data.data || [])
+        setTotalAFavor(data.total || 0)
+      }
+    } catch (err) {
+      console.error('Error cargando saldos a favor:', err)
+    } finally {
+      setLoadingFavor(false)
+    }
+  }, [])
+
+  useEffect(() => { cargarSaldosAFavor() }, [cargarSaldosAFavor])
+
+  const handleAplicarNota = useCallback(async (nota, cuenta) => {
+    try {
+      const data = await aplicarNotaACuenta(nota.id, cuenta.id)
+      if (data.success) {
+        showToast(
+          `Aplicado ${formatCurrency(data.aplicado)} a ${data.facturaConsecutivo}` +
+          (data.quedaAFavor > 0 ? ` · quedan ${formatCurrency(data.quedaAFavor)} a favor` : ''),
+          'success'
+        )
+        await cargarSaldosAFavor()
+        await loadCuentas(filters)
+        return true
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error aplicando la nota de crédito', 'error')
+    }
+    return false
+  }, [cargarSaldosAFavor, loadCuentas, filters, showToast])
+
+  const handleEliminarNota = useCallback(async (nota) => {
+    setEliminandoNota(nota.id)
+    try {
+      const data = await eliminarNotaCredito(nota.id)
+      if (data.success) {
+        // Si ya se había descontado de alguna factura, el borrado devuelve ese
+        // saldo — hay que decirlo, o el monto de la factura "cambia solo".
+        const devuelto = (data.revertidas || []).reduce((s, r) => s + r.devuelto, 0)
+        showToast(
+          devuelto > 0
+            ? `Nota eliminada · se devolvieron ${formatCurrency(devuelto)} al saldo de la(s) factura(s)`
+            : 'Nota de crédito eliminada',
+          'success'
+        )
+        await cargarSaldosAFavor()
+        await loadCuentas(filters)
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error eliminando la nota de crédito', 'error')
+    } finally {
+      setEliminandoNota(null)
+    }
+  }, [cargarSaldosAFavor, loadCuentas, filters, showToast])
+
   return {
     cuentas,
     resumen,
@@ -100,8 +175,16 @@ export function usePagosProveedores(initialFilters = {}) {
     proveedoresDisponibles,
     actualizarEstado: handleActualizarEstado,
     procesandoId,
-    reload: () => loadCuentas(filters),
+    reload: () => { loadCuentas(filters); cargarSaldosAFavor() },
     toasts,
-    removeToast
+    removeToast,
+
+    saldosAFavor,
+    totalAFavor,
+    loadingFavor,
+    cargarSaldosAFavor,
+    handleAplicarNota,
+    handleEliminarNota,
+    eliminandoNota
   }
 }

@@ -25,6 +25,18 @@ async function setupDatabase() {
     console.log('🗑️ ELIMINANDO TODAS LAS TABLAS...');
 
     // Eliminar en orden correcto (por dependencias)
+    await client.query('DROP TABLE IF EXISTS costo_historico CASCADE');
+    await client.query('DROP TABLE IF EXISTS producto_rotacion CASCADE');
+    await client.query('DROP TABLE IF EXISTS config_precios CASCADE');
+    await client.query('DROP TABLE IF EXISTS precio_historico CASCADE');
+    await client.query('DROP TABLE IF EXISTS competencia_mapping CASCADE');
+    await client.query('DROP TABLE IF EXISTS precio_competencia CASCADE');
+    await client.query('DROP TABLE IF EXISTS competencia_rechazo CASCADE');
+    await client.query('DROP TABLE IF EXISTS pago_recurrente CASCADE');
+    await client.query('DROP TABLE IF EXISTS gasto_recurrente CASCADE');
+    await client.query('DROP TABLE IF EXISTS venta_historico CASCADE');
+    await client.query('DROP TABLE IF EXISTS abonos_cobro CASCADE');
+    await client.query('DROP TABLE IF EXISTS cuentas_por_cobrar CASCADE');
     await client.query('DROP TABLE IF EXISTS cuentas_por_pagar CASCADE');
     await client.query('DROP TABLE IF EXISTS rotacion_productos CASCADE');
     await client.query('DROP TABLE IF EXISTS orden_compra_temporal CASCADE');
@@ -220,6 +232,247 @@ async function setupDatabase() {
       )
     `);
 
+    // Crear tabla para cuentas por cobrar (espejo local de facturas de venta
+    // con saldo pendiente en Alegra — Alegra es la fuente de verdad, esto
+    // solo evita tener que recorrer /invoices en vivo en cada carga)
+    console.log('📋 Creando tabla cuentas_por_cobrar...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cuentas_por_cobrar (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          alegra_invoice_id VARCHAR(50) UNIQUE NOT NULL,
+          numero_factura VARCHAR(150) NOT NULL,
+          cliente_id VARCHAR(50) NOT NULL,
+          cliente_nombre VARCHAR(255) NOT NULL,
+          fecha_emision TIMESTAMP NOT NULL,
+          fecha_vencimiento TIMESTAMP NOT NULL,
+          total NUMERIC(14,2) NOT NULL,
+          total_pagado NUMERIC(14,2) NOT NULL,
+          saldo NUMERIC(14,2) NOT NULL,
+          condicion_venta VARCHAR(20),
+          plazo VARCHAR(50),
+          estado_alegra VARCHAR(20) NOT NULL,
+          synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Crear tabla para bitácora de abonos (NO es la fuente del saldo, eso es
+    // Alegra — es auditoría de quién/cuándo/cómo se cobró)
+    console.log('📋 Creando tabla abonos_cobro...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS abonos_cobro (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          alegra_invoice_id VARCHAR(50) NOT NULL,
+          alegra_payment_id VARCHAR(50),
+          cliente_id VARCHAR(50),
+          cliente_nombre VARCHAR(255) NOT NULL,
+          numero_factura VARCHAR(150) NOT NULL,
+          monto NUMERIC(14,2) NOT NULL,
+          fecha TIMESTAMP NOT NULL,
+          metodo_pago VARCHAR(30) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Crear tabla para el histórico de compras por cliente (Catálogo
+    // Público personalizado). Ledger crudo, histórico completo sin poda —
+    // a propósito separada de venta_items, que tiene ventana móvil de 120
+    // días para la detección de excesos.
+    console.log('📋 Creando tabla venta_historico...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS venta_historico (
+          id SERIAL PRIMARY KEY,
+          alegra_invoice_id INTEGER NOT NULL,
+          alegra_item_id VARCHAR(100) NOT NULL,
+          cliente_id VARCHAR(50) NOT NULL,
+          cliente_nombre VARCHAR(255),
+          cantidad NUMERIC(12,2) NOT NULL DEFAULT 0,
+          precio_unitario NUMERIC(12,2) DEFAULT 0,
+          fecha_emision DATE NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (alegra_invoice_id, alegra_item_id)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_venta_historico_cliente ON venta_historico(cliente_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_venta_historico_fecha ON venta_historico(fecha_emision)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_venta_historico_item ON venta_historico(alegra_item_id)');
+
+    // Crear tabla para la serie histórica de costo real por producto,
+    // derivada de productos_factura_proveedor (que ya tiene el dato pero
+    // solo como líneas de factura, no como serie consultable). El cache de
+    // Alegra (alegra_products_cache.cost) se pisa cada 6h y solo guarda el
+    // último valor — esta tabla es lo que permite calcular márgenes contra
+    // el costo vigente en la fecha real de cada venta.
+    console.log('📋 Creando tabla costo_historico...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS costo_historico (
+          id SERIAL PRIMARY KEY,
+          alegra_item_id VARCHAR(50) NOT NULL,
+          producto_factura_id UUID,
+          proveedor_cedula VARCHAR(50),
+          proveedor_nombre VARCHAR(255),
+          fecha DATE NOT NULL,
+          costo_unitario NUMERIC(14,4) NOT NULL,
+          factor_conversion NUMERIC(14,6) NOT NULL DEFAULT 1,
+          origen VARCHAR(30) NOT NULL DEFAULT 'factura_proveedor',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (producto_factura_id)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_costo_historico_item ON costo_historico(alegra_item_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_costo_historico_fecha ON costo_historico(fecha)');
+
+    // Crear tabla de clasificación ABC de rotación por producto (Alegra).
+    // A propósito NO es rotacion_productos (abajo): esa es de grano semanal
+    // atada a faltantes, con FK dura a la tabla legacy "productos" — no
+    // encaja con esto y sigue completamente muerta, sin tocar.
+    console.log('📋 Creando tabla producto_rotacion...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS producto_rotacion (
+          id SERIAL PRIMARY KEY,
+          alegra_item_id VARCHAR(50) UNIQUE NOT NULL,
+          unidades_mes NUMERIC(14,2) NOT NULL DEFAULT 0,
+          clientes_distintos INTEGER NOT NULL DEFAULT 0,
+          facturacion_12m NUMERIC(14,2) NOT NULL DEFAULT 0,
+          meses_sin_venta INTEGER,
+          clase CHAR(1) NOT NULL,
+          calculado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_producto_rotacion_clase ON producto_rotacion(clase)');
+
+    // Configuración del motor de precios: margen meta y margen mínimo por
+    // categoría, editable desde una pantalla — reemplaza el 20% que antes
+    // vivía hardcodeado en el frontend. La fila '__default__' cubre
+    // categorías sin config propia. Sembrado real en
+    // backend/migrations/add_precios_fase2.sql (NO se repite acá el INSERT
+    // para no pisar valores que el usuario ya haya editado desde la UI).
+    console.log('📋 Creando tabla config_precios...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS config_precios (
+          id SERIAL PRIMARY KEY,
+          categoria VARCHAR(255) UNIQUE NOT NULL,
+          margen_meta NUMERIC(5,2) NOT NULL,
+          margen_minimo NUMERIC(5,2) NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Bitácora de cada cambio de precio aplicado — antes no quedaba ningún
+    // registro de qué precio se aplicó, cuándo, ni con qué margen resultó.
+    console.log('📋 Creando tabla precio_historico...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS precio_historico (
+          id SERIAL PRIMARY KEY,
+          alegra_item_id VARCHAR(50) NOT NULL,
+          precio_anterior NUMERIC(14,2),
+          precio_nuevo NUMERIC(14,2) NOT NULL,
+          costo_al_momento NUMERIC(14,4),
+          margen_resultante NUMERIC(6,2),
+          origen VARCHAR(30) NOT NULL DEFAULT 'revision_precios',
+          factura_id UUID,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_precio_historico_item ON precio_historico(alegra_item_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_precio_historico_factura ON precio_historico(factura_id)');
+
+    // Precios de competencia (EPA, Walmart, Mas x Menos, carga manual) —
+    // mismo patrón que supplier_product_mapping + productos_factura_proveedor:
+    // competencia_mapping es el vínculo estable producto propio ↔ producto
+    // de la competencia; precio_competencia es la captura cruda de cada
+    // sincronización (append-only, queda histórico de precios en el tiempo).
+    console.log('📋 Creando tabla competencia_mapping...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS competencia_mapping (
+          id SERIAL PRIMARY KEY,
+          fuente VARCHAR(30) NOT NULL,
+          sku_externo VARCHAR(150) NOT NULL,
+          nombre_externo VARCHAR(500) NOT NULL,
+          alegra_item_id VARCHAR(50) NOT NULL,
+          confianza NUMERIC(5,2),
+          origen VARCHAR(20) NOT NULL DEFAULT 'automatico',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (fuente, sku_externo)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_competencia_mapping_item ON competencia_mapping(alegra_item_id)');
+
+    console.log('📋 Creando tabla precio_competencia...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS precio_competencia (
+          id SERIAL PRIMARY KEY,
+          fuente VARCHAR(30) NOT NULL,
+          sku_externo VARCHAR(150) NOT NULL,
+          nombre_externo VARCHAR(500) NOT NULL,
+          precio NUMERIC(14,2) NOT NULL,
+          -- Foto y ficha del producto de la competencia: emparejar por
+          -- nombre no alcanza para decidir "¿es el mismo producto?"
+          -- ("TOALLA P/ MANOS 180 MTS" vs "Porta toallas de manos" da score
+          -- alto y son cosas distintas). Vienen en la misma respuesta que
+          -- ya consultamos, sin petición extra.
+          imagen_url TEXT,
+          url_producto TEXT,
+          fecha_captura DATE NOT NULL DEFAULT CURRENT_DATE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (fuente, sku_externo, fecha_captura)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_precio_competencia_fuente_sku ON precio_competencia(fuente, sku_externo)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_precio_competencia_fecha ON precio_competencia(fecha_captura)');
+
+    // Recuerda qué sugerencias de emparejamiento de competencia se
+    // rechazaron a mano, para que no vuelvan a aparecer en "pendientes".
+    console.log('📋 Creando tabla competencia_rechazo...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS competencia_rechazo (
+          id SERIAL PRIMARY KEY,
+          fuente VARCHAR(30) NOT NULL,
+          sku_externo VARCHAR(150) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (fuente, sku_externo)
+      )
+    `);
+
+    // Pagos recurrentes: gastos fijos del negocio (luz, agua, internet,
+    // alquiler, insumos, planilla). La plantilla describe el gasto y
+    // pago_recurrente guarda una fila por período — es lo que permite ver
+    // cuánto sale cada mes y cómo viene variando cada servicio.
+    console.log('📋 Creando tabla gasto_recurrente...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS gasto_recurrente (
+          id SERIAL PRIMARY KEY,
+          nombre VARCHAR(200) NOT NULL,
+          categoria VARCHAR(50) NOT NULL DEFAULT 'servicios',
+          proveedor VARCHAR(200),
+          monto_estimado NUMERIC(12,2) NOT NULL DEFAULT 0,
+          frecuencia VARCHAR(20) NOT NULL DEFAULT 'mensual',
+          mes_referencia INTEGER,
+          dia_vencimiento INTEGER,
+          notas TEXT,
+          activo BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('📋 Creando tabla pago_recurrente...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pago_recurrente (
+          id SERIAL PRIMARY KEY,
+          gasto_id INTEGER NOT NULL REFERENCES gasto_recurrente(id) ON DELETE CASCADE,
+          periodo VARCHAR(10) NOT NULL,
+          monto NUMERIC(12,2) NOT NULL DEFAULT 0,
+          fecha_vencimiento DATE,
+          fecha_pago DATE,
+          estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+          metodo VARCHAR(50),
+          notas TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (gasto_id, periodo)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_periodo ON pago_recurrente(periodo)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_estado ON pago_recurrente(estado)');
+
     // Crear tabla para cantidades modificadas de órdenes de compra
     console.log('📋 Creando tabla orden_compra_temporal...');
     await client.query(`
@@ -357,6 +610,21 @@ async function setupDatabase() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_cuentas_por_pagar_vencimiento ON cuentas_por_pagar(fecha_vencimiento)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_cobrar_cliente ON cuentas_por_cobrar(cliente_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_cobrar_vencimiento ON cuentas_por_cobrar(fecha_vencimiento)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_cuentas_por_cobrar_saldo ON cuentas_por_cobrar(saldo)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_abonos_cobro_factura ON abonos_cobro(alegra_invoice_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_abonos_cobro_cliente ON abonos_cobro(cliente_id)
     `);
 
     // Insertar datos de ejemplo

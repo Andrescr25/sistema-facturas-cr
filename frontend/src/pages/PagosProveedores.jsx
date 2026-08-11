@@ -7,6 +7,8 @@ import FiltrosPagos from '../components/pagos-proveedores/FiltrosPagos'
 import CuentaCard from '../components/pagos-proveedores/CuentaCard'
 import SkeletonCuentaCard from '../components/pagos-proveedores/SkeletonCuentaCard'
 import ModalDetalleCuenta from '../components/pagos-proveedores/ModalDetalleCuenta'
+import SaldosAFavor from '../components/pagos-proveedores/SaldosAFavor'
+import ModalAplicarNota from '../components/pagos-proveedores/ModalAplicarNota'
 
 export default function PagosProveedores() {
   const {
@@ -22,10 +24,18 @@ export default function PagosProveedores() {
     procesandoId,
     reload,
     toasts,
-    removeToast
+    removeToast,
+    saldosAFavor,
+    totalAFavor,
+    loadingFavor,
+    cargarSaldosAFavor,
+    handleAplicarNota,
+    handleEliminarNota,
+    eliminandoNota
   } = usePagosProveedores()
 
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null)
+  const [notaAAplicar, setNotaAAplicar] = useState(null)
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -51,6 +61,16 @@ export default function PagosProveedores() {
       </div>
 
       <ResumenCards resumen={resumen} filters={filters} setFilters={setFilters} />
+
+      <SaldosAFavor
+        grupos={saldosAFavor}
+        total={totalAFavor}
+        loading={loadingFavor}
+        onRefrescar={cargarSaldosAFavor}
+        onAplicar={setNotaAAplicar}
+        onEliminar={handleEliminarNota}
+        eliminando={eliminandoNota}
+      />
 
       <FiltrosPagos
         filters={filters}
@@ -97,6 +117,17 @@ export default function PagosProveedores() {
           procesando={procesandoId === cuentaSeleccionada.id}
           onRegistrarPago={actualizarEstado}
           onCerrar={() => setCuentaSeleccionada(null)}
+        />
+      )}
+
+      {notaAAplicar && (
+        <ModalAplicarNota
+          nota={notaAAplicar}
+          onAplicar={async (nota, cuenta) => {
+            const ok = await handleAplicarNota(nota, cuenta)
+            if (ok) setNotaAAplicar(null)
+          }}
+          onCerrar={() => setNotaAAplicar(null)}
         />
       )}
     </div>

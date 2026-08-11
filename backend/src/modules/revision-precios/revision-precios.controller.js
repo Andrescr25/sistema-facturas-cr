@@ -139,6 +139,20 @@ async function getProductosBatch(req, res) {
 }
 
 /**
+ * GET /revision-precios/facturas/:facturaId/sugerencias-precio
+ */
+async function getSugerenciasPrecio(req, res) {
+  try {
+    const { facturaId } = req.params;
+    const result = await revisionPreciosService.obtenerSugerenciasPrecio(facturaId);
+    res.json({ success: true, sugerencias: result });
+  } catch (error) {
+    console.error('❌ Error obteniendo sugerencias de precio:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * POST /revision-precios/enviar-alegra
  */
 async function enviarAlegra(req, res) {
@@ -178,5 +192,6 @@ module.exports = {
   devolverFactura,
   getFacturasRelacionadas,
   getProductosBatch,
+  getSugerenciasPrecio,
   enviarAlegra
 };

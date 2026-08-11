@@ -124,10 +124,13 @@ const adminModule = require('./src/modules/admin');
 const revisionPreciosModule = require('./src/modules/revision-precios');
 const productosRevisionModule = require('./src/modules/productos-revision');
 const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
+const pagosRecurrentesModule = require('./src/modules/pagos-recurrentes');
 const proveedoresModule = require('./src/modules/proveedores');
 const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoPublicoModule = require('./src/modules/catalogo-publico');
+const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
+const rentabilidadModule = require('./src/modules/rentabilidad');
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
@@ -141,6 +144,9 @@ app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
+app.use('/api/pagos-recurrentes', pagosRecurrentesModule.routes);
+app.use('/api/cuentas-por-cobrar', cuentasPorCobrarModule.routes);
+app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-publico', catalogoPublicoModule.routes);
 
@@ -196,7 +202,11 @@ app.get('*', (req, res) => {
         '/api/proveedores/*',
         '/api/faltantes/*',
         '/api/reportes/*',
-        '/api/pagos-proveedores/*'
+        '/api/pagos-proveedores/*',
+        '/api/pagos-recurrentes/*',
+        '/api/cuentas-por-cobrar/*',
+        '/api/catalogo-publico/*',
+        '/api/rentabilidad/*'
       ]
     });
   }
@@ -217,6 +227,8 @@ app.get('*', (req, res) => {
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
 let productSyncInterval = null;
+let cuentasPorCobrarSyncInterval = null;
+let historialClientesSyncInterval = null;
 
 // Función para sincronizar productos de Alegra
 async function syncAlegraProducts() {
@@ -231,6 +243,31 @@ async function syncAlegraProducts() {
     console.log(`📅 Próxima sincronización en 6 horas\n`);
   } catch (error) {
     console.error('❌ Error sincronizando productos de Alegra:', error.message);
+  }
+}
+
+// Función para sincronizar el espejo local de cuentas por cobrar desde Alegra
+async function syncCuentasPorCobrar() {
+  try {
+    console.log('\n💰 Sincronizando cuentas por cobrar desde Alegra...');
+    const resultado = await cuentasPorCobrarModule.service.sincronizarDesdeAlegra();
+    console.log(`✅ Cuentas por cobrar sincronizadas: ${resultado.vigentes} vigentes, ${resultado.removidas} removidas\n`);
+  } catch (error) {
+    console.error('❌ Error sincronizando cuentas por cobrar:', error.message);
+  }
+}
+
+// Función para sincronizar el histórico de compras por cliente (catálogo
+// público personalizado). Incremental por diseño: solo el backfill inicial
+// (backend/scripts/backfill-historial-compras.js) recorre todo Alegra —
+// cada corrida siguiente parte de la última fecha ya guardada.
+async function syncHistorialClientes() {
+  try {
+    console.log('\n🛒 Sincronizando historial de compras por cliente...');
+    const resultado = await catalogoPublicoModule.service.sincronizarHistorialCompras({});
+    console.log(`✅ Historial de compras sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
+  } catch (error) {
+    console.error('❌ Error sincronizando historial de compras por cliente:', error.message);
   }
 }
 
@@ -292,6 +329,49 @@ const server = app.listen(PORT, () => {
     console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
   }
 
+  // Sincronizar cuentas por cobrar al iniciar
+  if (process.env.ENABLE_COBRAR_SYNC !== 'false') {
+    setTimeout(() => {
+      syncCuentasPorCobrar();
+    }, 8000);
+
+    // Cada 30 minutos — el volumen es bajo (facturas a crédito desde el
+    // cierre de cartera) así que no hace falta el intervalo de 6h de productos
+    cuentasPorCobrarSyncInterval = setInterval(() => {
+      syncCuentasPorCobrar();
+    }, 30 * 60 * 1000);
+
+    console.log('\n💰 Sincronización de Cuentas por Cobrar activada');
+    console.log('   - Sincronización inicial: En 8 segundos');
+    console.log('   - Sincronización periódica: Cada 30 minutos');
+    console.log('   - Para desactivar: ENABLE_COBRAR_SYNC=false en .env\n');
+  } else {
+    console.log('\n⚠️ Sincronización de Cuentas por Cobrar desactivada');
+    console.log('   Establece ENABLE_COBRAR_SYNC=true en .env para activarla\n');
+  }
+
+  // Sincronizar historial de compras por cliente (catálogo público)
+  if (process.env.ENABLE_HISTORIAL_SYNC !== 'false') {
+    setTimeout(() => {
+      syncHistorialClientes();
+    }, 12000);
+
+    // Diaria — a diferencia de cuentas por cobrar, esto no necesita reflejar
+    // cambios en minutos: el agente sincroniza la tablet una vez y sale a
+    // campo, así que alcanza con que el histórico esté al día una vez al día.
+    historialClientesSyncInterval = setInterval(() => {
+      syncHistorialClientes();
+    }, 24 * 60 * 60 * 1000);
+
+    console.log('\n🛒 Sincronización de historial de compras por cliente activada');
+    console.log('   - Sincronización inicial: En 12 segundos');
+    console.log('   - Sincronización periódica: Cada 24 horas');
+    console.log('   - Para desactivar: ENABLE_HISTORIAL_SYNC=false en .env\n');
+  } else {
+    console.log('\n⚠️ Sincronización de historial de compras por cliente desactivada');
+    console.log('   Establece ENABLE_HISTORIAL_SYNC=true en .env para activarla\n');
+  }
+
 });
 
 // Manejo de cierre graceful
@@ -302,6 +382,18 @@ const gracefulShutdown = async (signal) => {
   if (productSyncInterval) {
     console.log('📦 Deteniendo sincronización de productos...');
     clearInterval(productSyncInterval);
+  }
+
+  // Detener sincronización de cuentas por cobrar
+  if (cuentasPorCobrarSyncInterval) {
+    console.log('💰 Deteniendo sincronización de cuentas por cobrar...');
+    clearInterval(cuentasPorCobrarSyncInterval);
+  }
+
+  // Detener sincronización de historial de compras por cliente
+  if (historialClientesSyncInterval) {
+    console.log('🛒 Deteniendo sincronización de historial de compras...');
+    clearInterval(historialClientesSyncInterval);
   }
 
   // Detener monitoreo de emails

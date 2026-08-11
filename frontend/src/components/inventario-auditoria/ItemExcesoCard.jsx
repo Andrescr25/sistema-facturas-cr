@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Loader2, Undo2, ImageIcon } from 'lucide-react'
+import { Check, Loader2, Undo2, ImageIcon, Trash2 } from 'lucide-react'
 import { formatCurrency, clasificarItemConteo } from '../../utils/inventarioAuditoriaUtils'
 
 // Mismos colores/lenguaje visual que ItemAuditoriaCard.jsx (hoja de conteo de
@@ -36,7 +36,7 @@ const ESTADO_CONFIG = {
  * auditorías normales). Un solo click siempre: no hay borrador/guardado por
  * separado como en la hoja de conteo normal, porque empacar debe ser rápido.
  */
-export default function ItemExcesoCard({ item, onActualizar, onVerImagen }) {
+export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onEliminar }) {
   const [cantidad, setCantidad] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -145,6 +145,20 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen }) {
             {formatCurrency(diffCost)}
           </span>
         ) : null}
+        {/* Solo mientras está pendiente: una vez empacado y ajustado en
+            Alegra, quitarlo dejaría ese movimiento de inventario sin rastro
+            de por qué se hizo (el backend lo rechaza igual). */}
+        {onEliminar && (
+          <button
+            type="button"
+            onClick={() => onEliminar(item.id)}
+            aria-label={`Quitar ${item.nombre_producto} de la tanda`}
+            title="Quitar de la tanda"
+            className="ml-auto p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
       <p className="text-xs text-gray-400">
         Ref: {item.referencia || 'N/A'} • {item.category || 'Sin categoría'} • Costo: {formatCurrency(item.costo_unitario)}

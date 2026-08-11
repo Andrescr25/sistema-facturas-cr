@@ -5,9 +5,13 @@
  */
 
 const prisma = require('../../../lib/prisma');
+const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
-const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { calcularCostoUnitarioPropio } = require('../precios/costo');
+const { calcularPrecioSugerido } = require('../precios/motor');
+const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
 
 const productService = getProductService();
 const contactService = getContactService();
@@ -405,6 +409,67 @@ async function getFacturasRelacionadas() {
 }
 
 /**
+ * Precio sugerido por línea de factura — Fase 2 del motor de precios.
+ * Reemplaza el `costo / 0.80` fijo que vivía en el frontend
+ * (revisionPreciosUtils.js) por un margen meta real: el medido por
+ * categoría (config_precios), ajustado por rotación y exclusividad del
+ * producto (producto_rotacion), con un piso de seguridad del que nunca
+ * baja. Se calcula por LÍNEA de factura (no por producto en abstracto)
+ * porque el costo real de esta compra específica —con su descuento, su IVA
+ * real y su factor de conversión— es lo único de lo que hay certeza al
+ * momento de revisar precios; el costo cacheado de Alegra puede estar
+ * desactualizado o venir de otro proveedor.
+ *
+ * @returns {Promise<Record<string, {precioSugerido:number, margenObjetivo:number, margenResultante:number, categoria:string, claseRotacion:string|null}>>}
+ *          keyed por ProductoFactura.id — vacío para líneas sin costo
+ *          calculable (no tiene sentido sugerir nada sin costo confiable).
+ */
+async function obtenerSugerenciasPrecio(facturaId) {
+  const factura = await prisma.factura.findUnique({
+    where: { id: facturaId },
+    include: { productos: { include: { mapeo: true } } }
+  });
+  if (!factura) throw httpError(404, 'Factura no encontrada');
+
+  const alegraIds = [...new Set(factura.productos.map(p => p.alegraItemId).filter(Boolean))];
+  if (alegraIds.length === 0) return {};
+
+  const [categorias, rotaciones, configPrecios] = await Promise.all([
+    query('SELECT alegra_id, category FROM alegra_products_cache WHERE alegra_id = ANY($1::text[])', [alegraIds]),
+    query('SELECT alegra_item_id, clase, clientes_distintos FROM producto_rotacion WHERE alegra_item_id = ANY($1::text[])', [alegraIds]),
+    obtenerConfigPrecios()
+  ]);
+
+  const categoriaPorItem = new Map(categorias.rows.map(r => [r.alegra_id, r.category || '']));
+  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, { clase: r.clase, clientesDistintos: Number(r.clientes_distintos) }]));
+
+  const sugerencias = {};
+  for (const producto of factura.productos) {
+    if (!producto.alegraItemId) continue;
+
+    const { costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(producto, producto.mapeo?.factorConversion);
+    const costoSinIva = costoSinIvaConDescuento / factor;
+
+    const categoria = categoriaPorItem.get(producto.alegraItemId) || '';
+    const rotacion = rotacionPorItem.get(producto.alegraItemId) || { clase: null, clientesDistintos: null };
+    const { margenMeta, margenMinimo } = resolverConfig(configPrecios, categoria);
+
+    const resultado = calcularPrecioSugerido({
+      costoSinIva,
+      margenMetaCategoria: margenMeta,
+      margenMinimoCategoria: margenMinimo,
+      claseRotacion: rotacion.clase,
+      clientesDistintos: rotacion.clientesDistintos
+    });
+    if (!resultado) continue;
+
+    sugerencias[producto.id] = { ...resultado, categoria: categoria || '(sin categoría)', claseRotacion: rotacion.clase };
+  }
+
+  return sugerencias;
+}
+
+/**
  * Obtener datos de productos en Alegra (batch) para comparación de precios
  */
 async function getProductosBatch(alegraIds) {
@@ -530,26 +595,13 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       const alegraId = producto.alegraItemId;
       if (!alegraId) return { success: false, precioAjustado: false };
 
-      // El costo nuevo considerando descuentos
-      // En XML de Costa Rica, precioUnitario es SIN IVA
-      const precioUnitarioSinIva = parseFloat(producto.precioUnitario) || 0;
-
-      // Calcular el porcentaje de descuento
-      const montoTotalSinDescuento = precioUnitarioSinIva * producto.cantidad;
-      const descuentoPorcentaje = montoTotalSinDescuento > 0
-        ? ((producto.descuento || 0) / montoTotalSinDescuento) * 100
-        : 0;
-
-      // Costo = precioUnitario SIN IVA con descuento aplicado, más el IVA real de la línea
-      const costoSinIvaConDescuento = precioUnitarioSinIva * (1 - descuentoPorcentaje / 100);
-      const porcentajeIva = calcularPorcentajeIva({ impuesto: producto.impuesto, totalLinea: producto.totalLinea });
-      const costoNuevo = costoSinIvaConDescuento * (1 + porcentajeIva / 100);
-
-      // Igual que en construirItemsFactura: costoNuevo está en "unidades del
-      // proveedor", hay que llevarlo a "unidades propias" antes de guardarlo
-      // en Alegra. Mismo patrón que backend/services/proveedorAsignacionService.js.
-      const factor = parseFloat(producto.mapeo?.factorConversion) || 1;
-      const costoNuevoNegocio = costoNuevo / factor;
+      // Costo real por unidad propia — ver backend/src/modules/precios/costo.js
+      // (fórmula única, antes duplicada acá y en otros 2 módulos).
+      const { costoUnitario: costoNuevoNegocio, costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(
+        producto,
+        producto.mapeo?.factorConversion
+      );
+      const costoSinIvaPropio = costoSinIvaConDescuento / factor;
 
       // OJO: a diferencia de "price" (que Alegra sí acepta como número suelto),
       // "cost" tiene que ir anidado en inventory.unitCost — confirmado en vivo
@@ -563,10 +615,12 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       };
 
       let precioAjustado = false;
+      let precioNuevo = null;
 
       // Si el usuario ajustó el precio, incluirlo
       if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
-        updateData.price = parseFloat(preciosAjustados[producto.id]);
+        precioNuevo = parseFloat(preciosAjustados[producto.id]);
+        updateData.price = precioNuevo;
         precioAjustado = true;
         console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
       }
@@ -574,6 +628,22 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       const actualizacion = await productService.updateProduct(alegraId, updateData);
       if (!actualizacion.success) {
         throw new Error(actualizacion.error || `Error actualizando producto ${alegraId} en Alegra`);
+      }
+
+      // Bitácora del cambio de precio — antes no quedaba ningún registro de
+      // qué precio se aplicó, con qué costo, ni con qué margen resultó.
+      if (precioAjustado) {
+        const margenResultante = precioNuevo > 0 ? ((precioNuevo - costoSinIvaPropio) / precioNuevo) * 100 : null;
+        try {
+          await query(`
+            INSERT INTO precio_historico (alegra_item_id, precio_nuevo, costo_al_momento, margen_resultante, origen, factura_id)
+            VALUES ($1, $2, $3, $4, 'revision_precios', $5)
+          `, [alegraId, precioNuevo, costoSinIvaPropio, margenResultante !== null ? Math.round(margenResultante * 100) / 100 : null, facturaId]);
+        } catch (historicoError) {
+          // No debe tumbar el envío por un fallo de bitácora — el precio ya
+          // se aplicó en Alegra, que es la fuente de verdad.
+          console.warn(`⚠️ No se pudo registrar precio_historico para ${producto.descripcion}:`, historicoError.message);
+        }
       }
 
       console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevoNegocio.toFixed(2)}`);
@@ -591,35 +661,41 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
 
   console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
 
-  // PASO 3: Marcar factura como ENVIADA
-  await prisma.factura.update({
-    where: { id: facturaId },
-    data: {
-      estado: 'ENVIADA'
-      // Nota: alegraFacturaId no está en el schema, se registra en logs
-    }
-  });
-
-  try {
-    const cuentaLiberada = await pagosProveedoresService.liberarCuentaPorFactura(facturaId);
-    if (cuentaLiberada) {
-      console.log(`💳 Cuenta por pagar liberada para factura ${factura.numeroConsecutivo}`);
-    }
-  } catch (liberarError) {
-    console.warn('⚠️ No se pudo liberar la cuenta por pagar:', liberarError.message);
-  }
-
+  // PASO 3: Marcar ENVIADA solo si la factura de compra realmente se creó en
+  // Alegra. Antes se marcaba ENVIADA siempre, aunque el paso 1 hubiera
+  // fallado — la factura quedaba "completada" en el sistema sin existir en
+  // Alegra, sin forma de saberlo salvo revisando los logs. Al no avanzar el
+  // estado, sigue apareciendo en "facturas relacionadas" y el usuario puede
+  // reintentar (los costos/precios que sí se aplicaron son idempotentes —
+  // un PUT repetido no duplica nada).
   if (alegraFacturaId) {
+    await prisma.factura.update({
+      where: { id: facturaId },
+      data: { estado: 'ENVIADA' }
+      // Nota: alegraFacturaId no está en el schema, se registra en logs
+    });
+
+    try {
+      const cuentaLiberada = await pagosProveedoresService.liberarCuentaPorFactura(facturaId);
+      if (cuentaLiberada) {
+        console.log(`💳 Cuenta por pagar liberada para factura ${factura.numeroConsecutivo}`);
+      }
+    } catch (liberarError) {
+      console.warn('⚠️ No se pudo liberar la cuenta por pagar:', liberarError.message);
+    }
+
     console.log(`📝 Factura enviada a Alegra con ID: ${alegraFacturaId}`);
+  } else {
+    console.warn(`⚠️ Factura ${factura.numeroConsecutivo} NO se creó en Alegra — costos/precios sí se actualizaron, pero el estado se queda sin avanzar para que se pueda reintentar.`);
   }
 
-  console.log(`✅ Factura ${factura.numeroConsecutivo} procesada exitosamente`);
+  console.log(`✅ Factura ${factura.numeroConsecutivo} procesada`);
 
   let mensaje = 'Factura procesada exitosamente';
   if (alegraFacturaId) {
     mensaje = `Factura creada en Alegra (ID: ${alegraFacturaId})`;
   } else {
-    mensaje = 'Costos y precios actualizados (factura no creada en Alegra por falta de permisos)';
+    mensaje = 'Costos y precios actualizados, pero la factura de compra NO se creó en Alegra — queda pendiente para reintentar.';
   }
 
   return {
@@ -646,6 +722,7 @@ module.exports = {
   devolverFactura,
   getFacturasRelacionadas,
   getProductosBatch,
+  obtenerSugerenciasPrecio,
   enviarFacturaAlegra,
   // Funciones puras exportadas para tests
   construirItemsFactura,

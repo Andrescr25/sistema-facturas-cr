@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, X, Loader2, Info } from 'lucide-react'
 
-export default function HeaderCatalogo({ searchQuery, setSearchQuery, isSyncing, lastSync, isOnline, synchronize }) {
+const LONG_PRESS_MS = 2000 // debe coincidir con la duración de la animación en catalogoPublico.css (catalogo-publico-fill-progress)
+
+export default function HeaderCatalogo({ searchQuery, setSearchQuery, isSyncing, lastSync, isOnline, synchronize, onAbrirSelectorCliente }) {
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
 
@@ -29,7 +31,7 @@ export default function HeaderCatalogo({ searchQuery, setSearchQuery, isSyncing,
     pressTimer.current = setTimeout(() => {
       setIsPressing(false)
       synchronize()
-    }, 3000)
+    }, LONG_PRESS_MS)
   }
 
   const handlePointerUpOrLeave = () => {
@@ -43,6 +45,34 @@ export default function HeaderCatalogo({ searchQuery, setSearchQuery, isSyncing,
   useEffect(() => {
     return () => {
       if (pressTimer.current) clearTimeout(pressTimer.current)
+    }
+  }, [])
+
+  // Gesto oculto: long-press en el logo abre el selector de cliente.
+  // Timer independiente del de "Actualizar Catálogo" — no comparten useRef
+  // porque pueden solaparse (dos dedos, o soltar uno y presionar el otro).
+  const [isPressingLogo, setIsPressingLogo] = useState(false)
+  const logoPressTimer = useRef(null)
+
+  const handleLogoPointerDown = () => {
+    setIsPressingLogo(true)
+    logoPressTimer.current = setTimeout(() => {
+      setIsPressingLogo(false)
+      onAbrirSelectorCliente?.()
+    }, LONG_PRESS_MS)
+  }
+
+  const handleLogoPointerUpOrLeave = () => {
+    if (logoPressTimer.current) {
+      clearTimeout(logoPressTimer.current)
+      logoPressTimer.current = null
+    }
+    setIsPressingLogo(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (logoPressTimer.current) clearTimeout(logoPressTimer.current)
     }
   }, [])
 
@@ -62,8 +92,24 @@ export default function HeaderCatalogo({ searchQuery, setSearchQuery, isSyncing,
   return (
     <header className={`app-header header ${isVisible ? '' : 'header-hidden'}`}>
       <div className="header-top">
-        <div className="logo-section">
-          <img src="/catalogo-publico-logo.png" alt="Logo" className="company-logo" />
+        <div
+          className={`logo-press-wrapper ${isPressingLogo ? 'pressing' : ''}`}
+          onPointerDown={handleLogoPointerDown}
+          onPointerUp={handleLogoPointerUpOrLeave}
+          onPointerLeave={handleLogoPointerUpOrLeave}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <img
+            src="/catalogo-publico-logo.png"
+            alt="Logo"
+            className="company-logo"
+            draggable={false}
+          />
+          {isPressingLogo && (
+            <div className="logo-press-progress">
+              <div className="logo-press-progress-fill" />
+            </div>
+          )}
         </div>
         <div className="header-actions">
           <button

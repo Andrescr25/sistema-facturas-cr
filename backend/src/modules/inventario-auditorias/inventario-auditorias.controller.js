@@ -243,7 +243,9 @@ async function eliminarItemDevolucion(req, res) {
   const { id, itemId } = req.params;
   try {
     await inventarioAuditoriasService.eliminarItemDevolucion(id, itemId);
-    res.json({ success: true, message: 'Producto eliminado de la devolución.' });
+    // Genérico a propósito: esta misma ruta la usan devoluciones y tandas
+    // de excesos (ver eliminarItemDevolucion en el service).
+    res.json({ success: true, message: 'Producto eliminado.' });
   } catch (error) {
     if (error.status) {
       return res.status(error.status).json({ success: false, message: error.message });
@@ -306,6 +308,93 @@ async function listarRegalos(req, res) {
   }
 }
 
+// ==================== Control manual de excesos ====================
+
+/**
+ * POST /inventario-auditorias/excesos — tanda vacía para armarla a mano.
+ */
+async function crearExcesoManual(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.crearExcesoManual();
+    res.json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error creando tanda de excesos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * DELETE /inventario-auditorias/:id — elimina una tanda de excesos completa.
+ */
+async function eliminarAuditoria(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.eliminarAuditoria(req.params.id);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error eliminando tanda de excesos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * POST /inventario-auditorias/:id/items-exceso — agrega a mano un producto
+ * a una tanda de excesos.
+ */
+async function agregarItemExceso(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.agregarItemExceso(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error agregando producto a la tanda de excesos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /inventario-auditorias/descuentos
+ */
+async function listarDescuentosExceso(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.listarDescuentosExceso();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error listando descuentos por exceso:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * POST /inventario-auditorias/descuentos — pone o corrige a mano el
+ * descuento de un producto.
+ */
+async function guardarDescuentoExceso(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.guardarDescuentoExceso(req.body);
+    res.json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error guardando descuento por exceso:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * DELETE /inventario-auditorias/descuentos/:alegraItemId
+ */
+async function eliminarDescuentoExceso(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.eliminarDescuentoExceso(req.params.alegraItemId);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error eliminando descuento por exceso:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   listarAuditorias,
   listarCategorias,
@@ -322,5 +411,11 @@ module.exports = {
   eliminarItemDevolucion,
   generarExcesos,
   actualizarItemExceso,
-  listarRegalos
+  listarRegalos,
+  crearExcesoManual,
+  eliminarAuditoria,
+  agregarItemExceso,
+  listarDescuentosExceso,
+  guardarDescuentoExceso,
+  eliminarDescuentoExceso
 };

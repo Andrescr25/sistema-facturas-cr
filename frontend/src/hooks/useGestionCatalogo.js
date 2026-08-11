@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
-import { generarReferenciaMarca } from '../utils/gestionCatalogoUtils'
 import { conMiniaturasProxeadas } from '../utils/imagenSugeridaUtils'
 
 const LIMIT = 24 // Grilla de 4x6
@@ -41,7 +40,7 @@ export function useGestionCatalogo() {
   const [assigningImage, setAssigningImage] = useState(false)
 
   // Duplication Modal States
-  const [brandName, setBrandName] = useState('')
+  const [newProductName, setNewProductName] = useState('')
   const [brandRef, setBrandRef] = useState('')
   const [brandPrice, setBrandPrice] = useState(0)
   const [brandCost, setBrandCost] = useState(0)
@@ -225,7 +224,7 @@ export function useGestionCatalogo() {
   // --- BRAND DUPLICATION ACTION ---
   const openBrandDuplication = (product) => {
     setSelectedProduct(product)
-    setBrandName('')
+    setNewProductName(product.name)
     setBrandRef(`${product.reference || 'REF'}-`)
     setBrandPrice(product.price || 0)
     setBrandCost(product.cost || 0)
@@ -234,41 +233,37 @@ export function useGestionCatalogo() {
     setIsBrandModalOpen(true)
   }
 
-  // Fetch brand image suggestions dynamically based on product name + brand
+  // Fetch image suggestions using the (already edited) product name as query
   const handleBrandSearchSuggestions = async () => {
-    if (!brandName.trim()) {
-      showToast('info', 'Escribe el nombre de la marca primero para buscar sugerencias.')
+    if (!newProductName.trim()) {
+      showToast('info', 'Escribe el nombre del producto primero para buscar sugerencias.')
       return
     }
     setLoadingBrandSuggestions(true)
     setBrandSuggestions([])
-    const searchQueryStr = `${selectedProduct.name} ${brandName.trim()}`
     try {
       const response = await api.get('/alegra/catalog/search-images', {
-        params: { q: searchQueryStr }
+        params: { q: newProductName.trim() }
       })
       if (response.data?.success) {
         setBrandSuggestions(conMiniaturasProxeadas(response.data.images))
       }
     } catch (error) {
       console.error('Error searching brand images:', error)
-      showToast('error', 'No se pudieron buscar sugerencias para la marca')
+      showToast('error', 'No se pudieron buscar sugerencias de imagen')
     } finally {
       setLoadingBrandSuggestions(false)
     }
   }
 
-  // Update proposed reference automatically when typing brand
-  const handleBrandNameChange = (e) => {
-    const val = e.target.value
-    setBrandName(val)
-    setBrandRef(generarReferenciaMarca(val, selectedProduct.reference))
+  const handleNewProductNameChange = (e) => {
+    setNewProductName(e.target.value)
   }
 
   const handleDuplicateBrand = async (e) => {
     e.preventDefault()
-    if (!brandName.trim()) {
-      showToast('error', 'El nombre de la marca es obligatorio')
+    if (!newProductName.trim()) {
+      showToast('error', 'El nombre del producto es obligatorio')
       return
     }
     if (!brandRef.trim()) {
@@ -280,7 +275,7 @@ export function useGestionCatalogo() {
     try {
       const response = await api.post('/alegra/catalog/duplicate-brand', {
         originalProductId: selectedProduct.alegraId,
-        brandName: brandName.trim(),
+        name: newProductName.trim(),
         newCode: brandRef.trim(),
         newPrice: brandPrice,
         newCost: brandCost,
@@ -288,7 +283,7 @@ export function useGestionCatalogo() {
       })
 
       if (response.data?.success) {
-        showToast('success', `Producto duplicado para la marca ${brandName} creado exitosamente.`)
+        showToast('success', `"${newProductName.trim()}" creado exitosamente.`)
         setIsBrandModalOpen(false)
         fetchProducts() // Refresh list to show newly created item
       }
@@ -444,7 +439,7 @@ export function useGestionCatalogo() {
     handleAssignImage,
     handleSubirArchivoImagen,
 
-    brandName,
+    newProductName,
     brandRef,
     setBrandRef,
     brandPrice,
@@ -458,7 +453,7 @@ export function useGestionCatalogo() {
     creatingDuplicate,
     openBrandDuplication,
     handleBrandSearchSuggestions,
-    handleBrandNameChange,
+    handleNewProductNameChange,
     handleDuplicateBrand,
 
     editName,

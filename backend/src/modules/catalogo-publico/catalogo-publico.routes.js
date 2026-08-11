@@ -10,5 +10,7 @@ const catalogoPublicoController = require('./catalogo-publico.controller');
 router.get('/productos', catalogoPublicoController.listarProductos);
 router.get('/categorias', catalogoPublicoController.listarCategorias);
 router.get('/ofertas', catalogoPublicoController.listarOfertas);
+router.get('/historial-clientes', catalogoPublicoController.obtenerHistorialClientes);
+router.post('/historial-clientes/sync', catalogoPublicoController.sincronizarHistorialClientes);
 
 module.exports = router;

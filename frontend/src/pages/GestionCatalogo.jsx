@@ -40,7 +40,7 @@ export default function GestionCatalogo() {
     handleAssignImage,
     handleSubirArchivoImagen,
 
-    brandName,
+    newProductName,
     brandRef,
     setBrandRef,
     brandPrice,
@@ -54,7 +54,7 @@ export default function GestionCatalogo() {
     creatingDuplicate,
     openBrandDuplication,
     handleBrandSearchSuggestions,
-    handleBrandNameChange,
+    handleNewProductNameChange,
     handleDuplicateBrand,
 
     editName,
@@ -180,7 +180,7 @@ export default function GestionCatalogo() {
       {isBrandModalOpen && selectedProduct && (
         <ModalDuplicarMarca
           producto={selectedProduct}
-          brandName={brandName}
+          newProductName={newProductName}
           brandRef={brandRef}
           setBrandRef={setBrandRef}
           brandPrice={brandPrice}
@@ -192,7 +192,7 @@ export default function GestionCatalogo() {
           brandSuggestions={brandSuggestions}
           loadingBrandSuggestions={loadingBrandSuggestions}
           creatingDuplicate={creatingDuplicate}
-          onBrandNameChange={handleBrandNameChange}
+          onNewProductNameChange={handleNewProductNameChange}
           onBuscarSugerencias={handleBrandSearchSuggestions}
           onSubmit={handleDuplicateBrand}
           onCerrar={() => setIsBrandModalOpen(false)}

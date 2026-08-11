@@ -10,8 +10,9 @@ export function redondearPrecio(precio) {
   return Math.round(precio / 5) * 5
 }
 
-export function analizarProducto(producto, { productosAlegra, preciosAjustados }) {
+export function analizarProducto(producto, { productosAlegra, preciosAjustados, sugerenciasPrecio = {} }) {
   const alegraData = productosAlegra[producto.alegraItemId] || {}
+  const sugerencia = sugerenciasPrecio[producto.id] || null
 
   // Usar el porcentaje de IVA real del producto (viene del backend)
   const IVA_PORCENTAJE = alegraData.taxPercentage || 13 // Default 13% si no viene
@@ -57,9 +58,17 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados }
     ? ((costoNuevoConIva - costoAnterior) / costoAnterior) * 100
     : 0
 
-  // Precio sugerido (margen 20% sobre precio SIN IVA)
-  const precioSugeridoSinIva = costoNuevoSinIva > 0 ? costoNuevoSinIva / 0.80 : 0
-  const precioSugeridoConIva = precioSugeridoSinIva * (1 + IVA_PORCENTAJE / 100)
+  // Precio sugerido: viene del motor de precios del backend (margen real
+  // medido por categoría, ajustado por rotación/exclusividad — ver
+  // backend/src/modules/precios/motor.js), no un 20% fijo. Sin sugerencia
+  // del backend (todavía cargando, o sin costo/categoría confiable) no se
+  // inventa un número acá — se deja en null y el componente no muestra el
+  // banner, en vez de mostrar un "recomendado" que no es real.
+  const precioSugeridoSinIva = sugerencia?.precioSugerido ?? null
+  const precioSugeridoConIva = precioSugeridoSinIva !== null ? precioSugeridoSinIva * (1 + IVA_PORCENTAJE / 100) : null
+  const margenObjetivo = sugerencia?.margenObjetivo ?? null
+  const categoriaProducto = sugerencia?.categoria ?? null
+  const claseRotacion = sugerencia?.claseRotacion ?? null
 
   const alertas = []
   if (cambioCosto > 30) {
@@ -71,12 +80,16 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados }
   if (margenNuevo < 15 && margenNuevo > 0) {
     alertas.push({
       tipo: 'danger',
-      mensaje: `Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido 20%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
+      mensaje: precioSugeridoSinIva !== null
+        ? `Margen muy bajo: ${Math.round(margenNuevo)}% (sugerido ${margenObjetivo}%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
+        : `Margen muy bajo: ${Math.round(margenNuevo)}%`
     })
   } else if (margenNuevo >= 15 && margenNuevo < 20 && margenNuevo > 0) {
     alertas.push({
       tipo: 'warning',
-      mensaje: `Margen ajustado: ${Math.round(margenNuevo)}% (recomendado 20%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
+      mensaje: precioSugeridoSinIva !== null
+        ? `Margen ajustado: ${Math.round(margenNuevo)}% (recomendado ${margenObjetivo}%: ₡${Math.round(precioSugeridoSinIva)} sin IVA)`
+        : `Margen ajustado: ${Math.round(margenNuevo)}%`
     })
   }
 
@@ -98,9 +111,12 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados }
     precioAjustadoSinIva,
     precioAjustadoConIva,
 
-    // Precio sugerido
+    // Precio sugerido (motor de precios del backend)
     precioSugeridoSinIva,
     precioSugeridoConIva,
+    margenObjetivo,
+    categoriaProducto,
+    claseRotacion,
 
     // Márgenes y cambios
     margenActual,

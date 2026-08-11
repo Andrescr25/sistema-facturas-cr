@@ -23,6 +23,7 @@ export function useRevisionPrecios() {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [productos, setProductos] = useState([])
   const [productosAlegra, setProductosAlegra] = useState({})
+  const [sugerenciasPrecio, setSugerenciasPrecio] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -119,6 +120,7 @@ export function useRevisionPrecios() {
       setFacturaSeleccionada(factura)
       setProductos(factura.productos)
       setPreciosAjustados({})
+      setSugerenciasPrecio({})
 
       // Obtener datos de Alegra para comparación
       const alegraIds = factura.productos
@@ -135,6 +137,18 @@ export function useRevisionPrecios() {
         }
       }
 
+      // Precio sugerido real del motor de precios (margen medido por
+      // categoría + ajuste de rotación/exclusividad) — un fallo acá no debe
+      // bloquear la revisión, simplemente no se muestra sugerencia.
+      try {
+        const sugerenciasRes = await api.get(`/revision-precios/facturas/${factura.id}/sugerencias-precio`)
+        if (sugerenciasRes.data.success) {
+          setSugerenciasPrecio(sugerenciasRes.data.sugerencias || {})
+        }
+      } catch (sugerenciasErr) {
+        console.error('No se pudieron obtener las sugerencias de precio:', sugerenciasErr)
+      }
+
       setVista('revision')
     } catch (err) {
       setError(err.message)
@@ -149,6 +163,7 @@ export function useRevisionPrecios() {
     setProductos([])
     setProductosAlegra({})
     setPreciosAjustados({})
+    setSugerenciasPrecio({})
   }, [])
 
   const devolverFactura = useCallback(async () => {
@@ -334,6 +349,7 @@ export function useRevisionPrecios() {
     facturaSeleccionada,
     productos,
     productosAlegra,
+    sugerenciasPrecio,
     loading,
     error,
     tabActiva,

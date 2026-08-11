@@ -12,6 +12,7 @@ export default function RevisionPrecios() {
     facturaSeleccionada,
     productos,
     productosAlegra,
+    sugerenciasPrecio,
     loading,
     error,
     tabActiva,
@@ -64,6 +65,7 @@ export default function RevisionPrecios() {
           facturaSeleccionada={facturaSeleccionada}
           productos={productos}
           productosAlegra={productosAlegra}
+          sugerenciasPrecio={sugerenciasPrecio}
           preciosAjustados={preciosAjustados}
           loading={loading}
           devolviendo={devolviendo}

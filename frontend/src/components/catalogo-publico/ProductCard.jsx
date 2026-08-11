@@ -1,8 +1,10 @@
 const PLACEHOLDER_IMG =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0f0f0"/><path d="M70,90 l20,20 l40,-40" stroke="%23cccccc" stroke-width="8" fill="none"/></svg>'
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, stats }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
+  const esHabitual = stats?.esHabitual
+  const esPerdido = stats?.esPerdido
   let imageUrl = PLACEHOLDER_IMG
   if (product.images && product.images.length > 0) {
     const favoriteImage = product.images.find((img) => img.favorite === true) || product.images[0]
@@ -48,9 +50,12 @@ export default function ProductCard({ product }) {
     stockText = `¡Solo ${availableQuantity}!`
   }
 
+  const claseCliente = esPerdido ? 'product-card-perdido' : esHabitual ? 'product-card-habitual' : ''
+
   return (
-    <div className={`product-card ${descuentoPorcentaje > 0 ? 'product-card-oferta' : ''}`}>
+    <div className={`product-card ${descuentoPorcentaje > 0 ? 'product-card-oferta' : ''} ${claseCliente}`}>
       {descuentoPorcentaje > 0 && <div className="discount-badge">-{descuentoPorcentaje}%</div>}
+      {!esPerdido && esHabitual && <div className="cliente-badge cliente-badge-habitual">{stats.veces}x</div>}
       <div className="product-image-container">
         <img
           src={imageUrl}

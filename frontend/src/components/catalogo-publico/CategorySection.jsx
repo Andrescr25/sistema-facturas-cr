@@ -1,6 +1,6 @@
 import ProductCard from './ProductCard'
 
-export default function CategorySection({ title, products }) {
+export default function CategorySection({ title, products, statsPorProducto }) {
   if (!products || products.length === 0) return null
 
   return (
@@ -11,7 +11,7 @@ export default function CategorySection({ title, products }) {
       </div>
       <div className="products-grid">
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard key={product.id} product={product} stats={statsPorProducto?.get(String(product.id))} />
         ))}
       </div>
     </div>

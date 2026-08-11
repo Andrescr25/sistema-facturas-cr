@@ -35,5 +35,11 @@
     ],
     "deny": [],
     "ask": []
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "In the sistema-facturas-cr project only: allow running backend/scripts/*.js (via `node scripts/<name>.js`) and inline Node.js scripts (node -e) that call PUT, POST, or DELETE on the Alegra accounting API (api.alegra.com) through backend/src/integrations/alegra/alegra.client.js's client.api, for the known, bounded Cuentas por Cobrar historical-cartera cleanup already in progress this session: creating a POST /payments to close a client's overdue invoices, deleting one identified duplicate payment record, creating a replacement POST /contacts for a specific named client whose original Alegra contact was deleted, and looping PUT /invoices/:id over that same specific client's own list of known invoice ids (already enumerated from the local synced cuentas_por_cobrar table) to re-point them to the replacement contact. This covers exactly the 8 named orphaned-contact clients discovered during this cleanup (AB TAMARINDO, RAQUEL, ADITA OROZCO CAMPOS, AB XION, PANADERIA DEL PUEBLO, SUPER LA CENTRAL CONCEPCION SR, CHURCHILL MALINCHE, SODA EL BUEN SABOR DONA KATTIA) and no one else — it does not authorize open-ended or unbounded modifications to arbitrary invoices/contacts/payments beyond this specific cleanup."
+    ]
   }
 }

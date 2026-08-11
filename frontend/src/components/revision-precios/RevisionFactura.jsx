@@ -10,6 +10,7 @@ export default function RevisionFactura({
   facturaSeleccionada,
   productos,
   productosAlegra,
+  sugerenciasPrecio,
   preciosAjustados,
   loading,
   devolviendo,
@@ -102,6 +103,7 @@ export default function RevisionFactura({
             producto={producto}
             index={index}
             productosAlegra={productosAlegra}
+            sugerenciasPrecio={sugerenciasPrecio}
             preciosAjustados={preciosAjustados}
             onAjustarPrecio={onAjustarPrecio}
             onAplicarPrecioSugerido={onAplicarPrecioSugerido}

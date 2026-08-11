@@ -82,6 +82,41 @@ export async function actualizarItemExceso(id, itemId, payload) {
   return response.data;
 }
 
+// --- Control manual de excesos ---
+// La detección automática no ve todo (temporada que pasó, proveedor que ya no
+// se trabaja, empaque dañado); estas rutas dejan armar y corregir a mano sin
+// alterar la detección automática.
+
+export async function crearExcesoManual() {
+  const response = await api.post('/inventario-auditorias/excesos');
+  return response.data;
+}
+
+export async function eliminarExceso(id) {
+  const response = await api.delete(`/inventario-auditorias/${id}`);
+  return response.data;
+}
+
+export async function agregarItemExceso(id, item) {
+  const response = await api.post(`/inventario-auditorias/${id}/items-exceso`, item);
+  return response.data;
+}
+
+export async function getDescuentosExceso() {
+  const response = await api.get('/inventario-auditorias/descuentos');
+  return response.data;
+}
+
+export async function guardarDescuentoExceso(payload) {
+  const response = await api.post('/inventario-auditorias/descuentos', payload);
+  return response.data;
+}
+
+export async function eliminarDescuentoExceso(alegraItemId) {
+  const response = await api.delete(`/inventario-auditorias/descuentos/${alegraItemId}`);
+  return response.data;
+}
+
 export async function guardarConteoIndividual(id, itemId, stockReal) {
   const response = await api.patch(`/inventario-auditorias/${id}/items/${itemId}/conteo`, { stockReal });
   return response.data;

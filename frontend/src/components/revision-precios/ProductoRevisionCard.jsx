@@ -1,5 +1,5 @@
 import { Package, Settings, AlertCircle, TrendingUp, TrendingDown, Edit3 } from 'lucide-react'
-import { analizarProducto, calcularInfoCantidad, redondearPrecio } from '../../utils/revisionPreciosUtils'
+import { analizarProducto, calcularInfoCantidad } from '../../utils/revisionPreciosUtils'
 
 /**
  * Tarjeta de análisis de un producto en revisión: comparativa de costo
@@ -7,16 +7,19 @@ import { analizarProducto, calcularInfoCantidad, redondearPrecio } from '../../u
  * de margen, y sugerencia de precio. Extraído de RevisionPrecios.jsx (era
  * el cuerpo del .map de productos en la vista "revisión").
  */
+const CLASE_ROTACION_LABEL = { A: 'rota rápido', B: 'rotación media', C: 'rota poco' }
+
 export default function ProductoRevisionCard({
   producto,
   index,
   productosAlegra,
   preciosAjustados,
+  sugerenciasPrecio,
   onAjustarPrecio,
   onAplicarPrecioSugerido,
   onAbrirFactor
 }) {
-  const analisis = analizarProducto(producto, { productosAlegra, preciosAjustados })
+  const analisis = analizarProducto(producto, { productosAlegra, preciosAjustados, sugerenciasPrecio })
   const infoCantidad = calcularInfoCantidad(producto)
 
   return (
@@ -201,11 +204,18 @@ export default function ProductoRevisionCard({
 
         </div>
 
-        {/* Fila de acción de precio sugerido si el margen nuevo/actual es menor al 20% */}
-        {analisis.margenNuevo < 20 && (
+        {/* Precio sugerido por el motor de precios (margen real medido por
+            categoría + ajuste por rotación/exclusividad) — se muestra
+            siempre que haya sugerencia, no solo cuando el margen ya está
+            bajo: si el costo subió pero el margen nuevo "parece sano", el
+            usuario igual debe poder ver y aplicar el precio recomendado. */}
+        {analisis.precioSugeridoSinIva !== null && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-4">
             <div className="text-base text-blue-900 font-bold">
-              💡 Precio Recomendado (Margen 20%): ₡{redondearPrecio(analisis.precioSugeridoSinIva).toLocaleString('es-CR')} sin IVA (₡{redondearPrecio(analisis.precioSugeridoConIva).toLocaleString('es-CR')} con IVA)
+              💡 Precio Recomendado (margen {analisis.margenObjetivo}%
+              {analisis.categoriaProducto ? ` · ${analisis.categoriaProducto}` : ''}
+              {analisis.claseRotacion ? ` · ${CLASE_ROTACION_LABEL[analisis.claseRotacion] || analisis.claseRotacion}` : ''}):
+              {' '}₡{analisis.precioSugeridoSinIva.toLocaleString('es-CR')} sin IVA (₡{Math.round(analisis.precioSugeridoConIva).toLocaleString('es-CR')} con IVA)
             </div>
             <button
               onClick={() => onAplicarPrecioSugerido(producto.id, analisis.precioSugeridoSinIva)}

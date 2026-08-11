@@ -663,20 +663,31 @@ async function resincronizarAuditoria(id) {
  * Crear una devolución vacía (tipo='devolucion'): a diferencia de crearAuditoria, no precarga
  * ningún producto — se van agregando uno por uno con agregarItemDevolucion a medida que llegan.
  */
-async function crearDevolucion() {
-  // Nombre autoincremental "Ajuste N": se busca el número más alto ya usado
-  // entre las devoluciones existentes (sin asumir que son consecutivas, por
-  // si alguna vez se borra una a mano) y se usa el siguiente.
-  const existentes = await query(`SELECT nombre FROM inventario_auditorias WHERE tipo = 'devolucion';`);
+/**
+ * Nombre autoincremental "<Prefijo> N" para un tipo de registro: se busca el
+ * número más alto ya usado (sin asumir que son consecutivos, por si alguna
+ * vez se borra uno a mano — que ahora se puede, ver eliminarAuditoria) y se
+ * usa el siguiente. Lo comparten devoluciones ("Ajuste N") y excesos
+ * ("Excesos N"), automáticos y manuales.
+ */
+async function siguienteNombreAutoincremental(tipo, prefijo) {
+  const existentes = await query(`SELECT nombre FROM inventario_auditorias WHERE tipo = $1;`, [tipo]);
+  const patron = new RegExp(`^${prefijo}\\s+(\\d+)$`, 'i');
+
   let maxNumero = 0;
   existentes.rows.forEach(row => {
-    const match = /^ajuste\s+(\d+)$/i.exec((row.nombre || '').trim());
+    const match = patron.exec((row.nombre || '').trim());
     if (match) {
       const numero = parseInt(match[1], 10);
       if (numero > maxNumero) maxNumero = numero;
     }
   });
-  const nombre = `Ajuste ${maxNumero + 1}`;
+
+  return `${prefijo} ${maxNumero + 1}`;
+}
+
+async function crearDevolucion() {
+  const nombre = await siguienteNombreAutoincremental('devolucion', 'Ajuste');
 
   const result = await query(`
     INSERT INTO inventario_auditorias (nombre, tipo, estado)
@@ -788,7 +799,11 @@ async function agregarItemDevolucion(auditoriaId, item) {
 }
 
 /**
- * Quitar un producto agregado por error a una devolución, antes de aplicar el ajuste en Alegra.
+ * Quitar un producto agregado por error a una devolución o a una tanda de
+ * excesos, antes de que su ajuste se haya aplicado en Alegra. El guard de
+ * `ajustado_alegra = FALSE` es lo que hace seguro exponerlo también para
+ * excesos: si el ajuste ya se mandó a Alegra, borrar la fila acá dejaría el
+ * inventario movido sin rastro de por qué.
  */
 async function eliminarItemDevolucion(auditoriaId, itemId) {
   const result = await query(`
@@ -1050,17 +1065,7 @@ async function generarExcesosSemanales() {
     return { creado: false, message: 'No se detectaron productos en exceso esta semana.', regalosNuevos };
   }
 
-  // Nombre autoincremental "Excesos N", mismo mecanismo que "Ajuste N" en devoluciones.
-  const existentes = await query(`SELECT nombre FROM inventario_auditorias WHERE tipo = 'exceso';`);
-  let maxNumero = 0;
-  existentes.rows.forEach(row => {
-    const match = /^excesos\s+(\d+)$/i.exec((row.nombre || '').trim());
-    if (match) {
-      const numero = parseInt(match[1], 10);
-      if (numero > maxNumero) maxNumero = numero;
-    }
-  });
-  const nombre = `Excesos ${maxNumero + 1}`;
+  const nombre = await siguienteNombreAutoincremental('exceso', 'Excesos');
 
   const auditRes = await query(`
     INSERT INTO inventario_auditorias (nombre, tipo, estado)
@@ -1146,6 +1151,235 @@ async function actualizarItemExceso(auditoriaId, itemId, { empacado, stockReal }
  * Cron semanal: Domingos 22:00 (America/Costa_Rica), una hora antes de la
  * limpieza semanal de faltantes, para no correr ambos al mismo tiempo.
  */
+// --- Control manual de excesos ---
+//
+// La detección automática (generarExcesosSemanales) decide por stock y días
+// sin venta. Eso cubre el caso normal, pero no todo: hay productos que uno
+// sabe que sobran por razones que el sistema no ve (temporada que pasó,
+// proveedor que ya no se trabaja, empaque dañado) y otros que la regla
+// marca pero no conviene rematar. Estas funciones dejan corregir eso a mano
+// sin tocar la detección automática, que sigue igual.
+
+/**
+ * Crea una tanda de excesos vacía, para armarla a mano producto por
+ * producto. Mismo nombre autoincremental que las automáticas: una vez
+ * creada es indistinguible de una generada por el cron, y la revisan y
+ * empacan con la misma pantalla.
+ */
+async function crearExcesoManual() {
+  const nombre = await siguienteNombreAutoincremental('exceso', 'Excesos');
+
+  const result = await query(`
+    INSERT INTO inventario_auditorias (nombre, tipo, estado)
+    VALUES ($1, 'exceso', 'en_progreso')
+    RETURNING *;
+  `, [nombre]);
+
+  return result.rows[0];
+}
+
+/**
+ * Elimina una tanda de excesos completa (los ítems caen solos por el ON
+ * DELETE CASCADE de inventario_auditoria_items).
+ *
+ * Se niega si algún ítem ya se ajustó en Alegra: ese ajuste movió
+ * inventario de verdad, y borrar la tanda dejaría el movimiento sin
+ * respaldo de por qué se hizo. Mismo criterio que eliminarItemDevolucion.
+ */
+async function eliminarAuditoria(id) {
+  const auditRes = await query(`SELECT * FROM inventario_auditorias WHERE id = $1;`, [id]);
+  if (auditRes.rows.length === 0) {
+    throw httpError(404, 'Registro no encontrado.');
+  }
+  if (auditRes.rows[0].tipo !== 'exceso') {
+    throw httpError(400, 'Solo se pueden eliminar tandas de excesos.');
+  }
+
+  const ajustados = await query(
+    `SELECT COUNT(*)::int AS n FROM inventario_auditoria_items WHERE auditoria_id = $1 AND ajustado_alegra = TRUE;`,
+    [id]
+  );
+  if (ajustados.rows[0].n > 0) {
+    throw httpError(400, `No se puede eliminar: ${ajustados.rows[0].n} producto(s) de esta tanda ya se ajustaron en Alegra.`);
+  }
+
+  await query(`DELETE FROM inventario_auditorias WHERE id = $1;`, [id]);
+  return { eliminado: true, nombre: auditRes.rows[0].nombre };
+}
+
+/**
+ * Agrega un producto elegido a mano a una tanda de excesos en progreso.
+ *
+ * A diferencia de agregarItemDevolucion, stock_real queda NULL: el exceso
+ * es una "factura de empaque" y esa cantidad la llena quien empaca si la
+ * física no coincide con Alegra (ver actualizarItemExceso).
+ */
+async function agregarItemExceso(auditoriaId, { alegraId }) {
+  const auditRes = await query(`SELECT * FROM inventario_auditorias WHERE id = $1;`, [auditoriaId]);
+  if (auditRes.rows.length === 0) {
+    throw httpError(404, 'Tanda de excesos no encontrada.');
+  }
+  const exceso = auditRes.rows[0];
+  if (exceso.tipo !== 'exceso') {
+    throw httpError(400, 'Este registro no es una tanda de excesos.');
+  }
+  if (exceso.estado !== 'en_progreso') {
+    throw httpError(400, 'Esta tanda ya fue finalizada.');
+  }
+  if (!alegraId) {
+    throw httpError(400, 'Producto inválido.');
+  }
+
+  const yaEsta = await query(
+    `SELECT id FROM inventario_auditoria_items WHERE auditoria_id = $1 AND alegra_id = $2;`,
+    [auditoriaId, String(alegraId)]
+  );
+  if (yaEsta.rows.length > 0) {
+    throw httpError(400, 'Ese producto ya está en esta tanda.');
+  }
+
+  // Igual que en devoluciones: el buscador usa la caché local (rápida, sin
+  // existencias) y el stock/costo frescos se piden puntualmente acá.
+  let productoAlegra;
+  try {
+    productoAlegra = await inventoryService.getItemById(alegraId);
+  } catch (error) {
+    throw httpError(400, 'No se pudo obtener el producto desde Alegra. Intenta de nuevo.');
+  }
+
+  const mainPrice = productoAlegra.price?.find(p => p.main === true) || productoAlegra.price?.[0];
+  const precioVenta = mainPrice ? parseFloat(mainPrice.price) : 0;
+  const costoUnitario = productoAlegra.inventory?.unitCost ? parseFloat(productoAlegra.inventory.unitCost) : 0;
+  const referencia = productoAlegra.reference?.reference || productoAlegra.reference || '';
+  const categoria = productoAlegra.itemCategory?.name || productoAlegra.category?.name || '';
+  const stockActual = productoAlegra.inventory?.availableQuantity ? parseFloat(productoAlegra.inventory.availableQuantity) : 0;
+
+  const result = await query(`
+    INSERT INTO inventario_auditoria_items
+      (auditoria_id, alegra_id, nombre_producto, referencia, category, stock_sistema, stock_real, costo_unitario, precio_venta)
+    VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8)
+    RETURNING *;
+  `, [
+    auditoriaId,
+    String(alegraId),
+    productoAlegra.name,
+    referencia,
+    categoria,
+    stockActual,
+    costoUnitario,
+    precioVenta
+  ]);
+
+  return result.rows[0];
+}
+
+/**
+ * Lista los descuentos por exceso con el dato que de verdad importa:
+ * `visibleEnCatalogo`. Un descuento NO se ve en el catálogo público solo por
+ * existir — la consulta de catalogo-publico.service.js exige además que el
+ * producto haya sido marcado empacado en alguna tanda y que le quede stock.
+ * Sin exponer eso, alguien pone un 40% a mano, no pasa nada en el catálogo,
+ * y parece que el sistema está roto.
+ */
+async function listarDescuentosExceso() {
+  const result = await query(`
+    WITH ultimo_empaque AS (
+      SELECT DISTINCT ON (iai.alegra_id)
+        iai.alegra_id,
+        COALESCE(iai.stock_real, iai.stock_sistema) AS stock_efectivo
+      FROM inventario_auditoria_items iai
+      JOIN inventario_auditorias ia ON ia.id = iai.auditoria_id AND ia.tipo = 'exceso'
+      WHERE iai.empacado = TRUE
+      ORDER BY iai.alegra_id, iai.created_at DESC
+    )
+    SELECT pde.*, ue.stock_efectivo
+    FROM producto_descuento_exceso pde
+    LEFT JOIN ultimo_empaque ue ON ue.alegra_id = pde.alegra_item_id
+    ORDER BY pde.regalado ASC, pde.descuento_porcentaje DESC, pde.nombre_producto ASC;
+  `);
+
+  return result.rows.map(row => {
+    const stockEfectivo = row.stock_efectivo !== null ? Number(row.stock_efectivo) : null;
+    const empacado = stockEfectivo !== null;
+    return {
+      alegraItemId: row.alegra_item_id,
+      nombreProducto: row.nombre_producto,
+      referencia: row.referencia,
+      descuentoPorcentaje: Number(row.descuento_porcentaje),
+      vecesDetectado: row.veces_detectado,
+      regalado: row.regalado,
+      ultimaActualizacion: row.ultima_actualizacion,
+      stockEfectivo,
+      visibleEnCatalogo: !row.regalado && empacado && stockEfectivo > 0,
+      motivoNoVisible: row.regalado
+        ? 'Ya se regaló'
+        : !empacado
+          ? 'Todavía no se ha empacado en ninguna tanda'
+          : stockEfectivo <= 0
+            ? 'No queda stock'
+            : null
+    };
+  });
+}
+
+/**
+ * Pone o cambia a mano el descuento de un producto. Sirve tanto para meter
+ * uno que la detección automática no agarró como para corregirle el
+ * porcentaje a uno que ya estaba.
+ *
+ * Si el producto estaba marcado como regalado, ponerle un descuento nuevo lo
+ * reactiva: el `regalado` existe para que el escalado automático no lo siga
+ * tocando, no para prohibir que una persona decida volver a ofrecerlo.
+ */
+async function guardarDescuentoExceso({ alegraItemId, descuentoPorcentaje }) {
+  if (!alegraItemId) throw httpError(400, 'Producto inválido.');
+
+  const descuento = Number(descuentoPorcentaje);
+  if (!Number.isFinite(descuento) || descuento < 0 || descuento > 100) {
+    throw httpError(400, 'El descuento debe estar entre 0 y 100.');
+  }
+
+  const productoRes = await query(
+    `SELECT alegra_id, name, reference FROM alegra_products_cache WHERE alegra_id = $1;`,
+    [String(alegraItemId)]
+  );
+  if (productoRes.rows.length === 0) {
+    throw httpError(404, 'Producto no encontrado en el catálogo.');
+  }
+  const producto = productoRes.rows[0];
+
+  const result = await query(`
+    INSERT INTO producto_descuento_exceso
+      (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado, regalado)
+    VALUES ($1, $2, $3, $4, 1, FALSE)
+    ON CONFLICT (alegra_item_id) DO UPDATE SET
+      descuento_porcentaje = EXCLUDED.descuento_porcentaje,
+      nombre_producto = EXCLUDED.nombre_producto,
+      regalado = FALSE,
+      ultima_actualizacion = CURRENT_TIMESTAMP
+    RETURNING *;
+  `, [String(alegraItemId), producto.name, producto.reference || '', descuento]);
+
+  return result.rows[0];
+}
+
+/**
+ * Saca un producto de la lista de descuentos. Deja de verse en el catálogo
+ * público de inmediato. Si la detección automática lo vuelve a marcar como
+ * exceso, arranca de nuevo desde DESCUENTO_INICIAL — no recuerda el
+ * porcentaje anterior, que es justo lo que se quiere al sacarlo a propósito.
+ */
+async function eliminarDescuentoExceso(alegraItemId) {
+  const result = await query(
+    `DELETE FROM producto_descuento_exceso WHERE alegra_item_id = $1 RETURNING nombre_producto;`,
+    [String(alegraItemId)]
+  );
+  if (result.rows.length === 0) {
+    throw httpError(404, 'Ese producto no tenía descuento por exceso.');
+  }
+  return { eliminado: true, nombre: result.rows[0].nombre_producto };
+}
+
 function iniciarDeteccionSemanalExcesos() {
   const task = cron.schedule('0 22 * * 0', () => {
     console.log('⏰ [CRON] Disparando detección semanal de excesos de inventario (Domingo 22:00)...');
@@ -1188,5 +1422,12 @@ module.exports = {
   generarExcesosSemanales,
   iniciarDeteccionSemanalExcesos,
   actualizarItemExceso,
-  listarRegalos
+  listarRegalos,
+  // Control manual de excesos
+  crearExcesoManual,
+  eliminarAuditoria,
+  agregarItemExceso,
+  listarDescuentosExceso,
+  guardarDescuentoExceso,
+  eliminarDescuentoExceso
 };

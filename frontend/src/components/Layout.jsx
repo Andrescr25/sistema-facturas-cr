@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { 
   Home, 
   FileText, 
@@ -14,9 +14,14 @@ import {
   CreditCard,
   ClipboardList,
   Boxes,
-  Image
+  Image,
+  Wallet,
+  PieChart,
+  Banknote,
+  Repeat
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
+import SidebarNav from './SidebarNav'
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -30,7 +35,16 @@ export default function Layout({ children }) {
     { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
     { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
     { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
-    { name: 'Pagos Proveedores', href: '/pagos-proveedores', icon: CreditCard },
+    { name: 'Rentabilidad', href: '/rentabilidad', icon: PieChart },
+    {
+      name: 'Pagos',
+      icon: Banknote,
+      children: [
+        { name: 'Pago Proveedores', href: '/pagos-proveedores', icon: CreditCard },
+        { name: 'Pagos Recurrentes', href: '/pagos-recurrentes', icon: Repeat }
+      ]
+    },
+    { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Impresión', href: '/impresion', icon: Printer },
     { name: 'Gestión de Catálogo', href: '/gestion-catalogo', icon: Image },
@@ -51,26 +65,7 @@ export default function Layout({ children }) {
               <X size={24} />
             </button>
           </div>
-          <nav className="flex-1 px-4 py-4">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-md mb-1 ${
-                    isActive(item.href)
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon size={20} className="mr-3" />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
+          <SidebarNav navigation={navigation} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
         </div>
       </div>
 
@@ -80,25 +75,7 @@ export default function Layout({ children }) {
           <div className="flex items-center h-16 px-4 bg-blue-600">
             <h1 className="text-xl font-semibold text-white">Distribuidora Tachi</h1>
           </div>
-          <nav className="flex-1 px-4 py-4">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-md mb-1 ${
-                    isActive(item.href)
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon size={20} className="mr-3" />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
+          <SidebarNav navigation={navigation} isActive={isActive} />
         </div>
       </div>
 

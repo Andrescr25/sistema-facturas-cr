@@ -17,7 +17,13 @@ import {
   getExcesos,
   generarExcesosAhora,
   actualizarItemExceso,
-  getRegalos
+  getRegalos,
+  crearExcesoManual as crearExcesoManualApi,
+  eliminarExceso as eliminarExcesoApi,
+  agregarItemExceso as agregarItemExcesoApi,
+  getDescuentosExceso,
+  guardarDescuentoExceso as guardarDescuentoExcesoApi,
+  eliminarDescuentoExceso as eliminarDescuentoExcesoApi
 } from '../services/inventarioService'
 import {
   calcularKpis,
@@ -87,11 +93,25 @@ export function useInventarioAuditoria() {
   const [buscandoProductoDevolucion, setBuscandoProductoDevolucion] = useState(false)
   const [agregandoItemDevolucion, setAgregandoItemDevolucion] = useState(false)
 
-  // Excesos de inventario: reporte de solo lectura generado automáticamente
-  // (cron semanal) — auditoriaActiva.tipo === 'exceso' reusa la misma
-  // pantalla de detalle que auditorías/devoluciones, sin conteo ni ajuste.
+  // Excesos de inventario: tandas de empaque generadas por el cron semanal o
+  // armadas a mano — auditoriaActiva.tipo === 'exceso' reusa la misma
+  // pantalla de detalle que auditorías/devoluciones.
   const [excesos, setExcesos] = useState([])
   const [generandoExcesos, setGenerandoExcesos] = useState(false)
+  const [creandoExceso, setCreandoExceso] = useState(false)
+
+  // Búsqueda para agregar productos a mano a una tanda de excesos. Estado
+  // aparte del de devoluciones a propósito: son flujos distintos y compartir
+  // el estado hacía que una búsqueda vieja apareciera en la otra pantalla.
+  const [busquedaProductoExceso, setBusquedaProductoExceso] = useState('')
+  const [resultadosProductoExceso, setResultadosProductoExceso] = useState([])
+  const [buscandoProductoExceso, setBuscandoProductoExceso] = useState(false)
+  const [agregandoItemExceso, setAgregandoItemExceso] = useState(false)
+
+  // Descuentos por exceso: es lo que de verdad ven los clientes en el
+  // catálogo público, así que se puede editar/quitar a mano.
+  const [descuentos, setDescuentos] = useState([])
+  const [loadingDescuentos, setLoadingDescuentos] = useState(false)
 
   // Regalías: productos que llegaron a 100% de descuento acumulado y ya
   // fueron entregados a un cliente elegido al azar (ver escalarDescuentosExceso).
@@ -180,6 +200,7 @@ export function useInventarioAuditoria() {
     if (vista === 'excesos' && excesos.length === 0) {
       loadExcesos()
       loadRegalos()
+      loadDescuentos()
     }
   }
 
@@ -207,6 +228,150 @@ export function useInventarioAuditoria() {
       showToast(err.response?.data?.error || 'Error generando excesos. Puede que siga corriendo en segundo plano — revisa el historial en unos minutos.', 'error')
     } finally {
       setGenerandoExcesos(false)
+    }
+  }
+
+  // --- Control manual de excesos ---
+
+  const handleCrearExcesoManual = async () => {
+    setCreandoExceso(true)
+    try {
+      const result = await crearExcesoManualApi()
+      if (result.success) {
+        showToast(`"${result.data.nombre}" creado. Agregale los productos que quieras.`, 'success')
+        await loadExcesos()
+        // Se abre de una: una tanda vacía no sirve de nada hasta que se le
+        // agregan productos, así que llevar al usuario ahí evita el paso
+        // extra de buscarla en la lista que acaba de cambiar.
+        await handleSelectAuditoria(result.data.id)
+      }
+    } catch (err) {
+      console.error('Error creando tanda de excesos:', err)
+      showToast(err.response?.data?.message || 'Error al crear la tanda.', 'error')
+    } finally {
+      setCreandoExceso(false)
+    }
+  }
+
+  const handleEliminarExceso = async (id, nombre) => {
+    const confirmado = await confirm(
+      `¿Eliminar "${nombre}"? Se borra la tanda completa con todos sus productos. No se puede deshacer.`
+    )
+    if (!confirmado) return
+
+    try {
+      const result = await eliminarExcesoApi(id)
+      if (result.success) {
+        showToast(`"${result.nombre}" eliminado.`, 'success')
+        if (auditoriaActiva?.id === id) volverAlDashboard()
+        await loadExcesos()
+      }
+    } catch (err) {
+      console.error('Error eliminando tanda de excesos:', err)
+      showToast(err.response?.data?.message || 'Error al eliminar la tanda.', 'error')
+    }
+  }
+
+  const buscarProductoExceso = async (q) => {
+    if (!q || q.length < 2) {
+      setResultadosProductoExceso([])
+      return
+    }
+    setBuscandoProductoExceso(true)
+    try {
+      const result = await buscarProductosDevolucion(q)
+      if (result.success) setResultadosProductoExceso(result.data)
+    } catch (err) {
+      console.error('Error buscando productos para exceso:', err)
+    } finally {
+      setBuscandoProductoExceso(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      buscarProductoExceso(busquedaProductoExceso)
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busquedaProductoExceso])
+
+  const handleAgregarItemExceso = async (producto) => {
+    if (!auditoriaActiva) return
+    setAgregandoItemExceso(true)
+    try {
+      const result = await agregarItemExcesoApi(auditoriaActiva.id, { alegraId: producto.alegraId })
+      if (result.success) {
+        showToast(`"${producto.nombre}" agregado a la tanda.`, 'success')
+        setBusquedaProductoExceso('')
+        setResultadosProductoExceso([])
+        await refrescarAuditoriaActiva()
+      }
+    } catch (err) {
+      console.error('Error agregando producto a la tanda:', err)
+      showToast(err.response?.data?.message || 'Error al agregar el producto.', 'error')
+    } finally {
+      setAgregandoItemExceso(false)
+    }
+  }
+
+  const handleEliminarItemExceso = async (itemId) => {
+    if (!auditoriaActiva) return
+    const confirmado = await confirm('¿Quitar este producto de la tanda de excesos?')
+    if (!confirmado) return
+
+    try {
+      await eliminarItemDevolucionApi(auditoriaActiva.id, itemId)
+      await refrescarAuditoriaActiva()
+    } catch (err) {
+      console.error('Error quitando producto de la tanda:', err)
+      showToast(err.response?.data?.message || 'Error al quitar el producto.', 'error')
+    }
+  }
+
+  // --- Descuentos del catálogo público ---
+
+  const loadDescuentos = async () => {
+    setLoadingDescuentos(true)
+    try {
+      const result = await getDescuentosExceso()
+      if (result.success) setDescuentos(result.data)
+    } catch (err) {
+      console.error('Error cargando descuentos:', err)
+      showToast('No se pudieron cargar los descuentos.', 'error')
+    } finally {
+      setLoadingDescuentos(false)
+    }
+  }
+
+  const handleGuardarDescuento = async (alegraItemId, descuentoPorcentaje, nombre) => {
+    try {
+      const result = await guardarDescuentoExcesoApi({ alegraItemId, descuentoPorcentaje })
+      if (result.success) {
+        showToast(`Descuento de "${nombre || result.data.nombre_producto}" en ${descuentoPorcentaje}%.`, 'success')
+        await loadDescuentos()
+      }
+    } catch (err) {
+      console.error('Error guardando descuento:', err)
+      showToast(err.response?.data?.message || 'Error al guardar el descuento.', 'error')
+    }
+  }
+
+  const handleEliminarDescuento = async (alegraItemId, nombre) => {
+    const confirmado = await confirm(
+      `¿Quitar el descuento de "${nombre}"? Deja de verse en el catálogo público de inmediato.`
+    )
+    if (!confirmado) return
+
+    try {
+      const result = await eliminarDescuentoExcesoApi(alegraItemId)
+      if (result.success) {
+        showToast(`Descuento de "${result.nombre}" eliminado.`, 'success')
+        await loadDescuentos()
+      }
+    } catch (err) {
+      console.error('Error eliminando descuento:', err)
+      showToast(err.response?.data?.message || 'Error al eliminar el descuento.', 'error')
     }
   }
 
@@ -448,7 +613,7 @@ export function useInventarioAuditoria() {
   // Refresca el detalle de la devolución activa y su conteosDraft (que ya
   // trae cada stock_real calculado, así que ReporteFinalizado/adjustmentsPreview
   // funcionan igual que para una auditoría normal sin ningún cambio).
-  const refrescarDevolucionActiva = async () => {
+  const refrescarAuditoriaActiva = async () => {
     const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id)
     if (updatedDetail.success) {
       setAuditoriaActiva(updatedDetail.data)
@@ -480,7 +645,7 @@ export function useInventarioAuditoria() {
         showToast(`"${producto.nombre}" agregado (${cantidadNum} unid.)`, 'success')
         setBusquedaProductoDevolucion('')
         setResultadosProductoDevolucion([])
-        await refrescarDevolucionActiva()
+        await refrescarAuditoriaActiva()
       }
     } catch (err) {
       console.error('Error agregando producto a devolución:', err)
@@ -497,7 +662,7 @@ export function useInventarioAuditoria() {
 
     try {
       await eliminarItemDevolucionApi(auditoriaActiva.id, itemId)
-      await refrescarDevolucionActiva()
+      await refrescarAuditoriaActiva()
     } catch (err) {
       console.error('Error quitando producto de devolución:', err)
       showToast(err.response?.data?.message || 'Error al quitar el producto.', 'error')
@@ -522,7 +687,7 @@ export function useInventarioAuditoria() {
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
       if (result.success) {
         showToast('Devolución finalizada. Ahora puedes aplicar el ajuste en Alegra.', 'success')
-        await refrescarDevolucionActiva()
+        await refrescarAuditoriaActiva()
         const data = await getDevoluciones()
         if (data.success) setDevoluciones(data.data)
       }
@@ -540,7 +705,7 @@ export function useInventarioAuditoria() {
     try {
       const result = await actualizarItemExceso(auditoriaActiva.id, itemId, payload)
       if (result.success) {
-        await refrescarDevolucionActiva()
+        await refrescarAuditoriaActiva()
       }
     } catch (err) {
       console.error('Error actualizando producto de exceso:', err)
@@ -558,7 +723,7 @@ export function useInventarioAuditoria() {
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
       if (result.success) {
         showToast('Exceso finalizado con éxito.', 'success')
-        await refrescarDevolucionActiva()
+        await refrescarAuditoriaActiva()
         const data = await getExcesos()
         if (data.success) setExcesos(data.data)
       }
@@ -629,6 +794,25 @@ export function useInventarioAuditoria() {
     handleFinalizeExceso,
     regalos,
     loadRegalos,
+
+    // Control manual de excesos
+    creandoExceso,
+    handleCrearExcesoManual,
+    handleEliminarExceso,
+    busquedaProductoExceso,
+    setBusquedaProductoExceso,
+    resultadosProductoExceso,
+    buscandoProductoExceso,
+    agregandoItemExceso,
+    handleAgregarItemExceso,
+    handleEliminarItemExceso,
+
+    // Descuentos del catálogo público
+    descuentos,
+    loadingDescuentos,
+    loadDescuentos,
+    handleGuardarDescuento,
+    handleEliminarDescuento,
 
     auditoriaActiva,
     conteosDraft,

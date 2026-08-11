@@ -63,6 +63,16 @@ export default function CuentaCard({ cuenta, procesando, onVerDetalle }) {
           <p className="text-2xl font-semibold text-gray-900">
             {formatCurrency(cuenta.saldoPendiente)}
           </p>
+          {/* El saldo YA viene con el crédito restado. Sin mostrar esto, una
+              factura de ₡60.000 con saldo ₡30.000 se lee como un error. */}
+          {cuenta.creditoAplicado > 0 && (
+            <div className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2 py-1 inline-block text-right">
+              <span className="font-semibold">Nota de crédito −{formatCurrency(cuenta.creditoAplicado)}</span>
+              <span className="block text-emerald-600/80">
+                factura original {formatCurrency(cuenta.montoTotal)}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-end gap-2">
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${estadoBadge}`}>
               {cuenta.estado}

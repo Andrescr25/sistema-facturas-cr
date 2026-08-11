@@ -74,6 +74,44 @@
   object-fit: contain;
 }
 
+/* Feedback visual del long-press en el logo (abre el selector de cliente)
+   — sin esto, mantener presionado sin ninguna señal se siente como que la
+   app no reaccionó. Duración real del gesto: LONG_PRESS_MS en
+   HeaderCatalogo.jsx, debe coincidir con esta animación. */
+.catalogo-publico-root .logo-press-wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px 12px;
+  border-radius: 12px;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.catalogo-publico-root .logo-press-wrapper.pressing {
+  transform: scale(0.96);
+  background-color: rgba(32, 201, 151, 0.08);
+}
+
+.catalogo-publico-root .logo-press-progress {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  max-width: 120px;
+  height: 3px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.catalogo-publico-root .logo-press-progress-fill {
+  height: 100%;
+  background: var(--cp-accent-color);
+  animation: catalogo-publico-fill-progress 2s linear forwards;
+}
+
 .catalogo-publico-root .header-actions {
   display: flex;
   justify-content: center;
@@ -115,7 +153,7 @@
   left: 0;
   height: 100%;
   background-color: rgba(32, 201, 151, 0.15);
-  animation: catalogo-publico-fill-progress 3s linear forwards;
+  animation: catalogo-publico-fill-progress 2s linear forwards;
   z-index: 0;
 }
 
@@ -281,6 +319,7 @@
 }
 
 .catalogo-publico-root .product-card {
+  position: relative;
   background: var(--cp-card-bg);
   border-radius: 14px;
   overflow: hidden;
@@ -557,4 +596,240 @@
   .catalogo-publico-root .btn::after {
     content: 'Actualizar';
   }
+}
+
+/* =========================================
+   PERSONALIZACIÓN POR CLIENTE
+   ========================================= */
+
+/* Barra "Atendiendo a X" — única señal visible de que hay cliente activo */
+.catalogo-publico-root .cliente-activo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ecfdf5;
+  border-bottom: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.85rem;
+}
+
+.catalogo-publico-root .cliente-activo-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.catalogo-publico-root .cliente-activo-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogo-publico-root .cliente-activo-salir {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: #065f46;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 50%;
+}
+
+.catalogo-publico-root .cliente-activo-salir:active {
+  background: rgba(6, 95, 70, 0.1);
+}
+
+/* Secciones "Lo que más compra" (verde) y "Dejó de comprar" (ámbar) —
+   mismo molde que .featured-section (excesos, naranja), un acento cada una */
+.catalogo-publico-root .featured-section-habitual {
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-color: #bbf7d0;
+}
+
+.catalogo-publico-root .featured-title-habitual {
+  color: #15803d;
+}
+
+.catalogo-publico-root .featured-section-perdido {
+  background: linear-gradient(135deg, #fffbeb, #fefce8);
+  border-color: #fde68a;
+}
+
+.catalogo-publico-root .featured-title-perdido {
+  color: #b45309;
+}
+
+/* Variantes de card según relación del cliente activo con el producto */
+.catalogo-publico-root .product-card.product-card-habitual {
+  border: 2px solid #4ade80;
+}
+
+.catalogo-publico-root .product-card.product-card-perdido {
+  border: 2px dashed #fbbf24;
+}
+
+.catalogo-publico-root .cliente-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.catalogo-publico-root .cliente-badge-habitual {
+  background: #22c55e;
+  color: white;
+}
+
+.catalogo-publico-root .cliente-badge-perdido {
+  background: #f59e0b;
+  color: white;
+}
+
+/* Selector de cliente — sheet oculto tras long-press en el logo */
+.catalogo-publico-root .selector-cliente-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 600px) {
+  .catalogo-publico-root .selector-cliente-backdrop {
+    align-items: center;
+  }
+}
+
+.catalogo-publico-root .selector-cliente-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--cp-shadow-lg);
+}
+
+@media (min-width: 600px) {
+  .catalogo-publico-root .selector-cliente-sheet {
+    border-radius: 20px;
+    max-height: 70vh;
+    margin: 24px;
+  }
+}
+
+.catalogo-publico-root .selector-cliente-handle {
+  width: 40px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+
+.catalogo-publico-root .selector-cliente-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  flex-shrink: 0;
+}
+
+.catalogo-publico-root .selector-cliente-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--cp-primary-color);
+}
+
+.catalogo-publico-root .selector-cliente-search {
+  padding: 0 20px 12px;
+}
+
+.catalogo-publico-root .selector-cliente-close {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.catalogo-publico-root .selector-cliente-lista {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0 8px 12px;
+}
+
+.catalogo-publico-root .selector-cliente-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalogo-publico-root .selector-cliente-item:active {
+  background: #f1f5f9;
+}
+
+.catalogo-publico-root .selector-cliente-item-activo {
+  background: #ecfdf5;
+}
+
+.catalogo-publico-root .selector-cliente-nombre {
+  font-weight: 600;
+  color: var(--cp-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogo-publico-root .selector-cliente-count {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--cp-text-muted);
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.catalogo-publico-root .selector-cliente-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--cp-text-muted);
+}
+
+.catalogo-publico-root .selector-cliente-vacio-hint {
+  font-size: 0.8rem;
 }
