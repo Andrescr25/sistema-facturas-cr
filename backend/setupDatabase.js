@@ -34,6 +34,9 @@ async function setupDatabase() {
     await client.query('DROP TABLE IF EXISTS competencia_rechazo CASCADE');
     await client.query('DROP TABLE IF EXISTS pago_recurrente CASCADE');
     await client.query('DROP TABLE IF EXISTS gasto_recurrente CASCADE');
+    await client.query('DROP TABLE IF EXISTS reporte_contador_contacto CASCADE');
+    await client.query('DROP TABLE IF EXISTS reporte_contador_linea CASCADE');
+    await client.query('DROP TABLE IF EXISTS reporte_contador_periodo CASCADE');
     await client.query('DROP TABLE IF EXISTS venta_historico CASCADE');
     await client.query('DROP TABLE IF EXISTS abonos_cobro CASCADE');
     await client.query('DROP TABLE IF EXISTS cuentas_por_cobrar CASCADE');
@@ -472,6 +475,76 @@ async function setupDatabase() {
     `);
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_periodo ON pago_recurrente(periodo)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_estado ON pago_recurrente(estado)');
+
+    // Reporte Contador: control interno mensual de ventas/compras a partir
+    // de los Excel que exporta Alegra. Se guarda línea por línea porque la
+    // detección de duplicados necesita comparar factura contra factura.
+    console.log('📋 Creando tabla reporte_contador_periodo...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reporte_contador_periodo (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          anio INTEGER NOT NULL,
+          mes INTEGER NOT NULL CHECK (mes BETWEEN 1 AND 12),
+          tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('ventas', 'compras')),
+          nombre_archivo VARCHAR(255),
+          base_gravable_original NUMERIC(14,2) NOT NULL DEFAULT 0,
+          impuesto_original NUMERIC(14,2) NOT NULL DEFAULT 0,
+          -- Las devoluciones (notas de crédito) van aparte, NO restadas de la
+          -- base gravable — así las presenta el resumen oficial de Alegra.
+          base_devoluciones_original NUMERIC(14,2) NOT NULL DEFAULT 0,
+          impuesto_devoluciones_original NUMERIC(14,2) NOT NULL DEFAULT 0,
+          fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (anio, mes, tipo)
+      )
+    `);
+
+    console.log('📋 Creando tabla reporte_contador_linea...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reporte_contador_linea (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          periodo_id UUID NOT NULL REFERENCES reporte_contador_periodo(id) ON DELETE CASCADE,
+          orden INTEGER NOT NULL,
+          tipo_documento VARCHAR(50),
+          fecha DATE,
+          numero VARCHAR(30) NOT NULL,
+          -- Solo en notas de crédito: la factura a la que hacen referencia.
+          documento_asociado VARCHAR(30),
+          es_emitida BOOLEAN NOT NULL,
+          contraparte VARCHAR(255),
+          actividad_economica VARCHAR(255),
+          concepto VARCHAR(500),
+          cantidad NUMERIC(14,4),
+          precio_unitario NUMERIC(14,4),
+          precio_total NUMERIC(14,2),
+          descuento NUMERIC(14,2) DEFAULT 0,
+          nombre_impuesto VARCHAR(50),
+          tipo_impuesto VARCHAR(50),
+          tarifa VARCHAR(20),
+          tipo_tarifa VARCHAR(30),
+          acreditable VARCHAR(10),
+          base_gravable NUMERIC(14,2) DEFAULT 0,
+          impuesto NUMERIC(14,2) DEFAULT 0,
+          excluido BOOLEAN NOT NULL DEFAULT FALSE,
+          duplicado_confianza VARCHAR(10),
+          duplicado_de VARCHAR(30)
+      )
+    `);
+    console.log('📋 Creando tabla reporte_contador_contacto...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reporte_contador_contacto (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          nombre VARCHAR(120) NOT NULL,
+          -- El correo identifica al contacto: evita agregar dos veces al mismo.
+          email VARCHAR(255) NOT NULL UNIQUE,
+          -- Se sella en cada envío; sirve para preseleccionar el último usado.
+          ultimo_envio TIMESTAMP,
+          fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_reporte_contador_contacto_uso ON reporte_contador_contacto(ultimo_envio DESC NULLS LAST)');
+
+    await client.query('CREATE INDEX IF NOT EXISTS idx_reporte_contador_linea_periodo ON reporte_contador_linea(periodo_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_reporte_contador_linea_numero ON reporte_contador_linea(periodo_id, numero)');
 
     // Crear tabla para cantidades modificadas de órdenes de compra
     console.log('📋 Creando tabla orden_compra_temporal...');

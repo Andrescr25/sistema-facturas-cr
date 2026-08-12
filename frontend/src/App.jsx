@@ -12,6 +12,7 @@ import Impresion from './pages/Impresion'
 import Configuracion from './pages/Configuracion'
 import PagosProveedores from './pages/PagosProveedores'
 import PagosRecurrentes from './pages/PagosRecurrentes'
+import ReporteContador from './pages/ReporteContador'
 import CuentasPorCobrar from './pages/CuentasPorCobrar'
 import FacturasBodega from './pages/FacturasBodega'
 import InventarioAuditoria from './pages/InventarioAuditoria'
@@ -73,6 +74,7 @@ function App() {
               <Route path="/impresion" element={<Impresion />} />
               <Route path="/pagos-proveedores" element={<PagosProveedores />} />
               <Route path="/pagos-recurrentes" element={<PagosRecurrentes />} />
+              <Route path="/reporte-contador" element={<ReporteContador />} />
               <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />

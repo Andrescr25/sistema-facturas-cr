@@ -18,7 +18,8 @@ import {
   Wallet,
   PieChart,
   Banknote,
-  Repeat
+  Repeat,
+  Landmark
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
@@ -45,6 +46,7 @@ export default function Layout({ children }) {
       ]
     },
     { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
+    { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark },
     { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
     { name: 'Impresión', href: '/impresion', icon: Printer },
     { name: 'Gestión de Catálogo', href: '/gestion-catalogo', icon: Image },
