@@ -15,6 +15,11 @@ export async function registrarAbono(payload) {
   return response.data
 }
 
+export async function getCobrosDia(fecha) {
+  const response = await api.get('/cuentas-por-cobrar/cobros-dia', { params: { fecha } })
+  return response.data
+}
+
 export async function sincronizarCuentasPorCobrar() {
   const response = await api.post('/cuentas-por-cobrar/sync')
   return response.data

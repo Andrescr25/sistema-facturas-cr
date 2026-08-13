@@ -332,10 +332,59 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, salda
   return { abono, saldoRestante: Math.max(nuevoSaldo, 0) };
 }
 
+// ==================== CUADRE DE CAJA — COBROS POR DÍA ====================
+
+/**
+ * Devuelve los abonos registrados en un día específico, agrupados por método
+ * de pago, para el cuadre de caja diario.
+ *
+ * @param {string} fechaStr - Fecha en formato YYYY-MM-DD
+ */
+async function obtenerCobrosPorDia(fechaStr) {
+  if (!fechaStr) throw httpError(400, 'La fecha es requerida');
+
+  const inicio = new Date(fechaStr + 'T00:00:00.000Z');
+  const fin = new Date(fechaStr + 'T23:59:59.999Z');
+
+  if (isNaN(inicio.getTime())) throw httpError(400, 'Fecha inválida');
+
+  const cobros = await prisma.abonoCobro.findMany({
+    where: {
+      fecha: { gte: inicio, lte: fin }
+    },
+    orderBy: { fecha: 'desc' }
+  });
+
+  // Agrupar por método de pago
+  const porMetodo = {};
+  let totalDia = 0;
+
+  for (const cobro of cobros) {
+    const metodo = cobro.metodoPago || 'otros';
+    if (!porMetodo[metodo]) {
+      porMetodo[metodo] = { monto: 0, cantidad: 0 };
+    }
+    porMetodo[metodo].monto += Number(cobro.monto) || 0;
+    porMetodo[metodo].cantidad += 1;
+    totalDia += Number(cobro.monto) || 0;
+  }
+
+  return {
+    fecha: fechaStr,
+    cobros,
+    resumen: {
+      total: totalDia,
+      cantidadCobros: cobros.length,
+      porMetodo
+    }
+  };
+}
+
 module.exports = {
   httpError,
   sincronizarDesdeAlegra,
   listarCuentasPorCobrar,
   getAbonosPorFactura,
-  registrarAbono
+  registrarAbono,
+  obtenerCobrosPorDia
 };

@@ -59,9 +59,24 @@ async function sincronizar(req, res) {
   }
 }
 
+/**
+ * GET /cuentas-por-cobrar/cobros-dia?fecha=YYYY-MM-DD
+ */
+async function cobrosDia(req, res) {
+  try {
+    const { fecha } = req.query;
+    const result = await service.obtenerCobrosPorDia(fecha);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('❌ Error obteniendo cobros del día:', error);
+    res.status(error.status || 500).json({ success: false, message: error.message, error: error.message });
+  }
+}
+
 module.exports = {
   listar,
   getAbonos,
   registrarAbono,
-  sincronizar
+  sincronizar,
+  cobrosDia
 };

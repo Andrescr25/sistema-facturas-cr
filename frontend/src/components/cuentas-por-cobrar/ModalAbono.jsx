@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Loader2, X, Wallet } from 'lucide-react'
+import { CheckCircle2, Loader2, X, Wallet, CalendarDays, CreditCard, Clock, CircleDollarSign, ChevronDown } from 'lucide-react'
 import { formatCurrency, formatDate, diasLabel, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
 
 /**
  * Modal de una factura con saldo: monto/fecha/método del abono + historial
- * de abonos ya registrados. De pagos-proveedores/ModalDetalleCuenta.jsx,
- * simplificado (sin tabla de productos — no aplica acá) y con el toggle
- * completo/parcial reemplazado por un solo monto libre, porque el abono
- * siempre se valida contra el saldo real de Alegra al enviarlo, no antes.
+ * de abonos ya registrados. Rediseñado para máxima claridad en móvil.
+ *
+ * Flujo simple de 2 opciones:
+ *   1. Pagar todo el saldo → botón verde grande
+ *   2. Abonar otro monto  → formulario con campos grandes
  */
 export default function ModalAbono({ factura, clienteNombre, procesando, onRegistrar, onCargarAbonos, onCerrar }) {
   const [monto, setMonto] = useState('')
@@ -19,6 +20,7 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
   const [metodoPago, setMetodoPago] = useState('cash')
   const [abonos, setAbonos] = useState([])
   const [loadingAbonos, setLoadingAbonos] = useState(true)
+  const [mostrarFormaParcial, setMostrarFormaParcial] = useState(false)
 
   useEffect(() => {
     let cancelado = false
@@ -51,145 +53,282 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
   const activarSaldarTotal = () => {
     setSaldarTotal(true)
     setMonto(String(factura.saldo))
+    setMostrarFormaParcial(false)
   }
 
   const volverAAbonoParcial = () => {
     setSaldarTotal(false)
     setMonto('')
+    setMostrarFormaParcial(true)
   }
 
   const dias = factura.diasRestantes
+  const diasColor = dias < 0 ? 'text-red-600' : dias <= 7 ? 'text-orange-600' : 'text-gray-500'
+  const diasBg = dias < 0 ? 'bg-red-50 border-red-100' : dias <= 7 ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] overflow-hidden flex flex-col">
-        {/* Handle bottom-sheet en móvil */}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[92vh] overflow-hidden flex flex-col">
+
+        {/* Handle para arrastrar en móvil */}
         <div className="pt-3 pb-1 sm:hidden">
-          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto" />
+          <div className="w-10 h-1.5 bg-gray-300 rounded-full mx-auto" />
         </div>
 
-        <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-100 bg-gray-50">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Factura #{factura.numeroFactura}</p>
-            <h3 className="text-xl font-bold text-gray-900">{clienteNombre}</h3>
+        {/* ─── Encabezado ─── */}
+        <div className="flex justify-between items-center px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100">
+          <div className="min-w-0">
+            <p className="text-[13px] text-gray-400 font-medium">Factura #{factura.numeroFactura}</p>
+            <h3 className="text-lg font-bold text-gray-900 truncate">{clienteNombre}</h3>
           </div>
-          <button onClick={onCerrar} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-            <X size={20} />
+          <button
+            onClick={onCerrar}
+            className="ml-3 shrink-0 p-2.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 transition-colors"
+            aria-label="Cerrar"
+          >
+            <X size={22} />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500">Vencimiento</p>
-              <p className="text-sm font-semibold text-gray-800 mt-0.5">{formatDate(factura.fechaVencimiento)}</p>
-              <p className={`text-xs mt-0.5 font-medium ${dias < 0 ? 'text-red-600' : dias <= 7 ? 'text-orange-600' : 'text-gray-500'}`}>{diasLabel(dias)}</p>
+        {/* ─── Contenido scrolleable ─── */}
+        <div className="px-5 py-5 sm:px-6 overflow-y-auto flex-1 space-y-5">
+
+          {/* ── 1. Resumen de la factura ── */}
+          <div className="space-y-3">
+            {/* Saldo pendiente — lo más importante, grande y claro */}
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
+              <p className="text-sm text-blue-600 font-medium mb-1">Saldo pendiente</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-blue-900">{formatCurrency(factura.saldo)}</p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-              <p className="text-xs text-blue-600 font-semibold">Saldo pendiente</p>
-              <p className="text-lg font-bold text-blue-900 mt-0.5">{formatCurrency(factura.saldo)}</p>
+
+            {/* Fecha de vencimiento */}
+            <div className={`${diasBg} border rounded-xl px-4 py-3 flex items-center gap-3`}>
+              <Clock size={18} className={diasColor} />
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  Vence: {formatDate(factura.fechaVencimiento)}
+                </p>
+                <p className={`text-xs font-medium ${diasColor}`}>{diasLabel(dias)}</p>
+              </div>
             </div>
           </div>
 
-          {/* Registrar abono */}
-          <div className="bg-gray-50/70 rounded-2xl p-5 border border-gray-100 space-y-4">
-            <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Registrar abono</h4>
+          {/* ── 2. Opciones de pago ── */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-gray-700">¿Cómo desea pagar?</p>
 
-            {/* Atajo para el caso más común: cancelar la factura entera sin
-                tener que teclear el monto. */}
-            {!saldarTotal ? (
-              <button
-                onClick={activarSaldarTotal}
-                className="w-full flex items-center justify-center gap-2 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-emerald-100 transition-colors"
-              >
-                <Wallet size={16} />
-                Saldar factura completa ({formatCurrency(factura.saldo)})
-              </button>
-            ) : (
-              <div className="flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 rounded-xl px-4 py-2.5">
+            {/* Opción A: Pagar todo */}
+            <button
+              onClick={activarSaldarTotal}
+              disabled={procesando}
+              className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${
+                saldarTotal
+                  ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+                  : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                  saldarTotal ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'
+                }`}>
+                  <Wallet size={20} />
+                </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
-                    <Wallet size={15} /> Saldar factura completa
+                  <p className={`text-base font-bold ${saldarTotal ? 'text-emerald-800' : 'text-gray-800'}`}>
+                    Pagar todo el saldo
                   </p>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
-                    Se pagará el saldo pendiente en Alegra y quedará en cero.
+                  <p className={`text-sm ${saldarTotal ? 'text-emerald-600' : 'text-gray-500'}`}>
+                    {formatCurrency(factura.saldo)} — queda en ₡0
                   </p>
                 </div>
-                <button onClick={volverAAbonoParcial} className="text-xs text-emerald-700 underline shrink-0 hover:text-emerald-900">
-                  Abonar otro monto
-                </button>
+                {saldarTotal && (
+                  <CheckCircle2 size={22} className="shrink-0 ml-auto text-emerald-500" />
+                )}
+              </div>
+            </button>
+
+            {/* Opción B: Abonar otro monto */}
+            <button
+              onClick={volverAAbonoParcial}
+              disabled={procesando}
+              className={`w-full text-left rounded-2xl border-2 p-4 transition-all ${
+                mostrarFormaParcial && !saldarTotal
+                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                  mostrarFormaParcial && !saldarTotal ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <CircleDollarSign size={20} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-base font-bold ${mostrarFormaParcial && !saldarTotal ? 'text-blue-800' : 'text-gray-800'}`}>
+                    Abonar otro monto
+                  </p>
+                  <p className={`text-sm ${mostrarFormaParcial && !saldarTotal ? 'text-blue-600' : 'text-gray-500'}`}>
+                    Pagar una parte del saldo
+                  </p>
+                </div>
+                {mostrarFormaParcial && !saldarTotal && (
+                  <ChevronDown size={22} className="shrink-0 ml-auto text-blue-500" />
+                )}
+              </div>
+            </button>
+
+            {/* Formulario de abono parcial (solo visible cuando se selecciona) */}
+            {mostrarFormaParcial && !saldarTotal && (
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-4 border border-gray-100">
+                {/* Monto */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    ¿Cuánto va a abonar?
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg">₡</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={monto}
+                      onChange={(e) => setMonto(e.target.value)}
+                      min="0"
+                      max={factura.saldo}
+                      step="0.01"
+                      placeholder="0,00"
+                      className="input pl-10 w-full text-lg h-12"
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Máximo: {formatCurrency(factura.saldo)}
+                  </p>
+                  {montoInvalido && monto !== '' && (
+                    <p className="text-sm text-red-600 mt-1.5 font-medium">
+                      ⚠ El monto debe ser mayor a ₡0 y no superar el saldo.
+                    </p>
+                  )}
+                </div>
+
+                {/* Fecha */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <CalendarDays size={16} className="text-gray-400" />
+                    Fecha del pago
+                  </label>
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="input w-full h-12 text-base"
+                  />
+                </div>
+
+                {/* Método de pago */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <CreditCard size={16} className="text-gray-400" />
+                    ¿Cómo pagó?
+                  </label>
+                  <select
+                    value={metodoPago}
+                    onChange={(e) => setMetodoPago(e.target.value)}
+                    className="input w-full h-12 text-base"
+                  >
+                    {METODOS_PAGO.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Monto</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₡</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
-                  min="0"
-                  max={factura.saldo}
-                  step="0.01"
-                  placeholder={`Máx: ${formatCurrency(factura.saldo)}`}
-                  disabled={saldarTotal}
-                  className="input pl-8 w-full disabled:bg-gray-100 disabled:text-gray-500"
-                  autoFocus
-                />
+            {/* Fecha y método cuando es saldar total (simplificado) */}
+            {saldarTotal && (
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-4 border border-gray-100">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <CalendarDays size={16} className="text-gray-400" />
+                    Fecha del pago
+                  </label>
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="input w-full h-12 text-base"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <CreditCard size={16} className="text-gray-400" />
+                    ¿Cómo pagó?
+                  </label>
+                  <select
+                    value={metodoPago}
+                    onChange={(e) => setMetodoPago(e.target.value)}
+                    className="input w-full h-12 text-base"
+                  >
+                    {METODOS_PAGO.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              {montoInvalido && monto !== '' && (
-                <p className="text-xs text-red-600 mt-1">El monto debe ser mayor a 0 y no superar el saldo pendiente.</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Fecha</label>
-                <input
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  max={new Date().toISOString().slice(0, 10)}
-                  className="input w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Método de pago</label>
-                <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="input w-full">
-                  {METODOS_PAGO.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button
-              onClick={handleRegistrar}
-              disabled={procesando || montoInvalido}
-              className="btn btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {procesando ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-              {procesando ? 'Registrando en Alegra...' : saldarTotal ? 'Saldar factura completa' : 'Registrar abono'}
-            </button>
-            <p className="text-[11px] text-gray-400 text-center">Esto crea un pago real en Alegra sobre esta factura.</p>
+            )}
           </div>
 
-          {/* Historial de abonos */}
+          {/* ── 3. Botón de acción ── */}
+          {(saldarTotal || (mostrarFormaParcial && !saldarTotal)) && (
+            <div className="space-y-2">
+              <button
+                onClick={handleRegistrar}
+                disabled={procesando || montoInvalido}
+                className={`w-full flex items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-bold transition-all disabled:opacity-40 ${
+                  saldarTotal
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200'
+                    : 'btn btn-primary shadow-lg'
+                }`}
+              >
+                {procesando ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <CheckCircle2 size={20} />
+                )}
+                {procesando
+                  ? 'Registrando en Alegra…'
+                  : saldarTotal
+                    ? `Pagar ${formatCurrency(factura.saldo)}`
+                    : 'Registrar abono'}
+              </button>
+              <p className="text-xs text-gray-400 text-center">
+                Esto crea un pago real en Alegra.
+              </p>
+            </div>
+          )}
+
+          {/* ── 4. Historial de abonos ── */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Abonos registrados</h4>
+            <h4 className="text-sm font-semibold text-gray-600 mb-2">Abonos anteriores</h4>
             {loadingAbonos ? (
-              <p className="text-sm text-gray-400">Cargando...</p>
+              <div className="flex items-center gap-2 text-sm text-gray-400 py-3">
+                <Loader2 size={16} className="animate-spin" />
+                Cargando…
+              </div>
             ) : abonos.length === 0 ? (
-              <p className="text-sm text-gray-500">Todavía no hay abonos registrados sobre esta factura.</p>
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-500">No hay abonos todavía</p>
+              </div>
             ) : (
               <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                 {abonos.map((abono) => (
-                  <div key={abono.id} className="p-3 flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-gray-800">{formatCurrency(abono.monto)}</p>
-                      <p className="text-xs text-gray-500">{formatDate(abono.fecha)} • {METODOS_PAGO.find(m => m.id === abono.metodoPago)?.label || abono.metodoPago}</p>
+                  <div key={abono.id} className="px-4 py-3 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="text-base font-bold text-gray-800">{formatCurrency(abono.monto)}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatDate(abono.fecha)} · {METODOS_PAGO.find(m => m.id === abono.metodoPago)?.label || abono.metodoPago}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -201,3 +340,4 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
     </div>
   )
 }
+

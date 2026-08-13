@@ -209,6 +209,7 @@ model AbonoCobro {
   @@map("abonos_cobro")
   @@index([alegraInvoiceId], map: "idx_abonos_cobro_factura")
   @@index([clienteId], map: "idx_abonos_cobro_cliente")
+  @@index([fecha], map: "idx_abonos_cobro_fecha")
 }
 
 // Tabla para productos de Alegra (cache local)
