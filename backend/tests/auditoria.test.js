@@ -45,16 +45,48 @@ describe('clasificarProducto — casos reales de producción', () => {
 });
 
 describe('clasificarProducto — reglas', () => {
-  test('sin costo en Alegra -> SIN_COSTO, y sugiere el derivado si existe', () => {
+  test('sin costo en Alegra pero CON costo de facturas -> se evalúa ese costo, no SIN_COSTO', () => {
+    // Antes daba SIN_COSTO: la fila mostraba el costo derivado y a la vez la
+    // insignia "Sin costo". SIN_COSTO es "no hay costo por ningún lado".
     const r = clasificarProducto({ price: 500, cost: 0, costoDerivado: 300 });
-    assert.equal(r.clasificacion, CLASIFICACION.SIN_COSTO);
+    assert.equal(r.clasificacion, CLASIFICACION.OK);
+    assert.equal(r.origenCosto, 'facturas');
     assert.equal(r.costoSugerido, 300);
+  });
+
+  test('EXTENSION CTE BLANCA 3 MTS — caso real: el margen es delgado (~7%), no el -199% que mostraba el costo envenenado', () => {
+    // ₡1.164,47 CON IVA = ₡1.030,5 sin IVA, contra un precio de ₡1.106,19.
+    // El -199% salía de una fila de costo_historico de otro producto (₡3.740).
+    const r = clasificarProducto({ price: 1106.19, cost: 0, costoDerivado: 1164.47 });
+    assert.equal(r.clasificacion, CLASIFICACION.OK);
+    assert.equal(r.origenCosto, 'facturas');
+    assert.ok(r.margenReal > 6 && r.margenReal < 8, `margen esperado ~6.8%, fue ${r.margenReal}`);
   });
 
   test('sin costo en Alegra y sin costo_historico -> SIN_COSTO con sugerido null', () => {
     const r = clasificarProducto({ price: 500, cost: null, costoDerivado: null });
     assert.equal(r.clasificacion, CLASIFICACION.SIN_COSTO);
     assert.equal(r.costoSugerido, null);
+    assert.equal(r.origenCosto, null);
+  });
+
+  test('un costo de facturas absurdo se marca sospechoso igual que uno de Alegra', () => {
+    // CINTA MOTEX: ₡27.293 derivado contra un precio de ₡325.
+    const r = clasificarProducto({ price: 325, cost: 0, costoDerivado: 27293.8 });
+    assert.equal(r.clasificacion, CLASIFICACION.UNIDAD_SOSPECHOSA);
+  });
+
+  test('historial de compras que se contradice -> UNIDAD_SOSPECHOSA aunque el ratio cierre', () => {
+    const r = clasificarProducto({ price: 100, cost: 70, costoDerivado: 70, historialInestable: true });
+    assert.equal(r.clasificacion, CLASIFICACION.UNIDAD_SOSPECHOSA);
+  });
+
+  test('el cruce de fuentes no compara el costo derivado consigo mismo', () => {
+    // Sin costo en Alegra, el costo base ES el derivado: compararlos daría
+    // 0% de diferencia siempre y el cruce no aportaría nada.
+    const r = clasificarProducto({ price: 100, cost: 0, costoDerivado: 70 });
+    assert.equal(r.clasificacion, CLASIFICACION.OK);
+    assert.equal(r.diffPorcentaje, null);
   });
 
   test('ratio costo/precio > 3 marca UNIDAD_SOSPECHOSA aunque no haya costo_historico para cruzar', () => {

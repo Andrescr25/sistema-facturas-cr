@@ -20,6 +20,7 @@
  */
 
 const { query } = require('../config/database');
+const { obtenerCostosDerivados } = require('../src/modules/precios/costoDerivado');
 const { getProductService } = require('../src/integrations/alegra');
 const { IVA_ASUMIDO, RATIO_SOSPECHOSO_ALTO, RATIO_SOSPECHOSO_BAJO } = require('../src/modules/precios/auditoria');
 
@@ -47,18 +48,17 @@ const MARGEN_MINIMO_PLAUSIBLE = -25;
 async function main() {
   console.log(APLICAR ? '⚠️  MODO APLICAR — se va a escribir en Alegra\n' : '🔍 DRY-RUN — no se escribe nada\n');
 
+  // El costo sale de precios/costoDerivado.js: mediana de las últimas compras
+  // VÁLIDAS. Antes esto tomaba `ORDER BY fecha DESC LIMIT 1` — la última fila
+  // suelta — que es justo lo que hacía que una compra con el factor mal
+  // puesto, o una relación ya deshecha, decidiera el costo que se escribe en
+  // la contabilidad.
+  const derivados = await obtenerCostosDerivados();
+
   const res = await query(`
-    SELECT p.alegra_id, p.name, p.price, p.cost,
-           (SELECT ch.costo_unitario FROM costo_historico ch
-            WHERE ch.alegra_item_id = p.alegra_id::text
-            ORDER BY ch.fecha DESC LIMIT 1) AS costo_derivado,
-           (SELECT ch.fecha FROM costo_historico ch
-            WHERE ch.alegra_item_id = p.alegra_id::text
-            ORDER BY ch.fecha DESC LIMIT 1) AS fecha_costo
+    SELECT p.alegra_id, p.name, p.price, p.cost
     FROM alegra_products_cache p
-    WHERE p.status = 'active'
-      AND (p.cost IS NULL OR p.cost = 0)
-      AND EXISTS (SELECT 1 FROM costo_historico ch WHERE ch.alegra_item_id = p.alegra_id::text)
+    WHERE p.status = 'active' AND (p.cost IS NULL OR p.cost = 0)
     ORDER BY p.name ASC;
   `);
 
@@ -66,9 +66,20 @@ async function main() {
   const descartados = [];
 
   for (const p of res.rows) {
+    const derivado = derivados.get(String(p.alegra_id));
+    if (!derivado) continue;
+    p.fecha_costo = derivado.fechaUltima;
+
     const precio = Number(p.price) || 0;
-    const costo = Number(p.costo_derivado) || 0;
+    const costo = derivado.costo;
     if (costo <= 0) continue;
+
+    // Un historial que se contradice a sí mismo no se escribe nunca: es
+    // exactamente el síntoma de un factor de conversión mal puesto.
+    if (derivado.historialInestable) {
+      descartados.push({ ...p, costo, motivo: 'historial de compras inconsistente' });
+      continue;
+    }
 
     // El costo derivado viene CON IVA y el precio SIN IVA (asimetría de
     // Alegra), así que hay que igualarlos antes de comparar.

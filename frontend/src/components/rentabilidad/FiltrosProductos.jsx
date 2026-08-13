@@ -45,7 +45,7 @@ export default function FiltrosProductos({ filtros, setFiltros, resetFiltros, ca
           value={filtros.clase}
           onChange={(e) => setFiltros({ clase: e.target.value })}
         >
-          <option value="todas">Toda rotación</option>
+          <option value="todas">Todo peso en ventas</option>
           <option value="A">{claseRotacionLabel('A')}</option>
           <option value="B">{claseRotacionLabel('B')}</option>
           <option value="C">{claseRotacionLabel('C')}</option>

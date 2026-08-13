@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Loader2, PackageSearch } from 'lucide-react'
 import ImagenProducto from './competencia/ImagenProducto'
-import { formatCurrency, CLASIFICACION_INFO, ESTILO_CLASIFICACION, ESTILO_CLASE_ROTACION } from '../../utils/rentabilidadUtils'
+import { formatCurrency, CLASIFICACION_INFO, ESTILO_CLASIFICACION, ESTILO_CLASE_ROTACION, unidadesMesLabel } from '../../utils/rentabilidadUtils'
 
 function BadgeClasificacion({ clasificacion }) {
   const info = CLASIFICACION_INFO[clasificacion]
@@ -115,7 +115,10 @@ export default function TablaProductos({ productos, total, filtros, setPagina, l
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-gray-500">Rotación: <BadgeRotacion clase={p.claseRotacion} /></span>
+                  <span className="text-gray-500 flex items-center gap-1.5">
+                    <BadgeRotacion clase={p.claseRotacion} />
+                    <span>{unidadesMesLabel(p.unidadesMes)}</span>
+                  </span>
                   {p.clientesDistintos > 0 && <span className="text-gray-400">{p.clientesDistintos} clientes</span>}
                 </div>
                 {p.techoCompetencia !== null && (
@@ -137,7 +140,7 @@ export default function TablaProductos({ productos, total, filtros, setPagina, l
                   <th className="px-4 py-3 text-right">Precio</th>
                   <th className="px-4 py-3 text-right">Costo</th>
                   <th className="px-4 py-3 text-right">Margen real</th>
-                  <th className="px-4 py-3">Rotación</th>
+                  <th className="px-4 py-3">Ventas</th>
                   <th className="px-4 py-3">Competencia</th>
                   <th className="px-4 py-3">Estado</th>
                 </tr>
@@ -156,9 +159,13 @@ export default function TablaProductos({ productos, total, filtros, setPagina, l
                     <td className="px-4 py-3 text-right"><Costo p={p} /></td>
                     <td className="px-4 py-3 text-right"><MargenEfectivo p={p} /></td>
                     <td className="px-4 py-3">
+                      {/* La clase mide facturación; las unidades/mes son la
+                          rotación real. Se muestran juntas porque separadas
+                          se leen mal (una clase A puede mover 0,2 u/mes). */}
                       <div className="flex items-center gap-2">
                         <BadgeRotacion clase={p.claseRotacion} />
-                        {p.clientesDistintos > 0 && <span className="text-xs text-gray-400">{p.clientesDistintos} cli.</span>}
+                        <span className="text-xs text-gray-500">{unidadesMesLabel(p.unidadesMes)}</span>
+                        {p.clientesDistintos > 0 && <span className="text-xs text-gray-400">· {p.clientesDistintos} cli.</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3"><Competencia p={p} /></td>

@@ -9,6 +9,7 @@ const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
+const { sincronizarCostoDeLineas, sincronizarCostoDeMapeo } = require('../precios/costoHistorico');
 
 const productService = getProductService();
 
@@ -91,7 +92,29 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
   const total = relacionesUnicas.length;
   const relaciones = relacionesUnicas.slice(skip, skip + parseInt(limit));
 
+  // `alegra_name` es una FOTO del nombre al momento de crear la relación y
+  // nadie la refresca: 73 de 2.011 relaciones mostraban un nombre viejo (p.ej.
+  // "EXTENSION CTE BLANCA 3 MTS CTE" cuando en el catálogo ya decía
+  // "...VOLTECK"). Se resuelve contra el catálogo actual, igual que se hizo en
+  // reporte-proveedores. Si el producto ya no está en el catálogo se conserva
+  // el nombre guardado y se marca, en vez de mostrar un hueco.
+  const idsAlegra = [...new Set(relaciones.map(r => r.alegraItemId).filter(Boolean).map(String))];
+  const catalogo = new Map();
+  if (idsAlegra.length > 0) {
+    const filas = await query(
+      `SELECT alegra_id, name, reference FROM alegra_products_cache WHERE alegra_id::text = ANY($1)`,
+      [idsAlegra]
+    );
+    filas.rows.forEach(f => catalogo.set(String(f.alegra_id), { name: f.name, reference: f.reference }));
+  }
+
   const productosFormateados = relaciones.map(mapeo => {
+    const actual = mapeo.alegraItemId ? catalogo.get(String(mapeo.alegraItemId)) : null;
+    const nombreActual = actual?.name || mapeo.alegraName;
+    const referenciaActual = actual?.reference || mapeo.alegraReference;
+    const productoExiste = Boolean(actual);
+    const nombreDesactualizado = productoExiste && mapeo.alegraName !== actual.name;
+
     return {
       id: mapeo.id,
       // Datos del proveedor
@@ -103,10 +126,14 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
       codigoProveedor: mapeo.supplierCode, // Para compatibilidad
       descripcion: mapeo.supplierDesc,
 
-      // Datos de Alegra
+      // Datos de Alegra — nombre y referencia ACTUALES del catálogo.
       alegraItemId: mapeo.alegraItemId,
-      alegraReference: mapeo.alegraReference,
-      alegraName: mapeo.alegraName,
+      alegraReference: referenciaActual,
+      alegraName: nombreActual,
+      // Para poder avisar en pantalla en vez de mostrar un dato muerto.
+      alegraNombreGuardado: mapeo.alegraName,
+      nombreDesactualizado,
+      productoExisteEnCatalogo: productoExiste,
 
       // Metadatos de la relación
       confianza: mapeo.confidence || 0,
@@ -121,8 +148,8 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
       mapeo: {
         id: mapeo.id,
         alegraItemId: mapeo.alegraItemId,
-        alegraName: mapeo.alegraName,
-        alegraReference: mapeo.alegraReference,
+        alegraName: nombreActual,
+        alegraReference: referenciaActual,
         confidence: mapeo.confidence,
         factorConversion: mapeo.factorConversion || 1
       }
@@ -355,6 +382,11 @@ async function crearRelacion({ productoProveedorId, alegraItemId }) {
     }
   });
 
+  // El costo de esta compra entra a costo_historico en el momento en que la
+  // línea queda relacionada — antes esto solo pasaba al correr el backfill a
+  // mano, así que los costos envejecían sin que nadie se enterara.
+  await sincronizarCostoDeLineas([productoProveedorId]);
+
   // Verificar si todos los productos de la factura están relacionados
   const totalProductos = await prisma.productoFactura.count({
     where: { facturaId: producto.facturaId }
@@ -532,6 +564,10 @@ async function editarRelacion(mapeoId, nuevoAlegraItemId) {
       mapeoId: mapeoId // Mantener el mismo mapeoId
     }
   });
+
+  // Cambió el producto de TODAS las líneas de este mapeo: hay que reescribir
+  // sus costos para que no queden apuntando al producto anterior.
+  await sincronizarCostoDeMapeo(mapeoId);
 
   console.log(`✅ Relación editada: ${mapeo.supplierDesc} → ${nuevoAlegraProduct.name}`);
   console.log(`✅ ${resultado.count} producto(s) actualizado(s)`);
@@ -867,6 +903,8 @@ async function crearProducto(datos, imagen) {
     }
   });
 
+  await sincronizarCostoDeLineas([productoId]);
+
   console.log(`✅ Producto relacionado automáticamente: ${productoOriginal.descripcion} → ${nombre}`);
 
   return {
@@ -894,8 +932,17 @@ async function guardarFactorConversion(mapeoId, factorNumerico) {
   console.log(`✅ Factor de conversión guardado: ${factorNumerico}`);
   console.log(`   Verificación: ${mapeo.factorConversion}`);
 
+  // El factor divide el costo del proveedor para llevarlo a la unidad propia,
+  // así que cambiarlo cambia TODOS los costos históricos de ese mapeo. Sin
+  // esto, corregir un factor mal puesto no arreglaba el costo que ve el
+  // tablero hasta el siguiente backfill manual — que era justo el trabajo que
+  // se estaba haciendo al corregirlo.
+  const recalculo = await sincronizarCostoDeMapeo(mapeoId);
+  console.log(`   Costos históricos recalculados: ${recalculo.registradas} (${recalculo.eliminadas} eliminados)`);
+
   return {
     message: 'Factor de conversión guardado exitosamente',
+    costosRecalculados: recalculo.registradas,
     mapeo: {
       id: mapeo.id,
       factorConversion: mapeo.factorConversion,

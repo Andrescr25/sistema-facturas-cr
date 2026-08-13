@@ -66,6 +66,21 @@ async function insertarLote(filas) {
   const inicio = Date.now();
   console.log('🚀 Backfill de costo_historico — arrancando...\n');
 
+  // Purga previa: costo_historico no se limpia solo cuando se deshace o se
+  // cambia una relación, así que arrastra filas que apuntan a productos que
+  // esa línea ya no tiene. Se borran acá para que re-correr el backfill deje
+  // la tabla consistente en vez de ir acumulando basura.
+  const purga = await query(`
+    DELETE FROM costo_historico ch
+    USING productos_factura_proveedor pf
+    WHERE pf.id = ch.producto_factura_id
+      AND (pf.estado_relacionado <> 'RELACIONADO'
+           OR pf.alegra_item_id IS NULL
+           OR pf.alegra_item_id::text <> ch.alegra_item_id)
+    RETURNING ch.id;
+  `);
+  console.log(`🧹 Filas obsoletas eliminadas (relación deshecha o cambiada): ${purga.rowCount}\n`);
+
   let skip = 0;
   let total = 0;
   let sinFecha = 0;
@@ -73,7 +88,16 @@ async function insertarLote(filas) {
   try {
     while (true) {
       const lineas = await prisma.productoFactura.findMany({
-        where: { alegraItemId: { not: null }, precioUnitario: { gt: 0 } },
+        // Solo líneas CONFIRMADAS. Antes bastaba con tener alegraItemId, así
+        // que entraban líneas relacionadas por adivinanza y nunca revisadas —
+        // una de ellas ("EXTESION ELECTRICA 4.5 MTRS", de otro proveedor)
+        // terminó fijando el costo de EXTENSION CTE BLANCA 3 MTS en ₡3.740
+        // cuando el real es ₡1.164.
+        where: {
+          alegraItemId: { not: null },
+          estadoRelacionado: 'RELACIONADO',
+          precioUnitario: { gt: 0 }
+        },
         include: {
           factura: { select: { fechaEmision: true, proveedorNombre: true, proveedorCedula: true } },
           mapeo: { select: { factorConversion: true } }

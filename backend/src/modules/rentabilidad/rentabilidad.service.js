@@ -16,6 +16,7 @@
 
 const { query } = require('../../../config/database');
 const { clasificarProducto, IVA_ASUMIDO } = require('../precios/auditoria');
+const { obtenerCostosDerivados } = require('../precios/costoDerivado');
 const { calcularTechoCompetencia } = require('../precios/motor');
 
 const PAGE_SIZE_DEFAULT = 50;
@@ -36,7 +37,7 @@ function mediana(valores) {
  * Tres queries fijas, sin N+1 por producto.
  */
 async function obtenerCatalogoClasificado() {
-  const [productos, derivados, competencia] = await Promise.all([
+  const [productos, derivadoPorItem, competencia] = await Promise.all([
     query(`
       SELECT p.alegra_id, p.name, p.category, p.price, p.cost, p.image_url,
              r.clase AS clase_rotacion, r.unidades_mes, r.clientes_distintos,
@@ -45,11 +46,9 @@ async function obtenerCatalogoClasificado() {
       LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id::text
       WHERE p.status = 'active'
     `),
-    query(`
-      SELECT DISTINCT ON (alegra_item_id) alegra_item_id, costo_unitario
-      FROM costo_historico
-      ORDER BY alegra_item_id, fecha DESC
-    `),
+    // Mediana de las últimas compras VÁLIDAS, no la última fila suelta —
+    // ver precios/costoDerivado.js para los dos defectos que arregla.
+    obtenerCostosDerivados(),
     // El precio de competencia MÁS BARATO por producto (entre todas sus
     // fuentes confirmadas) — es el que de verdad limita cuánto puede pagar
     // la pulpería antes de irle mejor comprándole directo al retailer.
@@ -65,12 +64,13 @@ async function obtenerCatalogoClasificado() {
     `)
   ]);
 
-  const derivadoPorItem = new Map(derivados.rows.map(r => [r.alegra_item_id, Number(r.costo_unitario)]));
   const competenciaPorItem = new Map(competencia.rows.map(r => [r.alegra_item_id, { fuente: r.fuente, precio: Number(r.precio) }]));
 
   return productos.rows.map(p => {
-    const costoDerivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
-    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado });
+    const derivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
+    const costoDerivado = derivado ? derivado.costo : null;
+    const historialInestable = derivado ? derivado.historialInestable : false;
+    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable });
     const comp = competenciaPorItem.get(String(p.alegra_id)) ?? null;
     const techoCompetencia = comp ? calcularTechoCompetencia(comp.precio) : null;
 
@@ -100,6 +100,11 @@ async function obtenerCatalogoClasificado() {
       precio: Number(p.price) || 0,
       costo: Number(p.cost) || 0,
       costoDerivado,
+      // Señales del historial de compras, para poder explicar en pantalla por
+      // qué un costo no es de fiar.
+      costoDerivadoReciente: derivado ? Math.round(derivado.costoReciente * 100) / 100 : null,
+      comprasConsideradas: derivado ? derivado.entradas : 0,
+      historialInestable,
       claseRotacion: p.clase_rotacion || null,
       unidadesMes: p.unidades_mes !== null ? Number(p.unidades_mes) : null,
       clientesDistintos: p.clientes_distintos !== null ? Number(p.clientes_distintos) : null,
@@ -223,7 +228,140 @@ async function listarProductos(filtros = {}) {
   };
 }
 
+// ==================== Monitoreo de márgenes ====================
+
+const COLUMNAS_SNAPSHOT = 10;
+const FILAS_POR_INSERT_SNAPSHOT = 150;
+
+/**
+ * Guarda el margen de TODO el catálogo con la fecha de hoy.
+ *
+ * Usa exactamente el mismo cálculo que la pantalla (obtenerCatalogoClasificado),
+ * para que la serie histórica y lo que se ve en vivo nunca digan cosas
+ * distintas. Re-correrlo el mismo día actualiza la foto en vez de duplicarla.
+ */
+async function tomarSnapshotMargenes(fecha = new Date()) {
+  const productos = await obtenerCatalogoClasificado();
+  const dia = fecha.toISOString().slice(0, 10);
+
+  for (let i = 0; i < productos.length; i += FILAS_POR_INSERT_SNAPSHOT) {
+    const lote = productos.slice(i, i + FILAS_POR_INSERT_SNAPSHOT);
+    const placeholders = lote.map((_, idx) => {
+      const b = idx * COLUMNAS_SNAPSHOT;
+      return `(${Array.from({ length: COLUMNAS_SNAPSHOT }, (_, c) => `$${b + c + 1}`).join(', ')})`;
+    }).join(', ');
+
+    const valores = lote.flatMap(p => [
+      dia, String(p.alegraItemId), p.categoria, p.precio, p.costoEfectivo,
+      p.origenCosto, p.margenEfectivo, p.clasificacionCosto, p.unidadesMes, p.facturacion12m
+    ]);
+
+    await query(`
+      INSERT INTO margen_snapshot (
+        fecha, alegra_item_id, categoria, precio, costo,
+        origen_costo, margen, clasificacion, unidades_mes, facturacion_12m
+      ) VALUES ${placeholders}
+      ON CONFLICT (fecha, alegra_item_id) DO UPDATE SET
+        categoria = EXCLUDED.categoria, precio = EXCLUDED.precio, costo = EXCLUDED.costo,
+        origen_costo = EXCLUDED.origen_costo, margen = EXCLUDED.margen,
+        clasificacion = EXCLUDED.clasificacion, unidades_mes = EXCLUDED.unidades_mes,
+        facturacion_12m = EXCLUDED.facturacion_12m, creado_en = CURRENT_TIMESTAMP;
+    `, valores);
+  }
+
+  return { fecha: dia, productos: productos.length };
+}
+
+/**
+ * GET /api/rentabilidad/tendencia — evolución del margen por fecha.
+ *
+ * El margen se pondera por facturación, no se promedia a secas: un producto
+ * que factura ₡2M y otro que factura ₡3.000 no pesan igual en la salud del
+ * negocio, y el promedio simple queda dominado por la cola larga.
+ */
+async function obtenerTendenciaMargenes({ categoria } = {}) {
+  const filtroCategoria = categoria && categoria !== 'todas' ? 'AND categoria = $1' : '';
+  const params = filtroCategoria ? [categoria] : [];
+
+  const serie = await query(`
+    SELECT fecha,
+           COUNT(*)::int AS productos,
+           COUNT(*) FILTER (WHERE margen IS NOT NULL)::int AS con_costo,
+           ROUND(
+             (SUM(margen * facturacion_12m) FILTER (WHERE margen IS NOT NULL AND facturacion_12m > 0)
+              / NULLIF(SUM(facturacion_12m) FILTER (WHERE margen IS NOT NULL AND facturacion_12m > 0), 0))::numeric, 2
+           ) AS margen_ponderado,
+           ROUND((percentile_cont(0.5) WITHIN GROUP (ORDER BY margen))::numeric, 2) AS margen_mediana,
+           COUNT(*) FILTER (WHERE clasificacion = 'MARGEN_NEGATIVO')::int AS margen_negativo,
+           COUNT(*) FILTER (WHERE clasificacion = 'SIN_COSTO')::int AS sin_costo
+    FROM margen_snapshot
+    WHERE TRUE ${filtroCategoria}
+    GROUP BY fecha ORDER BY fecha ASC;
+  `, params);
+
+  return {
+    serie: serie.rows.map(r => ({
+      fecha: r.fecha,
+      productos: r.productos,
+      conCosto: r.con_costo,
+      margenPonderado: r.margen_ponderado !== null ? Number(r.margen_ponderado) : null,
+      margenMediana: r.margen_mediana !== null ? Number(r.margen_mediana) : null,
+      margenNegativo: r.margen_negativo,
+      sinCosto: r.sin_costo
+    }))
+  };
+}
+
+/**
+ * Productos cuyo margen cayó más entre la primera y la última foto.
+ * Es la lista accionable del monitoreo: qué se deterioró sin que nadie lo tocara.
+ */
+async function obtenerDeterioroMargenes({ limite = 20 } = {}) {
+  const fechas = await query(`SELECT MIN(fecha) primera, MAX(fecha) ultima FROM margen_snapshot`);
+  const { primera, ultima } = fechas.rows[0];
+  if (!primera || String(primera) === String(ultima)) {
+    return { desde: primera, hasta: ultima, productos: [], sinComparacion: true };
+  }
+
+  const res = await query(`
+    SELECT a.alegra_item_id, c.name, a.categoria,
+           a.margen AS margen_antes, b.margen AS margen_ahora,
+           a.costo AS costo_antes, b.costo AS costo_ahora,
+           a.precio AS precio_antes, b.precio AS precio_ahora,
+           b.facturacion_12m
+    FROM margen_snapshot a
+    JOIN margen_snapshot b ON b.alegra_item_id = a.alegra_item_id AND b.fecha = $2
+    LEFT JOIN alegra_products_cache c ON c.alegra_id::text = a.alegra_item_id
+    WHERE a.fecha = $1 AND a.margen IS NOT NULL AND b.margen IS NOT NULL
+      AND b.margen < a.margen
+    ORDER BY (a.margen - b.margen) DESC
+    LIMIT $3;
+  `, [primera, ultima, limite]);
+
+  return {
+    desde: primera,
+    hasta: ultima,
+    sinComparacion: false,
+    productos: res.rows.map(r => ({
+      alegraItemId: r.alegra_item_id,
+      nombre: r.name || r.alegra_item_id,
+      categoria: r.categoria,
+      margenAntes: Number(r.margen_antes),
+      margenAhora: Number(r.margen_ahora),
+      caida: Math.round((Number(r.margen_antes) - Number(r.margen_ahora)) * 10) / 10,
+      costoAntes: Number(r.costo_antes),
+      costoAhora: Number(r.costo_ahora),
+      precioAntes: Number(r.precio_antes),
+      precioAhora: Number(r.precio_ahora),
+      facturacion12m: Number(r.facturacion_12m)
+    }))
+  };
+}
+
 module.exports = {
   obtenerResumen,
-  listarProductos
+  listarProductos,
+  tomarSnapshotMargenes,
+  obtenerTendenciaMargenes,
+  obtenerDeterioroMargenes
 };

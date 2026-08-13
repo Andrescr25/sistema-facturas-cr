@@ -39,58 +39,78 @@ const CLASIFICACION = {
 };
 
 /**
+ * SIN_COSTO significa "no hay costo por ningún lado", no "Alegra no lo tiene".
+ *
+ * Antes bastaba con que Alegra tuviera cost=0 para clasificar SIN_COSTO,
+ * aunque las facturas del proveedor dieran un costo perfectamente bueno. La
+ * pantalla terminaba mostrando el costo derivado Y la insignia "Sin costo" en
+ * la misma fila — dos afirmaciones ciertas por separado que juntas se leen
+ * como un error (14 productos así en producción). De dónde salió el costo es
+ * otro eje y viaja aparte, en `origenCosto`.
+ *
  * @param {object} datos
  * @param {number} datos.price - precio de venta actual, SIN IVA (alegra_products_cache.price)
  * @param {number} datos.cost - costo actual en Alegra, CON IVA (alegra_products_cache.cost)
- * @param {number|null} datos.costoDerivado - costo_unitario más reciente en costo_historico
- *        (ya normalizado a unidad propia, CON IVA), o null si no hay ninguna factura relacionada.
- * @returns {{clasificacion: string, costoSinIva: number|null, margenReal: number|null, costoSugerido: number|null, diffPorcentaje: number|null}}
+ * @param {number|null} datos.costoDerivado - costo de las facturas de proveedor
+ *        (ya normalizado a unidad propia, CON IVA), o null si no hay ninguna.
+ *        Ver ./costoDerivado.js: es la mediana de las últimas compras válidas.
+ * @param {boolean} [datos.historialInestable] - las compras recientes de ese
+ *        producto se contradicen entre sí (factor de conversión mal puesto en
+ *        alguna). Basta para no confiar en el costo, venga de donde venga.
+ * @returns {{clasificacion: string, costoSinIva: number|null, margenReal: number|null,
+ *   costoSugerido: number|null, diffPorcentaje: number|null, origenCosto: string|null}}
  */
-function clasificarProducto({ price, cost, costoDerivado }) {
+function clasificarProducto({ price, cost, costoDerivado, historialInestable = false }) {
   const precioVenta = Number(price) || 0;
   const costoAlegra = Number(cost) || 0;
   const derivado = costoDerivado != null && Number.isFinite(Number(costoDerivado)) && Number(costoDerivado) > 0
     ? Number(costoDerivado)
     : null;
 
-  if (costoAlegra <= 0) {
+  // El costo de Alegra manda cuando existe; si no, el de las facturas.
+  const costoBase = costoAlegra > 0 ? costoAlegra : derivado;
+  const origenCosto = costoAlegra > 0 ? 'alegra' : (derivado !== null ? 'facturas' : null);
+
+  if (costoBase === null) {
     return {
       clasificacion: CLASIFICACION.SIN_COSTO,
       costoSinIva: null,
       margenReal: null,
-      costoSugerido: derivado,
-      diffPorcentaje: null
+      costoSugerido: null,
+      diffPorcentaje: null,
+      origenCosto: null
     };
   }
 
-  const costoSinIva = costoAlegra / (1 + IVA_ASUMIDO / 100);
+  const costoSinIva = costoBase / (1 + IVA_ASUMIDO / 100);
   const ratioCostoPrecio = precioVenta > 0 ? costoSinIva / precioVenta : Infinity;
+
+  const sospechoso = (diffPorcentaje = null) => ({
+    clasificacion: CLASIFICACION.UNIDAD_SOSPECHOSA,
+    costoSinIva,
+    margenReal: null,
+    costoSugerido: derivado,
+    diffPorcentaje,
+    origenCosto
+  });
+
+  // Un historial que se contradice a sí mismo invalida el costo aunque el
+  // ratio contra el precio parezca razonable.
+  if (historialInestable) return sospechoso();
 
   // Regla dura del ratio (en los dos sentidos): independiente de si hay una
   // segunda fuente que lo confirme o no (y aunque la haya, puede compartir
   // el mismo error — ver caso CINTA MOTEX en el comentario de arriba).
   if (ratioCostoPrecio > RATIO_SOSPECHOSO_ALTO || (precioVenta > 0 && ratioCostoPrecio < RATIO_SOSPECHOSO_BAJO)) {
-    return {
-      clasificacion: CLASIFICACION.UNIDAD_SOSPECHOSA,
-      costoSinIva,
-      margenReal: null,
-      costoSugerido: derivado,
-      diffPorcentaje: null
-    };
+    return sospechoso();
   }
 
-  // Cruce de fuentes: costo de Alegra vs. el derivado de las facturas reales.
-  if (derivado !== null) {
+  // Cruce de fuentes: solo tiene sentido cuando las DOS existen y son
+  // independientes. Si el costo base ya es el derivado, compararlo consigo
+  // mismo no aporta nada.
+  if (costoAlegra > 0 && derivado !== null) {
     const diffPorcentaje = (Math.abs(costoAlegra - derivado) / derivado) * 100;
-    if (diffPorcentaje > TOLERANCIA_CRUCE_PORCENTAJE) {
-      return {
-        clasificacion: CLASIFICACION.UNIDAD_SOSPECHOSA,
-        costoSinIva,
-        margenReal: null,
-        costoSugerido: derivado,
-        diffPorcentaje
-      };
-    }
+    if (diffPorcentaje > TOLERANCIA_CRUCE_PORCENTAJE) return sospechoso(diffPorcentaje);
   }
 
   const margenReal = precioVenta > 0 ? ((precioVenta - costoSinIva) / precioVenta) * 100 : null;
@@ -101,7 +121,8 @@ function clasificarProducto({ price, cost, costoDerivado }) {
       costoSinIva,
       margenReal,
       costoSugerido: derivado,
-      diffPorcentaje: null
+      diffPorcentaje: null,
+      origenCosto
     };
   }
 
@@ -110,7 +131,8 @@ function clasificarProducto({ price, cost, costoDerivado }) {
     costoSinIva,
     margenReal,
     costoSugerido: derivado,
-    diffPorcentaje: null
+    diffPorcentaje: null,
+    origenCosto
   };
 }
 

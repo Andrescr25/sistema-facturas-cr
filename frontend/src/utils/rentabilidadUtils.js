@@ -7,8 +7,8 @@
 export { formatCurrency } from './pagosProveedoresUtils'
 
 export const CLASIFICACION_INFO = {
-  SIN_COSTO: { label: 'Sin costo', color: 'gray', descripcion: 'No tiene costo registrado en Alegra' },
-  UNIDAD_SOSPECHOSA: { label: 'Unidad sospechosa', color: 'orange', descripcion: 'El costo no cuadra con la unidad de venta — probable error de factor de conversión' },
+  SIN_COSTO: { label: 'Sin costo', color: 'gray', descripcion: 'No hay costo por ningún lado: ni en Alegra ni en facturas de proveedor' },
+  UNIDAD_SOSPECHOSA: { label: 'Unidad sospechosa', color: 'orange', descripcion: 'El costo no cuadra con la unidad de venta, o las compras recientes se contradicen entre sí — probable error de factor de conversión' },
   MARGEN_NEGATIVO: { label: 'Margen negativo', color: 'red', descripcion: 'Se vende por debajo del costo' },
   OK: { label: 'OK', color: 'green', descripcion: 'Costo y margen consistentes' }
 }
@@ -26,11 +26,26 @@ export const ESTILO_CLASE_ROTACION = {
   C: 'bg-gray-100 text-gray-500'
 }
 
+/**
+ * La clase A/B/C es un Pareto por FACTURACIÓN, no por unidades movidas: mide
+ * cuánta plata aporta el producto, no cuánto rota. Se etiquetaba "Rotación" y
+ * se leía al revés — hay 53 productos clase A que mueven menos de 3 unidades
+ * al mes (una romana de ₡79.000 que se vende 2 veces al año cae en A), y
+ * productos clase C que mueven 25 unidades al mes por ser baratos.
+ */
 export function claseRotacionLabel(clase) {
-  if (clase === 'A') return 'A — núcleo'
-  if (clase === 'B') return 'B'
+  if (clase === 'A') return 'A — top de facturación'
+  if (clase === 'B') return 'B — intermedio'
   if (clase === 'C') return 'C — cola larga'
   return 'Sin ventas'
+}
+
+/** Unidades por mes: la rotación de verdad, la que la clase A/B/C no mide. */
+export function unidadesMesLabel(unidadesMes) {
+  if (unidadesMes === null || unidadesMes === undefined) return '—'
+  if (unidadesMes === 0) return '0 u/mes'
+  if (unidadesMes < 1) return `${unidadesMes.toFixed(1)} u/mes`
+  return `${Math.round(unidadesMes)} u/mes`
 }
 
 export function mesesSinVentaLabel(meses) {
