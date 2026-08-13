@@ -34,6 +34,7 @@ async function setupDatabase() {
     await client.query('DROP TABLE IF EXISTS competencia_rechazo CASCADE');
     await client.query('DROP TABLE IF EXISTS pago_recurrente CASCADE');
     await client.query('DROP TABLE IF EXISTS gasto_recurrente CASCADE');
+    await client.query('DROP TABLE IF EXISTS margen_snapshot CASCADE');
     await client.query('DROP TABLE IF EXISTS reporte_contador_contacto CASCADE');
     await client.query('DROP TABLE IF EXISTS reporte_contador_linea CASCADE');
     await client.query('DROP TABLE IF EXISTS reporte_contador_periodo CASCADE');
@@ -479,6 +480,28 @@ async function setupDatabase() {
     // Reporte Contador: control interno mensual de ventas/compras a partir
     // de los Excel que exporta Alegra. Se guarda línea por línea porque la
     // detección de duplicados necesita comparar factura contra factura.
+    console.log('📋 Creando tabla margen_snapshot...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS margen_snapshot (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          fecha DATE NOT NULL,
+          alegra_item_id VARCHAR(20) NOT NULL,
+          categoria VARCHAR(120),
+          precio NUMERIC(14,2),
+          costo NUMERIC(14,2),
+          origen_costo VARCHAR(12),
+          margen NUMERIC(7,2),
+          clasificacion VARCHAR(20) NOT NULL,
+          unidades_mes NUMERIC(12,2),
+          facturacion_12m NUMERIC(14,2),
+          creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (fecha, alegra_item_id)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_margen_snapshot_fecha ON margen_snapshot(fecha DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_margen_snapshot_item ON margen_snapshot(alegra_item_id, fecha DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_margen_snapshot_categoria ON margen_snapshot(categoria, fecha DESC)');
+
     console.log('📋 Creando tabla reporte_contador_periodo...');
     await client.query(`
       CREATE TABLE IF NOT EXISTS reporte_contador_periodo (

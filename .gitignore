@@ -48,3 +48,7 @@ coverage/
 *.tmp
 # Reportes generados por los scripts (datos reales del negocio, no código)
 backend/scripts/salida/
+
+# Listas de trabajo generadas por los scripts de auditoría (datos reales de
+# proveedores y costos, no código)
+productos-clase-A-a-revisar.xlsx

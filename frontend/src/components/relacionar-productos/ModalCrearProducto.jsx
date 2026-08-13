@@ -119,22 +119,10 @@ export default function ModalCrearProducto({
                 <p className="text-xs text-gray-500 mt-1">Máximo 150 caracteres</p>
               </div>
 
-              {/* Descripción */}
-              <div>
-                <label className="label flex items-center">
-                  <FileText className="mr-1" size={16} />
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  defaultValue={productoSeleccionado.descripcion}
-                  rows="3"
-                  maxLength="500"
-                  className="input resize-none"
-                  placeholder="Descripción detallada del producto"
-                />
-                <p className="text-xs text-gray-500 mt-1">Máximo 500 caracteres</p>
-              </div>
+              {/* La descripción se quitó del formulario: venía precargada con
+                  el mismo texto que el nombre y el backend ya cae al nombre
+                  cuando no llega (productos-revision.service.js:723), así que
+                  solo agregaba un campo que había que saltarse. */}
 
               {/* Referencia y Unidad */}
               <div className="grid grid-cols-2 gap-3">

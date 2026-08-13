@@ -231,6 +231,7 @@ let emailService = null;
 let productSyncInterval = null;
 let cuentasPorCobrarSyncInterval = null;
 let historialClientesSyncInterval = null;
+let snapshotMargenesInterval = null;
 
 // Función para sincronizar productos de Alegra
 async function syncAlegraProducts() {
@@ -263,6 +264,16 @@ async function syncCuentasPorCobrar() {
 // público personalizado). Incremental por diseño: solo el backfill inicial
 // (backend/scripts/backfill-historial-compras.js) recorre todo Alegra —
 // cada corrida siguiente parte de la última fecha ya guardada.
+async function tomarSnapshotMargenes() {
+  try {
+    const rentabilidadService = require('./src/modules/rentabilidad/rentabilidad.service');
+    const r = await rentabilidadService.tomarSnapshotMargenes();
+    console.log(`\n📸 Snapshot de márgenes ${r.fecha}: ${r.productos} productos`);
+  } catch (error) {
+    console.error('❌ Error tomando el snapshot de márgenes:', error.message);
+  }
+}
+
 async function syncHistorialClientes() {
   try {
     console.log('\n🛒 Sincronizando historial de compras por cliente...');
@@ -374,6 +385,25 @@ const server = app.listen(PORT, () => {
     console.log('   Establece ENABLE_HISTORIAL_SYNC=true en .env para activarla\n');
   }
 
+  // Foto semanal del margen de todo el catálogo. Semanal y no diaria a
+  // propósito: el margen se mueve por cambios de costo o de precio, que no
+  // pasan todos los días, y una serie semanal se lee mucho mejor que 365
+  // puntos al año. Correrlo dos veces el mismo día no duplica (UPSERT).
+  if (process.env.ENABLE_SNAPSHOT_MARGENES !== 'false') {
+    setTimeout(() => {
+      tomarSnapshotMargenes();
+    }, 20000);
+
+    snapshotMargenesInterval = setInterval(() => {
+      tomarSnapshotMargenes();
+    }, 7 * 24 * 60 * 60 * 1000);
+
+    console.log('\n📸 Monitoreo de márgenes activado');
+    console.log('   - Foto inicial: En 20 segundos');
+    console.log('   - Foto periódica: Cada 7 días');
+    console.log('   - Para desactivar: ENABLE_SNAPSHOT_MARGENES=false en .env\n');
+  }
+
 });
 
 // Manejo de cierre graceful
@@ -393,6 +423,9 @@ const gracefulShutdown = async (signal) => {
   }
 
   // Detener sincronización de historial de compras por cliente
+  if (snapshotMargenesInterval) {
+    clearInterval(snapshotMargenesInterval);
+  }
   if (historialClientesSyncInterval) {
     console.log('🛒 Deteniendo sincronización de historial de compras...');
     clearInterval(historialClientesSyncInterval);
