@@ -265,6 +265,7 @@ class ReportService {
           aj.cantidad_entregada,
           aj.estado as ajuste_estado,
           aj.requiere_actualizacion,
+          aj.revisado as ajuste_revisado,
           fr.id as reimpresion_id,
           fr.estado as reimpresion_estado,
           (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_id = fa.id) as total_items_factura
@@ -348,7 +349,8 @@ class ReportService {
           estado: row.faltante_estado,
           cantidad_entregada: row.cantidad_entregada || 0,
           ajuste_estado: row.ajuste_estado || 'pendiente',
-          requiere_actualizacion: row.requiere_actualizacion || false
+          requiere_actualizacion: row.requiere_actualizacion || false,
+          ajuste_revisado: row.ajuste_revisado === true
         });
 
         if (row.faltante_estado === 'pendiente') {

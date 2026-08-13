@@ -7,6 +7,7 @@ import {
   getFacturaProgreso,
   productosValidosDe,
   productoEstaRevisado,
+  facturaListaParaImprimir,
   formatDate
 } from '../../utils/reporteClientesUtils'
 
@@ -25,7 +26,10 @@ export default function FacturaActivaCard({
   onCantidadEntregadaChange,
   onMarcarCompleto,
   onNoLlegoNada,
-  onDeshacer
+  onDeshacer,
+  onMarcarFacturaRevisada,
+  onReabrirRevision,
+  onQuitarRespuesta
 }) {
   const [mostrarRevisados, setMostrarRevisados] = useState(false)
 
@@ -33,7 +37,7 @@ export default function FacturaActivaCard({
   const esFacturaSinCaja = (factura.total_items_factura || 0) > 0 && productosValidos.filter(p => p.tipo_faltante === 'total').length >= factura.total_items_factura
 
   const progreso = getFacturaProgreso(factura, entregasAjustadas)
-  const todoRevisado = progreso.total > 0 && progreso.porRevisar === 0
+  const todoRevisado = facturaListaParaImprimir(factura, entregasAjustadas)
 
   const porRevisar = productosValidos.filter(p => !productoEstaRevisado(factura, p, entregasAjustadas))
   const revisados = productosValidos.filter(p => productoEstaRevisado(factura, p, entregasAjustadas))
@@ -55,6 +59,8 @@ export default function FacturaActivaCard({
         ? 'border-l-amber-300'
         : 'border-l-gray-200'
 
+  const sinConfirmarCount = Math.max((progreso.conRespuesta || 0) - progreso.revisados, 0)
+
   return (
     <div className={`bg-white rounded-xl shadow-sm overflow-hidden border-l-4 transition-all ${bordeIzquierdo}`}>
       {/* Header: identidad de la factura + progreso + acciones */}
@@ -68,12 +74,32 @@ export default function FacturaActivaCard({
             <p className="text-sm text-gray-500">{formatDate(factura.fecha_emision)}</p>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Acciones principales a nivel de factura */}
+          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap flex-shrink-0">
+            {sinConfirmarCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onMarcarFacturaRevisada && onMarcarFacturaRevisada(factura)}
+                className="btn btn-sm bg-blue-600 text-white border-blue-600 hover:bg-blue-700 font-semibold shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Check size={15} />
+                Confirmar revisión ({sinConfirmarCount})
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => onFacturaLista(clienteNombre, factura)}
-              className={`btn btn-sm whitespace-nowrap ${todoRevisado ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' : 'btn-primary'}`}
+              disabled={!todoRevisado}
+              title={!todoRevisado ? `Falta revisar ${progreso.porRevisar} producto(s)` : 'Enviar a impresión'}
+              className={`btn btn-sm whitespace-nowrap flex items-center gap-1.5 ${
+                todoRevisado
+                  ? 'bg-green-600 text-white border-green-600 hover:bg-green-700 font-bold shadow-sm'
+                  : 'bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+              }`}
             >
-              <Printer size={14} className="mr-1" /> Enviar a impresión
+              <Printer size={15} />
+              Enviar a impresión
             </button>
           </div>
         </div>
@@ -84,7 +110,7 @@ export default function FacturaActivaCard({
             <span className={`font-semibold ${todoRevisado ? 'text-green-700' : 'text-gray-600'}`}>
               {todoRevisado
                 ? `✓ Todo revisado — ${progreso.total} producto${progreso.total !== 1 ? 's' : ''}`
-                : `${progreso.revisados} de ${progreso.total} revisados`}
+                : `${progreso.revisados} de ${progreso.total} revisados${sinConfirmarCount > 0 ? ` · ${sinConfirmarCount} listo${sinConfirmarCount !== 1 ? 's' : ''} para confirmar` : ''}`}
             </span>
             {!todoRevisado && (
               <span className="text-amber-700 font-medium">{progreso.porRevisar} por revisar</span>
@@ -112,20 +138,40 @@ export default function FacturaActivaCard({
               <div className="divide-y divide-gray-50">
                 {productos.map(producto => {
                   const productoKey = getProductKey(factura, producto)
+                  const entrega = getEntregaInfo(productoKey, producto, entregasAjustadas)
                   return (
                     <FilaPorRevisar
                       key={productoKey}
                       producto={producto}
                       productoKey={productoKey}
+                      entrega={entrega}
                       onMarcarCompleto={onMarcarCompleto}
                       onNoLlegoNada={onNoLlegoNada}
                       onCantidadEntregadaChange={onCantidadEntregadaChange}
+                      onQuitarRespuesta={onQuitarRespuesta}
                     />
                   )
                 })}
               </div>
             </div>
           ))}
+
+          {/* Barra de confirmación a nivel de factura al final de los productos por revisar */}
+          {sinConfirmarCount > 0 && (
+            <div className="p-4 bg-blue-50/90 border-t border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-sm font-medium text-blue-900">
+                Tenés <strong>{sinConfirmarCount}</strong> producto{sinConfirmarCount !== 1 ? 's' : ''} respondido{sinConfirmarCount !== 1 ? 's' : ''}. ¿Confirmar revisión?
+              </p>
+              <button
+                type="button"
+                onClick={() => onMarcarFacturaRevisada && onMarcarFacturaRevisada(factura)}
+                className="w-full sm:w-auto px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 text-sm shadow transition-colors flex items-center justify-center gap-2"
+              >
+                <Check size={16} />
+                Marcar factura como revisada
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -142,6 +188,7 @@ export default function FacturaActivaCard({
       {revisados.length > 0 && (
         <div className="border-t border-gray-100">
           <button
+            type="button"
             onClick={() => setMostrarRevisados(!mostrarRevisados)}
             className="w-full px-5 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors"
           >
@@ -164,6 +211,7 @@ export default function FacturaActivaCard({
                     productoKey={productoKey}
                     entrega={getEntregaInfo(productoKey, producto, entregasAjustadas)}
                     onDeshacer={onDeshacer}
+                    onReabrirRevision={onReabrirRevision}
                   />
                 )
               })}

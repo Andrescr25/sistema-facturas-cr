@@ -11,17 +11,18 @@ const client = getClient();
 /**
  * Guarda o actualiza un ajuste de faltante
  */
-async function saveAdjustment({ faltanteId, cantidadEntregada, estado, requiereActualizacion }) {
+async function saveAdjustment({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
   await query(`
-    INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion, revisado)
+    VALUES ($1, $2, $3, $4, COALESCE($5, FALSE))
     ON CONFLICT (faltante_id) 
     DO UPDATE SET 
       cantidad_entregada = $2,
       estado = $3,
       requiere_actualizacion = $4,
+      revisado = COALESCE($5, faltantes_ajustes.revisado),
       updated_at = CURRENT_TIMESTAMP
-  `, [faltanteId, cantidadEntregada, estado, requiereActualizacion]);
+  `, [faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado ?? null]);
 
   return { success: true, message: 'Ajuste guardado' };
 }

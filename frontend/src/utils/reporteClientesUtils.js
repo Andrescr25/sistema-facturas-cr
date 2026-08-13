@@ -59,18 +59,31 @@ export function productosValidosDe(factura) {
 }
 
 export function productoEstaRevisado(factura, producto, entregasAjustadas) {
-  return entregasAjustadas.has(getProductKey(factura, producto))
+  const key = getProductKey(factura, producto)
+  return entregasAjustadas.get(key)?.revisado === true
+}
+
+export function productoTieneRespuesta(factura, producto, entregasAjustadas) {
+  const key = getProductKey(factura, producto)
+  return entregasAjustadas.has(key)
 }
 
 export function getFacturaProgreso(factura, entregasAjustadas) {
   const productos = productosValidosDe(factura)
   const revisados = productos.filter(p => productoEstaRevisado(factura, p, entregasAjustadas)).length
+  const conRespuesta = productos.filter(p => productoTieneRespuesta(factura, p, entregasAjustadas)).length
   return {
     total: productos.length,
     revisados,
+    conRespuesta,
     porRevisar: productos.length - revisados,
     porcentaje: productos.length === 0 ? 100 : Math.round((revisados / productos.length) * 100)
   }
+}
+
+export function facturaListaParaImprimir(factura, entregasAjustadas) {
+  const progreso = getFacturaProgreso(factura, entregasAjustadas)
+  return progreso.total === 0 || progreso.porRevisar === 0
 }
 
 export const CLIENTE_ESTADO = {
@@ -94,17 +107,19 @@ export function getClienteProgreso(cliente, facturasEstado, entregasAjustadas) {
 
   let total = 0
   let revisados = 0
+  let conRespuesta = 0
   facturasActivas.forEach(f => {
     const p = getFacturaProgreso(f, entregasAjustadas)
     total += p.total
     revisados += p.revisados
+    conRespuesta += p.conRespuesta
   })
   const porRevisar = total - revisados
 
   let estado
   if (facturasActivas.length === 0) estado = CLIENTE_ESTADO.LISTA
   else if (porRevisar === 0) estado = CLIENTE_ESTADO.LISTO_PARA_PROCESAR
-  else if (revisados > 0) estado = CLIENTE_ESTADO.EN_PROGRESO
+  else if (revisados > 0 || conRespuesta > 0) estado = CLIENTE_ESTADO.EN_PROGRESO
   else estado = CLIENTE_ESTADO.SIN_EMPEZAR
 
   return {
@@ -112,6 +127,7 @@ export function getClienteProgreso(cliente, facturasEstado, entregasAjustadas) {
     esSinCaja: clienteTieneSinCaja(cliente, facturasEstado),
     total,
     revisados,
+    conRespuesta,
     porRevisar,
     facturasActivas: facturasActivas.length,
     facturasProcesadas: cliente.facturas_con_faltantes.length - facturasActivas.length

@@ -195,6 +195,7 @@ async function setupDatabase() {
           cantidad_entregada INTEGER NOT NULL,
           estado VARCHAR(20) NOT NULL CHECK (estado IN ('completo', 'parcial', 'no_llego')),
           requiere_actualizacion BOOLEAN DEFAULT FALSE,
+          revisado BOOLEAN NOT NULL DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

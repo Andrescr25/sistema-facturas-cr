@@ -11,13 +11,14 @@ const missingItemsService = require('./missing-items.service');
  */
 async function saveAdjustment(req, res) {
   try {
-    const { faltante_id, cantidad_entregada, estado, requiere_actualizacion } = req.body;
+    const { faltante_id, cantidad_entregada, estado, requiere_actualizacion, revisado } = req.body;
 
     const result = await missingItemsService.saveAdjustment({
       faltanteId: faltante_id,
       cantidadEntregada: cantidad_entregada,
       estado,
-      requiereActualizacion: requiere_actualizacion
+      requiereActualizacion: requiere_actualizacion,
+      revisado
     });
 
     res.json(result);

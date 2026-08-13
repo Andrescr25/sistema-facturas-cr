@@ -21,6 +21,10 @@ export default function ReporteClientes() {
     handleMarcarCompleto,
     handleDeshacer,
     handleNoLlegoNada,
+    handleMarcarRevisado,
+    handleMarcarFacturaRevisada,
+    handleReabrirRevision,
+    handleQuitarRespuesta,
     contarAjustes,
     dialogProps,
     toasts,
@@ -76,6 +80,10 @@ export default function ReporteClientes() {
           onMarcarCompleto={handleMarcarCompleto}
           onNoLlegoNada={handleNoLlegoNada}
           onDeshacer={handleDeshacer}
+          onMarcarRevisado={handleMarcarRevisado}
+          onMarcarFacturaRevisada={handleMarcarFacturaRevisada}
+          onReabrirRevision={handleReabrirRevision}
+          onQuitarRespuesta={handleQuitarRespuesta}
         />
       )}
 

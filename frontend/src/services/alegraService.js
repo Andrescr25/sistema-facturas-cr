@@ -616,13 +616,14 @@ export const alegraService = {
     }
   },
 
-  async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion }) {
+  async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
     try {
       const payload = {
         faltante_id: faltanteId,
         cantidad_entregada: cantidadEntregada,
         estado,
-        requiere_actualizacion: requiereActualizacion
+        requiere_actualizacion: requiereActualizacion,
+        revisado
       }
 
       const response = await api.post('/alegra/faltantes/ajustes', payload)

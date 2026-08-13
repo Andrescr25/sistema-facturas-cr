@@ -17,7 +17,11 @@ export default function ClienteDetalle({
   onCantidadEntregadaChange,
   onMarcarCompleto,
   onNoLlegoNada,
-  onDeshacer
+  onDeshacer,
+  onMarcarRevisado,
+  onMarcarFacturaRevisada,
+  onReabrirRevision,
+  onQuitarRespuesta
 }) {
   const esSinCaja = clienteTieneSinCaja(cliente, facturasEstado)
   const progreso = getClienteProgreso(cliente, facturasEstado, entregasAjustadas)
@@ -100,6 +104,10 @@ export default function ClienteDetalle({
             onMarcarCompleto={onMarcarCompleto}
             onNoLlegoNada={onNoLlegoNada}
             onDeshacer={onDeshacer}
+            onMarcarRevisado={onMarcarRevisado}
+            onMarcarFacturaRevisada={onMarcarFacturaRevisada}
+            onReabrirRevision={onReabrirRevision}
+            onQuitarRespuesta={onQuitarRespuesta}
           />
         ))}
       </div>

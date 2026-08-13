@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { alegraService } from '../services/alegraService'
-import { getFacturaKey, getProductKey, getEntregaInfo, clienteTieneSinCaja } from '../utils/reporteClientesUtils'
+import {
+  getFacturaKey,
+  getProductKey,
+  getEntregaInfo,
+  clienteTieneSinCaja,
+  getFacturaProgreso,
+  facturaListaParaImprimir
+} from '../utils/reporteClientesUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
 
@@ -53,7 +60,16 @@ export function useReporteClientes() {
               if (producto.cantidad_entregada > 0 || producto.ajuste_estado !== 'pendiente') {
                 const cantidadEntregada = producto.cantidad_entregada || 0
                 const cantidadAReducir = Math.max(producto.cantidad_faltante - cantidadEntregada, 0)
-                ajustesMap.set(key, { faltanteId: producto.faltante_id, cantidadFaltante: producto.cantidad_faltante, cantidadEntregada, cantidadAReducir, estado: producto.ajuste_estado, tieneAjuste: true, requiereActualizacion: producto.requiere_actualizacion })
+                ajustesMap.set(key, {
+                  faltanteId: producto.faltante_id,
+                  cantidadFaltante: producto.cantidad_faltante,
+                  cantidadEntregada,
+                  cantidadAReducir,
+                  estado: producto.ajuste_estado,
+                  tieneAjuste: true,
+                  requiereActualizacion: producto.requiere_actualizacion,
+                  revisado: producto.ajuste_revisado === true
+                })
               }
             })
           })
@@ -78,6 +94,12 @@ export function useReporteClientes() {
   // ==================== ACCIONES SOBRE FACTURAS ====================
 
   const handleFacturaLista = useCallback(async (clienteNombre, factura) => {
+    if (!facturaListaParaImprimir(factura, entregasAjustadas)) {
+      const progreso = getFacturaProgreso(factura, entregasAjustadas)
+      showToast(`Falta revisar ${progreso.porRevisar} producto(s) antes de enviar a impresión`, 'warning')
+      return
+    }
+
     const ajustesFactura = []
     factura.productos_faltantes.forEach((producto) => {
       const key = getProductKey(factura, producto)
@@ -147,7 +169,13 @@ export function useReporteClientes() {
   const guardarAjusteEnBD = useCallback(async (producto, ajuste) => {
     if (!producto?.faltante_id) return
     try {
-      await alegraService.guardarAjusteFaltante({ faltanteId: producto.faltante_id, cantidadEntregada: ajuste.cantidad_entregada, estado: ajuste.estado, requiereActualizacion: ajuste.requiere_actualizacion })
+      await alegraService.guardarAjusteFaltante({
+        faltanteId: producto.faltante_id,
+        cantidadEntregada: ajuste.cantidad_entregada,
+        estado: ajuste.estado,
+        requiereActualizacion: ajuste.requiere_actualizacion,
+        revisado: ajuste.revisado
+      })
     } catch (error) {
       setError(`Error guardando ajuste: ${error.message}`)
       throw error
@@ -170,41 +198,187 @@ export function useReporteClientes() {
     const cantidadFaltante = producto.cantidad_faltante
     const cantidadNormalizada = Number.isNaN(cantidadNumerica) ? 0 : Math.min(Math.max(cantidadNumerica, 0), cantidadFaltante)
     const entregaAnterior = getEntregaInfo(key, producto, entregasAjustadas)
-    if (cantidadNormalizada === (entregaAnterior.cantidadEntregada ?? 0)) return
+    if (cantidadNormalizada === (entregaAnterior.cantidadEntregada ?? 0) && entregaAnterior.estado === 'parcial' && entregaAnterior.revisado === false) return
     if (entregaAnterior.tieneAjuste) guardarHistorial(key, 'cambio_cantidad', entregaAnterior.cantidadEntregada, cantidadNormalizada)
     const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
     let estado = 'pendiente', cantidadAReducir = 0, requiereActualizacion = false
     if (cantidadNormalizada >= cantidadFaltante) { estado = 'completo' }
     else if (cantidadNormalizada > 0) { estado = 'parcial'; cantidadAReducir = Math.max(cantidadFaltante - cantidadNormalizada, 0); requiereActualizacion = true }
-    if (cantidadNormalizada === 0) { newMap.delete(key); setEntregasAjustadas(newMap); try { await eliminarAjusteDeBD(producto) } catch (e) { setEntregasAjustadas(prevMap) }; return }
-    newMap.set(key, { faltanteId: producto.faltante_id, cantidadFaltante, cantidadEntregada: cantidadNormalizada, cantidadAReducir, estado, tieneAjuste: true, requiereActualizacion })
+    if (cantidadNormalizada === 0) {
+      newMap.delete(key)
+      setEntregasAjustadas(newMap)
+      try { await eliminarAjusteDeBD(producto) } catch (e) { setEntregasAjustadas(prevMap) }
+      return
+    }
+    const nuevoAjuste = {
+      faltanteId: producto.faltante_id,
+      cantidadFaltante,
+      cantidadEntregada: cantidadNormalizada,
+      cantidadAReducir,
+      estado,
+      tieneAjuste: true,
+      requiereActualizacion,
+      revisado: false
+    }
+    newMap.set(key, nuevoAjuste)
     setEntregasAjustadas(newMap)
-    try { await guardarAjusteEnBD(producto, { cantidad_entregada: cantidadNormalizada, estado, requiere_actualizacion: requiereActualizacion }) } catch (e) { setEntregasAjustadas(prevMap) }
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: cantidadNormalizada,
+        estado,
+        requiere_actualizacion: requiereActualizacion,
+        revisado: false
+      })
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
   }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, eliminarAjusteDeBD])
 
   const handleMarcarCompleto = useCallback(async (key, producto) => {
     guardarHistorial(key, 'marcar_completo', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, producto.cantidad_faltante)
-    await handleCantidadEntregadaChange(key, producto.cantidad_faltante, producto)
-  }, [entregasAjustadas, guardarHistorial, handleCantidadEntregadaChange])
-
-  const handleDeshacer = useCallback(async (key, producto) => {
-    guardarHistorial(key, 'deshacer', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, 0)
     const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
-    newMap.delete(key)
+    const nuevoAjuste = {
+      faltanteId: producto.faltante_id,
+      cantidadFaltante: producto.cantidad_faltante,
+      cantidadEntregada: producto.cantidad_faltante,
+      cantidadAReducir: 0,
+      estado: 'completo',
+      tieneAjuste: true,
+      requiereActualizacion: false,
+      revisado: false
+    }
+    newMap.set(key, nuevoAjuste)
     setEntregasAjustadas(newMap)
-    try { await eliminarAjusteDeBD(producto) } catch (e) { setEntregasAjustadas(prevMap) }
-  }, [entregasAjustadas, guardarHistorial, eliminarAjusteDeBD])
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: producto.cantidad_faltante,
+        estado: 'completo',
+        requiere_actualizacion: false,
+        revisado: false
+      })
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
+  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD])
 
   const handleNoLlegoNada = useCallback(async (key, producto) => {
     guardarHistorial(key, 'no_llego_nada', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, -1)
     const prevMap = new Map(entregasAjustadas)
     const newMap = new Map(entregasAjustadas)
-    newMap.set(key, { faltanteId: producto.faltante_id, cantidadFaltante: producto.cantidad_faltante, cantidadEntregada: 0, cantidadAReducir: producto.cantidad_faltante, estado: 'no_llego', tieneAjuste: true, requiereActualizacion: true })
+    const nuevoAjuste = {
+      faltanteId: producto.faltante_id,
+      cantidadFaltante: producto.cantidad_faltante,
+      cantidadEntregada: 0,
+      cantidadAReducir: producto.cantidad_faltante,
+      estado: 'no_llego',
+      tieneAjuste: true,
+      requiereActualizacion: true,
+      revisado: false
+    }
+    newMap.set(key, nuevoAjuste)
     setEntregasAjustadas(newMap)
-    try { await guardarAjusteEnBD(producto, { cantidad_entregada: 0, estado: 'no_llego', requiere_actualizacion: true }) } catch (e) { setEntregasAjustadas(prevMap) }
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: 0,
+        estado: 'no_llego',
+        requiere_actualizacion: true,
+        revisado: false
+      })
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
   }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD])
+
+  const handleMarcarRevisado = useCallback(async (key, producto) => {
+    const entrega = entregasAjustadas.get(key)
+    if (!entrega) return
+    guardarHistorial(key, 'marcar_revisado', false, true)
+    const prevMap = new Map(entregasAjustadas)
+    const newMap = new Map(entregasAjustadas)
+    const actualizado = { ...entrega, revisado: true }
+    newMap.set(key, actualizado)
+    setEntregasAjustadas(newMap)
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: entrega.cantidadEntregada,
+        estado: entrega.estado,
+        requiere_actualizacion: entrega.requiereActualizacion,
+        revisado: true
+      })
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
+  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD])
+
+  const handleReabrirRevision = useCallback(async (key, producto) => {
+    const entrega = entregasAjustadas.get(key)
+    if (!entrega) return
+    guardarHistorial(key, 'reabrir_revision', true, false)
+    const prevMap = new Map(entregasAjustadas)
+    const newMap = new Map(entregasAjustadas)
+    const actualizado = { ...entrega, revisado: false }
+    newMap.set(key, actualizado)
+    setEntregasAjustadas(newMap)
+    try {
+      await guardarAjusteEnBD(producto, {
+        cantidad_entregada: entrega.cantidadEntregada,
+        estado: entrega.estado,
+        requiere_actualizacion: entrega.requiereActualizacion,
+        revisado: false
+      })
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
+  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD])
+
+  const handleQuitarRespuesta = useCallback(async (key, producto) => {
+    guardarHistorial(key, 'quitar_respuesta', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, 0)
+    const prevMap = new Map(entregasAjustadas)
+    const newMap = new Map(entregasAjustadas)
+    newMap.delete(key)
+    setEntregasAjustadas(newMap)
+    try {
+      await eliminarAjusteDeBD(producto)
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+    }
+  }, [entregasAjustadas, guardarHistorial, eliminarAjusteDeBD])
+
+  const handleMarcarFacturaRevisada = useCallback(async (factura) => {
+    const prevMap = new Map(entregasAjustadas)
+    const newMap = new Map(entregasAjustadas)
+    const promesasGuardado = []
+
+    factura.productos_faltantes.forEach((producto) => {
+      const key = getProductKey(factura, producto)
+      const entrega = newMap.get(key)
+      if (entrega && !entrega.revisado) {
+        const actualizado = { ...entrega, revisado: true }
+        newMap.set(key, actualizado)
+        promesasGuardado.push(
+          guardarAjusteEnBD(producto, {
+            cantidad_entregada: entrega.cantidadEntregada,
+            estado: entrega.estado,
+            requiere_actualizacion: entrega.requiereActualizacion,
+            revisado: true
+          })
+        )
+      }
+    })
+
+    if (promesasGuardado.length === 0) return
+
+    setEntregasAjustadas(newMap)
+    try {
+      await Promise.all(promesasGuardado)
+      showToast(`Factura #${factura.numero_factura} revisada correctamente`, 'success')
+    } catch (e) {
+      setEntregasAjustadas(prevMap)
+      showToast(`Error confirmando revisión de la factura: ${e.message}`, 'error')
+    }
+  }, [entregasAjustadas, guardarAjusteEnBD, showToast])
 
   // ==================== CONTADORES ====================
 
@@ -225,8 +399,12 @@ export function useReporteClientes() {
     handleRecuperarFactura,
     handleCantidadEntregadaChange,
     handleMarcarCompleto,
-    handleDeshacer,
+    handleDeshacer: handleQuitarRespuesta,
+    handleQuitarRespuesta,
     handleNoLlegoNada,
+    handleMarcarRevisado,
+    handleMarcarFacturaRevisada,
+    handleReabrirRevision,
     contarAjustes,
     contarFacturasProcesadas,
     contarClientesSinCaja,
