@@ -11,7 +11,30 @@
  * margen 20% sobre venta = costo / (1 - 0.20), NO costo × 1.20.
  */
 
-const AJUSTE_ROTACION = { A: -3, B: 0, C: 5 };
+// El ajuste va por UNIDADES POR MES, no por la clase A/B/C.
+//
+// La clase es un Pareto por FACTURACIÓN, no por rotación: se midió que 53 de
+// los 330 productos clase A mueven menos de 3 unidades al mes (una romana de
+// ₡79.000 que se vende dos veces al año cae en A). Con la clase, a esa romana
+// se le bajaba el margen 3 puntos "porque el cliente conoce su precio" —
+// justo al revés de la realidad. El razonamiento del ajuste siempre fue sobre
+// rotación; ahora usa la variable que de verdad la mide.
+//
+// Cortes tomados de la distribución real del catálogo: p90 = 11 u/mes,
+// p75 = 3,6 u/mes.
+const ROTACION_ALTA = 10;  // u/mes: el cliente lo compra seguido y sabe cuánto vale
+const ROTACION_BAJA = 3;   // u/mes: se vende poco, el cliente no tiene referencia
+const AJUSTE_ROTACION_ALTA = -3;
+const AJUSTE_ROTACION_BAJA = 5;
+
+/** Puntos de margen a sumar/restar según qué tan rápido rota el producto. */
+function ajustePorRotacion(unidadesMes) {
+  if (unidadesMes == null || !Number.isFinite(Number(unidadesMes))) return 0;
+  const u = Number(unidadesMes);
+  if (u >= ROTACION_ALTA) return AJUSTE_ROTACION_ALTA;
+  if (u < ROTACION_BAJA) return AJUSTE_ROTACION_BAJA;
+  return 0;
+}
 const AJUSTE_EXCLUSIVIDAD = 3; // pocos clientes distintos lo compran
 const CLIENTES_MAX_EXCLUSIVIDAD = 3;
 const MARGEN_MAXIMO = 60; // tope de seguridad — ver p90 real medido (~35-60%) en el catálogo
@@ -32,13 +55,13 @@ const UMBRAL_REDONDEO_MEDIO = 10000;
  * sin nunca bajar del margen mínimo de la categoría (piso de seguridad) ni
  * superar MARGEN_MAXIMO.
  *
- * Por qué la rotación mueve el margen en esa dirección: un producto clase A
- * lo compran muchos clientes seguido — conocen su precio, es donde te
- * comparan, conviene margen ajustado y ganar por volumen. Uno clase C se
- * vende poco y el cliente no tiene referencia de precio: ahí está el margen.
+ * Por qué la rotación mueve el margen en esa dirección: un producto que sale
+ * seguido lo compran muchos clientes y conocen su precio — es donde te
+ * comparan, conviene margen ajustado y ganar por volumen. Uno que se vende
+ * poco no tiene referencia de precio para el cliente: ahí está el margen.
  */
-function calcularMargenMeta({ margenMetaCategoria, margenMinimoCategoria, claseRotacion, clientesDistintos }) {
-  let ajuste = AJUSTE_ROTACION[claseRotacion] || 0; // B, null o clase desconocida: sin ajuste
+function calcularMargenMeta({ margenMetaCategoria, margenMinimoCategoria, unidadesMes, clientesDistintos }) {
+  let ajuste = ajustePorRotacion(unidadesMes);
 
   if (clientesDistintos != null && clientesDistintos > 0 && clientesDistintos <= CLIENTES_MAX_EXCLUSIVIDAD) {
     ajuste += AJUSTE_EXCLUSIVIDAD;
@@ -84,7 +107,9 @@ function calcularTechoCompetencia(precioCompetencia, margenPulperia = MARGEN_PUL
  *        backend/src/modules/precios/costo.js)
  * @param {number} datos.margenMetaCategoria - de config_precios
  * @param {number} datos.margenMinimoCategoria - de config_precios
- * @param {string|null} datos.claseRotacion - 'A'|'B'|'C'|null (producto_rotacion)
+ * @param {number|null} datos.unidadesMes - unidades vendidas por mes
+ *        (producto_rotacion.unidades_mes). NO la clase A/B/C: esa mide
+ *        facturación, no rotación.
  * @param {number|null} datos.clientesDistintos - producto_rotacion
  * @param {number|null} [datos.precioTechoCompetencia] - Fase 3, opcional.
  *        Si viene y el precio calculado lo supera, se limita a ese techo
@@ -97,14 +122,14 @@ function calcularPrecioSugerido({
   costoSinIva,
   margenMetaCategoria,
   margenMinimoCategoria,
-  claseRotacion,
+  unidadesMes,
   clientesDistintos,
   precioTechoCompetencia
 }) {
   const costo = Number(costoSinIva) || 0;
   if (costo <= 0) return null;
 
-  const margenObjetivo = calcularMargenMeta({ margenMetaCategoria, margenMinimoCategoria, claseRotacion, clientesDistintos });
+  const margenObjetivo = calcularMargenMeta({ margenMetaCategoria, margenMinimoCategoria, unidadesMes, clientesDistintos });
   let precio = costo / (1 - margenObjetivo / 100);
 
   if (precioTechoCompetencia && precio > precioTechoCompetencia) {
@@ -128,7 +153,11 @@ module.exports = {
   calcularTechoCompetencia,
   calcularPrecioSugerido,
   MARGEN_PULPERIA_ASUMIDO,
-  AJUSTE_ROTACION,
+  ajustePorRotacion,
+  ROTACION_ALTA,
+  ROTACION_BAJA,
+  AJUSTE_ROTACION_ALTA,
+  AJUSTE_ROTACION_BAJA,
   AJUSTE_EXCLUSIVIDAD,
   CLIENTES_MAX_EXCLUSIVIDAD,
   MARGEN_MAXIMO

@@ -26,48 +26,60 @@ describe('calcularTechoCompetencia', () => {
 });
 
 describe('calcularMargenMeta', () => {
-  test('clase A baja 3 puntos del margen de categoría (rota rápido, gana por volumen)', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: 'A', clientesDistintos: 50 });
+  test('rotación alta (>=10 u/mes) baja 3 puntos: el cliente lo compra seguido y conoce el precio', () => {
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 18, clientesDistintos: 50 });
     assert.equal(m, 22);
   });
 
   test('clase B no ajusta', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: 'B', clientesDistintos: 20 });
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 5, clientesDistintos: 20 });
     assert.equal(m, 25);
   });
 
-  test('clase C sube 5 puntos (vende poco, el cliente no tiene referencia de precio)', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: 'C', clientesDistintos: 10 });
+  test('rotación baja (<3 u/mes) sube 5 puntos: el cliente no tiene referencia de precio', () => {
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 0.4, clientesDistintos: 10 });
     assert.equal(m, 30);
   });
 
   test('sin clase de rotación (nunca se vendió) no ajusta', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: null, clientesDistintos: null });
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: null, clientesDistintos: null });
     assert.equal(m, 25);
   });
 
   test('pocos clientes distintos (exclusividad) suma 3 puntos extra', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: 'B', clientesDistintos: 2 });
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 5, clientesDistintos: 2 });
     assert.equal(m, 28);
   });
 
-  test('clase C + exclusividad se acumulan', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: 'C', clientesDistintos: 1 });
+  test('ROMANA ELECTRONICA — caso real: clase A por facturación pero 0,2 u/mes, se le SUBE el margen', () => {
+    // Con la clase A/B/C se le bajaban 3 puntos "porque rota rápido". Mueve
+    // 2,4 unidades al año: el cliente no tiene ninguna referencia de precio.
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 0.2, clientesDistintos: 2 });
+    assert.equal(m, 33); // 25 + 5 (rotación baja) + 3 (exclusividad)
+  });
+
+  test('un producto de mucha facturación Y mucha rotación sí baja el margen', () => {
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 14, clientesDistintos: 37 });
+    assert.equal(m, 22); // 25 - 3, sin bono de exclusividad
+  });
+
+  test('rotación baja + exclusividad se acumulan', () => {
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: 0.4, clientesDistintos: 1 });
     assert.equal(m, 33);
   });
 
   test('clientesDistintos en 0 (categoría con datos pero producto sin ventas) no dispara exclusividad', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, claseRotacion: null, clientesDistintos: 0 });
+    const m = calcularMargenMeta({ margenMetaCategoria: 25, margenMinimoCategoria: 15, unidadesMes: null, clientesDistintos: 0 });
     assert.equal(m, 25);
   });
 
   test('nunca baja del margen mínimo de la categoría', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 14, margenMinimoCategoria: 12, claseRotacion: 'A', clientesDistintos: 50 });
+    const m = calcularMargenMeta({ margenMetaCategoria: 14, margenMinimoCategoria: 12, unidadesMes: 18, clientesDistintos: 50 });
     assert.equal(m, 12); // 14 - 3 = 11, pero el piso es 12
   });
 
   test('nunca supera MARGEN_MAXIMO aunque los ajustes se acumulen', () => {
-    const m = calcularMargenMeta({ margenMetaCategoria: 58, margenMinimoCategoria: 15, claseRotacion: 'C', clientesDistintos: 1 });
+    const m = calcularMargenMeta({ margenMetaCategoria: 58, margenMinimoCategoria: 15, unidadesMes: 0.4, clientesDistintos: 1 });
     assert.equal(m, MARGEN_MAXIMO); // 58 + 5 + 3 = 66, tope en 60
   });
 });
@@ -99,7 +111,7 @@ describe('calcularPrecioSugerido', () => {
     // costo 75, margen 25% sobre venta -> precio = 75 / 0.75 = 100
     const r = calcularPrecioSugerido({
       costoSinIva: 75, margenMetaCategoria: 25, margenMinimoCategoria: 15,
-      claseRotacion: 'B', clientesDistintos: 20
+      unidadesMes: 5, clientesDistintos: 20
     });
     assert.equal(r.precioSugerido, 100);
     assert.equal(r.margenObjetivo, 25);
@@ -109,7 +121,7 @@ describe('calcularPrecioSugerido', () => {
   test('el margen resultante refleja el redondeo, no queda idéntico al objetivo', () => {
     const r = calcularPrecioSugerido({
       costoSinIva: 59.19, margenMetaCategoria: 25, margenMinimoCategoria: 15,
-      claseRotacion: 'A', clientesDistintos: 25
+      unidadesMes: 18, clientesDistintos: 25
     });
     // margenObjetivo = 22 (A resta 3) -> precio crudo = 59.19/0.78 = 75.88 -> redondea a 75
     assert.equal(r.margenObjetivo, 22);
@@ -120,7 +132,7 @@ describe('calcularPrecioSugerido', () => {
   test('techo de competencia limita el precio si lo supera', () => {
     const r = calcularPrecioSugerido({
       costoSinIva: 100, margenMetaCategoria: 40, margenMinimoCategoria: 15,
-      claseRotacion: 'B', clientesDistintos: 20,
+      unidadesMes: 5, clientesDistintos: 20,
       precioTechoCompetencia: 130
     });
     // sin techo: 100/0.60 = 166.67 -> con techo, se limita a 130 (ya cae en un múltiplo de 5)
@@ -130,7 +142,7 @@ describe('calcularPrecioSugerido', () => {
   test('el techo de competencia nunca fuerza un precio bajo el piso de margen mínimo', () => {
     const r = calcularPrecioSugerido({
       costoSinIva: 100, margenMetaCategoria: 40, margenMinimoCategoria: 15,
-      claseRotacion: 'B', clientesDistintos: 20,
+      unidadesMes: 5, clientesDistintos: 20,
       precioTechoCompetencia: 105 // por debajo del piso real (100/0.85 = 117.65)
     });
     // se ignora el techo de 105 y usa el piso: 117.65 -> redondea a 120
@@ -141,7 +153,7 @@ describe('calcularPrecioSugerido', () => {
   test('sin techo de competencia, se ignora el parámetro', () => {
     const r = calcularPrecioSugerido({
       costoSinIva: 75, margenMetaCategoria: 25, margenMinimoCategoria: 15,
-      claseRotacion: 'B', clientesDistintos: 20,
+      unidadesMes: 5, clientesDistintos: 20,
       precioTechoCompetencia: null
     });
     assert.equal(r.precioSugerido, 100);
@@ -150,7 +162,7 @@ describe('calcularPrecioSugerido', () => {
   test('producto sin historial de rotación (nunca vendido) igual recibe una sugerencia', () => {
     const r = calcularPrecioSugerido({
       costoSinIva: 50, margenMetaCategoria: 25, margenMinimoCategoria: 15,
-      claseRotacion: null, clientesDistintos: null
+      unidadesMes: null, clientesDistintos: null
     });
     assert.ok(r !== null);
     assert.equal(r.margenObjetivo, 25);

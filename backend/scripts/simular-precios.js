@@ -12,6 +12,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { query } = require('../config/database');
 const { clasificarProducto, CLASIFICACION } = require('../src/modules/precios/auditoria');
+const { obtenerCostosDerivados } = require('../src/modules/precios/costoDerivado');
 const { calcularPrecioSugerido } = require('../src/modules/precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../src/modules/precios/config');
 
@@ -20,21 +21,25 @@ async function main() {
 
   const [productos, derivados, rotaciones, configPrecios] = await Promise.all([
     query(`SELECT alegra_id, name, category, price, cost FROM alegra_products_cache WHERE status = 'active'`),
-    query(`SELECT DISTINCT ON (alegra_item_id) alegra_item_id, costo_unitario FROM costo_historico ORDER BY alegra_item_id, fecha DESC`),
-    query(`SELECT alegra_item_id, clase, clientes_distintos FROM producto_rotacion`),
+    obtenerCostosDerivados(), // mediana de compras válidas, ver precios/costoDerivado.js
+    query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM producto_rotacion`),
     obtenerConfigPrecios()
   ]);
 
-  const derivadoPorItem = new Map(derivados.rows.map(r => [r.alegra_item_id, Number(r.costo_unitario)]));
-  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, { clase: r.clase, clientesDistintos: Number(r.clientes_distintos) }]));
+  const derivadoPorItem = derivados; // ya viene como Map indexado por alegra_item_id
+  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, { clase: r.clase, unidadesMes: r.unidades_mes !== null ? Number(r.unidades_mes) : null, clientesDistintos: Number(r.clientes_distintos) }]));
 
   const movimientos = [];
   let sinCostoConfiable = 0;
   let sinCambio = 0;
 
   for (const p of productos.rows) {
-    const costoDerivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
-    const clasificacion = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado });
+    const derivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
+    const costoDerivado = derivado ? derivado.costo : null;
+    const clasificacion = clasificarProducto({
+      price: p.price, cost: p.cost, costoDerivado,
+      historialInestable: derivado ? derivado.historialInestable : false
+    });
 
     if (clasificacion.clasificacion === CLASIFICACION.SIN_COSTO || clasificacion.clasificacion === CLASIFICACION.UNIDAD_SOSPECHOSA) {
       sinCostoConfiable++;
@@ -49,7 +54,7 @@ async function main() {
       costoSinIva: clasificacion.costoSinIva,
       margenMetaCategoria: margenMeta,
       margenMinimoCategoria: margenMinimo,
-      claseRotacion: rotacion.clase,
+      unidadesMes: rotacion.unidadesMes,
       clientesDistintos: rotacion.clientesDistintos
     });
     if (!sugerido) continue;

@@ -11,6 +11,7 @@ const pagosProveedoresService = require('../../../services/pagosProveedoresServi
 const { obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
+const { sincronizarCostoDeLineas } = require('../precios/costoHistorico');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
 
 const productService = getProductService();
@@ -264,6 +265,10 @@ async function confirmarProducto({ productoId, alegraItemId, confianza }) {
     }
   });
 
+  // El costo de esta compra queda disponible de inmediato para el tablero de
+  // rentabilidad y el motor de precios, sin esperar a un backfill manual.
+  await sincronizarCostoDeLineas([productoId]);
+
   console.log(`✅ Producto confirmado: ${producto.descripcion} → ${alegraProduct.name}`);
 
   return { message: 'Producto confirmado exitosamente', mapeo };
@@ -436,12 +441,16 @@ async function obtenerSugerenciasPrecio(facturaId) {
 
   const [categorias, rotaciones, configPrecios] = await Promise.all([
     query('SELECT alegra_id, category FROM alegra_products_cache WHERE alegra_id = ANY($1::text[])', [alegraIds]),
-    query('SELECT alegra_item_id, clase, clientes_distintos FROM producto_rotacion WHERE alegra_item_id = ANY($1::text[])', [alegraIds]),
+    query('SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM producto_rotacion WHERE alegra_item_id = ANY($1::text[])', [alegraIds]),
     obtenerConfigPrecios()
   ]);
 
   const categoriaPorItem = new Map(categorias.rows.map(r => [r.alegra_id, r.category || '']));
-  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, { clase: r.clase, clientesDistintos: Number(r.clientes_distintos) }]));
+  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, {
+    clase: r.clase,
+    unidadesMes: r.unidades_mes !== null ? Number(r.unidades_mes) : null,
+    clientesDistintos: Number(r.clientes_distintos)
+  }]));
 
   const sugerencias = {};
   for (const producto of factura.productos) {
@@ -451,19 +460,24 @@ async function obtenerSugerenciasPrecio(facturaId) {
     const costoSinIva = costoSinIvaConDescuento / factor;
 
     const categoria = categoriaPorItem.get(producto.alegraItemId) || '';
-    const rotacion = rotacionPorItem.get(producto.alegraItemId) || { clase: null, clientesDistintos: null };
+    const rotacion = rotacionPorItem.get(producto.alegraItemId) || { clase: null, unidadesMes: null, clientesDistintos: null };
     const { margenMeta, margenMinimo } = resolverConfig(configPrecios, categoria);
 
     const resultado = calcularPrecioSugerido({
       costoSinIva,
       margenMetaCategoria: margenMeta,
       margenMinimoCategoria: margenMinimo,
-      claseRotacion: rotacion.clase,
+      unidadesMes: rotacion.unidadesMes,
       clientesDistintos: rotacion.clientesDistintos
     });
     if (!resultado) continue;
 
-    sugerencias[producto.id] = { ...resultado, categoria: categoria || '(sin categoría)', claseRotacion: rotacion.clase };
+    sugerencias[producto.id] = {
+      ...resultado,
+      categoria: categoria || '(sin categoría)',
+      claseRotacion: rotacion.clase,
+      unidadesMes: rotacion.unidadesMes
+    };
   }
 
   return sugerencias;
