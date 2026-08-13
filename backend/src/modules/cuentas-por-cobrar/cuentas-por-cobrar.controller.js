@@ -37,8 +37,8 @@ async function getAbonos(req, res) {
  */
 async function registrarAbono(req, res) {
   try {
-    const { alegraInvoiceId, monto, fecha, metodoPago } = req.body;
-    const result = await service.registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago });
+    const { alegraInvoiceId, monto, fecha, metodoPago, saldarTotal } = req.body;
+    const result = await service.registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, saldarTotal });
     res.status(201).json({ success: true, data: result, message: 'Abono registrado exitosamente' });
   } catch (error) {
     console.error('❌ Error registrando abono:', error);

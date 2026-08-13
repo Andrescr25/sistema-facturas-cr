@@ -239,10 +239,18 @@ async function getAbonosPorFactura(alegraInvoiceId) {
 
 // ==================== REGISTRAR ABONO ====================
 
-async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago }) {
+/**
+ * @param {object} datos
+ * @param {boolean} [datos.saldarTotal] - salda la factura completa. El monto
+ *   NO se toma del cliente sino del saldo que Alegra reporta en este momento:
+ *   el espejo local puede tener minutos de atraso y un monto viejo sería
+ *   rechazado (si el saldo bajó) o dejaría un resto de céntimos (si subió).
+ *   Es la diferencia entre "pagá ₡X" y "dejá esta factura en cero".
+ */
+async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, saldarTotal = false }) {
   if (!alegraInvoiceId) throw httpError(400, 'alegraInvoiceId es requerido');
   const montoNum = Number(monto);
-  if (!montoNum || montoNum <= 0) throw httpError(400, 'El monto del abono debe ser mayor a 0');
+  if (!saldarTotal && (!montoNum || montoNum <= 0)) throw httpError(400, 'El monto del abono debe ser mayor a 0');
   if (!metodoPago) throw httpError(400, 'El método de pago es requerido');
 
   // Releer el saldo real de Alegra antes de aplicar el abono — nunca confiar
@@ -259,9 +267,13 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago }) {
   if (saldoActual <= 0) {
     throw httpError(409, 'Esta factura ya no tiene saldo pendiente en Alegra');
   }
-  if (montoNum > saldoActual) {
+  if (!saldarTotal && montoNum > saldoActual) {
     throw httpError(400, `El monto supera el saldo pendiente (₡${saldoActual.toLocaleString('es-CR')})`);
   }
+
+  // Saldar total usa el saldo recién leído de Alegra, no el que mandó el
+  // navegador.
+  const montoFinal = saldarTotal ? saldoActual : montoNum;
 
   const fechaAbono = fecha ? new Date(fecha) : new Date();
 
@@ -278,7 +290,7 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago }) {
       client: { id: factura.client?.id },
       paymentMethod: metodoPago,
       bankAccount: { id: CUENTA_CAJA_ID },
-      invoices: [{ id: alegraInvoiceId, amount: montoNum }]
+      invoices: [{ id: alegraInvoiceId, amount: montoFinal }]
     });
     pagoAlegra = res.data;
   } catch (error) {
@@ -295,7 +307,7 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago }) {
       clienteId: factura.client?.id ? String(factura.client.id) : null,
       clienteNombre: factura.client?.name || '',
       numeroFactura: factura.numberTemplate?.fullNumber || factura.numberTemplate?.number || String(alegraInvoiceId),
-      monto: montoNum,
+      monto: montoFinal,
       fecha: fechaAbono,
       metodoPago
     }
@@ -303,14 +315,14 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago }) {
 
   // Refrescar (o borrar si quedó saldada) el espejo local con el saldo real
   // que Alegra ya recalculó tras aceptar el pago.
-  const nuevoSaldo = saldoActual - montoNum;
+  const nuevoSaldo = saldoActual - montoFinal;
   if (nuevoSaldo <= 0) {
     await prisma.cuentaPorCobrar.deleteMany({ where: { alegraInvoiceId: String(alegraInvoiceId) } });
   } else {
     await prisma.cuentaPorCobrar.updateMany({
       where: { alegraInvoiceId: String(alegraInvoiceId) },
       data: {
-        totalPagado: (Number(factura.totalPaid) || 0) + montoNum,
+        totalPagado: (Number(factura.totalPaid) || 0) + montoFinal,
         saldo: nuevoSaldo,
         syncedAt: new Date()
       }

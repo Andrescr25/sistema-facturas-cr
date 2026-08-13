@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Loader2, X } from 'lucide-react'
+import { CheckCircle2, Loader2, X, Wallet } from 'lucide-react'
 import { formatCurrency, formatDate, diasLabel, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
 
 /**
@@ -11,6 +11,10 @@ import { formatCurrency, formatDate, diasLabel, METODOS_PAGO } from '../../utils
  */
 export default function ModalAbono({ factura, clienteNombre, procesando, onRegistrar, onCargarAbonos, onCerrar }) {
   const [monto, setMonto] = useState('')
+  // Saldar total no manda un monto: el backend usa el saldo que Alegra
+  // reporte al momento de aplicar el pago, así no falla si el espejo local
+  // quedó viejo ni deja un resto de céntimos.
+  const [saldarTotal, setSaldarTotal] = useState(false)
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
   const [metodoPago, setMetodoPago] = useState('cash')
   const [abonos, setAbonos] = useState([])
@@ -29,18 +33,29 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
   }, [factura.alegraInvoiceId, onCargarAbonos])
 
   const montoNum = Number(monto)
-  const montoInvalido = !monto || montoNum <= 0 || montoNum > factura.saldo
+  const montoInvalido = !saldarTotal && (!monto || montoNum <= 0 || montoNum > factura.saldo)
 
   const handleRegistrar = async () => {
     if (montoInvalido) return
     const exito = await onRegistrar({
       alegraInvoiceId: factura.alegraInvoiceId,
       numeroFactura: factura.numeroFactura,
-      monto: montoNum,
+      monto: saldarTotal ? factura.saldo : montoNum,
       fecha,
-      metodoPago
+      metodoPago,
+      saldarTotal
     })
     if (exito) onCerrar()
+  }
+
+  const activarSaldarTotal = () => {
+    setSaldarTotal(true)
+    setMonto(String(factura.saldo))
+  }
+
+  const volverAAbonoParcial = () => {
+    setSaldarTotal(false)
+    setMonto('')
   }
 
   const dias = factura.diasRestantes
@@ -80,6 +95,32 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
           <div className="bg-gray-50/70 rounded-2xl p-5 border border-gray-100 space-y-4">
             <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Registrar abono</h4>
 
+            {/* Atajo para el caso más común: cancelar la factura entera sin
+                tener que teclear el monto. */}
+            {!saldarTotal ? (
+              <button
+                onClick={activarSaldarTotal}
+                className="w-full flex items-center justify-center gap-2 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-emerald-100 transition-colors"
+              >
+                <Wallet size={16} />
+                Saldar factura completa ({formatCurrency(factura.saldo)})
+              </button>
+            ) : (
+              <div className="flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 rounded-xl px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                    <Wallet size={15} /> Saldar factura completa
+                  </p>
+                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                    Se pagará el saldo pendiente en Alegra y quedará en cero.
+                  </p>
+                </div>
+                <button onClick={volverAAbonoParcial} className="text-xs text-emerald-700 underline shrink-0 hover:text-emerald-900">
+                  Abonar otro monto
+                </button>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Monto</label>
               <div className="relative">
@@ -93,7 +134,8 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
                   max={factura.saldo}
                   step="0.01"
                   placeholder={`Máx: ${formatCurrency(factura.saldo)}`}
-                  className="input pl-8 w-full"
+                  disabled={saldarTotal}
+                  className="input pl-8 w-full disabled:bg-gray-100 disabled:text-gray-500"
                   autoFocus
                 />
               </div>
@@ -129,7 +171,7 @@ export default function ModalAbono({ factura, clienteNombre, procesando, onRegis
               className="btn btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {procesando ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-              {procesando ? 'Registrando en Alegra...' : 'Registrar abono'}
+              {procesando ? 'Registrando en Alegra...' : saldarTotal ? 'Saldar factura completa' : 'Registrar abono'}
             </button>
             <p className="text-[11px] text-gray-400 text-center">Esto crea un pago real en Alegra sobre esta factura.</p>
           </div>

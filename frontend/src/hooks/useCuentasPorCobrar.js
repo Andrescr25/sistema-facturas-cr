@@ -83,18 +83,24 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [showToast])
 
-  const handleRegistrarAbono = useCallback(async ({ alegraInvoiceId, numeroFactura, monto, fecha, metodoPago }) => {
+  const handleRegistrarAbono = useCallback(async ({ alegraInvoiceId, numeroFactura, monto, fecha, metodoPago, saldarTotal = false }) => {
+    // Al saldar total el monto lo decide el backend con el saldo que Alegra
+    // reporta en ese momento, así que la confirmación dice lo que va a pasar
+    // en vez de un número que puede quedar viejo.
     const confirmado = await confirm(
-      `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numeroFactura}? Esto crea un pago real en Alegra.`,
-      { title: 'Confirmar abono', confirmLabel: 'Registrar abono' }
+      saldarTotal
+        ? `¿Saldar por completo la factura #${numeroFactura}? Se pagará el saldo pendiente que tenga en Alegra (aprox. ₡${Number(monto).toLocaleString('es-CR')}) y quedará en cero. Esto crea un pago real en Alegra.`
+        : `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numeroFactura}? Esto crea un pago real en Alegra.`,
+      { title: saldarTotal ? 'Saldar factura completa' : 'Confirmar abono',
+        confirmLabel: saldarTotal ? 'Saldar completa' : 'Registrar abono' }
     )
     if (!confirmado) return false
 
     setRegistrandoAbono(true)
     try {
-      await registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago })
+      await registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, saldarTotal })
       await loadCuentas(filters)
-      showToast('Abono registrado correctamente', 'success')
+      showToast(saldarTotal ? 'Factura saldada por completo' : 'Abono registrado correctamente', 'success')
       return true
     } catch (err) {
       showToast(err.response?.data?.message || err.message || 'Error registrando el abono', 'error')
