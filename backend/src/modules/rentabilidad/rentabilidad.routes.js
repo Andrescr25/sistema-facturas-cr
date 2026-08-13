@@ -10,6 +10,11 @@ const rentabilidadController = require('./rentabilidad.controller');
 router.get('/resumen', rentabilidadController.obtenerResumen);
 router.get('/productos', rentabilidadController.listarProductos);
 
+// Monitoreo de márgenes: la serie histórica y qué se deterioró.
+router.get('/tendencia', rentabilidadController.obtenerTendencia);
+router.get('/deterioro', rentabilidadController.obtenerDeterioro);
+router.post('/snapshot', rentabilidadController.tomarSnapshot);
+
 // Competencia (Fase 3)
 router.get('/competencia/pendientes', rentabilidadController.listarPendientesCompetencia);
 router.get('/competencia/confirmados', rentabilidadController.listarConfirmadosCompetencia);

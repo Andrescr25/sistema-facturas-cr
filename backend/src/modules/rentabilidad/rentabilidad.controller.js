@@ -88,8 +88,41 @@ async function sincronizarCompetencia(req, res) {
   }
 }
 
+async function obtenerTendencia(req, res) {
+  try {
+    const data = await rentabilidadService.obtenerTendenciaMargenes({ categoria: req.query.categoria });
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('❌ Error obteniendo la tendencia de márgenes:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function obtenerDeterioro(req, res) {
+  try {
+    const data = await rentabilidadService.obtenerDeterioroMargenes({ limite: Number(req.query.limite) || 20 });
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('❌ Error obteniendo el deterioro de márgenes:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function tomarSnapshot(req, res) {
+  try {
+    const data = await rentabilidadService.tomarSnapshotMargenes();
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('❌ Error tomando el snapshot de márgenes:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   obtenerResumen,
+  obtenerTendencia,
+  obtenerDeterioro,
+  tomarSnapshot,
   listarProductos,
   listarPendientesCompetencia,
   listarConfirmadosCompetencia,

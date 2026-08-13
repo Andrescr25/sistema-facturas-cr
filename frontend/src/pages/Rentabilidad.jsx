@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutGrid, Store } from 'lucide-react'
+import { LayoutGrid, Store, Activity } from 'lucide-react'
 import { useRentabilidad } from '../hooks/useRentabilidad'
 import { useCompetencia } from '../hooks/useCompetencia'
 import ResumenCards from '../components/rentabilidad/ResumenCards'
@@ -7,6 +7,7 @@ import TablaCategorias from '../components/rentabilidad/TablaCategorias'
 import FiltrosProductos from '../components/rentabilidad/FiltrosProductos'
 import TablaProductos from '../components/rentabilidad/TablaProductos'
 import TabCompetencia from '../components/rentabilidad/competencia/TabCompetencia'
+import MonitoreoMargenes from '../components/rentabilidad/MonitoreoMargenes'
 
 /**
  * Tablero de Rentabilidad — estrategia de precios completa. Pestaña
@@ -28,13 +29,17 @@ export default function Rentabilidad() {
     productos,
     totalProductos,
     loadingProductos,
-    error
+    error,
+    tendencia,
+    deterioro,
+    loadingMonitoreo
   } = useRentabilidad()
 
   const competencia = useCompetencia()
 
   const tabs = [
     { key: 'catalogo', label: 'Catálogo', icon: LayoutGrid },
+    { key: 'margenes', label: 'Márgenes', icon: Activity },
     { key: 'competencia', label: 'Competencia', icon: Store, count: competencia.pendientes.length }
   ]
 
@@ -99,6 +104,8 @@ export default function Rentabilidad() {
             loading={loadingProductos}
           />
         </>
+      ) : tab === 'margenes' ? (
+        <MonitoreoMargenes tendencia={tendencia} deterioro={deterioro} loading={loadingMonitoreo} />
       ) : (
         <TabCompetencia categorias={resumen?.categorias || []} {...competencia} />
       )}

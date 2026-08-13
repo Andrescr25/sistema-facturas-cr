@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getResumenRentabilidad, getProductosRentabilidad } from '../services/rentabilidadService'
+import { getResumenRentabilidad, getProductosRentabilidad, getTendenciaMargenes, getDeterioroMargenes } from '../services/rentabilidadService'
 
 export const defaultFiltros = {
   categoria: 'todas',
@@ -77,7 +77,29 @@ export function useRentabilidad() {
 
   const resetFiltros = useCallback(() => setFiltrosState(defaultFiltros), [])
 
+  // Monitoreo de márgenes: la serie de fotos semanales y el deterioro.
+  const [tendencia, setTendencia] = useState(null)
+  const [deterioro, setDeterioro] = useState(null)
+  const [loadingMonitoreo, setLoadingMonitoreo] = useState(true)
+
+  useEffect(() => {
+    let vivo = true
+    setLoadingMonitoreo(true)
+    Promise.all([getTendenciaMargenes(), getDeterioroMargenes()])
+      .then(([t, d]) => {
+        if (!vivo) return
+        if (t.success) setTendencia(t)
+        if (d.success) setDeterioro(d)
+      })
+      .catch(err => console.error('Error cargando el monitoreo de márgenes:', err))
+      .finally(() => { if (vivo) setLoadingMonitoreo(false) })
+    return () => { vivo = false }
+  }, [])
+
   return {
+    tendencia,
+    deterioro,
+    loadingMonitoreo,
     resumen,
     loadingResumen,
     filtros,
