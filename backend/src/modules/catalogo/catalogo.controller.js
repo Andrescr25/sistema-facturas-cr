@@ -184,6 +184,16 @@ async function eliminarProducto(req, res) {
   }
 }
 
+async function siguienteReferenciaMarca(req, res) {
+  try {
+    const data = await catalogoService.siguienteReferenciaMarca(req.query.base);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   listarProductos,
   buscarImagenesPorReferencia,
@@ -192,6 +202,7 @@ module.exports = {
   asignarImagenDesdeUrl,
   subirImagenDesdeArchivo,
   duplicarConMarca,
+  siguienteReferenciaMarca,
   editarProducto,
   eliminarProducto
 };

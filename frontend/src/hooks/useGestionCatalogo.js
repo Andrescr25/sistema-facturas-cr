@@ -222,10 +222,20 @@ export function useGestionCatalogo() {
   }
 
   // --- BRAND DUPLICATION ACTION ---
-  const openBrandDuplication = (product) => {
+  const openBrandDuplication = async (product) => {
     setSelectedProduct(product)
     setNewProductName(product.name)
+    // Provisional mientras responde el backend, para que el campo no quede
+    // vacío si la consulta tarda o falla.
     setBrandRef(`${product.reference || 'REF'}-`)
+    try {
+      const { data } = await api.get('/alegra/catalog/siguiente-referencia', {
+        params: { base: product.reference || 'REF' }
+      })
+      if (data?.success) setBrandRef(data.referencia)
+    } catch (error) {
+      console.error('No se pudo calcular el siguiente código de marca:', error)
+    }
     setBrandPrice(product.price || 0)
     setBrandCost(product.cost || 0)
     setBrandImageUrl('')

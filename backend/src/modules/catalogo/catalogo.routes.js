@@ -28,6 +28,7 @@ router.get('/search-images', catalogoController.buscarImagenes);
 router.get('/image-proxy', catalogoController.proxyImagen);
 router.post('/upload-image-url', catalogoController.asignarImagenDesdeUrl);
 router.post('/upload-image-file/:id', upload.single('image'), catalogoController.subirImagenDesdeArchivo);
+router.get('/siguiente-referencia', catalogoController.siguienteReferenciaMarca);
 router.post('/duplicate-brand', catalogoController.duplicarConMarca);
 router.put('/productos/:id', catalogoController.editarProducto);
 router.delete('/productos/:id', catalogoController.eliminarProducto);

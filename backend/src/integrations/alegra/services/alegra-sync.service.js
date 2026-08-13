@@ -6,6 +6,30 @@
 
 const prisma = require('../../../../lib/prisma');
 const { getInstance: getAlegraClient } = require('../alegra.client');
+const { query } = require('../../../../config/database');
+
+// Las URLs de imagen de Alegra vienen firmadas y vencen a los 7 días
+// (medido sobre las 400 URLs guardadas: mediana 6,99 días). La firma cambia
+// en CADA respuesta aunque la foto sea la misma, así que compararla entera
+// marcaba como "modificado" casi todo el catálogo — 1.970 de 2.077 productos
+// por sincronización, que era el verdadero motivo de los 4½ minutos.
+//
+// Se separan las dos preguntas: ¿cambió la foto? (la ruta, sin query string)
+// y ¿hay que renovar la firma? (le queda poca vida). Con este margen basta
+// con sincronizar cada 3 días para que ninguna imagen se rompa.
+const DIAS_MARGEN_FIRMA = 3;
+
+/** Ruta de la imagen sin la firma — lo único que identifica a la foto. */
+function rutaImagen(url) {
+  return String(url || '').split('?')[0];
+}
+
+/** Segundos que le quedan de vida a la URL firmada (Infinity si no está firmada). */
+function vidaRestanteImagen(url) {
+  const m = String(url || '').match(/[?&]Expires=(\d+)/);
+  if (!m) return Infinity;
+  return Number(m[1]) - Math.floor(Date.now() / 1000);
+}
 
 class AlegraSyncService {
   constructor() {
@@ -23,52 +47,80 @@ class AlegraSyncService {
 
       const LIMIT = 30;
       const CONCURRENCY = 5; // mismo valor ya usado en el sync del catálogo público de tablets
+      const REINTENTOS = 3;
+      // Guarda dura contra un bucle infinito. Antes era 100 páginas (3.000
+      // productos) y el catálogo ya va por 2.077: al pasar ese tope el sync
+      // truncaba en silencio y, como lo truncado no aparecía en la respuesta,
+      // saveProductsToLocal lo borraba. Ahora es holgado y, si se toca, se
+      // considera fetch incompleto en vez de "así quedó".
+      const MAX_PAGINAS = 1000;
 
       let allProducts = [];
       let start = 0;
       let hasMore = true;
+      let paginasPedidas = 0;
+      let fetchCompleto = true;
 
-      // Antes se traía página por página en serie (una espera tras otra).
-      // Ahora se piden CONCURRENCY páginas a la vez y se espera el lote
-      // completo antes de pedir el siguiente — mismo patrón ya probado en
+      /** Una página con reintentos. Devuelve null si agotó los intentos. */
+      const traerPagina = async (currentStart) => {
+        for (let intento = 1; intento <= REINTENTOS; intento++) {
+          try {
+            const response = await this.client.api.get('/items', {
+              params: { start: currentStart, limit: LIMIT, type: 'product' }
+            });
+            return response.data;
+          } catch (error) {
+            console.error(`   ⚠️ Página start=${currentStart} falló (intento ${intento}/${REINTENTOS}): ${error.message}`);
+            if (intento < REINTENTOS) await new Promise(r => setTimeout(r, 1000 * intento));
+          }
+        }
+        return null;
+      };
+
+      // Se piden CONCURRENCY páginas a la vez y se espera el lote completo
+      // antes de pedir el siguiente — mismo patrón ya probado en
       // frontend/src/hooks/useCatalogoPublico.js.
-      while (hasMore) {
+      while (hasMore && paginasPedidas < MAX_PAGINAS) {
         const promises = [];
         for (let i = 0; i < CONCURRENCY; i++) {
-          if (!hasMore) break;
-          const currentStart = start + i * LIMIT;
-          promises.push(
-            this.client.api.get('/items', {
-              params: { start: currentStart, limit: LIMIT, type: 'product' }
-            })
-              .then(response => ({ ok: true, data: response.data }))
-              .catch(error => {
-                console.error(`❌ Error obteniendo página start=${currentStart}:`, error.message);
-                return { ok: false };
-              })
-          );
+          promises.push(traerPagina(start + i * LIMIT));
         }
-
-        if (promises.length === 0) break;
+        paginasPedidas += promises.length;
 
         const results = await Promise.all(promises);
 
-        for (const result of results) {
-          if (!result.ok) continue;
-          allProducts = allProducts.concat(result.data);
-          if (result.data.length < LIMIT) hasMore = false;
+        for (const data of results) {
+          // Una página que no se pudo traer NO es una página vacía: si se
+          // ignora, sus productos quedan fuera de allProducts y el borrado de
+          // saveProductsToLocal los elimina del catálogo local como si Alegra
+          // los hubiera dado de baja. Es la causa de "agrego una marca y
+          // desaparece del sistema".
+          if (data === null) { fetchCompleto = false; continue; }
+          allProducts = allProducts.concat(data);
+          if (data.length < LIMIT) hasMore = false;
+        }
+
+        // Si TODAS las páginas de la ronda fallaron, nadie pudo marcar el
+        // final: sin esto el bucle seguía pidiendo páginas cada vez más lejos
+        // (el "se queda sincronizando indefinidamente").
+        if (results.every(d => d === null)) {
+          console.error('❌ Ninguna página de la ronda respondió — se corta la sincronización.');
+          break;
         }
 
         start += promises.length * LIMIT;
 
         // Pausa entre rondas para no saturar la API de Alegra.
         await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (start > 100 * LIMIT) break;
       }
 
-      console.log(`📦 ${allProducts.length} productos obtenidos`);
-      await this.saveProductsToLocal(allProducts);
+      if (paginasPedidas >= MAX_PAGINAS) {
+        fetchCompleto = false;
+        console.error(`❌ Se alcanzó el tope de ${MAX_PAGINAS} páginas — el catálogo no se trajo completo.`);
+      }
+
+      console.log(`📦 ${allProducts.length} productos obtenidos${fetchCompleto ? '' : ' (INCOMPLETO)'}`);
+      await this.saveProductsToLocal(allProducts, { fetchCompleto });
 
       return allProducts;
     } catch (error) {
@@ -114,7 +166,15 @@ class AlegraSyncService {
   /**
    * Guardar productos en BD local
    */
-  async saveProductsToLocal(products) {
+  /**
+   * @param {Array} products - productos traídos de Alegra
+   * @param {{fetchCompleto?: boolean}} [opciones] - si el fetch quedó
+   *   incompleto NO se borra nada: un producto ausente puede significar "lo
+   *   dieron de baja en Alegra" o "no pude traer esa página", y confundir las
+   *   dos cosas borra productos vivos del catálogo local.
+   */
+  async saveProductsToLocal(products, opciones = {}) {
+    const fetchCompleto = opciones.fetchCompleto !== false;
     try {
       console.log('💾 Guardando productos en BD local...');
       const startTime = Date.now();
@@ -192,16 +252,13 @@ class AlegraSyncService {
           const costDiff = Math.abs(existing.cost - productData.cost) > 0.01;
           const refDiff = existing.reference !== productData.reference;
           const statusDiff = existing.status !== productData.status;
-          // Comparación completa (con query string): las URLs de imagen de
-          // Alegra son firmadas con expiración (?Expires=...&Signature=...)
-          // que Alegra regenera en cada respuesta aunque la foto no cambie.
-          // Comparar solo la parte antes de "?" hacía que nunca se detectara
-          // como "cambio" y la URL vieja quedaba cacheada para siempre hasta
-          // que la firma vencía (imagen rota sin forma de repararse solo con
-          // sincronizar).
-          const imgDiff = (existing.imageUrl || '') !== (productData.imageUrl || '');
+          // La foto cambió de verdad solo si cambió la ruta; la firma se
+          // renueva aparte, cuando le queda poca vida (ver DIAS_MARGEN_FIRMA).
+          const imgDiff = rutaImagen(existing.imageUrl) !== rutaImagen(productData.imageUrl);
+          const firmaPorVencer = productData.imageUrl
+            && vidaRestanteImagen(existing.imageUrl) < DIAS_MARGEN_FIRMA * 86400;
 
-          const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || imgDiff;
+          const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || imgDiff || firmaPorVencer;
 
           if (hasChanged && toUpdate.length < 5) {
             console.log(`🔍 Mismatch for ${productData.alegraId} (${productData.name}):`, {
@@ -210,7 +267,8 @@ class AlegraSyncService {
               cost: costDiff ? `${existing.cost} vs ${productData.cost}` : 'OK',
               ref: refDiff ? `'${existing.reference}' vs '${productData.reference}'` : 'OK',
               status: statusDiff ? `${existing.status} vs ${productData.status}` : 'OK',
-              img: imgDiff ? `'${existing.imageUrl}' vs '${productData.imageUrl}'` : 'OK'
+              img: imgDiff ? `'${rutaImagen(existing.imageUrl)}' vs '${rutaImagen(productData.imageUrl)}'` : 'OK',
+              firma: firmaPorVencer ? `vence en ${(vidaRestanteImagen(existing.imageUrl) / 86400).toFixed(1)} días` : 'OK'
             });
           }
 
@@ -220,9 +278,26 @@ class AlegraSyncService {
         }
       });
 
-      const toDelete = existingProducts
+      const ausentes = existingProducts
         .filter(existing => !currentAlegraIds.has(existing.alegraId))
         .map(p => p.alegraId);
+
+      // El borrado solo procede con un fetch demostrablemente completo.
+      const toDelete = fetchCompleto ? ausentes : [];
+      if (!fetchCompleto && ausentes.length > 0) {
+        console.warn(`   ⚠️ ${ausentes.length} producto(s) no vinieron en esta sincronización, pero NO se borran: el catálogo se trajo incompleto.`);
+      }
+
+      // Segunda guarda, para un fetch "completo" pero anómalo: que Alegra
+      // reporte de golpe menos de la mitad del catálogo conocido es mucho más
+      // probable que sea un problema de la API que una baja masiva real.
+      const UMBRAL_BORRADO_MASIVO = 0.5;
+      const borradoMasivo = existingProducts.length > 0 &&
+        toDelete.length > existingProducts.length * UMBRAL_BORRADO_MASIVO;
+      if (borradoMasivo) {
+        console.error(`   ⛔ Se iban a borrar ${toDelete.length} de ${existingProducts.length} productos. Se cancela el borrado por seguridad.`);
+        toDelete.length = 0;
+      }
 
       console.log(`📈 Cambios: +${toInsert.length} ~${toUpdate.length} -${toDelete.length}`);
 
@@ -237,45 +312,46 @@ class AlegraSyncService {
         );
       }
 
-      // Actualizar en lotes para evitar saturar connection pool
+      // UPDATE multifila. Antes eran lotes de 5 con un `prisma.update` por
+      // producto: 1.970 productos = 394 idas y vueltas a Supabase, unos 4½
+      // minutos. Con `UPDATE ... FROM (VALUES ...)` es una sentencia por
+      // tanda de 200, o sea ~10 viajes en vez de 394.
       if (toUpdate.length > 0) {
-        const BATCH_SIZE = 5;
-        const batches = [];
+        const TAMANO_TANDA = 200;
+        const COLS = 11;
+        console.log(`📦 Actualizando ${toUpdate.length} productos en ${Math.ceil(toUpdate.length / TAMANO_TANDA)} sentencias`);
 
-        for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-          batches.push(toUpdate.slice(i, i + BATCH_SIZE));
-        }
+        for (let i = 0; i < toUpdate.length; i += TAMANO_TANDA) {
+          const tanda = toUpdate.slice(i, i + TAMANO_TANDA);
+          const filas = tanda.map((_, idx) => {
+            const b = idx * COLS;
+            // Los tipos se declaran en la PRIMERA fila del VALUES; Postgres
+            // los infiere de ahí para el resto.
+            const cast = idx === 0
+              ? ['::varchar', '::varchar', '::varchar', '::text', '::varchar',
+                 '::numeric', '::numeric', '::varchar', '::varchar', '::varchar', '::text']
+              : Array(COLS).fill('');
+            return `(${Array.from({ length: COLS }, (_, c) => `$${b + c + 1}${cast[c]}`).join(', ')})`;
+          }).join(', ');
 
-        console.log(`📦 Actualizando ${toUpdate.length} productos en ${batches.length} lotes`);
+          const valores = tanda.flatMap(p => [
+            p.alegraId, p.name, p.reference, p.description, p.category,
+            p.price, p.cost, p.status, p.type, p.imageUrl, p.searchText
+          ]);
 
-        for (let i = 0; i < batches.length; i++) {
-          const batch = batches[i];
-          const batchPromises = batch.map(product =>
-            this.prisma.alegraProduct.update({
-              where: { alegraId: product.alegraId },
-              data: {
-                name: product.name,
-                reference: product.reference,
-                description: product.description,
-                category: product.category,
-                price: product.price,
-                cost: product.cost,
-                status: product.status,
-                type: product.type,
-                imageUrl: product.imageUrl,
-                searchText: product.searchText,
-                updatedAt: new Date()
-              }
-            }).catch(error => {
-              console.warn(`⚠️ Error actualizando ${product.alegraId}:`, error.message);
-            })
-          );
-
-          await Promise.all(batchPromises);
-
-          // Pequeña pausa entre lotes
-          if (i < batches.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          try {
+            await query(`
+              UPDATE alegra_products_cache AS t SET
+                name = v.name, reference = v.reference, description = v.description,
+                category = v.category, price = v.price, cost = v.cost,
+                status = v.status, type = v.type, image_url = v.image_url,
+                search_text = v.search_text, updated_at = NOW()
+              FROM (VALUES ${filas}) AS v(alegra_id, name, reference, description, category,
+                                          price, cost, status, type, image_url, search_text)
+              WHERE t.alegra_id = v.alegra_id;
+            `, valores);
+          } catch (error) {
+            console.warn(`⚠️ Error actualizando la tanda ${i / TAMANO_TANDA + 1}:`, error.message);
           }
         }
       }
