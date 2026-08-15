@@ -730,7 +730,11 @@ async function crearProducto(datos, imagen) {
   // Preparar datos para Alegra
   const productoData = {
     name: nombre.trim(),
-    description: descripcion?.trim() || nombre.trim(),
+    // Sin descripción se manda vacía, NO el nombre. El fallback `|| nombre`
+    // tenía sentido cuando el formulario traía el campo precargado; al
+    // quitarlo del modal pasó a duplicar el nombre en Alegra sin que nadie lo
+    // pidiera (149 productos del catálogo quedaron así).
+    description: descripcion?.trim() || '',
     reference: referencia?.trim() || productoOriginal.codigoProveedor,
     price: parseFloat(precio),
     cost: parseFloat(costo),
