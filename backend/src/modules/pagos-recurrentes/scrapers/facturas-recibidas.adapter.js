@@ -77,56 +77,15 @@ function aPeriodoCr(fecha) {
 }
 
 /**
- * Días de crédito declarados en el XML (<PlazoCredito>). Solo se usa como
- * respaldo: ver fechaVencimientoDeXml.
- */
-function plazoCreditoDias(xml) {
-  const m = String(xml || '').match(/<PlazoCredito>\s*([^<]*)<\/PlazoCredito>/i);
-  if (!m) return 0;
-  const dias = parseInt(String(m[1]).replace(/\D/g, ''), 10);
-  return Number.isFinite(dias) ? dias : 0;
-}
-
-/**
- * Fecha de vencimiento real, del bloque <Otros> del XML.
- *
- * Hacienda no tiene un campo estándar de vencimiento, así que los emisores lo
- * ponen ahí como texto libre. Verificado en una factura real de Liberty:
- *
- *   <CondicionVenta>01</CondicionVenta>   (contado)
- *   <PlazoCredito>0</PlazoCredito>
- *   <OtroTexto codigo="Fecha_Vencimiento">20-08-2026</OtroTexto>
- *
- * Fiarse de PlazoCredito habría dado el 2 de agosto —la fecha de emisión—
- * cuando el recibo vence el 20: 18 días antes, y la pantalla lo habría
- * mostrado vencido apenas llega.
- */
-function fechaVencimientoDeXml(xml) {
-  const texto = String(xml || '');
-  const m = texto.match(/<OtroTexto[^>]*codigo\s*=\s*"Fecha_Vencimiento"[^>]*>\s*([^<]+?)\s*<\/OtroTexto>/i);
-  if (!m) return null;
-
-  const valor = m[1].trim();
-  const cr = valor.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (cr) return `${cr[1]}-${cr[2]}-${cr[3]}`;
-
-  const iso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
-
-  return null;
-}
-
-/**
- * Período facturado, del bloque <Otros>. Liberty lo escribe como
- * "01 Jul 2026 al 31 Jul 2026" — el consumo es de JULIO aunque la factura se
- * emita en agosto, y eso es lo que hay que mostrar en la nota del pago.
+ * Período de consumo a 'MM-YYYY', desde el texto libre que declara el emisor
+ * ("01 Jul 2026 al 31 Jul 2026"). Importa porque Liberty factura julio el 2
+ * de agosto: en la nota del pago tiene que decir julio.
  */
 const MESES_CR = { ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, set:9, oct:10, nov:11, dic:12 };
 
-function periodoFacturadoDeXml(xml) {
-  const m = String(xml || '').match(/<OtroTexto[^>]*codigo\s*=\s*"Periodo_Facturado"[^>]*>\s*([^<]+?)\s*<\/OtroTexto>/i);
-  if (!m) return null;
-  const f = m[1].match(/(\d{1,2})\s+([A-Za-zÁÉÍÓÚáéíóú]{3})[a-z]*\s+(\d{4})/);
+function periodoTextoAPeriodoCr(texto) {
+  if (!texto) return null;
+  const f = String(texto).match(/(\d{1,2})\s+([A-Za-zÁÉÍÓÚáéíóú]{3})[a-z]*\s+(\d{4})/);
   if (!f) return null;
   const mes = MESES_CR[f[2].toLowerCase().slice(0, 3)];
   if (!mes) return null;
@@ -153,8 +112,11 @@ async function consultarRecibos({ cedulaEmisor }) {
 
   // Solo las de los últimos 12 meses: más atrás no aporta a un control de
   // pagos del mes y agrandaría la respuesta sin motivo.
+  // El XML completo no se guarda (basta el historial de Revisión de Precios):
+  // el vencimiento y el período de consumo se persisten al parsear.
   const res = await query(`
-    SELECT id, numero_consecutivo, fecha_emision, total_factura, archivo_xml, estado
+    SELECT id, numero_consecutivo, fecha_emision, total_factura, estado,
+           fecha_vencimiento, periodo_facturado
     FROM facturas_proveedores
     WHERE regexp_replace(COALESCE(proveedor_cedula, ''), '\\D', '', 'g') = $1
       AND fecha_emision >= CURRENT_DATE - INTERVAL '12 months'
@@ -168,15 +130,15 @@ async function consultarRecibos({ cedulaEmisor }) {
     const emision = f.fecha_emision;
     if (!emision) continue;
 
-    // El vencimiento del bloque <Otros> manda; PlazoCredito es el respaldo.
-    const vencimiento = fechaVencimientoDeXml(f.archivo_xml)
-      || aFechaCr(sumarDias(emision, plazoCreditoDias(f.archivo_xml)));
+    // El vencimiento que declaró el emisor manda; si no lo declaró, se cae
+    // a la fecha de emisión (contado).
+    const vencimiento = f.fecha_vencimiento ? aFechaCr(f.fecha_vencimiento) : aFechaCr(emision);
 
     recibos.push({
       documento: String(f.numero_consecutivo || '').trim(),
       // El período de CONSUMO, no el de emisión: Liberty factura julio el 2
       // de agosto, y en la nota del pago tiene que decir julio.
-      periodo: periodoFacturadoDeXml(f.archivo_xml) || aPeriodoCr(emision),
+      periodo: periodoTextoAPeriodoCr(f.periodo_facturado) || aPeriodoCr(emision),
       monto: Number(f.total_factura) || 0,
       vencimiento
     });
@@ -216,30 +178,44 @@ async function esEmisorDeGastoRecurrente(cedula) {
  * línea propia al 0%: meterlos dentro de otra línea inflaría la base gravable
  * y falsearía el reporte del contador.
  */
-function otrosCargosDeXml(xml) {
-  const bloques = String(xml || '').match(/<OtrosCargos>[\s\S]*?<\/OtrosCargos>/gi) || [];
-  let total = 0;
-  const detalles = [];
-  for (const b of bloques) {
-    const monto = Number((b.match(/<MontoCargo>\s*([\d.]+)\s*<\/MontoCargo>/i) || [])[1]) || 0;
-    const detalle = ((b.match(/<Detalle>\s*([^<]*)<\/Detalle>/i) || [])[1] || '').trim();
-    if (monto > 0) { total += monto; if (detalle) detalles.push(detalle); }
-  }
-  return { total: Math.round(total * 100) / 100, detalle: detalles.join(' · ') };
+/**
+ * Los cargos que NO son base gravable ni IVA (impuesto Cruz Roja, servicio
+ * 911) viajan en <OtrosCargos>, fuera del detalle, y el XML no se guarda.
+ * Se recuperan por diferencia: total de la factura menos (base + impuesto)
+ * de las líneas. Verificado contra una factura real de Liberty: da ₡187,39,
+ * exactamente lo que dice el PDF.
+ *
+ * Van como línea propia al 0%: meterlos dentro de otra inflaría la base
+ * gravable y falsearía el reporte del contador.
+ */
+function otrosCargosDeTotales(filas, totalFactura) {
+  const base = filas.reduce((s, f) => s + (Number(f.precio_unitario) || 0) * (Number(f.cantidad) || 1), 0);
+  const impuesto = filas.reduce((s, f) => s + (Number(f.impuesto) || 0), 0);
+  const diferencia = Math.round((totalFactura - base - impuesto) * 100) / 100;
+  // Menos de un colón es redondeo, no un cargo.
+  return { total: diferencia >= 1 ? diferencia : 0, detalle: 'otros cargos' };
 }
 
-/** Líneas del detalle del XML, con su tarifa de IVA real. */
-function lineasDeXml(xml) {
-  const bloques = String(xml || '').match(/<LineaDetalle>[\s\S]*?<\/LineaDetalle>/gi) || [];
-  return bloques.map((b) => {
-    const t = (re) => ((b.match(re) || [])[1] || '').trim();
+/**
+ * Líneas de la factura, tomadas de productos_factura_proveedor — que es lo
+ * que Revisión de Precios ya guarda de cada factura. El XML no se conserva.
+ *
+ * En el XML de Hacienda `precioUnitario` viene SIN IVA, que es justo lo que
+ * espera Alegra; la tarifa real se deriva de impuesto/total para no asumir
+ * 13% (Costa Rica tiene 0/1/2/4/8/13%).
+ */
+function lineasDeDetalle(filas) {
+  return filas.map((f) => {
+    const cantidad = Number(f.cantidad) || 1;
+    const precio = Number(f.precio_unitario) || 0;
+    const impuesto = Number(f.impuesto) || 0;
+    const base = precio * cantidad;
     return {
-      detalle: t(/<Detalle>\s*([^<]*)<\/Detalle>/i),
-      cabys: t(/<CodigoCABYS>\s*([^<]*)<\/CodigoCABYS>/i),
-      cantidad: Number(t(/<Cantidad>\s*([\d.]*)\s*<\/Cantidad>/i)) || 1,
-      // SubTotal es el monto SIN IVA de la línea, que es lo que espera Alegra.
-      subtotal: Number(t(/<SubTotal>\s*([\d.]*)\s*<\/SubTotal>/i)) || 0,
-      tarifa: Number(t(/<Tarifa>\s*([\d.]*)\s*<\/Tarifa>/i)) || 0
+      detalle: String(f.descripcion || '').trim(),
+      cabys: f.codigo_cabys || null,
+      cantidad,
+      subtotal: Math.round(base * 100) / 100,
+      tarifa: base > 0 ? Math.round((impuesto / base) * 100) : 0
     };
   }).filter(l => l.detalle && l.subtotal > 0);
 }
@@ -291,7 +267,7 @@ async function registrarEnAlegra({ cedulaEmisor }) {
   const cedula = normalizarCedula(cedulaEmisor);
 
   const pendientes = await query(`
-    SELECT id, numero_consecutivo, fecha_emision, total_factura, archivo_xml,
+    SELECT id, numero_consecutivo, fecha_emision, total_factura,
            proveedor_nombre, proveedor_cedula, proveedor_email, proveedor_telefono
     FROM facturas_proveedores
     WHERE regexp_replace(COALESCE(proveedor_cedula, ''), '\D', '', 'g') = $1
@@ -321,8 +297,13 @@ async function registrarEnAlegra({ cedulaEmisor }) {
         ignoreRepeated: true
       });
 
+      const detalle = await query(`
+        SELECT descripcion, cantidad, precio_unitario, impuesto, total_linea, codigo_cabys
+        FROM productos_factura_proveedor WHERE factura_id = $1 ORDER BY numero_linea;
+      `, [f.id]);
+
       const items = [];
-      for (const linea of lineasDeXml(f.archivo_xml)) {
+      for (const linea of lineasDeDetalle(detalle.rows)) {
         const itemId = await buscarOCrearServicio(linea.detalle, linea.cabys);
         if (!itemId) continue;
         const item = {
@@ -334,11 +315,13 @@ async function registrarEnAlegra({ cedulaEmisor }) {
         items.push(item);
       }
 
-      const cargos = otrosCargosDeXml(f.archivo_xml);
+      // Los cargos que no son base ni IVA son la diferencia entre el total de
+      // la factura y (base + impuesto) del detalle. No se guardan aparte.
+      const cargos = otrosCargosDeTotales(detalle.rows, Number(f.total_factura) || 0);
       if (cargos.total > 0) {
         const itemId = await buscarOCrearServicio(
           `OTROS CARGOS (${cargos.detalle || 'varios'})`.slice(0, 150),
-          lineasDeXml(f.archivo_xml)[0]?.cabys
+          detalle.rows[0]?.codigo_cabys
         );
         // Sin impuesto: no son base gravable ni IVA.
         if (itemId) items.push({ id: String(itemId), quantity: 1, price: cargos.total });
@@ -366,8 +349,13 @@ async function registrarEnAlegra({ cedulaEmisor }) {
       // Un fallo acá NO tumba la sincronización: el pago ya quedó registrado
       // en Pagos Recurrentes, que es lo que el usuario ve. La compra se
       // reintenta en la próxima corrida porque alegra_bill_id sigue nulo.
-      console.error(`   ❌ No se pudo registrar ${f.numero_consecutivo} en Alegra: ${error.message}`);
-      fallidas.push({ consecutivo: f.numero_consecutivo, error: error.message });
+      // El mensaje de axios ("status code 400") no dice nada: lo útil está en
+      // el cuerpo de la respuesta de Alegra.
+      const detalle = error.response?.data
+        ? JSON.stringify(error.response.data).slice(0, 300)
+        : error.message;
+      console.error(`   ❌ No se pudo registrar ${f.numero_consecutivo} en Alegra: ${detalle}`);
+      fallidas.push({ consecutivo: f.numero_consecutivo, error: detalle });
     }
   }
 
@@ -377,15 +365,13 @@ async function registrarEnAlegra({ cedulaEmisor }) {
 module.exports = {
   consultarRecibos,
   registrarEnAlegra,
-  otrosCargosDeXml,
-  lineasDeXml,
+  otrosCargosDeTotales,
+  lineasDeDetalle,
+  periodoTextoAPeriodoCr,
   esEmisorDeGastoRecurrente,
   normalizarCedula,
   aFechaCr,
   aPeriodoCr,
-  plazoCreditoDias,
-  fechaVencimientoDeXml,
-  periodoFacturadoDeXml,
   ConsultaFallida,
   ESTADO_GASTO_RECURRENTE,
   FUENTE: 'facturas-recibidas'

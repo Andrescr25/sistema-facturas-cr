@@ -155,6 +155,10 @@ class XmlParser {
             condicionVenta: factura.CondicionVenta,
             plazoCredito: factura.PlazoCredito,
             medioPago: factura.MedioPago,
+            // Hacienda no tiene campo estándar de vencimiento: los emisores
+            // lo ponen como texto libre en <Otros>. Se extrae acá, que es el
+            // único momento en que tenemos el XML — no se persiste completo.
+            ...XmlParser.extraerOtros(factura.Otros),
             productos: this.extractProductosData(factura.DetalleServicio),
             resumen: this.extractResumenData(factura.ResumenFactura),
             metadata: {
@@ -162,6 +166,35 @@ class XmlParser {
                 tipoDocumento,
                 pais: 'CR'
             }
+        };
+    }
+
+    /**
+     * Datos útiles del bloque <Otros>, que es texto libre por emisor.
+     * Verificado contra una factura real de Liberty:
+     *   <OtroTexto codigo="Fecha_Vencimiento">20-08-2026</OtroTexto>
+     *   <OtroTexto codigo="Periodo_Facturado">01 Jul 2026 al 31 Jul 2026</OtroTexto>
+     * Importa porque la condición de venta puede decir "contado" y plazo 0
+     * mientras el recibo vence 18 días después.
+     */
+    static extraerOtros(otros) {
+        if (!otros) return {};
+        const textos = [].concat(otros.OtroTexto || []);
+        const valorDe = (codigo) => {
+            for (const t of textos) {
+                const c = t?.$?.codigo || t?.codigo;
+                if (String(c || '').toLowerCase() === codigo.toLowerCase()) {
+                    return String(t?._ ?? t?.['#text'] ?? (typeof t === 'string' ? t : '')).trim();
+                }
+            }
+            return null;
+        };
+
+        const vencimiento = valorDe('Fecha_Vencimiento');
+        const periodo = valorDe('Periodo_Facturado');
+        return {
+            fechaVencimientoTexto: vencimiento || null,
+            periodoFacturadoTexto: periodo || null
         };
     }
 

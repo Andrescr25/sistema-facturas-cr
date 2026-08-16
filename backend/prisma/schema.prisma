@@ -38,6 +38,11 @@ model Factura {
   // saber si ya se registró, y el registro automático de gastos recurrentes
   // la duplicaría en cada sincronización.
   alegraBillId          String?            @map("alegra_bill_id")
+
+  // Del bloque <Otros> del XML, que es texto libre por emisor. El XML no se
+  // guarda completo, así que se extraen al parsear.
+  fechaVencimiento      DateTime?          @map("fecha_vencimiento") @db.Date
+  periodoFacturado      String?            @map("periodo_facturado")
   
   // Relaciones
   productos         ProductoFactura[]
@@ -149,6 +154,10 @@ enum EstadoFactura {
   RELACIONADA
   ENVIADA
   COMPLETADA
+  // Servicios recurrentes facturados por correo (internet, telefonía): no
+  // entran al flujo de compras — Revisión de Precios solo lista PROCESADA y
+  // ENVIADA — y los recoge Pagos Recurrentes.
+  GASTO_RECURRENTE
 
   @@map("estado_factura")
 }

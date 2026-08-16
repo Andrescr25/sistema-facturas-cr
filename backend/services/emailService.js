@@ -602,12 +602,19 @@ class EmailService {
                 }
             }
 
-            // 3. Actualizar estado
-            const estadoFinal = productosPendientes === 0 ? 'RELACIONADA' : 'PROCESADA';
-            await this.dbService.prisma.factura.update({
-                where: { id: facturaGuardada.id },
-                data: { estado: estadoFinal }
-            });
+            // 3. Actualizar estado — salvo que la factura ya se haya marcado
+            // como gasto recurrente al guardarla. Ese estado la mantiene fuera
+            // de Revisión de Precios a propósito, y pisarlo acá con
+            // PROCESADA/RELACIONADA la devolvía al flujo de compras: era la
+            // razón por la que la intercepción "funcionaba" en el log y aun
+            // así la factura terminaba en PROCESADA.
+            if (facturaGuardada.estado !== 'GASTO_RECURRENTE') {
+                const estadoFinal = productosPendientes === 0 ? 'RELACIONADA' : 'PROCESADA';
+                await this.dbService.prisma.factura.update({
+                    where: { id: facturaGuardada.id },
+                    data: { estado: estadoFinal }
+                });
+            }
 
             // 4. Resumen
             console.log('\n📊 PROCESAMIENTO COMPLETADO:');

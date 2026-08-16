@@ -102,6 +102,20 @@ class DatabaseService {
                     // Estados
                     estado: estadoInicial,
 
+                    // Del bloque <Otros>: el vencimiento real y el período de
+                    // consumo. La condición de venta no sirve para esto —
+                    // Liberty declara contado y plazo 0 con vencimiento a 18
+                    // días.
+                    fechaVencimiento: (() => {
+                        const t = facturaData.fechaVencimientoTexto;
+                        if (!t) return null;
+                        const cr = String(t).match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                        if (cr) return new Date(Number(cr[3]), Number(cr[2]) - 1, Number(cr[1]));
+                        const iso = String(t).match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        return iso ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])) : null;
+                    })(),
+                    periodoFacturado: facturaData.periodoFacturadoTexto || null,
+
                     // Metadatos
                     archivoXML: archivoXML,
                     emailId: emailId,
