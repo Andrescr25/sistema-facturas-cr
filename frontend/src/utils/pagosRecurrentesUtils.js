@@ -69,3 +69,23 @@ export function formatFecha(valor) {
   if (!valor) return '—'
   return new Date(valor).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
 }
+
+/**
+ * Cuándo se consultó por última vez, en lenguaje llano. La hora importa acá:
+ * "consultado hace 10 minutos" y "consultado hace 3 días" llevan a decisiones
+ * distintas cuando el recibo todavía no aparece.
+ */
+export function formatFechaHora(valor) {
+  if (!valor) return '—'
+  const fecha = new Date(valor)
+  if (Number.isNaN(fecha.getTime())) return '—'
+
+  const minutos = Math.round((Date.now() - fecha.getTime()) / 60000)
+  if (minutos < 1) return 'recién'
+  if (minutos < 60) return `hace ${minutos} min`
+  if (minutos < 60 * 24) return `hace ${Math.round(minutos / 60)} h`
+
+  const dias = Math.round(minutos / (60 * 24))
+  if (dias <= 7) return `hace ${dias} día${dias === 1 ? '' : 's'}`
+  return `el ${fecha.toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })}`
+}

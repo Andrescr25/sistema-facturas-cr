@@ -111,12 +111,25 @@ export function usePagosRecurrentes() {
         const fallidos = data.resultados.filter(r => !r.ok)
         const nuevos = data.resultados.reduce((s, r) => s + (r.creados || 0) + (r.actualizados || 0), 0)
 
+        // Consultar bien y que el proveedor no haya publicado el recibo NO es
+        // un fallo: se dice con esas palabras en vez de reportar "0 recibos",
+        // que se lee como que algo salió mal.
+        const sinRecibo = data.resultados.filter(r => r.ok && (r.recibos || 0) === 0)
+
         if (data.consultados === 0) {
           showToast('Ningún gasto tiene consulta automática configurada todavía.', 'info')
         } else if (fallidos.length) {
           showToast(`${fallidos.length} consulta(s) fallaron: ${fallidos.map(f => f.nombre).join(', ')}`, 'error')
+        } else if (nuevos === 0 && sinRecibo.length) {
+          showToast(
+            `Sin recibo nuevo en ${sinRecibo.map(r => r.nombre).join(' y ')} — el proveedor todavía no lo publicó.`,
+            'info', 6000
+          )
         } else {
-          showToast(`${nuevos} recibo(s) actualizados de ${data.consultados} servicio(s).`, 'success')
+          const cola = sinRecibo.length
+            ? ` Sin recibo nuevo todavía en ${sinRecibo.map(r => r.nombre).join(' y ')}.`
+            : ''
+          showToast(`${nuevos} recibo(s) actualizados de ${data.consultados} servicio(s).${cola}`, 'success', 6000)
         }
 
         await cargarPeriodo(periodo)

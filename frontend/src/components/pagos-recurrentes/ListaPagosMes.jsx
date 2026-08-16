@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Undo2, Loader2, CalendarX, Receipt } from 'lucide-react'
-import { formatCurrency, formatFecha, categoriaInfo, quincenaLabel } from '../../utils/pagosRecurrentesUtils'
+import { formatCurrency, formatFecha, formatFechaHora, categoriaInfo, quincenaLabel } from '../../utils/pagosRecurrentesUtils'
 
 /**
  * Los pagos que caen en el mes. Cada fila pendiente trae su propio campo de
@@ -9,7 +9,9 @@ import { formatCurrency, formatFecha, categoriaInfo, quincenaLabel } from '../..
  * en un solo gesto, sin abrir nada.
  */
 function FilaPago({ pago, onPagar, onRevertir }) {
-  const [monto, setMonto] = useState(String(pago.monto ?? ''))
+  // Vacío (no '0') mientras se espera la consulta, para que se vea el
+  // placeholder '—' en vez de un cero que parece un monto real.
+  const [monto, setMonto] = useState(pago.esperandoConsulta ? '' : String(pago.monto ?? ''))
   const [guardando, setGuardando] = useState(false)
   const info = categoriaInfo(pago.categoria)
   const quincena = quincenaLabel(pago.periodo)
@@ -53,6 +55,18 @@ function FilaPago({ pago, onPagar, onRevertir }) {
         {pago.notas && (
           <p className="text-[11px] text-blue-600 mt-0.5">{pago.notas}</p>
         )}
+        {/* Sin esto el gasto aparecía en ₡0, que se lee como "no debo nada"
+            cuando en realidad todavía no se consultó el recibo. Se distingue
+            "nunca se consultó" de "se consultó y el proveedor todavía no
+            publicó el recibo": son dos situaciones distintas y la segunda no
+            requiere hacer nada. */}
+        {pago.esperandoConsulta && (
+          <p className="text-[11px] text-amber-600 mt-0.5">
+            {pago.ultimaConsulta
+              ? `Sin recibo nuevo · consultado ${formatFechaHora(pago.ultimaConsulta)}`
+              : 'Pendiente de consulta'}
+          </p>
+        )}
       </div>
 
       {pagado ? (
@@ -76,7 +90,10 @@ function FilaPago({ pago, onPagar, onRevertir }) {
               step="100"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              className="w-32 text-right py-2 pl-6 pr-2 border-2 border-gray-200 focus:border-blue-500 rounded-xl font-bold text-sm focus:outline-none"
+              placeholder={pago.esperandoConsulta ? '—' : '0'}
+              className={`w-32 text-right py-2 pl-6 pr-2 border-2 rounded-xl font-bold text-sm focus:outline-none focus:border-blue-500 ${
+                pago.esperandoConsulta ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200'
+              }`}
             />
           </div>
           <button

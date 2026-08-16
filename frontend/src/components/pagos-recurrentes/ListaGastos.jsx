@@ -36,7 +36,24 @@ export default function ListaGastos({ gastos, loading, onNuevo, onEditar, onCamb
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <p className="font-bold text-gray-900 text-sm w-28 text-right">{formatCurrency(g.montoEstimado)}</p>
+          {/* Con consulta automática manda el último recibo real, no el
+              estimado: ese es un número tecleado una vez que envejece (el agua
+              decía ₡4.000 cuando sus recibos venían en ₡3.823). Sin recibo
+              todavía, se dice en palabras en vez de mostrar un ₡0. */}
+          <div className="w-32 text-right">
+            {g.fuenteAuto ? (
+              g.ultimoMonto != null ? (
+                <>
+                  <p className="font-bold text-gray-900 text-sm">{formatCurrency(g.ultimoMonto)}</p>
+                  <p className="text-[10px] text-gray-400">último recibo · {g.ultimoPeriodo}</p>
+                </>
+              ) : (
+                <p className="text-xs text-amber-600">Sin recibo aún</p>
+              )
+            ) : (
+              <p className="font-bold text-gray-900 text-sm">{formatCurrency(g.montoEstimado)}</p>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => onEditar(g)} title="Editar" className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
               <Pencil size={15} />

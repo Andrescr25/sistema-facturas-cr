@@ -15,6 +15,8 @@
 
 const { query } = require('../../../config/database');
 const acueductos = require('./scrapers/acueductos.adapter');
+const iceElectricidad = require('./scrapers/ice-electricidad.adapter');
+const facturasRecibidas = require('./scrapers/facturas-recibidas.adapter');
 
 const CATEGORIAS = ['servicios', 'alquiler', 'insumos', 'planilla', 'impuestos', 'otros'];
 
@@ -26,6 +28,20 @@ const FUENTES_AUTO = {
     label: 'Acueductos CR (agua)',
     adaptador: acueductos,
     campos: ['provincia', 'acueducto', 'medidor']
+  },
+  [iceElectricidad.FUENTE]: {
+    label: 'ICE (electricidad)',
+    adaptador: iceElectricidad,
+    campos: ['nise']
+  },
+  // No consulta un sitio: lee las facturas electrónicas que ya llegaron por
+  // correo. Para servicios que facturan por correo (Liberty: internet y
+  // planes móviles) es mejor que raspar su portal — el XML trae el monto y el
+  // consecutivo validados y no hace falta guardar credenciales.
+  [facturasRecibidas.FUENTE]: {
+    label: 'Factura por correo (XML)',
+    adaptador: facturasRecibidas,
+    campos: ['cedulaEmisor']
   }
 };
 
@@ -106,12 +122,19 @@ async function asegurarPeriodos(periodoMes) {
   for (const gasto of gastos.rows) {
     if (!caeEnElMes(gasto, mes)) continue;
 
+    // Un gasto con consulta automática NO arranca con el monto estimado: el
+    // monto real lo trae el adaptador. Sembrarlo con el estimado hacía que el
+    // agua apareciera siempre en ₡4.000 —el estimado guardado en el gasto— y
+    // ese número se leía como si fuera el recibo real. Queda en 0 y la
+    // pantalla lo muestra como "pendiente de consulta".
+    const montoSemilla = gasto.fuente_auto ? 0 : gasto.monto_estimado;
+
     for (const { periodo, vencimiento } of periodosDelMes(gasto, periodoMes, anio, mes)) {
       await query(`
         INSERT INTO pago_recurrente (gasto_id, periodo, monto, fecha_vencimiento)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (gasto_id, periodo) DO NOTHING;
-      `, [gasto.id, periodo, gasto.monto_estimado, vencimiento]);
+      `, [gasto.id, periodo, montoSemilla, vencimiento]);
     }
   }
 }
@@ -119,10 +142,25 @@ async function asegurarPeriodos(periodoMes) {
 // ==================== Gastos (plantillas) ====================
 
 async function listarGastos() {
+  // El último recibo REAL de cada gasto: el pago más reciente que trajo un
+  // documento del proveedor. Para los gastos con consulta automática esto es
+  // lo que hay que mostrar en la lista — el monto_estimado es un número que
+  // alguien tecleó una vez y queda viejo (el agua decía ₡4.000 cuando sus
+  // recibos venían en ₡3.823).
   const result = await query(`
     SELECT g.*,
-           (SELECT COUNT(*) FROM pago_recurrente p WHERE p.gasto_id = g.id)::int AS total_pagos
+           (SELECT COUNT(*) FROM pago_recurrente p WHERE p.gasto_id = g.id)::int AS total_pagos,
+           u.monto   AS ultimo_monto,
+           u.periodo AS ultimo_periodo,
+           u.documento_externo AS ultimo_documento
     FROM gasto_recurrente g
+    LEFT JOIN LATERAL (
+      SELECT p.monto, p.periodo, p.documento_externo
+      FROM pago_recurrente p
+      WHERE p.gasto_id = g.id AND p.documento_externo IS NOT NULL
+      ORDER BY p.periodo DESC
+      LIMIT 1
+    ) u ON TRUE
     ORDER BY g.activo DESC, g.categoria ASC, g.nombre ASC;
   `);
   return result.rows.map(mapGasto);
@@ -143,7 +181,11 @@ function mapGasto(row) {
     totalPagos: row.total_pagos,
     fuenteAuto: row.fuente_auto || null,
     configAuto: row.config_auto || null,
-    ultimaConsulta: row.ultima_consulta || null
+    ultimaConsulta: row.ultima_consulta || null,
+    // Último recibo traído por la consulta automática (null si nunca hubo).
+    ultimoMonto: row.ultimo_monto != null ? Number(row.ultimo_monto) : null,
+    ultimoPeriodo: row.ultimo_periodo || null,
+    ultimoDocumento: row.ultimo_documento || null
   };
 }
 
@@ -281,6 +323,11 @@ function mapPago(row, hoy) {
     periodo: row.periodo,
     monto: Number(row.monto) || 0,
     montoEstimado: Number(row.monto_estimado) || 0,
+    fuenteAuto: row.fuente_auto || null,
+    ultimaConsulta: row.ultima_consulta || null,
+    // El monto todavía no lo trajo la consulta automática: la pantalla lo
+    // dice en palabras en vez de mostrar un ₡0 que se lee como "no debo nada".
+    esperandoConsulta: Boolean(row.fuente_auto) && Number(row.monto) === 0 && row.estado !== 'pagado',
     fechaVencimiento: vencimiento,
     fechaPago: row.fecha_pago,
     estado: row.estado,
@@ -304,7 +351,8 @@ async function obtenerPeriodo(periodoMes) {
   await asegurarPeriodos(periodoMes);
 
   const result = await query(`
-    SELECT p.*, g.nombre, g.categoria, g.proveedor, g.frecuencia, g.monto_estimado
+    SELECT p.*, g.nombre, g.categoria, g.proveedor, g.frecuencia, g.monto_estimado,
+           g.fuente_auto, g.ultima_consulta
     FROM pago_recurrente p
     JOIN gasto_recurrente g ON g.id = p.gasto_id
     WHERE p.periodo LIKE $1 || '%'
@@ -561,7 +609,22 @@ async function sincronizarGasto(gastoId) {
 
   await query(`UPDATE gasto_recurrente SET ultima_consulta = CURRENT_TIMESTAMP WHERE id = $1;`, [gastoId]);
 
-  return { recibos: recibos.length, creados, actualizados, omitidos, detalle: recibos };
+  // Algunas fuentes, además de traer el recibo, tienen que dejar la compra
+  // registrada en Alegra — es de ahí que el Reporte Contador toma las compras
+  // y el IVA acreditable. Se hace DESPUÉS de guardar el pago y sin tumbar la
+  // sincronización si falla: el gasto ya quedó visible, y la compra se
+  // reintenta sola en la próxima corrida.
+  let contabilidad = null;
+  if (typeof fuente.adaptador.registrarEnAlegra === 'function') {
+    try {
+      contabilidad = await fuente.adaptador.registrarEnAlegra(config);
+    } catch (error) {
+      console.error(`❌ [Pagos Recurrentes] No se pudo registrar en Alegra: ${error.message}`);
+      contabilidad = { registradas: 0, fallidas: 0, error: error.message };
+    }
+  }
+
+  return { recibos: recibos.length, creados, actualizados, omitidos, contabilidad, detalle: recibos };
 }
 
 /**
