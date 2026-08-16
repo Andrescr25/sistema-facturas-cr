@@ -6,6 +6,19 @@ import { formatCurrency, clasificarItemConteo } from '../../utils/inventarioAudi
 // auditorías normales), para que "¿coincide o no la cantidad?" se vea igual
 // en todo el módulo.
 const ESTADO_CONFIG = {
+  // Un producto ya ajustado en Alegra: clasificarItemConteo lo devuelve como
+  // 'ajustado' y esta tarjeta no lo contemplaba, así que config quedaba
+  // undefined y la pantalla entera se caía al leer config.boton. Mismo
+  // lenguaje visual que ItemAuditoriaCard, que sí lo tenía.
+  ajustado: {
+    cardBorder: 'border-emerald-300 bg-emerald-50/10',
+    badge: (diff) => (
+      <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase">
+        Ajustado ({diff > 0 ? '+' : ''}{diff})
+      </span>
+    ),
+    boton: { texto: 'Marcar Empacado', clase: 'bg-emerald-600 hover:bg-emerald-700' }
+  },
   pendiente: {
     cardBorder: 'border-gray-100',
     badge: () => <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-md uppercase">Pendiente</span>,
@@ -123,7 +136,9 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
   }
 
   const { estado, diff, diffCost } = clasificarItemConteo(item, cantidad)
-  const config = ESTADO_CONFIG[estado]
+  // Nunca dejar que un estado no contemplado tumbe la pantalla: sin este
+  // respaldo, agregar un estado al clasificador rompe esta tarjeta en blanco.
+  const config = ESTADO_CONFIG[estado] || ESTADO_CONFIG.pendiente
   const boton = typeof config.boton === 'function' ? config.boton(cantidad) : config.boton
 
   return (

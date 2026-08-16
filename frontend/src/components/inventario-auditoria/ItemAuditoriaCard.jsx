@@ -39,7 +39,9 @@ const ESTADO_CONFIG = {
  */
 export default function ItemAuditoriaCard({ item, conteoRaw, onConteoChange, onVerImagen }) {
   const { estado, stockSis, diff, diffCost } = clasificarItemConteo(item, conteoRaw)
-  const config = ESTADO_CONFIG[estado]
+  // Mismo respaldo que ItemExcesoCard: un estado no contemplado no debe
+  // tumbar la pantalla.
+  const config = ESTADO_CONFIG[estado] || ESTADO_CONFIG.pendiente
 
   return (
     <div className={`bg-white p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${config.cardBorder}`}>
