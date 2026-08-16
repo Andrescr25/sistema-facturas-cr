@@ -382,9 +382,15 @@ async function getAuditoria(id) {
       iai.id, iai.auditoria_id, iai.alegra_id, iai.nombre_producto, iai.referencia,
       iai.category, iai.stock_sistema, iai.stock_real, iai.costo_unitario,
       iai.precio_venta, iai.created_at, iai.ajustado_alegra, iai.empacado,
-      iai.ultima_venta, apc.image_url
+      iai.ultima_venta, apc.image_url,
+      -- El descuento vive en otra tabla y es lo que de verdad decide si el
+      -- producto se ve en el catálogo público. Sin traerlo acá, la pantalla
+      -- de empaque no da ninguna pista de que un producto va a quedar
+      -- invisible, que es justo lo que hacía parecer roto al catálogo.
+      pde.descuento_porcentaje, pde.regalado
     FROM inventario_auditoria_items iai
     LEFT JOIN alegra_products_cache apc ON apc.alegra_id = iai.alegra_id
+    LEFT JOIN producto_descuento_exceso pde ON pde.alegra_item_id = iai.alegra_id
     WHERE iai.auditoria_id = $1
     ORDER BY iai.nombre_producto;
   `, [id]);
@@ -1270,7 +1276,90 @@ async function agregarItemExceso(auditoriaId, { alegraId }) {
     precioVenta
   ]);
 
+  // Sin fila en producto_descuento_exceso el producto NO llega al catálogo
+  // público: listarOfertas hace INNER JOIN contra esa tabla. La detección
+  // automática la crea para todos los candidatos (escalarDescuentosExceso),
+  // así que hasta acá solo las tandas armadas a mano quedaban invisibles —
+  // se armaba una de 33 productos, se empacaba entera, y el catálogo
+  // mostraba 3: los que por casualidad ya venían con descuento de una
+  // detección automática anterior.
+  //
+  // DO NOTHING a propósito: si el producto ya tenía descuento (escalado por
+  // detecciones previas o puesto a mano), meterlo en una tanda no es razón
+  // para bajárselo de vuelta a DESCUENTO_INICIAL.
+  await query(`
+    INSERT INTO producto_descuento_exceso
+      (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado)
+    VALUES ($1, $2, $3, $4, 1)
+    ON CONFLICT (alegra_item_id) DO NOTHING;
+  `, [String(alegraId), productoAlegra.name, referencia, DESCUENTO_INICIAL]);
+
   return result.rows[0];
+}
+
+/**
+ * Pone el mismo descuento a todos los productos de una tanda de excesos, de
+ * un solo golpe.
+ *
+ * El escalado automático sube de a DESCUENTO_INCREMENTO por detección, que
+ * sirve para el goteo semanal pero no para una tanda armada a mano: ahí uno
+ * ya decidió a qué precio quiere rematar el lote completo y no tiene sentido
+ * ir producto por producto.
+ *
+ * Reactiva los regalados por la misma razón que guardarDescuentoExceso: el
+ * flag existe para que el escalado automático no los siga tocando, no para
+ * prohibir que una persona decida volver a ofrecerlos.
+ *
+ * Descuento 0 = sacarlos del catálogo. Es la contraparte necesaria: una vez
+ * rematada la tanda hay que poder bajarla entera sin borrar producto por
+ * producto. Se pierde veces_detectado, igual que en eliminarDescuentoExceso.
+ */
+async function aplicarDescuentoTanda(auditoriaId, { descuentoPorcentaje }) {
+  const auditRes = await query(`SELECT * FROM inventario_auditorias WHERE id = $1;`, [auditoriaId]);
+  if (auditRes.rows.length === 0) {
+    throw httpError(404, 'Tanda de excesos no encontrada.');
+  }
+  if (auditRes.rows[0].tipo !== 'exceso') {
+    throw httpError(400, 'Este registro no es una tanda de excesos.');
+  }
+
+  const descuento = Number(descuentoPorcentaje);
+  if (!Number.isFinite(descuento) || descuento < 0 || descuento > 100) {
+    throw httpError(400, 'El descuento debe estar entre 0 y 100.');
+  }
+
+  if (descuento === 0) {
+    const borrados = await query(`
+      DELETE FROM producto_descuento_exceso
+      WHERE alegra_item_id IN (
+        SELECT alegra_id FROM inventario_auditoria_items WHERE auditoria_id = $1
+      )
+      RETURNING alegra_item_id;
+    `, [auditoriaId]);
+    return { afectados: borrados.rows.length, descuentoPorcentaje: 0, quitados: true };
+  }
+
+  // DISTINCT ON: si el mismo alegra_id apareciera dos veces en la tanda,
+  // Postgres aborta con "ON CONFLICT DO UPDATE command cannot affect row a
+  // second time". agregarItemExceso ya lo impide, pero ese error sería
+  // ilegible y la guarda no cuesta nada.
+  const result = await query(`
+    INSERT INTO producto_descuento_exceso
+      (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado, regalado)
+    SELECT DISTINCT ON (iai.alegra_id)
+      iai.alegra_id, iai.nombre_producto, COALESCE(iai.referencia, ''), $2::numeric, 1, FALSE
+    FROM inventario_auditoria_items iai
+    WHERE iai.auditoria_id = $1
+    ORDER BY iai.alegra_id
+    ON CONFLICT (alegra_item_id) DO UPDATE SET
+      descuento_porcentaje = EXCLUDED.descuento_porcentaje,
+      nombre_producto = EXCLUDED.nombre_producto,
+      regalado = FALSE,
+      ultima_actualizacion = CURRENT_TIMESTAMP
+    RETURNING alegra_item_id;
+  `, [auditoriaId, descuento]);
+
+  return { afectados: result.rows.length, descuentoPorcentaje: descuento, quitados: false };
 }
 
 /**
@@ -1427,6 +1516,7 @@ module.exports = {
   crearExcesoManual,
   eliminarAuditoria,
   agregarItemExceso,
+  aplicarDescuentoTanda,
   listarDescuentosExceso,
   guardarDescuentoExceso,
   eliminarDescuentoExceso

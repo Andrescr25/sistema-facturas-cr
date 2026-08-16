@@ -42,6 +42,36 @@ const ESTADO_CONFIG = {
 }
 
 /**
+ * El descuento es lo que decide si el producto llega al catálogo público, así
+ * que su ausencia tiene que verse: sin este aviso, una tanda entera puede
+ * quedar invisible para el cliente sin que nada en la pantalla lo insinúe.
+ */
+function BadgeDescuento({ item }) {
+  if (item.regalado) {
+    return (
+      <span className="bg-purple-100 text-purple-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0">
+        Regalado
+      </span>
+    )
+  }
+  if (item.descuento_porcentaje === null || item.descuento_porcentaje === undefined) {
+    return (
+      <span
+        title="Sin descuento no aparece en el catálogo público"
+        className="bg-amber-100 text-amber-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0"
+      >
+        Sin descuento
+      </span>
+    )
+  }
+  return (
+    <span className="bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0">
+      −{Number(item.descuento_porcentaje)}%
+    </span>
+  )
+}
+
+/**
  * Tarjeta de un producto dentro de la "factura de empaque" de un exceso.
  * El empleado marca "Empacado" directamente, o si la cantidad física no
  * coincide con Alegra, la escribe antes de marcar — eso dispara la
@@ -106,6 +136,7 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
                   Empacado • Cantidad correcta
                 </span>
               )}
+              <BadgeDescuento item={item} />
             </div>
             <p className="text-xs text-gray-500">Ref: {item.referencia || 'N/A'}</p>
           </div>
@@ -154,6 +185,7 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
           <ImageIcon size={14} />
         </button>
         {config.badge(diff)}
+        <BadgeDescuento item={item} />
         {diffCost ? (
           <span className={`text-xs font-bold shrink-0 ${diff < 0 ? 'text-red-600' : 'text-blue-600'}`}>
             {diff < 0 ? '' : '+'}

@@ -1,6 +1,7 @@
 import { PackageX } from 'lucide-react'
 import ItemExcesoCard from './ItemExcesoCard'
 import BuscadorProductoExceso from './BuscadorProductoExceso'
+import DescuentoTanda from './DescuentoTanda'
 
 /**
  * Lista de productos de un exceso en progreso — la "factura de empaque"
@@ -18,7 +19,9 @@ export default function EjecucionExceso({
   resultadosProducto,
   buscandoProducto,
   agregandoItem,
-  onAgregarItem
+  onAgregarItem,
+  onAplicarDescuento,
+  aplicandoDescuento
 }) {
   return (
     <div className="space-y-5">
@@ -29,6 +32,12 @@ export default function EjecucionExceso({
         buscando={buscandoProducto}
         agregando={agregandoItem}
         onAgregar={onAgregarItem}
+      />
+
+      <DescuentoTanda
+        items={items}
+        onAplicar={onAplicarDescuento}
+        aplicando={aplicandoDescuento}
       />
 
       <div className="space-y-3">

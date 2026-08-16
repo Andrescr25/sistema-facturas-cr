@@ -354,6 +354,21 @@ async function agregarItemExceso(req, res) {
 }
 
 /**
+ * POST /inventario-auditorias/:id/descuento — mismo descuento para todos los
+ * productos de la tanda.
+ */
+async function aplicarDescuentoTanda(req, res) {
+  try {
+    const data = await inventarioAuditoriasService.aplicarDescuentoTanda(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('Error aplicando descuento a la tanda de excesos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
  * GET /inventario-auditorias/descuentos
  */
 async function listarDescuentosExceso(req, res) {
@@ -415,6 +430,7 @@ module.exports = {
   crearExcesoManual,
   eliminarAuditoria,
   agregarItemExceso,
+  aplicarDescuentoTanda,
   listarDescuentosExceso,
   guardarDescuentoExceso,
   eliminarDescuentoExceso

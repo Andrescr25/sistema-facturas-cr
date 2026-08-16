@@ -27,6 +27,7 @@ router.delete('/:id', inventarioAuditoriasController.eliminarAuditoria);
 router.put('/:id/items', inventarioAuditoriasController.guardarConteos);
 router.post('/:id/items', inventarioAuditoriasController.agregarItemDevolucion);
 router.post('/:id/items-exceso', inventarioAuditoriasController.agregarItemExceso);
+router.post('/:id/descuento', inventarioAuditoriasController.aplicarDescuentoTanda);
 router.delete('/:id/items/:itemId', inventarioAuditoriasController.eliminarItemDevolucion);
 router.patch('/:id/items/:itemId/exceso', inventarioAuditoriasController.actualizarItemExceso);
 router.patch('/:id/items/:itemId/conteo', inventarioAuditoriasController.guardarConteoIndividual);

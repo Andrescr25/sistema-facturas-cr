@@ -102,6 +102,11 @@ export async function agregarItemExceso(id, item) {
   return response.data;
 }
 
+export async function aplicarDescuentoTanda(id, descuentoPorcentaje) {
+  const response = await api.post(`/inventario-auditorias/${id}/descuento`, { descuentoPorcentaje });
+  return response.data;
+}
+
 export async function getDescuentosExceso() {
   const response = await api.get('/inventario-auditorias/descuentos');
   return response.data;

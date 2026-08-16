@@ -73,6 +73,8 @@ export default function InventarioAuditoria() {
     agregandoItemExceso,
     handleAgregarItemExceso,
     handleEliminarItemExceso,
+    aplicandoDescuentoTanda,
+    handleAplicarDescuentoTanda,
 
     descuentos,
     loadingDescuentos,
@@ -355,6 +357,8 @@ export default function InventarioAuditoria() {
                   buscandoProducto={buscandoProductoExceso}
                   agregandoItem={agregandoItemExceso}
                   onAgregarItem={handleAgregarItemExceso}
+                  onAplicarDescuento={handleAplicarDescuentoTanda}
+                  aplicandoDescuento={aplicandoDescuentoTanda}
                 />
               </div>
 

@@ -21,6 +21,7 @@ import {
   crearExcesoManual as crearExcesoManualApi,
   eliminarExceso as eliminarExcesoApi,
   agregarItemExceso as agregarItemExcesoApi,
+  aplicarDescuentoTanda as aplicarDescuentoTandaApi,
   getDescuentosExceso,
   guardarDescuentoExceso as guardarDescuentoExcesoApi,
   eliminarDescuentoExceso as eliminarDescuentoExcesoApi
@@ -107,6 +108,7 @@ export function useInventarioAuditoria() {
   const [resultadosProductoExceso, setResultadosProductoExceso] = useState([])
   const [buscandoProductoExceso, setBuscandoProductoExceso] = useState(false)
   const [agregandoItemExceso, setAgregandoItemExceso] = useState(false)
+  const [aplicandoDescuentoTanda, setAplicandoDescuentoTanda] = useState(false)
 
   // Descuentos por exceso: es lo que de verdad ven los clientes en el
   // catálogo público, así que se puede editar/quitar a mano.
@@ -312,6 +314,42 @@ export function useInventarioAuditoria() {
       showToast(err.response?.data?.message || 'Error al agregar el producto.', 'error')
     } finally {
       setAgregandoItemExceso(false)
+    }
+  }
+
+  const handleAplicarDescuentoTanda = async (descuentoPorcentaje) => {
+    if (!auditoriaActiva) return
+
+    // 0% borra las filas de descuento: se pierde veces_detectado y los
+    // productos salen del catálogo. Es reversible volviendo a poner un
+    // porcentaje, pero no en un click sin querer.
+    if (Number(descuentoPorcentaje) === 0) {
+      const confirmado = await confirm(
+        `¿Quitar el descuento de los ${auditoriaActiva.items.length} productos de esta tanda? Dejan de verse en el catálogo público.`
+      )
+      if (!confirmado) return
+    }
+
+    setAplicandoDescuentoTanda(true)
+    try {
+      const result = await aplicarDescuentoTandaApi(auditoriaActiva.id, descuentoPorcentaje)
+      if (result.success) {
+        const { afectados, quitados } = result.data
+        showToast(
+          quitados
+            ? `Descuento quitado a ${afectados} producto(s). Ya no se ven en el catálogo.`
+            : `${descuentoPorcentaje}% aplicado a ${afectados} producto(s).`,
+          'success'
+        )
+        await refrescarAuditoriaActiva()
+        // La pestaña de Descuentos queda desactualizada si no se recarga.
+        await loadDescuentos()
+      }
+    } catch (err) {
+      console.error('Error aplicando descuento a la tanda:', err)
+      showToast(err.response?.data?.message || 'Error al aplicar el descuento.', 'error')
+    } finally {
+      setAplicandoDescuentoTanda(false)
     }
   }
 
@@ -805,6 +843,8 @@ export function useInventarioAuditoria() {
     buscandoProductoExceso,
     agregandoItemExceso,
     handleAgregarItemExceso,
+    aplicandoDescuentoTanda,
+    handleAplicarDescuentoTanda,
     handleEliminarItemExceso,
 
     // Descuentos del catálogo público
