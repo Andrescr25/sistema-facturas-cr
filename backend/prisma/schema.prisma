@@ -33,6 +33,11 @@ model Factura {
   estado                EstadoFactura      @default(RECIBIDA)
   estadoRelacionado     EstadoRelacionado? @map("estado_relacionado")
   porcentajeRelacionado Int                @default(0) @map("porcentaje_relacionado")
+
+  // Id de la factura de compra creada en Alegra. Sin esto no hay forma de
+  // saber si ya se registró, y el registro automático de gastos recurrentes
+  // la duplicaría en cada sincronización.
+  alegraBillId          String?            @map("alegra_bill_id")
   
   // Relaciones
   productos         ProductoFactura[]

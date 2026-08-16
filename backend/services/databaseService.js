@@ -61,6 +61,26 @@ class DatabaseService {
                 }
             }
 
+            // Los servicios facturados por correo (internet, telefonía) están
+            // registrados como gasto recurrente por la cédula de su emisor.
+            // Esas facturas NO entran al flujo de compras: nacen con el estado
+            // GASTO_RECURRENTE, que Revisión de Precios no lista, y las recoge
+            // Pagos Recurrentes. Sin esto, cada mes pedirían relacionar
+            // "servicio de internet" con un producto del catálogo.
+            let estadoInicial = 'PROCESADA';
+            try {
+                const facturasRecibidas = require('../src/modules/pagos-recurrentes/scrapers/facturas-recibidas.adapter');
+                if (await facturasRecibidas.esEmisorDeGastoRecurrente(proveedorCedula)) {
+                    estadoInicial = facturasRecibidas.ESTADO_GASTO_RECURRENTE;
+                    console.log(`   💡 ${facturaData.emisor.nombre}: gasto recurrente, no entra a Revisión de Precios`);
+                }
+            } catch (error) {
+                // Si la comprobación falla, la factura sigue el camino normal:
+                // es preferible que aparezca de más en Revisión de Precios a
+                // que se pierda por un error en una consulta accesoria.
+                console.warn('   ⚠️ No se pudo comprobar si es gasto recurrente:', error.message);
+            }
+
             // PASO 2: Crear la factura con sus productos (ya con relaciones aplicadas)
             const facturaGuardada = await this.prisma.factura.create({
                 data: {
@@ -80,7 +100,7 @@ class DatabaseService {
                     moneda: facturaData.resumen.moneda.codigo,
 
                     // Estados
-                    estado: 'PROCESADA',
+                    estado: estadoInicial,
 
                     // Metadatos
                     archivoXML: archivoXML,
