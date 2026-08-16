@@ -471,10 +471,15 @@ async function setupDatabase() {
           estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
           metodo VARCHAR(50),
           notas TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE (gasto_id, periodo)
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // Un gasto puede recibir varios recibos en el mismo mes (Liberty factura
+    // internet y cada línea móvil por separado). El COALESCE es necesario:
+    // dos NULL no colisionan en Postgres, así que sin él los gastos manuales
+    // —sin documento— dejarían de deduplicarse.
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_pago_recurrente_gasto_periodo_doc
+      ON pago_recurrente (gasto_id, periodo, (COALESCE(documento_externo, '')))`);
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_periodo ON pago_recurrente(periodo)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_estado ON pago_recurrente(estado)');
 

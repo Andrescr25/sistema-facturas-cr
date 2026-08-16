@@ -144,10 +144,18 @@ async function asegurarPeriodos(periodoMes) {
     const montoSemilla = gasto.fuente_auto ? 0 : gasto.monto_estimado;
 
     for (const { periodo, vencimiento } of periodosDelMes(gasto, periodoMes, anio, mes)) {
+      // Solo se siembra si el mes está VACÍO para este gasto. Antes alcanzaba
+      // con ON CONFLICT, pero desde que un gasto puede tener varios recibos en
+      // el mismo mes la unicidad incluye el documento: la fila sembrada no
+      // lleva documento, no colisionaba con las que sí lo tienen, y se creaba
+      // un ₡0 huérfano al lado de los recibos reales cada vez que se abría el
+      // mes.
       await query(`
         INSERT INTO pago_recurrente (gasto_id, periodo, monto, fecha_vencimiento)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (gasto_id, periodo) DO NOTHING;
+        SELECT $1::integer, $2::varchar, $3::numeric, $4::date
+        WHERE NOT EXISTS (
+          SELECT 1 FROM pago_recurrente WHERE gasto_id = $1::integer AND periodo = $2::varchar
+        );
       `, [gasto.id, periodo, montoSemilla, vencimiento]);
     }
   }
@@ -594,10 +602,22 @@ async function sincronizarGasto(gastoId) {
       ? `Recibo ${recibo.documento || 's/n'} · consumo ${periodoConsumo}`
       : `Recibo ${recibo.documento || 's/n'}`;
 
-    const existente = await query(
-      `SELECT id, estado FROM pago_recurrente WHERE gasto_id = $1 AND periodo = $2;`,
-      [gastoId, periodoPago]
-    );
+    // Se busca por DOCUMENTO, no solo por mes: un mismo gasto puede recibir
+    // varios recibos que vencen el mismo mes (Liberty factura el internet y
+    // cada línea móvil por separado). Buscando solo por mes, el segundo
+    // recibo pisaba al primero y su monto desaparecía.
+    //
+    // La fila sembrada por asegurarPeriodos no tiene documento, así que el
+    // primer recibo del mes la adopta en vez de crear una al lado y dejar un
+    // ₡0 huérfano.
+    const documento = recibo.documento || null;
+    const existente = await query(`
+      SELECT id, estado FROM pago_recurrente
+      WHERE gasto_id = $1 AND periodo = $2
+        AND (documento_externo = $3 OR (documento_externo IS NULL AND monto = 0))
+      ORDER BY (documento_externo = $3) DESC NULLS LAST
+      LIMIT 1;
+    `, [gastoId, periodoPago, documento]);
 
     if (existente.rows.length === 0) {
       await query(`
