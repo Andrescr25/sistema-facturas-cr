@@ -32,7 +32,14 @@ const FUENTES_AUTO = {
   [iceElectricidad.FUENTE]: {
     label: 'ICE (electricidad)',
     adaptador: iceElectricidad,
-    campos: ['nise']
+    campos: ['nise'],
+    camposInfo: {
+      nise: {
+        label: 'Número de servicio (NISE)',
+        placeholder: 'Ej: 532117',
+        ayuda: 'Está en tu recibo del ICE, arriba a la izquierda. Hasta 9 dígitos.'
+      }
+    }
   },
   // No consulta un sitio: lee las facturas electrónicas que ya llegaron por
   // correo. Para servicios que facturan por correo (Liberty: internet y
@@ -41,7 +48,14 @@ const FUENTES_AUTO = {
   [facturasRecibidas.FUENTE]: {
     label: 'Factura por correo (XML)',
     adaptador: facturasRecibidas,
-    campos: ['cedulaEmisor']
+    campos: ['cedulaEmisor'],
+    camposInfo: {
+      cedulaEmisor: {
+        label: 'Cédula jurídica de quien factura',
+        placeholder: 'Ej: 3101610198',
+        ayuda: 'La del proveedor, no la tuya. Está en su factura. Sus facturas dejarán de pedir que se relacionen con productos del catálogo.'
+      }
+    }
   }
 };
 
@@ -649,11 +663,21 @@ async function sincronizarTodos() {
   return { consultados: res.rows.length, resultados };
 }
 
+/**
+ * Cada fuente describe sus propios campos para que la pantalla los dibuje
+ * sola. Sin `camposInfo`, agregar una fuente obligaba a tocar también el
+ * frontend — y el ICE y las facturas por correo quedaron sin formulario, solo
+ * configurables por API.
+ */
 function listarFuentesAuto() {
   return Object.entries(FUENTES_AUTO).map(([clave, f]) => ({
     clave,
     label: f.label,
-    campos: f.campos
+    campos: f.campos,
+    camposInfo: f.camposInfo || null,
+    // El acueducto necesita desplegables en cascada (provincia -> acueducto),
+    // así que su formulario es a medida; el resto son campos de texto.
+    formularioPropio: Boolean(f.adaptador.listarProvincias)
   }));
 }
 

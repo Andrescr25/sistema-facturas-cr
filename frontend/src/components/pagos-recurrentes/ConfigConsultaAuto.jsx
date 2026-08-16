@@ -19,6 +19,13 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
 
   const config = configAuto || {}
   const esAcueductos = fuenteAuto === 'acueductoscr'
+  // La fuente elegida describe sus propios campos (camposInfo), así que
+  // agregar una nueva no obliga a tocar esta pantalla. El acueducto es la
+  // excepción: necesita desplegables en cascada y tiene formulario a medida.
+  const fuenteSeleccionada = fuentes.find(f => f.clave === fuenteAuto) || null
+  const camposGenericos = fuenteSeleccionada && !fuenteSeleccionada.formularioPropio
+    ? (fuenteSeleccionada.campos || [])
+    : []
 
   // Provincias: una sola vez al elegir la fuente
   useEffect(() => {
@@ -73,6 +80,34 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
         <p className="text-xs text-red-600 flex items-center gap-1.5">
           <AlertTriangle size={13} /> {error}
         </p>
+      )}
+
+      {/* Campos de texto de cualquier fuente que no tenga formulario propio
+          (ICE, facturas por correo). Antes solo se dibujaban los del
+          acueducto, así que esas fuentes se podían elegir pero no configurar. */}
+      {camposGenericos.length > 0 && (
+        <div className="space-y-3">
+          {camposGenericos.map(campo => {
+            const info = fuenteSeleccionada.camposInfo?.[campo] || {}
+            return (
+              <div key={campo}>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  {info.label || campo}
+                </label>
+                <input
+                  type="text"
+                  className="input w-full !py-2.5"
+                  placeholder={info.placeholder || ''}
+                  value={config[campo] || ''}
+                  onChange={(e) => setCampo(campo, e.target.value)}
+                />
+                {info.ayuda && (
+                  <p className="text-[11px] text-gray-400 mt-1">{info.ayuda}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {esAcueductos && (
