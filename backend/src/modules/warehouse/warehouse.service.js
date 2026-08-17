@@ -198,7 +198,17 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
 
   console.log(`✅ ${invoicesRaw.length} facturas sincronizadas desde Alegra`);
 
-  const invoicesNormalized = invoicesRaw.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
+  // Una factura anulada en Alegra no se alista. Hasta ahora acá no se
+  // filtraba por estado, así que las copias que deja la conversión a
+  // electrónica seguían apareciendo como orden pendiente incluso después de
+  // anularlas — y lo mismo cualquier factura que se anule por otro motivo.
+  const invoicesVigentes = invoicesRaw.filter((invoice) => invoice.status !== 'void');
+  const anuladas = invoicesRaw.length - invoicesVigentes.length;
+  if (anuladas > 0) {
+    console.log(`   ↳ ${anuladas} anulada(s) en Alegra, fuera de la lista de bodega`);
+  }
+
+  const invoicesNormalized = invoicesVigentes.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
 
   // Actualizar/insertar en BD local para mantener tracking de estados
   await Promise.all(invoicesNormalized.map((invoice) => upsertFacturaDesdeAlegra(invoice)));

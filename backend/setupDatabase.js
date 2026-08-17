@@ -34,6 +34,7 @@ async function setupDatabase() {
     await client.query('DROP TABLE IF EXISTS competencia_rechazo CASCADE');
     await client.query('DROP TABLE IF EXISTS pago_recurrente CASCADE');
     await client.query('DROP TABLE IF EXISTS gasto_recurrente CASCADE');
+    await client.query('DROP TABLE IF EXISTS duplicado_electronica CASCADE');
     await client.query('DROP TABLE IF EXISTS margen_snapshot CASCADE');
     await client.query('DROP TABLE IF EXISTS reporte_contador_contacto CASCADE');
     await client.query('DROP TABLE IF EXISTS reporte_contador_linea CASCADE');
@@ -482,6 +483,32 @@ async function setupDatabase() {
       ON pago_recurrente (gasto_id, periodo, (COALESCE(documento_externo, '')))`);
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_periodo ON pago_recurrente(periodo)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_pago_recurrente_estado ON pago_recurrente(estado)');
+
+    // Bitácora de las copias que deja Alegra al convertir una factura a
+    // electrónica: conserva el registro original (id bajo, timbrado) y deja
+    // atrás una copia no electrónica con id nuevo, que aparece duplicando el
+    // monto en Cuentas por Cobrar y como segunda orden en Bodega. Queda
+    // registro porque anular una factura de venta es irreversible desde acá.
+    console.log('📋 Creando tabla duplicado_electronica...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS duplicado_electronica (
+          id SERIAL PRIMARY KEY,
+          duplicado_alegra_id VARCHAR(20) NOT NULL UNIQUE,
+          duplicado_numero VARCHAR(60),
+          electronica_alegra_id VARCHAR(20) NOT NULL,
+          electronica_numero VARCHAR(60),
+          cliente_id VARCHAR(20),
+          cliente_nombre VARCHAR(255),
+          fecha_emision DATE,
+          total NUMERIC(14,2) NOT NULL DEFAULT 0,
+          estado VARCHAR(20) NOT NULL DEFAULT 'requiere_revision',
+          motivo TEXT,
+          pago_en_duplicado NUMERIC(14,2) NOT NULL DEFAULT 0,
+          pago_en_electronica NUMERIC(14,2) NOT NULL DEFAULT 0,
+          detectado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          anulado_en TIMESTAMP
+      )`);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_duplicado_electronica_estado ON duplicado_electronica(estado)');
 
     // Reporte Contador: control interno mensual de ventas/compras a partir
     // de los Excel que exporta Alegra. Se guarda línea por línea porque la
