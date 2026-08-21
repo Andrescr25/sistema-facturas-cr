@@ -71,6 +71,45 @@ function inferirTipoIdentificacion(cedulaRaw) {
  * - tax: tarifa REAL de la línea (0/1/2/4/8/13%); si no se reconoce,
  *   se omite para que Alegra use el impuesto configurado en el producto
  */
+/**
+ * Revisa los productos ANTES de intentar crear la factura de compra.
+ *
+ * Alegra rechaza la factura ENTERA por un solo producto que no le sirva, y
+ * responde con mensajes que no dicen cuál: "Uno de los items especificados es
+ * inválido" (11034) o "No se encontró uno de los items" (11068). Con seis
+ * líneas, eso deja a quien factura sin nada que hacer más que adivinar.
+ *
+ * Se revisa contra la caché local, que ya tiene el estado de cada producto,
+ * así que no cuesta ninguna llamada extra a Alegra.
+ */
+async function revisarItemsParaFactura(productos) {
+  const ids = productos.map(p => String(p.alegraItemId || '')).filter(Boolean);
+  if (ids.length === 0) return [];
+
+  const cache = await query(
+    `SELECT alegra_id, name, status FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]);`,
+    [ids]
+  );
+  const porId = new Map(cache.rows.map(r => [String(r.alegra_id), r]));
+
+  const problemas = [];
+  for (const p of productos) {
+    const id = String(p.alegraItemId || '');
+    const nombre = p.descripcion || p.mapeo?.nombreProducto || `producto ${id}`;
+
+    if (!id) { problemas.push({ nombre, motivo: 'no está relacionado con ningún producto de Alegra' }); continue; }
+
+    const enCache = porId.get(id);
+    // Ausente de la caché no es un problema en sí: puede ser un producto
+    // recién creado que todavía no se sincronizó. Solo se reporta lo que se
+    // sabe con certeza.
+    if (enCache && enCache.status !== 'active') {
+      problemas.push({ nombre: enCache.name || nombre, motivo: `está inactivo en Alegra (id ${id})` });
+    }
+  }
+  return problemas;
+}
+
 function construirItemsFactura(productos) {
   return productos.map(p => {
     // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
@@ -560,7 +599,25 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
   // PASO 1: Crear factura de proveedor en Alegra PRIMERO (con precios originales)
   // Esto evita que los precios ajustados afecten la factura de compra
   let alegraFacturaId = null;
+  // Por qué no se creó la factura. Se devuelve al frontend para que muestre
+  // la causa real en vez de culpar siempre a los permisos.
+  let motivoFacturaNoCreada = null;
+
+  const problemasItems = await revisarItemsParaFactura(productos);
+  if (problemasItems.length > 0) {
+    motivoFacturaNoCreada = problemasItems
+      .map(x => `"${x.nombre}" ${x.motivo}`)
+      .join('; ');
+    console.warn(`⚠️ No se intenta crear la factura en Alegra: ${motivoFacturaNoCreada}`);
+  }
+
   try {
+    if (problemasItems.length > 0) {
+      // Alegra rechazaría la factura entera igual; se evita la llamada y se
+      // conserva el motivo concreto, que es lo que se puede accionar.
+      throw new Error(motivoFacturaNoCreada);
+    }
+
     // Buscar o crear contacto del proveedor
     const identificacionTipo = inferirTipoIdentificacion(factura.proveedorCedula);
 
@@ -596,7 +653,16 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
     alegraFacturaId = alegraFactura.id;
     console.log(`✅ Factura de compra creada en Alegra: ID ${alegraFacturaId}`);
   } catch (facturaError) {
-    console.warn('⚠️ Error creando factura de compra:', facturaError.message);
+    // El mensaje de Alegra es lo único que dice qué pasó de verdad. Antes se
+    // perdía acá y la pantalla mostraba "sin permisos" pasara lo que pasara.
+    const detalleAlegra = facturaError.response?.data?.message;
+    const codigoAlegra = facturaError.response?.data?.code;
+    if (!motivoFacturaNoCreada) {
+      motivoFacturaNoCreada = detalleAlegra
+        ? `${detalleAlegra}${codigoAlegra ? ` (código ${codigoAlegra})` : ''}`
+        : facturaError.message;
+    }
+    console.warn('⚠️ Error creando factura de compra:', motivoFacturaNoCreada);
     // Continuar para actualizar costos y precios incluso si falla la factura
   }
 
@@ -715,6 +781,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
   return {
     mensaje,
     facturaCreada: !!alegraFacturaId,
+    motivoFacturaNoCreada,
     resultado: {
       numeroConsecutivo: factura.numeroConsecutivo,
       proveedor: factura.proveedorNombre,

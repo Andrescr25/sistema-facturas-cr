@@ -133,7 +133,7 @@ const FILAS_POR_INSERT = 150; // mismo tamaño de lote que insertarLotesVentaHis
  * insertarlas una por una (una ida y vuelta a Supabase por fila) tardaba
  * minutos. Con reintento por lote — el pooler de Supabase corta a veces la
  * conexión SSL en queries grandes (mismo comportamiento visto y ya resuelto
- * en catalogo-publico.service.js).
+ * en catalogo-agente.service.js).
  */
 async function insertarLotesLineas(periodoId, lineas) {
   for (let i = 0; i < lineas.length; i += FILAS_POR_INSERT) {

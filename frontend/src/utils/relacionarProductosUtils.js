@@ -12,7 +12,39 @@ export function normalizarTexto(texto) {
     .toLowerCase()
 }
 
+/**
+ * Grupo CABYS de productos farmacéuticos.
+ *
+ * Antes esto comparaba contra '35', que en el catálogo CABYS es la división
+ * entera de "otros productos químicos": ahí adentro viven pinturas (351),
+ * jabones y cosméticos (353), pegamentos y aceites (354), venenos (356)...
+ * Sobre este catálogo, 276 productos caían en esa regla y NINGUNO era un
+ * medicamento — se marcaban solos como fármaco y no había forma de
+ * desmarcarlos.
+ *
+ * El grupo de medicamentos es 352. En este catálogo hoy no hay ninguno, así
+ * que la sugerencia simplemente no se dispara, que es lo correcto.
+ */
+const CABYS_MEDICAMENTOS = '352'
+
+export function cabysPareceMedicamento(codigoCabys) {
+  return String(codigoCabys || '').startsWith(CABYS_MEDICAMENTOS)
+}
+
+/**
+ * Si el producto PARECE un medicamento. Es una sugerencia para premarcar la
+ * casilla, nunca la decisión final: quien crea el producto puede desmarcarla
+ * y eso manda (ver useRelacionarProductos).
+ */
+export function pareceMedicamento(codigoCabys, categoriaId, categorias) {
+  return cabysPareceMedicamento(codigoCabys) || categoriaPareceMedicamento(categoriaId, categorias)
+}
+
 export function categoriaPareceMedicamento(categoriaId, categorias) {
+  // Sin lista de categorías no se puede saber nada: se responde que no en
+  // vez de reventar. Pasa mientras la pantalla todavía las está cargando.
+  if (!Array.isArray(categorias)) return false
+
   const categoria = categorias.find(cat => String(cat.id) === String(categoriaId))
   const textoCategoria = normalizarTexto(`${categoria?.name || ''} ${categoria?.description || ''}`)
   return textoCategoria.includes('medicamento') || textoCategoria.includes('farmac')

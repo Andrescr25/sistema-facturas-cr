@@ -219,3 +219,8 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400;
 }
+/* Carruseles de categorías y ofertas: la barra de desplazamiento nativa en
+   macOS/Windows roba altura y parte la fila. El degradado del borde derecho
+   es el que avisa que hay más contenido. */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }

@@ -1,6 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+
+const CLAVE_ABIERTOS = 'sidebar_grupos_abiertos'
+
+/**
+ * Qué grupos quedaron abiertos, entre recargas.
+ *
+ * Sin esto, cada quien tendría que volver a desplegar su grupo de trabajo
+ * cada vez que entra: quien factura todo el día abriría "Ventas" cincuenta
+ * veces por semana. Se guarda en el navegador porque es una preferencia de
+ * cómo se ve la pantalla, no un dato del negocio.
+ */
+function leerAbiertos() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_ABIERTOS)) || {} } catch { return {} }
+}
+function guardarAbierto(nombre, abierto) {
+  try {
+    localStorage.setItem(CLAVE_ABIERTOS, JSON.stringify({ ...leerAbiertos(), [nombre]: abierto }))
+  } catch { /* modo privado: se pierde la preferencia, nada más */ }
+}
 
 /**
  * Navegación del sidebar, compartida por la versión móvil y la de escritorio
@@ -14,12 +33,23 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 function ItemGrupo({ item, isActive, onNavigate }) {
   const Icon = item.icon
   const hayHijoActivo = item.children.some(child => isActive(child.href))
-  const [abierto, setAbierto] = useState(hayHijoActivo)
+  // Estar dentro del grupo manda sobre la preferencia guardada: nunca hay
+  // que abrir un menú a mano para ver dónde estás parado.
+  const [abierto, setAbierto] = useState(() => hayHijoActivo || leerAbiertos()[item.name] === true)
+
+  useEffect(() => { if (hayHijoActivo) setAbierto(true) }, [hayHijoActivo])
+
+  const alternar = () => {
+    setAbierto(v => {
+      guardarAbierto(item.name, !v)
+      return !v
+    })
+  }
 
   return (
     <div className="mb-1">
       <button
-        onClick={() => setAbierto(v => !v)}
+        onClick={alternar}
         className={`w-full flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
           hayHijoActivo && !abierto ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
         }`}

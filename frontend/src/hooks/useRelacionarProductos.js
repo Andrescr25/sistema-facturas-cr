@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import {
   categoriaPareceMedicamento as categoriaPareceMedicamentoUtil,
+  pareceMedicamento,
+  cabysPareceMedicamento,
   detectarFormaSugerida,
   calcularFactorConversion,
   inferirCantidadesDesdeFactor,
@@ -72,6 +74,10 @@ export function useRelacionarProductos(facturaId) {
   // Estado para forma farmacéutica (solo productos farmacéuticos)
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
   const [esMedicamento, setEsMedicamento] = useState(false)
+  // Recuerda con qué CABYS/categoría se aplicó la última sugerencia. Sin
+  // esto, el efecto volvería a marcar la casilla en cada render y el usuario
+  // no podría desmarcarla nunca — que es justo el problema que tenía.
+  const sugerenciaAplicada = useRef('')
   const [registroSanitario, setRegistroSanitario] = useState('')
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('')
 
@@ -229,8 +235,10 @@ export function useRelacionarProductos(facturaId) {
     const cabysInicial = producto.codigoCabys || ''
     setCodigoCabys(cabysInicial)
 
-    // Auto-detectar si empieza por '35'
-    const cabysEsMedicamento = cabysInicial.startsWith('35')
+    // Sugerencia por CABYS. El grupo de medicamentos es 352; comparar contra
+    // '35' arrastraba pinturas, jabones, cosméticos y aceites — 276 productos
+    // de este catálogo, ninguno un medicamento.
+    const cabysEsMedicamento = cabysPareceMedicamento(cabysInicial)
     setEsMedicamento(cabysEsMedicamento)
 
     if (cabysEsMedicamento) {
@@ -250,8 +258,8 @@ export function useRelacionarProductos(facturaId) {
     const nuevoCabys = e.target.value
     setCodigoCabys(nuevoCabys)
 
-    // Si el nuevo CABYS empieza por '35', activar automáticamente campos de medicamento
-    if (nuevoCabys.startsWith('35')) {
+    // Igual que arriba: solo el grupo 352 sugiere medicamento.
+    if (cabysPareceMedicamento(nuevoCabys)) {
       setEsMedicamento(true)
       if (!formaFarmaceutica && productoSeleccionado) {
         setFormaFarmaceutica(detectarFormaSugerida(productoSeleccionado.descripcion))
@@ -386,7 +394,10 @@ export function useRelacionarProductos(facturaId) {
     e.preventDefault()
     const formData = new FormData(e.target)
     const categoriaActual = categorias.find(cat => String(cat.id) === String(categoriaSeleccionada))
-    const productoEsMedicamento = esMedicamento || categoriaPareceMedicamento(categoriaSeleccionada) || (codigoCabys && codigoCabys.startsWith('35'))
+    // Manda la casilla, no la detección. Antes esto era un OR con las
+    // reglas automáticas, así que desmarcarla no servía de nada: el producto
+    // se enviaba como medicamento igual.
+    const productoEsMedicamento = esMedicamento
 
     if (categoriaActual) {
       formData.set('categoriaNombre', categoriaActual.name || '')
@@ -559,12 +570,24 @@ export function useRelacionarProductos(facturaId) {
     }
   }
 
+  // Sugerencia, no imposición: al cambiar el CABYS o la categoría se
+  // premarca la casilla si parece un medicamento. Si el usuario la desmarca,
+  // se queda desmarcada hasta que vuelva a cambiar alguno de los dos.
+  useEffect(() => {
+    const huella = `${codigoCabys}|${categoriaSeleccionada}`
+    if (sugerenciaAplicada.current === huella) return
+    sugerenciaAplicada.current = huella
+
+    if (pareceMedicamento(codigoCabys, categoriaSeleccionada, categorias)) {
+      setEsMedicamento(true)
+    }
+  }, [codigoCabys, categoriaSeleccionada, categorias])
+
   const productosFiltrados = filtrarProductosPorEstado(productos, filtro)
   const stats = calcularStatsProductos(productos)
   const progreso = stats.total > 0 ? Math.round((stats.relacionados / stats.total) * 100) : 0
   const categoriaMedicamentoSeleccionada = categoriaPareceMedicamento(categoriaSeleccionada)
-  const cabysEsMedicamento = codigoCabys && codigoCabys.startsWith('35')
-  const mostrarCamposMedicamento = esMedicamento || categoriaMedicamentoSeleccionada || cabysEsMedicamento
+  const mostrarCamposMedicamento = esMedicamento
 
   return {
     factura,

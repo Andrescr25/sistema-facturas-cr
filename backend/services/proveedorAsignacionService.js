@@ -49,15 +49,18 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
         supplier_cedula as "supplierCedula",
         alegra_item_id as "alegraItemId",
         alegra_reference as "alegraReference",
-        confidence,
         origen,
+        last_used_date as "lastUsedDate",
         factor_conversion as "factorConversion"
       FROM supplier_product_mapping
       WHERE (
         (alegra_item_id::text = $1 AND $1 IS NOT NULL)
         OR alegra_reference = $2
       )
-      ORDER BY confidence DESC
+      -- Sin ORDER BY confidence: todos los mapeos los asignó una persona,
+      -- así que valen lo mismo. Ordenar por ese campo hacía que un mapeo con
+      -- una confianza inventada (999.99) le ganara a los reales.
+      ORDER BY last_used_date DESC NULLS LAST
     `, [allegraId?.toString(), productoCodigo]);
 
     if (mappings.rows.length === 0) {
@@ -111,7 +114,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           supplierName: mapping.supplierName,
           supplierCedula: mapping.supplierCedula,
           precio: precio,
-          confidence: mapping.confidence || 0,
+          lastUsedDate: mapping.lastUsedDate,
           origen: mapping.origen || 'automatico'
         };
 
@@ -129,7 +132,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
           supplierName: mapping.supplierName,
           supplierCedula: mapping.supplierCedula,
           precio: null,
-          confidence: mapping.confidence || 0,
+          lastUsedDate: mapping.lastUsedDate,
           origen: mapping.origen || 'automatico'
         };
 
@@ -146,8 +149,12 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
     // ─────────────────────────────────────────────────────────────────────────
     // Criterio de selección:
     //   1. Si hay precios: El de menor precio
-    //   2. En caso de empate: El de mayor confianza (confidence)
-    //   3. Si nadie tiene precio: El de mayor confianza
+    //   2. En caso de empate: El usado más recientemente
+    //   3. Si nadie tiene precio: El usado más recientemente
+    //
+    // Ya no se usa `confidence` para desempatar: todos los mapeos los asignó
+    // una persona, así que ninguno es "más confiable" que otro. Ese campo
+    // servía cuando el sistema los creaba solo por parecido de texto.
     // ─────────────────────────────────────────────────────────────────────────
     const proveedoresConPrecio = proveedoresConPrecios.filter(p => p.precio !== null && p.precio > 0);
 
@@ -159,19 +166,18 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
       precioAsignado = proveedorManualPrioritario.precio ?? null;
       console.log(`🔒 Prioridad manual: ${proveedorSeleccionado.supplierName}`);
     } else if (proveedoresConPrecio.length > 0) {
-      // Ordenar por precio (ascendente) y confianza (descendente) como desempate
+      // Precio ascendente; a igual precio, el usado más recientemente.
       proveedoresConPrecio.sort((a, b) => {
-        if (a.precio !== b.precio) {
-          return a.precio - b.precio; // Menor precio primero
-        }
-        return b.confidence - a.confidence; // Mayor confianza como desempate
+        if (a.precio !== b.precio) return a.precio - b.precio;
+        return new Date(b.lastUsedDate || 0) - new Date(a.lastUsedDate || 0);
       });
 
       proveedorSeleccionado = proveedoresConPrecio[0];
       precioAsignado = proveedoresConPrecio[0].precio;
     } else {
-      // Si nadie tiene precio, usar el de mayor confianza
-      proveedoresConPrecios.sort((a, b) => b.confidence - a.confidence);
+      // Sin precios en ningún lado, el usado más recientemente.
+      proveedoresConPrecios.sort((a, b) =>
+        new Date(b.lastUsedDate || 0) - new Date(a.lastUsedDate || 0));
       proveedorSeleccionado = proveedoresConPrecios[0];
       precioAsignado = null;
     }

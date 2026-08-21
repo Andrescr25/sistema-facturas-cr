@@ -129,10 +129,28 @@ const reporteContadorModule = require('./src/modules/reporte-contador');
 const proveedoresModule = require('./src/modules/proveedores');
 const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
-const catalogoPublicoModule = require('./src/modules/catalogo-publico');
+const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
 const duplicadosElectronicaModule = require('./src/modules/duplicados-electronica');
+const authModule = require('./src/modules/auth');
+const catalogoClientesModule = require('./src/modules/catalogo-clientes');
+const portalClientesModule = require('./src/modules/portal-clientes');
+const dashboardModule = require('./src/modules/dashboard');
+
+// Autenticación. Va ANTES de montar cualquier ruta de API: protege por lista
+// de excepciones (ver auth.middleware.js), así un módulo nuevo nace cerrado
+// en vez de nacer abierto sin que nadie lo note.
+app.use('/api', authModule.middleware.requireAuth);
+app.use('/api/auth', authModule.routes);
+app.use('/api/catalogo-clientes', catalogoClientesModule.routes);
+// Portal de clientes. Las rutas del CLIENTE van en /api/portal, fuera de
+// requireAuth y protegidas por requireCliente con un secreto de firma
+// distinto; las del PERSONAL van en /api/portal-clientes y quedan detrás de
+// requireAuth como cualquier otra pantalla.
+app.use('/api/portal', portalClientesModule.rutasCliente);
+app.use('/api/portal-clientes', portalClientesModule.rutasPersonal);
+app.use('/api/dashboard', dashboardModule.routes);
 
 // Usar rutas de API (Rutas Legacy y Base)
 app.use('/api/facturas', facturaRoutes);
@@ -152,7 +170,7 @@ app.use('/api/cuentas-por-cobrar', cuentasPorCobrarModule.routes);
 app.use('/api/duplicados-electronica', duplicadosElectronicaModule.routes);
 app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
-app.use('/api/catalogo-publico', catalogoPublicoModule.routes);
+app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);
@@ -209,7 +227,7 @@ app.get('*', (req, res) => {
         '/api/pagos-proveedores/*',
         '/api/pagos-recurrentes/*',
         '/api/cuentas-por-cobrar/*',
-        '/api/catalogo-publico/*',
+        '/api/catalogo-agente/*',
         '/api/rentabilidad/*'
       ]
     });
@@ -292,7 +310,7 @@ async function tomarSnapshotMargenes() {
 async function syncHistorialClientes() {
   try {
     console.log('\n🛒 Sincronizando historial de compras por cliente...');
-    const resultado = await catalogoPublicoModule.service.sincronizarHistorialCompras({});
+    const resultado = await catalogoAgenteModule.service.sincronizarHistorialCompras({});
     console.log(`✅ Historial de compras sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
   } catch (error) {
     console.error('❌ Error sincronizando historial de compras por cliente:', error.message);

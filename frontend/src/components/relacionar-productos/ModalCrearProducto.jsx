@@ -319,7 +319,6 @@ export default function ModalCrearProducto({
                     type="checkbox"
                     checked={mostrarCamposMedicamento}
                     onChange={onEsMedicamentoChange}
-                    disabled={categoriaMedicamentoSeleccionada}
                     className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 mr-3"
                   />
                   <span className="font-semibold text-blue-900 text-lg">
@@ -327,7 +326,8 @@ export default function ModalCrearProducto({
                   </span>
                 </label>
                 <p className="text-xs text-blue-700 mt-2 ml-8">
-                  Marca esta casilla si el producto es un medicamento humano. Esto activará campos obligatorios según normativa de Costa Rica.
+                  Marcala solo si el producto es un medicamento humano: activa los campos que exige la normativa de Costa Rica.
+                  {categoriaMedicamentoSeleccionada && ' La categoría elegida sugiere que lo es, pero podés desmarcarla.'}
                 </p>
               </div>
 

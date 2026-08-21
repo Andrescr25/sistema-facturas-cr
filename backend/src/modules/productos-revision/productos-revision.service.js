@@ -7,6 +7,7 @@
 const prisma = require('../../../lib/prisma');
 const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
+const { cabysPareceMedicamento } = require('../../utils/medicamento');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { sincronizarCostoDeLineas, sincronizarCostoDeMapeo } = require('../precios/costoHistorico');
@@ -701,9 +702,20 @@ async function crearProducto(datos, imagen) {
     categoriaTexto.includes('farmac');
 
   const cabysAUsar = codigoCabys?.trim() || productoOriginal.codigoCabys;
-  const cabysEsMedicamento = cabysAUsar && cabysAUsar.startsWith('35');
+  const cabysEsMedicamento = cabysPareceMedicamento(cabysAUsar);
 
-  const medicamentoMarcado = esMedicamento === 'true' || categoriaEsMedicamento || cabysEsMedicamento || Boolean(formaFarmaceutica || registroSanitario);
+  // MANDA LA CASILLA. Antes esto era un OR contra las reglas automáticas, y
+  // el CABYS '35' arrastraba pinturas, aceites y cosméticos: quien creaba un
+  // producto de línea de ciclo lo desmarcaba en pantalla y el servidor se lo
+  // volvía a marcar, exigiéndole forma farmacéutica y registro sanitario que
+  // ese producto no tiene ni puede tener.
+  //
+  // Las reglas automáticas siguen valiendo solo cuando quien envía NO se
+  // pronunció (no vino el campo). Si vino 'false', es una decisión tomada.
+  const sePronuncio = esMedicamento === 'true' || esMedicamento === 'false';
+  const medicamentoMarcado = sePronuncio
+    ? esMedicamento === 'true'
+    : (categoriaEsMedicamento || cabysEsMedicamento || Boolean(formaFarmaceutica || registroSanitario));
   const formaFarmaceuticaLimpia = formaFarmaceutica?.trim();
   const registroSanitarioLimpio = registroSanitario?.trim();
 

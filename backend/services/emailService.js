@@ -543,59 +543,40 @@ class EmailService {
 
             for (const producto of facturaGuardada.productos) {
                 // ✅ VERIFICAR SI YA ESTÁ RELACIONADO (por mapeo existente)
+                // Un mapeo existente lo puso una persona: se reusa sin
+                // preguntar y sin volver a evaluarlo. Ese es todo el valor de
+                // guardarlo — la segunda vez ya no hay que decidir nada.
                 if (producto.estadoRelacionado === 'RELACIONADO') {
-                    // SI es 'manual_temp', PERMITIR que evalúe si tenemos mejor match automático
-                    if (producto.mapeo?.origen === 'manual_temp') {
-                        if (VERBOSE_LOGGING) console.log(`⚠️ ${producto.descripcion} - Relacionado temporalmente, buscando mejor match...`);
-                        // No hacemos continue, dejamos que fluya a la lógica de búsqueda
-                    } else {
-                        if (VERBOSE_LOGGING) console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
-                        productosRelacionados++;
-                        continue; // Saltar este producto
-                    }
+                    if (VERBOSE_LOGGING) console.log(`✅ ${producto.descripcion} - YA RELACIONADO (mapeo previo)`);
+                    productosRelacionados++;
+                    continue;
                 }
 
                 // Solo procesar productos PENDIENTES
                 if (VERBOSE_LOGGING) console.log(`\n🔍 Procesando: ${producto.descripcion}`);
 
+                // NO SE CREA NINGÚN MAPEO AUTOMÁTICO.
+                //
+                // Antes, un parecido de texto del 80% bastaba para crear el
+                // mapeo y darlo por bueno para siempre. Un acierto del 80% en
+                // nombres de ferretería —"DISCO 4 1/2" contra "DISCO 4 1/2
+                // 1000 HOJAS"— es una moneda al aire, y el error quedaba
+                // grabado: la siguiente factura lo reusaba sin volver a
+                // mirarlo, y el costo del producto equivocado terminaba
+                // afectando su precio de venta.
+                //
+                // La primera vez lo decide una persona en Revisión de
+                // Precios. A partir de ahí el sistema lo reusa solo, que es
+                // cuando de verdad hay certeza.
                 const similares = await this.alegraProductService.findSimilarProducts(
                     producto.descripcion,
                     producto.codigoProveedor
                 );
 
                 if (similares.length > 0) {
-                    const mejorMatch = similares[0];
-
-                    console.log(`💡 Mejor match: ${mejorMatch.name} (${mejorMatch.similarityScore}%)`);
-
-                    if (mejorMatch.similarityScore >= 80) {
-                        const mapeoData = {
-                            supplierName: facturaData.emisor.nombre.trim(),
-                            supplierCedula: facturaData.emisor.identificacion.numero,
-                            supplierCode: producto.codigoProveedor,
-                            supplierDesc: producto.descripcion,
-                            alegraItemId: mejorMatch.alegraId,
-                            alegraReference: mejorMatch.reference,
-                            alegraName: mejorMatch.name,
-                            confidence: mejorMatch.similarityScore,
-                            origen: 'imap' // ✅ Cambiado de 'createdBy: automatic' a 'origen: imap'
-                        };
-
-                        const mapeo = await this.dbService.createProductMapping(mapeoData);
-
-                        await this.dbService.updateProductMapping(
-                            producto.id,
-                            mejorMatch.alegraId,
-                            mapeo.id,
-                            mejorMatch.similarityScore
-                        );
-
-                        console.log(`✅ Relacionado automáticamente (${mejorMatch.similarityScore}%)`);
-                        productosRelacionados++;
-                    } else {
-                        console.log(`⚠️ Requiere revisión manual (${mejorMatch.similarityScore}%)`);
-                        productosPendientes++;
-                    }
+                    // Solo se registra en el log como pista para quien revise.
+                    console.log(`💡 Posible coincidencia (sin aplicar): ${similares[0].name}`);
+                    productosPendientes++;
                 } else {
                     console.log(`❌ Sin productos similares`);
                     productosPendientes++;

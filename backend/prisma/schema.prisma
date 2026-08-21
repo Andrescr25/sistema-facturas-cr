@@ -236,6 +236,10 @@ model AlegraProduct {
   category    String @default("")
   price       Float  @default(0)
   cost        Float  @default(0)
+  // Alegra guarda `price` SIN impuesto; el precio de venta real lo incluye.
+  // Nullable a propósito: NULL es "aún no sincronizado" y se distingue de un
+  // 0 legítimo (producto exento). Ver add_tax_percentage_products_cache.sql.
+  taxPercentage Float? @map("tax_percentage")
   status      String @default("active")
   type        String @default("product")
   hiddenLocally Boolean @default(false) @map("hidden_locally")

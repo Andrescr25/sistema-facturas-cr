@@ -6,8 +6,8 @@ const ATAJOS = [10, 20, 30, 40, 50]
 /**
  * Descuento global de una tanda de excesos.
  *
- * El descuento es lo que decide si el producto se ve en el catálogo público
- * (catalogo-publico.service.js exige fila en producto_descuento_exceso), pero
+ * El descuento es lo que decide si el producto se ve en el catálogo
+ * (catalogo-agente.service.js exige fila en producto_descuento_exceso), pero
  * hasta ahora la pantalla de empaque no lo mostraba ni dejaba tocarlo: había
  * que ir producto por producto a la pestaña de Descuentos. Acá se ve el
  * estado real de la tanda y se cambia de un golpe.
@@ -42,7 +42,7 @@ export default function DescuentoTanda({ items, onAplicar, aplicando }) {
         <div className="min-w-0">
           <h3 className="font-bold text-gray-900">Descuento de la tanda</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            Es lo que ve el cliente en el catálogo público. Un producto sin descuento{' '}
+            Es lo que ve el cliente en el catálogo. Un producto sin descuento{' '}
             <strong className="text-gray-700">no aparece ahí</strong>, aunque esté empacado.
           </p>
         </div>

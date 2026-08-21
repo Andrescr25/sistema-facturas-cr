@@ -7,7 +7,7 @@ import { Percent, Search, Trash2, Loader2, RefreshCw, Eye, EyeOff, Check, Plus }
  * detección automática nunca marcó.
  *
  * Lo importante que muestra esta pantalla es `visibleEnCatalogo`. Un
- * descuento NO se ve solo por existir: catalogo-publico.service.js exige
+ * descuento NO se ve solo por existir: catalogo-agente.service.js exige
  * además que el producto se haya empacado en alguna tanda y que le quede
  * stock. Sin decirlo, alguien pone un 40%, no pasa nada en el catálogo, y
  * parece que el sistema está roto.

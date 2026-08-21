@@ -79,7 +79,7 @@ class AlegraSyncService {
 
       // Se piden CONCURRENCY páginas a la vez y se espera el lote completo
       // antes de pedir el siguiente — mismo patrón ya probado en
-      // frontend/src/hooks/useCatalogoPublico.js.
+      // frontend/src/hooks/useCatalogoAgente.js.
       while (hasMore && paginasPedidas < MAX_PAGINAS) {
         const promises = [];
         for (let i = 0; i < CONCURRENCY; i++) {
@@ -180,7 +180,7 @@ class AlegraSyncService {
       const startTime = Date.now();
 
       const existingProducts = await this.prisma.alegraProduct.findMany({
-        select: { alegraId: true, updatedAt: true, name: true, price: true, cost: true, reference: true, status: true, imageUrl: true }
+        select: { alegraId: true, updatedAt: true, name: true, price: true, cost: true, reference: true, status: true, imageUrl: true, taxPercentage: true }
       });
 
       const existingMap = new Map();
@@ -192,7 +192,8 @@ class AlegraSyncService {
           cost: p.cost,
           reference: p.reference,
           status: p.status,
-          imageUrl: p.imageUrl
+          imageUrl: p.imageUrl,
+          taxPercentage: p.taxPercentage
         });
       });
 
@@ -202,6 +203,7 @@ class AlegraSyncService {
 
       const toInsert = [];
       const toUpdate = [];
+      const toDeactivate = [];
       const currentAlegraIds = new Set();
 
       uniqueProducts.forEach(product => {
@@ -209,12 +211,20 @@ class AlegraSyncService {
         // la caché solo por estar inactivo, ver el "return" de abajo.
         currentAlegraIds.add(product.id);
 
-        // Un producto inactivo no se inserta ni se actualiza — se deja tal
-        // cual estaba en caché (o simplemente no se agrega si es nuevo).
-        // Una desactivación en Alegra puede ser momentánea y reactivarse en
-        // la próxima sincronización; no vale la pena reflejar ese estado
-        // intermedio ni "parpadear" el catálogo local por eso.
+        // Un producto inactivo en Alegra no se reescribe campo por campo,
+        // pero su ESTADO sí tiene que llegar a la caché. Antes acá había un
+        // `return` seco: la fila se quedaba en 'active' para siempre, así que
+        // desactivar un producto en Alegra no lo sacaba de ningún catálogo y
+        // se le seguía ofreciendo al cliente. Se le pasa solo el estado —
+        // nada más— para no pisar precio ni foto con lo que Alegra devuelva
+        // de un producto dado de baja.
+        //
+        // Si además no está en la caché no hay nada que hacer: un producto
+        // que nace inactivo no se muestra en ninguna parte.
         if (product.status && product.status !== 'active') {
+          if (existingMap.get(product.id)?.status === 'active') {
+            toDeactivate.push(String(product.id));
+          }
           return;
         }
 
@@ -227,6 +237,16 @@ class AlegraSyncService {
         const favoriteImage = product.images?.find(img => img.favorite === true) || product.images?.[0];
         const imageUrl = favoriteImage ? favoriteImage.url : '';
 
+        // El impuesto del producto, para poder mostrar el precio CON IVA sin
+        // volver a consultar Alegra. Se suman las tasas porque un producto
+        // puede traer más de un impuesto. Si no trae ninguno queda en 0, que
+        // es distinto de NULL ("nunca se sincronizó") — ver la migración
+        // add_tax_percentage_products_cache.sql.
+        const taxPercentage = (product.tax || []).reduce(
+          (suma, t) => suma + (parseFloat(t.percentage) || 0),
+          0
+        );
+
         const productData = {
           alegraId: product.id,
           name: product.name,
@@ -235,6 +255,7 @@ class AlegraSyncService {
           category: category,
           price: price,
           cost: cost,
+          taxPercentage: taxPercentage,
           status: product.status || 'active',
           type: product.type || 'product',
           imageUrl: imageUrl,
@@ -252,13 +273,22 @@ class AlegraSyncService {
           const costDiff = Math.abs(existing.cost - productData.cost) > 0.01;
           const refDiff = existing.reference !== productData.reference;
           const statusDiff = existing.status !== productData.status;
+          // Un producto ya guardado con la tasa correcta no cambia nunca por
+          // acá, pero los que vienen de antes de esta columna están en NULL:
+          // sin comparar el impuesto, la sincronización los da por iguales y
+          // el catálogo de clientes les muestra el precio sin IVA para
+          // siempre. `!=` con null a propósito, para que NULL != 0 también
+          // dispare la actualización de un producto exento.
+          const taxDiff = existing.taxPercentage === null
+            || existing.taxPercentage === undefined
+            || Math.abs(existing.taxPercentage - productData.taxPercentage) > 0.001;
           // La foto cambió de verdad solo si cambió la ruta; la firma se
           // renueva aparte, cuando le queda poca vida (ver DIAS_MARGEN_FIRMA).
           const imgDiff = rutaImagen(existing.imageUrl) !== rutaImagen(productData.imageUrl);
           const firmaPorVencer = productData.imageUrl
             && vidaRestanteImagen(existing.imageUrl) < DIAS_MARGEN_FIRMA * 86400;
 
-          const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || imgDiff || firmaPorVencer;
+          const hasChanged = nameDiff || priceDiff || costDiff || refDiff || statusDiff || taxDiff || imgDiff || firmaPorVencer;
 
           if (hasChanged && toUpdate.length < 5) {
             console.log(`🔍 Mismatch for ${productData.alegraId} (${productData.name}):`, {
@@ -267,6 +297,7 @@ class AlegraSyncService {
               cost: costDiff ? `${existing.cost} vs ${productData.cost}` : 'OK',
               ref: refDiff ? `'${existing.reference}' vs '${productData.reference}'` : 'OK',
               status: statusDiff ? `${existing.status} vs ${productData.status}` : 'OK',
+              tax: taxDiff ? `${existing.taxPercentage} vs ${productData.taxPercentage}` : 'OK',
               img: imgDiff ? `'${rutaImagen(existing.imageUrl)}' vs '${rutaImagen(productData.imageUrl)}'` : 'OK',
               firma: firmaPorVencer ? `vence en ${(vidaRestanteImagen(existing.imageUrl) / 86400).toFixed(1)} días` : 'OK'
             });
@@ -299,7 +330,7 @@ class AlegraSyncService {
         toDelete.length = 0;
       }
 
-      console.log(`📈 Cambios: +${toInsert.length} ~${toUpdate.length} -${toDelete.length}`);
+      console.log(`📈 Cambios: +${toInsert.length} ~${toUpdate.length} -${toDelete.length} Ø${toDeactivate.length}`);
 
       const operations = [];
 
@@ -318,7 +349,11 @@ class AlegraSyncService {
       // tanda de 200, o sea ~10 viajes en vez de 394.
       if (toUpdate.length > 0) {
         const TAMANO_TANDA = 200;
-        const COLS = 11;
+        // OJO: COLS, los casts, el orden de `valores` y la lista de nombres
+        // del VALUES tienen que moverse juntos — acá todo va por posición y
+        // desalinear una columna escribe el dato en el campo equivocado sin
+        // que Postgres se queje, mientras los tipos calcen.
+        const COLS = 12;
         console.log(`📦 Actualizando ${toUpdate.length} productos en ${Math.ceil(toUpdate.length / TAMANO_TANDA)} sentencias`);
 
         for (let i = 0; i < toUpdate.length; i += TAMANO_TANDA) {
@@ -329,14 +364,14 @@ class AlegraSyncService {
             // los infiere de ahí para el resto.
             const cast = idx === 0
               ? ['::varchar', '::varchar', '::varchar', '::text', '::varchar',
-                 '::numeric', '::numeric', '::varchar', '::varchar', '::varchar', '::text']
+                 '::numeric', '::numeric', '::numeric', '::varchar', '::varchar', '::varchar', '::text']
               : Array(COLS).fill('');
             return `(${Array.from({ length: COLS }, (_, c) => `$${b + c + 1}${cast[c]}`).join(', ')})`;
           }).join(', ');
 
           const valores = tanda.flatMap(p => [
             p.alegraId, p.name, p.reference, p.description, p.category,
-            p.price, p.cost, p.status, p.type, p.imageUrl, p.searchText
+            p.price, p.cost, p.taxPercentage, p.status, p.type, p.imageUrl, p.searchText
           ]);
 
           try {
@@ -344,15 +379,32 @@ class AlegraSyncService {
               UPDATE alegra_products_cache AS t SET
                 name = v.name, reference = v.reference, description = v.description,
                 category = v.category, price = v.price, cost = v.cost,
+                tax_percentage = v.tax_percentage,
                 status = v.status, type = v.type, image_url = v.image_url,
                 search_text = v.search_text, updated_at = NOW()
               FROM (VALUES ${filas}) AS v(alegra_id, name, reference, description, category,
-                                          price, cost, status, type, image_url, search_text)
+                                          price, cost, tax_percentage, status, type, image_url, search_text)
               WHERE t.alegra_id = v.alegra_id;
             `, valores);
           } catch (error) {
             console.warn(`⚠️ Error actualizando la tanda ${i / TAMANO_TANDA + 1}:`, error.message);
           }
+        }
+      }
+
+      // Bajas en Alegra: una sola sentencia y una sola columna. No pasa por
+      // el UPDATE multifila de arriba a propósito — ese escribe las 12
+      // columnas por posición y acá lo único que se sabe cierto del producto
+      // es que dejó de estar activo.
+      if (toDeactivate.length > 0) {
+        console.log(`Ø ${toDeactivate.length} producto(s) desactivado(s) en Alegra`);
+        try {
+          await query(
+            `UPDATE alegra_products_cache SET status = 'inactive', updated_at = NOW() WHERE alegra_id = ANY($1::varchar[]);`,
+            [toDeactivate]
+          );
+        } catch (error) {
+          console.warn('⚠️ Error marcando productos como inactivos:', error.message);
         }
       }
 
@@ -375,6 +427,7 @@ class AlegraSyncService {
         total: uniqueProducts.length,
         inserted: toInsert.length,
         updated: toUpdate.length,
+        deactivated: toDeactivate.length,
         deleted: toDelete.length,
         duration: duration
       };

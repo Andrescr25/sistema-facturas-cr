@@ -316,14 +316,20 @@ export function useRevisionPrecios() {
             8000
           )
         } else {
+          // El motivo REAL viene del backend. Antes acá decía siempre "sin
+          // permisos · contacta soporte de Alegra", pasara lo que pasara:
+          // un producto inactivo, uno sin inventario, un CABYS rechazado...
+          // Ese mensaje mandaba a pedir un permiso que ya se tiene y ocultaba
+          // lo único accionable, que es qué producto falla.
+          const motivo = response.data.motivoFacturaNoCreada
           showToast(
             `⚠️ Factura ${facturaNumero} procesada parcialmente\n` +
             `✅ Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
             `✅ Precios ajustados: ${resultado.preciosActualizados || 0}\n` +
-            `❌ Factura NO creada en Alegra (sin permisos)\n` +
-            `💡 Contacta soporte de Alegra para habilitar facturas de compra`,
+            `❌ La factura de compra no se creó en Alegra\n` +
+            (motivo ? `📋 ${motivo}` : '📋 Alegra no indicó el motivo — revisá el registro del servidor'),
             'warning',
-            12000
+            15000
           )
         }
 

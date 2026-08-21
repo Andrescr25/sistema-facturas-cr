@@ -1365,7 +1365,7 @@ async function aplicarDescuentoTanda(auditoriaId, { descuentoPorcentaje }) {
 /**
  * Lista los descuentos por exceso con el dato que de verdad importa:
  * `visibleEnCatalogo`. Un descuento NO se ve en el catálogo público solo por
- * existir — la consulta de catalogo-publico.service.js exige además que el
+ * existir — la consulta de catalogo-agente.service.js exige además que el
  * producto haya sido marcado empacado en alguna tanda y que le quede stock.
  * Sin exponer eso, alguien pone un 40% a mano, no pasa nada en el catálogo,
  * y parece que el sistema está roto.

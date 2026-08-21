@@ -10,6 +10,12 @@ const urlsToCache = [
 // imágenes de productos (CDN de Alegra, cross-origin) y la lista de
 // productos, para que sigan disponibles después de la sincronización
 // aunque el dispositivo se quede sin conexión.
+// Estos nombres siguen diciendo "publico" a propósito, aunque el módulo pasó
+// a llamarse catalogo-agente: son las llaves de las cachés YA guardadas en
+// las tablets. Cambiarlas haría que el service worker no encuentre nada, las
+// borre por no estar en cachesToKeep, y cada agente tenga que volver a
+// descargar todas las imágenes del catálogo. No vale ese costo por un nombre
+// que nadie ve.
 const CATALOGO_IMAGENES_CACHE = 'catalogo-publico-imagenes-v1';
 const CATALOGO_PRODUCTOS_CACHE = 'catalogo-publico-productos-v1';
 
@@ -84,9 +90,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Lista de productos del catálogo público: NetworkFirst con respaldo en
+  // Lista de productos del catálogo del agente: NetworkFirst con respaldo en
   // caché, para que la última lista sincronizada siga sirviendo si falla la red.
-  if (url.pathname === '/api/catalogo-publico/productos') {
+  if (url.pathname === '/api/catalogo-agente/productos') {
     event.respondWith(
       caches.open(CATALOGO_PRODUCTOS_CACHE).then(async (cache) => {
         try {

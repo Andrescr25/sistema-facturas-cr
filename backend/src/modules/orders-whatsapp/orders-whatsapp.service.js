@@ -163,7 +163,9 @@ class OrdersWhatsappService {
       const rows = await fetchMappings(
         `${mappingSelect}
           WHERE ${conditions.join(' OR ')}
-          ORDER BY confidence DESC, last_used_date DESC, times_used DESC
+          -- Sin confidence: todos los mapeos los asignó una persona y valen
+          -- lo mismo. Manda el uso reciente y la frecuencia.
+          ORDER BY last_used_date DESC NULLS LAST, times_used DESC
           LIMIT 20`,
         params
       );

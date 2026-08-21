@@ -58,11 +58,42 @@ async function buscarImagenes(req, res) {
  * varias fuentes de imagen (thumbnails de Brave, sitios de origen) bloquean
  * la carga directa (hotlinking) desde otro dominio.
  */
+// Hosts que este proxy tiene permitido descargar.
+//
+// La ruta es PÚBLICA por necesidad: las miniaturas se pintan con <img src>, y
+// una etiqueta <img> no manda la cabecera Authorization —el interceptor de
+// axios solo alcanza a las peticiones XHR—, así que detrás del login devolvía
+// 401 y no cargaba ninguna sugerencia.
+//
+// Pública SIN esta lista sería un proxy abierto: cualquiera podría hacer que
+// el servidor descargue una URL arbitraria, ocultando su origen o alcanzando
+// direcciones internas de la red. Con la lista, lo único que puede pedir es
+// una imagen del CDN de Brave, que es de donde salen todas las miniaturas
+// (ver buscarImagenes: descarta los resultados sin thumbnail propio de Brave).
+const HOSTS_PERMITIDOS = [
+  'imgs.search.brave.com',
+  'cdn.search.brave.com'
+];
+
+function hostPermitido(url) {
+  try {
+    const { hostname, protocol } = new URL(url);
+    if (protocol !== 'https:') return false;
+    return HOSTS_PERMITIDOS.includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
 async function proxyImagen(req, res) {
   try {
     const { url } = req.query;
     if (!url || !/^https?:\/\//i.test(url)) {
       return res.status(400).json({ success: false, message: 'URL de imagen inválida' });
+    }
+    if (!hostPermitido(url)) {
+      console.warn('⚠️ image-proxy rechazó un host no permitido:', String(url).slice(0, 120));
+      return res.status(403).json({ success: false, message: 'Ese origen de imagen no está permitido.' });
     }
 
     const { buffer, contentType } = await catalogoService.descargarImagen(url);

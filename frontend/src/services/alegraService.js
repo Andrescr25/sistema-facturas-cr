@@ -192,16 +192,6 @@ export const alegraService = {
     }
   },
 
-  // Obtener estadísticas de sincronización
-  async getEstadisticasSincronizacion() {
-    try {
-      const response = await api.get('/alegra/estadisticas/sincronizacion')
-      return response.data
-    } catch (error) {
-      throw new Error(`Error obteniendo estadísticas: ${error.message}`)
-    }
-  },
-
   // Obtener productos sin proveedor
   async getProductosSinProveedor() {
     try {
