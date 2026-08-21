@@ -1,28 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Loader2, ArrowLeft, LogOut, Package } from 'lucide-react'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
-
-const ESTADO = {
-  pendiente: { texto: 'En revisión', clase: 'bg-amber-100 text-amber-700' },
-  facturado: { texto: 'Facturado', clase: 'bg-emerald-100 text-emerald-700' },
-  rechazado: { texto: 'Rechazado', clase: 'bg-red-100 text-red-700' }
-}
+import SeguimientoPedido, { ETIQUETA, CLASE_CHIP } from '../../components/catalogo-clientes/SeguimientoPedido'
 
 export default function PortalPedidos() {
   const { cliente, cargando: cargandoSesion, salir } = usePortalCliente()
   const [pedidos, setPedidos] = useState([])
   const [cargando, setCargando] = useState(true)
 
-  useEffect(() => {
-    if (!cliente) return
-    apiPortal.get('/portal/pedidos')
+  const cargar = useCallback(() => {
+    return apiPortal.get('/portal/pedidos')
       .then(({ data }) => setPedidos(data.data))
       .catch(() => {})
       .finally(() => setCargando(false))
-  }, [cliente])
+  }, [])
+
+  useEffect(() => {
+    if (!cliente) return
+    cargar()
+  }, [cliente, cargar])
+
+  // Se refresca cuando el cliente vuelve a la pestaña, no con un temporizador:
+  // la etapa la mueve alguien de la casa cada tantas horas, así que consultar
+  // cada N segundos sería gastarle los datos del teléfono para nada. Al
+  // volver a mirar, ve el estado de ese momento.
+  useEffect(() => {
+    if (!cliente) return
+    const alVolver = () => { if (document.visibilityState === 'visible') cargar() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+  }, [cliente, cargar])
 
   if (cargandoSesion) {
     return (
@@ -68,35 +78,37 @@ export default function PortalPedidos() {
           </div>
         ) : (
           <div className="space-y-3">
-            {pedidos.map(p => {
-              const badge = ESTADO[p.estado] || ESTADO.pendiente
-              return (
-                <div key={p.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="min-w-0">
-                      <p className="font-bold text-gray-900 text-sm">Pedido #{p.id}</p>
-                      <p className="text-xs text-gray-400">
-                        {new Date(p.creadoEn).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        {' · '}{p.lineas} producto(s)
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={`text-[10px] font-extrabold px-2 py-1 rounded-md uppercase ${badge.clase}`}>
-                        {badge.texto}
-                      </span>
-                      <span className="font-extrabold text-gray-900">{formatearColones(p.total)}</span>
-                    </div>
+            {pedidos.map(p => (
+              <div key={p.id} className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 text-sm">Pedido #{p.id}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(p.creadoEn).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {' · '}{p.lineas} producto(s)
+                    </p>
                   </div>
-
-                  {p.numeroFactura && (
-                    <p className="text-xs text-emerald-700 font-semibold mt-2">Factura {p.numeroFactura}</p>
-                  )}
-                  {p.motivoRechazo && (
-                    <p className="text-xs text-red-600 mt-2">{p.motivoRechazo}</p>
-                  )}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-[10px] font-extrabold px-2 py-1 rounded-md uppercase ${CLASE_CHIP[p.etapa] || CLASE_CHIP.en_revision}`}>
+                      {ETIQUETA[p.etapa] || ETIQUETA.en_revision}
+                    </span>
+                    <span className="font-extrabold text-gray-900">{formatearColones(p.total)}</span>
+                  </div>
                 </div>
-              )
-            })}
+
+                <div className="border-t border-gray-100 pt-3">
+                  <SeguimientoPedido
+                    etapa={p.etapa}
+                    seguimiento={p.seguimiento}
+                    motivoRechazo={p.motivoRechazo}
+                  />
+                </div>
+
+                {p.numeroFactura && (
+                  <p className="text-xs text-emerald-700 font-semibold">Factura {p.numeroFactura}</p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </main>

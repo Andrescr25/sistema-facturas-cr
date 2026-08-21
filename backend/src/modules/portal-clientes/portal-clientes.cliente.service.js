@@ -10,16 +10,53 @@ const {
 } = require('./portal-clientes.auth');
 
 const { obtenerCarrito, vaciarCarrito } = require('./portal-clientes.carrito.service');
+const { etapaDePedido, seguimientoDePedido } = require('./seguimiento');
 
 const MIN_PASSWORD = 8;
 
 /**
+ * El pedido con su etapa y su línea de tiempo, para que el cliente vea en qué
+ * va. `estado_bodega` sale de la factura local: se une por alegra_invoice_id
+ * y puede venir NULL (la fila de `facturas` todavía no existe), que
+ * seguimiento.js maneja como "En preparación".
+ */
+const JOIN_BODEGA = `
+  LEFT JOIN facturas f ON f.alegra_id = NULLIF(p.alegra_invoice_id, '')::integer
+`;
+
+function conSeguimiento(fila, extra = {}) {
+  const datos = {
+    estado: fila.estado,
+    estadoBodega: fila.estado_bodega || null,
+    creadoEn: fila.creado_en,
+    resueltoEn: fila.resuelto_en,
+    bodegaProcesadoEn: fila.bodega_procesado_en
+  };
+  return {
+    etapa: etapaDePedido(datos),
+    seguimiento: seguimientoDePedido(datos),
+    ...extra
+  };
+}
+
+/**
  * Datos de la invitación, para que la pantalla de activación pueda saludar
- * al cliente por su nombre y sugerirle un usuario antes de pedirle nada.
+ * al cliente por su nombre antes de pedirle nada.
+ *
+ * NO SE SUGIERE NINGÚN USUARIO, a propósito.
+ *
+ * Antes se pre-cargaba la cédula del contacto. La idea era ahorrarle un
+ * campo, pero la cédula que hay en Alegra muchas veces no es real: hay
+ * clientes cargados con "100000000" y parecidos, porque en el mostrador nadie
+ * la pide. Pre-cargar eso lleva al cliente a quedarse con un usuario que no
+ * es suyo, que no va a recordar, y que en el caso de los rellenos repetidos
+ * choca contra el de otro (el usuario es único). Que lo elija él.
+ *
+ * `identificacion` ya no se consulta acá: no se usaba para nada más.
  */
 async function verInvitacion(token) {
   const r = await query(`
-    SELECT i.*, cp.nombre, cp.identificacion, cp.usuario AS usuario_actual, cp.password_hash
+    SELECT i.*, cp.nombre, cp.usuario AS usuario_actual, cp.password_hash
     FROM cliente_invitacion i
     JOIN cliente_portal cp ON cp.alegra_contact_id = i.alegra_contact_id
     WHERE i.token_hash = $1;
@@ -30,15 +67,7 @@ async function verInvitacion(token) {
   if (inv.usado_en) throw httpError(400, 'Ese enlace ya se usó. Solicite uno nuevo.');
   if (new Date(inv.expira_en) <= new Date()) throw httpError(400, 'Ese enlace venció. Solicite uno nuevo.');
 
-  // La cédula es la sugerencia natural de usuario, pero hay clientes que la
-  // comparten (3 de 202): si ya está tomada no se sugiere, y el cliente elige.
-  let sugerencia = null;
-  if (inv.identificacion) {
-    const tomado = await query(`SELECT 1 FROM cliente_portal WHERE LOWER(usuario) = LOWER($1);`, [inv.identificacion]);
-    if (tomado.rows.length === 0) sugerencia = String(inv.identificacion).trim();
-  }
-
-  return { nombre: inv.nombre, usuarioSugerido: sugerencia, yaActivada: Boolean(inv.password_hash) };
+  return { nombre: inv.nombre, yaActivada: Boolean(inv.password_hash) };
 }
 
 /**
@@ -152,50 +181,92 @@ async function crearPedido(clienteId, { observaciones } = {}) {
   `, [cuenta.id, cuenta.alegra_contact_id, Math.round(total * 100) / 100, observaciones || null]);
   const pedido = pedidoRes.rows[0];
 
-  for (const { producto, cantidad } of carrito.lineas) {
+  // Las tasas de TODOS los productos de una vez. Antes se pedía una por
+  // línea, adentro del bucle de abajo (`await tasaDe(...)` como argumento del
+  // INSERT): eran DOS viajes a Supabase por producto, en serie. Un pedido de
+  // 21 productos hacía 42 idas y vueltas y el cliente se quedaba mirando un
+  // botón sin saber si su pedido se había enviado — parte de lo mismo que
+  // arregla la confirmación.
+  const tasas = await tasasDe(carrito.lineas.map(l => l.producto.id));
+
+  // Un solo INSERT multifila. OJO: COLUMNAS_LINEA, el orden de `valores` y la
+  // lista del VALUES tienen que moverse juntos — acá todo va por posición y
+  // desalinear una columna escribe el dato en el campo equivocado sin que
+  // Postgres se queje, mientras los tipos calcen.
+  const COLUMNAS_LINEA = 9;
+  const filas = carrito.lineas.map((_, idx) => {
+    const b = idx * COLUMNAS_LINEA;
+    const casts = ['', '', '', '', '::numeric', '::numeric', '::numeric', '::numeric', '::numeric'];
+    return `(${casts.map((c, i) => `$${b + i + 1}${c}`).join(', ')})`;
+  }).join(', ');
+
+  const valores = carrito.lineas.flatMap(({ producto, cantidad }) => [
+    pedido.id, producto.id, producto.nombre, producto.referencia, cantidad,
+    producto.precio, tasas.get(String(producto.id)) ?? 0, producto.descuento || 0,
     // precioLista solo viene cuando hubo rebaja; sin oferta, el precio de
     // lista ES el precio, y guardar null ahí perdería el dato.
-    const lista = producto.precioLista ?? producto.precio;
-    await query(`
-      INSERT INTO pedido_cliente_linea
-        (pedido_id, alegra_item_id, nombre_producto, referencia, cantidad,
-         precio_unitario, tax_percentage, descuento_porcentaje, precio_lista)
-      VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8::numeric, $9::numeric);
-    `, [
-      pedido.id, producto.id, producto.nombre, producto.referencia, cantidad,
-      producto.precio, await tasaDe(producto.id), producto.descuento || 0, lista
-    ]);
-  }
+    producto.precioLista ?? producto.precio
+  ]);
+
+  await query(`
+    INSERT INTO pedido_cliente_linea
+      (pedido_id, alegra_item_id, nombre_producto, referencia, cantidad,
+       precio_unitario, tax_percentage, descuento_porcentaje, precio_lista)
+    VALUES ${filas};
+  `, valores);
 
   // El carrito se vacía recién cuando el pedido ya quedó guardado: si algo
   // falla antes, el cliente conserva lo que armó.
   await vaciarCarrito(clienteId);
 
-  return { id: pedido.id, total: Number(pedido.total), lineas: carrito.lineas.length, estado: pedido.estado };
+  // `creadoEn` viaja para que la pantalla de confirmación dibuje la línea de
+  // tiempo con su fecha real, sin tener que volver a pedir el pedido.
+  return {
+    id: pedido.id,
+    total: Number(pedido.total),
+    lineas: carrito.lineas.length,
+    estado: pedido.estado,
+    creadoEn: pedido.creado_en
+  };
 }
 
 /**
- * La tasa de impuesto del producto. Hace falta al facturar para deshacer el
- * IVA y mandarle a Alegra el precio sin impuesto; el carrito no la expone
- * porque al cliente no le dice nada.
+ * Las tasas de impuesto de varios productos, en una sola consulta.
+ *
+ * Hacen falta al facturar para deshacer el IVA y mandarle a Alegra el precio
+ * sin impuesto; el carrito no las expone porque al cliente no le dicen nada.
+ *
+ * Devuelve un Map id -> tasa. Un producto que no esté en la caché no aparece
+ * en el Map y el llamador usa 0, que es lo mismo que hacía la versión de a
+ * uno: sin dato, no se le suma impuesto a algo que no se sabe si lo lleva.
  */
-async function tasaDe(alegraItemId) {
-  const r = await query(`SELECT tax_percentage FROM alegra_products_cache WHERE alegra_id = $1;`, [String(alegraItemId)]);
-  const t = r.rows[0]?.tax_percentage;
-  return t === null || t === undefined ? 0 : Number(t);
+async function tasasDe(alegraItemIds) {
+  const ids = [...new Set(alegraItemIds.map(String))];
+  if (ids.length === 0) return new Map();
+
+  const r = await query(
+    `SELECT alegra_id, tax_percentage FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]);`,
+    [ids]
+  );
+
+  return new Map(r.rows.map(x => [
+    String(x.alegra_id),
+    x.tax_percentage === null || x.tax_percentage === undefined ? 0 : Number(x.tax_percentage)
+  ]));
 }
 
 async function misPedidos(clienteId) {
   const r = await query(`
-    SELECT p.*,
+    SELECT p.*, f.estado_bodega, f.bodega_procesado_en,
       (SELECT COUNT(*)::int FROM pedido_cliente_linea l WHERE l.pedido_id = p.id) AS lineas
     FROM pedido_cliente p
+    ${JOIN_BODEGA}
     WHERE p.cliente_portal_id = $1
     ORDER BY p.creado_en DESC
     LIMIT 50;
   `, [clienteId]);
 
-  return r.rows.map(p => ({
+  return r.rows.map(p => conSeguimiento(p, {
     id: p.id,
     estado: p.estado,
     total: Number(p.total),
@@ -207,11 +278,17 @@ async function misPedidos(clienteId) {
 }
 
 async function detallePedido(clienteId, pedidoId) {
-  const p = await query(`SELECT * FROM pedido_cliente WHERE id = $1 AND cliente_portal_id = $2;`, [pedidoId, clienteId]);
+  const p = await query(`
+    SELECT p.*, f.estado_bodega, f.bodega_procesado_en
+    FROM pedido_cliente p
+    ${JOIN_BODEGA}
+    WHERE p.id = $1 AND p.cliente_portal_id = $2;
+  `, [pedidoId, clienteId]);
   if (p.rows.length === 0) throw httpError(404, 'Pedido no encontrado.');
 
   const l = await query(`SELECT * FROM pedido_cliente_linea WHERE pedido_id = $1 ORDER BY nombre_producto;`, [pedidoId]);
   return {
+    ...conSeguimiento(p.rows[0]),
     id: p.rows[0].id,
     estado: p.rows[0].estado,
     total: Number(p.rows[0].total),

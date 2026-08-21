@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import PanelPedido from './PanelPedido'
 import PanelSugerencias from './PanelSugerencias'
+import apiPortal from '../../services/apiPortal'
 
 /**
  * Coloca los dos paneles que salen al tocar "Ver pedido".
@@ -14,8 +16,45 @@ import PanelSugerencias from './PanelSugerencias'
  *
  * El fondo oscuro y el cierre al tocar afuera viven acá y no en cada panel:
  * son dos paneles, pero una sola cosa que se abre y se cierra junta.
+ *
+ * POR QUÉ EL ENVÍO SE MANEJA ACÁ Y NO EN PanelPedido
+ * El pedido enviado cambia a los DOS paneles: el de pedido pasa a mostrar la
+ * confirmación y el de sugerencias tiene que desaparecer (ofrecerle "suele
+ * faltar" al lado de un pedido ya enviado no lleva a ningún lado). Con el
+ * estado adentro de PanelPedido, este componente no tenía forma de saberlo.
  */
 export default function ModalPedido({ resumen, carrito, onCambiar, onAgregar, onVaciar, onCerrar, onEnviado, habituales, perdidos }) {
+  const [enviando, setEnviando] = useState(false)
+  const [enviado, setEnviado] = useState(null)
+  const [error, setError] = useState('')
+
+  // La nota del pedido la escribe el cliente en PanelPedido, que la tiene
+  // como estado propio, y llega acá como argumento al enviar. Así el input
+  // sigue siendo controlado donde vive y este componente no se re-renderiza
+  // en cada tecla.
+  const enviar = async (observaciones) => {
+    setEnviando(true)
+    setError('')
+    try {
+      // No se mandan líneas: el pedido se arma con el carrito que ya está
+      // guardado en el servidor. El navegador no participa en decidir qué se
+      // pide ni a qué precio.
+      const { data } = await apiPortal.post('/portal/pedidos', {
+        observaciones: observaciones?.trim() || null
+      })
+      setEnviado(data.data)
+      // Vacía el carrito. El modal NO se desmonta por eso: la condición que
+      // lo renderiza ya no mira las unidades del carrito (ver
+      // CatalogoClientes.jsx) — antes sí, y por eso esta confirmación nunca
+      // llegaba a verse.
+      onEnviado?.()
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo enviar el pedido. Intentá de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCerrar} />
@@ -23,8 +62,9 @@ export default function ModalPedido({ resumen, carrito, onCambiar, onAgregar, on
       <div className="relative w-full sm:w-auto flex flex-col sm:flex-row sm:items-start sm:gap-3">
         {/* En móvil el orden visual es: sugerencias arriba, pedido abajo.
             En escritorio se invierte con `sm:order-2` para que el pedido
-            quede a la izquierda, que es donde se lo busca primero. */}
-        {onAgregar && (
+            quede a la izquierda, que es donde se lo busca primero.
+            Con el pedido ya enviado no se muestran. */}
+        {onAgregar && !enviado && (
           <div className="sm:order-2">
             <PanelSugerencias habituales={habituales} perdidos={perdidos} onAgregar={onAgregar} carrito={carrito} />
           </div>
@@ -36,7 +76,10 @@ export default function ModalPedido({ resumen, carrito, onCambiar, onAgregar, on
             onCambiar={onCambiar}
             onVaciar={onVaciar}
             onCerrar={onCerrar}
-            onEnviado={onEnviado}
+            enviando={enviando}
+            enviado={enviado}
+            error={error}
+            onEnviar={enviar}
           />
         </div>
       </div>

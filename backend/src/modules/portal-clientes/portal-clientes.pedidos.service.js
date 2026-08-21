@@ -16,6 +16,29 @@ const { precioSinImpuesto } = require('../catalogo-clientes/precio');
 
 const facturacion = new FacturacionService();
 
+/**
+ * Mapa porcentaje -> objeto de impuesto de Alegra (`{id, percentage, name,
+ * type}`), para poder armar `items[].tax` a partir del `tax_percentage` que
+ * ya se guardó en la línea del pedido. Solo tasas de IVA activas y mayores a
+ * 0 — Alegra tiene TRES tasas de 0% distintas (exento, tarifa 0% con/sin
+ * derecho a crédito) y no hay forma de saber cuál le corresponde a un
+ * producto a partir de un simple porcentaje, así que un producto exento
+ * manda `tax: []`, igual que en el resto del sistema cuando no hay impuesto.
+ */
+async function mapaImpuestos() {
+  const { data } = await facturacion.getTaxes();
+  const lista = Array.isArray(data) ? data : data?.data || [];
+  const mapa = new Map();
+  for (const t of lista) {
+    if (t.status !== 'active' || t.type !== 'IVA') continue;
+    const pct = Math.round(parseFloat(t.percentage) * 100) / 100;
+    if (pct > 0 && !mapa.has(pct)) {
+      mapa.set(pct, [{ id: t.id, percentage: pct, name: t.name, type: t.type }]);
+    }
+  }
+  return mapa;
+}
+
 async function listarPedidos({ estado = 'pendiente' } = {}) {
   const filtro = estado === 'todos' ? '' : 'WHERE p.estado = $1';
   const params = estado === 'todos' ? [] : [estado];
@@ -77,10 +100,16 @@ async function detalle(pedidoId) {
  * Convierte el pedido en factura de venta en Alegra.
  *
  * El precio que se manda a Alegra es SIN impuesto: Alegra guarda `price` sin
- * IVA y lo agrega según el impuesto del producto. En la línea del pedido el
+ * IVA y lo agrega según el impuesto DE LA LÍNEA. En la línea del pedido el
  * precio está congelado CON impuesto (es lo que vio el cliente), así que acá
  * se deshace esa conversión. Mandar el precio con IVA haría que Alegra le
  * sume el IVA otra vez y la factura saldría un 13% más cara.
+ *
+ * El impuesto en sí hay que mandarlo aparte, en `tax`: si se omite, Alegra
+ * NO lo completa solo con el del producto — la línea queda sin impuesto y la
+ * factura sale un 13% MÁS BARATA de lo real. Es el mismo campo que arman a
+ * mano invoice.service.js, alegra-invoice.service.js y useFacturacion.js en
+ * cada lugar donde crean o editan una factura; acá faltaba.
  */
 async function facturar(pedidoId, usuarioId) {
   const pedido = await detalle(pedidoId);
@@ -95,6 +124,8 @@ async function facturar(pedidoId, usuarioId) {
     throw httpError(400, 'Ese pedido no tiene líneas.');
   }
 
+  const impuestos = await mapaImpuestos();
+
   const hoy = new Date();
   const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
@@ -103,11 +134,20 @@ async function facturar(pedidoId, usuarioId) {
     dueDate: fecha,
     client: parseInt(pedido.alegra_contact_id, 10),
     items: pedido.lineas.map(l => {
+      const pct = Math.round((Number(l.taxPercentage) || 0) * 100) / 100;
+      let tax = [];
+      if (pct > 0) {
+        tax = impuestos.get(pct);
+        if (!tax) {
+          throw httpError(500, `No se encontró en Alegra el impuesto de ${pct}% para "${l.nombre}" — no se puede facturar sin saber cuánto IVA cobrarle.`);
+        }
+      }
       return {
         id: parseInt(l.alegraItemId, 10),
         reference: l.referencia || '',
         quantity: l.cantidad,
         price: precioSinImpuesto(l.precio, l.taxPercentage),
+        tax,
         discount: 0,
         description: ''
       };

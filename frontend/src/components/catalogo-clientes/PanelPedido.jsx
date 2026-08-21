@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { X, Loader2, AlertCircle, CheckCircle2, LogIn } from 'lucide-react'
+import { X, Loader2, AlertCircle, Check, LogIn, Package } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
-import apiPortal from '../../services/apiPortal'
+import SeguimientoPedido from './SeguimientoPedido'
 
 /**
- * El pedido, antes de enviarlo.
+ * El pedido, antes y después de enviarlo.
  *
  * El pedido entra al sistema: queda registrado con su precio congelado y
  * alguien de la casa lo convierte en factura. Enviarlo exige cuenta; mirar
@@ -15,32 +15,18 @@ import apiPortal from '../../services/apiPortal'
  * Las sugerencias ("Suele faltar") viven en PanelSugerencias, afuera: acá
  * adentro se metían entre los productos y el total, justo donde el cliente
  * quiere revisar lo que va a comprar sin nada en el medio.
+ *
+ * El envío en sí (la llamada, el estado) vive en ModalPedido: el resultado
+ * cambia a los dos paneles, no solo a este. Acá solo se dibuja.
  */
-export default function PanelPedido({ resumen, onCambiar, onVaciar, onCerrar, onEnviado, onAgregar }) {
+export default function PanelPedido({
+  resumen, onCambiar, onVaciar, onCerrar,
+  enviando, enviado, error, onEnviar
+}) {
   const { cliente } = usePortalCliente()
   const [observaciones, setObservaciones] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const [error, setError] = useState('')
-  const [enviado, setEnviado] = useState(null)
 
-  const enviar = async () => {
-    setEnviando(true)
-    setError('')
-    try {
-      // No se mandan líneas: el pedido se arma con el carrito que ya está
-      // guardado en el servidor. El navegador no participa en decidir qué se
-      // pide ni a qué precio.
-      const { data } = await apiPortal.post('/portal/pedidos', {
-        observaciones: observaciones.trim() || null
-      })
-      setEnviado(data.data)
-      onEnviado?.()
-    } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo enviar el pedido. Intentá de nuevo.')
-    } finally {
-      setEnviando(false)
-    }
-  }
+  const vacio = resumen.lineas.length === 0
 
   return (
     <div className="bg-white w-full sm:w-[26rem] sm:rounded-3xl rounded-t-3xl max-h-[70vh] sm:max-h-[88vh] flex flex-col overflow-hidden">
@@ -52,15 +38,44 @@ export default function PanelPedido({ resumen, onCambiar, onVaciar, onCerrar, on
         </div>
 
         {enviado ? (
-          <div className="p-6 text-center space-y-3">
-            <CheckCircle2 size={44} className="text-emerald-600 mx-auto" />
-            <p className="font-bold text-gray-900">Pedido #{enviado.id} recibido</p>
-            <p className="text-sm text-gray-500">
-              Total {formatearColones(enviado.total)}. Lo estamos revisando y le confirmamos con la factura.
-            </p>
-            <Link to="/portal/pedidos" className="inline-block text-sm font-bold text-emerald-700 hover:underline">
-              Ver sus pedidos
+          <div className="fade-in p-6 space-y-4 overflow-y-auto">
+            <div className="text-center space-y-2">
+              {/* check-pop ya existe en index.css; se anula solo con
+                  prefers-reduced-motion. */}
+              <span className="check-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <Check size={30} strokeWidth={3} />
+              </span>
+              <p className="font-extrabold text-gray-900">Pedido #{enviado.id} recibido</p>
+              <p className="text-sm text-gray-500">{formatearColones(enviado.total)}</p>
+            </div>
+
+            {/* La línea de tiempo desde el minuto cero: el cliente ve qué
+                sigue en vez de quedarse con un "gracias" y nada más. */}
+            <div className="rounded-2xl bg-slate-50 p-3.5">
+              <SeguimientoPedido
+                etapa="en_revision"
+                seguimiento={[
+                  { clave: 'en_revision', alcanzada: true, fecha: enviado.creadoEn || new Date().toISOString() },
+                  { clave: 'en_preparacion', alcanzada: false, fecha: null },
+                  { clave: 'listo_para_envio', alcanzada: false, fecha: null }
+                ]}
+              />
+            </div>
+
+            <Link
+              to="/portal/pedidos"
+              className="block w-full rounded-xl bg-slate-900 py-3 text-center font-bold text-white transition-colors hover:bg-slate-800"
+            >
+              Ver mis pedidos
             </Link>
+          </div>
+        ) : vacio ? (
+          <div className="p-10 text-center text-gray-400 flex flex-col items-center gap-3">
+            <Package size={34} className="text-gray-200" />
+            <p className="text-sm">Su pedido está vacío.</p>
+            <button type="button" onClick={onCerrar} className="text-sm font-bold text-emerald-700 hover:underline">
+              Seguir viendo el catálogo
+            </button>
           </div>
         ) : (
           <>
@@ -92,7 +107,8 @@ export default function PanelPedido({ resumen, onCambiar, onVaciar, onCerrar, on
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 placeholder="Alguna nota para el pedido (opcional)"
-                className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-sm font-semibold focus:outline-none"
+                disabled={enviando}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-sm font-semibold focus:outline-none disabled:bg-gray-50"
               />
 
               <div className="flex items-center justify-between">
@@ -110,12 +126,14 @@ export default function PanelPedido({ resumen, onCambiar, onVaciar, onCerrar, on
               {cliente ? (
                 <button
                   type="button"
-                  onClick={enviar}
+                  onClick={() => onEnviar(observaciones)}
                   disabled={enviando}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/70 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
+                  {/* El texto cambia además del spinner: antes solo aparecía
+                      la rueda y no se notaba que estuviera pasando algo. */}
                   {enviando ? <Loader2 size={16} className="animate-spin" /> : null}
-                  Enviar pedido
+                  {enviando ? 'Enviando…' : 'Enviar pedido'}
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -132,7 +150,12 @@ export default function PanelPedido({ resumen, onCambiar, onVaciar, onCerrar, on
                 </div>
               )}
 
-              <button type="button" onClick={onVaciar} className="w-full text-xs text-gray-400 hover:text-gray-600 font-semibold">
+              <button
+                type="button"
+                onClick={onVaciar}
+                disabled={enviando}
+                className="w-full text-xs text-gray-400 hover:text-gray-600 font-semibold disabled:opacity-40"
+              >
                 Vaciar pedido
               </button>
             </div>

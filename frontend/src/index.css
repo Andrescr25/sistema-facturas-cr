@@ -142,6 +142,22 @@
   @apply w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin;
 }
 
+/* Quien pidió menos movimiento en su sistema no debería recibir rebotes ni
+   deslizamientos. Se anulan las animaciones decorativas —el contenido queda
+   igual, solo aparece de una— pero NO los spinners: ahí el giro no es
+   adorno, es la señal de que algo está pasando. */
+@media (prefers-reduced-motion: reduce) {
+
+  .check-pop,
+  .fade-in,
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-slideUp,
+  .animate-slide-in-right {
+    animation: none !important;
+  }
+}
+
 /* Ocultar scrollbar pero mantener funcionalidad */
 .scrollbar-hide {
   -ms-overflow-style: none;

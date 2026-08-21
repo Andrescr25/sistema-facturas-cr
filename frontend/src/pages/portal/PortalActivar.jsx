@@ -8,9 +8,11 @@ import AccesoLayout from '../../components/acceso/AccesoLayout'
 /**
  * El cliente abre el enlace que le mandaron y elige usuario y contraseña.
  *
- * El usuario no es el correo (solo el 13% de los clientes tiene uno cargado
- * en Alegra) ni la cédula impuesta (hay repetidas): se sugiere la cédula
- * cuando está libre y el cliente puede cambiarla.
+ * El usuario lo escribe él, en blanco. No es el correo (solo el 13% de los
+ * clientes tiene uno cargado en Alegra) ni la cédula: la que hay en Alegra
+ * muchas veces es un relleno tipo "100000000" porque en el mostrador nadie la
+ * pide. Pre-cargarla —como se hacía antes— dejaba al cliente con un usuario
+ * que no es suyo y que no va a recordar.
  */
 export default function PortalActivar() {
   const { token } = useParams()
@@ -29,10 +31,7 @@ export default function PortalActivar() {
 
   useEffect(() => {
     apiPortal.get(`/portal/invitacion/${token}`)
-      .then(({ data }) => {
-        setInvitacion(data.data)
-        setUsuario(data.data.usuarioSugerido || '')
-      })
+      .then(({ data }) => setInvitacion(data.data))
       .catch((err) => setErrorEnlace(err.response?.data?.message || 'No se pudo abrir el enlace.'))
       .finally(() => setCargando(false))
   }, [token])
@@ -94,16 +93,22 @@ export default function PortalActivar() {
       <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
         <div>
           <label htmlFor="usuario" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-            Usuario para entrar
+            Usuario para entrar <span className="font-semibold normal-case text-slate-300">(mínimo 4)</span>
           </label>
           <div className="relative">
             <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
             <input
-              id="usuario" type="text" autoComplete="username" value={usuario}
+              id="usuario" type="text" autoComplete="username" autoFocus value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
+              placeholder="El nombre con que va a entrar"
               className="w-full rounded-xl border-2 border-slate-200 py-2.5 pl-9 pr-3 text-sm font-semibold focus:border-naranja-500 focus:outline-none"
             />
           </div>
+          {/* El campo llega vacío a propósito (ver el encabezado): sin una
+              indicación, un campo en blanco no dice qué se espera. */}
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            Elija el que quiera y anótelo. Lo va a usar cada vez que entre.
+          </p>
         </div>
 
         <div>

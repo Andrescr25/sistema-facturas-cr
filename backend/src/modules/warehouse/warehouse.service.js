@@ -307,6 +307,10 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
   const updateResult = await query(`
     UPDATE facturas
     SET estado_bodega = $1,
+        -- Cuándo salió de bodega, para la línea de tiempo que ve el cliente
+        -- en el portal. Al volver a 'pendiente' se borra: si no, un pedido
+        -- reabierto seguiría mostrándole "Listo para envío" con su fecha.
+        bodega_procesado_en = CASE WHEN $1 = 'procesado' THEN CURRENT_TIMESTAMP ELSE NULL END,
         observaciones_adicionales = CASE
           WHEN $2::text IS NULL THEN observaciones_adicionales
           ELSE $2::text

@@ -274,7 +274,13 @@ export default function CatalogoClientes() {
         </div>
       )}
 
-      {cliente && pedidoAbierto && resumen.unidades > 0 && (
+      {/* La condición NO mira las unidades del carrito, a propósito. Al
+          enviar, el pedido vacía el carrito; con `resumen.unidades > 0` acá,
+          React desmontaba el modal en el mismo ciclo en que iba a mostrar la
+          confirmación — el cliente tocaba "Enviar" y la pantalla simplemente
+          desaparecía, sin saber si se había enviado. Cerrarlo es cosa de
+          onCerrar y de onVaciar; el carrito vaciándose ya no lo destruye. */}
+      {cliente && pedidoAbierto && (
         <ModalPedido
           resumen={resumen}
           carrito={porId}
