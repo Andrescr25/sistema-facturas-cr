@@ -66,7 +66,24 @@ async function login({ usuario, password }) {
     { expiresIn: VIGENCIA_TOKEN }
   );
 
-  return { token, usuario: { id: row.id, usuario: row.usuario, nombre: row.nombre } };
+  // Los permisos viajan en la respuesta del login, no solo en /auth/yo.
+  // Sin esto, el menú quedaba VACÍO justo después de entrar: el frontend se
+  // quedaba con el usuario del login (sin esAdmin ni modulos) hasta la
+  // primera recarga, y hasta entonces no podía abrir ninguna pantalla.
+  //
+  // Se pide require() acá adentro y no arriba porque usuarios.service ya
+  // depende de este módulo: pedirlo en la cabecera cerraría el círculo.
+  const { permisosDe } = require('../usuarios/usuarios.service');
+  const permisos = await permisosDe(row.id);
+
+  return {
+    token,
+    usuario: {
+      id: row.id, usuario: row.usuario, nombre: row.nombre,
+      esAdmin: permisos.esAdmin,
+      modulos: [...permisos.modulos]
+    }
+  };
 }
 
 function verificarToken(token) {

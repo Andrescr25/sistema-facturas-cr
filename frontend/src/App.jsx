@@ -26,6 +26,8 @@ import PortalFacturas from './pages/portal/PortalFacturas'
 import Clientes from './pages/Clientes'
 import Ingresar from './pages/Ingresar'
 import RequiereSesion from './components/RequiereSesion'
+import RequierePermiso from './components/RequierePermiso'
+import Usuarios from './pages/Usuarios'
 import Rentabilidad from './pages/Rentabilidad'
 
 function App() {
@@ -66,7 +68,7 @@ function App() {
           SÍ con sesión — muestra el historial de compras de cada cliente. */}
       <Route
         path="/catalogo-agente"
-        element={<RequiereSesion><CatalogoAgente /></RequiereSesion>}
+        element={<RequiereSesion><RequierePermiso><CatalogoAgente /></RequierePermiso></RequiereSesion>}
       />
 
       {/* Catálogo que se le manda al cliente. Público y sin
@@ -90,6 +92,11 @@ function App() {
         element={
           <RequiereSesion>
           <Layout>
+            {/* RequierePermiso envuelve TODAS las pantallas internas: la
+                pantalla que no corresponda dice que no hay acceso, en vez de
+                dibujarse a medias tirando 403 por todos lados. La
+                autorización de verdad la hace el backend. */}
+            <RequierePermiso>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/facturacion" element={<Facturacion />} />
@@ -109,7 +116,9 @@ function App() {
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />
               <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
+              <Route path="/usuarios" element={<Usuarios />} />
             </Routes>
+            </RequierePermiso>
           </Layout>
           </RequiereSesion>
         }

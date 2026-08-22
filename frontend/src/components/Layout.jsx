@@ -1,16 +1,19 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   Home, FileText, Users, TrendingUp, DollarSign, Link2, Printer, Settings,
   Menu, X, CreditCard, ClipboardList, Boxes, Image, Wallet, PieChart,
-  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart
+  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
+import { useAuth } from '../contexts/AuthContext'
+import { puedeVer } from '../utils/modulos'
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  const { usuario } = useAuth()
 
   // Agrupado por flujo de negocio, no por orden de aparición: eran 17
   // entradas planas y no cabían en pantalla. Cada grupo se abre solo cuando
@@ -58,8 +61,32 @@ export default function Layout({ children }) {
         { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark }
       ]
     },
-    { name: 'Configuración', href: '/configuracion', icon: Settings }
+    { name: 'Configuración', href: '/configuracion', icon: Settings },
+    // Solo para administradores. Se filtra abajo junto con todo lo demás.
+    { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true }
   ]
+
+  // El menú muestra únicamente lo que esta persona puede abrir. Es cosmética,
+  // no seguridad: quien sepa la URL de la API la llama igual, y por eso el
+  // permiso se hace valer en el backend (requirePermiso). Acá se trata de no
+  // ofrecerle a alguien una pantalla que le va a responder 403.
+  //
+  // Un grupo cuyos hijos quedaron todos fuera desaparece completo: dejar
+  // "Finanzas" vacío y desplegable sería peor que no mostrarlo.
+  const navegacionVisible = useMemo(() => {
+    const visible = (item) => {
+      if (item.soloAdmin) return Boolean(usuario?.esAdmin)
+      return puedeVer(usuario, item.href)
+    }
+
+    return navigation
+      .map(item => {
+        if (!item.children) return visible(item) ? item : null
+        const hijos = item.children.filter(visible)
+        return hijos.length > 0 ? { ...item, children: hijos } : null
+      })
+      .filter(Boolean)
+  }, [usuario])
 
   const isActive = (path) => location.pathname === path
 
@@ -75,7 +102,7 @@ export default function Layout({ children }) {
               <X size={24} />
             </button>
           </div>
-          <SidebarNav navigation={navigation} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
+          <SidebarNav navigation={navegacionVisible} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
         </div>
       </div>
 
@@ -85,7 +112,7 @@ export default function Layout({ children }) {
           <div className="flex items-center h-16 px-4 border-b border-gray-100">
             <img src="/tachi-logo.png" alt="Distribuidora Tachi" className="h-8 w-auto" />
           </div>
-          <SidebarNav navigation={navigation} isActive={isActive} />
+          <SidebarNav navigation={navegacionVisible} isActive={isActive} />
         </div>
       </div>
 

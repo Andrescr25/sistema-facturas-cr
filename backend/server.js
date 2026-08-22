@@ -137,12 +137,20 @@ const authModule = require('./src/modules/auth');
 const catalogoClientesModule = require('./src/modules/catalogo-clientes');
 const portalClientesModule = require('./src/modules/portal-clientes');
 const dashboardModule = require('./src/modules/dashboard');
+const usuariosModule = require('./src/modules/usuarios');
 
 // Autenticación. Va ANTES de montar cualquier ruta de API: protege por lista
 // de excepciones (ver auth.middleware.js), así un módulo nuevo nace cerrado
 // en vez de nacer abierto sin que nadie lo note.
 app.use('/api', authModule.middleware.requireAuth);
+
+// Autorización por módulo, justo después: requireAuth ya dijo QUIÉN es y este
+// decide QUÉ puede tocar. Esconder opciones del menú no protege nada —quien
+// sepa la URL la llama igual—; el permiso se hace valer acá.
+app.use('/api', usuariosModule.requirePermiso);
+
 app.use('/api/auth', authModule.routes);
+app.use('/api/usuarios', usuariosModule.routes);
 app.use('/api/catalogo-clientes', catalogoClientesModule.routes);
 // Portal de clientes. Las rutas del CLIENTE van en /api/portal, fuera de
 // requireAuth y protegidas por requireCliente con un secreto de firma
