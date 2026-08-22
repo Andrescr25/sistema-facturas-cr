@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
+import PieSesion from './PieSesion'
 import { useAuth } from '../contexts/AuthContext'
 import { puedeVer } from '../utils/modulos'
 
@@ -102,7 +103,10 @@ export default function Layout({ children }) {
               <X size={24} />
             </button>
           </div>
-          <SidebarNav navigation={navegacionVisible} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
+          <div className="flex-1 overflow-y-auto">
+            <SidebarNav navigation={navegacionVisible} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
+          </div>
+          <PieSesion onNavegar={() => setSidebarOpen(false)} />
         </div>
       </div>
 
@@ -112,7 +116,10 @@ export default function Layout({ children }) {
           <div className="flex items-center h-16 px-4 border-b border-gray-100">
             <img src="/tachi-logo.png" alt="Distribuidora Tachi" className="h-8 w-auto" />
           </div>
-          <SidebarNav navigation={navegacionVisible} isActive={isActive} />
+          <div className="flex-1 overflow-y-auto">
+            <SidebarNav navigation={navegacionVisible} isActive={isActive} />
+          </div>
+          <PieSesion />
         </div>
       </div>
 

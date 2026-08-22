@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { Loader2, ArrowLeft, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Loader2, ArrowLeft, FileText, AlertTriangle, CheckCircle2, LogOut } from 'lucide-react'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
@@ -16,7 +16,7 @@ import { formatearColones } from '../../utils/catalogoClientesUtils'
  * hay que resolver, y quien entra acá entra justamente a ver eso.
  */
 export default function PortalFacturas() {
-  const { cliente, cargando: cargandoSesion } = usePortalCliente()
+  const { cliente, cargando: cargandoSesion, salir } = usePortalCliente()
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
 
@@ -43,9 +43,19 @@ export default function PortalFacturas() {
             <ArrowLeft size={15} />
             Catálogo
           </Link>
-          <Link to="/portal/pedidos" className="text-[12px] font-semibold text-slate-500 hover:text-emerald-700">
-            Mis pedidos
-          </Link>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link to="/portal/pedidos" className="text-[12px] font-semibold text-slate-500 hover:text-emerald-700">
+              Mis pedidos
+            </Link>
+            <button
+              type="button"
+              onClick={salir}
+              className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-red-600"
+            >
+              <LogOut size={13} />
+              Salir
+            </button>
+          </div>
         </div>
       </header>
 

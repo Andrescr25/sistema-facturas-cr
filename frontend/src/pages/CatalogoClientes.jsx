@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ShoppingCart, Loader2, AlertCircle, User, Repeat, Clock, Tag, X, Receipt, Info } from 'lucide-react'
+import { Search, ShoppingCart, Loader2, AlertCircle, User, Repeat, Clock, Tag, X, Receipt, Info, LogOut } from 'lucide-react'
 import { useCatalogoClientes } from '../hooks/useCatalogoClientes'
 import { useCarritoCliente } from '../hooks/useCarritoCliente'
 import { useScrollInfinito } from '../hooks/useScrollInfinito'
@@ -22,7 +22,7 @@ export default function CatalogoClientes() {
     total, hayMas, cargando, cargandoMas, error, verMas
   } = useCatalogoClientes()
 
-  const { cliente } = usePortalCliente()
+  const { cliente, salir } = usePortalCliente()
 
   // El carrito vive en el servidor, atado a la cuenta.
   const {
@@ -81,6 +81,17 @@ export default function CatalogoClientes() {
                   <User size={14} />
                   Mis pedidos
                 </Link>
+                {/* Sin esto, el cliente que entra desde un teléfono prestado
+                    —o el agente que le muestra el catálogo a varios— no tenía
+                    forma de salirse: la sesión dura 30 días. */}
+                <button
+                  type="button"
+                  onClick={salir}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-red-600"
+                >
+                  <LogOut size={14} />
+                  Salir
+                </button>
               </div>
             ) : (
               <Link to="/portal/ingresar" className="text-[12px] font-bold text-emerald-700 hover:underline shrink-0">
