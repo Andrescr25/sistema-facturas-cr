@@ -52,3 +52,13 @@ backend/scripts/salida/
 # Listas de trabajo generadas por los scripts de auditoría (datos reales de
 # proveedores y costos, no código)
 productos-clase-A-a-revisar.xlsx
+
+# Copias duplicadas del tipo "archivo 2.js" que aparecen solas en esta carpeta
+# (Finder al copiar, o alguna herramienta de sincronización — el origen no se
+# identificó). Son idénticas al original y NADIE las ejecuta: Node pide rutas
+# exactas y el glob de pruebas busca "*.test.js", que no calza con
+# "algo.test 2.js". El problema es otro: se puede editar la copia por
+# equivocación y perder media hora sin entender por qué el cambio no hace
+# nada. Se ignoran para que al menos no lleguen nunca a un commit.
+* 2.*
+* 3.*
