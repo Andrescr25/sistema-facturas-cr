@@ -1,5 +1,6 @@
-import { Minus, Plus, Package } from 'lucide-react'
+import { Plus, Package } from 'lucide-react'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import InputCantidad from './InputCantidad'
 
 /**
  * Un producto, en tarjeta con la foto como protagonista.
@@ -80,33 +81,12 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
 
         {/* Con cantidad 0, un solo botón: agregar tiene que ser UN toque. */}
         {!puedePedir ? null : enPedido ? (
-          <div className="flex items-center gap-1 bg-white rounded-lg border border-emerald-300 p-0.5">
-            <button
-              type="button"
-              aria-label={`Quitar uno de ${producto.nombre}`}
-              onClick={() => onCambiar(producto, cantidad - 1)}
-              className="w-8 h-8 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-600"
-            >
-              <Minus size={14} />
-            </button>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              aria-label={`Cantidad de ${producto.nombre}`}
-              value={cantidad}
-              onChange={(e) => onCambiar(producto, e.target.value)}
-              className="flex-1 w-full text-center text-[13px] font-extrabold text-slate-900 focus:outline-none bg-transparent"
-            />
-            <button
-              type="button"
-              aria-label={`Agregar uno de ${producto.nombre}`}
-              onClick={() => onCambiar(producto, cantidad + 1)}
-              className="w-8 h-8 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
+          <InputCantidad
+            cantidad={cantidad}
+            onCambiar={(n) => onCambiar(producto, n)}
+            etiqueta={producto.nombre}
+            compacto
+          />
         ) : (
           <button
             type="button"

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { X, Loader2, ImageOff, Minus, Plus, History } from 'lucide-react'
+import { X, Loader2, ImageOff, History } from 'lucide-react'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { haceCuanto } from '../../utils/notasCatalogo'
 import SugerenciasJuntoCon from './SugerenciasJuntoCon'
+import InputCantidad from './InputCantidad'
 
 /**
  * Ficha de un producto.
@@ -106,31 +107,10 @@ export default function FichaProducto({ itemId, cantidadEnCarrito, onCambiar, on
 
                 {cantidadEnCarrito > 0 ? (
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Quitar uno"
-                      onClick={() => onCambiar(producto, cantidadEnCarrito - 1)}
-                      className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <input
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      aria-label="Cantidad"
-                      value={cantidadEnCarrito}
-                      onChange={(e) => onCambiar(producto, e.target.value)}
-                      className="w-20 h-11 text-center border-2 border-emerald-500 rounded-xl font-extrabold focus:outline-none"
+                    <InputCantidad
+                      cantidad={cantidadEnCarrito}
+                      onCambiar={(n) => onCambiar(producto, n)}
                     />
-                    <button
-                      type="button"
-                      aria-label="Agregar uno"
-                      onClick={() => onCambiar(producto, cantidadEnCarrito + 1)}
-                      className="w-11 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center"
-                    >
-                      <Plus size={16} />
-                    </button>
                     <span className="text-xs text-gray-400 font-semibold">en su pedido</span>
                   </div>
                 ) : (
@@ -154,6 +134,26 @@ export default function FichaProducto({ itemId, cantidadEnCarrito, onCambiar, on
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {/* Salida clara del modal. Antes solo estaba la X chiquita de arriba
+            a la derecha, que en un teléfono es fácil no ver, y quedaba la
+            duda de si lo elegido se había guardado.
+
+            NO guarda nada: la cantidad ya se guardó sola al escribirla. Es
+            solo una forma entendible de salir. Va fuera del contenedor con
+            scroll para que quede siempre a mano, sin importar cuánto se haya
+            bajado en la ficha. */}
+        {!cargando && !error && (
+          <div className="border-t border-gray-100 p-3 sm:p-4">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors"
+            >
+              Aceptar
+            </button>
           </div>
         )}
       </div>
