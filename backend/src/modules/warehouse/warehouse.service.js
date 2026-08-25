@@ -310,14 +310,22 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
         -- Cuándo salió de bodega, para la línea de tiempo que ve el cliente
         -- en el portal. Al volver a 'pendiente' se borra: si no, un pedido
         -- reabierto seguiría mostrándole "Listo para envío" con su fecha.
-        bodega_procesado_en = CASE WHEN $1 = 'procesado' THEN CURRENT_TIMESTAMP ELSE NULL END,
+        --
+        -- El "¿es procesado?" viaja en su PROPIO parámetro ($2) y no se
+        -- vuelve a comparar $1 acá. Reusar $1 en los dos lugares rompía la
+        -- consulta entera: en la asignación Postgres lo deduce varchar (por
+        -- la columna) y en la comparación contra un literal lo deduce text,
+        -- y aborta con "inconsistent types deduced for parameter $1"
+        -- (SQLSTATE 42P08) antes de tocar la tabla. Castear no alcanza —
+        -- cada uso sigue tirando para su lado; hay que desacoplarlos.
+        bodega_procesado_en = CASE WHEN $2::boolean THEN CURRENT_TIMESTAMP ELSE NULL END,
         observaciones_adicionales = CASE
-          WHEN $2::text IS NULL THEN observaciones_adicionales
-          ELSE $2::text
+          WHEN $3::text IS NULL THEN observaciones_adicionales
+          ELSE $3::text
         END
-    WHERE alegra_id = $3
+    WHERE alegra_id = $4
     RETURNING *
-  `, [estado, observaciones, parseInt(alegraId, 10)]);
+  `, [estado, estado === 'procesado', observaciones, parseInt(alegraId, 10)]);
 
   console.log(`✅ Factura ${alegraId} marcada como ${estado} en BODEGA`);
 
