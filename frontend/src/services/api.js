@@ -88,11 +88,16 @@ api.interceptors.response.use(
       }
     }
 
-    // Manejo de errores comunes
+    // Manejo de errores comunes.
+    //
+    // En el 500 se escribe el mensaje QUE MANDÓ EL SERVIDOR, no el rótulo
+    // "Error interno del servidor" que había antes: ese texto tapaba en la
+    // consola la explicación real —por ejemplo, cuál número de proveedor no
+    // tiene WhatsApp— y mandaba a buscar el problema al lugar equivocado.
     if (error.response?.status === 404) {
       console.warn('Recurso no encontrado')
     } else if (error.response?.status === 500) {
-      console.error('Error interno del servidor')
+      console.error(error.response?.data?.message || 'Error interno del servidor')
     }
     
     return Promise.reject(error)
