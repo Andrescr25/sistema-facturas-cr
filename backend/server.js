@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const axios = require('axios');
 require('dotenv').config();
 
 // Importar servicio de email para monitoreo continuo
@@ -260,6 +261,76 @@ let productSyncInterval = null;
 let cuentasPorCobrarSyncInterval = null;
 let historialClientesSyncInterval = null;
 let snapshotMargenesInterval = null;
+let whatsappPingInterval = null;
+
+// Cada cuánto se toca Evolution API. Render duerme un servicio tras ~15
+// minutos sin tráfico, así que 10 deja margen aunque se pierda un ping.
+const WHATSAPP_PING_MINUTOS = Number(process.env.WHATSAPP_PING_MINUTOS) || 10;
+
+/** Última situación conocida, para no repetir el mismo aviso cada 10 min. */
+let ultimoEstadoWhatsApp = null;
+
+/**
+ * Mantiene despierto el Evolution API y, de paso, vigila que el WhatsApp
+ * siga vinculado.
+ *
+ * POR QUÉ
+ * Evolution corre como su propio servicio en Render y se duerme sin tráfico.
+ * Despertarlo toma entre 20 y 30 segundos —medido en vivo— y esa espera se
+ * la come quien está mandando una orden de compra, sin entender por qué el
+ * botón se quedó pensando.
+ *
+ * SE CONSULTA EL ESTADO, NO LA RAÍZ
+ * Cuesta lo mismo y responde dos preguntas en vez de una: si contesta, está
+ * despierto; y además dice si el teléfono sigue vinculado. Perder la
+ * vinculación es silencioso —no falla nada hasta que alguien intenta
+ * enviar— así que conviene enterarse antes. Sin la clave configurada se cae
+ * a un GET de la raíz, que despierta igual.
+ */
+async function pingWhatsApp() {
+  const waUrl = process.env.WHATSAPP_API_URL;
+  const waApiKey = process.env.WHATSAPP_API_KEY;
+  const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
+
+  const puedeConsultarEstado = Boolean(waApiKey);
+  const url = puedeConsultarEstado
+    ? `${waUrl}/instance/connectionState/${waInstance}`
+    : waUrl;
+
+  try {
+    // 45 s: un arranque en frío de Render tarda unos 30 y no tiene sentido
+    // desistir justo antes de que despierte.
+    const { data } = await axios.get(url, {
+      timeout: 45000,
+      headers: puedeConsultarEstado ? { apikey: waApiKey } : {}
+    });
+
+    if (!puedeConsultarEstado) {
+      ultimoEstadoWhatsApp = 'despierto';
+      return;
+    }
+
+    const estado = (data?.instance || data)?.state || 'desconocido';
+
+    // Solo se escribe cuando CAMBIA: un log cada 10 minutos durante meses
+    // esconde justamente lo que uno quiere encontrar.
+    if (estado !== ultimoEstadoWhatsApp) {
+      if (estado === 'open') {
+        console.log(`✅ WhatsApp (${waInstance}) conectado`);
+      } else {
+        console.warn(`⚠️ WhatsApp (${waInstance}) está "${estado}" — no se podrán enviar órdenes de compra hasta volver a vincular el teléfono escaneando el QR.`);
+      }
+      ultimoEstadoWhatsApp = estado;
+    }
+  } catch (error) {
+    // Que Evolution esté caído no debe ensuciar el log cada 10 minutos ni
+    // afectar al resto del sistema: se avisa solo al cambiar la situación.
+    if (ultimoEstadoWhatsApp !== 'inalcanzable') {
+      console.warn(`⚠️ No se pudo contactar Evolution API en ${waUrl}: ${error.message}`);
+      ultimoEstadoWhatsApp = 'inalcanzable';
+    }
+  }
+}
 
 // Función para sincronizar productos de Alegra
 async function syncAlegraProducts() {
@@ -404,6 +475,28 @@ const server = app.listen(PORT, () => {
     console.log('   Establece ENABLE_COBRAR_SYNC=true en .env para activarla\n');
   }
 
+  // Mantener despierto Evolution API (WhatsApp).
+  //
+  // Solo si apunta a un servidor de verdad: contra localhost no hay nada que
+  // mantener despierto y en desarrollo llenaría la consola de avisos.
+  const waUrlConfigurada = process.env.WHATSAPP_API_URL;
+  const esRemoto = waUrlConfigurada && !/localhost|127\.0\.0\.1/.test(waUrlConfigurada);
+
+  if (esRemoto && process.env.ENABLE_WHATSAPP_PING !== 'false') {
+    // Al arrancar se toca de una: si el servicio estaba dormido, conviene
+    // que despierte ahora y no cuando alguien mande la primera orden.
+    setTimeout(pingWhatsApp, 12000);
+
+    whatsappPingInterval = setInterval(pingWhatsApp, WHATSAPP_PING_MINUTOS * 60 * 1000);
+
+    console.log('\n📱 Ping a Evolution API (WhatsApp) activado');
+    console.log(`   - Servidor: ${waUrlConfigurada}`);
+    console.log(`   - Cada ${WHATSAPP_PING_MINUTOS} minutos (WHATSAPP_PING_MINUTOS para cambiarlo)`);
+    console.log('   - Para desactivar: ENABLE_WHATSAPP_PING=false en .env\n');
+  } else if (!esRemoto) {
+    console.log('\n📱 Ping a WhatsApp no aplica (WHATSAPP_API_URL apunta a este equipo o no está configurada)\n');
+  }
+
   // Sincronizar historial de compras por cliente (catálogo público)
   if (process.env.ENABLE_HISTORIAL_SYNC !== 'false') {
     setTimeout(() => {
@@ -470,6 +563,12 @@ const gracefulShutdown = async (signal) => {
   if (historialClientesSyncInterval) {
     console.log('🛒 Deteniendo sincronización de historial de compras...');
     clearInterval(historialClientesSyncInterval);
+  }
+
+  // Detener el ping a Evolution API
+  if (whatsappPingInterval) {
+    console.log('📱 Deteniendo ping a WhatsApp...');
+    clearInterval(whatsappPingInterval);
   }
 
   // Detener monitoreo de emails
