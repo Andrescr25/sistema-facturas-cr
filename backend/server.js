@@ -12,6 +12,7 @@ const EmailService = require('./services/emailService');
 const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { iniciarDeteccionSemanalExcesos } = require('./src/modules/inventario-auditorias/inventario-auditorias.service');
+const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -267,6 +268,10 @@ let whatsappPingInterval = null;
 // minutos sin tráfico, así que 10 deja margen aunque se pierda un ping.
 const WHATSAPP_PING_MINUTOS = Number(process.env.WHATSAPP_PING_MINUTOS) || 10;
 
+// Solo ciertos días, para no gastar la cuota gratuita de Render. Ver
+// src/utils/horarioPing.js.
+const WHATSAPP_PING_DIAS = leerDias(process.env.WHATSAPP_PING_DIAS);
+
 /** Última situación conocida, para no repetir el mismo aviso cada 10 min. */
 let ultimoEstadoWhatsApp = null;
 
@@ -288,6 +293,16 @@ let ultimoEstadoWhatsApp = null;
  * a un GET de la raíz, que despierta igual.
  */
 async function pingWhatsApp() {
+  // Fuera de los días elegidos no se toca: el servicio duerme y no consume
+  // horas de la cuota gratuita. Si alguien manda una orden ese día igual
+  // funciona — Render lo despierta, tarda unos 30 segundos la primera vez.
+  if (!debeMantenerDespierto(new Date(), WHATSAPP_PING_DIAS)) {
+    // Se olvida el estado para que al volver el día de ping se vuelva a
+    // informar si el WhatsApp quedó desvinculado mientras tanto.
+    ultimoEstadoWhatsApp = null;
+    return;
+  }
+
   const waUrl = process.env.WHATSAPP_API_URL;
   const waApiKey = process.env.WHATSAPP_API_KEY;
   const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
@@ -491,7 +506,9 @@ const server = app.listen(PORT, () => {
 
     console.log('\n📱 Ping a Evolution API (WhatsApp) activado');
     console.log(`   - Servidor: ${waUrlConfigurada}`);
+    console.log(`   - Días: ${nombrarDias(WHATSAPP_PING_DIAS)} (WHATSAPP_PING_DIAS para cambiarlo)`);
     console.log(`   - Cada ${WHATSAPP_PING_MINUTOS} minutos (WHATSAPP_PING_MINUTOS para cambiarlo)`);
+    console.log(`   - Hoy ${debeMantenerDespierto(new Date(), WHATSAPP_PING_DIAS) ? 'SÍ se mantiene despierto' : 'NO se toca (el servicio duerme y ahorra horas)'}`);
     console.log('   - Para desactivar: ENABLE_WHATSAPP_PING=false en .env\n');
   } else if (!esRemoto) {
     console.log('\n📱 Ping a WhatsApp no aplica (WHATSAPP_API_URL apunta a este equipo o no está configurada)\n');
