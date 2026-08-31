@@ -13,7 +13,10 @@ export default function ModalEnviarContador({
   abierto, onCerrar, onEnviar, onCrearContacto, onEliminarContacto,
   contactos, envioDisponible, etiquetaMes, adjuntos
 }) {
-  useModal(onCerrar)
+  // `abierto` es imprescindible acá: este modal se monta siempre y decide
+  // más abajo si dibujarse. Sin pasarlo, bloqueaba el scroll de la página
+  // estando cerrado.
+  useModal(onCerrar, abierto)
   const [contactoId, setContactoId] = useState('')
   const [agregando, setAgregando] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')

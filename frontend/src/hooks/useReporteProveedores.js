@@ -412,7 +412,10 @@ export function useReporteProveedores() {
 
     try {
       await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
-    } catch (error) { }
+    } catch (error) {
+      console.error('No se pudo registrar el producto eliminado:', error)
+      showToast('El producto se quitó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
+    }
   }, [])
 
   const abrirModalAgregarProducto = useCallback((proveedor) => {
@@ -428,7 +431,11 @@ export function useReporteProveedores() {
       setLoadingProductos(true)
       const res = await api.get('/alegra/productos/buscar', { params: { query } })
       if (res.data.success) setProductosAlegra(res.data.data || [])
-    } catch (e) { } finally { setLoadingProductos(false) }
+    } catch (e) {
+      // Búsqueda mientras se escribe: no se avisa —una petición cortada por
+      // la siguiente tecla no es un problema— pero sí queda en consola.
+      console.warn('Búsqueda de productos falló:', e.message)
+    } finally { setLoadingProductos(false) }
   }, [])
 
   const agregarProductoAOrden = useCallback(async (producto, cantidad) => {
@@ -442,7 +449,10 @@ export function useReporteProveedores() {
 
     try {
       await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
-    } catch (error) { }
+    } catch (error) {
+      console.error('No se pudo registrar el producto agregado:', error)
+      showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
+    }
     setModalAgregarProducto(false)
   }, [proveedorParaAgregar, productosAgregados])
 
@@ -463,7 +473,10 @@ export function useReporteProveedores() {
 
     try {
       await api.delete('/alegra/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
-    } catch (e) { }
+    } catch (e) {
+      console.error('No se pudo quitar el producto agregado:', e)
+      showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
+    }
   }, [productosAgregados])
 
   const actualizarCantidadAgregado = useCallback(async (proveedorNombre, index, nuevaCantidad) => {
@@ -478,7 +491,10 @@ export function useReporteProveedores() {
 
       try {
         await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
-      } catch (e) { }
+      } catch (e) {
+        console.error('No se pudo guardar la cantidad:', e)
+        showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')
+      }
     }
   }, [productosAgregados])
 

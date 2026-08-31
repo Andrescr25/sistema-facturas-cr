@@ -14,8 +14,23 @@ import { useEffect } from 'react'
  * cerraba con Escape, y en todos, mover la rueda dentro del modal desplazaba
  * la lista de atrás. El marcado se irá unificando de a poco, sin apuro.
  */
-export function useModal(onCerrar) {
+/**
+ * `activo` dice si el modal se está VIENDO ahora mismo.
+ *
+ * Hace falta porque algunos modales se montan siempre y deciden adentro si
+ * dibujarse (`if (!abierto) return null`). Como los hooks no pueden ir
+ * después de un return, el hook corre igual estando el modal invisible — y
+ * bloqueaba el scroll de una página en la que no había ningún modal abierto.
+ * Pasó de verdad: Reporte Contador quedó sin poder desplazarse y no se podían
+ * ver las facturas.
+ *
+ * Por omisión es `true`, que es lo correcto para la mayoría: el padre los
+ * monta solo cuando toca (`{abierto && <Modal .../>}`).
+ */
+export function useModal(onCerrar, activo = true) {
   useEffect(() => {
+    if (!activo) return
+
     const alTeclado = (e) => { if (e.key === 'Escape') onCerrar?.() }
     document.addEventListener('keydown', alTeclado)
 
@@ -28,5 +43,5 @@ export function useModal(onCerrar) {
       document.removeEventListener('keydown', alTeclado)
       document.body.style.overflow = overflowPrevio
     }
-  }, [onCerrar])
+  }, [onCerrar, activo])
 }

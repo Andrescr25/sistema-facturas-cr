@@ -121,3 +121,40 @@ describe('vocabulario de diseño', () => {
     assert.ok(!patron.test('<div className="bg-primario-800 p-4">'), 'el patrón marca un rol válido');
   });
 });
+
+/**
+ * Un modal que se monta SIEMPRE y decide adentro si dibujarse
+ * (`if (!abierto) return null`) no puede llamar a useModal sin decirle si
+ * está visible: los hooks no pueden ir después de un return, así que el hook
+ * corre igual con el modal cerrado y bloquea el scroll de una página que no
+ * tiene ningún modal abierto.
+ *
+ * Pasó de verdad: Reporte Contador quedó sin poder desplazarse y no se
+ * podían ver las facturas.
+ */
+describe('modales y el bloqueo de scroll', () => {
+  const conHook = ARCHIVOS.filter(a => /useModal\s*\(/.test(a.texto));
+
+  test('hay modales usando el hook', () => {
+    assert.ok(conHook.length > 10, `solo ${conHook.length} archivos usan useModal; ¿se renombró el hook?`);
+  });
+
+  test('todo modal que pueda devolver null le pasa su visibilidad al hook', () => {
+    const culpables = [];
+    for (const { ruta, texto } of conHook) {
+      const devuelveNull = /^\s*if\s*\([^)]*\)\s*return null/m.test(texto);
+      const llamada = texto.match(/useModal\s*\(([^)]*)\)/);
+      const pasaVisibilidad = llamada && llamada[1].includes(',');
+      if (devuelveNull && !pasaVisibilidad) culpables.push(`${ruta}: useModal(${llamada?.[1] || '?'})`);
+    }
+    assert.deepEqual(culpables, [],
+      `Estos modales se auto-ocultan pero no le dicen al hook si están visibles,\n` +
+      `así que bloquean el scroll de la página estando cerrados:\n  ${culpables.join('\n  ')}`);
+  });
+
+  test('el hook acepta el segundo argumento', () => {
+    const hook = fs.readFileSync(path.join(FRONT, 'hooks', 'useModal.js'), 'utf8');
+    assert.match(hook, /export function useModal\(\s*onCerrar\s*,\s*activo/,
+      'useModal debe recibir `activo`; sin eso, los modales que se auto-ocultan no tienen cómo avisar');
+  });
+});

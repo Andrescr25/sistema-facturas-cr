@@ -898,11 +898,16 @@ class FacturacionService {
    * Enviar inmediatamente una factura pendiente (si hay internet)
    */
   async enviarFacturaPendiente(localId, facturaData, facturaVista = null) {
-    try {
-      const numeroLocal = typeof localId === 'string' && localId.startsWith('local-')
-        ? parseInt(localId.replace('local-', ''), 10)
-        : Number(localId);
+    // Se calcula ANTES del try porque el catch de abajo lo nombra al armar el
+    // aviso de "Alegra no permite reenviar". Declarado adentro, `const` es de
+    // bloque y en el catch no existe: en vez del mensaje que dice qué hacer
+    // —usar Reimpresión o una nota de crédito— saltaba un ReferenceError,
+    // justo en el camino de error, que es donde menos sirve un segundo fallo.
+    const numeroLocal = typeof localId === 'string' && localId.startsWith('local-')
+      ? parseInt(localId.replace('local-', ''), 10)
+      : Number(localId);
 
+    try {
       if (Number.isNaN(numeroLocal)) {
         throw new Error('ID local inválido');
       }
