@@ -42,14 +42,14 @@ export default function ConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 mb-1">
-          <div className={`p-2 rounded-full flex-shrink-0 ${variant === 'danger' ? 'bg-red-100' : 'bg-purple-100'}`}>
+          <div className={`p-2 rounded-full flex-shrink-0 ${variant === 'danger' ? 'bg-peligro-100' : 'bg-nota-100'}`}>
             {variant === 'danger'
-              ? <AlertTriangle className="text-red-600" size={20} />
-              : <HelpCircle className="text-purple-600" size={20} />}
+              ? <AlertTriangle className="text-peligro-600" size={20} />
+              : <HelpCircle className="text-nota-600" size={20} />}
           </div>
           <div className="flex-1 pt-1">
-            {title && <h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>}
-            {message && <p className="text-sm text-gray-600 whitespace-pre-wrap">{message}</p>}
+            {title && <h3 className="text-lg font-bold text-neutro-900 mb-1">{title}</h3>}
+            {message && <p className="text-sm text-neutro-600 whitespace-pre-wrap">{message}</p>}
           </div>
         </div>
 
@@ -68,7 +68,7 @@ export default function ConfirmModal({
           <button onClick={onCancel} className="btn btn-outline">{cancelLabel}</button>
           <button
             onClick={handleConfirm}
-            className={`btn ${variant === 'danger' ? 'bg-red-600 text-white border-red-600 hover:bg-red-700' : 'btn-primary'}`}
+            className={`btn ${variant === 'danger' ? 'bg-peligro-600 text-white border-peligro-600 hover:bg-peligro-700' : 'btn-primary'}`}
           >
             {confirmLabel}
           </button>

@@ -16,8 +16,8 @@ export default function SincronizarCompetencia({ categorias, onSincronizar, sinc
 
   return (
     <div className="card">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">Sincronizar contra la competencia</h2>
-      <p className="text-xs text-gray-500 mb-4">
+      <h2 className="text-base font-semibold text-neutro-900 mb-1">Sincronizar contra la competencia</h2>
+      <p className="text-xs text-neutro-500 mb-4">
         Busca los productos de mayor facturación en EPA, Walmart CR y Mas x Menos. Hasta {LIMITE_MAXIMO} productos por vez, puede tardar hasta ~2 minutos.
       </p>
 
@@ -49,12 +49,12 @@ export default function SincronizarCompetencia({ categorias, onSincronizar, sinc
       </div>
 
       {resultado && (
-        <div className="mt-4 text-sm bg-gray-50 rounded-xl p-3 space-y-1">
-          <p className="text-gray-700">
+        <div className="mt-4 text-sm bg-neutro-50 rounded-xl p-3 space-y-1">
+          <p className="text-neutro-700">
             Consultados <strong>{resultado.productosConsultados}</strong> productos · <strong>{resultado.capturas}</strong> precios capturados · <strong>{resultado.sugerenciasGeneradas}</strong> sugerencias nuevas
           </p>
           {resultado.bloqueos?.length > 0 && (
-            <p className="text-orange-600 flex items-center gap-1.5">
+            <p className="text-alerta-600 flex items-center gap-1.5">
               <AlertTriangle size={14} />
               Bloqueado por: {resultado.bloqueos.map(b => `${b.fuente} (${b.status})`).join(', ')} — se detuvo esa fuente para no insistir.
             </p>

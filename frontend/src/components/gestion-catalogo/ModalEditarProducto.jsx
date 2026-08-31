@@ -25,16 +25,16 @@ export default function ModalEditarProducto({
   onCerrar
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutro-900/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-neutro-100 animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-base font-bold text-gray-900 flex items-center gap-1.5">
-            <Edit className="h-5 w-5 text-blue-500" /> Editar Producto
+        <div className="flex justify-between items-center p-5 border-b border-neutro-100 bg-neutro-50">
+          <h3 className="text-base font-bold text-neutro-900 flex items-center gap-1.5">
+            <Edit className="h-5 w-5 text-primario-500" /> Editar Producto
           </h3>
           <button
             onClick={onCerrar}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 text-neutro-400 hover:text-neutro-600 rounded-lg hover:bg-neutro-100 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -43,35 +43,35 @@ export default function ModalEditarProducto({
         {/* Modal Form */}
         <form onSubmit={onSubmit} className="p-6 space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-700">Nombre del Producto:</label>
+            <label className="text-xs font-bold text-neutro-700">Nombre del Producto:</label>
             <input
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               required
               placeholder="Ej: Coca Cola Sabor Original 350ml"
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-700">Referencia (Código de Barras/Interno):</label>
+            <label className="text-xs font-bold text-neutro-700">Referencia (Código de Barras/Interno):</label>
             <input
               type="text"
               value={editRef}
               onChange={(e) => setEditRef(e.target.value)}
               required
               placeholder="Ej: 744100123456"
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-700">Categoría:</label>
+            <label className="text-xs font-bold text-neutro-700">Categoría:</label>
             <select
               value={editCategoria}
               onChange={(e) => setEditCategoria(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
             >
               <option value="">Sin cambios</option>
               {categorias.map((cat) => (
@@ -82,29 +82,29 @@ export default function ModalEditarProducto({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-700">Precio de Venta (₡):</label>
+              <label className="text-xs font-bold text-neutro-700">Precio de Venta (₡):</label>
               <input
                 type="number"
                 step="0.01"
                 value={editPrice}
                 onChange={(e) => setEditPrice(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-700">Costo Unitario (₡):</label>
+              <label className="text-xs font-bold text-neutro-700">Costo Unitario (₡):</label>
               <input
                 type="number"
                 step="0.01"
                 value={editCost}
                 onChange={(e) => setEditCost(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
               />
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex justify-between items-center gap-3 mt-6">
+          <div className="pt-4 border-t border-neutro-100 flex justify-between items-center gap-3 mt-6">
             {/* Delete button (left side) */}
             <button
               type="button"
@@ -112,8 +112,8 @@ export default function ModalEditarProducto({
               disabled={deletingProduct || savingEdit}
               className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-all duration-200 disabled:opacity-50 ${
                 confirmDelete
-                  ? 'bg-red-600 text-white hover:bg-red-700 shadow-md'
-                  : 'border border-red-200 text-red-500 hover:bg-red-50'
+                  ? 'bg-peligro-600 text-white hover:bg-peligro-700 shadow-md'
+                  : 'border border-peligro-200 text-peligro-500 hover:bg-peligro-50'
               }`}
             >
               {deletingProduct ? (
@@ -129,14 +129,14 @@ export default function ModalEditarProducto({
               <button
                 type="button"
                 onClick={onCerrar}
-                className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 font-semibold hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 border border-neutro-200 rounded-lg text-sm text-neutro-600 font-semibold hover:bg-neutro-100 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={savingEdit}
-                className="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                className="px-5 py-2 bg-primario-600 text-white font-bold rounded-lg text-sm hover:bg-primario-700 transition-colors flex items-center gap-1.5 shadow-md disabled:opacity-50"
               >
                 {savingEdit ? (
                   <>

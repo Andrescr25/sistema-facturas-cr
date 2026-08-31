@@ -22,7 +22,7 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
 
   return (
     <div className={`bg-white rounded-2xl border overflow-hidden flex flex-col h-full transition-colors ${
-      enPedido ? 'border-emerald-300' : 'border-slate-150'
+      enPedido ? 'border-cliente-300' : 'border-neutro-200'
     }`}>
       <button
         type="button"
@@ -40,41 +40,41 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
             onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
           />
         ) : (
-          <Package size={30} className="text-slate-200" />
+          <Package size={30} className="text-neutro-200" />
         )}
 
         {producto.descuento > 0 && (
-          <span className="absolute top-2 left-2 bg-rose-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
+          <span className="absolute top-2 left-2 bg-peligro-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
             −{producto.descuento}%
           </span>
         )}
         {puedePedir && enPedido && (
-          <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center">
+          <span className="absolute top-2 right-2 bg-cliente-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center">
             {cantidad}
           </span>
         )}
       </button>
 
-      <div className="px-2.5 pb-2.5 pt-1 flex flex-col gap-1.5 flex-1 border-t border-slate-100">
+      <div className="px-2.5 pb-2.5 pt-1 flex flex-col gap-1.5 flex-1 border-t border-neutro-100">
         <button
           type="button"
           onClick={onAbrir}
           disabled={!onAbrir}
           className="text-left disabled:cursor-default flex-1"
         >
-          <p className="text-[12px] font-semibold text-slate-900 leading-tight line-clamp-2 min-h-[30px]">
+          <p className="text-[12px] font-semibold text-neutro-900 leading-tight line-clamp-2 min-h-[30px]">
             {producto.nombre}
           </p>
-          {nota && <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{nota}</p>}
+          {nota && <p className="text-[10px] text-neutro-400 leading-tight mt-0.5">{nota}</p>}
         </button>
 
         <div className="flex items-baseline gap-1.5">
           {producto.precioLista && (
-            <span className="text-[11px] text-slate-300 line-through">
+            <span className="text-[11px] text-neutro-300 line-through">
               {formatearColones(producto.precioLista)}
             </span>
           )}
-          <span className={`text-[15px] font-extrabold ${producto.descuento ? 'text-rose-600' : 'text-slate-900'}`}>
+          <span className={`text-[15px] font-extrabold ${producto.descuento ? 'text-peligro-600' : 'text-neutro-900'}`}>
             {formatearColones(producto.precio)}
           </span>
         </div>
@@ -91,7 +91,7 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
           <button
             type="button"
             onClick={() => onCambiar(producto, 1)}
-            className="h-9 rounded-lg bg-slate-900 hover:bg-emerald-600 text-white text-[12px] font-bold flex items-center justify-center gap-1 transition-colors"
+            className="h-9 rounded-lg bg-neutro-900 hover:bg-cliente-600 text-white text-[12px] font-bold flex items-center justify-center gap-1 transition-colors"
           >
             <Plus size={14} />
             Agregar

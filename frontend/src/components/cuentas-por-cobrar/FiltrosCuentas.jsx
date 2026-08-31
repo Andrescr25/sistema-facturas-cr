@@ -23,7 +23,7 @@ export default function FiltrosCuentas({ filters, setFilters, onLimpiar, onSincr
   return (
     <div className="card space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-gray-600">
+        <div className="flex items-center gap-2 text-neutro-600">
           <Filter size={16} />
           <span className="font-medium text-sm">Filtros</span>
         </div>
@@ -56,7 +56,7 @@ export default function FiltrosCuentas({ filters, setFilters, onLimpiar, onSincr
           ))}
         </select>
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
           <input
             type="text"
             className="input pl-9"
@@ -68,7 +68,7 @@ export default function FiltrosCuentas({ filters, setFilters, onLimpiar, onSincr
       </div>
       <div className="flex flex-wrap gap-2">
         <button
-          className="px-3 py-1 rounded-full text-sm border border-gray-300 text-gray-600 hover:border-red-400"
+          className="px-3 py-1 rounded-full text-sm border border-neutro-300 text-neutro-600 hover:border-peligro-400"
           onClick={onLimpiar}
         >
           Limpiar filtros

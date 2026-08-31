@@ -46,11 +46,11 @@ export default function Rentabilidad() {
   return (
     <div className="max-w-7xl mx-auto pb-24 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Rentabilidad</h1>
-        <p className="text-gray-600 mt-1">Margen real por producto, calidad del costo registrado, rotación y techo de precio según la competencia.</p>
+        <h1 className="text-3xl font-bold text-neutro-900">Rentabilidad</h1>
+        <p className="text-neutro-600 mt-1">Margen real por producto, calidad del costo registrado, rotación y techo de precio según la competencia.</p>
       </div>
 
-      <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-md">
+      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
         {tabs.map((t) => {
           const Icon = t.icon
           const isCurrent = tab === t.key
@@ -59,13 +59,13 @@ export default function Rentabilidad() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 ${
-                isCurrent ? 'bg-white text-purple-600 shadow-md ring-1 ring-black/5' : 'text-gray-600 hover:text-gray-900'
+                isCurrent ? 'bg-white text-nota-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
               }`}
             >
               <Icon size={16} />
               <span>{t.label}</span>
               {t.count > 0 && (
-                <span className={`text-xxs px-2 py-0.5 rounded-full ${isCurrent ? 'bg-purple-100 text-purple-800' : 'bg-gray-200 text-gray-700'}`}>
+                <span className={`text-xxs px-2 py-0.5 rounded-full ${isCurrent ? 'bg-nota-100 text-nota-800' : 'bg-neutro-200 text-neutro-700'}`}>
                   {t.count}
                 </span>
               )}
@@ -77,15 +77,15 @@ export default function Rentabilidad() {
       {tab === 'catalogo' ? (
         <>
           {error && (
-            <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+            <div className="card bg-peligro-50 border-peligro-200 text-peligro-700 p-4">
               <p>{error}</p>
             </div>
           )}
 
           {loadingResumen && !resumen ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="card h-28 animate-pulse bg-gray-50 lg:col-span-2" />
-              <div className="card h-28 animate-pulse bg-gray-50" />
+              <div className="card h-28 animate-pulse bg-neutro-50 lg:col-span-2" />
+              <div className="card h-28 animate-pulse bg-neutro-50" />
             </div>
           ) : (
             <>

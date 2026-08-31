@@ -15,22 +15,22 @@ const ESTADO_UI = {
     key: 'completo',
     btnLabel: 'Llegó todo',
     Icon: Check,
-    activeBtnClass: 'bg-green-600 text-white border-green-600 hover:bg-green-700 font-semibold shadow-sm',
-    rowTintClass: 'bg-green-50/40 border-l-4 border-l-green-500'
+    activeBtnClass: 'bg-exito-600 text-white border-exito-600 hover:bg-primario-900 font-semibold shadow-sm',
+    rowTintClass: 'bg-exito-50/40 border-l-4 border-l-green-500'
   },
   no_llego: {
     key: 'no_llego',
     btnLabel: 'No llegó',
     Icon: X,
-    activeBtnClass: 'bg-red-600 text-white border-red-600 hover:bg-red-700 font-semibold shadow-sm',
-    rowTintClass: 'bg-red-50/40 border-l-4 border-l-red-500'
+    activeBtnClass: 'bg-peligro-600 text-white border-peligro-600 hover:bg-peligro-700 font-semibold shadow-sm',
+    rowTintClass: 'bg-peligro-50/40 border-l-4 border-l-red-500'
   },
   parcial: {
     key: 'parcial',
     btnLabel: 'Parte',
     Icon: CircleDot,
-    activeBtnClass: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 font-semibold shadow-sm',
-    rowTintClass: 'bg-blue-50/40 border-l-4 border-l-blue-500'
+    activeBtnClass: 'bg-primario-600 text-white border-primario-600 hover:bg-primario-700 font-semibold shadow-sm',
+    rowTintClass: 'bg-primario-50/40 border-l-4 border-l-blue-500'
   }
 }
 
@@ -52,7 +52,7 @@ export function FilaPorRevisar({
 
   const estadoSeleccionado = entrega?.tieneAjuste ? entrega.estado : null
   const configActual = estadoSeleccionado ? ESTADO_UI[estadoSeleccionado] : null
-  const rowTint = configActual ? configActual.rowTintClass : 'border-l-4 border-l-transparent hover:bg-gray-50/60'
+  const rowTint = configActual ? configActual.rowTintClass : 'border-l-4 border-l-transparent hover:bg-neutro-50/60'
 
   const handleToggleEstado = (keyEstado) => {
     if (estadoSeleccionado === keyEstado) {
@@ -91,21 +91,21 @@ export function FilaPorRevisar({
         {/* Info del producto */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-semibold text-gray-900 truncate">{producto.nombre}</p>
+            <p className="font-semibold text-neutro-900 truncate">{producto.nombre}</p>
             {entrega?.tieneAjuste && entrega.estado === 'parcial' && (
-              <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <span className="text-xs font-bold bg-primario-100 text-primario-800 px-2 py-0.5 rounded-full whitespace-nowrap">
                 Llegaron {entrega.cantidadEntregada} de {faltante}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 truncate mt-0.5">
+          <p className="text-xs text-neutro-500 truncate mt-0.5">
             {producto.codigo}
-            <span className={`ml-2 font-medium ${producto.tipo_faltante === 'total' ? 'text-red-600' : 'text-amber-600'}`}>
+            <span className={`ml-2 font-medium ${producto.tipo_faltante === 'total' ? 'text-peligro-600' : 'text-alerta-600'}`}>
               faltan {faltante}{producto.tipo_faltante === 'total' ? ' (todo)' : ''}
             </span>
           </p>
           {producto.observaciones && (
-            <p className="text-xs text-orange-600 mt-0.5 truncate">📝 {producto.observaciones}</p>
+            <p className="text-xs text-alerta-600 mt-0.5 truncate">📝 {producto.observaciones}</p>
           )}
         </div>
 
@@ -116,7 +116,7 @@ export function FilaPorRevisar({
             const IconComponent = item.Icon
             const btnClass = isSelected
               ? item.activeBtnClass
-              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 font-medium'
+              : 'bg-white border-neutro-200 text-neutro-600 hover:bg-neutro-50 font-medium'
 
             return (
               <button
@@ -135,8 +135,8 @@ export function FilaPorRevisar({
 
       {/* Subpanel numérico de "Parte" */}
       {modoParcial && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <span className="text-sm font-medium text-blue-900 whitespace-nowrap">Llegaron</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2 bg-primario-50 border border-primario-200 rounded-lg p-3">
+          <span className="text-sm font-medium text-primario-900 whitespace-nowrap">Llegaron</span>
           <input
             type="number"
             min="1"
@@ -151,12 +151,12 @@ export function FilaPorRevisar({
             className="input w-20 py-1 font-bold text-center"
             placeholder="0"
           />
-          <span className="text-sm font-medium text-blue-900 whitespace-nowrap">de {faltante}</span>
+          <span className="text-sm font-medium text-primario-900 whitespace-nowrap">de {faltante}</span>
           <button
             type="button"
             onClick={guardarParcial}
             disabled={!parcialValido}
-            className="btn btn-sm bg-blue-600 text-white border-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+            className="btn btn-sm bg-primario-600 text-white border-primario-600 hover:bg-primario-700 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
           >
             Guardar
           </button>
@@ -171,23 +171,23 @@ export function FilaPorRevisar({
 
 const RESUELTO_CONFIG = {
   completo: {
-    contenedor: 'bg-green-50/60',
-    icono: 'text-green-600',
-    texto: 'text-green-800',
+    contenedor: 'bg-exito-50/60',
+    icono: 'text-exito-600',
+    texto: 'text-exito-800',
     Icono: Check,
     etiqueta: (producto) => `Llegó todo (${producto.cantidad_faltante})`
   },
   parcial: {
-    contenedor: 'bg-blue-50/50',
-    icono: 'text-blue-600',
-    texto: 'text-blue-800',
+    contenedor: 'bg-primario-50/50',
+    icono: 'text-primario-600',
+    texto: 'text-primario-800',
     Icono: CircleDot,
     etiqueta: (producto, entrega) => `Llegaron ${entrega.cantidadEntregada} de ${producto.cantidad_faltante} — faltan ${entrega.cantidadAReducir}`
   },
   no_llego: {
-    contenedor: 'bg-red-50/50',
-    icono: 'text-red-600',
-    texto: 'text-red-800',
+    contenedor: 'bg-peligro-50/50',
+    icono: 'text-peligro-600',
+    texto: 'text-peligro-800',
     Icono: X,
     etiqueta: () => 'No llegó nada'
   }
@@ -202,13 +202,13 @@ export function FilaRevisada({ producto, productoKey, entrega, onDeshacer, onRea
     <div className={`px-4 py-3 flex items-center gap-3 ${cfg.contenedor}`}>
       <Icono size={16} className={`${cfg.icono} flex-shrink-0`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-500 truncate line-through">{producto.nombre}</p>
+        <p className="text-sm font-medium text-neutro-500 truncate line-through">{producto.nombre}</p>
         <p className={`text-xs font-medium ${cfg.texto}`}>{cfg.etiqueta(producto, entrega)}</p>
       </div>
       <button
         type="button"
         onClick={() => handleDeshacerAction && handleDeshacerAction(productoKey, producto)}
-        className="btn btn-sm btn-outline text-gray-600 whitespace-nowrap flex-shrink-0"
+        className="btn btn-sm btn-outline text-neutro-600 whitespace-nowrap flex-shrink-0"
       >
         <Undo2 size={13} className="mr-1" /> Deshacer
       </button>

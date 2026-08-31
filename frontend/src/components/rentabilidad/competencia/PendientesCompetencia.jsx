@@ -31,15 +31,15 @@ export default function PendientesCompetencia({ pendientes, loading, enCurso, on
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">
-            Por revisar {pendientes.length > 0 && <span className="text-gray-400 font-normal">({pendientes.length})</span>}
+          <h2 className="text-base font-semibold text-neutro-900">
+            Por revisar {pendientes.length > 0 && <span className="text-neutro-400 font-normal">({pendientes.length})</span>}
           </h2>
-          <p className="text-xs text-gray-500">Compará las dos fotos y decidí si es el mismo producto.</p>
+          <p className="text-xs text-neutro-500">Compará las dos fotos y decidí si es el mismo producto.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row flex-1 gap-2 sm:justify-end">
           <div className="relative sm:flex-1 sm:max-w-xs">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
             <input
               type="text"
               className="input pl-9 w-full !py-2"
@@ -54,13 +54,13 @@ export default function PendientesCompetencia({ pendientes, loading, enCurso, on
               <option key={f} value={f}>{fuenteLabel(f)}</option>
             ))}
           </select>
-          {loading && <Loader2 size={18} className="animate-spin text-purple-500 self-center" />}
+          {loading && <Loader2 size={18} className="animate-spin text-nota-500 self-center" />}
         </div>
       </div>
 
       {!loading && visibles.length === 0 ? (
-        <div className="card p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-          <ClipboardCheck size={40} className="text-gray-300" />
+        <div className="card p-12 text-center text-neutro-400 flex flex-col items-center gap-3">
+          <ClipboardCheck size={40} className="text-neutro-300" />
           <p>
             {pendientes.length === 0
               ? 'No hay nada por revisar. Sincronizá o importá una lista desde "Agregar datos".'

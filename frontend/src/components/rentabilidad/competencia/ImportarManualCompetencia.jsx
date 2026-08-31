@@ -40,8 +40,8 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
   return (
     <div className="card space-y-4">
       <div>
-        <h3 className="text-base font-semibold text-gray-900">Importar lista manual</h3>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <h3 className="text-base font-semibold text-neutro-900">Importar lista manual</h3>
+        <p className="text-xs text-neutro-500 mt-0.5">
           Para fuentes que no se pueden consultar automáticamente (Pequeño Mundo, mayoristas).
           Una línea por producto — separá con <strong>coma</strong>, <strong>punto y coma</strong> o <strong>TAB</strong> (pegado directo de Excel).
           Podés agregar la URL de una foto como tercera columna.
@@ -50,7 +50,7 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Fuente</label>
+          <label className="block text-xs font-medium text-neutro-600 mb-1">Fuente</label>
           <input
             type="text"
             list="fuentes-sugeridas"
@@ -64,7 +64,7 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
           </datalist>
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Lista de precios</label>
+          <label className="block text-xs font-medium text-neutro-600 mb-1">Lista de precios</label>
           <textarea
             className="input w-full font-mono text-xs"
             rows={5}
@@ -76,15 +76,15 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
       </div>
 
       {errores.length > 0 && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
-          <p className="text-xs font-semibold text-orange-800 flex items-center gap-1.5 mb-1.5">
+        <div className="rounded-xl border border-alerta-200 bg-alerta-50 p-3">
+          <p className="text-xs font-semibold text-alerta-800 flex items-center gap-1.5 mb-1.5">
             <AlertTriangle size={14} /> {errores.length} línea{errores.length === 1 ? '' : 's'} no se pudo leer
           </p>
           <ul className="space-y-1 max-h-32 overflow-y-auto">
             {errores.map(e => (
-              <li key={e.linea} className="text-[11px] text-orange-700">
-                <span className="font-mono bg-orange-100 px-1 rounded">línea {e.linea}</span>{' '}
-                <span className="text-orange-900">{e.texto.slice(0, 60)}</span> — {e.motivo}
+              <li key={e.linea} className="text-[11px] text-alerta-700">
+                <span className="font-mono bg-alerta-100 px-1 rounded">línea {e.linea}</span>{' '}
+                <span className="text-alerta-900">{e.texto.slice(0, 60)}</span> — {e.motivo}
               </li>
             ))}
           </ul>
@@ -92,23 +92,23 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
       )}
 
       {aImportar.length > 0 && (
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-              <CheckCircle2 size={14} className="text-green-500" />
+        <div className="rounded-xl border border-neutro-200 overflow-hidden">
+          <div className="px-3 py-2 bg-neutro-50 border-b border-neutro-100 flex items-center justify-between">
+            <span className="text-xs font-semibold text-neutro-700 flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-exito-500" />
               Se van a importar {aImportar.length} producto{aImportar.length === 1 ? '' : 's'}
             </span>
           </div>
-          <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+          <div className="max-h-64 overflow-y-auto divide-y divide-neutro-50">
             {aImportar.map(f => (
               <div key={f.linea} className="px-3 py-2 flex items-center gap-3">
                 <ImagenProducto src={f.imagenUrl} alt={f.nombre} tamano="h-9 w-9" />
-                <span className="text-xs text-gray-800 flex-1 truncate" title={f.nombre}>{f.nombre}</span>
-                <span className="text-xs font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(f.precio)}</span>
+                <span className="text-xs text-neutro-800 flex-1 truncate" title={f.nombre}>{f.nombre}</span>
+                <span className="text-xs font-semibold text-neutro-900 whitespace-nowrap">{formatCurrency(f.precio)}</span>
                 <button
                   onClick={() => excluir(f.linea)}
                   title="Quitar de la importación"
-                  className="text-gray-300 hover:text-red-500 transition"
+                  className="text-neutro-300 hover:text-peligro-500 transition"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -119,7 +119,7 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-neutro-400">
           {texto.trim() === '' ? 'Pegá la lista para ver el preview' : `${aImportar.length} listas · ${errores.length} con problema`}
         </span>
         <button
@@ -133,7 +133,7 @@ export default function ImportarManualCompetencia({ onImportar, importando, resu
       </div>
 
       {resultado && (
-        <div className="text-sm bg-green-50 border border-green-100 rounded-xl p-3 text-green-800">
+        <div className="text-sm bg-exito-50 border border-exito-100 rounded-xl p-3 text-exito-800">
           <strong>{resultado.guardadas}</strong> de {resultado.total} filas guardadas ·{' '}
           <strong>{resultado.sugerenciasGeneradas}</strong> sugerencias para revisar
         </div>

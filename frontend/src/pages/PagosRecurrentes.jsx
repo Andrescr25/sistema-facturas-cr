@@ -39,13 +39,13 @@ export default function PagosRecurrentes() {
   return (
     <div className="max-w-5xl mx-auto pb-24 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Pagos Recurrentes</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-bold text-neutro-900">Pagos Recurrentes</h1>
+        <p className="text-neutro-600 mt-1">
           Luz, agua, internet, alquiler, insumos y planilla — cuánto sale cada mes y qué falta pagar.
         </p>
       </div>
 
-      <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-md">
+      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
         {tabs.map(t => {
           const Icon = t.icon
           const activa = tab === t.key
@@ -54,13 +54,13 @@ export default function PagosRecurrentes() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all ${
-                activa ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' : 'text-gray-600 hover:text-gray-900'
+                activa ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
               }`}
             >
               <Icon size={16} />
               {t.label}
               {t.count > 0 && (
-                <span className={`text-xxs px-2 py-0.5 rounded-full ${activa ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>
+                <span className={`text-xxs px-2 py-0.5 rounded-full ${activa ? 'bg-primario-100 text-primario-800' : 'bg-neutro-200 text-neutro-700'}`}>
                   {t.count}
                 </span>
               )}

@@ -9,45 +9,45 @@ import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 export default function ListaItemsDevolucion({ items, onQuitar }) {
   if (!items || items.length === 0) {
     return (
-      <div className="bg-white p-12 text-center text-gray-400 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-3">
-        <Package size={32} className="text-gray-300" />
+      <div className="bg-white p-12 text-center text-neutro-400 rounded-3xl border border-neutro-100 shadow-sm flex flex-col items-center justify-center gap-3">
+        <Package size={32} className="text-neutro-300" />
         <span>Todavía no has agregado productos a esta devolución.</span>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="p-5 border-b border-gray-100 bg-gray-50/50">
-        <h3 className="font-bold text-gray-900">Productos Devueltos ({items.length})</h3>
+    <div className="bg-white rounded-3xl border border-neutro-100 shadow-sm overflow-hidden">
+      <div className="p-5 border-b border-neutro-100 bg-neutro-50/50">
+        <h3 className="font-bold text-neutro-900">Productos Devueltos ({items.length})</h3>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-neutro-100">
         {items.map(item => {
           const cantidad = Number(item.stock_real) - Number(item.stock_sistema)
           const valor = cantidad * Number(item.costo_unitario || 0)
           return (
             <div key={item.id} className="p-4 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="font-bold text-gray-900 text-sm truncate">{item.nombre_producto}</p>
-                <p className="text-xs text-gray-400">
-                  Ref: {item.referencia || 'N/A'} • Stock: {Number(item.stock_sistema)} → <strong className="text-gray-600">{Number(item.stock_real)}</strong>
+                <p className="font-bold text-neutro-900 text-sm truncate">{item.nombre_producto}</p>
+                <p className="text-xs text-neutro-400">
+                  Ref: {item.referencia || 'N/A'} • Stock: {Number(item.stock_sistema)} → <strong className="text-neutro-600">{Number(item.stock_real)}</strong>
                 </p>
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right">
-                  <span className="inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase bg-blue-100 text-blue-800">
+                  <span className="inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase bg-primario-100 text-primario-800">
                     +{cantidad} unid.
                   </span>
-                  <p className="text-xs font-bold mt-1 text-blue-600">{formatCurrency(valor)}</p>
+                  <p className="text-xs font-bold mt-1 text-primario-600">{formatCurrency(valor)}</p>
                 </div>
                 {item.ajustado_alegra ? (
-                  <span className="text-emerald-600" title="Ya aplicado en Alegra">
+                  <span className="text-exito-600" title="Ya aplicado en Alegra">
                     <CheckCircle size={18} />
                   </span>
                 ) : (
                   <button
                     onClick={() => onQuitar(item.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1.5"
+                    className="text-neutro-400 hover:text-peligro-600 transition-colors p-1.5"
                     title="Quitar de la devolución"
                   >
                     <Trash2 size={18} />

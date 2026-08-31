@@ -87,7 +87,7 @@ export default function RelacionarProductos() {
     return (
       <div className="max-w-7xl mx-auto py-12 text-center">
         <Loader className="mx-auto animate-spin mb-4" size={48} />
-        <p className="text-gray-600">Cargando factura...</p>
+        <p className="text-neutro-600">Cargando factura...</p>
       </div>
     )
   }
@@ -95,8 +95,8 @@ export default function RelacionarProductos() {
   if (error || !factura) {
     return (
       <div className="max-w-7xl mx-auto py-12">
-        <div className="card bg-red-50 border-red-200">
-          <div className="flex items-center text-red-800">
+        <div className="card bg-peligro-50 border-peligro-200">
+          <div className="flex items-center text-peligro-800">
             <AlertCircle className="mr-2" size={20} />
             {error || 'Factura no encontrada'}
           </div>

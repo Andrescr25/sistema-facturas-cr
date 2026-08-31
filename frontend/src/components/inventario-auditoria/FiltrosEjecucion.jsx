@@ -7,10 +7,10 @@ import { Search } from 'lucide-react'
  */
 export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, executionFilter, setExecutionFilter, itemsStats }) {
   return (
-    <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+    <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-3xl border border-neutro-100 shadow-sm">
       {/* Search bar */}
       <div className="relative flex-1">
-        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutro-400">
           <Search size={18} />
         </span>
         <input
@@ -18,7 +18,7 @@ export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, 
           value={executionSearch}
           onChange={(e) => setExecutionSearch(e.target.value)}
           placeholder="Buscar producto por nombre o referencia..."
-          className="input w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-base"
+          className="input w-full pl-10 pr-4 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-base"
         />
       </div>
 
@@ -27,8 +27,8 @@ export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, 
         <button
           onClick={() => setExecutionFilter('todos')}
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'todos'
-              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'bg-exito-600 border-exito-600 text-white shadow-sm'
+              : 'bg-white border-neutro-200 text-neutro-600 hover:border-neutro-300'
             }`}
         >
           Todos ({itemsStats.total})
@@ -36,8 +36,8 @@ export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, 
         <button
           onClick={() => setExecutionFilter('pendiente')}
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'pendiente'
-              ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'bg-alerta-600 border-alerta-600 text-white shadow-sm'
+              : 'bg-white border-neutro-200 text-neutro-600 hover:border-neutro-300'
             }`}
         >
           Pendientes ({itemsStats.pendientes})
@@ -45,8 +45,8 @@ export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, 
         <button
           onClick={() => setExecutionFilter('correcto')}
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'correcto'
-              ? 'bg-green-600 border-green-600 text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'bg-exito-600 border-exito-600 text-white shadow-sm'
+              : 'bg-white border-neutro-200 text-neutro-600 hover:border-neutro-300'
             }`}
         >
           Coincide ({itemsStats.correctos})
@@ -54,8 +54,8 @@ export default function FiltrosEjecucion({ executionSearch, setExecutionSearch, 
         <button
           onClick={() => setExecutionFilter('descuadre')}
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${executionFilter === 'descuadre'
-              ? 'bg-red-600 border-red-600 text-white shadow-sm'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'bg-peligro-600 border-peligro-600 text-white shadow-sm'
+              : 'bg-white border-neutro-200 text-neutro-600 hover:border-neutro-300'
             }`}
         >
           Descuadre ({itemsStats.descuadres})

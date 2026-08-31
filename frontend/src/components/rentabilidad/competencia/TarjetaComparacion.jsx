@@ -24,8 +24,8 @@ export default function TarjetaComparacion({ sugerencia, ocupado, onConfirmar, o
   const superaTecho = techo !== null && precioPropio > techo
 
   return (
-    <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden flex flex-col">
-      <div className="px-4 py-2.5 flex items-center justify-between border-b border-gray-100 bg-gray-50/70">
+    <div className="border border-neutro-200 rounded-2xl bg-white overflow-hidden flex flex-col">
+      <div className="px-4 py-2.5 flex items-center justify-between border-b border-neutro-100 bg-neutro-50/70">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${fuenteEstilo(sugerencia.fuente)}`}>
           {fuenteLabel(sugerencia.fuente)}
         </span>
@@ -34,23 +34,23 @@ export default function TarjetaComparacion({ sugerencia, ocupado, onConfirmar, o
         </span>
       </div>
 
-      <div className="grid grid-cols-2 divide-x divide-gray-100">
+      <div className="grid grid-cols-2 divide-x divide-neutro-100">
         <div className="p-3 flex flex-col items-center text-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Mi producto</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neutro-400">Mi producto</span>
           <ImagenProducto src={sugerido.imagenUrl} alt={sugerido.nombre} />
-          <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2" title={sugerido.nombre}>
+          <p className="text-xs font-medium text-neutro-800 leading-snug line-clamp-2" title={sugerido.nombre}>
             {sugerido.nombre}
           </p>
-          {sugerido.categoria && <p className="text-[10px] text-gray-400">{sugerido.categoria}</p>}
-          <p className="text-sm font-semibold text-gray-900 mt-auto">
+          {sugerido.categoria && <p className="text-[10px] text-neutro-400">{sugerido.categoria}</p>}
+          <p className="text-sm font-semibold text-neutro-900 mt-auto">
             {precioPropio > 0 ? formatCurrency(precioPropio) : '—'}
           </p>
         </div>
 
         <div className="p-3 flex flex-col items-center text-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Competencia</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neutro-400">Competencia</span>
           <ImagenProducto src={sugerencia.imagenUrl} alt={sugerencia.nombreExterno} />
-          <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2" title={sugerencia.nombreExterno}>
+          <p className="text-xs font-medium text-neutro-800 leading-snug line-clamp-2" title={sugerencia.nombreExterno}>
             {sugerencia.nombreExterno}
           </p>
           {sugerencia.urlProducto ? (
@@ -58,19 +58,19 @@ export default function TarjetaComparacion({ sugerencia, ocupado, onConfirmar, o
               href={sugerencia.urlProducto}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5"
+              className="text-[10px] text-primario-600 hover:underline flex items-center gap-0.5"
             >
               ver ficha <ExternalLink size={9} />
             </a>
           ) : (
-            <span className="text-[10px] text-gray-300">sin ficha</span>
+            <span className="text-[10px] text-neutro-300">sin ficha</span>
           )}
-          <p className="text-sm font-semibold text-gray-900 mt-auto">{formatCurrency(sugerencia.precio)}</p>
+          <p className="text-sm font-semibold text-neutro-900 mt-auto">{formatCurrency(sugerencia.precio)}</p>
         </div>
       </div>
 
       {techo !== null && (
-        <div className={`px-4 py-2 text-[11px] border-t ${superaTecho ? 'bg-red-50 border-red-100 text-red-700' : 'bg-blue-50/60 border-blue-100 text-blue-800'}`}>
+        <div className={`px-4 py-2 text-[11px] border-t ${superaTecho ? 'bg-peligro-50 border-peligro-100 text-peligro-700' : 'bg-primario-50/60 border-primario-100 text-primario-800'}`}>
           Si es el mismo, mi techo sería <strong>{formatCurrency(techo)}</strong>
           {precioPropio > 0 && (
             superaTecho
@@ -80,7 +80,7 @@ export default function TarjetaComparacion({ sugerencia, ocupado, onConfirmar, o
         </div>
       )}
 
-      <div className="p-3 flex gap-2 border-t border-gray-100 mt-auto">
+      <div className="p-3 flex gap-2 border-t border-neutro-100 mt-auto">
         <button
           onClick={() => onConfirmar(sugerencia)}
           disabled={ocupado}

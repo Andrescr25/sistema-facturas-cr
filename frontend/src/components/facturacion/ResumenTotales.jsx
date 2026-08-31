@@ -28,19 +28,19 @@ export default function ResumenTotales({
       <div className={`${isMobile ? 'space-y-1 mb-3' : 'space-y-2 mb-4'}`}>
         {!isMobile && (
           <>
-            <div className="flex justify-between text-gray-700">
+            <div className="flex justify-between text-neutro-700">
               <span>Subtotal:</span>
               <span className="font-medium">₡{subtotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
             </div>
 
             {descuentoGlobal > 0 && (
-              <div className="flex justify-between text-orange-600">
+              <div className="flex justify-between text-alerta-600">
                 <span>Descuento ({descuentoGlobal}%):</span>
                 <span className="font-medium">-₡{descuentoTotal.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
               </div>
             )}
 
-            <div className="flex justify-between text-gray-700">
+            <div className="flex justify-between text-neutro-700">
               <span>
                 {impuestoPrincipal
                   ? `${impuestoPrincipal.name || 'Impuestos'} (${Number(impuestoPrincipal.percentage) || 0}%)`
@@ -54,15 +54,15 @@ export default function ResumenTotales({
         )}
 
         {/* Total - Siempre visible */}
-        <div className={`${isMobile ? 'py-2' : 'border-t-2 border-gray-300 pt-2'
-          } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}>
+        <div className={`${isMobile ? 'py-2' : 'border-t-2 border-neutro-300 pt-2'
+          } flex justify-between ${isMobile ? 'text-lg' : 'text-xl'} font-bold text-neutro-900`}>
           <div>
-            <span className={isMobile ? 'text-sm text-gray-600 block' : ''}>
+            <span className={isMobile ? 'text-sm text-neutro-600 block' : ''}>
               {isMobile && `${items.length} ${items.length === 1 ? 'producto' : 'productos'} •`}
             </span>
             <span>TOTAL:</span>
           </div>
-          <span className="text-green-600">₡{total.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
+          <span className="text-exito-600">₡{total.toLocaleString('es-CR', { minimumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -71,7 +71,7 @@ export default function ResumenTotales({
         <button
           onClick={onFinalizar}
           disabled={!clienteSeleccionado || items.length === 0 || loading}
-          className={`btn ${modoEdicion ? 'bg-orange-600 hover:bg-orange-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 ${isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
+          className={`btn ${modoEdicion ? 'bg-alerta-600 hover:bg-alerta-700' : 'btn-primary'} w-full flex items-center justify-center gap-2 ${isMobile ? 'py-4 text-lg font-bold shadow-lg' : ''
             }`}
         >
           {modoEdicion ? <Edit size={isMobile ? 24 : 20} /> : <Check size={isMobile ? 24 : 20} />}

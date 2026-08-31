@@ -10,58 +10,58 @@ const METODO_CONFIG = {
   cash: {
     label: 'Efectivo',
     icon: Banknote,
-    bg: 'bg-green-50',
-    border: 'border-green-100',
-    textLabel: 'text-green-600',
-    textMonto: 'text-green-900',
-    badge: 'bg-green-100 text-green-800'
+    bg: 'bg-exito-50',
+    border: 'border-exito-100',
+    textLabel: 'text-exito-600',
+    textMonto: 'text-exito-900',
+    badge: 'bg-exito-100 text-exito-800'
   },
   transfer: {
     label: 'Transferencia / SINPE',
     icon: ArrowRightLeft,
-    bg: 'bg-blue-50',
-    border: 'border-blue-100',
-    textLabel: 'text-blue-600',
-    textMonto: 'text-blue-900',
-    badge: 'bg-blue-100 text-blue-800'
+    bg: 'bg-primario-50',
+    border: 'border-primario-100',
+    textLabel: 'text-primario-600',
+    textMonto: 'text-primario-900',
+    badge: 'bg-primario-100 text-primario-800'
   },
   'credit-card': {
     label: 'Tarjeta de Crédito',
     icon: CreditCard,
-    bg: 'bg-purple-50',
-    border: 'border-purple-100',
-    textLabel: 'text-purple-600',
-    textMonto: 'text-purple-900',
-    badge: 'bg-purple-100 text-purple-800'
+    bg: 'bg-nota-50',
+    border: 'border-nota-100',
+    textLabel: 'text-nota-600',
+    textMonto: 'text-nota-900',
+    badge: 'bg-nota-100 text-nota-800'
   },
   'debit-card': {
     label: 'Tarjeta de Débito',
     icon: CreditCard,
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-100',
-    textLabel: 'text-indigo-600',
-    textMonto: 'text-indigo-900',
-    badge: 'bg-indigo-100 text-indigo-800'
+    bg: 'bg-primario-50',
+    border: 'border-primario-100',
+    textLabel: 'text-primario-600',
+    textMonto: 'text-primario-900',
+    badge: 'bg-primario-100 text-primario-800'
   },
   check: {
     label: 'Cheque',
     icon: Receipt,
-    bg: 'bg-amber-50',
-    border: 'border-amber-100',
-    textLabel: 'text-amber-600',
-    textMonto: 'text-amber-900',
-    badge: 'bg-amber-100 text-amber-800'
+    bg: 'bg-alerta-50',
+    border: 'border-alerta-100',
+    textLabel: 'text-alerta-600',
+    textMonto: 'text-alerta-900',
+    badge: 'bg-alerta-100 text-alerta-800'
   }
 }
 
 const METODO_DEFAULT = {
   label: 'Otro',
   icon: Receipt,
-  bg: 'bg-gray-50',
-  border: 'border-gray-100',
-  textLabel: 'text-gray-600',
-  textMonto: 'text-gray-900',
-  badge: 'bg-gray-100 text-gray-800'
+  bg: 'bg-neutro-50',
+  border: 'border-neutro-100',
+  textLabel: 'text-neutro-600',
+  textMonto: 'text-neutro-900',
+  badge: 'bg-neutro-100 text-neutro-800'
 }
 
 function getMetodoConfig(metodoId) {
@@ -109,7 +109,7 @@ export default function CuadreCajaDia() {
       {/* ── Selector de fecha ── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <CalendarDays size={20} className="text-gray-400" />
+          <CalendarDays size={20} className="text-neutro-400" />
           <input
             type="date"
             value={fecha}
@@ -124,8 +124,8 @@ export default function CuadreCajaDia() {
             onClick={irAHoy}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               esHoy
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primario-600 text-white shadow-md'
+                : 'bg-neutro-100 text-neutro-700 hover:bg-neutro-200'
             }`}
           >
             Hoy
@@ -134,8 +134,8 @@ export default function CuadreCajaDia() {
             onClick={irAyer}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               fecha === new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().slice(0, 10)
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primario-600 text-white shadow-md'
+                : 'bg-neutro-100 text-neutro-700 hover:bg-neutro-200'
             }`}
           >
             Ayer
@@ -143,7 +143,7 @@ export default function CuadreCajaDia() {
           <button
             onClick={recargar}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all disabled:opacity-50"
+            className="p-2.5 rounded-xl bg-neutro-100 text-neutro-600 hover:bg-neutro-200 transition-all disabled:opacity-50"
             title="Recargar"
           >
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
@@ -153,14 +153,14 @@ export default function CuadreCajaDia() {
 
       {/* ── Error ── */}
       {error && (
-        <div className="card bg-red-50 border-red-200 text-red-700">
+        <div className="card bg-peligro-50 border-peligro-200 text-peligro-700">
           <p>{error}</p>
         </div>
       )}
 
       {/* ── Loading ── */}
       {loading && (
-        <div className="flex items-center justify-center gap-3 py-12 text-gray-400">
+        <div className="flex items-center justify-center gap-3 py-12 text-neutro-400">
           <Loader2 size={24} className="animate-spin" />
           <p className="text-base">Cargando cobros…</p>
         </div>
@@ -169,11 +169,11 @@ export default function CuadreCajaDia() {
       {/* ── Sin cobros ── */}
       {!loading && !error && cobros.length === 0 && (
         <div className="text-center py-16">
-          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <Receipt size={28} className="text-gray-400" />
+          <div className="w-16 h-16 rounded-2xl bg-neutro-100 flex items-center justify-center mx-auto mb-4">
+            <Receipt size={28} className="text-neutro-400" />
           </div>
-          <h3 className="text-lg font-bold text-gray-700 mb-1">Sin cobros este día</h3>
-          <p className="text-gray-500 text-sm max-w-xs mx-auto">
+          <h3 className="text-lg font-bold text-neutro-700 mb-1">Sin cobros este día</h3>
+          <p className="text-neutro-500 text-sm max-w-xs mx-auto">
             No hay abonos registrados para el {formatDate(fecha + 'T12:00:00')}. Seleccioná otra fecha o registrá un abono en la pestaña "Pendientes".
           </p>
         </div>
@@ -183,10 +183,10 @@ export default function CuadreCajaDia() {
       {!loading && !error && cobros.length > 0 && resumen && (
         <>
           {/* Tarjeta del total general */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white">
-            <p className="text-sm text-gray-300 font-medium mb-1">Total cobrado</p>
+          <div className="bg-gradient-to-br from-neutro-900 to-neutro-800 rounded-2xl p-5 text-white">
+            <p className="text-sm text-neutro-300 font-medium mb-1">Total cobrado</p>
             <p className="text-3xl sm:text-4xl font-extrabold">{formatCurrency(resumen.total)}</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-neutro-400 mt-1">
               {resumen.cantidadCobros} {resumen.cantidadCobros === 1 ? 'cobro' : 'cobros'} el {formatDate(fecha + 'T12:00:00')}
             </p>
           </div>
@@ -209,7 +209,7 @@ export default function CuadreCajaDia() {
                   <p className={`text-xl font-extrabold ${config.textMonto}`}>
                     {formatCurrency(datos.monto)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-neutro-500 mt-0.5">
                     {datos.cantidad} {datos.cantidad === 1 ? 'cobro' : 'cobros'}
                   </p>
                 </div>
@@ -219,8 +219,8 @@ export default function CuadreCajaDia() {
 
           {/* Lista detallada de cobros */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">Detalle de cobros</h3>
-            <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden bg-white">
+            <h3 className="text-sm font-semibold text-neutro-600 mb-3">Detalle de cobros</h3>
+            <div className="divide-y divide-neutro-100 border border-neutro-100 rounded-2xl overflow-hidden bg-white">
               {cobros.map((cobro) => {
                 const config = getMetodoConfig(cobro.metodoPago)
                 const Icon = config.icon
@@ -231,15 +231,15 @@ export default function CuadreCajaDia() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-base font-bold text-gray-900 truncate">
+                        <p className="text-base font-bold text-neutro-900 truncate">
                           {cobro.clienteNombre || 'Sin nombre'}
                         </p>
-                        <p className="text-base font-bold text-gray-900 shrink-0">
+                        <p className="text-base font-bold text-neutro-900 shrink-0">
                           {formatCurrency(Number(cobro.monto))}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-neutro-500">
                           Factura #{cobro.numeroFactura}
                         </span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${config.badge}`}>

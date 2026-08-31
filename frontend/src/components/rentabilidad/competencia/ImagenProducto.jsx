@@ -13,7 +13,7 @@ export default function ImagenProducto({ src, alt, className = '', tamano = 'h-2
   const hayImagen = Boolean(src) && !fallo
 
   return (
-    <div className={`${tamano} shrink-0 rounded-lg border border-gray-200 bg-white flex items-center justify-center overflow-hidden ${className}`}>
+    <div className={`${tamano} shrink-0 rounded-lg border border-neutro-200 bg-white flex items-center justify-center overflow-hidden ${className}`}>
       {hayImagen ? (
         <img
           src={src}
@@ -23,7 +23,7 @@ export default function ImagenProducto({ src, alt, className = '', tamano = 'h-2
           onError={() => setFallo(true)}
         />
       ) : (
-        <div className="flex flex-col items-center gap-1 text-gray-300">
+        <div className="flex flex-col items-center gap-1 text-neutro-300">
           <ImageOff size={20} />
           <span className="text-[9px] uppercase tracking-wide font-semibold">sin foto</span>
         </div>

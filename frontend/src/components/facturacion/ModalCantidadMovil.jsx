@@ -28,19 +28,19 @@ export default function ModalCantidadMovil({
         }}
       >
         {/* Handle visual para drag (solo móvil) */}
-        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+        <div className="w-12 h-1.5 bg-neutro-300 rounded-full mx-auto mb-4 sm:hidden"></div>
 
         {/* Producto seleccionado */}
         <div className="mb-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
+          <h3 className="text-lg font-bold text-neutro-900 mb-2 leading-tight">
             {producto.name}
           </h3>
-          <p className="text-sm text-gray-600 flex items-center gap-2">
+          <p className="text-sm text-neutro-600 flex items-center gap-2">
             <Package size={14} />
             {getReference(producto.reference)}
           </p>
           {producto.price && (
-            <p className="text-xl font-bold text-green-600 mt-2">
+            <p className="text-xl font-bold text-exito-600 mt-2">
               ₡{producto.price.toLocaleString()}
             </p>
           )}
@@ -48,7 +48,7 @@ export default function ModalCantidadMovil({
 
         {/* Input de cantidad con botones + y - */}
         <div className="mb-6">
-          <label className="block text-lg font-semibold text-gray-900 mb-4">
+          <label className="block text-lg font-semibold text-neutro-900 mb-4">
             Cantidad
           </label>
 
@@ -60,7 +60,7 @@ export default function ModalCantidadMovil({
                 const current = parseInt(cantidad) || 1
                 if (current > 1) setCantidad((current - 1).toString())
               }}
-              className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-2xl text-gray-700 font-extrabold text-3xl transition-colors"
+              className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-neutro-200 hover:bg-neutro-300 active:bg-neutro-400 rounded-2xl text-neutro-700 font-extrabold text-3xl transition-colors"
             >
               <Minus size={28} />
             </button>
@@ -83,7 +83,7 @@ export default function ModalCantidadMovil({
                   }
                 }}
                 placeholder="1"
-                className="w-full h-full text-center text-2xl font-black border-2 border-gray-350 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 focus:outline-none"
+                className="w-full h-full text-center text-2xl font-black border-2 border-neutro-300 rounded-2xl focus:border-primario-500 focus:ring-4 focus:ring-primario-200 focus:outline-none"
                 inputMode="numeric"
                 pattern="[0-9]*"
               />
@@ -96,7 +96,7 @@ export default function ModalCantidadMovil({
                 const current = parseInt(cantidad) || 0
                 setCantidad((current + 1).toString())
               }}
-              className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-2xl text-white font-extrabold text-3xl transition-colors"
+              className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-primario-600 hover:bg-primario-700 active:bg-primario-800 rounded-2xl text-white font-extrabold text-3xl transition-colors"
             >
               <Plus size={28} />
             </button>
@@ -108,7 +108,7 @@ export default function ModalCantidadMovil({
           <button
             type="button"
             onClick={onCerrar}
-            className="flex-1 py-5 px-4 bg-gray-200 text-gray-800 rounded-2xl font-black hover:bg-gray-300 active:bg-gray-400 transition-colors text-lg"
+            className="flex-1 py-5 px-4 bg-neutro-200 text-neutro-800 rounded-2xl font-black hover:bg-neutro-300 active:bg-neutro-400 transition-colors text-lg"
           >
             Cancelar
           </button>
@@ -116,7 +116,7 @@ export default function ModalCantidadMovil({
             type="button"
             onClick={onConfirmar}
             disabled={!cantidad || parseInt(cantidad) <= 0}
-            className="flex-1 py-5 px-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-350 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-xl"
+            className="flex-1 py-5 px-4 bg-exito-600 text-white rounded-2xl font-black hover:bg-primario-900 active:bg-exito-800 transition-colors disabled:bg-neutro-300 disabled:text-neutro-500 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-xl"
           >
             <Check size={26} strokeWidth={3} />
             Agregar

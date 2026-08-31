@@ -45,11 +45,11 @@ export default function ReporteContador() {
     <div className="max-w-6xl mx-auto pb-24 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2.5">
-            <Landmark className="text-blue-600" size={28} />
+          <h1 className="text-3xl font-bold text-neutro-900 flex items-center gap-2.5">
+            <Landmark className="text-primario-600" size={28} />
             Reporte Contador
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-neutro-600 mt-1">
             Control interno mensual de ventas y compras — se traen de Alegra, los revisás y exportás.
           </p>
         </div>
@@ -64,14 +64,14 @@ export default function ReporteContador() {
       <ResumenComparativo ventas={ventas} compras={compras} resumenVentas={resumenVentas} resumenCompras={resumenCompras} />
 
       {(ventas || compras) && (
-        <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-xs">
+        <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-xs">
           {['ventas', 'compras'].map(t => (
             <button
               key={t}
               onClick={() => setTabActiva(t)}
               disabled={!periodoDe(t)}
               className={`flex-1 py-2 text-center text-sm font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                tabActiva === t ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' : 'text-gray-600 hover:text-gray-900'
+                tabActiva === t ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
               }`}
             >
               {t === 'ventas' ? 'Ventas' : 'Compras'}

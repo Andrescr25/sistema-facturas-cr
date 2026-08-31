@@ -12,10 +12,10 @@ import { CLASIFICACION_INFO } from '../../utils/rentabilidadUtils'
  */
 
 const SEGMENTOS = [
-  { key: 'OK', color: 'bg-green-500', texto: 'text-green-600', punto: 'bg-green-500' },
-  { key: 'SIN_COSTO', color: 'bg-gray-300', texto: 'text-gray-600', punto: 'bg-gray-300' },
-  { key: 'UNIDAD_SOSPECHOSA', color: 'bg-orange-400', texto: 'text-orange-600', punto: 'bg-orange-400' },
-  { key: 'MARGEN_NEGATIVO', color: 'bg-red-500', texto: 'text-red-600', punto: 'bg-red-500' }
+  { key: 'OK', color: 'bg-exito-500', texto: 'text-exito-600', punto: 'bg-exito-500' },
+  { key: 'SIN_COSTO', color: 'bg-neutro-300', texto: 'text-neutro-600', punto: 'bg-neutro-300' },
+  { key: 'UNIDAD_SOSPECHOSA', color: 'bg-alerta-400', texto: 'text-alerta-600', punto: 'bg-alerta-400' },
+  { key: 'MARGEN_NEGATIVO', color: 'bg-peligro-500', texto: 'text-peligro-600', punto: 'bg-peligro-500' }
 ]
 
 export default function ResumenCards({ resumen, filtros, setFiltros }) {
@@ -36,14 +36,14 @@ export default function ResumenCards({ resumen, filtros, setFiltros }) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="card lg:col-span-2">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-900">Calidad del costo</h2>
-          <span className="text-sm text-gray-500 flex items-center gap-1.5">
+          <h2 className="text-base font-semibold text-neutro-900">Calidad del costo</h2>
+          <span className="text-sm text-neutro-500 flex items-center gap-1.5">
             <Package size={14} />
             {resumen.totalProductos} productos activos
           </span>
         </div>
 
-        <div className="flex h-3 rounded-full overflow-hidden bg-gray-100 mb-3">
+        <div className="flex h-3 rounded-full overflow-hidden bg-neutro-100 mb-3">
           {SEGMENTOS.map(({ key, color }) => {
             const n = resumen.porClasificacion[key]
             if (!n) return null
@@ -72,13 +72,13 @@ export default function ResumenCards({ resumen, filtros, setFiltros }) {
                 type="button"
                 onClick={() => toggle(key)}
                 className={`flex items-center gap-1.5 text-sm rounded-lg px-1.5 py-0.5 -mx-1.5 transition ${
-                  activo ? 'bg-gray-100 ring-1 ring-gray-300' : 'hover:bg-gray-50'
+                  activo ? 'bg-neutro-100 ring-1 ring-neutro-300' : 'hover:bg-neutro-50'
                 }`}
               >
                 <span className={`h-2 w-2 rounded-full ${punto}`} />
-                <span className="text-gray-600">{CLASIFICACION_INFO[key].label}</span>
+                <span className="text-neutro-600">{CLASIFICACION_INFO[key].label}</span>
                 <span className={`font-semibold ${texto}`}>{n}</span>
-                <span className="text-xs text-gray-400">{pct(n).toFixed(0)}%</span>
+                <span className="text-xs text-neutro-400">{pct(n).toFixed(0)}%</span>
               </button>
             )
           })}
@@ -88,17 +88,17 @@ export default function ResumenCards({ resumen, filtros, setFiltros }) {
       <button
         type="button"
         onClick={toggleSuperaTecho}
-        className={`card text-left transition hover:shadow-md hover:border-blue-300 ${filtros.superaTecho ? 'ring-2 ring-blue-400 border-blue-300' : ''}`}
+        className={`card text-left transition hover:shadow-md hover:border-primario-300 ${filtros.superaTecho ? 'ring-2 ring-primario-400 border-primario-300' : ''}`}
       >
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Store size={14} className="text-blue-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Store size={14} className="text-primario-500" />
           Competencia
         </p>
         <div className="flex items-baseline gap-1.5 mt-1">
-          <span className="text-2xl font-semibold text-blue-600">{resumen.competencia?.superanTecho ?? 0}</span>
-          <span className="text-sm text-gray-500">sobre el techo</span>
+          <span className="text-2xl font-semibold text-primario-600">{resumen.competencia?.superanTecho ?? 0}</span>
+          <span className="text-sm text-neutro-500">sobre el techo</span>
         </div>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-neutro-400">
           de {resumen.competencia?.conDato ?? 0} con dato · Click para filtrar
         </span>
       </button>

@@ -48,8 +48,8 @@ export default function FiltrosPagos({ filters, setFilters, proveedoresDisponibl
             onClick={() => setFilters((prev) => ({ ...prev, estado: estado.value }))}
             className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition ${
               filters.estado === estado.value
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'border-gray-200 text-gray-600 hover:border-blue-400'
+                ? 'bg-primario-600 text-white border-primario-600'
+                : 'border-neutro-200 text-neutro-600 hover:border-primario-400'
             }`}
           >
             {estado.label}
@@ -59,7 +59,7 @@ export default function FiltrosPagos({ filters, setFilters, proveedoresDisponibl
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
           <input
             type="text"
             className="input pl-9 w-full"

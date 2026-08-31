@@ -20,15 +20,15 @@ export default function TablaFacturas({
   }, [facturas, busqueda, soloMarcadas])
 
   if (loading) {
-    return <div className="card p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-      <Loader2 size={28} className="animate-spin text-blue-500" />
+    return <div className="card p-12 text-center text-neutro-400 flex flex-col items-center gap-3">
+      <Loader2 size={28} className="animate-spin text-primario-500" />
       <span>Cargando...</span>
     </div>
   }
 
   if (!detalle) {
-    return <div className="card p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-      <FileX2 size={36} className="text-gray-300" />
+    return <div className="card p-12 text-center text-neutro-400 flex flex-col items-center gap-3">
+      <FileX2 size={36} className="text-neutro-300" />
       <p>Todavía no subiste el Excel de {tipo === 'ventas' ? 'ventas' : 'compras'} de este mes.</p>
     </div>
   }
@@ -37,27 +37,27 @@ export default function TablaFacturas({
 
   return (
     <div className="card !p-0 overflow-hidden">
-      <div className="px-4 sm:px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-3 border-b border-neutro-100 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-neutro-900">
             {/* Las notas de crédito se cuentan aparte: sumarlas al total de
                 facturas daba un número que no cuadraba con el de Alegra. */}
             {detalle.resumen.totalFacturas} factura{detalle.resumen.totalFacturas === 1 ? '' : 's'}
             {detalle.resumen.totalDevoluciones > 0 && (
-              <span className="text-purple-600 font-normal"> · {detalle.resumen.totalDevoluciones} nota{detalle.resumen.totalDevoluciones === 1 ? '' : 's'} de crédito</span>
+              <span className="text-nota-600 font-normal"> · {detalle.resumen.totalDevoluciones} nota{detalle.resumen.totalDevoluciones === 1 ? '' : 's'} de crédito</span>
             )}
             {detalle.resumen.facturasExcluidas > 0 && (
-              <span className="text-gray-400 font-normal"> · {detalle.resumen.facturasExcluidas} excluida{detalle.resumen.facturasExcluidas === 1 ? '' : 's'}</span>
+              <span className="text-neutro-400 font-normal"> · {detalle.resumen.facturasExcluidas} excluida{detalle.resumen.facturasExcluidas === 1 ? '' : 's'}</span>
             )}
           </h3>
         </div>
         <div className="flex items-center gap-2">
           {tipo === 'ventas' && (
-            <button onClick={onRedetectar} title="Volver a buscar duplicados" className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
+            <button onClick={onRedetectar} title="Volver a buscar duplicados" className="text-xs text-neutro-500 hover:text-primario-600 flex items-center gap-1.5 border border-neutro-200 rounded-lg px-2.5 py-1.5">
               <RefreshCw size={13} /> Redetectar
             </button>
           )}
-          <button onClick={onExportar} className="text-xs text-gray-600 hover:text-blue-600 flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-1.5">
+          <button onClick={onExportar} className="text-xs text-neutro-600 hover:text-primario-600 flex items-center gap-1.5 border border-neutro-200 rounded-lg px-2.5 py-1.5">
             <Download size={13} /> Exportar Excel
           </button>
           {/* Enviar es la acción final del flujo, así que se queda con el
@@ -68,9 +68,9 @@ export default function TablaFacturas({
         </div>
       </div>
 
-      <div className="px-4 sm:px-5 py-2.5 border-b border-gray-100 flex flex-col sm:flex-row gap-2">
+      <div className="px-4 sm:px-5 py-2.5 border-b border-neutro-100 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
           <input
             type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por número o cliente/proveedor..."
@@ -81,7 +81,7 @@ export default function TablaFacturas({
           <button
             onClick={() => setSoloMarcadas(v => !v)}
             className={`text-xs font-medium px-3 py-1.5 rounded-lg border flex items-center gap-1.5 whitespace-nowrap ${
-              soloMarcadas ? 'bg-red-50 border-red-200 text-red-700' : 'border-gray-200 text-gray-500'
+              soloMarcadas ? 'bg-peligro-50 border-peligro-200 text-peligro-700' : 'border-neutro-200 text-neutro-500'
             }`}
           >
             <ListChecks size={13} /> Solo marcadas ({marcadas})
@@ -90,7 +90,7 @@ export default function TablaFacturas({
       </div>
 
       {filtradas.length === 0 ? (
-        <p className="p-8 text-center text-sm text-gray-400">Ninguna factura coincide con el filtro.</p>
+        <p className="p-8 text-center text-sm text-neutro-400">Ninguna factura coincide con el filtro.</p>
       ) : (
         <div className="max-h-[32rem] overflow-y-auto">
           {filtradas.map(f => (

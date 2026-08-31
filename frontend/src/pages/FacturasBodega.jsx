@@ -51,28 +51,28 @@ export default function FacturasBodega() {
       <HeaderBodega refreshing={refreshing} ultimaSync={ultimaSync} />
 
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between text-green-800 text-sm animate-fade-in">
+        <div className="bg-exito-50 border border-exito-200 rounded-2xl p-4 flex items-center justify-between text-exito-800 text-sm animate-fade-in">
           <div className="flex items-center gap-2">
-            <CheckCircle size={16} className="text-green-500" />
+            <CheckCircle size={16} className="text-exito-500" />
             <span>{successMessage}</span>
           </div>
-          <button className="text-xs underline text-green-600" onClick={() => setSuccessMessage(null)}>
+          <button className="text-xs underline text-exito-600" onClick={() => setSuccessMessage(null)}>
             Ocultar
           </button>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-2 text-red-800 text-sm animate-fade-in">
-          <AlertCircle size={16} className="text-red-500" />
+        <div className="bg-peligro-50 border border-peligro-200 rounded-2xl p-4 flex items-center gap-2 text-peligro-800 text-sm animate-fade-in">
+          <AlertCircle size={16} className="text-peligro-500" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-16 bg-white border border-gray-50 rounded-3xl">
+        <div className="text-center py-16 bg-white border border-neutro-50 rounded-3xl">
           <div className="spinner mx-auto mb-3"></div>
-          <p className="text-sm text-gray-500">Cargando facturas de bodega...</p>
+          <p className="text-sm text-neutro-500">Cargando facturas de bodega...</p>
         </div>
       ) : facturaSeleccionada ? (
         <DetalleDespacho

@@ -25,27 +25,27 @@ export default function PanelFinalizarExceso({
     .reduce((acc, i) => acc + (Number(i.stock_real) - Number(i.stock_sistema)) * Number(i.costo_unitario || 0), 0)
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5 sticky top-6">
-      <h3 className="text-lg font-bold text-gray-900 border-b pb-2 flex items-center gap-1.5">
-        <PackageX className="text-emerald-600" size={18} />
+    <div className="bg-white p-6 rounded-3xl border border-neutro-100 shadow-sm space-y-5 sticky top-6">
+      <h3 className="text-lg font-bold text-neutro-900 border-b pb-2 flex items-center gap-1.5">
+        <PackageX className="text-exito-600" size={18} />
         Progreso de Empaque
       </h3>
 
       <div className="space-y-1.5">
-        <div className="flex justify-between text-xs font-bold text-gray-500">
+        <div className="flex justify-between text-xs font-bold text-neutro-500">
           <span>Productos empacados</span>
           <span>{empacados} / {total}</span>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-neutro-100 rounded-full h-3 overflow-hidden">
           <div
-            className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+            className="bg-exito-500 h-full rounded-full transition-all duration-300"
             style={{ width: `${total > 0 ? (empacados / total) * 100 : 0}%` }}
           />
         </div>
       </div>
 
       {!todoListo && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+        <p className="text-xs text-alerta-700 bg-alerta-50 border border-alerta-100 rounded-lg px-3 py-2">
           Faltan {faltan} producto(s) por marcar antes de poder finalizar.
         </p>
       )}
@@ -53,17 +53,17 @@ export default function PanelFinalizarExceso({
       {empacados > 0 && (
         <div className="text-sm border-t pt-3 space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-gray-500 font-medium">Empacados sin cambios:</span>
-            <span className="font-extrabold text-gray-700">{sinCambios}</span>
+            <span className="text-neutro-500 font-medium">Empacados sin cambios:</span>
+            <span className="font-extrabold text-neutro-700">{sinCambios}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500 font-medium">Empacados con corrección:</span>
-            <span className="font-extrabold text-amber-600">{corregidos}</span>
+            <span className="text-neutro-500 font-medium">Empacados con corrección:</span>
+            <span className="font-extrabold text-alerta-600">{corregidos}</span>
           </div>
           {corregidos > 0 && (
             <div className="flex justify-between border-t pt-1.5 font-bold">
               <span>Impacto de correcciones:</span>
-              <span className={impactoCorrecciones >= 0 ? 'text-blue-600' : 'text-red-600'}>
+              <span className={impactoCorrecciones >= 0 ? 'text-primario-600' : 'text-peligro-600'}>
                 {impactoCorrecciones >= 0 ? '+' : ''}
                 {formatCurrency(impactoCorrecciones)}
               </span>
@@ -73,20 +73,20 @@ export default function PanelFinalizarExceso({
       )}
 
       <div className="space-y-1">
-        <label className="label text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">Notas</label>
+        <label className="label text-xs font-bold text-neutro-700 uppercase tracking-wider block mb-1">Notas</label>
         <textarea
           value={observacionesFinales}
           onChange={(e) => setObservacionesFinales(e.target.value)}
           placeholder="Ej: quién empacó, observaciones generales..."
           rows="3"
-          className="input w-full resize-none py-2 px-3 border-2 border-gray-300 focus:border-emerald-500 rounded-xl text-sm"
+          className="input w-full resize-none py-2 px-3 border-2 border-neutro-300 focus:border-primario-500 rounded-xl text-sm"
         />
       </div>
 
       <button
         onClick={onFinalizar}
         disabled={loading || !todoListo}
-        className="w-full bg-gray-800 hover:bg-gray-900 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
+        className="w-full bg-neutro-800 hover:bg-neutro-900 disabled:bg-neutro-200 disabled:text-neutro-400 text-white font-bold py-3 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95"
       >
         <CheckCircle size={18} />
         Finalizar Exceso

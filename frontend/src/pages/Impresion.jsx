@@ -50,11 +50,11 @@ export default function Impresion() {
       {/* Header */}
       <div className="flex items-center justify-between border-b pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2.5">
-            <Printer className="text-blue-600" size={28} />
+          <h1 className="text-2xl font-bold text-neutro-900 flex items-center gap-2.5">
+            <Printer className="text-primario-600" size={28} />
             Centro de Impresión
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-neutro-500 mt-0.5">
             Imprime facturas resueltas o con cambios pendientes y refleja los precios revisados
           </p>
         </div>
@@ -62,8 +62,8 @@ export default function Impresion() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-2.5 text-red-800 text-sm">
-          <AlertCircle className="text-red-500" size={18} />
+        <div className="bg-peligro-50 border border-peligro-200 rounded-2xl p-4 flex items-center gap-2.5 text-peligro-800 text-sm">
+          <AlertCircle className="text-peligro-500" size={18} />
           <p>Error: {error}</p>
         </div>
       )}
@@ -77,9 +77,9 @@ export default function Impresion() {
 
       {/* Loading */}
       {loading && (
-        <div className="text-center py-16 bg-white border border-gray-50 rounded-3xl">
+        <div className="text-center py-16 bg-white border border-neutro-50 rounded-3xl">
           <div className="spinner mx-auto mb-3"></div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-neutro-500">
             {activeTab === 'pendientes' ? 'Cargando facturas pendientes...' : 'Cargando facturas procesadas...'}
           </p>
         </div>

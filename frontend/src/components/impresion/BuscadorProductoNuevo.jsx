@@ -20,13 +20,13 @@ export default function BuscadorProductoNuevo({
   const terminoActual = esActivo ? productoBusqueda.termino : ''
 
   return (
-    <div className="border-t border-blue-100 pt-4">
-      <p className="text-xs font-semibold text-blue-700 uppercase mb-2 flex items-center gap-2">
+    <div className="border-t border-primario-100 pt-4">
+      <p className="text-xs font-semibold text-primario-700 uppercase mb-2 flex items-center gap-2">
         <Search size={14} />
         Buscar producto en Alegra
       </p>
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400 pointer-events-none" />
         <input
           type="text"
           value={terminoActual}
@@ -40,7 +40,7 @@ export default function BuscadorProductoNuevo({
       <div className="mt-3">
         {esActivo ? (
           productoBusqueda.cargando ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-neutro-500">
               <Loader size={16} className="animate-spin" />
               Buscando productos…
             </div>
@@ -54,12 +54,12 @@ export default function BuscadorProductoNuevo({
                 return (
                   <div
                     key={producto.id}
-                    className="p-3 border border-blue-100 rounded-md hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer"
+                    className="p-3 border border-primario-100 rounded-md hover:border-primario-300 hover:bg-primario-50 transition cursor-pointer"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{descripcion}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-medium text-neutro-900">{descripcion}</p>
+                        <p className="text-xs text-neutro-500">
                           Ref: {referencia} • Precio: ₡{Number(price).toLocaleString('es-CR')}
                         </p>
                       </div>
@@ -77,13 +77,13 @@ export default function BuscadorProductoNuevo({
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 text-xs text-gray-500 py-4">
-              <Package size={18} className="text-gray-400" />
+            <div className="flex flex-col items-center gap-2 text-xs text-neutro-500 py-4">
+              <Package size={18} className="text-neutro-400" />
               <span>{productoBusqueda.error || 'Sin resultados para ese texto.'}</span>
             </div>
           )
         ) : (
-          <p className="text-xs text-gray-500">Empieza escribiendo para buscar en Alegra.</p>
+          <p className="text-xs text-neutro-500">Empieza escribiendo para buscar en Alegra.</p>
         )}
       </div>
     </div>

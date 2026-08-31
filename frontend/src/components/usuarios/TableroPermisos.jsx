@@ -39,7 +39,7 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
   return (
     <div className={`space-y-3 ${esAdmin ? 'opacity-60' : ''}`}>
       {esAdmin && (
-        <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] font-semibold text-amber-800">
+        <p className="rounded-xl bg-alerta-50 border border-alerta-200 px-3 py-2 text-[12px] font-semibold text-alerta-800">
           Es administrador: ve todos los módulos y además gestiona usuarios. Quítele el rol para elegir módulos uno por uno.
         </p>
       )}
@@ -49,20 +49,20 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
         const todos = claves.every(c => tiene(c))
 
         return (
-          <div key={grupo} className="rounded-2xl border border-gray-150 overflow-hidden">
+          <div key={grupo} className="rounded-2xl border border-neutro-200 overflow-hidden">
             <button
               type="button"
               onClick={() => alternarGrupo(modulos)}
               disabled={esAdmin || deshabilitado}
-              className="w-full flex items-center justify-between gap-2 bg-gray-50 px-3 py-2 text-left disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-between gap-2 bg-neutro-50 px-3 py-2 text-left disabled:cursor-not-allowed"
             >
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500">{grupo}</span>
-              <span className={`text-[11px] font-bold ${todos ? 'text-emerald-700' : 'text-gray-400'}`}>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutro-500">{grupo}</span>
+              <span className={`text-[11px] font-bold ${todos ? 'text-exito-700' : 'text-neutro-400'}`}>
                 {todos ? 'Todos' : `${claves.filter(c => tiene(c)).length} de ${claves.length}`}
               </span>
             </button>
 
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-neutro-100">
               {modulos.map(m => {
                 const marcado = tiene(m.clave)
                 return (
@@ -71,16 +71,16 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
                     type="button"
                     onClick={() => alternar(m.clave)}
                     disabled={esAdmin || deshabilitado}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-gray-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-neutro-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   >
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
-                        marcado ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white'
+                        marcado ? 'border-exito-600 bg-exito-600 text-white' : 'border-neutro-300 bg-white'
                       }`}
                     >
                       {marcado && <Check size={11} strokeWidth={3} />}
                     </span>
-                    <span className={`text-[13px] ${marcado ? 'font-semibold text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-[13px] ${marcado ? 'font-semibold text-neutro-900' : 'text-neutro-500'}`}>
                       {m.nombre}
                     </span>
                   </button>

@@ -57,13 +57,13 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
   }
 
   return (
-    <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-gray-50/50">
+    <div className="border border-neutro-200 rounded-2xl p-4 space-y-3 bg-neutro-50/50">
       <div className="flex items-center gap-2">
-        <Globe size={15} className="text-blue-600" />
-        <h4 className="text-sm font-bold text-gray-800">Consulta automática</h4>
-        {cargando && <Loader2 size={14} className="animate-spin text-blue-500" />}
+        <Globe size={15} className="text-primario-600" />
+        <h4 className="text-sm font-bold text-neutro-800">Consulta automática</h4>
+        {cargando && <Loader2 size={14} className="animate-spin text-primario-500" />}
       </div>
-      <p className="text-xs text-gray-500 -mt-1">
+      <p className="text-xs text-neutro-500 -mt-1">
         Trae el monto y la fecha de vencimiento del recibo real, así aparece solo cuando toca pagarlo.
       </p>
 
@@ -77,7 +77,7 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
       </select>
 
       {error && (
-        <p className="text-xs text-red-600 flex items-center gap-1.5">
+        <p className="text-xs text-peligro-600 flex items-center gap-1.5">
           <AlertTriangle size={13} /> {error}
         </p>
       )}
@@ -91,7 +91,7 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
             const info = fuenteSeleccionada.camposInfo?.[campo] || {}
             return (
               <div key={campo}>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="block text-xs font-semibold text-neutro-600 mb-1">
                   {info.label || campo}
                 </label>
                 <input
@@ -102,7 +102,7 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
                   onChange={(e) => setCampo(campo, e.target.value)}
                 />
                 {info.ayuda && (
-                  <p className="text-[11px] text-gray-400 mt-1">{info.ayuda}</p>
+                  <p className="text-[11px] text-neutro-400 mt-1">{info.ayuda}</p>
                 )}
               </div>
             )
@@ -113,7 +113,7 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
       {esAcueductos && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Provincia</label>
+            <label className="block text-xs font-semibold text-neutro-600 mb-1">Provincia</label>
             <select
               className="input w-full !py-2.5"
               value={config.provincia || ''}
@@ -126,8 +126,8 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
 
           {config.provincia && (
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                Acueducto {acueductos.length > 0 && <span className="text-gray-400 font-normal">({acueductos.length})</span>}
+              <label className="block text-xs font-semibold text-neutro-600 mb-1">
+                Acueducto {acueductos.length > 0 && <span className="text-neutro-400 font-normal">({acueductos.length})</span>}
               </label>
               <select
                 className="input w-full !py-2.5"
@@ -143,7 +143,7 @@ export default function ConfigConsultaAuto({ fuentes, fuenteAuto, configAuto, on
 
           {config.acueducto && (
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1"># Paja</label>
+              <label className="block text-xs font-semibold text-neutro-600 mb-1"># Paja</label>
               <input
                 type="text"
                 className="input w-full !py-2.5"

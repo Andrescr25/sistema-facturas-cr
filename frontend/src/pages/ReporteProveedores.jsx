@@ -87,8 +87,8 @@ export default function ReporteProveedores() {
   if (loading && !proveedores.length) {
     return (
       <div className="max-w-6xl mx-auto text-center py-12">
-        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-blue-500 rounded-full w-12 h-12 animate-spin"></div>
-        <p className="text-gray-600">Cargando reporte de proveedores...</p>
+        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-primario-500 rounded-full w-12 h-12 animate-spin"></div>
+        <p className="text-neutro-600">Cargando reporte de proveedores...</p>
       </div>
     )
   }
@@ -104,13 +104,13 @@ export default function ReporteProveedores() {
   return (
     <div className="max-w-[1400px] mx-auto pb-24">
       <div className="mb-8 pl-1">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Faltantes y Compras</h1>
-        <p className="text-gray-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
+        <h1 className="text-4xl font-extrabold text-neutro-900 tracking-tight">Faltantes y Compras</h1>
+        <p className="text-neutro-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded shadow-sm">
-          <div className="flex items-center"><AlertCircle className="text-red-500 mr-2" /><p className="text-red-700 font-medium">Error: {error}</p></div>
+        <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
+          <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
         </div>
       )}
 

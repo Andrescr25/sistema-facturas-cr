@@ -36,8 +36,8 @@ export default function SugerenciasJuntoCon({ ids, titulo = 'Se lleva junto con'
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-1.5">
-        <Sparkles size={14} className="text-emerald-600" />
-        <h3 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide">{titulo}</h3>
+        <Sparkles size={14} className="text-cliente-600" />
+        <h3 className="text-xs font-extrabold text-neutro-900 uppercase tracking-wide">{titulo}</h3>
       </div>
 
       <div className={compacto ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-4 gap-2.5'}>
@@ -45,8 +45,8 @@ export default function SugerenciasJuntoCon({ ids, titulo = 'Se lleva junto con'
           <div
             key={p.id}
             className={compacto
-              ? 'flex items-center gap-2.5 bg-gray-50 rounded-xl p-2'
-              : 'bg-white border border-gray-150 rounded-xl p-2.5 flex flex-col gap-1.5'}
+              ? 'flex items-center gap-2.5 bg-neutro-50 rounded-xl p-2'
+              : 'bg-white border border-neutro-200 rounded-xl p-2.5 flex flex-col gap-1.5'}
           >
             {p.imagen && (
               <img
@@ -58,15 +58,15 @@ export default function SugerenciasJuntoCon({ ids, titulo = 'Se lleva junto con'
               />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2">{p.nombre}</p>
-              <p className="text-[10px] text-gray-400">{p.juntos} clientes lo llevaron junto</p>
-              <p className="text-xs font-extrabold text-emerald-700 mt-0.5">{formatearColones(p.precio)}</p>
+              <p className="text-[11px] font-bold text-neutro-900 leading-tight line-clamp-2">{p.nombre}</p>
+              <p className="text-[10px] text-neutro-400">{p.juntos} clientes lo llevaron junto</p>
+              <p className="text-xs font-extrabold text-cliente-700 mt-0.5">{formatearColones(p.precio)}</p>
             </div>
             <button
               type="button"
               onClick={() => onAgregar(p, 1)}
               aria-label={`Agregar ${p.nombre}`}
-              className="shrink-0 h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 transition-colors"
+              className="shrink-0 h-8 px-2.5 rounded-lg bg-cliente-600 hover:bg-cliente-700 text-white text-[11px] font-bold flex items-center gap-1 transition-colors"
             >
               <Plus size={12} />
               {compacto ? '' : 'Agregar'}

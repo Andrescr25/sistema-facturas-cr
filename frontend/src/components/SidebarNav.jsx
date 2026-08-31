@@ -51,16 +51,16 @@ function ItemGrupo({ item, isActive, onNavigate }) {
       <button
         onClick={alternar}
         className={`w-full flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-          hayHijoActivo && !abierto ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+          hayHijoActivo && !abierto ? 'bg-primario-50 text-primario-600' : 'text-neutro-700 hover:bg-neutro-50'
         }`}
       >
         <Icon size={20} className="mr-3 shrink-0" />
         <span className="flex-1 text-left">{item.name}</span>
-        {abierto ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+        {abierto ? <ChevronDown size={16} className="text-neutro-400" /> : <ChevronRight size={16} className="text-neutro-400" />}
       </button>
 
       {abierto && (
-        <div className="mt-1 ml-4 pl-3 border-l border-gray-200 space-y-1">
+        <div className="mt-1 ml-4 pl-3 border-l border-neutro-200 space-y-1">
           {item.children.map(child => {
             const ChildIcon = child.icon
             return (
@@ -69,7 +69,7 @@ function ItemGrupo({ item, isActive, onNavigate }) {
                 to={child.href}
                 onClick={onNavigate}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                  isActive(child.href) ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                  isActive(child.href) ? 'bg-primario-50 text-primario-600' : 'text-neutro-600 hover:bg-neutro-50'
                 }`}
               >
                 <ChildIcon size={17} className="mr-2.5 shrink-0" />
@@ -98,7 +98,7 @@ export default function SidebarNav({ navigation, isActive, onNavigate }) {
             to={item.href}
             onClick={onNavigate}
             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md mb-1 ${
-              isActive(item.href) ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+              isActive(item.href) ? 'bg-primario-50 text-primario-600' : 'text-neutro-700 hover:bg-neutro-50'
             }`}
           >
             <Icon size={20} className="mr-3 shrink-0" />

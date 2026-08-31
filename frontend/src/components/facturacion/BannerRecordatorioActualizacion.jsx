@@ -7,14 +7,14 @@ import { AlertCircle, RefreshCw } from 'lucide-react'
 export default function BannerRecordatorioActualizacion({ isMobile, isOnline, syncingCache, onActualizarCache, onOcultar }) {
   return (
     <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
-      <div className="card border border-yellow-200 bg-gradient-to-r from-yellow-50 to-blue-50 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="card border border-alerta-200 bg-gradient-to-r from-alerta-50 to-primario-50 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <AlertCircle className="text-yellow-600 flex-shrink-0" size={isMobile ? 20 : 24} />
+          <AlertCircle className="text-alerta-600 flex-shrink-0" size={isMobile ? 20 : 24} />
           <div>
-            <p className="text-base font-semibold text-yellow-900">
+            <p className="text-base font-semibold text-alerta-900">
               Actualiza el sistema antes de facturar
             </p>
-            <p className="text-sm text-yellow-800">
+            <p className="text-sm text-alerta-800">
               Cada domingo y lunes recuerda sincronizar el catálogo para trabajar con precios y clientes actualizados.
             </p>
           </div>
@@ -30,7 +30,7 @@ export default function BannerRecordatorioActualizacion({ isMobile, isOnline, sy
           </button>
           <button
             onClick={onOcultar}
-            className="btn btn-ghost text-sm text-gray-600 hover:text-gray-900"
+            className="btn btn-ghost text-sm text-neutro-600 hover:text-neutro-900"
           >
             Ya actualicé
           </button>

@@ -25,42 +25,42 @@ export default function DetalleDespacho({
   return (
     <div className="space-y-4 pb-24">
       {/* Encabezado Fijo del Despacho Activo */}
-      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-white border border-neutro-100 rounded-3xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <button
-            className="text-gray-500 flex items-center gap-1.5 text-sm hover:text-gray-800 font-semibold"
+            className="text-neutro-500 flex items-center gap-1.5 text-sm hover:text-neutro-800 font-semibold"
             onClick={onCancelar}
           >
             ← Cancelar y salir
           </button>
-          <span className="text-xs text-gray-400">Despacho Activo</span>
+          <span className="text-xs text-neutro-400">Despacho Activo</span>
         </div>
 
         <div className="flex items-start justify-between border-t pt-3">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 whitespace-normal break-words leading-tight">{facturaSeleccionada.cliente_nombre}</h2>
-            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+            <h2 className="text-xl font-bold text-neutro-900 whitespace-normal break-words leading-tight">{facturaSeleccionada.cliente_nombre}</h2>
+            <p className="text-xs text-neutro-400 flex items-center gap-1 mt-0.5">
               <CalendarDays size={12} />
               Emitido: {formatDate(facturaSeleccionada.fecha_emision)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-base font-bold text-blue-600">#{facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}</p>
-            <p className="text-xs text-gray-400">Total: {formatCurrency(facturaSeleccionada.total)}</p>
+            <p className="text-base font-bold text-primario-600">#{facturaSeleccionada.numero_completo || facturaSeleccionada.numero_factura}</p>
+            <p className="text-xs text-neutro-400">Total: {formatCurrency(facturaSeleccionada.total)}</p>
           </div>
         </div>
 
         {/* Barra de Progreso del Picking */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs font-semibold">
-            <span className="text-gray-500">Progreso del empaque:</span>
-            <span className={progressPercent === 100 ? 'text-green-600' : 'text-blue-600'}>
+            <span className="text-neutro-500">Progreso del empaque:</span>
+            <span className={progressPercent === 100 ? 'text-exito-600' : 'text-primario-600'}>
               {checkedItemsCount} de {facturaSeleccionada.items?.length || 0} productos ({progressPercent}%)
             </span>
           </div>
-          <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+          <div className="w-full bg-neutro-100 h-2.5 rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 rounded-full ${progressPercent === 100 ? 'bg-green-500 shadow-sm shadow-green-200' : 'bg-blue-600'
+              className={`h-full transition-all duration-300 rounded-full ${progressPercent === 100 ? 'bg-exito-500 shadow-sm shadow-exito-200' : 'bg-primario-600'
                 }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -91,13 +91,13 @@ export default function DetalleDespacho({
       </div>
 
       {/* Barra de Acciones al final de la página */}
-      <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex flex-col gap-2 mt-4">
+      <div className="bg-white border border-neutro-100 rounded-3xl p-5 shadow-sm flex flex-col gap-2 mt-4">
         <button
           onClick={onRegistrarFaltantes}
           disabled={guardando || !facturaSeleccionada || !allItemsChecked}
           className={`w-full py-4 rounded-2xl text-base font-bold text-white transition-all shadow-lg text-center flex items-center justify-center gap-2 ${!allItemsChecked
-            ? 'bg-gray-300 cursor-not-allowed shadow-none'
-            : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 active:scale-[0.98]'
+            ? 'bg-neutro-300 cursor-not-allowed shadow-none'
+            : 'bg-primario-600 hover:bg-primario-700 shadow-primario-200 active:scale-[0.98]'
             }`}
         >
           {guardando ? (

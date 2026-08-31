@@ -29,22 +29,22 @@ function FilaPago({ pago, onPagar, onRevertir }) {
 
   return (
     <div className={`p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
-      pago.vencido ? 'bg-red-50/40' : pagado ? 'bg-green-50/20' : ''
+      pago.vencido ? 'bg-peligro-50/40' : pagado ? 'bg-exito-50/20' : ''
     }`}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-bold text-gray-900 text-sm">{pago.nombre}</p>
+          <p className="font-bold text-neutro-900 text-sm">{pago.nombre}</p>
           {quincena && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 uppercase">{quincena}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutro-100 text-neutro-500 uppercase">{quincena}</span>
           )}
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${info.estilo}`}>{info.label}</span>
           {pago.vencido && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-red-100 text-red-700 flex items-center gap-1">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-peligro-100 text-peligro-700 flex items-center gap-1">
               <CalendarX size={10} /> Vencido
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-neutro-500 mt-0.5">
           {pago.proveedor && <>{pago.proveedor} · </>}
           Vence {formatFecha(pago.fechaVencimiento)}
           {pagado && <> · pagado {formatFecha(pago.fechaPago)}</>}
@@ -53,7 +53,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
             esto el monto aparece "por arte de magia" y no hay forma de
             cotejarlo contra el papel. */}
         {pago.notas && (
-          <p className="text-[11px] text-blue-600 mt-0.5">{pago.notas}</p>
+          <p className="text-[11px] text-primario-600 mt-0.5">{pago.notas}</p>
         )}
         {/* Sin esto el gasto aparecía en ₡0, que se lee como "no debo nada"
             cuando en realidad todavía no se consultó el recibo. Se distingue
@@ -61,7 +61,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
             publicó el recibo": son dos situaciones distintas y la segunda no
             requiere hacer nada. */}
         {pago.esperandoConsulta && (
-          <p className="text-[11px] text-amber-600 mt-0.5">
+          <p className="text-[11px] text-alerta-600 mt-0.5">
             {pago.ultimaConsulta
               ? `Sin recibo nuevo · consultado ${formatFechaHora(pago.ultimaConsulta)}`
               : 'Pendiente de consulta'}
@@ -71,11 +71,11 @@ function FilaPago({ pago, onPagar, onRevertir }) {
 
       {pagado ? (
         <div className="flex items-center gap-3 shrink-0">
-          <p className="font-bold text-gray-900">{formatCurrency(pago.monto)}</p>
+          <p className="font-bold text-neutro-900">{formatCurrency(pago.monto)}</p>
           <button
             onClick={() => onRevertir(pago)}
             title="Marcar como pendiente"
-            className="text-xs text-gray-400 hover:text-gray-700 font-semibold flex items-center gap-1"
+            className="text-xs text-neutro-400 hover:text-neutro-700 font-semibold flex items-center gap-1"
           >
             <Undo2 size={13} /> Deshacer
           </button>
@@ -83,7 +83,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
       ) : (
         <div className="flex items-center gap-2 shrink-0">
           <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-bold">₡</span>
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-neutro-400 font-bold">₡</span>
             <input
               type="number"
               min="0"
@@ -91,15 +91,15 @@ function FilaPago({ pago, onPagar, onRevertir }) {
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               placeholder={pago.esperandoConsulta ? '—' : '0'}
-              className={`w-32 text-right py-2 pl-6 pr-2 border-2 rounded-xl font-bold text-sm focus:outline-none focus:border-blue-500 ${
-                pago.esperandoConsulta ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200'
+              className={`w-32 text-right py-2 pl-6 pr-2 border-2 rounded-xl font-bold text-sm focus:outline-none focus:border-primario-500 ${
+                pago.esperandoConsulta ? 'border-alerta-200 bg-alerta-50/50' : 'border-neutro-200'
               }`}
             />
           </div>
           <button
             onClick={pagar}
             disabled={guardando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white text-sm font-bold py-2 px-4 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap"
+            className="bg-primario-600 hover:bg-primario-700 disabled:bg-neutro-200 text-white text-sm font-bold py-2 px-4 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap"
           >
             {guardando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
             Pagar
@@ -113,18 +113,18 @@ function FilaPago({ pago, onPagar, onRevertir }) {
 export default function ListaPagosMes({ pagos, loading, onPagar, onRevertir }) {
   return (
     <div className="card !p-0 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Pagos del mes</h3>
-        {loading && <Loader2 size={16} className="animate-spin text-blue-500" />}
+      <div className="px-5 py-4 border-b border-neutro-100 flex items-center justify-between">
+        <h3 className="text-base font-semibold text-neutro-900">Pagos del mes</h3>
+        {loading && <Loader2 size={16} className="animate-spin text-primario-500" />}
       </div>
 
       {!loading && pagos.length === 0 ? (
-        <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-          <Receipt size={40} className="text-gray-300" />
+        <div className="p-12 text-center text-neutro-400 flex flex-col items-center gap-3">
+          <Receipt size={40} className="text-neutro-300" />
           <p>No hay pagos este mes. Agregá tus gastos fijos en la pestaña "Gastos fijos".</p>
         </div>
       ) : (
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-neutro-100">
           {pagos.map(p => (
             <FilaPago key={p.id} pago={p} onPagar={onPagar} onRevertir={onRevertir} />
           ))}

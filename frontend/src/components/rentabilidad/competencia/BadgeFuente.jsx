@@ -1,7 +1,7 @@
 const ESTILO_FUENTE = {
-  epa: 'bg-yellow-100 text-yellow-700',
-  walmart: 'bg-blue-100 text-blue-700',
-  masxmenos: 'bg-emerald-100 text-emerald-700'
+  epa: 'bg-alerta-100 text-alerta-700',
+  walmart: 'bg-primario-100 text-primario-700',
+  masxmenos: 'bg-exito-100 text-exito-700'
 }
 
 const LABEL_FUENTE = {
@@ -12,7 +12,7 @@ const LABEL_FUENTE = {
 
 export default function BadgeFuente({ fuente }) {
   return (
-    <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap ${ESTILO_FUENTE[fuente] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide whitespace-nowrap ${ESTILO_FUENTE[fuente] || 'bg-neutro-100 text-neutro-600'}`}>
       {LABEL_FUENTE[fuente] || fuente}
     </span>
   )

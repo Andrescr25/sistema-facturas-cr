@@ -24,7 +24,7 @@ export default function FilaLinea({ linea, onEditar, onEliminar }) {
 
   if (editando) {
     return (
-      <tr className="bg-blue-50/40">
+      <tr className="bg-primario-50/40">
         <td className="px-3 py-1.5">
           <input className="input !py-1 !text-xs w-full" value={valores.concepto}
             onChange={(e) => setValores(v => ({ ...v, concepto: e.target.value }))} />
@@ -47,10 +47,10 @@ export default function FilaLinea({ linea, onEditar, onEliminar }) {
         </td>
         <td className="px-3 py-1.5">
           <div className="flex items-center gap-1 justify-end">
-            <button onClick={guardar} disabled={guardando} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
+            <button onClick={guardar} disabled={guardando} className="p-1 text-exito-600 hover:bg-exito-50 rounded">
               {guardando ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
             </button>
-            <button onClick={() => setEditando(false)} className="p-1 text-gray-400 hover:bg-gray-100 rounded">
+            <button onClick={() => setEditando(false)} className="p-1 text-neutro-400 hover:bg-neutro-100 rounded">
               <X size={13} />
             </button>
           </div>
@@ -61,17 +61,17 @@ export default function FilaLinea({ linea, onEditar, onEliminar }) {
 
   return (
     <tr className={`text-xs ${linea.excluido ? 'opacity-40' : ''}`}>
-      <td className="px-3 py-1.5 text-gray-700 max-w-xs truncate" title={linea.concepto}>{linea.concepto}</td>
-      <td className="px-3 py-1.5 text-right text-gray-500">{linea.cantidad}</td>
-      <td className="px-3 py-1.5 text-right text-gray-500">{formatCurrency(linea.precioTotal)}</td>
-      <td className="px-3 py-1.5 text-right text-gray-700">{formatCurrency(linea.baseGravable)}</td>
-      <td className="px-3 py-1.5 text-right text-gray-700">{formatCurrency(linea.impuesto)}</td>
+      <td className="px-3 py-1.5 text-neutro-700 max-w-xs truncate" title={linea.concepto}>{linea.concepto}</td>
+      <td className="px-3 py-1.5 text-right text-neutro-500">{linea.cantidad}</td>
+      <td className="px-3 py-1.5 text-right text-neutro-500">{formatCurrency(linea.precioTotal)}</td>
+      <td className="px-3 py-1.5 text-right text-neutro-700">{formatCurrency(linea.baseGravable)}</td>
+      <td className="px-3 py-1.5 text-right text-neutro-700">{formatCurrency(linea.impuesto)}</td>
       <td className="px-3 py-1.5">
         <div className="flex items-center gap-1 justify-end">
-          <button onClick={() => setEditando(true)} className="p-1 text-gray-300 hover:text-blue-600 transition">
+          <button onClick={() => setEditando(true)} className="p-1 text-neutro-300 hover:text-primario-600 transition">
             <Pencil size={13} />
           </button>
-          <button onClick={() => onEliminar(linea.id)} className="p-1 text-gray-300 hover:text-red-600 transition">
+          <button onClick={() => onEliminar(linea.id)} className="p-1 text-neutro-300 hover:text-peligro-600 transition">
             <Trash2 size={13} />
           </button>
         </div>

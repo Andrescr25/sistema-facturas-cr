@@ -15,16 +15,16 @@ export default function ConfirmadosCompetencia({ confirmados, loading }) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          Confirmados {confirmados.length > 0 && <span className="text-gray-400 font-normal">({confirmados.length})</span>}
-          {loading && <Loader2 size={16} className="animate-spin text-purple-500" />}
+        <h2 className="text-base font-semibold text-neutro-900 flex items-center gap-2">
+          Confirmados {confirmados.length > 0 && <span className="text-neutro-400 font-normal">({confirmados.length})</span>}
+          {loading && <Loader2 size={16} className="animate-spin text-nota-500" />}
         </h2>
-        <p className="text-xs text-gray-500">Estos son los que fijan el techo de precio en la pestaña Catálogo.</p>
+        <p className="text-xs text-neutro-500">Estos son los que fijan el techo de precio en la pestaña Catálogo.</p>
       </div>
 
       {!loading && confirmados.length === 0 ? (
-        <div className="card p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-          <ShieldCheck size={40} className="text-gray-300" />
+        <div className="card p-12 text-center text-neutro-400 flex flex-col items-center gap-3">
+          <ShieldCheck size={40} className="text-neutro-300" />
           <p>Todavía no confirmaste ningún emparejamiento.</p>
         </div>
       ) : (
@@ -37,13 +37,13 @@ export default function ConfirmadosCompetencia({ confirmados, loading }) {
                 <div className="flex items-center gap-3">
                   <ImagenProducto src={m.imagenPropia} alt={m.nombrePropio} tamano="h-14 w-14" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate" title={m.nombrePropio}>{m.nombrePropio}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-neutro-900 truncate" title={m.nombrePropio}>{m.nombrePropio}</p>
+                    <p className="text-xs text-neutro-500">
                       {m.categoria} · {m.precioPropio > 0 ? formatCurrency(m.precioPropio) : 'sin precio'}
                     </p>
                   </div>
 
-                  <ArrowRight size={16} className="text-gray-300 shrink-0" />
+                  <ArrowRight size={16} className="text-neutro-300 shrink-0" />
 
                   <ImagenProducto src={m.imagenUrl} alt={m.nombreExterno} tamano="h-14 w-14" />
                   <div className="min-w-0 flex-1">
@@ -52,18 +52,18 @@ export default function ConfirmadosCompetencia({ confirmados, loading }) {
                         {fuenteLabel(m.fuente)}
                       </span>
                       {m.urlProducto && (
-                        <a href={m.urlProducto} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600">
+                        <a href={m.urlProducto} target="_blank" rel="noopener noreferrer" className="text-neutro-400 hover:text-primario-600">
                           <ExternalLink size={11} />
                         </a>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 truncate" title={m.nombreExterno}>{m.nombreExterno}</p>
-                    <p className="text-xs font-semibold text-gray-800">{m.precio !== null ? formatCurrency(m.precio) : '—'}</p>
+                    <p className="text-xs text-neutro-600 truncate" title={m.nombreExterno}>{m.nombreExterno}</p>
+                    <p className="text-xs font-semibold text-neutro-800">{m.precio !== null ? formatCurrency(m.precio) : '—'}</p>
                   </div>
                 </div>
 
                 {techo !== null && (
-                  <div className={`text-[11px] rounded-lg px-2.5 py-1.5 ${supera ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'}`}>
+                  <div className={`text-[11px] rounded-lg px-2.5 py-1.5 ${supera ? 'bg-peligro-50 text-peligro-700' : 'bg-neutro-50 text-neutro-600'}`}>
                     Techo <strong>{formatCurrency(techo)}</strong>
                     {supera && ' · mi precio lo supera'}
                   </div>

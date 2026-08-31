@@ -70,25 +70,25 @@ export default function ModalEnviarContador({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onCerrar}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <Mail size={17} className="text-blue-600" />
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutro-100">
+          <h3 className="text-base font-semibold text-neutro-900 flex items-center gap-2">
+            <Mail size={17} className="text-primario-600" />
             Enviar al contador
           </h3>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+          <button onClick={onCerrar} className="text-neutro-400 hover:text-neutro-700"><X size={18} /></button>
         </div>
 
         <div className="px-5 py-4 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Enviar a</label>
+            <label className="block text-xs font-medium text-neutro-500 mb-1.5">Enviar a</label>
             {contactos.length === 0 ? (
-              <p className="text-sm text-gray-400 py-2">Todavía no hay contactos guardados.</p>
+              <p className="text-sm text-neutro-400 py-2">Todavía no hay contactos guardados.</p>
             ) : (
               <div className="flex items-center gap-2">
                 <select
                   value={contactoId}
                   onChange={e => setContactoId(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  className="flex-1 border border-neutro-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primario-500/30 focus:border-primario-400"
                 >
                   {contactos.map(c => (
                     <option key={c.id} value={c.id}>{c.nombre} — {c.email}</option>
@@ -97,7 +97,7 @@ export default function ModalEnviarContador({
                 <button
                   onClick={handleEliminar}
                   title={seleccionado ? `Eliminar a ${seleccionado.nombre}` : 'Eliminar'}
-                  className="p-2 text-gray-300 hover:text-red-600 transition shrink-0"
+                  className="p-2 text-neutro-300 hover:text-peligro-600 transition shrink-0"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -107,14 +107,14 @@ export default function ModalEnviarContador({
             {!agregando ? (
               <button
                 onClick={() => setAgregando(true)}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1.5"
+                className="mt-2 text-xs text-primario-600 hover:text-primario-700 flex items-center gap-1.5"
               >
                 <Plus size={13} /> Agregar otro contacto
               </button>
             ) : (
-              <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/60">
-                <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                  <UserPlus size={13} className="text-gray-400" /> Nuevo contacto
+              <div className="mt-3 border border-neutro-200 rounded-lg p-3 space-y-2 bg-neutro-50/60">
+                <p className="text-xs font-medium text-neutro-600 flex items-center gap-1.5">
+                  <UserPlus size={13} className="text-neutro-400" /> Nuevo contacto
                 </p>
                 <input
                   type="text"
@@ -122,7 +122,7 @@ export default function ModalEnviarContador({
                   onChange={e => setNuevoNombre(e.target.value)}
                   placeholder="Nombre (ej. Marta Solís)"
                   autoFocus
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className="w-full border border-neutro-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primario-500/30"
                 />
                 <input
                   type="email"
@@ -130,18 +130,18 @@ export default function ModalEnviarContador({
                   onChange={e => setNuevoEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleGuardarContacto()}
                   placeholder="correo@ejemplo.com"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className="w-full border border-neutro-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primario-500/30"
                 />
                 <div className="flex justify-end gap-2 pt-0.5">
                   {contactos.length > 0 && (
-                    <button onClick={() => setAgregando(false)} className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1">
+                    <button onClick={() => setAgregando(false)} className="text-xs text-neutro-500 hover:text-neutro-800 px-2 py-1">
                       Cancelar
                     </button>
                   )}
                   <button
                     onClick={handleGuardarContacto}
                     disabled={!puedeGuardar}
-                    className="text-xs font-medium bg-gray-900 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="text-xs font-medium bg-neutro-900 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     {guardando ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
                     Guardar
@@ -153,22 +153,22 @@ export default function ModalEnviarContador({
 
           {/* Qué se manda exactamente: van los DOS períodos del mes, no solo
               el de la pestaña abierta. */}
-          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-            <p className="text-xs font-medium text-gray-600 mb-1.5">Se adjunta de {etiquetaMes}:</p>
+          <div className="bg-neutro-50 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-medium text-neutro-600 mb-1.5">Se adjunta de {etiquetaMes}:</p>
             {adjuntos.length === 0 ? (
-              <p className="text-xs text-gray-400">Nada cargado para este mes.</p>
+              <p className="text-xs text-neutro-400">Nada cargado para este mes.</p>
             ) : (
               <ul className="space-y-1">
                 {adjuntos.map(a => (
-                  <li key={a} className="text-xs text-gray-600 flex items-center gap-1.5">
-                    <Paperclip size={11} className="text-gray-400 shrink-0" />
+                  <li key={a} className="text-xs text-neutro-600 flex items-center gap-1.5">
+                    <Paperclip size={11} className="text-neutro-400 shrink-0" />
                     Reporte de {a} (con tus correcciones)
                   </li>
                 ))}
               </ul>
             )}
             {adjuntos.length === 1 && (
-              <p className="text-[11px] text-amber-700 mt-1.5 flex items-start gap-1">
+              <p className="text-[11px] text-alerta-700 mt-1.5 flex items-start gap-1">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
                 Falta el otro reporte del mes — traelo de Alegra antes de enviar si lo necesitás.
               </p>
@@ -176,16 +176,16 @@ export default function ModalEnviarContador({
           </div>
 
           {!envioDisponible && (
-            <p className="text-xs text-red-600 flex items-start gap-1.5">
+            <p className="text-xs text-peligro-600 flex items-start gap-1.5">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
               El envío de correo no está configurado en el servidor.
             </p>
           )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-peligro-600">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
-          <button onClick={onCerrar} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-neutro-100">
+          <button onClick={onCerrar} className="px-3 py-1.5 text-sm text-neutro-600 hover:text-neutro-900">
             Cancelar
           </button>
           <button

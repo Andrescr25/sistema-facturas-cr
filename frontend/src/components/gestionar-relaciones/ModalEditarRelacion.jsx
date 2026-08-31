@@ -19,34 +19,34 @@ export default function ModalEditarRelacion({
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
         <div className="p-6 border-b sticky top-0 bg-white">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-900">Editar Relación</h3>
+            <h3 className="text-xl font-bold text-neutro-900">Editar Relación</h3>
             <button
               onClick={onCerrar}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-neutro-500 hover:text-neutro-700"
             >
               <XCircle size={24} />
             </button>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Producto Actual:</h4>
-            <p className="text-sm text-gray-700 mb-1">{producto.descripcion}</p>
-            <p className="text-sm text-gray-600">Código: {producto.codigoProveedor}</p>
+          <div className="bg-neutro-50 rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-neutro-900 mb-2">Producto Actual:</h4>
+            <p className="text-sm text-neutro-700 mb-1">{producto.descripcion}</p>
+            <p className="text-sm text-neutro-600">Código: {producto.codigoProveedor}</p>
             {producto.mapeo && (
-              <p className="text-sm text-green-700 mt-2">
+              <p className="text-sm text-exito-700 mt-2">
                 Actualmente relacionado con: <strong>{producto.mapeo.alegraName}</strong>
               </p>
             )}
           </div>
 
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutro-400" size={20} />
             <input
               type="text"
               placeholder="Buscar nuevo producto en Alegra..."
               value={terminoBusqueda}
               onChange={(e) => setTerminoBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 border border-neutro-300 rounded-lg focus:ring-2 focus:ring-primario-500 focus:border-transparent"
               autoFocus
             />
           </div>
@@ -56,10 +56,10 @@ export default function ModalEditarRelacion({
           {buscando ? (
             <div className="text-center py-8">
               <div className="spinner mx-auto mb-4"></div>
-              <p className="text-gray-600">Buscando...</p>
+              <p className="text-neutro-600">Buscando...</p>
             </div>
           ) : resultadosBusqueda.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-neutro-500">
               {terminoBusqueda.length < 2
                 ? 'Escribe al menos 2 caracteres para buscar'
                 : 'No se encontraron productos'}
@@ -69,12 +69,12 @@ export default function ModalEditarRelacion({
               {resultadosBusqueda.map((resultado) => (
                 <div
                   key={resultado.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between"
+                  className="border rounded-lg p-4 hover:bg-neutro-50 cursor-pointer transition-colors flex items-center justify-between"
                   onClick={() => onCambiarRelacion(resultado.id, resultado.name)}
                 >
                   <div>
-                    <h4 className="font-semibold text-gray-900">{resultado.name}</h4>
-                    <div className="flex gap-4 text-sm text-gray-600 mt-1">
+                    <h4 className="font-semibold text-neutro-900">{resultado.name}</h4>
+                    <div className="flex gap-4 text-sm text-neutro-600 mt-1">
                       <span>Ref: {resultado.reference || 'N/A'}</span>
                       <span>₡{resultado.price?.toLocaleString('es-CR')}</span>
                     </div>

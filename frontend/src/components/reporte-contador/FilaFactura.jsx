@@ -16,15 +16,15 @@ export default function FilaFactura({ factura, onToggle, onEditarLinea, onElimin
   const totalImpuesto = factura.lineas.filter(l => !l.excluido).reduce((s, l) => s + l.impuesto, 0)
 
   const badge = factura.duplicadoConfianza === 'alta'
-    ? { icon: AlertTriangle, texto: 'Posible duplicado', clase: 'bg-red-100 text-red-700' }
+    ? { icon: AlertTriangle, texto: 'Posible duplicado', clase: 'bg-peligro-100 text-peligro-700' }
     : factura.duplicadoConfianza === 'media'
-      ? { icon: HelpCircle, texto: 'Revisar (mismo monto)', clase: 'bg-amber-100 text-amber-700' }
+      ? { icon: HelpCircle, texto: 'Revisar (mismo monto)', clase: 'bg-alerta-100 text-alerta-700' }
       : null
 
   return (
-    <div className={`border-b border-gray-100 last:border-0 ${factura.excluida ? 'bg-gray-50/60' : ''}`}>
+    <div className={`border-b border-neutro-100 last:border-0 ${factura.excluida ? 'bg-neutro-50/60' : ''}`}>
       <div className="px-4 py-2.5 flex items-center gap-3">
-        <button onClick={() => setAbierta(v => !v)} className="text-gray-400 hover:text-gray-700 shrink-0">
+        <button onClick={() => setAbierta(v => !v)} className="text-neutro-400 hover:text-neutro-700 shrink-0">
           {abierta ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
 
@@ -33,20 +33,20 @@ export default function FilaFactura({ factura, onToggle, onEditarLinea, onElimin
             type="checkbox"
             checked={!factura.excluida}
             onChange={() => onToggle(factura.numero, factura.excluida)}
-            className="w-4 h-4 rounded border-gray-300 text-blue-600"
+            className="w-4 h-4 rounded border-neutro-300 text-primario-600"
           />
         </label>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`text-sm font-medium ${factura.excluida ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+            <span className={`text-sm font-medium ${factura.excluida ? 'text-neutro-400 line-through' : 'text-neutro-900'}`}>
               {factura.numero}
             </span>
             {/* Las notas de crédito restan, así que se marcan aparte: verlas
                 con la insignia "Emitida" y un monto negativo confundía. */}
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
-              factura.esNotaCredito ? 'bg-purple-100 text-purple-700'
-                : factura.esEmitida ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+              factura.esNotaCredito ? 'bg-nota-100 text-nota-700'
+                : factura.esEmitida ? 'bg-exito-100 text-exito-700' : 'bg-neutro-100 text-neutro-500'
             }`}>
               {factura.esNotaCredito ? 'Nota de crédito' : factura.esEmitida ? 'Emitida' : 'Sin emisión'}
             </span>
@@ -57,17 +57,17 @@ export default function FilaFactura({ factura, onToggle, onEditarLinea, onElimin
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-neutro-500 truncate">
             {factura.contraparte} · {formatFecha(factura.fecha)}
             {/* En una nota de crédito lo primero que se quiere saber es a qué
                 factura rectifica. */}
-            {factura.documentoAsociado && <> · rectifica <span className="text-purple-600">{factura.documentoAsociado}</span></>}
+            {factura.documentoAsociado && <> · rectifica <span className="text-nota-600">{factura.documentoAsociado}</span></>}
           </p>
         </div>
 
         <div className="text-right shrink-0">
-          <p className={`text-sm font-semibold ${factura.excluida ? 'text-gray-400' : 'text-gray-900'}`}>{formatCurrency(totalBase)}</p>
-          <p className="text-[11px] text-gray-400">IVA {formatCurrency(totalImpuesto)}</p>
+          <p className={`text-sm font-semibold ${factura.excluida ? 'text-neutro-400' : 'text-neutro-900'}`}>{formatCurrency(totalBase)}</p>
+          <p className="text-[11px] text-neutro-400">IVA {formatCurrency(totalImpuesto)}</p>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export default function FilaFactura({ factura, onToggle, onEditarLinea, onElimin
         <div className="px-4 pb-3 overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="text-[10px] text-gray-400 uppercase">
+              <tr className="text-[10px] text-neutro-400 uppercase">
                 <th className="px-3 py-1 text-left">Concepto</th>
                 <th className="px-3 py-1 text-right">Cant.</th>
                 <th className="px-3 py-1 text-right">Precio total</th>
@@ -84,7 +84,7 @@ export default function FilaFactura({ factura, onToggle, onEditarLinea, onElimin
                 <th className="px-3 py-1"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-neutro-50">
               {factura.lineas.map(l => (
                 <FilaLinea key={l.id} linea={l} onEditar={onEditarLinea} onEliminar={onEliminarLinea} />
               ))}

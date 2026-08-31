@@ -43,8 +43,8 @@ export default function PagosProveedores() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pagos a Proveedores</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-neutro-900">Pagos a Proveedores</h1>
+          <p className="text-neutro-600 mt-1">
             Controla las facturas recibidas, sus fechas de vencimiento y el saldo pendiente a pagar.
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function PagosProveedores() {
       />
 
       {error && (
-        <div className="card bg-red-50 border-red-200 text-red-700">
+        <div className="card bg-peligro-50 border-peligro-200 text-peligro-700">
           <p>{error}</p>
         </div>
       )}
@@ -94,8 +94,8 @@ export default function PagosProveedores() {
       ) : cuentas.length === 0 ? (
         !error && (
           <div className="card text-center py-12">
-            <CheckCircle2 size={36} className="mx-auto text-green-500 mb-3" />
-            <p className="text-gray-700 font-medium">No hay facturas que coincidan con los filtros.</p>
+            <CheckCircle2 size={36} className="mx-auto text-exito-500 mb-3" />
+            <p className="text-neutro-700 font-medium">No hay facturas que coincidan con los filtros.</p>
           </div>
         )
       ) : (

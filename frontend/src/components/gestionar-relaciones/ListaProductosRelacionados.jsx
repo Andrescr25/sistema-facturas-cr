@@ -20,7 +20,7 @@ export default function ListaProductosRelacionados({
     return (
       <div className="text-center py-12">
         <div className="spinner mx-auto mb-4"></div>
-        <p className="text-gray-600">Cargando productos...</p>
+        <p className="text-neutro-600">Cargando productos...</p>
       </div>
     )
   }
@@ -28,8 +28,8 @@ export default function ListaProductosRelacionados({
   if (productos.length === 0) {
     return (
       <div className="card text-center py-12">
-        <Package className="mx-auto text-gray-400 mb-4" size={48} />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <Package className="mx-auto text-neutro-400 mb-4" size={48} />
+        <h3 className="text-lg font-semibold text-neutro-900 mb-2">
           No se encontraron productos
         </h3>
       </div>
@@ -44,11 +44,11 @@ export default function ListaProductosRelacionados({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               {/* Info del producto proveedor */}
               <div className="lg:col-span-5">
-                <h4 className="font-semibold text-gray-900 mb-2">{producto.descripcion}</h4>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <p>Código: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">{producto.codigo}</span></p>
-                  <p>Proveedor: <span className="font-medium text-gray-800">{producto.proveedor?.nombre}</span></p>
-                  <p className="text-xs text-gray-400">
+                <h4 className="font-semibold text-neutro-900 mb-2">{producto.descripcion}</h4>
+                <div className="text-sm text-neutro-600 space-y-1">
+                  <p>Código: <span className="font-mono bg-neutro-100 px-2 py-0.5 rounded text-xs">{producto.codigo}</span></p>
+                  <p>Proveedor: <span className="font-medium text-neutro-800">{producto.proveedor?.nombre}</span></p>
+                  <p className="text-xs text-neutro-400">
                     ID Mapeo: <span className="font-mono">{producto.id}</span>
                   </p>
                 </div>
@@ -57,21 +57,21 @@ export default function ListaProductosRelacionados({
               {/* Info producto Alegra */}
               <div className="lg:col-span-5">
                 {producto.mapeo ? (
-                  <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">
-                    <p className="text-xxs font-bold uppercase tracking-wider text-emerald-600 mb-1.5">Relacionado con Alegra</p>
-                    <h5 className="font-semibold text-emerald-950 mb-1 text-sm">{producto.mapeo.alegraName}</h5>
-                    <div className="text-xs text-emerald-800 space-y-1 font-mono">
+                  <div className="bg-exito-50/50 rounded-2xl p-4 border border-exito-100">
+                    <p className="text-xxs font-bold uppercase tracking-wider text-exito-600 mb-1.5">Relacionado con Alegra</p>
+                    <h5 className="font-semibold text-exito-950 mb-1 text-sm">{producto.mapeo.alegraName}</h5>
+                    <div className="text-xs text-exito-800 space-y-1 font-mono">
                       <p>Ref: {producto.mapeo.alegraReference || 'N/A'}</p>
                       {producto.factorConversion && producto.factorConversion !== 1 && (
-                        <p className="text-blue-600 font-bold mt-1 text-xs">
+                        <p className="text-primario-600 font-bold mt-1 text-xs">
                           🔄 Factor: {producto.factorConversion}
                         </p>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                    <p className="text-gray-600 text-sm font-medium">Sin relación</p>
+                  <div className="bg-neutro-50 rounded-2xl p-4 border border-neutro-200">
+                    <p className="text-neutro-600 text-sm font-medium">Sin relación</p>
                   </div>
                 )}
               </div>
@@ -82,7 +82,7 @@ export default function ListaProductosRelacionados({
                   <>
                     <button
                       onClick={() => onVerRelaciones(producto)}
-                      className="w-full px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-xl text-xs flex items-center justify-center transition"
+                      className="w-full px-3 py-1.5 bg-nota-50 hover:bg-nota-100 text-nota-700 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                       title="Ver todas las relaciones de este producto con diferentes proveedores"
                     >
                       <Package size={14} className="mr-1" />
@@ -90,24 +90,24 @@ export default function ListaProductosRelacionados({
                     </button>
                     <button
                       onClick={() => onEditar(producto)}
-                      className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center transition"
+                      className="w-full px-3 py-1.5 bg-primario-600 hover:bg-primario-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center transition"
                     >
                       <Edit size={14} className="mr-1" />
                       Editar
                     </button>
                     <button
                       onClick={() => onFactor(producto)}
-                      className="w-full px-3 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
+                      className="w-full px-3 py-1.5 border border-primario-200 text-primario-600 hover:bg-primario-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                     >
                       <Settings size={14} className="mr-1" />
                       Factor
                       {producto.mapeo?.factorConversion && producto.mapeo.factorConversion !== 1 && (
-                        <span className="ml-1 text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded-full">✓</span>
+                        <span className="ml-1 text-[10px] bg-primario-100 text-primario-700 px-1 py-0.5 rounded-full">✓</span>
                       )}
                     </button>
                     <button
                       onClick={() => onEliminar(producto)}
-                      className="w-full px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
+                      className="w-full px-3 py-1.5 border border-peligro-200 text-peligro-600 hover:bg-peligro-50 font-semibold rounded-xl text-xs flex items-center justify-center transition"
                     >
                       <Trash2 size={14} className="mr-1" />
                       Eliminar
@@ -137,7 +137,7 @@ export default function ListaProductosRelacionados({
           >
             Anterior
           </button>
-          <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium">
+          <span className="px-4 py-2 bg-primario-100 text-primario-700 rounded-lg font-medium">
             Página {page} de {totalPages}
           </span>
           <button

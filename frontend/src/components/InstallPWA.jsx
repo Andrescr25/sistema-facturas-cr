@@ -61,21 +61,21 @@ export default function InstallPWA() {
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-[100] animate-slideUp">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 flex items-center gap-3">
+      <div className="bg-gradient-to-r from-primario-600 to-nota-600 text-white rounded-2xl shadow-2xl p-4 flex items-center gap-3">
         <div className="flex-shrink-0 p-2 bg-white/20 rounded-xl">
           <Download size={24} />
         </div>
         
         <div className="flex-1 min-w-0">
           <p className="font-bold text-base mb-1">¡Instala la App!</p>
-          <p className="text-sm text-blue-100">
+          <p className="text-sm text-primario-100">
             Acceso rápido y pantalla completa
           </p>
         </div>
 
         <button
           onClick={handleInstallClick}
-          className="flex-shrink-0 px-4 py-2 bg-white text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-50 active:scale-95 transition-all shadow-lg"
+          className="flex-shrink-0 px-4 py-2 bg-white text-primario-600 rounded-xl font-bold text-sm hover:bg-primario-50 active:scale-95 transition-all shadow-lg"
         >
           Instalar
         </button>

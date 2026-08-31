@@ -61,11 +61,11 @@ export default function SeccionProductos({
             </div>
           )}
           <div className="min-w-0">
-            <h2 className="font-bold text-slate-900 text-[13px] leading-tight">{titulo}</h2>
-            {descripcion && <p className="text-[11px] text-slate-400 leading-tight">{descripcion}</p>}
+            <h2 className="font-bold text-neutro-900 text-[13px] leading-tight">{titulo}</h2>
+            {descripcion && <p className="text-[11px] text-neutro-400 leading-tight">{descripcion}</p>}
           </div>
         </div>
-        <span className="text-[11px] font-semibold text-slate-300 shrink-0">{productos.length}</span>
+        <span className="text-[11px] font-semibold text-neutro-300 shrink-0">{productos.length}</span>
       </div>
 
       {esOfertas ? (
@@ -85,7 +85,7 @@ export default function SeccionProductos({
 
           {ocultos > 0 && (
             <div ref={centinela} className="h-8 flex items-center justify-center">
-              <Loader2 size={16} className="animate-spin text-slate-300" />
+              <Loader2 size={16} className="animate-spin text-neutro-300" />
             </div>
           )}
         </>

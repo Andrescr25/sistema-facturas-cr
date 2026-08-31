@@ -49,13 +49,13 @@ export default function CuentasPorCobrar() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Cuentas por Cobrar</h1>
-          <p className="text-gray-600 mt-1">Clientes con facturas pendientes de pago y registro de abonos.</p>
+          <h1 className="text-3xl font-bold text-neutro-900">Cuentas por Cobrar</h1>
+          <p className="text-neutro-600 mt-1">Clientes con facturas pendientes de pago y registro de abonos.</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-gray-100 p-1.5 rounded-2xl max-w-md">
+      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
         {tabs.map(t => {
           const Icon = t.icon
           const activa = tab === t.key
@@ -64,7 +64,7 @@ export default function CuentasPorCobrar() {
               key={t.key}
               onClick={() => { setTab(t.key); setClienteActivoId(null) }}
               className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all ${
-                activa ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' : 'text-gray-600 hover:text-gray-900'
+                activa ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
               }`}
             >
               <Icon size={16} />
@@ -91,7 +91,7 @@ export default function CuentasPorCobrar() {
           )}
 
           {error && (
-            <div className="card bg-red-50 border-red-200 text-red-700">
+            <div className="card bg-peligro-50 border-peligro-200 text-peligro-700">
               <p>{error}</p>
             </div>
           )}

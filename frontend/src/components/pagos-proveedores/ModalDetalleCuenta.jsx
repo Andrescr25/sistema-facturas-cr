@@ -42,13 +42,13 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-start p-6 border-b border-gray-100 bg-gray-50">
+        <div className="flex justify-between items-start p-6 border-b border-neutro-100 bg-neutro-50">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Factura #{cuenta.numeroConsecutivo}</p>
-            <h3 className="text-xl font-bold text-gray-900">{cuenta.proveedorNombre}</h3>
-            <p className="text-sm text-gray-500 mt-0.5">{cuenta.proveedorCedula}</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-neutro-400 mb-1">Factura #{cuenta.numeroConsecutivo}</p>
+            <h3 className="text-xl font-bold text-neutro-900">{cuenta.proveedorNombre}</h3>
+            <p className="text-sm text-neutro-500 mt-0.5">{cuenta.proveedorCedula}</p>
           </div>
-          <button onClick={onCerrar} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+          <button onClick={onCerrar} className="p-2 text-neutro-400 hover:text-neutro-600 rounded-lg hover:bg-neutro-100 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -56,53 +56,53 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* Resumen */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500">Emisión</p>
-              <p className="text-sm font-semibold text-gray-800 mt-0.5">{formatDate(cuenta.fechaEmision)}</p>
+            <div className="bg-neutro-50 rounded-xl p-3">
+              <p className="text-xs text-neutro-500">Emisión</p>
+              <p className="text-sm font-semibold text-neutro-800 mt-0.5">{formatDate(cuenta.fechaEmision)}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500">Vencimiento</p>
-              <p className="text-sm font-semibold text-gray-800 mt-0.5">{formatDate(cuenta.fechaVencimiento)}</p>
-              <p className={`text-xs mt-0.5 font-medium ${dias < 0 ? 'text-red-600' : dias <= 7 ? 'text-orange-600' : 'text-gray-500'}`}>{diasLabel(dias)}</p>
+            <div className="bg-neutro-50 rounded-xl p-3">
+              <p className="text-xs text-neutro-500">Vencimiento</p>
+              <p className="text-sm font-semibold text-neutro-800 mt-0.5">{formatDate(cuenta.fechaVencimiento)}</p>
+              <p className={`text-xs mt-0.5 font-medium ${dias < 0 ? 'text-peligro-600' : dias <= 7 ? 'text-alerta-600' : 'text-neutro-500'}`}>{diasLabel(dias)}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500">Monto total</p>
-              <p className="text-sm font-semibold text-gray-800 mt-0.5">{formatCurrency(cuenta.montoTotal)}</p>
+            <div className="bg-neutro-50 rounded-xl p-3">
+              <p className="text-xs text-neutro-500">Monto total</p>
+              <p className="text-sm font-semibold text-neutro-800 mt-0.5">{formatCurrency(cuenta.montoTotal)}</p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-              <p className="text-xs text-blue-600 font-semibold">Saldo pendiente</p>
-              <p className="text-lg font-bold text-blue-900 mt-0.5">{formatCurrency(cuenta.saldoPendiente)}</p>
+            <div className="bg-primario-50 rounded-xl p-3 border border-primario-100">
+              <p className="text-xs text-primario-600 font-semibold">Saldo pendiente</p>
+              <p className="text-lg font-bold text-primario-900 mt-0.5">{formatCurrency(cuenta.saldoPendiente)}</p>
             </div>
           </div>
 
           {/* Notas de crédito aplicadas */}
           {cuenta.notasCredito?.length > 0 && (
-            <div className="border border-emerald-200 bg-emerald-50/50 rounded-xl p-3">
+            <div className="border border-exito-200 bg-exito-50/50 rounded-xl p-3">
               <div className="flex items-baseline justify-between mb-2">
-                <h4 className="text-sm font-semibold text-emerald-800">
+                <h4 className="text-sm font-semibold text-exito-800">
                   Notas de crédito aplicadas ({cuenta.notasCredito.length})
                 </h4>
-                <span className="text-sm font-bold text-emerald-700">
+                <span className="text-sm font-bold text-exito-700">
                   −{formatCurrency(cuenta.creditoAplicado)}
                 </span>
               </div>
-              <p className="text-xs text-emerald-700/80 mb-2">
+              <p className="text-xs text-exito-700/80 mb-2">
                 Ya están restadas del saldo. El inventario NO se ajustó: revisá si hubo devolución física.
               </p>
               <div className="space-y-2">
                 {cuenta.notasCredito.map((nc) => (
-                  <div key={nc.id} className="bg-white rounded-lg p-2.5 border border-emerald-100">
+                  <div key={nc.id} className="bg-white rounded-lg p-2.5 border border-exito-100">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-xs font-semibold text-gray-800">
+                      <span className="text-xs font-semibold text-neutro-800">
                         {nc.numeroConsecutivo || nc.clave.slice(-10)}
                       </span>
-                      <span className="text-sm font-bold text-gray-900">{formatCurrency(nc.monto)}</span>
+                      <span className="text-sm font-bold text-neutro-900">{formatCurrency(nc.monto)}</span>
                     </div>
-                    {nc.razon && <p className="text-xs text-gray-500 mt-0.5">Razón: {nc.razon}</p>}
+                    {nc.razon && <p className="text-xs text-neutro-500 mt-0.5">Razón: {nc.razon}</p>}
                     {nc.lineas?.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {nc.lineas.map((l, i) => (
-                          <li key={i} className="text-xs text-gray-600">
+                          <li key={i} className="text-xs text-neutro-600">
                             • {l.descripcion} — {l.cantidad} {l.unidadMedida || 'unid'}
                           </li>
                         ))}
@@ -116,14 +116,14 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
 
           {/* Productos */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Productos incluidos</h4>
+            <h4 className="text-sm font-semibold text-neutro-700 mb-2">Productos incluidos</h4>
             {cuenta.productos.length === 0 ? (
-              <p className="text-sm text-gray-500">Sin detalle de productos.</p>
+              <p className="text-sm text-neutro-500">Sin detalle de productos.</p>
             ) : (
-              <div className="overflow-x-auto border border-gray-100 rounded-xl">
+              <div className="overflow-x-auto border border-neutro-100 rounded-xl">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-gray-500">
+                  <thead className="bg-neutro-50">
+                    <tr className="text-left text-neutro-500">
                       <th className="py-2 px-3">Descripción</th>
                       <th className="py-2 px-3">Código</th>
                       <th className="py-2 px-3 text-right">Cantidad</th>
@@ -131,11 +131,11 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                       <th className="py-2 px-3 text-right">Subtotal</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-neutro-100">
                     {cuenta.productos.map((producto) => (
-                      <tr key={producto.id} className="text-gray-700">
+                      <tr key={producto.id} className="text-neutro-700">
                         <td className="py-2 px-3">{producto.descripcion}</td>
-                        <td className="py-2 px-3 text-xs text-gray-500">{producto.codigoProveedor}</td>
+                        <td className="py-2 px-3 text-xs text-neutro-500">{producto.codigoProveedor}</td>
                         <td className="py-2 px-3 text-right">{producto.cantidad}</td>
                         <td className="py-2 px-3 text-right">{formatCurrency(producto.precioUnitario)}</td>
                         <td className="py-2 px-3 text-right">{formatCurrency(producto.totalLinea)}</td>
@@ -149,21 +149,21 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
 
           {/* Registrar pago */}
           {!yaPagada && (
-            <div className="bg-gray-50/70 rounded-2xl p-5 border border-gray-100 space-y-4">
-              <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Registrar pago</h4>
+            <div className="bg-neutro-50/70 rounded-2xl p-5 border border-neutro-100 space-y-4">
+              <h4 className="text-sm font-bold text-neutro-700 uppercase tracking-wider">Registrar pago</h4>
 
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoPago('completo')}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${tipoPago === 'completo' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${tipoPago === 'completo' ? 'bg-primario-600 text-white border-primario-600' : 'border-neutro-200 text-neutro-600 hover:border-primario-300'}`}
                 >
                   Pago completo
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoPago('parcial')}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${tipoPago === 'parcial' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border transition ${tipoPago === 'parcial' ? 'bg-primario-600 text-white border-primario-600' : 'border-neutro-200 text-neutro-600 hover:border-primario-300'}`}
                 >
                   Abono parcial
                 </button>
@@ -171,9 +171,9 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
 
               {tipoPago === 'parcial' && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Monto abonado</label>
+                  <label className="block text-xs font-bold text-neutro-500 uppercase mb-1.5">Monto abonado</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₡</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutro-500 font-bold">₡</span>
                     <input
                       type="number"
                       value={monto}
@@ -186,13 +186,13 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                     />
                   </div>
                   {montoInvalido && monto !== '' && (
-                    <p className="text-xs text-red-600 mt-1">El monto debe ser mayor a 0 y no superar el saldo pendiente.</p>
+                    <p className="text-xs text-peligro-600 mt-1">El monto debe ser mayor a 0 y no superar el saldo pendiente.</p>
                   )}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Nota (opcional)</label>
+                <label className="block text-xs font-bold text-neutro-500 uppercase mb-1.5">Nota (opcional)</label>
                 <textarea
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}

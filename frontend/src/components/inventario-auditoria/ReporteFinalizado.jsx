@@ -22,10 +22,10 @@ export default function ReporteFinalizado({
       {/* Main Left: Audit details & list of adjustments made */}
       <div className="md:col-span-2 space-y-6">
         {/* Final state info alert */}
-        <div className="bg-green-50 text-green-950 border border-green-200 p-5 rounded-3xl flex items-start gap-4">
-          <CheckCircle className="text-green-600 shrink-0 mt-0.5" size={28} />
+        <div className="bg-exito-50 text-exito-950 border border-exito-200 p-5 rounded-3xl flex items-start gap-4">
+          <CheckCircle className="text-exito-600 shrink-0 mt-0.5" size={28} />
           <div className="space-y-1.5 text-sm">
-            <h4 className="font-extrabold text-green-900 text-base">
+            <h4 className="font-extrabold text-exito-900 text-base">
               {esDevolucion ? 'Devolución Finalizada' : 'Auditoría Cerrada Exitosamente'}
             </h4>
             <p>
@@ -36,7 +36,7 @@ export default function ReporteFinalizado({
               )}
             </p>
             {auditoriaActiva.observaciones && (
-              <p className="italic bg-white/50 p-2.5 rounded-xl border border-green-150 text-xs text-green-800 mt-2 block">
+              <p className="italic bg-white/50 p-2.5 rounded-xl border border-exito-200 text-xs text-exito-800 mt-2 block">
                 Observaciones: "{auditoriaActiva.observaciones}"
               </p>
             )}
@@ -44,10 +44,10 @@ export default function ReporteFinalizado({
         </div>
 
         {/* List of differences / adjustments preview */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <AlertTriangle className="text-red-500" size={18} />
+        <div className="bg-white rounded-3xl border border-neutro-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-neutro-100 bg-neutro-50/50 flex justify-between items-center">
+            <h3 className="font-bold text-neutro-900 flex items-center gap-2">
+              <AlertTriangle className="text-peligro-500" size={18} />
               {esDevolucion
                 ? `Productos a Reingresar (${adjustmentsPreview.length})`
                 : `Detalle de Ajustes Requeridos (${adjustmentsPreview.length} discrepancias)`}
@@ -55,33 +55,33 @@ export default function ReporteFinalizado({
           </div>
 
           {adjustmentsPreview.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              <CheckCircle size={36} className="text-green-500 mx-auto mb-2" />
-              <p className="font-bold text-gray-700">
+            <div className="p-8 text-center text-neutro-400">
+              <CheckCircle size={36} className="text-exito-500 mx-auto mb-2" />
+              <p className="font-bold text-neutro-700">
                 {esDevolucion ? 'No hay productos agregados' : '¡Perfecto! No se encontraron discrepancias'}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-neutro-500 mt-0.5">
                 {esDevolucion ? 'Esta devolución se finalizó sin productos.' : 'El conteo físico de todos los productos coincidió 100% con el sistema.'}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 text-sm">
+            <div className="divide-y divide-neutro-100 text-sm">
               {adjustmentsPreview.map((adj, idx) => (
                 <div key={idx} className="p-4 flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
-                    <p className="font-bold text-gray-900">{adj.nombre}</p>
-                    <p className="text-xs text-gray-400">
-                      Ref: <strong className="text-gray-600 font-semibold">{adj.referencia || 'N/A'}</strong>
+                    <p className="font-bold text-neutro-900">{adj.nombre}</p>
+                    <p className="text-xs text-neutro-400">
+                      Ref: <strong className="text-neutro-600 font-semibold">{adj.referencia || 'N/A'}</strong>
                       {adj.costo_unitario > 0 && ` • Costo: ${formatCurrency(adj.costo_unitario)}`}
                     </p>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className={`inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase ${adj.diferencia > 0 ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                    <span className={`inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase ${adj.diferencia > 0 ? 'bg-primario-100 text-primario-800' : 'bg-peligro-100 text-peligro-800'
                       }`}>
                       {adj.diferencia > 0 ? `+${adj.diferencia}` : adj.diferencia} unid.
                     </span>
-                    <p className={`text-xs font-bold mt-1 ${adj.diferencia > 0 ? 'text-blue-600' : 'text-red-600'
+                    <p className={`text-xs font-bold mt-1 ${adj.diferencia > 0 ? 'text-primario-600' : 'text-peligro-600'
                       }`}>
                       {adj.diferencia > 0 ? '+' : ''}{formatCurrency(adj.impacto_dinero)}
                     </p>
@@ -95,13 +95,13 @@ export default function ReporteFinalizado({
 
       {/* Right: Corrective actions */}
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
-          <h3 className="text-lg font-bold text-gray-900 border-b pb-2 flex items-center gap-1.5">
-            <CheckCircle className="text-emerald-600" size={18} />
+        <div className="bg-white p-6 rounded-3xl border border-neutro-100 shadow-sm space-y-5">
+          <h3 className="text-lg font-bold text-neutro-900 border-b pb-2 flex items-center gap-1.5">
+            <CheckCircle className="text-exito-600" size={18} />
             Acción Correctiva
           </h3>
 
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-neutro-500 leading-relaxed">
             {esDevolucion
               ? 'Al aplicar el ajuste, Alegra sumará estas cantidades al stock actual de cada producto.'
               : 'Una vez auditado el stock, es fundamental corregir los descuadres en el inventario oficial de Alegra para que coincidan con la existencia física real de la distribuidora.'}
@@ -109,16 +109,16 @@ export default function ReporteFinalizado({
 
           {/* Success adjustment message */}
           {successAjuste && (
-            <div className="bg-blue-50 text-blue-900 border border-blue-200 p-4 rounded-2xl text-xs flex items-start gap-2">
-              <CheckCircle className="text-blue-600 shrink-0 mt-0.5" size={16} />
+            <div className="bg-primario-50 text-primario-900 border border-primario-200 p-4 rounded-2xl text-xs flex items-start gap-2">
+              <CheckCircle className="text-primario-600 shrink-0 mt-0.5" size={16} />
               <span>{successAjuste}</span>
             </div>
           )}
 
           {/* Error feedback */}
           {error && (
-            <div className="bg-red-50 text-red-950 border border-red-200 p-4 rounded-2xl text-xs flex items-start gap-2">
-              <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={16} />
+            <div className="bg-peligro-50 text-peligro-950 border border-peligro-200 p-4 rounded-2xl text-xs flex items-start gap-2">
+              <AlertTriangle className="text-peligro-600 shrink-0 mt-0.5" size={16} />
               <span>{error}</span>
             </div>
           )}
@@ -126,14 +126,14 @@ export default function ReporteFinalizado({
           <button
             onClick={onAplicarAjuste}
             disabled={loadingAjuste || adjustmentsPreview.length === 0}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-150 disabled:text-gray-400 text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+            className="w-full bg-primario-800 hover:bg-primario-900 disabled:bg-neutro-200 disabled:text-neutro-400 text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
           >
             {loadingAjuste ? <RefreshCw className="animate-spin" size={18} /> : <CheckCircle size={18} />}
             {loadingAjuste ? 'Sincronizando...' : 'Ajustar Inventario en Alegra'}
           </button>
 
           {adjustmentsPreview.length === 0 && (
-            <p className="text-[10px] text-gray-400 text-center">
+            <p className="text-[10px] text-neutro-400 text-center">
               * No se requieren ajustes ya que no hay discrepancias.
             </p>
           )}

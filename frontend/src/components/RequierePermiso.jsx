@@ -23,13 +23,13 @@ export default function RequierePermiso({ children }) {
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
-      <div className="max-w-sm space-y-3 rounded-3xl border border-gray-100 bg-white p-8 text-center">
-        <ShieldOff size={36} className="mx-auto text-gray-300" />
-        <p className="font-bold text-gray-900">No tiene acceso a esta pantalla</p>
-        <p className="text-sm text-gray-500">
+      <div className="max-w-sm space-y-3 rounded-3xl border border-neutro-100 bg-white p-8 text-center">
+        <ShieldOff size={36} className="mx-auto text-neutro-300" />
+        <p className="font-bold text-neutro-900">No tiene acceso a esta pantalla</p>
+        <p className="text-sm text-neutro-500">
           Pídale a un administrador que le habilite el módulo si lo necesita para su trabajo.
         </p>
-        <Link to="/" className="inline-block text-sm font-bold text-emerald-700 hover:underline">
+        <Link to="/" className="inline-block text-sm font-bold text-exito-700 hover:underline">
           Volver al inicio
         </Link>
       </div>

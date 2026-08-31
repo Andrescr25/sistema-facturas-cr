@@ -41,7 +41,7 @@ export default function RevisionFactura({
 
           <button
             onClick={onDevolver}
-            className="btn bg-yellow-500 hover:bg-yellow-600 text-white flex items-center"
+            className="btn bg-alerta-500 hover:bg-alerta-600 text-white flex items-center"
             disabled={devolviendo}
           >
             {devolviendo ? (
@@ -58,10 +58,10 @@ export default function RevisionFactura({
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-neutro-900">
           Factura #{facturaSeleccionada?.numeroConsecutivo}
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-neutro-600 mt-1">
           {facturaSeleccionada?.proveedorNombre} • {new Date(facturaSeleccionada?.fechaEmision).toLocaleDateString()}
         </p>
       </div>
@@ -69,21 +69,21 @@ export default function RevisionFactura({
       {/* Info */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="card">
-          <p className="text-sm text-gray-600 mb-1">Total Factura</p>
-          <p className="text-2xl font-bold text-blue-600">
+          <p className="text-sm text-neutro-600 mb-1">Total Factura</p>
+          <p className="text-2xl font-bold text-primario-600">
             ₡{facturaSeleccionada?.totalFactura?.toLocaleString('es-CR')}
           </p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600 mb-1">Productos</p>
-          <p className="text-2xl font-bold text-gray-900">{productos.length}</p>
+          <p className="text-sm text-neutro-600 mb-1">Productos</p>
+          <p className="text-2xl font-bold text-neutro-900">{productos.length}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600 mb-1">Precios Ajustados</p>
-          <p className="text-2xl font-bold text-orange-600">{preciosModificados}</p>
+          <p className="text-sm text-neutro-600 mb-1">Precios Ajustados</p>
+          <p className="text-2xl font-bold text-alerta-600">{preciosModificados}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-600 mb-1">Estado</p>
+          <p className="text-sm text-neutro-600 mb-1">Estado</p>
           <span className="badge badge-success text-sm">Listo</span>
         </div>
       </div>
@@ -91,7 +91,7 @@ export default function RevisionFactura({
       {loading && (
         <div className="card text-center py-8 mb-6">
           <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">Analizando productos...</p>
+          <p className="text-neutro-600">Analizando productos...</p>
         </div>
       )}
 
@@ -113,13 +113,13 @@ export default function RevisionFactura({
       </div>
 
       {/* Botón Enviar */}
-      <div className="card bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300">
+      <div className="card bg-gradient-to-r from-primario-50 to-primario-50 border-2 border-primario-300">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">
+            <h3 className="text-lg font-bold text-neutro-900 mb-1">
               ¿Listo para enviar a Alegra?
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-neutro-600">
               Se actualizarán {productos.length} costos{preciosModificados > 0 && `, ${preciosModificados} precios`} y se creará la factura de proveedor
             </p>
           </div>

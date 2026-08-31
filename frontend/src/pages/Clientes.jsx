@@ -38,8 +38,8 @@ export default function Clientes() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-extrabold text-gray-900">Clientes</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h1 className="text-2xl font-extrabold text-neutro-900">Clientes</h1>
+        <p className="text-sm text-neutro-500 mt-0.5">
           Pedidos que entran desde el portal y las cuentas que pueden hacerlos.
         </p>
       </div>
@@ -53,14 +53,14 @@ export default function Clientes() {
               type="button"
               onClick={() => setVista(t.id)}
               className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
-                vista === t.id ? 'bg-emerald-600 text-white' : 'bg-white border-2 border-gray-200 text-gray-600'
+                vista === t.id ? 'bg-exito-600 text-white' : 'bg-white border-2 border-neutro-200 text-neutro-600'
               }`}
             >
               <Icono size={15} />
               {t.texto}
               {t.contador > 0 && (
                 <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                  vista === t.id ? 'bg-white/25' : 'bg-amber-100 text-amber-700'
+                  vista === t.id ? 'bg-white/25' : 'bg-alerta-100 text-alerta-700'
                 }`}>
                   {t.contador}
                 </span>

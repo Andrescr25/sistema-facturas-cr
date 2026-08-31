@@ -12,50 +12,50 @@ export default function ResumenCards({ resumen, filters, setFilters }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Wallet size={14} className="text-blue-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Wallet size={14} className="text-primario-500" />
           Total pendiente
         </p>
-        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(resumen.totalPendiente)}</p>
-        <span className="text-xs text-gray-500">{resumen.totalFacturas} facturas abiertas</span>
+        <p className="text-2xl font-semibold text-neutro-900 mt-1">{formatCurrency(resumen.totalPendiente)}</p>
+        <span className="text-xs text-neutro-500">{resumen.totalFacturas} facturas abiertas</span>
       </div>
 
       <button
         type="button"
         onClick={() => setFilters((prev) => ({ ...prev, estado: 'vencida' }))}
-        className={`card text-left transition hover:shadow-md hover:border-red-300 ${filters.estado === 'vencida' ? 'ring-2 ring-red-400 border-red-300' : ''}`}
+        className={`card text-left transition hover:shadow-md hover:border-peligro-300 ${filters.estado === 'vencida' ? 'ring-2 ring-peligro-400 border-peligro-300' : ''}`}
       >
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <AlertTriangle size={14} className="text-red-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <AlertTriangle size={14} className="text-peligro-500" />
           Vencidas
         </p>
-        <p className="text-2xl font-semibold text-red-600 mt-1">{formatCurrency(resumen.totalVencidas)}</p>
-        <span className="text-xs text-gray-500">Click para filtrar</span>
+        <p className="text-2xl font-semibold text-peligro-600 mt-1">{formatCurrency(resumen.totalVencidas)}</p>
+        <span className="text-xs text-neutro-500">Click para filtrar</span>
       </button>
 
       <button
         type="button"
         onClick={() => setFilters((prev) => ({ ...prev, estado: 'todos', dias: 'vence7' }))}
-        className={`card text-left transition hover:shadow-md hover:border-orange-300 ${filters.dias === 'vence7' ? 'ring-2 ring-orange-400 border-orange-300' : ''}`}
+        className={`card text-left transition hover:shadow-md hover:border-alerta-300 ${filters.dias === 'vence7' ? 'ring-2 ring-alerta-400 border-alerta-300' : ''}`}
       >
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Clock size={14} className="text-orange-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Clock size={14} className="text-alerta-500" />
           Próximos 7 días
         </p>
-        <p className="text-2xl font-semibold text-orange-600 mt-1">
+        <p className="text-2xl font-semibold text-alerta-600 mt-1">
           {formatCurrency(resumen.proximasAVencer?.monto || 0)}
         </p>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-neutro-500">
           {resumen.proximasAVencer?.cantidad || 0} facturas • Click para filtrar
         </span>
       </button>
 
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Shield size={14} className="text-green-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Shield size={14} className="text-exito-500" />
           Proveedores activos
         </p>
-        <p className="text-2xl font-semibold text-gray-900 mt-1">{resumen.totalProveedores}</p>
+        <p className="text-2xl font-semibold text-neutro-900 mt-1">{resumen.totalProveedores}</p>
       </div>
     </div>
   )

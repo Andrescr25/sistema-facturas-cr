@@ -30,9 +30,9 @@ export default function PanelPedido({
 
   return (
     <div className="bg-white w-full sm:w-[26rem] sm:rounded-3xl rounded-t-3xl max-h-[70vh] sm:max-h-[88vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h2 className="font-extrabold text-gray-900">{enviado ? 'Pedido enviado' : 'Su pedido'}</h2>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 text-gray-400 hover:text-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-neutro-100">
+          <h2 className="font-extrabold text-neutro-900">{enviado ? 'Pedido enviado' : 'Su pedido'}</h2>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 text-neutro-400 hover:text-neutro-700">
             <X size={20} />
           </button>
         </div>
@@ -42,16 +42,16 @@ export default function PanelPedido({
             <div className="text-center space-y-2">
               {/* check-pop ya existe en index.css; se anula solo con
                   prefers-reduced-motion. */}
-              <span className="check-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <span className="check-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cliente-600 text-white">
                 <Check size={30} strokeWidth={3} />
               </span>
-              <p className="font-extrabold text-gray-900">Pedido #{enviado.id} recibido</p>
-              <p className="text-sm text-gray-500">{formatearColones(enviado.total)}</p>
+              <p className="font-extrabold text-neutro-900">Pedido #{enviado.id} recibido</p>
+              <p className="text-sm text-neutro-500">{formatearColones(enviado.total)}</p>
             </div>
 
             {/* La línea de tiempo desde el minuto cero: el cliente ve qué
                 sigue en vez de quedarse con un "gracias" y nada más. */}
-            <div className="rounded-2xl bg-slate-50 p-3.5">
+            <div className="rounded-2xl bg-neutro-50 p-3.5">
               <SeguimientoPedido
                 etapa="en_revision"
                 seguimiento={[
@@ -64,16 +64,16 @@ export default function PanelPedido({
 
             <Link
               to="/portal/pedidos"
-              className="block w-full rounded-xl bg-slate-900 py-3 text-center font-bold text-white transition-colors hover:bg-slate-800"
+              className="block w-full rounded-xl bg-neutro-900 py-3 text-center font-bold text-white transition-colors hover:bg-neutro-800"
             >
               Ver mis pedidos
             </Link>
           </div>
         ) : vacio ? (
-          <div className="p-10 text-center text-gray-400 flex flex-col items-center gap-3">
-            <Package size={34} className="text-gray-200" />
+          <div className="p-10 text-center text-neutro-400 flex flex-col items-center gap-3">
+            <Package size={34} className="text-neutro-200" />
             <p className="text-sm">Su pedido está vacío.</p>
-            <button type="button" onClick={onCerrar} className="text-sm font-bold text-emerald-700 hover:underline">
+            <button type="button" onClick={onCerrar} className="text-sm font-bold text-cliente-700 hover:underline">
               Seguir viendo el catálogo
             </button>
           </div>
@@ -83,17 +83,17 @@ export default function PanelPedido({
               {resumen.lineas.map(({ producto, cantidad }) => (
                 <div key={producto.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-gray-900 truncate">{producto.nombre}</p>
-                    <p className="text-xs text-gray-400">{cantidad} × {formatearColones(producto.precio)}</p>
+                    <p className="text-xs font-bold text-neutro-900 truncate">{producto.nombre}</p>
+                    <p className="text-xs text-neutro-400">{cantidad} × {formatearColones(producto.precio)}</p>
                   </div>
-                  <p className="text-sm font-extrabold text-gray-900 shrink-0">
+                  <p className="text-sm font-extrabold text-neutro-900 shrink-0">
                     {formatearColones(cantidad * producto.precio)}
                   </p>
                   <button
                     type="button"
                     onClick={() => onCambiar(producto, 0)}
                     aria-label={`Quitar ${producto.nombre}`}
-                    className="p-1 text-gray-300 hover:text-red-600 shrink-0"
+                    className="p-1 text-neutro-300 hover:text-peligro-600 shrink-0"
                   >
                     <X size={14} />
                   </button>
@@ -101,25 +101,25 @@ export default function PanelPedido({
               ))}
             </div>
 
-            <div className="border-t border-gray-100 p-4 space-y-3">
+            <div className="border-t border-neutro-100 p-4 space-y-3">
               <input
                 type="text"
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 placeholder="Alguna nota para el pedido (opcional)"
                 disabled={enviando}
-                className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-sm font-semibold focus:outline-none disabled:bg-gray-50"
+                className="w-full px-3 py-2.5 border-2 border-neutro-200 focus:border-cliente-500 rounded-xl text-sm font-semibold focus:outline-none disabled:bg-neutro-50"
               />
 
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Total</span>
-                <span className="text-xl font-extrabold text-gray-900">{formatearColones(resumen.total)}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-neutro-400">Total</span>
+                <span className="text-xl font-extrabold text-neutro-900">{formatearColones(resumen.total)}</span>
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-150 rounded-2xl px-3 py-2.5">
-                  <AlertCircle size={15} className="text-red-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-700 font-semibold">{error}</p>
+                <div className="flex items-start gap-2 bg-peligro-50 border border-peligro-200 rounded-2xl px-3 py-2.5">
+                  <AlertCircle size={15} className="text-peligro-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-peligro-700 font-semibold">{error}</p>
                 </div>
               )}
 
@@ -128,7 +128,7 @@ export default function PanelPedido({
                   type="button"
                   onClick={() => onEnviar(observaciones)}
                   disabled={enviando}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/70 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-cliente-600 hover:bg-cliente-700 disabled:bg-cliente-600/70 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   {/* El texto cambia además del spinner: antes solo aparecía
                       la rueda y no se notaba que estuviera pasando algo. */}
@@ -139,12 +139,12 @@ export default function PanelPedido({
                 <div className="space-y-2">
                   <Link
                     to="/portal/ingresar"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                    className="w-full bg-cliente-600 hover:bg-cliente-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
                   >
                     <LogIn size={16} />
                     Entrar para enviar el pedido
                   </Link>
-                  <p className="text-[11px] text-gray-400 text-center">
+                  <p className="text-[11px] text-neutro-400 text-center">
                     ¿No tiene cuenta? Solicítenos el enlace para crearla.
                   </p>
                 </div>
@@ -154,7 +154,7 @@ export default function PanelPedido({
                 type="button"
                 onClick={onVaciar}
                 disabled={enviando}
-                className="w-full text-xs text-gray-400 hover:text-gray-600 font-semibold disabled:opacity-40"
+                className="w-full text-xs text-neutro-400 hover:text-neutro-600 font-semibold disabled:opacity-40"
               >
                 Vaciar pedido
               </button>

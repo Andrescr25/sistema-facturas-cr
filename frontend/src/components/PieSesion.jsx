@@ -23,24 +23,24 @@ export default function PieSesion({ onNavegar }) {
   }
 
   return (
-    <div className="border-t border-gray-100 p-3">
+    <div className="border-t border-neutro-100 p-3">
       <div className="mb-2 px-1">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-sm font-bold text-gray-900">{usuario.nombre}</p>
+          <p className="truncate text-sm font-bold text-neutro-900">{usuario.nombre}</p>
           {usuario.esAdmin && (
-            <span className="flex shrink-0 items-center gap-0.5 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-extrabold uppercase text-emerald-700">
+            <span className="flex shrink-0 items-center gap-0.5 rounded bg-exito-100 px-1 py-0.5 text-[9px] font-extrabold uppercase text-exito-700">
               <Shield size={9} />
               Admin
             </span>
           )}
         </div>
-        <p className="truncate text-[11px] text-gray-400">{usuario.usuario}</p>
+        <p className="truncate text-[11px] text-neutro-400">{usuario.usuario}</p>
       </div>
 
       <button
         type="button"
         onClick={cerrar}
-        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-neutro-500 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
       >
         <LogOut size={16} />
         Cerrar sesión

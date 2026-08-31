@@ -102,11 +102,11 @@ export default function Configuracion() {
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Building2 className="text-blue-600" size={32} />
+          <h1 className="text-3xl font-bold text-neutro-900 flex items-center gap-3">
+            <Building2 className="text-primario-600" size={32} />
             Configuración del Sistema
           </h1>
-          <p className="text-gray-600 mt-2">Configura los datos de tu empresa y facturas</p>
+          <p className="text-neutro-600 mt-2">Configura los datos de tu empresa y facturas</p>
         </div>
 
         <button
@@ -121,7 +121,7 @@ export default function Configuracion() {
 
       {/* Mensaje de confirmación */}
       {mensaje && (
-        <div className={`mb-6 p-4 rounded-lg ${mensaje.tipo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        <div className={`mb-6 p-4 rounded-lg ${mensaje.tipo === 'success' ? 'bg-exito-100 text-exito-800' : 'bg-peligro-100 text-peligro-800'
           }`}>
           {mensaje.texto}
         </div>
@@ -131,7 +131,7 @@ export default function Configuracion() {
         {/* Información de la Empresa */}
         <div className="card">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Building2 size={24} className="text-blue-600" />
+            <Building2 size={24} className="text-primario-600" />
             Información de la Empresa
           </h2>
 
@@ -207,7 +207,7 @@ export default function Configuracion() {
         {/* Cuentas Bancarias */}
         <div className="card">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <CreditCard size={24} className="text-green-600" />
+            <CreditCard size={24} className="text-exito-600" />
             Cuentas Bancarias
           </h2>
 
@@ -232,7 +232,7 @@ export default function Configuracion() {
                 </div>
                 <button
                   onClick={() => eliminarBanco(index)}
-                  className="btn btn-outline text-red-600 border-red-300 hover:bg-red-50"
+                  className="btn btn-outline text-peligro-600 border-peligro-300 hover:bg-peligro-50"
                 >
                   Eliminar
                 </button>
@@ -249,15 +249,15 @@ export default function Configuracion() {
         </div>
 
         {/* Zona de Peligro / Mantenimiento */}
-        <div className="card border-red-200">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-700">
+        <div className="card border-peligro-200">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-peligro-700">
             <Database size={24} />
             Mantenimiento del Sistema
           </h2>
 
-          <div className="bg-red-50 p-4 rounded-lg border border-red-100 mb-4">
-            <h3 className="font-bold text-red-800 mb-2">Limpieza Manual de Faltantes</h3>
-            <p className="text-sm text-red-700 mb-4">
+          <div className="bg-peligro-50 p-4 rounded-lg border border-peligro-100 mb-4">
+            <h3 className="font-bold text-peligro-800 mb-2">Limpieza Manual de Faltantes</h3>
+            <p className="text-sm text-peligro-700 mb-4">
               Esta acción ejecuta la misma limpieza automática de los domingos a las 23:59.<br />
               Utilízala si necesitas "resetear" el ciclo de pedidos manualmente (por ejemplo, lunes por la mañana).
             </p>
@@ -265,7 +265,7 @@ export default function Configuracion() {
             <button
               onClick={handleLimpiarFaltantes}
               disabled={loading}
-              className="btn bg-red-600 hover:bg-red-700 text-white border-none flex items-center gap-2"
+              className="btn bg-peligro-600 hover:bg-peligro-700 text-white border-none flex items-center gap-2"
             >
               <Trash2 size={18} />
               Limpiar BD Faltantes Ahora

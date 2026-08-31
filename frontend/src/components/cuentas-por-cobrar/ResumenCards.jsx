@@ -12,50 +12,50 @@ export default function ResumenCards({ resumen, filters, setFilters }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Wallet size={14} className="text-blue-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Wallet size={14} className="text-primario-500" />
           Total por cobrar
         </p>
-        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(resumen.totalPorCobrar)}</p>
-        <span className="text-xs text-gray-500">{resumen.totalFacturas} factura{resumen.totalFacturas !== 1 ? 's' : ''} abierta{resumen.totalFacturas !== 1 ? 's' : ''}</span>
+        <p className="text-2xl font-semibold text-neutro-900 mt-1">{formatCurrency(resumen.totalPorCobrar)}</p>
+        <span className="text-xs text-neutro-500">{resumen.totalFacturas} factura{resumen.totalFacturas !== 1 ? 's' : ''} abierta{resumen.totalFacturas !== 1 ? 's' : ''}</span>
       </div>
 
       <button
         type="button"
         onClick={() => setFilters((prev) => ({ ...prev, estado: prev.estado === 'VENCIDA' ? 'todos' : 'VENCIDA' }))}
-        className={`card text-left transition hover:shadow-md hover:border-red-300 ${filters.estado === 'VENCIDA' ? 'ring-2 ring-red-400 border-red-300' : ''}`}
+        className={`card text-left transition hover:shadow-md hover:border-peligro-300 ${filters.estado === 'VENCIDA' ? 'ring-2 ring-peligro-400 border-peligro-300' : ''}`}
       >
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <AlertTriangle size={14} className="text-red-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <AlertTriangle size={14} className="text-peligro-500" />
           Vencido
         </p>
-        <p className="text-2xl font-semibold text-red-600 mt-1">{formatCurrency(resumen.totalVencido)}</p>
-        <span className="text-xs text-gray-500">Click para filtrar</span>
+        <p className="text-2xl font-semibold text-peligro-600 mt-1">{formatCurrency(resumen.totalVencido)}</p>
+        <span className="text-xs text-neutro-500">Click para filtrar</span>
       </button>
 
       <button
         type="button"
         onClick={() => setFilters((prev) => ({ ...prev, estado: 'todos', dias: prev.dias === 'vence7' ? 'todos' : 'vence7' }))}
-        className={`card text-left transition hover:shadow-md hover:border-orange-300 ${filters.dias === 'vence7' ? 'ring-2 ring-orange-400 border-orange-300' : ''}`}
+        className={`card text-left transition hover:shadow-md hover:border-alerta-300 ${filters.dias === 'vence7' ? 'ring-2 ring-alerta-400 border-alerta-300' : ''}`}
       >
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Clock size={14} className="text-orange-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Clock size={14} className="text-alerta-500" />
           Próximos 7 días
         </p>
-        <p className="text-2xl font-semibold text-orange-600 mt-1">
+        <p className="text-2xl font-semibold text-alerta-600 mt-1">
           {formatCurrency(resumen.proximasAVencer?.monto || 0)}
         </p>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-neutro-500">
           {resumen.proximasAVencer?.cantidad || 0} factura{resumen.proximasAVencer?.cantidad !== 1 ? 's' : ''} • Click para filtrar
         </span>
       </button>
 
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5">
-          <Users size={14} className="text-green-500" />
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5">
+          <Users size={14} className="text-exito-500" />
           Clientes con saldo
         </p>
-        <p className="text-2xl font-semibold text-gray-900 mt-1">{resumen.totalClientes}</p>
+        <p className="text-2xl font-semibold text-neutro-900 mt-1">{resumen.totalClientes}</p>
       </div>
     </div>
   )

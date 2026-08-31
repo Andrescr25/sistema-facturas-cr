@@ -57,14 +57,14 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-3xl">
-          <h3 className="text-lg font-bold text-gray-900">{gasto ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}</h3>
-          <button onClick={onCerrar} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        <div className="px-6 py-4 border-b border-neutro-100 flex items-center justify-between sticky top-0 bg-white rounded-t-3xl">
+          <h3 className="text-lg font-bold text-neutro-900">{gasto ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}</h3>
+          <button onClick={onCerrar} className="text-neutro-400 hover:text-neutro-600"><X size={20} /></button>
         </div>
 
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Nombre *</label>
+            <label className="block text-xs font-semibold text-neutro-600 mb-1">Nombre *</label>
             <input
               type="text" autoFocus value={form.nombre}
               onChange={(e) => set('nombre', e.target.value)}
@@ -75,7 +75,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Categoría</label>
+              <label className="block text-xs font-semibold text-neutro-600 mb-1">Categoría</label>
               <select className="input w-full !py-2.5" value={form.categoria} onChange={(e) => set('categoria', e.target.value)}>
                 {(categorias.length ? categorias : Object.keys(CATEGORIA_INFO)).map(c => (
                   <option key={c} value={c}>{CATEGORIA_INFO[c]?.label || c}</option>
@@ -83,7 +83,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Quién cobra</label>
+              <label className="block text-xs font-semibold text-neutro-600 mb-1">Quién cobra</label>
               <input
                 type="text" value={form.proveedor}
                 onChange={(e) => set('proveedor', e.target.value)}
@@ -95,7 +95,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Monto estimado</label>
+              <label className="block text-xs font-semibold text-neutro-600 mb-1">Monto estimado</label>
               <input
                 type="number" min="0" step="100" value={form.montoEstimado}
                 onChange={(e) => set('montoEstimado', e.target.value)}
@@ -104,7 +104,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Frecuencia</label>
+              <label className="block text-xs font-semibold text-neutro-600 mb-1">Frecuencia</label>
               <select className="input w-full !py-2.5" value={form.frecuencia} onChange={(e) => set('frecuencia', e.target.value)}>
                 {(frecuencias.length ? frecuencias : Object.keys(FRECUENCIA_LABEL)).map(f => (
                   <option key={f} value={f}>{FRECUENCIA_LABEL[f] || f}</option>
@@ -116,7 +116,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
           <div className="grid grid-cols-2 gap-3">
             {necesitaMes && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">¿En qué mes toca?</label>
+                <label className="block text-xs font-semibold text-neutro-600 mb-1">¿En qué mes toca?</label>
                 <select className="input w-full !py-2.5" value={form.mesReferencia} onChange={(e) => set('mesReferencia', e.target.value)}>
                   <option value="">Elegí un mes</option>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
@@ -127,7 +127,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
             )}
             {form.frecuencia !== 'quincenal' && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Día de vencimiento</label>
+                <label className="block text-xs font-semibold text-neutro-600 mb-1">Día de vencimiento</label>
                 <input
                   type="number" min="1" max="31" value={form.diaVencimiento}
                   onChange={(e) => set('diaVencimiento', e.target.value)}
@@ -139,7 +139,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
           </div>
 
           {form.frecuencia === 'quincenal' && (
-            <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
+            <p className="text-xs text-neutro-500 bg-neutro-50 rounded-xl p-3">
               Los quincenales generan dos pagos por mes: uno al 15 y otro al último día.
             </p>
           )}
@@ -152,7 +152,7 @@ export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto
           />
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Notas</label>
+            <label className="block text-xs font-semibold text-neutro-600 mb-1">Notas</label>
             <textarea
               rows={2} value={form.notas}
               onChange={(e) => set('notas', e.target.value)}

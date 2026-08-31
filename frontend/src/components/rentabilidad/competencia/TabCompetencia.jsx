@@ -38,12 +38,12 @@ export default function TabCompetencia({
   return (
     <div className="space-y-5">
       {error && (
-        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+        <div className="card bg-peligro-50 border-peligro-200 text-peligro-700 p-4">
           <p>{error}</p>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="flex flex-wrap gap-2 border-b border-neutro-200">
         {secciones.map((s) => {
           const Icon = s.icon
           const activa = seccion === s.key
@@ -53,14 +53,14 @@ export default function TabCompetencia({
               onClick={() => setSeccion(s.key)}
               className={`px-3 py-2 text-sm font-medium flex items-center gap-1.5 border-b-2 -mb-px transition ${
                 activa
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
+                  ? 'border-nota-500 text-nota-600'
+                  : 'border-transparent text-neutro-500 hover:text-neutro-800'
               }`}
             >
               <Icon size={15} />
               {s.label}
               {s.count > 0 && (
-                <span className={`text-xxs px-1.5 py-0.5 rounded-full ${activa ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`text-xxs px-1.5 py-0.5 rounded-full ${activa ? 'bg-nota-100 text-nota-700' : 'bg-neutro-100 text-neutro-500'}`}>
                   {s.count}
                 </span>
               )}

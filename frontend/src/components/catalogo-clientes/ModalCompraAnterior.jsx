@@ -75,25 +75,25 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
       <div className="absolute inset-0 bg-black/40" onClick={onCerrar} />
 
       <div className="relative bg-white w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl max-h-[88vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-150">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutro-200">
           <div className="min-w-0">
-            <h2 className="font-bold text-slate-900 text-[14px] leading-tight">Repetir esta compra</h2>
+            <h2 className="font-bold text-neutro-900 text-[14px] leading-tight">Repetir esta compra</h2>
             {compra && (
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-neutro-400">
                 {new Date(compra.fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
                 {' · '}Quite o ajuste lo que no vaya
               </p>
             )}
           </div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 text-slate-400 hover:text-slate-800 shrink-0">
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 text-neutro-400 hover:text-neutro-800 shrink-0">
             <X size={19} />
           </button>
         </div>
 
         {cargando ? (
-          <div className="py-20 flex justify-center"><Loader2 size={24} className="animate-spin text-emerald-600" /></div>
+          <div className="py-20 flex justify-center"><Loader2 size={24} className="animate-spin text-cliente-600" /></div>
         ) : error && !compra ? (
-          <p className="py-20 text-center text-[13px] text-slate-400 px-6">{error}</p>
+          <p className="py-20 text-center text-[13px] text-neutro-400 px-6">{error}</p>
         ) : (
           <>
             <div className="overflow-y-auto flex-1 px-4 py-3 space-y-1.5">
@@ -104,21 +104,21 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                   <div
                     key={i.id}
                     className={`flex items-center gap-2.5 rounded-xl border p-2 transition-colors ${
-                      fuera ? 'border-slate-150 bg-slate-50 opacity-60' : 'border-slate-150 bg-white'
+                      fuera ? 'border-neutro-200 bg-neutro-50 opacity-60' : 'border-neutro-200 bg-white'
                     }`}
                   >
-                    <div className="w-11 h-11 shrink-0 bg-slate-50 rounded-lg overflow-hidden flex items-center justify-center">
+                    <div className="w-11 h-11 shrink-0 bg-neutro-50 rounded-lg overflow-hidden flex items-center justify-center">
                       {i.imagen
                         ? <img src={i.imagen} alt="" loading="lazy" className="w-full h-full object-contain"
                                onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
-                        : <Package size={15} className="text-slate-300" />}
+                        : <Package size={15} className="text-neutro-300" />}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-[12px] font-semibold text-slate-900 leading-tight line-clamp-2">{i.nombre}</p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[12px] font-semibold text-neutro-900 leading-tight line-clamp-2">{i.nombre}</p>
+                      <p className="text-[11px] text-neutro-400">
                         {formatearColones(i.precio)}
-                        {n > 0 && <> · <strong className="text-slate-600">{formatearColones(n * i.precio)}</strong></>}
+                        {n > 0 && <> · <strong className="text-neutro-600">{formatearColones(n * i.precio)}</strong></>}
                       </p>
                     </div>
 
@@ -126,18 +126,18 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                       <button
                         type="button"
                         onClick={() => cambiar(i.id, i.cantidad)}
-                        className="shrink-0 h-8 px-3 rounded-lg border border-slate-200 hover:border-emerald-500 text-[11px] font-bold text-slate-500 hover:text-emerald-700"
+                        className="shrink-0 h-8 px-3 rounded-lg border border-neutro-200 hover:border-cliente-500 text-[11px] font-bold text-neutro-500 hover:text-cliente-700"
                       >
                         Volver a poner
                       </button>
                     ) : (
                       <div className="shrink-0 flex items-center gap-1">
-                        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 p-0.5">
+                        <div className="flex items-center gap-0.5 rounded-lg border border-neutro-200 p-0.5">
                           <button
                             type="button"
                             aria-label={`Quitar uno de ${i.nombre}`}
                             onClick={() => cambiar(i.id, n - 1)}
-                            className="w-7 h-7 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-600"
+                            className="w-7 h-7 rounded-md hover:bg-neutro-100 flex items-center justify-center text-neutro-600"
                           >
                             <Minus size={13} />
                           </button>
@@ -148,13 +148,13 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                             aria-label={`Cantidad de ${i.nombre}`}
                             value={n}
                             onChange={(e) => cambiar(i.id, e.target.value)}
-                            className="w-8 text-center text-[12px] font-extrabold text-slate-900 bg-transparent focus:outline-none"
+                            className="w-8 text-center text-[12px] font-extrabold text-neutro-900 bg-transparent focus:outline-none"
                           />
                           <button
                             type="button"
                             aria-label={`Agregar uno de ${i.nombre}`}
                             onClick={() => cambiar(i.id, n + 1)}
-                            className="w-7 h-7 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center"
+                            className="w-7 h-7 rounded-md bg-cliente-600 hover:bg-cliente-700 text-white flex items-center justify-center"
                           >
                             <Plus size={13} />
                           </button>
@@ -163,7 +163,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                           type="button"
                           aria-label={`Sacar ${i.nombre}`}
                           onClick={() => cambiar(i.id, 0)}
-                          className="w-7 h-7 rounded-md text-slate-300 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"
+                          className="w-7 h-7 rounded-md text-neutro-300 hover:text-peligro-600 hover:bg-peligro-50 flex items-center justify-center"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -174,9 +174,9 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
               })}
 
               {noDisponibles.length > 0 && (
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-150 rounded-xl px-3 py-2.5 mt-2">
-                  <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800">
+                <div className="flex items-start gap-2 bg-alerta-50 border border-alerta-200 rounded-xl px-3 py-2.5 mt-2">
+                  <AlertCircle size={14} className="text-alerta-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-alerta-800">
                     {noDisponibles.length} producto{noDisponibles.length === 1 ? '' : 's'} de esa compra
                     {noDisponibles.length === 1 ? ' ya no se consigue' : ' ya no se consiguen'}.
                   </p>
@@ -184,26 +184,26 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
               )}
             </div>
 
-            <div className="border-t border-slate-150 p-4 space-y-2.5">
+            <div className="border-t border-neutro-200 p-4 space-y-2.5">
               {error && (
-                <div className="flex items-start gap-2 bg-rose-50 border border-rose-150 rounded-xl px-3 py-2">
-                  <AlertCircle size={14} className="text-rose-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-rose-700 font-semibold">{error}</p>
+                <div className="flex items-start gap-2 bg-peligro-50 border border-peligro-200 rounded-xl px-3 py-2">
+                  <AlertCircle size={14} className="text-peligro-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-peligro-700 font-semibold">{error}</p>
                 </div>
               )}
 
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-neutro-400">
                   {elegidos.length} de {compra.items.filter(i => i.disponible).length}
                 </span>
-                <span className="text-[17px] font-extrabold text-slate-900">{formatearColones(total)}</span>
+                <span className="text-[17px] font-extrabold text-neutro-900">{formatearColones(total)}</span>
               </div>
 
               <button
                 type="button"
                 onClick={agregar}
                 disabled={agregando || elegidos.length === 0}
-                className="w-full bg-slate-900 hover:bg-emerald-600 disabled:bg-slate-200 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-neutro-900 hover:bg-cliente-600 disabled:bg-neutro-200 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
               >
                 {agregando ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
                 {elegidos.length === 0

@@ -38,18 +38,18 @@ export default function ResumenComparativo({ ventas, compras, resumenVentas, res
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5"><TrendingUp size={14} className="text-emerald-500" /> Ventas</p>
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5"><TrendingUp size={14} className="text-exito-500" /> Ventas</p>
         {baseVentasOriginal === null ? (
-          <p className="text-sm text-gray-400 mt-2">Sin cargar</p>
+          <p className="text-sm text-neutro-400 mt-2">Sin cargar</p>
         ) : (
           <>
-            <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(baseVentasAjustada)}</p>
+            <p className="text-2xl font-semibold text-neutro-900 mt-1">{formatCurrency(baseVentasAjustada)}</p>
             {huboAjuste && (
-              <p className="text-xs text-gray-400 line-through">{formatCurrency(baseVentasOriginal)}</p>
+              <p className="text-xs text-neutro-400 line-through">{formatCurrency(baseVentasOriginal)}</p>
             )}
-            <span className="text-xs text-gray-500">IVA débito {formatCurrency(debitoAjustado)}</span>
+            <span className="text-xs text-neutro-500">IVA débito {formatCurrency(debitoAjustado)}</span>
             {baseDevoluciones > 0 && (
-              <p className="text-xs text-purple-600 mt-0.5">
+              <p className="text-xs text-nota-600 mt-0.5">
                 − {formatCurrency(baseDevoluciones)} en devoluciones (IVA {formatCurrency(impDevoluciones)})
               </p>
             )}
@@ -58,35 +58,35 @@ export default function ResumenComparativo({ ventas, compras, resumenVentas, res
       </div>
 
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5"><TrendingDown size={14} className="text-orange-500" /> Compras</p>
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5"><TrendingDown size={14} className="text-alerta-500" /> Compras</p>
         {baseCompras === null ? (
-          <p className="text-sm text-gray-400 mt-2">Sin cargar</p>
+          <p className="text-sm text-neutro-400 mt-2">Sin cargar</p>
         ) : (
           <>
-            <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(baseCompras)}</p>
+            <p className="text-2xl font-semibold text-neutro-900 mt-1">{formatCurrency(baseCompras)}</p>
             {comprasAjustadas && (
-              <p className="text-xs text-gray-400 line-through">{formatCurrency(compras.baseGravableOriginal)}</p>
+              <p className="text-xs text-neutro-400 line-through">{formatCurrency(compras.baseGravableOriginal)}</p>
             )}
-            <span className="text-xs text-gray-500">IVA crédito {formatCurrency(impCompras)}</span>
+            <span className="text-xs text-neutro-500">IVA crédito {formatCurrency(impCompras)}</span>
           </>
         )}
       </div>
 
       <div className="card">
-        <p className="text-sm text-gray-500 flex items-center gap-1.5"><Wallet size={14} className="text-blue-500" /> IVA a pagar</p>
+        <p className="text-sm text-neutro-500 flex items-center gap-1.5"><Wallet size={14} className="text-primario-500" /> IVA a pagar</p>
         {ivaAjustado === null ? (
-          <p className="text-sm text-gray-400 mt-2">Cargá ambos reportes</p>
+          <p className="text-sm text-neutro-400 mt-2">Cargá ambos reportes</p>
         ) : (
           <>
-            <p className={`text-2xl font-semibold mt-1 ${ivaAjustado < 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+            <p className={`text-2xl font-semibold mt-1 ${ivaAjustado < 0 ? 'text-exito-600' : 'text-neutro-900'}`}>
               {formatCurrency(ivaAjustado)}
             </p>
             {huboAjuste && (
-              <p className="text-xs text-gray-400 flex items-center gap-1">
+              <p className="text-xs text-neutro-400 flex items-center gap-1">
                 {formatCurrency(ivaOriginal)} <ArrowRight size={11} /> {formatCurrency(ivaAjustado)}
               </p>
             )}
-            <span className="text-xs text-gray-500">débito ventas − crédito compras</span>
+            <span className="text-xs text-neutro-500">débito ventas − crédito compras</span>
           </>
         )}
       </div>

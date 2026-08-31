@@ -56,7 +56,7 @@ export default function InputCantidad({ cantidad, onCambiar, etiqueta = '', comp
   }
 
   const claseCaja = compacto
-    ? 'flex items-center gap-1 bg-white rounded-lg border border-emerald-300 p-0.5'
+    ? 'flex items-center gap-1 bg-white rounded-lg border border-cliente-300 p-0.5'
     : 'flex items-center gap-2'
 
   const claseBoton = compacto
@@ -64,8 +64,8 @@ export default function InputCantidad({ cantidad, onCambiar, etiqueta = '', comp
     : 'w-11 h-11 rounded-xl flex items-center justify-center'
 
   const claseInput = compacto
-    ? 'flex-1 w-full text-center text-[13px] font-extrabold text-slate-900 focus:outline-none bg-transparent'
-    : 'w-20 h-11 text-center border-2 border-emerald-500 rounded-xl font-extrabold focus:outline-none'
+    ? 'flex-1 w-full text-center text-[13px] font-extrabold text-neutro-900 focus:outline-none bg-transparent'
+    : 'w-20 h-11 text-center border-2 border-cliente-500 rounded-xl font-extrabold focus:outline-none'
 
   return (
     <div className={claseCaja}>
@@ -73,7 +73,7 @@ export default function InputCantidad({ cantidad, onCambiar, etiqueta = '', comp
         type="button"
         aria-label={`Quitar uno${etiqueta ? ` de ${etiqueta}` : ''}`}
         onClick={() => paso(cantidad - 1)}
-        className={`${claseBoton} ${compacto ? 'hover:bg-slate-100 text-slate-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+        className={`${claseBoton} ${compacto ? 'hover:bg-neutro-100 text-neutro-600' : 'bg-neutro-100 hover:bg-neutro-200'}`}
       >
         <Minus size={compacto ? 14 : 16} />
       </button>
@@ -96,7 +96,7 @@ export default function InputCantidad({ cantidad, onCambiar, etiqueta = '', comp
         type="button"
         aria-label={`Agregar uno${etiqueta ? ` de ${etiqueta}` : ''}`}
         onClick={() => paso(cantidad + 1)}
-        className={`${claseBoton} bg-emerald-600 hover:bg-emerald-700 text-white`}
+        className={`${claseBoton} bg-cliente-600 hover:bg-cliente-700 text-white`}
       >
         <Plus size={compacto ? 14 : 16} />
       </button>

@@ -41,11 +41,11 @@ export default function EjecucionExceso({
       />
 
       <div className="space-y-3">
-        <h3 className="text-lg font-bold text-gray-900">Productos a Empacar ({items.length})</h3>
+        <h3 className="text-lg font-bold text-neutro-900">Productos a Empacar ({items.length})</h3>
 
         {items.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-gray-100 p-10 text-center text-gray-400 flex flex-col items-center gap-3">
-            <PackageX size={40} className="text-gray-300" />
+          <div className="bg-white rounded-3xl border border-neutro-100 p-10 text-center text-neutro-400 flex flex-col items-center gap-3">
+            <PackageX size={40} className="text-neutro-300" />
             <p>Esta tanda está vacía. Agregá productos con el buscador de arriba.</p>
           </div>
         ) : (

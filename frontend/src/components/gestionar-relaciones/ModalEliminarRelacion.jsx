@@ -10,10 +10,10 @@ export default function ModalEliminarRelacion({ producto, onConfirmar, onCerrar 
       <div className="bg-white rounded-lg max-w-lg w-full">
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-900">Confirmar Eliminación</h3>
+            <h3 className="text-xl font-bold text-neutro-900">Confirmar Eliminación</h3>
             <button
               onClick={onCerrar}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-neutro-500 hover:text-neutro-700"
             >
               <XCircle size={24} />
             </button>
@@ -21,30 +21,30 @@ export default function ModalEliminarRelacion({ producto, onConfirmar, onCerrar 
         </div>
 
         <div className="p-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <div className="bg-alerta-50 border border-alerta-200 rounded-lg p-4 mb-4">
             <div className="flex items-start">
-              <AlertCircle className="text-yellow-600 mr-3 flex-shrink-0" size={24} />
+              <AlertCircle className="text-alerta-600 mr-3 flex-shrink-0" size={24} />
               <div>
-                <p className="font-semibold text-yellow-900 mb-1">¿Estás seguro?</p>
-                <p className="text-sm text-yellow-800">
+                <p className="font-semibold text-alerta-900 mb-1">¿Estás seguro?</p>
+                <p className="text-sm text-alerta-800">
                   El producto volverá al estado <strong>PENDIENTE</strong> y tendrás que relacionarlo nuevamente.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Producto:</h4>
-            <p className="text-sm text-gray-700">{producto.descripcion}</p>
+          <div className="bg-neutro-50 rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-neutro-900 mb-2">Producto:</h4>
+            <p className="text-sm text-neutro-700">{producto.descripcion}</p>
             {producto.mapeo && (
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-neutro-600 mt-2">
                 Relacionado con: <strong>{producto.mapeo.alegraName}</strong>
               </p>
             )}
           </div>
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex gap-3">
+        <div className="p-6 border-t bg-neutro-50 flex gap-3">
           <button
             onClick={onConfirmar}
             className="btn btn-danger flex-1"

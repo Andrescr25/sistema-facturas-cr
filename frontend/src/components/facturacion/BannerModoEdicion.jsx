@@ -7,20 +7,20 @@ import { Edit, X } from 'lucide-react'
 export default function BannerModoEdicion({ isMobile, facturaEditando, onCancelar }) {
   return (
     <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
-      <div className="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-r-lg">
+      <div className="bg-alerta-50 border-l-4 border-alerta-600 p-4 rounded-r-lg">
         <div className="flex items-center gap-3">
-          <Edit className="text-orange-600" size={24} />
+          <Edit className="text-alerta-600" size={24} />
           <div className="flex-1">
-            <p className="font-semibold text-orange-900">
+            <p className="font-semibold text-alerta-900">
               Editando Factura #{facturaEditando.numberTemplate?.fullNumber || facturaEditando.id}
             </p>
-            <p className="text-sm text-orange-700">
+            <p className="text-sm text-alerta-700">
               Realiza los cambios necesarios y guarda cuando termines
             </p>
           </div>
           <button
             onClick={onCancelar}
-            className="text-orange-600 hover:text-orange-800 p-2"
+            className="text-alerta-600 hover:text-alerta-800 p-2"
             title="Cancelar edición"
           >
             <X size={20} />

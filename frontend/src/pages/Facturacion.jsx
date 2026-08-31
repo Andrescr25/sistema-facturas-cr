@@ -115,7 +115,7 @@ export default function Facturacion() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center py-12">
           <div className="spinner mx-auto mb-4"></div>
-          <p className="text-gray-600">Inicializando sistema de facturación...</p>
+          <p className="text-neutro-600">Inicializando sistema de facturación...</p>
         </div>
       </div>
     )
@@ -143,10 +143,10 @@ export default function Facturacion() {
 
       {/* Mensaje flotante */}
       {mensaje && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${mensaje.tipo === 'success' ? 'bg-green-500 text-white' :
-          mensaje.tipo === 'error' ? 'bg-red-500 text-white' :
-            mensaje.tipo === 'warning' ? 'bg-orange-500 text-white' :
-              'bg-blue-500 text-white'
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${mensaje.tipo === 'success' ? 'bg-exito-500 text-white' :
+          mensaje.tipo === 'error' ? 'bg-peligro-500 text-white' :
+            mensaje.tipo === 'warning' ? 'bg-alerta-500 text-white' :
+              'bg-primario-500 text-white'
           }`}>
           <Check size={20} />
           <span>{mensaje.texto}</span>
@@ -238,8 +238,8 @@ export default function Facturacion() {
                 {/* Lista de Productos en Factura */}
                 {items.length > 0 && (
                   <div className="card shadow-md p-6 rounded-2xl">
-                    <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-900 flex items-center gap-2">
-                      <ShoppingCart size={22} className="text-blue-600" />
+                    <h3 className="text-lg md:text-xl font-bold mb-4 text-neutro-900 flex items-center gap-2">
+                      <ShoppingCart size={22} className="text-primario-600" />
                       Productos Agregados ({items.length})
                     </h3>
 

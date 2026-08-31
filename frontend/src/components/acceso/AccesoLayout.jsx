@@ -12,7 +12,7 @@
  */
 export default function AccesoLayout({ eyebrow, titulo, descripcion, children }) {
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen bg-neutro-50 lg:flex">
       <div className="hidden lg:flex lg:w-[44%] xl:w-2/5 relative flex-col justify-between overflow-hidden bg-gradient-to-br from-azul-900 via-azul-800 to-azul-950 px-12 py-14 text-white">
         <div
           className="absolute inset-0 opacity-[0.06]"
