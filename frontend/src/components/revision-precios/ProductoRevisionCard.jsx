@@ -74,7 +74,7 @@ export default function ProductoRevisionCard({
             </div>
           </div>
           {analisis.precioModificado && (
-            <span className="badge bg-alerta-500 text-white text-base px-4 py-2 flex items-center shadow-lg">
+            <span className="inline-flex rounded-full bg-alerta-500 text-white text-base px-4 py-2 flex items-center shadow-lg">
               <Edit3 size={18} className="mr-2" />
               Precio Ajustado
             </span>

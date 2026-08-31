@@ -1,5 +1,6 @@
 import { ArrowLeft, Loader, RotateCcw, Send } from 'lucide-react'
 import ProductoRevisionCard from './ProductoRevisionCard'
+import Insignia from '../ui/Insignia'
 
 /**
  * Vista de revisión de una factura: header con acciones (volver, devolver),
@@ -84,7 +85,7 @@ export default function RevisionFactura({
         </div>
         <div className="card">
           <p className="text-sm text-neutro-600 mb-1">Estado</p>
-          <span className="badge badge-success text-sm">Listo</span>
+          <Insignia tono="exito">Listo</Insignia>
         </div>
       </div>
 

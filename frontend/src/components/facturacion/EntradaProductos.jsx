@@ -93,7 +93,7 @@ export default function EntradaProductos({
               </div>
               {productoPreviewRapido.price && (
                 <div className="text-right">
-                  <span className="text-xs text-neutro-405 block mb-1">Precio Unitario</span>
+                  <span className="text-xs text-neutro-400 block mb-1">Precio Unitario</span>
                   <span className="text-lg font-black text-exito-600 block">
                     ₡{productoPreviewRapido.price.toLocaleString('es-CR')}
                   </span>

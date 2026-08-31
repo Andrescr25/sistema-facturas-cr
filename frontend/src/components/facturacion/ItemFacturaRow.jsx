@@ -25,7 +25,7 @@ export default function ItemFacturaRow({
     <div className="border-2 border-neutro-200 rounded-xl p-4 bg-neutro-50 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className={`font-bold text-neutro-955 leading-snug ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{item.name}</p>
+          <p className={`font-bold text-neutro-950 leading-snug ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{item.name}</p>
           <p className={`text-neutro-500 mt-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
             Código: <strong>{getReference(item.reference)}</strong>
           </p>

@@ -1,0 +1,123 @@
+/**
+ * Barrera para que el diseño no se vuelva a desordenar.
+ *
+ * POR QUÉ EXISTE
+ * El sistema llegó a tener tres colores compitiendo por el mismo papel
+ * —blue 516, emerald 344, green 168— repartidos según CUÁNDO se escribió
+ * cada módulo. Unificarlo costó 3.901 reemplazos en 166 archivos. Sin algo
+ * que lo vigile, en unos meses estamos igual: nadie escribe `bg-blue-600`
+ * por maldad, lo copia del archivo que tenía al lado.
+ *
+ * Esta prueba es lo que convierte el orden en algo que se mantiene solo.
+ *
+ * QUÉ VIGILA
+ *   1. Que no vuelvan los colores crudos de Tailwind (hay que usar los roles).
+ *   2. Que no se usen pasos que Tailwind NO tiene (border-neutro-150), que no
+ *      generan CSS y dejan el borde del color por omisión sin que nadie note.
+ *   3. Que no se invoquen clases propias inexistentes (btn-danger,
+ *      badge-success), que renderizan un elemento sin estilo.
+ *
+ * Vive en el backend porque es donde está `npm test`. Lee los archivos del
+ * frontend como texto: no necesita navegador ni compilar nada.
+ */
+
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+
+const FRONT = path.join(__dirname, '..', '..', 'frontend', 'src');
+const CSS = path.join(FRONT, 'index.css');
+
+const PREFIJOS = '(?:bg|text|border|ring|ring-offset|from|to|via|divide|placeholder|shadow|outline|accent|decoration|fill|stroke|caret)';
+
+// Escalas de Tailwind que ya NO se usan directamente: cada una tiene su rol.
+const CRUDOS = ['blue', 'emerald', 'green', 'slate', 'gray', 'zinc', 'stone',
+                'red', 'rose', 'amber', 'yellow', 'orange', 'indigo', 'sky',
+                'purple', 'violet'];
+
+const ROLES = ['neutro', 'primario', 'acento', 'peligro', 'alerta', 'exito',
+               'cliente', 'nota', 'azul', 'naranja'];
+
+const PASOS_VALIDOS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'];
+
+function archivosJsx(dir) {
+  const salida = [];
+  for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+    const completo = path.join(dir, entrada.name);
+    if (entrada.isDirectory()) salida.push(...archivosJsx(completo));
+    else if (entrada.name.endsWith('.jsx')) salida.push(completo);
+  }
+  return salida;
+}
+
+/**
+ * Se quitan los comentarios antes de revisar.
+ *
+ * Los componentes compartidos EXPLICAN en su encabezado qué desorden vinieron
+ * a resolver, y para eso nombran los colores viejos ("había bg-emerald-600,
+ * bg-blue-600, bg-slate-900..."). Sin esto, la prueba señalaba justamente a
+ * los archivos que arreglaron el problema.
+ */
+function sinComentarios(texto) {
+  return texto
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // bloque
+    .replace(/(^|[^:])\/\/.*$/gm, '$1'); // línea (sin comerse el // de una URL)
+}
+
+const ARCHIVOS = archivosJsx(FRONT).map(f => ({
+  ruta: path.relative(FRONT, f),
+  texto: sinComentarios(fs.readFileSync(f, 'utf8')),
+}));
+
+describe('vocabulario de diseño', () => {
+  test('ningún archivo usa un color crudo de Tailwind', () => {
+    const patron = new RegExp(`\\b${PREFIJOS}-(${CRUDOS.join('|')})-\\d{2,3}\\b`, 'g');
+    const culpables = [];
+    for (const { ruta, texto } of ARCHIVOS) {
+      const hallazgos = texto.match(patron);
+      if (hallazgos) culpables.push(`${ruta}: ${[...new Set(hallazgos)].slice(0, 3).join(', ')}`);
+    }
+    assert.deepEqual(culpables, [],
+      `Hay que usar los roles (primario, peligro, alerta, exito, neutro, cliente, nota),\n` +
+      `no el color directo. Encontrado en:\n  ${culpables.join('\n  ')}`);
+  });
+
+  test('no se usan pasos de color que Tailwind no tiene', () => {
+    const patron = new RegExp(`\\b${PREFIJOS}-(?:${ROLES.join('|')})-(\\d{2,3})\\b`, 'g');
+    const culpables = [];
+    for (const { ruta, texto } of ARCHIVOS) {
+      for (const hallazgo of texto.matchAll(patron)) {
+        if (!PASOS_VALIDOS.includes(hallazgo[1])) culpables.push(`${ruta}: ${hallazgo[0]}`);
+      }
+    }
+    assert.deepEqual(culpables, [],
+      `Estos pasos no existen, así que la clase no genera CSS y el elemento se\n` +
+      `queda con el estilo por omisión sin que nadie lo note:\n  ${culpables.join('\n  ')}`);
+  });
+
+  test('no se invocan clases propias que no están definidas en index.css', () => {
+    const css = fs.readFileSync(CSS, 'utf8');
+    // Clases del proyecto (no de Tailwind) que aparecen en className="...".
+    const PROPIAS = ['btn', 'btn-sm', 'btn-primary', 'btn-secondary', 'btn-outline',
+                     'btn-danger', 'btn-success', 'btn-warning', 'card', 'input',
+                     'label', 'badge', 'badge-success', 'spinner'];
+    const usadas = new Set();
+    for (const { texto } of ARCHIVOS) {
+      for (const m of texto.matchAll(/className="([^"{}]+)"/g)) {
+        for (const cls of m[1].split(/\s+/)) if (PROPIAS.includes(cls)) usadas.add(cls);
+      }
+    }
+    const sinDefinir = [...usadas].filter(c => !new RegExp(`^\\s*\\.${c}\\s*[,{]`, 'm').test(css));
+    assert.deepEqual(sinDefinir, [],
+      `Se usan pero no existen en index.css, así que el elemento sale sin estilo: ${sinDefinir.join(', ')}`);
+  });
+
+  test('la prueba sirve: detectaría un color crudo si volviera', () => {
+    // Sin esto, los tests de arriba pasarían igual si el patrón estuviera mal
+    // escrito y no encontrara nunca nada.
+    const patron = new RegExp(`\\b${PREFIJOS}-(${CRUDOS.join('|')})-\\d{2,3}\\b`);
+    assert.ok(patron.test('<div className="bg-blue-600 p-4">'), 'el patrón no detecta bg-blue-600');
+    assert.ok(!patron.test('<div className="bg-primario-800 p-4">'), 'el patrón marca un rol válido');
+  });
+});
