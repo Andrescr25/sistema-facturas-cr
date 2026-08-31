@@ -1,10 +1,12 @@
 import { Package, Printer, Sparkles } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de confirmación al completar un despacho (factura lista o con
  * faltantes registrados). Extraído de FacturasBodega.jsx.
  */
 export default function ModalClienteCompletado({ clienteCompletado, onCerrar }) {
+  useModal(onCerrar)
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-scale-up">

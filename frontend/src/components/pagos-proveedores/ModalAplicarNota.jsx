@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, Loader2, ArrowRight, FileWarning } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/pagosProveedoresUtils'
 import { getCandidatasNota } from '../../services/pagosProveedoresService'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Elige a qué factura del proveedor se le aplica el crédito que quedó a
@@ -13,6 +14,7 @@ import { getCandidatasNota } from '../../services/pagosProveedoresService'
  * que el disponible.
  */
 export default function ModalAplicarNota({ nota, onAplicar, onCerrar }) {
+  useModal(onCerrar)
   const [cargando, setCargando] = useState(true)
   const [cuentas, setCuentas] = useState([])
   const [error, setError] = useState(null)

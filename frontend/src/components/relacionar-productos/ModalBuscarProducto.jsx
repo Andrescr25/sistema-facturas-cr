@@ -1,4 +1,5 @@
 import { X, Search, Loader, Package, AlertCircle, Plus } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de búsqueda de un producto de Alegra para relacionarlo con un
@@ -15,6 +16,7 @@ export default function ModalBuscarProducto({
   onRelacionar,
   onCrearNuevo
 }) {
+  useModal(onCerrar)
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">

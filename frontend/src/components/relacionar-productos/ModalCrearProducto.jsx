@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2, Search, Scale } from 'lucide-react'
 import { FORMAS_FARMACEUTICAS } from '../../utils/formasFarmaceuticas'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Formulario completo para crear un producto nuevo en Alegra a partir de un
@@ -29,6 +30,7 @@ export default function ModalCrearProducto({
   onSubmit,
   onCerrar
 }) {
+  useModal(onCerrar)
   // Si el proveedor factura este producto en una unidad distinta a como se
   // vende (ej: factura 25 sueltos, se vende como 1 paquete de 25), declarar
   // el factor acá mismo — evita que "Cantidad Inicial" se mande a Alegra en

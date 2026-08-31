@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PanelPedido from './PanelPedido'
 import PanelSugerencias from './PanelSugerencias'
 import apiPortal from '../../services/apiPortal'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Coloca los dos paneles que salen al tocar "Ver pedido".
@@ -24,6 +25,7 @@ import apiPortal from '../../services/apiPortal'
  * estado adentro de PanelPedido, este componente no tenía forma de saberlo.
  */
 export default function ModalPedido({ resumen, carrito, onCambiar, onAgregar, onVaciar, onCerrar, onEnviado, habituales, perdidos }) {
+  useModal(onCerrar)
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(null)
   const [error, setError] = useState('')

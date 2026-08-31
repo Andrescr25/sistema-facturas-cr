@@ -1,4 +1,5 @@
 import { Search, XCircle } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal para reasignar la relación de un producto de proveedor a otro
@@ -14,6 +15,7 @@ export default function ModalEditarRelacion({
   onCambiarRelacion,
   onCerrar
 }) {
+  useModal(onCerrar)
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { CATEGORIA_INFO, FRECUENCIA_LABEL, mesNombre } from '../../utils/pagosRecurrentesUtils'
 import ConfigConsultaAuto from './ConfigConsultaAuto'
+import { useModal } from '../../hooks/useModal'
 
 // Frecuencias que no caen todos los meses y necesitan saber en cuál toca.
 const NECESITA_MES = ['bimensual', 'trimestral', 'semestral', 'anual']
@@ -25,6 +26,7 @@ const VACIO = {
  * preguntarlo, y para el marchamo es imprescindible saber que va en diciembre.
  */
 export default function ModalGasto({ gasto, categorias, frecuencias, fuentesAuto = [], guardando, onGuardar, onCerrar }) {
+  useModal(onCerrar)
   const [form, setForm] = useState(gasto ? {
     nombre: gasto.nombre || '',
     categoria: gasto.categoria || 'servicios',

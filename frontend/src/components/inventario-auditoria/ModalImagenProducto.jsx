@@ -1,4 +1,5 @@
 import { X, ImageIcon } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de solo lectura: muestra la foto que el producto ya tiene guardada
@@ -7,6 +8,7 @@ import { X, ImageIcon } from 'lucide-react'
  * ni cambiar imágenes — eso vive en Gestión de Catálogo.
  */
 export default function ModalImagenProducto({ item, onCerrar }) {
+  useModal(onCerrar)
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutro-900/60 backdrop-blur-sm"

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Copy, Check, AlertTriangle } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Muestra el enlace recién generado.
@@ -9,6 +10,7 @@ import { X, Copy, Check, AlertTriangle } from 'lucide-react'
  * hay que generar otro.
  */
 export default function ModalInvitacion({ invitacion, onCerrar }) {
+  useModal(onCerrar)
   const [copiado, setCopiado] = useState(false)
 
   const copiar = async () => {

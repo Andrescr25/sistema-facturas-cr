@@ -1,5 +1,6 @@
 import { Minus, Plus, Check, Package } from 'lucide-react'
 import { getReference } from '../../utils/facturacionUtils'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de selección de cantidad optimizado para táctil (móvil), usado al
@@ -14,6 +15,7 @@ export default function ModalCantidadMovil({
   onCerrar,
   onConfirmar
 }) {
+  useModal(onCerrar)
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"

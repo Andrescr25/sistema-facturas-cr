@@ -1,4 +1,5 @@
 import { X, Search, Loader2, AlertCircle, Check, Upload } from 'lucide-react'
+import { useModal } from '../hooks/useModal'
 
 /**
  * Modal de sugerencias automáticas de imagen para un producto, con barra de
@@ -20,6 +21,7 @@ export default function ModalSugerirImagen({
   onSubirArchivo,
   onCerrar
 }) {
+  useModal(onCerrar)
   const handleArchivoChange = (e) => {
     const file = e.target.files[0]
     e.target.value = ''

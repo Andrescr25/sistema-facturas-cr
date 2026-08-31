@@ -1,4 +1,5 @@
 import { X, Edit, Loader2, Trash2, Check } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal para editar nombre/referencia/precio/costo de un producto, con
@@ -24,6 +25,7 @@ export default function ModalEditarProducto({
   onEliminar,
   onCerrar
 }) {
+  useModal(onCerrar)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutro-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-neutro-100 animate-in fade-in zoom-in-95 duration-200">

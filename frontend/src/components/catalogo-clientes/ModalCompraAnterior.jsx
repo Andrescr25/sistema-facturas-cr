@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { X, Loader2, Minus, Plus, Trash2, Package, AlertCircle, ShoppingCart } from 'lucide-react'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Una compra anterior, abierta para revisarla antes de repetirla.
@@ -15,6 +16,7 @@ import { formatearColones } from '../../utils/catalogoClientesUtils'
  * pagar. El de entonces solo confundiría al comparar con el total.
  */
 export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado }) {
+  useModal(onCerrar)
   const [compra, setCompra] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Loader2, AlertCircle, Shield, KeyRound } from 'lucide-react'
 import TableroPermisos from './TableroPermisos'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Alta y edición de un usuario, con sus permisos en la misma pantalla.
@@ -10,6 +11,7 @@ import TableroPermisos from './TableroPermisos'
  * la puede escribir.
  */
 export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, onRestablecer, esYoMismo }) {
+  useModal(onCerrar)
   const editando = Boolean(usuario)
 
   const [nombreUsuario, setNombreUsuario] = useState(usuario?.usuario || '')

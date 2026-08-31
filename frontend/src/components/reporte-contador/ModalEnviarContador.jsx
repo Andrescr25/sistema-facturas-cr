@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, Mail, Loader2, Paperclip, AlertTriangle, Plus, Trash2, UserPlus } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Elige a quién mandarle los reportes del mes.
@@ -12,6 +13,7 @@ export default function ModalEnviarContador({
   abierto, onCerrar, onEnviar, onCrearContacto, onEliminarContacto,
   contactos, envioDisponible, etiquetaMes, adjuntos
 }) {
+  useModal(onCerrar)
   const [contactoId, setContactoId] = useState('')
   const [agregando, setAgregando] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, Loader2, RotateCcw, X } from 'lucide-react'
 import { formatCurrency, formatDate, diasLabel, calcularPayloadPago } from '../../utils/pagosProveedoresUtils'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de detalle de una cuenta por pagar: info completa, tabla de
@@ -11,6 +12,7 @@ import { formatCurrency, formatDate, diasLabel, calcularPayloadPago } from '../.
  * feedback de carga propio.
  */
 export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onCerrar }) {
+  useModal(onCerrar)
   const [tipoPago, setTipoPago] = useState('completo')
   const [monto, setMonto] = useState('')
   const [notas, setNotas] = useState(cuenta.notas || '')

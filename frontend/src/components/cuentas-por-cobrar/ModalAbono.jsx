@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Loader2, X, Wallet, CalendarDays, CreditCard, Clock, CircleDollarSign, ChevronDown } from 'lucide-react'
 import { formatCurrency, formatDate, diasLabel, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal de una factura con saldo: monto/fecha/método del abono + historial
@@ -11,6 +12,7 @@ import { formatCurrency, formatDate, diasLabel, METODOS_PAGO } from '../../utils
  *   2. Abonar otro monto  → formulario con campos grandes
  */
 export default function ModalAbono({ factura, clienteNombre, procesando, onRegistrar, onCargarAbonos, onCerrar }) {
+  useModal(onCerrar)
   const [monto, setMonto] = useState('')
   // Saldar total no manda un monto: el backend usa el saldo que Alegra
   // reporte al momento de aplicar el pago, así no falla si el espejo local

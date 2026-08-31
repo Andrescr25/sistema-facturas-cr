@@ -5,6 +5,7 @@ import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { haceCuanto } from '../../utils/notasCatalogo'
 import SugerenciasJuntoCon from './SugerenciasJuntoCon'
 import InputCantidad from './InputCantidad'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Ficha de un producto.
@@ -18,6 +19,7 @@ import InputCantidad from './InputCantidad'
  * pierde la mitad de su razón de ser.
  */
 export default function FichaProducto({ itemId, cantidadEnCarrito, onCambiar, onCerrar }) {
+  useModal(onCerrar)
   const [producto, setProducto] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')

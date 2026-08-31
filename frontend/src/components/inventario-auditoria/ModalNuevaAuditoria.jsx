@@ -1,4 +1,5 @@
 import { Play, X, Info, RefreshCw } from 'lucide-react'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal para iniciar una nueva sesión de auditoría (aleatoria, por
@@ -16,6 +17,7 @@ export default function ModalNuevaAuditoria({
   onSubmit,
   onCerrar
 }) {
+  useModal(onCerrar)
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-neutro-500 bg-opacity-75 transition-opacity" onClick={onCerrar} />

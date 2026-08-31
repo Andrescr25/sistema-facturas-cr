@@ -1,5 +1,6 @@
 import { XCircle } from 'lucide-react'
 import { calcularFactorConversion } from '../../utils/gestionarRelacionesUtils'
+import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal para definir el factor de conversión (equivalencia de cantidades)
@@ -15,6 +16,7 @@ export default function ModalFactorConversion({
   onGuardar,
   onCerrar
 }) {
+  useModal(onCerrar)
   const cantProv = parseFloat(cantidadProveedor) || 1
   const cantMia = parseFloat(cantidadMia) || 1
   const factor = calcularFactorConversion(cantProv, cantMia)
