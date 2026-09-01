@@ -9,7 +9,8 @@
  */
 
 import api from './api';
-import indexedDBService from './indexedDBService';
+import indexedDBService from './indexedDBService'
+import { nuevaClaveFactura } from './dispositivo';
 
 class FacturacionService {
   constructor() {
@@ -423,10 +424,19 @@ class FacturacionService {
         items: facturaData.items?.length
       });
 
+      // La clave nace ACÁ, antes del primer intento, y acompaña a esta factura
+      // en todos los que vengan. Si el intento en línea expira, Alegra pudo
+      // haberla creado: al guardarla offline conserva esta misma clave, así
+      // que la sincronización posterior no crea una segunda.
+      const claveIdempotencia = await nuevaClaveFactura();
+
       if (this.isOnline) {
         // Intentar crear directamente en Alegra
         try {
-          const response = await api.post('/alegra/facturacion/invoices', facturaData);
+          const response = await api.post('/alegra/facturacion/invoices', {
+            ...facturaData,
+            claveIdempotencia
+          });
           
           if (response.data.success) {
             console.log('✅ Factura creada online:', response.data.data.id);
@@ -457,6 +467,14 @@ class FacturacionService {
 
       // Modo offline: guardar localmente
       const localId = await indexedDBService.saveFacturaPendiente(facturaData);
+
+      // La clave de idempotencia se calcula UNA vez y se guarda con la
+      // factura. Todos los reintentos —automáticos o a mano, hoy o dentro de
+      // tres días— mandan ESTA misma clave, que es lo que le permite al
+      // servidor reconocer que ya la recibió en vez de crear otra factura.
+      // Recalcularla al reintentar daría una clave nueva cada vez y no
+      // serviría de nada.
+      await indexedDBService.updateFacturaPendiente(localId, { claveIdempotencia });
 
       // Guardar versión para edición inmediata
       if (facturaVista) {
@@ -515,7 +533,10 @@ class FacturacionService {
       for (const factura of facturasPendientes) {
         try {
           // Intentar crear en Alegra
-          const response = await api.post('/alegra/facturacion/invoices', factura);
+          const response = await api.post('/alegra/facturacion/invoices', {
+            ...factura,
+            claveIdempotencia: factura.claveIdempotencia
+          });
           
           if (response.data.success) {
             // Marcar como sincronizada
@@ -599,7 +620,10 @@ class FacturacionService {
     }
 
     try {
-      const response = await api.post('/alegra/facturacion/invoices', factura);
+      const response = await api.post('/alegra/facturacion/invoices', {
+        ...factura,
+        claveIdempotencia: factura.claveIdempotencia
+      });
 
       if (response.data.success) {
         await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
@@ -914,7 +938,16 @@ class FacturacionService {
 
       console.log(`🌐 Enviando factura pendiente ${numeroLocal} directamente a Alegra...`);
 
-      const response = await api.post('/alegra/facturacion/invoices', facturaData);
+      // La clave se lee del registro guardado, no se recalcula: es la misma
+      // que usaron los intentos anteriores, y eso es lo que le permite al
+      // servidor reconocer que ya la recibió en vez de crear otra factura.
+      const pendientes = await indexedDBService.getFacturasPendientes();
+      const guardada = pendientes.find(f => f.localId === numeroLocal);
+
+      const response = await api.post('/alegra/facturacion/invoices', {
+        ...facturaData,
+        claveIdempotencia: guardada?.claveIdempotencia || null
+      });
 
       if (response.data.success) {
         await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
