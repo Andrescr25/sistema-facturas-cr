@@ -228,7 +228,8 @@ async function sincronizarHistorialCompras({ desde } = {}) {
     params.date_before = endDate;
 
     const response = await client.requestWithRetry(() =>
-      client.api.get('/invoices', { params, timeout: 60000 })
+      client.api.get('/invoices', { params, timeout: 60000 }),
+      3, 1000, { metodo: 'GET' }
     );
 
     const invoices = response.data?.data || response.data || [];

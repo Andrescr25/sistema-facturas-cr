@@ -875,7 +875,8 @@ async function sincronizarVentasRecientes() {
           order_direction: 'DESC'
         },
         timeout: 60000
-      })
+      }),
+      3, 1000, { metodo: 'GET' }
     );
 
     const invoices = response.data?.data || response.data || [];

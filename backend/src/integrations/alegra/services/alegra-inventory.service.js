@@ -20,7 +20,8 @@ class AlegraInventoryService {
     try {
       console.log('Creando ajuste de inventario en Alegra...');
       const response = await this.client.requestWithRetry(
-        () => this.client.api.post('/inventory-adjustments', adjustmentData)
+        () => this.client.api.post('/inventory-adjustments', adjustmentData),
+        3, 1000, { metodo: 'POST' }
       );
       console.log(`Ajuste de inventario creado: ID ${response.data.id}`);
       return response.data;

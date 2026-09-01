@@ -158,7 +158,8 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
           timeout: 60000
         }),
         3,
-        1000
+        1000,
+        { metodo: 'GET' }
       );
 
       const pageData = response.data?.data || response.data || [];

@@ -77,7 +77,8 @@ async function traerFacturasRecientes(dias = DIAS_VENTANA) {
     const res = await client.requestWithRetry(
       () => client.api.get('/invoices', { params: { ...params, start }, timeout: 60000 }),
       3,
-      1000
+      1000,
+      { metodo: 'GET' }
     );
     const filas = res.data?.data || res.data || [];
     if (!Array.isArray(filas) || filas.length === 0) break;

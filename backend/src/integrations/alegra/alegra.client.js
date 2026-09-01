@@ -122,7 +122,9 @@ class AlegraClient {
         data: method.toUpperCase() !== 'GET' ? params : undefined
       };
 
-      const response = await this.requestWithRetry(() => this.api.request(config));
+      const response = await this.requestWithRetry(
+        () => this.api.request(config), 3, 1000, { metodo: method }
+      );
 
       return response.data;
     } catch (error) {
@@ -133,10 +135,35 @@ class AlegraClient {
 
   /**
    * Ejecutar una petición con reintentos y backoff exponencial.
-   * Reintenta en errores de red/timeout y en 429/502/503/504.
+   *
+   * EL MÉTODO IMPORTA, Y ANTES NO SE MIRABA
+   * Esto reintentaba cualquier petición que fallara por red o timeout, sin
+   * distinguir si era una lectura o una escritura. Para un GET está bien. Para
+   * un POST es peligroso: un timeout NO significa que Alegra no hizo nada,
+   * significa que no escuchamos la respuesta. Si Alegra creó la factura y
+   * tardó en contestar, cada reintento creaba OTRA — hasta cuatro documentos
+   * fiscales de un solo clic. Lo mismo con los ajustes de inventario, que
+   * podían aplicarse cuatro veces y descuadrar el stock.
+   *
+   * Ahora:
+   *   lecturas (GET)   reintentan ante red, timeout y 429/502/503/504
+   *   escrituras       SOLO ante 429, que es el único caso en que consta que
+   *                    el servidor rechazó la petición sin procesarla
+   *
+   * `opciones.metodo` es OBLIGATORIO en la práctica: si no se dice, se asume
+   * escritura. Es la suposición segura — equivocarse hacia "no reintento"
+   * cuesta un reintento manual; equivocarse hacia "reintento" cuesta una
+   * factura duplicada ante Hacienda.
+   *
    * @param {Function} requestFn - Función que retorna la promesa de la petición
+   * @param {number} maxRetries
+   * @param {number} initialDelay
+   * @param {{metodo?: string}} opciones - método HTTP real de la petición
    */
-  async requestWithRetry(requestFn, maxRetries = 3, initialDelay = 1000) {
+  async requestWithRetry(requestFn, maxRetries = 3, initialDelay = 1000, opciones = {}) {
+    const metodo = String(opciones.metodo || 'DESCONOCIDO').toUpperCase();
+    const esLectura = metodo === 'GET' || metodo === 'HEAD' || metodo === 'OPTIONS';
+
     let lastError;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -152,19 +179,35 @@ class AlegraClient {
 
         let shouldRetry = false;
 
-        if (error.code === 'ECONNABORTED' ||
+        // Sin respuesta no se sabe si la petición llegó a ejecutarse. Para una
+        // lectura da igual; para una escritura, reintentar es lo que duplica.
+        const sinRespuesta = error.code === 'ECONNABORTED' ||
             error.code === 'ETIMEDOUT' ||
             error.code === 'ENOTFOUND' ||
             error.code === 'ECONNRESET' ||
-            !error.response) {
-          shouldRetry = true;
+            !error.response;
+
+        if (sinRespuesta) {
+          shouldRetry = esLectura;
+          if (!esLectura) {
+            console.warn(`⛔ ${metodo} sin respuesta (${error.code || 'sin código'}): NO se reintenta. ` +
+              `Alegra pudo haberla procesado y reintentar la duplicaría. Hay que verificar antes de reenviar.`);
+          }
         }
 
         if (error.response?.status) {
           const status = error.response.status;
-          if (status === 429 || status === 502 || status === 503 || status === 504) {
+          // 429 es el único que confirma que NO se procesó: el servidor la
+          // rechazó por exceso de peticiones. 502/503/504 pueden haberse
+          // ejecutado detrás del proxy, así que solo se reintentan en lectura.
+          if (status === 429) {
+            shouldRetry = true;
+            console.log(`⚠️ Límite de peticiones (429), se reintenta`);
+          } else if ((status === 502 || status === 503 || status === 504) && esLectura) {
             shouldRetry = true;
             console.log(`⚠️ Error del servidor: ${status} - ${error.response.statusText}`);
+          } else if (status === 502 || status === 503 || status === 504) {
+            console.warn(`⛔ ${metodo} devolvió ${status}: NO se reintenta, pudo haberse ejecutado.`);
           }
         }
 
