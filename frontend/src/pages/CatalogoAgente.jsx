@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flame, Star, RotateCcw } from 'lucide-react'
+import { Flame, Star, RotateCcw, ShoppingCart } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import HeaderCatalogo from '../components/catalogo-agente/HeaderCatalogo'
@@ -8,6 +8,8 @@ import ProductCard from '../components/catalogo-agente/ProductCard'
 import SyncOverlay from '../components/catalogo-agente/SyncOverlay'
 import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
 import ClienteActivoBanner from '../components/catalogo-agente/ClienteActivoBanner'
+import PanelPedidoAgente from '../components/catalogo-agente/PanelPedidoAgente'
+import { usePedidoAgente } from '../hooks/usePedidoAgente'
 import '../components/catalogo-agente/catalogoAgente.css'
 
 export default function CatalogoAgente() {
@@ -32,6 +34,14 @@ export default function CatalogoAgente() {
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
+  const [pedidoAbierto, setPedidoAbierto] = useState(false)
+
+  const pedido = usePedidoAgente(clienteActivo)
+
+  // Sin cliente elegido no se pasa `onCambiar`, así que las tarjetas quedan de
+  // solo mirar: un pedido sin cliente no se puede guardar, y descubrirlo
+  // recién al querer enviarlo sería perder el trabajo de armarlo.
+  const cambiar = clienteActivo ? pedido.cambiarCantidad : undefined
 
   useEffect(() => {
     const removeGuards = applyCatalogoAgenteGuards()
@@ -72,7 +82,8 @@ export default function CatalogoAgente() {
               </div>
               <div className="products-grid">
                 {featuredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product}
+                    cantidad={pedido.porId[String(product.id)]?.cantidad || 0} onCambiar={cambiar} />
                 ))}
               </div>
             </div>
@@ -86,7 +97,8 @@ export default function CatalogoAgente() {
               </div>
               <div className="products-grid">
                 {productosHabitualesDelCliente.map((product) => (
-                  <ProductCard key={product.id} product={product} stats={product._stats} />
+                  <ProductCard key={product.id} product={product} stats={product._stats}
+                    cantidad={pedido.porId[String(product.id)]?.cantidad || 0} onCambiar={cambiar} />
                 ))}
               </div>
             </div>
@@ -100,7 +112,8 @@ export default function CatalogoAgente() {
               </div>
               <div className="products-grid">
                 {productosPerdidosDelCliente.map((product) => (
-                  <ProductCard key={product.id} product={product} stats={product._stats} />
+                  <ProductCard key={product.id} product={product} stats={product._stats}
+                    cantidad={pedido.porId[String(product.id)]?.cantidad || 0} onCambiar={cambiar} />
                 ))}
               </div>
             </div>
@@ -122,10 +135,50 @@ export default function CatalogoAgente() {
                 title={category}
                 products={filteredData.grouped[category]}
                 statsPorProducto={statsPorProducto}
+                porId={pedido.porId}
+                onCambiar={cambiar}
               />
             ))
           )}
         </main>
+
+        {/* La barra aparece con productos en el pedido O con pedidos sin
+            enviar: lo segundo importa tanto como lo primero, porque el agente
+            no puede irse del local sin saber que algo quedó sin llegar. */}
+        {(pedido.unidades > 0 || pedido.sinEnviar > 0) && (
+          <button type="button" className="pedido-barra" onClick={() => setPedidoAbierto(true)}>
+            <span className="pedido-barra-izq">
+              <ShoppingCart size={18} />
+              {pedido.unidades > 0
+                ? `${pedido.unidades} producto${pedido.unidades === 1 ? '' : 's'}`
+                : 'Ver pedidos'}
+            </span>
+            <span className="pedido-barra-der">
+              {pedido.sinEnviar > 0 && (
+                <span className="pedido-barra-pendientes">{pedido.sinEnviar} sin enviar</span>
+              )}
+              {pedido.unidades > 0 && (
+                <strong>₡{Math.round(pedido.totalReferencia).toLocaleString('es-CR').replace(/\u00A0/g, '.')}</strong>
+              )}
+            </span>
+          </button>
+        )}
+
+        <PanelPedidoAgente
+          abierto={pedidoAbierto}
+          onCerrar={() => setPedidoAbierto(false)}
+          lineas={pedido.lineas}
+          totalReferencia={pedido.totalReferencia}
+          onCambiar={pedido.cambiarCantidad}
+          onVaciar={pedido.vaciarCarrito}
+          cola={pedido.cola}
+          onEnviar={pedido.enviarPedido}
+          onSincronizar={pedido.sincronizar}
+          onArchivar={pedido.archivar}
+          enviando={pedido.enviando}
+          clienteActivo={clienteActivo}
+          hayInternet={isOnline}
+        />
 
         <SyncOverlay isSyncing={isSyncing} syncProgress={syncProgress} />
 

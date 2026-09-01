@@ -6,7 +6,7 @@
  */
 
 const DB_NAME = 'SistemaFacturasCR';
-const DB_VERSION = 2; // Incrementado para agregar nuevos stores
+const DB_VERSION = 3; // 3: pedidos que levanta el agente en la calle
 
 // Stores
 const STORES = {
@@ -15,7 +15,9 @@ const STORES = {
   FACTURAS_PENDIENTES: 'facturas_pendientes',
   FACTURAS_CACHE: 'facturas_cache', // Cache de facturas existentes para edición offline
   EDICIONES_PENDIENTES: 'ediciones_pendientes', // Ediciones pendientes de sincronización
-  CONFIGURACION: 'configuracion'
+  CONFIGURACION: 'configuracion',
+  // Pedidos levantados por el agente, esperando llegar al servidor.
+  PEDIDOS_AGENTE: 'pedidos_agente'
 };
 
 class IndexedDBService {
@@ -72,6 +74,16 @@ class IndexedDBService {
         }
 
         // Store de configuración
+        // Pedidos del agente. La CLAVE de idempotencia es la llave primaria:
+        // así el propio almacén no admite dos copias del mismo pedido, ni
+        // siquiera si el código se equivoca y lo guarda dos veces.
+        if (!db.objectStoreNames.contains(STORES.PEDIDOS_AGENTE)) {
+          const pedidosStore = db.createObjectStore(STORES.PEDIDOS_AGENTE, { keyPath: 'clave' });
+          pedidosStore.createIndex('estado', 'estado', { unique: false });
+          pedidosStore.createIndex('creadoEn', 'creadoEn', { unique: false });
+          console.log('📦 Store de pedidos del agente creado');
+        }
+
         if (!db.objectStoreNames.contains(STORES.CONFIGURACION)) {
           db.createObjectStore(STORES.CONFIGURACION, { keyPath: 'key' });
           console.log('⚙️ Store de configuración creado');
@@ -452,6 +464,73 @@ class IndexedDBService {
         resolve();
       };
       request.onerror = () => reject(request.error);
+    });
+  }
+
+
+  /**
+   * Pedidos del agente que todavía no llegaron al servidor.
+   *
+   * NADA se borra hasta que el servidor confirma. Un pedido borrado "porque
+   * seguro entró" es una venta perdida, y en la calle nunca se sabe si entró:
+   * por eso el estado vive acá y solo lo cambia una respuesta del servidor.
+   */
+  async guardarPedidoAgente(pedido) {
+    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
+    return new Promise((resolve, reject) => {
+      const request = store.put(pedido);
+      request.onsuccess = () => resolve(pedido.clave);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async getPedidosAgente() {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readonly');
+      const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async actualizarPedidoAgente(clave, cambios) {
+    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
+    return new Promise((resolve, reject) => {
+      const lectura = store.get(clave);
+      lectura.onsuccess = () => {
+        const actual = lectura.result;
+        if (!actual) return resolve(null);
+        const nuevo = { ...actual, ...cambios };
+        const escritura = store.put(nuevo);
+        escritura.onsuccess = () => resolve(nuevo);
+        escritura.onerror = () => reject(escritura.error);
+      };
+      lectura.onerror = () => reject(lectura.error);
+    });
+  }
+
+  /** Solo se borra lo que el servidor YA confirmó. */
+  async borrarPedidoAgenteConfirmado(clave) {
+    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
+    return new Promise((resolve, reject) => {
+      const lectura = store.get(clave);
+      lectura.onsuccess = () => {
+        const actual = lectura.result;
+        if (!actual) return resolve(false);
+        if (actual.estado !== 'confirmado') {
+          // Es la salvaguarda que evita perder una venta por un descuido.
+          console.warn(`No se borra el pedido ${clave}: está "${actual.estado}", no confirmado.`);
+          return resolve(false);
+        }
+        const borrado = store.delete(clave);
+        borrado.onsuccess = () => resolve(true);
+        borrado.onerror = () => reject(borrado.error);
+      };
+      lectura.onerror = () => reject(lectura.error);
     });
   }
 
