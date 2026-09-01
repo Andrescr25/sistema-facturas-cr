@@ -43,11 +43,19 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
   const filtro = estado === 'todos' ? '' : 'WHERE p.estado = $1';
   const params = estado === 'todos' ? [] : [estado];
 
+  // LEFT JOIN, no JOIN: un pedido levantado por el agente en la calle NO
+  // tiene cuenta de portal detrás (solo 5 de 239 clientes tienen), así que
+  // un JOIN normal lo dejaba fuera. El pedido entraba a la base y nadie lo
+  // veía nunca — que es justo lo que no puede pasar con una venta.
   const r = await query(`
-    SELECT p.*, cp.nombre AS cliente_nombre, cp.usuario,
+    SELECT p.*,
+      COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre,
+      cp.usuario,
+      u.nombre AS agente_nombre,
       (SELECT COUNT(*)::int FROM pedido_cliente_linea l WHERE l.pedido_id = p.id) AS lineas
     FROM pedido_cliente p
-    JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
+    LEFT JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
+    LEFT JOIN usuario u ON u.id = p.creado_por_usuario_id
     ${filtro}
     ORDER BY p.creado_en DESC
     LIMIT 200;
@@ -63,6 +71,8 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
     observaciones: p.observaciones,
     motivoRechazo: p.motivo_rechazo,
     numeroFactura: p.numero_factura,
+    origen: p.origen || 'portal',
+    agenteNombre: p.agente_nombre || null,
     creadoEn: p.creado_en,
     resueltoEn: p.resuelto_en
   }));
@@ -70,8 +80,9 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
 
 async function detalle(pedidoId) {
   const p = await query(`
-    SELECT p.*, cp.nombre AS cliente_nombre
-    FROM pedido_cliente p JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
+    SELECT p.*, COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre
+    FROM pedido_cliente p
+    LEFT JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
     WHERE p.id = $1;
   `, [pedidoId]);
   if (p.rows.length === 0) throw httpError(404, 'Pedido no encontrado.');

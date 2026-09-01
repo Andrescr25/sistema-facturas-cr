@@ -13,4 +13,8 @@ router.get('/ofertas', catalogoAgenteController.listarOfertas);
 router.get('/historial-clientes', catalogoAgenteController.obtenerHistorialClientes);
 router.post('/historial-clientes/sync', catalogoAgenteController.sincronizarHistorialClientes);
 
+// El pedido que el agente levanta en la calle. Va detrás de la sesión del
+// personal: el catálogo del agente ya exige login.
+router.post('/pedidos', catalogoAgenteController.crearPedido);
+
 module.exports = router;

@@ -3,6 +3,7 @@
  */
 
 const catalogoAgenteService = require('./catalogo-agente.service');
+const pedidosAgente = require('./pedidos-agente.service');
 
 /**
  * GET /api/catalogo-agente/productos
@@ -72,7 +73,39 @@ async function sincronizarHistorialClientes(req, res) {
   }
 }
 
+
+/**
+ * Recibe un pedido levantado en la calle.
+ *
+ * Devuelve 200 tanto si el pedido se creó como si YA existía —el dispositivo
+ * reenvió algo que sí había entrado—, porque para el agente el desenlace es
+ * el mismo: su pedido está guardado y puede borrar la copia local. Un error
+ * acá lo dejaría reintentando para siempre algo que ya está.
+ */
+async function crearPedido(req, res) {
+  try {
+    const { alegraContactId, clienteNombre, lineas, observaciones, claveIdempotencia } = req.body;
+    const resultado = await pedidosAgente.crear(req.usuario?.id || null, {
+      alegraContactId, clienteNombre, lineas, observaciones, claveIdempotencia
+    });
+    res.json({
+      success: true,
+      data: {
+        pedidoId: resultado.pedido.id,
+        total: Number(resultado.pedido.total),
+        yaExistia: resultado.yaExistia,
+        noDisponibles: resultado.noDisponibles || []
+      },
+      message: resultado.yaExistia ? 'Ese pedido ya estaba guardado.' : 'Pedido recibido.'
+    });
+  } catch (error) {
+    console.error('Error creando pedido del agente:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  crearPedido,
   listarProductos,
   listarCategorias,
   listarOfertas,
