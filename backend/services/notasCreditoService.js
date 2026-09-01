@@ -67,6 +67,9 @@ async function aplicarNotasCreditoPendientes() {
     JOIN facturas_proveedores f ON f.clave = nc.clave_referencia
     JOIN cuentas_por_pagar cxp ON cxp.factura_id = f.id
     WHERE nc.aplicada = FALSE
+      -- Una nota eliminada NO se vuelve a aplicar: sin esto, el correo la
+      -- reingresa y le resta el saldo a la factura por segunda vez.
+      AND nc.eliminada_en IS NULL
     ORDER BY nc.fecha_emision ASC;
   `);
 
@@ -127,6 +130,7 @@ async function listarHuerfanas() {
            EXISTS (SELECT 1 FROM facturas_proveedores f WHERE f.clave = nc.clave_referencia) AS factura_existe
     FROM nota_credito_proveedor nc
     WHERE nc.aplicada = FALSE
+      AND nc.eliminada_en IS NULL
     ORDER BY nc.fecha_emision DESC;
   `);
 
@@ -161,6 +165,7 @@ async function listarPorCuentas(cuentaIds) {
     FROM nota_credito_aplicacion a
     JOIN nota_credito_proveedor nc ON nc.id = a.nota_credito_id
     WHERE a.cuenta_por_pagar_id = ANY($1::uuid[])
+      AND nc.eliminada_en IS NULL
     ORDER BY a.created_at ASC;
   `, [cuentaIds]);
 
@@ -217,6 +222,7 @@ async function saldosAFavor() {
            ) AS hay_donde_aplicar
     FROM nota_credito_proveedor
     WHERE monto_total > monto_aplicado
+      AND eliminada_en IS NULL
     ORDER BY (monto_total - monto_aplicado) DESC;
   `);
 
@@ -401,12 +407,32 @@ async function aplicarNotaACuenta(notaId, cuentaId, montoSolicitado) {
  * había descontado. Sin ese reverso, borrar una nota aplicada dejaría las
  * facturas con un saldo rebajado sin ninguna razón que lo respalde — y se
  * terminaría pagando de menos sin saber por qué.
+ *
+ * SE MARCA, NO SE BORRA
+ * Antes era un DELETE de verdad, y la nota volvía sola: el monitoreo relee
+ * los últimos 30 días de correo en cada corrida y guardarNotaCredito inserta
+ * con ON CONFLICT (clave) DO NOTHING — sin la fila no hay conflicto que
+ * frene nada. Peor todavía, al volver entraba como pendiente y
+ * aplicarNotasCreditoPendientes le restaba el monto al saldo OTRA VEZ. Es
+ * decir: borrar una nota equivocada terminaba, minutos después, con la nota
+ * de vuelta y el saldo rebajado de nuevo.
+ *
+ * Dejando la fila con `eliminada_en`, la clave sigue ocupada y el correo
+ * puede releerse las veces que sea. Y para un documento fiscal el rastro es
+ * lo correcto: si alguien pregunta por qué cambió el saldo de una factura,
+ * queda registrado que hubo una nota y que se descartó.
  */
 async function eliminarNotaCredito(id) {
   const nota = await query(`SELECT * FROM nota_credito_proveedor WHERE id = $1;`, [id]);
   if (nota.rows.length === 0) {
     const e = new Error('Nota de crédito no encontrada.');
     e.status = 404;
+    throw e;
+  }
+  // Eliminarla dos veces devolvería el saldo dos veces, inventando deuda.
+  if (nota.rows[0].eliminada_en) {
+    const e = new Error('Esa nota de crédito ya estaba eliminada.');
+    e.status = 400;
     throw e;
   }
 
@@ -443,8 +469,19 @@ async function eliminarNotaCredito(id) {
     });
   }
 
-  // Las aplicaciones caen solas por el ON DELETE CASCADE.
-  await query(`DELETE FROM nota_credito_proveedor WHERE id = $1;`, [id]);
+  // Las aplicaciones sí se borran: ya se revirtieron arriba y dejarlas haría
+  // que la nota siguiera figurando como aplicada en cada cuenta.
+  await query(`DELETE FROM nota_credito_aplicacion WHERE nota_credito_id = $1;`, [id]);
+
+  // La nota se marca. El monto aplicado vuelve a 0 y deja de estar aplicada,
+  // para que ninguna vista la siga contando.
+  await query(`
+    UPDATE nota_credito_proveedor
+    SET eliminada_en = CURRENT_TIMESTAMP,
+        aplicada = FALSE,
+        monto_aplicado = 0
+    WHERE id = $1;
+  `, [id]);
 
   return {
     eliminada: true,
