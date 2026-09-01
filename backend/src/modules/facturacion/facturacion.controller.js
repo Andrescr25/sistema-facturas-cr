@@ -39,12 +39,19 @@ class FacturacionController {
 
   createInvoice = async (req, res) => {
     try {
-      const invoiceData = req.body;
-      const result = await this.facturacionService.createInvoice(invoiceData);
+      // La clave la pone quien arma la factura, una sola vez, y la repite en
+      // cada reenvío. Con ella, mandar la misma factura dos veces devuelve la
+      // que ya existe en vez de crear una segunda ante Hacienda.
+      const { claveIdempotencia, ...invoiceData } = req.body;
+      const result = await this.facturacionService.createInvoice(invoiceData, claveIdempotencia || null);
       return ResponseHelper.success(res, result.data, result.message);
     } catch (error) {
       console.error('❌ Error creando factura en Alegra:', error);
-      return ResponseHelper.error(res, error.message, 500, error.response?.data);
+      // Los conflictos de idempotencia (ya en vuelo, o quedó incierta) NO son
+      // un error del servidor: son un aviso de que reenviar duplicaría. Van
+      // con su propio código para que el navegador no los trate como falla.
+      const estado = error.status || 500;
+      return ResponseHelper.error(res, error.message, estado, error.response?.data);
     }
   };
 

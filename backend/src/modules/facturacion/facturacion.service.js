@@ -5,6 +5,7 @@
 
 const { getClient } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
+const idempotencia = require('./idempotencia');
 
 class FacturacionService {
   constructor() {
@@ -108,14 +109,66 @@ class FacturacionService {
   }
 
   /**
-   * Crea una factura en Alegra y la registra en la base de datos local
+   * Crea una factura en Alegra y la registra en la base de datos local.
+   *
+   * `claveIdempotencia` la pone quien arma la factura, UNA vez por documento,
+   * y la repite en cada reenvío. Con ella, mandar dos veces la misma factura
+   * devuelve la que ya existe en vez de crear una segunda — que es lo que
+   * pasaba cuando la respuesta de Alegra se perdía y alguien reintentaba.
+   *
+   * Sin clave se comporta como siempre (no rompe a quien todavía no la manda),
+   * pero queda avisado en el log: esa llamada NO tiene protección.
    */
-  async createInvoice(invoiceData) {
+  async createInvoice(invoiceData, claveIdempotencia = null) {
     console.log('🧾 Creando factura en Alegra:', {
       cliente: invoiceData.client,
-      items: invoiceData.items?.length
+      items: invoiceData.items?.length,
+      clave: claveIdempotencia || '(sin clave)'
     });
 
+    if (!claveIdempotencia) {
+      console.warn('⚠️ Factura sin clave de idempotencia: si esta petición se reenvía, se duplicará.');
+      return this._crearEnAlegraYRegistrar(invoiceData);
+    }
+
+    const reserva = await idempotencia.reservar(claveIdempotencia, invoiceData);
+
+    if (!reserva.seguir) {
+      console.log(`♻️ La factura ${claveIdempotencia} ya se había creado (${reserva.yaCreada.numero}). No se llama a Alegra.`);
+      // OJO con el tipo: acá el id viene de una columna varchar, así que es
+      // TEXTO, mientras que en el primer envío es el número que manda Alegra.
+      // Es la misma factura; quien lo consuma debe comparar con String().
+      return {
+        success: true,
+        data: { id: reserva.yaCreada.id, numberTemplate: { fullNumber: reserva.yaCreada.numero } },
+        message: 'Esa factura ya estaba creada.',
+        yaExistia: true
+      };
+    }
+
+    try {
+      const resultado = await this._crearEnAlegraYRegistrar(invoiceData);
+      await idempotencia.marcarCreada(claveIdempotencia, resultado.data);
+      return resultado;
+    } catch (error) {
+      // Que Alegra haya RESPONDIDO es lo que decide si se puede reintentar.
+      // Con respuesta, consta que rechazó y no creó nada. Sin respuesta, pudo
+      // haberla creado y reenviar la duplicaría.
+      const huboRespuesta = Boolean(error.response);
+      const estado = await idempotencia.marcarFallo(claveIdempotencia, {
+        huboRespuesta,
+        detalle: error.response?.data?.message || error.message
+      });
+      if (estado === 'incierta') {
+        console.error(`⛔ Factura ${claveIdempotencia} quedó INCIERTA: Alegra no respondió. ` +
+          `Hay que verificar en Alegra antes de reenviarla.`);
+      }
+      throw error;
+    }
+  }
+
+  /** El llamado a Alegra y el registro local, sin la capa de idempotencia. */
+  async _crearEnAlegraYRegistrar(invoiceData) {
     const response = await this.client.request('POST', '/invoices', invoiceData);
     console.log('✅ Factura creada exitosamente:', response.id);
 

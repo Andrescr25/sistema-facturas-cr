@@ -156,7 +156,10 @@ async function facturar(pedidoId, usuarioId) {
     status: 'open'
   };
 
-  const resultado = await facturacion.createInvoice(facturaData);
+  // La clave sale del pedido, que es estable: si alguien toca "Facturar" dos
+  // veces, o la respuesta se pierde y se reintenta, la segunda llamada
+  // devuelve la factura que ya existe en vez de crear otra.
+  const resultado = await facturacion.createInvoice(facturaData, `pedido-${pedido.id}`);
   const creada = resultado?.data;
   if (!creada?.id) {
     throw httpError(502, 'Alegra no devolvió la factura creada.');

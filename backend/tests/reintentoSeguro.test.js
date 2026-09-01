@@ -21,7 +21,7 @@
  * real —ETIMEDOUT, ECONNRESET, 503— y se cuenta cuántas veces la llamó.
  */
 
-const { test, describe } = require('node:test');
+const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
@@ -32,6 +32,16 @@ const path = require('path');
 // por donde el runner lee los resultados ("Unable to deserialize cloned
 // data") y el archivo entero cuenta como fallido sin que falle una prueba.
 const cliente = require('../src/integrations/alegra/alegra.client').getInstance();
+
+// La consulta silenciada: requestWithRetry escribe un aviso por cada intento
+// no reintentado, y esta prueba provoca decenas a propósito. Ese torrente
+// —con emojis, que son varios bytes— por el canal que node:test usa para
+// devolverle los resultados al runner lo rompe con "Unable to deserialize
+// cloned data", y el archivo entero cuenta como fallido sin que falle una
+// sola prueba. Lo que se mide acá son los intentos, no lo que se imprime.
+const consolaOriginal = { log: console.log, warn: console.warn, error: console.error };
+before(() => { console.log = console.warn = console.error = () => {}; });
+after(() => { Object.assign(console, consolaOriginal); });
 
 /** Una petición que siempre falla del modo indicado, contando intentos. */
 function fallaSiempre(comoFalla) {
