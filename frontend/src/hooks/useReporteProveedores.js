@@ -413,8 +413,8 @@ export function useReporteProveedores() {
     try {
       await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
     } catch (error) {
-      console.error('No se pudo registrar el producto eliminado:', error)
-      showToast('El producto se quitó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
+      console.error('No se pudo restaurar el producto:', error)
+      showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
     }
   }, [])
 

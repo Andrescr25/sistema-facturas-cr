@@ -152,6 +152,42 @@ class OrdersWhatsappController {
     }
   };
 
+  /** Deshacer: el producto vuelve a la orden de compra. */
+  quitarProductoEliminado = async (req, res) => {
+    try {
+      const { proveedorNombre, productoCodigo } = req.body;
+      if (!proveedorNombre || !productoCodigo) {
+        return ResponseHelper.validationError(res, {
+          proveedorNombre: !proveedorNombre ? ['proveedorNombre es requerido'] : [],
+          productoCodigo: !productoCodigo ? ['productoCodigo es requerido'] : []
+        });
+      }
+      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'eliminado');
+      return ResponseHelper.success(res, { borrados }, 'Producto restaurado a la orden');
+    } catch (error) {
+      console.error('❌ Error restaurando producto:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /** Quitar un producto que se había agregado a mano. */
+  quitarProductoAgregado = async (req, res) => {
+    try {
+      const { proveedorNombre, productoCodigo } = req.body;
+      if (!proveedorNombre || !productoCodigo) {
+        return ResponseHelper.validationError(res, {
+          proveedorNombre: !proveedorNombre ? ['proveedorNombre es requerido'] : [],
+          productoCodigo: !productoCodigo ? ['productoCodigo es requerido'] : []
+        });
+      }
+      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'agregado');
+      return ResponseHelper.success(res, { borrados }, 'Producto agregado quitado');
+    } catch (error) {
+      console.error('❌ Error quitando producto agregado:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
   getProveedorContacto = async (req, res) => {
     try {
       const { nombreProveedor } = req.params;

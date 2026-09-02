@@ -631,6 +631,31 @@ class OrdersWhatsappService {
   }
 
   /**
+   * Borra el registro temporal de un producto de la orden de compra.
+   *
+   * POR QUÉ HACÍA FALTA
+   * La pantalla ya ofrecía deshacer —restaurar un producto quitado, o sacar
+   * uno que se había agregado a mano— y llamaba a DELETE. Pero esas rutas
+   * nunca existieron: solo estaban los POST. Cada intento daba 404 y se
+   * perdía dentro de un `catch` vacío, así que la pantalla mostraba el cambio
+   * hecho mientras el servidor seguía guardando lo contrario. Al recargar,
+   * el producto volvía a aparecer quitado.
+   *
+   * `accion` es una guarda, no un adorno: sin ella, deshacer una eliminación
+   * borraría también una cantidad modificada del mismo producto, que es otra
+   * decisión distinta que alguien tomó.
+   */
+  async eliminarRegistroTemporal(proveedorNombre, productoCodigo, accion) {
+    const result = await query(`
+      DELETE FROM orden_compra_temporal
+      WHERE proveedor_nombre = $1 AND producto_codigo = $2 AND accion = $3
+      RETURNING id;
+    `, [proveedorNombre, productoCodigo, accion]);
+
+    return result.rows.length;
+  }
+
+  /**
    * Obtiene todas las cantidades modificadas temporalmente para una orden de compra
    */
   async getCantidadesModificadas() {
