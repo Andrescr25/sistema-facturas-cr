@@ -16,7 +16,14 @@ const AuthContext = createContext(null)
 function datosDelToken(token) {
   try {
     const carga = JSON.parse(atob(token.split('.')[1]))
-    return { id: carga.sub, usuario: carga.usuario, nombre: carga.nombre }
+    // Los permisos también salen del token. Sin ellos, el agente que abre la
+    // tablet sin cobertura veía "No tiene acceso a esta pantalla" sobre un
+    // catálogo que YA tenía descargado en el dispositivo. Esto es interfaz,
+    // no autorización: el servidor sigue siendo quien entrega o niega datos.
+    return {
+      id: carga.sub, usuario: carga.usuario, nombre: carga.nombre,
+      esAdmin: Boolean(carga.esAdmin), modulos: carga.modulos || []
+    }
   } catch {
     return null
   }

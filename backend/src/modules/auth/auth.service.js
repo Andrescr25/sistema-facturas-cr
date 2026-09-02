@@ -60,12 +60,6 @@ async function login({ usuario, password }) {
 
   await query(`UPDATE usuario SET ultimo_ingreso = CURRENT_TIMESTAMP WHERE id = $1;`, [row.id]);
 
-  const token = jwt.sign(
-    { sub: String(row.id), usuario: row.usuario, nombre: row.nombre },
-    secreto(),
-    { expiresIn: VIGENCIA_TOKEN }
-  );
-
   // Los permisos viajan en la respuesta del login, no solo en /auth/yo.
   // Sin esto, el menú quedaba VACÍO justo después de entrar: el frontend se
   // quedaba con el usuario del login (sin esAdmin ni modulos) hasta la
@@ -75,6 +69,29 @@ async function login({ usuario, password }) {
   // depende de este módulo: pedirlo en la cabecera cerraría el círculo.
   const { permisosDe } = require('../usuarios/usuarios.service');
   const permisos = await permisosDe(row.id);
+
+  // Los permisos van TAMBIÉN dentro del token, y esto es lo que permite
+  // trabajar sin señal.
+  //
+  // Al recargar la aplicación el frontend le pregunta al servidor quién es.
+  // En la calle esa pregunta no llega, y hasta ahora el respaldo solo sacaba
+  // del token el nombre y el usuario — sin permisos. Resultado: el agente
+  // abría la tablet sin cobertura y el catálogo le decía "No tiene acceso a
+  // esta pantalla", con los productos ya descargados en el dispositivo.
+  //
+  // Meterlos acá no debilita nada: hoy los permisos por módulo son de
+  // interfaz, el backend no los exige en sus rutas (ver auth.middleware.js).
+  // La contra real es que quedan congelados hasta que el token se renueva:
+  // si se le quita un módulo a alguien, lo sigue viendo hasta su próximo
+  // ingreso. Se acepta a cambio de que la tablet funcione sin señal.
+  const token = jwt.sign(
+    {
+      sub: String(row.id), usuario: row.usuario, nombre: row.nombre,
+      esAdmin: permisos.esAdmin, modulos: [...permisos.modulos]
+    },
+    secreto(),
+    { expiresIn: VIGENCIA_TOKEN }
+  );
 
   return {
     token,
