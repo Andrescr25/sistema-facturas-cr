@@ -129,16 +129,39 @@ export default function CatalogoAgente() {
               </p>
             </div>
           ) : (
-            filteredData.sortedKeys.map((category) => (
-              <CategorySection
-                key={category}
-                title={category}
-                products={filteredData.grouped[category]}
-                statsPorProducto={statsPorProducto}
-                porId={pedido.porId}
-                onCambiar={cambiar}
-              />
-            ))
+            searchQuery ? (
+              /* Buscando se muestra UNA lista ordenada por parecido. Agrupar
+                 por categoría acá tiraría a la basura ese orden: el producto
+                 más parecido quedaría donde le tocara alfabéticamente. */
+              <div className="category-section">
+                <div className="category-header">
+                  <h2 className="category-title">Resultados</h2>
+                  <span className="category-count">{filteredData.flat.length} productos</span>
+                </div>
+                <div className="products-grid">
+                  {filteredData.flat.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      stats={statsPorProducto?.get(String(product.id))}
+                      cantidad={pedido.porId[String(product.id)]?.cantidad || 0}
+                      onCambiar={cambiar}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              filteredData.sortedKeys.map((category) => (
+                <CategorySection
+                  key={category}
+                  title={category}
+                  products={filteredData.grouped[category]}
+                  statsPorProducto={statsPorProducto}
+                  porId={pedido.porId}
+                  onCambiar={cambiar}
+                />
+              ))
+            )
           )}
         </main>
 

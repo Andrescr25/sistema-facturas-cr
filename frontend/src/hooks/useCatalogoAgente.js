@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
 import api from '../services/api'
+import { buscarProductos } from '../utils/buscarCatalogoAgente'
 import { catalogoAgenteDb } from '../utils/catalogoAgenteDb'
 import { construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente } from '../utils/catalogoAgentePersonalizacion'
 
@@ -153,13 +154,11 @@ export function useCatalogoAgente() {
   const filteredData = useMemo(() => {
     let result = products
 
+    // Búsqueda ordenada por PARECIDO, no alfabética: lo que el agente
+    // escribió tiene que salir primero, y una referencia exacta antes que
+    // cualquier coincidencia parcial. Ver utils/buscarCatalogoAgente.js.
     if (searchQuery) {
-      const term = searchQuery.toLowerCase().trim()
-      result = result.filter((p) => {
-        const name = p.name ? p.name.toLowerCase() : ''
-        const ref = p.reference?.reference ? p.reference.reference.toLowerCase() : ''
-        return name.includes(term) || ref.includes(term)
-      })
+      result = buscarProductos(result, searchQuery)
     }
 
     // Los productos que ya salen destacados arriba ("compra seguido" y "dejó
