@@ -104,7 +104,36 @@ async function crearPedido(req, res) {
   }
 }
 
+
+/** El dispositivo cuenta cómo está. No falla la petición si algo sale mal:
+ *  es información secundaria y no debe estorbar el envío de pedidos. */
+async function reportarEstadoDispositivo(req, res) {
+  try {
+    const { dispositivoId, pedidosPendientes, pedidoMasViejo } = req.body;
+    const d = await pedidosAgente.reportarEstado(req.usuario?.id || null, {
+      dispositivoId, usuarioNombre: req.usuario?.nombre || null,
+      pedidosPendientes, pedidoMasViejo
+    });
+    res.json({ success: true, data: { id: d.id } });
+  } catch (error) {
+    console.error('Error reportando estado del dispositivo:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Los dispositivos y sus pendientes, para la pantalla de la casa. */
+async function listarDispositivos(req, res) {
+  try {
+    res.json({ success: true, data: await pedidosAgente.listarDispositivos() });
+  } catch (error) {
+    console.error('Error listando dispositivos:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  reportarEstadoDispositivo,
+  listarDispositivos,
   crearPedido,
   listarProductos,
   listarCategorias,

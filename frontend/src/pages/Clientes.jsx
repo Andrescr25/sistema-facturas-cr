@@ -1,10 +1,11 @@
-import { Users, ClipboardList } from 'lucide-react'
+import { Users, ClipboardList, Tablet } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
 import { useClientesPortal } from '../hooks/useClientesPortal'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
 import ListaPedidos from '../components/clientes/ListaPedidos'
+import DispositivosAgente from '../components/clientes/DispositivosAgente'
 import ListaCuentas from '../components/clientes/ListaCuentas'
 import ModalInvitacion from '../components/clientes/ModalInvitacion'
 
@@ -32,7 +33,8 @@ export default function Clientes() {
 
   const TABS = [
     { id: 'pedidos', texto: 'Pedidos', icono: ClipboardList, contador: filtroPedidos === 'pendiente' ? pendientes : 0 },
-    { id: 'clientes', texto: 'Cuentas', icono: Users, contador: 0 }
+    { id: 'clientes', texto: 'Cuentas', icono: Users, contador: 0 },
+    { id: 'dispositivos', texto: 'Tablets del agente', icono: Tablet, contador: 0 }
   ]
 
   return (
@@ -40,7 +42,7 @@ export default function Clientes() {
       <div>
         <h1 className="text-2xl font-extrabold text-neutro-900">Clientes</h1>
         <p className="text-sm text-neutro-500 mt-0.5">
-          Pedidos que entran desde el portal y las cuentas que pueden hacerlos.
+          Pedidos que entran desde el portal y desde la calle, y qué tablets tienen pedidos sin mandar.
         </p>
       </div>
 
@@ -70,7 +72,9 @@ export default function Clientes() {
         })}
       </div>
 
-      {vista === 'pedidos' ? (
+      {vista === 'dispositivos' ? (
+        <DispositivosAgente />
+      ) : vista === 'pedidos' ? (
         <ListaPedidos
           pedidos={pedidos}
           cargando={cargandoPedidos}

@@ -162,4 +162,72 @@ async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observ
   };
 }
 
-module.exports = { crear };
+/**
+ * El dispositivo reporta cómo está: cuántos pedidos le quedan sin mandar y
+ * desde cuándo.
+ *
+ * POR QUÉ NO ALCANZA CON MIRAR LOS PEDIDOS QUE LLEGARON
+ * Un pedido atascado en una tablet, por definición, NO llegó: no hay nada que
+ * mirar en la base. La única forma de enterarse es que el propio dispositivo
+ * lo cuente cuando puede hablar. Y si no puede, su silencio es el aviso.
+ */
+async function reportarEstado(usuarioId, { dispositivoId, usuarioNombre, pedidosPendientes, pedidoMasViejo }) {
+  if (!dispositivoId) throw httpError(400, 'Falta el identificador del dispositivo.');
+
+  const r = await query(`
+    INSERT INTO dispositivo_agente
+      (id, usuario_id, usuario_nombre, pedidos_pendientes, pedido_mas_viejo, ultimo_contacto)
+    VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+    ON CONFLICT (id) DO UPDATE SET
+      usuario_id = EXCLUDED.usuario_id,
+      usuario_nombre = EXCLUDED.usuario_nombre,
+      pedidos_pendientes = EXCLUDED.pedidos_pendientes,
+      pedido_mas_viejo = EXCLUDED.pedido_mas_viejo,
+      ultimo_contacto = CURRENT_TIMESTAMP
+    RETURNING *;
+  `, [String(dispositivoId), usuarioId || null, usuarioNombre || null,
+      Math.max(0, parseInt(pedidosPendientes, 10) || 0),
+      pedidoMasViejo ? new Date(pedidoMasViejo) : null]);
+
+  return r.rows[0];
+}
+
+/**
+ * Los dispositivos, para la pantalla de la casa.
+ *
+ * `alerta` es lo que hay que mirar. Se calcula acá y no en la pantalla para
+ * que la regla viva en un solo lugar:
+ *
+ *   pendientes    reportó pedidos sin enviar la última vez que habló
+ *   sin_noticias  hace más de 3 horas que no se comunica Y tenía pendientes
+ *
+ * Tres horas es lo que puede durar una ruta sin señal en la zona; menos daría
+ * avisos que no significan nada y la gente dejaría de mirarlos.
+ */
+async function listarDispositivos() {
+  const r = await query(`
+    SELECT d.*,
+      EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - d.ultimo_contacto)) / 60 AS minutos_sin_contacto
+    FROM dispositivo_agente d
+    ORDER BY d.pedidos_pendientes DESC, d.ultimo_contacto ASC;
+  `);
+
+  return r.rows.map(d => {
+    const minutos = Math.round(Number(d.minutos_sin_contacto) || 0);
+    const pendientes = Number(d.pedidos_pendientes) || 0;
+    let alerta = null;
+    if (pendientes > 0 && minutos > 180) alerta = 'sin_noticias';
+    else if (pendientes > 0) alerta = 'pendientes';
+    return {
+      id: d.id,
+      usuarioNombre: d.usuario_nombre,
+      pedidosPendientes: pendientes,
+      pedidoMasViejo: d.pedido_mas_viejo,
+      ultimoContacto: d.ultimo_contacto,
+      minutosSinContacto: minutos,
+      alerta
+    };
+  });
+}
+
+module.exports = { crear, reportarEstado, listarDispositivos };

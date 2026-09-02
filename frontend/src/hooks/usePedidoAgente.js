@@ -190,13 +190,41 @@ export function usePedidoAgente(clienteActivo) {
         await indexedDBService.actualizarPedidoAgente(pedido.clave, {
           estado: 'en_dispositivo',
           detalle: 'No se pudo contactar el servidor. Se reintenta solo.',
-          intentos: (pedido.intentos || 0) + 1
+          intentos: (pedido.intentos || 0) + 1,
+          ultimoIntento: Date.now()
         })
       }
       await leerCola()
       return respondio ? 'rechazado' : 'en_dispositivo'
     }
   }, [leerCola])
+
+  /**
+   * Le cuenta al servidor cuántos pedidos quedan sin mandar.
+   *
+   * Es lo único que permite, desde la casa, enterarse de que una tablet tiene
+   * ventas atascadas: un pedido que no llegó no está en la base, así que la
+   * única forma de saberlo es que el dispositivo lo diga cuando puede hablar.
+   *
+   * Si el reporte falla no pasa nada: es información secundaria y no debe
+   * estorbar lo importante, que es mandar los pedidos.
+   */
+  const reportarEstado = useCallback(async () => {
+    if (!navigator.onLine) return
+    try {
+      const todos = await indexedDBService.getPedidosAgente()
+      const sinMandar = todos.filter(p => p.estado === 'en_dispositivo' || p.estado === 'enviando')
+      const masViejo = sinMandar.reduce((min, p) => Math.min(min, p.creadoEn || Infinity), Infinity)
+      await api.post('/catalogo-agente/dispositivos/estado', {
+        dispositivoId: await idDispositivo(),
+        pedidosPendientes: sinMandar.length,
+        pedidoMasViejo: Number.isFinite(masViejo) ? new Date(masViejo).toISOString() : null
+      })
+    } catch {
+      // Sin señal no hay nada que reportar, y ese silencio es justamente lo
+      // que la pantalla de la casa interpreta como "algo pasa acá".
+    }
+  }, [])
 
   /**
    * Manda lo que haya pendiente, DE A UNO.
@@ -211,12 +239,28 @@ export function usePedidoAgente(clienteActivo) {
     sincronizando.current = true
     try {
       const todos = await indexedDBService.getPedidosAgente()
-      const pendientes = todos.filter(p => p.estado === 'en_dispositivo')
+      const ahora = Date.now()
+
+      // Espera creciente: un pedido que ya falló varias veces no se reintenta
+      // en cada evento de red. Sin esto, una señal que va y viene dispara
+      // decenas de intentos por minuto, gasta la batería de la tablet y llena
+      // el servidor de peticiones que van a fallar igual.
+      // 0s, 30s, 2min, 8min, 30min (tope).
+      const esperaDe = (intentos) => Math.min(30 * 1000 * Math.pow(4, Math.max(0, intentos - 1)), 30 * 60 * 1000)
+
+      const pendientes = todos.filter(p => {
+        if (p.estado !== 'en_dispositivo') return false
+        if (!p.intentos || !p.ultimoIntento) return true
+        return ahora - p.ultimoIntento >= esperaDe(p.intentos)
+      })
+
       let enviados = 0
       for (const pedido of pendientes) {
         const estado = await enviarUno(pedido)
         if (estado === 'confirmado') enviados++
       }
+
+      await reportarEstado()
       return { enviados, total: pendientes.length }
     } finally {
       sincronizando.current = false
