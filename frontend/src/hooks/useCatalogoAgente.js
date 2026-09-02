@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
 import api from '../services/api'
 import { catalogoAgenteDb } from '../utils/catalogoAgenteDb'
 import { construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente } from '../utils/catalogoAgentePersonalizacion'
@@ -110,6 +110,45 @@ export function useCatalogoAgente() {
     () => productosPerdidos(products, statsPorProducto),
     [products, statsPorProducto]
   )
+
+  // --- Conservar el lugar del catálogo al buscar y volver ---------------
+  //
+  // El agente va bajando por el catálogo, el cliente se acuerda de algo, lo
+  // busca por referencia, lo agrega y borra la búsqueda. Sin esto el catálogo
+  // se rearma entero y lo devuelve al principio: tiene que volver a bajar
+  // hasta donde estaba, con el cliente esperando.
+  //
+  // La posición se recuerda de forma CONTINUA mientras se ve el catálogo
+  // completo, no en el momento de empezar a buscar. Ese fue el primer intento
+  // y no servía: tocar el campo de búsqueda lo enfoca, y enfocarlo ya lleva
+  // la página al principio — cuando se iba a guardar, la posición era 0.
+  const posicionEnCatalogo = useRef(0)
+  const buscandoRef = useRef(false)
+  const busquedaPrevia = useRef('')
+
+  useEffect(() => {
+    const alDesplazar = () => {
+      // Mientras hay una búsqueda activa lo que se ve son resultados, no el
+      // catálogo: esa posición no es la que hay que recuperar.
+      if (!buscandoRef.current) posicionEnCatalogo.current = window.scrollY
+    }
+    window.addEventListener('scroll', alDesplazar, { passive: true })
+    return () => window.removeEventListener('scroll', alDesplazar)
+  }, [])
+
+  // useLayoutEffect y no useEffect: corre después de armar el DOM pero ANTES
+  // de pintar, así el salto al principio no se llega a ver.
+  useLayoutEffect(() => {
+    const antes = busquedaPrevia.current
+    const ahora = searchQuery
+    busquedaPrevia.current = ahora
+    buscandoRef.current = Boolean(ahora)
+
+    // Se vuelve del buscador al catálogo completo: se recupera el lugar.
+    if (antes && !ahora && posicionEnCatalogo.current > 0) {
+      window.scrollTo(0, posicionEnCatalogo.current)
+    }
+  }, [searchQuery])
 
   const filteredData = useMemo(() => {
     let result = products
