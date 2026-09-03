@@ -16,6 +16,7 @@ export const MODULOS = [
   { clave: 'dashboard', nombre: 'Dashboard', grupo: 'General', ruta: '/' },
 
   { clave: 'facturacion', nombre: 'Facturación', grupo: 'Ventas', ruta: '/facturacion' },
+  { clave: 'cotizaciones', nombre: 'Cotizaciones', grupo: 'Ventas', ruta: '/cotizaciones' },
   { clave: 'facturas-bodega', nombre: 'Facturas en Bodega', grupo: 'Ventas', ruta: '/facturas-bodega' },
   { clave: 'clientes', nombre: 'Clientes', grupo: 'Ventas', ruta: '/clientes' },
   { clave: 'cuentas-por-cobrar', nombre: 'Cuentas por Cobrar', grupo: 'Ventas', ruta: '/cuentas-por-cobrar' },

@@ -28,6 +28,7 @@ export default function Layout({ children }) {
       icon: ShoppingCart,
       children: [
         { name: 'Facturación', href: '/facturacion', icon: FileText },
+        { name: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
         { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
         { name: 'Clientes', href: '/clientes', icon: UserCircle },
         { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },

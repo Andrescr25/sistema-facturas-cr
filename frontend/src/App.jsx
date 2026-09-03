@@ -15,6 +15,7 @@ import PagosRecurrentes from './pages/PagosRecurrentes'
 import ReporteContador from './pages/ReporteContador'
 import CuentasPorCobrar from './pages/CuentasPorCobrar'
 import FacturasBodega from './pages/FacturasBodega'
+import Cotizaciones from './pages/Cotizaciones'
 import InventarioAuditoria from './pages/InventarioAuditoria'
 import GestionCatalogo from './pages/GestionCatalogo'
 import CatalogoAgente from './pages/CatalogoAgente'
@@ -100,6 +101,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/facturacion" element={<Facturacion />} />
+              <Route path="/cotizaciones" element={<Cotizaciones />} />
               <Route path="/facturas-bodega" element={<FacturasBodega />} />
               <Route path="/relacionar-productos/:facturaId" element={<RelacionarProductos />} />
               <Route path="/reportes/proveedores" element={<ReporteProveedores />} />

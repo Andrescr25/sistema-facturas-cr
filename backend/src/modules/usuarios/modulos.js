@@ -35,6 +35,13 @@ const MODULOS = [
     rutasApi: ['/facturacion']
   },
   {
+    clave: 'cotizaciones',
+    nombre: 'Cotizaciones',
+    grupo: 'Ventas',
+    ruta: '/cotizaciones',
+    rutasApi: ['/cotizaciones']
+  },
+  {
     clave: 'facturas-bodega',
     nombre: 'Facturas en Bodega',
     grupo: 'Ventas',
