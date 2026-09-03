@@ -70,16 +70,18 @@ async function traerProductos(ids) {
 }
 
 /**
- * Crea la cotización en Alegra.
+ * Convierte las líneas que manda la pantalla en los `items` que espera
+ * Alegra, con su precio y su impuesto.
+ *
+ * VIVE APARTE PORQUE LO USAN CREAR Y EDITAR. Si cada uno lo armara por su
+ * lado, bastaría con tocar uno para que editar una cotización le quitara el
+ * impuesto que crear sí le puso — y nadie lo notaría hasta ver el total.
  *
  * El precio se toma del catálogo del servidor, NO de lo que mande el
  * navegador: si viajara en la petición, cualquiera podría cotizar a precio 1.
  * Es la misma regla que en los pedidos del portal.
  */
-async function crear({ clienteId, lineas, observaciones, validezDias = 15, claveIdempotencia }) {
-  if (!clienteId) throw httpError(400, 'Falta el cliente.');
-  if (!Array.isArray(lineas) || lineas.length === 0) throw httpError(400, 'La cotización no tiene productos.');
-
+async function armarItems(lineas) {
   const productos = await traerProductos(lineas.map(l => l.alegraItemId));
   const impuestos = await mapaImpuestos();
 
@@ -121,14 +123,25 @@ async function crear({ clienteId, lineas, observaciones, validezDias = 15, clave
     throw httpError(400, 'Ninguno de los productos está disponible para cotizar.');
   }
 
-  const hoy = new Date();
-  const fecha = hoy.toISOString().split('T')[0];
-  const vence = new Date(hoy.getTime() + Math.max(1, Number(validezDias) || 15) * 86400000)
-    .toISOString().split('T')[0];
+  return { items, noDisponibles };
+}
+
+/** La fecha, en el formato que usa Alegra, sumando días si se piden. */
+function fechaISO(desde = new Date(), masDias = 0) {
+  return new Date(desde.getTime() + masDias * 86400000).toISOString().split('T')[0];
+}
+
+/** Crea la cotización en Alegra. */
+async function crear({ clienteId, lineas, observaciones, validezDias = 15, claveIdempotencia }) {
+  if (!clienteId) throw httpError(400, 'Falta el cliente.');
+  if (!Array.isArray(lineas) || lineas.length === 0) throw httpError(400, 'La cotización no tiene productos.');
+
+  const { items, noDisponibles } = await armarItems(lineas);
 
   const cuerpo = {
-    date: fecha,
-    dueDate: vence,          // hasta cuándo vale el precio cotizado
+    date: fechaISO(),
+    // Hasta cuándo vale el precio cotizado.
+    dueDate: fechaISO(new Date(), Math.max(1, Number(validezDias) || 15)),
     client: parseInt(clienteId, 10),
     items,
     observations: observaciones || undefined
@@ -291,6 +304,74 @@ async function detalle(id) {
 }
 
 /**
+ * Cambia una cotización que todavía no se facturó.
+ *
+ * SE MANDA EL DOCUMENTO ENTERO, NO EL CAMBIO. Alegra prohíbe PATCH (403) y
+ * solo acepta PUT, que reemplaza. Por eso la pantalla manda siempre las
+ * líneas completas: mandar solo las que cambiaron borraría el resto.
+ *
+ * La fecha de emisión NO se toca. Es cuándo se le pasó el precio al cliente,
+ * y moverla al editar haría parecer que una cotización de la semana pasada
+ * es de hoy. Lo que sí se puede correr es hasta cuándo vale.
+ *
+ * Los precios se vuelven a leer del catálogo, así que editar una cotización
+ * vieja la actualiza a los precios de hoy. Es lo que se espera al reabrirla
+ * para cambiarle algo; si lo que se quiere es sostener el precio viejo, se
+ * factura sin editar (facturar sí respeta el precio cotizado).
+ */
+async function editar(id, { clienteId, lineas, observaciones, vence }) {
+  const actual = await detalle(id);
+
+  // Una cotización facturada ya tiene una factura que la copia: cambiarla
+  // dejaría los dos documentos diciendo cosas distintas, y la factura es la
+  // que vale ante Hacienda.
+  if (actual.facturada) {
+    throw httpError(400, `La cotización ${actual.numero} ya se facturó y no se puede cambiar.`);
+  }
+  if (!Array.isArray(lineas) || lineas.length === 0) {
+    throw httpError(400, 'La cotización no puede quedar sin productos.');
+  }
+
+  const { items, noDisponibles } = await armarItems(lineas);
+
+  const cuerpo = {
+    date: actual.fecha,      // la de emisión no se mueve
+    dueDate: vence || actual.vence || fechaISO(new Date(), 15),
+    client: parseInt(clienteId || actual.clienteId, 10),
+    items,
+    observations: observaciones ?? actual.observaciones ?? undefined
+  };
+
+  const guardada = await getClient().request('PUT', `/estimates/${id}`, cuerpo);
+
+  // NO se devuelve el total. Alegra contesta el PUT con el total ANTERIOR:
+  // se editó una de ₡231 a ₡4.355 y la respuesta seguía diciendo 231. Quien
+  // necesite el total actualizado que vuelva a pedir el detalle; devolver el
+  // de la respuesta sería mostrarle al vendedor un número que ya no existe.
+  return {
+    id: guardada?.id ?? id,
+    numero: guardada?.numberTemplate?.fullNumber || String(guardada?.number ?? id),
+    noDisponibles
+  };
+}
+
+/**
+ * El enlace al PDF que genera Alegra.
+ *
+ * SE PIDE EN EL MOMENTO Y NO SE GUARDA. La URL viene firmada y con fecha de
+ * caducidad (~10 horas): guardarla en la base o en el navegador daría un
+ * enlace roto justo cuando alguien la abra al día siguiente.
+ *
+ * Solo aparece si se pide con `fields=pdf`; el detalle normal no la trae.
+ */
+async function pdf(id) {
+  const r = await getClient().request('GET', `/estimates/${id}`, { fields: 'pdf' });
+  const url = typeof r?.pdf === 'object' ? r.pdf?.url : r?.pdf;
+  if (!url) throw httpError(404, 'Alegra no devolvió un PDF para esa cotización.');
+  return { url, numero: r?.numberTemplate?.fullNumber || String(r?.number ?? id) };
+}
+
+/**
  * Convierte una cotización aceptada en factura de venta.
  *
  * Se arma la factura con las MISMAS líneas y los MISMOS precios que vio el
@@ -366,4 +447,7 @@ async function facturar(id, { aunqueVencida = false } = {}) {
   };
 }
 
-module.exports = { crear, listar, detalle, facturar, buscarClientes, catalogoParaCotizar, mapaImpuestos, TOPE_ALEGRA };
+module.exports = {
+  crear, editar, listar, detalle, facturar, pdf,
+  buscarClientes, catalogoParaCotizar, mapaImpuestos, TOPE_ALEGRA
+};

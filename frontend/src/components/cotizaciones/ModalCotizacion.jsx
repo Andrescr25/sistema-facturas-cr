@@ -35,18 +35,27 @@ const colones = (n) =>
   // y no el carácter, que es invisible en el editor.
   `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
-export default function ModalCotizacion({ onCerrar, onCreada }) {
+export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null }) {
+  // Con `cotizacion` el modal edita en vez de crear. Es la misma pantalla a
+  // propósito: quien edita busca productos igual que quien cotiza, y tener
+  // dos formularios casi iguales es tener dos sitios donde arreglar cada cosa.
+  const editando = Boolean(cotizacion)
+
   const [clientes, setClientes] = useState([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [productos, setProductos] = useState([])
   const [cargando, setCargando] = useState(true)
 
-  const [cliente, setCliente] = useState(null)
+  const [cliente, setCliente] = useState(
+    cotizacion ? { id: cotizacion.clienteId, nombre: cotizacion.clienteNombre } : null)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [lineas, setLineas] = useState([])
   const [validezDias, setValidezDias] = useState(15)
-  const [observaciones, setObservaciones] = useState('')
+  // Editando se pone la fecha exacta y no "en N días": la cotización ya tiene
+  // una fecha de vencimiento y contar días desde hoy la correría sin querer.
+  const [vence, setVence] = useState(cotizacion?.vence || '')
+  const [observaciones, setObservaciones] = useState(cotizacion?.observaciones || '')
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
@@ -75,6 +84,27 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
       .finally(() => { if (vivo) setCargando(false) })
     return () => { vivo = false }
   }, [])
+
+  // Las líneas de la cotización que se está editando se rellenan con el
+  // precio de HOY, no con el cotizado. Es lo que el servidor va a guardar al
+  // reemplazar el documento, así que mostrar el viejo sería enseñar un total
+  // que no va a quedar. Para sostener el precio viejo se factura sin editar.
+  useEffect(() => {
+    if (!editando || productos.length === 0) return
+    const porIdCatalogo = new Map(productos.map(p => [String(p.id), p]))
+    setLineas((cotizacion.lineas || []).map(l => {
+      const p = porIdCatalogo.get(String(l.alegraItemId))
+      return {
+        alegraItemId: String(l.alegraItemId),
+        nombre: p?.name || l.nombre,
+        precio: p ? Number(p.precio) || 0 : 0,
+        cantidad: Number(l.cantidad) || 0,
+        // Un producto dado de baja desde que se cotizó: se muestra para que
+        // se vea por qué el total bajó, pero el servidor lo deja fuera.
+        fueraDeCatalogo: !p
+      }
+    }))
+  }, [editando, productos, cotizacion])
 
   // Búsqueda de cliente contra el servidor, con una pausa para no disparar
   // una consulta por tecla. La respuesta vieja que llegue tarde se descarta:
@@ -118,27 +148,33 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
     })
   }
 
-  const crear = async () => {
+  const guardar = async () => {
     setError('')
     if (!cliente) return setError('Elegí el cliente.')
     if (lineas.length === 0) return setError('Agregá al menos un producto.')
 
     setEnviando(true)
     try {
-      const { data } = await api.post('/cotizaciones', {
+      const cuerpo = {
         clienteId: cliente.id,
-        validezDias,
         observaciones: observaciones.trim() || null,
-        claveIdempotencia: clave,
         lineas: lineas.map(l => ({ alegraItemId: l.alegraItemId, cantidad: l.cantidad }))
-      })
+      }
+      // Alegra solo acepta PUT en cotizaciones y reemplaza el documento
+      // entero: por eso se mandan siempre todas las líneas, no las que
+      // cambiaron.
+      const { data } = editando
+        ? await api.put(`/cotizaciones/${cotizacion.id}`, { ...cuerpo, vence })
+        : await api.post('/cotizaciones', { ...cuerpo, validezDias, claveIdempotencia: clave })
+
       const noDisp = data.data?.noDisponibles || []
       if (noDisp.length > 0) {
-        setError(`Se creó, pero ${noDisp.length} producto(s) no estaban disponibles y quedaron fuera.`)
+        setError(`Se guardó, pero ${noDisp.length} producto(s) ya no están disponibles y quedaron fuera.`)
       }
-      onCreada?.(data.data?.numero || '')
+      onCreada?.(data.data?.numero || '', editando)
     } catch (e) {
-      setError(e.response?.data?.message || 'No se pudo crear la cotización.')
+      setError(e.response?.data?.message ||
+        (editando ? 'No se pudo guardar la cotización.' : 'No se pudo crear la cotización.'))
     } finally {
       setEnviando(false)
     }
@@ -147,7 +183,7 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
   return (
     <Modal
       onCerrar={onCerrar}
-      titulo="Nueva cotización"
+      titulo={editando ? `Cotización ${cotizacion.numero}` : 'Nueva cotización'}
       ancho="xl"
       hoja={false}
       pie={
@@ -158,7 +194,9 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={onCerrar}>Cancelar</Boton>
-            <Boton onClick={crear} cargando={enviando}>Crear cotización</Boton>
+            <Boton onClick={guardar} cargando={enviando}>
+              {editando ? 'Guardar cambios' : 'Crear cotización'}
+            </Boton>
           </div>
         </div>
       }
@@ -247,7 +285,14 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
               <div className="rounded-2xl border border-neutro-200">
                 {lineas.map(l => (
                   <div key={l.alegraItemId} className="flex items-center gap-3 border-b border-neutro-100 px-3 py-2 last:border-0">
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-neutro-900">{l.nombre}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-neutro-900">
+                      {l.nombre}
+                      {l.fueraDeCatalogo && (
+                        <span className="ml-2 text-[11px] font-semibold text-alerta-600">
+                          ya no está en el catálogo
+                        </span>
+                      )}
+                    </span>
                     <input
                       type="number" min="0" inputMode="numeric" value={l.cantidad}
                       onChange={(e) => cambiar({ id: l.alegraItemId, name: l.nombre, precio: l.precio }, e.target.value)}
@@ -269,16 +314,25 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
             <div className="flex flex-wrap items-end gap-4">
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutro-400">
-                  Vale por
+                  {editando ? 'Vale hasta' : 'Vale por'}
                 </label>
-                <div className="flex items-center gap-2">
+                {editando ? (
                   <input
-                    type="number" min="1" value={validezDias}
-                    onChange={(e) => setValidezDias(e.target.value)}
-                    className="w-20 rounded-xl border-2 border-neutro-200 py-2 text-center text-sm font-bold focus:border-acento-500 focus:outline-none"
+                    type="date" value={vence}
+                    onChange={(e) => setVence(e.target.value)}
+                    aria-label="Fecha hasta la que vale la cotización"
+                    className="rounded-xl border-2 border-neutro-200 px-3 py-2 text-sm font-bold focus:border-acento-500 focus:outline-none"
                   />
-                  <span className="text-sm text-neutro-500">días</span>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number" min="1" value={validezDias}
+                      onChange={(e) => setValidezDias(e.target.value)}
+                      className="w-20 rounded-xl border-2 border-neutro-200 py-2 text-center text-sm font-bold focus:border-acento-500 focus:outline-none"
+                    />
+                    <span className="text-sm text-neutro-500">días</span>
+                  </div>
+                )}
               </div>
               <div className="min-w-[200px] flex-1">
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutro-400">
@@ -297,7 +351,9 @@ export default function ModalCotizacion({ onCerrar, onCreada }) {
                 navegador puede tener uno viejo, y una cotización es un
                 compromiso de precio con el cliente. */}
             <p className="text-[11px] text-neutro-400">
-              Los precios definitivos se toman del catálogo al crear la cotización.
+              {editando
+                ? 'Al guardar, los precios se actualizan a los del catálogo de hoy. Para facturar con el precio que se cotizó, facturá sin editar.'
+                : 'Los precios definitivos se toman del catálogo al crear la cotización.'}
             </p>
 
             {error && (

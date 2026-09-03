@@ -92,6 +92,9 @@ function montar({ catalogo = [], intentoPrevio = [], alegraResponde = {}, factur
           if (metodo === 'POST' && ruta === '/estimates') {
             return { id: 777, numberTemplate: { fullNumber: 'COT-777' }, total: 0 };
           }
+          if (metodo === 'PUT' && /^\/estimates\/\d+$/.test(ruta)) {
+            return { id: 55, number: 55, total: 0 };
+          }
           throw new Error(`El doble de Alegra no esperaba ${clave}`);
         }
       })
@@ -413,5 +416,155 @@ describe('facturar', () => {
 
     await assert.rejects(() => servicio.facturar(55), (e) => e.status === 400);
     assert.equal(registro.facturas.length, 0);
+  });
+});
+
+describe('editar', () => {
+  const LINEAS_ALEGRA = [
+    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
+  ];
+
+  /** El PUT que se le mandó a Alegra. */
+  const cuerpoPut = (registro) => registro.peticiones.find(p => p.metodo === 'PUT')?.cuerpo;
+
+  test('editar también manda el impuesto de cada línea', async () => {
+    // El motivo de que crear y editar compartan armarItems: si editar armara
+    // las líneas por su cuenta, tocar una cantidad podría dejar la cotización
+    // sin IVA y nadie lo notaría hasta ver el total.
+    const { servicio, registro } = montar({
+      catalogo: [
+        producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5200, iva: 13 }),
+        producto({ id: 200, nombre: 'ARROZ 1KG', precio: 900, iva: 0 })
+      ],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+    });
+
+    await servicio.editar(55, {
+      lineas: [{ alegraItemId: '100', cantidad: 5 }, { alegraItemId: '200', cantidad: 2 }]
+    });
+
+    const items = cuerpoPut(registro).items;
+    assert.deepEqual(items.find(i => i.id === 100).tax,
+      [{ id: '1', percentage: 13, name: 'IVA', type: 'IVA' }]);
+    assert.deepEqual(items.find(i => i.id === 200).tax, []);
+  });
+
+  test('editar actualiza los precios a los de hoy', async () => {
+    // Es lo contrario que facturar, y a propósito: quien reabre una
+    // cotización para cambiarla espera el precio de hoy; quien la factura
+    // sin tocarla espera sostener el que prometió.
+    const { servicio, registro } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 6500 })],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+    });
+
+    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 2 }] });
+    assert.equal(cuerpoPut(registro).items[0].price, 6500);
+  });
+
+  test('la fecha de emisión no se mueve al editar', async () => {
+    // Moverla haría parecer que una cotización de la semana pasada es de hoy.
+    const { servicio, registro } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+    });
+
+    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 2 }], vence: '2026-12-31' });
+    assert.equal(cuerpoPut(registro).date, '2026-09-01', 'la de emisión es la original');
+    assert.equal(cuerpoPut(registro).dueDate, '2026-12-31', 'la de vencimiento sí se puede correr');
+  });
+
+  test('sin fecha nueva se conserva la que ya tenía', async () => {
+    const { servicio, registro } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA, vence: '2026-10-05' }) }
+    });
+
+    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 1 }] });
+    assert.equal(cuerpoPut(registro).dueDate, '2026-10-05');
+  });
+
+  test('una cotización ya facturada no se puede cambiar', async () => {
+    // La factura la copia y es la que vale ante Hacienda: si la cotización
+    // cambiara, los dos documentos dirían cosas distintas.
+    const { servicio, registro } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_ALEGRA }) }
+    });
+
+    await assert.rejects(
+      () => servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 9 }] }),
+      (e) => e.status === 400 && /ya se facturó/.test(e.message)
+    );
+    assert.equal(cuerpoPut(registro), undefined, 'no debió mandarse ningún PUT');
+  });
+
+  test('no se puede dejar sin productos', async () => {
+    const { servicio, registro } = montar({
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+    });
+
+    await assert.rejects(() => servicio.editar(55, { lineas: [] }), (e) => e.status === 400);
+    assert.equal(cuerpoPut(registro), undefined);
+  });
+
+  test('no se devuelve el total: Alegra contesta el PUT con el anterior', async () => {
+    // Comprobado contra la cuenta real: se editó una cotización de ₡231 a
+    // ₡4.355 y la respuesta del PUT seguía diciendo 231. Devolverlo sería
+    // enseñarle al vendedor un número que ya no existe.
+    const { servicio } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
+      alegraResponde: {
+        'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }),
+        'PUT /estimates/55': { id: 55, number: 55, total: 231 }
+      }
+    });
+
+    const r = await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 4 }] });
+    assert.equal(r.total, undefined);
+    assert.equal(r.numero, '55');
+  });
+
+  test('si no se manda cliente se conserva el que tenía', async () => {
+    const { servicio, registro } = montar({
+      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+    });
+
+    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 1 }] });
+    assert.equal(cuerpoPut(registro).client, 38);
+  });
+});
+
+describe('pdf', () => {
+  test('se pide con fields=pdf: el detalle normal no trae el enlace', async () => {
+    const { servicio, registro } = montar({
+      alegraResponde: {
+        'GET /estimates/55': (params) => ({
+          id: 55, number: 55,
+          // Alegra solo devuelve `pdf` si se pide explícitamente.
+          pdf: params?.fields === 'pdf' ? 'https://cdn3.alegra.com/x.pdf?Expires=1&Signature=y' : undefined
+        })
+      }
+    });
+
+    const r = await servicio.pdf(55);
+    assert.match(r.url, /^https:\/\/cdn3\.alegra\.com\//);
+    assert.equal(registro.peticiones[0].cuerpo.fields, 'pdf');
+  });
+
+  test('si Alegra no devuelve enlace se avisa, no se entrega uno vacío', async () => {
+    const { servicio } = montar({
+      alegraResponde: { 'GET /estimates/55': { id: 55, number: 55 } }
+    });
+    await assert.rejects(() => servicio.pdf(55), (e) => e.status === 404);
+  });
+
+  test('el enlace sirve aunque venga envuelto en un objeto', async () => {
+    // Así lo devuelve el endpoint de facturas; no está de más aguantarlo.
+    const { servicio } = montar({
+      alegraResponde: { 'GET /estimates/55': { id: 55, pdf: { url: 'https://cdn3.alegra.com/y.pdf' } } }
+    });
+    assert.equal((await servicio.pdf(55)).url, 'https://cdn3.alegra.com/y.pdf');
   });
 });

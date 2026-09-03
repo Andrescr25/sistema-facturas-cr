@@ -55,6 +55,26 @@ async function crear(req, res) {
   }
 }
 
+async function editar(req, res) {
+  try {
+    const { clienteId, lineas, observaciones, vence } = req.body;
+    const r = await servicio.editar(req.params.id, { clienteId, lineas, observaciones, vence });
+    res.json({ success: true, data: r, message: 'Cotización actualizada.' });
+  } catch (error) {
+    console.error('Error editando cotización:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function pdf(req, res) {
+  try {
+    res.json({ success: true, data: await servicio.pdf(req.params.id) });
+  } catch (error) {
+    console.error('Error obteniendo el PDF de la cotización:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function facturar(req, res) {
   try {
     // `aunqueVencida` la manda la pantalla solo después de que alguien
@@ -73,4 +93,4 @@ async function facturar(req, res) {
   }
 }
 
-module.exports = { listar, buscarClientes, catalogo, detalle, crear, facturar };
+module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, facturar };

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle, Pencil, FileDown } from 'lucide-react'
 import api from '../services/api'
 import Boton from '../components/ui/Boton'
 import Insignia from '../components/ui/Insignia'
@@ -37,6 +37,10 @@ export default function Cotizaciones() {
   // explicación. No se guarda un booleano: el texto lo escribe el servidor,
   // que es quien sabe de qué fecha son los precios.
   const [porConfirmar, setPorConfirmar] = useState(null)
+  // La cotización que se está editando, ya con su detalle traído. El listado
+  // no trae las líneas, y sin ellas el modal no puede prellenarse.
+  const [editando, setEditando] = useState(null)
+  const [abriendo, setAbriendo] = useState(null)
 
   const traer = useCallback(async () => {
     setError('')
@@ -71,6 +75,38 @@ export default function Cotizaciones() {
       }
     } finally {
       setFacturando(null)
+    }
+  }
+
+  const abrirPdf = async (c) => {
+    setAbriendo(`pdf-${c.id}`)
+    setError('')
+    // La ventana se abre ANTES de pedir el enlace. Abrirla después, dentro
+    // del `await`, el navegador la trata como emergente y la bloquea: deja de
+    // ser una consecuencia directa del clic.
+    const ventana = window.open('', '_blank')
+    try {
+      const { data } = await api.get(`/cotizaciones/${c.id}/pdf`)
+      if (ventana) ventana.location = data.data.url
+      else window.location.href = data.data.url
+    } catch (e) {
+      ventana?.close()
+      setError(e.response?.data?.message || 'No se pudo abrir el PDF.')
+    } finally {
+      setAbriendo(null)
+    }
+  }
+
+  const abrirEdicion = async (c) => {
+    setAbriendo(`editar-${c.id}`)
+    setError('')
+    try {
+      const { data } = await api.get(`/cotizaciones/${c.id}`)
+      setEditando(data.data)
+    } catch (e) {
+      setError(e.response?.data?.message || 'No se pudo abrir la cotización.')
+    } finally {
+      setAbriendo(null)
     }
   }
 
@@ -154,27 +190,56 @@ export default function Cotizaciones() {
 
               <p className="shrink-0 text-lg font-extrabold text-neutro-900">{colones(c.total)}</p>
 
-              {!c.facturada && (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <Boton
-                  variante="primario"
+                  variante="secundario"
                   tamano="sm"
-                  cargando={facturando === c.id}
-                  onClick={() => facturar(c)}
+                  icono={FileDown}
+                  cargando={abriendo === `pdf-${c.id}`}
+                  onClick={() => abrirPdf(c)}
                 >
-                  Facturar
+                  PDF
                 </Boton>
-              )}
+
+                {/* Una cotización facturada ya tiene una factura que la
+                    copia: cambiarla dejaría los dos documentos diciendo cosas
+                    distintas, y la factura es la que vale. */}
+                {!c.facturada && (
+                  <Boton
+                    variante="secundario"
+                    tamano="sm"
+                    icono={Pencil}
+                    cargando={abriendo === `editar-${c.id}`}
+                    onClick={() => abrirEdicion(c)}
+                  >
+                    Editar
+                  </Boton>
+                )}
+
+                {!c.facturada && (
+                  <Boton
+                    variante="primario"
+                    tamano="sm"
+                    cargando={facturando === c.id}
+                    onClick={() => facturar(c)}
+                  >
+                    Facturar
+                  </Boton>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {modalAbierto && (
+      {(modalAbierto || editando) && (
         <ModalCotizacion
-          onCerrar={() => setModalAbierto(false)}
-          onCreada={async (numero) => {
+          cotizacion={editando}
+          onCerrar={() => { setModalAbierto(false); setEditando(null) }}
+          onCreada={async (numero, seEditó) => {
             setModalAbierto(false)
-            setAviso(`Cotización ${numero} creada.`)
+            setEditando(null)
+            setAviso(seEditó ? `Cotización ${numero} actualizada.` : `Cotización ${numero} creada.`)
             await traer()
           }}
         />
