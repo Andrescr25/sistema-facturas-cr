@@ -27,6 +27,9 @@ const listarClientes = (req, res) =>
 const generarInvitacion = (req, res) =>
   responder(res, personal.generarInvitacion(req.params.contactoId, req.usuario?.id), 'Error generando la invitación');
 
+const enviarInvitacionWhatsApp = (req, res) =>
+  responder(res, personal.enviarInvitacionWhatsApp(req.params.contactoId, req.body || {}), 'Error enviando la invitación por WhatsApp');
+
 const revocarAcceso = (req, res) =>
   responder(res, personal.revocarAcceso(req.params.contactoId), 'Error revocando el acceso');
 
@@ -123,7 +126,7 @@ const miPedido = (req, res) =>
   responder(res, clienteSvc.detallePedido(req.cliente.id, req.params.pedidoId), 'Error obteniendo el pedido');
 
 module.exports = {
-  listarClientes, generarInvitacion, revocarAcceso, reactivarAcceso,
+  listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
   listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes,
   verInvitacion, activar, entrar, yo, portada, crearPedido, misPedidos, miPedido,
   verCarrito, ponerEnCarrito, vaciarCarrito, agregarVariosAlCarrito,

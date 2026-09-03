@@ -21,6 +21,9 @@ const rutasPersonal = express.Router();
 
 rutasPersonal.get('/clientes', controller.listarClientes);
 rutasPersonal.post('/clientes/:contactoId/invitacion', controller.generarInvitacion);
+// El enlace se manda desde la pantalla porque el servidor ya no lo tiene:
+// del token queda solo el hash, igual que con una contraseña.
+rutasPersonal.post('/clientes/:contactoId/invitacion/whatsapp', controller.enviarInvitacionWhatsApp);
 rutasPersonal.post('/clientes/:contactoId/revocar', controller.revocarAcceso);
 rutasPersonal.post('/clientes/:contactoId/reactivar', controller.reactivarAcceso);
 

@@ -58,7 +58,14 @@ export function useClientesPortal({ showToast, confirm }) {
     try {
       const { data } = await api.post(`/portal-clientes/clientes/${cliente.alegraContactId}/invitacion`)
       const enlace = `${window.location.origin}/portal/activar/${data.data.token}`
-      setInvitacion({ ...data.data, enlace, cliente: cliente.nombre })
+      // El id va también: hace falta para mandar el enlace por WhatsApp
+      // desde el modal, y el que vuelve del servidor no lo trae.
+      setInvitacion({
+        ...data.data,
+        enlace,
+        cliente: cliente.nombre,
+        alegraContactId: cliente.alegraContactId
+      })
       await cargarClientes()
     } catch (err) {
       showToast?.(err.response?.data?.message || 'No se pudo generar el enlace.', 'error')

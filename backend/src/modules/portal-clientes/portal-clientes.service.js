@@ -16,6 +16,13 @@ const {
 } = require('./portal-clientes.auth');
 
 const { getClient } = require('../../integrations/alegra');
+const { telefonosDe, validarTelefonoEscrito } = require('./telefonosCliente');
+const axios = require('axios');
+// El mismo traductor de errores que las órdenes de compra: un fallo de
+// WhatsApp tiene las mismas causas —instancia apagada, clave mal puesta,
+// número sin WhatsApp— y cada una se arregla distinto. Repetirlo acá sería
+// dejar que las explicaciones se separen con el tiempo.
+const { explicarFalloWhatsApp } = require('../orders-whatsapp/orders-whatsapp.service');
 
 // ==================== LADO DEL PERSONAL ====================
 
@@ -125,7 +132,21 @@ async function generarInvitacion(alegraContactId, usuarioId) {
     VALUES ($1, $2, $3, $4);
   `, [String(alegraContactId), hashToken(token), expira, usuarioId || null]);
 
-  return { token, expira, nombre: contacto.name, diasVigencia: DIAS_INVITACION };
+  // Los teléfonos van con la invitación para poder ofrecer mandarla por
+  // WhatsApp sin una segunda vuelta a Alegra. Se devuelven TODOS los que la
+  // ficha contenga —muchas traen dos, o el nombre de quien contesta pegado—
+  // porque elegir por nuestra cuenta sería adivinar a quién le llega un
+  // enlace que da acceso a la cuenta del cliente.
+  const { candidatos, sinReconocer } = telefonosDe(contacto);
+
+  return {
+    token,
+    expira,
+    nombre: contacto.name,
+    diasVigencia: DIAS_INVITACION,
+    telefonos: candidatos,
+    telefonosSinReconocer: sinReconocer
+  };
 }
 
 async function revocarAcceso(alegraContactId) {
@@ -152,7 +173,52 @@ async function reactivarAcceso(alegraContactId) {
   return { reactivado: true, nombre: r.rows[0].nombre };
 }
 
+/**
+ * Manda el enlace de invitación por WhatsApp.
+ *
+ * EL MENSAJE VIENE DE LA PANTALLA, NO DE ACÁ, y no es por comodidad: el
+ * token se muestra una sola vez y en la base queda solo su hash, así que el
+ * servidor ya no sabe cuál es el enlace. El único que lo tiene es el
+ * navegador que acaba de generarlo.
+ *
+ * El número se valida igual aunque venga de la lista que mandamos nosotros.
+ * Lo que llega en una petición es lo que alguien escribió, no lo que le
+ * ofrecimos, y este mensaje le da a quien lo reciba la puerta de la cuenta
+ * del cliente.
+ */
+async function enviarInvitacionWhatsApp(alegraContactId, { telefono, mensaje }) {
+  const revision = validarTelefonoEscrito(telefono);
+  if (!revision.valido) throw httpError(400, revision.motivo);
+
+  const texto = String(mensaje ?? '').trim();
+  if (!texto) throw httpError(400, 'El mensaje está vacío.');
+
+  const waUrl = process.env.WHATSAPP_API_URL || 'http://localhost:8080';
+  const waApiKey = process.env.WHATSAPP_API_KEY || '';
+  const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
+
+  try {
+    await axios.post(
+      `${waUrl}/message/sendText/${waInstance}`,
+      { number: revision.numero, text: texto },
+      { headers: { 'Content-Type': 'application/json', apikey: waApiKey }, timeout: 60000 }
+    );
+  } catch (error) {
+    throw httpError(502, explicarFalloWhatsApp(error, {
+      telefono: revision.formateado, waUrl, waInstance, sujeto: 'cliente'
+    }));
+  }
+
+  // Queda en el registro del servidor a qué número se mandó el enlace de
+  // qué cliente. Si alguna vez uno aparece donde no debía, esto es lo único
+  // que dice cuándo salió y hacia dónde: el token ya no existe en claro.
+  console.log(`📨 Invitación del cliente ${alegraContactId} enviada por WhatsApp al ${revision.formateado}`);
+
+  return { enviado: true, telefono: revision.formateado, numero: revision.numero };
+}
+
 module.exports = {
+  enviarInvitacionWhatsApp,
   listarClientes,
   generarInvitacion,
   revocarAcceso,

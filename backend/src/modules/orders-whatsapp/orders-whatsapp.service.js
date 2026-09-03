@@ -58,7 +58,7 @@ function normalizarTelefonoCR(telefono) {
  *
  * El texto es para quien está en el mostrador, no para quien programó.
  */
-function explicarFalloWhatsApp(error, { telefono, waUrl, waInstance }) {
+function explicarFalloWhatsApp(error, { telefono, waUrl, waInstance, sujeto = 'proveedor' }) {
   const status = error.response?.status;
   const detalle = error.response?.data;
   const textoDetalle = JSON.stringify(detalle || '').toLowerCase();
@@ -91,7 +91,7 @@ function explicarFalloWhatsApp(error, { telefono, waUrl, waInstance }) {
   // 400 sin decir por qué, así que se nombra la causa probable en vez de
   // repetir el código de estado.
   if (status === 400) {
-    return `El número ${telefono} no pudo recibir el mensaje. Lo más probable es que no tenga WhatsApp (por ejemplo, si es un teléfono fijo) o que esté mal escrito. Verifique el número del proveedor.`;
+    return `El número ${telefono} no pudo recibir el mensaje. Lo más probable es que no tenga WhatsApp (por ejemplo, si es un teléfono fijo) o que esté mal escrito. Verifique el número del ${sujeto}.`;
   }
 
   const mensajeEvolution = detalle?.message || detalle?.error || error.message;
