@@ -113,6 +113,46 @@ function invalidateCache() {
 /**
  * Obtiene las facturas para el módulo de bodega
  */
+/**
+ * Deja anotado en la base que estas facturas se anularon en Alegra.
+ *
+ * POR QUÉ ACÁ Y NO EN UN PROCESO APARTE
+ * Bodega ya se enteraba de la anulación —filtra las `void` y no las alista—
+ * pero no lo escribía en ningún lado, así que el resto del sistema seguía
+ * sin saberlo. Reporte Clientes lee solo de la base local y nunca le
+ * pregunta a Alegra: por eso una factura anulada seguía apareciendo con sus
+ * faltantes pendientes, como si hubiera que alistarla.
+ *
+ * Pasó de verdad con la 001000014828 del gimnasio de Palmares: anulada en
+ * Alegra el 2 de setiembre y todavía en el reporte, al lado de la
+ * electrónica del mismo cliente. Parecía un duplicado y no lo era — eran dos
+ * ventas distintas, una de ellas ya anulada.
+ *
+ * Esta corrida ya trae el estado de Alegra, así que anotarlo no cuesta ni
+ * una petición más. Solo se tocan las facturas que ya existen en la base:
+ * una anulada que nunca llegó a registrarse no tiene nada que corregir.
+ */
+async function marcarAnuladasEnLocal(invoicesAnuladas) {
+  const ids = invoicesAnuladas
+    .map((f) => parseInt(f.id, 10))
+    .filter((id) => Number.isInteger(id));
+  if (ids.length === 0) return 0;
+
+  const r = await query(`
+    UPDATE facturas
+    SET estado_bodega = 'anulada'
+    WHERE alegra_id = ANY($1::int[])
+      AND estado_bodega IS DISTINCT FROM 'anulada'
+    RETURNING alegra_id, numero_factura;
+  `, [ids]);
+
+  for (const fila of r.rows) {
+    console.log(`   ↳ factura ${fila.numero_factura} marcada como anulada en la base`);
+  }
+  return r.rows.length;
+}
+
+
 async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }) {
   // Verificar si hay datos en caché válidos
   const now = new Date();
@@ -204,9 +244,10 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
   // electrónica seguían apareciendo como orden pendiente incluso después de
   // anularlas — y lo mismo cualquier factura que se anule por otro motivo.
   const invoicesVigentes = invoicesRaw.filter((invoice) => invoice.status !== 'void');
-  const anuladas = invoicesRaw.length - invoicesVigentes.length;
-  if (anuladas > 0) {
-    console.log(`   ↳ ${anuladas} anulada(s) en Alegra, fuera de la lista de bodega`);
+  const invoicesAnuladas = invoicesRaw.filter((invoice) => invoice.status === 'void');
+  if (invoicesAnuladas.length > 0) {
+    console.log(`   ↳ ${invoicesAnuladas.length} anulada(s) en Alegra, fuera de la lista de bodega`);
+    await marcarAnuladasEnLocal(invoicesAnuladas);
   }
 
   const invoicesNormalized = invoicesVigentes.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
@@ -389,6 +430,9 @@ function getCachedData() {
 }
 
 module.exports = {
+  // Exportada para poder probarla: es la que evita que una factura anulada
+  // siga apareciendo como trabajo pendiente.
+  marcarAnuladasEnLocal,
   getFacturasBodega,
   actualizarEstadoFactura,
   invalidateCache,

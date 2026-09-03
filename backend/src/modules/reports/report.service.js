@@ -277,6 +277,16 @@ class ReportService {
         WHERE f.estado IN ('pendiente', 'procesado')
           AND f.tipo_faltante != 'completo'
           AND (f.cantidad_faltante::numeric > 0)
+          -- Una factura anulada no se alista ni se entrega, así que sus
+          -- faltantes tampoco. Sin esto seguía saliendo en el reporte junto
+          -- a las vivas del mismo cliente y parecía un duplicado: pasó con
+          -- la 001000014828 del gimnasio de Palmares, anulada en Alegra y
+          -- todavía pendiente acá. Bodega ya la excluía; este reporte lee
+          -- solo de la base local y nunca se enteraba.
+          --
+          -- Se excluye por el estado, no se borran los faltantes: si la
+          -- factura se reactiva en Alegra, vuelve con su trabajo intacto.
+          AND fa.estado_bodega IS DISTINCT FROM 'anulada'
         ORDER BY fa.cliente_nombre, fa.fecha_emision DESC
       `);
 
