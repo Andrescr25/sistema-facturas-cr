@@ -146,9 +146,12 @@ class AlegraClient {
    * podían aplicarse cuatro veces y descuadrar el stock.
    *
    * Ahora:
-   *   lecturas (GET)   reintentan ante red, timeout y 429/502/503/504
-   *   escrituras       SOLO ante 429, que es el único caso en que consta que
-   *                    el servidor rechazó la petición sin procesarla
+   *   lecturas (GET)   reintentan ante red, timeout, límite de peticiones
+   *                    y 502/503/504
+   *   escrituras       SOLO ante el límite de peticiones, que es el único
+   *                    caso en que consta que el servidor rechazó la
+   *                    petición sin procesarla (ver limiteDePeticiones: no
+   *                    llega como 429 sino como 400)
    *
    * `opciones.metodo` es OBLIGATORIO en la práctica: si no se dice, se asume
    * escritura. Es la suposición segura — equivocarse hacia "no reintento"
@@ -160,6 +163,44 @@ class AlegraClient {
    * @param {number} initialDelay
    * @param {{metodo?: string}} opciones - método HTTP real de la petición
    */
+  /**
+   * ¿Alegra rechazó esto por exceso de peticiones?
+   *
+   * ALEGRA NO CONTESTA 429. Contesta **HTTP 400** con el 429 metido en el
+   * cuerpo:
+   *
+   *   { code: 429, message: 'Too many requests',
+   *     headers: { 'x-rate-limit-limit': 100, 'x-rate-limit-reset': 54 } }
+   *
+   * Por eso la rama que reintentaba ante `status === 429` nunca se ejecutó:
+   * en un solo arranque del servidor se contaron 20 límites y 0 reintentos.
+   * El síntoma no era un error de límite, era un 400 genérico — y cada quien
+   * lo interpretaba a su manera: la pantalla de cotizaciones se quedó sin
+   * clientes, y un barrido de productos reportó 86 artículos "inexistentes"
+   * que existían.
+   *
+   * `x-rate-limit-reset` son los segundos que faltan para que se abra la
+   * ventana. Esperar menos es gastar un intento en un fallo seguro, así que
+   * se respeta ese número en lugar del backoff.
+   */
+  limiteDePeticiones(error) {
+    const cuerpo = error.response?.data || {};
+    const esLimite = error.response?.status === 429 ||
+      Number(cuerpo.code) === 429 ||
+      /too many requests/i.test(String(cuerpo.message || ''));
+
+    if (!esLimite) return { esLimite: false, esperaMs: 0 };
+
+    const reset = Number(
+      cuerpo.headers?.['x-rate-limit-reset'] ??
+      error.response?.headers?.['x-rate-limit-reset'] ?? 0
+    );
+    // Tope de un minuto: la ventana de Alegra es por minuto, esperar más no
+    // aporta y deja al usuario mirando una pantalla trabada.
+    const esperaMs = reset > 0 ? Math.min(reset + 1, 60) * 1000 : 0;
+    return { esLimite: true, esperaMs };
+  }
+
   async requestWithRetry(requestFn, maxRetries = 3, initialDelay = 1000, opciones = {}) {
     const metodo = String(opciones.metodo || 'DESCONOCIDO').toUpperCase();
     const esLectura = metodo === 'GET' || metodo === 'HEAD' || metodo === 'OPTIONS';
@@ -178,6 +219,7 @@ class AlegraClient {
         }
 
         let shouldRetry = false;
+        let esperaForzada = 0;   // la que pide Alegra; manda sobre el backoff
 
         // Sin respuesta no se sabe si la petición llegó a ejecutarse. Para una
         // lectura da igual; para una escritura, reintentar es lo que duplica.
@@ -195,15 +237,22 @@ class AlegraClient {
           }
         }
 
-        if (error.response?.status) {
+        // El límite de peticiones es el único caso que confirma que NO se
+        // procesó: el servidor la rechazó de entrada. Por eso se reintenta
+        // también en escritura, sin riesgo de duplicar.
+        const limite = this.limiteDePeticiones(error);
+        if (limite.esLimite) {
+          shouldRetry = true;
+          esperaForzada = limite.esperaMs;
+          console.log(`⚠️ Límite de peticiones de Alegra` +
+            (limite.esperaMs ? `, se reintenta en ${Math.round(limite.esperaMs / 1000)}s` : ', se reintenta'));
+        }
+
+        if (!limite.esLimite && error.response?.status) {
           const status = error.response.status;
-          // 429 es el único que confirma que NO se procesó: el servidor la
-          // rechazó por exceso de peticiones. 502/503/504 pueden haberse
-          // ejecutado detrás del proxy, así que solo se reintentan en lectura.
-          if (status === 429) {
-            shouldRetry = true;
-            console.log(`⚠️ Límite de peticiones (429), se reintenta`);
-          } else if ((status === 502 || status === 503 || status === 504) && esLectura) {
+          // 502/503/504 pueden haberse ejecutado detrás del proxy, así que
+          // solo se reintentan en lectura.
+          if ((status === 502 || status === 503 || status === 504) && esLectura) {
             shouldRetry = true;
             console.log(`⚠️ Error del servidor: ${status} - ${error.response.statusText}`);
           } else if (status === 502 || status === 503 || status === 504) {
@@ -215,7 +264,7 @@ class AlegraClient {
           throw error;
         }
 
-        const delay = initialDelay * Math.pow(2, attempt);
+        const delay = esperaForzada || initialDelay * Math.pow(2, attempt);
         console.log(`⏳ Reintento ${attempt + 1}/${maxRetries} en ${delay}ms... (Razón: ${error.code || error.response?.status})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }

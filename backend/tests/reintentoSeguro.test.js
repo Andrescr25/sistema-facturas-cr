@@ -50,7 +50,9 @@ function fallaSiempre(comoFalla) {
     estado.intentos++;
     const e = new Error(comoFalla.mensaje || 'falló');
     if (comoFalla.code) e.code = comoFalla.code;
-    if (comoFalla.status) e.response = { status: comoFalla.status, statusText: 'x', data: {} };
+    if (comoFalla.status) {
+      e.response = { status: comoFalla.status, statusText: 'x', data: comoFalla.data || {} };
+    }
     throw e;
   };
   return { fn, estado };
@@ -88,6 +90,26 @@ describe('reintento hacia Alegra: lectura vs escritura', () => {
   test('un 429 se reintenta incluso en POST: consta que no se procesó', async () => {
     // Es el único código que confirma que el servidor la rechazó sin ejecutarla.
     assert.equal(await contarIntentos({ status: 429 }, 'POST'), 3);
+  });
+
+  test('el límite de Alegra llega como 400 con code 429, y también se reintenta', async () => {
+    // ESTO ES LO QUE PASABA DE VERDAD Y NO SE REINTENTABA NUNCA.
+    // Alegra no contesta 429: contesta 400 con el 429 dentro del cuerpo. La
+    // rama que miraba `status === 429` no se ejecutó ni una vez — en un solo
+    // arranque del servidor se contaron 20 límites y 0 reintentos, y los
+    // que llamaban veían un 400 pelado: la pantalla de cotizaciones se quedó
+    // sin clientes y un barrido reportó 86 productos "inexistentes".
+    const cuerpo = { code: 429, message: 'Too many requests' };
+    assert.equal(await contarIntentos({ status: 400, data: cuerpo }, 'GET'), 3);
+    assert.equal(await contarIntentos({ status: 400, data: cuerpo }, 'POST'), 3,
+      'el límite confirma que no se procesó, así que reintentar no duplica');
+  });
+
+  test('un 400 de verdad —datos malos— sigue sin reintentarse', async () => {
+    // El arreglo no puede convertir cualquier 400 en reintentable: mandar
+    // cuatro veces una factura mal armada no la arregla.
+    assert.equal(await contarIntentos({ status: 400, data: { code: 11034, message: 'item inválido' } }, 'GET'), 1);
+    assert.equal(await contarIntentos({ status: 400, data: {} }, 'POST'), 1);
   });
 
   test('sin declarar método se asume escritura', async () => {
@@ -136,5 +158,39 @@ describe('todas las llamadas declaran su método', () => {
       'Sin declarar el método se asume escritura y se pierde el reintento de una\n' +
       'lectura, o peor: alguien lo agrega como lectura y vuelve el duplicado.\n  ' +
       culpables.join('\n  '));
+  });
+});
+
+describe('cuánto se espera cuando Alegra corta por límite', () => {
+  /** Un error con el cuerpo que manda Alegra. */
+  const errorLimite = (headers) => ({
+    response: { status: 400, data: { code: 429, message: 'Too many requests', headers } }
+  });
+
+  test('se respeta x-rate-limit-reset en vez del backoff', () => {
+    // La ventana es por minuto: esperar menos de lo que Alegra pide es
+    // gastar un intento en un fallo seguro.
+    const r = cliente.limiteDePeticiones(errorLimite({ 'x-rate-limit-reset': 54 }));
+    assert.equal(r.esLimite, true);
+    assert.equal(r.esperaMs, 55000);
+  });
+
+  test('la espera se topa en un minuto', () => {
+    assert.equal(cliente.limiteDePeticiones(errorLimite({ 'x-rate-limit-reset': 600 })).esperaMs, 60000);
+  });
+
+  test('sin cabecera de reset se cae al backoff normal', () => {
+    const r = cliente.limiteDePeticiones(errorLimite(undefined));
+    assert.equal(r.esLimite, true);
+    assert.equal(r.esperaMs, 0, '0 significa "usá el backoff"');
+  });
+
+  test('un error que no es de límite no se confunde con uno', () => {
+    assert.equal(cliente.limiteDePeticiones({ response: { status: 400, data: { code: 11034 } } }).esLimite, false);
+    assert.equal(cliente.limiteDePeticiones({ code: 'ETIMEDOUT' }).esLimite, false);
+  });
+
+  test('si algún día Alegra manda un 429 de verdad, también cuenta', () => {
+    assert.equal(cliente.limiteDePeticiones({ response: { status: 429, data: {} } }).esLimite, true);
   });
 });
