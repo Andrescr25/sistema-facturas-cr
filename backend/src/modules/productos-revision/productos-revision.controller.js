@@ -119,6 +119,21 @@ async function eliminarRelacionPorMapeo(req, res) {
 /**
  * POST /productos-revision/crear (multipart, imagen opcional)
  */
+async function precioSugerido(req, res) {
+  try {
+    // El id de ProductoFactura es un UUID, no un entero: pasarlo por
+    // parseInt daba NaN y Prisma no encontraba nada.
+    const r = await productosRevisionService.precioSugerido(
+      req.params.productoId,
+      req.query.categoria || ''
+    );
+    res.json({ success: true, data: r });
+  } catch (error) {
+    console.error('Error calculando el precio sugerido:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function crearProducto(req, res) {
   try {
     console.log('📦 Creando producto nuevo en Alegra...');
@@ -292,6 +307,7 @@ module.exports = {
   editarRelacion,
   eliminarRelacionPorMapeo,
   crearProducto,
+  precioSugerido,
   guardarFactorConversion,
   buscarEnCache,
   buscarEnAlegra,

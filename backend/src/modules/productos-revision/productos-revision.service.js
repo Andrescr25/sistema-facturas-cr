@@ -10,6 +10,8 @@ const { query } = require('../../../config/database');
 const { cabysPareceMedicamento } = require('../../utils/medicamento');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
+const { calcularPrecioSugerido } = require('../precios/motor');
+const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
 const { sincronizarCostoDeLineas, sincronizarCostoDeMapeo } = require('../precios/costoHistorico');
 
 const productService = getProductService();
@@ -662,6 +664,76 @@ async function eliminarRelacionPorMapeo(mapeoId) {
  * Crear producto nuevo en Alegra (con imagen opcional), guardarlo en caché
  * local y relacionarlo automáticamente con el producto del proveedor.
  */
+/**
+ * Qué costo y qué precio proponerle a quien está creando un producto nuevo.
+ *
+ * POR QUÉ HIZO FALTA
+ * El formulario prellenaba AMBOS campos —precio de venta y costo— con el
+ * `precioUnitario` de la factura del proveedor. Quien no los cambiaba creaba
+ * un producto que se vende al costo: 21 productos del catálogo quedaron así,
+ * varios con el precio de venta exactamente igual al costo (CODO SANITARIO
+ * ₡792,04 contra ₡792,04; BATERÍA MAXELL ₡703,54 contra ₡703,54).
+ *
+ * Y el costo tampoco era el costo: `precioUnitario` viene sin IVA, sin el
+ * descuento de la línea y sin el factor de conversión. Para la BOTA BELLOTA
+ * PVC 27 el formulario proponía ₡4.685 cuando el costo real por unidad
+ * propia es ₡4.764,65 — o sea que al aceptar el prellenado se creaba un
+ * producto que se vende POR DEBAJO del costo.
+ *
+ * Acá se calculan las dos cosas bien y con las piezas que ya existen:
+ *   costo   calcularCostoUnitarioPropio (con IVA, con descuento, con factor),
+ *           que es la convención con la que el resto del sistema escribe
+ *           inventory.unitCost en Alegra.
+ *   precio  el motor de precios, el mismo que sugiere en Revisión de Precios
+ *           (margen real medido por categoría). Sin sugerencia confiable
+ *           devuelve null y el formulario deja el campo vacío, en vez de
+ *           inventar un número.
+ *
+ * La categoría llega desde el formulario porque se elige ahí mismo: el
+ * margen meta depende de ella, y el producto todavía no existe en Alegra.
+ */
+async function precioSugerido(productoId, categoriaNombre) {
+  const producto = await prisma.productoFactura.findUnique({
+    where: { id: productoId },
+    include: { mapeo: true }
+  });
+  if (!producto) throw httpError(404, 'Producto original no encontrado');
+
+  const { costoConIva, costoSinIvaConDescuento, factor, porcentajeIva, descuentoPorcentaje } =
+    calcularCostoUnitarioPropio(producto, producto.mapeo?.factorConversion);
+
+  const costoUnitario = costoConIva / factor;   // el que va a Alegra
+  const costoSinIva = costoSinIvaConDescuento / factor;
+
+  const configPrecios = await obtenerConfigPrecios();
+  const { margenMeta, margenMinimo } = resolverConfig(configPrecios, categoriaNombre || '');
+
+  // Un producto nuevo no tiene rotación ni clientes: el motor usa el margen
+  // meta de la categoría sin ajustes, que es lo correcto cuando no hay
+  // historia que mirar.
+  const sugerencia = calcularPrecioSugerido({
+    costoSinIva,
+    margenMetaCategoria: margenMeta,
+    margenMinimoCategoria: margenMinimo,
+    unidadesMes: null,
+    clientesDistintos: null
+  });
+
+  const redondear = (n) => Math.round(n * 100) / 100;
+
+  return {
+    costoUnitario: redondear(costoUnitario),
+    costoSinIva: redondear(costoSinIva),
+    porcentajeIva: redondear(porcentajeIva),
+    descuentoPorcentaje: redondear(descuentoPorcentaje),
+    factor,
+    categoria: categoriaNombre || '(sin categoría)',
+    precioSugerido: sugerencia?.precioSugerido ?? null,
+    margenObjetivo: sugerencia?.margenObjetivo ?? null,
+    margenResultante: sugerencia?.margenResultante ?? null
+  };
+}
+
 async function crearProducto(datos, imagen) {
   const {
     productoId, nombre, descripcion, referencia, unidad,
@@ -1227,6 +1299,7 @@ async function getFacturaConProductos(facturaId) {
 }
 
 module.exports = {
+  precioSugerido,
   getRelacionados,
   getRelacionesDeProducto,
   crearRelacion,

@@ -30,6 +30,10 @@ router.post('/relacion', productosRevisionController.crearRelacion);
 router.post('/ajustar', productosRevisionController.ajustarProducto);
 router.put('/:mapeoId/editar-relacion', productosRevisionController.editarRelacion);
 router.delete('/:mapeoId/relacion', productosRevisionController.eliminarRelacionPorMapeo);
+// El costo real y el precio sugerido para un producto que todavía no existe
+// en Alegra. La categoría llega por query porque se elige en el mismo
+// formulario y el margen meta depende de ella.
+router.get('/:productoId/precio-sugerido', productosRevisionController.precioSugerido);
 router.post('/crear', upload.single('imagen'), productosRevisionController.crearProducto);
 router.post('/factor-conversion', productosRevisionController.guardarFactorConversion);
 router.get('/buscar', productosRevisionController.buscarEnCache);

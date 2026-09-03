@@ -1,13 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, XCircle, Building2, Package, FileText, AlertCircle, Eye, Trash2, Search, Scale } from 'lucide-react'
 import { FORMAS_FARMACEUTICAS } from '../../utils/formasFarmaceuticas'
 import { useModal } from '../../hooks/useModal'
+import api from '../../services/api'
 
 /**
  * Formulario completo para crear un producto nuevo en Alegra a partir de un
  * producto del proveedor, con detección de medicamento (CABYS/categoría) y
  * los campos obligatorios de forma farmacéutica/registro sanitario.
  * Extraído de RelacionarProductos.jsx.
+ *
+ * EL PRECIO DE VENTA NO SE PRELLENA CON EL COSTO
+ * Los dos campos —precio y costo— venían con el mismo número: el
+ * `precioUnitario` de la factura del proveedor. Quien no los cambiaba creaba
+ * un producto que se vende al costo, y 21 del catálogo quedaron así (CODO
+ * SANITARIO ₡792,04 contra ₡792,04; BATERÍA MAXELL ₡703,54 contra ₡703,54).
+ *
+ * Peor: ese número tampoco era el costo. `precioUnitario` viene sin IVA, sin
+ * el descuento de la línea y sin el factor de conversión. En la BOTA BELLOTA
+ * PVC 27 proponía ₡4.685 cuando el costo real por unidad es ₡4.764,65 — o
+ * sea que aceptar el prellenado creaba un producto que se vende POR DEBAJO
+ * del costo.
+ *
+ * Ahora los dos salen del servidor: el costo con la misma fórmula que escribe
+ * inventory.unitCost en Alegra, y el precio del motor de precios (margen real
+ * por categoría). Se recalculan al cambiar de categoría, porque el margen
+ * meta depende de ella. Si el motor no tiene una sugerencia confiable el
+ * campo queda vacío y hay que escribirlo: mejor eso que inventar un número.
  */
 export default function ModalCrearProducto({
   productoSeleccionado,
@@ -36,6 +55,24 @@ export default function ModalCrearProducto({
   // el factor acá mismo — evita que "Cantidad Inicial" se mande a Alegra en
   // la unidad equivocada, y lo guarda para que las próximas facturas de este
   // proveedor ya vengan convertidas solas.
+  // El costo real y el precio sugerido los calcula el servidor; hasta que
+  // lleguen, los campos quedan vacíos en vez de mostrar un número provisional
+  // que alguien podría aceptar sin mirar.
+  const [sugerencia, setSugerencia] = useState(null)
+  const [cargandoSugerencia, setCargandoSugerencia] = useState(true)
+
+  useEffect(() => {
+    let vivo = true
+    setCargandoSugerencia(true)
+    api.get(`/productos-revision/${productoSeleccionado.id}/precio-sugerido`, {
+      params: { categoria: categoriaSeleccionada?.nombre || categoriaSeleccionada || '' }
+    })
+      .then(r => { if (vivo) setSugerencia(r.data?.data || null) })
+      .catch(() => { if (vivo) setSugerencia(null) })
+      .finally(() => { if (vivo) setCargandoSugerencia(false) })
+    return () => { vivo = false }
+  }, [productoSeleccionado.id, categoriaSeleccionada])
+
   const cantidadProveedor = parseFloat(productoSeleccionado.cantidad) || 0
   const [cantidadInicial, setCantidadInicial] = useState(cantidadProveedor || 0)
   const [mostrarFactor, setMostrarFactor] = useState(false)
@@ -193,6 +230,9 @@ export default function ModalCrearProducto({
             <div className="space-y-4">
               {/* Precios */}
               <div className="grid grid-cols-2 gap-3">
+                {/* El `key` que cambia con el valor es a propósito: React no
+                    repinta un defaultValue: sin él, cambiar de categoría
+                    dejaba en pantalla el precio de la categoría anterior. */}
                 <div>
                   <label className="label">Precio de Venta *</label>
                   <div className="relative">
@@ -200,15 +240,20 @@ export default function ModalCrearProducto({
                     <input
                       type="number"
                       name="precio"
-                      defaultValue={productoSeleccionado.precioUnitario}
+                      key={`precio-${sugerencia?.precioSugerido ?? 'vacio'}`}
+                      defaultValue={sugerencia?.precioSugerido ?? ''}
                       step="0.01"
                       min="0"
                       required
                       className="input pl-8"
-                      placeholder="0.00"
+                      placeholder={cargandoSugerencia ? 'Calculando…' : '0.00'}
                     />
                   </div>
-                  <p className="text-xs text-neutro-500 mt-1">Precio sin IVA</p>
+                  <p className="text-xs text-neutro-500 mt-1">
+                    {sugerencia?.precioSugerido != null
+                      ? `Sin IVA · sugerido al ${sugerencia.margenObjetivo}% de margen (${sugerencia.categoria})`
+                      : 'Precio sin IVA'}
+                  </p>
                 </div>
 
                 <div>
@@ -218,15 +263,20 @@ export default function ModalCrearProducto({
                     <input
                       type="number"
                       name="costo"
-                      defaultValue={productoSeleccionado.precioUnitario}
+                      key={`costo-${sugerencia?.costoUnitario ?? 'vacio'}`}
+                      defaultValue={sugerencia?.costoUnitario ?? ''}
                       step="0.01"
                       min="0"
                       required
                       className="input pl-8"
-                      placeholder="0.00"
+                      placeholder={cargandoSugerencia ? 'Calculando…' : '0.00'}
                     />
                   </div>
-                  <p className="text-xs text-neutro-500 mt-1">Costo de compra</p>
+                  <p className="text-xs text-neutro-500 mt-1">
+                    {sugerencia
+                      ? `Con IVA${sugerencia.descuentoPorcentaje > 0 ? `, con el ${Math.round(sugerencia.descuentoPorcentaje)}% de descuento` : ''}${sugerencia.factor !== 1 ? `, ÷ factor ${sugerencia.factor}` : ''}`
+                      : 'Costo de compra'}
+                  </p>
                 </div>
               </div>
 
