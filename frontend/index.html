@@ -2,7 +2,18 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!--
+      El icono de la pestaña apuntaba a /vite.svg, que nunca existió en este
+      proyecto: cada carga pedía ese archivo, recibía un 404 y la pestaña
+      quedaba con el icono en blanco del navegador.
+
+      El SVG es el que usan los navegadores modernos y se ve nítido en
+      cualquier tamaño; los PNG son el respaldo para los que no lo soportan.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png" />
     
     <!-- Viewport optimizado para PWA -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -14,8 +25,9 @@
     <link rel="manifest" href="/manifest.json" />
     
     <!-- Theme Color para barra de estado -->
-    <meta name="theme-color" content="#2563eb" />
-    <meta name="msapplication-TileColor" content="#2563eb" />
+    <!-- El azul del sistema (primario-800), no el genérico de la plantilla. -->
+    <meta name="theme-color" content="#12263f" />
+    <meta name="msapplication-TileColor" content="#12263f" />
     
     <!-- Apple iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -28,7 +40,6 @@
     <!-- Prevenir zoom en iOS -->
     <meta name="format-detection" content="telephone=no" />
     
-    <!-- TODO: Agregar iconos PWA cuando estén generados (ver ICONOS-PWA-INSTRUCCIONES.md) -->
   </head>
   <body>
     <div id="root"></div>

@@ -5,12 +5,16 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#12263f",
   "orientation": "portrait",
   "scope": "/",
   "lang": "es",
   "dir": "ltr",
-  "categories": ["business", "finance", "productivity"],
+  "categories": [
+    "business",
+    "finance",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -85,4 +89,3 @@
   "related_applications": [],
   "prefer_related_applications": false
 }
-

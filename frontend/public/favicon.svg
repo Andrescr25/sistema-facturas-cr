@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tachi Distribuidora">
+  <!--
+    El icono de la pestaña.
+
+    POR QUÉ UNA "T" Y NO EL LOGO
+    El logo es horizontal (1000x276) y su marca es un camión con detalle. A
+    16 pixeles —el tamaño real de una pestaña— cualquiera de los dos queda en
+    una mancha. La inicial en el naranja de la casa se reconoce en todos los
+    tamaños, que es lo único que tiene que hacer un favicon.
+
+    La inclinación y el corte del asta imitan la tipografía del logo.
+  -->
+  <rect width="512" height="512" rx="112" fill="#E9501C"/>
+  <path d="M120 128 h272 l-22 74 h-86 l-50 182 h-84 l50 -182 h-86 z"
+        fill="#FFFFFF"/>
+</svg>
