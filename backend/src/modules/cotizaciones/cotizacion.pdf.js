@@ -25,16 +25,23 @@ const { MARCA, LOGO, LOGO_RATIO, NEGOCIO, registrarFuentes, colones, colonesExac
 
 const M = 44;                 // margen
 const ALTO_FILA = 26;
-const PIE_RESERVADO = 120;    // espacio que se le deja al bloque de totales
+// Solo el pie de página: el bloque de totales pide su propio espacio cuando
+// le toca (ver totales()). Reservando los 120 del bloque en TODAS las páginas,
+// las intermedias cortaban a media hoja y quedaban con un vacío enorme.
+const PIE_RESERVADO = 56;
 
 /** Las columnas de la tabla, con su ancho. Suman el ancho útil de la página. */
 function columnas(ancho) {
   return {
-    num:   { x: M, w: 26, titulo: '#' },
-    desc:  { x: M + 26, w: ancho - 26 - 52 - 92 - 96, titulo: 'DESCRIPCIÓN' },
-    cant:  { x: M + ancho - 52 - 92 - 96, w: 52, titulo: 'CANT.' },
-    precio:{ x: M + ancho - 92 - 96, w: 92, titulo: 'PRECIO UNIT.' },
-    total: { x: M + ancho - 96, w: 96, titulo: 'IMPORTE' }
+    // La descripción se lleva lo que sobra, y sobra a propósito: los nombres
+    // del catálogo son largos ("DESINFECTANTE MANZANA CANELA EN GALON
+    // SALAZAR") y cortarlos con puntos suspensivos deja al cliente
+    // adivinando cuál de los diez olores es.
+    num:   { x: M, w: 24, titulo: '#' },
+    desc:  { x: M + 24, w: ancho - 24 - 42 - 82 - 92, titulo: 'DESCRIPCIÓN' },
+    cant:  { x: M + ancho - 42 - 82 - 92, w: 42, titulo: 'CANT.' },
+    precio:{ x: M + ancho - 82 - 92, w: 82, titulo: 'PRECIO UNIT.' },
+    total: { x: M + ancho - 92, w: 92, titulo: 'IMPORTE' }
   };
 }
 
@@ -115,8 +122,24 @@ function filas(doc, cot, col, ancho, yInicio, F) {
     doc.font(F.normal).fontSize(8).fillColor(MARCA.grisSuave)
       .text(String(i + 1), col.num.x + 6, y + 6);
 
-    doc.font(F.negrita).fontSize(8.5).fillColor(MARCA.tinta)
-      .text(l.nombre || '', col.desc.x + 4, y + 4, { width: col.desc.w - 8, lineBreak: false, ellipsis: true });
+    // El nombre se recorta en JS y no con `ellipsis`: pdfkit lo partía en dos
+    // líneas igual y la segunda pisaba la referencia de abajo (pasó con
+    // "DESINFECTANTE MANZANA CANELA EN GALON SALAZAR").
+    doc.font(F.negrita).fontSize(8.5).fillColor(MARCA.tinta);
+    const anchoDisponible = col.desc.w - 8;
+    const nombreCompleto = String(l.nombre || '');
+    let nombre = nombreCompleto;
+    // Primero se pregunta si cabe ENTERO. Medir siempre con los puntos
+    // suspensivos recortaba nombres que sí entraban: "DESINFECTANTE MANZANA
+    // CANELA EN GALON SALAZAR" mide 268 y la columna da 276, pero con el "…"
+    // se pasaba y salía cortado sin necesidad.
+    if (doc.widthOfString(nombre) > anchoDisponible) {
+      while (nombre.length > 3 && doc.widthOfString(`${nombre.trimEnd()}…`) > anchoDisponible) {
+        nombre = nombre.slice(0, -1);
+      }
+      nombre = `${nombre.trimEnd()}…`;
+    }
+    doc.text(nombre, col.desc.x + 4, y + 4, { width: anchoDisponible, lineBreak: false });
     if (l.referencia) {
       doc.font(F.normal).fontSize(6.5).fillColor(MARCA.grisSuave)
         .text(`Ref. ${l.referencia}`, col.desc.x + 4, y + 15, { width: col.desc.w - 8, lineBreak: false, ellipsis: true });
@@ -137,6 +160,14 @@ function filas(doc, cot, col, ancho, yInicio, F) {
 }
 
 function totales(doc, cot, ancho, y, F) {
+  // El bloque mide unos 120 puntos entre subtotal, IVA y la caja del total.
+  // Si no caben en lo que queda de página, se pasa a la siguiente en vez de
+  // escribirlos por debajo del margen (que además agrega una página vacía).
+  if (y + 130 > doc.page.height - M - PIE_RESERVADO) {
+    doc.addPage();
+    y = M;
+  }
+
   const subtotal = cot.lineas.reduce((s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precio) || 0), 0);
   const impuesto = cot.lineas.reduce(
     (s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precio) || 0) * ((Number(l.taxPercentage) || 0) / 100), 0);
