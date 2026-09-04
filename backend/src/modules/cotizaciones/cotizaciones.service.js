@@ -396,6 +396,35 @@ async function enviarPorWhatsApp(id, { telefono, mensaje, usuarioId }) {
 }
 
 /**
+ * Borra una cotización que no se va a facturar.
+ *
+ * SE BORRA DE VERDAD, EN ALEGRA. Una cotización no es documento fiscal: no
+ * hay nada que conservar de una que nunca se vendió, y dejarlas ahí llena la
+ * pantalla de cosas muertas hasta que no se distingue lo vigente.
+ *
+ * UNA YA FACTURADA NO SE BORRA. Su factura existe y la referencia (el
+ * "Cotización N" que va en las observaciones de la venta) apuntaría a algo
+ * que ya no está: quien revise esa factura después no tendría cómo saber de
+ * dónde salieron esos precios.
+ */
+async function eliminar(id) {
+  const cot = await detalle(id);
+
+  if (cot.facturada) {
+    throw httpError(409,
+      `La cotización ${cot.numero} ya se facturó y no se puede borrar. ` +
+      `Su factura la referencia, y sin ella no habría cómo saber de dónde salieron esos precios.`);
+  }
+
+  await getClient().request('DELETE', `/estimates/${id}`);
+
+  // El registro del envío por WhatsApp NO se borra: si se le mandó al
+  // cliente, eso pasó, y el día que pregunte por "la cotización que me
+  // mandaron" hay que poder decir cuándo salió y a qué número.
+  return { borrada: true, numero: cot.numero, cliente: cot.clienteNombre };
+}
+
+/**
  * Convierte una cotización aceptada en factura de venta.
  *
  * Se arma la factura con las MISMAS líneas y los MISMOS precios que vio el
@@ -472,6 +501,6 @@ async function facturar(id, { aunqueVencida = false } = {}) {
 }
 
 module.exports = {
-  crear, editar, listar, detalle, facturar, pdf, enviarPorWhatsApp,
+  crear, editar, listar, detalle, facturar, eliminar, pdf, enviarPorWhatsApp,
   buscarClientes, catalogoParaCotizar, mapaImpuestos, TOPE_ALEGRA
 };

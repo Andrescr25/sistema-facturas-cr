@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle, Pencil, FileDown, Send } from 'lucide-react'
+import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle, Pencil, FileDown, Send, Trash2 } from 'lucide-react'
 import api from '../services/api'
 import Boton from '../components/ui/Boton'
 import Insignia from '../components/ui/Insignia'
 import ModalCotizacion from '../components/cotizaciones/ModalCotizacion'
 import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
+import ConfirmModal from '../components/ConfirmModal'
+import { useDialog } from '../hooks/useDialog'
 import { mensajeCotizacion } from '../utils/mensajesWhatsApp'
 
 /**
@@ -29,6 +31,7 @@ const fecha = (f) =>
   f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
 export default function Cotizaciones() {
+  const { confirm, dialogProps } = useDialog()
   const [lista, setLista] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -45,6 +48,7 @@ export default function Cotizaciones() {
   const [abriendo, setAbriendo] = useState(null)
   // La cotización que se está por mandar por WhatsApp.
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(null)
+  const [borrando, setBorrando] = useState(null)
 
   const traer = useCallback(async () => {
     setError('')
@@ -118,6 +122,32 @@ export default function Cotizaciones() {
       setError(e.response?.data?.message || 'No se pudo abrir la cotización.')
     } finally {
       setAbriendo(null)
+    }
+  }
+
+  const eliminar = async (c) => {
+    // Se pregunta porque borra de verdad en Alegra y no hay deshacer. El
+    // texto nombra el cliente y el monto: "¿Eliminar la 8?" no alcanza para
+    // darse cuenta de que es la equivocada.
+    const ok = await confirm(
+      `¿Eliminar la cotización ${c.numero}?\n\n` +
+      `${c.clienteNombre || 'Sin cliente'} · ${colones(c.total)}\n\n` +
+      `Se borra de Alegra y no se puede recuperar.`,
+      { confirmLabel: 'Eliminar', variant: 'danger', title: 'Eliminar cotización' }
+    )
+    if (!ok) return
+
+    setBorrando(c.id)
+    setAviso('')
+    setError('')
+    try {
+      await api.delete(`/cotizaciones/${c.id}`)
+      setAviso(`Cotización ${c.numero} eliminada.`)
+      await traer()
+    } catch (e) {
+      setError(e.response?.data?.message || 'No se pudo eliminar.')
+    } finally {
+      setBorrando(null)
     }
   }
 
@@ -246,6 +276,22 @@ export default function Cotizaciones() {
                     Facturar
                   </Boton>
                 )}
+
+                {/* Una facturada no se puede borrar: su factura la referencia
+                    y sin ella nadie sabría de dónde salieron esos precios. */}
+                {!c.facturada && (
+                  <button
+                    type="button"
+                    onClick={() => eliminar(c)}
+                    disabled={borrando === c.id}
+                    aria-label={`Eliminar la cotización ${c.numero}`}
+                    className="rounded-lg p-2 text-neutro-300 transition-colors hover:bg-peligro-50 hover:text-peligro-600 disabled:opacity-50"
+                  >
+                    {borrando === c.id
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : <Trash2 size={16} />}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -269,6 +315,8 @@ export default function Cotizaciones() {
           onCerrar={() => setEnviandoWhatsApp(null)}
         />
       )}
+
+      <ConfirmModal {...dialogProps} />
 
       {(modalAbierto || editando) && (
         <ModalCotizacion

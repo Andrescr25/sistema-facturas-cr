@@ -95,6 +95,9 @@ function montar({ catalogo = [], intentoPrevio = [], alegraResponde = {}, factur
           if (metodo === 'PUT' && /^\/estimates\/\d+$/.test(ruta)) {
             return { id: 55, number: 55, total: 0 };
           }
+          if (metodo === 'DELETE' && /^\/estimates\/\d+$/.test(ruta)) {
+            return { deleted: true };
+          }
           throw new Error(`El doble de Alegra no esperaba ${clave}`);
         }
       })
@@ -595,5 +598,47 @@ describe('pdf', () => {
     assert.ok(fs.existsSync(FUENTES.normal), 'falta DejaVuSans.ttf en assets/fuentes');
     assert.ok(fs.existsSync(FUENTES.negrita), 'falta DejaVuSans-Bold.ttf en assets/fuentes');
     assert.equal(colones(1234567), '₡1.234.567');
+  });
+});
+
+describe('eliminar', () => {
+  const LINEAS_BORRAR = [
+    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
+  ];
+
+  /** El DELETE que se le mandó a Alegra. */
+  const borradoEnAlegra = (registro) => registro.peticiones.find(p => p.metodo === 'DELETE');
+
+  test('una cotización sin facturar se borra de Alegra', async () => {
+    // No es documento fiscal: no hay nada que conservar de una que nunca se
+    // vendió, y dejarlas ahí tapa las vigentes.
+    const { servicio, registro } = montar({
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_BORRAR }) }
+    });
+
+    const r = await servicio.eliminar(55);
+    assert.equal(r.borrada, true);
+    assert.equal(r.numero, 'COT-55');
+    assert.equal(borradoEnAlegra(registro)?.ruta, '/estimates/55');
+  });
+
+  test('una YA FACTURADA no se borra', async () => {
+    // Su factura la referencia en las observaciones ("Cotización N"): sin la
+    // cotización, quien revise esa factura no tiene cómo saber de dónde
+    // salieron los precios.
+    const { servicio, registro } = montar({
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_BORRAR }) }
+    });
+
+    await assert.rejects(() => servicio.eliminar(55), (e) => e.status === 409);
+    assert.equal(borradoEnAlegra(registro), undefined, 'no debió mandarse ningún DELETE');
+  });
+
+  test('el mensaje explica por qué no, no solo que no', async () => {
+    const { servicio } = montar({
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_BORRAR }) }
+    });
+    await assert.rejects(() => servicio.eliminar(55),
+      (e) => /de dónde salieron esos precios/.test(e.message));
   });
 });

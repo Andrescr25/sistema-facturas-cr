@@ -92,6 +92,16 @@ async function enviarPorWhatsApp(req, res) {
   }
 }
 
+async function eliminar(req, res) {
+  try {
+    const r = await servicio.eliminar(req.params.id);
+    res.json({ success: true, data: r, message: `Cotización ${r.numero} eliminada.` });
+  } catch (error) {
+    console.error('Error eliminando la cotización:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function facturar(req, res) {
   try {
     // `aunqueVencida` la manda la pantalla solo después de que alguien
@@ -110,4 +120,4 @@ async function facturar(req, res) {
   }
 }
 
-module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, facturar, enviarPorWhatsApp };
+module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, eliminar, facturar, enviarPorWhatsApp };

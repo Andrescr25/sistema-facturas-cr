@@ -21,6 +21,9 @@ router.put('/:id', controller.editar);
 // Mandársela al cliente por WhatsApp, con el PDF adjunto.
 router.post('/:id/whatsapp', controller.enviarPorWhatsApp);
 
+// Borrar una que no se va a facturar. Una cotización no es documento fiscal.
+router.delete('/:id', controller.eliminar);
+
 // Convertir una cotización aceptada en factura de venta.
 router.post('/:id/facturar', controller.facturar);
 
