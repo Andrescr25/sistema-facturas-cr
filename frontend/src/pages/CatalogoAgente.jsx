@@ -11,6 +11,7 @@ import ClienteActivoBanner from '../components/catalogo-agente/ClienteActivoBann
 import PanelPedidoAgente from '../components/catalogo-agente/PanelPedidoAgente'
 import { usePedidoAgente } from '../hooks/usePedidoAgente'
 import '../components/catalogo-agente/catalogoAgente.css'
+import { colones } from '../utils/colones'
 
 export default function CatalogoAgente() {
   const {
@@ -181,7 +182,7 @@ export default function CatalogoAgente() {
                 <span className="pedido-barra-pendientes">{pedido.sinEnviar} sin enviar</span>
               )}
               {pedido.unidades > 0 && (
-                <strong>₡{Math.round(pedido.totalReferencia).toLocaleString('es-CR').replace(/\u00A0/g, '.')}</strong>
+                <strong>{colones(pedido.totalReferencia)}</strong>
               )}
             </span>
           </button>

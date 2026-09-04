@@ -40,6 +40,16 @@ async function catalogo(req, res) {
   }
 }
 
+async function publica(req, res) {
+  try {
+    res.json({ success: true, data: await servicio.publicaPorToken(req.params.token) });
+  } catch (error) {
+    // No se registra el token en el log: es la llave del documento.
+    console.error('Error abriendo la cotización pública:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function crear(req, res) {
   try {
     const { clienteId, lineas, observaciones, validezDias, claveIdempotencia } = req.body;
@@ -120,4 +130,4 @@ async function facturar(req, res) {
   }
 }
 
-module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, eliminar, facturar, enviarPorWhatsApp };
+module.exports = { listar, buscarClientes, catalogo, detalle, pdf, publica, crear, editar, eliminar, facturar, enviarPorWhatsApp };

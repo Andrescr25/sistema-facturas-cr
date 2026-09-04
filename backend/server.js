@@ -184,6 +184,9 @@ app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 app.use('/api/cotizaciones', cotizacionesModule.routes);
+// La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
+// protegida por el token firmado que lleva la URL (ver enlacePublico.js).
+app.use('/api/cotizacion-publica', cotizacionesModule.rutasPublicas);
 app.use('/api/envios-whatsapp', enviosWhatsAppModule.routes);
 
 // Módulos nuevos (arquitectura modular)

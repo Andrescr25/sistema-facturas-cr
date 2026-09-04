@@ -4,6 +4,7 @@ import api from '../../services/api'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
 import { buscarProductos } from '../../utils/buscarCatalogoAgente'
+import { colones } from '../../utils/colones'
 
 /**
  * Armar una cotización: cliente, productos, validez.
@@ -30,10 +31,6 @@ import { buscarProductos } from '../../utils/buscarCatalogoAgente'
  * recibe otro.
  */
 
-const colones = (n) =>
-  // es-CR separa los miles con espacio duro (U+00A0); se escribe el código
-  // y no el carácter, que es invisible en el editor.
-  `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
 export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null }) {
   // Con `cotizacion` el modal edita en vez de crear. Es la misma pantalla a

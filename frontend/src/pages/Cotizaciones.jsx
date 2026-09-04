@@ -8,6 +8,7 @@ import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
 import ConfirmModal from '../components/ConfirmModal'
 import { useDialog } from '../hooks/useDialog'
 import { mensajeCotizacion } from '../utils/mensajesWhatsApp'
+import { colones } from '../utils/colones'
 
 /**
  * Cotizaciones (proformas).
@@ -22,10 +23,6 @@ import { mensajeCotizacion } from '../utils/mensajesWhatsApp'
  * facturas.
  */
 
-const colones = (n) =>
-  // es-CR separa los miles con espacio duro (U+00A0); se escribe el código
-  // y no el carácter, que es invisible en el editor.
-  `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
 const fecha = (f) =>
   f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -306,7 +303,8 @@ export default function Cotizaciones() {
           documento={{ tipo: 'cotizacion', referencia: enviandoWhatsApp.numero }}
           mensajeInicial={mensajeCotizacion({
             numero: enviandoWhatsApp.numero,
-            cliente: enviandoWhatsApp.clienteNombre
+            cliente: enviandoWhatsApp.clienteNombre,
+            enlace: enviandoWhatsApp.enlacePublico
           })}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(`/cotizaciones/${enviandoWhatsApp.id}/whatsapp`, { telefono, mensaje })

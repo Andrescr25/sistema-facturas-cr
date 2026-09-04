@@ -27,8 +27,10 @@
 const { getClient } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
+const { NEGOCIO } = require('../../utils/marcaPdf');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { generarPdfCotizacion } = require('./cotizacion.pdf');
+const { idDesdeToken, enlaceDe } = require('./enlacePublico');
 const FacturacionService = require('../facturacion/facturacion.service');
 
 const facturacion = new FacturacionService();
@@ -204,6 +206,7 @@ async function listar({ limite = TOPE_ALEGRA } = {}) {
   const lista = Array.isArray(data) ? data : [];
   return lista.map(e => ({
     id: e.id,
+    enlacePublico: enlaceDe(e.id),
     numero: e.numberTemplate?.fullNumber || String(e.number ?? e.id),
     fecha: e.date,
     vence: e.dueDate,
@@ -293,6 +296,10 @@ async function detalle(id) {
     clienteId: e.client?.id || null,
     total: Number(e.total) || 0,
     observaciones: e.observations || null,
+    // El enlace para el cliente. Lo arma el servidor porque la firma se
+    // calcula con el secreto de la aplicación: la pantalla no puede —ni
+    // debe— conocerlo.
+    enlacePublico: enlaceDe(e.id),
     lineas: (e.items || []).map(i => ({
       alegraItemId: i.id,
       nombre: i.name,
@@ -393,6 +400,62 @@ async function enviarPorWhatsApp(id, { telefono, mensaje, usuarioId }) {
     nombreArchivo: `cotizacion-${cot.numero}.pdf`,
     usuarioId
   });
+}
+
+/**
+ * La cotización tal como la ve el cliente en el navegador.
+ *
+ * Es lo mismo que hay en el PDF más la foto de cada producto, que es lo que
+ * el PDF no puede dar: quien no conoce el producto lee "ROLLO BOLSA GDE.1X41
+ * BASURA EZ" y no sabe qué le están ofreciendo.
+ *
+ * SE DEVUELVE LO JUSTO. Esta ruta es pública —la abre quien tenga el enlace—
+ * así que sale solo lo que ya está en el PDF que el cliente recibió: nombre,
+ * productos, precios y fechas. Nada de ids internos, estados ni el resto de
+ * la ficha del cliente.
+ */
+async function publicaPorToken(token) {
+  const id = idDesdeToken(token);
+  if (!id) throw httpError(404, 'Ese enlace no es válido.');
+
+  const cot = await detalle(id);
+
+  const fotos = new Map();
+  const ids = cot.lineas.map(l => String(l.alegraItemId)).filter(Boolean);
+  if (ids.length > 0) {
+    const r = await query(
+      `SELECT alegra_id, image_url FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]);`,
+      [ids]
+    );
+    r.rows.forEach(x => { if (x.image_url) fotos.set(String(x.alegra_id), x.image_url); });
+  }
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  return {
+    numero: cot.numero,
+    fecha: cot.fecha,
+    vence: cot.vence,
+    // Se muestra igual si venció, con el aviso: el cliente puede abrir el
+    // enlace un día tarde y encontrarse una página muerta sería peor que
+    // decirle que los precios ya no rigen.
+    vencida: Boolean(cot.vence && cot.vence < hoy),
+    facturada: cot.facturada,
+    cliente: cot.clienteNombre,
+    observaciones: cot.observaciones,
+    negocio: NEGOCIO,
+    lineas: cot.lineas.map(l => ({
+      nombre: l.nombre,
+      referencia: l.referencia,
+      cantidad: l.cantidad,
+      precio: l.precio,
+      taxPercentage: l.taxPercentage,
+      // El precio que el cliente paga por unidad, ya con impuesto.
+      precioConIva: Math.round(l.precio * (1 + (Number(l.taxPercentage) || 0) / 100) * 100) / 100,
+      importe: Math.round(l.cantidad * l.precio * 100) / 100,
+      imagen: fotos.get(String(l.alegraItemId)) || null
+    }))
+  };
 }
 
 /**
@@ -502,5 +565,6 @@ async function facturar(id, { aunqueVencida = false } = {}) {
 
 module.exports = {
   crear, editar, listar, detalle, facturar, eliminar, pdf, enviarPorWhatsApp,
+  publicaPorToken, enlaceDe,
   buscarClientes, catalogoParaCotizar, mapaImpuestos, TOPE_ALEGRA
 };

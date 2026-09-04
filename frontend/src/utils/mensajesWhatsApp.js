@@ -13,11 +13,17 @@
 
 const NEGOCIO = 'Distribuidora Tachi'
 
-export function mensajeCotizacion({ numero, cliente }) {
+/**
+ * El enlace va aparte del PDF y no en su lugar: el PDF sirve para guardarlo o
+ * reenviarlo a quien decide, y la página web es la que muestra la FOTO de
+ * cada producto — que es lo que el PDF no puede dar. Un cliente nuevo lee
+ * "ROLLO BOLSA GDE.1X41 BASURA EZ" y no sabe qué le están ofreciendo.
+ */
+export function mensajeCotizacion({ numero, cliente, enlace }) {
   return `Buenas${cliente ? ` ${cliente}` : ''} 👋
 
 Le adjunto la cotización ${numero} con los precios que conversamos.
-
+${enlace ? `\nTambién la puede ver con las fotos de cada producto acá:\n${enlace}\n` : ''}
 Los precios de esta cotización se mantienen hasta la fecha indicada en el documento. Cualquier consulta quedamos atentos.
 
 ${NEGOCIO}`

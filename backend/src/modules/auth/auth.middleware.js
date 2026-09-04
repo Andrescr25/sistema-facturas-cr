@@ -23,7 +23,14 @@ const PUBLICAS = [
   // devolvía 401 y no cargaba ninguna. Solo descarga de una lista fija de
   // hosts (ver HOSTS_PERMITIDOS en catalogo.controller.js), así que no es un
   // proxy abierto ni expone dato alguno del negocio.
-  '/alegra/catalog/image-proxy'
+  '/alegra/catalog/image-proxy',
+  // La cotización que el cliente abre desde el enlace que le llega por
+  // WhatsApp. No queda abierta: la URL lleva un token firmado con el secreto
+  // de la aplicación, así que no se adivina ni se recorre (/cotizacion/1,
+  // /2, /3… habría dejado ver las de todos los clientes). Y es SOLO lectura
+  // de una cotización: crear, editar, facturar y borrar viven en
+  // /cotizaciones, detrás del login.
+  '/cotizacion-publica'
 ];
 
 // OJO: '/portal' sale de requireAuth pero NO queda abierto — adentro lo

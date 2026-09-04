@@ -5,12 +5,12 @@ import {
   Repeat, FileWarning, Loader2, ArrowRight, Tablet, Store, FileText, CheckCircle2
 } from 'lucide-react'
 import api from '../services/api'
+import { colones } from '../utils/colones'
 
 // es-CR separa los miles con un espacio duro (U+00A0): "₡204 879" se lee
 // como dos números. En Costa Rica los miles van con punto. El código del
 // carácter va escrito como \u00A0 y no como el carácter en sí: literal es
 // invisible en el editor y cualquiera lo borra sin darse cuenta.
-const colones = (n) => `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
 /**
  * Inicio: qué hay pendiente hoy.

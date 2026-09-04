@@ -20,6 +20,7 @@ import InventarioAuditoria from './pages/InventarioAuditoria'
 import GestionCatalogo from './pages/GestionCatalogo'
 import CatalogoAgente from './pages/CatalogoAgente'
 import CatalogoClientes from './pages/CatalogoClientes'
+import CotizacionPublica from './pages/CotizacionPublica'
 import PortalIngresar from './pages/portal/PortalIngresar'
 import PortalActivar from './pages/portal/PortalActivar'
 import PortalPedidos from './pages/portal/PortalPedidos'
@@ -75,6 +76,12 @@ function App() {
       {/* Catálogo que se le manda al cliente. Público y sin
           sincronización: lee del catálogo ya guardado en el servidor. */}
       <Route path="/catalogo" element={<CatalogoClientes />} />
+
+      {/* La cotización que el cliente abre desde el enlace del WhatsApp: la
+          misma del PDF pero con la foto de cada producto. Sin cuenta — pedir
+          registro para ver un precio que se acaba de mandar es la forma más
+          rápida de que no lo miren. La protege el token firmado de la URL. */}
+      <Route path="/cotizacion/:token" element={<CotizacionPublica />} />
 
       {/* Portal de clientes: sesión propia, separada de la del personal.
           Mirar el catálogo no pide cuenta; enviar un pedido, sí. */}

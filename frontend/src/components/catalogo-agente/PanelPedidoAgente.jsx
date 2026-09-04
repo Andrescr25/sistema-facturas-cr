@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Send, Trash2, CheckCircle2, Clock, AlertTriangle, Loader2, WifiOff } from 'lucide-react'
+import { colones } from '../../utils/colones'
 
 /**
  * El pedido que el agente está armando, y la cola de los que ya envió.
@@ -25,7 +26,6 @@ const ESTADOS = {
 // es-CR separa los miles con un espacio duro (U+00A0) y "₡7 484" se lee
 // como dos numeros. Se escribe \u00A0 y no el caracter en si: literal es
 // invisible en el editor y cualquiera lo borra sin darse cuenta.
-const colones = (n) => `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
 export default function PanelPedidoAgente({
   abierto, onCerrar, lineas, totalReferencia, onCambiar, onVaciar,

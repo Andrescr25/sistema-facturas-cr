@@ -4,6 +4,7 @@ import BuscadorProductoNuevo from './BuscadorProductoNuevo'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
+import { colones } from '../../utils/colones'
 
 /**
  * Editar una factura antes de reimprimirla.
@@ -47,10 +48,6 @@ export default function FormularioEdicionFactura({
   onSeleccionarProducto,
   onGuardar
 }) {
-  const colones = (n) =>
-    // es-CR separa los miles con espacio duro (U+00A0); se escribe el código
-    // y no el carácter, que es invisible en el editor.
-    `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
 
   // Las líneas que se van a eliminar por faltante no suman: el total nuevo
   // tiene que ser el de la factura que se va a imprimir, no el de la que
