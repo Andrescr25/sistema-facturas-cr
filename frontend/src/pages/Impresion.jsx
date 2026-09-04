@@ -19,6 +19,7 @@ export default function Impresion() {
 
     facturaEditando,
     itemsEditados,
+    cargandoItems,
     modoEdicion,
     procesando,
     ajustandoPrecios,
@@ -88,31 +89,18 @@ export default function Impresion() {
       {/* Lista de Pendientes (Con y Sin cambios) */}
       {activeTab === 'pendientes' && !loading && (
         <div>
-          {facturaEditando ? (
-            modoEdicion ? (
-              <FormularioEdicionFactura
-                facturaEditando={facturaEditando}
-                itemsEditados={itemsEditados}
-                procesando={procesando}
-                productoBusqueda={productoBusqueda}
-                onCancelar={handleCancelarEdicion}
-                onAgregarItem={handleAgregarItem}
-                onEliminarItem={handleEliminarItem}
-                onItemChange={handleItemChange}
-                onIniciarBusqueda={iniciarBusquedaProducto}
-                onCambiarTermino={manejarCambioTerminoBusqueda}
-                onSeleccionarProducto={seleccionarProductoBusqueda}
-                onGuardar={handleGuardarFactura}
-              />
-            ) : (
-              <CambiosAutomaticos
-                factura={facturaEditando}
-                procesando={procesando}
-                onEditar={handleIniciarEdicion}
-                onVerPDF={handleVerPDF}
-                onGuardar={handleGuardarFactura}
-              />
-            )
+          {/* La revisión de cambios automáticos sigue reemplazando la lista:
+              es un paso del flujo, no una ventana. La EDICIÓN sí es un modal
+              y va encima, así la lista no desaparece de la vista mientras se
+              corrige una factura. */}
+          {facturaEditando && !modoEdicion ? (
+            <CambiosAutomaticos
+              factura={facturaEditando}
+              procesando={procesando}
+              onEditar={handleIniciarEdicion}
+              onVerPDF={handleVerPDF}
+              onGuardar={handleGuardarFactura}
+            />
           ) : (
             <ListaFacturasPendientes
               facturas={facturasPendientes}
@@ -123,6 +111,24 @@ export default function Impresion() {
             />
           )}
         </div>
+      )}
+
+      {facturaEditando && modoEdicion && (
+        <FormularioEdicionFactura
+          facturaEditando={facturaEditando}
+          itemsEditados={itemsEditados}
+          cargandoItems={cargandoItems}
+          procesando={procesando}
+          productoBusqueda={productoBusqueda}
+          onCancelar={handleCancelarEdicion}
+          onAgregarItem={handleAgregarItem}
+          onEliminarItem={handleEliminarItem}
+          onItemChange={handleItemChange}
+          onIniciarBusqueda={iniciarBusquedaProducto}
+          onCambiarTermino={manejarCambioTerminoBusqueda}
+          onSeleccionarProducto={seleccionarProductoBusqueda}
+          onGuardar={handleGuardarFactura}
+        />
       )}
 
       {/* Tab Procesadas */}

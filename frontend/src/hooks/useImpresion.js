@@ -30,6 +30,7 @@ export function useImpresion() {
   const [activeTab, setActiveTabState] = useState('pendientes')
   const [facturasSinCambios, setFacturasSinCambios] = useState([])
   const [facturasPendientes, setFacturasPendientes] = useState([]) // Ahora contiene TODAS las pendientes
+  const [cargandoItems, setCargandoItems] = useState(false)
   const [facturasProcesadas, setFacturasProcesadas] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -185,6 +186,12 @@ export function useImpresion() {
 
   const handleIniciarEdicion = (factura) => {
     setFacturaEditando(factura)
+    setItemsEditados([])
+    // Las líneas vienen de Alegra y tardan. Sin esta bandera el modal se abre
+    // con "Productos (0)" y un total de ₡0 que la pantalla lee como una
+    // factura vaciada: llegó a mostrar "−₡47.425 contra el original" mientras
+    // los datos todavía venían en camino.
+    setCargandoItems(true)
 
     const cargarFactura = async () => {
       try {
@@ -198,6 +205,8 @@ export function useImpresion() {
       } catch (error) {
         console.error('Error cargando factura desde Alegra:', error)
         setError(`No se pudo cargar la factura desde Alegra: ${error.message}`)
+      } finally {
+        setCargandoItems(false)
       }
     }
 
@@ -629,6 +638,7 @@ export function useImpresion() {
     productoBusqueda,
 
     handleVerPDF,
+    cargandoItems,
     handleIniciarEdicion,
     abrirRevision,
     handleCancelarEdicion,

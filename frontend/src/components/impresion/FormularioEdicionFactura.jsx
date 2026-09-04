@@ -1,16 +1,41 @@
-import { Plus, Printer } from 'lucide-react'
+import { Plus, Printer, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
 import { formatDate } from '../../utils/impresionUtils'
 import BuscadorProductoNuevo from './BuscadorProductoNuevo'
+import Modal from '../ui/Modal'
+import Boton from '../ui/Boton'
+import Insignia from '../ui/Insignia'
 
 /**
- * Formulario completo de edición de una factura antes de reimprimir:
- * datos generales, tabla de productos editables (con buscador para los
- * nuevos), y las acciones de guardar/guardar e imprimir. Extraído de
- * Impresion.jsx (era renderFormularioEdicion).
+ * Editar una factura antes de reimprimirla.
+ *
+ * QUÉ ESTABA CONFUSO
+ * Era un bloque que reemplazaba la lista de facturas: al entrar a editar se
+ * perdía de vista todo lo demás, y no cerraba con Escape porque no era un
+ * modal. Adentro, cada línea se titulaba "Producto #1", "Producto #2" —el
+ * nombre del producto quedaba metido en un campo deshabilitado— así que no
+ * se sabía qué se estaba tocando sin leer los cuadritos grises.
+ *
+ * Los cinco campos entraban en una rejilla de 12 columnas donde el subtotal
+ * ocupaba UNA, ilegible. Bajo cada referencia se repetía "Código original
+ * (no editable)" en todas las líneas, que es ruido dicho quince veces.
+ *
+ * Y faltaba el número que importa: se editaban cantidades y precios sin ver
+ * nunca el total nuevo. Estaba el "Total Original" arriba y nada más, así
+ * que para saber en cuánto quedaba la factura había que sumar a mano.
+ *
+ * CÓMO QUEDÓ
+ *   · Es el Modal del sistema: cierra con Escape, no deja correr la lista de
+ *     atrás y en teléfono entra como hoja.
+ *   · Cada línea se titula con el NOMBRE del producto.
+ *   · Lo que no se puede editar se muestra como texto, no como campo gris —
+ *     un campo deshabilitado invita a hacer clic y no explica por qué no
+ *     responde.
+ *   · El pie lleva el total nuevo y cuánto cambió contra el original.
  */
 export default function FormularioEdicionFactura({
   facturaEditando,
   itemsEditados,
+  cargandoItems,
   procesando,
   productoBusqueda,
   onCancelar,
@@ -22,154 +47,223 @@ export default function FormularioEdicionFactura({
   onSeleccionarProducto,
   onGuardar
 }) {
+  const colones = (n) =>
+    // es-CR separa los miles con espacio duro (U+00A0); se escribe el código
+    // y no el carácter, que es invisible en el editor.
+    `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`
+
+  // Las líneas que se van a eliminar por faltante no suman: el total nuevo
+  // tiene que ser el de la factura que se va a imprimir, no el de la que
+  // está en pantalla.
+  const totalNuevo = itemsEditados.reduce(
+    (suma, i) => suma + (i.eliminar_por_faltante ? 0 : (Number(i.quantity) || 0) * (Number(i.price) || 0)),
+    0
+  )
+  const totalOriginal = Number(facturaEditando.total) || 0
+  const diferencia = totalNuevo - totalOriginal
+
   return (
-    <div className="bg-white border border-neutro-100 rounded-3xl p-6 mb-6 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-neutro-900">
-          Editando Factura #{facturaEditando.numero_factura}
-        </h3>
-        <button
-          onClick={onCancelar}
-          className="px-4 py-2 border border-neutro-200 hover:bg-neutro-50 text-neutro-700 text-sm font-semibold rounded-xl transition"
-        >
-          Cancelar
-        </button>
-      </div>
-
-      <div className="mb-5 p-4 bg-primario-50/50 rounded-2xl border border-primario-100">
-        <p className="text-sm text-primario-900">
-          <strong>Cliente:</strong> {facturaEditando.cliente_nombre} |
-          <strong className="ml-3">Fecha:</strong> {formatDate(facturaEditando.fecha_emision)} |
-          <strong className="ml-3">Total Original:</strong> ₡{(facturaEditando.total || 0).toLocaleString('es-CR')}
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-base font-bold text-neutro-900">Productos en la factura</h4>
-        <button
-          onClick={onAgregarItem}
-          className="px-3.5 py-1.5 border border-primario-200 text-primario-600 hover:bg-primario-50 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
-          type="button"
-        >
-          <Plus size={14} />
-          Agregar producto
-        </button>
-      </div>
-
-      <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-        {itemsEditados.map((item, index) => (
-          <div key={index} className="bg-neutro-50/50 rounded-2xl border border-neutro-100 p-4 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-wider font-semibold text-neutro-400">Producto #{index + 1}</p>
-                {!item.esNuevo && (
-                  <p className="text-xxs text-neutro-400 font-medium">Importado desde Alegra</p>
-                )}
-                {!item.esNuevo && item.eliminar_por_faltante && (
-                  <p className="mt-1 text-xs text-peligro-700 bg-peligro-50 border border-peligro-100 px-3 py-1 rounded-xl">
-                    Este producto se eliminará automáticamente al reimprimir (faltante sin recibir)
+    <Modal
+      onCerrar={onCancelar}
+      titulo={`Factura ${facturaEditando.numero_factura}`}
+      ancho="2xl"
+      pie={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-neutro-400">Total nuevo</p>
+            {/* Mientras las líneas vienen de Alegra NO se muestra un total:
+                un ₡0 con "−₡47.425 contra el original" se lee como una
+                factura vaciada, y es solo que los datos no llegaron. */}
+            {cargandoItems ? (
+              <p className="text-xl font-extrabold text-neutro-300">—</p>
+            ) : (
+              <>
+                <p className="text-xl font-extrabold text-neutro-900">{colones(totalNuevo)}</p>
+                {Math.round(diferencia) !== 0 && (
+                  <p className={`text-[11px] font-bold ${diferencia < 0 ? 'text-peligro-600' : 'text-exito-600'}`}>
+                    {diferencia < 0 ? '−' : '+'}{colones(Math.abs(diferencia))} contra el original
                   </p>
                 )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onEliminarItem(index)}
-                className="px-2.5 py-1.5 border border-peligro-200 text-peligro-600 hover:bg-peligro-50 text-xs font-bold rounded-lg transition"
-              >
-                Quitar
-              </button>
-            </div>
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-3">
-                <label className="text-xxs uppercase tracking-wider text-neutro-500 font-semibold mb-1 block">Referencia</label>
-                <input
-                  type="text"
-                  value={item.reference || ''}
-                  onChange={(e) => onItemChange(index, 'reference', e.target.value)}
-                  onFocus={() => item.esNuevo && onIniciarBusqueda(index)}
-                  className="input input-sm w-full rounded-xl border-neutro-200 text-sm"
-                  disabled={!item.esNuevo}
-                  placeholder="Código o referencia"
-                />
-                {item.esNuevo ? (
-                  <span className="inline-block mt-1 text-xxs text-alerta-700 bg-alerta-50 px-2 py-0.5 rounded-full border border-alerta-100 font-semibold">
-                    Nuevo producto
-                  </span>
-                ) : (
-                  <span className="inline-block mt-1 text-xxs text-neutro-400 font-medium">
-                    Código original (no editable)
-                  </span>
-                )}
-              </div>
-              <div className="col-span-4">
-                <label className="text-xxs uppercase tracking-wider text-neutro-500 font-semibold mb-1 block">Descripción</label>
-                <input
-                  type="text"
-                  value={item.description || ''}
-                  onChange={(e) => onItemChange(index, 'description', e.target.value)}
-                  className={`input input-sm w-full rounded-xl border-neutro-200 text-sm ${item.esNuevo ? '' : 'bg-neutro-100/50 text-neutro-500'}`}
-                  disabled={!item.esNuevo}
-                  placeholder="Descripción del producto"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xxs uppercase tracking-wider text-neutro-500 font-semibold mb-1 block">Cantidad</label>
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => onItemChange(index, 'quantity', e.target.value)}
-                  className="input input-sm w-full rounded-xl border-neutro-200 text-sm"
-                  min="0"
-                  step="1"
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-xxs uppercase tracking-wider text-neutro-500 font-semibold mb-1 block">Precio Unit.</label>
-                <input
-                  type="number"
-                  value={item.price}
-                  onChange={(e) => onItemChange(index, 'price', e.target.value)}
-                  className="input input-sm w-full rounded-xl border-neutro-200 text-sm"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div className="col-span-1">
-                <label className="text-xxs uppercase tracking-wider text-neutro-500 font-semibold mb-1 block">Subtotal</label>
-                <div className="input input-sm w-full bg-neutro-100 flex items-center rounded-xl border-neutro-200 text-sm">
-                  ₡{(item.quantity * item.price).toLocaleString('es-CR')}
-                </div>
-              </div>
-            </div>
-            <BuscadorProductoNuevo
-              item={item}
-              index={index}
-              productoBusqueda={productoBusqueda}
-              onIniciarBusqueda={onIniciarBusqueda}
-              onCambiarTermino={onCambiarTermino}
-              onSeleccionarProducto={onSeleccionarProducto}
-            />
+              </>
+            )}
           </div>
-        ))}
-      </div>
+          <div className="flex flex-wrap gap-2">
+            <Boton variante="secundario" onClick={onCancelar} disabled={procesando}>
+              Cancelar
+            </Boton>
+            <Boton variante="secundario" onClick={() => onGuardar(false)}
+              cargando={procesando} disabled={cargandoItems}>
+              Solo guardar
+            </Boton>
+            <Boton variante="primario" icono={Printer} onClick={() => onGuardar(true)}
+              cargando={procesando} disabled={cargandoItems}>
+              Guardar e imprimir
+            </Boton>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-4 p-5">
+        <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-2xl bg-neutro-50 px-4 py-3 text-[13px]">
+          <span className="text-neutro-500">
+            Cliente <span className="font-bold text-neutro-900">{facturaEditando.cliente_nombre}</span>
+          </span>
+          <span className="text-neutro-500">
+            Emitida <span className="font-semibold text-neutro-700">{formatDate(facturaEditando.fecha_emision)}</span>
+          </span>
+          <span className="text-neutro-500">
+            Total original <span className="font-semibold text-neutro-700">{colones(totalOriginal)}</span>
+          </span>
+        </div>
 
-      <div className="mt-6 flex gap-3 justify-end border-t pt-4">
-        <button
-          onClick={() => onGuardar(false)}
-          disabled={procesando}
-          className="px-5 py-2.5 bg-primario-600 hover:bg-primario-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50"
-        >
-          {procesando ? 'Guardando...' : 'Guardar'}
-        </button>
-        <button
-          onClick={() => onGuardar(true)}
-          disabled={procesando}
-          className="px-5 py-2.5 bg-primario-800 hover:bg-primario-900 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50 flex items-center gap-1.5"
-        >
-          <Printer size={16} />
-          {procesando ? 'Guardando...' : 'Guardar e Imprimir'}
-        </button>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-neutro-900">
+            Productos{' '}
+            <span className="font-semibold text-neutro-400">
+              {cargandoItems ? '' : `(${itemsEditados.length})`}
+            </span>
+          </h4>
+          <Boton variante="secundario" tamano="sm" icono={Plus}
+            onClick={onAgregarItem} disabled={cargandoItems}>
+            Agregar producto
+          </Boton>
+        </div>
+
+        {cargandoItems && (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutro-400">
+            <Loader2 size={18} className="animate-spin" />
+            Trayendo las líneas de la factura desde Alegra…
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {itemsEditados.map((item, index) => {
+            const subtotal = (Number(item.quantity) || 0) * (Number(item.price) || 0)
+            return (
+              <div
+                key={index}
+                className={`rounded-2xl border p-4 ${
+                  item.eliminar_por_faltante
+                    ? 'border-peligro-200 bg-peligro-50/40'
+                    : 'border-neutro-200 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {item.esNuevo ? (
+                      <Insignia tono="alerta">Producto nuevo</Insignia>
+                    ) : (
+                      <>
+                        {/* El nombre como título: antes vivía en un campo gris
+                            y había que leerlo dentro del cuadro para saber qué
+                            línea era. */}
+                        <p className="truncate text-sm font-bold text-neutro-900">
+                          {item.description || '(sin descripción)'}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-neutro-400">
+                          Ref. {item.reference || '—'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onEliminarItem(index)}
+                    aria-label={`Quitar ${item.description || 'producto'}`}
+                    className="shrink-0 rounded-lg p-1.5 text-neutro-300 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
+                {item.eliminar_por_faltante && (
+                  <div className="mt-2 flex items-start gap-2 text-[12px] text-peligro-700">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                    <p>Se va a quitar de la factura al reimprimir: quedó como faltante sin recibir.</p>
+                  </div>
+                )}
+
+                {/* Un producto nuevo sí necesita sus campos; uno que ya viene
+                    de Alegra no, y mostrárselos deshabilitados solo invita a
+                    hacer clic en algo que no responde. */}
+                {item.esNuevo && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-400">
+                        Referencia
+                      </label>
+                      <input
+                        type="text"
+                        value={item.reference || ''}
+                        onChange={(e) => onItemChange(index, 'reference', e.target.value)}
+                        onFocus={() => onIniciarBusqueda(index)}
+                        placeholder="Código o referencia"
+                        className="w-full rounded-xl border-2 border-neutro-200 px-3 py-2 text-sm font-semibold focus:border-acento-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-400">
+                        Descripción
+                      </label>
+                      <input
+                        type="text"
+                        value={item.description || ''}
+                        onChange={(e) => onItemChange(index, 'description', e.target.value)}
+                        placeholder="Descripción del producto"
+                        className="w-full rounded-xl border-2 border-neutro-200 px-3 py-2 text-sm font-semibold focus:border-acento-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-400">
+                      Cantidad
+                    </label>
+                    <input
+                      type="number" min="0" step="1" inputMode="numeric"
+                      value={item.quantity}
+                      onChange={(e) => onItemChange(index, 'quantity', e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      aria-label={`Cantidad de ${item.description || 'producto'}`}
+                      className="w-24 rounded-xl border-2 border-neutro-200 px-3 py-2 text-center text-sm font-extrabold focus:border-acento-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-400">
+                      Precio unitario
+                    </label>
+                    <input
+                      type="number" min="0" step="0.01" inputMode="decimal"
+                      value={item.price}
+                      onChange={(e) => onItemChange(index, 'price', e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      aria-label={`Precio de ${item.description || 'producto'}`}
+                      className="w-32 rounded-xl border-2 border-neutro-200 px-3 py-2 text-right text-sm font-semibold focus:border-acento-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-neutro-400">Subtotal</p>
+                    <p className={`text-base font-extrabold ${item.eliminar_por_faltante ? 'text-neutro-300 line-through' : 'text-neutro-900'}`}>
+                      {colones(subtotal)}
+                    </p>
+                  </div>
+                </div>
+
+                <BuscadorProductoNuevo
+                  item={item}
+                  index={index}
+                  productoBusqueda={productoBusqueda}
+                  onIniciarBusqueda={onIniciarBusqueda}
+                  onCambiarTermino={onCambiarTermino}
+                  onSeleccionarProducto={onSeleccionarProducto}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
