@@ -11,6 +11,7 @@
  */
 
 const { query, httpError } = require('./portal-clientes.auth');
+const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const FacturacionService = require('../facturacion/facturacion.service');
 const { precioSinImpuesto } = require('../catalogo-clientes/precio');
 
@@ -207,4 +208,29 @@ async function contarPendientes() {
   return r.rows[0].n;
 }
 
-module.exports = { listarPedidos, detalle, facturar, rechazar, contarPendientes };
+
+/**
+ * Le avisa al cliente por WhatsApp en qué va su pedido.
+ *
+ * SALE CON BOTÓN, NO SOLO. Podría dispararse al cambiar de etapa, pero un
+ * aviso automático se manda igual cuando el pedido cambió por error, cuando
+ * se rechazó por falta de existencias o cuando alguien estaba probando. Acá
+ * lo manda una persona que sabe qué está pasando.
+ *
+ * El texto se propone desde la pantalla —vive donde vive el resto del texto
+ * de cara al cliente— y se puede editar antes de mandarlo.
+ */
+async function enviarAvisoWhatsApp(pedidoId, { telefono, mensaje, usuarioId }) {
+  const pedido = await detalle(pedidoId);
+
+  return enviarYRegistrar({
+    tipo: 'pedido',
+    referencia: String(pedido.id),
+    alegraContactId: pedido.alegra_contact_id,
+    telefono,
+    mensaje,
+    usuarioId
+  });
+}
+
+module.exports = { listarPedidos, detalle, facturar, rechazar, contarPendientes, enviarAvisoWhatsApp };

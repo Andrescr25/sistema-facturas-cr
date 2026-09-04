@@ -8,7 +8,7 @@ const ESTADO = {
   rechazado: { texto: 'Rechazado', clase: 'bg-peligro-100 text-peligro-700' }
 }
 
-function FilaPedido({ pedido, procesando, onFacturar, onRechazar }) {
+function FilaPedido({ pedido, procesando, onFacturar, onRechazar, onAvisar }) {
   const [motivo, setMotivo] = useState('')
   const [rechazando, setRechazando] = useState(false)
   const badge = ESTADO[pedido.estado] || ESTADO.pendiente
@@ -39,6 +39,18 @@ function FilaPedido({ pedido, procesando, onFacturar, onRechazar }) {
       {pedido.motivoRechazo && (
         <p className="text-xs text-peligro-600">{pedido.motivoRechazo}</p>
       )}
+
+      {/* El aviso va fuera del bloque de "pendiente" a propósito: el mensaje
+          que el cliente de verdad espera es el del pedido ya listo, no el de
+          "lo estamos revisando". Dentro de ese bloque no se podía mandar
+          justo en el momento que importa. */}
+      <button
+        type="button"
+        onClick={() => onAvisar(pedido)}
+        className="self-start text-xs font-bold text-exito-700 border-2 border-neutro-200 hover:border-exito-400 rounded-lg px-2.5 py-1 transition-colors"
+      >
+        Avisar por WhatsApp
+      </button>
 
       {pedido.estado === 'pendiente' && (
         rechazando ? (
@@ -90,7 +102,7 @@ function FilaPedido({ pedido, procesando, onFacturar, onRechazar }) {
   )
 }
 
-export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, procesando, onFacturar, onRechazar }) {
+export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, procesando, onFacturar, onRechazar, onAvisar }) {
   const FILTROS = [
     { valor: 'pendiente', texto: 'En revisión' },
     { valor: 'facturado', texto: 'Facturados' },
@@ -131,6 +143,7 @@ export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, pro
               procesando={procesando}
               onFacturar={onFacturar}
               onRechazar={onRechazar}
+              onAvisar={onAvisar}
             />
           ))}
         </div>

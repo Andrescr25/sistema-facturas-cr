@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle, Pencil, FileDown } from 'lucide-react'
+import { FileText, Plus, Loader2, CheckCircle2, Clock, AlertCircle, Pencil, FileDown, Send } from 'lucide-react'
 import api from '../services/api'
 import Boton from '../components/ui/Boton'
 import Insignia from '../components/ui/Insignia'
 import ModalCotizacion from '../components/cotizaciones/ModalCotizacion'
+import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
+import { mensajeCotizacion } from '../utils/mensajesWhatsApp'
 
 /**
  * Cotizaciones (proformas).
@@ -41,6 +43,8 @@ export default function Cotizaciones() {
   // no trae las líneas, y sin ellas el modal no puede prellenarse.
   const [editando, setEditando] = useState(null)
   const [abriendo, setAbriendo] = useState(null)
+  // La cotización que se está por mandar por WhatsApp.
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(null)
 
   const traer = useCallback(async () => {
     setError('')
@@ -194,6 +198,15 @@ export default function Cotizaciones() {
                 <Boton
                   variante="secundario"
                   tamano="sm"
+                  icono={Send}
+                  onClick={() => setEnviandoWhatsApp(c)}
+                >
+                  WhatsApp
+                </Boton>
+
+                <Boton
+                  variante="secundario"
+                  tamano="sm"
                   icono={FileDown}
                   cargando={abriendo === `pdf-${c.id}`}
                   onClick={() => abrirPdf(c)}
@@ -230,6 +243,24 @@ export default function Cotizaciones() {
             </div>
           ))}
         </div>
+      )}
+
+      {enviandoWhatsApp && (
+        <ModalEnviarWhatsApp
+          titulo={`Mandar la cotización ${enviandoWhatsApp.numero}`}
+          subtitulo={`Va con el PDF adjunto, a ${enviandoWhatsApp.clienteNombre || 'el cliente'}`}
+          contactoId={enviandoWhatsApp.clienteId}
+          documento={{ tipo: 'cotizacion', referencia: enviandoWhatsApp.numero }}
+          mensajeInicial={mensajeCotizacion({
+            numero: enviandoWhatsApp.numero,
+            cliente: enviandoWhatsApp.clienteNombre
+          })}
+          onEnviar={async ({ telefono, mensaje }) => {
+            const { data } = await api.post(`/cotizaciones/${enviandoWhatsApp.id}/whatsapp`, { telefono, mensaje })
+            return data.data
+          }}
+          onCerrar={() => setEnviandoWhatsApp(null)}
+        />
       )}
 
       {(modalAbierto || editando) && (

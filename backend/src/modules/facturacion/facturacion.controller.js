@@ -55,6 +55,19 @@ class FacturacionController {
     }
   };
 
+  enviarFacturaWhatsApp = async (req, res) => {
+    try {
+      const { telefono, mensaje } = req.body || {};
+      const r = await this.facturacionService.enviarPorWhatsApp(req.params.id, {
+        telefono, mensaje, usuarioId: req.usuario?.id
+      });
+      return ResponseHelper.success(res, r, `Factura enviada al ${r.telefono}.`);
+    } catch (error) {
+      console.error('❌ Error enviando la factura por WhatsApp:', error.message);
+      return ResponseHelper.error(res, error.message, error.status || 500);
+    }
+  };
+
   getInvoicePDF = async (req, res) => {
     try {
       const { id } = req.params;

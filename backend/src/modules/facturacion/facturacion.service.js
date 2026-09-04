@@ -4,6 +4,8 @@
  */
 
 const { getClient } = require('../../integrations/alegra');
+const axios = require('axios');
+const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { query } = require('../../../config/database');
 const idempotencia = require('./idempotencia');
 
@@ -225,6 +227,42 @@ class FacturacionService {
   async getInvoicePDF(id) {
     console.log(`📄 Obteniendo PDF de factura ${id}...`);
     return await this.client.request('GET', `/invoices/${id}/pdf`);
+  }
+
+  /**
+   * Le manda la factura al cliente por WhatsApp, con el PDF adjunto.
+   *
+   * SE PIDE CON fields=pdf, NO CON /invoices/:id/pdf. Ese segundo endpoint
+   * devuelve la factura entera sin el enlace — comprobado en vivo con las
+   * cotizaciones, que se comportan igual. El enlace solo aparece si se pide
+   * explícitamente.
+   *
+   * El PDF se baja acá y viaja como archivo: la URL de Alegra viene firmada,
+   * caduca en unas 10 horas y es pública, así que mandársela al cliente sería
+   * darle un enlace que se rompe al día siguiente.
+   */
+  async enviarPorWhatsApp(alegraInvoiceId, { telefono, mensaje, usuarioId }) {
+    const factura = await this.client.request('GET', `/invoices/${alegraInvoiceId}`, { fields: 'pdf' });
+    const url = typeof factura?.pdf === 'object' ? factura.pdf?.url : factura?.pdf;
+    if (!url) {
+      const e = new Error('Alegra no devolvió un PDF para esa factura.');
+      e.status = 404;
+      throw e;
+    }
+
+    const descarga = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
+    const numero = factura.numberTemplate?.fullNumber || String(factura.number ?? alegraInvoiceId);
+
+    return enviarYRegistrar({
+      tipo: 'factura',
+      referencia: numero,
+      alegraContactId: factura.client?.id,
+      telefono,
+      mensaje,
+      pdf: Buffer.from(descarga.data),
+      nombreArchivo: `factura-${numero}.pdf`,
+      usuarioId
+    });
   }
 
   /**

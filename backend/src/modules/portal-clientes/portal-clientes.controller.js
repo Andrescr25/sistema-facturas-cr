@@ -45,6 +45,11 @@ const detallePedido = (req, res) =>
 const facturarPedido = (req, res) =>
   responder(res, pedidos.facturar(req.params.pedidoId, req.usuario?.id), 'Error facturando el pedido');
 
+const enviarAvisoPedido = (req, res) =>
+  responder(res, pedidos.enviarAvisoWhatsApp(req.params.pedidoId, {
+    ...(req.body || {}), usuarioId: req.usuario?.id
+  }), 'Error enviando el aviso por WhatsApp');
+
 const rechazarPedido = (req, res) =>
   responder(res, pedidos.rechazar(req.params.pedidoId, req.body || {}, req.usuario?.id), 'Error rechazando el pedido');
 
@@ -127,7 +132,7 @@ const miPedido = (req, res) =>
 
 module.exports = {
   listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
-  listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes,
+  listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes, enviarAvisoPedido,
   verInvitacion, activar, entrar, yo, portada, crearPedido, misPedidos, miPedido,
   verCarrito, ponerEnCarrito, vaciarCarrito, agregarVariosAlCarrito,
   juntoCon, fichaProducto, comprasAnteriores, detalleCompra, repetirCompra, misFacturas

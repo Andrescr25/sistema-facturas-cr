@@ -73,7 +73,38 @@ async function cobrosDia(req, res) {
   }
 }
 
+/**
+ * GET /cuentas-por-cobrar/clientes/:clienteId/recordatorio
+ * El texto que se propone, para poder editarlo antes de mandarlo.
+ */
+async function propuestaRecordatorio(req, res) {
+  try {
+    res.json({ success: true, data: await service.propuestaRecordatorio(req.params.clienteId) });
+  } catch (error) {
+    console.error('Error armando el recordatorio:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * POST /cuentas-por-cobrar/clientes/:clienteId/recordatorio
+ */
+async function enviarRecordatorio(req, res) {
+  try {
+    const { telefono, mensaje } = req.body || {};
+    const r = await service.enviarRecordatorio(req.params.clienteId, {
+      telefono, mensaje, usuarioId: req.usuario?.id
+    });
+    res.json({ success: true, data: r, message: `Recordatorio enviado al ${r.telefono}.` });
+  } catch (error) {
+    console.error('Error enviando el recordatorio:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  propuestaRecordatorio,
+  enviarRecordatorio,
   listar,
   getAbonos,
   registrarAbono,

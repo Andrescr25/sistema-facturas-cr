@@ -75,6 +75,19 @@ async function pdf(req, res) {
   }
 }
 
+async function enviarPorWhatsApp(req, res) {
+  try {
+    const { telefono, mensaje } = req.body || {};
+    const r = await servicio.enviarPorWhatsApp(req.params.id, {
+      telefono, mensaje, usuarioId: req.usuario?.id
+    });
+    res.json({ success: true, data: r, message: `Cotización enviada al ${r.telefono}.` });
+  } catch (error) {
+    console.error('Error enviando la cotización por WhatsApp:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function facturar(req, res) {
   try {
     // `aunqueVencida` la manda la pantalla solo después de que alguien
@@ -93,4 +106,4 @@ async function facturar(req, res) {
   }
 }
 
-module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, facturar };
+module.exports = { listar, buscarClientes, catalogo, detalle, pdf, crear, editar, facturar, enviarPorWhatsApp };

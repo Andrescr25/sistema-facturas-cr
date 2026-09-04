@@ -32,6 +32,8 @@ rutasPersonal.get('/pedidos/pendientes', controller.contarPendientes);
 rutasPersonal.get('/pedidos/:pedidoId', controller.detallePedido);
 rutasPersonal.post('/pedidos/:pedidoId/facturar', controller.facturarPedido);
 rutasPersonal.post('/pedidos/:pedidoId/rechazar', controller.rechazarPedido);
+// Avisarle al cliente en qué va su pedido. Con botón, no automático.
+rutasPersonal.post('/pedidos/:pedidoId/whatsapp', controller.enviarAvisoPedido);
 
 // ---- Cliente (público + requireCliente) ----
 const rutasCliente = express.Router();

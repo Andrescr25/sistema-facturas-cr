@@ -6,7 +6,7 @@ import { formatCurrency, formatDate, diasLabel, ESTADO_FACTURA_ESTILO } from '..
  * desktop (mismo patrón que inventario-auditoria/HistorialDevoluciones.jsx).
  * Cada fila/tarjeta abre el modal de abono de esa factura.
  */
-export default function FacturaDeudaCard({ facturas, onSeleccionarFactura }) {
+export default function FacturaDeudaCard({ facturas, onSeleccionarFactura, onEnviarWhatsApp }) {
   if (facturas.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-neutro-100 text-center py-12">
@@ -40,6 +40,15 @@ export default function FacturaDeudaCard({ facturas, onSeleccionarFactura }) {
                 <span className="text-xs text-neutro-500">Saldo</span>
                 <strong className="text-lg text-neutro-900">{formatCurrency(factura.saldo)}</strong>
               </div>
+              {onEnviarWhatsApp && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEnviarWhatsApp(factura) }}
+                  className="self-start text-xs font-bold text-exito-700 border-2 border-neutro-200 rounded-lg px-2.5 py-1"
+                >
+                  Mandar por WhatsApp
+                </button>
+              )}
             </div>
           )
         })}
@@ -83,7 +92,19 @@ export default function FacturaDeudaCard({ facturas, onSeleccionarFactura }) {
                   <td className="px-6 py-4 text-right font-extrabold text-neutro-900">
                     {formatCurrency(factura.saldo)}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    {onEnviarWhatsApp && (
+                      <button
+                        type="button"
+                        // stopPropagation: la fila entera abre el modal de
+                        // abono; sin esto, mandar la factura abriría también
+                        // el cobro.
+                        onClick={(e) => { e.stopPropagation(); onEnviarWhatsApp(factura) }}
+                        className="mr-3 text-xs font-bold text-exito-700 hover:text-exito-800 border-2 border-neutro-200 hover:border-exito-400 rounded-lg px-2.5 py-1 transition-colors"
+                      >
+                        WhatsApp
+                      </button>
+                    )}
                     <ChevronRight className="text-neutro-400 group-hover:text-primario-600 transition-colors inline-block" size={20} />
                   </td>
                 </tr>

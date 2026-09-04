@@ -133,6 +133,7 @@ const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
+const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
 const duplicadosElectronicaModule = require('./src/modules/duplicados-electronica');
@@ -183,6 +184,7 @@ app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 app.use('/api/cotizaciones', cotizacionesModule.routes);
+app.use('/api/envios-whatsapp', enviosWhatsAppModule.routes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);

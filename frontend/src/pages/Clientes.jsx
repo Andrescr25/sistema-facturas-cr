@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Users, ClipboardList, Tablet } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
@@ -8,6 +9,9 @@ import ListaPedidos from '../components/clientes/ListaPedidos'
 import DispositivosAgente from '../components/clientes/DispositivosAgente'
 import ListaCuentas from '../components/clientes/ListaCuentas'
 import ModalInvitacion from '../components/clientes/ModalInvitacion'
+import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
+import { mensajePedido } from '../utils/mensajesWhatsApp'
+import api from '../services/api'
 
 /**
  * Clientes: las cuentas del portal y los pedidos que entraron por ahí.
@@ -28,6 +32,9 @@ export default function Clientes() {
     procesando, invitacion, setInvitacion,
     generarInvitacion, revocar, reactivar, facturar, rechazar
   } = useClientesPortal({ showToast, confirm })
+
+  // El pedido que se está por avisar al cliente por WhatsApp.
+  const [avisando, setAvisando] = useState(null)
 
   const pendientes = pedidos.filter(p => p.estado === 'pendiente').length
 
@@ -83,6 +90,7 @@ export default function Clientes() {
           procesando={procesando}
           onFacturar={facturar}
           onRechazar={rechazar}
+          onAvisar={setAvisando}
         />
       ) : (
         <ListaCuentas
@@ -98,6 +106,31 @@ export default function Clientes() {
       )}
 
       {invitacion && <ModalInvitacion invitacion={invitacion} onCerrar={() => setInvitacion(null)} />}
+
+      {avisando && (
+        <ModalEnviarWhatsApp
+          titulo={`Avisarle del pedido #${avisando.id}`}
+          subtitulo={avisando.clienteNombre}
+          contactoId={avisando.alegraContactId}
+          documento={{ tipo: 'pedido', referencia: String(avisando.id) }}
+          mensajeInicial={mensajePedido({
+            numero: avisando.id,
+            cliente: avisando.clienteNombre,
+            // El listado del personal trae `estado`, no la etapa que ve el
+            // cliente: se traduce acá para que el mensaje diga lo mismo que
+            // el seguimiento del portal.
+            etapa: avisando.estado === 'facturado' ? 'en_preparacion'
+              : avisando.estado === 'rechazado' ? 'no_procesado'
+              : 'en_revision',
+            enlace: `${window.location.origin}/portal/pedidos`
+          })}
+          onEnviar={async ({ telefono, mensaje }) => {
+            const { data } = await api.post(`/portal-clientes/pedidos/${avisando.id}/whatsapp`, { telefono, mensaje })
+            return data.data
+          }}
+          onCerrar={() => setAvisando(null)}
+        />
+      )}
 
       <ConfirmModal {...dialogProps} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />

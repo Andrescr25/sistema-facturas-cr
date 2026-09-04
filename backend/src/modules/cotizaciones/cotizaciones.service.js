@@ -27,6 +27,8 @@
 const { getClient } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
+const axios = require('axios');
+const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const FacturacionService = require('../facturacion/facturacion.service');
 
 const facturacion = new FacturacionService();
@@ -372,6 +374,36 @@ async function pdf(id) {
 }
 
 /**
+ * Le manda la cotización al cliente por WhatsApp, con el PDF adjunto.
+ *
+ * EL PDF SE BAJA ACÁ Y VIAJA COMO ARCHIVO. La URL que da Alegra viene firmada,
+ * caduca en unas 10 horas y es pública: mandársela al cliente sería darle un
+ * enlace que se rompe al día siguiente y que mientras tanto abre cualquiera a
+ * quien se lo reenvíen.
+ *
+ * El texto lo escribe quien manda (llega desde la pantalla, editable). Lo que
+ * no se delega es el archivo: sale de Alegra, no de lo que diga el navegador.
+ */
+async function enviarPorWhatsApp(id, { telefono, mensaje, usuarioId }) {
+  const cot = await detalle(id);
+  const { url } = await pdf(id);
+
+  const descarga = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
+  const archivo = Buffer.from(descarga.data);
+
+  return enviarYRegistrar({
+    tipo: 'cotizacion',
+    referencia: cot.numero,
+    alegraContactId: cot.clienteId,
+    telefono,
+    mensaje,
+    pdf: archivo,
+    nombreArchivo: `cotizacion-${cot.numero}.pdf`,
+    usuarioId
+  });
+}
+
+/**
  * Convierte una cotización aceptada en factura de venta.
  *
  * Se arma la factura con las MISMAS líneas y los MISMOS precios que vio el
@@ -448,6 +480,6 @@ async function facturar(id, { aunqueVencida = false } = {}) {
 }
 
 module.exports = {
-  crear, editar, listar, detalle, facturar, pdf,
+  crear, editar, listar, detalle, facturar, pdf, enviarPorWhatsApp,
   buscarClientes, catalogoParaCotizar, mapaImpuestos, TOPE_ALEGRA
 };

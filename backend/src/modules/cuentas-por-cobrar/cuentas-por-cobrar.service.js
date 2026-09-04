@@ -10,6 +10,7 @@
  */
 
 const prisma = require('../../../lib/prisma');
+const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { getClient, getInvoiceService } = require('../../integrations/alegra');
 
 const client = getClient();
@@ -230,6 +231,86 @@ async function listarCuentasPorCobrar(filtros = {}) {
   return { data: clientes, resumen };
 }
 
+/**
+ * El texto del recordatorio de saldo de un cliente.
+ *
+ * LO ARMA EL SERVIDOR, NO LA PANTALLA. Si el navegador mandara el texto, el
+ * monto del mensaje podría no coincidir con el de la pantalla que lo originó
+ * —basta con que el usuario tuviera la lista abierta desde antes de un
+ * abono— y el cliente recibiría una cifra que ya no debe.
+ *
+ * Solo entran facturas con saldo mayor a cero: cobrarle a alguien una factura
+ * ya pagada es peor que no escribirle.
+ */
+function textoRecordatorio(cliente, facturas) {
+  const colones = (n) =>
+    `₡${Math.round(Number(n) || 0).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`;
+
+  const pendientes = facturas
+    .filter(f => f.saldo > 0)
+    .sort((a, b) => (a.diasRestantes ?? 0) - (b.diasRestantes ?? 0));
+
+  const lineas = pendientes.map(f => {
+    const vencida = f.diasRestantes !== null && f.diasRestantes < 0;
+    const cuando = vencida
+      ? `vencida hace ${Math.abs(f.diasRestantes)} día(s)`
+      : f.diasRestantes === null ? 'sin fecha de vencimiento'
+      : f.diasRestantes === 0 ? 'vence hoy'
+      : `vence en ${f.diasRestantes} día(s)`;
+    return `• ${f.numeroFactura} — ${colones(f.saldo)} (${cuando})`;
+  });
+
+  const total = pendientes.reduce((s, f) => s + f.saldo, 0);
+
+  return `Buenas ${cliente} 👋\n\n` +
+    `Le recordamos su saldo pendiente con Distribuidora Tachi:\n\n` +
+    `${lineas.join('\n')}\n\n` +
+    `Total: ${colones(total)}\n\n` +
+    `Cualquier consulta quedamos atentos. ¡Gracias!`;
+}
+
+/**
+ * Le manda al cliente el recordatorio de lo que debe.
+ *
+ * El mensaje se puede editar en la pantalla antes de salir, pero el que se
+ * propone sale de acá con los saldos de este momento.
+ */
+async function enviarRecordatorio(clienteId, { telefono, mensaje, usuarioId }) {
+  const { data } = await listarCuentasPorCobrar({ cliente: String(clienteId) });
+  const grupo = data.find(c => String(c.clienteId) === String(clienteId));
+
+  if (!grupo || grupo.facturas.every(f => f.saldo <= 0)) {
+    const e = new Error('Ese cliente no tiene saldo pendiente.');
+    e.status = 400;
+    throw e;
+  }
+
+  return enviarYRegistrar({
+    tipo: 'saldo',
+    referencia: String(clienteId),
+    alegraContactId: String(clienteId),
+    telefono,
+    mensaje: mensaje || textoRecordatorio(grupo.clienteNombre, grupo.facturas),
+    usuarioId
+  });
+}
+
+/** El texto que se propone en la pantalla, sin mandar nada. */
+async function propuestaRecordatorio(clienteId) {
+  const { data } = await listarCuentasPorCobrar({ cliente: String(clienteId) });
+  const grupo = data.find(c => String(c.clienteId) === String(clienteId));
+  if (!grupo) {
+    const e = new Error('Ese cliente no tiene saldo pendiente.');
+    e.status = 404;
+    throw e;
+  }
+  return {
+    cliente: grupo.clienteNombre,
+    totalSaldo: grupo.totalSaldo,
+    mensaje: textoRecordatorio(grupo.clienteNombre, grupo.facturas)
+  };
+}
+
 async function getAbonosPorFactura(alegraInvoiceId) {
   return prisma.abonoCobro.findMany({
     where: { alegraInvoiceId: String(alegraInvoiceId) },
@@ -381,6 +462,9 @@ async function obtenerCobrosPorDia(fechaStr) {
 }
 
 module.exports = {
+  enviarRecordatorio,
+  propuestaRecordatorio,
+  textoRecordatorio,
   httpError,
   sincronizarDesdeAlegra,
   listarCuentasPorCobrar,

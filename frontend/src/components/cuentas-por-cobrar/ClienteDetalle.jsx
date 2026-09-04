@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { ArrowLeft, Users } from 'lucide-react'
 import FacturaDeudaCard from './FacturaDeudaCard'
 import ModalAbono from './ModalAbono'
+import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
+import { mensajeFactura } from '../../utils/mensajesWhatsApp'
+import api from '../../services/api'
 import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
 
 /**
@@ -10,6 +13,17 @@ import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
  */
 export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, registrandoAbono, onRegistrarAbono }) {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
+  // Recordatorio de saldo: el texto lo propone el servidor con los saldos de
+  // este momento, no el navegador — que puede tener la lista abierta desde
+  // antes de un abono y mandarle al cliente una cifra que ya no debe.
+  const [recordatorio, setRecordatorio] = useState(null)
+  // La factura que se está por mandar por WhatsApp, con su PDF.
+  const [facturaAEnviar, setFacturaAEnviar] = useState(null)
+
+  const abrirRecordatorio = async () => {
+    const { data } = await api.get(`/cuentas-por-cobrar/clientes/${cliente.clienteId}/recordatorio`)
+    setRecordatorio(data.data)
+  }
 
   return (
     <div>
@@ -28,6 +42,13 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, regi
             <h1 className="text-2xl sm:text-3xl font-bold text-neutro-900">{cliente.clienteNombre}</h1>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={abrirRecordatorio}
+          className="self-start md:self-auto bg-exito-600 hover:bg-exito-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors"
+        >
+          Recordar saldo por WhatsApp
+        </button>
         <div className="flex bg-neutro-50 p-4 rounded-xl divide-x divide-neutro-200">
           <div className="px-5 text-center">
             <p className="text-sm text-neutro-500 font-medium">Facturas</p>
@@ -40,7 +61,46 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, regi
         </div>
       </div>
 
-      <FacturaDeudaCard facturas={cliente.facturas} onSeleccionarFactura={setFacturaSeleccionada} />
+      <FacturaDeudaCard
+        facturas={cliente.facturas}
+        onSeleccionarFactura={setFacturaSeleccionada}
+        onEnviarWhatsApp={setFacturaAEnviar}
+      />
+
+      {recordatorio && (
+        <ModalEnviarWhatsApp
+          titulo={`Recordarle el saldo a ${recordatorio.cliente}`}
+          subtitulo={`Debe ${formatCurrency(recordatorio.totalSaldo)}`}
+          contactoId={cliente.clienteId}
+          documento={{ tipo: 'saldo', referencia: String(cliente.clienteId) }}
+          mensajeInicial={recordatorio.mensaje}
+          onEnviar={async ({ telefono, mensaje }) => {
+            const { data } = await api.post(
+              `/cuentas-por-cobrar/clientes/${cliente.clienteId}/recordatorio`, { telefono, mensaje })
+            return data.data
+          }}
+          onCerrar={() => setRecordatorio(null)}
+        />
+      )}
+
+      {facturaAEnviar && (
+        <ModalEnviarWhatsApp
+          titulo={`Mandar la factura ${facturaAEnviar.numeroFactura}`}
+          subtitulo={`Va con el PDF adjunto, a ${cliente.clienteNombre}`}
+          contactoId={cliente.clienteId}
+          documento={{ tipo: 'factura', referencia: facturaAEnviar.numeroFactura }}
+          mensajeInicial={mensajeFactura({
+            numero: facturaAEnviar.numeroFactura,
+            cliente: cliente.clienteNombre
+          })}
+          onEnviar={async ({ telefono, mensaje }) => {
+            const { data } = await api.post(
+              `/alegra/facturacion/invoices/${facturaAEnviar.alegraInvoiceId}/whatsapp`, { telefono, mensaje })
+            return data.data
+          }}
+          onCerrar={() => setFacturaAEnviar(null)}
+        />
+      )}
 
       {facturaSeleccionada && (
         <ModalAbono

@@ -18,6 +18,9 @@ router.post('/', controller.crear);
 // documento entero. Por eso se mandan siempre todas las líneas.
 router.put('/:id', controller.editar);
 
+// Mandársela al cliente por WhatsApp, con el PDF adjunto.
+router.post('/:id/whatsapp', controller.enviarPorWhatsApp);
+
 // Convertir una cotización aceptada en factura de venta.
 router.post('/:id/facturar', controller.facturar);
 
