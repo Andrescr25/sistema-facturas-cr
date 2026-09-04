@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flame, Star, RotateCcw, ShoppingCart } from 'lucide-react'
+import { Flame, Star, TrendingDown, RotateCcw, ShoppingCart } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import HeaderCatalogo from '../components/catalogo-agente/HeaderCatalogo'
@@ -24,6 +24,7 @@ export default function CatalogoAgente() {
     setSearchQuery,
     filteredData,
     featuredProducts,
+    productosRebajados,
     synchronize,
     clientes,
     clienteActivo,
@@ -83,6 +84,24 @@ export default function CatalogoAgente() {
               </div>
               <div className="products-grid">
                 {featuredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product}
+                    cantidad={pedido.porId[String(product.id)]?.cantidad || 0} onCambiar={cambiar} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sección aparte de "En Oferta" a propósito: aquella son excesos
+              de inventario y esta es una baja de precio decidida. Para el
+              cliente el argumento de venta es distinto. */}
+          {!searchQuery && productosRebajados.length > 0 && (
+            <div className="featured-section">
+              <div className="featured-header">
+                <TrendingDown size={22} color="#16a34a" />
+                <span className="featured-title">Bajamos el precio</span>
+              </div>
+              <div className="products-grid">
+                {productosRebajados.map((product) => (
                   <ProductCard key={product.id} product={product}
                     cantidad={pedido.porId[String(product.id)]?.cantidad || 0} onCambiar={cambiar} />
                 ))}

@@ -7,6 +7,7 @@
  */
 
 const { getClient } = require('../../integrations/alegra');
+const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
 
@@ -82,6 +83,16 @@ async function listarOfertas() {
   // la escribiera por su lado, el cliente podría ver una oferta que al pedirla
   // se le cobra completa.
   return listarVigentes();
+}
+
+/**
+ * GET /api/catalogo-agente/ofertas-baja
+ * Los productos a los que se les bajó el precio resignando margen. Es otra
+ * cosa que `listarOfertas`, que son los excesos de inventario: acá no sobra
+ * nada, se decidió vender más barato para mover el producto.
+ */
+async function listarOfertasPorBaja() {
+  return ofertasPorBajaDePrecio();
 }
 
 // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
@@ -356,6 +367,7 @@ module.exports = {
   listarProductos,
   listarCategorias,
   listarOfertas,
+  listarOfertasPorBaja,
   sincronizarHistorialCompras,
   obtenerHistorialParaCatalogo,
   eliminarLineasObsoletas

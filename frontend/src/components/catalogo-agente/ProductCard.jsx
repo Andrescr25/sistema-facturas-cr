@@ -1,8 +1,22 @@
 const PLACEHOLDER_IMG =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f0f0f0"/><path d="M70,90 l20,20 l40,-40" stroke="%23cccccc" stroke-width="8" fill="none"/></svg>'
 
+/**
+ * DOS CLASES DE OFERTA, Y NO SE CALCULAN IGUAL
+ *
+ *   descuentoPorcentaje  exceso de inventario. El precio del catálogo es el
+ *                        normal y el descuento se aplica ENCIMA al vender,
+ *                        así que la tarjeta lo calcula.
+ *   precioAntes          baja de precio decidida en Revisión de Precios. El
+ *                        precio del catálogo YA es el rebajado — aplicarle
+ *                        un descuento otra vez mostraría un precio que no
+ *                        existe y que el agente le prometería al cliente.
+ *
+ * Por eso son dos props distintas y no una.
+ */
 export default function ProductCard({ product, stats, cantidad = 0, onCambiar }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
+  const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
   const esHabitual = stats?.esHabitual
   const esPerdido = stats?.esPerdido
   let imageUrl = PLACEHOLDER_IMG
@@ -55,6 +69,9 @@ export default function ProductCard({ product, stats, cantidad = 0, onCambiar })
   return (
     <div className={`product-card ${descuentoPorcentaje > 0 ? 'product-card-oferta' : ''} ${claseCliente}`}>
       {descuentoPorcentaje > 0 && <div className="discount-badge">-{descuentoPorcentaje}%</div>}
+      {descuentoPorcentaje === 0 && precioAntes > finalPrice && (
+        <div className="discount-badge">-{Math.round(((precioAntes - finalPrice) / precioAntes) * 100)}%</div>
+      )}
       {!esPerdido && esHabitual && <div className="cliente-badge cliente-badge-habitual">{stats.veces}x</div>}
       <div className="product-image-container">
         <img
@@ -87,6 +104,19 @@ export default function ProductCard({ product, stats, cantidad = 0, onCambiar })
               <span className="product-price product-price-descuento">
                 {currency}
                 {discountedPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          ) : precioAntes > finalPrice ? (
+            /* El precio del catálogo YA es el rebajado: se muestra tal cual y
+               el anterior tachado al lado. No se recalcula nada. */
+            <div className="product-price-oferta">
+              <span className="product-price-original">
+                {currency}
+                {precioAntes.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="product-price product-price-descuento">
+                {currency}
+                {finalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           ) : (

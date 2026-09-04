@@ -35,6 +35,15 @@ async function listarCategorias(req, res) {
 /**
  * GET /api/catalogo-agente/ofertas
  */
+async function listarOfertasPorBaja(req, res) {
+  try {
+    res.json({ ofertas: await catalogoAgenteService.listarOfertasPorBaja() });
+  } catch (error) {
+    console.error('Error listando las bajas de precio:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+}
+
 async function listarOfertas(req, res) {
   try {
     const data = await catalogoAgenteService.listarOfertas();
@@ -132,6 +141,7 @@ async function listarDispositivos(req, res) {
 }
 
 module.exports = {
+  listarOfertasPorBaja,
   reportarEstadoDispositivo,
   listarDispositivos,
   crearPedido,

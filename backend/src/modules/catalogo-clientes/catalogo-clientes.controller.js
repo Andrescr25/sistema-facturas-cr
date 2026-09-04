@@ -41,4 +41,14 @@ async function configuracion(req, res) {
   res.json({ success: true, data: service.obtenerConfiguracion() });
 }
 
-module.exports = { productos, ofertas, categorias, configuracion };
+async function ofertasPorBaja(req, res) {
+  try {
+    res.json({ success: true, data: await service.ofertasPorBaja() });
+  } catch (error) {
+    console.error('Error listando las bajas de precio:', error.message);
+    res.status(500).json({ success: false, error: 'No se pudieron cargar las ofertas.' });
+  }
+}
+
+module.exports = {
+  ofertasPorBaja, productos, ofertas, categorias, configuracion };

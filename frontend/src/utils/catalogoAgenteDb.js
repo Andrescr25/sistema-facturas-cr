@@ -61,6 +61,19 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'ofertas')
   },
 
+  // Las bajas de precio van en su propia llave del mismo almacén: no hace
+  // falta cambiar el esquema ni subir DB_VERSION, que en una tablet en la
+  // calle es una migración que puede fallar sin nadie mirando.
+  async saveOfertasBaja(ofertas) {
+    const db = await this.connect()
+    await db.put('metadata', ofertas, 'ofertasBaja')
+  },
+
+  async getOfertasBaja() {
+    const db = await this.connect()
+    return db.get('metadata', 'ofertasBaja')
+  },
+
   // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
 
   async saveClientes(clientes) {

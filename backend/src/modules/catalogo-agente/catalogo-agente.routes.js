@@ -10,6 +10,9 @@ const catalogoAgenteController = require('./catalogo-agente.controller');
 router.get('/productos', catalogoAgenteController.listarProductos);
 router.get('/categorias', catalogoAgenteController.listarCategorias);
 router.get('/ofertas', catalogoAgenteController.listarOfertas);
+// Los productos a los que se les bajó el precio a propósito. Otra cosa que
+// las ofertas de arriba, que son excesos de inventario.
+router.get('/ofertas-baja', catalogoAgenteController.listarOfertasPorBaja);
 router.get('/historial-clientes', catalogoAgenteController.obtenerHistorialClientes);
 router.post('/historial-clientes/sync', catalogoAgenteController.sincronizarHistorialClientes);
 

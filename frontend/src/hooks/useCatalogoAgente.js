@@ -6,6 +6,7 @@ import { construirStats, productosHabituales, productosPerdidos, ordenarCatalogo
 
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
+const OFERTAS_BAJA_PATH = '/catalogo-agente/ofertas-baja'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
@@ -17,6 +18,9 @@ const SIN_STATS = new Map()
 export function useCatalogoAgente() {
   const [products, setProducts] = useState([])
   const [ofertas, setOfertas] = useState([])
+  // Los productos a los que se les bajó el precio resignando margen. Aparte
+  // de `ofertas`, que son excesos de inventario.
+  const [ofertasBaja, setOfertasBaja] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [lastSync, setLastSync] = useState(null)
@@ -42,6 +46,10 @@ export function useCatalogoAgente() {
         }
         if (storedOfertas) {
           setOfertas(storedOfertas)
+        }
+        const storedBaja = await catalogoAgenteDb.getOfertasBaja()
+        if (storedBaja) {
+          setOfertasBaja(storedBaja)
         }
         if (storedClientes) {
           setClientes(storedClientes)
@@ -202,6 +210,23 @@ export function useCatalogoAgente() {
       .sort((a, b) => b.descuentoPorcentaje - a.descuentoPorcentaje)
   }, [products, ofertas])
 
+  // Las bajas de precio traen su propia forma; se cruzan con el catálogo
+  // descargado para que la tarjeta reciba el producto completo (foto, stock)
+  // y de paso se descartan las de productos que el agente no tiene bajados.
+  const productosRebajados = useMemo(() => {
+    if (!ofertasBaja || ofertasBaja.length === 0) return []
+    return ofertasBaja
+      .map((o) => {
+        const product = products.find((p) => String(p.id) === String(o.alegraItemId))
+        if (!product) return null
+        // NO se pasa `descuentoPorcentaje`: esa prop hace que la tarjeta
+        // recalcule el precio, y acá el del catálogo ya es el rebajado.
+        return { ...product, precioAntes: o.precioAntes, bajaPorcentaje: o.descuentoPorcentaje }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
+  }, [products, ofertasBaja])
+
 
   const updateSyncUI = useCallback((message, percent) => {
     setSyncProgress({ message, percent })
@@ -292,6 +317,17 @@ export function useCatalogoAgente() {
         console.error('No se pudieron actualizar las ofertas:', ofertasError)
       }
 
+      try {
+        const bajaRes = await api.get(OFERTAS_BAJA_PATH)
+        const nuevasBaja = bajaRes.data.ofertas || []
+        await catalogoAgenteDb.saveOfertasBaja(nuevasBaja)
+        setOfertasBaja(nuevasBaja)
+      } catch (bajaError) {
+        // Un fallo acá no debe tumbar la sincronización: el catálogo sirve
+        // igual sin la sección de rebajas.
+        console.error('No se pudieron actualizar las bajas de precio:', bajaError)
+      }
+
       updateSyncUI('Actualizando historial de clientes...', 92)
       try {
         const historialRes = await api.get(HISTORIAL_CLIENTES_PATH)
@@ -364,6 +400,7 @@ export function useCatalogoAgente() {
     setSearchQuery,
     filteredData,
     featuredProducts,
+    productosRebajados,
     synchronize,
     clientes,
     clienteActivo,

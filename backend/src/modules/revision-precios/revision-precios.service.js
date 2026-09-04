@@ -702,6 +702,26 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
   // Esto se hace DESPUÉS de crear la factura para no afectar su total
   console.log(`⚡ Actualizando ${productos.length} productos en paralelo...`);
 
+  // El precio que tienen AHORA, antes de tocarlos. Sin esto la bitácora
+  // guardaba `precio_anterior` en NULL —180 filas seguidas— y no había forma
+  // de saber si un cambio subió o bajó el precio. Es justo el dato que
+  // necesitan los catálogos para destacar lo que se abarató.
+  const preciosPrevios = new Map();
+  const idsParaPrevio = productos.map(p => p.alegraItemId).filter(Boolean).map(String);
+  if (idsParaPrevio.length > 0) {
+    try {
+      const r = await query(
+        `SELECT alegra_id, price FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]);`,
+        [idsParaPrevio]
+      );
+      r.rows.forEach(x => preciosPrevios.set(String(x.alegra_id), Number(x.price)));
+    } catch (e) {
+      // Sin el precio previo la bitácora queda incompleta, pero el envío
+      // sigue: lo importante es aplicar costos y precios en Alegra.
+      console.warn('⚠️ No se pudieron leer los precios previos:', e.message);
+    }
+  }
+
   const updatePromises = productos.map(async (producto) => {
     try {
       const alegraId = producto.alegraItemId;
@@ -747,10 +767,18 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       if (precioAjustado) {
         const margenResultante = precioNuevo > 0 ? ((precioNuevo - costoSinIvaPropio) / precioNuevo) * 100 : null;
         try {
+          const precioPrevio = preciosPrevios.get(String(alegraId));
           await query(`
-            INSERT INTO precio_historico (alegra_item_id, precio_nuevo, costo_al_momento, margen_resultante, origen, factura_id)
-            VALUES ($1, $2, $3, $4, 'revision_precios', $5)
-          `, [alegraId, precioNuevo, costoSinIvaPropio, margenResultante !== null ? Math.round(margenResultante * 100) / 100 : null, facturaId]);
+            INSERT INTO precio_historico (alegra_item_id, precio_anterior, precio_nuevo, costo_al_momento, margen_resultante, origen, factura_id)
+            VALUES ($1, $2, $3, $4, $5, 'revision_precios', $6)
+          `, [
+            alegraId,
+            Number.isFinite(precioPrevio) && precioPrevio > 0 ? precioPrevio : null,
+            precioNuevo,
+            costoSinIvaPropio,
+            margenResultante !== null ? Math.round(margenResultante * 100) / 100 : null,
+            facturaId
+          ]);
         } catch (historicoError) {
           // No debe tumbar el envío por un fallo de bitácora — el precio ya
           // se aplicó en Alegra, que es la fuente de verdad.

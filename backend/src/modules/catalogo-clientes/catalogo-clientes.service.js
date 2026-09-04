@@ -21,6 +21,7 @@
  */
 
 const { query } = require('../../../config/database');
+const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { precioConImpuesto } = require('./precio');
 const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
 
@@ -159,4 +160,16 @@ function obtenerConfiguracion() {
   };
 }
 
-module.exports = { listarProductos, listarOfertas, listarCategorias, obtenerConfiguracion };
+/**
+ * Los productos a los que se les bajó el precio resignando margen.
+ *
+ * Es otra cosa que las ofertas por exceso de inventario: acá no sobra nada,
+ * se decidió vender más barato. Se muestran aparte porque el motivo es
+ * distinto y el mensaje al cliente también.
+ */
+async function ofertasPorBaja() {
+  return ofertasPorBajaDePrecio();
+}
+
+module.exports = {
+  ofertasPorBaja, listarProductos, listarOfertas, listarCategorias, obtenerConfiguracion };

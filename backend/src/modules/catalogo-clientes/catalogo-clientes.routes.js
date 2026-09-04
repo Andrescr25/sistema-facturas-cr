@@ -13,6 +13,9 @@ const router = express.Router();
 
 router.get('/productos', controller.productos);
 router.get('/ofertas', controller.ofertas);
+// Los productos a los que se les bajó el precio a propósito. Otra cosa que
+// las de arriba, que son excesos de inventario.
+router.get('/ofertas-baja', controller.ofertasPorBaja);
 router.get('/categorias', controller.categorias);
 router.get('/configuracion', controller.configuracion);
 

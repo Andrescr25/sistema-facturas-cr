@@ -35,6 +35,10 @@ export function useCatalogoClientes() {
   const [habituales, setHabituales] = useState([])
   const [perdidos, setPerdidos] = useState([])
   const [ofertas, setOfertas] = useState([])
+  // Los productos a los que se les bajó el precio resignando margen. Van
+  // aparte de `ofertas`, que son excesos de inventario: el motivo es distinto
+  // y el mensaje al cliente también.
+  const [rebajados, setRebajados] = useState([])
   const [cargandoPortada, setCargandoPortada] = useState(false)
 
   // Cada búsqueda dispara una petición; si el usuario escribe rápido pueden
@@ -45,6 +49,9 @@ export function useCatalogoClientes() {
   useEffect(() => {
     api.get('/catalogo-clientes/ofertas')
       .then(({ data }) => setOfertas(data.data))
+      .catch(() => {})
+    api.get('/catalogo-clientes/ofertas-baja')
+      .then(({ data }) => setRebajados(data.data || []))
       .catch(() => {})
     api.get('/catalogo-clientes/categorias')
       .then(({ data }) => setCategorias(data.data))
@@ -126,6 +133,7 @@ export function useCatalogoClientes() {
   const mostrandoPortada = !busquedaAplicada && !categoria
 
   return {
+    rebajados,
     productos, categorias, config,
     habituales, perdidos, ofertas, cargandoPortada, mostrandoPortada,
     cargarPortada, limpiarPortada,

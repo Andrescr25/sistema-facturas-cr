@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ShoppingCart, Loader2, AlertCircle, User, Repeat, Clock, Tag, X, Receipt, Info, LogOut } from 'lucide-react'
+import { Search, ShoppingCart, Loader2, AlertCircle, User, Repeat, Clock, Tag, TrendingDown, X, Receipt, Info, LogOut } from 'lucide-react'
 import { useCatalogoClientes } from '../hooks/useCatalogoClientes'
 import { useCarritoCliente } from '../hooks/useCarritoCliente'
 import { useScrollInfinito } from '../hooks/useScrollInfinito'
@@ -17,7 +17,7 @@ import ModalCompraAnterior from '../components/catalogo-clientes/ModalCompraAnte
 export default function CatalogoClientes() {
   const {
     productos, categorias, config,
-    habituales, perdidos, ofertas, mostrandoPortada, cargarPortada, limpiarPortada,
+    habituales, perdidos, ofertas, rebajados, mostrandoPortada, cargarPortada, limpiarPortada,
     busqueda, setBusqueda, categoria, setCategoria,
     total, hayMas, cargando, cargandoMas, error, verMas
   } = useCatalogoClientes()
@@ -30,6 +30,20 @@ export default function CatalogoClientes() {
   } = useCarritoCliente(cliente)
 
   const centinela = useScrollInfinito({ hayMas, cargando: cargandoMas, cargarMas: verMas })
+
+  // Las bajas de precio llegan con su propia forma; se traducen a la del
+  // catálogo para reutilizar la misma tarjeta, que ya sabe pintar el precio
+  // anterior tachado y la insignia de descuento.
+  const productosRebajados = useMemo(() => (rebajados || []).map((o) => ({
+    id: o.alegraItemId,
+    nombre: o.nombre,
+    referencia: o.referencia,
+    categoria: o.categoria,
+    imagen: o.imagen,
+    precio: o.precioAhora,
+    precioLista: o.precioAntes,
+    descuento: o.descuentoPorcentaje
+  })), [rebajados])
 
   const [pedidoAbierto, setPedidoAbierto] = useState(false)
   // Solo con sesión: sin cuenta no hay historial que mostrar en la ficha.
@@ -205,6 +219,22 @@ export default function CatalogoClientes() {
               icono={Tag}
               color="bg-peligro-50 text-peligro-600"
               productos={ofertas}
+              carrito={porId}
+              onCambiar={cambiar}
+              onAbrir={abrirFicha}
+              variante="ofertas"
+            />
+
+            {/* Sección aparte de "En oferta" a propósito: aquella son excesos
+                de inventario y esta es una baja de precio decidida. Para el
+                cliente el mensaje es distinto — no es "mientras dure la
+                existencia" sino "este producto ahora vale menos". */}
+            <SeccionProductos
+              titulo="Bajamos el precio"
+              descripcion="Productos que ahora cuestan menos que antes"
+              icono={TrendingDown}
+              color="bg-exito-50 text-exito-600"
+              productos={productosRebajados}
               carrito={porId}
               onCambiar={cambiar}
               onAbrir={abrirFicha}
