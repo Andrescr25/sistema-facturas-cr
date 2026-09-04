@@ -85,17 +85,24 @@ export default function Cotizaciones() {
   const abrirPdf = async (c) => {
     setAbriendo(`pdf-${c.id}`)
     setError('')
-    // La ventana se abre ANTES de pedir el enlace. Abrirla después, dentro
+    // La ventana se abre ANTES de pedir el archivo. Abrirla después, dentro
     // del `await`, el navegador la trata como emergente y la bloquea: deja de
     // ser una consecuencia directa del clic.
     const ventana = window.open('', '_blank')
     try {
-      const { data } = await api.get(`/cotizaciones/${c.id}/pdf`)
-      if (ventana) ventana.location = data.data.url
-      else window.location.href = data.data.url
+      // El PDF lo arma nuestro servidor, así que viene como archivo y no como
+      // enlace: hay que pedirlo con el token y abrirlo desde la memoria del
+      // navegador. Una URL suelta en otra pestaña no lleva la autorización.
+      const { data } = await api.get(`/cotizaciones/${c.id}/pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+      if (ventana) ventana.location = url
+      else window.location.href = url
+      // Se libera después de que la pestaña alcanzó a cargarlo; revocarlo de
+      // inmediato deja la ventana en blanco.
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch (e) {
       ventana?.close()
-      setError(e.response?.data?.message || 'No se pudo abrir el PDF.')
+      setError('No se pudo abrir el PDF.')
     } finally {
       setAbriendo(null)
     }

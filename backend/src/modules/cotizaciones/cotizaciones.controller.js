@@ -68,7 +68,11 @@ async function editar(req, res) {
 
 async function pdf(req, res) {
   try {
-    res.json({ success: true, data: await servicio.pdf(req.params.id) });
+    // Se devuelve el archivo, no un enlace: el PDF lo arma este servidor.
+    const { archivo, numero } = await servicio.pdf(req.params.id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="cotizacion-${numero}.pdf"`);
+    return res.send(archivo);
   } catch (error) {
     console.error('Error obteniendo el PDF de la cotización:', error.message);
     res.status(error.status || 500).json({ success: false, message: error.message });

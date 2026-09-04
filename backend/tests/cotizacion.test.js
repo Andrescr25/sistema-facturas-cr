@@ -537,34 +537,63 @@ describe('editar', () => {
 });
 
 describe('pdf', () => {
-  test('se pide con fields=pdf: el detalle normal no trae el enlace', async () => {
+  const LINEAS_PDF = [
+    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
+  ];
+
+  test('devuelve un PDF armado acá, no un enlace de Alegra', async () => {
+    // Antes se le mandaba al cliente el PDF que genera Alegra: se ve viejo y
+    // no lleva nada de la marca. Una cotización es muchas veces lo PRIMERO
+    // que un cliente nuevo ve del negocio.
     const { servicio, registro } = montar({
-      alegraResponde: {
-        'GET /estimates/55': (params) => ({
-          id: 55, number: 55,
-          // Alegra solo devuelve `pdf` si se pide explícitamente.
-          pdf: params?.fields === 'pdf' ? 'https://cdn3.alegra.com/x.pdf?Expires=1&Signature=y' : undefined
-        })
-      }
+      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_PDF }) }
     });
 
     const r = await servicio.pdf(55);
-    assert.match(r.url, /^https:\/\/cdn3\.alegra\.com\//);
-    assert.equal(registro.peticiones[0].cuerpo.fields, 'pdf');
+    assert.ok(Buffer.isBuffer(r.archivo), 'debe devolver el archivo, no una URL');
+    assert.equal(r.archivo.subarray(0, 5).toString(), '%PDF-');
+    assert.equal(r.numero, 'COT-55');
+
+    // Y ya no se le pide a Alegra el enlace del suyo.
+    assert.ok(!registro.peticiones.some(p => p.cuerpo?.fields === 'pdf'),
+      'no debería pedir fields=pdf');
   });
 
-  test('si Alegra no devuelve enlace se avisa, no se entrega uno vacío', async () => {
-    const { servicio } = montar({
-      alegraResponde: { 'GET /estimates/55': { id: 55, number: 55 } }
-    });
-    await assert.rejects(() => servicio.pdf(55), (e) => e.status === 404);
+  test('el PDF sobrevive a los casos raros de una cotización', async () => {
+    const { generarPdfCotizacion } = require('../src/modules/cotizaciones/cotizacion.pdf');
+
+    const casos = {
+      'sin nota ni referencia': {
+        numero: '1', fecha: '2026-09-04', vence: '2026-09-19', clienteNombre: 'X',
+        lineas: [{ nombre: 'UNO', referencia: null, cantidad: 1, precio: 100, taxPercentage: 0 }]
+      },
+      'con muchas líneas (cambia de página)': {
+        numero: '2', fecha: '2026-09-04', vence: '2026-09-19', clienteNombre: 'X',
+        lineas: Array.from({ length: 40 }, (_, i) => ({
+          nombre: `PRODUCTO CON UN NOMBRE MUY LARGO NUMERO ${i}`, referencia: `R${i}`,
+          cantidad: i + 1, precio: 1234.56, taxPercentage: 13
+        }))
+      },
+      'sin cliente': {
+        numero: '3', fecha: '2026-09-04', vence: '2026-09-19', clienteNombre: null,
+        lineas: [{ nombre: 'UNO', cantidad: 1, precio: 100, taxPercentage: 13 }]
+      }
+    };
+
+    for (const [nombre, cot] of Object.entries(casos)) {
+      const pdf = await generarPdfCotizacion(cot);
+      assert.ok(pdf.length > 1000, `el PDF de "${nombre}" salió vacío`);
+      assert.equal(pdf.subarray(0, 5).toString(), '%PDF-', nombre);
+    }
   });
 
-  test('el enlace sirve aunque venga envuelto en un objeto', async () => {
-    // Así lo devuelve el endpoint de facturas; no está de más aguantarlo.
-    const { servicio } = montar({
-      alegraResponde: { 'GET /estimates/55': { id: 55, pdf: { url: 'https://cdn3.alegra.com/y.pdf' } } }
-    });
-    assert.equal((await servicio.pdf(55)).url, 'https://cdn3.alegra.com/y.pdf');
+  test('el símbolo del colón se escribe con una fuente que lo tiene', () => {
+    // La Helvetica que trae pdfkit NO tiene ₡ (U+20A1): imprime "¡". El
+    // primer PDF salió con todos los montos como "¡29.296".
+    const fs = require('fs');
+    const { FUENTES, colones } = require('../src/utils/marcaPdf');
+    assert.ok(fs.existsSync(FUENTES.normal), 'falta DejaVuSans.ttf en assets/fuentes');
+    assert.ok(fs.existsSync(FUENTES.negrita), 'falta DejaVuSans-Bold.ttf en assets/fuentes');
+    assert.equal(colones(1234567), '₡1.234.567');
   });
 });

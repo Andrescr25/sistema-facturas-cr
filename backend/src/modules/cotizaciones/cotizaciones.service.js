@@ -27,8 +27,8 @@
 const { getClient } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const axios = require('axios');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
+const { generarPdfCotizacion } = require('./cotizacion.pdf');
 const FacturacionService = require('../facturacion/facturacion.service');
 
 const facturacion = new FacturacionService();
@@ -358,38 +358,30 @@ async function editar(id, { clienteId, lineas, observaciones, vence }) {
 }
 
 /**
- * El enlace al PDF que genera Alegra.
+ * El PDF de la cotización, con el formato de la casa.
  *
- * SE PIDE EN EL MOMENTO Y NO SE GUARDA. La URL viene firmada y con fecha de
- * caducidad (~10 horas): guardarla en la base o en el navegador daría un
- * enlace roto justo cuando alguien la abra al día siguiente.
+ * ANTES SE MANDABA EL DE ALEGRA. Alegra genera uno propio y era el que veía
+ * el cliente: se ve viejo y no lleva nada de la marca. Para una cotización
+ * —que muchas veces es lo PRIMERO que un cliente nuevo ve del negocio— ese
+ * papel es la carta de presentación, así que se arma acá (cotizacion.pdf.js).
  *
- * Solo aparece si se pide con `fields=pdf`; el detalle normal no la trae.
+ * Se genera en el momento y no se guarda: los datos salen de Alegra, que es
+ * donde vive la cotización, y así el PDF siempre refleja lo que hay ahora.
  */
 async function pdf(id) {
-  const r = await getClient().request('GET', `/estimates/${id}`, { fields: 'pdf' });
-  const url = typeof r?.pdf === 'object' ? r.pdf?.url : r?.pdf;
-  if (!url) throw httpError(404, 'Alegra no devolvió un PDF para esa cotización.');
-  return { url, numero: r?.numberTemplate?.fullNumber || String(r?.number ?? id) };
+  const cot = await detalle(id);
+  return { archivo: await generarPdfCotizacion(cot), numero: cot.numero, cot };
 }
 
 /**
  * Le manda la cotización al cliente por WhatsApp, con el PDF adjunto.
  *
- * EL PDF SE BAJA ACÁ Y VIAJA COMO ARCHIVO. La URL que da Alegra viene firmada,
- * caduca en unas 10 horas y es pública: mandársela al cliente sería darle un
- * enlace que se rompe al día siguiente y que mientras tanto abre cualquiera a
- * quien se lo reenvíen.
- *
- * El texto lo escribe quien manda (llega desde la pantalla, editable). Lo que
- * no se delega es el archivo: sale de Alegra, no de lo que diga el navegador.
+ * El texto lo escribe quien manda (llega desde la pantalla, editable). El
+ * archivo no se delega: se arma acá con los datos que están en Alegra, no con
+ * lo que diga el navegador.
  */
 async function enviarPorWhatsApp(id, { telefono, mensaje, usuarioId }) {
-  const cot = await detalle(id);
-  const { url } = await pdf(id);
-
-  const descarga = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
-  const archivo = Buffer.from(descarga.data);
+  const { archivo, cot } = await pdf(id);
 
   return enviarYRegistrar({
     tipo: 'cotizacion',
