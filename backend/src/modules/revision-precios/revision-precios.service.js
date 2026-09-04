@@ -397,6 +397,23 @@ async function devolverFactura(facturaId) {
     throw httpError(404, 'Factura no encontrada');
   }
 
+  // UNA FACTURA YA ENVIADA NO SE DEVUELVE.
+  // `ENVIADA` significa que la factura de compra SÍ se creó en Alegra — si
+  // ese paso falla, el estado no avanza a propósito (ver enviarFacturaAlegra).
+  // Devolverla la regresa a la lista de revisión con el botón "Enviar a
+  // Alegra" activo, y volver a enviarla crea una SEGUNDA factura de compra
+  // por la misma compra del proveedor: el gasto queda contado dos veces.
+  //
+  // Pasaba de verdad: el historial abre la misma pantalla de revisión, con
+  // los dos botones activos y sin decir en ningún lado que ya se había
+  // enviado. Con 838 facturas en ese estado, era cuestión de un clic.
+  if (factura.estado === 'ENVIADA') {
+    throw httpError(409,
+      `La factura ${factura.numeroConsecutivo} ya se envió a Alegra y su factura de compra existe allá. ` +
+      `Devolverla permitiría enviarla otra vez y duplicar el gasto. ` +
+      `Si de verdad hay que rehacerla, primero anule la factura de compra en Alegra.`);
+  }
+
   await prisma.factura.update({
     where: { id: facturaId },
     data: {
@@ -589,6 +606,21 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
 
   if (!factura) {
     throw httpError(404, 'Factura no encontrada');
+  }
+
+  // NO SE ENVÍA DOS VECES.
+  // El estado solo llega a ENVIADA cuando la factura de compra se creó en
+  // Alegra; si ese paso falla se queda atrás justamente para poder
+  // reintentar. Así que ENVIADA es prueba de que allá ya existe, y un
+  // segundo envío crearía otra factura de compra por la misma compra.
+  //
+  // La guarda va acá y no solo en la pantalla porque el historial abre la
+  // misma vista de revisión con el botón de enviar activo: alcanzaba con
+  // abrir una de las 838 facturas ya enviadas y tocarlo.
+  if (factura.estado === 'ENVIADA') {
+    throw httpError(409,
+      `La factura ${factura.numeroConsecutivo} ya se envió a Alegra. ` +
+      `Volver a enviarla crearía una segunda factura de compra por la misma compra.`);
   }
 
   // Todos los productos relacionados

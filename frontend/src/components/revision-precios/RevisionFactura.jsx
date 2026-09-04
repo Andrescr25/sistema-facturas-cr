@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader, RotateCcw, Send } from 'lucide-react'
+import { ArrowLeft, Loader, RotateCcw, Send, CheckCircle } from 'lucide-react'
 import ProductoRevisionCard from './ProductoRevisionCard'
 import Insignia from '../ui/Insignia'
 
@@ -27,6 +27,14 @@ export default function RevisionFactura({
     id => preciosAjustados[id] > 0
   ).length
 
+  // YA ENVIADA = su factura de compra existe en Alegra.
+  // El historial abre esta misma pantalla, y hasta ahora lo hacía con los dos
+  // botones activos y el estado escrito a mano como "Listo": desde ahí se
+  // podía devolver la factura y mandarla de nuevo, creando una SEGUNDA
+  // factura de compra por la misma compra. Con 838 facturas en ese estado,
+  // era cuestión de un clic.
+  const yaEnviada = facturaSeleccionada?.estado === 'ENVIADA'
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -40,23 +48,25 @@ export default function RevisionFactura({
             Volver a la lista
           </button>
 
-          <button
-            onClick={onDevolver}
-            className="btn bg-alerta-500 hover:bg-alerta-600 text-white flex items-center"
-            disabled={devolviendo}
-          >
-            {devolviendo ? (
-              <>
-                <Loader size={16} className="mr-2 animate-spin" />
-                Devolviendo...
-              </>
-            ) : (
-              <>
-                <RotateCcw size={16} className="mr-2" />
-                Devolver a Relacionar
-              </>
-            )}
-          </button>
+          {!yaEnviada && (
+            <button
+              onClick={onDevolver}
+              className="btn bg-alerta-500 hover:bg-alerta-600 text-white flex items-center"
+              disabled={devolviendo}
+            >
+              {devolviendo ? (
+                <>
+                  <Loader size={16} className="mr-2 animate-spin" />
+                  Devolviendo...
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={16} className="mr-2" />
+                  Devolver a Relacionar
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <h1 className="text-3xl font-bold text-neutro-900">
@@ -85,7 +95,11 @@ export default function RevisionFactura({
         </div>
         <div className="card">
           <p className="text-sm text-neutro-600 mb-1">Estado</p>
-          <Insignia tono="exito">Listo</Insignia>
+          {/* Antes decía "Listo" siempre, incluso abriendo una factura del
+              historial que ya estaba en Alegra. */}
+          <Insignia tono={yaEnviada ? 'neutro' : 'exito'}>
+            {yaEnviada ? 'Ya enviada a Alegra' : 'Lista para enviar'}
+          </Insignia>
         </div>
       </div>
 
@@ -113,36 +127,53 @@ export default function RevisionFactura({
         ))}
       </div>
 
-      {/* Botón Enviar */}
-      <div className="card bg-gradient-to-r from-primario-50 to-primario-50 border-2 border-primario-300">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-neutro-900 mb-1">
-              ¿Listo para enviar a Alegra?
-            </h3>
-            <p className="text-sm text-neutro-600">
-              Se actualizarán {productos.length} costos{preciosModificados > 0 && `, ${preciosModificados} precios`} y se creará la factura de proveedor
-            </p>
+      {/* Botón Enviar — solo si todavía no se envió */}
+      {yaEnviada ? (
+        <div className="card border-2 border-neutro-200 bg-neutro-50">
+          <div className="flex items-start gap-3">
+            <CheckCircle size={22} className="mt-0.5 shrink-0 text-exito-600" />
+            <div>
+              <h3 className="text-lg font-bold text-neutro-900">Esta factura ya se envió a Alegra</h3>
+              <p className="mt-1 text-sm text-neutro-600">
+                Su factura de compra ya existe allá. No se puede volver a enviar ni devolver a
+                relacionar: se crearía una segunda factura de compra por la misma compra y el
+                gasto quedaría contado dos veces. Si de verdad hay que rehacerla, primero
+                anulala en Alegra.
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onEnviar}
-            className="btn btn-primary text-lg px-8 py-4 flex items-center"
-            disabled={enviando}
-          >
-            {enviando ? (
-              <>
-                <Loader size={24} className="mr-3 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              <>
-                <Send size={24} className="mr-3" />
-                Enviar a Alegra
-              </>
-            )}
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="card bg-gradient-to-r from-primario-50 to-primario-50 border-2 border-primario-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-neutro-900 mb-1">
+                ¿Listo para enviar a Alegra?
+              </h3>
+              <p className="text-sm text-neutro-600">
+                Se actualizarán {productos.length} costos{preciosModificados > 0 && `, ${preciosModificados} precios`} y se creará la factura de proveedor
+              </p>
+            </div>
+            <button
+              onClick={onEnviar}
+              className="btn btn-primary text-lg px-8 py-4 flex items-center"
+              disabled={enviando}
+            >
+              {enviando ? (
+                <>
+                  <Loader size={24} className="mr-3 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send size={24} className="mr-3" />
+                  Enviar a Alegra
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import Pestanas from '../ui/Pestanas'
 import { DollarSign, RotateCcw, AlertCircle, Package } from 'lucide-react'
 
 /**
@@ -49,6 +50,21 @@ export default function ListaFacturas({
         </button>
       </div>
 
+      {/* Los tres pasos, siempre a la vista. Antes la única forma de moverse
+          era un botón al final de la lista: con cincuenta facturas en
+          pantalla, volver del historial obligaba a bajar hasta el fondo. */}
+      <Pestanas
+        activa={tabActiva}
+        onCambiar={setTabActiva}
+        numerada
+        className="mb-6"
+        pestanas={[
+          { clave: 'PENDIENTE_RELACIONAR', texto: 'Relacionar productos' },
+          { clave: 'LISTAS_REVISION', texto: 'Revisar precios' },
+          { clave: 'ENVIADAS', texto: 'Enviadas a Alegra' }
+        ]}
+      />
+
       {/* Paso Activo Indicador */}
       {tabActiva === 'PENDIENTE_RELACIONAR' && (
         <div className="bg-alerta-50 border-2 border-alerta-200 rounded-2xl p-6 mb-6">
@@ -80,7 +96,8 @@ export default function ListaFacturas({
             Historial de Facturas Enviadas a Alegra
           </h2>
           <p className="text-base text-exito-800 mt-1">
-            Facturas que ya fueron procesadas y cargadas en Alegra. Puedes ver sus detalles.
+            Facturas que ya fueron procesadas y cargadas en Alegra. Se pueden consultar,
+            pero no volver a enviar: su factura de compra ya existe allá.
           </p>
         </div>
       )}
@@ -228,34 +245,9 @@ export default function ListaFacturas({
             </div>
           )}
 
-          {tabActiva === 'LISTAS_REVISION' && (
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <button
-                onClick={() => setTabActiva('PENDIENTE_RELACIONAR')}
-                className="btn btn-outline text-lg px-8 py-4 rounded-xl flex items-center gap-2"
-              >
-                ← Volver al Paso 1: Relacionar Productos
-              </button>
-
-              <button
-                onClick={() => setTabActiva('ENVIADAS')}
-                className="text-primario-600 hover:text-primario-800 font-bold text-lg flex items-center gap-2 py-3 px-6 hover:bg-primario-50 rounded-xl transition-all"
-              >
-                📄 Ver Historial de Facturas Enviadas
-              </button>
-            </div>
-          )}
-
-          {tabActiva === 'ENVIADAS' && (
-            <div className="flex justify-start">
-              <button
-                onClick={() => setTabActiva('LISTAS_REVISION')}
-                className="btn btn-outline text-lg px-8 py-4 rounded-xl flex items-center gap-2"
-              >
-                ← Volver al Paso 2: Revisar Precios
-              </button>
-            </div>
-          )}
+          {/* Moverse entre pasos ahora se hace con las pestañas de arriba.
+              Acá queda solo el avance natural del paso 1, que es una acción,
+              no navegación. */}
         </div>
       )}
     </div>
