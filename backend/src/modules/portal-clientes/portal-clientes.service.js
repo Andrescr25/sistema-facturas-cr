@@ -16,13 +16,8 @@ const {
 } = require('./portal-clientes.auth');
 
 const { getClient } = require('../../integrations/alegra');
-const { telefonosDe, validarTelefonoEscrito } = require('./telefonosCliente');
-const axios = require('axios');
-// El mismo traductor de errores que las órdenes de compra: un fallo de
-// WhatsApp tiene las mismas causas —instancia apagada, clave mal puesta,
-// número sin WhatsApp— y cada una se arregla distinto. Repetirlo acá sería
-// dejar que las explicaciones se separen con el tiempo.
-const { explicarFalloWhatsApp } = require('../orders-whatsapp/orders-whatsapp.service');
+const { telefonosDe } = require('../../utils/telefonosCliente');
+const whatsapp = require('../../integrations/whatsapp');
 
 // ==================== LADO DEL PERSONAL ====================
 
@@ -187,34 +182,14 @@ async function reactivarAcceso(alegraContactId) {
  * del cliente.
  */
 async function enviarInvitacionWhatsApp(alegraContactId, { telefono, mensaje }) {
-  const revision = validarTelefonoEscrito(telefono);
-  if (!revision.valido) throw httpError(400, revision.motivo);
+  const r = await whatsapp.enviarTexto({ telefono, mensaje });
 
-  const texto = String(mensaje ?? '').trim();
-  if (!texto) throw httpError(400, 'El mensaje está vacío.');
+  // Queda en el registro del servidor a qué número se mandó el enlace de qué
+  // cliente. Si alguna vez uno aparece donde no debía, esto es lo único que
+  // dice cuándo salió y hacia dónde: el token ya no existe en claro.
+  console.log(`📨 Invitación del cliente ${alegraContactId} enviada por WhatsApp al ${r.telefono}`);
 
-  const waUrl = process.env.WHATSAPP_API_URL || 'http://localhost:8080';
-  const waApiKey = process.env.WHATSAPP_API_KEY || '';
-  const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
-
-  try {
-    await axios.post(
-      `${waUrl}/message/sendText/${waInstance}`,
-      { number: revision.numero, text: texto },
-      { headers: { 'Content-Type': 'application/json', apikey: waApiKey }, timeout: 60000 }
-    );
-  } catch (error) {
-    throw httpError(502, explicarFalloWhatsApp(error, {
-      telefono: revision.formateado, waUrl, waInstance, sujeto: 'cliente'
-    }));
-  }
-
-  // Queda en el registro del servidor a qué número se mandó el enlace de
-  // qué cliente. Si alguna vez uno aparece donde no debía, esto es lo único
-  // que dice cuándo salió y hacia dónde: el token ya no existe en claro.
-  console.log(`📨 Invitación del cliente ${alegraContactId} enviada por WhatsApp al ${revision.formateado}`);
-
-  return { enviado: true, telefono: revision.formateado, numero: revision.numero };
+  return r;
 }
 
 module.exports = {

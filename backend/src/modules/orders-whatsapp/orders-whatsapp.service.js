@@ -6,6 +6,9 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const { query } = require('../../../config/database');
+// La conversación con Evolution vive en un solo lugar: acá solo se arma el
+// PDF y se pide el envío. El traductor de errores se mudó con ella.
+const whatsapp = require('../../integrations/whatsapp');
 
 /**
  * Deja un teléfono costarricense como lo espera WhatsApp: 506 + 8 dígitos.
@@ -46,57 +49,6 @@ function normalizarTelefonoCR(telefono) {
   );
 }
 
-/**
- * Convierte un fallo de Evolution API en algo que se pueda leer y arreglar.
- *
- * Antes el error de axios subía tal cual y el usuario veía
- * "Request failed with status code 400" — o peor, el genérico "Error interno
- * del servidor". Con eso no hay forma de saber si el problema es el número
- * del proveedor, el WhatsApp desvinculado o una variable mal puesta en
- * Render, que son arreglos completamente distintos. Diagnosticar el 400 de
- * un número sin WhatsApp costó una sesión entera.
- *
- * El texto es para quien está en el mostrador, no para quien programó.
- */
-function explicarFalloWhatsApp(error, { telefono, waUrl, waInstance, sujeto = 'proveedor' }) {
-  const status = error.response?.status;
-  const detalle = error.response?.data;
-  const textoDetalle = JSON.stringify(detalle || '').toLowerCase();
-
-  // Ni siquiera se llegó al servidor.
-  if (!error.response) {
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
-      return `No se pudo contactar el servidor de WhatsApp en ${waUrl}. Revise que esté encendido y que WHATSAPP_API_URL apunte a la dirección correcta.`;
-    }
-    if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-      return `El servidor de WhatsApp (${waUrl}) no respondió a tiempo. Intente de nuevo en un momento.`;
-    }
-    return `No se pudo contactar el servidor de WhatsApp en ${waUrl}: ${error.message}`;
-  }
-
-  if (status === 401 || status === 403) {
-    return 'El servidor de WhatsApp rechazó la clave de acceso. Revise que WHATSAPP_API_KEY sea la misma que tiene configurada Evolution API.';
-  }
-
-  if (status === 404) {
-    return `No existe una instancia de WhatsApp llamada "${waInstance}" en ${waUrl}. El nombre debe coincidir exactamente con el de Evolution API (variable WHATSAPP_INSTANCE_NAME).`;
-  }
-
-  // La instancia existe pero el teléfono no está vinculado.
-  if (textoDetalle.includes('not connected') || textoDetalle.includes('close') || textoDetalle.includes('disconnected')) {
-    return `La instancia "${waInstance}" no está conectada a WhatsApp. Vuelva a vincular el teléfono escaneando el código QR en Evolution API.`;
-  }
-
-  // Lo más común de todos: el número no tiene WhatsApp. Evolution contesta
-  // 400 sin decir por qué, así que se nombra la causa probable en vez de
-  // repetir el código de estado.
-  if (status === 400) {
-    return `El número ${telefono} no pudo recibir el mensaje. Lo más probable es que no tenga WhatsApp (por ejemplo, si es un teléfono fijo) o que esté mal escrito. Verifique el número del ${sujeto}.`;
-  }
-
-  const mensajeEvolution = detalle?.message || detalle?.error || error.message;
-  return `El servidor de WhatsApp devolvió un error (${status}): ${typeof mensajeEvolution === 'string' ? mensajeEvolution : JSON.stringify(mensajeEvolution)}`;
-}
 
 // Colores tomados del logo (muestreo de los píxeles del PNG): el naranja es
 // el único acento y se reserva para lo que el proveedor tiene que ver primero
@@ -597,37 +549,17 @@ class OrdersWhatsappService {
     // 2. Formatear número
     const telefonoLimpio = normalizarTelefonoCR(telefono);
 
-    // 3. Obtener variables de entorno
-    const waUrl = process.env.WHATSAPP_API_URL || 'http://localhost:8080';
-    const waApiKey = process.env.WHATSAPP_API_KEY || 'facturas_cr_secret_key_2026';
-    const waInstance = process.env.WHATSAPP_INSTANCE_NAME || 'facturas_instance';
+    // 3. Mandarlo. El proveedor es el sujeto: si el número no recibe, hay que
+    //    revisar SU ficha, no la de un cliente.
+    console.log(`📤 Enviando orden de compra al proveedor ${proveedor} (${telefonoLimpio})`);
 
-    // 4. Preparar payload para la versión 2.x
-    const rawBase64 = pdfBuffer.toString('base64');
-    const captionTexto = mensaje || "Hola buenas, adjunto el pedido\ngracias";
-    const payload = {
-      number: telefonoLimpio,
-      mediatype: 'document',
-      mimetype: 'application/pdf',
-      media: rawBase64,
-      fileName: `orden-${proveedor.replace(/\s+/g, '-')}.pdf`,
-      caption: captionTexto
-    };
-
-    console.log(`📤 Enviando orden de compra a Evolution API en ${waUrl}/message/sendMedia/${waInstance} para el número ${telefonoLimpio}`);
-
-    try {
-      const response = await axios.post(`${waUrl}/message/sendMedia/${waInstance}`, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': waApiKey
-        }
-      });
-
-      return response.data;
-    } catch (error) {
-      throw new Error(explicarFalloWhatsApp(error, { telefono: telefonoLimpio, waUrl, waInstance }));
-    }
+    return whatsapp.enviarDocumento({
+      telefono: telefonoLimpio,
+      mensaje: mensaje || 'Hola buenas, adjunto el pedido\ngracias',
+      pdf: pdfBuffer,
+      nombreArchivo: `orden-${proveedor.replace(/\s+/g, '-')}.pdf`,
+      sujeto: 'proveedor'
+    });
   }
 
   /**
@@ -806,5 +738,12 @@ class OrdersWhatsappService {
 
 module.exports = OrdersWhatsappService;
 // Se exporta aparte para poder probar los mensajes de error sin red ni PDF.
-module.exports.explicarFalloWhatsApp = explicarFalloWhatsApp;
+// Se mantiene el nombre exportado: se mudó de archivo, no desapareció.
+module.exports.explicarFalloWhatsApp = (error, contexto = {}) =>
+  whatsapp.explicarFallo(error, {
+    ...contexto,
+    url: contexto.waUrl,
+    instancia: contexto.waInstance,
+    sujeto: contexto.sujeto || 'proveedor'
+  });
 module.exports.normalizarTelefonoCR = normalizarTelefonoCR;

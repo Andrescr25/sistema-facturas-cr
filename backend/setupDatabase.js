@@ -645,6 +645,25 @@ async function setupDatabase() {
       )
     `);
 
+    // Registro de lo que sale por WhatsApp. Ver
+    // migrations/add_envio_whatsapp.sql para el porqué.
+    console.log('📋 Creando tabla envio_whatsapp...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS envio_whatsapp (
+          id                SERIAL PRIMARY KEY,
+          tipo              VARCHAR(30) NOT NULL,
+          referencia        VARCHAR(60),
+          alegra_contact_id VARCHAR(20),
+          telefono          VARCHAR(20) NOT NULL,
+          enviado_por       INTEGER REFERENCES usuario(id),
+          exito             BOOLEAN NOT NULL,
+          error             TEXT,
+          creado_en         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_ref ON envio_whatsapp (tipo, referencia)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_contacto ON envio_whatsapp (alegra_contact_id, creado_en DESC)`);
+
     // Crear función para actualizar updated_at automáticamente
     console.log('📋 Creando función para updated_at...');
     await client.query(`

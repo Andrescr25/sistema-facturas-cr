@@ -17,7 +17,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { telefonosDe, validarTelefonoEscrito } = require('../src/modules/portal-clientes/telefonosCliente');
+const { telefonosDe, validarTelefonoEscrito } = require('../src/utils/telefonosCliente');
 
 /** Los números que se le ofrecerían a quien manda, en orden. */
 const ofrecidos = (contacto) => telefonosDe(contacto).candidatos.map(c => c.nacional);
