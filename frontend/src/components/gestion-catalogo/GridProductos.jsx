@@ -81,13 +81,25 @@ export default function GridProductos({
                   </h3>
                 </div>
 
+                {/* Los tres números dicen en qué base están. En Alegra el
+                    precio va SIN impuesto y el costo CON él: mostrarlos lado
+                    a lado sin decirlo hacía leer un margen de 15% donde el
+                    real es 25%. */}
                 <div className="mt-3 pt-2.5 border-t border-neutro-50 flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-neutro-400 font-medium">Precio:</span>
-                    <span className="font-bold text-neutro-900">{formatCRC(prod.price)}</span>
+                    <span className="text-neutro-400 font-medium">Precio s/IVA:</span>
+                    <span className="font-medium text-neutro-600">{formatCRC(prod.price)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-neutro-400 font-medium">Costo:</span>
+                    <span className="text-neutro-400 font-medium">Precio c/IVA:</span>
+                    {/* null = todavía no se sincronizó el impuesto; repetir el
+                        precio sin IVA sería decir que no lleva. */}
+                    <span className="font-bold text-neutro-900">
+                      {prod.precioConIva != null ? formatCRC(prod.precioConIva) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-neutro-400 font-medium">Costo c/IVA:</span>
                     <span className="font-medium text-neutro-500">{formatCRC(prod.cost)}</span>
                   </div>
                 </div>

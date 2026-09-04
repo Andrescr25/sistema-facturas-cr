@@ -5,6 +5,7 @@
  */
 
 const axios = require('axios');
+const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const prisma = require('../../../lib/prisma');
 const { getProductService, getClient } = require('../../integrations/alegra');
 
@@ -87,8 +88,28 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
     })
   ]);
 
+  // El precio de venta CON impuesto va calculado desde acá y no en la
+  // pantalla, con la misma función que usa el catálogo del cliente: si cada
+  // pantalla lo multiplicara por su cuenta, basta con que una redondee
+  // distinto para que el mismo producto valga ₡6.356 en una y ₡6.356,25 en
+  // otra.
+  //
+  // Hace falta porque en Alegra `price` va SIN impuesto y `cost` CON él: la
+  // pantalla mostraba los dos lado a lado sin decirlo, y de ahí salía un
+  // margen aparente de 15% donde el real es 25%.
+  //
+  // taxPercentage NULL es "todavía no se sincronizó", no "exento": ahí se
+  // devuelve null en vez de repetir el precio sin impuesto como si lo
+  // llevara.
+  const data = productos.map((p) => ({
+    ...p,
+    precioConIva: p.taxPercentage === null || p.taxPercentage === undefined
+      ? null
+      : precioConImpuesto(p.price, p.taxPercentage)
+  }));
+
   return {
-    data: productos,
+    data,
     pagination: {
       total,
       page: pageNum,

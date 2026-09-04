@@ -212,6 +212,7 @@ export default function GestionCatalogo() {
           editCategoria={editCategoria}
           setEditCategoria={setEditCategoria}
           categorias={categorias}
+          taxPercentage={selectedProduct.taxPercentage}
           savingEdit={savingEdit}
           confirmDelete={confirmDelete}
           deletingProduct={deletingProduct}

@@ -5,6 +5,15 @@ import { useModal } from '../../hooks/useModal'
  * Modal para editar nombre/referencia/precio/costo de un producto, con
  * eliminación (doble click de confirmación) integrada. Extraído de
  * GestionCatalogo.jsx.
+ *
+ * LOS DOS NÚMEROS NO ESTÁN EN LA MISMA BASE, Y AHORA SE DICE
+ * En Alegra el precio se guarda SIN impuesto y el costo CON él. Los dos
+ * campos estaban uno al lado del otro sin ninguna etiqueta, así que de
+ * ₡5.625 de precio contra ₡4.764,64 de costo se leía un margen del 15%
+ * cuando el real es del 25%.
+ *
+ * El precio con IVA se calcula mientras se escribe: es el número que ve el
+ * cliente, y es el que hay que poder comparar contra el costo.
  */
 export default function ModalEditarProducto({
   editName,
@@ -18,6 +27,7 @@ export default function ModalEditarProducto({
   editCategoria,
   setEditCategoria,
   categorias,
+  taxPercentage,
   savingEdit,
   confirmDelete,
   deletingProduct,
@@ -26,6 +36,16 @@ export default function ModalEditarProducto({
   onCerrar
 }) {
   useModal(onCerrar)
+
+  // null/undefined es "todavía no se sincronizó el impuesto de este
+  // producto", que no es lo mismo que exento: ahí no se muestra un número
+  // inventado.
+  const iva = taxPercentage === null || taxPercentage === undefined ? null : Number(taxPercentage)
+  const precioNum = parseFloat(editPrice)
+  const precioConIva = iva !== null && Number.isFinite(precioNum)
+    ? Math.round(precioNum * (1 + iva / 100) * 100) / 100
+    : null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutro-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-neutro-100 animate-in fade-in zoom-in-95 duration-200">
@@ -84,7 +104,7 @@ export default function ModalEditarProducto({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-neutro-700">Precio de Venta (₡):</label>
+              <label className="text-xs font-bold text-neutro-700">Precio de Venta (₡) — sin IVA:</label>
               <input
                 type="number"
                 step="0.01"
@@ -93,9 +113,14 @@ export default function ModalEditarProducto({
                 required
                 className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
               />
+              <p className="text-[11px] text-neutro-500">
+                {precioConIva !== null
+                  ? <>Con IVA ({iva}%): <span className="font-bold text-neutro-800">₡{precioConIva.toLocaleString('es-CR')}</span></>
+                  : 'Sin dato de impuesto todavía: sincronizá el catálogo para ver el precio con IVA.'}
+              </p>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-neutro-700">Costo Unitario (₡):</label>
+              <label className="text-xs font-bold text-neutro-700">Costo Unitario (₡) — con IVA:</label>
               <input
                 type="number"
                 step="0.01"
