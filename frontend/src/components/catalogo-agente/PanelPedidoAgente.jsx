@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Send, Trash2, CheckCircle2, Clock, AlertTriangle, Loader2, WifiOff } from 'lucide-react'
+import { X, Send, Trash2, CheckCircle2, Clock, AlertTriangle, Loader2, WifiOff, ShoppingCart } from 'lucide-react'
 import { colones } from '../../utils/colones'
 
 /**
@@ -9,7 +9,7 @@ import { colones } from '../../utils/colones'
  * El agente trabaja sin señal la mayor parte del tiempo. Si los pedidos se
  * fueran acumulando en silencio, no tendría forma de saber cuáles llegaron y
  * cuáles no — y se enteraría cuando el cliente reclame que nunca le llegó el
- * producto. Acá cada pedido dice en qué estado está, con su fecha.
+ * producto. Acá cada pedido dice en qué estado está.
  *
  * Un pedido NO desaparece de esta lista hasta que el servidor confirma que lo
  * tiene. Ver "sin enviar" es incómodo a propósito: es información que el
@@ -17,15 +17,11 @@ import { colones } from '../../utils/colones'
  */
 
 const ESTADOS = {
-  en_dispositivo: { texto: 'Sin enviar', Icono: Clock, clase: 'cola-pendiente' },
-  enviando: { texto: 'Enviando...', Icono: Loader2, clase: 'cola-enviando' },
-  confirmado: { texto: 'Recibido', Icono: CheckCircle2, clase: 'cola-ok' },
-  rechazado: { texto: 'Rechazado', Icono: AlertTriangle, clase: 'cola-error' }
+  en_dispositivo: { texto: 'Sin enviar', Icono: Clock,        anillo: 'ring-alerta-200', fondo: 'bg-alerta-50',  texto_: 'text-alerta-700' },
+  enviando:       { texto: 'Enviando…',  Icono: Loader2,      anillo: 'ring-primario-200', fondo: 'bg-primario-50', texto_: 'text-primario-700' },
+  confirmado:     { texto: 'Recibido',   Icono: CheckCircle2, anillo: 'ring-exito-200',  fondo: 'bg-exito-50',   texto_: 'text-exito-700' },
+  rechazado:      { texto: 'Rechazado',  Icono: AlertTriangle, anillo: 'ring-peligro-200', fondo: 'bg-peligro-50', texto_: 'text-peligro-700' }
 }
-
-// es-CR separa los miles con un espacio duro (U+00A0) y "₡7 484" se lee
-// como dos numeros. Se escribe \u00A0 y no el caracter en si: literal es
-// invisible en el editor y cualquiera lo borra sin darse cuenta.
 
 export default function PanelPedidoAgente({
   abierto, onCerrar, lineas, totalReferencia, onCambiar, onVaciar,
@@ -47,107 +43,142 @@ export default function PanelPedidoAgente({
   }
 
   return (
-    <div className="pedido-overlay" role="dialog" aria-modal="true" aria-label="Pedido">
-      <div className="pedido-fondo" onClick={onCerrar} />
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Pedido">
+      <div className="absolute inset-0 bg-primario-950/50 backdrop-blur-sm" onClick={onCerrar} />
 
-      <div className="pedido-panel">
-        <div className="pedido-encabezado">
-          <div>
-            <h2>Pedido</h2>
-            <p>{clienteActivo?.nombre || 'Sin cliente elegido'}</p>
+      <div className="relative flex h-full w-full flex-col bg-neutro-50 sm:max-w-md">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutro-200 bg-white px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-neutro-900">Pedido</h2>
+            <p className="truncate text-xs text-neutro-400">
+              {clienteActivo?.n || clienteActivo?.nombre || 'Sin cliente elegido'}
+            </p>
           </div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar"><X size={22} /></button>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-neutro-400 hover:bg-neutro-100">
+            <X size={19} />
+          </button>
         </div>
 
-        <div className="pedido-cuerpo">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {lineas.length === 0 ? (
-            <p className="pedido-vacio">Todavía no agregó productos.</p>
+            <div className="py-14 text-center">
+              <ShoppingCart size={30} className="mx-auto text-neutro-200" />
+              <p className="mt-3 text-sm font-semibold text-neutro-500">Todavía no agregó productos.</p>
+            </div>
           ) : (
             <>
-              {lineas.map((l) => (
-                <div key={l.alegraItemId} className="pedido-linea">
-                  <div className="pedido-linea-info">
-                    <span className="pedido-linea-nombre">{l.nombre}</span>
-                    <span className="pedido-linea-detalle">
-                      {l.cantidad} × {colones(l.precioReferencia)}
+              <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-neutro-200">
+                {lineas.map((l) => (
+                  <div key={l.alegraItemId}
+                    className="flex items-center gap-2 border-b border-neutro-100 px-3 py-2.5 last:border-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold text-neutro-900">{l.nombre}</p>
+                      <p className="text-[11px] text-neutro-400">
+                        {l.cantidad} × {colones(l.precioReferencia)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-extrabold text-neutro-900">
+                      {colones(l.cantidad * l.precioReferencia)}
                     </span>
+                    <button type="button" aria-label={`Quitar ${l.nombre}`}
+                      onClick={() => onCambiar({ id: l.alegraItemId }, 0)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-neutro-300 hover:bg-peligro-50 hover:text-peligro-600">
+                      <X size={15} />
+                    </button>
                   </div>
-                  <span className="pedido-linea-total">{colones(l.cantidad * l.precioReferencia)}</span>
-                  <button
-                    type="button"
-                    aria-label={`Quitar ${l.nombre}`}
-                    onClick={() => onCambiar({ id: l.alegraItemId }, 0)}
-                  ><X size={16} /></button>
-                </div>
-              ))}
+                ))}
+              </div>
 
               <input
                 type="text"
-                className="pedido-nota"
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
                 placeholder="Alguna nota para el pedido (opcional)"
+                aria-label="Nota del pedido"
+                className="mt-3 h-11 w-full rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-neutro-200 placeholder:font-normal placeholder:text-neutro-400 focus:outline-none focus:ring-2 focus:ring-acento-400"
               />
 
-              <div className="pedido-total">
-                <span>Total aproximado</span>
-                <strong>{colones(totalReferencia)}</strong>
+              <div className="mt-3 rounded-2xl bg-white p-3 ring-1 ring-neutro-200">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-semibold text-neutro-500">Total aproximado</span>
+                  <strong className="text-xl font-extrabold text-neutro-900">{colones(totalReferencia)}</strong>
+                </div>
+                {/* El precio final lo pone el servidor con el catálogo de hoy;
+                    esta tablet puede tener uno de hace días. Decirlo evita que
+                    el agente le prometa un precio al cliente y no coincida. */}
+                <p className="mt-1 text-[11px] leading-tight text-neutro-400">
+                  El total definitivo se calcula al recibirlo, con los precios de hoy.
+                </p>
               </div>
-              {/* El precio final lo pone el servidor con el catálogo de hoy;
-                  esta tablet puede tener uno de hace días. Decirlo evita que
-                  el agente le prometa un precio al cliente y no coincida. */}
-              <p className="pedido-aviso-precio">
-                El total definitivo se calcula al recibirlo, con los precios de hoy.
-              </p>
 
-              {error && <p className="pedido-error">{error}</p>}
+              {error && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-peligro-50 px-3 py-2.5 ring-1 ring-peligro-200">
+                  <AlertTriangle size={15} className="mt-0.5 shrink-0 text-peligro-600" />
+                  <p className="text-xs font-semibold text-peligro-800">{error}</p>
+                </div>
+              )}
 
-              <button type="button" className="pedido-enviar" onClick={enviar} disabled={enviando}>
-                {enviando ? <Loader2 size={18} className="girando" /> : <Send size={18} />}
+              <button type="button" onClick={enviar} disabled={enviando}
+                className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primario-800 text-sm font-bold text-white active:scale-[0.99] disabled:opacity-60">
+                {enviando ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
                 {hayInternet ? 'Enviar pedido' : 'Guardar pedido (sin señal)'}
               </button>
-              <button type="button" className="pedido-vaciar" onClick={onVaciar}>
-                <Trash2 size={14} /> Vaciar
+              <button type="button" onClick={onVaciar}
+                className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-bold text-neutro-400 hover:bg-neutro-100 hover:text-peligro-600">
+                <Trash2 size={13} /> Vaciar
               </button>
             </>
           )}
 
           {cola.length > 0 && (
-            <div className="cola-seccion">
-              <div className="cola-encabezado">
-                <h3>Pedidos enviados</h3>
-                {!hayInternet && (
-                  <span className="cola-sin-senal"><WifiOff size={13} /> sin señal</span>
-                )}
-                {hayInternet && cola.some(p => p.estado === 'en_dispositivo') && (
-                  <button type="button" onClick={onSincronizar} className="cola-reintentar">
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutro-400">
+                  Pedidos enviados
+                </h3>
+                {!hayInternet ? (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-alerta-700">
+                    <WifiOff size={12} /> sin señal
+                  </span>
+                ) : cola.some((p) => p.estado === 'en_dispositivo') ? (
+                  <button type="button" onClick={onSincronizar}
+                    className="rounded-lg bg-primario-800 px-2.5 py-1 text-[11px] font-bold text-white">
                     Enviar pendientes
                   </button>
-                )}
+                ) : null}
               </div>
 
-              {cola.map((p) => {
-                const e = ESTADOS[p.estado] || ESTADOS.en_dispositivo
-                const Icono = e.Icono
-                return (
-                  <div key={p.clave} className={`cola-item ${e.clase}`}>
-                    <Icono size={16} className={p.estado === 'enviando' ? 'girando' : ''} />
-                    <div className="cola-item-info">
-                      <span className="cola-item-cliente">{p.clienteNombre || 'Cliente'}</span>
-                      <span className="cola-item-detalle">
-                        {p.lineas?.length || 0} producto(s) · {colones(p.totalReferencia)}
-                        {p.pedidoId ? ` · pedido #${p.pedidoId}` : ''}
-                      </span>
-                      {p.detalle && <span className="cola-item-nota">{p.detalle}</span>}
+              <div className="space-y-1.5">
+                {cola.map((p) => {
+                  const e = ESTADOS[p.estado] || ESTADOS.en_dispositivo
+                  const Icono = e.Icono
+                  return (
+                    <div key={p.clave}
+                      className={`flex items-start gap-2.5 rounded-xl px-3 py-2.5 ring-1 ${e.fondo} ${e.anillo}`}>
+                      <Icono size={15} className={`mt-0.5 shrink-0 ${e.texto_} ${p.estado === 'enviando' ? 'animate-spin' : ''}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-bold text-neutro-900">
+                          {p.clienteNombre || 'Cliente'}
+                        </p>
+                        <p className="text-[11px] text-neutro-500">
+                          {p.lineas?.length || 0} producto(s) · {colones(p.totalReferencia)}
+                          {p.pedidoId ? ` · #${p.pedidoId}` : ''}
+                        </p>
+                        {p.detalle && <p className="mt-0.5 text-[11px] text-neutro-400">{p.detalle}</p>}
+                      </div>
+                      <span className={`shrink-0 text-[11px] font-bold ${e.texto_}`}>{e.texto}</span>
+                      {p.estado === 'confirmado' && (
+                        <button type="button" aria-label="Quitar de la lista"
+                          onClick={() => onArchivar(p.clave)}
+                          className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutro-300 hover:text-neutro-600">
+                          <X size={13} />
+                        </button>
+                      )}
                     </div>
-                    <span className="cola-item-estado">{e.texto}</span>
-                    {p.estado === 'confirmado' && (
-                      <button type="button" aria-label="Quitar de la lista"
-                        onClick={() => onArchivar(p.clave)}><X size={14} /></button>
-                    )}
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
