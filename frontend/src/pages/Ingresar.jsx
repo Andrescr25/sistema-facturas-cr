@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { Lock, User, Loader2, AlertCircle } from 'lucide-react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Lock, User, Loader2, AlertCircle, Tablet, ShoppingBag } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import AccesoLayout from '../components/acceso/AccesoLayout'
 
@@ -89,9 +89,34 @@ export default function Ingresar() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-xs text-neutro-400">
-        El catálogo de clientes no necesita ingresar.
-      </p>
+      {/* Los dos catálogos no piden cuenta, y el del agente es el motivo de
+          que este bloque exista: la tablet se usa en zonas sin cobertura, y
+          antes el agente llegaba acá, no podía pasar el login por falta de
+          red, y se quedaba afuera de un catálogo que ya tenía descargado. El
+          acceso tiene que estar a la vista, no sabido de memoria. */}
+      <div className="mt-6 border-t border-neutro-100 pt-5">
+        <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-wider text-neutro-400">
+          Sin cuenta
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            to="/catalogo-agente"
+            className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-neutro-200 px-3 py-3 text-center transition-colors hover:border-naranja-400 hover:bg-naranja-50"
+          >
+            <Tablet size={18} className="text-naranja-500" />
+            <span className="text-xs font-bold text-neutro-800">Catálogo del agente</span>
+            <span className="text-[10px] leading-tight text-neutro-400">Para las tablets en ruta</span>
+          </Link>
+          <Link
+            to="/catalogo"
+            className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-neutro-200 px-3 py-3 text-center transition-colors hover:border-neutro-300 hover:bg-neutro-50"
+          >
+            <ShoppingBag size={18} className="text-neutro-400" />
+            <span className="text-xs font-bold text-neutro-800">Catálogo de clientes</span>
+            <span className="text-[10px] leading-tight text-neutro-400">El que se manda por WhatsApp</span>
+          </Link>
+        </div>
+      </div>
     </AccesoLayout>
   )
 }

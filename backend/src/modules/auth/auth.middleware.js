@@ -33,6 +33,41 @@ const PUBLICAS = [
   '/cotizacion-publica'
 ];
 
+/**
+ * Rutas públicas que se comparan EXACTAS, sin abrir lo que cuelga de ellas.
+ *
+ * POR QUÉ HACE FALTA ESTA SEGUNDA LISTA
+ * La de arriba abre una ruta y todo lo que tenga debajo, que es lo correcto
+ * para un módulo entero. Acá se abre ruta por ruta, y la diferencia no es
+ * cosmética: con la regla de prefijo, poner '/catalogo-agente/historial-clientes'
+ * abriría también '/catalogo-agente/historial-clientes/sync', que es una
+ * sincronización pesada contra Alegra y no tiene por qué quedar al alcance de
+ * cualquiera.
+ *
+ * QUÉ SE ABRIÓ ACÁ Y POR QUÉ (decisión del usuario, 2026-09-04)
+ * Los agentes trabajan en zonas sin cobertura. La sesión dura 12 horas, así
+ * que el que abría la tablet al día siguiente se encontraba con el login y sin
+ * red para pasarlo — con el catálogo YA descargado en el dispositivo.
+ *
+ * Se abren solo las seis rutas que esa pantalla usa. Queda fuera lo que es
+ * administrativo: GET /dispositivos (el monitor de tablets del personal) y
+ * POST /historial-clientes/sync.
+ *
+ * LO QUE ESTO EXPONE, DICHO CLARO: quien tenga la dirección puede ver el
+ * catálogo con precios, el historial de compras de cada cliente y crear
+ * pedidos a nombre de cualquiera de ellos. No hay datos de pago ni facturas.
+ * Es una concesión consciente a cambio de que el agente pueda trabajar.
+ */
+const PUBLICAS_EXACTAS = [
+  '/catalogo-agente/productos',
+  '/catalogo-agente/categorias',
+  '/catalogo-agente/ofertas',
+  '/catalogo-agente/ofertas-baja',
+  '/catalogo-agente/historial-clientes',
+  '/catalogo-agente/pedidos',
+  '/catalogo-agente/dispositivos/estado'
+];
+
 // OJO: '/portal' sale de requireAuth pero NO queda abierto — adentro lo
 // protege requireCliente, que valida contra JWT_SECRET_CLIENTES. Un token
 // del personal tampoco sirve ahí, y uno de cliente no sirve acá: los dos
@@ -43,6 +78,7 @@ const PUBLICAS = [
 // de la casa. Pide sesión como cualquier otra pantalla del sistema.
 
 function esPublica(ruta) {
+  if (PUBLICAS_EXACTAS.includes(ruta)) return true;
   return PUBLICAS.some(publica => ruta === publica || ruta.startsWith(`${publica}/`));
 }
 
@@ -71,4 +107,4 @@ function requireAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, PUBLICAS };
+module.exports = { requireAuth, PUBLICAS, PUBLICAS_EXACTAS };

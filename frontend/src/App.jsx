@@ -66,12 +66,21 @@ function App() {
     <Routes>
       {/* Catálogo del agente de venta (tablet, modo kiosco, sincroniza para
           funcionar sin señal en la calle): fuera de Layout a propósito, sin
-          barra lateral ni acceso visible al resto del sistema interno, pero
-          SÍ con sesión — muestra el historial de compras de cada cliente. */}
-      <Route
-        path="/catalogo-agente"
-        element={<RequiereSesion><RequierePermiso><CatalogoAgente /></RequierePermiso></RequiereSesion>}
-      />
+          barra lateral ni acceso visible al resto del sistema interno.
+
+          SIN SESIÓN, y es una decisión tomada a sabiendas (2026-09-04).
+          Los agentes trabajan en zonas sin cobertura y la sesión dura 12
+          horas: el que abría la tablet al día siguiente se encontraba el
+          login y sin red para pasarlo, con el catálogo YA descargado en el
+          dispositivo. Pedirle sesión a una pantalla hecha para funcionar sin
+          señal era la contradicción de fondo.
+
+          Lo que esto expone: quien tenga la dirección ve el catálogo con
+          precios, el historial de compras de cada cliente y puede crear
+          pedidos a nombre de ellos. En el backend se abrieron solo las seis
+          rutas que esta pantalla usa — ver PUBLICAS_EXACTAS en
+          auth.middleware.js. */}
+      <Route path="/catalogo-agente" element={<CatalogoAgente />} />
 
       {/* Catálogo que se le manda al cliente. Público y sin
           sincronización: lee del catálogo ya guardado en el servidor. */}
