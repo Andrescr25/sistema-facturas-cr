@@ -117,7 +117,10 @@ export default function CatalogoClientes() {
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-300" />
             <input
-              type="search"
+              /* type="text": Chrome le pone su propia X a los campos
+                 "search" y quedaban dos equis juntas. */
+              type="text"
+              inputMode="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar producto..."

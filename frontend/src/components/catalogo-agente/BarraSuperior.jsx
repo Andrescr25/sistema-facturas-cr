@@ -31,7 +31,11 @@ export default function BarraSuperior({
         <div className="relative min-w-0 flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutro-300" />
           <input
-            type="search"
+            /* type="text", no "search": Chrome le agrega su propia X a los
+               campos de búsqueda y quedaban dos, una al lado de la otra.
+               inputMode deja el teclado del celular igual que antes. */
+            type="text"
+            inputMode="search"
             value={busqueda}
             onChange={(e) => onBuscar(e.target.value)}
             placeholder="Buscar por nombre o referencia…"
@@ -46,11 +50,14 @@ export default function BarraSuperior({
           )}
         </div>
 
-        {/* El cliente activo, con su nombre visible mientras quepa. */}
+        {/* El cliente activo. El nombre se muestra SIEMPRE: antes se ocultaba
+            en pantallas angostas y en la tablet quedaban solo el icono y la
+            equis, así que no había forma de saber a quién se le estaba
+            vendiendo. Si no cabe se corta, pero se ve. */}
         {clienteActivo ? (
           <div className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-exito-50 pl-2.5 pr-1 ring-1 ring-exito-200">
             <UserCheck size={15} className="shrink-0 text-exito-600" />
-            <span className="hidden max-w-[9rem] truncate text-xs font-bold text-exito-800 md:block">
+            <span className="max-w-[6rem] truncate text-xs font-bold text-exito-800 sm:max-w-[10rem] sm:text-sm">
               {clienteActivo.n || 'Cliente'}
             </span>
             <button type="button" onClick={onSalirDeCliente} aria-label="Dejar de atender a este cliente"

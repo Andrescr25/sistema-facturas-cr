@@ -41,7 +41,10 @@ export default function PanelEditarFacturas({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutro-400" size={20} />
             <input
-              type="search"
+              /* type="text": Chrome le pone su propia X a los campos
+                 "search" y quedaban dos equis juntas. */
+              type="text"
+              inputMode="search"
               value={busquedaFactura}
               onChange={(e) => onBusquedaFacturaChange(e.target.value)}
               placeholder="Buscar por número de factura o cliente..."

@@ -27,14 +27,27 @@ import { colones } from '../utils/colones'
  * debajo una fila de categorías que también queda fija — el problema de
  * navegación aparece justamente cuando uno ya bajó.
  *
- * Se pensó para 1024×768 (tablet de 9"), que es donde se usa, y baja a dos
- * columnas en teléfono sin cambiar de estructura.
+ * Se pensó para la tablet de 9", que es donde se usa. Ojo con el ancho: la
+ * tablet reporta entre 640 y 767px, no 1024 — probarlo solo en 1024 esconde
+ * lo que de verdad ve el agente.
  */
 
-/** Una cuadrícula de productos. Las columnas siguen el ancho, no el aparato. */
+/**
+ * Una cuadrícula de productos. Las columnas siguen el ancho, no el aparato.
+ *
+ * DOS POR FILA, NO SEIS
+ * El primer intento llenaba la tablet con doce productos a la vez y nadie los
+ * miraba: el cliente que ve la pantalla desde el otro lado del mostrador se
+ * queda con el conjunto, no con ninguno. Con dos por fila la foto se ve de
+ * verdad y entran tres filas de alto, que es lo que una persona alcanza a
+ * recorrer sin perderse.
+ *
+ * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
+ * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
+ */
 function Cuadricula({ productos, statsPorProducto, porId, onCambiar }) {
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
       {productos.map((p) => (
         <TarjetaProductoAgente
           key={p.id}
