@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { ArrowLeft, Users } from 'lucide-react'
-import FacturaDeudaCard from './FacturaDeudaCard'
+import { Users } from 'lucide-react'
+import DetalleContraparte from '../pagos/DetalleContraparte'
+import TablaFacturas from '../pagos/TablaFacturas'
 import ModalAbono from './ModalAbono'
 import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
 import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import api from '../../services/api'
-import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
+import { formatCurrency } from '../../utils/pagos'
 
 /**
- * Detalle de un cliente: header con total adeudado + lista de sus facturas
- * con saldo. De reporte-clientes/ClienteDetalle.jsx.
+ * Un cliente y sus facturas con saldo.
+ *
+ * La cabecera y la tabla son las compartidas con Pagos a Proveedores (ver
+ * components/pagos/): lo único propio de acá es cobrar —el modal de abono— y
+ * los dos envíos por WhatsApp.
  */
 export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, registrandoAbono, onRegistrarAbono }) {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
@@ -25,46 +29,50 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, regi
     setRecordatorio(data.data)
   }
 
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={onVolver} className="flex items-center text-neutro-500 hover:text-primario-600 transition-colors">
-          <ArrowLeft className="mr-2" size={20} /> Volver a clientes
-        </button>
-      </div>
+  // La tabla compartida habla de {id, numero, saldo...}; acá se traduce la
+  // factura como la manda el servidor de cobrar. Se guarda el original para
+  // que el modal de abono siga recibiendo lo que espera.
+  const filas = cliente.facturas.map((f) => ({
+    id: f.alegraInvoiceId,
+    numero: f.numeroFactura,
+    fechaVencimiento: f.fechaVencimiento,
+    diasRestantes: f.diasRestantes,
+    estado: f.estado,
+    saldo: f.saldo,
+    original: f
+  }))
 
-      <div className="bg-white rounded-xl shadow-sm border border-neutro-100 p-6 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="p-4 rounded-xl bg-primario-100">
-            <Users className="text-primario-600" size={32} />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutro-900">{cliente.clienteNombre}</h1>
-          </div>
-        </div>
+  return (
+    <DetalleContraparte
+      nombre={cliente.clienteNombre}
+      icono={Users}
+      cantidadFacturas={cliente.facturas.length}
+      totalSaldo={cliente.totalSaldo}
+      textoVolver="Volver a clientes"
+      onVolver={onVolver}
+      acciones={
         <button
           type="button"
           onClick={abrirRecordatorio}
-          className="self-start md:self-auto bg-exito-600 hover:bg-exito-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors"
+          className="self-start md:self-auto bg-exito-600 hover:bg-exito-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors whitespace-nowrap"
         >
           Recordar saldo por WhatsApp
         </button>
-        <div className="flex bg-neutro-50 p-4 rounded-xl divide-x divide-neutro-200">
-          <div className="px-5 text-center">
-            <p className="text-sm text-neutro-500 font-medium">Facturas</p>
-            <p className="text-2xl font-bold text-neutro-900">{cliente.facturas.length}</p>
-          </div>
-          <div className="px-5 text-center">
-            <p className="text-sm text-neutro-500 font-medium">Saldo total</p>
-            <p className="text-2xl font-bold text-primario-600">{formatCurrency(cliente.totalSaldo)}</p>
-          </div>
-        </div>
-      </div>
-
-      <FacturaDeudaCard
-        facturas={cliente.facturas}
-        onSeleccionarFactura={setFacturaSeleccionada}
-        onEnviarWhatsApp={setFacturaAEnviar}
+      }
+    >
+      <TablaFacturas
+        facturas={filas}
+        onSeleccionar={(f) => setFacturaSeleccionada(f.original)}
+        vacio="Este cliente no tiene facturas con saldo."
+        accion={(f) => (
+          <button
+            type="button"
+            onClick={() => setFacturaAEnviar(f.original)}
+            className="text-xs font-bold text-exito-700 hover:text-exito-800 border-2 border-neutro-200 hover:border-exito-400 rounded-lg px-2.5 py-1 transition-colors"
+          >
+            WhatsApp
+          </button>
+        )}
       />
 
       {recordatorio && (
@@ -112,6 +120,6 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, regi
           onCerrar={() => setFacturaSeleccionada(null)}
         />
       )}
-    </div>
+    </DetalleContraparte>
   )
 }

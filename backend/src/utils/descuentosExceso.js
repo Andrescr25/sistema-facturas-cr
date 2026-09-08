@@ -8,8 +8,15 @@
  * lado, el cliente podría ver una oferta que al pedirla se cobra completa.
  *
  * Vigente = el empacador confirmó el producto listo en caja (empacado) en su
- * tanda de exceso más reciente, esa cantidad física es mayor a 0, y no llegó
- * al 100% (no está regalado).
+ * tanda de exceso más reciente, esa cantidad física es mayor a 0, el
+ * descuento sigue siendo mayor que 0, y no llegó al 100% (no está regalado).
+ *
+ * EL DESCUENTO EN 0 ES LA SALIDA DE LA LIQUIDACIÓN. El stock que se compara
+ * acá es el que el empacador contó ese día, y esa foto envejece: un producto
+ * que se agotó después seguía saliendo en oferta. Quien lo saca es
+ * depurarOfertasSinStock (inventario-auditorias.service.js), que compara
+ * contra el stock en vivo de Alegra y pone el descuento en 0. Acá se respeta
+ * esa decisión.
  */
 
 const { query } = require('../../config/database');
@@ -27,7 +34,7 @@ const SQL_VIGENTES = `
   SELECT pde.alegra_item_id, pde.nombre_producto, pde.descuento_porcentaje
   FROM producto_descuento_exceso pde
   JOIN ultimo_empaque ue ON ue.alegra_id = pde.alegra_item_id
-  WHERE pde.regalado = FALSE AND ue.stock_efectivo > 0
+  WHERE pde.regalado = FALSE AND ue.stock_efectivo > 0 AND pde.descuento_porcentaje > 0
   ORDER BY pde.descuento_porcentaje DESC;
 `;
 

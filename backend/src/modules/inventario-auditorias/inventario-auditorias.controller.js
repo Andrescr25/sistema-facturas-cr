@@ -256,12 +256,15 @@ async function eliminarItemDevolucion(req, res) {
 }
 
 /**
- * POST /inventario-auditorias/generar-excesos (disparo manual — el cron
- * automático corre los domingos, esto es para probar/forzar una corrida ya)
+ * POST /inventario-auditorias/generar-excesos
+ *
+ * La ÚNICA forma de que nazca una tanda de excesos. El cron dejó de crearlas
+ * solo: revisa, escala descuentos y depura la liquidación, pero la tanda de
+ * empaque la pide una persona cuando se va a poner a empacar.
  */
 async function generarExcesos(req, res) {
   try {
-    const result = await inventarioAuditoriasService.generarExcesosSemanales();
+    const result = await inventarioAuditoriasService.generarTandaDeExcesos();
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('Error generando excesos:', error);

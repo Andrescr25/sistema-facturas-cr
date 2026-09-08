@@ -7,6 +7,7 @@
 const cron = require('node-cron');
 const { query } = require('../../../config/database');
 const { getInventoryService, getClient } = require('../../integrations/alegra');
+const { listarVigentes } = require('../../utils/descuentosExceso');
 
 const inventoryService = getInventoryService();
 const client = getClient();
@@ -994,18 +995,100 @@ async function escalarDescuentosExceso(candidatos) {
 }
 
 /**
- * Detecta productos "exceso" (con stock y sin venta en VENTANA_DIAS_SIN_VENTA
- * días) y crea automáticamente un registro "Excesos N" con ellos — mismo
- * mecanismo de nombre autoincremental que las devoluciones ("Ajuste N").
- * Un exceso ahora es una "factura de empaque" en progreso (ver
- * actualizarItemExceso): los empleados revisan producto por producto y, si
- * la cantidad física real difiere de la que muestra Alegra, la corrigen ahí
- * mismo. Además, por cada producto detectado (sin el tope semanal) se le
- * sube el descuento acumulado — ver escalarDescuentosExceso.
+ * Saca de liquidación los productos que ya se agotaron.
+ *
+ * EL PROBLEMA QUE ARREGLA
+ * Que un producto esté en oferta se decidía contra el stock CONGELADO en el
+ * ítem de la tanda —la cantidad que el empacador contó el día que lo empacó—
+ * y esa foto envejece. En la revisión del 2026-09-08 había 37 ofertas vivas
+ * con stock congelado del 23 de julio y del 16 de agosto; ALAMBRINA GDE
+ * METAL figuraba con 17 unidades y en Alegra ya estaba en cero. El catálogo
+ * lo mostraba con -25% y "AGOTADO" al mismo tiempo: se le ofrecía al cliente
+ * algo que no había.
+ *
+ * Al llegar a cero el descuento vuelve a 0 y el producto sale del catálogo.
+ * No se borra la fila: si el producto se vuelve a surtir y vuelve a quedarse
+ * quieto, la detección lo agarra otra vez y el descuento arranca de nuevo
+ * desde abajo, que es lo correcto — se agotó, o sea que a ese precio sí
+ * salía.
+ *
+ * @param {Array} [itemsAlegra] catálogo en vivo, si quien llama ya lo tiene.
+ *        Sin él se pregunta producto por producto, que para las pocas
+ *        ofertas vigentes sale más barato que paginar las 2.000 fichas.
  */
-async function generarExcesosSemanales() {
-  await sincronizarVentasRecientes();
+async function depurarOfertasSinStock(itemsAlegra = null) {
+  const vigentes = await listarVigentes();
+  if (vigentes.length === 0) return { revisados: 0, sacados: [] };
 
+  const stockDe = new Map();
+  if (Array.isArray(itemsAlegra)) {
+    for (const item of itemsAlegra) {
+      stockDe.set(String(item.id), parseFloat(item.inventory?.availableQuantity) || 0);
+    }
+  } else {
+    for (const oferta of vigentes) {
+      const r = await client.get(`/items/${oferta.id}`);
+      // Si Alegra no contesta por ese producto se lo deja como está: sacarlo
+      // de la oferta por un fallo de red sería peor que dejarlo un día más.
+      if (!r.success) {
+        console.warn(`⚠️ No se pudo leer el stock de ${oferta.id} (${oferta.nombre}), se deja como está`);
+        continue;
+      }
+      stockDe.set(String(oferta.id), parseFloat(r.data?.inventory?.availableQuantity) || 0);
+    }
+  }
+
+  const sinStock = vigentes.filter(o => stockDe.has(o.id) && stockDe.get(o.id) <= 0);
+  if (sinStock.length === 0) {
+    console.log(`✅ Liquidación al día: las ${vigentes.length} ofertas vigentes tienen stock.`);
+    return { revisados: vigentes.length, sacados: [] };
+  }
+
+  await query(`
+    UPDATE producto_descuento_exceso
+    SET descuento_porcentaje = 0, ultima_actualizacion = CURRENT_TIMESTAMP
+    WHERE alegra_item_id = ANY($1::varchar[]);
+  `, [sinStock.map(o => o.id)]);
+
+  for (const o of sinStock) {
+    console.log(`📤 "${o.nombre}" se agotó — sale de liquidación (tenía ${o.descuentoPorcentaje}%)`);
+  }
+
+  return {
+    revisados: vigentes.length,
+    sacados: sinStock.map(o => ({ id: o.id, nombre: o.nombre, descuentoAnterior: o.descuentoPorcentaje }))
+  };
+}
+
+/**
+ * Lo que sí sigue corriendo solo cada semana: sincronizar ventas, escalar
+ * los descuentos de lo que sigue sin venderse, y sacar de liquidación lo que
+ * ya se agotó. No crea ninguna tanda — eso lo hace una persona con
+ * "Generar Ahora" (ver generarTandaDeExcesos).
+ */
+async function revisionSemanalDeExcesos() {
+  await sincronizarVentasRecientes();
+  const { candidatos, itemsAlegra } = await detectarCandidatosExceso();
+  const regalosNuevos = await escalarDescuentosExceso(candidatos);
+  const depurados = await depurarOfertasSinStock(itemsAlegra);
+  console.log(`✅ Revisión semanal: ${candidatos.length} en exceso, ${regalosNuevos.length} regalías nuevas, ${depurados.sacados.length} sacados de liquidación por falta de stock.`);
+  return { detectados: candidatos.length, regalosNuevos, depurados };
+}
+
+/**
+ * Los productos que hoy califican como exceso: tienen stock y no se venden
+ * hace VENTANA_DIAS_SIN_VENTA días. Devuelve TODOS los candidatos, ordenados
+ * por plata inmovilizada (stock x costo) de mayor a menor.
+ *
+ * Está separado de la creación de la tanda a propósito: la detección corre
+ * sola todas las semanas —para escalar descuentos y para saber qué hay— pero
+ * la tanda de empaque la crea una persona cuando decide ponerse a empacar.
+ *
+ * Devuelve también `itemsAlegra` porque traerlo cuesta cerca de un minuto y
+ * quien llama casi siempre lo necesita después (para depurar las ofertas sin
+ * stock, sin pagar el fetch dos veces).
+ */
+async function detectarCandidatosExceso() {
   console.log('🔍 Detectando productos en exceso...');
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() - VENTANA_DIAS_SIN_VENTA);
@@ -1058,18 +1141,41 @@ async function generarExcesosSemanales() {
     // Los que más plata tienen inmovilizada primero.
     .sort((a, b) => (b.stock * b.cost) - (a.stock * a.cost));
 
+  console.log(`📊 ${candidatos.length} productos en exceso detectados (de ${allAlegraItems.length} inventariables)`);
+  return { candidatos, itemsAlegra: allAlegraItems };
+}
+
+/**
+ * Crea la tanda de empaque "Excesos N" con los candidatos de mayor valor
+ * inmovilizado.
+ *
+ * LA CREA UNA PERSONA, NO EL RELOJ. Antes la armaba el cron todos los
+ * domingos y aparecían tandas que nadie había pedido: se acumulaban sin
+ * empacar y el historial dejaba de decir nada. Ahora sale del botón
+ * "Generar Ahora", cuando alguien decide que se va a empacar.
+ *
+ * La revisión semanal (revisionSemanalDeExcesos) sigue corriendo sola: los
+ * descuentos escalan igual y las ofertas sin stock se depuran igual. Lo
+ * único que espera a una persona es esta tanda.
+ */
+async function generarTandaDeExcesos() {
+  await sincronizarVentasRecientes();
+
+  const { candidatos, itemsAlegra } = await detectarCandidatosExceso();
   const totalDetectados = candidatos.length;
   const seleccionados = candidatos.slice(0, MAX_EXCESOS_POR_SEMANA);
 
-  console.log(`📊 ${totalDetectados} productos en exceso detectados (de ${allAlegraItems.length} inventariables), se toman los ${seleccionados.length} de mayor valor inmovilizado`);
-
   // El descuento sube para TODOS los detectados, no solo los seleccionados
-  // para empacar esta semana — es un problema de venta, no de capacidad de
-  // los empleados para revisarlos físicamente.
+  // para empacar — es un problema de venta, no de capacidad de los empleados
+  // para revisarlos físicamente.
   const regalosNuevos = await escalarDescuentosExceso(candidatos);
 
+  // Se aprovecha el catálogo en vivo que ya se trajo: sale gratis y evita
+  // que la tanda nueva conviva con ofertas de productos ya agotados.
+  const depurados = await depurarOfertasSinStock(itemsAlegra);
+
   if (seleccionados.length === 0) {
-    return { creado: false, message: 'No se detectaron productos en exceso esta semana.', regalosNuevos };
+    return { creado: false, message: 'No se detectaron productos en exceso.', regalosNuevos, depurados };
   }
 
   const nombre = await siguienteNombreAutoincremental('exceso', 'Excesos');
@@ -1106,7 +1212,7 @@ async function generarExcesosSemanales() {
   }
 
   console.log(`✅ "${nombre}" creado con ${seleccionados.length} productos (de ${totalDetectados} detectados en total).`);
-  return { creado: true, id: registro.id, nombre, total: seleccionados.length, totalDetectados, regalosNuevos };
+  return { creado: true, id: registro.id, nombre, total: seleccionados.length, totalDetectados, regalosNuevos, depurados };
 }
 
 /**
@@ -1157,6 +1263,10 @@ async function actualizarItemExceso(auditoriaId, itemId, { empacado, stockReal }
 /**
  * Cron semanal: Domingos 22:00 (America/Costa_Rica), una hora antes de la
  * limpieza semanal de faltantes, para no correr ambos al mismo tiempo.
+ *
+ * Semanal y no diario porque el descuento sube DESCUENTO_INCREMENTO por
+ * corrida: a diario un producto pasaría de 10% a 100% —o sea, a regalía— en
+ * diez días.
  */
 // --- Control manual de excesos ---
 //
@@ -1470,18 +1580,32 @@ async function eliminarDescuentoExceso(alegraItemId) {
   return { eliminado: true, nombre: result.rows[0].nombre_producto };
 }
 
-function iniciarDeteccionSemanalExcesos() {
-  const task = cron.schedule('0 22 * * 0', () => {
-    console.log('⏰ [CRON] Disparando detección semanal de excesos de inventario (Domingo 22:00)...');
-    generarExcesosSemanales().catch(err => {
-      console.error('❌ [CRON] Error generando excesos semanales:', err.message);
+function iniciarRevisionSemanalExcesos() {
+  const semanal = cron.schedule('0 22 * * 0', () => {
+    console.log('⏰ [CRON] Revisión semanal de excesos (Domingo 22:00)...');
+    revisionSemanalDeExcesos().catch(err => {
+      console.error('❌ [CRON] Error en la revisión semanal de excesos:', err.message);
     });
   }, {
     timezone: 'America/Costa_Rica'
   });
 
-  console.log('⏰ Detección de excesos programada: Domingos a las 22:00 (America/Costa_Rica)');
-  return task;
+  // La depuración va aparte y todos los días: un producto en liquidación se
+  // puede agotar un martes, y esperar al domingo significa cinco días
+  // ofreciéndole al cliente algo que no hay. Es barata —una consulta por
+  // oferta vigente, hoy 37— y no toca los descuentos de nadie más.
+  const diaria = cron.schedule('0 5 * * *', () => {
+    console.log('⏰ [CRON] Depurando ofertas sin stock (05:00)...');
+    depurarOfertasSinStock().catch(err => {
+      console.error('❌ [CRON] Error depurando ofertas sin stock:', err.message);
+    });
+  }, {
+    timezone: 'America/Costa_Rica'
+  });
+
+  console.log('⏰ Revisión de excesos: Domingos 22:00 — depuración de liquidación: todos los días 05:00 (America/Costa_Rica)');
+  console.log('   Las tandas de empaque ya NO se crean solas: se crean desde "Generar Ahora".');
+  return { semanal, diaria };
 }
 
 /**
@@ -1509,8 +1633,11 @@ module.exports = {
   agregarItemDevolucion,
   eliminarItemDevolucion,
   sincronizarVentasRecientes,
-  generarExcesosSemanales,
-  iniciarDeteccionSemanalExcesos,
+  detectarCandidatosExceso,
+  generarTandaDeExcesos,
+  revisionSemanalDeExcesos,
+  depurarOfertasSinStock,
+  iniciarRevisionSemanalExcesos,
   actualizarItemExceso,
   listarRegalos,
   // Control manual de excesos

@@ -1,32 +1,36 @@
 import { useState } from 'react'
+import { AlertTriangle, ClipboardList, Clock, Users, Wallet } from 'lucide-react'
 import { useCuentasPorCobrar } from '../hooks/useCuentasPorCobrar'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
-import ResumenCards from '../components/cuentas-por-cobrar/ResumenCards'
-import FiltrosCuentas from '../components/cuentas-por-cobrar/FiltrosCuentas'
-import ListaClientes from '../components/cuentas-por-cobrar/ListaClientes'
+import TarjetasResumen from '../components/pagos/TarjetasResumen'
+import FiltrosPagos, { VENCIMIENTOS } from '../components/pagos/FiltrosPagos'
+import ListaContrapartes from '../components/pagos/ListaContrapartes'
+import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ClienteDetalle from '../components/cuentas-por-cobrar/ClienteDetalle'
-import SkeletonClienteCard from '../components/cuentas-por-cobrar/SkeletonClienteCard'
 import CuadreCajaDia from '../components/cuentas-por-cobrar/CuadreCajaDia'
-import { ClipboardList, Wallet } from 'lucide-react'
+import { formatCurrency } from '../utils/pagos'
+
+/**
+ * Clientes que deben. La pantalla hermana de Pagos a Proveedores: las dos
+ * están armadas con los mismos componentes de components/pagos/, así que lo
+ * que se arregle o mejore en una aparece en la otra.
+ */
+
+const ESTADOS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'PENDIENTE', label: 'Pendientes' },
+  { value: 'VENCIDA', label: 'Vencidas' },
+  { value: 'PARCIAL', label: 'Con abono' }
+]
 
 export default function CuentasPorCobrar() {
   const {
-    clientes,
-    resumen,
-    loading,
-    error,
-    filters,
-    setFilters,
-    resetFilters,
-    sincronizando,
-    handleSincronizar,
-    handleCargarAbonos,
-    registrandoAbono,
-    handleRegistrarAbono,
-    dialogProps,
-    toasts,
-    removeToast
+    clientes, resumen, loading, error,
+    filters, setFilters, resetFilters,
+    sincronizando, handleSincronizar,
+    handleCargarAbonos, registrandoAbono, handleRegistrarAbono,
+    dialogProps, toasts, removeToast
   } = useCuentasPorCobrar()
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente (estado local, mismo
@@ -34,13 +38,45 @@ export default function CuentasPorCobrar() {
   const [clienteActivoId, setClienteActivoId] = useState(null)
   const clienteActivo = clientes.find((c) => c.clienteId === clienteActivoId)
 
-  // TABS: Pendientes (existente) | Cobros del día (nuevo)
   const [tab, setTab] = useState('pendientes')
-
   const tabs = [
     { key: 'pendientes', label: 'Pendientes', icon: ClipboardList },
     { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet }
   ]
+
+  const tarjetas = resumen ? [
+    {
+      clave: 'total', titulo: 'Total por cobrar', icono: Wallet, tono: 'neutro',
+      valor: formatCurrency(resumen.totalPorCobrar),
+      pie: `${resumen.totalFacturas} factura${resumen.totalFacturas !== 1 ? 's' : ''} abierta${resumen.totalFacturas !== 1 ? 's' : ''}`
+    },
+    {
+      clave: 'vencido', titulo: 'Vencido', icono: AlertTriangle, tono: 'peligro',
+      valor: formatCurrency(resumen.totalVencido), filtro: { estado: 'VENCIDA' }
+    },
+    {
+      clave: 'proximos', titulo: 'Próximos 7 días', icono: Clock, tono: 'alerta',
+      valor: formatCurrency(resumen.proximasAVencer?.monto || 0),
+      filtro: { dias: 'vence7' }
+    },
+    {
+      clave: 'clientes', titulo: 'Clientes con saldo', icono: Users, tono: 'exito',
+      valor: resumen.totalClientes
+    }
+  ] : []
+
+  // El servidor ya manda los clientes agrupados; solo se marca cuáles tienen
+  // alguna factura vencida, que es lo que pinta la tarjeta de rojo.
+  const grupos = clientes.map((c) => ({
+    id: c.clienteId,
+    nombre: c.clienteNombre,
+    facturas: c.facturas,
+    totalSaldo: c.totalSaldo,
+    urgente: c.facturas.some((f) => f.estado === 'VENCIDA')
+  }))
+
+  const hayFiltrosActivos =
+    filters.estado !== 'todos' || filters.dias !== 'todos' || Boolean(filters.search)
 
   return (
     <div className="max-w-6xl mx-auto pb-24 space-y-6">
@@ -54,9 +90,8 @@ export default function CuentasPorCobrar() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
-        {tabs.map(t => {
+        {tabs.map((t) => {
           const Icon = t.icon
           const activa = tab === t.key
           return (
@@ -74,18 +109,21 @@ export default function CuentasPorCobrar() {
         })}
       </div>
 
-      {/* Tab: Pendientes (contenido original) */}
       {tab === 'pendientes' && (
         <>
           {!clienteActivo && (
             <>
-              <ResumenCards resumen={resumen} filters={filters} setFilters={setFilters} />
-              <FiltrosCuentas
-                filters={filters}
-                setFilters={setFilters}
+              <TarjetasResumen tarjetas={tarjetas} filtros={filters} setFiltros={setFilters} />
+              <FiltrosPagos
+                estados={ESTADOS}
+                vencimientos={VENCIMIENTOS}
+                filtros={filters}
+                setFiltros={setFilters}
+                placeholderBusqueda="Buscar cliente o factura..."
+                hayFiltrosActivos={hayFiltrosActivos}
                 onLimpiar={resetFilters}
-                onSincronizar={handleSincronizar}
-                sincronizando={sincronizando}
+                onActualizar={handleSincronizar}
+                actualizando={sincronizando}
               />
             </>
           )}
@@ -98,12 +136,18 @@ export default function CuentasPorCobrar() {
 
           {loading && clientes.length === 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              <SkeletonClienteCard />
-              <SkeletonClienteCard />
-              <SkeletonClienteCard />
+              <SkeletonContraparte />
+              <SkeletonContraparte />
+              <SkeletonContraparte />
             </div>
           ) : !clienteActivo ? (
-            <ListaClientes clientes={clientes} onSelectCliente={setClienteActivoId} />
+            <ListaContrapartes
+              grupos={grupos}
+              icono={Users}
+              onSeleccionar={setClienteActivoId}
+              vacioTitulo="No hay clientes con saldo pendiente"
+              vacioDetalle="Cuando haya facturas de venta con saldo, aparecerán acá."
+            />
           ) : (
             <ClienteDetalle
               cliente={clienteActivo}
@@ -116,11 +160,7 @@ export default function CuentasPorCobrar() {
         </>
       )}
 
-      {/* Tab: Cobros del día (nuevo) */}
-      {tab === 'cobros-dia' && (
-        <CuadreCajaDia />
-      )}
+      {tab === 'cobros-dia' && <CuadreCajaDia />}
     </div>
   )
 }
-

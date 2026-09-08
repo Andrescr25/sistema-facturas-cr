@@ -11,7 +11,7 @@ require('dotenv').config();
 const EmailService = require('./services/emailService');
 const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
-const { iniciarDeteccionSemanalExcesos } = require('./src/modules/inventario-auditorias/inventario-auditorias.service');
+const { iniciarRevisionSemanalExcesos } = require('./src/modules/inventario-auditorias/inventario-auditorias.service');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 
 const app = express();
@@ -433,11 +433,13 @@ const server = app.listen(PORT, () => {
   // Iniciar limpieza programada (Domingos 23:59)
   iniciarLimpiezaProgramada();
 
-  // Detección semanal automática de excesos de inventario (Domingos 22:00)
+  // Revisión semanal de excesos (Domingos 22:00) + depuración diaria de la
+  // liquidación (05:00). Ninguna de las dos crea tandas de empaque: eso lo
+  // hace una persona desde "Generar Ahora".
   if (process.env.ENABLE_EXCESOS_AUTO !== 'false') {
-    iniciarDeteccionSemanalExcesos();
+    iniciarRevisionSemanalExcesos();
   } else {
-    console.log('\n⚠️ Detección automática de excesos desactivada');
+    console.log('\n⚠️ Revisión automática de excesos desactivada');
     console.log('   Establece ENABLE_EXCESOS_AUTO=true en .env para activarla\n');
   }
 

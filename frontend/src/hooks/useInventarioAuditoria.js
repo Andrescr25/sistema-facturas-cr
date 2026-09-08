@@ -216,10 +216,16 @@ export function useInventarioAuditoria() {
         const sufijoRegalos = regalosNuevos.length > 0
           ? ` 🎁 ${regalosNuevos.length} producto(s) llegaron a 100% de descuento y fueron regalados.`
           : ''
+        // Los que se agotaron salen de liquidación en la misma pasada, y
+        // conviene decirlo: son productos que dejan de verse en el catálogo.
+        const sacados = result.depurados?.sacados?.length || 0
+        const sufijoSacados = sacados > 0
+          ? ` ${sacados} producto(s) se agotaron y salieron de liquidación.`
+          : ''
         showToast(
           (result.creado
             ? `"${result.nombre}" creado con ${result.total} producto(s) (de ${result.totalDetectados} detectados en total).`
-            : (result.message || 'No se detectaron productos en exceso.')) + sufijoRegalos,
+            : (result.message || 'No se detectaron productos en exceso.')) + sufijoRegalos + sufijoSacados,
           'success'
         )
         await loadExcesos()

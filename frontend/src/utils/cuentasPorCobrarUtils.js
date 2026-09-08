@@ -1,11 +1,16 @@
 /**
- * Formateo y helpers puros de Cuentas por Cobrar. Reutiliza formatCurrency/
- * formatDate/diasLabel de pagosProveedoresUtils (mismo formato de moneda y
- * de "vence en N días" que ya usa Pagos Proveedores, el módulo hermano) en
- * vez de duplicarlos.
+ * Lo que solo usa Cuentas por Cobrar.
+ *
+ * Todo lo que comparte con Pagos a Proveedores —moneda, fechas, el texto de
+ * "vence en N días", los colores de cada estado— se mudó a utils/pagos.js
+ * cuando las dos pantallas pasaron a armarse con los mismos componentes.
+ * Acá quedan los métodos de pago, que son de cobrar y de nadie más.
+ *
+ * Se sigue re-exportando el formateo para no tocar ModalAbono y CuadreCajaDia,
+ * que ya lo importaban de acá.
  */
 
-export { formatCurrency, formatDate, diasLabel } from './pagosProveedoresUtils'
+export { formatCurrency, formatDate, diasLabel } from './pagos'
 
 // Métodos de pago fijos para Costa Rica — mismos valores que ya acepta
 // Alegra en este proyecto (ver facturacion.service.js:getPaymentMethods).
@@ -16,9 +21,3 @@ export const METODOS_PAGO = [
   { id: 'debit-card', label: 'Tarjeta de Débito' },
   { id: 'check', label: 'Cheque' }
 ]
-
-export const ESTADO_FACTURA_ESTILO = {
-  PENDIENTE: { badge: 'bg-gray-100 text-gray-700', borde: 'border-l-gray-300' },
-  PARCIAL: { badge: 'bg-blue-100 text-blue-800', borde: 'border-l-blue-400' },
-  VENCIDA: { badge: 'bg-red-100 text-red-800', borde: 'border-l-red-400' }
-}

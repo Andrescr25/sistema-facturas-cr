@@ -2,10 +2,14 @@ import { RefreshCw, PackageX, ChevronRight, Zap, Loader2, Plus, Trash2 } from 'l
 import { formatDate } from '../../utils/inventarioAuditoriaUtils'
 
 /**
- * Lista de tandas de excesos: las que genera el cron cada domingo, las que
- * se piden con "Generar Ahora", y las que se arman a mano con "Nueva
- * tanda". Una vez creadas son todas iguales — se empacan con la misma
- * pantalla y se les pueden agregar o quitar productos.
+ * Lista de tandas de excesos. Todas las crea una persona: con "Generar
+ * Ahora", que trae los productos detectados, o con "Nueva tanda", que la
+ * deja vacía para elegirlos a mano. Una vez creadas son iguales — se empacan
+ * con la misma pantalla y se les pueden agregar o quitar productos.
+ *
+ * El domingo ya no aparece ninguna sola. El sistema sigue revisando cada
+ * semana —sube los descuentos de lo que no se mueve y saca de liquidación lo
+ * que se agotó— pero la tanda de empaque espera a que alguien la pida.
  */
 export default function HistorialExcesos({
   excesos, loading, generando, creando,
@@ -44,8 +48,10 @@ export default function HistorialExcesos({
       </div>
 
       <div className="px-6 py-3 bg-alerta-50 border-b border-alerta-100 text-xs text-alerta-800">
-        Se genera automáticamente todos los domingos a las 10pm: hasta 10 productos por semana, con stock y sin ventas registradas en los últimos 60 días.
-        Con <strong>Nueva tanda</strong> podés armar una a mano con los productos que vos elijas.
+        Las tandas no se crean solas. Con <strong>Generar Ahora</strong> se arma una con hasta 10 productos
+        que tengan stock y no se vendan hace 60 días; con <strong>Nueva tanda</strong>, una vacía para elegirlos a mano.
+        Cada domingo el sistema sí revisa por su cuenta: sube el descuento de lo que sigue sin venderse,
+        y todos los días saca de liquidación lo que se haya agotado.
       </div>
 
       {loading && excesos.length === 0 ? (
@@ -58,7 +64,7 @@ export default function HistorialExcesos({
           <PackageX size={48} className="text-neutro-300" />
           <div>
             <p className="text-lg font-bold text-neutro-700">Todavía no hay reportes de excesos</p>
-            <p className="text-sm text-neutro-500 mt-1">Se generará automáticamente este domingo, o presiona "Generar Ahora".</p>
+            <p className="text-sm text-neutro-500 mt-1">Presioná "Generar Ahora" para armar una con lo detectado, o "Nueva tanda" para elegir los productos vos.</p>
           </div>
         </div>
       ) : (
