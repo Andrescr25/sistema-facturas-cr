@@ -94,17 +94,34 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-neutro-50">
+      {/*
+        EL MENÚ SE DESPLAZA, EL LOGO Y EL PIE SE QUEDAN.
+
+        Ya tenía `overflow-y-auto` y aun así no se desplazaba: a un elemento
+        flexible el navegador le da `min-height: auto`, o sea que no se
+        encoge por debajo de su contenido, y el `flex-1` crecía hasta los
+        952px de los módulos. Con los cinco grupos abiertos —como los tiene
+        quien usa todo el sistema— el pie de sesión quedaba en y=1016 aun en
+        una pantalla de 900: no había forma de cerrar sesión sin borrar el
+        almacenamiento del navegador.
+
+        `min-h-0` es lo que lo destraba. `shrink-0` en el logo y en el pie
+        para que no se aplasten cuando el menú pide lugar, y
+        `overscroll-contain` para que al llegar al final del menú no se
+        empiece a desplazar la página de atrás.
+      */}
+
       {/* Sidebar móvil */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-neutro-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
-          <div className="flex h-16 items-center justify-between px-4">
+        <div className="fixed inset-y-0 left-0 flex w-64 min-h-0 flex-col bg-white">
+          <div className="flex h-16 shrink-0 items-center justify-between px-4">
             <img src="/tachi-logo.png" alt="Distribuidora Tachi" className="h-7 w-auto" />
             <button onClick={() => setSidebarOpen(false)} className="text-neutro-400 hover:text-neutro-600">
               <X size={24} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain barra-fina">
             <SidebarNav navigation={navegacionVisible} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
           </div>
           <PieSesion onNavegar={() => setSidebarOpen(false)} />
@@ -113,11 +130,11 @@ export default function Layout({ children }) {
 
       {/* Sidebar desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-neutro-200">
-          <div className="flex items-center h-16 px-4 border-b border-neutro-100">
+        <div className="flex h-full min-h-0 flex-col bg-white border-r border-neutro-200">
+          <div className="flex h-16 shrink-0 items-center px-4 border-b border-neutro-100">
             <img src="/tachi-logo.png" alt="Distribuidora Tachi" className="h-8 w-auto" />
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain barra-fina">
             <SidebarNav navigation={navegacionVisible} isActive={isActive} />
           </div>
           <PieSesion />

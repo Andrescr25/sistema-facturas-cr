@@ -158,3 +158,48 @@ describe('modales y el bloqueo de scroll', () => {
       'useModal debe recibir `activo`; sin eso, los modales que se auto-ocultan no tienen cómo avisar');
   });
 });
+
+/**
+ * La barra lateral tiene que desplazarse, y su pie tiene que quedar puesto.
+ *
+ * LO QUE PASÓ
+ * El contenedor del menú ya tenía `overflow-y-auto` y aun así no se
+ * desplazaba: el navegador le da `min-height: auto` a un elemento flexible,
+ * o sea que no se encoge por debajo de su contenido. Con los cinco grupos de
+ * módulos abiertos el menú medía 952px, y en una pantalla de 900 el pie de
+ * sesión terminaba en y=1016 — fuera de la vista. No había forma de cerrar
+ * sesión sin borrar el almacenamiento del navegador, que es justo el
+ * problema que ese pie vino a resolver.
+ *
+ * `min-h-0` es lo que lo destraba, y no se ve en ninguna revisión visual:
+ * la pantalla se ve bien mientras el menú quepa. Por eso se vigila acá.
+ */
+describe('la barra lateral se desplaza', () => {
+  const layout = fs.readFileSync(path.join(FRONT, 'components', 'Layout.jsx'), 'utf8');
+  // Los dos contenedores que envuelven el <SidebarNav>: el del cajón de
+  // móvil y el de escritorio.
+  const contenedores = layout.match(/className="[^"]*overflow-y-auto[^"]*"/g) || [];
+
+  test('hay dos contenedores desplazables, uno por barra', () => {
+    assert.equal(contenedores.length, 2,
+      `se esperaban 2 (móvil y escritorio) y hay ${contenedores.length}`);
+  });
+
+  test('los dos llevan min-h-0, o el overflow no sirve de nada', () => {
+    const sinMinH = contenedores.filter(c => !/\bmin-h-0\b/.test(c));
+    assert.deepEqual(sinMinH, [],
+      'Sin min-h-0 el contenedor crece con su contenido y nunca aparece la barra:\n  ' +
+      sinMinH.join('\n  '));
+  });
+
+  test('el pie de sesión no cede lugar', () => {
+    const pie = fs.readFileSync(path.join(FRONT, 'components', 'PieSesion.jsx'), 'utf8');
+    assert.match(pie, /shrink-0/,
+      'PieSesion tiene que llevar shrink-0: es lo último de la barra y sin eso lo aplasta el menú');
+  });
+
+  test('la clase de la barra fina existe en index.css', () => {
+    const css = fs.readFileSync(CSS, 'utf8');
+    assert.match(css, /\.barra-fina\b/);
+  });
+});

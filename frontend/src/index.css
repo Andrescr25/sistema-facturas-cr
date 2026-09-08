@@ -240,3 +240,20 @@
    es el que avisa que hay más contenido. */
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Barra lateral: el menú se desplaza cuando no cabe, pero la barra de
+   desplazamiento no tiene por qué gritarlo. La global mide 8px y sobre 256px
+   de ancho se nota demasiado; acá va fina y gris, y se marca un poco al pasar
+   el mouse por encima. Firefox usa `scrollbar-width`, el resto el pseudo. */
+.barra-fina {
+  scrollbar-width: thin;
+  scrollbar-color: theme('colors.neutro.200') transparent;
+}
+.barra-fina::-webkit-scrollbar { width: 6px; }
+.barra-fina::-webkit-scrollbar-track { background: transparent; }
+.barra-fina::-webkit-scrollbar-thumb {
+  @apply bg-neutro-200 rounded-full;
+}
+.barra-fina:hover::-webkit-scrollbar-thumb {
+  @apply bg-neutro-300;
+}

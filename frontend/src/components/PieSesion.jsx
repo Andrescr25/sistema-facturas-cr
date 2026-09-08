@@ -23,7 +23,10 @@ export default function PieSesion({ onNavegar }) {
   }
 
   return (
-    <div className="border-t border-neutro-100 p-3">
+    /* shrink-0: es lo último de la barra y lo que menos puede desaparecer
+       —sin esto no hay forma de cerrar sesión— así que no cede lugar cuando
+       el menú de arriba crece. */
+    <div className="shrink-0 border-t border-neutro-100 p-3">
       <div className="mb-2 px-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-bold text-neutro-900">{usuario.nombre}</p>
