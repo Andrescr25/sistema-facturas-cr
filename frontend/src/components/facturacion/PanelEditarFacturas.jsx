@@ -7,7 +7,6 @@ import { Search, X, AlertCircle, Edit, RefreshCw, RotateCw, Loader2, ChevronDown
  * sincronizar. Extraído de Facturacion.jsx.
  */
 export default function PanelEditarFacturas({
-  isMobile,
   isOnline,
   busquedaFactura,
   onBusquedaFacturaChange,
@@ -30,7 +29,7 @@ export default function PanelEditarFacturas({
   }
 
   return (
-    <div className={`${isMobile ? 'px-4 mb-4' : 'mb-6'}`}>
+    <div className="mb-4 md:mb-6">
       <div className="card p-4 sm:p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Search size={20} />

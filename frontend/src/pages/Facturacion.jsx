@@ -1,139 +1,109 @@
-import { Check, ShoppingCart } from 'lucide-react'
+import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { useFacturacion } from '../hooks/useFacturacion'
-import HeaderFacturacion from '../components/facturacion/HeaderFacturacion'
-import BannerRecordatorioActualizacion from '../components/facturacion/BannerRecordatorioActualizacion'
-import TabsFacturacion from '../components/facturacion/TabsFacturacion'
+import CabeceraFacturacion from '../components/facturacion/CabeceraFacturacion'
+import PestanasFacturacion from '../components/facturacion/PestanasFacturacion'
+import AvisoFlotante from '../components/facturacion/AvisoFlotante'
+import AvisoActualizar from '../components/facturacion/AvisoActualizar'
+import AvisoEdicion from '../components/facturacion/AvisoEdicion'
+import EstadoCatalogo from '../components/facturacion/EstadoCatalogo'
+import PasoCliente from '../components/facturacion/PasoCliente'
+import TarjetaCliente from '../components/facturacion/TarjetaCliente'
+import AgregarProductos from '../components/facturacion/AgregarProductos'
+import LineaFactura from '../components/facturacion/LineaFactura'
+import PanelCobro from '../components/facturacion/PanelCobro'
+import ModalCantidad from '../components/facturacion/ModalCantidad'
 import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
-import StatsCache from '../components/facturacion/StatsCache'
-import BannerModoEdicion from '../components/facturacion/BannerModoEdicion'
-import BuscarCliente from '../components/facturacion/BuscarCliente'
-import ClienteSeleccionado from '../components/facturacion/ClienteSeleccionado'
-import EntradaProductos from '../components/facturacion/EntradaProductos'
-import ItemFacturaRow from '../components/facturacion/ItemFacturaRow'
-import ResumenTotales from '../components/facturacion/ResumenTotales'
-import ModalCantidadMovil from '../components/facturacion/ModalCantidadMovil'
 
+/**
+ * Facturación.
+ *
+ * QUÉ SE REHIZO Y POR QUÉ
+ * La versión anterior decidía el diseño en JavaScript: el hook exponía
+ * `isMobile` y cada uno de los doce componentes recibía esa bandera y
+ * devolvía un árbol distinto según su valor. Eso traía tres problemas, y los
+ * tres se notaban justo en el teléfono, que es donde peor andaba:
+ *
+ *   1. `isMobile` arranca en `false`. En un teléfono, la primera pintada era
+ *      la de escritorio y saltaba a la otra al montar el componente.
+ *   2. No había comportamiento intermedio. Una tableta de 800px caía de un
+ *      lado o del otro de un salto, sin nada que se adaptara de verdad.
+ *   3. Cada componente tenía dos caminos que mantener, y se habían ido
+ *      separando solos: espaciados distintos, tamaños distintos, un detalle
+ *      arreglado en una rama y no en la otra.
+ *
+ * Ahora el diseño lo decide CSS y `isMobile` queda solo para lo que sí es
+ * comportamiento —a dónde mandar el foco, cuándo hacer scroll—, que es para
+ * lo que el hook lo usa internamente.
+ *
+ * EL OTRO ARREGLO GRANDE: DÓNDE ESTÁ EL BOTÓN DE FACTURAR
+ * Estaba al final de la lista de productos, dentro de la misma tarjeta. Con
+ * quince líneas en un teléfono había que recorrer la factura entera para
+ * llegar a cerrarla. Ahora el cobro vive en `PanelCobro`: barra fija abajo
+ * en pantalla angosta, columna derecha pegada en escritorio — que además
+ * llena el tercio que la rejilla ya reservaba (`lg:grid-cols-3` con el
+ * contenido ocupando dos) y que hasta hoy quedaba en blanco.
+ */
 export default function Facturacion() {
   const {
-    isOnline,
-    isMobile,
-    loading,
-    syncingCache,
-    tabActiva,
-    cambiarTab,
-    modoEdicion,
-    facturaEditando,
-
-    productos,
-    facturasPendientes,
-
-    clienteSeleccionado,
-    deseleccionarCliente,
-    items,
-    DESCRIPCION_MAX,
-    descuentoGlobal,
-
-    codigoProducto,
-    cantidadProducto,
-    setCantidadProducto,
-    modoEntradaRapida,
-    setModoEntradaRapida,
-    busquedaProducto,
-    productosEncontrados,
-    busquedaCliente,
-    clientesEncontrados,
-
-    busquedaFactura,
-    facturasEncontradas,
-    buscandoFacturas,
-    edicionesPendientes,
-    facturasPendientesDetalle,
-    reintentandoLocalId,
-
-    cacheStats,
-    mensaje,
-    mostrarRecordatorioActualizacion,
-    ocultarRecordatorioActualizacion,
-
-    modalCantidadProducto,
-    productoSeleccionadoCantidad,
-    cantidadSeleccionada,
-    setCantidadSeleccionada,
-    productoPreviewRapido,
-
-    mostrarDetalles,
-    toggleDetalles,
-
-    codigoInputRef,
-    cantidadInputRef,
-    busquedaProductoInputRef,
-    cantidadMovilInputRef,
-    clienteCardRef,
-    productoCardRef,
-
-    actualizarCache,
-    descartarEdicionPendiente,
-    descartarFacturaPendiente,
-    reintentarFacturaPendiente,
-    cargarFacturaParaEdicion,
-    handleCodigoKeyPress,
-    handleCantidadKeyPress,
-    abrirModalCantidadProducto,
-    confirmarCantidadProducto,
-    cerrarModalCantidadProducto,
-
-    cambiarBusquedaCliente,
-    focusBusquedaCliente,
-    limpiarBusquedaCliente,
-    seleccionarCliente,
-    cambiarCodigoProducto,
-    focusCodigoProducto,
-    cambiarBusquedaProducto,
-    focusBusquedaProducto,
-    limpiarBusquedaProducto,
-    cambiarBusquedaFactura,
-    limpiarBusquedaFactura,
-
-    eliminarItem,
-    actualizarCantidadItem,
-    validarCantidadItem,
-    actualizarPrecioItem,
-    actualizarDescuentoItem,
-    actualizarDescripcionItem,
-    finalizarFactura,
-    limpiarFactura,
-
-    calcularSubtotal,
-    calcularImpuestos,
-    calcularDescuentoGlobal,
-    calcularTotal,
+    isOnline, loading, syncingCache,
+    tabActiva, cambiarTab, modoEdicion, facturaEditando,
+    productos, facturasPendientes,
+    clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
+    codigoProducto, cantidadProducto, setCantidadProducto,
+    modoEntradaRapida, setModoEntradaRapida,
+    busquedaProducto, productosEncontrados,
+    busquedaCliente, clientesEncontrados,
+    busquedaFactura, facturasEncontradas, buscandoFacturas,
+    edicionesPendientes, facturasPendientesDetalle, reintentandoLocalId,
+    cacheStats, mensaje,
+    mostrarRecordatorioActualizacion, ocultarRecordatorioActualizacion,
+    modalCantidadProducto, productoSeleccionadoCantidad,
+    cantidadSeleccionada, setCantidadSeleccionada, productoPreviewRapido,
+    mostrarDetalles, toggleDetalles,
+    codigoInputRef, cantidadInputRef, busquedaProductoInputRef,
+    cantidadMovilInputRef, clienteCardRef, productoCardRef,
+    actualizarCache, descartarEdicionPendiente, descartarFacturaPendiente,
+    reintentarFacturaPendiente, cargarFacturaParaEdicion,
+    handleCodigoKeyPress, handleCantidadKeyPress,
+    abrirModalCantidadProducto, confirmarCantidadProducto, cerrarModalCantidadProducto,
+    cambiarBusquedaCliente, focusBusquedaCliente, limpiarBusquedaCliente, seleccionarCliente,
+    cambiarCodigoProducto, focusCodigoProducto,
+    cambiarBusquedaProducto, focusBusquedaProducto, limpiarBusquedaProducto,
+    cambiarBusquedaFactura, limpiarBusquedaFactura,
+    eliminarItem, actualizarCantidadItem, validarCantidadItem,
+    actualizarPrecioItem, actualizarDescuentoItem, actualizarDescripcionItem,
+    finalizarFactura, limpiarFactura,
+    calcularSubtotal, calcularImpuestos, calcularDescuentoGlobal, calcularTotal,
     impuestoPrincipal
   } = useFacturacion()
 
   if (loading && productos.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center py-12">
-          <div className="spinner mx-auto mb-4"></div>
-          <p className="text-neutro-600">Inicializando sistema de facturación...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="spinner mb-4" />
+        <p className="text-neutro-600">Abriendo el catálogo…</p>
       </div>
     )
   }
 
+  const facturando = tabActiva === 'nueva' && clienteSeleccionado
+  const hayLineas = items.length > 0
+
   return (
-    <div className={`${isMobile ? 'pb-10' : 'max-w-7xl mx-auto'}`}>
-      <HeaderFacturacion
-        isMobile={isMobile}
+    /* El espacio de abajo deja lugar a la barra de cobro fija, que solo
+       existe cuando hay algo que cobrar y por debajo de `lg`. */
+    <div className={`mx-auto max-w-6xl ${facturando && hayLineas ? 'pb-32 lg:pb-6' : 'pb-6'}`}>
+      <CabeceraFacturacion
         isOnline={isOnline}
         facturasPendientesCount={facturasPendientes.length}
         syncingCache={syncingCache}
         onActualizarCache={actualizarCache}
       />
 
+      <AvisoFlotante mensaje={mensaje} />
+
       {mostrarRecordatorioActualizacion && (
-        <BannerRecordatorioActualizacion
-          isMobile={isMobile}
+        <AvisoActualizar
           isOnline={isOnline}
           syncingCache={syncingCache}
           onActualizarCache={actualizarCache}
@@ -141,29 +111,15 @@ export default function Facturacion() {
         />
       )}
 
-      {/* Mensaje flotante */}
-      {mensaje && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${mensaje.tipo === 'success' ? 'bg-exito-500 text-white' :
-          mensaje.tipo === 'error' ? 'bg-peligro-500 text-white' :
-            mensaje.tipo === 'warning' ? 'bg-alerta-500 text-white' :
-              'bg-primario-500 text-white'
-          }`}>
-          <Check size={20} />
-          <span>{mensaje.texto}</span>
-        </div>
-      )}
-
-      <TabsFacturacion
+      <PestanasFacturacion
         tabActiva={tabActiva}
         onCambiarTab={cambiarTab}
         modoEdicion={modoEdicion}
         edicionesPendientesCount={edicionesPendientes.length}
-        isMobile={isMobile}
       />
 
       {tabActiva === 'editar' && (
         <PanelEditarFacturas
-          isMobile={isMobile}
           isOnline={isOnline}
           busquedaFactura={busquedaFactura}
           onBusquedaFacturaChange={cambiarBusquedaFactura}
@@ -181,38 +137,31 @@ export default function Facturacion() {
         />
       )}
 
-      {tabActiva === 'nueva' && cacheStats && (
-        <StatsCache isMobile={isMobile} cacheStats={cacheStats} />
-      )}
-
-      {modoEdicion && facturaEditando && tabActiva === 'nueva' && (
-        <BannerModoEdicion isMobile={isMobile} facturaEditando={facturaEditando} onCancelar={limpiarFactura} />
-      )}
-
       {tabActiva === 'nueva' && (
         <>
+          {modoEdicion && facturaEditando && (
+            <AvisoEdicion facturaEditando={facturaEditando} onCancelar={limpiarFactura} />
+          )}
+
           {!clienteSeleccionado ? (
-            /* PASO 1: Buscar Cliente */
-            <BuscarCliente
-              isMobile={isMobile}
-              cardRef={clienteCardRef}
-              busquedaCliente={busquedaCliente}
-              onBusquedaClienteChange={cambiarBusquedaCliente}
-              onFocusBusqueda={focusBusquedaCliente}
-              onLimpiarBusqueda={limpiarBusquedaCliente}
-              clientesEncontrados={clientesEncontrados}
-              onSeleccionarCliente={seleccionarCliente}
-            />
+            <>
+              {cacheStats && <EstadoCatalogo cacheStats={cacheStats} />}
+              <PasoCliente
+                cardRef={clienteCardRef}
+                busquedaCliente={busquedaCliente}
+                onBusquedaClienteChange={cambiarBusquedaCliente}
+                onFocusBusqueda={focusBusquedaCliente}
+                onLimpiarBusqueda={limpiarBusquedaCliente}
+                clientesEncontrados={clientesEncontrados}
+                onSeleccionarCliente={seleccionarCliente}
+              />
+            </>
           ) : (
-            /* PASO 2: Agregar Productos y Datos de Facturación */
-            <div className={`${isMobile ? 'px-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
-              {/* Columna principal: Entrada de datos */}
-              <div className={`${isMobile ? 'space-y-4' : 'lg:col-span-2 space-y-6'}`}>
+            <div className="grid items-start gap-4 lg:grid-cols-3 lg:gap-6">
+              <div className="flex flex-col gap-4 lg:col-span-2">
+                <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
 
-                <ClienteSeleccionado isMobile={isMobile} cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
-
-                <EntradaProductos
-                  isMobile={isMobile}
+                <AgregarProductos
                   cardRef={productoCardRef}
                   modoEntradaRapida={modoEntradaRapida}
                   setModoEntradaRapida={setModoEntradaRapida}
@@ -235,21 +184,21 @@ export default function Facturacion() {
                   onSeleccionarProducto={abrirModalCantidadProducto}
                 />
 
-                {/* Lista de Productos en Factura */}
-                {items.length > 0 && (
-                  <div className="card shadow-md p-6 rounded-2xl">
-                    <h3 className="text-lg md:text-xl font-bold mb-4 text-neutro-900 flex items-center gap-2">
-                      <ShoppingCart size={22} className="text-primario-600" />
-                      Productos Agregados ({items.length})
+                {hayLineas ? (
+                  <section className="card rounded-2xl p-4 md:p-5">
+                    <h3 className="mb-3 flex items-center gap-2 font-bold text-neutro-900">
+                      <ShoppingCart size={20} className="text-primario-600" />
+                      En la factura
+                      <span className="rounded-full bg-neutro-100 px-2 py-0.5 text-xs font-bold text-neutro-600">
+                        {items.length}
+                      </span>
                     </h3>
-
-                    <div className="space-y-4">
+                    <div className="flex flex-col gap-3">
                       {items.map((item, index) => (
-                        <ItemFacturaRow
+                        <LineaFactura
                           key={item.id}
                           item={item}
                           index={index}
-                          isMobile={isMobile}
                           mostrarDetalle={mostrarDetalles[item.id]}
                           onToggleDetalle={toggleDetalles}
                           onEliminar={eliminarItem}
@@ -261,35 +210,40 @@ export default function Facturacion() {
                           DESCRIPCION_MAX={DESCRIPCION_MAX}
                         />
                       ))}
-
-                      <ResumenTotales
-                        isMobile={isMobile}
-                        items={items}
-                        descuentoGlobal={descuentoGlobal}
-                        impuestoPrincipal={impuestoPrincipal}
-                        subtotal={calcularSubtotal()}
-                        impuestosTotal={calcularImpuestos()}
-                        descuentoTotal={calcularDescuentoGlobal()}
-                        total={calcularTotal()}
-                        modoEdicion={modoEdicion}
-                        loading={loading}
-                        clienteSeleccionado={clienteSeleccionado}
-                        onFinalizar={finalizarFactura}
-                        onCancelar={limpiarFactura}
-                      />
                     </div>
+                  </section>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutro-300 px-6 py-10 text-center">
+                    <PackageOpen size={32} className="text-neutro-300" />
+                    <p className="font-semibold text-neutro-700">La factura está vacía</p>
+                    <p className="text-sm text-neutro-500">Agregá el primer producto para ver el total.</p>
                   </div>
                 )}
               </div>
+
+              {hayLineas && (
+                <PanelCobro
+                  items={items}
+                  descuentoGlobal={descuentoGlobal}
+                  impuestoPrincipal={impuestoPrincipal}
+                  subtotal={calcularSubtotal()}
+                  impuestosTotal={calcularImpuestos()}
+                  descuentoTotal={calcularDescuentoGlobal()}
+                  total={calcularTotal()}
+                  modoEdicion={modoEdicion}
+                  loading={loading}
+                  clienteSeleccionado={clienteSeleccionado}
+                  onFinalizar={finalizarFactura}
+                  onCancelar={limpiarFactura}
+                />
+              )}
             </div>
           )}
         </>
       )}
-      {/* Fin del formulario de factura */}
 
-      {/* Modal de Cantidad para Móvil - Optimizado touch */}
       {modalCantidadProducto && productoSeleccionadoCantidad && (
-        <ModalCantidadMovil
+        <ModalCantidad
           producto={productoSeleccionadoCantidad}
           cantidad={cantidadSeleccionada}
           setCantidad={setCantidadSeleccionada}

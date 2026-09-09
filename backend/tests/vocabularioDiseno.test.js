@@ -203,3 +203,55 @@ describe('la barra lateral se desplaza', () => {
     assert.match(css, /\.barra-fina\b/);
   });
 });
+
+/**
+ * Facturación decide su diseño con CSS, no con JavaScript.
+ *
+ * LO QUE PASÓ
+ * El módulo exponía `isMobile` desde el hook y se lo pasaba a los doce
+ * componentes; cada uno devolvía un árbol distinto según esa bandera. Tres
+ * consecuencias, y las tres se veían en el teléfono:
+ *
+ *   · `isMobile` arranca en `false`, así que el teléfono pintaba primero la
+ *     variante de escritorio y saltaba a la otra al montar.
+ *   · No había comportamiento intermedio: una tableta caía de un lado o del
+ *     otro de un salto.
+ *   · Cada componente tenía dos caminos que mantener, y se habían separado
+ *     solos — un arreglo aplicado en una rama y no en la otra.
+ *
+ * El hook puede seguir usando `isMobile` para COMPORTAMIENTO (a dónde mandar
+ * el foco, cuándo hacer scroll). Lo que no puede volver es que un componente
+ * de presentación lo reciba para decidir cómo se ve.
+ */
+describe('Facturación no ramifica el diseño en JavaScript', () => {
+  const DIR = path.join(FRONT, 'components', 'facturacion');
+  const archivos = fs.readdirSync(DIR)
+    .filter(n => n.endsWith('.jsx'))
+    .map(n => ({ ruta: `components/facturacion/${n}`, texto: sinComentarios(fs.readFileSync(path.join(DIR, n), 'utf8')) }));
+
+  archivos.push({
+    ruta: 'pages/Facturacion.jsx',
+    texto: sinComentarios(fs.readFileSync(path.join(FRONT, 'pages', 'Facturacion.jsx'), 'utf8'))
+  });
+
+  test('hay componentes de facturación que revisar', () => {
+    assert.ok(archivos.length > 8, `solo ${archivos.length} archivos; ¿se movió el módulo?`);
+  });
+
+  test('ningún componente recibe ni usa isMobile', () => {
+    const culpables = archivos.filter(a => /\bisMobile\b/.test(a.texto)).map(a => a.ruta);
+    assert.deepEqual(culpables, [],
+      'El diseño se decide con puntos de quiebre de CSS, no con una bandera de JavaScript.\n' +
+      'Volvió a aparecer isMobile en:\n  ' + culpables.join('\n  '));
+  });
+
+  test('el cobro está fuera de la lista de productos', () => {
+    // El botón de facturar vivía al final de la lista: con quince líneas en
+    // un teléfono había que recorrer la factura entera para cerrarla.
+    const cobro = fs.readFileSync(path.join(DIR, 'PanelCobro.jsx'), 'utf8');
+    assert.match(cobro, /fixed inset-x-0 bottom-0/,
+      'PanelCobro debe tener la barra fija abajo para pantalla angosta');
+    assert.match(cobro, /sticky/,
+      'PanelCobro debe quedar pegado en la columna de escritorio');
+  });
+});
