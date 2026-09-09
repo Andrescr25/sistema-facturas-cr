@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Loader2, RotateCcw, StickyNote } from 'lucide-react'
+import { CheckCircle2, Loader2, RotateCcw } from 'lucide-react'
 import { formatCurrency, formatDate, calcularPayloadPago } from '../../utils/pagosProveedoresUtils'
 import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'
@@ -16,9 +16,15 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * para los dos— con el saldo grande arriba y las dos tarjetas grandes de
  * decisión.
  *
- * Lo propio de pagar se conserva entero: las notas de crédito del proveedor,
- * la nota libre del pago y el revertir a pendiente. La tabla de productos es
- * la misma de siempre, solo que ahora compartida.
+ * Lo propio de pagar se conserva: las notas de crédito del proveedor y el
+ * revertir a pendiente. La tabla de productos es la misma, ahora compartida.
+ *
+ * SE QUITÓ LA "NOTA (OPCIONAL)"
+ * Sí se guardaba en la base, pero no había dónde leerla: la única pantalla
+ * que la mostraba era la tarjeta vieja de cuenta, que desapareció al
+ * unificar el diseño. Quedó escribiendo a un lugar del que nada la sacaba, y
+ * en 311 cuentas nadie escribió una sola. La columna sigue en la base
+ * intacta; lo que se quitó es el campo que prometía algo que no pasaba.
  */
 export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onCerrar }) {
   const yaPagada = cuenta.estado === 'PAGADA'
@@ -26,7 +32,6 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
 
   const [seleccion, setSeleccion] = useState(yaPagada ? null : 'total')
   const [monto, setMonto] = useState('')
-  const [notas, setNotas] = useState(cuenta.notas || '')
 
   const tipoPago = seleccion === 'parcial' ? 'parcial' : 'completo'
   const montoInvalido = seleccion === 'parcial' &&
@@ -34,7 +39,7 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
 
   const handleRegistrar = async () => {
     if (montoInvalido) return
-    const payload = calcularPayloadPago(cuenta, { tipo: tipoPago, monto, notas: notas.trim() || null })
+    const payload = calcularPayloadPago(cuenta, { tipo: tipoPago, monto })
     const exito = await onRegistrarPago(cuenta.id, payload)
     if (exito) onCerrar()
   }
@@ -46,7 +51,7 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
     // y terminaríamos pagando de más.
     const saldoSinPagos = Math.max(0, cuenta.montoTotal - (cuenta.creditoAplicado || 0))
     const exito = await onRegistrarPago(cuenta.id, {
-      estado: 'PENDIENTE', saldoPendiente: saldoSinPagos, notas: notas.trim() || null
+      estado: 'PENDIENTE', saldoPendiente: saldoSinPagos
     })
     if (exito) onCerrar()
   }
@@ -160,20 +165,6 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                   )}
                 </div>
               )}
-
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
-                  <StickyNote size={16} className="text-neutro-400" />
-                  Nota (opcional)
-                </label>
-                <textarea
-                  value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
-                  rows={2}
-                  placeholder="Ej: transferencia SINPE, comprobante #123…"
-                  className="input w-full resize-none"
-                />
-              </div>
             </div>
           )}
 
