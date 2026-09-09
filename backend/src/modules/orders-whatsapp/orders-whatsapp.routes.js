@@ -14,6 +14,9 @@ router.post('/generar-pdf', controller.generarPDF);
 // Enviar WhatsApp
 router.post('/enviar-whatsapp', controller.enviarWhatsApp);
 
+// A quiénes ya se les mandó el pedido (para la marca en la tarjeta)
+router.get('/enviados', controller.getOrdenesEnviadas);
+
 // Cantidades modificadas
 router.get('/cantidades', controller.getCantidades);
 router.post('/cantidades', controller.guardarCantidades);

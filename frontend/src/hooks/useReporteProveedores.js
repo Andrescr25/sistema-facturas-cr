@@ -47,6 +47,10 @@ export function useReporteProveedores() {
   const [loadingProductos, setLoadingProductos] = useState(false)
 
   // Estados WhatsApp
+  // A qué proveedores ya se les mandó el pedido en este período. Viene del
+  // registro de envíos del servidor y no del navegador, para que la marca la
+  // vea también quien abra el reporte desde otra máquina.
+  const [pedidosEnviados, setPedidosEnviados] = useState(new Map())
   const [modalWhatsAppVisible, setModalWhatsAppVisible] = useState(false)
   const [proveedorParaWhatsApp, setProveedorParaWhatsApp] = useState(null)
   const [telefonoProveedor, setTelefonoProveedor] = useState('')
@@ -113,9 +117,27 @@ export function useReporteProveedores() {
     }
   }, [])
 
+  /**
+   * Qué pedidos ya salieron por WhatsApp, en el mismo período del reporte.
+   *
+   * Acotado por `fechaInicio` a propósito: una orden mandada el mes pasado
+   * no dice nada sobre la de esta semana, y marcarla igual haría que la
+   * señal dejara de significar algo.
+   */
+  const loadPedidosEnviados = useCallback(async () => {
+    const result = await alegraService.getOrdenesEnviadas(fechaInicio)
+    if (!result?.success) return
+    const mapa = new Map()
+    for (const fila of result.data || []) {
+      mapa.set(fila.proveedor, { ultimoEnvio: fila.ultimoEnvio, veces: fila.veces })
+    }
+    setPedidosEnviados(mapa)
+  }, [fechaInicio])
+
   useEffect(() => {
     loadReporte()
     loadCantidadesGuardadas()
+    loadPedidosEnviados()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaInicio])
 
@@ -270,6 +292,8 @@ export function useReporteProveedores() {
       if (result.success) {
         showToast(`Orden de compra enviada con éxito a ${proveedor.nombre} por WhatsApp.`, 'success')
         setModalWhatsAppVisible(false)
+        // Que la marca aparezca de una en la tarjeta, sin recargar.
+        loadPedidosEnviados()
       } else {
         showToast(`Error enviando por WhatsApp: ${result.message}`, 'error')
       }
@@ -278,7 +302,7 @@ export function useReporteProveedores() {
     } finally {
       setLoading(false)
     }
-  }, [telefonoProveedor, proveedorParaWhatsApp, usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, mensajeWhatsApp, showToast])
+  }, [telefonoProveedor, proveedorParaWhatsApp, usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, mensajeWhatsApp, showToast, loadPedidosEnviados])
 
   // Selección de Múltiples Productos
   const toggleProductoSeleccionado = useCallback((codigo) => {
@@ -500,6 +524,7 @@ export function useReporteProveedores() {
 
   return {
     proveedores,
+    pedidosEnviados,
     resumen,
     loading,
     error,
@@ -567,6 +592,7 @@ export function useReporteProveedores() {
 
     dialogProps,
     toasts,
+    showToast,
     removeToast
   }
 }

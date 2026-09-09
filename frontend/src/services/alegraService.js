@@ -681,6 +681,25 @@ export const alegraService = {
       const errorMsg = error.response?.data?.message || error.message;
       throw new Error(`Error enviando por WhatsApp: ${errorMsg}`)
     }
+  },
+
+  /**
+   * A qué proveedores ya se les mandó el pedido desde una fecha.
+   *
+   * Falla en silencio a propósito: es una marca informativa en la tarjeta,
+   * no un dato del que dependa nada. Si el servidor no contesta, el reporte
+   * tiene que seguir abriéndose igual, solo que sin las marcas.
+   */
+  async getOrdenesEnviadas(desde = '') {
+    try {
+      const response = await api.get('/alegra/orden-compra/enviados', {
+        params: desde ? { desde } : {}
+      })
+      return response.data
+    } catch (error) {
+      console.error('⚠️ No se pudieron cargar los pedidos ya enviados:', error.message)
+      return { success: false, data: [] }
+    }
   }
 
 }

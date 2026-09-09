@@ -9,6 +9,7 @@ const { query } = require('../../../config/database');
 // La conversación con Evolution vive en un solo lugar: acá solo se arma el
 // PDF y se pide el envío. El traductor de errores se mudó con ella.
 const whatsapp = require('../../integrations/whatsapp');
+const enviosWhatsapp = require('../envios-whatsapp/envios.service');
 
 /**
  * Deja un teléfono costarricense como lo espera WhatsApp: 506 + 8 dígitos.
@@ -540,9 +541,23 @@ class OrdersWhatsappService {
   }
 
   /**
-   * Envía la orden de compra en PDF por WhatsApp a través de Evolution API
+   * Envía la orden de compra en PDF por WhatsApp a través de Evolution API.
+   *
+   * QUEDA ANOTADO
+   * Pasa por `enviarYRegistrar` en vez de hablarle directo al cliente de
+   * Evolution, para que el envío quede en `envio_whatsapp`. De ahí sale la
+   * marca de "ya se le mandó el pedido" en la tarjeta del proveedor: sin
+   * registro, quien abría el reporte desde otra máquina no tenía forma de
+   * saber a quién ya le habían escrito, y el proveedor recibía el mismo
+   * pedido dos veces.
+   *
+   * La referencia es el nombre del proveedor, que es la única llave que
+   * comparten este reporte y el registro de envíos (el reporte se arma por
+   * nombre, no por cédula). `anotar` recorta la referencia a 60 caracteres;
+   * hoy el nombre más largo mide 54, pero si algún día se pasa habría que
+   * comparar recortado de los dos lados.
    */
-  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '') {
+  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '', usuarioId = null) {
     // 1. Generar el PDF
     const { pdfBuffer } = await this.generarOrdenCompraPDFBuffer(proveedor, productos, preferirDatosProveedor);
 
@@ -553,13 +568,49 @@ class OrdersWhatsappService {
     //    revisar SU ficha, no la de un cliente.
     console.log(`📤 Enviando orden de compra al proveedor ${proveedor} (${telefonoLimpio})`);
 
-    return whatsapp.enviarDocumento({
+    return enviosWhatsapp.enviarYRegistrar({
+      tipo: 'orden_compra',
+      referencia: proveedor,
       telefono: telefonoLimpio,
       mensaje: mensaje || 'Hola buenas, adjunto el pedido\ngracias',
       pdf: pdfBuffer,
       nombreArchivo: `orden-${proveedor.replace(/\s+/g, '-')}.pdf`,
+      usuarioId,
       sujeto: 'proveedor'
     });
+  }
+
+  /**
+   * A qué proveedores ya se les mandó el pedido, desde una fecha.
+   *
+   * Acotado por fecha a propósito: el reporte de faltantes trabaja sobre un
+   * período, y una orden mandada el mes pasado no dice nada sobre la de esta
+   * semana. Se usa la misma fecha de inicio que el reporte, así la marca
+   * responde exactamente a "¿ya pedí lo de este período?".
+   *
+   * Solo cuenta lo que salió bien: un intento fallido —número sin WhatsApp,
+   * instancia caída— no es un pedido enviado, y marcarlo como tal sería peor
+   * que no marcarlo.
+   */
+  async getOrdenesEnviadas(desde) {
+    const result = await query(`
+      SELECT referencia,
+             MAX(creado_en) AS ultimo_envio,
+             COUNT(*)::int  AS veces
+      FROM envio_whatsapp
+      WHERE tipo = 'orden_compra'
+        AND exito = TRUE
+        AND referencia IS NOT NULL
+        AND ($1::timestamp IS NULL OR creado_en >= $1)
+      GROUP BY referencia
+      ORDER BY MAX(creado_en) DESC;
+    `, [desde || null]);
+
+    return result.rows.map(r => ({
+      proveedor: r.referencia,
+      ultimoEnvio: r.ultimo_envio,
+      veces: r.veces
+    }));
   }
 
   /**

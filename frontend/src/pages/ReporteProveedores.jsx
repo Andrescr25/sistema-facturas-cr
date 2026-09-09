@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertCircle, Package } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
 import ListaProveedores from '../components/reporte-proveedores/ListaProveedores'
 import ProveedorDetalle from '../components/reporte-proveedores/ProveedorDetalle'
@@ -13,6 +13,7 @@ import ToastContainer from '../components/ToastContainer'
 export default function ReporteProveedores() {
   const {
     proveedores,
+    pedidosEnviados,
     resumen,
     loading,
     error,
@@ -78,11 +79,34 @@ export default function ReporteProveedores() {
 
     dialogProps,
     toasts,
+    showToast,
     removeToast
   } = useReporteProveedores()
 
   // NAVEGACIÓN: lista de proveedores → detalle de proveedor
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
+
+  /**
+   * Si el proveedor que se está viendo desaparece del reporte, se vuelve a
+   * la lista.
+   *
+   * EL BUG QUE ARREGLA
+   * `loadReporte` deja fuera a los proveedores que se quedaron sin productos
+   * faltantes. Al pasar TODOS los productos de un proveedor a otro, ese
+   * proveedor salía de la lista pero `proveedorActivoId` seguía apuntándole:
+   * la página no encontraba el proveedor, caía en la rama `null` y quedaba
+   * en blanco, sin botón de volver ni forma de salir que no fuera recargar.
+   *
+   * Se avisa por qué, porque irse solo de una pantalla también desconcierta
+   * si no se explica.
+   */
+  useEffect(() => {
+    if (!proveedorActivoId || loading) return
+    if (proveedores.some(p => p.id === proveedorActivoId)) return
+
+    setProveedorActivoId(null)
+    showToast('Ese proveedor ya no tiene productos pendientes.', 'info')
+  }, [proveedorActivoId, proveedores, loading, showToast])
 
   if (loading && !proveedores.length) {
     return (
@@ -118,6 +142,7 @@ export default function ReporteProveedores() {
       {!proveedorActivoId ? (
         <ListaProveedores
           proveedores={proveedores}
+          pedidosEnviados={pedidosEnviados}
           resumen={resumen}
           fechaInicio={fechaInicio}
           setFechaInicio={setFechaInicio}
@@ -148,7 +173,21 @@ export default function ReporteProveedores() {
           onAbrirWhatsApp={abrirModalWhatsApp}
           onAbrirModalAsignar={abrirModalAsignar}
         />
-      ) : null}
+      ) : (
+        /* Red de seguridad. El efecto de arriba ya devuelve a la lista sola,
+           pero mientras el reporte recarga puede haber un momento en que el
+           proveedor abierto no esté en la lista todavía. Antes acá iba
+           `null` —pantalla en blanco, sin salida— y ese era justamente el
+           bug. Ahora siempre hay un botón de volver. */
+        <div className="card flex flex-col items-center gap-3 py-16 text-center">
+          <Package size={40} className="text-neutro-300" />
+          <p className="font-semibold text-neutro-700">Este proveedor ya no tiene productos pendientes</p>
+          <p className="text-sm text-neutro-500">Seguramente se pasaron todos a otro proveedor.</p>
+          <button onClick={() => setProveedorActivoId(null)} className="btn btn-primary mt-2">
+            Volver a proveedores
+          </button>
+        </div>
+      )}
 
       {modalAsignarVisible && (
         <ModalAsignarProveedor

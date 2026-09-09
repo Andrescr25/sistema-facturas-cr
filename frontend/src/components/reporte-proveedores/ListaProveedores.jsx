@@ -1,13 +1,25 @@
 import { useState } from 'react'
-import { Calendar, RefreshCw, Package } from 'lucide-react'
+import { Calendar, RefreshCw, Package, Check } from 'lucide-react'
 
 /**
  * Vista de listado (grid) de proveedores con búsqueda, filtro de fecha y
  * resumen global. Extraído de ReporteProveedores.jsx (antes
  * renderVistaLista). El texto de búsqueda es local a esta vista.
+ *
+ * LA MARCA DE "YA SE LE MANDÓ"
+ * `pedidosEnviados` es un Map de nombre de proveedor a la fecha del último
+ * envío por WhatsApp dentro del período del reporte. Sale del registro del
+ * servidor, no del navegador, así que la marca también la ve quien abra el
+ * reporte desde otra máquina — que es justo cuando se manda el pedido dos
+ * veces sin querer.
+ *
+ * Solo cuenta lo que salió bien: un intento fallido no es un pedido enviado.
  */
-export default function ListaProveedores({ proveedores, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor }) {
+export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor }) {
   const [proveedorQuery, setProveedorQuery] = useState('')
+
+  const cuandoSeEnvio = (fecha) =>
+    new Date(fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -37,16 +49,37 @@ export default function ListaProveedores({ proveedores, resumen, fechaInicio, se
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => (
+          {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => {
+            const enviado = pedidosEnviados?.get(proveedor.nombre)
+            return (
             <div
               key={proveedor.id}
               onClick={() => onSelectProveedor(proveedor.id)}
-              className="group bg-white rounded-xl shadow-sm hover:shadow-lg border border-neutro-100 p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
+              className={`group bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${
+                enviado ? 'border-exito-200 ring-1 ring-exito-100' : 'border-neutro-100'
+              }`}
             >
               <div className="absolute top-0 right-0 w-16 h-16 bg-primario-50 rounded-bl-[100px] -z-10 group-hover:bg-primario-100 transition-colors"></div>
 
               <h3 className="text-lg font-bold text-neutro-900 mb-1 pr-4">{proveedor.nombre}</h3>
-              <p className="text-sm text-neutro-500 mb-4">{proveedor.contacto || 'Sin info'}</p>
+              <p className="text-sm text-neutro-500 mb-3">{proveedor.contacto || 'Sin info'}</p>
+
+              {/* Ya se le mandó el pedido en este período. Va antes de los
+                  números porque la pregunta al recorrer la lista es "¿a
+                  quién le falta?", no "¿cuántos productos tiene?". */}
+              {enviado ? (
+                <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-exito-50 px-2.5 py-1 text-xs font-bold text-exito-700 ring-1 ring-exito-200">
+                  <Check size={13} strokeWidth={3} />
+                  Pedido enviado {cuandoSeEnvio(enviado.ultimoEnvio)}
+                  {enviado.veces > 1 && (
+                    <span className="font-semibold text-exito-600">· {enviado.veces} veces</span>
+                  )}
+                </div>
+              ) : (
+                <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-neutro-100 px-2.5 py-1 text-xs font-semibold text-neutro-500">
+                  Sin enviar
+                </div>
+              )}
 
               <div className="flex items-center gap-4 pt-4 border-t border-neutro-50">
                 <div>
@@ -60,7 +93,8 @@ export default function ListaProveedores({ proveedores, resumen, fechaInicio, se
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

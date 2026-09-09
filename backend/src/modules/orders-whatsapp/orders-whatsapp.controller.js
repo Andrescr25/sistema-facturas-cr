@@ -54,12 +54,28 @@ class OrdersWhatsappController {
         telefono,
         productos,
         preferirDatosProveedor,
-        mensaje
+        mensaje,
+        req.usuario?.id || null
       );
 
       return ResponseHelper.success(res, result, 'Orden de compra enviada por WhatsApp');
     } catch (error) {
       console.error('❌ Error enviando por WhatsApp:', error);
+      return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * GET /orden-compra/enviados?desde=YYYY-MM-DD
+   * A qué proveedores ya se les mandó el pedido en el período del reporte.
+   */
+  getOrdenesEnviadas = async (req, res) => {
+    try {
+      const { desde } = req.query;
+      const result = await this.ordersService.getOrdenesEnviadas(desde);
+      return ResponseHelper.success(res, result, 'Órdenes enviadas obtenidas');
+    } catch (error) {
+      console.error('❌ Error obteniendo órdenes enviadas:', error);
       return ResponseHelper.error(res, error.message, 500);
     }
   };
