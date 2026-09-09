@@ -71,4 +71,18 @@ describe('los chips de la pantalla', () => {
       assert.match(pagina, new RegExp(`value: '${valor}'`));
     }
   });
+
+  test('la pantalla abre en "Todos", no en "Pendientes"', () => {
+    // Abriendo en "Pendientes", las vencidas —las urgentes— quedaban fuera
+    // de la primera pantalla. Justo al revés de lo que uno viene a ver.
+    const hook = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'usePagosProveedores.js'), 'utf8');
+    assert.match(hook, /defaultFilters = \{[^}]*estado: 'todos'/s);
+  });
+
+  test('el botón de limpiar se mide contra el estado por defecto', () => {
+    // Si se compara contra otro valor, "Limpiar" aparece desde que se abre
+    // la pantalla sin que nadie haya filtrado nada.
+    assert.match(pagina, /filters\.estado !== 'todos'/);
+  });
 });

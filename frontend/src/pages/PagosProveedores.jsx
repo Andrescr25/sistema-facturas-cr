@@ -93,10 +93,11 @@ export default function PagosProveedores() {
     }
   ] : []
 
-  // "Pendientes" es el estado por defecto, así que no cuenta como filtro
-  // activo: si contara, el botón de limpiar estaría siempre visible.
+  // El estado por defecto no cuenta como filtro activo: si contara, el botón
+  // de limpiar estaría visible desde que se abre la pantalla, sin que nadie
+  // haya filtrado nada.
   const hayFiltrosActivos =
-    filters.estado !== 'pendiente' || filters.dias !== 'todos' ||
+    filters.estado !== 'todos' || filters.dias !== 'todos' ||
     filters.proveedor !== 'todos' || Boolean(filters.search)
 
   // La tabla compartida habla de {id, numero, saldo...}; acá se traduce la

@@ -10,8 +10,16 @@ import {
 import { formatCurrency } from '../utils/pagosProveedoresUtils'
 import { useToast } from './useToast'
 
+/**
+ * La pantalla abre en "Todos", que desde el cambio del filtro quiere decir
+ * todo lo que queda por pagar: pendientes y vencidas juntas.
+ *
+ * Antes abría en "Pendientes" y las vencidas —las urgentes, las que ya se
+ * pasaron de fecha— quedaban fuera de la primera pantalla. Justo al revés
+ * de lo que uno viene a ver.
+ */
 export const defaultFilters = {
-  estado: 'pendiente',
+  estado: 'todos',
   proveedor: 'todos',
   dias: 'todos',
   search: ''
