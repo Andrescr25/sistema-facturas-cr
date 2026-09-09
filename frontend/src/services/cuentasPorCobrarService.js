@@ -10,6 +10,12 @@ export async function getAbonosFactura(alegraInvoiceId) {
   return response.data
 }
 
+/** Las líneas de una factura. Se piden a Alegra al abrir el detalle. */
+export async function getProductosFactura(alegraInvoiceId) {
+  const response = await api.get(`/cuentas-por-cobrar/facturas/${alegraInvoiceId}/productos`)
+  return response.data
+}
+
 export async function registrarAbono(payload) {
   const response = await api.post('/cuentas-por-cobrar/abonos', payload)
   return response.data

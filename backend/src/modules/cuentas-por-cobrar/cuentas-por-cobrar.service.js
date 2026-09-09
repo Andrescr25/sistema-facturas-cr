@@ -318,6 +318,55 @@ async function getAbonosPorFactura(alegraInvoiceId) {
   });
 }
 
+/**
+ * Qué se le vendió en esta factura.
+ *
+ * NO VIVE EN EL ESPEJO LOCAL, Y ES A PROPÓSITO
+ * `cuenta_por_cobrar` guarda solo lo que hace falta para cobrar —número,
+ * fechas, total, saldo— porque el espejo se sincroniza entero y cargarlo con
+ * las líneas de cada factura lo volvería pesado sin que nadie las mire en la
+ * lista. Las líneas se piden a Alegra solo cuando alguien abre una factura,
+ * que es la única vez que importan.
+ *
+ * Se devuelve la forma que espera la tabla compartida de productos, la misma
+ * que usa Pagos a Proveedores: así las dos pantallas muestran el detalle
+ * igual sin que cada una traduzca por su lado.
+ */
+async function getProductosDeFactura(alegraInvoiceId) {
+  if (!alegraInvoiceId) throw httpError(400, 'alegraInvoiceId es requerido');
+
+  const invoiceService = getInvoiceService();
+  // getInvoiceById envuelve la respuesta en { success, data }; la factura
+  // viene adentro. Leerla de la raíz devolvía cero líneas siempre.
+  const respuesta = await invoiceService.getInvoiceById(String(alegraInvoiceId));
+  const factura = respuesta?.data || respuesta;
+  const items = Array.isArray(factura?.items) ? factura.items : [];
+
+  return items.map((item, i) => {
+    const cantidad = Number(item.quantity) || 0;
+    const precioUnitario = Number(item.price) || 0;
+    const descuento = Number(item.discount) || 0;
+    // Alegra manda `total` por línea, pero no siempre: si falta se calcula,
+    // porque una fila sin subtotal se lee como un error de la factura y no
+    // como un dato que no vino.
+    const total = item.total !== undefined && item.total !== null
+      ? Number(item.total)
+      : Number((cantidad * precioUnitario * (1 - descuento / 100)).toFixed(2));
+
+    return {
+      id: item.id ?? `linea-${i}`,
+      // La referencia llega como texto plano en unas facturas y como objeto
+      // en otras, según por dónde se creó la línea.
+      codigo: item.reference?.reference || item.reference || null,
+      descripcion: item.name || item.description || 'Producto sin nombre',
+      cantidad,
+      precioUnitario,
+      descuento,
+      total
+    };
+  });
+}
+
 // ==================== REGISTRAR ABONO ====================
 
 /**
@@ -469,6 +518,7 @@ module.exports = {
   sincronizarDesdeAlegra,
   listarCuentasPorCobrar,
   getAbonosPorFactura,
+  getProductosDeFactura,
   registrarAbono,
   obtenerCobrosPorDia
 };

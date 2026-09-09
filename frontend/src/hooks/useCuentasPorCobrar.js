@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getCuentasPorCobrar, getAbonosFactura, registrarAbono, sincronizarCuentasPorCobrar } from '../services/cuentasPorCobrarService'
+import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono, sincronizarCuentasPorCobrar } from '../services/cuentasPorCobrarService'
 import { useToast } from './useToast'
 import { useDialog } from './useDialog'
 
@@ -83,6 +83,23 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [showToast])
 
+  /**
+   * Las líneas de la factura, para el detalle del modal.
+   *
+   * Falla en silencio devolviendo una lista vacía: el detalle es contexto,
+   * no un requisito para cobrar. Si Alegra no contesta, la tabla dice que no
+   * hay detalle y el abono se registra igual.
+   */
+  const handleCargarProductos = useCallback(async (alegraInvoiceId) => {
+    try {
+      const result = await getProductosFactura(alegraInvoiceId)
+      return result?.data || []
+    } catch (err) {
+      console.error('No se pudo cargar el detalle de la factura:', err.message)
+      return []
+    }
+  }, [])
+
   const handleRegistrarAbono = useCallback(async ({ alegraInvoiceId, numeroFactura, monto, fecha, metodoPago, saldarTotal = false }) => {
     // Al saldar total el monto lo decide el backend con el saldo que Alegra
     // reporta en ese momento, así que la confirmación dice lo que va a pasar
@@ -121,6 +138,7 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     sincronizando,
     handleSincronizar,
     handleCargarAbonos,
+    handleCargarProductos,
     registrandoAbono,
     handleRegistrarAbono,
     reload: () => loadCuentas(filters),

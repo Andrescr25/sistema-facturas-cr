@@ -33,6 +33,22 @@ async function getAbonos(req, res) {
 }
 
 /**
+ * GET /cuentas-por-cobrar/facturas/:alegraId/productos
+ * Las líneas de la factura, para el detalle. Se piden a Alegra al abrir la
+ * factura, no en la lista.
+ */
+async function getProductos(req, res) {
+  try {
+    const { alegraId } = req.params;
+    const productos = await service.getProductosDeFactura(alegraId);
+    res.json({ success: true, data: productos });
+  } catch (error) {
+    const status = error.status || 500;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
+/**
  * POST /cuentas-por-cobrar/abonos
  */
 async function registrarAbono(req, res) {
@@ -107,6 +123,7 @@ module.exports = {
   enviarRecordatorio,
   listar,
   getAbonos,
+  getProductos,
   registrarAbono,
   sincronizar,
   cobrosDia

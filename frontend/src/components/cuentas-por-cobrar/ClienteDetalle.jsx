@@ -15,7 +15,7 @@ import { formatCurrency } from '../../utils/pagos'
  * components/pagos/): lo único propio de acá es cobrar —el modal de abono— y
  * los dos envíos por WhatsApp.
  */
-export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, registrandoAbono, onRegistrarAbono }) {
+export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCargarProductos, registrandoAbono, onRegistrarAbono }) {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   // Recordatorio de saldo: el texto lo propone el servidor con los saldos de
   // este momento, no el navegador — que puede tener la lista abierta desde
@@ -116,6 +116,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, regi
           clienteNombre={cliente.clienteNombre}
           procesando={registrandoAbono}
           onCargarAbonos={onCargarAbonos}
+          onCargarProductos={onCargarProductos}
           onRegistrar={onRegistrarAbono}
           onCerrar={() => setFacturaSeleccionada(null)}
         />

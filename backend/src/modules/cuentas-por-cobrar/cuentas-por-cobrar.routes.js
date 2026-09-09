@@ -10,6 +10,7 @@ const controller = require('./cuentas-por-cobrar.controller');
 router.get('/', controller.listar);
 router.get('/cobros-dia', controller.cobrosDia);
 router.get('/facturas/:alegraId/abonos', controller.getAbonos);
+router.get('/facturas/:alegraId/productos', controller.getProductos);
 // Recordatorio de saldo por WhatsApp. El texto lo propone el servidor con
 // los saldos de este momento; la pantalla lo deja editar antes de mandarlo.
 router.get('/clientes/:clienteId/recordatorio', controller.propuestaRecordatorio);

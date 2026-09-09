@@ -29,7 +29,7 @@ export default function CuentasPorCobrar() {
     clientes, resumen, loading, error,
     filters, setFilters, resetFilters,
     sincronizando, handleSincronizar,
-    handleCargarAbonos, registrandoAbono, handleRegistrarAbono,
+    handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono,
     dialogProps, toasts, removeToast
   } = useCuentasPorCobrar()
 
@@ -153,6 +153,7 @@ export default function CuentasPorCobrar() {
               cliente={clienteActivo}
               onVolver={() => setClienteActivoId(null)}
               onCargarAbonos={handleCargarAbonos}
+              onCargarProductos={handleCargarProductos}
               registrandoAbono={registrandoAbono}
               onRegistrarAbono={handleRegistrarAbono}
             />
