@@ -144,6 +144,15 @@ class PagosProveedoresService {
     const andFilters = [];
     if (filtros.estado && filtros.estado !== 'todos') {
       andFilters.push({ estado: filtros.estado.toUpperCase() });
+    } else {
+      // "Todos" quiere decir todo lo que queda por pagar, no todo lo que
+      // existe. Antes traía también las pagadas y eran la enorme mayoría
+      // —244 de 311 al hacer este cambio—, así que lo que de verdad se va a
+      // pagar quedaba enterrado entre facturas ya cerradas.
+      //
+      // Las pagadas siguen siendo alcanzables con su propio filtro; lo que
+      // deja de pasar es que aparezcan cuando nadie las pidió.
+      andFilters.push({ estado: { not: 'PAGADA' } });
     }
 
     if (filtros.proveedor && filtros.proveedor !== 'todos') {

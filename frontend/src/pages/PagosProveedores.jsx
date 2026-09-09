@@ -28,11 +28,20 @@ import { agruparPorContraparte, formatCurrency } from '../utils/pagos'
  * crédito, y el modal donde se registra el pago.
  */
 
+/**
+ * "Todos" es todo lo que queda por pagar, no todo lo que existe: el servidor
+ * deja fuera las pagadas, que son la mayoría del histórico y enterraban lo
+ * que de verdad hay que atender. Siguen alcanzables con su propio filtro.
+ *
+ * Se quitó "En seguimiento" (estado PARCIAL): filtraba a una lista vacía
+ * siempre —no hay ni una cuenta en ese estado— y ofrecía un camino que no
+ * llevaba a ningún lado. Si alguna vez se registra un abono parcial, esa
+ * cuenta aparece bajo "Todos", que es donde corresponde.
+ */
 const ESTADOS = [
   { value: 'todos', label: 'Todos' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'vencida', label: 'Vencidas' },
-  { value: 'parcial', label: 'En seguimiento' },
   { value: 'pagada', label: 'Pagadas' }
 ]
 
