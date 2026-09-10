@@ -20,6 +20,24 @@ const DESCRIPCION_MAX = 500
 const REINTENTO_PENDIENTES_INTERVALO = 2 * 60 * 1000 // 2 minutos
 
 /**
+ * Cuántos resultados de búsqueda se muestran.
+ *
+ * Eran 10, y en un catálogo de dos mil productos eso escondía cosas sin
+ * avisar: buscar "anzuelo" devuelve 26 y solo se veían los primeros diez,
+ * sin nada que dijera que faltaban dieciséis. Quien buscaba daba por hecho
+ * que el resto no existía.
+ *
+ * Tampoco se quita el tope del todo. Los términos cortos son masivos —"an"
+ * cae en 565 productos, "ca" en 456— y pintar eso en cada tecla arrastra la
+ * tableta del mostrador. Cien cubre cualquier búsqueda real (la más grande
+ * medida fue "bolsa", con 81) y deja acotado el caso patológico.
+ *
+ * Lo que no puede volver a pasar es que sobre y no se diga: cuando hay más
+ * de los que caben, la pantalla lo dice.
+ */
+const MAX_RESULTADOS = 100
+
+/**
  * Estado y lógica de negocio completa de facturación en vivo: catálogo con
  * soporte offline, búsqueda/entrada rápida de productos y clientes, carrito
  * de la factura en curso, edición de facturas existentes (online/local
@@ -62,8 +80,11 @@ export function useFacturacion() {
   const [modoEntradaRapida, setModoEntradaRapida] = useState(true) // true = código, false = búsqueda
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [productosEncontrados, setProductosEncontrados] = useState([])
+  // Cuántos hay de verdad, para poder avisar si el tope dejó alguno fuera.
+  const [totalProductosEncontrados, setTotalProductosEncontrados] = useState(0)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesEncontrados, setClientesEncontrados] = useState([])
+  const [totalClientesEncontrados, setTotalClientesEncontrados] = useState(0)
 
   // Estados de búsqueda de facturas para edición
   const [busquedaFactura, setBusquedaFactura] = useState('')
@@ -484,30 +505,36 @@ export function useFacturacion() {
   const buscarProductosPorNombre = async (nombre) => {
     if (!nombre || nombre.length < 2) {
       setProductosEncontrados([])
+      setTotalProductosEncontrados(0)
       return
     }
 
     try {
       const encontrados = await facturacionService.buscarProductosPorNombre(nombre)
-      setProductosEncontrados(encontrados.slice(0, 10)) // Máximo 10 resultados
+      setTotalProductosEncontrados(encontrados.length)
+      setProductosEncontrados(encontrados.slice(0, MAX_RESULTADOS))
     } catch (error) {
       console.error('Error buscando productos:', error)
       setProductosEncontrados([])
+      setTotalProductosEncontrados(0)
     }
   }
 
   const buscarClientesPorNombre = async (nombre) => {
     if (!nombre || nombre.length < 2) {
       setClientesEncontrados([])
+      setTotalClientesEncontrados(0)
       return
     }
 
     try {
       const encontrados = await facturacionService.buscarClientesPorNombre(nombre)
-      setClientesEncontrados(encontrados.slice(0, 10))
+      setTotalClientesEncontrados(encontrados.length)
+      setClientesEncontrados(encontrados.slice(0, MAX_RESULTADOS))
     } catch (error) {
       console.error('Error buscando clientes:', error)
       setClientesEncontrados([])
+      setTotalClientesEncontrados(0)
     }
   }
 
@@ -1100,9 +1127,11 @@ export function useFacturacion() {
     busquedaProducto,
     setBusquedaProducto,
     productosEncontrados,
+    totalProductosEncontrados,
     busquedaCliente,
     setBusquedaCliente,
     clientesEncontrados,
+    totalClientesEncontrados,
 
     // Búsqueda de facturas para edición
     busquedaFactura,

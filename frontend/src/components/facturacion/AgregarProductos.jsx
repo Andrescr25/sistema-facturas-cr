@@ -32,8 +32,11 @@ export default function AgregarProductos({
   onFocusBusquedaProducto,
   onLimpiarBusquedaProducto,
   productosEncontrados,
+  totalProductosEncontrados = 0,
   onSeleccionarProducto
 }) {
+  // Cuántos quedaron fuera por el tope de resultados.
+  const ocultos = Math.max(0, totalProductosEncontrados - productosEncontrados.length)
   return (
     <div ref={cardRef} className="card rounded-2xl p-4 md:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -154,7 +157,7 @@ export default function AgregarProductos({
           </div>
 
           {productosEncontrados.length > 0 && (
-            <div className="mt-3 max-h-80 divide-y divide-neutro-100 overflow-y-auto overscroll-contain rounded-xl border border-neutro-200">
+            <div className="mt-3 max-h-[60vh] divide-y divide-neutro-100 overflow-y-auto overscroll-contain rounded-xl border border-neutro-200 sm:max-h-[28rem]">
               {productosEncontrados.map((producto) => (
                 <button
                   key={producto.id}
@@ -176,6 +179,17 @@ export default function AgregarProductos({
                 </button>
               ))}
             </div>
+          )}
+
+          {/* Cuántos hay. Antes se recortaba en silencio y no había forma de
+              saber que faltaban: buscar "anzuelo" mostraba 10 de 26 y el
+              resto parecía no existir. */}
+          {productosEncontrados.length > 0 && (
+            <p className="mt-2 px-1 text-xs text-neutro-500">
+              {ocultos > 0
+                ? `Mostrando ${productosEncontrados.length} de ${totalProductosEncontrados}. Escribí un poco más para acortar la lista.`
+                : `${totalProductosEncontrados} ${totalProductosEncontrados === 1 ? 'producto' : 'productos'}`}
+            </p>
           )}
 
           {busquedaProducto && productosEncontrados.length === 0 && (

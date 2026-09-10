@@ -51,8 +51,8 @@ export default function Facturacion() {
     clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
-    busquedaProducto, productosEncontrados,
-    busquedaCliente, clientesEncontrados,
+    busquedaProducto, productosEncontrados, totalProductosEncontrados,
+    busquedaCliente, clientesEncontrados, totalClientesEncontrados,
     busquedaFactura, facturasEncontradas, buscandoFacturas,
     edicionesPendientes, facturasPendientesDetalle, reintentandoLocalId,
     cacheStats, mensaje,
@@ -153,6 +153,7 @@ export default function Facturacion() {
                 onFocusBusqueda={focusBusquedaCliente}
                 onLimpiarBusqueda={limpiarBusquedaCliente}
                 clientesEncontrados={clientesEncontrados}
+                totalClientesEncontrados={totalClientesEncontrados}
                 onSeleccionarCliente={seleccionarCliente}
               />
             </>
@@ -181,6 +182,7 @@ export default function Facturacion() {
                   onFocusBusquedaProducto={focusBusquedaProducto}
                   onLimpiarBusquedaProducto={limpiarBusquedaProducto}
                   productosEncontrados={productosEncontrados}
+                  totalProductosEncontrados={totalProductosEncontrados}
                   onSeleccionarProducto={abrirModalCantidadProducto}
                 />
 

@@ -15,8 +15,10 @@ export default function PasoCliente({
   onFocusBusqueda,
   onLimpiarBusqueda,
   clientesEncontrados,
+  totalClientesEncontrados = 0,
   onSeleccionarCliente
 }) {
+  const ocultos = Math.max(0, totalClientesEncontrados - clientesEncontrados.length)
   return (
     <div ref={cardRef} className="mx-auto w-full max-w-2xl">
       <div className="card rounded-2xl p-5 shadow-sm md:p-7">
@@ -61,7 +63,7 @@ export default function PasoCliente({
         </div>
 
         {clientesEncontrados.length > 0 && (
-          <div className="mt-4 divide-y divide-neutro-100 overflow-hidden rounded-xl border border-neutro-200">
+          <div className="mt-4 max-h-[60vh] divide-y divide-neutro-100 overflow-y-auto overscroll-contain rounded-xl border border-neutro-200 sm:max-h-[28rem]">
             {clientesEncontrados.map((cliente) => (
               <button
                 key={cliente.id}
@@ -79,6 +81,12 @@ export default function PasoCliente({
               </button>
             ))}
           </div>
+        )}
+
+        {clientesEncontrados.length > 0 && ocultos > 0 && (
+          <p className="mt-2 px-1 text-xs text-neutro-500">
+            Mostrando {clientesEncontrados.length} de {totalClientesEncontrados}. Escribí un poco más para acortar la lista.
+          </p>
         )}
 
         {busquedaCliente && clientesEncontrados.length === 0 && (
