@@ -255,3 +255,42 @@ describe('Facturación no ramifica el diseño en JavaScript', () => {
       'PanelCobro debe quedar pegado en la columna de escritorio');
   });
 });
+
+describe('las barras de acción no se meten debajo del sidebar', () => {
+  // El sidebar de escritorio es `lg:fixed lg:inset-y-0 lg:w-64` y el contenido
+  // vive en un `lg:pl-64`. Una barra `fixed inset-x-0 bottom-0` no conoce ese
+  // padding: se estira a todo el ancho de la ventana y le pasa por encima.
+  //
+  // Hay dos salidas legítimas y el resto es un error:
+  //   - `sticky`, que vive dentro de la columna del módulo y hereda el pl-64;
+  //   - `fixed` pero solo en móvil (`lg:hidden` / `md:hidden`), donde el
+  //     sidebar es un cajón y no ocupa lugar.
+  const paginasConSidebar = (dir) =>
+    fs.readdirSync(path.join(FRONT, dir))
+      .filter(f => f.endsWith('.jsx'))
+      .map(f => [path.join(dir, f), fs.readFileSync(path.join(FRONT, dir, f), 'utf8')]);
+
+  const modulos = ['components/revision-precios', 'components/facturacion', 'components/pagos'];
+
+  test('ninguna barra fija de ancho completo sin esconderse en escritorio', () => {
+    const culpables = [];
+    for (const dir of modulos) {
+      for (const [archivo, texto] of paginasConSidebar(dir)) {
+        const barras = sinComentarios(texto).match(/className="[^"]*\bfixed\b[^"]*\bbottom-0\b[^"]*"/g) || [];
+        for (const b of barras) {
+          if (!/\b(lg|md|sm):hidden\b/.test(b)) culpables.push(`${archivo}: ${b}`);
+        }
+      }
+    }
+    assert.deepEqual(culpables, [],
+      'Estas barras tapan el sidebar en pantalla grande. Usar sticky, o esconderlas con lg:hidden:\n  ' +
+      culpables.join('\n  '));
+  });
+
+  test('la de Revisión de Precios es sticky', () => {
+    const texto = fs.readFileSync(
+      path.join(FRONT, 'components', 'revision-precios', 'RevisionFactura.jsx'), 'utf8');
+    assert.match(texto, /className="sticky bottom-0/,
+      'la barra de "Enviar a Alegra" tiene que ser sticky para quedarse dentro del módulo');
+  });
+});

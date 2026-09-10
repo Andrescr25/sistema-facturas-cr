@@ -31,7 +31,7 @@ export default function RevisionFactura({
   const yaEnviada = facturaSeleccionada?.estado === 'ENVIADA'
 
   return (
-    <div className={`mx-auto max-w-5xl ${yaEnviada ? 'pb-6' : 'pb-28'}`}>
+    <div className="mx-auto max-w-5xl pb-6">
       <button
         onClick={onVolver}
         className="mb-4 flex items-center gap-2 text-sm font-semibold text-neutro-500 transition-colors hover:text-primario-600"
@@ -130,9 +130,15 @@ export default function RevisionFactura({
         </div>
       ) : (
         /* Barra de envío pegada abajo: con 89 productos, tenerla al final
-           obligaba a recorrer la factura entera para cerrarla. */
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutro-200 bg-white shadow-[0_-4px_20px_rgba(0,0,0,.08)]">
-          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+           obligaba a recorrer la factura entera para cerrarla.
+
+           Va `sticky` y no `fixed`: `fixed` la sacaba del flujo y la estiraba
+           a todo el ancho de la ventana, así que en pantalla grande se metía
+           por debajo del sidebar. Siendo sticky vive dentro de la columna del
+           módulo y respeta el sidebar sola, sin cablear acá los 256px que
+           mide. Al final del scroll aterriza donde termina la factura. */
+        <div className="sticky bottom-0 z-30 -mx-4 mt-4 border-t border-neutro-200 bg-white shadow-[0_-4px_20px_rgba(0,0,0,.08)] sm:-mx-0 sm:rounded-t-2xl sm:border-x">
+          <div className="flex items-center gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-neutro-900">
                 {productos.length} {productos.length === 1 ? 'costo' : 'costos'}
