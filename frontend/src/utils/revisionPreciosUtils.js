@@ -5,9 +5,25 @@
  * RevisionPrecios.jsx.
  */
 
-// Redondear a la decena más cercana terminada en 5 o 0
+// Redondear a la decena más cercana terminada en 5 o 0. Es para el precio
+// SUGERIDO: se propone un número redondo, no el resultado exacto del margen.
 export function redondearPrecio(precio) {
   return Math.round(precio / 5) * 5
+}
+
+/**
+ * Plata, con la precisión que tiene la plata.
+ *
+ * Quitarle el IVA a un precio es una división, y una división deja cola:
+ * ₡536,75 / 1,13 da 475,00000000000006. Ese número entraba tal cual en el
+ * campo de "nuevo precio" y se leía como una pantalla rota.
+ *
+ * No se redondea a múltiplos de 5 acá a propósito: eso cambiaría el precio
+ * actual del producto solo por abrir la factura, y parecería que alguien
+ * propuso un cambio que nadie hizo. Dos decimales es lo que vale un colón.
+ */
+function aDosDecimales(n) {
+  return Math.round((Number(n) || 0) * 100) / 100
 }
 
 export function analizarProducto(producto, { productosAlegra, preciosAjustados, sugerenciasPrecio = {} }) {
@@ -32,16 +48,16 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados, 
   const costoNuevoConIva = cantidadReal > 0
     ? (producto.totalLinea / cantidadReal)
     : producto.precioUnitario || 0
-  const costoNuevoSinIva = costoNuevoConIva / (1 + IVA_PORCENTAJE / 100)
+  const costoNuevoSinIva = aDosDecimales(costoNuevoConIva / (1 + IVA_PORCENTAJE / 100))
 
   // Precio de venta ACTUAL (CON IVA desde el backend)
   const precioVentaConIva = alegraData.price || 0
-  const precioVentaSinIva = precioVentaConIva / (1 + IVA_PORCENTAJE / 100)
+  const precioVentaSinIva = aDosDecimales(precioVentaConIva / (1 + IVA_PORCENTAJE / 100))
 
   // Precio AJUSTADO por el usuario (si existe)
   const precioAjustadoInput = preciosAjustados[producto.id]
   const precioAjustadoSinIva = precioAjustadoInput || precioVentaSinIva
-  const precioAjustadoConIva = precioAjustadoSinIva * (1 + IVA_PORCENTAJE / 100)
+  const precioAjustadoConIva = aDosDecimales(precioAjustadoSinIva * (1 + IVA_PORCENTAJE / 100))
 
   // MARGEN sobre precio SIN IVA (como debe ser)
   // Margen = (Precio - Costo) / Precio * 100
