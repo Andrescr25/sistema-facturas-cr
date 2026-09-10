@@ -86,6 +86,16 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados, 
   const categoriaProducto = sugerencia?.categoria ?? null
   const claseRotacion = sugerencia?.claseRotacion ?? null
 
+  // El margen que deja ese precio sugerido, medido contra el costo de ESTA
+  // factura. No se usa el `margenObjetivo` del motor —que es la meta— ni su
+  // `margenResultante` —que va contra el costo unitario histórico— porque el
+  // botón tiene que anticipar el número que va a aparecer al lado del precio
+  // apenas se aplique. Si dijera 25% y al presionarlo saliera 22%, el
+  // problema sería peor que no decir nada.
+  const margenSugerido = precioSugeridoSinIva > 0
+    ? ((precioSugeridoSinIva - costoNuevoSinIva) / precioSugeridoSinIva) * 100
+    : null
+
   const alertas = []
   if (cambioCosto > 30) {
     alertas.push({
@@ -130,6 +140,7 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados, 
     // Precio sugerido (motor de precios del backend)
     precioSugeridoSinIva,
     precioSugeridoConIva,
+    margenSugerido,
     margenObjetivo,
     categoriaProducto,
     claseRotacion,

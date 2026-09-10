@@ -159,11 +159,16 @@ export default function FilaProducto({
               <button
                 type="button"
                 onClick={() => onAplicarPrecioSugerido(producto.id, a.precioSugeridoSinIva)}
-                title={`Margen objetivo ${a.margenObjetivo}%${a.categoriaProducto ? ` · ${a.categoriaProducto}` : ''}${a.claseRotacion ? ` · ${ROTACION[a.claseRotacion] || a.claseRotacion}` : ''}`}
+                title={`Deja ${a.margenSugerido !== null ? `${a.margenSugerido.toFixed(1)}% de margen` : 'el margen recomendado'} · meta de la categoría ${a.margenObjetivo}%${a.categoriaProducto ? ` · ${a.categoriaProducto}` : ''}${a.claseRotacion ? ` · ${ROTACION[a.claseRotacion] || a.claseRotacion}` : ''}`}
                 className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primario-200 bg-primario-50 px-2 py-1.5 text-xs font-bold text-primario-700 transition-colors hover:bg-primario-100"
               >
-                <Sparkles size={12} />
-                Sugerido {formatCurrency(a.precioSugeridoSinIva)}
+                <Sparkles size={12} className="shrink-0" />
+                <span className="truncate">Sugerido {formatCurrency(a.precioSugeridoSinIva)}</span>
+                {a.margenSugerido !== null && (
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${colorMargen(a.margenSugerido)}`}>
+                    {a.margenSugerido.toFixed(1)}%
+                  </span>
+                )}
               </button>
             )}
           </>

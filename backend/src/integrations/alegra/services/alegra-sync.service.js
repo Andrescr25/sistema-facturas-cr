@@ -7,6 +7,7 @@
 const prisma = require('../../../../lib/prisma');
 const { getInstance: getAlegraClient } = require('../alegra.client');
 const { query } = require('../../../../config/database');
+const { filaDeCache } = require('../productoCache');
 
 // Las URLs de imagen de Alegra vienen firmadas y vencen a los 7 días
 // (medido sobre las 400 URLs guardadas: mediana 6,99 días). La firma cambia
@@ -228,39 +229,9 @@ class AlegraSyncService {
           return;
         }
 
-        const mainPrice = product.price?.find(p => p.main === true);
-        const price = mainPrice ? parseFloat(mainPrice.price) : 0;
-        const cost = product.inventory?.unitCost ? parseFloat(product.inventory.unitCost) : 0;
-        const reference = product.reference?.reference || product.reference || '';
-        const category = product.itemCategory?.name || product.category?.name || '';
-
-        const favoriteImage = product.images?.find(img => img.favorite === true) || product.images?.[0];
-        const imageUrl = favoriteImage ? favoriteImage.url : '';
-
-        // El impuesto del producto, para poder mostrar el precio CON IVA sin
-        // volver a consultar Alegra. Se suman las tasas porque un producto
-        // puede traer más de un impuesto. Si no trae ninguno queda en 0, que
-        // es distinto de NULL ("nunca se sincronizó") — ver la migración
-        // add_tax_percentage_products_cache.sql.
-        const taxPercentage = (product.tax || []).reduce(
-          (suma, t) => suma + (parseFloat(t.percentage) || 0),
-          0
-        );
-
-        const productData = {
-          alegraId: product.id,
-          name: product.name,
-          reference: reference,
-          description: product.description || '',
-          category: category,
-          price: price,
-          cost: cost,
-          taxPercentage: taxPercentage,
-          status: product.status || 'active',
-          type: product.type || 'product',
-          imageUrl: imageUrl,
-          searchText: `${product.name} ${reference} ${product.description || ''}`.toLowerCase()
-        };
+        // El mapeo vive en productoCache.js para que el alta de un producto
+        // desde Revisión de Precios guarde exactamente la misma fila.
+        const productData = { ...filaDeCache(product), alegraId: product.id };
 
         const existing = existingMap.get(product.id);
 

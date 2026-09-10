@@ -9,6 +9,7 @@ const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { cabysPareceMedicamento } = require('../../utils/medicamento');
 const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { filaDeCache } = require('../../integrations/alegra/productoCache');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
@@ -930,21 +931,36 @@ async function crearProducto(datos, imagen) {
     }
   }
 
-  // Guardar en caché local
-  // Extraer el string de reference (puede ser objeto {type, reference} o string)
-  const refString = typeof nuevoProductoAlegra.reference === 'object'
-    ? nuevoProductoAlegra.reference?.reference || ''
-    : nuevoProductoAlegra.reference || '';
+  // Guardar en caché local.
+  //
+  // Se vuelve a leer el producto de Alegra en vez de usar la respuesta del
+  // alta por dos razones: la foto se sube DESPUÉS de crear, así que la
+  // respuesta del alta todavía no la trae; y la categoría viene resuelta a
+  // nombre (`itemCategory.name`), que es lo que muestra Gestión de Catálogo,
+  // mientras que acá solo se mandó el id.
+  //
+  // Antes se guardaban cinco campos —id, nombre, referencia, precio y texto
+  // de búsqueda— y el producto recién creado aparecía en Gestión de Catálogo
+  // sin foto y sin categoría hasta que corriera la sincronización completa.
+  // Si además se desactivaba antes de eso, se quedaba así para siempre: el
+  // sincronizador no reescribe campo por campo los productos inactivos.
+  const releido = await productService.getProductById(String(nuevoProductoAlegra.id))
+    .then(r => (r?.success ? r.data : null))
+    .catch(err => {
+      console.error('⚠️ No se pudo releer el producto de Alegra:', err.message);
+      return null;
+    });
 
-  await prisma.alegraProduct.create({
-    data: {
-      alegraId: nuevoProductoAlegra.id.toString(),
-      name: nuevoProductoAlegra.name,
-      reference: refString,
-      price: nuevoProductoAlegra.price?.[0]?.price || parseFloat(precio),
-      searchText: `${nuevoProductoAlegra.name} ${refString}`.toLowerCase()
-    }
-  }).catch(err => console.error('Error guardando en caché:', err));
+  const fila = filaDeCache(releido || nuevoProductoAlegra);
+  const refString = fila.reference;
+
+  // Si Alegra todavía no devuelve precio o costo se usan los que se acaban de
+  // enviar, en vez de dejar la fila en cero.
+  if (!fila.price) fila.price = parseFloat(precio) || 0;
+  if (!fila.cost) fila.cost = parseFloat(costo) || 0;
+
+  await prisma.alegraProduct.create({ data: fila })
+    .catch(err => console.error('Error guardando en caché:', err));
 
   // Crear o actualizar mapeo usando upsert
   const nuevoMapeo = await prisma.supplierProductMapping.upsert({
