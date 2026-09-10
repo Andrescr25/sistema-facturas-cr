@@ -1,124 +1,106 @@
-import { XCircle } from 'lucide-react'
+import { Loader2, ArrowRight } from 'lucide-react'
 import { calcularFactorConversion } from '../../utils/revisionPreciosUtils'
-import { useModal } from '../../hooks/useModal'
+import HojaModal from '../pagos/HojaModal'
 
 /**
- * Modal para definir el factor de conversión de un producto directamente
- * desde la vista de revisión, con vista previa en vivo. Extraído de
- * RevisionPrecios.jsx.
+ * Cuántas unidades tuyas trae una unidad del proveedor.
+ *
+ * POR QUÉ IMPORTA MÁS DE LO QUE PARECE
+ * Sin este factor el sistema asume 1 a 1, y cada vez que el proveedor
+ * factura por caja lo que se vende por unidad, el costo unitario queda
+ * inflado y el margen sale falso. De 2.049 relaciones producto-proveedor
+ * solo 93 tienen un factor declarado; el resto se está calculando 1 a 1.
+ *
+ * Por eso la pantalla muestra el ejemplo en vivo: la equivalencia se
+ * entiende mejor viendo qué pasa con diez unidades que leyendo un número.
+ *
+ * Usa la hoja compartida de components/pagos/: sube desde abajo en el
+ * teléfono y es diálogo centrado en grande, igual que los modales de cobrar
+ * y pagar. Antes armaba su propio caparazón, y dos de sus etiquetas pedían
+ * `text-xxs`, que no existe en la configuración — salían del tamaño
+ * heredado.
  */
 export default function ModalFactorConversion({
-  producto,
-  cantidadProveedor,
-  setCantidadProveedor,
-  cantidadMia,
-  setCantidadMia,
-  guardando,
-  onGuardar,
-  onCerrar
+  producto, cantidadProveedor, setCantidadProveedor,
+  cantidadMia, setCantidadMia, guardando, onGuardar, onCerrar
 }) {
-  useModal(onCerrar)
   const cantProv = parseFloat(cantidadProveedor) || 1
   const cantMia = parseFloat(cantidadMia) || 1
   const factor = calcularFactorConversion(cantProv, cantMia)
-  const ejemploProveedor = 10
-  const ejemploResultado = (ejemploProveedor * factor).toFixed(2)
+  const EJEMPLO = 10
+  const resultado = (EJEMPLO * factor).toFixed(2)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-xl border border-neutro-100 flex flex-col max-h-[85vh]">
-        <div className="p-6 border-b border-neutro-50 flex-shrink-0 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-neutro-900">Factor de Conversión</h3>
-          <button
-            onClick={onCerrar}
-            className="text-neutro-400 hover:text-neutro-600 transition cursor-pointer"
-          >
-            <XCircle size={22} />
-          </button>
-        </div>
+    <HojaModal
+      titulo="Factor de conversión"
+      subtitulo={producto.descripcion}
+      onCerrar={onCerrar}
+    >
+      <div className="rounded-xl border border-neutro-200 bg-neutro-50 p-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-neutro-400">Relacionado con</p>
+        <p className="mt-0.5 font-semibold text-neutro-900">
+          {producto.mapeo?.alegraName || producto.alegraName}
+        </p>
+      </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto flex-grow">
-          {/* Info del producto */}
-          <div className="bg-neutro-50/70 p-5 rounded-2xl border border-neutro-100">
-            <p className="text-xxs font-bold uppercase tracking-wider text-neutro-400 mb-1.5">Producto del proveedor</p>
-            <p className="font-semibold text-neutro-900 text-sm leading-snug">{producto.descripcion}</p>
-            <p className="text-xs text-neutro-500 mt-1">Relacionado con: <span className="font-medium text-neutro-700">{producto.mapeo?.alegraName || producto.alegraName}</span></p>
+      <div>
+        <p className="mb-3 text-sm font-semibold text-neutro-700">Definí la equivalencia</p>
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-500">
+              El proveedor factura
+            </label>
+            <input
+              type="number"
+              value={cantidadProveedor}
+              onChange={(e) => setCantidadProveedor(e.target.value)}
+              step="1"
+              min="1"
+              placeholder="24"
+              className="input h-12 w-full rounded-xl border border-neutro-300 text-center text-lg font-bold focus:border-primario-500"
+            />
           </div>
 
-          <div className="bg-primario-50/50 p-5 rounded-2xl border border-primario-100/70">
-            <p className="text-xs font-bold text-primario-800 uppercase tracking-wider mb-4">
-              Define la equivalencia entre las cantidades
-            </p>
+          <span className="flex h-12 shrink-0 items-center text-neutro-400">
+            <ArrowRight size={18} />
+          </span>
 
-            <div className="grid grid-cols-5 gap-3 items-center">
-              {/* Cantidad Proveedor */}
-              <div className="col-span-2 space-y-1">
-                <label className="block text-xxs font-bold text-neutro-500 uppercase">Cantidad Proveedor</label>
-                <input
-                  type="number"
-                  value={cantidadProveedor}
-                  onChange={(e) => setCantidadProveedor(e.target.value)}
-                  step="1"
-                  min="1"
-                  className="input w-full rounded-xl border-neutro-200 text-sm py-2"
-                  placeholder="Ej: 24"
-                />
-                <p className="text-[10px] text-neutro-400 font-medium">Unidades que factura</p>
-              </div>
-
-              {/* Icono = */}
-              <div className="col-span-1 text-center pt-3">
-                <span className="text-xl text-primario-600 font-black">=</span>
-              </div>
-
-              {/* Cantidad Mía */}
-              <div className="col-span-2 space-y-1">
-                <label className="block text-xxs font-bold text-neutro-500 uppercase">Cantidad en Tu Sistema</label>
-                <input
-                  type="number"
-                  value={cantidadMia}
-                  onChange={(e) => setCantidadMia(e.target.value)}
-                  step="1"
-                  min="1"
-                  className="input w-full rounded-xl border-neutro-200 text-sm py-2"
-                  placeholder="Ej: 12"
-                />
-                <p className="text-[10px] text-neutro-400 font-medium">Unidades que registras</p>
-              </div>
-            </div>
+          <div className="min-w-0 flex-1">
+            <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-500">
+              Vos registrás
+            </label>
+            <input
+              type="number"
+              value={cantidadMia}
+              onChange={(e) => setCantidadMia(e.target.value)}
+              step="1"
+              min="1"
+              placeholder="12"
+              className="input h-12 w-full rounded-xl border border-neutro-300 text-center text-lg font-bold focus:border-primario-500"
+            />
           </div>
-
-          {/* Vista Previa */}
-          <div className="bg-neutro-50/70 p-5 rounded-2xl border border-neutro-100 space-y-2">
-            <p className="text-xs font-bold text-neutro-700 uppercase tracking-wider">Vista Previa</p>
-            <div className="text-sm text-neutro-600 space-y-1 leading-relaxed">
-              <p>
-                <strong>Configuración:</strong> {cantProv} del proveedor = {cantMia} en tu sistema
-              </p>
-              <p className="text-primario-700 font-medium bg-primario-50/40 p-2 rounded-lg border border-primario-50/60 mt-1.5 text-xs">
-                <strong>Ejemplo:</strong> Si el proveedor factura <strong>{ejemploProveedor}</strong>,
-                en tu sistema se registrarán <strong>{ejemploResultado}</strong>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-neutro-50 bg-neutro-50/50 flex gap-3 flex-shrink-0">
-          <button
-            onClick={onGuardar}
-            disabled={guardando}
-            className="px-5 py-3 bg-primario-600 hover:bg-primario-700 text-white font-bold rounded-xl text-sm shadow-sm active:scale-[0.98] transition flex-1 disabled:opacity-50 cursor-pointer"
-          >
-            {guardando ? 'Guardando...' : 'Guardar Factor'}
-          </button>
-          <button
-            onClick={onCerrar}
-            className="px-5 py-3 border border-neutro-200 hover:bg-neutro-50 text-neutro-700 font-semibold rounded-xl text-sm transition flex-1 cursor-pointer"
-          >
-            Cancelar
-          </button>
         </div>
       </div>
-    </div>
+
+      {/* El ejemplo en vivo: es lo que hace entender la equivalencia. */}
+      <div className="rounded-xl border border-primario-200 bg-primario-50 p-3 text-sm text-primario-900">
+        Si el proveedor factura <strong>{EJEMPLO}</strong>, en tu sistema entran{' '}
+        <strong>{resultado}</strong>.
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={onCerrar} className="btn btn-outline flex-1 py-3">
+          Cancelar
+        </button>
+        <button
+          onClick={onGuardar}
+          disabled={guardando}
+          className="btn btn-primary flex flex-1 items-center justify-center gap-2 py-3 font-bold disabled:opacity-50"
+        >
+          {guardando && <Loader2 size={16} className="animate-spin" />}
+          {guardando ? 'Guardando…' : 'Guardar factor'}
+        </button>
+      </div>
+    </HojaModal>
   )
 }
