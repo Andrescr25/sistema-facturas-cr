@@ -1,0 +1,110 @@
+{
+  "capturado": "2026-09-11",
+  "fuente": "GET /taxes de la cuenta de Alegra de Distribuidora Tachi",
+  "impuestos": [
+    {
+      "id": "1",
+      "name": "IVA",
+      "percentage": "13.00",
+      "type": "IVA",
+      "rateType": "GENERAL",
+      "status": "active"
+    },
+    {
+      "id": "2",
+      "name": "IVA exento",
+      "percentage": "0.00",
+      "type": "IVA",
+      "rateType": "EXEMPT",
+      "status": "active"
+    },
+    {
+      "id": "3",
+      "name": "IVA reducido",
+      "percentage": "0.50",
+      "type": "IVA",
+      "rateType": "REDUCED",
+      "status": "active"
+    },
+    {
+      "id": "4",
+      "name": "IVA reducido",
+      "percentage": "1.00",
+      "type": "IVA",
+      "rateType": "REDUCED",
+      "status": "active"
+    },
+    {
+      "id": "5",
+      "name": "IVA reducido",
+      "percentage": "2.00",
+      "type": "IVA",
+      "rateType": "REDUCED",
+      "status": "active"
+    },
+    {
+      "id": "6",
+      "name": "IVA reducido",
+      "percentage": "4.00",
+      "type": "IVA",
+      "rateType": "REDUCED",
+      "status": "active"
+    },
+    {
+      "id": "7",
+      "name": "IVA transitorio",
+      "percentage": "8.00",
+      "type": "IVA",
+      "rateType": "TRANSIENT",
+      "status": "active"
+    },
+    {
+      "id": "8",
+      "name": "Factor para artículos electrónicos",
+      "percentage": "5.80",
+      "type": "IVA_BIENES_USADOS",
+      "rateType": null,
+      "status": "inactive"
+    },
+    {
+      "id": "9",
+      "name": "Factor para herramientas manuales y eléctrica",
+      "percentage": "5.00",
+      "type": "IVA_BIENES_USADOS",
+      "rateType": null,
+      "status": "inactive"
+    },
+    {
+      "id": "10",
+      "name": "Factor para línea blanca – electrodomésticos",
+      "percentage": "4.40",
+      "type": "IVA_BIENES_USADOS",
+      "rateType": null,
+      "status": "inactive"
+    },
+    {
+      "id": "11",
+      "name": "Factor para antigüedades",
+      "percentage": "6.50",
+      "type": "IVA_BIENES_USADOS",
+      "rateType": null,
+      "status": "inactive"
+    },
+    {
+      "id": "12",
+      "name": "Tarifa 0% (Artículo 32, num 1, RLIVA)",
+      "percentage": "0.00",
+      "type": "IVA",
+      "rateType": "EXEMPT",
+      "status": "active"
+    },
+    {
+      "id": "13",
+      "name": "Tarifa 0% sin derecho a crédito",
+      "percentage": "0.00",
+      "type": "IVA",
+      "rateType": null,
+      "status": "active"
+    }
+  ]
+}

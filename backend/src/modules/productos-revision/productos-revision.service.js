@@ -8,7 +8,7 @@ const prisma = require('../../../lib/prisma');
 const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { cabysPareceMedicamento } = require('../../utils/medicamento');
-const { calcularPorcentajeIva, obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { calcularPorcentajeIva, obtenerImpuestoAlegra, cargarImpuestosAlegra } = require('../../../utils/impuestosAlegra');
 const { filaDeCache } = require('../../integrations/alegra/productoCache');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
@@ -863,7 +863,7 @@ async function crearProducto(datos, imagen) {
     const impuestoSeleccionado = obtenerImpuestoAlegra({
       impuesto: productoOriginal.impuesto,
       totalLinea: productoOriginal.totalLinea
-    });
+    }, await cargarImpuestosAlegra());
 
     if (impuestoSeleccionado) {
       productoData.tax = [{ id: impuestoSeleccionado.id }];
