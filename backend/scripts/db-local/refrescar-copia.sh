@@ -9,7 +9,8 @@
 #   mayúscula inicial): no las usa el sistema y son conversaciones privadas.
 #
 #   Después vuelve a aplicar las migraciones de esta rama
-#   (migrations/independencia/*.sql), que producción no tiene.
+#   (migrations/independencia/*.sql), que producción no tiene, y vuelve a
+#   correr las cargas desde Alegra (configuración, productos).
 #
 # Uso:  scripts/db-local/refrescar-copia.sh --si
 set -euo pipefail
@@ -92,6 +93,16 @@ for f in migrations/independencia/*.sql; do
   [ -e "$f" ] || continue
   echo "   $f"
   docker exec -i "$CONTENEDOR" psql -U "$USUARIO" -d "$BASE" -v ON_ERROR_STOP=1 -q < "$f"
+done
+
+# Lo que cargan los scripts de la rama (configuración, productos) vive solo en
+# la base local: al reemplazarla se pierde. Se vuelve a leer de Alegra, en el
+# orden en que dependen (los productos apuntan a los impuestos).
+echo "→ Volviendo a cargar los datos propios desde Alegra (solo lectura)…"
+for s in cargar-configuracion cargar-productos; do
+  [ -e "scripts/independencia/$s.js" ] || continue
+  echo "   $s"
+  node "scripts/independencia/$s.js" | sed 's/^/     /'
 done
 
 echo "→ Comparando filas por tabla con producción…"

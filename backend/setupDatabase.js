@@ -817,6 +817,15 @@ async function setupDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_producto_categoria ON producto (categoria_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_producto_activo ON producto (activo, oculto)');
 
+    // Rama independencia-alegra · migrations/independencia/005_historicos_producto.sql
+    // (el relleno desde alegra_id vive solo en la migración: en una instalación nueva no hay nada que rellenar)
+    await client.query('ALTER TABLE precio_historico ADD COLUMN IF NOT EXISTS producto_id INTEGER REFERENCES producto(id)');
+    await client.query('ALTER TABLE costo_historico ADD COLUMN IF NOT EXISTS producto_id INTEGER REFERENCES producto(id)');
+    await client.query('ALTER TABLE precio_historico ALTER COLUMN alegra_item_id DROP NOT NULL');
+    await client.query('ALTER TABLE costo_historico ALTER COLUMN alegra_item_id DROP NOT NULL');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_precio_historico_producto ON precio_historico (producto_id, created_at DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_costo_historico_producto ON costo_historico (producto_id, fecha DESC)');
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()

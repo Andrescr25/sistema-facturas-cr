@@ -129,7 +129,7 @@ const MODULOS = [
     nombre: 'Gestión de Catálogo',
     grupo: 'Inventario',
     ruta: '/gestion-catalogo',
-    rutasApi: []   // usa /alegra/catalog, compartida con Revisión de Precios
+    rutasApi: ['/maestro']   // productos y categorías propios; /alegra/catalog sigue compartida con Revisión de Precios
   },
 
   // ---- Finanzas ----

@@ -137,6 +137,8 @@ const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias'
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
 const configuracionModule = require('./src/modules/configuracion');
+const productosModule = require('./src/modules/productos');
+const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
@@ -192,6 +194,9 @@ app.use('/api/cotizaciones', cotizacionesModule.routes);
 // Configuración; leer lo activo es compartido (ver usuarios/modulos.js).
 app.use('/api/configuracion', configuracionModule.routes);
 app.use('/api/catalogos', configuracionModule.rutasCompartidas);
+// Rama independencia-alegra: maestro de productos propio.
+app.use('/api/maestro', productosModule.routes);
+app.use('/api/catalogos', productosModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
 // protegida por el token firmado que lleva la URL (ver enlacePublico.js).
 app.use('/api/cotizacion-publica', cotizacionesModule.rutasPublicas);
@@ -227,12 +232,11 @@ app.get('/api', (req, res) => {
 });
 
 // Manejo de errores
+// Un JSON mal formado es 400, no 500 (ver src/utils/manejadorErrores.js).
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Error interno'
-  });
+  const { status, cuerpo } = respuestaDeError(err, { desarrollo: process.env.NODE_ENV === 'development' });
+  if (status >= 500) console.error('Error:', err);
+  res.status(status).json(cuerpo);
 });
 
 // Catch-all handler

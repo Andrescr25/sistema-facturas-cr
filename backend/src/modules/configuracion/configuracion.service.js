@@ -16,71 +16,10 @@
 
 const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
+const { httpError, texto, numero, booleano, opcion, soloDigitos, validar, idValido } = require('../../utils/validacion');
+const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 
-function httpError(status, message) {
-  const error = new Error(message);
-  error.status = status;
-  return error;
-}
-
-// ─── Validadores ───────────────────────────────────────────────────────────
-// Cada uno recibe (valor, etiqueta) y devuelve el valor limpio, o lanza 400.
-
-const texto = (max, { patron, mensajePatron } = {}) => (v, etiqueta) => {
-  if (v === null || String(v).trim() === '') return null;
-  const s = String(v).trim();
-  if (s.length > max) throw httpError(400, `${etiqueta}: hasta ${max} caracteres.`);
-  if (patron && !patron.test(s)) throw httpError(400, `${etiqueta}: ${mensajePatron}.`);
-  return s;
-};
-
-const numero = ({ min, max, entero = false }) => (v, etiqueta) => {
-  if (v === null || v === '') return null;
-  const n = Number(v);
-  if (!Number.isFinite(n)) throw httpError(400, `${etiqueta}: tiene que ser un número.`);
-  if (entero && !Number.isInteger(n)) throw httpError(400, `${etiqueta}: tiene que ser un número entero.`);
-  if (n < min || n > max) throw httpError(400, `${etiqueta}: entre ${min} y ${max}.`);
-  return n;
-};
-
-const booleano = (v, etiqueta) => {
-  if (typeof v !== 'boolean') throw httpError(400, `${etiqueta}: tiene que ser sí o no.`);
-  return v;
-};
-
-const opcion = (opciones) => (v, etiqueta) => {
-  if (!opciones.includes(v)) throw httpError(400, `${etiqueta}: tiene que ser ${opciones.join(', ')}.`);
-  return v;
-};
-
-const soloDigitos = (max) => (v, etiqueta) => {
-  if (v === null || String(v).trim() === '') return null;
-  const s = String(v).replace(/[\s-]/g, '');
-  if (!/^\d+$/.test(s)) throw httpError(400, `${etiqueta}: solo números.`);
-  if (s.length > max) throw httpError(400, `${etiqueta}: hasta ${max} dígitos.`);
-  return s;
-};
-
-/**
- * Valida los datos contra la definición. Al crear, los obligatorios tienen
- * que venir; al editar, lo que no vino se deja como estaba.
- */
-function validar(campos, datos, { crear }) {
-  const fila = {};
-  for (const [campo, def] of Object.entries(campos)) {
-    const v = datos?.[campo];
-    if (v === undefined) {
-      if (crear && def.requerido) throw httpError(400, `${def.etiqueta}: es obligatorio.`);
-      continue;
-    }
-    const limpio = def.validar(v, def.etiqueta);
-    if (def.requerido && (limpio === null || limpio === undefined)) {
-      throw httpError(400, `${def.etiqueta}: es obligatorio.`);
-    }
-    fila[campo] = limpio;
-  }
-  return fila;
-}
+// Los validadores (texto, numero, opcion…) son los compartidos: src/utils/validacion.js.
 
 // ─── Empresa ───────────────────────────────────────────────────────────────
 
@@ -197,12 +136,6 @@ function catalogoDe(nombre) {
   return c;
 }
 
-function idValido(id) {
-  const n = Number(id);
-  if (!Number.isInteger(n) || n <= 0) throw httpError(400, 'Identificador inválido.');
-  return n;
-}
-
 function sinTiempos(fila) {
   if (!fila) return fila;
   const { actualizado_en, creado_en, ...resto } = fila; // eslint-disable-line no-unused-vars
@@ -217,20 +150,7 @@ function traducirDuplicado(error, c) {
   return error;
 }
 
-async function enTransaccion(trabajo) {
-  const cliente = await pool.connect();
-  try {
-    await cliente.query('BEGIN');
-    const resultado = await trabajo(cliente);
-    await cliente.query('COMMIT');
-    return resultado;
-  } catch (error) {
-    await cliente.query('ROLLBACK');
-    throw error;
-  } finally {
-    cliente.release();
-  }
-}
+const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
 async function crearEnCatalogo(nombre, datos, usuarioId) {
   const c = catalogoDe(nombre);
