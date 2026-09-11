@@ -689,6 +689,93 @@ async function setupDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_bitacora_entidad ON bitacora_cambio (entidad, entidad_id, creado_en DESC)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_bitacora_usuario ON bitacora_cambio (usuario_id, creado_en DESC)');
 
+    // Rama independencia-alegra · migrations/independencia/002_configuracion.sql
+    console.log('📋 Creando tabla empresa...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS empresa (
+        id                   SMALLINT     PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        nombre               VARCHAR(160) NOT NULL,
+        nombre_comercial     VARCHAR(160),
+        tipo_identificacion  VARCHAR(10)  NOT NULL CHECK (tipo_identificacion IN ('CF', 'CJ', 'DIMEX', 'NITE')),
+        identificacion       VARCHAR(20)  NOT NULL,
+        actividad_economica  VARCHAR(10),
+        regimen              VARCHAR(40),
+        telefono             VARCHAR(30),
+        correo               VARCHAR(160),
+        provincia            VARCHAR(40),
+        canton               VARCHAR(60),
+        distrito             VARCHAR(60),
+        barrio               VARCHAR(80),
+        otras_senas          TEXT,
+        logo_url             TEXT,
+        decimales            SMALLINT     NOT NULL DEFAULT 0 CHECK (decimales BETWEEN 0 AND 5),
+        actualizado_en       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tabla impuesto...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS impuesto (
+        id                      SERIAL       PRIMARY KEY,
+        nombre                  VARCHAR(80)  NOT NULL,
+        tarifa                  NUMERIC(5,2) NOT NULL CHECK (tarifa >= 0 AND tarifa <= 100),
+        tipo                    VARCHAR(20)  NOT NULL CHECK (tipo IN ('general', 'reducido', 'transitorio', 'exento', 'sin_credito', 'bienes_usados')),
+        codigo_tarifa_hacienda  VARCHAR(4),
+        activo                  BOOLEAN      NOT NULL DEFAULT TRUE,
+        alegra_id               VARCHAR(20)  UNIQUE,
+        creado_en               TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tabla metodo_pago...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS metodo_pago (
+        id                          SERIAL      PRIMARY KEY,
+        clave                       VARCHAR(30) NOT NULL UNIQUE,
+        nombre                      VARCHAR(60) NOT NULL,
+        pide_referencia             BOOLEAN     NOT NULL DEFAULT FALSE,
+        codigo_medio_pago_hacienda  VARCHAR(4),
+        alegra_clave                VARCHAR(30),
+        orden                       SMALLINT    NOT NULL DEFAULT 0,
+        activo                      BOOLEAN     NOT NULL DEFAULT TRUE
+      )
+    `);
+    console.log('📋 Creando tabla plazo_credito...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plazo_credito (
+        id         SERIAL      PRIMARY KEY,
+        nombre     VARCHAR(40) NOT NULL,
+        dias       SMALLINT    NOT NULL UNIQUE CHECK (dias >= 0),
+        activo     BOOLEAN     NOT NULL DEFAULT TRUE,
+        alegra_id  VARCHAR(20) UNIQUE
+      )
+    `);
+    console.log('📋 Creando tabla cuenta_dinero...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cuenta_dinero (
+        id             SERIAL        PRIMARY KEY,
+        nombre         VARCHAR(80)   NOT NULL,
+        tipo           VARCHAR(20)   NOT NULL CHECK (tipo IN ('efectivo', 'banco', 'tarjeta_credito')),
+        numero         VARCHAR(60),
+        descripcion    TEXT,
+        saldo_inicial  NUMERIC(14,2) NOT NULL DEFAULT 0,
+        activo         BOOLEAN       NOT NULL DEFAULT TRUE,
+        alegra_id      VARCHAR(20)   UNIQUE,
+        creado_en      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tabla serie_consecutivo...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS serie_consecutivo (
+        id              SERIAL      PRIMARY KEY,
+        tipo_documento  VARCHAR(20) NOT NULL CHECK (tipo_documento IN ('factura', 'tiquete', 'nota_credito', 'nota_debito', 'cotizacion', 'recibo')),
+        sucursal        CHAR(3)     NOT NULL DEFAULT '001' CHECK (sucursal ~ '^[0-9]{3}$'),
+        terminal        CHAR(5)     NOT NULL CHECK (terminal ~ '^[0-9]{5}$'),
+        siguiente       BIGINT      NOT NULL DEFAULT 1 CHECK (siguiente > 0),
+        activo          BOOLEAN     NOT NULL DEFAULT TRUE,
+        UNIQUE (tipo_documento, sucursal, terminal)
+      )
+    `);
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()

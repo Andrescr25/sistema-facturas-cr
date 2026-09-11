@@ -60,13 +60,21 @@ que no escribe en Alegra ni en producción.
 de numeración, impuestos (`GET /taxes`), métodos de pago
 (`GET /payment-methods`), 4 cuentas de dinero y 6 plazos.
 
-- [ ] Datos de la empresa: nombre, cédula, actividad, dirección, teléfono, correo y logo para los PDF
-- [ ] Impuestos y tarifas: 13 %, 4 %, 2 %, 1 % y exento
-- [ ] Métodos de pago: efectivo, SINPE Móvil, transferencia, tarjeta y cheque
-- [ ] Plazos de crédito: contado, 8, 15, 22, 30 y 60 días
-- [ ] Cuentas de dinero: Caja general, Caja chica, Banco y Tarjeta empresarial
-- [ ] Series y consecutivos propios, que no choquen con los de Alegra
+- [ ] Datos de la empresa: nombre, cédula, actividad, dirección, teléfono, correo y logo para los PDF *(tabla y datos listos; hoy la pantalla solo los guarda en el navegador y nada los usa)*
+- [ ] Impuestos y tarifas: 13 %, 4 %, 2 %, 1 % y exento *(tabla y datos listos; son 13 en Alegra, incluidos 0,5 %, 8 % y los de bienes usados)*
+- [ ] Métodos de pago: efectivo, SINPE Móvil, transferencia, tarjeta y cheque *(tabla y datos listos)*
+- [ ] Plazos de crédito: contado, 8, 15, 22, 30 y 60 días *(tabla y datos listos)*
+- [ ] Cuentas de dinero: Caja general, Caja chica, Banco y Tarjeta empresarial *(tabla y datos listos)*
+- [ ] Series y consecutivos propios, que no choquen con los de Alegra *(tabla lista; las series se definen en Facturación)*
 - [ ] Pantalla de Configuración para todo lo anterior
+
+**Avance:**
+- Tablas `empresa`, `impuesto`, `metodo_pago`, `plazo_credito`, `cuenta_dinero` y `serie_consecutivo` (migración `independencia/002`).
+- Datos cargados desde Alegra con `scripts/independencia/cargar-configuracion.js`: empresa, 13 impuestos, 6 plazos y 4 cuentas.
+- Métodos de pago propios con **SINPE Móvil** (migración `independencia/003`), que no estaba en ninguna de las dos listas escritas a mano.
+- Falta la API y la pantalla.
+
+**Hallazgo al cargar los impuestos (afecta a `main`):** `utils/impuestosAlegra.js` usa ids de Alegra equivocados. Desde el 10 de julio, 82 líneas de compra al 1 % se registraron al 4 %, 19 al 2 % se registraron al 8 % y 22 exentas quedaron al 0,5 %. Son unos ₡16.674 de IVA de compras de más en Alegra. Las tablas propias guardan la tarifa como número y no la deducen del id.
 
 **Lista cuando:** nada de esto se lee de Alegra.
 
@@ -193,7 +201,7 @@ parecen registrarse a mano en Alegra. Hay que confirmarlo con quien cobra.
 - [ ] Saldo de cada factura calculado: total menos pagos menos notas de crédito
 - [ ] Registrar el cobro de contado al facturar, para que no haga falta ir a Alegra
 - [ ] Registrar abonos desde la misma pantalla de CxC, sobre la base propia
-- [ ] **Cierre de caja diario**: efectivo esperado contra efectivo contado. Hoy no existe
+- [ ] **Cierre de caja diario**: efectivo esperado contra efectivo contado. Hoy existe "Cobros del día" en CxC, que resume por método lo cobrado y lo lista, pero no compara contra lo contado
 - [ ] Recordatorios de saldo por WhatsApp calculados con el saldo propio
 - [ ] Portal: saldo y facturas del cliente desde tablas propias
 - [ ] Retirar la sincronización de CxC cada 30 minutos
