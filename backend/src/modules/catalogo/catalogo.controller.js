@@ -10,11 +10,25 @@ const catalogoService = require('./catalogo.service');
  */
 async function listarProductos(req, res) {
   try {
-    const { search, missingImageOnly, page, limit } = req.query;
-    const result = await catalogoService.listarProductos({ search, missingImageOnly, page, limit });
+    const { search, missingImageOnly, proveedor, page, limit } = req.query;
+    const result = await catalogoService.listarProductos({ search, missingImageOnly, proveedor, page, limit });
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error en GET /catalog/productos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /catalog/proveedores — los proveedores que tienen productos en el
+ * catálogo, con cuántos, para el filtro de Gestión de Catálogo.
+ */
+async function listarProveedores(req, res) {
+  try {
+    const result = await catalogoService.listarProveedoresDelCatalogo();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('❌ Error en GET /catalog/proveedores:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -227,6 +241,7 @@ async function siguienteReferenciaMarca(req, res) {
 
 module.exports = {
   listarProductos,
+  listarProveedores,
   buscarImagenesPorReferencia,
   buscarImagenes,
   proxyImagen,

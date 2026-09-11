@@ -48,10 +48,56 @@ function httpError(status, message, extra = {}) {
   return error;
 }
 
+// Valor del filtro para "productos que no se le han relacionado a ningún
+// proveedor". No choca con una cédula real: esas son solo dígitos.
+const SIN_PROVEEDOR = 'sin-proveedor';
+
+/**
+ * Proveedores que tienen productos en el catálogo, para el filtro.
+ *
+ * No se reutiliza GET /proveedores: esa lista sale de TODAS las facturas
+ * recibidas, incluidas las de gastos (luz, alquiler) que no tienen ningún
+ * producto. Elegir uno de esos dejaba la grilla vacía sin explicación.
+ *
+ * Se agrupa por cédula y se muestra el nombre usado más recientemente: hay
+ * cédulas con dos grafías del mismo proveedor. El conteo es de productos
+ * VISIBLES —activos y no ocultos—, el mismo criterio de listarProductos, para
+ * que el número del filtro coincida con lo que aparece al elegirlo.
+ */
+async function listarProveedoresDelCatalogo() {
+  // Las dos van juntas: cada viaje al pooler de Supabase cuesta ~500 ms
+  // aunque la consulta en sí sea instantánea (medido contra un SELECT 1).
+  const [filas, sinProveedor] = await Promise.all([prisma.$queryRawUnsafe(`
+    SELECT m.supplier_cedula AS cedula,
+           (array_agg(m.supplier_name ORDER BY m.last_used_date DESC NULLS LAST))[1] AS nombre,
+           COUNT(DISTINCT c.alegra_id)::int AS productos
+    FROM supplier_product_mapping m
+    JOIN alegra_products_cache c
+      ON c.alegra_id = m.alegra_item_id
+     AND c.status = 'active'
+     AND c.hidden_locally = false
+    WHERE m.supplier_cedula IS NOT NULL AND m.supplier_cedula <> ''
+    GROUP BY m.supplier_cedula
+    ORDER BY nombre ASC
+  `), prisma.$queryRawUnsafe(`
+    SELECT COUNT(*)::int AS productos
+    FROM alegra_products_cache c
+    WHERE c.status = 'active' AND c.hidden_locally = false
+      AND NOT EXISTS (
+        SELECT 1 FROM supplier_product_mapping m WHERE m.alegra_item_id = c.alegra_id
+      )
+  `)]);
+
+  return {
+    proveedores: filas.map(f => ({ cedula: f.cedula, nombre: f.nombre, productos: f.productos })),
+    sinProveedor: { valor: SIN_PROVEEDOR, productos: sinProveedor[0]?.productos || 0 }
+  };
+}
+
 /**
  * Listar productos paginados de la caché local con filtros
  */
-async function listarProductos({ search = '', missingImageOnly = 'false', page = '1', limit = '30' }) {
+async function listarProductos({ search = '', missingImageOnly = 'false', proveedor = '', page = '1', limit = '30' }) {
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 30;
   const skip = (pageNum - 1) * limitNum;
@@ -74,6 +120,29 @@ async function listarProductos({ search = '', missingImageOnly = 'false', page =
       { imageUrl: null },
       { imageUrl: '' }
     ];
+  }
+
+  // Filtro por proveedor. La caché de productos no sabe quién vende qué: eso
+  // vive en supplier_product_mapping, que se llena al relacionar facturas de
+  // proveedor. Se filtra por CÉDULA y no por nombre porque el mismo proveedor
+  // aparece escrito de dos formas ("F & G Ferreteros Sociedad Anonima" y
+  // "F Y G FERRETEROS SOCIEDAD ANONIMA"); por nombre se perdía la mitad.
+  //
+  // Un producto puede tener varios proveedores (242 del catálogo): aparece
+  // bajo cada uno de ellos, que es lo que se espera al preguntar "¿qué le
+  // compro a este?".
+  const proveedorLimpio = String(proveedor || '').trim();
+  if (proveedorLimpio) {
+    // alegra_item_id es NOT NULL en la tabla (y String obligatorio en
+    // Prisma, que rechaza `{ not: null }`), así que no se filtra en la
+    // consulta; se descartan acá los vacíos por si alguna fila vieja quedó así.
+    const mapeados = await prisma.supplierProductMapping.findMany({
+      where: proveedorLimpio === SIN_PROVEEDOR ? {} : { supplierCedula: proveedorLimpio },
+      select: { alegraItemId: true },
+      distinct: ['alegraItemId']
+    });
+    const ids = mapeados.map(m => m.alegraItemId).filter(Boolean);
+    whereClause.alegraId = proveedorLimpio === SIN_PROVEEDOR ? { notIn: ids } : { in: ids };
   }
 
   const [productos, total] = await Promise.all([
@@ -648,6 +717,8 @@ async function siguienteReferenciaMarca(referenciaBase) {
 
 module.exports = {
   listarProductos,
+  listarProveedoresDelCatalogo,
+  SIN_PROVEEDOR,
   buscarImagenesPorReferencia,
   buscarImagenes,
   descargarImagen,

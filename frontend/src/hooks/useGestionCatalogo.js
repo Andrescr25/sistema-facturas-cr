@@ -22,6 +22,10 @@ export function useGestionCatalogo() {
   const [syncing, setSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [missingImageOnly, setMissingImageOnly] = useState(false)
+  // Cédula del proveedor ('' = todos). Las opciones vienen del propio catálogo:
+  // solo proveedores que tienen productos, con cuántos.
+  const [proveedorFiltro, setProveedorFiltro] = useState('')
+  const [proveedoresCatalogo, setProveedoresCatalogo] = useState({ proveedores: [], sinProveedor: null })
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
@@ -78,6 +82,7 @@ export function useGestionCatalogo() {
         params: {
           search: searchQuery,
           missingImageOnly: missingImageOnly.toString(),
+          proveedor: proveedorFiltro,
           page: currentPage.toString(),
           limit: LIMIT.toString()
         }
@@ -98,12 +103,32 @@ export function useGestionCatalogo() {
   // Debounced search trigger or trigger on dependencies change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, missingImageOnly])
+  }, [searchQuery, missingImageOnly, proveedorFiltro])
 
   useEffect(() => {
     fetchProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchQuery, missingImageOnly])
+  }, [currentPage, searchQuery, missingImageOnly, proveedorFiltro])
+
+  // Las opciones del filtro. Si falla, el filtro simplemente no aparece: no
+  // vale un aviso de error que tape el catálogo, que sí cargó.
+  const fetchProveedoresCatalogo = async () => {
+    try {
+      const response = await api.get('/alegra/catalog/proveedores')
+      if (response.data?.success) {
+        setProveedoresCatalogo({
+          proveedores: response.data.proveedores || [],
+          sinProveedor: response.data.sinProveedor || null
+        })
+      }
+    } catch (error) {
+      console.error('Error cargando proveedores del catálogo:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchProveedoresCatalogo()
+  }, [])
 
   // Synchronize Cache with Alegra API
   const handleSyncCatalog = async () => {
@@ -425,6 +450,9 @@ export function useGestionCatalogo() {
     searchQuery,
     setSearchQuery,
     missingImageOnly,
+    proveedorFiltro,
+    setProveedorFiltro,
+    proveedoresCatalogo,
     setMissingImageOnly,
     currentPage,
     setCurrentPage,
