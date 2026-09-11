@@ -17,6 +17,7 @@
  */
 
 const axios = require('axios');
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 
 // Evolution responde despacio la primera vez del día: corre en Render y se
@@ -102,6 +103,8 @@ function prepararNumero(telefono) {
 }
 
 async function postear(ruta, payload, { telefono, sujeto }) {
+  // Rama aislada: no se le escribe a nadie de verdad. Ver config/aislado.js.
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar mensajes de WhatsApp');
   const { url, clave, instancia } = configuracion();
   try {
     const r = await axios.post(`${url}/${ruta}/${instancia}`, payload, {

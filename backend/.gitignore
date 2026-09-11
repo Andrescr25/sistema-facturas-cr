@@ -39,3 +39,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Rama independencia-alegra: base local aislada (credenciales locales)
+.env.aislado

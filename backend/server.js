@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const path = require('path');
 const axios = require('axios');
 require('dotenv').config();
+// Rama independencia-alegra: .env.aislado gana sobre .env (base local,
+// sincronizaciones apagadas). Tiene que ir antes de leer cualquier ENABLE_*.
+require('./config/aislado');
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');

@@ -5,6 +5,7 @@
 
 const axios = require('axios');
 const alegraConfig = require('./alegra.config');
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 
 class AlegraClient {
   constructor() {
@@ -34,6 +35,13 @@ class AlegraClient {
     // Request interceptor
     this.api.interceptors.request.use(
       (config) => {
+        // Rama aislada: a Alegra solo se le lee. Todas las peticiones pasan
+        // por esta instancia de axios, así que este es el único lugar donde
+        // hace falta frenar una escritura. Ver config/aislado.js.
+        const metodo = String(config.method || 'get').toLowerCase();
+        if (metodo !== 'get' && salidasBloqueadas()) {
+          return Promise.reject(errorSalidaBloqueada(`escribir en Alegra (${metodo.toUpperCase()} ${config.url})`));
+        }
         console.log(`🔄 Alegra Request: ${config.method.toUpperCase()} ${config.url}`);
         return config;
       },

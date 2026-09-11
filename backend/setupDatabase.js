@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
 require('dotenv').config();
+// Rama independencia-alegra: crear tablas SOLO en la base local.
+require('./config/aislado').asegurarBaseLocal();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -665,6 +667,28 @@ async function setupDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_contacto ON envio_whatsapp (alegra_contact_id, creado_en DESC)`);
 
     // Crear función para actualizar updated_at automáticamente
+    // Rama independencia-alegra · migrations/independencia/001_bitacora_cambio.sql
+    // Quién cambió qué y cuándo: el historial que hoy lleva Alegra.
+    // usuario_id sin llave foránea acá: la tabla usuario la crea migrations/add_usuarios.sql,
+    // que corre aparte. En la migración de la rama sí lleva REFERENCES usuario(id).
+    console.log('📋 Creando tabla bitacora_cambio...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bitacora_cambio (
+        id          BIGSERIAL    PRIMARY KEY,
+        entidad     VARCHAR(40)  NOT NULL,
+        entidad_id  VARCHAR(60)  NOT NULL,
+        accion      VARCHAR(20)  NOT NULL,
+        antes       JSONB,
+        despues     JSONB,
+        cambios     JSONB,
+        usuario_id  INTEGER,
+        motivo      TEXT,
+        creado_en   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_bitacora_entidad ON bitacora_cambio (entidad, entidad_id, creado_en DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_bitacora_usuario ON bitacora_cambio (usuario_id, creado_en DESC)');
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()

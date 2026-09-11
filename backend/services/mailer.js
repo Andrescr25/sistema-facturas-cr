@@ -8,6 +8,7 @@
  */
 
 const nodemailer = require('nodemailer');
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../config/aislado');
 
 function configuracion() {
   const host = process.env.SMTP_HOST || (process.env.IMAP_HOST || '').replace('imap.', 'smtp.');
@@ -44,6 +45,8 @@ function obtenerTransporte() {
  *          adjuntos?: Array<{filename: string, content: Buffer}>}} mensaje
  */
 async function enviarCorreo({ para, asunto, texto, html, adjuntos = [] }) {
+  // Rama aislada: el contador y los clientes no reciben correos de pruebas.
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar correos');
   const { user } = configuracion();
   const transporte = obtenerTransporte();
   const info = await transporte.sendMail({

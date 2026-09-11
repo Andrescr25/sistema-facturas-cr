@@ -646,6 +646,12 @@ class EmailService {
      * Inicia el monitoreo continuo
      */
     startMonitoring() {
+        // Rama aislada: el buzón es el mismo que usa producción. Leerlo desde
+        // acá metería facturas reales en la copia y competiría con main.
+        if (require('../config/aislado').salidasBloqueadas()) {
+            console.log('📭 Rama aislada: el buzón de facturas no se lee (ver config/aislado.js)');
+            return;
+        }
         if (this.isMonitoring) {
             console.log('⚠️ El monitoreo ya está activo');
             return;

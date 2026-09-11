@@ -9,6 +9,29 @@
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 
+## Cómo trabajar en esta rama
+
+- **Base local.** Se levanta con `docker start tachi-db-local`. Si la copia
+  quedó vieja: `cd backend && scripts/db-local/refrescar-copia.sh --si`. El
+  script lee producción, reemplaza **solo** la base local y vuelve a aplicar
+  las migraciones de la rama.
+- **Backend de la rama:** `cd backend && PORT=3010 node server.js`. Se
+  conecta a la copia local por `.env.aislado`, y el de `main` puede seguir
+  corriendo en el 3000.
+- **Si arranca contra la base de producción**, se detiene con el error
+  `BASE_NO_AISLADA`. No es un fallo: es la guarda haciendo su trabajo.
+- **Traer lo nuevo de `developer`:** `git checkout independencia-alegra && git merge developer`.
+  Nunca al revés: esta rama no se mezcla a `developer` ni a `main` hasta el
+  corte.
+- **Migraciones de la rama** en `backend/migrations/independencia/NNN_nombre.sql`.
+  Se aplican a la base local, se reflejan en `setupDatabase.js` y el script
+  de refresco las vuelve a correr.
+- **Pruebas:** `cd backend && npm test`. Las que usan base van contra la copia
+  local. Las de escritura real, dentro de una transacción que se revierte, se
+  corren con `PROBAR_BASE_LOCAL=1`.
+- **Llaves de escape** (`PERMITIR_BASE_REMOTA`, `PERMITIR_SALIDAS`): solo el
+  día del corte y a propósito.
+
 ---
 
 ## 0. Base del trabajo (antes de cualquier módulo)
@@ -17,14 +40,14 @@ marca `- [x]` al terminar.
 > crea, edita o borra (clientes, productos, facturas) caería sobre los datos
 > que hoy usa `main`.
 
-- [ ] Base de datos exclusiva para la rama (Postgres local o proyecto aparte), con una copia de producción para trabajar con datos reales
-- [ ] Guarda dura: la rama no puede hacer POST, PUT ni DELETE a Alegra (una prueba que falle si pasa)
-- [ ] `.env` de la rama apuntando a esa base; nunca a la de producción
-- [ ] Rutina para traer `developer` a esta rama (nunca al revés)
-- [ ] Capa de acceso por entidad (productos, clientes, facturas…), para que las pantallas no sepan si el dato viene de Alegra o de la base propia
-- [ ] Ids propios en todas las tablas nuevas, con `alegra_id` opcional para migrar y conciliar
-- [ ] Bitácora de cambios: quién cambió qué y cuándo. Alegra la da hoy y la vamos a perder
-- [ ] Node 22 en la rama
+- [x] Base de datos exclusiva: Postgres 17 en Docker (`tachi-db-local`, `127.0.0.1:5434`) con una copia de producción que deja fuera las tablas de WhatsApp. Se refresca con `scripts/db-local/refrescar-copia.sh --si`
+- [x] Guarda dura en `config/aislado.js`: la base tiene que ser local, a Alegra solo se le lee, y WhatsApp, correo y el buzón de facturas quedan bloqueados. Pruebas: `tests/ramaAislada.test.js`
+- [x] `backend/.env.aislado` (ignorado por git) gana sobre `.env`: base local y sincronizaciones apagadas
+- [x] Rutina para traer `developer` a esta rama, nunca al revés (ver *Cómo trabajar en esta rama*)
+- [ ] Capa de acceso por entidad (productos, clientes, facturas…), para que las pantallas no sepan si el dato viene de Alegra o de la base propia. *Se construye junto con Productos (sección 2)*
+- [ ] Ids propios en todas las tablas nuevas, con `alegra_id` opcional para migrar y conciliar. *Se aplica desde la primera tabla nueva*
+- [x] Bitácora de cambios: tabla `bitacora_cambio` y `src/utils/bitacora.js`. Cada módulo nuevo la usa al crear, editar, desactivar o anular
+- [x] Node 22 en la rama (`engines` de `backend/package.json`)
 
 **Lista cuando:** la rama corre contra su propia base, y una prueba garantiza
 que no escribe en Alegra ni en producción.

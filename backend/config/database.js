@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
 require('dotenv').config();
+// Rama independencia-alegra: solo contra la base local. Ver config/aislado.js.
+require('./aislado').asegurarBaseLocal();
 
 // SOLUCIÓN CRÍTICA: Deshabilitar verificación SSL globalmente para Supabase
 // Esto es necesario porque Supabase usa certificados que Node.js rechaza
