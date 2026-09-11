@@ -90,8 +90,8 @@ existencias ni CABYS. Gestión de Catálogo edita en Alegra nombre, referencia,
 precio, costo y categoría, y también borra, duplica por marca y sube fotos.
 Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas.
 
-- [ ] Tabla `producto`: nombre, referencia, descripción, CABYS, tarifa de impuesto, unidad, categoría, precio sin IVA, costo, estado, oculto, inventariable, forma farmacéutica y registro sanitario
-- [ ] Carga inicial de los 2.130 productos
+- [x] Tabla `producto`: nombre, referencia, descripción, CABYS, tarifa de impuesto, unidad, categoría, precio sin IVA, costo con IVA, estado, oculto, inventariable, forma farmacéutica y registro sanitario (migración `independencia/004`). Precio y costo van en columnas `precio_sin_iva` y `costo_con_iva`, para que no se confundan
+- [x] Carga inicial de los 2.130 productos (2.025 activos) y las 17 categorías con `scripts/independencia/cargar-productos.js`
 - [ ] Crear producto (reemplaza el alta desde Revisión de Precios y "duplicar marca")
 - [ ] Editar producto con **todos** los campos. Hoy no se pueden editar CABYS, impuesto, unidad ni los datos de medicamento
 - [ ] Activar y desactivar en vez de borrar, para no perder el historial
@@ -100,7 +100,7 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
 - [ ] `precio_historico` y `costo_historico` apuntando al id propio
 - [ ] Facturación, catálogo del agente, catálogo de clientes y portal leyendo de `producto`
 - [ ] Retirar la sincronización de productos cada 6 horas
-- [ ] Datos a corregir: 2 sin impuesto, 18 sin referencia, 8 medicamentos sin registro sanitario (6 tampoco tienen forma farmacéutica)
+- [ ] Datos a corregir entre los activos (medido al cargar): 14 sin impuesto, 42 sin categoría y 10 medicamentos sin registro sanitario. Además, 9 productos al 4 % y 3 al 8 % coinciden con los que dejó mal el error de ids de impuesto
 
 **Lista cuando:** se puede crear, editar y desactivar cualquier producto sin
 abrir Alegra.
