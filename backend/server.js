@@ -136,6 +136,7 @@ const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
+const configuracionModule = require('./src/modules/configuracion');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
@@ -187,6 +188,10 @@ app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 app.use('/api/cotizaciones', cotizacionesModule.routes);
+// Rama independencia-alegra: configuración propia. Cambiar pide el módulo
+// Configuración; leer lo activo es compartido (ver usuarios/modulos.js).
+app.use('/api/configuracion', configuracionModule.routes);
+app.use('/api/catalogos', configuracionModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
 // protegida por el token firmado que lleva la URL (ver enlacePublico.js).
 app.use('/api/cotizacion-publica', cotizacionesModule.rutasPublicas);

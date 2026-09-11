@@ -161,7 +161,7 @@ const MODULOS = [
     nombre: 'Configuración',
     grupo: 'Herramientas',
     ruta: '/configuracion',
-    rutasApi: ['/admin', '/duplicados-electronica']
+    rutasApi: ['/admin', '/duplicados-electronica', '/configuracion']
   }
 ];
 
@@ -179,7 +179,8 @@ const COMPARTIDAS = [
   '/alegra',      // catálogo, contactos e imágenes de Alegra
   '/productos',   // el catálogo local
   '/facturas',    // consulta de facturas, la usan varias pantallas
-  '/reportes'     // reporte de clientes y de proveedores comparten prefijo
+  '/reportes',     // reporte de clientes y de proveedores comparten prefijo
+  '/catalogos'    // impuestos, métodos de pago, plazos y cuentas activos, solo lectura (Facturación, Cobros)
 ];
 
 /** Solo para administradores: gestionar usuarios y sus permisos. */
