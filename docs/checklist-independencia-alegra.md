@@ -11,13 +11,30 @@ marca `- [x]` al terminar.
 
 ## Cómo trabajar en esta rama
 
+- **Dos carpetas, una por rama**, para que corran a la vez:
+
+  | Carpeta | Rama | Frontend | Backend | Base |
+  |---|---|---|---|---|
+  | `sistema-facturas-cr` | `developer` | 5173 | 3000 | producción |
+  | `sistema-facturas-cr-independencia` | `independencia-alegra` | 5174 | 3001 | copia local |
+
+  La segunda es un `git worktree` del mismo repositorio: los commits de una se
+  ven desde la otra, pero cada una tiene sus archivos, sus `node_modules`, su
+  `.env` y sus fotos. `.env.aislado` y `almacenamiento/` viven **solo** en la
+  carpeta de la rama.
 - **Base local.** Se levanta con `docker start tachi-db-local`. Si la copia
   quedó vieja: `cd backend && scripts/db-local/refrescar-copia.sh --si`. El
   script lee producción, reemplaza **solo** la base local y vuelve a aplicar
   las migraciones de la rama.
-- **Backend de la rama:** `cd backend && PORT=3010 node server.js`. Se
-  conecta a la copia local por `.env.aislado`, y el de `main` puede seguir
-  corriendo en el 3000.
+- **Levantar la rama** (en `sistema-facturas-cr-independencia`):
+  `cd backend && npm run dev` y `cd frontend && npm run dev`. Los puertos ya
+  vienen puestos: el backend toma el 3001 por `MODO_AISLADO` de `.env.aislado`
+  y el frontend el 5174 por `frontend/.env.development`.
+- **Si un puerto está ocupado**, se detiene diciéndolo en vez de saltar a otro.
+  Para usar otro a mano, los dos juntos:
+  `PORT=3002 npm run dev` y `VITE_API_URL=http://localhost:3002 npm run dev`.
+  La sesión del navegador va aparte por puerto: en el 5174 hay que entrar de
+  nuevo, con los mismos usuarios, que vienen en la copia.
 - **Si arranca contra la base de producción**, se detiene con el error
   `BASE_NO_AISLADA`. No es un fallo: es la guarda haciendo su trabajo.
 - **Traer lo nuevo de `developer`:** `git checkout independencia-alegra && git merge developer`.
