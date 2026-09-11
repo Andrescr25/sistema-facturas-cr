@@ -826,6 +826,57 @@ async function setupDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_precio_historico_producto ON precio_historico (producto_id, created_at DESC)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_costo_historico_producto ON costo_historico (producto_id, fecha DESC)');
 
+    // Rama independencia-alegra · migrations/independencia/006_clientes_proveedores.sql
+    console.log('📋 Creando tabla cliente...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cliente (
+        id                   SERIAL        PRIMARY KEY,
+        nombre               VARCHAR(200)  NOT NULL,
+        tipo_identificacion  VARCHAR(20)   CHECK (tipo_identificacion IN ('CF', 'CJ', 'DIMEX', 'NITE', 'EXTRANJERO', 'NO_CONTRIBUYENTE')),
+        identificacion       VARCHAR(20),
+        correo               VARCHAR(160),
+        correos_adicionales  TEXT[]        NOT NULL DEFAULT '{}',
+        telefono             VARCHAR(60),
+        telefono_secundario  VARCHAR(60),
+        celular              VARCHAR(60),
+        provincia            VARCHAR(40),
+        canton               VARCHAR(60),
+        distrito             VARCHAR(60),
+        barrio               VARCHAR(80),
+        otras_senas          TEXT,
+        actividad_economica  VARCHAR(10),
+        plazo_credito_id     INTEGER       REFERENCES plazo_credito(id),
+        limite_credito       NUMERIC(14,2) CHECK (limite_credito IS NULL OR limite_credito >= 0),
+        exoneracion          JSONB,
+        observaciones        TEXT,
+        activo               BOOLEAN       NOT NULL DEFAULT TRUE,
+        alegra_id            VARCHAR(20)   UNIQUE,
+        creado_en            TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tabla proveedor...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS proveedor (
+        id                   SERIAL        PRIMARY KEY,
+        nombre               VARCHAR(200)  NOT NULL,
+        tipo_identificacion  VARCHAR(20)   CHECK (tipo_identificacion IN ('CF', 'CJ', 'DIMEX', 'NITE', 'EXTRANJERO', 'NO_CONTRIBUYENTE')),
+        identificacion       VARCHAR(20),
+        correo               VARCHAR(160),
+        telefono             VARCHAR(60),
+        plazo_credito_id     INTEGER       REFERENCES plazo_credito(id),
+        observaciones        TEXT,
+        activo               BOOLEAN       NOT NULL DEFAULT TRUE,
+        alegra_id            VARCHAR(20)   UNIQUE,
+        creado_en            TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS idx_cliente_identificacion ON cliente (identificacion)");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_cliente_nombre ON cliente (lower(nombre))");
+    await client.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_proveedor_identificacion ON proveedor (identificacion) WHERE identificacion IS NOT NULL");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_proveedor_nombre ON proveedor (lower(nombre))");
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
