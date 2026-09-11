@@ -17,6 +17,9 @@ export default function GestionCatalogo() {
     setSearchQuery,
     missingImageOnly,
     setMissingImageOnly,
+    proveedorFiltro,
+    setProveedorFiltro,
+    proveedoresCatalogo,
     currentPage,
     setCurrentPage,
     totalPages,
@@ -148,6 +151,9 @@ export default function GestionCatalogo() {
         setSearchQuery={setSearchQuery}
         missingImageOnly={missingImageOnly}
         setMissingImageOnly={setMissingImageOnly}
+        proveedorFiltro={proveedorFiltro}
+        setProveedorFiltro={setProveedorFiltro}
+        proveedoresCatalogo={proveedoresCatalogo}
         totalProductos={totalProductos}
       />
 

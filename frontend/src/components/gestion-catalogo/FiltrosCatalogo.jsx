@@ -1,13 +1,20 @@
-import { Search, AlertCircle } from 'lucide-react'
+import { Search, AlertCircle, Truck } from 'lucide-react'
 
 /**
- * Barra de búsqueda y filtro "solo sin imagen" del catálogo, con el total
- * de productos en base local. Extraído de GestionCatalogo.jsx.
+ * Barra de búsqueda, filtro por proveedor y filtro "solo sin imagen" del
+ * catálogo, con el total de productos. Extraído de GestionCatalogo.jsx.
  */
-export default function FiltrosCatalogo({ searchQuery, setSearchQuery, missingImageOnly, setMissingImageOnly, totalProductos }) {
+export default function FiltrosCatalogo({
+  searchQuery, setSearchQuery,
+  missingImageOnly, setMissingImageOnly,
+  proveedorFiltro, setProveedorFiltro, proveedoresCatalogo,
+  totalProductos
+}) {
+  const { proveedores = [], sinProveedor = null } = proveedoresCatalogo || {}
+
   return (
     <div className="bg-white rounded-xl shadow-md p-4 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 border border-neutro-100">
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-0">
         <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
           <Search className="h-5 w-5" />
         </span>
@@ -19,6 +26,34 @@ export default function FiltrosCatalogo({ searchQuery, setSearchQuery, missingIm
           className="w-full pl-10 pr-4 py-2.5 bg-neutro-50 border border-neutro-200 rounded-lg text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white transition-all text-sm"
         />
       </div>
+
+      {/* Proveedor. Va por cédula: el mismo proveedor aparece escrito de dos
+          formas en las facturas, y el nombre que se ve es el más reciente.
+          El número es cuántos productos salen al elegirlo. Si la lista no
+          cargó, el filtro no se muestra. */}
+      {proveedores.length > 0 && (
+        <div className="relative lg:w-72">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
+            <Truck className="h-4 w-4" />
+          </span>
+          <select
+            value={proveedorFiltro}
+            onChange={(e) => setProveedorFiltro(e.target.value)}
+            aria-label="Filtrar por proveedor"
+            className={`w-full pl-9 pr-8 py-2.5 border rounded-lg text-sm truncate focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white transition-all ${
+              proveedorFiltro ? 'bg-primario-50 border-primario-300 font-semibold text-primario-800' : 'bg-neutro-50 border-neutro-200 text-neutro-900'
+            }`}
+          >
+            <option value="">Todos los proveedores</option>
+            {proveedores.map(p => (
+              <option key={p.cedula} value={p.cedula}>{p.nombre} ({p.productos})</option>
+            ))}
+            {sinProveedor?.productos > 0 && (
+              <option value={sinProveedor.valor}>Sin proveedor relacionado ({sinProveedor.productos})</option>
+            )}
+          </select>
+        </div>
+      )}
 
       <div className="flex items-center justify-between lg:justify-end gap-6">
         <label className="flex items-center gap-3 cursor-pointer select-none">
