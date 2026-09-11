@@ -92,15 +92,20 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
 
 - [x] Tabla `producto`: nombre, referencia, descripción, CABYS, tarifa de impuesto, unidad, categoría, precio sin IVA, costo con IVA, estado, oculto, inventariable, forma farmacéutica y registro sanitario (migración `independencia/004`). Precio y costo van en columnas `precio_sin_iva` y `costo_con_iva`, para que no se confundan
 - [x] Carga inicial de los 2.130 productos (2.025 activos) y las 17 categorías con `scripts/independencia/cargar-productos.js`
-- [ ] Crear producto (reemplaza el alta desde Revisión de Precios y "duplicar marca") *(API lista: CABYS e impuesto obligatorios, referencia única entre activos; falta la pantalla)*
-- [ ] Editar producto con **todos** los campos. Hoy no se pueden editar CABYS, impuesto, unidad ni los datos de medicamento *(API lista, con historial de precio y bitácora; falta la pantalla)*
-- [ ] Activar y desactivar en vez de borrar, para no perder el historial *(API lista, más ocultar de los catálogos; falta la pantalla)*
-- [ ] Categorías: crear, renombrar y desactivar (hay 17 en Alegra y ninguna pantalla) *(API lista; falta la pantalla)*
-- [ ] Fotos en almacenamiento propio. Las URL de Alegra vencen a los 7 días
+- [x] Crear producto desde Gestión de Catálogo ("Nuevo producto" y "Agregar marcas", que abre el mismo formulario ya lleno y sigue con la foto). CABYS e impuesto obligatorios y referencia única entre activos. *El alta desde Revisión de Precios se cambia en Compras (sección 8)*
+- [x] Editar producto con **todos** los campos, incluidos CABYS, impuesto, unidad, descripción y datos de medicamento. La pantalla muestra el precio con IVA y el margen mientras se escribe; cada cambio de precio va a `precio_historico` y todo a la bitácora
+- [x] Activar y desactivar en vez de borrar, y ocultar de los catálogos de clientes. Se hace desde la hoja del producto, con filtro de estado en la grilla (activos, ocultos, inactivos y todos)
+- [x] Categorías: crear, renombrar y desactivar, en una pestaña de Gestión de Catálogo que reutiliza la tabla y el formulario de Configuración
+- [ ] Fotos en almacenamiento propio. Las URL de Alegra vencen a los 7 días. *Avance: toda foto nueva (subida o sugerida) ya se guarda en almacenamiento propio y se sirve desde `/archivos`; solo se aceptan imágenes reales de hasta 2 MB y la descarga rechaza direcciones de la red interna. **Falta pasar las fotos que ya existen**, que siguen siendo URLs de Alegra*
 - [x] `precio_historico` y `costo_historico` apuntando al id propio (migración `independencia/005`): 209 de 209 y 7.903 de 7.907 enlazadas; las 4 restantes son de productos que ya no existen en Alegra. `alegra_item_id` dejó de ser obligatorio
 - [ ] Facturación, catálogo del agente, catálogo de clientes y portal leyendo de `producto`
 - [ ] Retirar la sincronización de productos cada 6 horas
 - [ ] Datos a corregir entre los activos (medido al cargar): 14 sin impuesto, 42 sin categoría y 10 medicamentos sin registro sanitario. Además, 9 productos al 4 % y 3 al 8 % coinciden con los que dejó mal el error de ids de impuesto
+
+**Hallazgos de esta sección:**
+- Un JSON mal formado respondía 500 en todo el sistema; en esta rama ahora responde 400. **En `main` sigue igual.**
+- "Agregar marcas" sugiere la referencia siguiente leyendo la caché de Alegra, así que no ve los productos creados solo en la base propia. Pasa a leer `producto` cuando se retire la caché.
+- Las acciones de cada tarjeta (sugerir foto, agregar marca, editar) aparecen solo al pasar el mouse, así que en el teléfono no se llega a ellas. El problema ya estaba antes.
 
 **Lista cuando:** se puede crear, editar y desactivar cualquier producto sin
 abrir Alegra.

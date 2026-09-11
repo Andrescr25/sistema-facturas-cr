@@ -311,7 +311,7 @@ async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}
 
 /** Proveedores con productos, para el filtro (mismo criterio que el catálogo actual). */
 async function proveedoresConProductos() {
-  const { rows } = await pool.query(`
+  const [conProveedor, sinProveedor] = await Promise.all([pool.query(`
     SELECT m.supplier_cedula AS cedula,
            (array_agg(m.supplier_name ORDER BY m.last_used_date DESC NULLS LAST))[1] AS nombre,
            COUNT(DISTINCT p.id)::int AS productos
@@ -319,8 +319,15 @@ async function proveedoresConProductos() {
     JOIN producto p ON p.alegra_id = m.alegra_item_id AND p.activo = TRUE AND p.oculto = FALSE
     WHERE m.supplier_cedula IS NOT NULL AND m.supplier_cedula <> ''
     GROUP BY m.supplier_cedula
-    ORDER BY nombre`);
-  return rows;
+    ORDER BY nombre`), pool.query(`
+    SELECT COUNT(*)::int AS productos
+    FROM producto p
+    WHERE p.activo = TRUE AND p.oculto = FALSE
+      AND NOT EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.alegra_item_id = p.alegra_id)`)]);
+  return {
+    proveedores: conProveedor.rows,
+    sinProveedor: { valor: SIN_PROVEEDOR, productos: sinProveedor.rows[0]?.productos || 0 }
+  };
 }
 
 // ─── Categorías ────────────────────────────────────────────────────────────

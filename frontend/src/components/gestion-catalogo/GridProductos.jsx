@@ -1,9 +1,14 @@
 import { ImageIcon, Plus, Edit, AlertCircle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { formatCRC } from '../../utils/gestionCatalogoUtils'
+import { urlArchivo } from '../../utils/urlArchivo'
+import Insignia from '../ui/Insignia'
 
 /**
- * Grilla de productos del catálogo (con acciones al hover) y paginación.
- * Extraído de GestionCatalogo.jsx.
+ * Grilla de productos del catálogo (con acciones al pasar el mouse) y paginación.
+ *
+ * Lee del maestro propio. Los tres números dicen en qué base están: el
+ * precio se guarda SIN impuesto y el costo CON él, y mostrarlos lado a lado
+ * sin decirlo hacía leer un margen de 15 % donde el real es 25 %.
  */
 export default function GridProductos({
   productos,
@@ -30,7 +35,7 @@ export default function GridProductos({
         <AlertCircle className="h-12 w-12 text-neutro-400 mb-3" />
         <h3 className="text-lg font-bold text-neutro-800">No se encontraron productos</h3>
         <p className="text-neutro-500 mt-1 max-w-md">
-          No encontramos ningún producto activo que coincida con tus criterios de búsqueda. Intenta limpiando los filtros o sincronizando con Alegra.
+          Ningún producto coincide con estos filtros. Pruebe limpiando la búsqueda o cambiando el estado.
         </p>
       </div>
     )
@@ -40,18 +45,18 @@ export default function GridProductos({
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         {productos.map((prod) => {
-          const hasImg = !!prod.imageUrl
+          const foto = urlArchivo(prod.imagen_url)
           return (
             <div
               key={prod.id}
-              className="group relative bg-white border border-neutro-200 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col"
+              data-producto={prod.nombre}
+              className={`group relative bg-white border border-neutro-200 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col ${prod.activo ? '' : 'opacity-70'}`}
             >
-              {/* Product Image Panel */}
-              <div className={`relative h-36 bg-neutro-50 flex items-center justify-center overflow-hidden border-b border-neutro-100 ${!hasImg ? 'border-dashed border-peligro-200' : ''}`}>
-                {hasImg ? (
+              <div className={`relative h-36 bg-neutro-50 flex items-center justify-center overflow-hidden border-b border-neutro-100 ${!foto ? 'border-dashed border-peligro-200' : ''}`}>
+                {foto ? (
                   <img
-                    src={prod.imageUrl}
-                    alt={prod.name}
+                    src={foto}
+                    alt={prod.nombre}
                     className="object-contain h-full w-full group-hover:scale-105 transition-transform duration-300 p-2"
                     loading="lazy"
                   />
@@ -64,48 +69,46 @@ export default function GridProductos({
                   </div>
                 )}
 
-                {/* Reference Badge */}
                 <span className="absolute top-2 left-2 px-2 py-0.5 bg-neutro-900/80 backdrop-blur-sm text-white text-[10px] font-bold rounded-md uppercase tracking-wider max-w-[80%] truncate">
-                  {prod.reference || 'Sin Ref'}
+                  {prod.referencia || 'Sin Ref'}
                 </span>
+                {(!prod.activo || prod.oculto) && (
+                  <span className="absolute bottom-2 left-2 flex gap-1">
+                    {!prod.activo && <Insignia tono="neutro">Inactivo</Insignia>}
+                    {prod.oculto && <Insignia tono="alerta">Oculto</Insignia>}
+                  </span>
+                )}
               </div>
 
-              {/* Info Panel */}
               <div className="p-3 flex-1 flex flex-col justify-between">
                 <div className="space-y-1">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-primario-600 truncate">
-                    {prod.category || 'General'}
+                    {prod.categoria || 'Sin categoría'}
                   </div>
-                  <h3 className="text-xs font-bold text-neutro-800 line-clamp-2 h-8 leading-tight group-hover:text-primario-600 transition-colors" title={prod.name}>
-                    {prod.name}
+                  <h3 className="text-xs font-bold text-neutro-800 line-clamp-2 h-8 leading-tight group-hover:text-primario-600 transition-colors" title={prod.nombre}>
+                    {prod.nombre}
                   </h3>
                 </div>
 
-                {/* Los tres números dicen en qué base están. En Alegra el
-                    precio va SIN impuesto y el costo CON él: mostrarlos lado
-                    a lado sin decirlo hacía leer un margen de 15% donde el
-                    real es 25%. */}
                 <div className="mt-3 pt-2.5 border-t border-neutro-50 flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[10px]">
                     <span className="text-neutro-400 font-medium">Precio s/IVA:</span>
-                    <span className="font-medium text-neutro-600">{formatCRC(prod.price)}</span>
+                    <span className="font-medium text-neutro-600">{formatCRC(prod.precio_sin_iva)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[10px]">
                     <span className="text-neutro-400 font-medium">Precio c/IVA:</span>
-                    {/* null = todavía no se sincronizó el impuesto; repetir el
-                        precio sin IVA sería decir que no lleva. */}
+                    {/* null = sin impuesto asignado: repetir el precio sin IVA sería decir que no lleva. */}
                     <span className="font-bold text-neutro-900">
-                      {prod.precioConIva != null ? formatCRC(prod.precioConIva) : '—'}
+                      {prod.precio_con_iva != null ? formatCRC(prod.precio_con_iva) : '—'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[10px]">
                     <span className="text-neutro-400 font-medium">Costo c/IVA:</span>
-                    <span className="font-medium text-neutro-500">{formatCRC(prod.cost)}</span>
+                    <span className="font-medium text-neutro-500">{formatCRC(prod.costo_con_iva)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Hover overlay with action buttons */}
               <div className="absolute inset-0 bg-neutro-900/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex flex-col justify-center items-stretch gap-2 p-4 transition-all duration-300 z-10">
                 <button
                   onClick={() => onSugerirFoto(prod)}
@@ -131,7 +134,6 @@ export default function GridProductos({
         })}
       </div>
 
-      {/* Pagination component */}
       {totalPages > 1 && (
         <div className="bg-white rounded-xl shadow-md p-4 border border-neutro-100 flex justify-between items-center">
           <span className="text-xs text-neutro-500 font-medium">
@@ -141,6 +143,7 @@ export default function GridProductos({
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
+              aria-label="Página anterior"
               className="p-2 border border-neutro-200 rounded-lg text-neutro-500 hover:bg-neutro-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -148,6 +151,7 @@ export default function GridProductos({
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
+              aria-label="Página siguiente"
               className="p-2 border border-neutro-200 rounded-lg text-neutro-500 hover:bg-neutro-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <ChevronRight className="h-5 w-5" />

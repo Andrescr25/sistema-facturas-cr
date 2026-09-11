@@ -210,6 +210,17 @@ describe('listar', () => {
   });
 });
 
+describe('proveedores para el filtro', () => {
+  test('trae los proveedores y cuántos productos no tienen ninguno', async () => {
+    const { servicio } = montar((sql) => /NOT EXISTS/.test(sql)
+      ? { rows: [{ productos: 695 }] }
+      : { rows: [{ cedula: '3101013155', nombre: 'CADENA COMERCIAL RAMONENSE S.A.', productos: 513 }] });
+    const r = await servicio.proveedoresConProductos();
+    assert.equal(r.proveedores[0].productos, 513);
+    assert.deepEqual(r.sinProveedor, { valor: 'sin-proveedor', productos: 695 });
+  });
+});
+
 describe('categorías', () => {
   test('sin nombre no se crea; repetida es 409', async () => {
     const { servicio, log } = montar((sql) => {

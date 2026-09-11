@@ -8,6 +8,7 @@ export default function FiltrosCatalogo({
   searchQuery, setSearchQuery,
   missingImageOnly, setMissingImageOnly,
   proveedorFiltro, setProveedorFiltro, proveedoresCatalogo,
+  estadoFiltro, setEstadoFiltro,
   totalProductos
 }) {
   const { proveedores = [], sinProveedor = null } = proveedoresCatalogo || {}
@@ -55,6 +56,22 @@ export default function FiltrosCatalogo({
         </div>
       )}
 
+      {/* Estado: lo inactivo no se vende y lo oculto no aparece en los
+          catálogos de clientes. Nada se borra, así que se busca acá. */}
+      <select
+        value={estadoFiltro}
+        onChange={(e) => setEstadoFiltro(e.target.value)}
+        aria-label="Filtrar por estado"
+        className={`lg:w-40 px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primario-500 ${
+          estadoFiltro !== 'activos' ? 'bg-primario-50 border-primario-300 font-semibold text-primario-800' : 'bg-neutro-50 border-neutro-200 text-neutro-900'
+        }`}
+      >
+        <option value="activos">Activos</option>
+        <option value="ocultos">Ocultos</option>
+        <option value="inactivos">Inactivos</option>
+        <option value="todos">Todos</option>
+      </select>
+
       <div className="flex items-center justify-between lg:justify-end gap-6">
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <input
@@ -70,7 +87,7 @@ export default function FiltrosCatalogo({
         </label>
 
         <div className="text-xs text-neutro-400 font-medium">
-          Total en base local: <span className="font-bold text-neutro-700 text-sm">{totalProductos}</span>
+          Productos: <span className="font-bold text-neutro-700 text-sm">{totalProductos}</span>
         </div>
       </div>
     </div>

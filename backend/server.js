@@ -104,6 +104,22 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Rama independencia-alegra: fotos propias (ver src/integrations/almacenamiento).
+// Siempre montado, fuera de /api y fuera del bloque de desarrollo local: las
+// fotos las ven los catálogos públicos, sin sesión, en cualquier ambiente.
+// (Primero quedó dentro del bloque de LOCAL_DEV y respondía 404.)
+app.use('/archivos', express.static(require('./src/integrations/almacenamiento').RAIZ, {
+  index: false,
+  dotfiles: 'deny',
+  fallthrough: false,
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    // En desarrollo el frontend corre en otro puerto; sin esto helmet bloquea la imagen.
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
 // ⚠️ NUNCA servir frontend desde el backend en Render
 // El frontend debe estar en un servicio separado (Render Static Site)
 // Solo servir en desarrollo local explícito

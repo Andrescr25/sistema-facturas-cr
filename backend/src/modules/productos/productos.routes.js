@@ -10,7 +10,18 @@
  */
 
 const express = require('express');
+const multer = require('multer');
 const controller = require('./productos.controller');
+
+// La foto se valida por sus bytes en el almacenamiento; acá solo se limita el
+// tamaño. Un archivo grande es un error de quien sube: 400, no 500.
+const MAXIMO_BYTES = 2 * 1024 * 1024;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAXIMO_BYTES, files: 1 } });
+const subirImagen = (req, res, next) => upload.single('imagen')(req, res, (error) => {
+  if (!error) return next();
+  const mensaje = error.code === 'LIMIT_FILE_SIZE' ? 'La imagen pesa más de 2 MB.' : 'No se pudo leer el archivo subido.';
+  res.status(400).json({ success: false, message: mensaje, error: mensaje });
+});
 
 const routes = express.Router();
 routes.get('/productos', controller.listar);
@@ -19,6 +30,8 @@ routes.get('/productos/:id', controller.obtener);
 routes.post('/productos', controller.crear);
 routes.put('/productos/:id', controller.editar);
 routes.patch('/productos/:id/estado', controller.cambiarEstado);
+routes.post('/productos/:id/imagen/url', controller.imagenDesdeUrl);
+routes.post('/productos/:id/imagen/archivo', subirImagen, controller.imagenDesdeArchivo);
 routes.get('/categorias', controller.listarCategorias);
 routes.post('/categorias', controller.crearCategoria);
 routes.put('/categorias/:id', controller.editarCategoria);

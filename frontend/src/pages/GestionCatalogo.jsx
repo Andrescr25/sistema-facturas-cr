@@ -1,119 +1,70 @@
-import { Image as ImageIcon, RefreshCw, ExternalLink, Link as LinkIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Image as ImageIcon, ExternalLink, Link as LinkIcon, Plus, Package, Tags } from 'lucide-react'
 import { useGestionCatalogo } from '../hooks/useGestionCatalogo'
 import Toast from '../components/Toast'
+import Boton from '../components/ui/Boton'
+import Pestanas from '../components/ui/Pestanas'
 import FiltrosCatalogo from '../components/gestion-catalogo/FiltrosCatalogo'
 import GridProductos from '../components/gestion-catalogo/GridProductos'
+import ModalProducto from '../components/gestion-catalogo/ModalProducto'
 import ModalSugerirImagen from '../components/ModalSugerirImagen'
-import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
-import ModalEditarProducto from '../components/gestion-catalogo/ModalEditarProducto'
+import TablaCatalogo from '../components/configuracion/TablaCatalogo'
+import ModalElementoCatalogo from '../components/configuracion/ModalElementoCatalogo'
+import { urlArchivo } from '../utils/urlArchivo'
+
+/**
+ * Las categorías usan la misma tabla y el mismo formulario que los catálogos
+ * de Configuración: lo que cambia es esta descripción.
+ */
+const CATEGORIAS = {
+  clave: 'categorias',
+  texto: 'Categorías',
+  singular: 'categoría',
+  uno: 'una categoría',
+  icono: Tags,
+  descripcion: 'Agrupan los productos en los catálogos y en los reportes. Una inactiva no se ofrece para productos nuevos, pero los que ya la tienen la conservan.',
+  columnas: [
+    { campo: 'nombre', titulo: 'Nombre', principal: true },
+    { campo: 'productos', titulo: 'Productos activos' }
+  ],
+  campos: [{ campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 80 }],
+  nuevo: { nombre: '' }
+}
 
 export default function GestionCatalogo() {
-  const {
-    productos,
-    totalProductos,
-    loading,
-    syncing,
-    searchQuery,
-    setSearchQuery,
-    missingImageOnly,
-    setMissingImageOnly,
-    proveedorFiltro,
-    setProveedorFiltro,
-    proveedoresCatalogo,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-    handleSyncCatalog,
-
-    isImageModalOpen,
-    setIsImageModalOpen,
-    isBrandModalOpen,
-    setIsBrandModalOpen,
-    isEditModalOpen,
-
-    selectedProduct,
-
-    imageSuggestions,
-    loadingSuggestions,
-    customSearchQuery,
-    setCustomSearchQuery,
-    assigningImage,
-    openImageSuggestions,
-    fetchImageSuggestions,
-    handleAssignImage,
-    handleSubirArchivoImagen,
-
-    newProductName,
-    brandRef,
-    setBrandRef,
-    brandPrice,
-    setBrandPrice,
-    brandCost,
-    setBrandCost,
-    brandImageUrl,
-    setBrandImageUrl,
-    brandSuggestions,
-    loadingBrandSuggestions,
-    creatingDuplicate,
-    openBrandDuplication,
-    handleBrandSearchSuggestions,
-    handleNewProductNameChange,
-    handleDuplicateBrand,
-
-    editName,
-    setEditName,
-    editRef,
-    setEditRef,
-    editPrice,
-    setEditPrice,
-    editCost,
-    setEditCost,
-    editCategoria,
-    setEditCategoria,
-    categorias,
-    savingEdit,
-    openEditProduct,
-    handleSaveEdit,
-    closeEditModal,
-
-    confirmDelete,
-    deletingProduct,
-    handleDeleteProduct,
-
-    toast,
-    setToast
-  } = useGestionCatalogo()
+  const g = useGestionCatalogo()
+  const [pestana, setPestana] = useState('productos')
+  const [edicionCategoria, setEdicionCategoria] = useState(null)
 
   const catalogoAgenteUrl = `${window.location.origin}/catalogo-agente`
 
   const handleCopiarLinkCatalogo = async () => {
     try {
       await navigator.clipboard.writeText(catalogoAgenteUrl)
-      setToast({ type: 'success', message: 'Link del catálogo copiado.' })
+      g.setToast({ type: 'success', message: 'Link del catálogo copiado.' })
     } catch (error) {
-      setToast({ type: 'error', message: 'No se pudo copiar el link.' })
+      g.setToast({ type: 'error', message: 'No se pudo copiar el link.' })
     }
   }
 
+  const pestanas = [
+    { clave: 'productos', texto: 'Productos', icono: Package, contador: g.totalProductos },
+    { clave: 'categorias', texto: 'Categorías', icono: Tags, contador: g.categorias.filter(c => c.activo).length }
+  ]
+
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
+      {g.toast && (
+        <Toast type={g.toast.type} message={g.toast.message} onClose={() => g.setToast(null)} />
       )}
 
-      {/* Header Card */}
       <div className="bg-gradient-to-r from-primario-600 to-primario-700 rounded-xl shadow-lg p-6 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-wide flex items-center gap-2">
             <ImageIcon className="h-7 w-7" /> Gestión de Catálogo
           </h1>
           <p className="text-primario-100 mt-1">
-            Administra imágenes de productos, duplica ítems por marcas y sincroniza tu inventario de Alegra.
+            Los productos, sus fotos, precios e impuestos, y sus categorías.
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-3 text-sm">
             <span className="text-primario-100">Ver catálogo:</span>
@@ -136,95 +87,87 @@ export default function GestionCatalogo() {
           </div>
         </div>
 
-        <button
-          onClick={handleSyncCatalog}
-          disabled={syncing || loading}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white text-primario-600 font-semibold rounded-lg shadow-md hover:bg-primario-50 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Sincronizando...' : 'Sincronizar con Alegra'}
-        </button>
+        <Boton variante="secundario" onClick={g.abrirNuevo}>
+          <Plus size={16} /> Nuevo producto
+        </Boton>
       </div>
 
-      <FiltrosCatalogo
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        missingImageOnly={missingImageOnly}
-        setMissingImageOnly={setMissingImageOnly}
-        proveedorFiltro={proveedorFiltro}
-        setProveedorFiltro={setProveedorFiltro}
-        proveedoresCatalogo={proveedoresCatalogo}
-        totalProductos={totalProductos}
-      />
+      <Pestanas activa={pestana} onCambiar={setPestana} pestanas={pestanas} />
 
-      <GridProductos
-        productos={productos}
-        loading={loading}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        setCurrentPage={setCurrentPage}
-        onSugerirFoto={openImageSuggestions}
-        onAgregarMarca={openBrandDuplication}
-        onEditar={openEditProduct}
-      />
+      {pestana === 'productos' ? (
+        <>
+          <FiltrosCatalogo
+            searchQuery={g.searchQuery}
+            setSearchQuery={g.setSearchQuery}
+            missingImageOnly={g.missingImageOnly}
+            setMissingImageOnly={g.setMissingImageOnly}
+            proveedorFiltro={g.proveedorFiltro}
+            setProveedorFiltro={g.setProveedorFiltro}
+            proveedoresCatalogo={g.proveedoresCatalogo}
+            estadoFiltro={g.estadoFiltro}
+            setEstadoFiltro={g.setEstadoFiltro}
+            totalProductos={g.totalProductos}
+          />
 
-      {isImageModalOpen && selectedProduct && (
+          <GridProductos
+            productos={g.productos}
+            loading={g.loading}
+            currentPage={g.currentPage}
+            totalPages={g.totalPages}
+            setCurrentPage={g.setCurrentPage}
+            onSugerirFoto={g.openImageSuggestions}
+            onAgregarMarca={g.abrirOtraMarca}
+            onEditar={g.abrirEditar}
+          />
+        </>
+      ) : (
+        <TablaCatalogo
+          definicion={CATEGORIAS}
+          filas={g.categorias}
+          trabajando={false}
+          onAgregar={() => setEdicionCategoria({ fila: null })}
+          onEditar={fila => setEdicionCategoria({ fila })}
+          onCambiarActivo={g.cambiarActivoCategoria}
+        />
+      )}
+
+      {g.isImageModalOpen && g.selectedProduct && (
         <ModalSugerirImagen
-          producto={selectedProduct}
-          customSearchQuery={customSearchQuery}
-          setCustomSearchQuery={setCustomSearchQuery}
-          imageSuggestions={imageSuggestions}
-          loadingSuggestions={loadingSuggestions}
-          assigningImage={assigningImage}
-          onBuscar={fetchImageSuggestions}
-          onAsignar={handleAssignImage}
-          onSubirArchivo={handleSubirArchivoImagen}
-          onCerrar={() => setIsImageModalOpen(false)}
+          producto={{ ...g.selectedProduct, name: g.selectedProduct.nombre, reference: g.selectedProduct.referencia, imageUrl: urlArchivo(g.selectedProduct.imagen_url) }}
+          customSearchQuery={g.customSearchQuery}
+          setCustomSearchQuery={g.setCustomSearchQuery}
+          imageSuggestions={g.imageSuggestions}
+          loadingSuggestions={g.loadingSuggestions}
+          assigningImage={g.assigningImage}
+          onBuscar={g.fetchImageSuggestions}
+          onAsignar={g.handleAssignImage}
+          onSubirArchivo={g.handleSubirArchivoImagen}
+          onCerrar={() => g.setIsImageModalOpen(false)}
         />
       )}
 
-      {isBrandModalOpen && selectedProduct && (
-        <ModalDuplicarMarca
-          producto={selectedProduct}
-          newProductName={newProductName}
-          brandRef={brandRef}
-          setBrandRef={setBrandRef}
-          brandPrice={brandPrice}
-          setBrandPrice={setBrandPrice}
-          brandCost={brandCost}
-          setBrandCost={setBrandCost}
-          brandImageUrl={brandImageUrl}
-          setBrandImageUrl={setBrandImageUrl}
-          brandSuggestions={brandSuggestions}
-          loadingBrandSuggestions={loadingBrandSuggestions}
-          creatingDuplicate={creatingDuplicate}
-          onNewProductNameChange={handleNewProductNameChange}
-          onBuscarSugerencias={handleBrandSearchSuggestions}
-          onSubmit={handleDuplicateBrand}
-          onCerrar={() => setIsBrandModalOpen(false)}
+      {g.edicion && (
+        <ModalProducto
+          key={g.edicion.producto?.id ?? (g.edicion.plantilla ? `marca-${g.edicion.plantilla.id}` : 'nuevo')}
+          producto={g.edicion.producto}
+          plantilla={g.edicion.plantilla}
+          categorias={g.categorias}
+          impuestos={g.impuestos}
+          guardando={g.guardando}
+          onGuardar={g.guardarProducto}
+          onCambiarEstado={g.cambiarEstadoProducto}
+          onCerrar={g.cerrarEdicion}
         />
       )}
 
-      {isEditModalOpen && selectedProduct && (
-        <ModalEditarProducto
-          editName={editName}
-          setEditName={setEditName}
-          editRef={editRef}
-          setEditRef={setEditRef}
-          editPrice={editPrice}
-          setEditPrice={setEditPrice}
-          editCost={editCost}
-          setEditCost={setEditCost}
-          editCategoria={editCategoria}
-          setEditCategoria={setEditCategoria}
-          categorias={categorias}
-          taxPercentage={selectedProduct.taxPercentage}
-          savingEdit={savingEdit}
-          confirmDelete={confirmDelete}
-          deletingProduct={deletingProduct}
-          onSubmit={handleSaveEdit}
-          onEliminar={handleDeleteProduct}
-          onCerrar={closeEditModal}
+      {edicionCategoria && (
+        <ModalElementoCatalogo
+          key={edicionCategoria.fila?.id ?? 'nueva'}
+          definicion={CATEGORIAS}
+          fila={edicionCategoria.fila}
+          guardando={false}
+          onGuardar={valores => g.guardarCategoria(edicionCategoria.fila?.id, valores)}
+          onCerrar={() => setEdicionCategoria(null)}
         />
       )}
     </div>

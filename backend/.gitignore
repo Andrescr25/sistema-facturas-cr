@@ -42,3 +42,7 @@ Thumbs.db
 
 # Rama independencia-alegra: base local aislada (credenciales locales)
 .env.aislado
+
+# Rama independencia-alegra: archivos que suben los usuarios (fotos de productos)
+# Anclado a la raíz: sin la barra también ignoraba src/integrations/almacenamiento/
+/almacenamiento/

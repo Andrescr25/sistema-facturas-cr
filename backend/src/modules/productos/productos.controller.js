@@ -3,6 +3,7 @@
  */
 
 const servicio = require('./productos.service');
+const imagenes = require('./productos.imagenes');
 
 function responder(res, promesa, contexto, status = 200) {
   return promesa
@@ -26,6 +27,10 @@ module.exports = {
   editar: (req, res) => responder(res, servicio.editarProducto(req.params.id, req.body, usuario(req)), 'editar'),
   cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoProducto(req.params.id, req.body, usuario(req)), 'estado'),
   proveedores: (req, res) => responder(res, servicio.proveedoresConProductos(), 'proveedores'),
+  /** POST /maestro/productos/:id/imagen/url  { url, urlRespaldo } */
+  imagenDesdeUrl: (req, res) => responder(res, imagenes.asignarImagenDesdeUrl(req.params.id, req.body, usuario(req)), 'foto por dirección'),
+  /** POST /maestro/productos/:id/imagen/archivo  (multipart, campo "imagen") */
+  imagenDesdeArchivo: (req, res) => responder(res, imagenes.asignarImagenDesdeArchivo(req.params.id, req.file, usuario(req)), 'foto por archivo'),
 
   listarCategorias: (req, res) => responder(res, servicio.listarCategorias(), 'categorías'),
   crearCategoria: (req, res) => responder(res, servicio.crearCategoria(req.body, usuario(req)), 'crear categoría', 201),
