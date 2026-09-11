@@ -60,19 +60,22 @@ que no escribe en Alegra ni en producción.
 de numeración, impuestos (`GET /taxes`), métodos de pago
 (`GET /payment-methods`), 4 cuentas de dinero y 6 plazos.
 
-- [ ] Datos de la empresa: nombre, cédula, actividad, dirección, teléfono, correo y logo para los PDF *(tabla y datos listos; hoy la pantalla solo los guarda en el navegador y nada los usa)*
-- [ ] Impuestos y tarifas: 13 %, 4 %, 2 %, 1 % y exento *(tabla y datos listos; son 13 en Alegra, incluidos 0,5 %, 8 % y los de bienes usados)*
-- [ ] Métodos de pago: efectivo, SINPE Móvil, transferencia, tarjeta y cheque *(tabla y datos listos)*
-- [ ] Plazos de crédito: contado, 8, 15, 22, 30 y 60 días *(tabla y datos listos)*
-- [ ] Cuentas de dinero: Caja general, Caja chica, Banco y Tarjeta empresarial *(tabla y datos listos)*
+- [x] Datos de la empresa: nombre, cédula, actividad, dirección, teléfono y correo, en la base y editables. *El logo queda para cuando las fotos pasen a almacenamiento propio (sección 2): la URL de Alegra vence*
+- [x] Impuestos y tarifas: los 13 de Alegra, incluidos 0,5 %, 8 % y los de bienes usados (inactivos)
+- [x] Métodos de pago: efectivo, SINPE Móvil, transferencia, tarjetas y cheque
+- [x] Plazos de crédito: contado, 8, 15, 22, 30 y 60 días
+- [x] Cuentas de dinero: Caja general, Caja chica, Banco y Tarjeta empresarial
 - [ ] Series y consecutivos propios, que no choquen con los de Alegra *(tabla lista; las series se definen en Facturación)*
-- [ ] Pantalla de Configuración para todo lo anterior
+- [x] Pantalla de Configuración para todo lo anterior: pestañas por catálogo, una sola tabla para los cuatro, se desactiva en vez de borrar, y conserva la limpieza manual de faltantes
 
 **Avance:**
 - Tablas `empresa`, `impuesto`, `metodo_pago`, `plazo_credito`, `cuenta_dinero` y `serie_consecutivo` (migración `independencia/002`).
 - Datos cargados desde Alegra con `scripts/independencia/cargar-configuracion.js`: empresa, 13 impuestos, 6 plazos y 4 cuentas.
 - Métodos de pago propios con **SINPE Móvil** (migración `independencia/003`), que no estaba en ninguna de las dos listas escritas a mano.
-- Falta la API y la pantalla.
+- API: `/api/configuracion` para ver y cambiar (solo con el módulo Configuración) y `/api/catalogos/configuracion` para leer lo activo (cualquiera que haya entrado). Cada cambio queda en la bitácora.
+- Pantalla verificada en escritorio y teléfono contra la copia local: cédula inválida rechazada con su motivo, plazo repetido con 409, desactivar y reactivar, columnas alineadas, 0 llamadas a Alegra.
+
+**Todavía no cambia (se hace en su sección):** Facturación sigue pidiendo los impuestos a Alegra y su lista de métodos de pago escrita a mano (sección 6); Cuentas por Cobrar sigue con la suya, sin SINPE Móvil (sección 7). Los números de SINPE y de banco que la pantalla vieja tenía escritos en el código no se pasaron solos: se agregan como cuentas si hacen falta.
 
 **Hallazgo al cargar los impuestos (afecta a `main`):** `utils/impuestosAlegra.js` usa ids de Alegra equivocados. Desde el 10 de julio, 82 líneas de compra al 1 % se registraron al 4 %, 19 al 2 % se registraron al 8 % y 22 exentas quedaron al 0,5 %. Son unos ₡16.674 de IVA de compras de más en Alegra. Las tablas propias guardan la tarifa como número y no la deducen del id.
 
