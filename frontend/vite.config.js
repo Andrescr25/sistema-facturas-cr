@@ -12,7 +12,7 @@ const nodeModulesReal = existsSync('node_modules') ? realpathSync('node_modules'
 
 // El puerto y la API salen del entorno para que dos ramas corran a la vez sin
 // pisarse: developer en 5173 → 3000 (base de producción) e
-// independencia-alegra en 5174 → 3001 (copia local). Los de esta rama están
+// independencia-alegra en 5174 → 3002 (copia local). Los de esta rama están
 // en .env.development; lo que se ponga en la terminal gana sobre el archivo.
 //
 // strictPort: si el puerto está ocupado, se detiene en vez de saltar al

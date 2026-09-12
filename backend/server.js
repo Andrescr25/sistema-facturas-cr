@@ -18,9 +18,11 @@ const { iniciarRevisionSemanalExcesos } = require('./src/modules/inventario-audi
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 
 const app = express();
-// La rama aislada corre en el 3001 para convivir con developer en el 3000
-// (MODO_AISLADO viene de .env.aislado). PORT en la terminal gana siempre.
-const PORT = process.env.PORT || (process.env.MODO_AISLADO === 'true' ? 3001 : 3000);
+// La rama aislada corre en el 3002 para convivir con developer en el 3000.
+// El 3001 quedó descartado: lo ocupa otro proyecto de la misma máquina
+// (sistema-facilitadores-judiciales). MODO_AISLADO viene de .env.aislado y
+// PORT en la terminal gana siempre.
+const PORT = process.env.PORT || (process.env.MODO_AISLADO === 'true' ? 3002 : 3000);
 
 // Configuración CORS para desarrollo y producción
 const corsOptions = {

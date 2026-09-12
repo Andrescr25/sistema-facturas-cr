@@ -963,6 +963,121 @@ async function setupDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_factura_linea_factura ON factura_linea (factura_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_factura_linea_producto ON factura_linea (producto_id)');
 
+    // Rama independencia-alegra · migrations/independencia/009_pago_cobro.sql
+    // Un cobro puede repartirse entre varias facturas (de ahí pago_factura), y
+    // no se borra: se anula con motivo y el saldo de la factura vuelve a subir.
+    console.log('📋 Creando tabla pago...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pago (
+        id                SERIAL         PRIMARY KEY,
+        numero            VARCHAR(40),
+        fecha             DATE           NOT NULL,
+        cliente_id        INTEGER        REFERENCES cliente(id),
+        cliente_nombre    VARCHAR(200)   NOT NULL,
+        metodo_pago_id    INTEGER        REFERENCES metodo_pago(id),
+        metodo_pago_texto VARCHAR(40),
+        cuenta_dinero_id  INTEGER        REFERENCES cuenta_dinero(id),
+        cuenta_texto      VARCHAR(80),
+        referencia        VARCHAR(60),
+        monto             NUMERIC(14,2)  NOT NULL CHECK (monto > 0),
+        observaciones     TEXT,
+        anulado           BOOLEAN        NOT NULL DEFAULT FALSE,
+        motivo_anulacion  TEXT,
+        alegra_id         VARCHAR(20)    UNIQUE,
+        registrado_por    INTEGER        REFERENCES usuario(id),
+        creado_en         TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en    TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tabla pago_factura...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pago_factura (
+        id             SERIAL         PRIMARY KEY,
+        pago_id        INTEGER        NOT NULL REFERENCES pago(id) ON DELETE CASCADE,
+        factura_id     INTEGER        REFERENCES factura(id),
+        factura_numero VARCHAR(40),
+        monto          NUMERIC(14,2)  NOT NULL CHECK (monto > 0),
+        CONSTRAINT pago_factura_unica UNIQUE (pago_id, factura_id)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_fecha ON pago (fecha DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_cliente ON pago (cliente_id, fecha DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_dia_metodo ON pago (fecha, metodo_pago_id) WHERE anulado = FALSE');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_pago_factura_factura ON pago_factura (factura_id)');
+
+    // Rama independencia-alegra · migrations/independencia/010_nota_credito.sql
+    // La nota de crédito es el único modo de corregir una factura ya emitida
+    // como electrónica: no se edita, se acredita. Lleva su propia serie.
+    console.log('📋 Creando tabla nota_credito...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS nota_credito (
+        id                     SERIAL         PRIMARY KEY,
+        serie                  VARCHAR(20),
+        consecutivo            BIGINT,
+        numero                 VARCHAR(40),
+        electronica            BOOLEAN        NOT NULL DEFAULT FALSE,
+        clave_hacienda         VARCHAR(60),
+        estado                 VARCHAR(10)    NOT NULL DEFAULT 'emitida' CHECK (estado IN ('borrador', 'emitida', 'anulada')),
+        fecha                  DATE           NOT NULL,
+        cliente_id             INTEGER        REFERENCES cliente(id),
+        cliente_nombre         VARCHAR(200)   NOT NULL,
+        cliente_identificacion VARCHAR(20),
+        motivo                 VARCHAR(20)    CHECK (motivo IN ('error', 'devolucion', 'anulacion', 'descuento', 'otro')),
+        motivo_texto           VARCHAR(120),
+        subtotal               NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        descuento              NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        impuesto               NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        total                  NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        total_aplicado         NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        saldo                  NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        observaciones          TEXT,
+        alegra_id              VARCHAR(20)    UNIQUE,
+        creado_por             INTEGER        REFERENCES usuario(id),
+        creado_en              TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        actualizado_en         TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('📋 Creando tablas de líneas y facturas acreditadas...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS nota_credito_linea (
+        id                   SERIAL         PRIMARY KEY,
+        nota_credito_id      INTEGER        NOT NULL REFERENCES nota_credito(id) ON DELETE CASCADE,
+        numero_linea         INTEGER        NOT NULL,
+        producto_id          INTEGER        REFERENCES producto(id),
+        nombre               VARCHAR(250)   NOT NULL,
+        referencia           VARCHAR(100),
+        descripcion          TEXT,
+        cabys                CHAR(13),
+        unidad               VARCHAR(20),
+        cantidad             NUMERIC(14,4)  NOT NULL,
+        precio_unitario      NUMERIC(14,5)  NOT NULL,
+        descuento_porcentaje NUMERIC(6,3)   NOT NULL DEFAULT 0,
+        descuento_monto      NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        impuesto_id          INTEGER        REFERENCES impuesto(id),
+        tarifa               NUMERIC(6,3)   NOT NULL DEFAULT 0,
+        impuesto_monto       NUMERIC(14,2)  NOT NULL DEFAULT 0,
+        total                NUMERIC(14,2)  NOT NULL,
+        alegra_item_id       VARCHAR(20),
+        CONSTRAINT nota_credito_linea_unica UNIQUE (nota_credito_id, numero_linea)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS nota_credito_factura (
+        id              SERIAL         PRIMARY KEY,
+        nota_credito_id INTEGER        NOT NULL REFERENCES nota_credito(id) ON DELETE CASCADE,
+        factura_id      INTEGER        REFERENCES factura(id),
+        factura_numero  VARCHAR(40),
+        monto           NUMERIC(14,2)  NOT NULL CHECK (monto > 0),
+        CONSTRAINT nota_credito_factura_unica UNIQUE (nota_credito_id, factura_id)
+      )
+    `);
+    await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_fecha ON nota_credito (fecha DESC)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_cliente ON nota_credito (cliente_id, fecha DESC)');
+    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_nota_credito_serie_consecutivo ON nota_credito (serie, consecutivo) WHERE serie IS NOT NULL AND consecutivo IS NOT NULL');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_linea_nota ON nota_credito_linea (nota_credito_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_linea_producto ON nota_credito_linea (producto_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_factura_factura ON nota_credito_factura (factura_id)');
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()

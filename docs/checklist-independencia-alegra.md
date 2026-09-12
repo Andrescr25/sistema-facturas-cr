@@ -16,7 +16,7 @@ marca `- [x]` al terminar.
   | Carpeta | Rama | Frontend | Backend | Base |
   |---|---|---|---|---|
   | `sistema-facturas-cr` | `developer` | 5173 | 3000 | producción |
-  | `sistema-facturas-cr-independencia` | `independencia-alegra` | 5174 | 3001 | copia local |
+  | `sistema-facturas-cr-independencia` | `independencia-alegra` | 5174 | 3002 | copia local |
 
   La segunda es un `git worktree` del mismo repositorio: los commits de una se
   ven desde la otra, pero cada una tiene sus archivos, sus `node_modules`, su
@@ -28,11 +28,13 @@ marca `- [x]` al terminar.
   las migraciones de la rama.
 - **Levantar la rama** (en `sistema-facturas-cr-independencia`):
   `cd backend && npm run dev` y `cd frontend && npm run dev`. Los puertos ya
-  vienen puestos: el backend toma el 3001 por `MODO_AISLADO` de `.env.aislado`
-  y el frontend el 5174 por `frontend/.env.development`.
+  vienen puestos: el backend toma el 3002 por `MODO_AISLADO` de `.env.aislado`
+  y el frontend el 5174 por `frontend/.env.development`. El 3001 quedó
+  descartado: lo ocupa `sistema-facilitadores-judiciales` en esta misma
+  máquina.
 - **Si un puerto está ocupado**, se detiene diciéndolo en vez de saltar a otro.
   Para usar otro a mano, los dos juntos:
-  `PORT=3002 npm run dev` y `VITE_API_URL=http://localhost:3002 npm run dev`.
+  `PORT=3003 npm run dev` y `VITE_API_URL=http://localhost:3003 npm run dev`.
   La sesión del navegador va aparte por puerto: en el 5174 hay que entrar de
   nuevo, con los mismos usuarios, que vienen en la copia.
 - **Si arranca contra la base de producción**, se detiene con el error
@@ -211,7 +213,7 @@ por movimiento.
 - Anula con `/void`, pero solo desde el módulo de duplicados.
 - Hay 5.398 facturas históricas.
 
-- [ ] Tablas `factura` y `factura_linea`: copia fija del cliente, fechas, condición y plazo, medio de pago, subtotal, descuento, impuesto por tarifa, total, estado (borrador, emitida o anulada), serie, consecutivo y `alegra_id` opcional
+- [x] Tablas `factura` y `factura_linea` (migración `independencia/008`): copia fija del cliente y del producto, fechas, condición y plazo, medio de pago, subtotal, descuento, impuesto **por línea con su tarifa**, total, pagado y saldo, estado (borrador, emitida o anulada), tipo (factura o tiquete), serie, consecutivo, clave de Hacienda y `alegra_id` opcional. La copia de las 5.398 se hace con `scripts/independencia/cargar-facturas.js`
 - [ ] Consecutivo propio, tomado con bloqueo para que no se repita
 - [ ] Crear factura con la misma pantalla y un backend nuevo, conservando la idempotencia (`factura_intento`) y la cola sin conexión
 - [ ] **Editar factura**, dejando registro en la bitácora. Regla: se edita mientras no esté emitida como electrónica; una vez emitida, se corrige con nota de crédito
@@ -226,8 +228,11 @@ por movimiento.
 - [ ] Dejar el espacio para la emisión electrónica pospuesta: la factura guarda todo lo necesario para emitirla después sin rehacer el modelo
 
 **Hallazgos de esta sección:**
-- **El permiso del módulo Facturación no se está aplicando, también en `main`.** Sus rutas reales viven en `/api/alegra/facturacion/...` (las monta `routes/alegra.js`), y `/alegra` está en `COMPARTIDAS`, así que el middleware las deja pasar a cualquiera que haya entrado. Comprobado contra la copia local con un usuario sin el módulo: `GET /api/alegra/facturacion/taxes` → 200, mientras `/api/facturacion/taxes` → 403 y `/api/rentabilidad` → 403. Crear factura (`POST /api/alegra/facturacion/invoices`) cuelga del mismo prefijo. Al mover Facturación a rutas propias (`/api/facturacion`), el permiso empieza a valer solo; mientras tanto, en `main` sigue abierto.
+- **El permiso del módulo Facturación no se estaba aplicando. CORREGIDO y en producción** (developer 375e8d9, main 49dfbed). Sus rutas vivían en `/api/alegra/facturacion/...` y `/alegra` está en `COMPARTIDAS`, así que el middleware las dejaba pasar a cualquiera con sesión, incluido el `POST` que crea la factura. Ahora se montan en `/api/facturacion`, su propio prefijo, y el permiso vale solo. Comprobado contra producción con dos usuarios reales: sin el módulo, 403 en GET y en POST (antes 200); con el módulo, 200; la ruta vieja, 404. No se amplió la lista de compartidas: eso habría tapado el síntoma.
+- **La copia de las 5.398 facturas** (52.357 líneas, 16 min) dejó: 5.242 emitidas, 132 anuladas, 24 borradores y 12 tiquetes. Sin enlazar: 210 sin condición de venta, 67 con un plazo que no calza, 17 con un cliente que ya no existe en Alegra y 1 con un método de pago desconocido.
+- **4 de las 27 notas de crédito no dicen ningún motivo** y suman ₡417.250; otras 3 traen un texto que no calza con ninguna categoría, y 2 no acreditan ninguna factura. El motivo es texto libre en Alegra. Hay que revisarlas con el contador antes del corte.
 - La factura de Alegra trae `term` como **texto** ("De contado"), no como el objeto con `id` que mandan los contactos: el plazo hay que calzarlo por nombre o días al copiar.
+- Apareció un plazo **"14 días"** que no está en el catálogo (contado, 8, 15, 22, 30 y 60) ni vino de `GET /terms`: alguien lo escribió suelto en esa factura. Se guarda el texto y queda sin plazo enlazado. Decidir si se agrega al catálogo o se corrige esa factura.
 - El impuesto de cada línea viene con todo el árbol de categorías contables de Alegra; de ahí solo sirven `id`, `percentage` y `amount`.
 
 **Lista cuando:** se puede vender, editar, anular y devolver sin abrir Alegra.
