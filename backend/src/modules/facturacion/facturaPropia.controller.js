@@ -12,6 +12,7 @@
 const servicio = require('./facturaPropia.service');
 const consulta = require('./facturaConsulta.service');
 const { generarPdfFactura } = require('./factura.pdf');
+const { pool } = require('../../../config/database');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -63,7 +64,10 @@ module.exports = {
   pdf: async (req, res) => {
     try {
       const factura = await consulta.obtenerFactura(req.params.id);
-      const archivo = await generarPdfFactura(factura);
+      // Los datos del emisor —cédula, dirección, actividad económica y las
+      // cuentas por donde le pagan— salen de la configuración, no del código.
+      const { rows } = await pool.query('SELECT * FROM empresa WHERE id = 1');
+      const archivo = await generarPdfFactura(factura, rows[0] || null);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="factura-${factura.numero}.pdf"`);
       return res.send(archivo);

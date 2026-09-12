@@ -31,7 +31,15 @@ const CAMPOS_EMPRESA = {
   nombre_comercial: { etiqueta: 'Nombre comercial', validar: texto(160) },
   tipo_identificacion: { etiqueta: 'Tipo de identificación', requerido: true, validar: opcion(Object.keys(LARGO_IDENTIFICACION)) },
   identificacion: { etiqueta: 'Identificación', requerido: true, validar: soloDigitos(12) },
-  actividad_economica: { etiqueta: 'Actividad económica', validar: soloDigitos(10) },
+  // Los códigos de actividad llevan punto ("4752.1"): con soloDigitos, el
+  // que la empresa viene imprimiendo en sus facturas no se podía guardar.
+  actividad_economica: { etiqueta: 'Actividad económica', validar: texto(10, { patron: /^[\d.]+$/, mensajePatron: 'solo números y puntos' }) },
+  // La descripción, que es lo que se lee en el papel: el código solo no le
+  // dice nada a quien recibe la factura.
+  actividad_economica_nombre: { etiqueta: 'Descripción de la actividad', validar: texto(200) },
+  // Por dónde paga el cliente (SINPE, cuentas de banco). Va al pie de la
+  // factura y cambia sin que nadie deba tocar código.
+  terminos_pago: { etiqueta: 'Términos de pago', validar: texto(1000) },
   regimen: { etiqueta: 'Régimen', validar: texto(40) },
   telefono: { etiqueta: 'Teléfono', validar: texto(30) },
   correo: { etiqueta: 'Correo', validar: texto(160, { patron: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, mensajePatron: 'no parece un correo' }) },
@@ -258,8 +266,14 @@ async function catalogosParaOperar() {
     empresa: e && {
       nombre: e.nombre, nombre_comercial: e.nombre_comercial, tipo_identificacion: e.tipo_identificacion,
       identificacion: e.identificacion, telefono: e.telefono, correo: e.correo,
-      provincia: e.provincia, canton: e.canton, distrito: e.distrito, otras_senas: e.otras_senas,
-      logo_url: e.logo_url, decimales: e.decimales
+      provincia: e.provincia, canton: e.canton, distrito: e.distrito, barrio: e.barrio,
+      otras_senas: e.otras_senas, logo_url: e.logo_url, decimales: e.decimales,
+      // Van al documento: la actividad económica es parte de lo que hace
+      // válida una factura, y los términos son POR DÓNDE le pagan a la
+      // empresa. Sin ellos la pantalla mostraba menos que el papel.
+      actividad_economica: e.actividad_economica,
+      actividad_economica_nombre: e.actividad_economica_nombre,
+      terminos_pago: e.terminos_pago
     }
   };
 }

@@ -41,6 +41,10 @@ export function useFacturasEmitidas({ activa }) {
   const [abriendoPdf, setAbriendoPdf] = useState(null)
   const [mensaje, setMensaje] = useState('')
 
+  // Los datos del emisor, para que la vista de la factura diga lo mismo que
+  // el PDF. Se piden una sola vez: no cambian entre facturas.
+  const [empresa, setEmpresa] = useState(null)
+
   // Cada búsqueda que se escribe cancela la anterior: sin esto, teclear
   // "PULPERIA" dispara ocho consultas y la que pinta es la que conteste de
   // última, que no tiene por qué ser la del texto completo.
@@ -68,6 +72,13 @@ export function useFacturasEmitidas({ activa }) {
   }, [buscar, estado, desde, hasta, pagina])
 
   useEffect(() => {
+    if (!activa || empresa) return
+    api.get('/catalogos/configuracion')
+      .then(r => setEmpresa(r.data?.data?.empresa ?? r.data?.empresa ?? null))
+      .catch(() => { /* la vista se dibuja igual, solo sin el emisor */ })
+  }, [activa, empresa])
+
+  useEffect(() => {
     if (!activa) return
     clearTimeout(temporizador.current)
     temporizador.current = setTimeout(cargar, buscar ? 350 : 0)
@@ -78,8 +89,9 @@ export function useFacturasEmitidas({ activa }) {
   // búsqueda que ahora tiene 2 muestra una lista vacía que parece un error.
   const cambiarFiltro = (fn) => (valor) => { fn(valor); setPagina(1) }
 
+  // Entrar a la factura, no desplegarla: con veinte líneas, un desplegable
+  // empuja el resto de la lista fuera de la pantalla.
   const abrirDetalle = async (id) => {
-    if (detalleId === id) { setDetalleId(null); setDetalle(null); return }
     setDetalleId(id)
     setDetalle(null)
     setCargandoDetalle(true)
@@ -129,7 +141,9 @@ export function useFacturasEmitidas({ activa }) {
     hasta, setHasta: cambiarFiltro(setHasta),
     pagina, setPagina,
     facturas, paginacion, cargando, error, setError,
+    empresa,
     detalleId, detalle, cargandoDetalle, abrirDetalle,
+    volver: () => { setDetalleId(null); setDetalle(null) },
     abriendoPdf, verPdf, anular, crearNota,
     mensaje, setMensaje,
     recargar: cargar

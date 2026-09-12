@@ -68,10 +68,20 @@ function aVista(f) {
     cliente: {
       id: f.cliente_id,
       nombre: f.cliente_nombre,
-      identificacion: f.cliente_identificacion
+      tipoIdentificacion: f.cliente_tipo_identificacion,
+      identificacion: f.cliente_identificacion,
+      // Copia fija tomada al facturar: el papel se reimprime igual dentro de
+      // dos años aunque la ficha del cliente haya cambiado.
+      correo: f.cliente_correo,
+      telefono: f.cliente_telefono,
+      direccion: f.cliente_direccion
     },
     condicionVenta: f.condicion_venta,
     plazo: f.plazo_texto,
+    moneda: f.moneda || 'CRC',
+    metodoPago: f.metodo_pago_texto,
+    vendedor: f.vendedor,
+    actividadEconomica: f.actividad_economica,
     subtotal: numero(f.subtotal),
     descuento: numero(f.descuento),
     impuesto: numero(f.impuesto),

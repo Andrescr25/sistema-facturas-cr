@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import {
-  Search, FileText, Loader2, Ban, Undo2, ChevronDown, ChevronRight,
-  ChevronLeft, Receipt, CalendarDays
-} from 'lucide-react'
+import { Search, Loader2, Ban, ChevronRight, ChevronLeft, Receipt, CalendarDays } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
+import VistaFactura from './VistaFactura'
 import { colones } from '../../utils/colones'
 
 /**
@@ -83,101 +81,36 @@ function ModalAnular({ factura, onCerrar, onAnular }) {
   )
 }
 
-function Detalle({ detalle, cargando }) {
-  if (cargando) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-4 text-sm text-neutro-500">
-        <Loader2 size={16} className="animate-spin" /> Trayendo la factura…
-      </div>
-    )
-  }
-  if (!detalle) return null
-
-  return (
-    <div className="flex flex-col gap-3 border-t border-neutro-100 bg-neutro-50/60 px-4 py-3">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px] text-sm">
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-neutro-500">
-              <th className="pb-1 font-semibold">Producto</th>
-              <th className="pb-1 text-center font-semibold">Cant.</th>
-              <th className="pb-1 text-right font-semibold">Precio</th>
-              <th className="pb-1 text-center font-semibold">IVA</th>
-              <th className="pb-1 text-right font-semibold">Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            {detalle.lineas.map(l => (
-              <tr key={l.numeroLinea} className="border-t border-neutro-200/70">
-                <td className="py-1.5 pr-2">
-                  <span className="font-medium text-neutro-800">{l.nombre}</span>
-                  {l.referencia && <span className="ml-1.5 text-xs text-neutro-400">{l.referencia}</span>}
-                </td>
-                <td className="py-1.5 text-center font-semibold">{l.cantidad}</td>
-                <td className="py-1.5 text-right text-neutro-600">{colones(l.precioUnitario)}</td>
-                <td className="py-1.5 text-center text-xs text-neutro-500">{l.tarifa}%</td>
-                <td className="py-1.5 text-right font-semibold">
-                  {colones(l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <span className="text-neutro-500">Subtotal <strong className="text-neutro-800">{colones(detalle.subtotal)}</strong></span>
-        <span className="text-neutro-500">IVA <strong className="text-neutro-800">{colones(detalle.impuesto)}</strong></span>
-        <span className="text-neutro-500">Total <strong className="text-neutro-900">{colones(detalle.total)}</strong></span>
-        {detalle.cobrado > 0 && (
-          <span className="text-neutro-500">Pagado <strong className="text-exito-700">{colones(detalle.cobrado)}</strong></span>
-        )}
-        {detalle.acreditado > 0 && (
-          <span className="text-neutro-500">Acreditado <strong className="text-nota-700">{colones(detalle.acreditado)}</strong></span>
-        )}
-      </div>
-
-      {detalle.cobros?.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutro-500">Cobros</span>
-          {detalle.cobros.map(c => (
-            <div key={c.id} className="flex items-center gap-2 text-sm">
-              <span className="text-neutro-600">{fecha(c.fecha)} · {c.metodo || 'sin método'}</span>
-              {c.referencia && <span className="text-xs text-neutro-400">ref. {c.referencia}</span>}
-              <span className="font-semibold text-neutro-800">{colones(c.monto)}</span>
-              {/* Un cobro anulado se muestra MARCADO, no escondido: el cliente
-                  va a preguntar por él y tiene que haber rastro. */}
-              {c.anulado && <Insignia tono="peligro">Anulado</Insignia>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {detalle.notasCredito?.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutro-500">Notas de crédito</span>
-          {detalle.notasCredito.map(n => (
-            <div key={n.id} className="flex items-center gap-2 text-sm">
-              <span className="text-neutro-600">{n.numero} · {fecha(n.fecha)} · {n.motivo || 'sin motivo'}</span>
-              <span className="font-semibold text-nota-700">{colones(n.monto)}</span>
-              {n.estado === 'anulada' && <Insignia tono="peligro">Anulada</Insignia>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {detalle.motivoAnulacion && (
-        <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">
-          Anulada: {detalle.motivoAnulacion}
-        </p>
-      )}
-    </div>
-  )
-}
-
 export default function PanelFacturasEmitidas({ f }) {
   const [anulando, setAnulando] = useState(null)
   const [nota, setNota] = useState(null)
+
+  // Una factura abierta ocupa la pantalla entera. Es un documento: se entra a
+  // él y se vuelve, en vez de empujar la lista hacia abajo.
+  if (f.detalleId) {
+    if (f.cargandoDetalle || !f.detalle) {
+      return (
+        <div className="flex items-center justify-center gap-2 py-16 text-neutro-500">
+          <Loader2 size={18} className="animate-spin" /> Abriendo la factura…
+        </div>
+      )
+    }
+    return (
+      <>
+        <VistaFactura
+          factura={f.detalle}
+          empresa={f.empresa}
+          abriendoPdf={f.abriendoPdf}
+          onVolver={f.volver}
+          onPdf={f.verPdf}
+          onAnular={setAnulando}
+          onNotaCredito={setNota}
+        />
+        {anulando && <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />}
+        {nota && <ModalNotaCredito factura={f.detalle} onCerrar={() => setNota(null)} onCrear={f.crearNota} />}
+      </>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -235,66 +168,28 @@ export default function PanelFacturasEmitidas({ f }) {
           descripcion={f.buscar ? `Nada que coincida con "${f.buscar}".` : 'Probá con otro estado o rango de fechas.'}
         />
       ) : (
-        <div className="card overflow-hidden rounded-2xl">
-          {f.facturas.map((factura) => {
-            const abierta = f.detalleId === factura.id
-            return (
-              <div key={factura.id} className="border-b border-neutro-100 last:border-0">
-                <div className="flex items-center gap-3 px-4 py-3 hover:bg-neutro-50">
-                  <button
-                    onClick={() => f.abrirDetalle(factura.id)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  >
-                    {abierta ? <ChevronDown size={16} className="shrink-0 text-neutro-400" />
-                             : <ChevronRight size={16} className="shrink-0 text-neutro-400" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-neutro-900">{factura.cliente.nombre}</p>
-                      <p className="truncate text-xs text-neutro-500">
-                        {factura.numero} · {fecha(factura.fecha)} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="font-bold text-neutro-900">{colones(factura.total)}</p>
-                      <EstadoFactura f={factura} />
-                    </div>
-                  </button>
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={() => f.verPdf(factura.id)}
-                      title="Ver el PDF"
-                      className="rounded-xl border border-neutro-200 p-2 text-neutro-600 hover:border-primario-300 hover:text-primario-600"
-                    >
-                      {f.abriendoPdf === factura.id
-                        ? <Loader2 size={16} className="animate-spin" />
-                        : <FileText size={16} />}
-                    </button>
-
-                    {factura.estado === 'emitida' && (
-                      <>
-                        <button
-                          onClick={() => f.abrirDetalle(factura.id).then(() => setNota(factura.id))}
-                          title="Nota de crédito"
-                          className="rounded-xl border border-neutro-200 p-2 text-neutro-600 hover:border-nota-300 hover:text-nota-700"
-                        >
-                          <Undo2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => setAnulando(factura)}
-                          title="Anular"
-                          className="rounded-xl border border-neutro-200 p-2 text-neutro-600 hover:border-peligro-300 hover:text-peligro-600"
-                        >
-                          <Ban size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {abierta && <Detalle detalle={f.detalle} cargando={f.cargandoDetalle} />}
+        <div className="flex flex-col gap-2">
+          {f.facturas.map((factura) => (
+            <button
+              key={factura.id}
+              onClick={() => f.abrirDetalle(factura.id)}
+              className="card flex items-center gap-4 rounded-2xl px-4 py-3 text-left transition-all hover:border-primario-200 hover:shadow-md"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-neutro-900">{factura.cliente.nombre}</p>
+                <p className="truncate text-xs text-neutro-500">
+                  {factura.numero} · {fecha(factura.fecha)} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
+                </p>
               </div>
-            )
-          })}
+
+              <div className="shrink-0 text-right">
+                <p className="font-bold text-neutro-900">{colones(factura.total)}</p>
+                <EstadoFactura f={factura} />
+              </div>
+
+              <ChevronRight size={18} className="shrink-0 text-neutro-300" />
+            </button>
+          ))}
         </div>
       )}
 
@@ -323,12 +218,6 @@ export default function PanelFacturasEmitidas({ f }) {
         </div>
       )}
 
-      {anulando && (
-        <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />
-      )}
-      {nota && f.detalle?.id === nota && (
-        <ModalNotaCredito factura={f.detalle} onCerrar={() => setNota(null)} onCrear={f.crearNota} />
-      )}
     </div>
   )
 }

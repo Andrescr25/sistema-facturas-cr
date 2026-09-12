@@ -24,6 +24,7 @@ const TIPOS_IDENTIFICACION = [
 
 const CAMPOS = [
   'nombre', 'nombre_comercial', 'tipo_identificacion', 'identificacion', 'actividad_economica', 'regimen',
+  'actividad_economica_nombre', 'terminos_pago',
   'telefono', 'correo', 'provincia', 'canton', 'distrito', 'barrio', 'otras_senas', 'decimales'
 ]
 
@@ -120,8 +121,8 @@ export default function FormularioEmpresa({ empresa, guardando, onGuardar }) {
         <Campo id="empresa-identificacion" etiqueta="Identificación" requerido aviso={avisoIdentificacion} ayuda="Sin guiones: se limpian al guardar.">
           <input id="empresa-identificacion" className={CLASE_CAMPO} inputMode="numeric" value={valores.identificacion} onChange={cambiar('identificacion')} maxLength={16} />
         </Campo>
-        <Campo id="empresa-actividad_economica" etiqueta="Actividad económica" ayuda="Código de Hacienda. Por ejemplo: 523402">
-          <input id="empresa-actividad_economica" className={CLASE_CAMPO} inputMode="numeric" value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} />
+        <Campo id="empresa-actividad_economica" etiqueta="Actividad económica" ayuda="Código de Hacienda. El que sale hoy en las facturas es 4752.1">
+          <input id="empresa-actividad_economica" className={CLASE_CAMPO} value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} />
         </Campo>
       </Seccion>
 
@@ -150,6 +151,42 @@ export default function FormularioEmpresa({ empresa, guardando, onGuardar }) {
         <Campo id="empresa-barrio" etiqueta="Barrio">
           <input id="empresa-barrio" className={CLASE_CAMPO} value={valores.barrio} onChange={cambiar('barrio')} maxLength={80} />
         </Campo>
+        {/* Va impreso en la factura debajo del código: el número solo no le
+            dice nada a quien recibe el documento. */}
+        <Campo
+          id="empresa-actividad_economica_nombre"
+          etiqueta="Descripción de la actividad"
+          ayuda="Se imprime en la factura junto al código"
+          className="sm:col-span-2"
+        >
+          <input
+            id="empresa-actividad_economica_nombre"
+            className={CLASE_CAMPO}
+            value={valores.actividad_economica_nombre}
+            onChange={cambiar('actividad_economica_nombre')}
+            maxLength={200}
+          />
+        </Campo>
+
+        {/* POR DÓNDE LE PAGAN A LA EMPRESA. Sin esto el papel no sirve para
+            cobrar, y un número de cuenta cambia sin que nadie deba tocar
+            código. */}
+        <Campo
+          id="empresa-terminos_pago"
+          etiqueta="Términos y condiciones"
+          ayuda="Cuentas de SINPE y banco. Salen al pie de cada factura; una por línea"
+          className="sm:col-span-2"
+        >
+          <textarea
+            id="empresa-terminos_pago"
+            rows={3}
+            className="input w-full rounded-xl border border-neutro-300 py-2.5 font-mono text-sm"
+            value={valores.terminos_pago}
+            onChange={cambiar('terminos_pago')}
+            maxLength={1000}
+          />
+        </Campo>
+
         <Campo id="empresa-otras_senas" etiqueta="Otras señas" className="sm:col-span-2">
           <textarea id="empresa-otras_senas" rows={2} className="input w-full rounded-xl border border-neutro-300 py-2.5" value={valores.otras_senas} onChange={cambiar('otras_senas')} maxLength={500} />
         </Campo>

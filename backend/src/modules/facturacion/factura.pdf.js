@@ -41,6 +41,7 @@ const {
   MARCA, LOGO, LOGO_RATIO, NEGOCIO,
   registrarFuentes, colones, colonesExacto, fechaLarga
 } = require('../../utils/marcaPdf');
+const { montoEnLetras } = require('../../utils/numeroALetras');
 
 const M = 44;                 // margen
 const ALTO_FILA = 26;
@@ -63,175 +64,284 @@ function tarifaTexto(t) {
   return `${Number.isInteger(v) ? v : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} %`;
 }
 
-/** Las columnas, con su ancho. `conDescuento` cambia el reparto. */
+/**
+ * Las columnas, con su ancho. `conDescuento` cambia el reparto.
+ *
+ * El impuesto lleva su MONTO y no solo el porcentaje: es lo que pide una
+ * factura y lo que el contador necesita para cuadrar sin recalcular línea por
+ * línea.
+ */
 function columnas(ancho, conDescuento) {
-  const anchoDesc = conDescuento ? 46 : 0;
-  const fijas = 22 + 38 + 74 + anchoDesc + 34 + 84;
+  const anchoDesc = conDescuento ? 54 : 0;
+  const fijas = 20 + 36 + 68 + anchoDesc + 64 + 76;
   const x = (desde) => M + ancho - desde;
   return {
     conDescuento,
-    num:      { x: M, w: 22, titulo: '#' },
-    desc:     { x: M + 22, w: ancho - fijas, titulo: 'DESCRIPCIÓN' },
-    cant:     { x: x(38 + 74 + anchoDesc + 34 + 84), w: 38, titulo: 'CANT.' },
-    precio:   { x: x(74 + anchoDesc + 34 + 84), w: 74, titulo: 'PRECIO UNIT.' },
-    descuento:{ x: x(anchoDesc + 34 + 84), w: anchoDesc, titulo: 'DESC.' },
-    iva:      { x: x(34 + 84), w: 34, titulo: 'IVA' },
-    total:    { x: x(84), w: 84, titulo: 'IMPORTE' }
+    num:      { x: M, w: 20, titulo: '#' },
+    desc:     { x: M + 20, w: ancho - fijas, titulo: 'PRODUCTO / SERVICIO' },
+    cant:     { x: x(36 + 68 + anchoDesc + 64 + 76), w: 36, titulo: 'CANT.' },
+    precio:   { x: x(68 + anchoDesc + 64 + 76), w: 68, titulo: 'PRECIO UNIT.' },
+    descuento:{ x: x(anchoDesc + 64 + 76), w: anchoDesc, titulo: 'DESCUENTO' },
+    iva:      { x: x(64 + 76), w: 64, titulo: 'IMPUESTO' },
+    total:    { x: x(76), w: 76, titulo: 'TOTAL LÍNEA' }
   };
 }
 
-function encabezado(doc, f, ancho, F) {
+/** Los datos del emisor: los de la configuración, con la marca de respaldo. */
+function datosEmisor(empresa) {
+  if (!empresa) return { ...NEGOCIO, actividad: null, terminos: null };
+  const direccion = [empresa.provincia, empresa.canton, empresa.distrito, empresa.barrio, empresa.otras_senas]
+    .filter(Boolean).join(' ');
+  return {
+    nombre: empresa.nombre || NEGOCIO.nombre,
+    cedula: empresa.identificacion || NEGOCIO.cedula,
+    tipoCedula: empresa.tipo_identificacion === 'CJ' ? 'Cédula Jurídica' : 'Cédula Física',
+    telefono: empresa.telefono || NEGOCIO.telefono,
+    email: empresa.correo || NEGOCIO.email,
+    direccion: direccion || NEGOCIO.direccion,
+    actividad: empresa.actividad_economica
+      ? `${empresa.actividad_economica}${empresa.actividad_economica_nombre ? ` - ${empresa.actividad_economica_nombre}` : ''}`
+      : null,
+    terminos: empresa.terminos_pago || null
+  };
+}
+
+/**
+ * El encabezado: quién emite a la izquierda, qué documento es a la derecha.
+ *
+ * Los datos del emisor van COMPLETOS arriba y no escondidos en el pie: el
+ * nombre, la cédula, la dirección, el contacto y la actividad económica son
+ * parte de lo que hace válida una factura, no una firma decorativa.
+ */
+function encabezado(doc, f, ancho, F, emisor) {
   let cursor = M;
+  const anchoIzq = ancho - 250;
 
   if (fs.existsSync(LOGO)) {
-    const anchoLogo = 140;
+    const anchoLogo = 128;
     doc.image(LOGO, M, cursor - 4, { width: anchoLogo });
-    cursor += anchoLogo * LOGO_RATIO + 2;
+    cursor += anchoLogo * LOGO_RATIO + 6;
   } else {
-    doc.font(F.negrita).fontSize(18).fillColor(MARCA.naranja).text('TACHI', M, cursor);
-    doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
-      .text('DISTRIBUIDORA', M, cursor + 21, { characterSpacing: 2 });
-    cursor += 38;
+    doc.font(F.negrita).fontSize(17).fillColor(MARCA.naranja).text('TACHI', M, cursor);
+    cursor += 24;
   }
 
+  doc.font(F.negrita).fontSize(11).fillColor(MARCA.tinta)
+    .text(emisor.nombre, M, cursor, { width: anchoIzq });
+  cursor += 14;
+
+  doc.font(F.normal).fontSize(7.5).fillColor(MARCA.gris);
+  const lineas = [
+    `${emisor.tipoCedula} ${emisor.cedula}`,
+    emisor.direccion,
+    [emisor.email, emisor.telefono].filter(Boolean).join('  ·  ')
+  ].filter(Boolean);
+  for (const linea of lineas) {
+    doc.text(linea, M, cursor, { width: anchoIzq });
+    cursor += doc.heightOfString(linea, { width: anchoIzq });
+  }
+
+  if (emisor.actividad) {
+    cursor += 2;
+    doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.gris)
+      .text('Actividad económica: ', M, cursor, { width: anchoIzq, continued: true })
+      .font(F.normal).text(emisor.actividad);
+    cursor += doc.heightOfString(`Actividad económica: ${emisor.actividad}`, { width: anchoIzq });
+  }
+
+  // ---- Derecha: qué documento es ----
   const anulada = f.estado === 'anulada';
-  const titulo = f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA';
+  const titulo = f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA DE VENTA';
   const xDer = doc.page.width - M - 240;
 
-  doc.font(F.negrita).fontSize(20).fillColor(anulada ? MARCA.grisSuave : MARCA.tinta)
+  doc.font(F.negrita).fontSize(16).fillColor(anulada ? MARCA.grisSuave : MARCA.tinta)
     .text(titulo, xDer, M, { width: 240, align: 'right' });
-  doc.font(F.negrita).fontSize(11).fillColor(anulada ? MARCA.grisSuave : MARCA.naranja)
-    .text(`N° ${f.numero}`, xDer, M + 26, { width: 240, align: 'right' });
-  doc.font(F.normal).fontSize(8.5).fillColor(MARCA.gris)
-    .text(fechaLarga(f.fecha), xDer, M + 42, { width: 240, align: 'right' });
+  doc.font(F.negrita).fontSize(13).fillColor(anulada ? MARCA.grisSuave : MARCA.naranja)
+    .text(f.numero, xDer, M + 21, { width: 240, align: 'right' });
 
-  // El motivo va junto al número, no al pie: quien recibe el papel tiene que
-  // enterarse de que está anulada en el mismo golpe de vista que el número.
-  let extra = 0;
+  let yDer = M + 40;
+  // Etiqueta y valor se colocan MIDIENDO, no con `continued` + `align:right`:
+  // pdfkit alinea cada fragmento por separado dentro de la misma caja y los
+  // escribe uno encima del otro ("Fecha de creación" pisada por la fecha).
+  const dato = (etiqueta, valor) => {
+    doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.gris);
+    const anchoValor = doc.widthOfString(String(valor));
+    doc.text(String(valor), xDer + 240 - anchoValor, yDer, { lineBreak: false });
+    doc.font(F.normal).fontSize(7.5).fillColor(MARCA.grisSuave)
+      .text(etiqueta, xDer, yDer, { width: 240 - anchoValor - 4, align: 'right', lineBreak: false });
+    yDer += 12;
+  };
+  dato('Fecha de creación:', fechaLarga(f.fecha));
+  if (f.fechaVencimiento) dato('Fecha de vencimiento:', fechaLarga(f.fechaVencimiento));
+
   if (anulada) {
     doc.font(F.negrita).fontSize(9).fillColor(MARCA.naranjaOscuro)
       .text(`ANULADA — ${f.motivoAnulacion || 'sin motivo registrado'}`,
-        xDer - 120, M + 58, { width: 360, align: 'right' });
-    extra = 14;
+        xDer - 140, yDer + 2, { width: 380, align: 'right' });
+    yDer += 14;
   }
 
-  const yRegla = Math.max(cursor + 16, M + 62 + extra);
+  const yRegla = Math.max(cursor + 10, yDer + 6);
   doc.rect(M, yRegla, ancho, 2.5).fill(anulada ? MARCA.grisSuave : MARCA.naranja);
-  return yRegla + 20;
+  return yRegla + 14;
+}
+
+/**
+ * A quién se le factura, y en qué condiciones.
+ *
+ * Teléfono y dirección salen de la COPIA guardada en la factura, no de la
+ * ficha del cliente: el papel se reimprime igual dentro de dos años.
+ */
+/**
+ * El medio de pago, en español.
+ *
+ * Las 5.398 facturas copiadas lo guardan como lo llama Alegra ("cash",
+ * "transfer"), y al reimprimir una el cliente leía un tecnicismo en inglés.
+ * Las nuevas ya nacen con el nombre de nuestro catálogo.
+ */
+const MEDIOS = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  'credit-card': 'Tarjeta de crédito',
+  'debit-card': 'Tarjeta de débito',
+  check: 'Cheque',
+  sinpe_movil: 'SINPE Móvil'
+};
+
+function medioDePago(valor) {
+  if (!valor) return null;
+  const clave = String(valor).trim().toLowerCase();
+  if (MEDIOS[clave]) return MEDIOS[clave];
+  return String(valor).charAt(0).toUpperCase() + String(valor).slice(1).toLowerCase();
 }
 
 function bloqueCliente(doc, f, ancho, y, F) {
-  const anchoCaja = 218;
-  const xCaja = doc.page.width - M - anchoCaja;
+  const anchoIzq = ancho * 0.62;
+  const xDer = M + anchoIzq + 14;
+  const anchoDer = ancho - anchoIzq - 14;
 
   doc.font(F.normal).fontSize(7.5).fillColor(MARCA.grisSuave)
-    .text('FACTURAR A', M, y, { characterSpacing: 1 });
-  // El ancho del nombre se MIDE antes de poner la cédula debajo. Con una
-  // altura fija, un nombre largo se parte en dos líneas y la segunda queda
-  // escrita encima de la cédula: pasó con "CENTRO DE TORNILLOS PALMARES
-  // LIMITADA", que salió pisando su propio número.
-  const anchoNombre = ancho - anchoCaja - 20;
-  const nombre = f.cliente?.nombre || 'Cliente de contado';
-  doc.font(F.negrita).fontSize(14).fillColor(MARCA.tinta);
-  const altoNombre = doc.heightOfString(nombre, { width: anchoNombre });
-  doc.text(nombre, M, y + 12, { width: anchoNombre });
+    .text('SEÑOR(ES)', M, y, { characterSpacing: 1 });
 
-  let yIzquierda = y + 12 + altoNombre;
-  if (f.cliente?.identificacion) {
-    doc.font(F.normal).fontSize(8.5).fillColor(MARCA.gris)
-      .text(`Céd. ${f.cliente.identificacion}`, M, yIzquierda + 2, { width: anchoNombre });
-    yIzquierda += 14;
+  doc.font(F.negrita).fontSize(13).fillColor(MARCA.tinta);
+  const nombre = f.cliente?.nombre || 'Cliente de contado';
+  const altoNombre = doc.heightOfString(nombre, { width: anchoIzq });
+  doc.text(nombre, M, y + 11, { width: anchoIzq });
+
+  let yIzq = y + 11 + altoNombre + 1;
+  doc.font(F.normal).fontSize(8).fillColor(MARCA.gris);
+  const tipo = f.cliente?.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física';
+  const datos = [
+    f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
+    f.cliente?.telefono ? `Teléfono: ${f.cliente.telefono}` : null,
+    f.cliente?.direccion ? `Dirección: ${f.cliente.direccion}` : null,
+    f.cliente?.correo ? `Email: ${f.cliente.correo}` : null
+  ].filter(Boolean);
+  for (const linea of datos) {
+    doc.text(linea, M, yIzq, { width: anchoIzq });
+    yIzq += doc.heightOfString(linea, { width: anchoIzq });
   }
 
-  // La condición de venta y el vencimiento, destacados: son la única condición
-  // del documento que se discute después ("¿esta era de contado o a 30 días?").
-  const credito = f.condicionVenta && f.condicionVenta !== 'contado';
-  doc.roundedRect(xCaja, y - 8, anchoCaja, 54, 6).fillAndStroke(MARCA.naranjaSuave, MARCA.naranjaSuave);
-  doc.font(F.normal).fontSize(7.5).fillColor(MARCA.naranjaOscuro)
-    .text(credito ? 'CRÉDITO — VENCE' : 'CONDICIÓN DE VENTA', xCaja, y + 2,
-      { width: anchoCaja, align: 'center', characterSpacing: 0.8 });
-  doc.font(F.negrita).fontSize(credito ? 12 : 11).fillColor(MARCA.naranjaOscuro)
-    .text(credito ? fechaLarga(f.fechaVencimiento || f.fecha) : (f.plazo || 'De contado'),
-      xCaja, y + 18, { width: anchoCaja, align: 'center', lineBreak: false });
+  // ---- Derecha: condición, moneda y medio de pago ----
+  let yDer = y + 2;
+  const par = (etiqueta, valor) => {
+    if (!valor) return;
+    // Igual que arriba: medido, nunca con `continued` + alineación a la
+    // derecha, que encima "Contado" sobre "Condición:".
+    const texto = String(valor);
+    doc.font(F.negrita).fontSize(8).fillColor(MARCA.tinta);
+    const anchoValor = doc.widthOfString(texto);
+    doc.text(texto, xDer + anchoDer - anchoValor, yDer, { lineBreak: false });
+    doc.font(F.normal).fontSize(8).fillColor(MARCA.grisSuave)
+      .text(etiqueta, xDer, yDer, { width: anchoDer - anchoValor - 4, align: 'right', lineBreak: false });
+    yDer += 13;
+  };
+  par('Condición:', f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado');
+  par('Moneda:', f.moneda || 'CRC');
+  par('Medio de pago:', medioDePago(f.metodoPago));
 
-  // Lo que ocupe el lado más alto de los dos, nunca menos que la caja.
-  return Math.max(y + 62, yIzquierda + 8);
+  return Math.max(yIzq, yDer) + 12;
 }
 
 function cabeceraTabla(doc, col, ancho, y, F) {
-  doc.rect(M, y, ancho, 20).fill(MARCA.panel);
-  doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.gris);
-  doc.text(col.num.titulo, col.num.x + 5, y + 6.5);
-  doc.text(col.desc.titulo, col.desc.x + 4, y + 6.5, { characterSpacing: 0.5 });
-  doc.text(col.cant.titulo, col.cant.x, y + 6.5, { width: col.cant.w, align: 'center' });
-  doc.text(col.precio.titulo, col.precio.x, y + 6.5, { width: col.precio.w - 6, align: 'right' });
+  doc.rect(M, y, ancho, 18).fill(MARCA.panel);
+  doc.font(F.negrita).fontSize(6.8).fillColor(MARCA.gris);
+  doc.text(col.num.titulo, col.num.x + 5, y + 6);
+  doc.text(col.desc.titulo, col.desc.x + 4, y + 6, { characterSpacing: 0.4 });
+  doc.text(col.cant.titulo, col.cant.x, y + 6, { width: col.cant.w, align: 'center' });
+  doc.text(col.precio.titulo, col.precio.x, y + 6, { width: col.precio.w - 4, align: 'right' });
   if (col.conDescuento) {
-    doc.text(col.descuento.titulo, col.descuento.x, y + 6.5, { width: col.descuento.w - 4, align: 'right' });
+    doc.text(col.descuento.titulo, col.descuento.x, y + 6, { width: col.descuento.w - 4, align: 'right' });
   }
-  doc.text(col.iva.titulo, col.iva.x, y + 6.5, { width: col.iva.w, align: 'center' });
-  doc.text(col.total.titulo, col.total.x, y + 6.5, { width: col.total.w - 6, align: 'right' });
-  return y + 20;
+  doc.text(col.iva.titulo, col.iva.x, y + 6, { width: col.iva.w - 4, align: 'right' });
+  doc.text(col.total.titulo, col.total.x, y + 6, { width: col.total.w - 4, align: 'right' });
+  return y + 18;
 }
 
+/**
+ * Las líneas.
+ *
+ * EL ALTO DE CADA FILA SE MIDE, no se fija: los nombres del catálogo son
+ * largos ("DESINFECTANTE MANZANA CANELA EN GALON SALAZAR") y debajo van la
+ * referencia y el CAByS. Con un alto fijo, o se cortaba el nombre o la
+ * segunda línea pisaba la fila siguiente.
+ *
+ * EL CAByS VA EN EL PAPEL porque identifica el bien ante Hacienda; sin él, la
+ * línea no se puede clasificar.
+ */
 function filas(doc, f, col, ancho, yInicio, F) {
   let y = yInicio;
+  const anchoNombre = col.desc.w - 8;
 
   f.lineas.forEach((l, i) => {
-    // Cabecera repetida en cada página: una tabla cuya segunda hoja no dice
-    // qué es cada columna obliga a devolverse.
-    if (y + ALTO_FILA > doc.page.height - M - PIE_RESERVADO) {
+    doc.font(F.negrita).fontSize(8.5);
+    const nombre = String(l.nombre || '');
+    const altoNombre = doc.heightOfString(nombre, { width: anchoNombre });
+    const alPie = [l.referencia ? `Ref: ${l.referencia}` : null, l.cabys ? `CAByS: ${l.cabys}` : null]
+      .filter(Boolean).join('   ');
+    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + 6);
+
+    if (y + alto > doc.page.height - M - PIE_RESERVADO) {
       doc.addPage();
       y = cabeceraTabla(doc, col, ancho, M, F);
     }
 
-    if (i % 2 === 1) doc.rect(M, y, ancho, ALTO_FILA).fill(MARCA.cebra);
-
-    doc.font(F.normal).fontSize(8).fillColor(MARCA.grisSuave)
-      .text(String(l.numeroLinea || i + 1), col.num.x + 5, y + 6);
-
-    // El nombre se recorta midiendo, no con `ellipsis`: pdfkit lo parte en dos
-    // líneas igual y la segunda pisa la referencia de abajo.
-    doc.font(F.negrita).fontSize(8.5).fillColor(MARCA.tinta);
-    const disponible = col.desc.w - 8;
-    let nombre = String(l.nombre || '');
-    if (doc.widthOfString(nombre) > disponible) {
-      while (nombre.length > 3 && doc.widthOfString(`${nombre.trimEnd()}…`) > disponible) {
-        nombre = nombre.slice(0, -1);
-      }
-      nombre = `${nombre.trimEnd()}…`;
-    }
-    doc.text(nombre, col.desc.x + 4, y + 4, { width: disponible, lineBreak: false });
-
-    const alPie = [l.referencia ? `Ref. ${l.referencia}` : null, l.unidad || null]
-      .filter(Boolean).join('  ·  ');
-    if (alPie) {
-      doc.font(F.normal).fontSize(6.5).fillColor(MARCA.grisSuave)
-        .text(alPie, col.desc.x + 4, y + 15, { width: disponible, lineBreak: false, ellipsis: true });
-    }
-
-    doc.font(F.negrita).fontSize(9).fillColor(MARCA.tinta)
-      .text(String(num(l.cantidad)), col.cant.x, y + 8, { width: col.cant.w, align: 'center' });
-    doc.font(F.normal).fontSize(8.5).fillColor(MARCA.gris)
-      .text(colonesExacto(l.precioUnitario), col.precio.x, y + 8, { width: col.precio.w - 6, align: 'right' });
-
-    if (col.conDescuento) {
-      const d = num(l.descuentoPorcentaje);
-      doc.font(F.normal).fontSize(8).fillColor(d ? MARCA.naranjaOscuro : MARCA.linea)
-        .text(d ? `${d}%` : '—', col.descuento.x, y + 8, { width: col.descuento.w - 4, align: 'right' });
-    }
+    if (i % 2 === 1) doc.rect(M, y, ancho, alto).fill(MARCA.cebra);
 
     doc.font(F.normal).fontSize(7.5).fillColor(MARCA.grisSuave)
-      .text(tarifaTexto(l.tarifa), col.iva.x, y + 8.5, { width: col.iva.w, align: 'center' });
-    // El importe va SIN impuesto: cantidad × precio, menos el descuento.
-    // `l.total` trae el impuesto adentro, y ponerlo acá dejaba un papel donde
-    // 3 × ₡464,60 daba ₡1.575 — el cliente multiplica y no le cuadra. Así la
-    // columna suma exactamente el Subtotal de abajo.
-    const importe = importeLinea(l);
-    doc.font(F.negrita).fontSize(9).fillColor(MARCA.tinta)
-      .text(colones(importe), col.total.x, y + 8, { width: col.total.w - 6, align: 'right' });
+      .text(String(l.numeroLinea || i + 1), col.num.x + 5, y + 6);
 
-    doc.rect(M, y + ALTO_FILA - 0.5, ancho, 0.5).fill(MARCA.linea);
-    y += ALTO_FILA;
+    doc.font(F.negrita).fontSize(8.5).fillColor(MARCA.tinta)
+      .text(nombre, col.desc.x + 4, y + 5, { width: anchoNombre });
+    if (alPie) {
+      doc.font(F.normal).fontSize(6.3).fillColor(MARCA.grisSuave)
+        .text(alPie, col.desc.x + 4, y + 5 + altoNombre + 1, { width: anchoNombre, lineBreak: false, ellipsis: true });
+    }
+
+    const yNum = y + 6;
+    doc.font(F.negrita).fontSize(9).fillColor(MARCA.tinta)
+      .text(String(num(l.cantidad)), col.cant.x, yNum, { width: col.cant.w, align: 'center' });
+    doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
+      .text(colonesExacto(l.precioUnitario), col.precio.x, yNum, { width: col.precio.w - 4, align: 'right' });
+
+    if (col.conDescuento) {
+      const d = num(l.descuentoMonto);
+      doc.font(F.normal).fontSize(8).fillColor(d ? MARCA.naranjaOscuro : MARCA.linea)
+        .text(d ? `−${colones(d)}` : '—', col.descuento.x, yNum, { width: col.descuento.w - 4, align: 'right' });
+    }
+
+    // Monto del impuesto, con su tarifa debajo: el contador necesita el monto
+    // y quien revisa la factura necesita saber a qué tarifa salió.
+    doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
+      .text(colones(l.impuestoMonto), col.iva.x, yNum, { width: col.iva.w - 4, align: 'right' });
+    doc.font(F.normal).fontSize(6.3).fillColor(MARCA.grisSuave)
+      .text(tarifaTexto(l.tarifa), col.iva.x, yNum + 10, { width: col.iva.w - 4, align: 'right' });
+
+    doc.font(F.negrita).fontSize(9).fillColor(MARCA.tinta)
+      .text(colones(importeLinea(l)), col.total.x, yNum, { width: col.total.w - 4, align: 'right' });
+
+    doc.rect(M, y + alto - 0.5, ancho, 0.5).fill(MARCA.linea);
+    y += alto;
   });
 
   return y;
@@ -253,7 +363,7 @@ function impuestoPorTarifa(lineas) {
     .sort((a, b) => a[0] - b[0]);
 }
 
-function totales(doc, f, ancho, y, F) {
+function totales(doc, f, ancho, y, F, emisor) {
   const desglose = impuestoPorTarifa(f.lineas);
   const conPagos = num(f.cobrado) > 0 || num(f.acreditado) > 0;
   const alto = 120 + desglose.length * 15 + (conPagos ? 34 : 0);
@@ -266,6 +376,12 @@ function totales(doc, f, ancho, y, F) {
   const anchoCaja = 236;
   const xCaja = doc.page.width - M - anchoCaja;
   let yy = y + 16;
+
+  // EL MONTO EN LETRAS, a la izquierda y a la altura de los totales. Es lo
+  // que impide que alguien retoque la cifra con un lapicero: "₡15.899" se
+  // altera, "quince mil ochocientos noventa y nueve colones" no.
+  doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
+    .text(montoEnLetras(f.total, f.moneda), M, yy + 2, { width: ancho - anchoCaja - 24 });
 
   const renglon = (etiqueta, valor, color = MARCA.gris) => {
     doc.font(F.normal).fontSize(9).fillColor(color)
@@ -300,7 +416,7 @@ function totales(doc, f, ancho, y, F) {
       // tiene que decirlo con su referencia: es lo que le permite comprobar
       // que su transferencia se aplicó a ESTA factura y no a otra.
       const vigentes = (f.cobros || []).filter(c => !c.anulado);
-      const formas = [...new Set(vigentes.map(c => c.metodo).filter(Boolean))];
+      const formas = [...new Set(vigentes.map(c => medioDePago(c.metodo)).filter(Boolean))];
       renglon(formas.length ? `Pagado (${formas.join(', ')})` : 'Pagado', `−${colones(f.cobrado)}`);
 
       // En su PROPIO renglón, debajo: `renglon()` ya adelantó `yy`, y restarle
@@ -332,7 +448,7 @@ function selloAnulada(doc) {
   doc.restore();
 }
 
-function pie(doc, f, ancho, F) {
+function pie(doc, f, ancho, F, emisor = NEGOCIO) {
   const rango = doc.bufferedPageRange();
   for (let i = 0; i < rango.count; i++) {
     doc.switchToPage(rango.start + i);
@@ -347,7 +463,7 @@ function pie(doc, f, ancho, F) {
     const yPie = doc.page.height - 32;
     doc.rect(M, yPie - 10, ancho, 0.5).fill(MARCA.linea);
     doc.font(F.normal).fontSize(6.8).fillColor(MARCA.grisSuave)
-      .text(`${NEGOCIO.nombre}  ·  Céd. ${NEGOCIO.cedula}  ·  ${NEGOCIO.telefono}  ·  ${NEGOCIO.email}`,
+      .text(`${emisor.nombre}  ·  Céd. ${emisor.cedula}  ·  ${emisor.telefono}  ·  ${emisor.email}`,
         M, yPie, { width: ancho - 90, lineBreak: false })
       .text(`Página ${i + 1} de ${rango.count}`, M + ancho - 90, yPie, { width: 90, align: 'right', lineBreak: false });
 
@@ -361,10 +477,15 @@ function pie(doc, f, ancho, F) {
  * @param {object} f lo que devuelve facturaConsulta.obtenerFactura()
  * @returns {Promise<Buffer>}
  */
-function generarPdfFactura(f) {
+function generarPdfFactura(f, empresa = null) {
   if (!f || !Array.isArray(f.lineas)) {
     throw new Error('No se puede armar el PDF: la factura viene sin líneas.');
   }
+
+  // Los datos del emisor salen de la CONFIGURACIÓN, no del código: la cédula,
+  // la dirección, la actividad económica y las cuentas de pago cambian, y
+  // cambiarlas no puede pedir un despliegue.
+  const emisor = datosEmisor(empresa);
 
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ margin: M, size: 'letter', bufferPages: true });
@@ -378,7 +499,7 @@ function generarPdfFactura(f) {
   const conDescuento = f.lineas.some(l => num(l.descuentoPorcentaje) > 0 || num(l.descuentoMonto) > 0);
   const col = columnas(ancho, conDescuento);
 
-  let y = encabezado(doc, f, ancho, F);
+  let y = encabezado(doc, f, ancho, F, emisor);
   y = bloqueCliente(doc, f, ancho, y, F);
   y = cabeceraTabla(doc, col, ancho, y, F);
   const yTrasFilas = filas(doc, f, col, ancho, y, F);
@@ -392,18 +513,30 @@ function generarPdfFactura(f) {
       .text(f.observaciones, M, yTrasFilas + 30, { width: ancho - 260 });
   }
 
-  const yFinal = totales(doc, f, ancho, yTrasFilas, F);
+  const yFinal = totales(doc, f, ancho, yTrasFilas, F, emisor);
+
+  // POR DÓNDE PAGA EL CLIENTE. Sin esto el papel no sirve para cobrar: son
+  // las cuentas de SINPE y de banco, y viven en la configuración porque un
+  // número de cuenta cambia y nadie debería tocar código para eso.
+  let yPie = yFinal + 18;
+  if (emisor.terminos) {
+    doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.gris)
+      .text('TÉRMINOS Y CONDICIONES', M, yPie, { characterSpacing: 0.8 });
+    doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
+      .text(emisor.terminos, M, yPie + 11, { width: ancho * 0.6 });
+    yPie += 13 + doc.heightOfString(emisor.terminos, { width: ancho * 0.6 });
+  }
 
   // La letra chica va DEBAJO de los totales, no anclada al borde inferior:
   // escribir por debajo del margen le agrega a pdfkit una página en blanco.
-  doc.font(F.normal).fontSize(7.5).fillColor(MARCA.grisSuave)
-    .text('Documento emitido por Distribuidora Tachi. No constituye un comprobante ' +
-      'electrónico autorizado por el Ministerio de Hacienda. Consérvelo para cualquier reclamo.',
-      M, yFinal + 22, { width: ancho * 0.62 });
+  doc.font(F.normal).fontSize(7).fillColor(MARCA.grisSuave)
+    .text(`Documento emitido por ${emisor.nombre}. No constituye un comprobante electrónico ` +
+      'autorizado por el Ministerio de Hacienda. Consérvelo para cualquier reclamo.',
+      M, yPie + 8, { width: ancho * 0.62 });
 
-  pie(doc, f, ancho, F);
+  pie(doc, f, ancho, F, emisor);
   doc.end();
   return listo;
 }
 
-module.exports = { generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas };
+module.exports = { generarPdfFactura, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea, tarifaTexto, columnas };

@@ -18,8 +18,11 @@ export default function PestanasFacturacion({
     { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt }
   ]
 
+  // Envuelven en pantalla angosta: con dos pestañas cabían en una línea, con
+  // tres se apretaban hasta chocar ("Nueva factura⁄Editar facturas") en un
+  // teléfono de 400 px.
   return (
-    <div className="mb-4 flex max-w-2xl rounded-2xl bg-neutro-100 p-1.5 md:mb-6">
+    <div className="mb-4 flex max-w-2xl flex-wrap gap-1 rounded-2xl bg-neutro-100 p-1.5 md:mb-6 md:flex-nowrap">
       {pestanas.map((p) => {
         const Icono = p.icono
         const activa = tabActiva === p.clave
@@ -27,7 +30,7 @@ export default function PestanasFacturacion({
           <button
             key={p.clave}
             onClick={() => onCambiarTab(p.clave)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+            className={`flex min-w-[7.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all ${
               activa
                 ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5'
                 : 'text-neutro-600 hover:text-neutro-900'

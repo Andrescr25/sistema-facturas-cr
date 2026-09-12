@@ -99,6 +99,7 @@ const COLUMNAS_FACTURA = [
   'tipo_documento', 'serie', 'consecutivo', 'numero', 'electronica', 'estado',
   'fecha', 'fecha_vencimiento', 'emitida_en',
   'cliente_id', 'cliente_nombre', 'cliente_tipo_identificacion', 'cliente_identificacion', 'cliente_correo',
+  'cliente_telefono', 'cliente_direccion',
   'condicion_venta', 'plazo_credito_id', 'plazo_texto', 'metodo_pago_id', 'metodo_pago_texto',
   'moneda', 'subtotal', 'descuento', 'impuesto', 'total', 'total_pagado', 'saldo',
   'observaciones', 'anotaciones', 'vendedor', 'actividad_economica', 'creado_por'
@@ -252,6 +253,12 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     cliente_tipo_identificacion: clienteFacturado.tipo_identificacion,
     cliente_identificacion: clienteFacturado.identificacion,
     cliente_correo: clienteFacturado.correo,
+    // Copia fija, igual que el nombre y la cédula: el papel tiene que poder
+    // reimprimirse dentro de dos años diciendo lo mismo, y la ficha cambia.
+    cliente_telefono: recortar(clienteFacturado.telefono || clienteFacturado.celular, 60),
+    cliente_direccion: [clienteFacturado.provincia, clienteFacturado.canton, clienteFacturado.distrito,
+                        clienteFacturado.barrio, clienteFacturado.otras_senas]
+      .filter(Boolean).join(' ') || null,
     condicion_venta: aCredito ? 'credito' : 'contado',
     plazo_credito_id: aCredito ? clienteFacturado.plazo_credito_id : null,
     plazo_texto: aCredito ? clienteFacturado.plazo_nombre : 'De contado',

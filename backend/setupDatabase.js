@@ -1086,6 +1086,16 @@ async function setupDatabase() {
     await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS ancho_consecutivo SMALLINT NOT NULL DEFAULT 0');
     await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS electronica BOOLEAN NOT NULL DEFAULT FALSE');
     await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS descripcion VARCHAR(80)');
+
+    // Lo que el papel necesita para ser una factura completa: la actividad
+    // económica con su descripción y las cuentas por donde le pagan a la
+    // empresa. Y en la factura, copia fija del teléfono y la dirección del
+    // cliente: el documento se reimprime igual años después aunque la ficha
+    // haya cambiado.
+    await client.query('ALTER TABLE empresa ADD COLUMN IF NOT EXISTS actividad_economica_nombre VARCHAR(200)');
+    await client.query('ALTER TABLE empresa ADD COLUMN IF NOT EXISTS terminos_pago TEXT');
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS cliente_telefono VARCHAR(60)');
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS cliente_direccion TEXT');
     // "Electrónica" no es un tipo de documento, es una propiedad de la serie:
     // la misma factura se emite en papel o electrónica. Por eso la llave única
     // la incluye; sin ella, las dos series de factura de la misma terminal

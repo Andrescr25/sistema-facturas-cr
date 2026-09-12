@@ -196,8 +196,14 @@ describe('lectura', () => {
       assert.ok(log.some(l => new RegExp(`FROM ${tabla} WHERE activo = TRUE`).test(l.sql)), `${tabla} sin filtro de activos`);
     }
     assert.equal(r.empresa.nombre, 'Distribuidora Tachi');
+    // El régimen es de uso interno y no sale del módulo de Configuración.
     assert.equal('regimen' in r.empresa, false);
-    assert.equal('actividad_economica' in r.empresa, false);
+    // La actividad económica SÍ sale: va impresa en cada factura junto a su
+    // descripción, así que no es un dato interno. Lo mismo los términos de
+    // pago, que son por dónde le pagan a la empresa.
+    assert.equal(r.empresa.actividad_economica, EMPRESA.actividad_economica);
+    assert.equal('actividad_economica_nombre' in r.empresa, true);
+    assert.equal('terminos_pago' in r.empresa, true);
   });
 
   test('la pantalla de Configuración ve también lo inactivo', async () => {
