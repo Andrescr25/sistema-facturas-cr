@@ -1,5 +1,14 @@
-import { defineConfig, loadEnv } from 'vite'
+import { existsSync, realpathSync } from 'node:fs'
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// En la máquina de desarrollo, node_modules de esta carpeta puede ser un
+// enlace al de la carpeta de developer: el Escritorio está en iCloud y copiar
+// 22.000 archivos no termina. Por eso la caché de vite va aparte (dos
+// servidores escribiendo la misma se pisan) y vite puede leer la carpeta real
+// de node_modules aunque quede fuera de esta. Si node_modules es una carpeta
+// normal, las dos cosas no cambian nada.
+const nodeModulesReal = existsSync('node_modules') ? realpathSync('node_modules') : null
 
 // El puerto y la API salen del entorno para que dos ramas corran a la vez sin
 // pisarse: developer en 5173 → 3000 (base de producción) e
@@ -19,10 +28,14 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    cacheDir: 'node_modules/.vite-independencia',
     server: {
       port: Number(env.PUERTO_FRONTEND) || 5173,
       strictPort: true,
       host: true,
+      fs: {
+        allow: [searchForWorkspaceRoot(process.cwd()), ...(nodeModulesReal ? [nodeModulesReal] : [])]
+      },
       proxy: {
         '/api': {
           target: apiOrigen,
@@ -40,7 +53,7 @@ export default defineConfig(({ mode }) => {
       // Antes se leía solo process.env: un VITE_API_URL escrito en un archivo
       // .env quedaba tapado por undefined y la app caía al respaldo del
       // localhost:3000, que en esta rama es el backend de developer.
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL)
+      'import.meta.env.VITE_API_URL': JSON.stringify(apiUrl)
     }
   }
 })
