@@ -1,0 +1,261 @@
+const { test, describe, beforeEach } = require('node:test');
+const assert = require('node:assert');
+const path = require('path');
+
+/**
+ * Crear una factura de venta sin Alegra.
+ *
+ * LO QUE CUIDA ESTA PRUEBA, que no se ve mirando la pantalla:
+ *  - que el impuesto salga del MAESTRO y no del `tax.id` que manda el
+ *    navegador (ya pasó que esos ids no eran los de la cuenta y 82 líneas al
+ *    1 % se registraron al 4 %);
+ *  - que el número se tome de la serie propia y no se gaste si algo falla;
+ *  - que la factura guarde copia fija del cliente y del producto;
+ *  - que a un cliente de contado no se le ponga fecha de vencimiento a 30 días
+ *    ni al revés.
+ */
+
+const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
+const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'facturacion', 'facturaPropia.service.js');
+
+const CLIENTE_CONTADO = {
+  id: 7, nombre: 'PULPERÍA LA ESQUINA', tipo_identificacion: 'CJ', identificacion: '3101123456',
+  correo: 'pulperia@correo.com', activo: true, plazo_credito_id: 1, plazo_nombre: 'De contado', plazo_dias: 0
+};
+const CLIENTE_CREDITO = { ...CLIENTE_CONTADO, plazo_credito_id: 3, plazo_nombre: '15 días', plazo_dias: 15 };
+
+const TORNILLO = {
+  id: 12, alegra_id: '1183', nombre: 'TORNILLO FRIJOLILLO 3/4', referencia: 'TOR02',
+  descripcion: null, cabys: '4294401030100', unidad: 'Unid', activo: true, impuesto_id: 1, tarifa: '13.00'
+};
+// Un producto al 1 %: es donde se nota si alguien vuelve a asumir el 13 %.
+const SALSA = {
+  id: 20, alegra_id: '900', nombre: 'GALON SALSA LIZANO 5L', referencia: 'SAL01',
+  descripcion: null, cabys: '1079120000000', unidad: 'Unid', activo: true, impuesto_id: 4, tarifa: '1.00'
+};
+
+function montar({ cliente = CLIENTE_CONTADO, productos = [TORNILLO], serie = null, fallaInsert = false } = {}) {
+  const log = [];
+  const serieActiva = serie || { id: 1, serie: '00100001', siguiente: '4869', ancho_consecutivo: 0, electronica: false, activo: true };
+
+  const ejecutar = async (sql, params = []) => {
+    const texto = String(sql).replace(/\s+/g, ' ').trim();
+    log.push({ sql: texto, params });
+
+    if (/FROM cliente c/.test(texto)) return { rows: cliente ? [{ ...cliente }] : [] };
+    if (/FROM producto p/.test(texto)) return { rows: productos.map(p => ({ ...p })) };
+    if (/FROM serie_consecutivo/.test(texto)) return { rows: [{ ...serieActiva }] };
+    if (/INSERT INTO factura \(/.test(texto)) {
+      if (fallaInsert) throw new Error('la base se cayó');
+      const columnas = texto.match(/\(([^)]+)\) VALUES/)[1].split(', ');
+      return { rows: [{ id: 500, ...Object.fromEntries(columnas.map((c, i) => [c, params[i]])) }] };
+    }
+    if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
+    return { rows: [], rowCount: 1 };
+  };
+
+  const clientePg = { query: ejecutar, release: () => {} };
+  require.cache[rutaDb] = {
+    id: rutaDb, filename: rutaDb, loaded: true,
+    exports: { pool: { connect: async () => clientePg, query: ejecutar }, query: ejecutar }
+  };
+  delete require.cache[rutaServicio];
+  return { servicio: require(rutaServicio), log };
+}
+
+beforeEach(() => { for (const r of [rutaDb, rutaServicio]) delete require.cache[r]; });
+
+const hubo = (log, re) => log.some(l => re.test(l.sql));
+const params = (log, re) => log.find(l => re.test(l.sql))?.params;
+const columnasDe = (entrada) => entrada.sql.match(/\(([^)]+)\) VALUES/)[1].split(', ');
+const valor = (entrada, columna) => entrada.params[columnasDe(entrada).indexOf(columna)];
+
+const VENTA = {
+  client: 128,
+  date: '2026-09-12',
+  items: [{ id: '1183', quantity: 2, price: 1000, discount: 0, tax: [{ id: '9999' }] }]
+};
+
+describe('el impuesto sale del maestro', () => {
+  test('ignora el id de impuesto que manda la pantalla y usa la tarifa del producto', async () => {
+    // El navegador manda tax:[{id:'9999'}], que no existe. La tarifa que vale
+    // es la del producto: 13 %.
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    const linea = log.find(l => /INSERT INTO factura_linea/.test(l.sql));
+    assert.equal(valor(linea, 'tarifa'), 13);
+    assert.equal(valor(linea, 'impuesto_id'), 1);
+    assert.equal(valor(linea, 'impuesto_monto'), 260);  // 2.000 × 13 %
+  });
+
+  test('un producto al 1 % paga 1 %, no 13 %', async () => {
+    const { servicio, log } = montar({ productos: [SALSA] });
+    await servicio.crearFactura({ ...VENTA, items: [{ id: '900', quantity: 1, price: 10000 }] }, 4);
+    const linea = log.find(l => /INSERT INTO factura_linea/.test(l.sql));
+    assert.equal(valor(linea, 'tarifa'), 1);
+    assert.equal(valor(linea, 'impuesto_monto'), 100);
+  });
+
+  test('los totales de la factura suman lo de las líneas', async () => {
+    const { servicio, log } = montar({ productos: [TORNILLO, SALSA] });
+    await servicio.crearFactura({
+      ...VENTA,
+      items: [
+        { id: '1183', quantity: 2, price: 1000 },       // 2.000 + 260 de IVA
+        { id: '900', quantity: 1, price: 10000 }        // 10.000 + 100 de IVA
+      ]
+    }, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'subtotal'), 12000);
+    assert.equal(valor(factura, 'impuesto'), 360);
+    assert.equal(valor(factura, 'total'), 12360);
+    assert.equal(valor(factura, 'saldo'), 12360, 'nace sin pagos: el cobro se registra aparte');
+  });
+});
+
+describe('el descuento', () => {
+  test('se guarda en porcentaje y en monto, y baja la base del impuesto', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura({ ...VENTA, items: [{ id: '1183', quantity: 2, price: 1000, discount: 10 }] }, 4);
+    const linea = log.find(l => /INSERT INTO factura_linea/.test(l.sql));
+    assert.equal(valor(linea, 'descuento_porcentaje'), 10);
+    assert.equal(valor(linea, 'descuento_monto'), 200);
+    assert.equal(valor(linea, 'impuesto_monto'), 234, '13 % sobre 1.800, no sobre 2.000');
+    assert.equal(valor(linea, 'total'), 2034);
+  });
+
+  test('un descuento imposible se rechaza', async () => {
+    const { servicio } = montar();
+    await assert.rejects(
+      servicio.crearFactura({ ...VENTA, items: [{ id: '1183', quantity: 1, price: 100, discount: 150 }] }, 4),
+      e => e.status === 400 && /entre 0 y 100/.test(e.message)
+    );
+  });
+});
+
+describe('el número', () => {
+  test('sale de la serie propia, con FOR UPDATE, y queda en la factura', async () => {
+    const { servicio, log } = montar();
+    const factura = await servicio.crearFactura(VENTA, 4);
+    assert.ok(hubo(log, /FROM serie_consecutivo.*FOR UPDATE/));
+    const guardada = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(guardada, 'numero'), '001000014869');
+    assert.equal(valor(guardada, 'consecutivo'), 4869);
+    assert.equal(valor(guardada, 'electronica'), false);
+    assert.equal(factura.numero, '001000014869');
+  });
+
+  test('si la factura no se guarda, el número no se gasta', async () => {
+    // El consecutivo se toma dentro de la misma transacción: al revertirse,
+    // vuelve atrás con todo lo demás.
+    const { servicio, log } = montar({ fallaInsert: true });
+    await assert.rejects(servicio.crearFactura(VENTA, 4), /la base se cayó/);
+    assert.ok(hubo(log, /^ROLLBACK$/), 'tiene que revertir');
+  });
+});
+
+describe('el cliente y el plazo', () => {
+  test('copia fija: nombre y cédula quedan escritos en el documento', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'cliente_id'), 7);
+    assert.equal(valor(factura, 'cliente_nombre'), 'PULPERÍA LA ESQUINA');
+    assert.equal(valor(factura, 'cliente_identificacion'), '3101123456');
+  });
+
+  test('de contado: vence el mismo día', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'condicion_venta'), 'contado');
+    assert.equal(valor(factura, 'fecha_vencimiento'), '2026-09-12');
+    assert.equal(valor(factura, 'plazo_credito_id'), null);
+  });
+
+  test('a crédito: vence a los días del plazo del cliente', async () => {
+    const { servicio, log } = montar({ cliente: CLIENTE_CREDITO });
+    await servicio.crearFactura(VENTA, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'condicion_venta'), 'credito');
+    assert.equal(valor(factura, 'fecha_vencimiento'), '2026-09-27');
+    assert.equal(valor(factura, 'plazo_texto'), '15 días');
+  });
+
+  test('a un cliente inactivo no se le factura', async () => {
+    const { servicio } = montar({ cliente: { ...CLIENTE_CONTADO, activo: false } });
+    await assert.rejects(servicio.crearFactura(VENTA, 4), e => e.status === 400 && /inactivo/.test(e.message));
+  });
+
+  test('un cliente que no existe se dice, no se inventa', async () => {
+    const { servicio } = montar({ cliente: null });
+    await assert.rejects(servicio.crearFactura(VENTA, 4), e => e.status === 400 && /No se encontró ese cliente/.test(e.message));
+  });
+});
+
+describe('lo que no se factura', () => {
+  test('sin líneas no hay factura', async () => {
+    const { servicio, log } = montar();
+    await assert.rejects(servicio.crearFactura({ ...VENTA, items: [] }, 4), e => e.status === 400 && /sin líneas|no tiene líneas/.test(e.message));
+    assert.equal(log.length, 0);
+  });
+
+  test('un producto inactivo o inexistente no pasa', async () => {
+    const inactivo = montar({ productos: [{ ...TORNILLO, activo: false }] });
+    await assert.rejects(inactivo.servicio.crearFactura(VENTA, 4), e => e.status === 400 && /inactivo/.test(e.message));
+
+    const vacio = montar({ productos: [] });
+    await assert.rejects(vacio.servicio.crearFactura(VENTA, 4), e => e.status === 400 && /No se encontró el producto/.test(e.message));
+  });
+
+  test('cantidad en cero o negativa se rechaza', async () => {
+    const { servicio } = montar();
+    for (const cantidad of [0, -2]) {
+      await assert.rejects(
+        servicio.crearFactura({ ...VENTA, items: [{ id: '1183', quantity: cantidad, price: 100 }] }, 4),
+        e => e.status === 400 && /cantidad/.test(e.message)
+      );
+    }
+  });
+});
+
+describe('lo que se guarda es texto, no código', () => {
+  test('ninguna columna recibe una función', async () => {
+    // ESTO PASÓ DE VERDAD. `texto` de utils/validacion se usa al revés que el
+    // `texto` de los archivos de traducción: uno es texto(largo)(valor), el
+    // otro texto(valor, largo). Escribirlo al revés no falla ni avisa —
+    // devuelve la función, que al guardarse se vuelve su propio código fuente,
+    // 294 caracteres que reventaban tres columnas a la vez. Los dobles de
+    // estas pruebas lo aceptaban sin chistar, así que llegó hasta la base.
+    const { servicio, log } = montar();
+    await servicio.crearFactura({ ...VENTA, metodoPagoTexto: 'efectivo', vendedor: 'Andrés' }, 4);
+
+    for (const entrada of log.filter(l => /^INSERT INTO/.test(l.sql))) {
+      for (const [i, v] of entrada.params.entries()) {
+        assert.notEqual(typeof v, 'function', `${columnasDe(entrada)[i]} recibió una función`);
+        if (typeof v === 'string') {
+          assert.equal(/=>|function\s*\(/.test(v), false, `${columnasDe(entrada)[i]} recibió código: ${v.slice(0, 40)}`);
+        }
+      }
+    }
+  });
+
+  test('los textos se recortan al largo de su columna', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura({ ...VENTA, metodoPagoTexto: 'x'.repeat(120), vendedor: 'y'.repeat(300) }, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'metodo_pago_texto').length, 40);
+    assert.equal(valor(factura, 'vendedor').length, 120);
+  });
+});
+
+describe('rastro', () => {
+  test('queda en la bitácora y alimenta la tabla que lee Bodega', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    assert.ok(hubo(log, /INSERT INTO bitacora_cambio/));
+    assert.equal(params(log, /INSERT INTO bitacora_cambio/).includes('factura'), true);
+    // Facturas en Bodega y Faltantes todavía leen la tabla vieja.
+    assert.ok(hubo(log, /INSERT INTO facturas \(/));
+  });
+});

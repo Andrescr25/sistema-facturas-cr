@@ -20,7 +20,19 @@ const { getClient } = require('../../src/integrations/alegra');
 const { pagoDesdeAlegra, esCobro } = require('../../src/modules/cobros/desdeAlegra');
 
 const alegra = getClient();
-const PAGINA = 30;
+
+/**
+ * Cuántos cobros se piden por vuelta. Se puede bajar con `--pagina=`.
+ *
+ * NO ES UN DETALLE DE AFINACIÓN: `/payments` de Alegra deja de responder en la
+ * parte profunda de la lista cuando la página es de 30 —se pasa de los 30
+ * segundos y corta, siempre, aunque se reintente—, pero con páginas de 5 o 10
+ * la misma zona contesta en segundos. Así se llega a los cobros que de otra
+ * forma quedan inalcanzables.
+ */
+const PAGINA_POR_DEFECTO = 30;
+const argumentoPagina = process.argv.find(a => a.startsWith('--pagina='));
+const PAGINA = Math.min(Math.max(Number(argumentoPagina ? argumentoPagina.split('=')[1] : 0) || PAGINA_POR_DEFECTO, 1), 30);
 
 const PAGO = [
   'numero', 'fecha', 'cliente_id', 'cliente_nombre', 'metodo_pago_id', 'metodo_pago_texto',
@@ -161,7 +173,10 @@ async function main() {
   if (orden === 'DESC') console.log('→ Leyendo del más nuevo al más viejo');
 
   for (let start = desde; ; start += PAGINA) {
-    const pagina = await leerPagina(start, 4, orden);
+    // Sin número acá: manda el valor por omisión de leerPagina. Dejarlo fijo
+    // fue el error de la corrida anterior — se subió el presupuesto de
+    // reintentos a seis y la llamada siguió pidiendo cuatro.
+    const pagina = await leerPagina(start, undefined, orden);
     if (pagina.length === 0) break;
     const recorte = limite ? pagina.slice(0, Math.max(0, limite - conteo.pagos)) : pagina;
     await guardarPagina(recorte, contexto, conteo);

@@ -159,6 +159,7 @@ const cotizacionesModule = require('./src/modules/cotizaciones');
 const configuracionModule = require('./src/modules/configuracion');
 const productosModule = require('./src/modules/productos');
 const clientesModule = require('./src/modules/clientes');
+const facturacionModule = require('./src/modules/facturacion');
 const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
@@ -221,6 +222,14 @@ app.use('/api/catalogos', productosModule.rutasCompartidas);
 // Rama independencia-alegra: maestro de clientes propio. La ficha completa
 // pide el módulo Clientes; buscar un cliente para facturarle es compartido.
 app.use('/api/clientes', clientesModule.routes);
+// Facturación va en su PROPIO prefijo, no debajo de /api/alegra.
+//
+// Colgaba de ahí, y como '/alegra' está en la lista de rutas COMPARTIDAS
+// (usuarios/modulos.js), el permiso del módulo Facturación no se aplicaba:
+// cualquiera con sesión podía llamar hasta el POST que crea la factura. Se
+// corrigió primero en developer y ya está en producción; acá vale además para
+// la ruta nueva `/facturas`, que es la factura propia sin Alegra.
+app.use('/api/facturacion', facturacionModule);
 app.use('/api/catalogos', clientesModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
 // protegida por el token firmado que lleva la URL (ver enlacePublico.js).
