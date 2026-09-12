@@ -12,7 +12,10 @@ export default function PestanasFacturacion({
 }) {
   const pestanas = [
     { clave: 'nueva', etiqueta: modoEdicion ? 'Editando' : 'Nueva factura', icono: FilePlus2 },
-    { clave: 'editar', etiqueta: 'Editar facturas', icono: PencilLine, insignia: edicionesPendientesCount },
+    // Solo en el teléfono: es la edición rápida desde el mostrador. En
+    // escritorio se corrige entrando a la factura, dentro de Facturas, en vez
+    // de tener dos caminos que hacen lo mismo.
+    { clave: 'editar', etiqueta: 'Editar facturas', icono: PencilLine, insignia: edicionesPendientesCount, soloMovil: true },
     // Las ya emitidas: hasta ahora se facturaba y el documento desaparecía de
     // la vista, sin dónde reimprimirlo ni ver quién queda debiendo.
     { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt }
@@ -30,7 +33,7 @@ export default function PestanasFacturacion({
           <button
             key={p.clave}
             onClick={() => onCambiarTab(p.clave)}
-            className={`flex min-w-[7.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all ${
+            className={`${p.soloMovil ? 'md:hidden ' : ''}flex min-w-[7.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all ${
               activa
                 ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5'
                 : 'text-neutro-600 hover:text-neutro-900'

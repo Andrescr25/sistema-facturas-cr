@@ -38,6 +38,12 @@ export function useFacturasEmitidas({ activa }) {
   const [detalle, setDetalle] = useState(null)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
+  const [editando, setEditando] = useState(false)
+  // El catálogo se trae solo cuando alguien entra a corregir: no hace falta
+  // para mirar la lista.
+  const [productos, setProductos] = useState([])
+  const [clientes, setClientes] = useState([])
+
   const [abriendoPdf, setAbriendoPdf] = useState(null)
   const [mensaje, setMensaje] = useState('')
 
@@ -105,6 +111,26 @@ export function useFacturasEmitidas({ activa }) {
     }
   }
 
+  const abrirEdicion = async () => {
+    if (productos.length === 0 || clientes.length === 0) {
+      const [p, c] = await Promise.all([
+        facturacionService.getProductos().catch(() => []),
+        facturacionService.getClientes().catch(() => [])
+      ])
+      setProductos(p || [])
+      setClientes(c || [])
+    }
+    setEditando(true)
+  }
+
+  const guardarEdicion = async (datos) => {
+    await facturacionService.guardarCorreccionFactura(detalleId, datos)
+    setEditando(false)
+    setMensaje('Factura corregida.')
+    setDetalle(await facturacionService.detalleFacturaEmitida(detalleId))
+    await cargar()
+  }
+
   const verPdf = async (id) => {
     setAbriendoPdf(id)
     try {
@@ -143,7 +169,9 @@ export function useFacturasEmitidas({ activa }) {
     facturas, paginacion, cargando, error, setError,
     empresa,
     detalleId, detalle, cargandoDetalle, abrirDetalle,
-    volver: () => { setDetalleId(null); setDetalle(null) },
+    volver: () => { setDetalleId(null); setDetalle(null); setEditando(false) },
+    editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion,
+    productos, clientes,
     abriendoPdf, verPdf, anular, crearNota,
     mensaje, setMensaje,
     recargar: cargar

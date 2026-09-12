@@ -121,6 +121,10 @@ async function buscarCliente(cliente, { clienteId, alegraClienteId }) {
   const porId = clienteId !== undefined && clienteId !== null && clienteId !== '';
   const { rows } = await cliente.query(
     `SELECT c.id, c.nombre, c.tipo_identificacion, c.identificacion, c.correo,
+            -- El teléfono y la dirección se COPIAN en la factura, así que hay
+            -- que traerlos: sin estas columnas se guardaban vacíos y el papel
+            -- salía sin los datos del cliente.
+            c.telefono, c.celular, c.provincia, c.canton, c.distrito, c.barrio, c.otras_senas,
             c.activo, c.plazo_credito_id, p.nombre AS plazo_nombre, p.dias AS plazo_dias
        FROM cliente c
        LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id
@@ -580,6 +584,33 @@ async function editarFactura(id, datos, usuarioId) {
     const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
     const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
 
+    // SE PUEDE CORREGIR EL CLIENTE, que es el error más caro de una factura:
+    // el documento queda a nombre de quien no compró y la deuda se le reclama
+    // a esa persona. Se vuelve a copiar la ficha entera —nombre, cédula,
+    // teléfono, dirección— y se recalculan la condición de venta y el
+    // vencimiento, porque el plazo es del cliente nuevo, no del anterior.
+    let cambioCliente = null;
+    if (datos.clienteId !== undefined && datos.clienteId !== null
+        && Number(datos.clienteId) !== Number(factura.cliente_id)) {
+      const nuevo = await buscarCliente(cliente, { clienteId: datos.clienteId });
+      const dias = Number(nuevo.plazo_dias) || 0;
+      const aCredito = Boolean(nuevo.plazo_credito_id) && dias > 0;
+      cambioCliente = {
+        cliente_id: nuevo.id,
+        cliente_nombre: nuevo.nombre,
+        cliente_tipo_identificacion: nuevo.tipo_identificacion,
+        cliente_identificacion: nuevo.identificacion,
+        cliente_correo: nuevo.correo,
+        cliente_telefono: recortar(nuevo.telefono || nuevo.celular, 60),
+        cliente_direccion: [nuevo.provincia, nuevo.canton, nuevo.distrito, nuevo.barrio, nuevo.otras_senas]
+          .filter(Boolean).join(' ') || null,
+        condicion_venta: aCredito ? 'credito' : 'contado',
+        plazo_credito_id: aCredito ? nuevo.plazo_credito_id : null,
+        plazo_texto: aCredito ? nuevo.plazo_nombre : 'De contado',
+        fecha_vencimiento: aCredito ? sumarDias(String(factura.fecha).slice(0, 10), dias) : String(factura.fecha).slice(0, 10)
+      };
+    }
+
     await cliente.query('DELETE FROM factura_linea WHERE factura_id = $1', [n]);
     for (const linea of armado.lineas) {
       const valoresLinea = COLUMNAS_LINEA.map(c => (c === 'factura_id' ? n : linea[c]));
@@ -596,21 +627,36 @@ async function editarFactura(id, datos, usuarioId) {
 
     // El saldo se recalcula contra lo ya pagado, que acá es cero porque una
     // factura con cobros no llega hasta aquí.
+    const columnasCliente = cambioCliente ? Object.keys(cambioCliente) : [];
+    const valores = [
+      armado.subtotal, armado.descuento, armado.impuesto, armado.total,
+      recortar(datos.observaciones, 4000),
+      ...columnasCliente.map(c => cambioCliente[c]),
+      n
+    ];
+    const puestaCliente = columnasCliente.map((c, i) => `${c} = $${i + 6}`).join(', ');
+
     const { rows: actualizada } = await cliente.query(
       `UPDATE factura
           SET subtotal = $1, descuento = $2, impuesto = $3, total = $4, saldo = $4,
-              observaciones = COALESCE($5, observaciones),
+              observaciones = COALESCE($5, observaciones)
+              ${puestaCliente ? `, ${puestaCliente}` : ''},
               actualizado_en = CURRENT_TIMESTAMP
-        WHERE id = $6
+        WHERE id = $${valores.length}
         RETURNING *`,
-      [armado.subtotal, armado.descuento, armado.impuesto, armado.total,
-        recortar(datos.observaciones, 4000), n]
+      valores
     );
 
     await registrarCambio(cliente, {
       entidad: 'factura', entidadId: n, accion: 'editar',
-      antes: { total: Number(factura.total), impuesto: Number(factura.impuesto) },
-      despues: { total: armado.total, impuesto: armado.impuesto, lineas: armado.lineas.length },
+      antes: {
+        total: Number(factura.total), impuesto: Number(factura.impuesto),
+        ...(cambioCliente ? { cliente: factura.cliente_nombre } : {})
+      },
+      despues: {
+        total: armado.total, impuesto: armado.impuesto, lineas: armado.lineas.length,
+        ...(cambioCliente ? { cliente: cambioCliente.cliente_nombre } : {})
+      },
       usuarioId, motivo: recortar(datos.motivo, 2000)
     });
 

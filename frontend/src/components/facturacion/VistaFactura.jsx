@@ -1,5 +1,6 @@
-import { ArrowLeft, FileText, Ban, Undo2, Loader2, Building2 } from 'lucide-react'
+import { ArrowLeft, FileText, Ban, Undo2, Loader2, Building2, PencilLine, ShieldCheck } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones, colonesExacto } from '../../utils/colones'
 
 /**
@@ -45,7 +46,9 @@ function Dato({ etiqueta, children }) {
   )
 }
 
-export default function VistaFactura({ factura, empresa, onVolver, onPdf, onAnular, onNotaCredito, abriendoPdf }) {
+export default function VistaFactura({
+  factura, empresa, onVolver, onPdf, onAnular, onNotaCredito, onEditar, abriendoPdf
+}) {
   const f = factura
   const emisor = empresa || {}
   const direccionEmisor = [emisor.provincia, emisor.canton, emisor.distrito, emisor.barrio, emisor.otras_senas]
@@ -58,6 +61,17 @@ export default function VistaFactura({ factura, empresa, onVolver, onPdf, onAnul
     const t = Number(l.tarifa) || 0
     return m.set(t, (m.get(t) || 0) + (Number(l.impuestoMonto) || 0))
   }, new Map())].filter(([, monto]) => monto > 0).sort((a, b) => a[0] - b[0])
+
+  // Una factura deja de poder corregirse cuando ya salió al mundo: emitida
+  // ante Hacienda, cobrada o acreditada. El motivo se dice en pantalla en vez
+  // de dejar el botón muerto sin explicación.
+  const razonNoEditable =
+    f.estado === 'anulada' ? 'Está anulada.'
+    : f.estado !== 'emitida' ? 'Todavía es un borrador.'
+    : f.electronica ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
+    : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que revertirlo.'
+    : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
+    : null
 
   const importe = (l) => l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100)
   const hayDescuento = f.lineas.some(l => (l.descuentoMonto || 0) > 0)
@@ -75,6 +89,30 @@ export default function VistaFactura({ factura, empresa, onVolver, onPdf, onAnul
             {abriendoPdf === f.id ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
             Ver PDF
           </button>
+
+          <button
+            onClick={() => onEditar(f)}
+            disabled={Boolean(razonNoEditable)}
+            title={razonNoEditable || 'Corregir esta factura'}
+            className="btn btn-outline flex items-center gap-2 disabled:opacity-40"
+          >
+            <PencilLine size={16} /> Editar factura
+          </button>
+
+          {/* La emisión ante Hacienda está pospuesta: el botón queda a la
+              vista para que se sepa que ese paso existe, pero apagado. Un
+              botón que dijera que emitió sin haber emitido sería peor que no
+              tenerlo. */}
+          {!f.electronica && f.estado === 'emitida' && (
+            <button
+              disabled
+              title="La emisión ante Hacienda todavía no está habilitada"
+              className="btn btn-outline flex items-center gap-2 opacity-40"
+            >
+              <ShieldCheck size={16} /> Emitir electrónicamente
+            </button>
+          )}
+
           {f.estado === 'emitida' && (
             <>
               <button onClick={() => onNotaCredito(f)} className="btn btn-outline flex items-center gap-2 text-nota-700">
@@ -87,6 +125,12 @@ export default function VistaFactura({ factura, empresa, onVolver, onPdf, onAnul
           )}
         </div>
       </div>
+
+      {razonNoEditable && f.estado === 'emitida' && (
+        <p className="rounded-xl bg-neutro-100 px-3 py-2 text-sm text-neutro-600">
+          <strong>No se puede editar:</strong> {razonNoEditable}
+        </p>
+      )}
 
       {/* ---------- El documento ---------- */}
       <div className="card overflow-hidden rounded-2xl">
@@ -114,10 +158,10 @@ export default function VistaFactura({ factura, empresa, onVolver, onPdf, onAnul
           </div>
 
           <div className="shrink-0 sm:text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutro-400">
-              {f.tipoDocumento === 'tiquete' ? 'Tiquete' : 'Factura de venta'}
-            </p>
-            <p className="text-xl font-extrabold text-primario-600">{f.numero}</p>
+            <div className="flex sm:justify-end">
+              <EtiquetaTipoFactura electronica={f.electronica} tipoDocumento={f.tipoDocumento} />
+            </div>
+            <p className="mt-1 text-xl font-extrabold text-primario-600">{f.numero}</p>
             <div className="mt-1 flex sm:justify-end"><Estado f={f} /></div>
             <p className="mt-2 text-xs text-neutro-500">
               Creación: <strong className="text-neutro-700">{fecha(f.fecha)}</strong>

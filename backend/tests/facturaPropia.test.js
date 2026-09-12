@@ -20,7 +20,11 @@ const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'facturacion',
 
 const CLIENTE_CONTADO = {
   id: 7, nombre: 'PULPERÍA LA ESQUINA', tipo_identificacion: 'CJ', identificacion: '3101123456',
-  correo: 'pulperia@correo.com', activo: true, plazo_credito_id: 1, plazo_nombre: 'De contado', plazo_dias: 0
+  correo: 'pulperia@correo.com', activo: true, plazo_credito_id: 1, plazo_nombre: 'De contado', plazo_dias: 0,
+  // La ficha real trae el contacto, y la factura lo copia: el papel lo lleva
+  // impreso y tiene que reimprimirse igual años después.
+  telefono: '2453-1122', celular: null,
+  provincia: 'Alajuela', canton: 'Palmares', distrito: 'Zaragoza', barrio: null, otras_senas: 'Frente al parque'
 };
 const CLIENTE_CREDITO = { ...CLIENTE_CONTADO, plazo_credito_id: 3, plazo_nombre: '15 días', plazo_dias: 15 };
 
@@ -44,6 +48,7 @@ function montar({ cliente = CLIENTE_CONTADO, productos = [TORNILLO], serie = nul
 
     if (/FROM cliente c/.test(texto)) return { rows: cliente ? [{ ...cliente }] : [] };
     if (/FROM producto p/.test(texto)) return { rows: productos.map(p => ({ ...p })) };
+    if (/FROM cliente c/.test(texto)) return { rows: clienteNuevo ? [{ ...clienteNuevo }] : [] };
     if (/FROM serie_consecutivo/.test(texto)) return { rows: [{ ...serieActiva }] };
     if (/INSERT INTO factura \(/.test(texto)) {
       if (fallaInsert) throw new Error('la base se cayó');
@@ -164,6 +169,17 @@ describe('el cliente y el plazo', () => {
     assert.equal(valor(factura, 'cliente_identificacion'), '3101123456');
   });
 
+  test('la copia incluye el teléfono y la dirección, no solo el nombre', async () => {
+    // El PDF los imprime. Se copiaban vacíos porque la consulta del cliente no
+    // traía esas columnas: las facturas nuevas salían sin los datos del
+    // cliente y solo se veía al mirar el papel.
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'cliente_telefono'), '2453-1122');
+    assert.equal(valor(factura, 'cliente_direccion'), 'Alajuela Palmares Zaragoza Frente al parque');
+  });
+
   test('de contado: vence el mismo día', async () => {
     const { servicio, log } = montar();
     await servicio.crearFactura(VENTA, 4);
@@ -252,11 +268,14 @@ describe('lo que se guarda es texto, no código', () => {
 // La factura que se va a editar o anular, tal como la devuelve la base.
 const EMITIDA = {
   id: 500, numero: '001000014869', serie: '00100001', consecutivo: 4869, electronica: false,
-  estado: 'emitida', total: '3051.00', impuesto: '351.00', saldo: '3051.00', cliente_nombre: 'PULPERÍA LA ESQUINA'
+  estado: 'emitida', fecha: '2026-09-12', total: '3051.00', impuesto: '351.00', saldo: '3051.00',
+  // La fila real siempre trae el cliente; sin él, una prueba sobre cambiar de
+  // cliente no puede distinguir "el mismo" de "otro".
+  cliente_id: 7, cliente_nombre: 'PULPERÍA LA ESQUINA'
 };
 
 /** Doble para editar/anular: controla cobros y notas aplicadas. */
-function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, productos = [TORNILLO] } = {}) {
+function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, productos = [TORNILLO], clienteNuevo = null } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
@@ -265,6 +284,7 @@ function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, product
     if (/FROM pago_factura/.test(texto)) return { rows: [{ total: cobrado }] };
     if (/FROM nota_credito_factura/.test(texto)) return { rows: [{ total: acreditado }] };
     if (/FROM producto p/.test(texto)) return { rows: productos.map(p => ({ ...p })) };
+    if (/FROM cliente c/.test(texto)) return { rows: clienteNuevo ? [{ ...clienteNuevo }] : [] };
     if (/^UPDATE factura/.test(texto)) return { rows: [{ ...factura, estado: 'anulada' }] };
     if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
     return { rows: [], rowCount: 1 };
@@ -339,6 +359,48 @@ describe('editar una factura emitida', () => {
     const update = log.find(l => /^UPDATE factura/.test(l.sql));
     assert.equal(/numero =/.test(update.sql), false, 'el número no se toca: es el mismo documento');
     assert.equal(update.params[3], 1130, 'total recalculado: 1.000 + 13 %');
+  });
+
+  test('se puede corregir el cliente, y el plazo pasa a ser el suyo', async () => {
+    // Es el error más caro de una factura: queda a nombre de quien no compró y
+    // la deuda se le reclama a esa persona.
+    const { servicio, log } = montarEmitida({
+      clienteNuevo: {
+        id: 9, activo: true, nombre: 'FERRETERÍA EL CLAVO', tipo_identificacion: 'CJ', identificacion: '3101999999',
+        correo: 'clavo@ejemplo.com', telefono: '2453-1122', celular: null,
+        provincia: 'Alajuela', canton: 'Palmares', distrito: 'Zaragoza', barrio: null, otras_senas: 'Frente al parque',
+        plazo_credito_id: 3, plazo_dias: 30, plazo_nombre: '30 días'
+      }
+    });
+
+    await servicio.editarFactura(500, { clienteId: 9, items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    const update = log.find(l => /^UPDATE factura/.test(l.sql));
+
+    assert.match(update.sql, /cliente_id = /, 'no cambió el cliente');
+    // Se copia la ficha ENTERA, no solo el nombre: el documento tiene que
+    // poder reimprimirse igual años después.
+    for (const columna of ['cliente_nombre', 'cliente_identificacion', 'cliente_telefono', 'cliente_direccion']) {
+      assert.match(update.sql, new RegExp(`${columna} = `), `no copió ${columna}`);
+    }
+    assert.ok(update.params.includes('FERRETERÍA EL CLAVO'));
+    assert.ok(update.params.includes('Alajuela Palmares Zaragoza Frente al parque'));
+    // El plazo es del cliente NUEVO: pasa a crédito a 30 días.
+    assert.ok(update.params.includes('credito'), 'no recalculó la condición de venta');
+    assert.ok(update.params.includes('30 días'));
+  });
+
+  test('sin cliente nuevo, la factura conserva el suyo', async () => {
+    const { servicio, log } = montarEmitida();
+    await servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    const update = log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.equal(/cliente_id = /.test(update.sql), false, 'tocó el cliente sin que se lo pidieran');
+  });
+
+  test('mandar el MISMO cliente no cuenta como cambio', async () => {
+    const { servicio, log } = montarEmitida();
+    await servicio.editarFactura(500, { clienteId: EMITIDA.cliente_id, items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    const update = log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.equal(/cliente_id = /.test(update.sql), false);
   });
 
   test('una con cobros o con nota de crédito no se edita', async () => {

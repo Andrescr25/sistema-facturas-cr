@@ -622,6 +622,16 @@ class FacturacionService {
     return response.data?.data ?? null;
   }
 
+  /**
+   * Guardar la corrección de una factura ya emitida, desde la pantalla de
+   * Facturas. Va directo: acá no hay cola sin conexión porque esta pantalla
+   * consulta contra el servidor, no contra el cache.
+   */
+  async guardarCorreccionFactura(id, datos) {
+    const response = await api.put(`/facturacion/facturas/${id}`, datos);
+    return response.data?.data ?? null;
+  }
+
   /** Una nota de crédito contra una factura. */
   async crearNotaCredito(datos) {
     const response = await api.post('/facturacion/notas-credito', datos);

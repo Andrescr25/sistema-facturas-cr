@@ -5,6 +5,8 @@ import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
 import VistaFactura from './VistaFactura'
+import EditorFactura from './EditorFactura'
+import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 
 /**
@@ -95,6 +97,18 @@ export default function PanelFacturasEmitidas({ f }) {
         </div>
       )
     }
+    if (f.editando) {
+      return (
+        <EditorFactura
+          factura={f.detalle}
+          productos={f.productos}
+          clientes={f.clientes}
+          onGuardar={f.guardarEdicion}
+          onCancelar={f.cerrarEdicion}
+        />
+      )
+    }
+
     return (
       <>
         <VistaFactura
@@ -105,6 +119,7 @@ export default function PanelFacturasEmitidas({ f }) {
           onPdf={f.verPdf}
           onAnular={setAnulando}
           onNotaCredito={setNota}
+          onEditar={f.abrirEdicion}
         />
         {anulando && <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />}
         {nota && <ModalNotaCredito factura={f.detalle} onCerrar={() => setNota(null)} onCrear={f.crearNota} />}
@@ -180,6 +195,13 @@ export default function PanelFacturasEmitidas({ f }) {
                 <p className="truncate text-xs text-neutro-500">
                   {factura.numero} · {fecha(factura.fecha)} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
                 </p>
+                <div className="mt-1">
+                  <EtiquetaTipoFactura
+                    electronica={factura.electronica}
+                    tipoDocumento={factura.tipoDocumento}
+                    tamano="chico"
+                  />
+                </div>
               </div>
 
               <div className="shrink-0 text-right">
