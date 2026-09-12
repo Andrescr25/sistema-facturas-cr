@@ -156,6 +156,7 @@ const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
 const configuracionModule = require('./src/modules/configuracion');
 const productosModule = require('./src/modules/productos');
+const clientesModule = require('./src/modules/clientes');
 const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
@@ -215,6 +216,10 @@ app.use('/api/catalogos', configuracionModule.rutasCompartidas);
 // Rama independencia-alegra: maestro de productos propio.
 app.use('/api/maestro', productosModule.routes);
 app.use('/api/catalogos', productosModule.rutasCompartidas);
+// Rama independencia-alegra: maestro de clientes propio. La ficha completa
+// pide el módulo Clientes; buscar un cliente para facturarle es compartido.
+app.use('/api/clientes', clientesModule.routes);
+app.use('/api/catalogos', clientesModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
 // protegida por el token firmado que lleva la URL (ver enlacePublico.js).
 app.use('/api/cotizacion-publica', cotizacionesModule.rutasPublicas);

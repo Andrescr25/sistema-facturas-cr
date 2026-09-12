@@ -53,9 +53,9 @@ const MODULOS = [
     nombre: 'Clientes',
     grupo: 'Ventas',
     ruta: '/clientes',
-    // El portal de clientes se administra desde acá: invitar, revocar y
-    // facturar los pedidos que mandan.
-    rutasApi: ['/portal-clientes']
+    // La ficha del cliente (/clientes) y el portal, que se administra desde
+    // la misma pantalla: invitar, revocar y facturar los pedidos que mandan.
+    rutasApi: ['/portal-clientes', '/clientes']
   },
   {
     clave: 'cuentas-por-cobrar',

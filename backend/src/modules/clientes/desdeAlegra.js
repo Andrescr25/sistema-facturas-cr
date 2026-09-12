@@ -9,10 +9,10 @@
  */
 
 const { telefonosDe } = require('../../utils/telefonosCliente');
+const { limpiar, calza } = require('./identificacion');
 
 /** Tipos de identificación de Alegra → los propios. Lo desconocido queda vacío. */
 const TIPOS = { CF: 'CF', CJ: 'CJ', DIMEX: 'DIMEX', NITE: 'NITE', PE: 'EXTRANJERO', NC: 'NO_CONTRIBUYENTE' };
-const LARGOS = { CF: [9], CJ: [10], DIMEX: [11, 12], NITE: [10] };
 const CORREO = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
 const texto = (v, max) => {
@@ -26,15 +26,9 @@ function identificacionDe(contacto, avisos) {
   const tipo = TIPOS[tipoAlegra] ?? null;
   if (tipoAlegra && !tipo) avisos.push('tipo_identificacion_desconocido');
 
-  const crudo = contacto.identificationObject?.number ?? contacto.identification;
-  let identificacion = null;
-  if (crudo !== null && crudo !== undefined && String(crudo).trim()) {
-    identificacion = tipo === 'EXTRANJERO'
-      ? String(crudo).trim().slice(0, 20)
-      : String(crudo).replace(/[\s-]/g, '').slice(0, 20);
-  }
+  const identificacion = limpiar(contacto.identificationObject?.number ?? contacto.identification, tipo);
   if (!identificacion) avisos.push('sin_identificacion');
-  else if (LARGOS[tipo] && !LARGOS[tipo].includes(identificacion.length)) avisos.push('identificacion_no_calza_con_su_tipo');
+  else if (!calza(tipo, identificacion)) avisos.push('identificacion_no_calza_con_su_tipo');
   return { tipo, identificacion };
 }
 
