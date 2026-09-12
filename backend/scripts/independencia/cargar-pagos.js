@@ -68,10 +68,21 @@ async function contextoDe(cliente) {
  * Reintentar es seguro porque leer no cambia nada allá, y volver a cargar lo
  * mismo acá tampoco: el upsert es por `alegra_id`.
  */
-async function leerPagina(start, intentos = 4) {
+/**
+ * Seis intentos y no tres: `/payments` no falla solo en páginas profundas, se
+ * pasa de los 30 segundos cada tanto en cualquier offset. Con tres, una racha
+ * mala abortaba la copia entera y había que empezar de nuevo; la espera crece
+ * hasta medio minuto, que es poco al lado de volver a leer 1.349 cobros.
+ */
+async function leerPagina(start, intentos = 6, orden = 'ASC') {
   for (let intento = 1; ; intento++) {
     try {
-      const r = await alegra.get('/payments', { start, limit: PAGINA });
+      const r = await alegra.get('/payments', {
+        start,
+        limit: PAGINA,
+        order_field: 'date',
+        order_direction: orden
+      });
       if (r?.success === false) throw new Error(`Alegra /payments: ${r.status} ${r.data?.message || r.error}`);
       const pagina = r.data ?? r;
       if (!Array.isArray(pagina)) throw new Error('Alegra /payments devolvió algo que no es una lista');
@@ -136,8 +147,21 @@ async function main() {
   const desde = desdeArg ? Number(desdeArg.split('=')[1]) || 0 : 0;
   if (desde) console.log(`→ Retomando desde el cobro ${desde}`);
 
+  /**
+   * `--orden=desc` lee del más nuevo al más viejo.
+   *
+   * NO ES UN CAPRICHO: `/payments` de Alegra deja de responder cuando el
+   * `start` se hace grande. Con start=900 se pasa de los 30 segundos y corta,
+   * siempre, aunque se reintente. Los 899 primeros cobros entraron leyendo del
+   * más viejo al más nuevo; los que faltan son los ÚLTIMOS, así que leerlos al
+   * revés los pone en las primeras páginas y la paginación no se hace profunda.
+   */
+  const ordenArg = process.argv.find(a => a.startsWith('--orden='));
+  const orden = String(ordenArg ? ordenArg.split('=')[1] : 'asc').toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+  if (orden === 'DESC') console.log('→ Leyendo del más nuevo al más viejo');
+
   for (let start = desde; ; start += PAGINA) {
-    const pagina = await leerPagina(start);
+    const pagina = await leerPagina(start, 4, orden);
     if (pagina.length === 0) break;
     const recorte = limite ? pagina.slice(0, Math.max(0, limite - conteo.pagos)) : pagina;
     await guardarPagina(recorte, contexto, conteo);

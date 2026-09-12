@@ -244,14 +244,19 @@ async function tasasDe(alegraItemIds) {
   const ids = [...new Set(alegraItemIds.map(String))];
   if (ids.length === 0) return new Map();
 
-  const r = await query(
-    `SELECT alegra_id, tax_percentage FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]);`,
-    [ids]
-  );
+  // La tarifa sale del maestro propio, no de la caché de Alegra: es la misma
+  // fuente que usan el catálogo, el carrito y las compras anteriores, para que
+  // todos cuenten el mismo total.
+  const r = await query(`
+    SELECT p.alegra_id, imp.tarifa
+      FROM producto p
+      LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+     WHERE p.alegra_id = ANY($1::varchar[]);
+  `, [ids]);
 
   return new Map(r.rows.map(x => [
     String(x.alegra_id),
-    x.tax_percentage === null || x.tax_percentage === undefined ? 0 : Number(x.tax_percentage)
+    x.tarifa === null || x.tarifa === undefined ? 0 : Number(x.tarifa)
   ]));
 }
 

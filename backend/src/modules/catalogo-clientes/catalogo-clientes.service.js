@@ -29,67 +29,13 @@
 
 const { query } = require('../../../config/database');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
-const { precioConImpuesto } = require('./precio');
-const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
+const { mapaVigentes } = require('../../utils/descuentosExceso');
+// Qué es un producto para el cliente y cuál se le muestra: una sola
+// definición, compartida con el portal (carrito, portada y sugerencias).
+const { COLUMNAS, DESDE, VISIBLE: FILTRO_VISIBLE, NORMALIZAR_SQL, normalizar, mapProducto } = require('./consultaProducto');
 
 const POR_PAGINA = 60;
 const MAX_POR_PAGINA = 120;
-
-// Sin el costo, a propósito. Ver el encabezado.
-const COLUMNAS = `
-  p.alegra_id, p.id AS producto_id, p.nombre, p.referencia,
-  cat.nombre AS categoria, p.precio_sin_iva, imp.tarifa, p.imagen_url`;
-
-/**
- * El impuesto va con LEFT JOIN, no con JOIN: hay un producto activo sin
- * impuesto asignado y con un JOIN estricto desaparecería del catálogo sin
- * que nadie se entere. Sin tarifa se muestra el precio tal cual, que es lo
- * que ya hacía `precioConImpuesto` con la tasa en NULL.
- */
-const DESDE = `
-  FROM producto p
-  LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
-  LEFT JOIN impuesto imp ON imp.id = p.impuesto_id`;
-
-/**
- * Un producto se le muestra al cliente si está activo y no fue ocultado a
- * mano desde Gestión de Catálogo, que es el control que ya existía para
- * sacar cosas de la vista sin borrarlas.
- */
-const FILTRO_VISIBLE = `p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0`;
-
-/** Quita acentos y pasa a minúsculas, igual en la consulta y en lo buscado. */
-const NORMALIZAR_SQL = (expr) => `translate(lower(${expr}), 'áéíóúüñ', 'aeiouun')`;
-function normalizar(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
-/**
- * `descuentos` es el Map de ofertas vigentes por exceso. Se pasa desde
- * afuera y no se consulta acá adentro para no hacer una consulta por
- * producto: la lista se trae UNA vez por página.
- *
- * Cuando hay descuento se devuelven los dos precios. El cliente tiene que
- * ver de cuánto baja —una oferta sin precio tachado no se lee como oferta—
- * y `precio` sigue siendo siempre el que se va a cobrar, así que el resto
- * del código no necesita saber si hubo rebaja o no.
- */
-function mapProducto(row, descuentos) {
-  const precioLista = precioConImpuesto(row.precio_sin_iva, row.tarifa);
-  const descuento = descuentos?.get(String(row.alegra_id)) || 0;
-
-  return {
-    id: row.alegra_id,
-    productoId: row.producto_id,
-    nombre: row.nombre,
-    referencia: row.referencia || null,
-    categoria: row.categoria || 'Sin categoría',
-    precio: aplicarDescuento(precioLista, descuento),
-    precioLista: descuento > 0 ? precioLista : null,
-    descuento: descuento > 0 ? descuento : null,
-    imagen: row.imagen_url || null
-  };
-}
 
 async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porPagina = POR_PAGINA } = {}) {
   const limite = Math.min(parseInt(porPagina, 10) || POR_PAGINA, MAX_POR_PAGINA);

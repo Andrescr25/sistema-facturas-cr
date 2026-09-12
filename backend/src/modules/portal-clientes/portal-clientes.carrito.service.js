@@ -1,35 +1,23 @@
 /**
- * Portal de clientes - Carrito y sugerencias
+ * Portal de clientes - Carrito
  *
  * El carrito vive en el servidor y guarda SOLO producto y cantidad. Los
  * precios se resuelven en cada lectura contra el catálogo y las ofertas del
  * momento: un carrito que quedó armado tres días no debe mostrar precios
  * viejos ni una oferta que ya terminó.
+ *
+ * Los productos salen de `producto`, el maestro propio, con la MISMA
+ * definición que usa el catálogo público (ver catalogo-clientes/consultaProducto).
+ * Antes cada uno tenía su copia de las columnas y del filtro: bastaba con que
+ * una se quedara atrás para que el carrito mostrara un precio distinto al del
+ * catálogo.
  */
 
 const { query, httpError } = require('./portal-clientes.auth');
-const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
+const { mapaVigentes } = require('../../utils/descuentosExceso');
+const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
 
 const MAX_LINEAS_CARRITO = 300;
-const COLUMNAS = `alegra_id, name, reference, category, price, tax_percentage, image_url`;
-const VISIBLE = `status = 'active' AND hidden_locally = FALSE AND price > 0`;
-
-function mapProducto(row, descuentos, extra = {}) {
-  const precioLista = precioConImpuesto(row.price, row.tax_percentage);
-  const descuento = descuentos.get(String(row.alegra_id)) || 0;
-  return {
-    id: row.alegra_id,
-    nombre: row.name,
-    referencia: row.reference || null,
-    categoria: row.category || 'Sin categoría',
-    precio: aplicarDescuento(precioLista, descuento),
-    precioLista: descuento > 0 ? precioLista : null,
-    descuento: descuento > 0 ? descuento : null,
-    imagen: row.image_url || null,
-    ...extra
-  };
-}
 
 // ==================== CARRITO ====================
 
@@ -50,7 +38,7 @@ async function obtenerCarrito(clienteId) {
 
   const ids = lineas.rows.map(l => String(l.alegra_item_id));
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
     mapaVigentes()
   ]);
 
@@ -89,7 +77,7 @@ async function ponerCantidad(clienteId, alegraItemId, cantidad) {
   }
 
   const existe = await query(
-    `SELECT 1 FROM alegra_products_cache WHERE alegra_id = $1 AND ${VISIBLE};`, [id]
+    `SELECT 1 ${DESDE} WHERE p.alegra_id = $1 AND ${VISIBLE};`, [id]
   );
   if (existe.rows.length === 0) throw httpError(400, 'Ese producto ya no está disponible.');
 
@@ -130,7 +118,7 @@ async function agregarVarios(clienteId, lineas) {
 
   const ids = lineas.map(l => String(l.alegraItemId || '').trim()).filter(Boolean);
   const disponibles = await query(
-    `SELECT alegra_id FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]
+    `SELECT p.alegra_id ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]
   );
   const validos = new Set(disponibles.rows.map(r => String(r.alegra_id)));
 
@@ -157,4 +145,4 @@ async function agregarVarios(clienteId, lineas) {
   return { ...carrito, agregados, omitidos };
 }
 
-module.exports = { obtenerCarrito, ponerCantidad, vaciarCarrito, agregarVarios, mapProducto, COLUMNAS, VISIBLE };
+module.exports = { obtenerCarrito, ponerCantidad, vaciarCarrito, agregarVarios, mapProducto, COLUMNAS, DESDE, VISIBLE };

@@ -12,12 +12,16 @@
  *
  * CÓMO SE PRUEBA SIN BASE DE DATOS
  * La suma la hace Postgres, no JS — no se puede probar el cálculo completo
- * sin una base real, y esta local ES producción. Lo que sí se puede fijar es
- * que la consulta siga pidiendo el impuesto: se sustituye `query` (la misma
- * que usa portal-clientes.auth.js, que solo la reexporta de config/database)
- * y se verifica que el SQL una alegra_products_cache y multiplique por
- * (1 + tax_percentage/100). Si alguien vuelve a sumar solo precio_unitario,
- * este test lo marca roto antes de que se note en el catálogo.
+ * sin una base real. Lo que sí se puede fijar es que la consulta siga pidiendo
+ * el impuesto: se sustituye `query` (la misma que usa portal-clientes.auth.js,
+ * que solo la reexporta de config/database) y se verifica que el SQL una el
+ * producto con su impuesto y multiplique por (1 + tarifa/100). Si alguien
+ * vuelve a sumar solo precio_unitario, este test lo marca roto antes de que se
+ * note en el catálogo.
+ *
+ * LA TARIFA SALE DEL MAESTRO PROPIO (`producto` + `impuesto`), no de
+ * `alegra_products_cache`: es la misma fuente que usan el catálogo, el carrito
+ * y el detalle de la compra, para que los tres cuenten el mismo total.
  */
 
 const { test, describe } = require('node:test');
@@ -58,8 +62,10 @@ describe('comprasAnteriores — el total de la tarjeta incluye impuesto', () => 
     await svc.comprasAnteriores('38', 10);
 
     const { sql, params } = verConsulta();
-    assert.match(sql, /alegra_products_cache/, 'debe unir con la tabla que tiene tax_percentage');
-    assert.match(sql, /1 \+ COALESCE\(p\.tax_percentage, 0\) \/ 100/, 'debe multiplicar por (1 + impuesto/100)');
+    assert.match(sql, /LEFT JOIN producto p ON p\.alegra_id = v\.alegra_item_id/, 'debe unir con el maestro propio');
+    assert.match(sql, /LEFT JOIN impuesto imp ON imp\.id = p\.impuesto_id/, 'de ahí sale la tarifa');
+    assert.match(sql, /1 \+ COALESCE\(imp\.tarifa, 0\) \/ 100/, 'debe multiplicar por (1 + impuesto/100)');
+    assert.equal(/alegra_products_cache/.test(sql), false, 'la caché de Alegra ya no es la fuente');
     assert.deepEqual(params, ['38', 10]);
   });
 

@@ -10,11 +10,15 @@
  * productos tarda lo mismo (el índice por factura hace el trabajo).
  * Precalcular los 85.810 pares con 3+ coincidencias sería mantener una copia
  * que se desactualiza sola, para ahorrar un tiempo que nadie percibe.
+ *
+ * Las fichas de producto salen de `producto`, el maestro propio, con la misma
+ * definición que el catálogo y el carrito (ver
+ * catalogo-clientes/consultaProducto).
  */
 
 const { query, httpError } = require('./portal-clientes.auth');
 const { mapaVigentes } = require('../../utils/descuentosExceso');
-const { mapProducto, COLUMNAS, VISIBLE } = require('./portal-clientes.carrito.service');
+const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
 
 // Mínimo de facturas compartidas para que un par cuente como "se lleva
 // junto". Por debajo de esto es ruido: dos productos que coincidieron una
@@ -52,7 +56,7 @@ async function seLlevaJuntoCon(alegraItemIds, { excluir = [], limite = MAX_SUGER
   if (candidatos.length === 0) return [];
 
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`,
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`,
       [candidatos.map(c => String(c.alegra_item_id))]),
     mapaVigentes()
   ]);
@@ -72,7 +76,7 @@ async function fichaProducto(alegraContactId, alegraItemId) {
   const id = String(alegraItemId).trim();
 
   const [prod, descuentos, hist] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = $1 AND ${VISIBLE};`, [id]),
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = $1 AND ${VISIBLE};`, [id]),
     mapaVigentes(),
     query(`
       SELECT COUNT(DISTINCT alegra_invoice_id)::int veces,
@@ -112,17 +116,18 @@ async function fichaProducto(alegraContactId, alegraItemId) {
  * las líneas de factura, SIN impuesto (misma asimetría que el precio de
  * lista de un producto). Sin el JOIN de abajo el total de la tarjeta era el
  * subtotal antes de IVA — no "el monto verdadero de la factura" que el
- * cliente ve en su cuenta por cobrar, sino un ~13% menos. El impuesto sale
- * de alegra_products_cache, la misma fuente que usa detalleCompra, así que
- * la tarjeta y el modal de "Ver y repetir" cuentan la misma historia.
+ * cliente ve en su cuenta por cobrar, sino un ~13% menos. La tarifa sale del
+ * maestro propio, la misma fuente que usa detalleCompra, así que la tarjeta y
+ * el modal de "Ver y repetir" cuentan la misma historia.
  */
 async function comprasAnteriores(alegraContactId, limite = 10) {
   const r = await query(`
     SELECT v.alegra_invoice_id, MAX(v.fecha_emision) AS fecha,
            COUNT(DISTINCT v.alegra_item_id)::int productos,
-           SUM(v.cantidad * v.precio_unitario * (1 + COALESCE(p.tax_percentage, 0) / 100))::numeric AS total
+           SUM(v.cantidad * v.precio_unitario * (1 + COALESCE(imp.tarifa, 0) / 100))::numeric AS total
     FROM venta_historico v
-    LEFT JOIN alegra_products_cache p ON p.alegra_id = v.alegra_item_id
+    LEFT JOIN producto p ON p.alegra_id = v.alegra_item_id
+    LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
     WHERE v.cliente_id = $1
     GROUP BY v.alegra_invoice_id
     ORDER BY fecha DESC
@@ -183,7 +188,7 @@ async function detalleCompra(alegraContactId, facturaId) {
 
   const ids = lineas.rows.map(l => String(l.alegra_item_id));
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
     mapaVigentes()
   ]);
   const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));

@@ -15,11 +15,14 @@
  * El cálculo de "habitual" y "perdido" se hace en SQL y no reusando el
  * utils del frontend porque acá ya se tiene la base a mano: traer 120 filas
  * para clasificarlas en JavaScript sería un viaje de más por nada.
+ *
+ * Los productos salen de `producto`, con la misma definición que el catálogo
+ * y el carrito (ver catalogo-clientes/consultaProducto).
  */
 
 const { query } = require('../../../config/database');
-const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
+const { mapaVigentes } = require('../../utils/descuentosExceso');
+const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
 
 // Mismos umbrales que catalogoAgentePersonalizacion.js, para que un producto
 // no sea "habitual" en la tablet del agente y otra cosa en el portal.
@@ -27,8 +30,6 @@ const VECES_MIN_HABITUAL = 2;
 const VECES_MIN_PERDIDO = 3;
 const DIAS_MIN_PERDIDO = 60;
 const TOPE_SECCION = 24; // el cliente navega en un teléfono, no en una tablet
-
-const COLUMNAS = `alegra_id, name, reference, category, price, tax_percentage, image_url`;
 
 /**
  * Compras del cliente, agregadas por producto.
@@ -51,22 +52,6 @@ const SQL_HISTORIAL = `
   ORDER BY a.veces DESC, a.ultima_compra DESC
   LIMIT 200;
 `;
-
-function mapProducto(row, descuentos, extra = {}) {
-  const precioLista = precioConImpuesto(row.price, row.tax_percentage);
-  const descuento = descuentos.get(String(row.alegra_id)) || 0;
-  return {
-    id: row.alegra_id,
-    nombre: row.name,
-    referencia: row.reference || null,
-    categoria: row.category || 'Sin categoría',
-    precio: aplicarDescuento(precioLista, descuento),
-    precioLista: descuento > 0 ? precioLista : null,
-    descuento: descuento > 0 ? descuento : null,
-    imagen: row.image_url || null,
-    ...extra
-  };
-}
 
 async function obtenerInicio(alegraContactId) {
   // Las compras del cliente y las ofertas vigentes no dependen entre sí, así
@@ -107,9 +92,8 @@ async function obtenerInicio(alegraContactId) {
   // después en memoria. Tres consultas contra la misma tabla, con el mismo
   // filtro de visibilidad, no aportan nada.
   const productos = await query(`
-    SELECT ${COLUMNAS} FROM alegra_products_cache
-    WHERE alegra_id = ANY($1::varchar[])
-      AND status = 'active' AND hidden_locally = FALSE AND price > 0;
+    SELECT ${COLUMNAS} ${DESDE}
+    WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};
   `, [todosLosIds]);
 
   const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
