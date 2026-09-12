@@ -89,7 +89,7 @@ de numeración, impuestos (`GET /taxes`), métodos de pago
 - [x] Métodos de pago: efectivo, SINPE Móvil, transferencia, tarjetas y cheque
 - [x] Plazos de crédito: contado, 8, 15, 22, 30 y 60 días
 - [x] Cuentas de dinero: Caja general, Caja chica, Banco y Tarjeta empresarial
-- [ ] Series y consecutivos propios, que no choquen con los de Alegra *(tabla lista; las series se definen en Facturación)*
+- [x] Series y consecutivos propios, que no choquen con los de Alegra. Factura no electrónica `00100001` continuando en 4869; nota de crédito propia `00100003` desde 1 (migraciones `independencia/011` y `012`). Las electrónicas quedan inactivas y el numerador se niega a emitir con una serie inactiva. El consecutivo se toma con bloqueo dentro de la transacción de la factura: si algo falla, el número no se gasta
 - [x] Pantalla de Configuración para todo lo anterior: pestañas por catálogo, una sola tabla para los cuatro, se desactiva en vez de borrar, y conserva la limpieza manual de faltantes
 
 **Avance:**
@@ -271,9 +271,9 @@ por movimiento.
 parecen registrarse a mano en Alegra. Hay que confirmarlo con quien cobra.
 
 - [x] Tabla `pago` y `pago_factura` (migración `independencia/009`): facturas a las que se aplica, método, cuenta de dinero, referencia (número de SINPE) y usuario. Un abono puede repartirse entre varias facturas. **Los 1.350 cobros están copiados** (₡212.222.730, aplicados a 5.222 facturas) y cuadran: 5.242 de 5.242 facturas coinciden con lo que Alegra dice que se pagó
-- [ ] **Al calcular el saldo, un cobro ANULADO no cuenta.** Hay uno así entre los 1.350 (₡84.127,90 en la factura 00100001010000002164): Alegra la reporta con 0 pagado justamente porque el cobro se anuló. Sumar `pago_factura` sin filtrar `pago.anulado` la mostraría como pagada
-- [ ] Saldo de cada factura calculado: total menos pagos menos notas de crédito
-- [ ] Registrar el cobro de contado al facturar, para que no haga falta ir a Alegra
+- [x] **Al calcular el saldo, un cobro ANULADO no cuenta.** Hecho en `facturaConsulta.service.js` y cubierto con prueba. Hay uno así entre los 1.350 (₡84.127,90 en la factura 00100001010000002164): Alegra la reporta con 0 pagado justamente porque el cobro se anuló. Sumar `pago_factura` sin filtrar `pago.anulado` la mostraría como pagada
+- [x] Saldo de cada factura **calculado**, no guardado: total, menos los cobros vigentes, menos las notas de crédito vigentes. Así anular un cobro o una nota devuelve el saldo solo, sin que nadie corra nada. Verificado en vivo: al anular una nota de ₡1.224,92 el saldo volvió de ₡16.123,08 a ₡17.348
+- [x] Registrar el cobro al facturar, en la misma transacción que la factura: si la factura falla, no queda un pago suelto. El método se elige en la pantalla (efectivo, SINPE, transferencia, tarjetas, cheque o *queda pendiente*) y el que pide referencia la exige. **El cobro va aparte de la condición de venta**: un cliente con crédito puede pagar de una, y uno de contado quedar debiendo
 - [ ] Registrar abonos desde la misma pantalla de CxC, sobre la base propia
 - [ ] **Cierre de caja diario**: efectivo esperado contra efectivo contado. Hoy existe "Cobros del día" en CxC, que resume por método lo cobrado y lo lista, pero no compara contra lo contado
 - [ ] Recordatorios de saldo por WhatsApp calculados con el saldo propio
