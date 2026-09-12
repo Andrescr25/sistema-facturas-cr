@@ -33,9 +33,16 @@ async function main() {
 
     const e = empresaDesdeAlegra(company);
     const columnas = Object.keys(e);
+    // AL REPETIR LA CARGA SOLO SE RELLENA LO QUE ESTÁ VACÍO.
+    //
+    // La primera vez la fila no existe y entra entera. Después, lo que una
+    // persona ya corrigió no se pisa: Alegra devuelve la actividad económica
+    // 523402 y la que la empresa imprime en sus facturas es la 4752.1
+    // (confirmada con el negocio). Con `SET col = EXCLUDED.col`, volver a
+    // correr este script revertía esa corrección sin decir nada.
     await cliente.query(
       `INSERT INTO empresa (id, ${columnas.join(', ')}) VALUES (1, ${columnas.map((_, i) => `$${i + 1}`).join(', ')})
-       ON CONFLICT (id) DO UPDATE SET ${columnas.map(c => `${c} = EXCLUDED.${c}`).join(', ')}, actualizado_en = CURRENT_TIMESTAMP`,
+       ON CONFLICT (id) DO UPDATE SET ${columnas.map(c => `${c} = COALESCE(empresa.${c}, EXCLUDED.${c})`).join(', ')}, actualizado_en = CURRENT_TIMESTAMP`,
       columnas.map(c => e[c])
     );
 

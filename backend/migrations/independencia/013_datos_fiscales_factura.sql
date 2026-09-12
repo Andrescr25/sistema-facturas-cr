@@ -41,13 +41,13 @@ UPDATE factura f
 -- Los valores que la empresa VIENE IMPRIMIENDO en sus facturas, tomados del
 -- PDF que hoy genera Alegra.
 --
--- OJO CON LA ACTIVIDAD ECONÓMICA: la configuración traía 523402, que es lo
--- que devuelve la API de Alegra, pero el PDF que reciben los clientes dice
--- "4752.1 - Venta al por menor de artículos de ferretería y pinturas en
--- comercios especializados". Se siembra el que la gente ya vio en sus
--- facturas; hay que confirmarlo con el contador antes del corte.
+-- LA ACTIVIDAD ECONÓMICA ES LA 4752.1, confirmada con el negocio el 12 de
+-- setiembre de 2026. La API de Alegra devuelve 523402 y eso fue lo que quedó
+-- en la configuración al cargarla, pero el papel que reciben los clientes
+-- siempre dijo 4752.1. Por eso `cargar-configuracion.js` ya no pisa lo que
+-- esté escrito: repetir esa carga revertía la corrección en silencio.
 UPDATE empresa
-   SET actividad_economica = COALESCE(NULLIF(actividad_economica, '523402'), '4752.1'),
+   SET actividad_economica = '4752.1',
        actividad_economica_nombre = COALESCE(
          actividad_economica_nombre,
          'Venta al por menor de artículos de ferretería y pinturas en comercios especializados'),

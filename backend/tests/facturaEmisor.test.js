@@ -111,3 +111,14 @@ test('los datos fiscales llegan a la pantalla, no solo al PDF', () => {
     assert.ok(fuente.includes(campo), `falta ${campo} en catalogosParaOperar`);
   }
 });
+
+test('repetir la carga desde Alegra no revierte lo corregido a mano', () => {
+  // Alegra devuelve la actividad económica 523402; la que la empresa imprime
+  // en sus facturas es la 4752.1. Con `SET col = EXCLUDED.col`, volver a
+  // correr el cargador la revertía sin decir nada.
+  const fuente = fs.readFileSync(
+    path.join(__dirname, '..', 'scripts', 'independencia', 'cargar-configuracion.js'), 'utf8');
+  assert.match(fuente, /COALESCE\(empresa\.\$\{c\}, EXCLUDED\.\$\{c\}\)/);
+  assert.equal(/\$\{c\} = EXCLUDED\.\$\{c\}/.test(fuente), false,
+    'la carga volvió a pisar lo que ya estaba escrito');
+});
