@@ -1078,6 +1078,30 @@ async function setupDatabase() {
     await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_linea_producto ON nota_credito_linea (producto_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_nota_credito_factura_factura ON nota_credito_factura (factura_id)');
 
+    // Rama independencia-alegra · migrations/independencia/011_series_propias.sql
+    // El número no se arma igual en las dos series: la no electrónica pega el
+    // consecutivo tal cual (00100001 + 4869) y la electrónica lo rellena a 10
+    // dígitos. Eso es `ancho_consecutivo`, con 0 = sin relleno.
+    await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS serie VARCHAR(20)');
+    await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS ancho_consecutivo SMALLINT NOT NULL DEFAULT 0');
+    await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS electronica BOOLEAN NOT NULL DEFAULT FALSE');
+    await client.query('ALTER TABLE serie_consecutivo ADD COLUMN IF NOT EXISTS descripcion VARCHAR(80)');
+    // "Electrónica" no es un tipo de documento, es una propiedad de la serie:
+    // la misma factura se emite en papel o electrónica. Por eso la llave única
+    // la incluye; sin ella, las dos series de factura de la misma terminal
+    // chocarían entre sí.
+    await client.query('ALTER TABLE serie_consecutivo DROP CONSTRAINT IF EXISTS serie_consecutivo_tipo_documento_sucursal_terminal_key');
+    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_serie_consecutivo_unica ON serie_consecutivo (tipo_documento, sucursal, terminal, electronica)');
+    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_serie_consecutivo_serie ON serie_consecutivo (serie) WHERE serie IS NOT NULL');
+    // En una instalación nueva no hay nada que continuar, así que la serie
+    // arranca en 1. En la migración, en cambio, se siembra desde lo último que
+    // se emitió: empezar de nuevo repetiría números de facturas que ya existen.
+    await client.query(`
+      INSERT INTO serie_consecutivo (tipo_documento, sucursal, terminal, serie, ancho_consecutivo, electronica, descripcion, siguiente)
+      VALUES ('factura', '001', '00001', '00100001', 0, FALSE, 'Factura de venta (no electrónica)', 1)
+      ON CONFLICT (tipo_documento, sucursal, terminal) DO NOTHING
+    `);
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
