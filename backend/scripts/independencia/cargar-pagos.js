@@ -60,12 +60,31 @@ async function contextoDe(cliente) {
   };
 }
 
-async function leerPagina(start) {
-  const r = await alegra.get('/payments', { start, limit: PAGINA });
-  if (r?.success === false) throw new Error(`Alegra /payments: ${r.status} ${r.data?.message || r.error}`);
-  const pagina = r.data ?? r;
-  if (!Array.isArray(pagina)) throw new Error('Alegra /payments devolvió algo que no es una lista');
-  return pagina;
+/**
+ * Alegra a veces tarda más de 30 segundos en devolver una página y el cliente
+ * corta. Sin reintento, esa sola página aborta la carga entera: la primera
+ * corrida se detuvo en la página 900 de 1.349 por un timeout.
+ *
+ * Reintentar es seguro porque leer no cambia nada allá, y volver a cargar lo
+ * mismo acá tampoco: el upsert es por `alegra_id`.
+ */
+async function leerPagina(start, intentos = 4) {
+  for (let intento = 1; ; intento++) {
+    try {
+      const r = await alegra.get('/payments', { start, limit: PAGINA });
+      if (r?.success === false) throw new Error(`Alegra /payments: ${r.status} ${r.data?.message || r.error}`);
+      const pagina = r.data ?? r;
+      if (!Array.isArray(pagina)) throw new Error('Alegra /payments devolvió algo que no es una lista');
+      return pagina;
+    } catch (error) {
+      if (intento >= intentos) throw error;
+      const espera = 3000 * intento;
+      // Solo el mensaje: el volcado completo del error de axios trae la URL
+      // con la credencial adentro.
+      console.log(`  ⚠️ ${error.message} — reintento ${intento} de ${intentos - 1} en ${espera / 1000} s`);
+      await new Promise(seguir => setTimeout(seguir, espera));
+    }
+  }
 }
 
 async function guardarPagina(pagos, contexto, conteo) {
@@ -111,7 +130,13 @@ async function main() {
 
   const conteo = { pagos: 0, saltados: 0, aplicaciones: 0, monto: 0, avisos: {} };
 
-  for (let start = 0; ; start += PAGINA) {
+  // `--desde=` permite retomar donde se cortó una corrida anterior, sin volver
+  // a leer de Alegra lo que ya está guardado.
+  const desdeArg = process.argv.find(a => a.startsWith('--desde='));
+  const desde = desdeArg ? Number(desdeArg.split('=')[1]) || 0 : 0;
+  if (desde) console.log(`→ Retomando desde el cobro ${desde}`);
+
+  for (let start = desde; ; start += PAGINA) {
     const pagina = await leerPagina(start);
     if (pagina.length === 0) break;
     const recorte = limite ? pagina.slice(0, Math.max(0, limite - conteo.pagos)) : pagina;

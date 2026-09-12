@@ -78,8 +78,18 @@ describe('la consulta que define la oferta', () => {
     const { servicio, registro } = montar([]);
     await servicio.ofertasPorBajaDePrecio();
     const sql = registro.consultas[0].sql;
-    assert.match(sql, /p\.status = 'active'/);
-    assert.match(sql, /p\.hidden_locally = FALSE/);
+    assert.match(sql, /p\.activo = TRUE/);
+    assert.match(sql, /p\.oculto = FALSE/);
+  });
+
+  test('la ficha sale del maestro propio, no de la caché de Alegra', async () => {
+    // El catálogo dejó de depender de que la sincronización de cada 6 horas
+    // haya corrido: lo que se edita en Gestión de Catálogo se ve de una.
+    const { servicio, registro } = montar([]);
+    await servicio.ofertasPorBajaDePrecio();
+    const sql = registro.consultas[0].sql;
+    assert.match(sql, /JOIN producto p ON p\.id = c\.producto_id/);
+    assert.equal(/alegra_products_cache/.test(sql), false);
   });
 
   test('los umbrales se pueden ajustar sin tocar la consulta', async () => {

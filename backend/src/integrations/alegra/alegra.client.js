@@ -46,7 +46,12 @@ class AlegraClient {
         return config;
       },
       (error) => {
-        console.error('❌ Alegra Request Error:', error);
+        // Solo el mensaje. El volcado completo del error de axios incluye
+        // `_currentUrl`, y ahí la credencial de Alegra viaja dentro de la URL
+        // (usuario:clave@api.alegra.com). Eso terminaba escrito en el registro
+        // —y en Render, en los logs del servicio—. Se vio al fallar una página
+        // por timeout durante la copia de cobros.
+        console.error('❌ Alegra Request Error:', error.message);
         return Promise.reject(error);
       }
     );

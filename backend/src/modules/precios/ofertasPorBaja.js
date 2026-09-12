@@ -20,6 +20,11 @@
  * anterior del mismo producto, que es lo mismo cuando existe. Las que no
  * tienen ni una cosa ni la otra simplemente no aparecen: es preferible
  * mostrar menos ofertas que inventar un descuento que nadie decidió.
+ *
+ * LA FICHA DEL PRODUCTO SALE DE `producto`, el maestro propio, y ya no de
+ * `alegra_products_cache`. El historial se junta por `producto_id`, que la
+ * migración `independencia/005` rellenó; las pocas filas viejas que quedaron
+ * sin él son de productos que ya no existen y no tendrían ficha que mostrar.
  */
 
 const { query } = require('../../../config/database');
@@ -41,39 +46,43 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
   const r = await query(`
     WITH cambios AS (
       SELECT
-        h.alegra_item_id,
+        h.producto_id,
         h.precio_nuevo,
         h.costo_al_momento,
         h.margen_resultante,
         h.created_at,
         COALESCE(
           h.precio_anterior,
-          LAG(h.precio_nuevo) OVER (PARTITION BY h.alegra_item_id ORDER BY h.created_at)
+          LAG(h.precio_nuevo) OVER (PARTITION BY h.producto_id ORDER BY h.created_at)
         ) AS precio_antes,
-        ROW_NUMBER() OVER (PARTITION BY h.alegra_item_id ORDER BY h.created_at DESC) AS reciente
+        ROW_NUMBER() OVER (PARTITION BY h.producto_id ORDER BY h.created_at DESC) AS reciente
       FROM precio_historico h
       WHERE h.origen = 'revision_precios'
+        AND h.producto_id IS NOT NULL
         AND h.created_at >= NOW() - ($1 || ' days')::interval
     )
     SELECT
-      c.alegra_item_id                                        AS "alegraItemId",
-      p.name                                                  AS nombre,
-      p.reference                                             AS referencia,
-      p.category                                              AS categoria,
-      p.image_url                                             AS imagen,
-      p.tax_percentage                                        AS "taxPercentage",
+      p.alegra_id                                             AS "alegraItemId",
+      p.id                                                    AS "productoId",
+      p.nombre                                                AS nombre,
+      p.referencia                                            AS referencia,
+      cat.nombre                                              AS categoria,
+      p.imagen_url                                            AS imagen,
+      imp.tarifa                                              AS "taxPercentage",
       c.precio_antes::numeric                                 AS "precioAntes",
       c.precio_nuevo::numeric                                 AS "precioAhora",
       c.margen_resultante::numeric                            AS "margenAhora",
       ROUND(((c.precio_antes - c.costo_al_momento) / NULLIF(c.precio_antes, 0) * 100)::numeric, 1) AS "margenAntes",
       c.created_at                                            AS "cuando"
     FROM cambios c
-    JOIN alegra_products_cache p ON p.alegra_id = c.alegra_item_id
+    JOIN producto p ON p.id = c.producto_id
+    LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+    LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
     WHERE c.reciente = 1
       AND c.precio_antes IS NOT NULL
       AND c.precio_nuevo < c.precio_antes
-      AND p.status = 'active'
-      AND p.hidden_locally = FALSE
+      AND p.activo = TRUE
+      AND p.oculto = FALSE
       -- El margen de antes, menos el de ahora, en puntos.
       AND (((c.precio_antes - c.costo_al_momento) / NULLIF(c.precio_antes, 0) * 100) - c.margen_resultante) >= $2
     ORDER BY (c.precio_antes - c.precio_nuevo) / NULLIF(c.precio_antes, 0) DESC
@@ -90,7 +99,8 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
     const conIva = (n) => (Number.isFinite(iva) ? Math.round(n * (1 + iva / 100) * 100) / 100 : n);
 
     return {
-      alegraItemId: String(o.alegraItemId),
+      alegraItemId: o.alegraItemId === null || o.alegraItemId === undefined ? null : String(o.alegraItemId),
+      productoId: o.productoId,
       nombre: o.nombre,
       referencia: o.referencia || '',
       categoria: o.categoria || '',

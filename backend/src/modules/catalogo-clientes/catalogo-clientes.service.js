@@ -8,16 +8,23 @@
  * cualquiera, en su teléfono, con internet.
  *
  * DE DÓNDE SALEN LOS DATOS
- * De alegra_products_cache, la copia local que refresca la sincronización
- * cada 6 horas — no de Alegra en vivo. Ese es el punto: el catálogo del
- * agente tiene que paginar Alegra de 30 en 30 (~70 llamadas, minutos) y por
- * eso muestra una pantalla de sincronización. Un cliente no va a esperar
- * eso. Acá la consulta es una sola a Postgres.
+ * De `producto`, el maestro propio de esta rama — ya no de
+ * `alegra_products_cache`, que era una copia que refrescaba una
+ * sincronización cada 6 horas. El catálogo dejó de depender de que esa
+ * sincronización haya corrido: lo que se edita en Gestión de Catálogo se ve
+ * aquí de inmediato.
+ *
+ * EL ID QUE SE EXPONE SIGUE SIENDO EL DE ALEGRA, a propósito. El pedido del
+ * portal guarda `alegra_item_id`, los descuentos por exceso se llavean por
+ * ese id y el histórico de ventas también. Cambiarlo acá rompería los
+ * pedidos; se cambia cuando esas tres cosas pasen a `producto.id`, que es su
+ * propio punto del checklist. Mientras tanto va también `productoId`, para
+ * que quien lo necesite ya lo tenga.
  *
  * QUÉ NO SE EXPONE NUNCA
- * `cost` es el costo de compra: no sale de este módulo bajo ninguna
+ * El costo de compra (`costo_con_iva`) no sale de este módulo bajo ninguna
  * circunstancia. Las columnas se listan una por una, sin SELECT *, para que
- * agregar una columna sensible a la caché no la publique sin querer.
+ * agregar una columna sensible al maestro no la publique sin querer.
  */
 
 const { query } = require('../../../config/database');
@@ -28,8 +35,34 @@ const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso
 const POR_PAGINA = 60;
 const MAX_POR_PAGINA = 120;
 
-// Sin `cost`, a propósito. Ver el encabezado.
-const COLUMNAS = `alegra_id, name, reference, category, price, tax_percentage, image_url`;
+// Sin el costo, a propósito. Ver el encabezado.
+const COLUMNAS = `
+  p.alegra_id, p.id AS producto_id, p.nombre, p.referencia,
+  cat.nombre AS categoria, p.precio_sin_iva, imp.tarifa, p.imagen_url`;
+
+/**
+ * El impuesto va con LEFT JOIN, no con JOIN: hay un producto activo sin
+ * impuesto asignado y con un JOIN estricto desaparecería del catálogo sin
+ * que nadie se entere. Sin tarifa se muestra el precio tal cual, que es lo
+ * que ya hacía `precioConImpuesto` con la tasa en NULL.
+ */
+const DESDE = `
+  FROM producto p
+  LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+  LEFT JOIN impuesto imp ON imp.id = p.impuesto_id`;
+
+/**
+ * Un producto se le muestra al cliente si está activo y no fue ocultado a
+ * mano desde Gestión de Catálogo, que es el control que ya existía para
+ * sacar cosas de la vista sin borrarlas.
+ */
+const FILTRO_VISIBLE = `p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0`;
+
+/** Quita acentos y pasa a minúsculas, igual en la consulta y en lo buscado. */
+const NORMALIZAR_SQL = (expr) => `translate(lower(${expr}), 'áéíóúüñ', 'aeiouun')`;
+function normalizar(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
 
 /**
  * `descuentos` es el Map de ofertas vigentes por exceso. Se pasa desde
@@ -42,27 +75,21 @@ const COLUMNAS = `alegra_id, name, reference, category, price, tax_percentage, i
  * del código no necesita saber si hubo rebaja o no.
  */
 function mapProducto(row, descuentos) {
-  const precioLista = precioConImpuesto(row.price, row.tax_percentage);
+  const precioLista = precioConImpuesto(row.precio_sin_iva, row.tarifa);
   const descuento = descuentos?.get(String(row.alegra_id)) || 0;
 
   return {
     id: row.alegra_id,
-    nombre: row.name,
-    referencia: row.reference || null,
-    categoria: row.category || 'Sin categoría',
+    productoId: row.producto_id,
+    nombre: row.nombre,
+    referencia: row.referencia || null,
+    categoria: row.categoria || 'Sin categoría',
     precio: aplicarDescuento(precioLista, descuento),
     precioLista: descuento > 0 ? precioLista : null,
     descuento: descuento > 0 ? descuento : null,
-    imagen: row.image_url || null
+    imagen: row.imagen_url || null
   };
 }
-
-/**
- * Un producto se le muestra al cliente solo si está activo en Alegra y no
- * fue ocultado a mano desde Gestión de Catálogo (hidden_locally), que es el
- * control que ya existe para sacar cosas de la vista sin borrarlas.
- */
-const FILTRO_VISIBLE = `status = 'active' AND hidden_locally = FALSE AND price > 0`;
 
 async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porPagina = POR_PAGINA } = {}) {
   const limite = Math.min(parseInt(porPagina, 10) || POR_PAGINA, MAX_POR_PAGINA);
@@ -73,36 +100,38 @@ async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porP
   const params = [];
 
   if (String(busqueda).trim()) {
-    params.push(`%${String(busqueda).trim().toLowerCase()}%`);
-    // search_text ya viene normalizado por la sincronización (nombre +
-    // referencia en minúsculas), que es justo lo que busca un cliente.
-    condiciones.push(`search_text LIKE $${params.length}`);
+    params.push(`%${normalizar(busqueda).trim()}%`);
+    // Nombre y referencia, que es lo que busca un cliente. Antes esto salía de
+    // `search_text`, una columna que llenaba la sincronización; ahora se
+    // normaliza en la consulta y no depende de que nadie la haya refrescado.
+    condiciones.push(`${NORMALIZAR_SQL("p.nombre || ' ' || COALESCE(p.referencia, '')")} LIKE $${params.length}`);
   }
 
   if (String(categoria).trim()) {
     params.push(String(categoria).trim());
-    condiciones.push(`category = $${params.length}`);
+    condiciones.push(`cat.nombre = $${params.length}`);
   }
 
   const where = condiciones.join(' AND ');
 
-  const totalRes = await query(`SELECT COUNT(*)::int AS n FROM alegra_products_cache WHERE ${where};`, params);
+  const totalRes = await query(`SELECT COUNT(*)::int AS n ${DESDE} WHERE ${where};`, params);
   const total = totalRes.rows[0].n;
 
   const descuentos = await mapaVigentes();
 
   params.push(limite, offset);
   const result = await query(`
-    SELECT ${COLUMNAS} FROM alegra_products_cache
+    SELECT ${COLUMNAS}
+    ${DESDE}
     WHERE ${where}
     -- Agrupado por categoría y alfabético dentro de cada una. Antes era
     -- alfabético a secas sobre los 2.000 productos, y "Todo" mezclaba
     -- tornillos con champú en la misma pantalla. Con una categoría elegida
     -- el primer criterio se vuelve constante y queda el orden por nombre.
     --
-    -- NULLIF manda las categorías vacías al final: son la excepción y no
-    -- deben encabezar el catálogo.
-    ORDER BY NULLIF(category, '') ASC NULLS LAST, name ASC
+    -- NULLS LAST manda los productos sin categoría al final: son la excepción
+    -- y no deben encabezar el catálogo.
+    ORDER BY cat.nombre ASC NULLS LAST, p.nombre ASC
     LIMIT $${params.length - 1} OFFSET $${params.length};
   `, params);
 
@@ -128,8 +157,9 @@ async function listarOfertas() {
   if (descuentos.size === 0) return [];
 
   const result = await query(`
-    SELECT ${COLUMNAS} FROM alegra_products_cache
-    WHERE alegra_id = ANY($1::varchar[]) AND ${FILTRO_VISIBLE};
+    SELECT ${COLUMNAS}
+    ${DESDE}
+    WHERE p.alegra_id = ANY($1::varchar[]) AND ${FILTRO_VISIBLE};
   `, [[...descuentos.keys()]]);
 
   return result.rows
@@ -139,13 +169,13 @@ async function listarOfertas() {
 
 async function listarCategorias() {
   const result = await query(`
-    SELECT category, COUNT(*)::int AS n
-    FROM alegra_products_cache
-    WHERE ${FILTRO_VISIBLE} AND category IS NOT NULL AND category <> ''
-    GROUP BY category
-    ORDER BY category ASC;
+    SELECT cat.nombre AS categoria, COUNT(*)::int AS n
+    ${DESDE}
+    WHERE ${FILTRO_VISIBLE} AND cat.nombre IS NOT NULL AND cat.nombre <> ''
+    GROUP BY cat.nombre
+    ORDER BY cat.nombre ASC;
   `);
-  return result.rows.map(row => ({ nombre: row.category, productos: row.n }));
+  return result.rows.map(row => ({ nombre: row.categoria, productos: row.n }));
 }
 
 /**
