@@ -38,7 +38,10 @@ class AlegraClient {
         return config;
       },
       (error) => {
-        console.error('❌ Alegra Request Error:', error);
+        // Solo el mensaje. El volcado completo del error de axios incluye
+        // `_currentUrl`, y ahí la credencial de Alegra viaja dentro de la URL
+        // (usuario:clave@api.alegra.com). Eso terminaba escrito en los logs.
+        console.error('❌ Alegra Request Error:', error.message);
         return Promise.reject(error);
       }
     );
@@ -287,7 +290,13 @@ class AlegraClient {
     if (error.response) {
       console.error(`❌ Alegra Error ${error.response.status}:`, error.response.data);
     } else if (error.request) {
-      console.error('❌ No response from Alegra:', error.request);
+      // NUNCA el objeto `error.request`: al volcarlo aparece `_currentUrl`, y
+      // ahí la credencial viaja dentro de la URL. Un timeout entra justo por
+      // acá, así que la clave quedaba escrita en los logs de Render.
+      console.error('❌ Alegra no respondió:',
+        error.code || 'sin código',
+        String(error.config?.method || '').toUpperCase(),
+        error.config?.url || '');
     } else {
       console.error('❌ Request setup error:', error.message);
     }
