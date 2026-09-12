@@ -223,9 +223,9 @@ por movimiento.
 - [ ] **Notas de crédito** por devolución total o parcial, error o anulación, devolviendo al inventario. Hoy se hacen **a mano en Alegra** (27, con motivos como "error", "devolución" y "anular")
 - [ ] PDF propio de la factura (ya existe el de cotización con pdfkit)
 - [ ] Envío por WhatsApp y correo con el PDF propio
-- [ ] Buscar facturas por número, cliente o fecha en la base propia
-- [ ] Impuesto calculado por línea con la tarifa del producto (lecciones: IVA 13 % hardcodeado y precio sin IVA vs costo con IVA)
-- [ ] Descuentos por línea y ofertas de exceso y liquidación (lección de las dos clases de oferta)
+- [x] Buscar facturas por número, cliente o fecha en la base propia (`facturacion/facturaConsulta.service.js`, `GET /api/facturacion/facturas` y `GET /api/facturacion/facturas/:id`). El saldo se **calcula** —total, menos los cobros vigentes, menos las notas de crédito vigentes—, no se guarda: un cobro que se anula tiene que devolver el saldo solo, sin que nadie corra nada. Se busca por la **terminación** del número, porque en el mostrador se dice "la 4868" y no "la 001000014868", y por nombre o cédula del cliente sin acentos. El listado no trae las líneas, solo cuántas son; salen al abrir la factura, junto con sus cobros y sus notas de crédito, y **los cobros anulados aparecen marcados, no escondidos**, porque el cliente va a preguntar por ese cobro y tiene que haber rastro. Tope de 100 filas por página. Verificado contra la copia local y por HTTP: las 72 facturas con saldo (₡2.537.665,10) coinciden con el control en SQL. Falta que la pantalla las consuma
+- [x] Impuesto calculado por línea con la tarifa del producto (lecciones: IVA 13 % hardcodeado y precio sin IVA vs costo con IVA). La tarifa sale de `producto.impuesto_id`, **no del `tax.id` que manda el navegador**: ya pasó que esos ids estuvieran mal y 82 líneas al 1 % se registraran al 4 %. Cada línea guarda su tarifa y su monto, así que una factura de hace dos años se explica sola
+- [ ] Descuentos por línea y ofertas de exceso y liquidación (lección de las dos clases de oferta). *Avance: el descuento por línea ya se guarda en porcentaje Y en monto, y baja la base del impuesto antes de calcularlo (verificado: 10 % sobre ₡3.000 → base ₡2.700, IVA ₡351). Faltan las ofertas de exceso y liquidación, que son la otra clase*
 - [ ] Retirar el módulo `duplicados-electronica`, que solo existe por cómo Alegra convierte facturas
 - [ ] Dejar el espacio para la emisión electrónica pospuesta: la factura guarda todo lo necesario para emitirla después sin rehacer el modelo
 
@@ -236,6 +236,8 @@ por movimiento.
 - La factura de Alegra trae `term` como **texto** ("De contado"), no como el objeto con `id` que mandan los contactos: el plazo hay que calzarlo por nombre o días al copiar.
 - Apareció un plazo **"14 días"** que no está en el catálogo (contado, 8, 15, 22, 30 y 60) ni vino de `GET /terms`: alguien lo escribió suelto en esa factura. Se guarda el texto y queda sin plazo enlazado. Decidir si se agrega al catálogo o se corrige esa factura.
 - El impuesto de cada línea viene con todo el árbol de categorías contables de Alegra; de ahí solo sirven `id`, `percentage` y `amount`.
+- **Buscar por nombre devolvía TODAS las facturas. CORREGIDO** (`facturaConsulta.service.js`). El patrón por número se armaba quitándole a lo buscado todo lo que no fuera dígito; un nombre lo dejaba en cadena vacía, el patrón quedaba en `'%'` y `numero LIKE '%'` calzaba con las 5.398. Buscar "SUPER" devolvía el histórico completo; ahora devuelve 1.177, y "SUPER LA CENTRAL" 84, todas de ese cliente. El número solo se compara si lo buscado trae dígitos, y quedó cubierto con prueba.
+- La factura `00100001010000002164` es el caso de prueba del saldo: tiene un cobro **anulado** por ₡84.127,90 (pago 721) y una nota de crédito por el mismo monto (nota 17, "duplica documento"). Su saldo es ₡0 **por la nota**, no por el cobro, y `cobrado` sale ₡0. Contar el cobro anulado la mostraría pagada — era la única diferencia contra Alegra en la conciliación de los 1.350 pagos.
 
 **Lista cuando:** se puede vender, editar, anular y devolver sin abrir Alegra.
 

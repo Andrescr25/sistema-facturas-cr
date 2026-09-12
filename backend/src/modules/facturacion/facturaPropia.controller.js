@@ -10,6 +10,7 @@
  */
 
 const servicio = require('./facturaPropia.service');
+const consulta = require('./facturaConsulta.service');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -19,6 +20,38 @@ function fallo(res, error, contexto) {
 }
 
 module.exports = {
+  /**
+   * GET /facturacion/facturas — buscar en la base propia, sin Alegra.
+   *
+   * Hasta ahora las 5.398 facturas copiadas no se podían consultar desde el
+   * sistema. El listado NO trae las líneas: para una tabla sobran, y pedirlas
+   * multiplicaría por diez lo que viaja.
+   */
+  listar: async (req, res) => {
+    try {
+      const { buscar, q, estado, desde, hasta, clienteId, pagina, limite } = req.query;
+      const { data, paginacion } = await consulta.listarFacturas({
+        // `q` es como busca el resto del sistema; `buscar` se acepta igual para
+        // no hacer que quien llame tenga que recordar cuál de los dos es.
+        buscar: buscar || q || '',
+        estado, desde, hasta, clienteId, pagina, limite
+      });
+      res.json({ success: true, data, paginacion });
+    } catch (error) {
+      fallo(res, error, 'listar');
+    }
+  },
+
+  /** GET /facturacion/facturas/:id — con líneas, cobros y notas de crédito. */
+  ver: async (req, res) => {
+    try {
+      const factura = await consulta.obtenerFactura(req.params.id);
+      res.json({ success: true, data: factura });
+    } catch (error) {
+      fallo(res, error, 'ver');
+    }
+  },
+
   /** PUT /facturacion/facturas/:id — solo mientras no sea electrónica ni tenga cobros. */
   editar: async (req, res) => {
     try {

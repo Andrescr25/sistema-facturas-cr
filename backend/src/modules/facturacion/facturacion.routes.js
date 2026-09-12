@@ -21,6 +21,8 @@ const router = express.Router();
 const controller = new FacturacionController();
 
 // ---- Factura propia, sin Alegra ----
+router.get('/facturas', facturaPropia.listar);
+router.get('/facturas/:id', facturaPropia.ver);
 router.post('/facturas', facturaPropia.crear);
 router.put('/facturas/:id', facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un
