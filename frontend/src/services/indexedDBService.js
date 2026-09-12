@@ -743,13 +743,16 @@ class IndexedDBService {
   /**
    * Guardar edición pendiente de factura
    */
-  async saveEdicionPendiente(facturaId, datosEdicion) {
+  async saveEdicionPendiente(facturaId, datosEdicion, esPropia = false) {
     const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
 
     const edicionConMetadata = {
       facturaId,
       datosEdicion,
+      // De dónde salió la factura: decide a qué ruta se reintenta. Un id
+      // nuestro mandado a la ruta de Alegra edita otro documento.
+      esPropia,
       timestamp: Date.now(),
       sincronizada: false,
       intentosSincronizacion: 0,

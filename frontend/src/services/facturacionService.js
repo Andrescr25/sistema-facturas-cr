@@ -11,6 +11,7 @@
 import api from './api';
 import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
+import { desdeFacturaPropia, desdeConsultaPropia } from './facturaPropiaAdaptador';
 
 class FacturacionService {
   constructor() {
@@ -76,85 +77,53 @@ class FacturacionService {
   /**
    * Actualizar cache de productos desde Alegra
    */
+  /**
+   * Actualizar cache de productos desde NUESTRO maestro.
+   *
+   * Se traduce a la forma que ya usa la pantalla (`name`, `price`, `tax`) y se
+   * guarda además `productoId`: es el id que viaja en la factura. Mandar el de
+   * Alegra ataría cada venta a una columna que queremos poder dejar vacía.
+   */
   async actualizarCacheProductos() {
     try {
-      console.log('📦 Actualizando cache de productos desde Alegra...');
-      
-      // Verificar y limpiar cache corrupto antes de actualizar
+      console.log('📦 Actualizando cache de productos desde el maestro propio...');
       await this.verificarYLimpiarCacheCorrupto();
-      
-      const response = await api.get('/alegra/facturacion/items');
-      
-      if (response.data.success) {
-        const productos = response.data.data;
-        
-        // Normalizar productos antes de guardar
-        const productosNormalizados = productos.map((p, index) => {
-          // Extraer reference (puede ser objeto, string, o número)
-          let reference = '';
-          if (typeof p.reference === 'object' && p.reference !== null) {
-            reference = p.reference.reference || '';
-          } else if (p.reference !== null && p.reference !== undefined) {
-            reference = p.reference;
-          }
-          
-          // IMPORTANTE: Convertir a string para preservar ceros a la izquierda (ej: "0005")
-          reference = String(reference).trim();
-          
-          // Extraer precio principal (puede ser array, objeto, o número)
-          let price = 0;
-          if (Array.isArray(p.price)) {
-            // Si es array, buscar el precio principal
-            const precioMain = p.price.find(pr => pr.main === true);
-            price = precioMain ? precioMain.price : (p.price[0]?.price || 0);
-          } else if (typeof p.price === 'object' && p.price !== null) {
-            // Si es objeto, extraer el campo price
-            price = p.price.price || 0;
-          } else {
-            // Si es número directo
-            price = p.price || 0;
-          }
-          
-          const precioFinal = parseFloat(price) || 0;
-          
-          // Debug: Log primeros 5 productos para verificar normalización
-          if (index < 5) {
-            console.log(`📝 Producto ${index + 1}:`, {
-              nombre: p.name,
-              referenceOriginal: p.reference,
-              referenceNormalizada: reference,
-              tipoReferenceOriginal: typeof p.reference,
-              priceOriginal: p.price,
-              priceNormalizado: precioFinal
-            });
-          }
-          
-          // IMPORTANTE: No usar spread operator que puede preservar reference original
-          // Crear objeto nuevo limpio
-          return {
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            reference,  // String normalizado
-            price: precioFinal,
-            status: p.status,
-            type: p.type,
-            tax: p.tax,
-            category: p.category,
-            inventory: p.inventory
-          };
-        });
-        
-        await indexedDBService.saveProductos(productosNormalizados);
-        
-        return {
-          success: true,
-          total: productosNormalizados.length,
-          timestamp: response.data.timestamp
-        };
-      }
-      
-      throw new Error(response.data.message || 'Error obteniendo productos');
+
+      // El maestro se pide por páginas: son 2.025 productos y traerlos de un
+      // solo tirón es lo que hace que la pantalla se sienta trabada.
+      const productos = [];
+      let pagina = 1;
+      let paginas = 1;
+      do {
+        const response = await api.get('/maestro/productos', { params: { pagina, limite: 500 } });
+        const lote = response.data?.data ?? [];
+        productos.push(...lote);
+        paginas = response.data?.paginacion?.paginas ?? 1;
+        pagina += 1;
+      } while (pagina <= paginas && pagina <= 20);
+
+      const normalizados = productos.map(p => ({
+        id: p.id,
+        productoId: p.id,
+        alegraId: p.alegra_id || null,
+        name: p.nombre,
+        description: p.descripcion || '',
+        // Texto siempre: la referencia "0005" pierde los ceros como número.
+        reference: String(p.referencia ?? '').trim(),
+        price: Number(p.precio_sin_iva) || 0,
+        status: p.activo ? 'active' : 'inactive',
+        type: 'product',
+        // La tarifa viene del maestro, que es la que el servidor va a cobrar.
+        // Así el cajero ve el mismo impuesto que va a salir impreso.
+        tax: p.impuesto_id ? [{ id: p.impuesto_id, percentage: Number(p.tarifa) || 0 }] : [],
+        category: p.categoria ? { name: p.categoria } : null,
+        inventory: null,
+        cabys: p.cabys || null,
+        unidad: p.unidad || null
+      }));
+
+      await indexedDBService.saveProductos(normalizados);
+      return { success: true, total: normalizados.length, timestamp: new Date().toISOString() };
     } catch (error) {
       console.error('❌ Error actualizando cache de productos:', error);
       throw error;
@@ -164,28 +133,44 @@ class FacturacionService {
   /**
    * Actualizar cache de clientes desde Alegra
    */
+  /**
+   * Actualizar cache de clientes desde NUESTRA tabla.
+   */
   async actualizarCacheClientes() {
     try {
-      console.log('👥 Actualizando cache de contactos (clientes, proveedores, etc.) desde Alegra...');
-      
-      const response = await api.get('/alegra/facturacion/contacts');
-      
-      if (response.data.success) {
-        const clientes = response.data.data;
-        await indexedDBService.saveClientes(clientes);
-        
-        console.log(`✅ ${clientes.length} contactos guardados en cache`);
-        
-        return {
-          success: true,
-          total: clientes.length,
-          timestamp: response.data.timestamp
-        };
-      }
-      
-      throw new Error(response.data.message || 'Error obteniendo contactos');
+      console.log('👥 Actualizando cache de clientes desde la base propia...');
+
+      const clientes = [];
+      let pagina = 1;
+      let paginas = 1;
+      do {
+        const response = await api.get('/clientes', { params: { pagina, limite: 500 } });
+        const lote = response.data?.data ?? [];
+        clientes.push(...lote);
+        paginas = response.data?.paginacion?.paginas ?? 1;
+        pagina += 1;
+      } while (pagina <= paginas && pagina <= 20);
+
+      const normalizados = clientes.map(c => ({
+        id: c.id,
+        clienteId: c.id,
+        alegraId: c.alegra_id || null,
+        name: c.nombre,
+        identification: c.identificacion,
+        email: c.correo || '',
+        // Los teléfonos de las fichas vienen sucios ("89350207 JEISON"): se
+        // guardan como están y quien los use decide, igual que siempre.
+        phonePrimary: c.telefono || '',
+        mobile: c.celular || '',
+        plazoCreditoId: c.plazo_credito_id || null,
+        status: c.activo ? 'active' : 'inactive'
+      }));
+
+      await indexedDBService.saveClientes(normalizados);
+      console.log(`✅ ${normalizados.length} clientes guardados en cache`);
+      return { success: true, total: normalizados.length, timestamp: new Date().toISOString() };
     } catch (error) {
-      console.error('❌ Error actualizando cache de contactos:', error);
+      console.error('❌ Error actualizando cache de clientes:', error);
       throw error;
     }
   }
@@ -228,66 +213,23 @@ class FacturacionService {
         return { success: false, total: 0 };
       }
 
-      console.log('🔄 Precargando últimas 60 facturas...');
+      // De la base propia, no de Alegra: son las mismas facturas y no hay que
+      // salir a la red a buscarlas.
+      const response = await api.get('/facturacion/facturas', {
+        params: { estado: 'todas', limite: 60, pagina: 1 }
+      });
+      const facturas = (response.data?.data ?? []).map(desdeConsultaPropia);
 
-      // Obtener fecha actual y hace 60 días
-      const hoy = new Date();
-      const hace60Dias = new Date();
-      hace60Dias.setDate(hoy.getDate() - 60);
-
-      const ano = hoy.getFullYear();
-      const mes = hoy.getMonth() + 1;
-
-      // Buscar facturas del mes actual y anterior
-      const mesAnterior = mes === 1 ? 12 : mes - 1;
-      const anoAnterior = mes === 1 ? ano - 1 : ano;
-
-      const response = await api.get(`/alegra/facturas/${ano}/${mes}/todas`);
-      let facturas = [];
-
-      if (response.data.success) {
-        facturas = response.data.data || [];
-
-        // Si son menos de 60, buscar mes anterior también
-        if (facturas.length < 60) {
-          try {
-            const responseAnterior = await api.get(`/alegra/facturas/${anoAnterior}/${mesAnterior}/todas`);
-            if (responseAnterior.data.success) {
-              facturas = [...facturas, ...(responseAnterior.data.data || [])];
-            }
-          } catch (error) {
-            console.warn('⚠️ Error obteniendo facturas del mes anterior:', error.message);
-          }
-        }
-
-        // Ordenar por fecha descendente y tomar las últimas 60
-        facturas.sort((a, b) => new Date(b.date) - new Date(a.date));
-        facturas = facturas.slice(0, 60);
-
-        // Guardar en cache
-        if (facturas.length > 0) {
-          const guardadas = await indexedDBService.saveFacturasCache(facturas);
-          console.log(`✅ ${guardadas} facturas precargadas para edición offline`);
-
-          return {
-            success: true,
-            total: guardadas
-          };
-        }
+      if (facturas.length > 0) {
+        const guardadas = await indexedDBService.saveFacturasCache(facturas);
+        console.log(`✅ ${guardadas} facturas precargadas para edición offline`);
+        return { success: true, total: guardadas };
       }
-
-      return {
-        success: true,
-        total: 0
-      };
+      return { success: true, total: 0 };
     } catch (error) {
       console.error('❌ Error precargando facturas:', error);
-      // No lanzar error para no detener la actualización del cache
-      return {
-        success: false,
-        total: 0,
-        error: error.message
-      };
+      // No se lanza: que falle la precarga no debe frenar el resto del cache.
+      return { success: false, total: 0, error: error.message };
     }
   }
 
@@ -365,50 +307,27 @@ class FacturacionService {
   }
 
   /**
-   * Obtener impuestos de Alegra
+   * Los impuestos, de NUESTRO catálogo.
+   *
+   * Importa que salgan de acá y no de una lista escrita a mano: el servidor
+   * cobra la tarifa del maestro, y si la pantalla mostrara otra, el cajero
+   * vería 13 % en un producto al 1 % y el papel saldría distinto de lo que vio.
    */
   async getImpuestos() {
-    try {
-      const response = await api.get('/alegra/facturacion/taxes');
-      
-      if (response.data.success) {
-        return response.data.data;
-      }
-      
-      throw new Error('Error obteniendo impuestos');
-    } catch (error) {
-      console.error('❌ Error obteniendo impuestos:', error);
-      
-      // Devolver impuesto por defecto de Costa Rica si falla
-      return [
-        { id: 3, name: 'IVA 13%', percentage: 13, type: 'IVA' }
-      ];
-    }
+    const response = await api.get('/catalogos/configuracion');
+    const impuestos = response.data?.data?.impuestos ?? response.data?.impuestos ?? [];
+    return impuestos
+      .filter(i => i.activo)
+      .map(i => ({ id: i.id, name: i.nombre, percentage: Number(i.tarifa) || 0, type: i.tipo }));
   }
 
-  /**
-   * Obtener métodos de pago
-   */
+  /** Los métodos de pago, de NUESTRO catálogo (incluye SINPE Móvil). */
   async getMetodosPago() {
-    try {
-      const response = await api.get('/alegra/facturacion/payment-methods');
-      
-      if (response.data.success) {
-        return response.data.data;
-      }
-      
-      throw new Error('Error obteniendo métodos de pago');
-    } catch (error) {
-      console.error('❌ Error obteniendo métodos de pago:', error);
-      
-      // Devolver métodos por defecto si falla
-      return [
-        { id: 'cash', name: 'Efectivo', type: 'cash' },
-        { id: 'credit-card', name: 'Tarjeta de Crédito', type: 'credit-card' },
-        { id: 'debit-card', name: 'Tarjeta de Débito', type: 'debit-card' },
-        { id: 'transfer', name: 'Transferencia Bancaria', type: 'transfer' }
-      ];
-    }
+    const response = await api.get('/catalogos/configuracion');
+    const metodos = response.data?.data?.metodosPago ?? response.data?.metodosPago ?? [];
+    return metodos
+      .filter(m => m.activo)
+      .map(m => ({ id: m.clave, name: m.nombre, type: m.clave, pideReferencia: m.pide_referencia }));
   }
 
   /**
@@ -433,18 +352,21 @@ class FacturacionService {
       if (this.isOnline) {
         // Intentar crear directamente en Alegra
         try {
-          const response = await api.post('/alegra/facturacion/invoices', {
+          const response = await api.post('/facturacion/facturas', {
             ...facturaData,
             claveIdempotencia
           });
           
           if (response.data.success) {
-            console.log('✅ Factura creada online:', response.data.data.id);
+            // La respuesta viene en NUESTRA forma; se traduce a la que habla
+            // el resto de la pantalla (ver facturaPropiaAdaptador.js).
+            const creada = desdeFacturaPropia(response.data.data);
+            console.log('✅ Factura creada online:', creada.id);
 
             // Guardar en cache para edición inmediata
             const facturaOnline = {
-              ...response.data.data,
-              client: response.data.data.client || facturaVista?.cliente || null,
+              ...creada,
+              client: creada.client || facturaVista?.cliente || null,
               pendienteSincronizar: false,
               pendienteEdicion: false,
               esLocal: false,
@@ -455,8 +377,8 @@ class FacturacionService {
             return {
               success: true,
               online: true,
-              data: response.data.data,
-              message: 'Factura creada exitosamente en Alegra'
+              data: creada,
+              message: 'Factura creada'
             };
           }
         } catch (error) {
@@ -533,30 +455,33 @@ class FacturacionService {
       for (const factura of facturasPendientes) {
         try {
           // Intentar crear en Alegra
-          const response = await api.post('/alegra/facturacion/invoices', {
+          const response = await api.post('/facturacion/facturas', {
             ...factura,
             claveIdempotencia: factura.claveIdempotencia
           });
           
           if (response.data.success) {
+            // La respuesta viene en NUESTRA forma; se traduce a la que habla
+            // el resto de la pantalla (ver facturaPropiaAdaptador.js).
+            const creada = desdeFacturaPropia(response.data.data);
             // Marcar como sincronizada
             await indexedDBService.markFacturaSincronizada(
               factura.localId, 
-              response.data.data.id
+              creada.id
             );
 
             // Reemplazar factura en cache (eliminar versión local y guardar definitiva)
             if (factura.localId) {
               await indexedDBService.deleteFacturaCache(`local-${factura.localId}`);
             }
-            await indexedDBService.saveFacturasCache([response.data.data]);
+            await indexedDBService.saveFacturasCache([creada]);
             
             resultados.exitosas.push({
               localId: factura.localId,
-              alegraId: response.data.data.id
+              alegraId: creada.id
             });
             
-            console.log(`✅ Factura ${factura.localId} sincronizada (Alegra: ${response.data.data.id})`);
+            console.log(`✅ Factura ${factura.localId} sincronizada (Alegra: ${creada.id})`);
           }
         } catch (error) {
           // Registrar error
@@ -620,17 +545,20 @@ class FacturacionService {
     }
 
     try {
-      const response = await api.post('/alegra/facturacion/invoices', {
+      const response = await api.post('/facturacion/facturas', {
         ...factura,
         claveIdempotencia: factura.claveIdempotencia
       });
 
       if (response.data.success) {
-        await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
+        // La respuesta viene en NUESTRA forma; se traduce a la que habla
+        // el resto de la pantalla (ver facturaPropiaAdaptador.js).
+        const creada = desdeFacturaPropia(response.data.data);
+        await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
         await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
-        await indexedDBService.saveFacturasCache([response.data.data]);
+        await indexedDBService.saveFacturasCache([creada]);
 
-        return { success: true, data: response.data.data };
+        return { success: true, data: creada };
       }
 
       throw new Error(response.data.message || 'Error enviando factura pendiente');
@@ -713,49 +641,36 @@ class FacturacionService {
       console.log('🔍 Buscando facturas...', { online: this.isOnline, criterio });
 
       if (this.isOnline) {
-        // Buscar online y actualizar cache
         try {
-          let response;
-
+          const params = { estado: 'todas', limite: 100 };
           if (criterio.numero) {
-            // Buscar por número
-            response = await api.get(`/alegra/facturas/buscar/numero/${criterio.numero}`);
+            params.buscar = criterio.numero;
           } else if (criterio.cliente) {
-            // Buscar por cliente
-            response = await api.get(`/alegra/facturas/buscar/cliente/${criterio.cliente}`);
+            params.buscar = criterio.cliente;
           } else if (criterio.periodo) {
-            // Buscar por período
-            const { ano, mes, semana } = criterio.periodo;
-            response = await api.get(`/alegra/facturas/${ano}/${mes}/${semana}`);
+            // El mes completo. La semana la filtra la pantalla, que es la que
+            // sabe cómo las agrupa.
+            const { ano, mes } = criterio.periodo;
+            const ultimo = new Date(ano, mes, 0).getDate();
+            params.desde = `${ano}-${String(mes).padStart(2, '0')}-01`;
+            params.hasta = `${ano}-${String(mes).padStart(2, '0')}-${ultimo}`;
           } else {
             throw new Error('Criterio de búsqueda no válido');
           }
 
-          if (response.data.success) {
-            const facturas = response.data.data;
-
-            // Guardar en cache para uso offline
-            if (facturas.length > 0) {
-              await indexedDBService.saveFacturasCache(facturas);
-            }
-
-            return facturas;
-          }
+          const response = await api.get('/facturacion/facturas', { params });
+          const facturas = (response.data?.data ?? []).map(desdeConsultaPropia);
+          if (facturas.length > 0) await indexedDBService.saveFacturasCache(facturas);
+          return facturas;
         } catch (error) {
-          console.warn('⚠️ Error buscando online, buscando en cache:', error.message);
-          // Si falla, buscar en cache
+          console.warn('⚠️ Error buscando, se busca en el cache:', error.message);
         }
       }
 
-      // Modo offline: buscar en cache
-      if (criterio.numero) {
-        return await indexedDBService.searchFacturasByNumber(criterio.numero);
-      } else if (criterio.cliente) {
-        return await indexedDBService.searchFacturasByClient(criterio.cliente);
-      } else {
-        return await indexedDBService.getFacturasCache();
-      }
-
+      // Sin conexión: lo que haya quedado guardado.
+      if (criterio.numero) return await indexedDBService.searchFacturasByNumber(criterio.numero);
+      if (criterio.cliente) return await indexedDBService.searchFacturasByClient(criterio.cliente);
+      return await indexedDBService.getFacturasCache();
     } catch (error) {
       console.error('❌ Error buscando facturas:', error);
       throw error;
@@ -770,30 +685,22 @@ class FacturacionService {
       console.log('📋 Obteniendo factura:', facturaId);
 
       const esLocal = typeof facturaId === 'string' && facturaId.startsWith('local-');
-      if (esLocal) {
-        return await indexedDBService.getFacturaById(facturaId);
-      }
+      if (esLocal) return await indexedDBService.getFacturaById(facturaId);
 
       if (this.isOnline) {
         try {
-          const response = await api.get(`/alegra/facturas/${facturaId}`);
-
-          if (response.data.success) {
-            const factura = response.data.data;
-
-            // Guardar en cache
+          const response = await api.get(`/facturacion/facturas/${facturaId}`);
+          const factura = desdeConsultaPropia(response.data?.data);
+          if (factura) {
             await indexedDBService.saveFacturasCache([factura]);
-
             return factura;
           }
         } catch (error) {
-          console.warn('⚠️ Error obteniendo factura online, buscando en cache:', error.message);
+          console.warn('⚠️ Error obteniendo la factura, se busca en el cache:', error.message);
         }
       }
 
-      // Buscar en cache
       return await indexedDBService.getFacturaById(facturaId);
-
     } catch (error) {
       console.error('❌ Error obteniendo factura:', error);
       throw error;
@@ -805,27 +712,39 @@ class FacturacionService {
    * Si hay internet: envía directamente a Alegra
    * Si no hay internet: guarda localmente y sincroniza después
    */
-  async editarFactura(facturaId, datosEdicion, facturaVista = null) {
+  /**
+   * Editar factura.
+   *
+   * LA RUTA SE ELIGE POR LA MARCA `esPropia`, NO POR EL ID. Nuestras facturas
+   * llevan ids propios (1, 2, 3…) y las de Alegra los suyos. Mandar un id
+   * nuestro a la ruta de Alegra no da un error: da OTRA factura, la que por
+   * casualidad tenga ese número allá. Por eso el que llama tiene que decir de
+   * dónde salió el documento.
+   */
+  async editarFactura(facturaId, datosEdicion, facturaVista = null, { esPropia = false } = {}) {
     try {
       console.log('✏️ Editando factura...', {
         online: this.isOnline,
         facturaId,
+        propia: esPropia,
         cambios: Object.keys(datosEdicion)
       });
 
       if (this.isOnline) {
-        // Intentar editar directamente en Alegra
         try {
-          const response = await api.put(`/alegra/facturas/${facturaId}`, datosEdicion);
+          const response = esPropia
+            ? await api.put(`/facturacion/facturas/${facturaId}`, datosEdicion)
+            : await api.put(`/alegra/facturas/${facturaId}`, datosEdicion);
 
           if (response.data.success) {
             console.log('✅ Factura editada online:', facturaId);
 
             // Actualizar cache con la nueva versión
-            if (response.data.data) {
+            const editada = esPropia ? desdeFacturaPropia(response.data.data) : response.data.data;
+            if (editada) {
               const facturaOnline = {
-                ...response.data.data,
-                client: response.data.data.client || facturaVista?.cliente || null,
+                ...editada,
+                client: editada.client || facturaVista?.cliente || null,
                 pendienteSincronizar: false,
                 pendienteEdicion: false
               };
@@ -835,8 +754,8 @@ class FacturacionService {
             return {
               success: true,
               online: true,
-              data: response.data.data,
-              message: 'Factura editada exitosamente en Alegra'
+              data: editada,
+              message: 'Factura editada'
             };
           }
         } catch (error) {
@@ -854,7 +773,9 @@ class FacturacionService {
       }
 
       // Modo offline: guardar edición localmente
-      const localId = await indexedDBService.saveEdicionPendiente(facturaId, datosEdicion);
+      // Se guarda TAMBIÉN de dónde salió: al reintentarla, la ruta se elige
+      // con esta marca. Sin ella, el reintento adivina.
+      const localId = await indexedDBService.saveEdicionPendiente(facturaId, datosEdicion, esPropia);
 
       if (facturaVista) {
         await this.guardarFacturaLocalEnCache({
@@ -944,31 +865,34 @@ class FacturacionService {
       const pendientes = await indexedDBService.getFacturasPendientes();
       const guardada = pendientes.find(f => f.localId === numeroLocal);
 
-      const response = await api.post('/alegra/facturacion/invoices', {
+      const response = await api.post('/facturacion/facturas', {
         ...facturaData,
         claveIdempotencia: guardada?.claveIdempotencia || null
       });
 
       if (response.data.success) {
-        await indexedDBService.markFacturaSincronizada(numeroLocal, response.data.data.id);
+        // La respuesta viene en NUESTRA forma; se traduce a la que habla
+        // el resto de la pantalla (ver facturaPropiaAdaptador.js).
+        const creada = desdeFacturaPropia(response.data.data);
+        await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
         await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
 
         const facturaOnline = {
-          ...response.data.data,
-          client: response.data.data.client || facturaVista?.cliente || null,
+          ...creada,
+          client: creada.client || facturaVista?.cliente || null,
           pendienteSincronizar: false,
           pendienteEdicion: false,
           esLocal: false
         };
         await indexedDBService.saveFacturasCache([facturaOnline]);
 
-        console.log(`✅ Factura pendiente ${numeroLocal} enviada a Alegra con ID ${response.data.data.id}`);
+        console.log(`✅ Factura pendiente ${numeroLocal} enviada a Alegra con ID ${creada.id}`);
 
         return {
           success: true,
           online: true,
-          data: response.data.data,
-          message: 'Factura enviada exitosamente a Alegra'
+          data: creada,
+          message: 'Factura enviada'
         };
       }
 
@@ -1017,10 +941,9 @@ class FacturacionService {
       for (const edicion of edicionesPendientes) {
         try {
           // Intentar editar en Alegra
-          const response = await api.put(
-            `/alegra/facturas/${edicion.facturaId}`,
-            edicion.datosEdicion
-          );
+          const response = edicion.esPropia
+            ? await api.put(`/facturacion/facturas/${edicion.facturaId}`, edicion.datosEdicion)
+            : await api.put(`/alegra/facturas/${edicion.facturaId}`, edicion.datosEdicion);
 
           if (response.data.success) {
             // Marcar como sincronizada

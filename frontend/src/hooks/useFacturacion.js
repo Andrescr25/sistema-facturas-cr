@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import api from '../services/api'
 import facturacionService from '../services/facturacionService'
+import { abrirPdfFacturaPropia } from '../services/facturaPropiaAdaptador'
 import { alegraService } from '../services/alegraService'
 import {
   getReference,
@@ -759,13 +761,32 @@ export function useFacturacion() {
         }]
         : []
 
+      // LA TARIFA ES LA DEL PRODUCTO, no la principal de la factura.
+      //
+      // Antes toda línea nacía con el impuesto principal (13 %), y eso es lo
+      // que la pantalla le sumaba al cliente. Con un producto al 1 % el cajero
+      // cobraba 13 % mientras el servidor guardaba 1 %: en una factura de dos
+      // líneas al 1 % y al 2 % la diferencia fue de ₡191,82. El papel y la
+      // pantalla tienen que decir lo mismo.
+      const impuestoDelProducto = Array.isArray(producto.tax) && producto.tax.length
+        ? producto.tax.map(t => ({
+          id: t.id,
+          percentage: Number(t.percentage) || 0,
+          name: t.name,
+          type: t.type
+        }))
+        : impuestoDefault
+
       const nuevoItem = {
         id: producto.id,
+        // El id propio viaja con la línea: es el que el servidor usa para
+        // resolver el producto contra su maestro.
+        productoId: producto.productoId ?? producto.id,
         reference: getReference(producto.reference),
         name: producto.name,
         quantity: cantidad,
         price: producto.price || 0,
-        tax: impuestoDefault,
+        tax: impuestoDelProducto,
         discount: 0,
         description: ''
       }
@@ -840,9 +861,13 @@ export function useFacturacion() {
       const facturaData = {
         date: fecha,
         dueDate: fecha, // Misma fecha por defecto
-        client: parseInt(clienteSeleccionado.id),
+        // NUESTROS ids, no los de Alegra: así el servidor resuelve contra su
+        // propio maestro y una venta deja de depender de la columna alegra_id,
+        // que algún día va a estar vacía.
+        clienteId: parseInt(clienteSeleccionado.id),
         items: items.map(item => ({
           id: parseInt(item.id),
+          productoId: parseInt(item.productoId ?? item.id),
           reference: item.reference || '', // Campo reference
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
@@ -908,7 +933,10 @@ export function useFacturacion() {
           resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista)
         }
       } else if (modoEdicion && facturaEditando) {
-        resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData, facturaVista)
+        // De dónde salió decide a qué ruta va: un id nuestro en la ruta de
+        // Alegra no falla, edita OTRA factura.
+        resultado = await facturacionService.editarFactura(
+          facturaEditando.id, facturaData, facturaVista, { esPropia: Boolean(facturaEditando.esPropia) })
       } else {
         // Crear factura nueva
         resultado = await facturacionService.crearFactura(facturaData, facturaVista)
@@ -936,15 +964,21 @@ export function useFacturacion() {
         // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
         if (resultado.online && resultado.data?.id) {
           try {
-            await alegraService.visualizarPDFFactura(resultado.data.id)
+            // El PDF propio para las facturas propias. El de Alegra solo
+            // sirve para las que siguen viviendo allá.
+            if (resultado.data.esPropia) {
+              await abrirPdfFacturaPropia(api, resultado.data.id)
+            } else {
+              await alegraService.visualizarPDFFactura(resultado.data.id)
+            }
             mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000)
           } catch (pdfError) {
-            console.error('❌ Error visualizando PDF desde Alegra:', pdfError)
+            console.error('❌ Error visualizando el PDF:', pdfError)
             console.error('❌ Stack:', pdfError.stack)
             mostrarMensaje('⚠️ Error abriendo PDF. La factura fue creada correctamente.', 'warning', 3000)
           }
         } else if (!resultado.online) {
-          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se sincronice con Alegra', 'info', 4000)
+          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se envíe', 'info', 4000)
         } else {
           console.warn('⚠️ No se puede mostrar PDF: online=', resultado.online, 'id=', resultado.data?.id)
         }
