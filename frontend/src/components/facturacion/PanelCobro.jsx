@@ -39,9 +39,18 @@ export default function PanelCobro({
   const [desgloseAbierto, setDesgloseAbierto] = useState(false)
 
   const bloqueado = !clienteSeleccionado || items.length === 0 || loading
-  const etiquetaImpuesto = impuestoPrincipal
-    ? `${impuestoPrincipal.name || 'Impuesto'} (${Number(impuestoPrincipal.percentage) || 0}%)`
-    : 'Impuestos'
+  // La etiqueta sale de las TARIFAS QUE HAY EN LA FACTURA, no del impuesto
+  // principal. Decía "IVA 13 %" al lado de un monto que podía ser 1 % + 2 %:
+  // el cajero leía una contradicción y no sabía a cuál de los dos creerle.
+  const tarifas = [...new Set(
+    items.map(i => Number(i.tax?.[0]?.percentage ?? impuestoPrincipal?.percentage ?? 0))
+  )].sort((a, b) => a - b)
+
+  const etiquetaImpuesto = tarifas.length === 0
+    ? 'Impuestos'
+    : tarifas.length === 1
+      ? `IVA (${tarifas[0]}%)`
+      : `IVA (${tarifas.join('%, ')}%)`
 
   const desglose = (
     <div className="flex flex-col gap-1.5 text-sm">

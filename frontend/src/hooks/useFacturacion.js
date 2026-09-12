@@ -759,13 +759,29 @@ export function useFacturacion() {
         }]
         : []
 
+      // LA TARIFA ES LA DEL PRODUCTO, no la principal de la factura.
+      //
+      // Antes toda línea nacía con el impuesto principal (13 %), y ese id es el
+      // que viajaba a Alegra. Un producto al 1 % se facturaba al 13 %: medido
+      // sobre lo ya emitido, 213 líneas en 147 facturas de productos al 1 %
+      // salieron al 13 %, 13 líneas al 2 % y 6 exentas. No era un cambio de
+      // tarifas: el mismo producto aparece a las dos en el mismo período.
+      const impuestoDelProducto = Array.isArray(producto.tax) && producto.tax.length
+        ? producto.tax.map(t => ({
+          id: t.id,
+          percentage: Number(t.percentage) || 0,
+          name: t.name,
+          type: t.type
+        }))
+        : impuestoDefault
+
       const nuevoItem = {
         id: producto.id,
         reference: getReference(producto.reference),
         name: producto.name,
         quantity: cantidad,
         price: producto.price || 0,
-        tax: impuestoDefault,
+        tax: impuestoDelProducto,
         discount: 0,
         description: ''
       }
