@@ -249,6 +249,130 @@ describe('lo que se guarda es texto, no código', () => {
   });
 });
 
+// La factura que se va a editar o anular, tal como la devuelve la base.
+const EMITIDA = {
+  id: 500, numero: '001000014869', serie: '00100001', consecutivo: 4869, electronica: false,
+  estado: 'emitida', total: '3051.00', impuesto: '351.00', saldo: '3051.00', cliente_nombre: 'PULPERÍA LA ESQUINA'
+};
+
+/** Doble para editar/anular: controla cobros y notas aplicadas. */
+function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, productos = [TORNILLO] } = {}) {
+  const log = [];
+  const ejecutar = async (sql, params = []) => {
+    const texto = String(sql).replace(/\s+/g, ' ').trim();
+    log.push({ sql: texto, params });
+    if (/FROM factura WHERE id = \$1 FOR UPDATE/.test(texto)) return { rows: factura ? [{ ...factura }] : [] };
+    if (/FROM pago_factura/.test(texto)) return { rows: [{ total: cobrado }] };
+    if (/FROM nota_credito_factura/.test(texto)) return { rows: [{ total: acreditado }] };
+    if (/FROM producto p/.test(texto)) return { rows: productos.map(p => ({ ...p })) };
+    if (/^UPDATE factura/.test(texto)) return { rows: [{ ...factura, estado: 'anulada' }] };
+    if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
+    return { rows: [], rowCount: 1 };
+  };
+  const clientePg = { query: ejecutar, release: () => {} };
+  require.cache[rutaDb] = {
+    id: rutaDb, filename: rutaDb, loaded: true,
+    exports: { pool: { connect: async () => clientePg, query: ejecutar }, query: ejecutar }
+  };
+  delete require.cache[rutaServicio];
+  return { servicio: require(rutaServicio), log };
+}
+
+describe('anular una factura', () => {
+  test('no se borra: queda anulada, con su número y su motivo', async () => {
+    // Un número que desaparece es un hueco que después hay que explicarle a
+    // Hacienda.
+    const { servicio, log } = montarEmitida();
+    await servicio.anularFactura(500, { motivo: 'El cliente devolvió todo' }, 4);
+    assert.equal(hubo(log, /DELETE FROM factura\b/), false);
+    const update = log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.match(update.sql, /estado = 'anulada'/);
+    assert.match(update.sql, /saldo = 0/);
+    assert.equal(update.params[0], 'El cliente devolvió todo');
+    assert.equal(params(log, /INSERT INTO bitacora_cambio/).includes('anular'), true);
+  });
+
+  test('sin motivo no se anula', async () => {
+    const { servicio, log } = montarEmitida();
+    for (const motivo of [undefined, '', '  ', 'ups']) {
+      await assert.rejects(servicio.anularFactura(500, { motivo }, 4), e => e.status === 400 && /por qué se anula/.test(e.message));
+    }
+    assert.equal(log.length, 0, 'ni siquiera llega a la base');
+  });
+
+  test('una factura con cobros aplicados NO se anula: primero se revierte el cobro', async () => {
+    const { servicio, log } = montarEmitida({ cobrado: 3051 });
+    await assert.rejects(
+      servicio.anularFactura(500, { motivo: 'error de digitación' }, 4),
+      e => e.status === 409 && /cobros aplicados/.test(e.message) && /3.051/.test(e.message)
+    );
+    assert.equal(hubo(log, /^UPDATE factura/), false);
+  });
+
+  test('una electrónica no se anula: se corrige con nota de crédito', async () => {
+    // Ante Hacienda ya existe; anularla por dentro no la borra de allá.
+    const { servicio } = montarEmitida({ factura: { ...EMITIDA, electronica: true } });
+    await assert.rejects(
+      servicio.anularFactura(500, { motivo: 'error de digitación' }, 4),
+      e => e.status === 409 && /nota de crédito/.test(e.message)
+    );
+  });
+
+  test('anular lo ya anulado no es un error', async () => {
+    const { servicio, log } = montarEmitida({ factura: { ...EMITIDA, estado: 'anulada' } });
+    const r = await servicio.anularFactura(500, { motivo: 'de nuevo' }, 4);
+    assert.equal(r.estado, 'anulada');
+    assert.equal(hubo(log, /^UPDATE factura/), false, 'no vuelve a escribir');
+  });
+
+  test('una factura que no existe da 404', async () => {
+    const { servicio } = montarEmitida({ factura: null });
+    await assert.rejects(servicio.anularFactura(500, { motivo: 'lo que sea' }, 4), e => e.status === 404);
+  });
+});
+
+describe('editar una factura emitida', () => {
+  test('reemplaza las líneas y recalcula los totales, sin cambiar el número', async () => {
+    const { servicio, log } = montarEmitida();
+    await servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    assert.ok(hubo(log, /DELETE FROM factura_linea WHERE factura_id/), 'las líneas se reemplazan enteras');
+    const update = log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.equal(/numero =/.test(update.sql), false, 'el número no se toca: es el mismo documento');
+    assert.equal(update.params[3], 1130, 'total recalculado: 1.000 + 13 %');
+  });
+
+  test('una con cobros o con nota de crédito no se edita', async () => {
+    const conCobro = montarEmitida({ cobrado: 100 });
+    await assert.rejects(
+      conCobro.servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 409 && /cobros aplicados/.test(e.message)
+    );
+
+    const conNota = montarEmitida({ acreditado: 500 });
+    await assert.rejects(
+      conNota.servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 409 && /nota de crédito/.test(e.message)
+    );
+  });
+
+  test('una anulada no se edita', async () => {
+    const { servicio } = montarEmitida({ factura: { ...EMITIDA, estado: 'anulada' } });
+    await assert.rejects(
+      servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 409 && /anulada/.test(e.message)
+    );
+  });
+
+  test('el cambio queda en la bitácora con el antes y el después', async () => {
+    const { servicio, log } = montarEmitida();
+    await servicio.editarFactura(500, { items: [{ id: '1183', quantity: 1, price: 1000 }], motivo: 'se cobró de más' }, 4);
+    const bitacora = JSON.stringify(params(log, /INSERT INTO bitacora_cambio/));
+    assert.match(bitacora, /3051/, 'el total anterior');
+    assert.match(bitacora, /1130/, 'el nuevo');
+    assert.match(bitacora, /se cobró de más/);
+  });
+});
+
 describe('rastro', () => {
   test('queda en la bitácora y alimenta la tabla que lee Bodega', async () => {
     const { servicio, log } = montar();

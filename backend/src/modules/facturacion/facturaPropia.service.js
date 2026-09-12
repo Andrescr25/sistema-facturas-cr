@@ -396,4 +396,154 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
   }
 }
 
-module.exports = { crearFactura, armarLineas, sumarDias, semanaDe };
+/**
+ * Lo que impide tocar una factura ya emitida.
+ *
+ * Se mira ANTES de editar o anular, y en este orden porque el mensaje tiene
+ * que decir la razón de más peso primero.
+ */
+async function revisarSiSePuedeTocar(cliente, factura, accion) {
+  if (factura.electronica) {
+    throw httpError(409,
+      `La factura ${factura.numero} se emitió como electrónica: ante Hacienda ya existe y no se puede ${accion}. ` +
+      'Se corrige con una nota de crédito.');
+  }
+
+  const { rows: cobros } = await cliente.query(
+    'SELECT COALESCE(SUM(monto), 0) AS total FROM pago_factura WHERE factura_id = $1',
+    [factura.id]
+  );
+  const cobrado = Number(cobros[0].total) || 0;
+  if (cobrado > 0) {
+    throw httpError(409,
+      `La factura ${factura.numero} tiene ₡${cobrado.toLocaleString('es-CR')} en cobros aplicados. ` +
+      `Hay que revertir el cobro antes de ${accion}la.`);
+  }
+
+  const { rows: notas } = await cliente.query(
+    'SELECT COALESCE(SUM(monto), 0) AS total FROM nota_credito_factura WHERE factura_id = $1',
+    [factura.id]
+  );
+  const acreditado = Number(notas[0].total) || 0;
+  if (acreditado > 0) {
+    throw httpError(409,
+      `La factura ${factura.numero} ya tiene una nota de crédito aplicada por ₡${acreditado.toLocaleString('es-CR')}.`);
+  }
+}
+
+/**
+ * Anular una factura, con motivo.
+ *
+ * NO SE BORRA: el documento queda, con su número y su estado en 'anulada'.
+ * Un número que desaparece es un hueco en la numeración que después hay que
+ * explicarle a Hacienda.
+ *
+ * Volver a anular lo ya anulado no es un error: devuelve la factura como está.
+ */
+async function anularFactura(id, { motivo } = {}, usuarioId) {
+  const n = idValido(id);
+  const razon = recortar(motivo, 2000);
+  if (!razon || razon.length < 4) {
+    throw httpError(400, 'Hay que decir por qué se anula: el motivo queda en el documento.');
+  }
+
+  return enTransaccion(async (cliente) => {
+    const { rows } = await cliente.query('SELECT * FROM factura WHERE id = $1 FOR UPDATE', [n]);
+    const factura = rows[0];
+    if (!factura) throw httpError(404, 'No existe esa factura.');
+    if (factura.estado === 'anulada') return factura;
+
+    await revisarSiSePuedeTocar(cliente, factura, 'anular');
+
+    const { rows: actualizada } = await cliente.query(
+      `UPDATE factura
+          SET estado = 'anulada', motivo_anulacion = $1, saldo = 0, actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = $2
+        RETURNING *`,
+      [razon, n]
+    );
+
+    await registrarCambio(cliente, {
+      entidad: 'factura', entidadId: n, accion: 'anular',
+      antes: { estado: factura.estado, saldo: Number(factura.saldo) },
+      despues: { estado: 'anulada', saldo: 0 },
+      usuarioId, motivo: razon
+    });
+
+    return actualizada[0];
+  });
+}
+
+/**
+ * Editar una factura emitida.
+ *
+ * Se puede mientras NO sea electrónica, no tenga cobros y no tenga notas de
+ * crédito. El número, la serie y la fecha NO cambian: es el mismo documento,
+ * con otro contenido. Cambiar el número sería emitir uno nuevo y dejar un
+ * hueco.
+ *
+ * Las líneas se reemplazan enteras en vez de actualizarse una por una: una
+ * factura corregida puede tener menos líneas que antes, y actualizar dejaría
+ * las sobrantes.
+ */
+async function editarFactura(id, datos, usuarioId) {
+  const n = idValido(id);
+  const items = Array.isArray(datos?.items) ? datos.items : null;
+  if (!items || items.length === 0) throw httpError(400, 'La factura no tiene líneas.');
+
+  return enTransaccion(async (cliente) => {
+    const { rows } = await cliente.query('SELECT * FROM factura WHERE id = $1 FOR UPDATE', [n]);
+    const factura = rows[0];
+    if (!factura) throw httpError(404, 'No existe esa factura.');
+    if (factura.estado === 'anulada') throw httpError(409, `La factura ${factura.numero} está anulada.`);
+
+    await revisarSiSePuedeTocar(cliente, factura, 'editar');
+
+    const usaAlegraId = items.some(i => i.productoId === undefined);
+    const productos = await buscarProductos(
+      cliente,
+      usaAlegraId ? items.map(i => i.id) : [],
+      usaAlegraId ? [] : items.map(i => i.productoId)
+    );
+    const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
+    const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
+
+    await cliente.query('DELETE FROM factura_linea WHERE factura_id = $1', [n]);
+    for (const linea of armado.lineas) {
+      const valoresLinea = COLUMNAS_LINEA.map(c => (c === 'factura_id' ? n : linea[c]));
+      try {
+        await cliente.query(
+          `INSERT INTO factura_linea (${COLUMNAS_LINEA.join(', ')})
+           VALUES (${COLUMNAS_LINEA.map((_, i) => `$${i + 1}`).join(', ')})`,
+          valoresLinea
+        );
+      } catch (error) {
+        throw explicarDatoLargo(error, 'factura_linea', COLUMNAS_LINEA, valoresLinea);
+      }
+    }
+
+    // El saldo se recalcula contra lo ya pagado, que acá es cero porque una
+    // factura con cobros no llega hasta aquí.
+    const { rows: actualizada } = await cliente.query(
+      `UPDATE factura
+          SET subtotal = $1, descuento = $2, impuesto = $3, total = $4, saldo = $4,
+              observaciones = COALESCE($5, observaciones),
+              actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING *`,
+      [armado.subtotal, armado.descuento, armado.impuesto, armado.total,
+        recortar(datos.observaciones, 4000), n]
+    );
+
+    await registrarCambio(cliente, {
+      entidad: 'factura', entidadId: n, accion: 'editar',
+      antes: { total: Number(factura.total), impuesto: Number(factura.impuesto) },
+      despues: { total: armado.total, impuesto: armado.impuesto, lineas: armado.lineas.length },
+      usuarioId, motivo: recortar(datos.motivo, 2000)
+    });
+
+    return { ...actualizada[0], lineas: armado.lineas };
+  });
+}
+
+module.exports = { crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };

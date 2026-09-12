@@ -22,6 +22,10 @@ const controller = new FacturacionController();
 
 // ---- Factura propia, sin Alegra ----
 router.post('/facturas', facturaPropia.crear);
+router.put('/facturas/:id', facturaPropia.editar);
+// Anular NO borra: la factura conserva su número y queda con su motivo. Un
+// número que desaparece es un hueco que después hay que explicarle a Hacienda.
+router.patch('/facturas/:id/anular', facturaPropia.anular);
 
 // ---- Contra Alegra (lo de siempre) ----
 router.get('/items', controller.getItems);

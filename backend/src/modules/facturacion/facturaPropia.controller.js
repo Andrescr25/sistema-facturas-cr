@@ -11,7 +11,37 @@
 
 const servicio = require('./facturaPropia.service');
 
+/** Una respuesta de error uniforme, que no inventa códigos. */
+function fallo(res, error, contexto) {
+  const s = error.status || 500;
+  if (s >= 500) console.error(`❌ Facturación propia (${contexto}):`, error);
+  res.status(s).json({ success: false, message: error.message, error: error.message });
+}
+
 module.exports = {
+  /** PUT /facturacion/facturas/:id — solo mientras no sea electrónica ni tenga cobros. */
+  editar: async (req, res) => {
+    try {
+      const factura = await servicio.editarFactura(req.params.id, req.body || {}, req.usuario?.id);
+      res.json({ success: true, data: factura });
+    } catch (error) {
+      fallo(res, error, 'editar');
+    }
+  },
+
+  /**
+   * PATCH /facturacion/facturas/:id/anular — con motivo, que queda en el
+   * documento. No borra: la factura conserva su número.
+   */
+  anular: async (req, res) => {
+    try {
+      const factura = await servicio.anularFactura(req.params.id, req.body || {}, req.usuario?.id);
+      res.json({ success: true, data: factura });
+    } catch (error) {
+      fallo(res, error, 'anular');
+    }
+  },
+
   /** POST /facturacion/facturas */
   crear: async (req, res) => {
     try {
