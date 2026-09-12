@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
-import { AlertCircle, Package } from 'lucide-react'
+import { AlertCircle, Package, ClipboardList, Contact } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
+import { useFichasProveedor } from '../hooks/useFichasProveedor'
+import { useDialog } from '../hooks/useDialog'
+import ListaFichasProveedor from '../components/reporte-proveedores/ListaFichasProveedor'
+import ModalFichaProveedor from '../components/reporte-proveedores/ModalFichaProveedor'
 import ListaProveedores from '../components/reporte-proveedores/ListaProveedores'
 import ProveedorDetalle from '../components/reporte-proveedores/ProveedorDetalle'
 import ModalAsignarProveedor from '../components/reporte-proveedores/ModalAsignarProveedor'
@@ -86,6 +90,14 @@ export default function ReporteProveedores() {
   // NAVEGACIÓN: lista de proveedores → detalle de proveedor
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
 
+  // Dos vistas: los faltantes de siempre y las FICHAS (quién es cada
+  // proveedor), que antes no se podían ver ni corregir desde el sistema.
+  const [vista, setVista] = useState('faltantes')
+  // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
+  // y no expone `confirm`.
+  const { confirm: confirmarFicha, dialogProps: dialogFichas } = useDialog()
+  const fichas = useFichasProveedor({ showToast, confirm: confirmarFicha })
+
   /**
    * Si el proveedor que se está viendo desaparece del reporte, se vuelve a
    * la lista.
@@ -108,7 +120,10 @@ export default function ReporteProveedores() {
     showToast('Ese proveedor ya no tiene productos pendientes.', 'info')
   }, [proveedorActivoId, proveedores, loading, showToast])
 
-  if (loading && !proveedores.length) {
+  // El reporte de faltantes tarda; las fichas no dependen de él. Si esta
+  // espera tapara toda la página, entrar a corregir un proveedor obligaría a
+  // esperar un reporte que no se va a mirar.
+  if (loading && !proveedores.length && vista !== 'fichas') {
     return (
       <div className="max-w-6xl mx-auto text-center py-12">
         <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-primario-500 rounded-full w-12 h-12 animate-spin"></div>
@@ -138,8 +153,47 @@ export default function ReporteProveedores() {
         </div>
       )}
 
-      {/* Manejo de Vistas (Listado vs Panel Detalle) */}
-      {!proveedorActivoId ? (
+      <div className="flex flex-wrap gap-2 mb-6">
+        {[
+          { id: 'faltantes', texto: 'Faltantes y órdenes', icono: ClipboardList },
+          { id: 'fichas', texto: 'Fichas', icono: Contact }
+        ].map(t => {
+          const Icono = t.icono
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setVista(t.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
+                vista === t.id ? 'bg-exito-600 text-white' : 'bg-white border-2 border-neutro-200 text-neutro-600'
+              }`}
+            >
+              <Icono size={15} />
+              {t.texto}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Manejo de Vistas (Fichas · Listado de faltantes vs Panel Detalle) */}
+      {vista === 'fichas' ? (
+        <ListaFichasProveedor
+          proveedores={fichas.proveedores}
+          cargando={fichas.cargando}
+          busqueda={fichas.busqueda}
+          setBusqueda={fichas.setBusqueda}
+          estado={fichas.estado}
+          setEstado={fichas.setEstado}
+          paginacion={fichas.paginacion}
+          pagina={fichas.pagina}
+          setPagina={fichas.setPagina}
+          procesando={fichas.procesando}
+          abriendo={fichas.abriendo}
+          onNuevo={() => fichas.setEditando({})}
+          onAbrir={fichas.abrirFicha}
+          onCambiarEstado={fichas.cambiarEstado}
+        />
+      ) : !proveedorActivoId ? (
         <ListaProveedores
           proveedores={proveedores}
           pedidosEnviados={pedidosEnviados}
@@ -188,6 +242,18 @@ export default function ReporteProveedores() {
           </button>
         </div>
       )}
+
+      {fichas.editando && (
+        <ModalFichaProveedor
+          proveedor={fichas.editando.id ? fichas.editando : null}
+          plazos={fichas.plazos}
+          guardando={fichas.guardando}
+          onGuardar={fichas.guardar}
+          onCerrar={() => fichas.setEditando(null)}
+        />
+      )}
+
+      <ConfirmModal {...dialogFichas} />
 
       {modalAsignarVisible && (
         <ModalAsignarProveedor

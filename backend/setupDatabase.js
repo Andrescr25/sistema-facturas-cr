@@ -877,6 +877,13 @@ async function setupDatabase() {
     await client.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_proveedor_identificacion ON proveedor (identificacion) WHERE identificacion IS NOT NULL");
     await client.query("CREATE INDEX IF NOT EXISTS idx_proveedor_nombre ON proveedor (lower(nombre))");
 
+    // Rama independencia-alegra · migrations/independencia/007_proveedor_whatsapp_y_puente.sql
+    // (el relleno desde proveedor_contactos y desde la tabla vieja `proveedores`
+    // vive solo en la migración: en una instalación nueva no hay nada que traer)
+    await client.query('ALTER TABLE proveedor ADD COLUMN IF NOT EXISTS telefono_whatsapp VARCHAR(30)');
+    await client.query('ALTER TABLE proveedor ADD COLUMN IF NOT EXISTS legacy_id INTEGER');
+    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_proveedor_legacy ON proveedor (legacy_id) WHERE legacy_id IS NOT NULL');
+
     console.log('📋 Creando función para updated_at...');
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
