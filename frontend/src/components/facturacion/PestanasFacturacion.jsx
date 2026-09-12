@@ -1,4 +1,4 @@
-import { FilePlus2, PencilLine } from 'lucide-react'
+import { FilePlus2, PencilLine, Receipt } from 'lucide-react'
 
 /**
  * Nueva factura / Editar facturas.
@@ -12,11 +12,14 @@ export default function PestanasFacturacion({
 }) {
   const pestanas = [
     { clave: 'nueva', etiqueta: modoEdicion ? 'Editando' : 'Nueva factura', icono: FilePlus2 },
-    { clave: 'editar', etiqueta: 'Editar facturas', icono: PencilLine, insignia: edicionesPendientesCount }
+    { clave: 'editar', etiqueta: 'Editar facturas', icono: PencilLine, insignia: edicionesPendientesCount },
+    // Las ya emitidas: hasta ahora se facturaba y el documento desaparecía de
+    // la vista, sin dónde reimprimirlo ni ver quién queda debiendo.
+    { clave: 'facturas', etiqueta: 'Facturas', icono: Receipt }
   ]
 
   return (
-    <div className="mb-4 flex max-w-md rounded-2xl bg-neutro-100 p-1.5 md:mb-6">
+    <div className="mb-4 flex max-w-2xl rounded-2xl bg-neutro-100 p-1.5 md:mb-6">
       {pestanas.map((p) => {
         const Icono = p.icono
         const activa = tabActiva === p.clave

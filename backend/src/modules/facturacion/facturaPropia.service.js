@@ -317,7 +317,72 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     ]
   );
 
+  // EL COBRO VA APARTE DE LA CONDICIÓN DE VENTA, a propósito.
+  //
+  // "De contado" o "a 30 días" es lo que dice el documento, y sale del plazo
+  // del cliente. Si el cliente PAGÓ en el mostrador es otra cosa: un cliente
+  // con crédito puede pagar de una en efectivo, y uno de contado puede quedar
+  // debiendo. Derivar una de la otra deja facturas mostrando un saldo que
+  // nadie debe, y es lo que haría inútil la lista de cuentas por cobrar.
+  if (datos.cobro && datos.cobro.metodoPagoId) {
+    await registrarCobro(cliente, { factura, armado, cobro: datos.cobro, usuarioId });
+  }
+
   return { ...factura, lineas: armado.lineas };
+}
+
+/**
+ * El cobro de una venta que se paga en el mostrador.
+ *
+ * No lleva número: un recibo de cobro no es un documento fiscal con serie, y
+ * todavía no hay un esquema de numeración para ellos (sección 7 del
+ * checklist). Queda con su fecha, su método y su referencia, que es lo que
+ * hace falta para cuadrar caja.
+ */
+async function registrarCobro(cliente, { factura, armado, cobro, usuarioId }) {
+  const metodoId = Number(cobro.metodoPagoId);
+
+  const { rows: metodos } = await cliente.query(
+    'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE',
+    [metodoId]
+  );
+  const metodo = metodos[0];
+  if (!metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
+
+  const referencia = recortar(cobro.referencia, 60);
+  // SINPE y transferencia sin referencia son imposibles de cuadrar después:
+  // el catálogo dice cuáles la piden y acá se hace valer.
+  if (metodo.pide_referencia && !referencia) {
+    throw httpError(400, `${metodo.nombre}: falta el número de referencia del pago.`);
+  }
+
+  const monto = cobro.monto === undefined || cobro.monto === null
+    ? armado.total
+    : dinero(cobro.monto);
+  if (monto <= 0) throw httpError(400, 'El monto cobrado tiene que ser mayor que cero.');
+  if (monto > armado.total + 0.01) {
+    throw httpError(400, `No se puede cobrar ₡${monto} por una factura de ₡${armado.total}.`);
+  }
+
+  const { rows } = await cliente.query(
+    `INSERT INTO pago (fecha, cliente_id, cliente_nombre, metodo_pago_id, metodo_pago_texto,
+                       cuenta_dinero_id, cuenta_texto, referencia, monto, registrado_por)
+     VALUES ($1, $2, $3, $4, $5,
+             (SELECT id FROM cuenta_dinero WHERE nombre = 'Caja general' AND activo LIMIT 1),
+             'Caja general', $6, $7, $8)
+     RETURNING id`,
+    [
+      factura.fecha, factura.cliente_id, factura.cliente_nombre,
+      metodo.id, recortar(metodo.nombre, 40), referencia, monto, usuarioId ?? null
+    ]
+  );
+
+  await cliente.query(
+    'INSERT INTO pago_factura (pago_id, factura_id, monto) VALUES ($1, $2, $3)',
+    [rows[0].id, factura.id, monto]
+  );
+
+  return rows[0].id;
 }
 
 /** La semana del año, como la calculaba el registro viejo. */
@@ -546,4 +611,5 @@ async function editarFactura(id, datos, usuarioId) {
   });
 }
 
-module.exports = { crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };
+module.exports = {
+  registrarCobro, crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };

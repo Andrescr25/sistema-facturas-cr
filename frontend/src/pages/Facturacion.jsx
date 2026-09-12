@@ -1,5 +1,6 @@
 import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { useFacturacion } from '../hooks/useFacturacion'
+import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
 import CabeceraFacturacion from '../components/facturacion/CabeceraFacturacion'
 import PestanasFacturacion from '../components/facturacion/PestanasFacturacion'
 import AvisoFlotante from '../components/facturacion/AvisoFlotante'
@@ -13,6 +14,7 @@ import LineaFactura from '../components/facturacion/LineaFactura'
 import PanelCobro from '../components/facturacion/PanelCobro'
 import ModalCantidad from '../components/facturacion/ModalCantidad'
 import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
+import PanelFacturasEmitidas from '../components/facturacion/PanelFacturasEmitidas'
 
 /**
  * Facturación.
@@ -45,6 +47,7 @@ import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
  */
 export default function Facturacion() {
   const {
+    metodosPago, metodoPagoId, elegirMetodoPago, referenciaPago, setReferenciaPago,
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
     productos, facturasPendientes,
@@ -76,6 +79,12 @@ export default function Facturacion() {
     calcularSubtotal, calcularImpuestos, calcularDescuentoGlobal, calcularTotal,
     impuestoPrincipal
   } = useFacturacion()
+
+  // VA ANTES DEL RETURN DE CARGA, y no después: un hook que solo se llama en
+  // algunos renders rompe el orden y React tumba la pantalla entera con
+  // "Rendered more hooks than during the previous render". Solo consulta
+  // cuando la pestaña está abierta, que es lo que evita buscar de gusto.
+  const emitidas = useFacturasEmitidas({ activa: tabActiva === 'facturas' })
 
   if (loading && productos.length === 0) {
     return (
@@ -136,6 +145,8 @@ export default function Facturacion() {
           reintentandoLocalId={reintentandoLocalId}
         />
       )}
+
+      {tabActiva === 'facturas' && <PanelFacturasEmitidas f={emitidas} />}
 
       {tabActiva === 'nueva' && (
         <>
@@ -225,6 +236,11 @@ export default function Facturacion() {
 
               {hayLineas && (
                 <PanelCobro
+              metodosPago={metodosPago}
+              metodoPagoId={metodoPagoId}
+              onElegirMetodoPago={elegirMetodoPago}
+              referenciaPago={referenciaPago}
+              onCambiarReferenciaPago={setReferenciaPago}
                   items={items}
                   descuentoGlobal={descuentoGlobal}
                   impuestoPrincipal={impuestoPrincipal}

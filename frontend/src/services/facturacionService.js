@@ -89,18 +89,25 @@ class FacturacionService {
       console.log('📦 Actualizando cache de productos desde el maestro propio...');
       await this.verificarYLimpiarCacheCorrupto();
 
-      // El maestro se pide por páginas: son 2.025 productos y traerlos de un
-      // solo tirón es lo que hace que la pantalla se sienta trabada.
+      // El maestro se pide por páginas. El servidor corta en 100 por página
+      // aunque se le pidan 500, así que el tope de vueltas se calcula sobre
+      // ESO: con 20 vueltas se cargaban 2.000 de 2.025 y los últimos 25
+      // productos no aparecían al facturar. Un catálogo incompleto no da
+      // error, solo un producto que "no existe" cuando alguien lo busca.
       const productos = [];
       let pagina = 1;
       let paginas = 1;
+      const MAXIMO_VUELTAS = 200;
       do {
-        const response = await api.get('/maestro/productos', { params: { pagina, limite: 500 } });
-        const lote = response.data?.data ?? [];
-        productos.push(...lote);
+        const response = await api.get('/maestro/productos', { params: { pagina, limite: 100 } });
+        productos.push(...(response.data?.data ?? []));
         paginas = response.data?.paginacion?.paginas ?? 1;
         pagina += 1;
-      } while (pagina <= paginas && pagina <= 20);
+      } while (pagina <= paginas && pagina <= MAXIMO_VUELTAS);
+
+      if (paginas > MAXIMO_VUELTAS) {
+        console.warn(`⚠️ El maestro tiene ${paginas} páginas y se leyeron ${MAXIMO_VUELTAS}: faltan productos en el cache.`);
+      }
 
       const normalizados = productos.map(p => ({
         id: p.id,
@@ -143,13 +150,13 @@ class FacturacionService {
       const clientes = [];
       let pagina = 1;
       let paginas = 1;
+      const MAXIMO_VUELTAS = 200;
       do {
-        const response = await api.get('/clientes', { params: { pagina, limite: 500 } });
-        const lote = response.data?.data ?? [];
-        clientes.push(...lote);
+        const response = await api.get('/clientes', { params: { pagina, limite: 100 } });
+        clientes.push(...(response.data?.data ?? []));
         paginas = response.data?.paginacion?.paginas ?? 1;
         pagina += 1;
-      } while (pagina <= paginas && pagina <= 20);
+      } while (pagina <= paginas && pagina <= MAXIMO_VUELTAS);
 
       const normalizados = clientes.map(c => ({
         id: c.id,
@@ -325,9 +332,20 @@ class FacturacionService {
   async getMetodosPago() {
     const response = await api.get('/catalogos/configuracion');
     const metodos = response.data?.data?.metodosPago ?? response.data?.metodosPago ?? [];
+    // El `id` es el NUMÉRICO de nuestra tabla, que es lo que el servidor usa
+    // para registrar el cobro. Mandarle la clave de texto ("sinpe_movil"),
+    // imitando la forma de Alegra, revienta con "invalid input syntax for
+    // type integer". La clave se conserva aparte, que es de donde sale el
+    // icono de cada método.
     return metodos
       .filter(m => m.activo)
-      .map(m => ({ id: m.clave, name: m.nombre, type: m.clave, pideReferencia: m.pide_referencia }));
+      .map(m => ({
+        id: m.id,
+        clave: m.clave,
+        name: m.nombre,
+        type: m.clave,
+        pideReferencia: m.pide_referencia
+      }));
   }
 
   /**
@@ -567,6 +585,47 @@ class FacturacionService {
       await indexedDBService.markFacturaError(numeroLocal, alegraMessage);
       throw new Error(alegraMessage);
     }
+  }
+
+  /**
+   * Las facturas YA EMITIDAS, de la base propia.
+   *
+   * Devuelve la vista de consulta tal cual —con su saldo calculado y su
+   * estado— y no la forma vieja de Alegra: esta lista es nueva y no tiene por
+   * qué heredar ese vocabulario.
+   */
+  async listarFacturasEmitidas({ buscar = '', estado = 'emitidas', desde = '', hasta = '', pagina = 1, limite = 20 } = {}) {
+    const params = { estado, pagina, limite };
+    if (buscar) params.buscar = buscar;
+    if (desde) params.desde = desde;
+    if (hasta) params.hasta = hasta;
+
+    const response = await api.get('/facturacion/facturas', { params });
+    return {
+      facturas: response.data?.data ?? [],
+      paginacion: response.data?.paginacion ?? { total: 0, pagina: 1, paginas: 1 }
+    };
+  }
+
+  /** Una factura con sus líneas, sus cobros y sus notas de crédito. */
+  async detalleFacturaEmitida(id) {
+    const response = await api.get(`/facturacion/facturas/${id}`);
+    return response.data?.data ?? null;
+  }
+
+  /**
+   * Anular una factura. NO la borra: conserva su número y queda con el motivo
+   * escrito, porque un número que desaparece hay que explicárselo a Hacienda.
+   */
+  async anularFacturaEmitida(id, motivo) {
+    const response = await api.patch(`/facturacion/facturas/${id}/anular`, { motivo });
+    return response.data?.data ?? null;
+  }
+
+  /** Una nota de crédito contra una factura. */
+  async crearNotaCredito(datos) {
+    const response = await api.post('/facturacion/notas-credito', datos);
+    return response.data?.data ?? null;
   }
 
   /**

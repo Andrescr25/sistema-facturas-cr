@@ -137,3 +137,37 @@ test('los catálogos de la pantalla salen de la base propia', () => {
   assert.equal(/id: 3, name: 'IVA 13%'/.test(fuente), false);
   assert.equal(/alegra\/facturacion\//.test(fuente), false, 'quedó una lectura contra Alegra');
 });
+
+/**
+ * Tres cosas que se rompieron hoy al armar la pantalla y no se veían sin
+ * abrirla en un navegador.
+ */
+
+const HOOK_FACT = path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useFacturacion.js');
+
+test('el método de pago viaja con su id NUMÉRICO', () => {
+  // Mandar la clave de texto ("sinpe_movil"), imitando la forma de Alegra,
+  // devolvía 500: "invalid input syntax for type integer".
+  const fuente = fs.readFileSync(SERVICIO, 'utf8');
+  assert.match(fuente, /id: m\.id,\s*\n\s*clave: m\.clave/);
+  assert.equal(/id: m\.clave, name: m\.nombre/.test(fuente), false);
+});
+
+test('el catálogo se baja ENTERO, no las primeras 20 páginas', () => {
+  // El servidor corta en 100 por página aunque se le pidan 500: con 20
+  // vueltas se cargaban 2.000 de 2.025 y los últimos 25 productos no
+  // aparecían al facturar. Un catálogo incompleto no da error, solo un
+  // producto que "no existe" cuando alguien lo busca.
+  const fuente = fs.readFileSync(SERVICIO, 'utf8');
+  assert.match(fuente, /MAXIMO_VUELTAS = 200/);
+  assert.equal(/limite: 500/.test(fuente), false, 'pedir 500 no sirve: el servidor da 100');
+});
+
+test('mirar las facturas emitidas NO borra la venta en curso', () => {
+  // Antes, cualquier pestaña que no fuera "nueva" caía en "editar" y llamaba
+  // a limpiarFactura(): alguien armando una venta que iba a consultar un
+  // documento viejo volvía y encontraba el mostrador vacío.
+  const fuente = fs.readFileSync(HOOK_FACT, 'utf8');
+  const bloque = fuente.slice(fuente.indexOf('const cambiarTab'), fuente.indexOf('const cambiarTab') + 700);
+  assert.match(bloque, /if \(tab === 'facturas'\) \{\s*\n\s*setTabActiva\('facturas'\)\s*\n\s*return/);
+});

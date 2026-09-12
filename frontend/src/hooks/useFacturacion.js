@@ -65,6 +65,12 @@ export function useFacturacion() {
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
   const [impuestos, setImpuestos] = useState([])
+  // Cómo paga el cliente ESTA venta. No es la condición de venta del
+  // documento: un cliente con crédito puede pagar de una, y uno de contado
+  // puede quedar debiendo.
+  const [metodosPago, setMetodosPago] = useState([])
+  const [metodoPagoId, setMetodoPagoId] = useState(null)
+  const [referenciaPago, setReferenciaPago] = useState('')
   const [impuestoPrincipal, setImpuestoPrincipal] = useState(null)
   const [facturasPendientes, setFacturasPendientes] = useState([])
   const [reintentandoLocalId, setReintentandoLocalId] = useState(null)
@@ -366,10 +372,11 @@ export function useFacturacion() {
       await facturacionService.init()
 
       // Cargar datos del cache
-      const [productosCache, clientesCache, impuestosData, pendientes, stats] = await Promise.all([
+      const [productosCache, clientesCache, impuestosData, metodosData, pendientes, stats] = await Promise.all([
         facturacionService.getProductos(),
         facturacionService.getClientes(),
         facturacionService.getImpuestos(),
+        facturacionService.getMetodosPago().catch(() => []),
         facturacionService.getFacturasPendientes(),
         facturacionService.getCacheStats()
       ])
@@ -377,6 +384,7 @@ export function useFacturacion() {
       setProductos(productosCache)
       setClientes(clientesCache)
       prepararImpuestosIniciales(impuestosData)
+      setMetodosPago(metodosData || [])
       setFacturasPendientes(pendientes)
       setCacheStats(stats)
 
@@ -882,6 +890,19 @@ export function useFacturacion() {
         status: 'open'
       }
 
+      // El cobro viaja con la factura y se registra en la misma transacción:
+      // si la factura no se guarda, tampoco queda un pago suelto. Sin método
+      // elegido, la factura sale con su saldo y va a Cuentas por Cobrar.
+      if (metodoPagoId) {
+        const metodo = metodosPago.find(m => m.id === metodoPagoId)
+        facturaData.metodoPagoId = metodoPagoId
+        facturaData.metodoPagoTexto = metodo?.name || null
+        facturaData.cobro = {
+          metodoPagoId,
+          referencia: referenciaPago.trim() || null
+        }
+      }
+
       // Guardar con descuento global si existe
       if (descuentoGlobal > 0) {
         facturaData.discount = descuentoGlobal
@@ -1061,6 +1082,19 @@ export function useFacturacion() {
     setClienteSeleccionado(cliente)
     setBusquedaCliente('')
     setClientesEncontrados([])
+
+    // Por omisión, lo que pasa casi siempre: un cliente con plazo de crédito
+    // se lleva la factura y paga después; el de contado paga en el mostrador,
+    // y en efectivo. Quien factura lo puede cambiar en un toque.
+    const tieneCredito = Boolean(cliente?.plazoCreditoId) && cliente.plazoCreditoId !== 1
+    const efectivo = metodosPago.find(m => m.type === 'efectivo') || metodosPago[0] || null
+    setMetodoPagoId(tieneCredito ? null : (efectivo ? efectivo.id : null))
+    setReferenciaPago('')
+  }
+
+  const elegirMetodoPago = (id) => {
+    setMetodoPagoId(id)
+    if (id === null) setReferenciaPago('')
   }
 
   // --- Entrada rápida / búsqueda de producto ---
@@ -1116,16 +1150,31 @@ export function useFacturacion() {
   const cambiarTab = (tab) => {
     if (tab === 'nueva') {
       setTabActiva('nueva')
-      if (modoEdicion) {
-        limpiarFactura()
-      }
-    } else {
-      setTabActiva('editar')
-      limpiarFactura()
+      if (modoEdicion) limpiarFactura()
+      return
     }
+
+    // "Facturas" es SOLO CONSULTA y no toca la factura en curso: alguien que
+    // está armando una venta y va a mirar un documento viejo no puede volver
+    // y encontrarse el mostrador vacío. Antes cualquier pestaña que no fuera
+    // "nueva" caía en "editar" y borraba lo que había.
+    if (tab === 'facturas') {
+      setTabActiva('facturas')
+      return
+    }
+
+    setTabActiva('editar')
+    limpiarFactura()
   }
 
   return {
+    // Cómo se cobra esta venta
+    metodosPago,
+    metodoPagoId,
+    elegirMetodoPago,
+    referenciaPago,
+    setReferenciaPago,
+
     // Estado principal
     isOnline,
     isMobile,

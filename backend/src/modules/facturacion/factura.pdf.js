@@ -295,7 +295,23 @@ function totales(doc, f, ancho, y, F) {
   // de contado recién hecha, un "Saldo ₡0" sobra.
   if (conPagos) {
     yy += 8;
-    if (num(f.cobrado) > 0) renglon('Pagado', `−${colones(f.cobrado)}`);
+    if (num(f.cobrado) > 0) {
+      // CON QUÉ pagó, no solo cuánto. Si el cliente pagó por SINPE, el papel
+      // tiene que decirlo con su referencia: es lo que le permite comprobar
+      // que su transferencia se aplicó a ESTA factura y no a otra.
+      const vigentes = (f.cobros || []).filter(c => !c.anulado);
+      const formas = [...new Set(vigentes.map(c => c.metodo).filter(Boolean))];
+      renglon(formas.length ? `Pagado (${formas.join(', ')})` : 'Pagado', `−${colones(f.cobrado)}`);
+
+      // En su PROPIO renglón, debajo: `renglon()` ya adelantó `yy`, y restarle
+      // para "subirla" la escribía encima del monto.
+      const referencias = vigentes.map(c => c.referencia).filter(Boolean);
+      if (referencias.length) {
+        doc.font(F.normal).fontSize(7.5).fillColor(MARCA.grisSuave)
+          .text(`Ref. ${referencias.join(', ')}`, xCaja, yy, { width: anchoCaja, align: 'right' });
+        yy += 12;
+      }
+    }
     if (num(f.acreditado) > 0) renglon('Nota de crédito', `−${colones(f.acreditado)}`);
     doc.font(F.negrita).fontSize(10).fillColor(MARCA.tinta)
       .text('SALDO', xCaja, yy, { width: anchoCaja - 110, align: 'right' })

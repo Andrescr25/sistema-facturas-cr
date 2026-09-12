@@ -187,6 +187,9 @@ describe('el archivo', () => {
       condicionVenta: 'credito', plazo: '30 días', fechaVencimiento: '2026-10-10',
       descuento: 300, cobrado: 1000, acreditado: 500, saldo: 1890,
       observaciones: 'Entregar en la bodega de atrás.',
+      // El papel dice CON QUÉ se pagó y su referencia: es lo que le permite
+      // al cliente comprobar que su SINPE se aplicó a esta factura.
+      cobros: [{ id: 1, metodo: 'SINPE Móvil', referencia: '8827-2453', anulado: false, monto: 1000 }],
       lineas: [{ ...LINEA, descuentoPorcentaje: 10, descuentoMonto: 300 },
                { ...LINEA, numeroLinea: 2, tarifa: 1, impuestoMonto: 10 }]
     });
