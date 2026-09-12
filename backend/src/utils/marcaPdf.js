@@ -75,9 +75,25 @@ function colonesExacto(n) {
   return `₡${v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ /g, '.')}`;
 }
 
-const fechaLarga = (f) =>
-  new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString('es-CR', {
-    day: 'numeric', month: 'long', year: 'numeric'
-  });
+/**
+ * "10 de setiembre de 2026".
+ *
+ * Acepta texto ("2026-09-10") y también un Date, que es como Postgres
+ * devuelve las columnas DATE. Recortar `String(unDate)` a diez caracteres da
+ * "Wed Sep 10", y de ahí salía un "Invalid Date" impreso donde va la fecha de
+ * la factura. Las cotizaciones no lo notaron porque sus fechas vienen de
+ * Alegra como texto.
+ */
+const fechaLarga = (f) => {
+  if (!f) return '';
+  // De un Date se leen sus partes LOCALES. Pasar por toISOString lo corre a
+  // UTC y en Costa Rica (−6) una fecha guardada a medianoche cambia de día.
+  const iso = f instanceof Date
+    ? `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
+    : String(f).slice(0, 10);
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(f);
+  return d.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 
 module.exports = { MARCA, LOGO, LOGO_RATIO, NEGOCIO, FUENTES, registrarFuentes, colones, colonesExacto, fechaLarga };

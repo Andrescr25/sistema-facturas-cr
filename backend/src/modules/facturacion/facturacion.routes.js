@@ -23,6 +23,8 @@ const controller = new FacturacionController();
 // ---- Factura propia, sin Alegra ----
 router.get('/facturas', facturaPropia.listar);
 router.get('/facturas/:id', facturaPropia.ver);
+// El PDF propio: es lo que permite entregar la venta impresa sin Alegra.
+router.get('/facturas/:id/pdf', facturaPropia.pdf);
 router.post('/facturas', facturaPropia.crear);
 router.put('/facturas/:id', facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un

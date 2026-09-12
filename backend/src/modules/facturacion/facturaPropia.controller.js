@@ -11,6 +11,7 @@
 
 const servicio = require('./facturaPropia.service');
 const consulta = require('./facturaConsulta.service');
+const { generarPdfFactura } = require('./factura.pdf');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -49,6 +50,25 @@ module.exports = {
       res.json({ success: true, data: factura });
     } catch (error) {
       fallo(res, error, 'ver');
+    }
+  },
+
+  /**
+   * GET /facturacion/facturas/:id/pdf — el papel que recibe el cliente,
+   * armado por nosotros.
+   *
+   * Se devuelve el ARCHIVO, no un enlace: el PDF lo genera este servidor, y un
+   * enlace tendría que ser público para que el navegador lo abriera solo.
+   */
+  pdf: async (req, res) => {
+    try {
+      const factura = await consulta.obtenerFactura(req.params.id);
+      const archivo = await generarPdfFactura(factura);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="factura-${factura.numero}.pdf"`);
+      return res.send(archivo);
+    } catch (error) {
+      fallo(res, error, 'pdf');
     }
   },
 
