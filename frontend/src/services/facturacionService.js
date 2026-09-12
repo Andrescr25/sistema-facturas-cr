@@ -83,7 +83,7 @@ class FacturacionService {
       // Verificar y limpiar cache corrupto antes de actualizar
       await this.verificarYLimpiarCacheCorrupto();
       
-      const response = await api.get('/alegra/facturacion/items');
+      const response = await api.get('/facturacion/items');
       
       if (response.data.success) {
         const productos = response.data.data;
@@ -168,7 +168,7 @@ class FacturacionService {
     try {
       console.log('👥 Actualizando cache de contactos (clientes, proveedores, etc.) desde Alegra...');
       
-      const response = await api.get('/alegra/facturacion/contacts');
+      const response = await api.get('/facturacion/contacts');
       
       if (response.data.success) {
         const clientes = response.data.data;
@@ -369,7 +369,7 @@ class FacturacionService {
    */
   async getImpuestos() {
     try {
-      const response = await api.get('/alegra/facturacion/taxes');
+      const response = await api.get('/facturacion/taxes');
       
       if (response.data.success) {
         return response.data.data;
@@ -391,7 +391,7 @@ class FacturacionService {
    */
   async getMetodosPago() {
     try {
-      const response = await api.get('/alegra/facturacion/payment-methods');
+      const response = await api.get('/facturacion/payment-methods');
       
       if (response.data.success) {
         return response.data.data;
@@ -433,7 +433,7 @@ class FacturacionService {
       if (this.isOnline) {
         // Intentar crear directamente en Alegra
         try {
-          const response = await api.post('/alegra/facturacion/invoices', {
+          const response = await api.post('/facturacion/invoices', {
             ...facturaData,
             claveIdempotencia
           });
@@ -533,7 +533,7 @@ class FacturacionService {
       for (const factura of facturasPendientes) {
         try {
           // Intentar crear en Alegra
-          const response = await api.post('/alegra/facturacion/invoices', {
+          const response = await api.post('/facturacion/invoices', {
             ...factura,
             claveIdempotencia: factura.claveIdempotencia
           });
@@ -620,7 +620,7 @@ class FacturacionService {
     }
 
     try {
-      const response = await api.post('/alegra/facturacion/invoices', {
+      const response = await api.post('/facturacion/invoices', {
         ...factura,
         claveIdempotencia: factura.claveIdempotencia
       });
@@ -944,7 +944,7 @@ class FacturacionService {
       const pendientes = await indexedDBService.getFacturasPendientes();
       const guardada = pendientes.find(f => f.localId === numeroLocal);
 
-      const response = await api.post('/alegra/facturacion/invoices', {
+      const response = await api.post('/facturacion/invoices', {
         ...facturaData,
         claveIdempotencia: guardada?.claveIdempotencia || null
       });
