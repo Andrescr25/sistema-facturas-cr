@@ -46,6 +46,11 @@ marca `- [x]` al terminar.
 - **Pruebas:** `cd backend && npm test`. Las que usan base van contra la copia
   local. Las de escritura real, dentro de una transacción que se revierte, se
   corren con `PROBAR_BASE_LOCAL=1`.
+- **Si una prueba falla con `Unable to deserialize cloned data`**, no es el
+  código: es el corredor de Node 25 leyendo mal el reporte de un proceso hijo
+  cuando corren ocho archivos a la vez. Las pruebas de ese archivo pasan todas.
+  Por eso `npm test` corre con `--test-concurrency=2`, que en 5 corridas
+  seguidas no falló ninguna vez (con 8 en paralelo falla como 1 de cada 3).
 - **Llaves de escape** (`PERMITIR_BASE_REMOTA`, `PERMITIR_SALIDAS`): solo el
   día del corte y a propósito.
 
