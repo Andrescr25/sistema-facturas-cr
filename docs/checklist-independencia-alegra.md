@@ -225,6 +225,11 @@ por movimiento.
 - [ ] Retirar el módulo `duplicados-electronica`, que solo existe por cómo Alegra convierte facturas
 - [ ] Dejar el espacio para la emisión electrónica pospuesta: la factura guarda todo lo necesario para emitirla después sin rehacer el modelo
 
+**Hallazgos de esta sección:**
+- **El permiso del módulo Facturación no se está aplicando, también en `main`.** Sus rutas reales viven en `/api/alegra/facturacion/...` (las monta `routes/alegra.js`), y `/alegra` está en `COMPARTIDAS`, así que el middleware las deja pasar a cualquiera que haya entrado. Comprobado contra la copia local con un usuario sin el módulo: `GET /api/alegra/facturacion/taxes` → 200, mientras `/api/facturacion/taxes` → 403 y `/api/rentabilidad` → 403. Crear factura (`POST /api/alegra/facturacion/invoices`) cuelga del mismo prefijo. Al mover Facturación a rutas propias (`/api/facturacion`), el permiso empieza a valer solo; mientras tanto, en `main` sigue abierto.
+- La factura de Alegra trae `term` como **texto** ("De contado"), no como el objeto con `id` que mandan los contactos: el plazo hay que calzarlo por nombre o días al copiar.
+- El impuesto de cada línea viene con todo el árbol de categorías contables de Alegra; de ahí solo sirven `id`, `percentage` y `amount`.
+
 **Lista cuando:** se puede vender, editar, anular y devolver sin abrir Alegra.
 
 ---
