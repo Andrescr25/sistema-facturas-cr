@@ -135,7 +135,17 @@ function proveedorDesdeAlegra(contacto, { plazos }) {
   };
 }
 
-const esCliente = (c) => (c.type || []).includes('client');
+/**
+ * En esta cuenta hay 43 contactos sin ningún tipo puesto, y no son fichas
+ * sueltas: entre ellos están las pulperías que más compran (una tiene 1.549
+ * ventas en el histórico). Dejarlos fuera sería perder los clientes de
+ * siempre, así que el contacto sin tipo cuenta como cliente. El que dice ser
+ * proveedor, en cambio, tiene que decirlo.
+ */
+const esCliente = (c) => {
+  const tipos = c.type || [];
+  return tipos.includes('client') || tipos.length === 0;
+};
 const esProveedor = (c) => (c.type || []).includes('provider');
 
 module.exports = { clienteDesdeAlegra, proveedorDesdeAlegra, esCliente, esProveedor, TIPOS };

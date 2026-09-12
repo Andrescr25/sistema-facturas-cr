@@ -107,6 +107,15 @@ test('un contacto puede ser cliente y proveedor a la vez', () => {
   assert.equal(esProveedor(ambos), true);
 });
 
+test('el contacto sin tipo cuenta como cliente, pero no como proveedor', () => {
+  // En esta cuenta son 43, y entre ellos están las pulperías que más compran.
+  for (const sinTipo of [{ ...CONTACTO, type: [] }, { ...CONTACTO, type: undefined }]) {
+    assert.equal(esCliente(sinTipo), true);
+    assert.equal(esProveedor(sinTipo), false);
+  }
+  assert.equal(esCliente({ ...CONTACTO, type: ['provider'] }), false, 'el proveedor declarado no se cuela como cliente');
+});
+
 test('sin id o nombre no se carga a medias', () => {
   assert.throws(() => clienteDesdeAlegra({ name: 'x' }, contexto), /sin id o nombre/);
   assert.throws(() => clienteDesdeAlegra({ id: 1, name: '   ' }, contexto), /sin id o nombre/);

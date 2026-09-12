@@ -16,6 +16,9 @@ const net = require('net');
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const MAXIMO_BYTES = 5 * 1024 * 1024;
+// Techo para quien pida más (la migración de fotos de Alegra): ni así se baja
+// cualquier cosa desde un sitio ajeno.
+const MAXIMO_ABSOLUTO = 8 * 1024 * 1024;
 const MAXIMO_SALTOS = 3;
 
 function httpError(status, message) {
@@ -71,7 +74,8 @@ function traducirFalloRemoto(error) {
   return httpError(400, 'No se pudo conectar con el sitio de la imagen.');
 }
 
-async function descargarImagen(direccion, { cliente = axios, lookup = dns.lookup } = {}) {
+async function descargarImagen(direccion, { cliente = axios, lookup = dns.lookup, maximoBytes = MAXIMO_BYTES } = {}) {
+  const tope = Math.min(Number(maximoBytes) > 0 ? Number(maximoBytes) : MAXIMO_BYTES, MAXIMO_ABSOLUTO);
   let actual = await revisarDireccion(direccion, lookup);
   for (let salto = 0; salto <= MAXIMO_SALTOS; salto++) {
     let r;
@@ -80,7 +84,7 @@ async function descargarImagen(direccion, { cliente = axios, lookup = dns.lookup
       responseType: 'arraybuffer',
       timeout: 15000,
       maxRedirects: 0,
-      maxContentLength: MAXIMO_BYTES,
+      maxContentLength: tope,
       validateStatus: s => s >= 200 && s < 400,
       headers: { 'User-Agent': UA }
       });

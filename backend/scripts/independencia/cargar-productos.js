@@ -23,6 +23,15 @@ const COLUMNAS = [
   'registro_sanitario', 'imagen_url', 'activo', 'oculto', 'alegra_id'
 ];
 
+// Al actualizar, la foto propia NO se pisa con la de Alegra: la nuestra vive en
+// nuestro almacenamiento y la de Alegra viene firmada y vence. Sin esto, cada
+// carga desharía el trabajo de scripts/independencia/migrar-fotos.js.
+const ASIGNACIONES = COLUMNAS.filter(c => c !== 'alegra_id').map(c => (
+  c === 'imagen_url'
+    ? "imagen_url = CASE WHEN producto.imagen_url LIKE '/archivos/%' THEN producto.imagen_url ELSE EXCLUDED.imagen_url END"
+    : `${c} = EXCLUDED.${c}`
+));
+
 async function leer(ruta, params) {
   const r = await alegra.get(ruta, params);
   if (r?.success === false) throw new Error(`Alegra ${ruta}: ${r.status} ${r.data?.message || r.error}`);
@@ -78,7 +87,7 @@ async function main() {
       }
       await cliente.query(
         `INSERT INTO producto (${COLUMNAS.join(', ')}) VALUES (${COLUMNAS.map((_, i) => `$${i + 1}`).join(', ')})
-         ON CONFLICT (alegra_id) DO UPDATE SET ${COLUMNAS.filter(c => c !== 'alegra_id').map(c => `${c} = EXCLUDED.${c}`).join(', ')},
+         ON CONFLICT (alegra_id) DO UPDATE SET ${ASIGNACIONES.join(', ')},
            actualizado_en = CURRENT_TIMESTAMP`,
         COLUMNAS.map(c => fila[c])
       );

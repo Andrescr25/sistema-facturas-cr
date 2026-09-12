@@ -43,6 +43,20 @@ describe('almacenamiento local', () => {
     await assert.rejects(almacenamiento.guardarImagen({ carpeta: 'productos', prefijo: '7', buffer: grande }), /2 MB/);
   });
 
+  test('se puede pedir más espacio para traer una foto que ya es de la empresa, pero no sin techo', async () => {
+    const tresMB = Buffer.concat([JPG, Buffer.alloc(3 * 1024 * 1024)]);
+    // Con el límite de siempre no entra; pidiendo más, sí.
+    await assert.rejects(almacenamiento.guardarImagen({ carpeta: 'productos', prefijo: '8', buffer: tresMB }), /2 MB/);
+    const r = await almacenamiento.guardarImagen({ carpeta: 'productos', prefijo: '8', buffer: tresMB, maximoBytes: 8 * 1024 * 1024 });
+    assert.match(r.ruta, /^\/archivos\/productos\/8-/);
+    // Y el techo no se puede saltar pidiendo un número enorme.
+    const nueveMB = Buffer.concat([JPG, Buffer.alloc(9 * 1024 * 1024)]);
+    await assert.rejects(
+      almacenamiento.guardarImagen({ carpeta: 'productos', prefijo: '8', buffer: nueveMB, maximoBytes: Number.MAX_SAFE_INTEGER }),
+      /8 MB/
+    );
+  });
+
   test('carpeta o prefijo con ../ no pasan', async () => {
     await assert.rejects(almacenamiento.guardarImagen({ carpeta: '../../etc', prefijo: '7', buffer: JPG }), /inválidos/);
     await assert.rejects(almacenamiento.guardarImagen({ carpeta: 'productos', prefijo: '../x', buffer: JPG }), /inválidos/);
@@ -100,6 +114,15 @@ describe('descarga de imágenes', () => {
     }
     const lento = { get: async () => { const e = new Error('timeout of 15000ms exceeded'); e.code = 'ECONNABORTED'; throw e; } };
     await assert.rejects(descargarImagen('https://imagenes.ejemplo.com/a.jpg', { cliente: lento, lookup: publica }), /tardó demasiado/);
+  });
+
+  test('el máximo que se le pide al sitio también tiene techo', async () => {
+    const pedidos = [];
+    const cliente = { get: async (url, config) => { pedidos.push(config.maxContentLength); return { status: 200, headers: {}, data: JPG }; } };
+    await descargarImagen('https://imagenes.ejemplo.com/a.jpg', { cliente, lookup: publica });
+    await descargarImagen('https://imagenes.ejemplo.com/a.jpg', { cliente, lookup: publica, maximoBytes: 8 * 1024 * 1024 });
+    await descargarImagen('https://imagenes.ejemplo.com/a.jpg', { cliente, lookup: publica, maximoBytes: 500 * 1024 * 1024 });
+    assert.deepEqual(pedidos, [5 * 1024 * 1024, 8 * 1024 * 1024, 8 * 1024 * 1024]);
   });
 
   test('sigue una redirección pública y devuelve los bytes', async () => {

@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const RAIZ = path.resolve(process.env.ALMACENAMIENTO_DIR || path.join(__dirname, '..', '..', '..', 'almacenamiento'));
 const PREFIJO_PUBLICO = '/archivos';
 const MAXIMO_BYTES = 2 * 1024 * 1024;
+const MAXIMO_ABSOLUTO = 8 * 1024 * 1024;
 const NOMBRE_SEGURO = /^[a-z0-9-]+$/;
 
 function httpError(status, message) {
@@ -36,12 +37,19 @@ function tipoDeImagen(buffer) {
   return null;
 }
 
-async function guardarImagen({ carpeta, prefijo, buffer }) {
+/**
+ * `maximoBytes` sirve para traer fotos que ya son de la empresa y pesan más
+ * de lo que se le permite subir a una persona (las de Alegra, al pasarlas a
+ * almacenamiento propio). Aun así hay un techo: nadie puede pedir lo que
+ * quiera.
+ */
+async function guardarImagen({ carpeta, prefijo, buffer, maximoBytes = MAXIMO_BYTES }) {
   if (!NOMBRE_SEGURO.test(String(carpeta || '')) || !NOMBRE_SEGURO.test(String(prefijo || ''))) {
     throw new Error('almacenamiento: carpeta o prefijo inválidos');
   }
+  const tope = Math.min(Number(maximoBytes) > 0 ? Number(maximoBytes) : MAXIMO_BYTES, MAXIMO_ABSOLUTO);
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw httpError(400, 'La imagen está vacía.');
-  if (buffer.length > MAXIMO_BYTES) throw httpError(400, `La imagen pesa más de ${MAXIMO_BYTES / 1024 / 1024} MB.`);
+  if (buffer.length > tope) throw httpError(400, `La imagen pesa más de ${(tope / 1024 / 1024).toFixed(0)} MB.`);
   const extension = tipoDeImagen(buffer);
   if (!extension) throw httpError(400, 'El archivo no es una imagen JPG, PNG, WEBP ni GIF.');
 

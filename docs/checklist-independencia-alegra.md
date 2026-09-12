@@ -113,7 +113,7 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
 - [x] Editar producto con **todos** los campos, incluidos CABYS, impuesto, unidad, descripción y datos de medicamento. La pantalla muestra el precio con IVA y el margen mientras se escribe; cada cambio de precio va a `precio_historico` y todo a la bitácora
 - [x] Activar y desactivar en vez de borrar, y ocultar de los catálogos de clientes. Se hace desde la hoja del producto, con filtro de estado en la grilla (activos, ocultos, inactivos y todos)
 - [x] Categorías: crear, renombrar y desactivar, en una pestaña de Gestión de Catálogo que reutiliza la tabla y el formulario de Configuración
-- [ ] Fotos en almacenamiento propio. Las URL de Alegra vencen a los 7 días. *Avance: toda foto nueva (subida o sugerida) ya se guarda en almacenamiento propio y se sirve desde `/archivos`; solo se aceptan imágenes reales de hasta 2 MB y la descarga rechaza direcciones de la red interna. **Falta pasar las fotos que ya existen**, que siguen siendo URLs de Alegra*
+- [x] Fotos en almacenamiento propio. Las URL de Alegra vencen. Toda foto nueva (subida o sugerida) se guarda en `/archivos`, solo se aceptan imágenes de verdad y la descarga rechaza direcciones de la red interna. Las **2.022 que ya existían** se pasaron con `scripts/independencia/migrar-fotos.js` (270 MB en disco, 54 s). El script se puede volver a correr: salta lo que ya es nuestro y, si una firma venció, le pide a Alegra una dirección nueva. `cargar-productos.js` ya no pisa una foto propia con una de Alegra. Una persona sube hasta 2 MB; la migración acepta hasta 8 MB porque 20 fotos de la empresa pesaban más. Quedan 108 productos que nunca tuvieron foto
 - [x] `precio_historico` y `costo_historico` apuntando al id propio (migración `independencia/005`): 209 de 209 y 7.903 de 7.907 enlazadas; las 4 restantes son de productos que ya no existen en Alegra. `alegra_item_id` dejó de ser obligatorio
 - [ ] Facturación, catálogo del agente, catálogo de clientes y portal leyendo de `producto`
 - [ ] Retirar la sincronización de productos cada 6 horas
@@ -136,14 +136,18 @@ editarlos. La integración tiene los métodos, pero nadie los llama.
 Facturación los busca en la caché que viene de Alegra. El portal usa
 `alegra_contact_id`.
 
-- [ ] Tabla `cliente`: tipo y número de identificación, nombre, nombre comercial, hasta 4 correos, teléfonos, provincia, cantón, distrito y señas, actividades económicas, plazo y límite de crédito, exoneración, observaciones y estado
-- [ ] Carga inicial de los 204 clientes
+- [x] Tabla `cliente` (migración `independencia/006`): tipo y número de identificación, nombre, hasta 4 correos, tres teléfonos, provincia, cantón, distrito, barrio y señas, actividad económica, plazo y límite de crédito, exoneración, observaciones y estado. *Falta nombre comercial y actividades secundarias: se agregan al hacer la pantalla*
+- [x] Carga inicial con `scripts/independencia/cargar-contactos.js`: **247 clientes**, no 204. En Alegra hay 43 contactos sin ningún tipo puesto que son clientes de siempre (uno tiene 1.549 ventas), así que el contacto sin tipo cuenta como cliente
 - [ ] Pantalla de clientes: listar, buscar, crear, editar y desactivar. Hoy `/clientes` solo maneja el portal
 - [ ] Validar la identificación según su tipo (física, jurídica, DIMEX, NITE) y validar teléfonos (lección de los teléfonos sucios)
 - [ ] Traer las actividades económicas por cédula desde la consulta pública de Hacienda al crear o editar
 - [ ] Ficha del cliente con facturas, saldo, abonos, pedidos e historial de compras. Hoy está repartido entre CxC, Reporte de Clientes y portal
 - [ ] Portal, catálogo del agente, CxC y WhatsApp usando `cliente.id`
-- [ ] Datos a completar: 176 sin correo, 9 sin identificación, 202 sin actividad económica
+- [ ] Datos a completar, medidos al cargar los 247: 212 sin correo, 245 sin actividad económica, 75 sin un teléfono usable, 24 sin identificación y 1 con un tipo que el sistema no conoce. *Va al final, junto con Hacienda*
+
+**Hallazgos de esta sección:**
+- 9 clientes con ventas en el histórico (90 facturas en total, la mayor con 24) ya **no existen como contacto en Alegra**: alguien los borró allá. Al cargar las facturas hay que crearlos desde el nombre que quedó en la venta, o las facturas se quedarían sin cliente.
+- 3 contactos son cliente y proveedor a la vez; están en las dos tablas, con el mismo `alegra_id`.
 
 **Lista cuando:** se puede dar de alta un cliente nuevo y facturarle sin
 abrir Alegra.
@@ -156,8 +160,8 @@ abrir Alegra.
 (`supplier_product_mapping`, 36 cédulas), la tabla `proveedores` (25 filas y
 sin cédula) y 34 contactos en Alegra que se crean al enviar compras.
 
-- [ ] Tabla `proveedor` por cédula: nombre, plazo, correo y teléfono de WhatsApp; los contactos de pedido ya existen en `proveedor_contactos`
-- [ ] Unificar las tres fuentes en una sola lista
+- [x] Tabla `proveedor` por cédula (migración `independencia/006`): nombre, tipo y número de identificación, correo, teléfono, plazo, observaciones y estado; los contactos de pedido ya existen en `proveedor_contactos`
+- [ ] Unificar las tres fuentes en una sola lista. *Avance: `cargar-contactos.js` junta los 34 de Alegra con las 8 cédulas que solo estaban en `supplier_product_mapping` = **42 proveedores**, sin ninguna cédula repetida. Falta absorber la tabla vieja `proveedores` (25 filas, sin cédula)*
 - [ ] Pantalla de proveedores: crear, editar y ver sus productos, compras y saldo
 - [ ] Mapeo producto ↔ proveedor apuntando a `producto.id` y `proveedor.id`
 
