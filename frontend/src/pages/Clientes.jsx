@@ -1,28 +1,37 @@
 import { useState } from 'react'
-import { Users, ClipboardList, Tablet } from 'lucide-react'
+import { Users, ClipboardList, Tablet, Contact } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
 import { useClientesPortal } from '../hooks/useClientesPortal'
+import { useClientes } from '../hooks/useClientes'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
 import ListaPedidos from '../components/clientes/ListaPedidos'
 import DispositivosAgente from '../components/clientes/DispositivosAgente'
 import ListaCuentas from '../components/clientes/ListaCuentas'
+import ListaClientes from '../components/clientes/ListaClientes'
+import ModalCliente from '../components/clientes/ModalCliente'
 import ModalInvitacion from '../components/clientes/ModalInvitacion'
 import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
 import { mensajePedido } from '../utils/mensajesWhatsApp'
 import api from '../services/api'
 
 /**
- * Clientes: las cuentas del portal y los pedidos que entraron por ahí.
+ * Clientes: las fichas, las cuentas del portal y los pedidos que entraron por
+ * ahí.
  *
- * Arranca en Pedidos y no en Cuentas a propósito: lo que hay que atender a
- * diario son los pedidos esperando factura; invitar clientes se hace una vez
- * por cliente y después casi nunca.
+ * Arranca en Pedidos y no en Fichas a propósito: lo que hay que atender a
+ * diario son los pedidos esperando factura; la ficha se abre cuando hay algo
+ * que corregir.
+ *
+ * "Fichas" son los datos del cliente (rama independencia-alegra): antes vivían
+ * en Alegra y no había forma de crearlos ni corregirlos desde el sistema.
+ * "Cuentas" es otra cosa: quién puede entrar al portal.
  */
 export default function Clientes() {
   const { toasts, showToast, removeToast } = useToast()
   const { confirm, dialogProps } = useDialog()
+  const fichas = useClientes({ showToast, confirm })
 
   const {
     vista, setVista,
@@ -40,6 +49,7 @@ export default function Clientes() {
 
   const TABS = [
     { id: 'pedidos', texto: 'Pedidos', icono: ClipboardList, contador: filtroPedidos === 'pendiente' ? pendientes : 0 },
+    { id: 'fichas', texto: 'Fichas', icono: Contact, contador: 0 },
     { id: 'clientes', texto: 'Cuentas', icono: Users, contador: 0 },
     { id: 'dispositivos', texto: 'Tablets del agente', icono: Tablet, contador: 0 }
   ]
@@ -53,7 +63,9 @@ export default function Clientes() {
         </p>
       </div>
 
-      <div className="flex gap-2">
+      {/* Con cuatro pestañas ya no caben en una línea de teléfono: se acomodan
+          en dos en vez de salirse de la pantalla. */}
+      <div className="flex flex-wrap gap-2">
         {TABS.map(t => {
           const Icono = t.icono
           return (
@@ -81,6 +93,22 @@ export default function Clientes() {
 
       {vista === 'dispositivos' ? (
         <DispositivosAgente />
+      ) : vista === 'fichas' ? (
+        <ListaClientes
+          clientes={fichas.clientes}
+          cargando={fichas.cargando}
+          busqueda={fichas.busqueda}
+          setBusqueda={fichas.setBusqueda}
+          estado={fichas.estado}
+          setEstado={fichas.setEstado}
+          paginacion={fichas.paginacion}
+          pagina={fichas.pagina}
+          setPagina={fichas.setPagina}
+          procesando={fichas.procesando}
+          onNuevo={() => fichas.setEditando({})}
+          onEditar={fichas.setEditando}
+          onCambiarEstado={fichas.cambiarEstado}
+        />
       ) : vista === 'pedidos' ? (
         <ListaPedidos
           pedidos={pedidos}
@@ -102,6 +130,16 @@ export default function Clientes() {
           onInvitar={generarInvitacion}
           onRevocar={revocar}
           onReactivar={reactivar}
+        />
+      )}
+
+      {fichas.editando && (
+        <ModalCliente
+          cliente={fichas.editando.id ? fichas.editando : null}
+          plazos={fichas.plazos}
+          guardando={fichas.guardando}
+          onGuardar={fichas.guardar}
+          onCerrar={() => fichas.setEditando(null)}
         />
       )}
 

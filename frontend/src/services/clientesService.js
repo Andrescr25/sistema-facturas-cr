@@ -1,0 +1,40 @@
+import api from './api'
+
+/**
+ * Maestro de clientes propio (rama independencia-alegra).
+ *
+ * Hasta ahora la pantalla de Clientes solo manejaba el portal y las fichas
+ * vivían en Alegra, sin forma de crearlas ni corregirlas desde el sistema.
+ */
+export const clientesService = {
+  async listar(filtros) {
+    const { data } = await api.get('/clientes', { params: filtros })
+    return { clientes: data.data, paginacion: data.paginacion }
+  },
+
+  async obtener(id) {
+    const { data } = await api.get(`/clientes/${id}`)
+    return data.data
+  },
+
+  async crear(valores) {
+    const { data } = await api.post('/clientes', valores)
+    return data.data
+  },
+
+  async editar(id, cambios) {
+    const { data } = await api.put(`/clientes/${id}`, cambios)
+    return data.data
+  },
+
+  async cambiarEstado(id, activo) {
+    const { data } = await api.patch(`/clientes/${id}/estado`, { activo })
+    return data.data
+  },
+
+  /** Los plazos de crédito activos, de la configuración propia. */
+  async plazos() {
+    const { data } = await api.get('/catalogos/configuracion')
+    return data.data.plazos
+  }
+}

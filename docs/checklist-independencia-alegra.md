@@ -138,7 +138,7 @@ Facturación los busca en la caché que viene de Alegra. El portal usa
 
 - [x] Tabla `cliente` (migración `independencia/006`): tipo y número de identificación, nombre, hasta 4 correos, tres teléfonos, provincia, cantón, distrito, barrio y señas, actividad económica, plazo y límite de crédito, exoneración, observaciones y estado. *Falta nombre comercial y actividades secundarias: se agregan al hacer la pantalla*
 - [x] Carga inicial con `scripts/independencia/cargar-contactos.js`: **247 clientes**, no 204. En Alegra hay 43 contactos sin ningún tipo puesto que son clientes de siempre (uno tiene 1.549 ventas), así que el contacto sin tipo cuenta como cliente
-- [ ] Pantalla de clientes: listar, buscar, crear, editar y desactivar. Hoy `/clientes` solo maneja el portal
+- [x] Pantalla de clientes: pestaña **Fichas** en `/clientes`, con listar, buscar (nombre, cédula o correo), filtrar por estado, crear, editar y desactivar. La tarjeta muestra lo que falta como falta ("Sin correo", "Sin teléfono") para verlo sin abrir cada ficha. Las otras pestañas (Pedidos, Cuentas del portal, Tablets) quedan igual
 - [ ] Validar la identificación según su tipo (física, jurídica, DIMEX, NITE) y validar teléfonos (lección de los teléfonos sucios)
 - [ ] Traer las actividades económicas por cédula desde la consulta pública de Hacienda al crear o editar
 - [ ] Ficha del cliente con facturas, saldo, abonos, pedidos e historial de compras. Hoy está repartido entre CxC, Reporte de Clientes y portal
