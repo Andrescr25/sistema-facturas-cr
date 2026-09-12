@@ -16,6 +16,7 @@
 const express = require('express');
 const FacturacionController = require('./facturacion.controller');
 const facturaPropia = require('./facturaPropia.controller');
+const notaCredito = require('./notaCredito.controller');
 
 const router = express.Router();
 const controller = new FacturacionController();
@@ -30,6 +31,13 @@ router.put('/facturas/:id', facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un
 // número que desaparece es un hueco que después hay que explicarle a Hacienda.
 router.patch('/facturas/:id/anular', facturaPropia.anular);
+
+// ---- Notas de crédito propias ----
+// Deshacen una venta ya entregada SIN borrar la factura: el número se conserva
+// y la nota dice qué se devuelve y por qué.
+router.get('/notas-credito/motivos', notaCredito.motivos);
+router.post('/notas-credito', notaCredito.crear);
+router.patch('/notas-credito/:id/anular', notaCredito.anular);
 
 // ---- Contra Alegra (lo de siempre) ----
 router.get('/items', controller.getItems);

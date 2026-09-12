@@ -1096,10 +1096,25 @@ async function setupDatabase() {
     // En una instalación nueva no hay nada que continuar, así que la serie
     // arranca en 1. En la migración, en cambio, se siembra desde lo último que
     // se emitió: empezar de nuevo repetiría números de facturas que ya existen.
+    // El ON CONFLICT nombra las CUATRO columnas de la llave única. Decía tres
+    // —las de la restricción vieja, que se borra doce líneas más arriba— y
+    // contra el esquema de hoy revienta con "there is no unique or exclusion
+    // constraint matching the ON CONFLICT specification". No se notaba porque
+    // setupDatabase.js no corre al arrancar el servidor; sí corre en una
+    // instalación nueva, que es donde habría dejado la base sin series.
     await client.query(`
       INSERT INTO serie_consecutivo (tipo_documento, sucursal, terminal, serie, ancho_consecutivo, electronica, descripcion, siguiente)
       VALUES ('factura', '001', '00001', '00100001', 0, FALSE, 'Factura de venta (no electrónica)', 1)
-      ON CONFLICT (tipo_documento, sucursal, terminal) DO NOTHING
+      ON CONFLICT (tipo_documento, sucursal, terminal, electronica) DO NOTHING
+    `);
+    // Las notas de crédito van en su propia serie, no electrónica: meter un
+    // documento sin firmar en una serie que Hacienda sigue es un problema caro
+    // (ver migrations/independencia/012). El ancho de 4 mantiene todos los
+    // números del mismo largo: 001000030001 y no "001000031".
+    await client.query(`
+      INSERT INTO serie_consecutivo (tipo_documento, sucursal, terminal, serie, ancho_consecutivo, electronica, descripcion, siguiente)
+      VALUES ('nota_credito', '001', '00001', '00100003', 4, FALSE, 'Nota de crédito (no electrónica)', 1)
+      ON CONFLICT (tipo_documento, sucursal, terminal, electronica) DO NOTHING
     `);
 
     console.log('📋 Creando función para updated_at...');
