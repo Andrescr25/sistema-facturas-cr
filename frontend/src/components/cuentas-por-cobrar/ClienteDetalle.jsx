@@ -103,7 +103,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
           })}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(
-              `/alegra/facturacion/invoices/${facturaAEnviar.alegraInvoiceId}/whatsapp`, { telefono, mensaje })
+              `/facturacion/invoices/${facturaAEnviar.alegraInvoiceId}/whatsapp`, { telefono, mensaje })
             return data.data
           }}
           onCerrar={() => setFacturaAEnviar(null)}

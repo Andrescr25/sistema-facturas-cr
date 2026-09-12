@@ -133,6 +133,7 @@ const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
+const facturacionModule = require('./src/modules/facturacion');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
@@ -171,8 +172,20 @@ app.use('/api/proveedores', proveedoresModule.routes);
 app.use('/api/reportes', reporteRoutes);
 // /api/alegra es un router adaptador (routes/alegra.js) que monta debajo:
 // /catalog, /productos, /facturas, /bodega, /reimpresion, /reportes,
-// /contactos, /proveedores, /faltantes, /orden-compra y /facturacion
+// /contactos, /proveedores, /faltantes y /orden-compra
 app.use('/api/alegra', alegraRoutes);
+
+// Facturación va en su PROPIO prefijo, no debajo de /api/alegra.
+//
+// Colgaba de ahí, y como '/alegra' está en la lista de rutas COMPARTIDAS
+// (usuarios/modulos.js), el middleware de permisos la dejaba pasar sin mirar
+// el módulo: cualquiera con sesión podía llamar /api/alegra/facturacion/...,
+// incluido el POST que crea la factura. Comprobado con un usuario sin ese
+// permiso: daba 200 donde /api/rentabilidad le daba 403.
+//
+// Con el prefijo propio, el permiso del módulo Facturación se aplica solo,
+// sin tocar la lista de compartidas.
+app.use('/api/facturacion', facturacionModule);
 app.use('/api/revision-precios', revisionPreciosModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);

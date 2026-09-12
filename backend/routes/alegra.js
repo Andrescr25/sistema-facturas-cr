@@ -22,7 +22,6 @@ const ordersWhatsappRoutes = require('../src/modules/orders-whatsapp');
 const reprintingRoutes = require('../src/modules/reprinting').routes;
 const warehouseRoutes = require('../src/modules/warehouse').routes;
 const missingItemsRoutes = require('../src/modules/missing-items').routes;
-const facturacionRoutes = require('../src/modules/facturacion');
 const catalogRoutes = require('../src/modules/catalogo').routes;
 
 // Importar controladores para mapeo explícito de endpoints legacy
@@ -208,10 +207,8 @@ router.use('/faltantes', missingItemsRoutes);
 // ========================================
 router.use('/orden-compra', ordersWhatsappRoutes);
 
-// ========================================
-// 9. MODULO DE FACTURACIÓN RÁPIDA (/facturacion)
-// ========================================
-router.use('/facturacion', facturacionRoutes);
+// Facturación ya NO se monta acá: pasó a /api/facturacion (ver server.js).
+// Debajo de /alegra quedaba sin permiso, porque ese prefijo es compartido.
 
 // ========================================
 // 8. ENDPOINTS DE DEBUG / PRUEBAS
