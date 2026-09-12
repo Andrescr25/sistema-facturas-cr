@@ -4,11 +4,19 @@
  * script de backfill/auditoría (backend/scripts/auditar-costos.js) como el
  * futuro endpoint del tablero de rentabilidad, sin duplicar la lógica.
  *
- * El `cost` de Alegra (alegra_products_cache.cost) viene CON IVA; el
- * `price` viene SIN IVA — asimetría confirmada en revision-precios.service.js.
- * La tarifa de IVA real no está persistida por producto todavía (Costa Rica
- * tiene 0/1/2/4/8/13%, no solo 13%) — se asume IVA_ASUMIDO como el resto del
- * código ya hace, documentado como limitación conocida a resolver después.
+ * El `cost` viene CON IVA; el `price` viene SIN IVA — asimetría confirmada en
+ * revision-precios.service.js.
+ *
+ * LA TARIFA SE RECIBE, YA NO SE ASUME. Costa Rica tiene 0/1/2/4/8/13%, y en
+ * este catálogo 91 productos activos NO están al 13% (44 al 1%, 15 al 2%, 9 al
+ * 4%, 6 exentos, 3 al 8%, y 14 sin impuesto asignado). Dividir el costo de
+ * todos entre 1,13 corre el margen y puede cambiar el veredicto: un producto
+ * exento con costo 105 y precio 100 se vende con pérdida, pero asumiendo 13%
+ * el costo "sin IVA" da 92,9 y parece sano.
+ *
+ * Quien no pase `tarifa` sigue obteniendo el 13% de antes (IVA_ASUMIDO), para
+ * no cambiar en silencio lo que hoy calculan los scripts que aún no la tienen
+ * a mano.
  *
  * Dos señales, no una sola, porque una sola no alcanza: un caso real
  * (CINTA MOTEX 5500) tenía el costo de Alegra Y el costo derivado de
@@ -57,12 +65,19 @@ const CLASIFICACION = {
  * @param {boolean} [datos.historialInestable] - las compras recientes de ese
  *        producto se contradicen entre sí (factor de conversión mal puesto en
  *        alguna). Basta para no confiar en el costo, venga de donde venga.
+ * @param {number|null} [datos.tarifa] - la tarifa de IVA del producto, en
+ *        porcentaje (0, 1, 2, 4, 8, 13). Sin ella se asume IVA_ASUMIDO.
  * @returns {{clasificacion: string, costoSinIva: number|null, margenReal: number|null,
  *   costoSugerido: number|null, diffPorcentaje: number|null, origenCosto: string|null}}
  */
-function clasificarProducto({ price, cost, costoDerivado, historialInestable = false }) {
+function clasificarProducto({ price, cost, costoDerivado, historialInestable = false, tarifa = null }) {
   const precioVenta = Number(price) || 0;
   const costoAlegra = Number(cost) || 0;
+  // La tarifa del producto cuando se conoce; si no, la de siempre. Un 0 es una
+  // tarifa válida (exento), así que no vale preguntarle si es "falsy".
+  const tasaIva = tarifa === null || tarifa === undefined || !Number.isFinite(Number(tarifa))
+    ? IVA_ASUMIDO
+    : Number(tarifa);
   const derivado = costoDerivado != null && Number.isFinite(Number(costoDerivado)) && Number(costoDerivado) > 0
     ? Number(costoDerivado)
     : null;
@@ -82,7 +97,7 @@ function clasificarProducto({ price, cost, costoDerivado, historialInestable = f
     };
   }
 
-  const costoSinIva = costoBase / (1 + IVA_ASUMIDO / 100);
+  const costoSinIva = costoBase / (1 + tasaIva / 100);
   const ratioCostoPrecio = precioVenta > 0 ? costoSinIva / precioVenta : Infinity;
 
   const sospechoso = (diffPorcentaje = null) => ({

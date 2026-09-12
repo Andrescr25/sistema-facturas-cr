@@ -38,13 +38,28 @@ function mediana(valores) {
  */
 async function obtenerCatalogoClasificado() {
   const [productos, derivadoPorItem, competencia] = await Promise.all([
+    // Del maestro propio (`producto`), no de la caché de Alegra: acá está la
+    // TARIFA de cada producto, que es justo lo que faltaba para no asumir 13%.
+    //
+    // Los alias (name, category, price, cost, image_url) se mantienen a
+    // propósito: abajo hay sesenta líneas que mapean este resultado y una
+    // pantalla que consume esa forma. Cambiar la fuente no tiene por qué
+    // cambiar el contrato.
     query(`
-      SELECT p.alegra_id, p.name, p.category, p.price, p.cost, p.image_url,
+      SELECT p.alegra_id,
+             p.nombre          AS name,
+             cat.nombre        AS category,
+             p.precio_sin_iva  AS price,
+             p.costo_con_iva   AS cost,
+             p.imagen_url      AS image_url,
+             imp.tarifa        AS tarifa,
              r.clase AS clase_rotacion, r.unidades_mes, r.clientes_distintos,
              r.facturacion_12m, r.meses_sin_venta
-      FROM alegra_products_cache p
-      LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id::text
-      WHERE p.status = 'active'
+      FROM producto p
+      LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+      LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+      LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+      WHERE p.activo = TRUE
     `),
     // Mediana de las últimas compras VÁLIDAS, no la última fila suelta —
     // ver precios/costoDerivado.js para los dos defectos que arregla.
@@ -70,7 +85,7 @@ async function obtenerCatalogoClasificado() {
     const derivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
     const costoDerivado = derivado ? derivado.costo : null;
     const historialInestable = derivado ? derivado.historialInestable : false;
-    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable });
+    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable, tarifa: p.tarifa });
     const comp = competenciaPorItem.get(String(p.alegra_id)) ?? null;
     const techoCompetencia = comp ? calcularTechoCompetencia(comp.precio) : null;
 
@@ -85,9 +100,13 @@ async function obtenerCatalogoClasificado() {
     const usaDerivado = costoAlegra <= 0 && costoDerivado > 0;
     const costoEfectivo = costoAlegra > 0 ? costoAlegra : (costoDerivado || 0);
 
-    // Los costos vienen CON IVA y el precio SIN IVA (asimetría de Alegra),
-    // así que hay que bajar el costo antes de comparar.
-    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + IVA_ASUMIDO / 100) : null;
+    // Los costos vienen CON IVA y el precio SIN IVA, así que hay que bajar el
+    // costo antes de comparar. Con la TARIFA REAL del producto: 91 activos no
+    // están al 13% (44 al 1%, 15 al 2%, 9 al 4%, 6 exentos, 3 al 8%) y
+    // quitarles un 13% que no pagan les corría el margen que muestra la
+    // pantalla. Sin tarifa asignada —14 productos— se cae al supuesto de antes.
+    const tasaIva = p.tarifa === null || p.tarifa === undefined ? IVA_ASUMIDO : Number(p.tarifa);
+    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + tasaIva / 100) : null;
     const margenEfectivo = costoEfectivoSinIva !== null && precio > 0
       ? ((precio - costoEfectivoSinIva) / precio) * 100
       : null;
