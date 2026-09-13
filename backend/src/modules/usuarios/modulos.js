@@ -161,7 +161,7 @@ const MODULOS = [
     nombre: 'Configuración',
     grupo: 'Herramientas',
     ruta: '/configuracion',
-    rutasApi: ['/admin', '/duplicados-electronica', '/configuracion']
+    rutasApi: ['/admin', '/configuracion']
   }
 ];
 

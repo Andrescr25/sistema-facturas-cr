@@ -1096,6 +1096,27 @@ async function setupDatabase() {
     await client.query('ALTER TABLE empresa ADD COLUMN IF NOT EXISTS terminos_pago TEXT');
     await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS cliente_telefono VARCHAR(60)');
     await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS cliente_direccion TEXT');
+
+    // El espacio de la emisión electrónica, que está pospuesta. No la
+    // implementa: deja dónde anotar la respuesta de Hacienda, por qué se
+    // descontó una línea y dónde quedó el XML firmado. Sin esto, agregarlo
+    // después obligaría a migrar las facturas otra vez.
+    await client.query("ALTER TABLE factura ADD COLUMN IF NOT EXISTS hacienda_estado VARCHAR(12)");
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS hacienda_enviada_en TIMESTAMP');
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS hacienda_respondida_en TIMESTAMP');
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS hacienda_mensaje TEXT');
+    await client.query('ALTER TABLE factura ADD COLUMN IF NOT EXISTS xml_ruta TEXT');
+    await client.query('ALTER TABLE factura_linea ADD COLUMN IF NOT EXISTS descuento_naturaleza VARCHAR(80)');
+    // Una factura no se dice electrónica si Hacienda no la aceptó. La regla
+    // la hace valer la base, no un comentario. El COALESCE es necesario: con
+    // NULL la condición da NULL y un CHECK solo rechaza cuando da FALSE.
+    await client.query(`
+      ALTER TABLE factura DROP CONSTRAINT IF EXISTS factura_electronica_aceptada
+    `);
+    await client.query(`
+      ALTER TABLE factura ADD CONSTRAINT factura_electronica_aceptada
+        CHECK (NOT electronica OR COALESCE(hacienda_estado, '') = 'aceptada')
+    `);
     // "Electrónica" no es un tipo de documento, es una propiedad de la serie:
     // la misma factura se emite en papel o electrónica. Por eso la llave única
     // la incluye; sin ella, las dos series de factura de la misma terminal

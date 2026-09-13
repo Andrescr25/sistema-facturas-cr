@@ -62,6 +62,9 @@ function aVista(f) {
     consecutivo: numero(f.consecutivo),
     tipoDocumento: f.tipo_documento,
     electronica: f.electronica,
+    // Una factura es electrónica cuando Hacienda la ACEPTA, no cuando se
+    // manda. Entre las dos cosas hay un rato y puede haber un rechazo.
+    haciendaEstado: f.hacienda_estado,
     estado: f.estado,
     fecha: f.fecha,
     fechaVencimiento: f.fecha_vencimiento,

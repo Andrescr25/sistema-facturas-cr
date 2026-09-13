@@ -164,7 +164,6 @@ const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
 const rentabilidadModule = require('./src/modules/rentabilidad');
-const duplicadosElectronicaModule = require('./src/modules/duplicados-electronica');
 const authModule = require('./src/modules/auth');
 const catalogoClientesModule = require('./src/modules/catalogo-clientes');
 const portalClientesModule = require('./src/modules/portal-clientes');
@@ -207,7 +206,6 @@ app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
 app.use('/api/pagos-recurrentes', pagosRecurrentesModule.routes);
 app.use('/api/reporte-contador', reporteContadorModule.routes);
 app.use('/api/cuentas-por-cobrar', cuentasPorCobrarModule.routes);
-app.use('/api/duplicados-electronica', duplicadosElectronicaModule.routes);
 app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
@@ -418,18 +416,11 @@ async function syncAlegraProducts() {
 
 // Función para sincronizar el espejo local de cuentas por cobrar desde Alegra
 async function syncCuentasPorCobrar() {
-  // Primero las copias que deja Alegra al convertir una factura a
-  // electrónica: si se anulan DESPUÉS de sincronizar, la copia alcanza a
-  // entrar al espejo y el cliente aparece debiendo el doble hasta la próxima
-  // corrida. Va en su propio try para que un fallo acá no impida sincronizar.
-  try {
-    const r = await duplicadosElectronicaModule.service.revisarDuplicados();
-    if (r.anulados > 0 || r.requierenRevision > 0 || r.errores > 0) {
-      console.log(`\n🧾 Duplicados por conversión a electrónica: ${r.anulados} anulados, ${r.requierenRevision} para revisar, ${r.errores} con error`);
-    }
-  } catch (error) {
-    console.error('❌ Error revisando duplicados de electrónica:', error.message);
-  }
+  // Ya no se revisan las copias por conversión a electrónica: ese módulo se
+  // retiró porque solo existía por cómo Alegra convierte una factura no
+  // electrónica en electrónica, creando un segundo documento. Nuestras
+  // facturas nacen una sola vez en nuestra base. La tabla
+  // `duplicado_electronica` se conserva: guarda 9 casos reales de producción.
 
   try {
     console.log('\n💰 Sincronizando cuentas por cobrar desde Alegra...');
