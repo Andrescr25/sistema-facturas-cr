@@ -37,6 +37,9 @@ const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto, numero, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
+// Un solo lugar sabe qué día es: Costa Rica es UTC−6 y después de las 6 de
+// la tarde `toISOString()` ya devuelve mañana.
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { tomarConsecutivo } = require('./consecutivo');
 const idempotencia = require('./idempotencia');
 
@@ -224,25 +227,6 @@ function armarLineas(items, productosPorClave, claveDe) {
     impuesto: dinero(impuestoTotal),
     total: dinero(subtotal + impuestoTotal)
   };
-}
-
-/**
- * El día de HOY en Costa Rica, como AAAA-MM-DD.
- *
- * POR QUÉ NO `new Date().toISOString()`
- * Eso da la fecha en UTC, y Costa Rica es UTC−6: a partir de las 6 de la
- * tarde, `toISOString()` ya devuelve el día siguiente. Toda factura hecha de
- * noche —que acá se factura— quedaba fechada mañana. Lo destapó la suite al
- * correr después de las 18:00.
- *
- * Se nombra la zona en vez de confiar en la del servidor: este código también
- * corre en scripts y en Render, donde `TZ` puede no estar puesta.
- */
-const DIA_CR = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Costa_Rica', year: 'numeric', month: '2-digit', day: '2-digit'
-});
-function hoyEnCostaRica(momento = new Date()) {
-  return DIA_CR.format(momento);
 }
 
 /** Suma días a una fecha AAAA-MM-DD sin arrastrar husos horarios. */

@@ -8,7 +8,7 @@ const prisma = require('../../../lib/prisma');
 const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
-const { obtenerImpuestoAlegra } = require('../../../utils/impuestosAlegra');
+const { obtenerImpuestoAlegra, cargarImpuestosAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { sincronizarCostoDeLineas } = require('../precios/costoHistorico');
@@ -110,7 +110,7 @@ async function revisarItemsParaFactura(productos) {
   return problemas;
 }
 
-function construirItemsFactura(productos) {
+function construirItemsFactura(productos, impuestosAlegra) {
   return productos.map(p => {
     // En XML de Costa Rica, PrecioUnitario YA es SIN IVA
     const precioUnitarioSinIva = parseFloat(p.precioUnitario) || 0;
@@ -136,7 +136,7 @@ function construirItemsFactura(productos) {
     };
 
     // Tarifa de IVA real de la línea (0/1/2/4/8/13%), NO se asume 13% fijo
-    const impuestoDetectado = obtenerImpuestoAlegra({ impuesto: p.impuesto, totalLinea: p.totalLinea });
+    const impuestoDetectado = obtenerImpuestoAlegra({ impuesto: p.impuesto, totalLinea: p.totalLinea }, impuestosAlegra);
     if (impuestoDetectado) {
       item.tax = [{ id: impuestoDetectado.id, percentage: impuestoDetectado.porcentaje }];
     } else {
@@ -664,8 +664,10 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       ignoreRepeated: true
     });
 
-    // Preparar items de la factura con precios ORIGINALES del proveedor
-    const items = construirItemsFactura(productos);
+    // Preparar items de la factura con precios ORIGINALES del proveedor.
+    // Los ids de impuesto salen de la cuenta de Alegra (ver utils/impuestosAlegra.js).
+    const impuestosAlegra = await cargarImpuestosAlegra();
+    const items = construirItemsFactura(productos, impuestosAlegra);
 
     console.log(`📋 Items preparados para Alegra (precios originales):`, JSON.stringify(items, null, 2));
 

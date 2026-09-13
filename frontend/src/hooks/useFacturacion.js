@@ -776,6 +776,10 @@ export function useFacturacion() {
       // cobraba 13 % mientras el servidor guardaba 1 %: en una factura de dos
       // líneas al 1 % y al 2 % la diferencia fue de ₡191,82. El papel y la
       // pantalla tienen que decir lo mismo.
+      //
+      // En producción, donde ese id viajaba a Alegra, el daño quedó medido
+      // sobre lo ya emitido: 213 líneas en 147 facturas de productos al 1 %
+      // salieron al 13 %, 13 líneas al 2 % y 6 exentas.
       const impuestoDelProducto = Array.isArray(producto.tax) && producto.tax.length
         ? producto.tax.map(t => ({
           id: t.id,

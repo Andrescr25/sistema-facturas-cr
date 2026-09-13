@@ -8,6 +8,7 @@ const cron = require('node-cron');
 const { query } = require('../../../config/database');
 const { getInventoryService, getClient } = require('../../integrations/alegra');
 const { listarVigentes } = require('../../utils/descuentosExceso');
+const { hoyEnCostaRica, diaEnCostaRica } = require('../../utils/fechaCR');
 
 const inventoryService = getInventoryService();
 const client = getClient();
@@ -69,7 +70,7 @@ function chunkArray(arr, size) {
  */
 async function applyBatchedAdjustments(items, baseObservations) {
   const batches = chunkArray(items, ALEGRA_ADJUSTMENT_BATCH_SIZE);
-  const today = new Date().toISOString().split('T')[0];
+  const today = hoyEnCostaRica();
   const adjustmentIds = [];
   let itemsAdjusted = 0;
 
@@ -838,8 +839,8 @@ async function sincronizarVentasRecientes() {
   const hoy = new Date();
   const ventanaDesde = new Date(hoy);
   ventanaDesde.setDate(ventanaDesde.getDate() - VENTANA_DIAS_HISTORIAL_VENTAS);
-  const ventanaDesdeStr = ventanaDesde.toISOString().split('T')[0];
-  const endDate = hoy.toISOString().split('T')[0];
+  const ventanaDesdeStr = diaEnCostaRica(ventanaDesde);
+  const endDate = diaEnCostaRica(hoy);
 
   // Incremental: se pide solo desde la última factura ya sincronizada (con
   // 1 día de margen, por si quedaron facturas del mismo día sin traer por
@@ -1092,7 +1093,7 @@ async function detectarCandidatosExceso() {
   console.log('🔍 Detectando productos en exceso...');
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() - VENTANA_DIAS_SIN_VENTA);
-  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+  const fechaLimiteStr = diaEnCostaRica(fechaLimite);
 
   // Última venta conocida (dentro de la ventana de historial) por producto
   const ultimasVentasRes = await query(`
