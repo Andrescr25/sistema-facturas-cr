@@ -49,6 +49,26 @@ module.exports = {
     }
   },
 
+  /** GET /cuentas-por-cobrar/propios/clientes/:id/recordatorio — texto y teléfonos. */
+  propuestaRecordatorio: async (req, res) => {
+    try {
+      res.json({ success: true, data: await servicio.saldoDeCliente(req.params.id) });
+    } catch (error) {
+      fallo(res, error, 'propuestaRecordatorio');
+    }
+  },
+
+  /** POST /cuentas-por-cobrar/propios/clientes/:id/recordatorio */
+  enviarRecordatorio: async (req, res) => {
+    try {
+      const { telefono, mensaje } = req.body || {};
+      const r = await servicio.enviarRecordatorio(req.params.id, { telefono, mensaje, usuarioId: req.usuario?.id });
+      res.json({ success: true, data: r, message: `Recordatorio enviado al ${r.numero || telefono}.` });
+    } catch (error) {
+      fallo(res, error, 'enviarRecordatorio');
+    }
+  },
+
   /** GET /cuentas-por-cobrar/propios/caja?fecha= — lo cobrado y si cuadra. */
   resumenCaja: async (req, res) => {
     try {

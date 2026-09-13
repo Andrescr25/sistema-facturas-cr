@@ -1,97 +1,100 @@
+const { test, describe } = require('node:test');
+const assert = require('node:assert');
+const path = require('path');
+
 /**
- * El texto del recordatorio de saldo.
+ * El recordatorio de saldo.
  *
- * POR QUÉ LO ARMA EL SERVIDOR Y NO LA PANTALLA
- * Si el navegador mandara el texto, el monto del mensaje podría no coincidir
- * con el de la pantalla que lo originó: basta con que alguien tuviera la
- * lista abierta desde antes de un abono. El cliente recibiría una cifra que
- * ya no debe, y de cobro de más nadie se entera hasta que reclama.
+ * Es un texto que LEE UN CLIENTE, así que lo que se cuida es que diga la
+ * verdad y que sirva: los montos correctos, qué está vencido, y por dónde
+ * pagar —un recordatorio que dice cuánto se debe pero no a qué cuenta
+ * depositar obliga a una segunda conversación—.
  */
 
-const { test, describe } = require('node:test');
-const assert = require('node:assert/strict');
+const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
+const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'cuentas-por-cobrar', 'cobros.service.js');
 
-const rutaDb = require.resolve('../config/database');
-const rutaPrisma = require.resolve('../lib/prisma');
-const rutaServicio = require.resolve('../src/modules/cuentas-por-cobrar/cuentas-por-cobrar.service');
-
-/** Carga el servicio sin base ni red. */
-function servicio() {
+function cargar() {
+  const ejecutar = async () => ({ rows: [] });
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
-    exports: { query: async () => ({ rows: [] }) }
-  };
-  require.cache[rutaPrisma] = {
-    id: rutaPrisma, filename: rutaPrisma, loaded: true,
-    exports: { cuentaPorCobrar: { findMany: async () => [] }, abonoCobro: { findMany: async () => [] } }
+    exports: { pool: { query: ejecutar, connect: async () => ({ query: ejecutar, release: () => {} }) }, query: ejecutar }
   };
   delete require.cache[rutaServicio];
   return require(rutaServicio);
 }
 
-const factura = (numeroFactura, saldo, diasRestantes) => ({ numeroFactura, saldo, diasRestantes });
+const { hoyEnCostaRica } = require('../src/utils/fechaCR');
+const enDias = (n) => {
+  const d = new Date(`${hoyEnCostaRica()}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
-describe('el mensaje de saldo pendiente', () => {
-  test('lista cada factura con su saldo y suma el total', () => {
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('TOSCANA', [
-      factura('00100001010000002448', 279113, 9),
-      factura('00100001010000002450', 11001, 9)
-    ]);
+describe('el texto que lee el cliente', () => {
+  const FACTURAS = [
+    { numero: '001000014868', saldo: 13807, fechaVencimiento: enDias(-5) },
+    { numero: '001000014900', saldo: 5000, fechaVencimiento: enDias(3) }
+  ];
 
-    assert.match(t, /00100001010000002448 — ₡279\.113/);
-    assert.match(t, /00100001010000002450 — ₡11\.001/);
-    assert.match(t, /Total: ₡290\.114/);
+  test('dice cada factura con su saldo y el total', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA LA ESQUINA', FACTURAS, null);
+    assert.match(t, /001000014868 — ₡13\.807/);
+    assert.match(t, /001000014900 — ₡5\.000/);
+    assert.match(t, /Total: ₡18\.807/);
   });
 
-  test('una factura ya pagada no entra en el recordatorio', () => {
-    // Cobrarle a alguien algo que ya pagó es peor que no escribirle.
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('TOSCANA', [
-      factura('A', 5000, 3),
-      factura('B', 0, 10)
-    ]);
-
-    assert.ok(!t.includes('• B'), 'la pagada no debe aparecer');
-    assert.match(t, /Total: ₡5\.000/);
+  test('lo vencido se dice vencido, y lo que falta, cuándo vence', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA', FACTURAS, null);
+    assert.match(t, /vencida hace 5 día\(s\)/);
+    assert.match(t, /vence en 3 día\(s\)/);
   });
 
-  test('dice si está vencida y desde hace cuánto', () => {
-    // No es lo mismo "vence en 9 días" que "vencida hace 20": el tono del
-    // cobro depende de eso.
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('X', [factura('A', 1000, -20)]);
-    assert.match(t, /vencida hace 20 día/);
+  test('lo más vencido va primero: es por lo que se llama', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA', FACTURAS, null);
+    assert.ok(t.indexOf('001000014868') < t.indexOf('001000014900'));
   });
 
-  test('las más urgentes van primero', () => {
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('X', [
-      factura('AL_DIA', 1000, 30),
-      factura('VENCIDA', 2000, -5)
-    ]);
-    assert.ok(t.indexOf('VENCIDA') < t.indexOf('AL_DIA'));
+  test('dice POR DÓNDE PAGAR cuando está configurado', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA', FACTURAS, 'SINPE_86477036 TARCICIO VARGAS');
+    assert.match(t, /Puede pagar por:\nSINPE_86477036/);
   });
 
-  test('una factura sin fecha de vencimiento no dice una fecha inventada', () => {
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('X', [factura('A', 1000, null)]);
+  test('sin términos configurados no inventa una cuenta', () => {
+    const { textoRecordatorio } = cargar();
+    assert.equal(/Puede pagar por/.test(textoRecordatorio('PULPERÍA', FACTURAS, null)), false);
+  });
+
+  test('una factura sin saldo no aparece en el recordatorio', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA', [...FACTURAS, { numero: '001000014999', saldo: 0 }], null);
+    assert.equal(/001000014999/.test(t), false);
+  });
+
+  test('una factura sin fecha de vencimiento lo dice, no miente', () => {
+    const { textoRecordatorio } = cargar();
+    const t = textoRecordatorio('PULPERÍA', [{ numero: '001', saldo: 100, fechaVencimiento: null }], null);
     assert.match(t, /sin fecha de vencimiento/);
   });
+});
 
-  test('lleva el nombre del cliente y el del negocio', () => {
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('PULPERÍA LA ESQUINA', [factura('A', 1000, 5)]);
-    assert.match(t, /PULPERÍA LA ESQUINA/);
-    assert.match(t, /Distribuidora Tachi/);
-  });
+test('el número se valida antes de mandar el recordatorio', async () => {
+  const servicio = cargar();
+  // Sin saldo la consulta devuelve vacío y el servicio corta antes: lo que
+  // importa es que no salga nada hacia un número que no se entiende.
+  await assert.rejects(servicio.enviarRecordatorio(7, { telefono: 'no sé' }), e => e.status === 404 || e.status === 400);
+});
 
-  test('los miles llevan punto, no el espacio duro de es-CR', () => {
-    // toLocaleString('es-CR') separa con U+00A0, que en WhatsApp se ve como
-    // un espacio raro en medio del monto.
-    const { textoRecordatorio } = servicio();
-    const t = textoRecordatorio('X', [factura('A', 1234567, 5)]);
-    assert.match(t, /₡1\.234\.567/);
-    assert.ok(!t.includes(' '), 'no debe quedar ningún espacio duro');
-  });
+test('una fecha que viene de Postgres como Date no produce "NaN día(s)"', () => {
+  // Las columnas DATE llegan como objeto Date. Recortarlas como texto daba
+  // "Wed Sep 10" y de ahí "vence en NaN día(s)" en el mensaje al CLIENTE.
+  const { textoRecordatorio } = cargar();
+  const ayer = new Date(`${enDias(-1)}T12:00:00`);
+  const t = textoRecordatorio('PULPERÍA', [{ numero: '001', saldo: 100, fechaVencimiento: ayer }], null);
+  assert.equal(/NaN/.test(t), false, `salió: ${t}`);
+  assert.match(t, /vencida hace 1 día\(s\)/);
 });

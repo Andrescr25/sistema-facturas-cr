@@ -17,6 +17,10 @@ router.get('/propios/facturas/:id/abonos', cobros.abonos);
 router.post('/propios/abonos', cobros.registrar);
 router.patch('/propios/abonos/:id/anular', cobros.anular);
 // El cierre de caja: lo cobrado en el día y si el efectivo cuadra.
+// El recordatorio de saldo: el texto lo arma el SERVIDOR, con los mismos
+// datos que muestra la pantalla.
+router.get('/propios/clientes/:id/recordatorio', cobros.propuestaRecordatorio);
+router.post('/propios/clientes/:id/recordatorio', cobros.enviarRecordatorio);
 router.get('/propios/caja', cobros.resumenCaja);
 router.post('/propios/caja/cerrar', cobros.cerrarCaja);
 router.post('/propios/caja/reabrir', cobros.reabrirCaja);

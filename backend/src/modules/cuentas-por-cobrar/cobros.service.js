@@ -30,7 +30,9 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service');
-const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { hoyEnCostaRica, diaEnCostaRica } = require('../../utils/fechaCR');
+const { telefonosDe, validarTelefonoEscrito } = require('../../utils/telefonosCliente');
+const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -258,4 +260,117 @@ async function anularAbono(id, { motivo } = {}, usuarioId = null) {
   });
 }
 
-module.exports = { listarDeudores, abonosDeFactura, registrarAbono, anularAbono };
+/** ₡1.234, con el punto de miles. */
+const colones = (n) => `₡${Math.round(num(n)).toLocaleString('es-CR').replace(/\u00A0/g, '.')}`;
+
+function diasHasta(fecha) {
+  if (!fecha) return null;
+  // `diaEnCostaRica` acepta el objeto Date que devuelve Postgres para una
+  // columna DATE. Recortar `String(unDate)` a diez caracteres da "Wed Sep 10"
+  // y de ahí salía un "vence en NaN día(s)" en el mensaje al cliente — el
+  // mismo error que ya había dado un "Invalid Date" en el PDF.
+  const dia = diaEnCostaRica(fecha);
+  if (!dia) return null;
+  const hoy = new Date(`${hoyEnCostaRica()}T12:00:00`);
+  return Math.round((new Date(`${dia}T12:00:00`) - hoy) / 86400000);
+}
+
+/**
+ * El texto del recordatorio.
+ *
+ * LO ARMA EL SERVIDOR, no el navegador: los montos del mensaje tienen que ser
+ * los mismos que los de la pantalla que lo originó, y si los calculara el
+ * navegador podrían no coincidir. Quien manda lo puede editar antes.
+ *
+ * Lleva POR DÓNDE PAGAR, que antes no llevaba: un recordatorio que dice
+ * cuánto se debe pero no a qué cuenta depositar obliga a una segunda
+ * conversación.
+ */
+function textoRecordatorio(cliente, facturas, terminosPago) {
+  const pendientes = facturas
+    .filter(f => num(f.saldo) > 0)
+    .map(f => ({ ...f, dias: diasHasta(f.fechaVencimiento) }))
+    .sort((a, b) => (a.dias ?? 0) - (b.dias ?? 0));
+
+  const lineas = pendientes.map(f => {
+    const cuando = f.dias === null ? 'sin fecha de vencimiento'
+      : f.dias < 0 ? `vencida hace ${Math.abs(f.dias)} día(s)`
+      : f.dias === 0 ? 'vence hoy'
+      : `vence en ${f.dias} día(s)`;
+    return `• ${f.numero} — ${colones(f.saldo)} (${cuando})`;
+  });
+
+  const total = pendientes.reduce((s, f) => s + num(f.saldo), 0);
+
+  return `Buenas ${cliente} 👋\n\n` +
+    `Le recordamos su saldo pendiente con Distribuidora Tachi:\n\n` +
+    `${lineas.join('\n')}\n\n` +
+    `Total: ${colones(total)}\n\n` +
+    (terminosPago ? `Puede pagar por:\n${terminosPago}\n\n` : '') +
+    `Cualquier consulta quedamos atentos. ¡Gracias!`;
+}
+
+/** El saldo de un cliente, con sus facturas y a qué números se le puede escribir. */
+async function saldoDeCliente(clienteId) {
+  const id = idValido(clienteId);
+
+  const { rows } = await pool.query(
+    `SELECT f.id, f.numero, f.fecha, f.fecha_vencimiento, f.cliente_nombre,
+            f.total - ${COBRADO} - ${ACREDITADO} AS saldo
+       FROM factura f
+      WHERE f.cliente_id = $1 AND f.estado = 'emitida'
+        AND f.total - ${COBRADO} - ${ACREDITADO} > 1
+      ORDER BY f.fecha`,
+    [id]
+  );
+
+  if (rows.length === 0) throw httpError(404, 'Ese cliente no tiene saldo pendiente.');
+
+  const { rows: fichas } = await pool.query(
+    'SELECT nombre, telefono, telefono_secundario, celular FROM cliente WHERE id = $1', [id]);
+  const ficha = fichas[0] || {};
+
+  const facturas = rows.map(r => ({
+    id: r.id, numero: r.numero, fecha: r.fecha,
+    fechaVencimiento: r.fecha_vencimiento, saldo: num(r.saldo)
+  }));
+
+  const { rows: empresa } = await pool.query('SELECT terminos_pago FROM empresa WHERE id = 1');
+
+  return {
+    clienteId: id,
+    cliente: ficha.nombre || rows[0].cliente_nombre,
+    facturas,
+    saldoTotal: dinero(facturas.reduce((s, f) => s + f.saldo, 0)),
+    ...telefonosDe({
+      phonePrimary: ficha.telefono, phoneSecondary: ficha.telefono_secundario, mobile: ficha.celular
+    }),
+    mensaje: textoRecordatorio(
+      ficha.nombre || rows[0].cliente_nombre, facturas, empresa[0]?.terminos_pago)
+  };
+}
+
+/** Manda el recordatorio por WhatsApp y lo deja registrado. */
+async function enviarRecordatorio(clienteId, { telefono, mensaje, usuarioId } = {}) {
+  const datos = await saldoDeCliente(clienteId);
+
+  const numero = validarTelefonoEscrito(telefono);
+  if (!numero.valido) {
+    throw httpError(400, numero.motivo || 'Ese número no parece un teléfono de Costa Rica.');
+  }
+
+  return enviarYRegistrar({
+    tipo: 'saldo',
+    referencia: String(datos.clienteId),
+    clienteId: datos.clienteId,
+    telefono: numero.numero,
+    // El texto que se manda es el que quien cobra revisó, no uno recalculado.
+    mensaje: String(mensaje || datos.mensaje).trim(),
+    usuarioId
+  });
+}
+
+module.exports = {
+  listarDeudores, abonosDeFactura, registrarAbono, anularAbono,
+  saldoDeCliente, enviarRecordatorio, textoRecordatorio
+};
