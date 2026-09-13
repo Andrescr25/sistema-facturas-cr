@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono, sincronizarCuentasPorCobrar } from '../services/cuentasPorCobrarService'
+import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono } from '../services/cuentasPorCobrarService'
 import { useToast } from './useToast'
 import { useDialog } from './useDialog'
 
@@ -24,7 +24,7 @@ export function useCuentasPorCobrar(initialFilters = {}) {
   const [resumen, setResumen] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [sincronizando, setSincronizando] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
   const [registrandoAbono, setRegistrandoAbono] = useState(false)
 
   const loadCuentas = useCallback(async (overrideFilters) => {
@@ -60,18 +60,19 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     setFilters({ ...defaultFilters })
   }, [])
 
-  const handleSincronizar = useCallback(async () => {
-    setSincronizando(true)
+  /**
+   * Volver a leer los saldos. Antes esto pedía una sincronización con Alegra y
+   * esperaba a que bajara la cartera entera; ahora los saldos salen de nuestra
+   * base y se calculan al momento, así que basta con releer.
+   */
+  const handleActualizar = useCallback(async () => {
+    setActualizando(true)
     try {
-      await sincronizarCuentasPorCobrar()
       await loadCuentas(filters)
-      showToast('Cuentas por cobrar actualizadas desde Alegra', 'success')
-    } catch (err) {
-      showToast(err.message || 'Error sincronizando con Alegra', 'error')
     } finally {
-      setSincronizando(false)
+      setActualizando(false)
     }
-  }, [filters, loadCuentas, showToast])
+  }, [filters, loadCuentas])
 
   const handleCargarAbonos = useCallback(async (facturaId) => {
     try {
@@ -135,8 +136,8 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     filters,
     setFilters,
     resetFilters,
-    sincronizando,
-    handleSincronizar,
+    actualizando,
+    handleActualizar,
     handleCargarAbonos,
     handleCargarProductos,
     registrandoAbono,

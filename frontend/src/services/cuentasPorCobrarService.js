@@ -136,7 +136,3 @@ export async function reabrirCaja(fecha, motivo) {
   return response.data?.data ?? null
 }
 
-export async function sincronizarCuentasPorCobrar() {
-  const response = await api.post('/cuentas-por-cobrar/sync')
-  return response.data
-}

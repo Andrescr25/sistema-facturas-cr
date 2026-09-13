@@ -28,7 +28,7 @@ export default function CuentasPorCobrar() {
   const {
     clientes, resumen, loading, error,
     filters, setFilters, resetFilters,
-    sincronizando, handleSincronizar,
+    actualizando, handleActualizar,
     handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono,
     dialogProps, toasts, removeToast
   } = useCuentasPorCobrar()
@@ -129,8 +129,9 @@ export default function CuentasPorCobrar() {
                 placeholderBusqueda="Buscar cliente o factura..."
                 hayFiltrosActivos={hayFiltrosActivos}
                 onLimpiar={resetFilters}
-                onActualizar={handleSincronizar}
-                actualizando={sincronizando}
+                onActualizar={handleActualizar}
+                actualizando={actualizando}
+                textoActualizar="Actualizar"
               />
             </>
           )}

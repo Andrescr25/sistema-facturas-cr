@@ -3,8 +3,8 @@
  */
 
 const routes = require('./cuentas-por-cobrar.routes');
-const controller = require('./cuentas-por-cobrar.controller');
-const service = require('./cuentas-por-cobrar.service');
+const controller = require('./cobros.controller');
+const service = require('./cobros.service');
 
 module.exports = {
   routes,

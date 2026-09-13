@@ -310,7 +310,6 @@ app.get('*', (req, res) => {
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
 let productSyncInterval = null;
-let cuentasPorCobrarSyncInterval = null;
 let historialClientesSyncInterval = null;
 let snapshotMargenesInterval = null;
 let whatsappPingInterval = null;
@@ -415,22 +414,6 @@ async function syncAlegraProducts() {
 }
 
 // Función para sincronizar el espejo local de cuentas por cobrar desde Alegra
-async function syncCuentasPorCobrar() {
-  // Ya no se revisan las copias por conversión a electrónica: ese módulo se
-  // retiró porque solo existía por cómo Alegra convierte una factura no
-  // electrónica en electrónica, creando un segundo documento. Nuestras
-  // facturas nacen una sola vez en nuestra base. La tabla
-  // `duplicado_electronica` se conserva: guarda 9 casos reales de producción.
-
-  try {
-    console.log('\n💰 Sincronizando cuentas por cobrar desde Alegra...');
-    const resultado = await cuentasPorCobrarModule.service.sincronizarDesdeAlegra();
-    console.log(`✅ Cuentas por cobrar sincronizadas: ${resultado.vigentes} vigentes, ${resultado.removidas} removidas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando cuentas por cobrar:', error.message);
-  }
-}
-
 // Función para sincronizar el histórico de compras por cliente (catálogo
 // público personalizado). Incremental por diseño: solo el backfill inicial
 // (backend/scripts/backfill-historial-compras.js) recorre todo Alegra —
@@ -515,26 +498,10 @@ const server = app.listen(PORT, () => {
     console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
   }
 
-  // Sincronizar cuentas por cobrar al iniciar
-  if (process.env.ENABLE_COBRAR_SYNC !== 'false') {
-    setTimeout(() => {
-      syncCuentasPorCobrar();
-    }, 8000);
-
-    // Cada 30 minutos — el volumen es bajo (facturas a crédito desde el
-    // cierre de cartera) así que no hace falta el intervalo de 6h de productos
-    cuentasPorCobrarSyncInterval = setInterval(() => {
-      syncCuentasPorCobrar();
-    }, 30 * 60 * 1000);
-
-    console.log('\n💰 Sincronización de Cuentas por Cobrar activada');
-    console.log('   - Sincronización inicial: En 8 segundos');
-    console.log('   - Sincronización periódica: Cada 30 minutos');
-    console.log('   - Para desactivar: ENABLE_COBRAR_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización de Cuentas por Cobrar desactivada');
-    console.log('   Establece ENABLE_COBRAR_SYNC=true en .env para activarla\n');
-  }
+  // Cuentas por cobrar YA NO SE SINCRONIZA. Se copiaba la cartera de Alegra
+  // cada 30 minutos a la tabla `cuentas_por_cobrar`; ahora el saldo se calcula
+  // de nuestras propias facturas y cobros cada vez que alguien pregunta, así
+  // que no hay nada que copiar ni media hora de atraso que explicar.
 
   // Mantener despierto Evolution API (WhatsApp).
   //
@@ -611,12 +578,6 @@ const gracefulShutdown = async (signal) => {
   if (productSyncInterval) {
     console.log('📦 Deteniendo sincronización de productos...');
     clearInterval(productSyncInterval);
-  }
-
-  // Detener sincronización de cuentas por cobrar
-  if (cuentasPorCobrarSyncInterval) {
-    console.log('💰 Deteniendo sincronización de cuentas por cobrar...');
-    clearInterval(cuentasPorCobrarSyncInterval);
   }
 
   // Detener sincronización de historial de compras por cliente
