@@ -25,7 +25,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
   const [facturaAEnviar, setFacturaAEnviar] = useState(null)
 
   const abrirRecordatorio = async () => {
-    const { data } = await api.get(`/cuentas-por-cobrar/clientes/${cliente.clienteId}/recordatorio`)
+    const { data } = await api.get(`/cuentas-por-cobrar/propios/clientes/${cliente.clienteId}/recordatorio`)
     setRecordatorio(data.data)
   }
 
@@ -54,7 +54,11 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         <button
           type="button"
           onClick={abrirRecordatorio}
-          className="self-start md:self-auto bg-exito-600 hover:bg-exito-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors whitespace-nowrap"
+          disabled={!cliente.clienteId}
+          title={cliente.clienteId
+            ? 'Mandarle el detalle de su saldo por WhatsApp'
+            : 'Estas facturas no tienen ficha de cliente: se borró en Alegra antes de la copia. Hay que reasignarlas para poder escribirle.'}
+          className="self-start md:self-auto bg-exito-600 hover:bg-exito-700 disabled:bg-neutro-300 disabled:cursor-not-allowed text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-colors whitespace-nowrap"
         >
           Recordar saldo por WhatsApp
         </button>
@@ -75,16 +79,19 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         )}
       />
 
+      {/* Los teléfonos vienen CON el recordatorio: antes el modal iba a
+          buscarlos a la ficha de Alegra por su contactoId. */}
       {recordatorio && (
         <ModalEnviarWhatsApp
           titulo={`Recordarle el saldo a ${recordatorio.cliente}`}
-          subtitulo={`Debe ${formatCurrency(recordatorio.totalSaldo)}`}
-          contactoId={cliente.clienteId}
+          subtitulo={`Debe ${formatCurrency(recordatorio.saldoTotal)}`}
+          telefonos={recordatorio.candidatos}
+          telefonosSinReconocer={recordatorio.sinReconocer}
           documento={{ tipo: 'saldo', referencia: String(cliente.clienteId) }}
           mensajeInicial={recordatorio.mensaje}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(
-              `/cuentas-por-cobrar/clientes/${cliente.clienteId}/recordatorio`, { telefono, mensaje })
+              `/cuentas-por-cobrar/propios/clientes/${cliente.clienteId}/recordatorio`, { telefono, mensaje })
             return data.data
           }}
           onCerrar={() => setRecordatorio(null)}

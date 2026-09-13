@@ -35,8 +35,15 @@ export default function CuentasPorCobrar() {
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente (estado local, mismo
   // patrón que ReporteClientes.jsx)
-  const [clienteActivoId, setClienteActivoId] = useState(null)
-  const clienteActivo = clientes.find((c) => c.clienteId === clienteActivoId)
+  // `undefined` es "ninguno seleccionado", NO `null`: hay 14 facturas cuyo
+  // cliente se borró en Alegra antes de la copia y su `clienteId` es null.
+  // Con null como centinela, `null === null` coincidía y la pantalla abría
+  // sola ese grupo; peor, "Volver a clientes" lo volvía a encontrar y no se
+  // podía salir ni llegar a los otros 54 deudores.
+  const [clienteActivoId, setClienteActivoId] = useState(undefined)
+  const clienteActivo = clienteActivoId === undefined
+    ? null
+    : clientes.find((c) => c.clienteId === clienteActivoId)
 
   const [tab, setTab] = useState('pendientes')
   const tabs = [
@@ -151,7 +158,7 @@ export default function CuentasPorCobrar() {
           ) : (
             <ClienteDetalle
               cliente={clienteActivo}
-              onVolver={() => setClienteActivoId(null)}
+              onVolver={() => setClienteActivoId(undefined)}
               onCargarAbonos={handleCargarAbonos}
               onCargarProductos={handleCargarProductos}
               registrandoAbono={registrandoAbono}
