@@ -8,6 +8,7 @@ const axios = require('axios');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { query } = require('../../../config/database');
 const idempotencia = require('./idempotencia');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
 class FacturacionService {
   constructor() {
@@ -182,7 +183,7 @@ class FacturacionService {
       const alegraId = parseInt(response.id, 10);
       const clienteNombre = response.client?.name || 'Cliente no especificado';
       const clienteEmail = response.client?.email || null;
-      const fechaEmision = response.date || new Date().toISOString().split('T')[0];
+      const fechaEmision = response.date || hoyEnCostaRica();
       const total = parseFloat(response.total || 0);
 
       const fecha = new Date(fechaEmision);

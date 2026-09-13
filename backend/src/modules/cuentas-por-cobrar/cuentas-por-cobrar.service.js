@@ -12,6 +12,7 @@
 const prisma = require('../../../lib/prisma');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { getClient, getInvoiceService } = require('../../integrations/alegra');
+const { diaEnCostaRica } = require('../../utils/fechaCR');
 
 const client = getClient();
 
@@ -415,7 +416,10 @@ async function registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, salda
   let pagoAlegra;
   try {
     const res = await client.api.post('/payments', {
-      date: fechaAbono.toISOString().slice(0, 10),
+      // El DÍA en Costa Rica, no en UTC: después de las 6 de la tarde
+      // `toISOString()` ya devuelve mañana y el abono se registraba con la
+      // fecha del día siguiente.
+      date: diaEnCostaRica(fechaAbono),
       type: 'in',
       client: { id: factura.client?.id },
       paymentMethod: metodoPago,

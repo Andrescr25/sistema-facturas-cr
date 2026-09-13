@@ -10,6 +10,7 @@ const { getClient } = require('../../integrations/alegra');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
 const ALEGRA_LIMIT_MAXIMO = 30;
 
@@ -358,7 +359,7 @@ async function obtenerHistorialParaCatalogo() {
   }
 
   return {
-    generadoEn: new Date().toISOString().split('T')[0],
+    generadoEn: hoyEnCostaRica(),
     clientes: [...clientesMap.values()]
   };
 }
