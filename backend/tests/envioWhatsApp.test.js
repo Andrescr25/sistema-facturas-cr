@@ -165,7 +165,10 @@ describe('el registro de lo que sale', () => {
 
     const ins = registro.escrituras.find(e => /INSERT INTO envio_whatsapp/.test(e.sql));
     assert.ok(ins, 'debió anotarse');
-    assert.deepEqual(ins.params.slice(0, 6), ['cotizacion', 'COT-8', '141', '50688272453', 4, true]);
+    // El orden es (tipo, referencia, alegra_contact_id, cliente_id, telefono,
+    // enviado_por, exito): `cliente_id` se agregó para no meter un id nuestro
+    // en la columna de Alegra.
+    assert.deepEqual(ins.params.slice(0, 7), ['cotizacion', 'COT-8', '141', null, '50688272453', 4, true]);
   });
 
   test('un envío fallido TAMBIÉN queda anotado, con el motivo', async () => {
@@ -176,8 +179,8 @@ describe('el registro de lo que sale', () => {
     }));
 
     const ins = registro.escrituras.find(e => /INSERT INTO envio_whatsapp/.test(e.sql));
-    assert.equal(ins.params[5], false);
-    assert.match(ins.params[6], /no pudo recibir el mensaje/);
+    assert.equal(ins.params[6], false);
+    assert.match(ins.params[7], /no pudo recibir el mensaje/);
   });
 
   test('si la base falla al anotar, el envío no se deshace', async () => {

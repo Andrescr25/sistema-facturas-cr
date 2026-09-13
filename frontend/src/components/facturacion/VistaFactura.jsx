@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
-  PencilLine, ShieldCheck, Save, X, Trash2, Plus, Search
+  PencilLine, ShieldCheck, Save, X, Trash2, Plus, Search, MessageCircle
 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
@@ -63,7 +63,7 @@ const CELDA = 'w-full rounded-lg border border-primario-200 bg-primario-50/40 px
 
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
-  onVolver, onPdf, onAnular, onNotaCredito, onEditar, onGuardar, onCancelarEdicion, abriendoPdf
+  onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onGuardar, onCancelarEdicion, abriendoPdf
 }) {
   const f = factura
   const emisor = empresa || {}
@@ -222,6 +222,15 @@ export default function VistaFactura({
                 {abriendoPdf === f.id ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                 Ver PDF
               </button>
+
+              {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
+                  no se manda: es un documento sin valor y mandarlo invita a
+                  que lo paguen. */}
+              {f.estado !== 'anulada' && (
+                <button onClick={() => onEnviar(f)} className="btn btn-outline flex items-center gap-2 text-exito-700">
+                  <MessageCircle size={16} /> WhatsApp
+                </button>
+              )}
 
               <button
                 onClick={onEditar}

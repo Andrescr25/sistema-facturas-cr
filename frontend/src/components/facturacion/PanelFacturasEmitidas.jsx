@@ -5,6 +5,8 @@ import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
 import VistaFactura from './VistaFactura'
+import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
+import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 
@@ -116,9 +118,25 @@ export default function PanelFacturasEmitidas({ f }) {
           onPdf={f.verPdf}
           onAnular={setAnulando}
           onNotaCredito={setNota}
+          onEnviar={f.abrirEnvio}
           onEditar={f.abrirEdicion}
         />
         {anulando && <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />}
+        {f.enviando && (
+          <ModalEnviarWhatsApp
+            titulo={`Enviar la factura ${f.enviando.numero}`}
+            subtitulo={f.enviando.cliente?.nombre}
+            telefonos={f.enviando.candidatos}
+            telefonosSinReconocer={f.enviando.sinReconocer}
+            documento={{ tipo: 'factura', referencia: f.enviando.numero }}
+            mensajeInicial={mensajeFactura({
+              numero: f.enviando.numero,
+              cliente: f.enviando.cliente?.nombre
+            })}
+            onEnviar={f.enviarPorWhatsApp}
+            onCerrar={f.cerrarEnvio}
+          />
+        )}
         {nota && <ModalNotaCredito factura={f.detalle} onCerrar={() => setNota(null)} onCrear={f.crearNota} />}
       </>
     )

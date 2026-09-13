@@ -12,6 +12,7 @@
 const servicio = require('./facturaPropia.service');
 const consulta = require('./facturaConsulta.service');
 const { generarPdfFactura } = require('./factura.pdf');
+const envio = require('./facturaEnvio.service');
 const { pool } = require('../../../config/database');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
@@ -73,6 +74,32 @@ module.exports = {
       return res.send(archivo);
     } catch (error) {
       fallo(res, error, 'pdf');
+    }
+  },
+
+  /**
+   * GET /facturacion/facturas/:id/telefonos — a qué números se le puede
+   * mandar. Se PROPONEN: las fichas traen cosas como "89350207 JEISON" y
+   * quien manda elige, con el número a la vista.
+   */
+  telefonos: async (req, res) => {
+    try {
+      res.json({ success: true, data: await envio.telefonosParaFactura(req.params.id) });
+    } catch (error) {
+      fallo(res, error, 'telefonos');
+    }
+  },
+
+  /** POST /facturacion/facturas/:id/whatsapp — la factura, con el PDF propio. */
+  whatsapp: async (req, res) => {
+    try {
+      const { telefono, mensaje } = req.body || {};
+      const r = await envio.enviarFacturaPorWhatsApp(req.params.id, {
+        telefono, mensaje, usuarioId: req.usuario?.id
+      });
+      res.json({ success: true, data: r, message: `Factura enviada al ${r.numero || telefono}.` });
+    } catch (error) {
+      fallo(res, error, 'whatsapp');
     }
   },
 

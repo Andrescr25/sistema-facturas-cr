@@ -22,16 +22,19 @@ const whatsapp = require('../../integrations/whatsapp');
 
 const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra'];
 
-async function anotar({ tipo, referencia, alegraContactId, telefono, usuarioId, exito, error }) {
+async function anotar({ tipo, referencia, alegraContactId, clienteId, telefono, usuarioId, exito, error }) {
   try {
     await query(`
       INSERT INTO envio_whatsapp
-        (tipo, referencia, alegra_contact_id, telefono, enviado_por, exito, error)
-      VALUES ($1, $2, $3, $4, $5, $6, $7);
+        (tipo, referencia, alegra_contact_id, cliente_id, telefono, enviado_por, exito, error)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
     `, [
       tipo,
       referencia ? String(referencia).slice(0, 60) : null,
       alegraContactId ? String(alegraContactId) : null,
+      // Nuestro id de cliente. Va aparte del de Alegra a propósito: meterlo en
+      // esa columna dejaría escrito un número del que nadie sabría el origen.
+      clienteId || null,
       String(telefono).slice(0, 20),
       usuarioId || null,
       exito,
@@ -51,7 +54,7 @@ async function anotar({ tipo, referencia, alegraContactId, telefono, usuarioId, 
  * @param {Buffer} [datos.pdf]        si viene, se manda como documento
  */
 async function enviarYRegistrar({
-  tipo, referencia, alegraContactId, telefono, mensaje,
+  tipo, referencia, alegraContactId, clienteId, telefono, mensaje,
   pdf, nombreArchivo, usuarioId, sujeto = 'cliente'
 }) {
   if (!TIPOS.includes(tipo)) {
@@ -65,11 +68,11 @@ async function enviarYRegistrar({
 
     // Se anota el número YA NORMALIZADO, que es al que de verdad llegó — no
     // el que se escribió en la pantalla.
-    await anotar({ tipo, referencia, alegraContactId, telefono: r.numero, usuarioId, exito: true });
+    await anotar({ tipo, referencia, alegraContactId, clienteId, telefono: r.numero, usuarioId, exito: true });
     return r;
   } catch (e) {
     await anotar({
-      tipo, referencia, alegraContactId,
+      tipo, referencia, alegraContactId, clienteId,
       telefono: String(telefono).replace(/\D/g, '').slice(0, 20) || 'sin número',
       usuarioId, exito: false, error: e.message
     });

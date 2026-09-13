@@ -632,6 +632,22 @@ class FacturacionService {
     return response.data?.data ?? null;
   }
 
+  /** A qué números se le puede mandar esta factura. */
+  async telefonosDeFactura(id) {
+    const response = await api.get(`/facturacion/facturas/${id}/telefonos`);
+    return response.data?.data ?? null;
+  }
+
+  /**
+   * Mandarle la factura al cliente por WhatsApp, con NUESTRO PDF adjunto.
+   * El archivo lo arma el servidor: un enlace tendría que ser público y la
+   * factura lleva la cédula y la dirección del cliente.
+   */
+  async enviarFacturaPorWhatsApp(id, { telefono, mensaje }) {
+    const response = await api.post(`/facturacion/facturas/${id}/whatsapp`, { telefono, mensaje });
+    return response.data?.data ?? null;
+  }
+
   /** Una nota de crédito contra una factura. */
   async crearNotaCredito(datos) {
     const response = await api.post('/facturacion/notas-credito', datos);

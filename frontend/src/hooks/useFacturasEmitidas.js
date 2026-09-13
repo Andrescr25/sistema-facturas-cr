@@ -44,6 +44,10 @@ export function useFacturasEmitidas({ activa }) {
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
 
+  // Para mandarle la factura al cliente: los números se PIDEN al abrir el
+  // modal, no se adivinan de la copia guardada en la factura.
+  const [enviando, setEnviando] = useState(null)
+
   const [abriendoPdf, setAbriendoPdf] = useState(null)
   const [mensaje, setMensaje] = useState('')
 
@@ -131,6 +135,21 @@ export function useFacturasEmitidas({ activa }) {
     await cargar()
   }
 
+  const abrirEnvio = async (factura) => {
+    try {
+      const datos = await facturacionService.telefonosDeFactura(factura.id)
+      setEnviando({ factura, ...datos })
+    } catch (e) {
+      setError(e.response?.data?.message || 'No se pudieron leer los teléfonos del cliente.')
+    }
+  }
+
+  const enviarPorWhatsApp = async ({ telefono, mensaje }) => {
+    const r = await facturacionService.enviarFacturaPorWhatsApp(enviando.factura.id, { telefono, mensaje })
+    setMensaje(`Factura enviada al ${r?.numero || telefono}.`)
+    return r
+  }
+
   const verPdf = async (id) => {
     setAbriendoPdf(id)
     try {
@@ -173,6 +192,7 @@ export function useFacturasEmitidas({ activa }) {
     editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion,
     productos, clientes,
     abriendoPdf, verPdf, anular, crearNota,
+    enviando, abrirEnvio, cerrarEnvio: () => setEnviando(null), enviarPorWhatsApp,
     mensaje, setMensaje,
     recargar: cargar
   }

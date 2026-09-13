@@ -26,6 +26,11 @@ router.get('/facturas', facturaPropia.listar);
 router.get('/facturas/:id', facturaPropia.ver);
 // El PDF propio: es lo que permite entregar la venta impresa sin Alegra.
 router.get('/facturas/:id/pdf', facturaPropia.pdf);
+// Mandarle la factura al cliente con NUESTRO PDF. El archivo se adjunta; no
+// se manda un enlace, que tendría que ser público y la factura lleva la
+// cédula y la dirección del cliente.
+router.get('/facturas/:id/telefonos', facturaPropia.telefonos);
+router.post('/facturas/:id/whatsapp', facturaPropia.whatsapp);
 router.post('/facturas', facturaPropia.crear);
 router.put('/facturas/:id', facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un
