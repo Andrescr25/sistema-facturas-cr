@@ -77,6 +77,10 @@ const valor = (entrada, columna) => entrada.params[columnasDe(entrada).indexOf(c
 
 const VENTA = {
   client: 128,
+  // `fecha` es lo que lee el servicio; `date` es como lo nombra la pantalla y
+  // hoy se descarta (ver el checklist: falta decidir qué pasa con una factura
+  // hecha sin señal y sincronizada días después).
+  fecha: '2026-09-12',
   date: '2026-09-12',
   items: [{ id: '1183', quantity: 2, price: 1000, discount: 0, tax: [{ id: '9999' }] }]
 };
@@ -169,9 +173,10 @@ describe('la fecha del documento', () => {
     assert.equal(servicio.hoyEnCostaRica(new Date('2026-09-13T06:30:00Z')), '2026-09-13');
   });
 
-  test('la factura nace con esa fecha', async () => {
+  test('sin fecha, la factura nace con el día de hoy en Costa Rica', async () => {
     const { servicio, log } = montar();
-    await servicio.crearFactura(VENTA, 4);
+    // A propósito SIN fecha: es el camino por omisión, el del mostrador.
+    await servicio.crearFactura({ ...VENTA, fecha: undefined, date: undefined }, 4);
     const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
     assert.equal(valor(factura, 'fecha'), servicio.hoyEnCostaRica());
   });

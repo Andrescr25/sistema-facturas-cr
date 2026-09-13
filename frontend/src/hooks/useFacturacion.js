@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../services/api'
+import { hoyEnCostaRica } from '../utils/fechaCR'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPropiaAdaptador'
 import { alegraService } from '../services/alegraService'
@@ -81,7 +82,7 @@ export function useFacturacion() {
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
   const [items, setItems] = useState([])
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [observaciones, setObservaciones] = useState('')
   const [descuentoGlobal, setDescuentoGlobal] = useState(0)
 
@@ -462,7 +463,7 @@ export function useFacturacion() {
   }
 
   const ocultarRecordatorioActualizacion = () => {
-    const fechaHoy = new Date().toISOString().split('T')[0]
+    const fechaHoy = hoyEnCostaRica()
     localStorage.setItem(RECORDATORIO_ACTUALIZACION_KEY, fechaHoy)
     setMostrarRecordatorioActualizacion(false)
   }
@@ -1052,7 +1053,7 @@ export function useFacturacion() {
   const limpiarFactura = () => {
     setClienteSeleccionado(null)
     setItems([])
-    setFecha(new Date().toISOString().split('T')[0])
+    setFecha(hoyEnCostaRica())
     setObservaciones('')
     setDescuentoGlobal(0)
     setCodigoProducto('')
