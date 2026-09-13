@@ -5,7 +5,6 @@ import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
 import VistaFactura from './VistaFactura'
-import EditorFactura from './EditorFactura'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 
@@ -97,23 +96,21 @@ export default function PanelFacturasEmitidas({ f }) {
         </div>
       )
     }
-    if (f.editando) {
-      return (
-        <EditorFactura
-          factura={f.detalle}
-          productos={f.productos}
-          clientes={f.clientes}
-          onGuardar={f.guardarEdicion}
-          onCancelar={f.cerrarEdicion}
-        />
-      )
-    }
-
     return (
       <>
+        {/* La confirmación se ve DONDE quedó el usuario: al guardar no se
+            vuelve a la lista, así que mostrarla solo allá era no mostrarla. */}
+        {f.mensaje && (
+          <p className="mb-3 rounded-xl bg-exito-50 px-3 py-2 text-sm text-exito-700">{f.mensaje}</p>
+        )}
         <VistaFactura
           factura={f.detalle}
           empresa={f.empresa}
+          editando={f.editando}
+          productos={f.productos}
+          clientes={f.clientes}
+          onGuardar={f.guardarEdicion}
+          onCancelarEdicion={f.cerrarEdicion}
           abriendoPdf={f.abriendoPdf}
           onVolver={f.volver}
           onPdf={f.verPdf}

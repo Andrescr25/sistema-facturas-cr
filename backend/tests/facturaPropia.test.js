@@ -159,6 +159,24 @@ describe('el número', () => {
   });
 });
 
+describe('la fecha del documento', () => {
+  test('es el día en Costa Rica, no el de UTC', () => {
+    const { servicio } = montar();
+    // 13 de setiembre a la 01:21 UTC son todavía las 19:21 del 12 en Costa
+    // Rica. Con toISOString() la factura salía fechada mañana, y acá se
+    // factura de noche.
+    assert.equal(servicio.hoyEnCostaRica(new Date('2026-09-13T01:21:00Z')), '2026-09-12');
+    assert.equal(servicio.hoyEnCostaRica(new Date('2026-09-13T06:30:00Z')), '2026-09-13');
+  });
+
+  test('la factura nace con esa fecha', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura(VENTA, 4);
+    const factura = log.find(l => /INSERT INTO factura \(/.test(l.sql));
+    assert.equal(valor(factura, 'fecha'), servicio.hoyEnCostaRica());
+  });
+});
+
 describe('el cliente y el plazo', () => {
   test('copia fija: nombre y cédula quedan escritos en el documento', async () => {
     const { servicio, log } = montar();

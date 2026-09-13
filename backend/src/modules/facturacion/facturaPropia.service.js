@@ -226,6 +226,25 @@ function armarLineas(items, productosPorClave, claveDe) {
   };
 }
 
+/**
+ * El día de HOY en Costa Rica, como AAAA-MM-DD.
+ *
+ * POR QUÉ NO `new Date().toISOString()`
+ * Eso da la fecha en UTC, y Costa Rica es UTC−6: a partir de las 6 de la
+ * tarde, `toISOString()` ya devuelve el día siguiente. Toda factura hecha de
+ * noche —que acá se factura— quedaba fechada mañana. Lo destapó la suite al
+ * correr después de las 18:00.
+ *
+ * Se nombra la zona en vez de confiar en la del servidor: este código también
+ * corre en scripts y en Render, donde `TZ` puede no estar puesta.
+ */
+const DIA_CR = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Costa_Rica', year: 'numeric', month: '2-digit', day: '2-digit'
+});
+function hoyEnCostaRica(momento = new Date()) {
+  return DIA_CR.format(momento);
+}
+
 /** Suma días a una fecha AAAA-MM-DD sin arrastrar husos horarios. */
 function sumarDias(fecha, dias) {
   const [a, m, d] = String(fecha).split('-').map(Number);
@@ -237,7 +256,7 @@ function sumarDias(fecha, dias) {
 async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuarioId }) {
   const numeracion = await tomarConsecutivo(cliente, 'factura', { electronica: false });
 
-  const fecha = datos.fecha || new Date().toISOString().slice(0, 10);
+  const fecha = datos.fecha || hoyEnCostaRica();
   // A crédito solo si el cliente lo tiene y son más de 0 días; si no, contado.
   const dias = Number(clienteFacturado.plazo_dias) || 0;
   const aCredito = Boolean(clienteFacturado.plazo_credito_id) && dias > 0;
@@ -665,4 +684,4 @@ async function editarFactura(id, datos, usuarioId) {
 }
 
 module.exports = {
-  registrarCobro, crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };
+  hoyEnCostaRica, registrarCobro, crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };

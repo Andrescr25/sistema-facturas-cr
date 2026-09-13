@@ -39,9 +39,17 @@ describe('las dos etiquetas', () => {
   });
 });
 
-describe('editar desde la pantalla', () => {
+describe('editar sobre el mismo documento', () => {
   const vista = leer('components', 'facturacion', 'VistaFactura.jsx');
-  const editor = leer('components', 'facturacion', 'EditorFactura.jsx');
+
+  test('no hay una pantalla de edición aparte', () => {
+    // Editar en otro formulario obliga a comparar de memoria: uno cambia un
+    // precio en una lista de campos y tiene que imaginarse cómo va a quedar el
+    // documento. Los inputs van EN EL LUGAR del dato.
+    assert.equal(fs.existsSync(ui('components', 'facturacion', 'EditorFactura.jsx')), false,
+      'volvió a existir una pantalla de edición separada');
+    assert.match(vista, /editando \?/);
+  });
 
   test('una factura electrónica, cobrada o acreditada no se edita, y dice por qué', () => {
     assert.match(vista, /razonNoEditable/);
@@ -53,24 +61,29 @@ describe('editar desde la pantalla', () => {
   });
 
   test('el IVA no es un campo que se escriba', () => {
-    // Los tres que sí se editan por línea.
-    for (const campo of ["'quantity'", "'price'", "'discount'"]) {
-      assert.ok(editor.includes(`cambiarItem(i, ${campo}`), `falta poder editar ${campo}`);
+    // Los tres que sí se editan por línea, en su propia celda.
+    for (const campo of ["'cantidad'", "'precioUnitario'", "'descuentoPorcentaje'"]) {
+      assert.ok(vista.includes(`cambiarLinea(i, ${campo}`), `falta poder editar ${campo}`);
     }
-    assert.equal(/cambiarItem\(i, 'tax'/.test(editor), false, 'el impuesto volvió a ser editable');
-    assert.equal(/cambiarItem\(i, 'tarifa'/.test(editor), false, 'el impuesto volvió a ser editable');
+    assert.equal(/cambiarLinea\(i, 'tarifa'/.test(vista), false, 'el impuesto volvió a ser editable');
+    assert.equal(/cambiarLinea\(i, 'impuesto/.test(vista), false, 'el impuesto volvió a ser editable');
   });
 
   test('la tarifa de una línea nueva sale del producto', () => {
-    assert.match(editor, /p\.tax\?\.length \? \[\{ percentage: num\(p\.tax\[0\]\.percentage\) \}\]/);
+    assert.match(vista, /tarifa: p\.tax\?\.length \? num\(p\.tax\[0\]\.percentage\) : 0/);
   });
 
   test('se puede corregir el cliente, que es el error más caro', () => {
-    assert.match(editor, /clienteId: cliente\.id/);
+    assert.match(vista, /clienteId: cliente\?\.id/);
   });
 
   test('el motivo de la corrección queda en la bitácora', () => {
-    assert.match(editor, /motivo: motivo\.trim\(\) \|\| null/);
+    assert.match(vista, /motivo: motivo\.trim\(\) \|\| null/);
+  });
+
+  test('cancelar no deja nada a medias', () => {
+    // La copia de trabajo se rehace cada vez que se entra a editar.
+    assert.match(vista, /if \(!editando\) return/);
   });
 });
 
