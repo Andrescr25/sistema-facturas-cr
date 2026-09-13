@@ -24,6 +24,14 @@ module.exports = {
   /** GET /clientes?buscar=&estado=&conCredito=&pagina=&limite= */
   listar: (req, res) => conPaginacion(res, servicio.listarClientes(req.query)),
   obtener: (req, res) => responder(res, servicio.obtenerCliente(req.params.id), 'obtener'),
+
+  /**
+   * GET /clientes/coincidencias?identificacion=&excepto=
+   * Con qué otras fichas choca esa identificación. Avisa, no bloquea: el
+   * número del cliente de mostrador lo comparten 139 fichas a propósito.
+   */
+  coincidencias: (req, res) => responder(
+    res, servicio.fichasConIdentificacion(req.query.identificacion, req.query.excepto || null), 'coincidencias'),
   crear: (req, res) => responder(res, servicio.crearCliente(req.body, usuario(req)), 'crear', 201),
   editar: (req, res) => responder(res, servicio.editarCliente(req.params.id, req.body, usuario(req)), 'editar'),
   cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoCliente(req.params.id, req.body?.activo, usuario(req)), 'estado'),

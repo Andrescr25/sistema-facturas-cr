@@ -32,6 +32,15 @@ export const clientesService = {
     return data.data
   },
 
+  /**
+   * Con qué otras fichas choca una identificación. Avisa, no bloquea: el
+   * número del cliente de mostrador lo comparten 139 fichas a propósito.
+   */
+  async coincidencias(identificacion, excepto) {
+    const { data } = await api.get('/clientes/coincidencias', { params: { identificacion, excepto } })
+    return data.data
+  },
+
   /** Los plazos de crédito activos, de la configuración propia. */
   async plazos() {
     const { data } = await api.get('/catalogos/configuracion')

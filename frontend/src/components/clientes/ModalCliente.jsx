@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Save } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
+import { clientesService } from '../../services/clientesService'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 
@@ -28,11 +29,15 @@ const CAMPOS = [
 const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito'])
 const CLASE_CAMPO = 'input h-11 w-full rounded-xl border border-neutro-300'
 
+// Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
+// valida el primer dígito de una cédula física: las cargadas empiezan con 1,
+// 2, 4, 5, 6, 8 y 9, así que "provincia del 1 al 7" dejaría fuera a ocho
+// clientes de verdad.
 const TIPOS = [
-  { valor: 'CF', texto: 'Cédula física', digitos: [9] },
-  { valor: 'CJ', texto: 'Cédula jurídica', digitos: [10] },
-  { valor: 'DIMEX', texto: 'DIMEX', digitos: [11, 12] },
-  { valor: 'NITE', texto: 'NITE', digitos: [10] },
+  { valor: 'CF', texto: 'Cédula física', digitos: [9], soloNumeros: true },
+  { valor: 'CJ', texto: 'Cédula jurídica', digitos: [10], soloNumeros: true, empiezaCon: '3' },
+  { valor: 'DIMEX', texto: 'DIMEX', digitos: [11, 12], soloNumeros: true },
+  { valor: 'NITE', texto: 'NITE', digitos: [10], soloNumeros: true },
   { valor: 'EXTRANJERO', texto: 'Pasaporte', digitos: null },
   { valor: 'NO_CONTRIBUYENTE', texto: 'No contribuyente', digitos: null }
 ]
@@ -53,6 +58,25 @@ function listo(campo, v) {
   if (campo === 'correos_adicionales') return aLista(v)
   if (NUMERICOS.has(campo)) return v === '' ? null : Number(v)
   return String(v).trim() === '' ? null : String(v).trim()
+}
+
+/**
+ * Lo mismo que revisa el servidor, dicho antes de apretar Guardar. Está
+ * escrito dos veces a propósito: el servidor es el que manda —una pantalla no
+ * protege una base de datos— y esto es solo para no hacer ir y volver.
+ */
+function avisoDe(tipo, identificacion) {
+  if (!tipo || !identificacion) return null
+  if (tipo.soloNumeros && !/^\d+$/.test(identificacion)) {
+    return `Una ${tipo.texto.toLowerCase()} son solo números.`
+  }
+  if (tipo.digitos && !tipo.digitos.includes(identificacion.length)) {
+    return `Una ${tipo.texto.toLowerCase()} tiene ${tipo.digitos.join(' o ')} dígitos; esta tiene ${identificacion.length}.`
+  }
+  if (tipo.empiezaCon && !identificacion.startsWith(tipo.empiezaCon)) {
+    return `Una ${tipo.texto.toLowerCase()} empieza con ${tipo.empiezaCon}.`
+  }
+  return null
 }
 
 function Etiqueta({ htmlFor, children, requerido }) {
@@ -78,10 +102,27 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
   const cambiar = (campo) => (e) => setValores(prev => ({ ...prev, [campo]: e.target.value }))
 
   const tipo = TIPOS.find(t => t.valor === valores.tipo_identificacion)
-  const digitos = String(valores.identificacion).replace(/[\s-]/g, '').length
-  const avisoIdentificacion = tipo?.digitos && valores.identificacion && !tipo.digitos.includes(digitos)
-    ? `Una ${tipo.texto.toLowerCase()} tiene ${tipo.digitos.join(' o ')} dígitos; esta tiene ${digitos}.`
-    : null
+  const identificacion = String(valores.identificacion).replace(/[\s-]/g, '')
+  const avisoIdentificacion = avisoDe(tipo, identificacion)
+
+  // Con qué otras fichas choca esa identificación. NO impide guardar: el
+  // número del cliente de mostrador lo comparten 139 fichas a propósito. Pero
+  // cuando es una cédula de verdad, ver el choque es lo que evita la segunda
+  // ficha del mismo negocio —hay dos de WILBERTH BUZANO y dos de OG PWR HOUSE—.
+  const [choque, setChoque] = useState(null)
+  useEffect(() => {
+    if (identificacion.length < 9) { setChoque(null); return }
+    let vigente = true
+    // Medio segundo: se consulta cuando la persona deja de escribir, no por
+    // cada tecla.
+    const t = setTimeout(async () => {
+      try {
+        const r = await clientesService.coincidencias(identificacion, cliente?.id)
+        if (vigente) setChoque(r?.total ? r : null)
+      } catch { if (vigente) setChoque(null) }
+    }, 500)
+    return () => { vigente = false; clearTimeout(t) }
+  }, [identificacion, cliente?.id])
   const avisoActividad = editando && !valores.actividad_economica
     ? 'Sin actividad económica no se puede emitir una factura electrónica a nombre de este cliente.'
     : null
@@ -132,6 +173,15 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
             <Etiqueta htmlFor="cliente-identificacion">Identificación</Etiqueta>
             <input id="cliente-identificacion" className={CLASE_CAMPO} value={valores.identificacion} onChange={cambiar('identificacion')} maxLength={20} />
             {avisoIdentificacion && <Aviso>{avisoIdentificacion}</Aviso>}
+            {choque && (
+              <p className="mt-1 text-xs text-neutro-600">
+                Ya {choque.total === 1 ? 'hay otra ficha' : `hay ${choque.total} fichas`} con esa identificación:{' '}
+                <span className="font-semibold text-neutro-800">
+                  {choque.fichas.map(f => f.nombre).join(', ')}{choque.total > choque.fichas.length && '…'}
+                </span>
+                . Se puede guardar igual.
+              </p>
+            )}
           </div>
         </section>
 

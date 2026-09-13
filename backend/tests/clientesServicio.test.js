@@ -243,3 +243,111 @@ describe('lo que ven las otras pantallas', () => {
     assert.match(log[0].sql, /c\.activo = TRUE/);
   });
 });
+
+/**
+ * Qué es una identificación válida.
+ *
+ * Las reglas se contrastaron contra las 247 fichas cargadas antes de
+ * escribirlas: una regla inventada que rechaza una cédula legítima es peor
+ * que no tenerla, porque deja a un cliente real sin poder guardarse.
+ */
+describe('la identificación tiene que calzar con su tipo', () => {
+  const crear = (extra) => {
+    const { servicio } = montar(base());
+    return servicio.crearCliente({ nombre: 'ZZ', ...extra }, 4);
+  };
+
+  test('una cédula física con letras se rechaza', async () => {
+    // Tiene nueve caracteres, así que pasaba el largo. El error aparecería
+    // recién el día que esa factura se le mandara a Hacienda.
+    await assert.rejects(
+      crear({ tipo_identificacion: 'CF', identificacion: '1ABCD6789' }),
+      /solo números/
+    );
+  });
+
+  test('una cédula jurídica que no empieza con 3 se rechaza', async () => {
+    await assert.rejects(
+      crear({ tipo_identificacion: 'CJ', identificacion: '1102920581' }),
+      /empieza con 3/
+    );
+  });
+
+  test('el pasaporte se guarda como viene: puede traer letras', async () => {
+    const { servicio, log } = montar(base());
+    await servicio.crearCliente({ nombre: 'ZZ', tipo_identificacion: 'EXTRANJERO', identificacion: 'AB-123456' }, 4);
+    const insert = log.find(l => /INSERT INTO cliente/.test(l.sql));
+    const columnas = insert.sql.match(/\(([^)]+)\) VALUES/)[1].split(', ');
+    assert.equal(insert.params[columnas.indexOf('identificacion')], 'AB-123456');
+  });
+
+  test('no se inventa una regla de provincia para la cédula física', async () => {
+    // De las cargadas, ocho empiezan con 8 o 9. La regla que uno esperaría
+    // —provincia del 1 al 7— las dejaría a todas sin poder guardarse.
+    for (const n of ['801230456', '901230456', '401230456']) {
+      const { servicio } = montar(base());
+      await servicio.crearCliente({ nombre: 'ZZ', tipo_identificacion: 'CF', identificacion: n }, 4);
+    }
+  });
+
+  test('sin tipo no se inventa ninguna regla', async () => {
+    const { servicio } = montar(base());
+    await servicio.crearCliente({ nombre: 'ZZ', identificacion: '12345' }, 4);
+  });
+});
+
+describe('avisar de una identificación repetida', () => {
+  /** Una base que devuelve `filas` para la consulta de coincidencias. */
+  const conFichas = (filas) => montar((sql) => {
+    if (/FROM cliente WHERE identificacion = \$1/.test(sql)) {
+      return { rows: filas.map(f => ({ ...f, total: filas.length })) };
+    }
+    return null;
+  });
+
+  test('dice con quién choca y cuántas son', async () => {
+    const { servicio } = conFichas([
+      { id: 1, nombre: 'WILBERTH BUZANO', tipo_identificacion: 'CF', activo: true },
+      { id: 2, nombre: 'WILBERTH BUZANO', tipo_identificacion: 'CF', activo: true }
+    ]);
+    const r = await servicio.fichasConIdentificacion('100010000');
+
+    assert.equal(r.total, 2);
+    assert.deepEqual(r.fichas.map(f => f.nombre), ['WILBERTH BUZANO', 'WILBERTH BUZANO']);
+  });
+
+  test('NO bloquea: solo informa', async () => {
+    // 139 fichas comparten el número del cliente de mostrador. Si esto
+    // impidiera guardar, no se podría dar de alta la próxima pulpería.
+    const { servicio } = conFichas([{ id: 1, nombre: 'AB ANA', tipo_identificacion: null, activo: true }]);
+    const r = await servicio.fichasConIdentificacion('100000000');
+    assert.ok(r.total > 0, 'informa');
+    assert.ok(!(r instanceof Error), 'no levanta un error');
+  });
+
+  test('trae el total aunque solo muestre las primeras', async () => {
+    const { servicio, log } = conFichas([{ id: 1, nombre: 'AB ANA', activo: true }]);
+    await servicio.fichasConIdentificacion('100000000');
+    const consulta = log.find(l => /FROM cliente WHERE identificacion/.test(l.sql));
+
+    assert.match(consulta.sql, /COUNT\(\*\) OVER\(\)/, 'sin el total, decir "5" haría creer que se pueden revisar a ojo');
+    assert.match(consulta.sql, /LIMIT 5/);
+  });
+
+  test('la ficha que se está editando no choca consigo misma', async () => {
+    const { servicio, log } = conFichas([]);
+    await servicio.fichasConIdentificacion('3101123456', 7);
+    const consulta = log.find(l => /FROM cliente WHERE identificacion/.test(l.sql));
+
+    assert.match(consulta.sql, /id <> \$2/);
+    assert.deepEqual(consulta.params, ['3101123456', 7]);
+  });
+
+  test('sin identificación no se consulta nada', async () => {
+    const { servicio, log } = conFichas([]);
+    const r = await servicio.fichasConIdentificacion('');
+
+    assert.deepEqual(r, { total: 0, fichas: [] });
+    assert.equal(log.length, 0, 'preguntar por vacío traería fichas que no tienen nada que ver');
+  });
+});

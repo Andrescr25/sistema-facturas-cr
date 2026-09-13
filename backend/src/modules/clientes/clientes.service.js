@@ -19,7 +19,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto, numero, booleano, opcion, soloDigitos, correo, lista, objeto, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
-const { TIPOS, LARGOS, NOMBRES, limpiar, calza } = require('./identificacion');
+const { TIPOS, limpiar, motivoQueNoCalza } = require('./identificacion');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -112,9 +112,8 @@ function revisarIdentificacion(cambios, completa) {
   if (!('identificacion' in cambios) && !('tipo_identificacion' in cambios)) return;
   const tipo = completa.tipo_identificacion ?? null;
   const limpia = limpiar(completa.identificacion, tipo);
-  if (limpia && !calza(tipo, limpia)) {
-    throw httpError(400, `Identificación: una ${NOMBRES[tipo]} tiene ${LARGOS[tipo].join(' o ')} dígitos, y esa tiene ${limpia.length}.`);
-  }
+  const motivo = motivoQueNoCalza(tipo, limpia);
+  if (motivo) throw httpError(400, `Identificación: ${motivo}`);
   if ('identificacion' in cambios) cambios.identificacion = limpia;
 }
 
@@ -166,6 +165,39 @@ async function obtenerCliente(id) {
   const cliente = await obtenerCon(pool, idValido(id));
   if (!cliente) throw httpError(404, 'No existe ese cliente.');
   return cliente;
+}
+
+/**
+ * Qué otras fichas ya tienen esa identificación.
+ *
+ * NO SE BLOQUEA, SE AVISA. Hay 139 fichas con `100000000`, el número que se
+ * usa para el cliente de mostrador: prohibir el repetido dejaría sin poder
+ * crear la próxima pulpería. Pero el repetido sí importa cuando es una cédula
+ * de verdad —hay dos fichas de WILBERTH BUZANO y dos de OG PWR HOUSE— y quien
+ * está llenando la ficha es el único que puede decir si son la misma o dos
+ * sucursales. Se le enseña con quién choca y decide.
+ *
+ * `excepto` es la ficha que se está editando: no se avisa de que choca
+ * consigo misma.
+ */
+async function fichasConIdentificacion(identificacion, excepto = null) {
+  const limpia = limpiar(identificacion, null);
+  if (!limpia) return { total: 0, fichas: [] };
+  const params = [limpia];
+  let filtro = '';
+  if (excepto) { params.push(idValido(excepto)); filtro = ` AND id <> $${params.length}`; }
+
+  // Va el TOTAL además de los primeros: con el número del mostrador son 139, y
+  // decir "10" haría creer que se puede revisar la lista a ojo.
+  const { rows } = await pool.query(
+    `SELECT id, nombre, tipo_identificacion, activo, COUNT(*) OVER()::int AS total
+       FROM cliente WHERE identificacion = $1${filtro}
+      ORDER BY activo DESC, nombre LIMIT 5`, params);
+
+  return {
+    total: rows[0] ? rows[0].total : 0,
+    fichas: rows.map(({ total: _t, ...f }) => f)
+  };
 }
 
 async function crearCliente(datos, usuarioId) {
@@ -253,6 +285,7 @@ async function clientesParaOperar({ buscar = '', pagina = 1, limite = 30 } = {})
 
 module.exports = {
   CAMPOS,
+  fichasConIdentificacion,
   listarClientes,
   obtenerCliente,
   crearCliente,
