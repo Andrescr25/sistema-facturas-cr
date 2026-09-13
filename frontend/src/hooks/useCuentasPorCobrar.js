@@ -73,9 +73,9 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [filters, loadCuentas, showToast])
 
-  const handleCargarAbonos = useCallback(async (alegraInvoiceId) => {
+  const handleCargarAbonos = useCallback(async (facturaId) => {
     try {
-      const result = await getAbonosFactura(alegraInvoiceId)
+      const result = await getAbonosFactura(facturaId)
       return result?.data || []
     } catch (err) {
       showToast(err.message || 'Error cargando el historial de abonos', 'error')
@@ -90,9 +90,9 @@ export function useCuentasPorCobrar(initialFilters = {}) {
    * no un requisito para cobrar. Si Alegra no contesta, la tabla dice que no
    * hay detalle y el abono se registra igual.
    */
-  const handleCargarProductos = useCallback(async (alegraInvoiceId) => {
+  const handleCargarProductos = useCallback(async (facturaId) => {
     try {
-      const result = await getProductosFactura(alegraInvoiceId)
+      const result = await getProductosFactura(facturaId)
       return result?.data || []
     } catch (err) {
       console.error('No se pudo cargar el detalle de la factura:', err.message)
@@ -100,7 +100,7 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [])
 
-  const handleRegistrarAbono = useCallback(async ({ alegraInvoiceId, numeroFactura, monto, fecha, metodoPago, saldarTotal = false }) => {
+  const handleRegistrarAbono = useCallback(async ({ facturaId, numeroFactura, monto, fecha, metodoPagoId, referencia, saldarTotal = false }) => {
     // Al saldar total el monto lo decide el backend con el saldo que Alegra
     // reporta en ese momento, así que la confirmación dice lo que va a pasar
     // en vez de un número que puede quedar viejo.
@@ -115,7 +115,7 @@ export function useCuentasPorCobrar(initialFilters = {}) {
 
     setRegistrandoAbono(true)
     try {
-      await registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, saldarTotal })
+      await registrarAbono({ facturaId, monto, fecha, metodoPagoId, referencia, saldarTotal })
       await loadCuentas(filters)
       showToast(saldarTotal ? 'Factura saldada por completo' : 'Abono registrado correctamente', 'success')
       return true

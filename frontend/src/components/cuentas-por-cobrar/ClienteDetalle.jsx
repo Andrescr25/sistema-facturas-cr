@@ -33,7 +33,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
   // factura como la manda el servidor de cobrar. Se guarda el original para
   // que el modal de abono siga recibiendo lo que espera.
   const filas = cliente.facturas.map((f) => ({
-    id: f.alegraInvoiceId,
+    id: f.facturaId,
     numero: f.numeroFactura,
     fechaVencimiento: f.fechaVencimiento,
     diasRestantes: f.diasRestantes,
@@ -103,7 +103,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
           })}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(
-              `/facturacion/invoices/${facturaAEnviar.alegraInvoiceId}/whatsapp`, { telefono, mensaje })
+              `/facturacion/facturas/${facturaAEnviar.facturaId}/whatsapp`, { telefono, mensaje })
             return data.data
           }}
           onCerrar={() => setFacturaAEnviar(null)}
