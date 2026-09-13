@@ -22,6 +22,8 @@ const router = express.Router();
 const controller = new FacturacionController();
 
 // ---- Factura propia, sin Alegra ----
+// Los descuentos de exceso que el cliente ya ve en el catálogo y el portal.
+router.get('/ofertas', facturaPropia.ofertas);
 router.get('/facturas', facturaPropia.listar);
 router.get('/facturas/:id', facturaPropia.ver);
 // El PDF propio: es lo que permite entregar la venta impresa sin Alegra.

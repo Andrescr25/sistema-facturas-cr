@@ -68,6 +68,9 @@ export function useFacturacion() {
   // Cómo paga el cliente ESTA venta. No es la condición de venta del
   // documento: un cliente con crédito puede pagar de una, y uno de contado
   // puede quedar debiendo.
+  // Los descuentos de exceso vivos, por id de producto. Se cargan con los
+  // catálogos porque hacen falta justo al agregar una línea.
+  const [ofertas, setOfertas] = useState(new Map())
   const [metodosPago, setMetodosPago] = useState([])
   const [metodoPagoId, setMetodoPagoId] = useState(null)
   const [referenciaPago, setReferenciaPago] = useState('')
@@ -372,11 +375,12 @@ export function useFacturacion() {
       await facturacionService.init()
 
       // Cargar datos del cache
-      const [productosCache, clientesCache, impuestosData, metodosData, pendientes, stats] = await Promise.all([
+      const [productosCache, clientesCache, impuestosData, metodosData, ofertasData, pendientes, stats] = await Promise.all([
         facturacionService.getProductos(),
         facturacionService.getClientes(),
         facturacionService.getImpuestos(),
         facturacionService.getMetodosPago().catch(() => []),
+        facturacionService.getOfertasExceso().catch(() => []),
         facturacionService.getFacturasPendientes(),
         facturacionService.getCacheStats()
       ])
@@ -385,6 +389,7 @@ export function useFacturacion() {
       setClientes(clientesCache)
       prepararImpuestosIniciales(impuestosData)
       setMetodosPago(metodosData || [])
+      setOfertas(new Map((ofertasData || []).map(o => [Number(o.productoId), o.descuentoPorcentaje])))
       setFacturasPendientes(pendientes)
       setCacheStats(stats)
 
@@ -789,6 +794,12 @@ export function useFacturacion() {
         }))
         : impuestoDefault
 
+      // Si el producto está en oferta de exceso, la línea NACE con ese
+      // descuento. Es el mismo que el cliente ya ve en el catálogo y en el
+      // portal: la oferta que se promete y la que se cobra tienen que ser la
+      // misma, y nadie en la caja tiene por qué acordarse de cuáles son.
+      const ofertaExceso = ofertas.get(Number(producto.productoId ?? producto.id)) || 0
+
       const nuevoItem = {
         id: producto.id,
         // El id propio viaja con la línea: es el que el servidor usa para
@@ -799,7 +810,8 @@ export function useFacturacion() {
         quantity: cantidad,
         price: producto.price || 0,
         tax: impuestoDelProducto,
-        discount: 0,
+        discount: ofertaExceso,
+        ofertaExceso,
         description: ''
       }
 
@@ -1172,6 +1184,8 @@ export function useFacturacion() {
   }
 
   return {
+    ofertas,
+
     // Cómo se cobra esta venta
     metodosPago,
     metodoPagoId,

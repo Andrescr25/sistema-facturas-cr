@@ -13,6 +13,7 @@ const servicio = require('./facturaPropia.service');
 const consulta = require('./facturaConsulta.service');
 const { generarPdfFactura } = require('./factura.pdf');
 const envio = require('./facturaEnvio.service');
+const { ofertasVigentes } = require('./ofertas.service');
 const { pool } = require('../../../config/database');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
@@ -100,6 +101,19 @@ module.exports = {
       res.json({ success: true, data: r, message: `Factura enviada al ${r.numero || telefono}.` });
     } catch (error) {
       fallo(res, error, 'whatsapp');
+    }
+  },
+
+  /**
+   * GET /facturacion/ofertas — los descuentos de exceso vivos, con nuestro id
+   * de producto. Es lo que evita que un cliente que pidió viendo "−20 %"
+   * llegue a la caja y se le cobre completo.
+   */
+  ofertas: async (_req, res) => {
+    try {
+      res.json({ success: true, data: await ofertasVigentes() });
+    } catch (error) {
+      fallo(res, error, 'ofertas');
     }
   },
 

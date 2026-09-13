@@ -588,6 +588,18 @@ class FacturacionService {
   }
 
   /**
+   * Los descuentos de exceso vivos, con nuestro id de producto.
+   *
+   * El catálogo del agente y el portal ya se los muestran al cliente. Sin
+   * esto, alguien que pidió viendo "−35 %" llegaba a la caja y se le cobraba
+   * el precio completo.
+   */
+  async getOfertasExceso() {
+    const response = await api.get('/facturacion/ofertas');
+    return response.data?.data ?? [];
+  }
+
+  /**
    * Las facturas YA EMITIDAS, de la base propia.
    *
    * Devuelve la vista de consulta tal cual —con su saldo calculado y su
