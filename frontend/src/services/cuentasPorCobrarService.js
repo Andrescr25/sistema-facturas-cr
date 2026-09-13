@@ -91,8 +91,49 @@ export async function anularAbono(abonoId, motivo) {
 }
 
 export async function getCobrosDia(fecha) {
-  const response = await api.get('/cuentas-por-cobrar/cobros-dia', { params: { fecha } })
-  return response.data
+  const response = await api.get('/cuentas-por-cobrar/propios/caja', { params: { fecha } })
+  const d = response.data?.data
+
+  // Los nombres que todavía usa la pestaña. Se traducen acá, como el resto:
+  // `metodoPago` es el nombre del catálogo (las copiadas de Alegra guardan
+  // "CASH" crudo) y `numeroFactura` puede traer varias, porque un abono se
+  // puede repartir entre facturas.
+  return {
+    success: true,
+    fecha: d?.fecha,
+    cobros: (d?.cobros ?? []).map((c) => ({
+      id: c.id,
+      clienteNombre: c.cliente,
+      numeroFactura: c.facturas,
+      metodoPago: c.metodo,
+      monto: c.monto,
+      anulado: c.anulado,
+      referencia: c.referencia
+    })),
+    resumen: {
+      total: d?.resumen?.total ?? 0,
+      cantidadCobros: d?.resumen?.cantidad ?? 0,
+      anulados: d?.resumen?.anulados ?? 0,
+      efectivoEsperado: d?.resumen?.efectivoEsperado ?? 0,
+      porMetodo: Object.fromEntries(
+        (d?.resumen?.porMetodo ?? []).map((m) => [m.clave, { monto: m.monto, cantidad: m.cantidad, nombre: m.metodo }])
+      )
+    },
+    cierre: d?.cierre ?? null
+  }
+}
+
+/** Cerrar el día: se cuenta el efectivo y se compara con lo esperado. */
+export async function cerrarCaja({ fecha, efectivoContado, motivoDiferencia, observaciones }) {
+  const response = await api.post('/cuentas-por-cobrar/propios/caja/cerrar',
+    { fecha, efectivoContado, motivoDiferencia, observaciones })
+  return response.data?.data ?? null
+}
+
+/** Reabrir un cierre. Pide motivo y queda anotado quién lo hizo. */
+export async function reabrirCaja(fecha, motivo) {
+  const response = await api.post('/cuentas-por-cobrar/propios/caja/reabrir', { fecha, motivo })
+  return response.data?.data ?? null
 }
 
 export async function sincronizarCuentasPorCobrar() {

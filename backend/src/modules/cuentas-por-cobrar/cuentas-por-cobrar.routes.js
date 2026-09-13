@@ -16,6 +16,10 @@ router.get('/propios/deudores', cobros.deudores);
 router.get('/propios/facturas/:id/abonos', cobros.abonos);
 router.post('/propios/abonos', cobros.registrar);
 router.patch('/propios/abonos/:id/anular', cobros.anular);
+// El cierre de caja: lo cobrado en el día y si el efectivo cuadra.
+router.get('/propios/caja', cobros.resumenCaja);
+router.post('/propios/caja/cerrar', cobros.cerrarCaja);
+router.post('/propios/caja/reabrir', cobros.reabrirCaja);
 
 // ---- Contra Alegra (lo de siempre) ----
 router.get('/', controller.listar);

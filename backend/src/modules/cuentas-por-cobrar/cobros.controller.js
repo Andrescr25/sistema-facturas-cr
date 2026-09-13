@@ -7,6 +7,7 @@
  */
 
 const servicio = require('./cobros.service');
+const caja = require('./cierreCaja.service');
 
 function fallo(res, error, contexto) {
   const s = error.status || 500;
@@ -45,6 +46,35 @@ module.exports = {
       });
     } catch (error) {
       fallo(res, error, 'registrar');
+    }
+  },
+
+  /** GET /cuentas-por-cobrar/propios/caja?fecha= — lo cobrado y si cuadra. */
+  resumenCaja: async (req, res) => {
+    try {
+      res.json({ success: true, data: await caja.resumenDelDia(req.query.fecha) });
+    } catch (error) {
+      fallo(res, error, 'resumenCaja');
+    }
+  },
+
+  /** POST /cuentas-por-cobrar/propios/caja/cerrar */
+  cerrarCaja: async (req, res) => {
+    try {
+      const cierre = await caja.cerrarCaja(req.body || {}, req.usuario?.id);
+      res.status(201).json({ success: true, data: cierre });
+    } catch (error) {
+      fallo(res, error, 'cerrarCaja');
+    }
+  },
+
+  /** POST /cuentas-por-cobrar/propios/caja/reabrir — con motivo, y queda anotado. */
+  reabrirCaja: async (req, res) => {
+    try {
+      const r = await caja.reabrirCaja(req.body?.fecha, req.body || {}, req.usuario?.id);
+      res.json({ success: true, data: r });
+    } catch (error) {
+      fallo(res, error, 'reabrirCaja');
     }
   },
 
