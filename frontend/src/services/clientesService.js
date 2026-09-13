@@ -32,6 +32,12 @@ export const clientesService = {
     return data.data
   },
 
+  /** Todo lo del cliente: saldo, facturas, abonos, qué compra y sus pedidos. */
+  async resumen(id) {
+    const { data } = await api.get(`/clientes/${id}/resumen`)
+    return data.data
+  },
+
   /**
    * Con qué otras fichas choca una identificación. Avisa, no bloquea: el
    * número del cliente de mostrador lo comparten 139 fichas a propósito.

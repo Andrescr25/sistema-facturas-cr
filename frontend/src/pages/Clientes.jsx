@@ -11,6 +11,7 @@ import DispositivosAgente from '../components/clientes/DispositivosAgente'
 import ListaCuentas from '../components/clientes/ListaCuentas'
 import ListaClientes from '../components/clientes/ListaClientes'
 import ModalCliente from '../components/clientes/ModalCliente'
+import FichaCliente from '../components/clientes/FichaCliente'
 import ModalInvitacion from '../components/clientes/ModalInvitacion'
 import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
 import { mensajePedido } from '../utils/mensajesWhatsApp'
@@ -44,6 +45,10 @@ export default function Clientes() {
 
   // El pedido que se está por avisar al cliente por WhatsApp.
   const [avisando, setAvisando] = useState(null)
+
+  // La ficha abierta. Es un id de cliente, que nunca es null, así que null
+  // sirve de "ninguna" sin el choque que tuvo Cuentas por Cobrar.
+  const [fichaAbierta, setFichaAbierta] = useState(null)
 
   const pendientes = pedidos.filter(p => p.estado === 'pendiente').length
 
@@ -94,6 +99,13 @@ export default function Clientes() {
       {vista === 'dispositivos' ? (
         <DispositivosAgente />
       ) : vista === 'fichas' ? (
+        fichaAbierta ? (
+          <FichaCliente
+            clienteId={fichaAbierta}
+            onVolver={() => setFichaAbierta(null)}
+            onEditar={fichas.setEditando}
+          />
+        ) : (
         <ListaClientes
           clientes={fichas.clientes}
           cargando={fichas.cargando}
@@ -108,7 +120,9 @@ export default function Clientes() {
           onNuevo={() => fichas.setEditando({})}
           onEditar={fichas.setEditando}
           onCambiarEstado={fichas.cambiarEstado}
+          onAbrir={(c) => setFichaAbierta(c.id)}
         />
+        )
       ) : vista === 'pedidos' ? (
         <ListaPedidos
           pedidos={pedidos}

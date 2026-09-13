@@ -17,6 +17,7 @@ routes.get('/', controller.listar);
 routes.get('/coincidencias', controller.coincidencias);
 routes.get('/hacienda/:identificacion', controller.hacienda);
 routes.get('/:id', controller.obtener);
+routes.get('/:id/resumen', controller.resumen);
 routes.post('/', controller.crear);
 routes.put('/:id', controller.editar);
 routes.patch('/:id/estado', controller.cambiarEstado);

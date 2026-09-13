@@ -35,7 +35,7 @@ function Dato({ icono: Icono, children, falta }) {
 
 export default function ListaClientes({
   clientes, cargando, busqueda, setBusqueda, estado, setEstado,
-  paginacion, pagina, setPagina, procesando, onNuevo, onEditar, onCambiarEstado
+  paginacion, pagina, setPagina, procesando, onNuevo, onEditar, onAbrir, onCambiarEstado
 }) {
   return (
     <div className="space-y-4">
@@ -93,7 +93,17 @@ export default function ListaClientes({
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-neutro-900 text-sm">{c.nombre}</p>
+                    {/* El nombre abre la ficha completa. La tarjeta sigue
+                        mostrando lo de siempre: esto agrega un camino, no
+                        reemplaza ninguno. */}
+                    <button
+                      type="button"
+                      onClick={() => onAbrir(c)}
+                      className="text-left font-bold text-neutro-900 text-sm hover:text-exito-700"
+                      title={`Ver todo lo de ${c.nombre}`}
+                    >
+                      {c.nombre}
+                    </button>
                     {!c.activo && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase bg-peligro-100 text-peligro-700">
                         Inactivo

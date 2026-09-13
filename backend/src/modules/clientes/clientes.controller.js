@@ -4,6 +4,7 @@
 
 const servicio = require('./clientes.service');
 const hacienda = require('../../integrations/hacienda');
+const resumen = require('./clientes.resumen.service');
 
 function responder(res, promesa, contexto, status = 200) {
   return promesa
@@ -43,6 +44,12 @@ module.exports = {
    */
   hacienda: (req, res) => responder(
     res, hacienda.consultarContribuyente(req.params.identificacion), 'hacienda'),
+
+  /**
+   * GET /clientes/:id/resumen — todo lo del cliente en una sola respuesta:
+   * saldo, últimas facturas, abonos, qué compra y sus pedidos del portal.
+   */
+  resumen: (req, res) => responder(res, resumen.resumenDeCliente(req.params.id), 'resumen'),
 
   /** GET /catalogos/clientes — para facturar y cobrar: activos y lo justo. */
   paraOperar: (req, res) => conPaginacion(res, servicio.clientesParaOperar(req.query))
