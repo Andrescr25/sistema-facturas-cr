@@ -21,8 +21,23 @@ const FORMATO = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Costa_Rica', year: 'numeric', month: '2-digit', day: '2-digit'
 });
 
-/** El día de una fecha cualquiera, visto desde Costa Rica ("AAAA-MM-DD"). */
+/**
+ * El día de una fecha cualquiera, visto desde Costa Rica ("AAAA-MM-DD").
+ *
+ * Un texto que YA es un día de calendario se devuelve tal cual. Convertirlo
+ * sería un error: JavaScript parsea "2026-09-08" como medianoche UTC y, al
+ * formatearlo en UTC−6, devolvía "2026-09-07". Pasar de un día de calendario
+ * a un día de calendario es la identidad; la conversión solo tiene sentido
+ * para un INSTANTE (un Date con hora).
+ *
+ * Hoy todos los que llaman acá pasan un Date, así que el error estaba
+ * latente. Se vio en la rama de la migración, donde un recordatorio le decía
+ * a un cliente "vencida hace 6 días" cuando eran 5.
+ */
+const SOLO_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
 function diaEnCostaRica(momento) {
+  if (typeof momento === 'string' && SOLO_DIA.test(momento.trim())) return momento.trim();
   const d = momento instanceof Date ? momento : new Date(momento);
   if (Number.isNaN(d.getTime())) return null;
   return FORMATO.format(d);
