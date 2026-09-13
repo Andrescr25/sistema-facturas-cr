@@ -32,6 +32,7 @@ const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { generarPdfCotizacion } = require('./cotizacion.pdf');
 const { idDesdeToken, enlaceDe } = require('./enlacePublico');
 const FacturacionService = require('../facturacion/facturacion.service');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
 const facturacion = new FacturacionService();
 
@@ -430,7 +431,7 @@ async function publicaPorToken(token) {
     r.rows.forEach(x => { if (x.image_url) fotos.set(String(x.alegra_id), x.image_url); });
   }
 
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = hoyEnCostaRica();
 
   return {
     numero: cot.numero,
@@ -514,7 +515,7 @@ async function facturar(id, { aunqueVencida = false } = {}) {
   // cotizaciones de 2024 por más de un millón de colones, y un clic distraído
   // vendería a precios de hace dos años. Se puede hacer igual —a veces se le
   // sostiene el precio a un cliente— pero diciéndolo.
-  const hoyISO = new Date().toISOString().split('T')[0];
+  const hoyISO = hoyEnCostaRica();
   if (!aunqueVencida && cot.vence && cot.vence < hoyISO) {
     throw httpError(409,
       `La cotización ${cot.numero} venció el ${cot.vence} y sus precios son de esa fecha. ` +
@@ -522,7 +523,7 @@ async function facturar(id, { aunqueVencida = false } = {}) {
   }
 
   const impuestos = await mapaImpuestos();
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = hoyEnCostaRica();
 
   const facturaData = {
     date: hoy,
