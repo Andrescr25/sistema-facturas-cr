@@ -3,6 +3,7 @@
  */
 
 const servicio = require('./clientes.service');
+const hacienda = require('../../integrations/hacienda');
 
 function responder(res, promesa, contexto, status = 200) {
   return promesa
@@ -35,6 +36,13 @@ module.exports = {
   crear: (req, res) => responder(res, servicio.crearCliente(req.body, usuario(req)), 'crear', 201),
   editar: (req, res) => responder(res, servicio.editarCliente(req.params.id, req.body, usuario(req)), 'editar'),
   cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoCliente(req.params.id, req.body?.activo, usuario(req)), 'estado'),
+
+  /**
+   * GET /clientes/hacienda/:identificacion — quién es, según Hacienda.
+   * Se PROPONE lo que llega; no se pisa lo que la persona escribió.
+   */
+  hacienda: (req, res) => responder(
+    res, hacienda.consultarContribuyente(req.params.identificacion), 'hacienda'),
 
   /** GET /catalogos/clientes — para facturar y cobrar: activos y lo justo. */
   paraOperar: (req, res) => conPaginacion(res, servicio.clientesParaOperar(req.query))

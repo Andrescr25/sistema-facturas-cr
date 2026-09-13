@@ -41,6 +41,15 @@ export const clientesService = {
     return data.data
   },
 
+  /**
+   * Quién es esa cédula, según la consulta pública de Hacienda. Lo que llega
+   * se propone; no pisa lo que la persona escribió.
+   */
+  async hacienda(identificacion) {
+    const { data } = await api.get(`/clientes/hacienda/${encodeURIComponent(identificacion)}`)
+    return data.data
+  },
+
   /** Los plazos de crédito activos, de la configuración propia. */
   async plazos() {
     const { data } = await api.get('/catalogos/configuracion')

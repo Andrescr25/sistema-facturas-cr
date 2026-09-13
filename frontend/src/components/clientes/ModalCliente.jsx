@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Save } from 'lucide-react'
+import { AlertTriangle, Download, Save } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
 import { clientesService } from '../../services/clientesService'
 import Boton from '../ui/Boton'
@@ -123,6 +123,33 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
     }, 500)
     return () => { vigente = false; clearTimeout(t) }
   }, [identificacion, cliente?.id])
+  // Lo que Hacienda dice de esa cédula. De las 247 fichas cargadas, 245 no
+  // tienen actividad económica, y sin ella no se puede emitir una factura
+  // electrónica a nombre del cliente. Se PROPONE: el nombre legal casi nunca
+  // es el que usa la casa —"OG PWR HOUSE SOCIEDAD DE RESPONSABILIDAD
+  // LIMITADA" contra "OG PWR HOUSE …-GYM Palmares"— y pisarlo dejaría fichas
+  // que nadie reconoce.
+  const [hacienda, setHacienda] = useState(null)
+  const [consultando, setConsultando] = useState(false)
+  const [falloHacienda, setFalloHacienda] = useState(null)
+
+  const consultarHacienda = async () => {
+    setConsultando(true); setFalloHacienda(null); setHacienda(null)
+    try {
+      const r = await clientesService.hacienda(identificacion)
+      setHacienda(r)
+      // El tipo sí se pone solo cuando está vacío: no hay nada que pisar y
+      // Hacienda es la fuente de esa respuesta.
+      if (!valores.tipo_identificacion && r.tipoIdentificacion) {
+        setValores(prev => ({ ...prev, tipo_identificacion: r.tipoIdentificacion }))
+      }
+    } catch (e) {
+      setFalloHacienda(e?.response?.data?.message || 'No se pudo consultar a Hacienda.')
+    } finally {
+      setConsultando(false)
+    }
+  }
+
   const avisoActividad = editando && !valores.actividad_economica
     ? 'Sin actividad económica no se puede emitir una factura electrónica a nombre de este cliente.'
     : null
@@ -173,6 +200,18 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
             <Etiqueta htmlFor="cliente-identificacion">Identificación</Etiqueta>
             <input id="cliente-identificacion" className={CLASE_CAMPO} value={valores.identificacion} onChange={cambiar('identificacion')} maxLength={20} />
             {avisoIdentificacion && <Aviso>{avisoIdentificacion}</Aviso>}
+            <button
+              type="button"
+              onClick={consultarHacienda}
+              disabled={consultando || identificacion.length < 9}
+              title={identificacion.length < 9
+                ? 'Escribí la cédula completa para consultarla'
+                : 'Traer de Hacienda el nombre, el tipo y las actividades económicas'}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-neutro-300 px-2.5 py-1 text-xs font-semibold text-neutro-700 disabled:opacity-40"
+            >
+              <Download size={12} />{consultando ? 'Consultando…' : 'Consultar en Hacienda'}
+            </button>
+            {falloHacienda && <Aviso>{falloHacienda}</Aviso>}
             {choque && (
               <p className="mt-1 text-xs text-neutro-600">
                 Ya {choque.total === 1 ? 'hay otra ficha' : `hay ${choque.total} fichas`} con esa identificación:{' '}
@@ -211,6 +250,58 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
             <input id="cliente-actividad_economica" className={CLASE_CAMPO} inputMode="numeric" value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} placeholder="523402" />
             {avisoActividad && <Aviso>{avisoActividad}</Aviso>}
           </div>
+
+          {hacienda && (
+            <div className="sm:col-span-2 rounded-xl border border-neutro-200 bg-neutro-50 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-neutro-500">Según Hacienda</p>
+              <p className="mt-1 text-sm font-semibold text-neutro-900">{hacienda.nombre}</p>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutro-600">
+                <span>{hacienda.situacion.estado}{hacienda.regimen && ` · ${hacienda.regimen}`}</span>
+                {/* Moroso u omiso no impide facturarle, pero sí es algo que
+                    quien da crédito querría saber antes de dárselo. */}
+                {hacienda.situacion.moroso && <Insignia tono="peligro">Moroso</Insignia>}
+                {hacienda.situacion.omiso && <Insignia tono="alerta">Omiso</Insignia>}
+              </div>
+
+              {hacienda.nombre !== valores.nombre && (
+                <button
+                  type="button"
+                  onClick={() => setValores(prev => ({ ...prev, nombre: hacienda.nombre }))}
+                  className="mt-2 rounded-lg border border-neutro-300 bg-white px-2.5 py-1 text-xs font-semibold text-neutro-700"
+                >
+                  Usar este nombre
+                </button>
+              )}
+
+              {hacienda.actividades.length === 0 ? (
+                <p className="mt-2 text-xs text-neutro-600">No tiene actividades activas inscritas.</p>
+              ) : (
+                <>
+                  <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-neutro-500">
+                    Actividades — tocá una para ponerla
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {hacienda.actividades.map(a => (
+                      <li key={a.codigo}>
+                        <button
+                          type="button"
+                          onClick={() => setValores(prev => ({ ...prev, actividad_economica: a.codigo }))}
+                          className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-xs ${
+                            valores.actividad_economica === a.codigo
+                              ? 'border-exito-300 bg-exito-50 text-exito-800'
+                              : 'border-neutro-200 bg-white text-neutro-700'}`}
+                        >
+                          <span className="font-semibold">{a.codigo}</span> · {a.descripcion}
+                          {a.principal && <span className="ml-1 text-neutro-500">(principal)</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
