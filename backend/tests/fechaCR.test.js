@@ -83,3 +83,18 @@ test('nadie vuelve a sacar el día del calendario en UTC', () => {
   assert.deepEqual(encontrados, [],
     `usan el día en UTC en vez de hoyEnCostaRica(): ${encontrados.join(', ')}`);
 });
+
+describe('un día de calendario ya escrito', () => {
+  test('se devuelve tal cual, no se "convierte"', () => {
+    // JavaScript parsea "2026-09-08" como medianoche UTC; formatearlo en
+    // UTC−6 devolvía el día anterior. Con un Date sí hay que convertir,
+    // porque eso es un instante; con un día de calendario no hay nada que
+    // convertir.
+    assert.equal(diaEnCostaRica('2026-09-08'), '2026-09-08');
+    assert.equal(diaEnCostaRica('2026-01-01'), '2026-01-01');
+  });
+
+  test('un instante con hora sí se convierte', () => {
+    assert.equal(diaEnCostaRica('2026-09-13T01:21:00Z'), '2026-09-12');
+  });
+});
