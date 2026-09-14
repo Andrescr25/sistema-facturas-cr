@@ -416,6 +416,41 @@ class FacturacionService {
    * Si hay internet: envía directamente a Alegra
    * Si no hay internet: guarda localmente y sincroniza después
    */
+  /**
+   * Por qué falló, dicho para quien está en la caja.
+   *
+   * El servidor ahora manda el motivo de Alegra en `message`. Se siguen
+   * mirando los otros lugares porque las respuestas viejas los usaban, y
+   * `error.message` queda de último: es el de axios ("Request failed with
+   * status code 400"), que no le dice nada a nadie.
+   */
+  motivoDelFallo(error) {
+    return error?.response?.data?.message
+      || error?.response?.data?.details?.message
+      || error?.message
+      || 'No se pudo crear la factura.'
+  }
+
+  /**
+   * ¿Alegra dijo que NO, o no se pudo llegar?
+   *
+   * ESTA DIFERENCIA ES EL BUG QUE SE ARREGLA ACÁ. Cualquier fallo se guardaba
+   * en la cola de "sin conexión", incluso un rechazo que no iba a cambiar
+   * solo: el cajero tenía internet, veía la factura irse a pendientes y la
+   * reintentaba —una llegó a quince intentos— contra un error que Alegra ya
+   * había explicado. Era un producto configurado en Alegra para no facturarse
+   * sin existencias.
+   *
+   * Con respuesta 4xx, Alegra contestó que no y no creó nada: hay que
+   * arreglar algo antes de volver a mandarla. Sin respuesta, o con 5xx, sí es
+   * para la cola. El 408 y el 429 son de tiempo, no de contenido.
+   */
+  esRechazoDeAlegra(error) {
+    const codigo = error?.response?.status
+    if (!codigo) return false
+    return codigo >= 400 && codigo < 500 && codigo !== 408 && codigo !== 429
+  }
+
   async crearFactura(facturaData, facturaVista = null) {
     try {
       console.log('🧾 Creando factura...', {
@@ -460,8 +495,17 @@ class FacturacionService {
             };
           }
         } catch (error) {
-          console.warn('⚠️ Error enviando a Alegra, guardando offline:', error.message);
-          // Si falla, guardar offline
+          // Un RECHAZO no se guarda offline: reenviarlo vuelve a fallar. Se
+          // dice el motivo y la factura se queda en pantalla, para poder
+          // arreglarla —quitar el producto sin existencias, corregir el
+          // descuento— y volver a cobrar.
+          if (this.esRechazoDeAlegra(error)) {
+            const motivo = this.motivoDelFallo(error);
+            console.error('⛔ Alegra rechazó la factura:', motivo);
+            throw new Error(motivo);
+          }
+          // Sin respuesta o con Alegra caída: eso sí es para la cola.
+          console.warn('⚠️ No se pudo llegar a Alegra, guardando offline:', error.message);
         }
       }
 
@@ -559,15 +603,22 @@ class FacturacionService {
             console.log(`✅ Factura ${factura.localId} sincronizada (Alegra: ${response.data.data.id})`);
           }
         } catch (error) {
-          // Registrar error
-          await indexedDBService.markFacturaError(factura.localId, error.message);
-          
+          // El motivo que se guarda es el de ALEGRA, no el de axios. En la
+          // tarjeta de la factura pendiente se leía "Request failed with
+          // status code 400", que no dice qué arreglar; ahora dice cuál
+          // producto la está trabando.
+          const motivo = this.motivoDelFallo(error);
+          await indexedDBService.markFacturaError(factura.localId, motivo);
+
           resultados.fallidas.push({
             localId: factura.localId,
-            error: error.message
+            error: motivo,
+            // Con esto la pantalla puede dejar de ofrecer "Reintentar" a secas
+            // en algo que no va a pasar hasta que alguien lo arregle.
+            rechazada: this.esRechazoDeAlegra(error)
           });
-          
-          console.error(`❌ Error sincronizando factura ${factura.localId}:`, error.message);
+
+          console.error(`❌ Alegra no aceptó la factura ${factura.localId}:`, motivo);
         }
       }
 
@@ -635,9 +686,9 @@ class FacturacionService {
 
       throw new Error(response.data.message || 'Error enviando factura pendiente');
     } catch (error) {
-      const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
-      await indexedDBService.markFacturaError(numeroLocal, alegraMessage);
-      throw new Error(alegraMessage);
+      const motivo = this.motivoDelFallo(error);
+      await indexedDBService.markFacturaError(numeroLocal, motivo);
+      throw new Error(motivo);
     }
   }
 

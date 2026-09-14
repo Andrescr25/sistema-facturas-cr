@@ -9,6 +9,7 @@ const AlegraContactService = require('./services/alegra-contact.service');
 const AlegraInventoryService = require('./services/alegra-inventory.service');
 const AlegraSyncService = require('./services/alegra-sync.service');
 const { getInstance: getAlegraClient } = require('./alegra.client');
+const { explicarFalloAlegra } = require('./explicarFallo');
 
 // Singleton instances
 let invoiceServiceInstance = null;
@@ -18,6 +19,9 @@ let inventoryServiceInstance = null;
 let syncServiceInstance = null;
 
 module.exports = {
+  /** Por qué falló una llamada a Alegra, dicho para quien está en la caja. */
+  explicarFalloAlegra,
+
   /**
    * Servicio de Facturas
    */

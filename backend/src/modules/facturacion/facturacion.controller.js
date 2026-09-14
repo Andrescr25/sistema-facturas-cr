@@ -5,6 +5,7 @@
 
 const FacturacionService = require('./facturacion.service');
 const ResponseHelper = require('../../utils/response.helper');
+const { explicarFalloAlegra } = require('../../integrations/alegra');
 
 class FacturacionController {
   constructor() {
@@ -46,12 +47,20 @@ class FacturacionController {
       const result = await this.facturacionService.createInvoice(invoiceData, claveIdempotencia || null);
       return ResponseHelper.success(res, result.data, result.message);
     } catch (error) {
-      console.error('❌ Error creando factura en Alegra:', error);
-      // Los conflictos de idempotencia (ya en vuelo, o quedó incierta) NO son
-      // un error del servidor: son un aviso de que reenviar duplicaría. Van
-      // con su propio código para que el navegador no los trate como falla.
-      const estado = error.status || 500;
-      return ResponseHelper.error(res, error.message, estado, error.response?.data);
+      console.error('❌ Error creando factura en Alegra:', error.response?.data || error);
+
+      // EL MOTIVO DE ALEGRA VA EN EL MENSAJE, no en el detalle.
+      //
+      // Antes se mandaba `error.message` —el de axios, "Request failed with
+      // status code 400"— y el motivo real viajaba como cuarto argumento, que
+      // `ResponseHelper.error` SOLO incluye cuando NODE_ENV es 'development'.
+      // En producción se descartaba: Alegra explicaba que el producto estaba
+      // configurado para no facturarse sin stock y el cajero leía un código.
+      //
+      // Los conflictos de idempotencia (ya en vuelo, o quedó incierta) pasan
+      // por acá sin tocarse: ya traen su código y su mensaje escrito.
+      const fallo = explicarFalloAlegra(error);
+      return ResponseHelper.error(res, fallo.mensaje, fallo.status, error.response?.data);
     }
   };
 
