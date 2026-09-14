@@ -8,7 +8,12 @@ const axios = require('axios');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { query } = require('../../../config/database');
 const idempotencia = require('./idempotencia');
+const ventaSinStock = require('../../integrations/alegra/ventaSinStock');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+
+// Cuántos productos trabados se destraban en un mismo envío. Alegra nombra uno
+// por vez; el tope evita que un rechazo distinto se vuelva un ciclo.
+const MAX_DESTRABES = 5;
 
 class FacturacionService {
   constructor() {
@@ -170,10 +175,71 @@ class FacturacionService {
     }
   }
 
+  /**
+   * Manda la factura, y si Alegra la rechaza porque un producto no se puede
+   * facturar sin existencias, le prende el permiso a ESE producto y la manda
+   * otra vez.
+   *
+   * POR QUÉ SE HACE SOLO. La casa casi no maneja inventario: quedan artículos
+   * de antes de un cambio interno con el permiso apagado, y cuando entran
+   * varios pedidos se van a negativo. El cajero no tiene por qué entrar a
+   * Alegra a destrabar un producto con el cliente enfrente.
+   *
+   * ALEGRA NOMBRA UN PRODUCTO POR VEZ, así que se repite: destrabar, mandar,
+   * y si sale otro, otra vuelta. Con tope, para que un rechazo que no sea de
+   * stock no se convierta en un ciclo.
+   *
+   * REENVIAR ES SEGURO ACÁ: Alegra CONTESTÓ que no. Con respuesta consta que
+   * no creó nada, que es justo lo que distingue un rechazo de un timeout.
+   *
+   * Se puede apagar con FACTURAR_SIN_STOCK=false sin tocar código.
+   */
+  async _mandarFacturaDestrabando(invoiceData) {
+    const automatico = process.env.FACTURAR_SIN_STOCK !== 'false';
+    const items = Array.isArray(invoiceData.items) ? invoiceData.items : [];
+    const destrabados = [];
+
+    for (let vuelta = 0; vuelta <= MAX_DESTRABES; vuelta++) {
+      try {
+        return { respuesta: await this.client.request('POST', '/invoices', invoiceData), destrabados };
+      } catch (error) {
+        const ultimaVuelta = vuelta === MAX_DESTRABES;
+        if (!automatico || ultimaVuelta || !ventaSinStock.esFaltaDeStock(error)) throw error;
+
+        // Cuál producto es. Se pregunta por los de ESTA factura y se elige el
+        // que Alegra nombró: tocar otro sería cambiar configuración que nadie
+        // pidió. Si el texto no calza con ninguno, el error sube tal cual.
+        const mensaje = error.response?.data?.message || '';
+        const fichas = await Promise.all(
+          items.map((i) => this.client.request('GET', `/items/${i.id}`).catch(() => null))
+        );
+        const culpable = ventaSinStock.itemDelMensaje(mensaje, fichas.filter(Boolean));
+
+        if (!culpable) {
+          console.warn('⚠️ Alegra rechazó por stock pero no se reconoció el producto en el mensaje:', mensaje);
+          throw error;
+        }
+
+        const r = await ventaSinStock.permitirVentaSinStock(this.client, culpable.id);
+        if (!r.cambiado) {
+          console.warn(`⚠️ No se pudo habilitar la venta sin stock de "${r.nombre}": ${r.aviso}`);
+          throw error;
+        }
+        destrabados.push(r.nombre);
+      }
+    }
+
+    // Inalcanzable: la última vuelta relanza. Queda por si alguien cambia el tope.
+    throw new Error('No se pudo enviar la factura.');
+  }
+
   /** El llamado a Alegra y el registro local, sin la capa de idempotencia. */
   async _crearEnAlegraYRegistrar(invoiceData) {
-    const response = await this.client.request('POST', '/invoices', invoiceData);
+    const { respuesta: response, destrabados } = await this._mandarFacturaDestrabando(invoiceData);
     console.log('✅ Factura creada exitosamente:', response.id);
+    if (destrabados.length) {
+      console.log(`ℹ️ Para poder facturarla se habilitó la venta sin existencias de: ${destrabados.join(', ')}`);
+    }
 
     // Registrar en BD local
     try {
