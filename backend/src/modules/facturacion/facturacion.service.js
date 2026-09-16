@@ -90,13 +90,27 @@ class FacturacionService {
    * Obtiene todos los productos de Alegra para cache offline
    */
   async getItems() {
-    console.log('📦 Obteniendo todos los productos de Alegra para cache (paralelo)...');
-    const allItems = await this.fetchAllParallel('/items', { type: 'product' }, 5, 30);
+    console.log('📦 Obteniendo los productos ACTIVOS de Alegra para cache (paralelo)...');
+
+    // SOLO LOS ACTIVOS. Antes venían todos, incluidos los desactivados, y la
+    // pantalla de Facturación los ofrecía igual: el 14 de setiembre de 2026 se
+    // facturó "DISCO 1000 HOJAS LIJAR", que estaba desactivado por ser un
+    // duplicado, en vez del bueno —y a ₡775 en vez de ₡515—. El resto del
+    // sistema ya aplicaba esta regla (el catálogo de clientes y el interno
+    // filtran por `status = 'active'`); Facturación era la que no.
+    const allItems = await this.fetchAllParallel('/items', { type: 'product', status: 'active' }, 5, 30);
+
+    // Y se filtra de nuevo acá. El parámetro lo respeta Alegra hoy; esto es
+    // para que el día que deje de respetarlo no vuelva a pasar en silencio.
+    const activos = allItems.filter(i => i.status === 'active');
+    if (activos.length !== allItems.length) {
+      console.warn(`⚠️ Alegra devolvió ${allItems.length - activos.length} productos desactivados pese al filtro: se descartaron.`);
+    }
 
     return {
       success: true,
-      data: allItems,
-      total: allItems.length,
+      data: activos,
+      total: activos.length,
       timestamp: new Date().toISOString()
     };
   }
@@ -133,6 +147,10 @@ class FacturacionService {
       items: invoiceData.items?.length,
       clave: claveIdempotencia || '(sin clave)'
     });
+
+    // Antes de reservar la clave: una factura que no se puede armar no tiene
+    // por qué dejar un intento registrado ni llegar a Alegra.
+    await this._revisarProductosActivos(invoiceData);
 
     if (!claveIdempotencia) {
       console.warn('⚠️ Factura sin clave de idempotencia: si esta petición se reenvía, se duplicará.');
@@ -173,6 +191,43 @@ class FacturacionService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Ningún producto DESACTIVADO se factura.
+   *
+   * POR QUÉ NO ALCANZA CON SACARLOS DEL CATÁLOGO. La lista viaja al
+   * dispositivo y se guarda ahí para poder facturar sin señal. Una tablet que
+   * bajó el catálogo antes de que el producto se desactivara lo sigue
+   * ofreciendo, y la factura que arma llega igual al servidor. El 14 de
+   * setiembre de 2026 pasó con "DISCO 1000 HOJAS LIJAR", duplicado de otro y
+   * desactivado justamente por eso.
+   *
+   * SE MIRA EL CATÁLOGO LOCAL, no Alegra: preguntarle a Alegra por cada línea
+   * serían diez idas y vueltas antes de cada factura. Y se rechaza SOLO si el
+   * catálogo dice que existe y está desactivado; un producto que no está en la
+   * copia pasa, porque puede ser nuevo y no haber entrado en la última
+   * sincronización. Bloquear por no saber sería peor que el problema.
+   */
+  async _revisarProductosActivos(invoiceData) {
+    const ids = [...new Set((invoiceData.items || []).map(i => String(i.id)).filter(Boolean))];
+    if (ids.length === 0) return;
+
+    const { rows } = await query(
+      `SELECT alegra_id, name FROM alegra_products_cache
+        WHERE alegra_id = ANY($1::text[]) AND status <> 'active'`,
+      [ids]
+    );
+    if (rows.length === 0) return;
+
+    const nombres = rows.map(r => r.name).join(', ');
+    const e = new Error(
+      rows.length === 1
+        ? `"${nombres}" está desactivado y no se puede facturar. Si es un duplicado, buscá el producto bueno; si lo reactivaste hace poco, actualizá el catálogo.`
+        : `Estos productos están desactivados y no se pueden facturar: ${nombres}. Si son duplicados, buscá los productos buenos.`
+    );
+    e.status = 400;
+    throw e;
   }
 
   /**
