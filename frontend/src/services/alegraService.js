@@ -463,6 +463,19 @@ export const alegraService = {
   },
 
   // Obtener reporte de faltantes por proveedor
+
+  /**
+   * Las notas que se le escribieron a cada producto al facturarlo.
+   *
+   * Va aparte del reporte a propósito: el reporte sale de la base local y
+   * carga rápido, y esto tiene que ir a Alegra. Si fallan las notas, el
+   * reporte se sigue viendo.
+   */
+  async getNotasDeFaltantes(fechaInicio = null) {
+    const params = fechaInicio ? { fecha_inicio: fechaInicio } : {}
+    const response = await api.get('/alegra/reportes/faltantes/notas', { params })
+    return response.data
+  },
   async getReporteFaltantesProveedor(fechaInicio) {
     try {
       console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor', fechaInicio ? `desde ${fechaInicio}` : '');
