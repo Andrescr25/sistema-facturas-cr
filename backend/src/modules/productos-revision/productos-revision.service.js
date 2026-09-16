@@ -40,6 +40,12 @@ function httpError(status, message, extra = {}) {
   return error;
 }
 
+// Tope de productos del catálogo que entran en una búsqueda. Un término corto
+// —"bolsa"— calza con cientos, y mandarlos todos en un IN haría la consulta
+// más lenta que útil. Con este tope el buscador sigue sirviendo para lo que
+// se usa: encontrar UN producto por su nombre.
+const MAX_PRODUCTOS_BUSQUEDA = 300;
+
 /**
  * Obtener productos relacionados con filtros (relaciones únicas por proveedor+código)
  */
@@ -59,9 +65,29 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
     filtros.OR = [
       { supplierDesc: { contains: busqueda, mode: 'insensitive' } },
       { supplierCode: { contains: busqueda, mode: 'insensitive' } },
+      // `alegraName` es una FOTO de cuando se creó la relación y nadie la
+      // refresca. Se sigue buscando por ahí para que el nombre viejo también
+      // encuentre —quien lo recuerde así lo va a teclear—, pero no alcanza.
       { alegraName: { contains: busqueda, mode: 'insensitive' } },
       { alegraReference: { contains: busqueda, mode: 'insensitive' } }
     ];
+
+    // Y TAMBIÉN POR EL NOMBRE DE HOY. La lista muestra el nombre actual del
+    // catálogo, así que se podía leer "EXTENSION CTE BLANCA 3 MTS VOLTECK" en
+    // pantalla, copiarlo tal cual al buscador y no encontrar nada: la relación
+    // lo tiene guardado como "...3 MTS CTE", de antes de que lo renombraran.
+    // No poder encontrar algo por el nombre con que la propia pantalla lo
+    // llama es de las cosas que hacen desconfiar del buscador entero.
+    // Son 98 de 2.056 relaciones las que tienen el nombre desfasado.
+    const productos = await query(
+      `SELECT alegra_id FROM alegra_products_cache
+        WHERE name ILIKE $1 OR reference ILIKE $1
+        LIMIT ${MAX_PRODUCTOS_BUSQUEDA}`,
+      [`%${busqueda}%`]
+    );
+    if (productos.rows.length > 0) {
+      filtros.OR.push({ alegraItemId: { in: productos.rows.map(f => String(f.alegra_id)) } });
+    }
   }
 
   const skip = (page - 1) * limit;
