@@ -260,6 +260,14 @@ export const alegraService = {
   },
 
   // Procesar factura individual
+  /**
+   * OJO: este método estaba DUPLICADO en este mismo objeto, y en JavaScript
+   * gana el último. El de abajo mandaba `{ factura, items_editados }` anidado
+   * y el servidor lee los campos de la raíz, así que respondía
+   * "alegra_id es requerido" y NINGUNA modificación se aplicaba: el PDF salía
+   * con la factura sin tocar. Por eso el de acá, que aplana el payload, no
+   * puede volver a tener un gemelo más abajo.
+   */
   async procesarFacturaIndividual(factura, itemsEditados = null) {
     try {
       console.log('📋 Frontend: Procesando factura individual:', factura.numero_factura);
@@ -377,21 +385,6 @@ export const alegraService = {
   // Estos métodos no se usan actualmente - el flujo principal usa los métodos en líneas 250 y 277
   /*
   // Procesar factura individual con actualización de precios
-  async procesarFacturaIndividual(factura, itemsEditados = null) {
-    try {
-      console.log('🖨️ Frontend: Procesando factura individual:', factura.numero_factura);
-      const response = await api.post('/alegra/facturas/procesar-individual', {
-        factura,
-        items_editados: itemsEditados
-      })
-      console.log('✅ Frontend: Factura procesada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error procesando factura individual:', error);
-      throw new Error(`Error procesando factura: ${error.message}`)
-    }
-  },
-
   // Recuperar factura procesada
   async recuperarFactura(alegraId) {
     try {
