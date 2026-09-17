@@ -111,11 +111,13 @@ async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observ
 
   let pedido;
   try {
+    // `cliente_id` sale de la ficha con ese `alegra_id`: el pedido queda ligado
+    // a NUESTRO maestro, no solo al contacto de Alegra.
     const r = await query(`
       INSERT INTO pedido_cliente
-        (cliente_portal_id, alegra_contact_id, cliente_nombre, origen,
+        (cliente_portal_id, cliente_id, alegra_contact_id, cliente_nombre, origen,
          creado_por_usuario_id, total, observaciones, clave_idempotencia)
-      VALUES (NULL, $1, $2, 'agente', $3, $4::numeric, $5, $6)
+      VALUES (NULL, (SELECT id FROM cliente WHERE alegra_id = $1), $1, $2, 'agente', $3, $4::numeric, $5, $6)
       RETURNING *;
     `, [String(alegraContactId), clienteNombre || null, usuarioId || null,
         Math.round(total * 100) / 100, observaciones || null, claveIdempotencia]);

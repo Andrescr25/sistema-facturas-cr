@@ -15,72 +15,72 @@ const {
   hashToken, firmarToken
 } = require('./portal-clientes.auth');
 
-const { getClient } = require('../../integrations/alegra');
 const { telefonosDe } = require('../../utils/telefonosCliente');
 const whatsapp = require('../../integrations/whatsapp');
 
 // ==================== LADO DEL PERSONAL ====================
 
 /**
- * Clientes de Alegra con el estado de su cuenta en el portal.
+ * Los clientes con el estado de su cuenta en el portal.
  *
- * Los contactos salen de Alegra en vivo (no hay caché local de clientes) y
- * se cruzan con cliente_portal. Es una sola pasada paginada, no una consulta
- * por cliente.
+ * SALÍA DE ALEGRA EN VIVO: se recorrían hasta 900 contactos paginados de a
+ * 30 cada vez que alguien abría la pestaña, solo para dibujar una lista. Como
+ * las 247 fichas están en `cliente`, ahora es una sola consulta, y la
+ * pantalla deja de depender de que Alegra conteste.
+ *
+ * Se cruzan por NUESTRO id, no por el contacto de Alegra. Mientras esa
+ * columna fuera la llave, no se podía invitar a un cliente que no existiera
+ * también allá.
  */
 async function listarClientes({ busqueda = '' } = {}) {
-  const client = getClient();
-  const contactos = [];
-  let start = 0;
-  while (start < 900) {
-    const { data } = await client.api.get('/contacts', { params: { limit: 30, start, type: 'client' } });
-    if (!Array.isArray(data) || data.length === 0) break;
-    contactos.push(...data);
-    if (data.length < 30) break;
-    start += 30;
+  const termino = String(busqueda).trim().toLowerCase();
+  const params = [];
+  let filtro = '';
+  if (termino) {
+    params.push(`%${termino}%`);
+    filtro = `AND (lower(c.nombre) LIKE $1 OR lower(COALESCE(c.identificacion, '')) LIKE $1)`;
   }
 
-  const cuentas = await query(`
-    SELECT cp.*,
+  const { rows } = await query(`
+    SELECT c.id, c.nombre, c.identificacion, c.correo,
+           cp.id AS cuenta_id, cp.activo AS cuenta_activa, cp.usuario, cp.ultimo_ingreso,
            (SELECT COUNT(*)::int FROM pedido_cliente p WHERE p.cliente_portal_id = cp.id) AS pedidos,
            (SELECT MAX(creado_en) FROM pedido_cliente p WHERE p.cliente_portal_id = cp.id) AS ultimo_pedido,
            (SELECT MAX(expira_en) FROM cliente_invitacion i
-             WHERE i.alegra_contact_id = cp.alegra_contact_id AND i.usado_en IS NULL) AS invitacion_vence
-    FROM cliente_portal cp;
-  `);
-  const porContacto = new Map(cuentas.rows.map(r => [String(r.alegra_contact_id), r]));
+             WHERE i.cliente_id = c.id AND i.usado_en IS NULL) AS invitacion_vence
+      FROM cliente c
+      LEFT JOIN cliente_portal cp ON cp.cliente_id = c.id
+     WHERE c.activo = TRUE ${filtro}
+     ORDER BY c.nombre;
+  `, params);
 
-  const termino = String(busqueda).trim().toLowerCase();
+  return rows.map((r) => {
+    const invitacionVigente = r.invitacion_vence && new Date(r.invitacion_vence) > new Date();
 
-  return contactos
-    .filter(c => !termino
-      || String(c.name || '').toLowerCase().includes(termino)
-      || String(c.identification || '').toLowerCase().includes(termino))
-    .map(c => {
-      const cuenta = porContacto.get(String(c.id));
-      const invitacionVigente = cuenta?.invitacion_vence && new Date(cuenta.invitacion_vence) > new Date();
-
-      return {
-        alegraContactId: String(c.id),
-        nombre: c.name,
-        identificacion: c.identification || null,
-        email: c.email || null,
-        // 'sin_cuenta' -> nunca se invitó
-        // 'invitado'   -> hay invitación vigente sin usar
-        // 'vencido'    -> se invitó pero el enlace venció y no activó
-        // 'activo'     -> puso su contraseña
-        // 'inactivo'   -> se le revocó el acceso
-        estado: !cuenta ? 'sin_cuenta'
-          : !cuenta.activo ? 'inactivo'
-            : cuenta.password_hash ? 'activo'
-              : invitacionVigente ? 'invitado' : 'vencido',
-        usuario: cuenta?.usuario || null,
-        ultimoIngreso: cuenta?.ultimo_ingreso || null,
-        pedidos: cuenta?.pedidos || 0,
-        ultimoPedido: cuenta?.ultimo_pedido || null
-      };
-    })
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return {
+      clienteId: r.id,
+      // Se sigue mandando `alegraContactId` con NUESTRO id porque la pantalla
+      // todavía lo llama así. Es la misma deuda anotada en §16: se borra
+      // cuando esos componentes hablen nuestro idioma.
+      alegraContactId: String(r.id),
+      nombre: r.nombre,
+      identificacion: r.identificacion || null,
+      email: r.correo || null,
+      // 'sin_cuenta' -> nunca se invitó
+      // 'invitado'   -> hay invitación vigente sin usar
+      // 'vencido'    -> se invitó pero el enlace venció y no activó
+      // 'activo'     -> ya entró, o al menos puso su contraseña
+      estado: !r.cuenta_id
+        ? (invitacionVigente ? 'invitado' : 'sin_cuenta')
+        : (!r.cuenta_activa ? 'revocado'
+          : (r.usuario ? 'activo' : (invitacionVigente ? 'invitado' : 'vencido'))),
+      usuario: r.usuario || null,
+      ultimoIngreso: r.ultimo_ingreso,
+      pedidos: r.pedidos || 0,
+      ultimoPedido: r.ultimo_pedido,
+      invitacionVence: r.invitacion_vence
+    };
+  });
 }
 
 /**
@@ -90,32 +90,33 @@ async function listarClientes({ busqueda = '' } = {}) {
  * igual que con una contraseña. Quien lo pierda necesita generar otro; no
  * hay forma de recuperarlo, y eso es a propósito.
  */
-async function generarInvitacion(alegraContactId, usuarioId) {
-  const client = getClient();
-  let contacto;
-  try {
-    const { data } = await client.api.get(`/contacts/${alegraContactId}`);
-    contacto = data;
-  } catch (error) {
-    throw httpError(404, 'Ese cliente no existe en Alegra.');
-  }
+async function generarInvitacion(clienteId, usuarioId) {
+  const id = Number(clienteId);
+  // La ficha sale de NUESTRA base. Antes se le pedía a Alegra en vivo, así
+  // que no se podía invitar a un cliente que no existiera también allá —y
+  // si Alegra no contestaba, no se podía invitar a nadie—.
+  const { rows } = await query(
+    `SELECT id, nombre, identificacion, correo, telefono, telefono_secundario, celular
+       FROM cliente WHERE id = $1`, [id]);
+  const contacto = rows[0];
+  if (!contacto) throw httpError(404, 'No existe ese cliente.');
 
   await query(`
-    INSERT INTO cliente_portal (alegra_contact_id, nombre, identificacion, email)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (alegra_contact_id) DO UPDATE SET
+    INSERT INTO cliente_portal (cliente_id, alegra_contact_id, nombre, identificacion, email)
+    VALUES ($1, (SELECT alegra_id FROM cliente WHERE id = $1), $2, $3, $4)
+    ON CONFLICT (cliente_id) DO UPDATE SET
       nombre = EXCLUDED.nombre,
       identificacion = EXCLUDED.identificacion,
       email = EXCLUDED.email,
       activo = TRUE;
-  `, [String(alegraContactId), contacto.name, contacto.identification || null, contacto.email || null]);
+  `, [id, contacto.nombre, contacto.identificacion || null, contacto.correo || null]);
 
   // Invitaciones anteriores sin usar quedan muertas: si alguien reenvía el
   // enlace, el viejo no debe seguir sirviendo.
   await query(
     `UPDATE cliente_invitacion SET expira_en = CURRENT_TIMESTAMP
-     WHERE alegra_contact_id = $1 AND usado_en IS NULL AND expira_en > CURRENT_TIMESTAMP;`,
-    [String(alegraContactId)]
+     WHERE cliente_id = $1 AND usado_en IS NULL AND expira_en > CURRENT_TIMESTAMP;`,
+    [id]
   );
 
   const token = crypto.randomBytes(32).toString('base64url');
@@ -123,46 +124,57 @@ async function generarInvitacion(alegraContactId, usuarioId) {
   expira.setDate(expira.getDate() + DIAS_INVITACION);
 
   await query(`
-    INSERT INTO cliente_invitacion (alegra_contact_id, token_hash, expira_en, creado_por)
-    VALUES ($1, $2, $3, $4);
-  `, [String(alegraContactId), hashToken(token), expira, usuarioId || null]);
+    INSERT INTO cliente_invitacion (cliente_id, alegra_contact_id, token_hash, expira_en, creado_por)
+    VALUES ($1, (SELECT alegra_id FROM cliente WHERE id = $1), $2, $3, $4);
+  `, [id, hashToken(token), expira, usuarioId || null]);
 
   // Los teléfonos van con la invitación para poder ofrecer mandarla por
   // WhatsApp sin una segunda vuelta a Alegra. Se devuelven TODOS los que la
   // ficha contenga —muchas traen dos, o el nombre de quien contesta pegado—
   // porque elegir por nuestra cuenta sería adivinar a quién le llega un
   // enlace que da acceso a la cuenta del cliente.
-  const { candidatos, sinReconocer } = telefonosDe(contacto);
+  // `telefonosDe` sabe leer fichas sucias —"88272453 GABRIEL", dos números en
+  // un campo— y esa lógica no se copia: se le pasan nuestras columnas con los
+  // nombres que espera.
+  const { candidatos, sinReconocer } = telefonosDe({
+    mobile: contacto.celular,
+    phonePrimary: contacto.telefono,
+    phoneSecondary: contacto.telefono_secundario
+  });
 
   return {
     token,
     expira,
-    nombre: contacto.name,
+    nombre: contacto.nombre,
+    clienteId: id,
     diasVigencia: DIAS_INVITACION,
     telefonos: candidatos,
     telefonosSinReconocer: sinReconocer
   };
 }
 
-async function revocarAcceso(alegraContactId) {
+async function revocarAcceso(clienteId) {
+  const id = Number(clienteId);
   const r = await query(
-    `UPDATE cliente_portal SET activo = FALSE WHERE alegra_contact_id = $1 RETURNING nombre;`,
-    [String(alegraContactId)]
+    `UPDATE cliente_portal SET activo = FALSE WHERE cliente_id = $1 RETURNING nombre;`,
+    [id]
   );
   if (r.rows.length === 0) throw httpError(404, 'Ese cliente no tiene cuenta en el portal.');
 
+  // Y las invitaciones sin usar se matan: revocar el acceso y dejar vivo un
+  // enlace que lo devuelve no revoca nada.
   await query(
     `UPDATE cliente_invitacion SET expira_en = CURRENT_TIMESTAMP
-     WHERE alegra_contact_id = $1 AND usado_en IS NULL;`,
-    [String(alegraContactId)]
+     WHERE cliente_id = $1 AND usado_en IS NULL;`,
+    [id]
   );
   return { revocado: true, nombre: r.rows[0].nombre };
 }
 
-async function reactivarAcceso(alegraContactId) {
+async function reactivarAcceso(clienteId) {
   const r = await query(
-    `UPDATE cliente_portal SET activo = TRUE WHERE alegra_contact_id = $1 RETURNING nombre;`,
-    [String(alegraContactId)]
+    `UPDATE cliente_portal SET activo = TRUE WHERE cliente_id = $1 RETURNING nombre;`,
+    [Number(clienteId)]
   );
   if (r.rows.length === 0) throw httpError(404, 'Ese cliente no tiene cuenta en el portal.');
   return { reactivado: true, nombre: r.rows[0].nombre };
@@ -181,13 +193,13 @@ async function reactivarAcceso(alegraContactId) {
  * ofrecimos, y este mensaje le da a quien lo reciba la puerta de la cuenta
  * del cliente.
  */
-async function enviarInvitacionWhatsApp(alegraContactId, { telefono, mensaje }) {
+async function enviarInvitacionWhatsApp(clienteId, { telefono, mensaje }) {
   const r = await whatsapp.enviarTexto({ telefono, mensaje });
 
   // Queda en el registro del servidor a qué número se mandó el enlace de qué
   // cliente. Si alguna vez uno aparece donde no debía, esto es lo único que
   // dice cuándo salió y hacia dónde: el token ya no existe en claro.
-  console.log(`📨 Invitación del cliente ${alegraContactId} enviada por WhatsApp al ${r.telefono}`);
+  console.log(`📨 Invitación del cliente ${clienteId} enviada por WhatsApp al ${r.telefono}`);
 
   return r;
 }

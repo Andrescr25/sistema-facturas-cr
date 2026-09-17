@@ -174,11 +174,14 @@ async function crearPedido(clienteId, { observaciones } = {}) {
 
   const total = carrito.lineas.reduce((s, l) => s + l.cantidad * l.producto.precio, 0);
 
+  // Va NUESTRO id además del de Alegra. El viejo se sigue escribiendo hasta el
+  // corte para no romper lo que todavía lo lee.
   const pedidoRes = await query(`
-    INSERT INTO pedido_cliente (cliente_portal_id, alegra_contact_id, total, observaciones)
-    VALUES ($1, $2, $3::numeric, $4)
+    INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, alegra_contact_id, total, observaciones)
+    VALUES ($1, $2, $3, $4::numeric, $5)
     RETURNING *;
-  `, [cuenta.id, cuenta.alegra_contact_id, Math.round(total * 100) / 100, observaciones || null]);
+  `, [cuenta.id, cuenta.cliente_id || null, cuenta.alegra_contact_id,
+      Math.round(total * 100) / 100, observaciones || null]);
   const pedido = pedidoRes.rows[0];
 
   // Las tasas de TODOS los productos de una vez. Antes se pedía una por
