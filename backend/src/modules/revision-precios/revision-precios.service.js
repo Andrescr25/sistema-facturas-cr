@@ -25,6 +25,9 @@ const productService = getProductService();
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
 const MAX_FACTURAS_RELACIONADAS = 100;
+// Tope de productos del catálogo que se traen para puntuar contra TODOS los
+// pendientes a la vez. Es una consulta, no una por producto.
+const MAX_CANDIDATOS = 400;
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -198,70 +201,70 @@ async function getProductosPendientes() {
 
   const productosConSugerencias = [];
 
+  // UNA sola consulta para todos, no una por producto.
+  //
+  // Antes se consultaba el catálogo dentro del bucle: 26 productos pendientes
+  // eran 26 viajes a la base y la pantalla tardaba 28 segundos en abrir —lo
+  // suficiente para parecer colgada—. Se juntan las palabras y los códigos de
+  // todos, se traen los candidatos de una vez y se puntúa en memoria.
+  const claves = new Map();   // producto.id → palabras clave
+  const codigos = new Map();  // producto.id → códigos confiables
+  const palabrasTodas = new Set();
+  const codigosTodos = new Set();
+
   for (const producto of productosPendientes) {
-    const claves = palabrasClave(producto.descripcion, 4);
-    const codigos = [producto.codigoComercial, producto.codigoProveedor]
-      .filter(esReferenciaConfiable);
-    const condiciones = [];
+    const suyas = palabrasClave(producto.descripcion, 4);
+    const suyos = [producto.codigoComercial, producto.codigoProveedor].filter(esReferenciaConfiable);
 
-    if (codigos.length > 0) {
-      condiciones.push(...codigos.map(codigo => ({
-        reference: {
-          equals: codigo,
-          mode: 'insensitive'
-        }
-      })));
-    }
+    claves.set(producto.id, suyas.length >= 2 ? suyas : []);
+    codigos.set(producto.id, suyos);
+    if (suyas.length >= 2) suyas.forEach(p => palabrasTodas.add(p));
+    suyos.forEach(c => codigosTodos.add(c));
+  }
 
-    if (claves.length >= 2) {
-      condiciones.push(...claves.map(palabra => ({
-        searchText: {
-          contains: palabra,
-          mode: 'insensitive'
-        }
-      })));
-    }
+  const condiciones = [
+    ...[...codigosTodos].map(codigo => ({ reference: { equals: codigo, mode: 'insensitive' } })),
+    ...[...palabrasTodas].map(palabra => ({ searchText: { contains: palabra, mode: 'insensitive' } }))
+  ];
 
-    if (condiciones.length > 0) {
-      const similares = await prisma.alegraProduct.findMany({
-        where: {
-          AND: [
-            { status: 'active' },
-            { hiddenLocally: false },
-            { OR: condiciones }
-          ]
-        },
-        take: 20
-      });
+  const candidatos = condiciones.length > 0
+    ? await prisma.alegraProduct.findMany({
+      where: {
+        AND: [
+          { status: 'active' },
+          { hiddenLocally: false },
+          { OR: condiciones }
+        ]
+      },
+      take: MAX_CANDIDATOS
+    })
+    : [];
 
-      if (similares.length > 0) {
-        const codigosNormalizados = new Set(codigos.map(normalizarReferencia));
-        const sugerencias = similares.map(sim => {
-          const referenciaExacta = esReferenciaConfiable(sim.reference) &&
-            codigosNormalizados.has(normalizarReferencia(sim.reference));
-          const similarityScore = referenciaExacta
-            ? 100
-            : calcularScoreCatalogo(producto.descripcion, sim);
+  for (const producto of productosPendientes) {
+    const suyas = claves.get(producto.id);
+    const suyos = codigos.get(producto.id);
+    if (suyas.length === 0 && suyos.length === 0) continue;
 
-          return {
-            alegraId: sim.alegraId,
-            name: sim.name,
-            reference: sim.reference,
-            price: sim.price,
-            similarityScore: similarityScore
-          };
-        })
-          .filter(s => s.similarityScore >= UMBRAL_SUGERENCIA)
-          .sort((a, b) => b.similarityScore - a.similarityScore)
-          .slice(0, 3);
+    const codigosNormalizados = new Set(suyos.map(normalizarReferencia));
 
-        if (sugerencias.length > 0) {
-          productosConSugerencias.push({
-            ...producto,
-            sugerencias: sugerencias
-          });
-        }
-      }
+    const sugerencias = candidatos.map(sim => {
+      const referenciaExacta = esReferenciaConfiable(sim.reference) &&
+        codigosNormalizados.has(normalizarReferencia(sim.reference));
+
+      return {
+        alegraId: sim.alegraId,
+        name: sim.name,
+        reference: sim.reference,
+        price: sim.price,
+        similarityScore: referenciaExacta ? 100 : calcularScoreCatalogo(producto.descripcion, sim)
+      };
+    })
+      .filter(s => s.similarityScore >= UMBRAL_SUGERENCIA)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, 3);
+
+    if (sugerencias.length > 0) {
+      productosConSugerencias.push({ ...producto, sugerencias });
     }
   }
 

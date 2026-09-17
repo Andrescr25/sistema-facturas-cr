@@ -437,6 +437,41 @@ class InvoiceService {
    * Actualizar precios de productos desde Alegra antes de procesar factura
    * Solo actualiza productos que tienen requiere_actualizacion: true
    */
+  /** Precio de catálogo de cada item editado, indexado por su id de Alegra. */
+  async _preciosDeCatalogo(items) {
+    const ids = [...new Set(
+      items.map(i => i.id || i.itemId || i.item?.id).filter(Boolean).map(String)
+    )];
+    const precios = new Map();
+
+    for (const id of ids) {
+      try {
+        const precio = await this.alegraInvoiceService.getUpdatedPriceById(id);
+        if (precio !== null && precio !== undefined) precios.set(id, precio);
+      } catch (error) {
+        console.warn(`  ⚠️ Sin precio de catálogo para ${id}:`, error.message);
+      }
+    }
+    return precios;
+  }
+
+  /** Precio con el que cada línea está HOY en la factura de Alegra. */
+  async _preciosEnFactura(alegraId) {
+    const precios = new Map();
+    try {
+      const r = await this.alegraInvoiceService.getInvoiceById(alegraId);
+      for (const linea of (r?.data?.items || [])) {
+        const id = linea.item?.id || linea.id;
+        if (id) precios.set(String(id), Number(linea.price) || 0);
+      }
+    } catch (error) {
+      // Sin esto no se puede saber si alguien tocó el precio, así que ante la
+      // duda se respeta lo que mandó la pantalla: el mapa queda vacío.
+      console.warn('  ⚠️ No se pudo leer la factura para comparar precios:', error.message);
+    }
+    return precios;
+  }
+
   async updateInvoicePricesFromAlegra(alegra_id, ajustes, itemsEditados = null, actualizarPrecios = true) {
     try {
       console.log(`💰 Actualizando precios y cantidades para factura ${alegra_id}... (Actualizar precios: ${actualizarPrecios})`);
@@ -444,6 +479,25 @@ class InvoiceService {
       // 0. Si el usuario envió items editados manualmente, usarlos directamente
       if (itemsEditados && itemsEditados.length > 0) {
         console.log(`✏️ Usando ${itemsEditados.length} items editados manualmente por el usuario`);
+
+        // EL PRECIO NUEVO TAMBIÉN SE APLICA ACÁ, pero solo si nadie lo tocó.
+        //
+        // Antes esta rama salía derecho a Alegra y el refresco de precios de
+        // más abajo no llegaba a correr: la pantalla carga las líneas DESDE LA
+        // FACTURA, así que se reimprimía con el precio con que se emitió aunque
+        // el catálogo ya tuviera otro.
+        //
+        // No se pisan todos porque el precio SE PUEDE ESCRIBIR A MANO en la
+        // pantalla, y pisar lo que alguien tecleó es peor que el problema que
+        // se arregla. Se compara contra el precio que tiene la factura hoy: si
+        // es el mismo, nadie lo tocó y se le pone el del catálogo; si cambió,
+        // lo escribió una persona y se respeta.
+        const preciosDeCatalogo = actualizarPrecios
+          ? await this._preciosDeCatalogo(itemsEditados)
+          : new Map();
+        const preciosEnFactura = preciosDeCatalogo.size > 0
+          ? await this._preciosEnFactura(alegra_id)
+          : new Map();
 
         // Formatear items para Alegra
         const updatedItems = itemsEditados.map(item => {
@@ -453,12 +507,25 @@ class InvoiceService {
             itemId = item.item.id;
           }
 
+          const clave = itemId ? String(itemId) : '';
+          const precioEscrito = Number(item.price) || 0;
+          const precioEmitido = preciosEnFactura.get(clave);
+          const loTocoAlguien = precioEmitido !== undefined && precioEmitido !== precioEscrito;
+
+          let precio = precioEscrito;
+          if (!loTocoAlguien && preciosDeCatalogo.has(clave)) {
+            precio = preciosDeCatalogo.get(clave);
+            if (precio !== precioEscrito) {
+              console.log(`  💰 ${clave}: precio actualizado (₡${precioEscrito} → ₡${precio})`);
+            }
+          }
+
           return {
             id: itemId ? Number(itemId) : undefined,
             reference: item.reference || item.item?.reference || '',
             description: item.description || item.name || '',
             quantity: Number(item.quantity) || 0,
-            price: Number(item.price) || 0,
+            price: precio,
             tax: Array.isArray(item.tax) ? item.tax : []
           };
         }).filter(item => item.quantity > 0);
