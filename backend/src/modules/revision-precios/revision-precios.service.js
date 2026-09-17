@@ -5,6 +5,7 @@
  */
 
 const prisma = require('../../../lib/prisma');
+const { ligarIdsPropios } = require('../productos-revision/idsPropiosDelMapeo');
 const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
@@ -293,6 +294,7 @@ async function confirmarProducto({ productoId, alegraItemId, confianza }) {
       origen: 'manual'
     }
   });
+  await ligarIdsPropios(mapeo.id);
 
   await prisma.productoFactura.update({
     where: { id: productoId },

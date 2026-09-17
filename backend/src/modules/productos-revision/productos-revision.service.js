@@ -5,6 +5,7 @@
  */
 
 const prisma = require('../../../lib/prisma');
+const { ligarIdsPropios } = require('./idsPropiosDelMapeo');
 const { getProductService } = require('../../integrations/alegra');
 const { query } = require('../../../config/database');
 const { cabysPareceMedicamento } = require('../../utils/medicamento');
@@ -373,6 +374,7 @@ async function crearRelacion({ productoProveedorId, alegraItemId }) {
       origen: 'manual'
     }
   });
+  await ligarIdsPropios(mapeo.id);
   console.log(`✅ Mapeo guardado: ID ${mapeo.id}`);
 
   // Actualizar producto como RELACIONADO
@@ -995,6 +997,7 @@ async function crearProducto(datos, imagen) {
       ...(factorConversionNum ? { factorConversion: factorConversionNum } : {})
     }
   });
+  await ligarIdsPropios(nuevoMapeo.id);
 
   // Actualizar producto como RELACIONADO
   await prisma.productoFactura.update({

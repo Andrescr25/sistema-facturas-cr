@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma');
+const { ligarIdsPropios } = require('../src/modules/productos-revision/idsPropiosDelMapeo');
 
 class DatabaseService {
     constructor() {
@@ -405,6 +406,8 @@ class DatabaseService {
                     origen: mappingData.origen || 'manual' // ✅ Usar 'origen' en lugar de 'createdBy'
                 }
             });
+
+            await ligarIdsPropios(nuevoMapeo.id);
 
             console.log(`✅ Mapeo creado: ${nuevoMapeo.supplierCode} → ${nuevoMapeo.alegraName}`);
             return nuevoMapeo;
