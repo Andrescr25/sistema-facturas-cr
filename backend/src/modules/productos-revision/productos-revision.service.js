@@ -14,6 +14,12 @@ const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
 const { sincronizarCostoDeLineas, sincronizarCostoDeMapeo } = require('../precios/costoHistorico');
+const {
+  palabrasClave,
+  normalizarReferencia,
+  esReferenciaConfiable,
+  calcularScoreCatalogo
+} = require('../precios/matcher');
 
 const productService = getProductService();
 
@@ -45,6 +51,32 @@ function httpError(status, message, extra = {}) {
 // más lenta que útil. Con este tope el buscador sigue sirviendo para lo que
 // se usa: encontrar UN producto por su nombre.
 const MAX_PRODUCTOS_BUSQUEDA = 300;
+const MAX_CANDIDATOS_BUSQUEDA_ALEGRA = 80;
+
+function ordenarProductosPorRelevancia(termino, productos, limite = 20) {
+  const terminoRef = normalizarReferencia(termino);
+  const terminoEsReferencia = esReferenciaConfiable(termino);
+
+  return productos
+    .map(producto => {
+      const referenciaExacta = terminoEsReferencia &&
+        esReferenciaConfiable(producto.reference) &&
+        normalizarReferencia(producto.reference) === terminoRef;
+      const scoreTexto = calcularScoreCatalogo(termino, producto);
+
+      return {
+        ...producto,
+        similarityScore: referenciaExacta ? 100 : scoreTexto,
+        referenciaExacta
+      };
+    })
+    .sort((a, b) => {
+      if (a.referenciaExacta !== b.referenciaExacta) return a.referenciaExacta ? -1 : 1;
+      if (a.similarityScore !== b.similarityScore) return b.similarityScore - a.similarityScore;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'es');
+    })
+    .slice(0, limite);
+}
 
 /**
  * Obtener productos relacionados con filtros (relaciones únicas por proveedor+código)
@@ -1086,27 +1118,46 @@ async function guardarFactorConversion(mapeoId, factorNumerico) {
  * Buscar productos en la caché local de Alegra
  */
 async function buscarEnCache(q) {
-  console.log(`🔍 Buscando en caché local: "${q}"`);
+  const termino = String(q || '').trim();
+  console.log(`🔍 Buscando en caché local: "${termino}"`);
+
+  const claves = palabrasClave(termino, 4);
+  const condiciones = [
+    { name: { contains: termino, mode: 'insensitive' } },
+    { reference: { contains: termino, mode: 'insensitive' } },
+    { searchText: { contains: termino, mode: 'insensitive' } },
+    ...claves.map(palabra => ({
+      searchText: {
+        contains: palabra,
+        mode: 'insensitive'
+      }
+    }))
+  ];
 
   const productos = await prisma.alegraProduct.findMany({
     where: {
-      OR: [
-        { name: { contains: q, mode: 'insensitive' } },
-        { reference: { contains: q, mode: 'insensitive' } },
-        { searchText: { contains: q, mode: 'insensitive' } }
+      AND: [
+        { status: 'active' },
+        { hiddenLocally: false },
+        { OR: condiciones }
       ]
     },
-    take: 20,
+    take: MAX_CANDIDATOS_BUSQUEDA_ALEGRA,
     orderBy: {
       name: 'asc'
     }
   });
 
-  const productosFormateados = productos.map(p => ({
+  const productosOrdenados = ordenarProductosPorRelevancia(termino, productos);
+
+  const productosFormateados = productosOrdenados.map(p => ({
     id: p.alegraId,
     name: p.name,
     reference: p.reference,
-    price: p.price
+    price: p.price,
+    cost: p.cost,
+    category: p.category,
+    similarityScore: p.similarityScore
   }));
 
   return { productos: productosFormateados, total: productosFormateados.length };

@@ -21,8 +21,11 @@ const getBaseURL = () => {
     const url = import.meta.env.VITE_API_URL
     return url.endsWith('/api') ? url : `${url}/api`
   }
+  // Mismo origen: el servicio que sirve esta página es el que responde /api.
+  // Acá había un host escrito a mano que hoy devuelve 404 en todo, y por eso
+  // `/api/portal/yo` fallaba con un error de CORS.
   const esLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)
-  return esLocal ? 'http://localhost:3000/api' : 'https://sistema-facturas-cr-web.onrender.com/api'
+  return esLocal ? 'http://localhost:3000/api' : `${window.location.origin}/api`
 }
 
 const apiPortal = axios.create({
