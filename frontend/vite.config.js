@@ -41,6 +41,17 @@ export default defineConfig(({ mode }) => {
           target: apiOrigen,
           changeOrigin: true,
           secure: false,
+        },
+        // Las fotos de los productos las sirve el backend como estáticos y se
+        // guardan como rutas relativas ("/archivos/productos/…"). En producción
+        // el frontend y la API son el mismo origen y cargan solas; en
+        // desarrollo están en puertos distintos, así que sin este proxy TODAS
+        // las fotos salen rotas y no se puede revisar ninguna pantalla que las
+        // muestre.
+        '/archivos': {
+          target: apiOrigen,
+          changeOrigin: true,
+          secure: false,
         }
       }
     },

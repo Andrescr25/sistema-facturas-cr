@@ -1,18 +1,58 @@
 /**
- * Catalogo Publico Module - Service
- * Proxy de solo lectura hacia Alegra para el catálogo público (tablets/agentes
- * de venta, sin internet en campo). Réplica del server.js de catalogo-alegra-proxy-2,
- * reutilizando el cliente Alegra ya centralizado (getClient()) en vez de un
- * segundo cliente HTTP con credenciales separadas.
+ * Catálogo del agente - Service
+ *
+ * Los productos y las categorías salen de `producto`, el maestro propio. Era
+ * un proxy de solo lectura a Alegra: la tablet paginaba de a 30 CONTRA ALEGRA,
+ * así que sincronizar el catálogo en el campo dependía de que Alegra
+ * contestara, y era la última pantalla que lo hacía.
+ *
+ * Qué es un producto visible NO se redefine acá: sale de
+ * `catalogo-clientes/consultaProducto`, el mismo lugar que usan el catálogo de
+ * clientes y el portal. Si cada pantalla lo decidiera por su lado, el agente
+ * podría ofrecer algo que el cliente no ve, o a otro precio.
+ *
+ * SE DEVUELVEN LOS NOMBRES DE ALEGRA (`name`, `price`, `tax`, `images`) porque
+ * la tablet todavía los lee así y guarda el catálogo sin conexión. Es la misma
+ * deuda anotada en §16: se traduce el día que esos componentes hablen nuestro
+ * idioma, no antes, para no obligar a resincronizar todas las tablets.
  */
 
+const { COLUMNAS, DESDE, VISIBLE } = require('../catalogo-clientes/consultaProducto');
+// Alegra ya no sirve el catálogo, pero el histórico de compras todavía se
+// sincroniza desde allá (sección 12 del checklist).
 const { getClient } = require('../../integrations/alegra');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
-const ALEGRA_LIMIT_MAXIMO = 30;
+// La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
+// tamaño de página para no tener que cambiarla a ella también.
+const PAGINA = 30;
+
+/**
+ * Una fila de `producto` con la forma que la tablet espera.
+ *
+ * NO SE MANDA `inventory`, y eso es a propósito: el maestro propio todavía no
+ * lleva existencias (sección 5 del checklist). Mandar un inventario vacío haría
+ * que la tarjeta calculara cero disponibles y mostrara TODO como "Agotado" —
+ * peor que no decir nada—. Sin el campo, la tarjeta no afirma nada.
+ */
+function aFormaDeTablet(row) {
+  const tarifa = Number(row.tarifa);
+
+  return {
+    id: String(row.alegra_id),
+    productoId: row.producto_id,
+    name: row.nombre,
+    reference: row.referencia || '',
+    status: 'active',
+    price: [{ price: Number(row.precio_sin_iva) || 0 }],
+    tax: Number.isFinite(tarifa) && tarifa > 0 ? [{ percentage: tarifa }] : [],
+    images: row.imagen_url ? [{ url: row.imagen_url, favorite: true }] : [],
+    category: row.categoria ? { name: row.categoria } : null
+  };
+}
 
 /**
  * GET /api/catalogo-agente/productos?start=&limit=
@@ -20,35 +60,25 @@ const ALEGRA_LIMIT_MAXIMO = 30;
  * productos activos.
  */
 async function listarProductos({ start = 0, limit = 30 } = {}) {
-  const startNum = parseInt(start, 10) || 0;
-  const limitNum = Math.min(parseInt(limit, 10) || ALEGRA_LIMIT_MAXIMO, ALEGRA_LIMIT_MAXIMO);
+  const startNum = Math.max(parseInt(start, 10) || 0, 0);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || PAGINA, 1), PAGINA);
 
-  const client = getClient();
-  const result = await client.get('/items', { start: startNum, limit: limitNum });
-
-  if (!result.success) {
-    const error = new Error(`Error de Alegra: ${result.status || ''} ${result.error || ''}`.trim());
-    error.status = 502;
-    throw error;
-  }
-
-  const data = result.data;
-  if (!Array.isArray(data)) {
-    const error = new Error('Formato de respuesta inválido de Alegra');
-    error.status = 502;
-    throw error;
-  }
-
-  const activeProducts = data.filter((product) => product && product.status === 'active');
+  const { rows } = await query(`
+    SELECT ${COLUMNAS}
+    ${DESDE}
+    WHERE ${VISIBLE}
+    ORDER BY p.nombre
+    LIMIT $1 OFFSET $2
+  `, [limitNum, startNum]);
 
   return {
-    products: activeProducts,
+    products: rows.map(aFormaDeTablet),
     debug: {
       start: startNum,
       limit: limitNum,
-      total_received: data.length,
-      active_filtered: activeProducts.length,
-      has_more: data.length === ALEGRA_LIMIT_MAXIMO
+      total_received: rows.length,
+      active_filtered: rows.length,
+      has_more: rows.length === limitNum
     }
   };
 }
@@ -57,16 +87,10 @@ async function listarProductos({ start = 0, limit = 30 } = {}) {
  * GET /api/catalogo-agente/categorias
  */
 async function listarCategorias() {
-  const client = getClient();
-  const result = await client.get('/item-categories');
-
-  if (!result.success) {
-    const error = new Error(`Error de Alegra: ${result.status || ''} ${result.error || ''}`.trim());
-    error.status = 502;
-    throw error;
-  }
-
-  return result.data;
+  const { rows } = await query(
+    `SELECT id, nombre FROM categoria_producto WHERE activo = TRUE ORDER BY nombre`
+  );
+  return rows.map(c => ({ id: String(c.id), name: c.nombre }));
 }
 
 /**

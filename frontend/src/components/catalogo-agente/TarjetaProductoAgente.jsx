@@ -55,8 +55,13 @@ export default function TarjetaProductoAgente({ product, stats, cantidad = 0, on
     ? descuentoPorcentaje
     : (precioTachado > 0 ? Math.round(((precioTachado - precioConIva) / precioTachado) * 100) : 0)
 
-  const disponibles = (product.inventory?.warehouses || [])
-    .reduce((s, w) => s + (parseFloat(w.availableQuantity) || 0), 0)
+  // `null` es "no se sabe", que NO es lo mismo que cero. El maestro propio
+  // todavía no lleva existencias, y contar un inventario ausente como cero
+  // marcaba TODO el catálogo como agotado.
+  const bodegas = product.inventory?.warehouses
+  const disponibles = Array.isArray(bodegas)
+    ? bodegas.reduce((s, w) => s + (parseFloat(w.availableQuantity) || 0), 0)
+    : null
 
   const puedePedir = typeof onCambiar === 'function'
 
@@ -120,7 +125,7 @@ export default function TarjetaProductoAgente({ product, stats, cantidad = 0, on
               tarjeta sin etiqueta dejaba su precio más abajo que el de las
               vecinas y la fila entera se veía torcida. */}
           <div className="mt-1 flex h-[18px] items-center sm:h-5">
-            {disponibles <= 0 ? (
+            {disponibles === null ? null : disponibles <= 0 ? (
               <Etiqueta tono="agotado" icono={AlertTriangle}>Agotado</Etiqueta>
             ) : disponibles <= 5 ? (
               <Etiqueta tono="ultimas">Quedan {disponibles}</Etiqueta>
