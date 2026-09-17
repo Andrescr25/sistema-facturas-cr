@@ -111,7 +111,9 @@ async function devolverFactura(req, res) {
  */
 async function getFacturasRelacionadas(req, res) {
   try {
-    const result = await revisionPreciosService.getFacturasRelacionadas();
+    const result = await revisionPreciosService.getFacturasRelacionadas({
+      limit: req.query.limit
+    });
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error obteniendo facturas relacionadas:', error);

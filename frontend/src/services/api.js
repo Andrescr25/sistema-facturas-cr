@@ -1,8 +1,17 @@
 import axios from 'axios'
 
-// La API vive en otro servicio de Render, no en el mismo origen que esta
-// aplicación, así que hay que decir explícitamente dónde está.
-const API_PRODUCCION = 'https://sistema-facturas-cr-web.onrender.com/api';
+// LA API VIVE EN EL MISMO ORIGEN QUE ESTA APLICACIÓN.
+//
+// Acá decía lo contrario y apuntaba a `sistema-facturas-cr-web.onrender.com`.
+// Ese host hoy devuelve 404 en todo: el servicio que sirve la página es el
+// mismo que responde `/api`. Como un 404 de otro servicio no trae cabeceras
+// CORS, el navegador lo reportaba como "blocked by CORS policy" y la pantalla
+// decía "Network error" —que es justo lo que se veía al revisar precios y al
+// entrar al portal—.
+//
+// Se usa el origen actual y no un dominio escrito a mano: así sigue
+// funcionando si mañana se le pone un dominio propio al catálogo, y no hay
+// CORS que configurar porque no hay cruce de origen.
 
 const esLocal = () => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
 
@@ -14,22 +23,13 @@ const getBaseURL = () => {
     return url.endsWith('/api') ? url : `${url}/api`;
   }
 
-  // Sin VITE_API_URL, la regla es el TIPO de origen y no un dominio puntual.
-  //
-  // Antes acá se comparaba contra 'sistema-facturas-cr.onrender.com'. Como
-  // frontend/.env está en .gitignore, ese respaldo es lo único que queda si
-  // Render pierde la variable — y al poner un dominio propio (por ejemplo
-  // para repartir el catálogo a los clientes) la comparación dejaría de
-  // coincidir y CADA visitante intentaría llamar a la API en su propia
-  // máquina, en localhost:3000. La página cargaría vacía sin ningún error
-  // visible, y solo en producción.
-  //
-  // Con esto, cualquier dominio que no sea local apunta a la API de
-  // producción, y cambiar de dominio deja de ser algo que pueda romperlo.
-  return esLocal() ? 'http://localhost:3000/api' : API_PRODUCCION;
+  // En local, la API corre aparte en el 3000. En cualquier otro lado, es el
+  // mismo servidor que entregó esta página.
+  return esLocal() ? 'http://localhost:3000/api' : `${window.location.origin}/api`;
 }
 
 const baseURL = getBaseURL();
+export const API_BASE_URL = baseURL;
 
 // Configuración base del cliente API
 const api = axios.create({

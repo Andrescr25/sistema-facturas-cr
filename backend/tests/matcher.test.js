@@ -6,7 +6,15 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { normalizar, calcularScoreSimilitud, encontrarMejorMatch, UMBRAL_AUTOCONFIRMAR } = require('../src/modules/precios/matcher');
+const {
+  normalizar,
+  normalizarReferencia,
+  esReferenciaConfiable,
+  calcularScoreSimilitud,
+  calcularScoreCatalogo,
+  encontrarMejorMatch,
+  UMBRAL_AUTOCONFIRMAR
+} = require('../src/modules/precios/matcher');
 
 describe('normalizar', () => {
   test('quita tildes', () => {
@@ -79,6 +87,28 @@ describe('calcularScoreSimilitud', () => {
   });
 });
 
+describe('referencias de catálogo', () => {
+  test('normaliza espacios, puntuación y tildes para comparar códigos', () => {
+    assert.equal(normalizarReferencia(' AB-12 / Ñ '), 'ab12n');
+  });
+
+  test('detecta referencias demasiado genéricas', () => {
+    assert.equal(esReferenciaConfiable('001'), false);
+    assert.equal(esReferenciaConfiable('N/A'), false);
+    assert.equal(esReferenciaConfiable('A123'), true);
+  });
+
+  test('un producto con una sola palabra genérica no recibe score por catálogo', () => {
+    const score = calcularScoreCatalogo('ACEITE 3 EN 1 MD', {
+      name: 'Aromatizante Glade Aceites Naturales',
+      reference: 'GLD-01',
+      description: ''
+    });
+
+    assert.equal(score, 0);
+  });
+});
+
 describe('encontrarMejorMatch', () => {
   test('elige el candidato con mayor score', () => {
     const candidatos = [
@@ -106,5 +136,48 @@ describe('encontrarMejorMatch', () => {
     const candidatos = [{ skuExterno: 'A', nombreExterno: 'Martillo Carpintero 16oz Stanley' }];
     const mejor = encontrarMejorMatch('MARTILLO CARPINTERO 16 ONZ', candidatos);
     assert.ok(mejor.score >= UMBRAL_AUTOCONFIRMAR);
+  });
+});
+
+/**
+ * Lo que se midió contra los pendientes reales de producción el 17 de
+ * setiembre de 2026: el ratio solo no distingue una sugerencia buena de una
+ * casualidad, porque las dos sacaban 50 %.
+ */
+describe('una palabra en común no alcanza', () => {
+  test('dos palabras distintivas SÍ son una sugerencia', () => {
+    // "ESPUMIL" y "TACO": es el producto, escrito distinto.
+    const score = calcularScoreSimilitud('ESPUMIL TACO 750G 3 PACK C-8', 'JABON ESPUMIL TACO 1X4 PQTE');
+    assert.ok(score > 0, 'se perdió una sugerencia buena');
+  });
+
+  test('una sola palabra en común no sugiere nada', () => {
+    // "INTERES DE MORA 3%" no es un producto, y sacaba 50 % contra cualquier
+    // cosa que dijera "mora" —el mismo 50 % que la sugerencia buena—.
+    assert.equal(calcularScoreSimilitud('INTERES DE MORA 3%', 'F.HIDROXON 500ML MORA AZUL C-12'), 0);
+    assert.equal(calcularScoreSimilitud('Cargo por mora', 'DESINFECTANTE FRESA MORA EN GALON'), 0);
+  });
+
+  test('la coincidencia tiene que empezar una palabra', () => {
+    // "lite" calzaba DENTRO de "spliter" (sp-LITE-r), así que "NEXT TV LITE"
+    // sugería un spliter de televisión.
+    assert.equal(calcularScoreSimilitud('NEXT TV LITE', 'SPLITER 2 VIAS TV'), 0);
+  });
+
+  test('"mora" no calza con "morado"', () => {
+    assert.equal(calcularScoreSimilitud('Cargo por mora', 'CUERDA ALBAÑIL 1/4 LB MORADO'), 0);
+  });
+
+  test('los plurales siguen calzando', () => {
+    // Por eso se acepta el comienzo de la palabra y no la palabra entera.
+    const score = calcularScoreSimilitud('TORNILLO FRIJOLILLO 1/2 BROCA', 'TORNILLOS FRIJOLILLO BROCA 1X10');
+    assert.equal(score, 100);
+  });
+
+  test('la referencia S/REF no se toma como una referencia de verdad', () => {
+    // Estaba en la lista escrita como 's/ref', pero la normalización le quita
+    // la barra: nunca calzaba.
+    assert.equal(esReferenciaConfiable('S/REF'), false);
+    assert.equal(esReferenciaConfiable('s/ref'), false);
   });
 });

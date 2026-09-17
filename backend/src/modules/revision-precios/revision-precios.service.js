@@ -13,10 +13,18 @@ const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { sincronizarCostoDeLineas } = require('../precios/costoHistorico');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
+const {
+  palabrasClave,
+  normalizarReferencia,
+  esReferenciaConfiable,
+  calcularScoreCatalogo,
+  UMBRAL_SUGERENCIA
+} = require('../precios/matcher');
 
 const productService = getProductService();
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
+const MAX_FACTURAS_RELACIONADAS = 100;
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -191,32 +199,49 @@ async function getProductosPendientes() {
   const productosConSugerencias = [];
 
   for (const producto of productosPendientes) {
-    // Buscar productos similares en la caché de Alegra
-    const palabrasClave = producto.descripcion.toLowerCase()
-      .split(' ')
-      .filter(palabra => palabra.length > 3)
-      .slice(0, 3);
+    const claves = palabrasClave(producto.descripcion, 4);
+    const codigos = [producto.codigoComercial, producto.codigoProveedor]
+      .filter(esReferenciaConfiable);
+    const condiciones = [];
 
-    if (palabrasClave.length > 0) {
+    if (codigos.length > 0) {
+      condiciones.push(...codigos.map(codigo => ({
+        reference: {
+          equals: codigo,
+          mode: 'insensitive'
+        }
+      })));
+    }
+
+    if (claves.length >= 2) {
+      condiciones.push(...claves.map(palabra => ({
+        searchText: {
+          contains: palabra,
+          mode: 'insensitive'
+        }
+      })));
+    }
+
+    if (condiciones.length > 0) {
       const similares = await prisma.alegraProduct.findMany({
         where: {
-          OR: palabrasClave.map(palabra => ({
-            searchText: {
-              contains: palabra,
-              mode: 'insensitive'
-            }
-          }))
+          AND: [
+            { status: 'active' },
+            { hiddenLocally: false },
+            { OR: condiciones }
+          ]
         },
-        take: 3
+        take: 20
       });
 
       if (similares.length > 0) {
-        // Calcular scores de similitud simples
+        const codigosNormalizados = new Set(codigos.map(normalizarReferencia));
         const sugerencias = similares.map(sim => {
-          const matches = palabrasClave.filter(palabra =>
-            sim.name.toLowerCase().includes(palabra)
-          ).length;
-          const similarityScore = Math.round((matches / palabrasClave.length) * 100);
+          const referenciaExacta = esReferenciaConfiable(sim.reference) &&
+            codigosNormalizados.has(normalizarReferencia(sim.reference));
+          const similarityScore = referenciaExacta
+            ? 100
+            : calcularScoreCatalogo(producto.descripcion, sim);
 
           return {
             alegraId: sim.alegraId,
@@ -225,7 +250,10 @@ async function getProductosPendientes() {
             price: sim.price,
             similarityScore: similarityScore
           };
-        }).filter(s => s.similarityScore >= 40);
+        })
+          .filter(s => s.similarityScore >= UMBRAL_SUGERENCIA)
+          .sort((a, b) => b.similarityScore - a.similarityScore)
+          .slice(0, 3);
 
         if (sugerencias.length > 0) {
           productosConSugerencias.push({
@@ -436,13 +464,20 @@ async function devolverFactura(facturaId) {
 /**
  * Obtener facturas 100% relacionadas (listas para revisión de precios)
  */
-async function getFacturasRelacionadas() {
+async function getFacturasRelacionadas({ limit = MAX_FACTURAS_RELACIONADAS } = {}) {
   console.log('📋 Obteniendo facturas 100% relacionadas para revisión de precios...');
+  const limite = Math.min(Math.max(parseInt(limit, 10) || MAX_FACTURAS_RELACIONADAS, 1), 200);
 
   const facturas = await prisma.factura.findMany({
     where: {
       estado: {
         in: ['RELACIONADA', 'PROCESADA']
+      },
+      productos: {
+        some: {},
+        every: {
+          estadoRelacionado: 'RELACIONADO'
+        }
       }
     },
     include: {
@@ -454,19 +489,13 @@ async function getFacturasRelacionadas() {
     },
     orderBy: {
       fechaEmision: 'desc'
-    }
+    },
+    take: limite
   });
 
-  // Filtrar solo facturas 100% relacionadas
-  const facturasCompletas = facturas.filter(factura => {
-    const total = factura.productos.length;
-    const relacionados = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
-    return total > 0 && relacionados === total;
-  });
+  console.log(`✅ ${facturas.length} facturas 100% relacionadas encontradas`);
 
-  console.log(`✅ ${facturasCompletas.length} facturas 100% relacionadas encontradas`);
-
-  return { facturas: facturasCompletas };
+  return { facturas };
 }
 
 /**
