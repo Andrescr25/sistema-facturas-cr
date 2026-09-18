@@ -24,6 +24,12 @@ const upload = multer({
 
 router.get('/productos', catalogoController.listarProductos);
 router.get('/proveedores', catalogoController.listarProveedores);
+
+// Subcategorías: son NUESTRAS, no se mandan a Alegra.
+router.get('/subcategorias', catalogoController.listarSubcategorias);
+router.post('/subcategorias', catalogoController.crearSubcategoria);
+router.put('/subcategorias/:id', catalogoController.editarSubcategoria);
+router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcategoria);
 router.get('/imagenes-por-referencia', catalogoController.buscarImagenesPorReferencia);
 router.get('/search-images', catalogoController.buscarImagenes);
 router.get('/image-proxy', catalogoController.proxyImagen);

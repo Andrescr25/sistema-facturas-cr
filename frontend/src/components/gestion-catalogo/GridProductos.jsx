@@ -75,6 +75,12 @@ export default function GridProductos({
                 <div className="space-y-1">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-primario-600 truncate">
                     {prod.category || 'General'}
+                    {/* La subcategoría solo aparece si la tiene: la mayoría
+                        todavía no está clasificada y repetir "sin clasificar"
+                        en cada tarjeta solo agrega ruido. */}
+                    {prod.subcategoria && (
+                      <span className="ml-1 font-semibold text-primario-700">· {prod.subcategoria.nombre}</span>
+                    )}
                   </div>
                   <h3 className="text-xs font-bold text-neutro-800 line-clamp-2 h-8 leading-tight group-hover:text-primario-600 transition-colors" title={prod.name}>
                     {prod.name}

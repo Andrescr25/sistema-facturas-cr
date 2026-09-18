@@ -1,4 +1,5 @@
-import { X, Edit, Loader2, Trash2, Check } from 'lucide-react'
+import { useState } from 'react'
+import { X, Edit, Loader2, Trash2, Check, Plus } from 'lucide-react'
 import { useModal } from '../../hooks/useModal'
 
 /**
@@ -27,6 +28,10 @@ export default function ModalEditarProducto({
   editCategoria,
   setEditCategoria,
   categorias,
+  producto,
+  subcategorias = [],
+  onCrearSubcategoria,
+  onAsignarSubcategoria,
   taxPercentage,
   savingEdit,
   confirmDelete,
@@ -36,6 +41,31 @@ export default function ModalEditarProducto({
   onCerrar
 }) {
   useModal(onCerrar)
+
+  // La subcategoría es NUESTRA y se guarda aparte: no viaja a Alegra con el
+  // resto del formulario, así que se aplica al elegirla y no al guardar. Si
+  // fuera al guardar, cambiarla obligaría a mandar también nombre y precio a
+  // Alegra sin necesidad.
+  const categoriaDelProducto = producto?.category || ''
+  const suyas = subcategorias.filter(s => s.categoria === categoriaDelProducto && s.activo)
+  const [nueva, setNueva] = useState('')
+  const [creando, setCreando] = useState(false)
+  const [errorSub, setErrorSub] = useState(null)
+
+  const crear = async () => {
+    const nombre = nueva.trim()
+    if (!nombre) return
+    setCreando(true); setErrorSub(null)
+    try {
+      const s = await onCrearSubcategoria(categoriaDelProducto, nombre)
+      await onAsignarSubcategoria(producto.alegraId, s.id)
+      setNueva('')
+    } catch (e) {
+      setErrorSub(e?.response?.data?.message || 'No se pudo crear.')
+    } finally {
+      setCreando(false)
+    }
+  }
 
   // null/undefined es "todavía no se sincronizó el impuesto de este
   // producto", que no es lo mismo que exento: ahí no se muestra un número
@@ -101,6 +131,49 @@ export default function ModalEditarProducto({
               ))}
             </select>
           </div>
+
+          {/* Subcategoría. No va a Alegra: es nuestra, y sirve para que
+              "Productos de PVC" deje de ser una bolsa de 118 piezas. Se aplica
+              al elegirla, no al guardar. */}
+          {categoriaDelProducto && onAsignarSubcategoria && (
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-neutro-700">
+                Subcategoría <span className="font-normal text-neutro-400">· dentro de {categoriaDelProducto}</span>
+              </label>
+              <select
+                value={producto?.subcategoria?.id ? String(producto.subcategoria.id) : ''}
+                onChange={(e) => onAsignarSubcategoria(producto.alegraId, e.target.value || null)}
+                className="w-full px-3 py-2 bg-neutro-50 border border-neutro-200 rounded-lg text-sm text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white"
+              >
+                <option value="">Sin clasificar</option>
+                {suyas.map((s) => (
+                  <option key={s.id} value={String(s.id)}>{s.nombre}</option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={nueva}
+                  onChange={(e) => setNueva(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); crear() } }}
+                  placeholder={`Nueva subcategoría en ${categoriaDelProducto}`}
+                  maxLength={80}
+                  className="flex-1 px-3 py-1.5 bg-white border border-neutro-200 rounded-lg text-xs text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500"
+                />
+                <button
+                  type="button"
+                  onClick={crear}
+                  disabled={creando || !nueva.trim()}
+                  className="inline-flex items-center gap-1 rounded-lg border border-neutro-200 bg-neutro-50 px-2.5 py-1.5 text-xs font-bold text-neutro-700 disabled:opacity-40"
+                >
+                  {creando ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  Crear
+                </button>
+              </div>
+              {errorSub && <p className="text-xs font-semibold text-peligro-600">{errorSub}</p>}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">

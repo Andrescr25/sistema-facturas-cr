@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Image as ImageIcon, RefreshCw, ExternalLink, Link as LinkIcon } from 'lucide-react'
 import { useGestionCatalogo } from '../hooks/useGestionCatalogo'
 import Toast from '../components/Toast'
@@ -6,8 +7,11 @@ import GridProductos from '../components/gestion-catalogo/GridProductos'
 import ModalSugerirImagen from '../components/ModalSugerirImagen'
 import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
 import ModalEditarProducto from '../components/gestion-catalogo/ModalEditarProducto'
+import ModalSubcategorias from '../components/gestion-catalogo/ModalSubcategorias'
 
 export default function GestionCatalogo() {
+  const [subcategoriasAbierto, setSubcategoriasAbierto] = useState(false)
+
   const {
     productos,
     totalProductos,
@@ -71,6 +75,13 @@ export default function GestionCatalogo() {
     editCategoria,
     setEditCategoria,
     categorias,
+    subcategorias,
+    subcategoriaFiltro,
+    setSubcategoriaFiltro,
+    crearSubcategoria,
+    renombrarSubcategoria,
+    desactivarSubcategoria,
+    asignarSubcategoria,
     savingEdit,
     openEditProduct,
     handleSaveEdit,
@@ -154,6 +165,10 @@ export default function GestionCatalogo() {
         proveedorFiltro={proveedorFiltro}
         setProveedorFiltro={setProveedorFiltro}
         proveedoresCatalogo={proveedoresCatalogo}
+        subcategorias={subcategorias}
+        subcategoriaFiltro={subcategoriaFiltro}
+        setSubcategoriaFiltro={setSubcategoriaFiltro}
+        onAbrirSubcategorias={() => setSubcategoriasAbierto(true)}
         totalProductos={totalProductos}
       />
 
@@ -205,6 +220,17 @@ export default function GestionCatalogo() {
         />
       )}
 
+      {subcategoriasAbierto && (
+        <ModalSubcategorias
+          subcategorias={subcategorias}
+          categorias={categorias}
+          onCrear={crearSubcategoria}
+          onRenombrar={renombrarSubcategoria}
+          onDesactivar={desactivarSubcategoria}
+          onCerrar={() => setSubcategoriasAbierto(false)}
+        />
+      )}
+
       {isEditModalOpen && selectedProduct && (
         <ModalEditarProducto
           editName={editName}
@@ -218,6 +244,10 @@ export default function GestionCatalogo() {
           editCategoria={editCategoria}
           setEditCategoria={setEditCategoria}
           categorias={categorias}
+          producto={selectedProduct}
+          subcategorias={subcategorias}
+          onCrearSubcategoria={crearSubcategoria}
+          onAsignarSubcategoria={asignarSubcategoria}
           taxPercentage={selectedProduct.taxPercentage}
           savingEdit={savingEdit}
           confirmDelete={confirmDelete}

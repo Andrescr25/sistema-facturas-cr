@@ -7,6 +7,7 @@
 const axios = require('axios');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const prisma = require('../../../lib/prisma');
+const { query } = require('../../../config/database');
 const { getProductService, getClient } = require('../../integrations/alegra');
 
 const productService = getProductService();
@@ -97,7 +98,7 @@ async function listarProveedoresDelCatalogo() {
 /**
  * Listar productos paginados de la caché local con filtros
  */
-async function listarProductos({ search = '', missingImageOnly = 'false', proveedor = '', page = '1', limit = '30' }) {
+async function listarProductos({ search = '', missingImageOnly = 'false', proveedor = '', subcategoria = '', page = '1', limit = '30' }) {
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 30;
   const skip = (pageNum - 1) * limitNum;
@@ -145,6 +146,30 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
     whereClause.alegraId = proveedorLimpio === SIN_PROVEEDOR ? { notIn: ids } : { in: ids };
   }
 
+  // Filtro por subcategoría. Se resuelven los ids aparte, igual que el filtro
+  // por proveedor de arriba: la subcategoría es NUESTRA y no está en el
+  // esquema de Prisma, así que no se puede poner en el `where`.
+  //
+  // `sin` son los productos de esa categoría a los que todavía nadie les puso
+  // subcategoría: es justo la lista que hay que ir vaciando al ordenar.
+  const subFiltro = String(subcategoria || '').trim();
+  if (subFiltro) {
+    const esSin = subFiltro.startsWith('sin:');
+    const { rows } = esSin
+      ? await query(
+        `SELECT alegra_id FROM alegra_products_cache
+          WHERE subcategoria_id IS NULL AND category = $1 AND status = 'active'`,
+        [subFiltro.slice(4)])
+      : await query(
+        `SELECT alegra_id FROM alegra_products_cache WHERE subcategoria_id = $1`,
+        [Number(subFiltro)]);
+
+    const ids = rows.map(r => r.alegra_id);
+    whereClause.alegraId = whereClause.alegraId
+      ? { in: ids.filter(id => (whereClause.alegraId.in || []).includes(id)) }
+      : { in: ids };
+  }
+
   const [productos, total] = await Promise.all([
     prisma.alegraProduct.findMany({
       where: whereClause,
@@ -170,8 +195,23 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
   // taxPercentage NULL es "todavía no se sincronizó", no "exento": ahí se
   // devuelve null en vez de repetir el precio sin impuesto como si lo
   // llevara.
+  // La subcategoría va en una consulta aparte y no en el findMany porque no
+  // está en el esquema de Prisma (ver el filtro de arriba). Son los productos
+  // de ESTA página, así que es una consulta chica.
+  const subPorProducto = new Map();
+  if (productos.length > 0) {
+    const { rows } = await query(`
+      SELECT p.alegra_id, s.id, s.nombre
+        FROM alegra_products_cache p
+        JOIN subcategoria s ON s.id = p.subcategoria_id
+       WHERE p.alegra_id = ANY($1::varchar[])
+    `, [productos.map(p => p.alegraId)]);
+    rows.forEach(r => subPorProducto.set(r.alegra_id, { id: r.id, nombre: r.nombre }));
+  }
+
   const data = productos.map((p) => ({
     ...p,
+    subcategoria: subPorProducto.get(p.alegraId) || null,
     precioConIva: p.taxPercentage === null || p.taxPercentage === undefined
       ? null
       : precioConImpuesto(p.price, p.taxPercentage)

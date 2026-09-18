@@ -4,6 +4,7 @@
  */
 
 const catalogoService = require('./catalogo.service');
+const subcategorias = require('./subcategorias.service');
 
 /**
  * GET /catalog/productos
@@ -239,7 +240,51 @@ async function siguienteReferenciaMarca(req, res) {
   }
 }
 
+/** Las subcategorías, opcionalmente las de una sola categoría. */
+async function listarSubcategorias(req, res) {
+  try {
+    res.json({ success: true, subcategorias: await subcategorias.listar(req.query) });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function crearSubcategoria(req, res) {
+  try {
+    const s = await subcategorias.crear(req.body || {});
+    res.status(201).json({ success: true, subcategoria: s, message: `"${s.nombre}" creada en ${s.categoria}.` });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function editarSubcategoria(req, res) {
+  try {
+    const { nombre, activo } = req.body || {};
+    const s = activo === undefined
+      ? await subcategorias.renombrar(req.params.id, { nombre })
+      : await subcategorias.cambiarEstado(req.params.id, activo);
+    res.json({ success: true, subcategoria: s });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Ponerle o quitarle la subcategoría a un producto. */
+async function asignarSubcategoria(req, res) {
+  try {
+    const r = await subcategorias.asignarAProducto(req.params.alegraId, req.body?.subcategoriaId);
+    res.json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  listarSubcategorias,
+  crearSubcategoria,
+  editarSubcategoria,
+  asignarSubcategoria,
   listarProductos,
   listarProveedores,
   buscarImagenesPorReferencia,

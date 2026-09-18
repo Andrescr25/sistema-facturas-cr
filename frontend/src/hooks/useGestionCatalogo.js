@@ -25,6 +25,12 @@ export function useGestionCatalogo() {
   // Cédula del proveedor ('' = todos). Las opciones vienen del propio catálogo:
   // solo proveedores que tienen productos, con cuántos.
   const [proveedorFiltro, setProveedorFiltro] = useState('')
+
+  // Subcategorías: son NUESTRAS, no de Alegra. Sirven para partir las bolsas
+  // grandes —"Productos de PVC" son 118 piezas con sanitario, potable, conduit
+  // y pegamentos revueltos— y se crean a gusto dentro de cualquier categoría.
+  const [subcategorias, setSubcategorias] = useState([])
+  const [subcategoriaFiltro, setSubcategoriaFiltro] = useState('')
   const [proveedoresCatalogo, setProveedoresCatalogo] = useState({ proveedores: [], sinProveedor: null })
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -75,6 +81,43 @@ export function useGestionCatalogo() {
   }
 
   // Load products
+  const cargarSubcategorias = async () => {
+    try {
+      // Las categorías se cargaban solo al abrir un producto. Sin esto, el
+      // administrador de subcategorías abría con el desplegable vacío y no se
+      // podía crear ninguna sin pasar antes por una ficha.
+      loadCategorias()
+
+      const { data } = await api.get('/alegra/catalog/subcategorias')
+      if (data?.success) setSubcategorias(data.subcategorias || [])
+    } catch {
+      // Sin subcategorías el catálogo se sigue usando como hasta ahora.
+      setSubcategorias([])
+    }
+  }
+
+  const crearSubcategoria = async (categoria, nombre) => {
+    const { data } = await api.post('/alegra/catalog/subcategorias', { categoria, nombre })
+    await cargarSubcategorias()
+    return data.subcategoria
+  }
+
+  const renombrarSubcategoria = async (id, nombre) => {
+    await api.put(`/alegra/catalog/subcategorias/${id}`, { nombre })
+    await cargarSubcategorias()
+  }
+
+  const desactivarSubcategoria = async (id, activo) => {
+    await api.put(`/alegra/catalog/subcategorias/${id}`, { activo })
+    await cargarSubcategorias()
+  }
+
+  /** Ponerle o quitarle la subcategoría a un producto. `null` la quita. */
+  const asignarSubcategoria = async (alegraId, subcategoriaId) => {
+    await api.put(`/alegra/catalog/productos/${alegraId}/subcategoria`, { subcategoriaId })
+    await cargarSubcategorias()
+  }
+
   const fetchProducts = async () => {
     setLoading(true)
     try {
@@ -83,6 +126,7 @@ export function useGestionCatalogo() {
           search: searchQuery,
           missingImageOnly: missingImageOnly.toString(),
           proveedor: proveedorFiltro,
+          subcategoria: subcategoriaFiltro,
           page: currentPage.toString(),
           limit: LIMIT.toString()
         }
@@ -103,12 +147,12 @@ export function useGestionCatalogo() {
   // Debounced search trigger or trigger on dependencies change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, missingImageOnly, proveedorFiltro])
+  }, [searchQuery, missingImageOnly, proveedorFiltro, subcategoriaFiltro])
 
   useEffect(() => {
     fetchProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchQuery, missingImageOnly, proveedorFiltro])
+  }, [currentPage, searchQuery, missingImageOnly, proveedorFiltro, subcategoriaFiltro])
 
   // Las opciones del filtro. Si falla, el filtro simplemente no aparece: no
   // vale un aviso de error que tape el catálogo, que sí cargó.
@@ -128,6 +172,8 @@ export function useGestionCatalogo() {
 
   useEffect(() => {
     fetchProveedoresCatalogo()
+    cargarSubcategorias()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Synchronize Cache with Alegra API
@@ -443,6 +489,13 @@ export function useGestionCatalogo() {
   }
 
   return {
+    subcategorias,
+    subcategoriaFiltro,
+    setSubcategoriaFiltro,
+    crearSubcategoria,
+    renombrarSubcategoria,
+    desactivarSubcategoria,
+    asignarSubcategoria,
     productos,
     totalProductos,
     loading,

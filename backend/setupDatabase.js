@@ -664,6 +664,30 @@ async function setupDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_ref ON envio_whatsapp (tipo, referencia)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_contacto ON envio_whatsapp (alegra_contact_id, creado_en DESC)`);
 
+    // Subcategorías dentro de cada categoría (ver migrations/add_subcategorias.sql).
+    // Las categorías vienen de Alegra y son planas: 18 bolsas grandes donde no
+    // se encuentra nada. La subcategoría es NUESTRA y se cuelga del NOMBRE de
+    // la categoría, que es lo que guarda la caché de productos.
+    console.log('📋 Creando tabla de subcategorías...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subcategoria (
+          id         SERIAL PRIMARY KEY,
+          categoria  VARCHAR(120) NOT NULL,
+          nombre     VARCHAR(80)  NOT NULL,
+          activo     BOOLEAN      NOT NULL DEFAULT TRUE,
+          creado_en  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS subcategoria_unica ON subcategoria (categoria, lower(nombre))`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_subcategoria_categoria ON subcategoria (categoria) WHERE activo`);
+    // Columna LOCAL: la sincronización con Alegra nombra sus columnas una por
+    // una y no la toca, igual que ya pasa con hidden_locally.
+    await client.query(`
+      ALTER TABLE alegra_products_cache
+        ADD COLUMN IF NOT EXISTS subcategoria_id INTEGER REFERENCES subcategoria(id) ON DELETE SET NULL
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_productos_subcategoria ON alegra_products_cache (subcategoria_id) WHERE subcategoria_id IS NOT NULL`);
+
     // Crear función para actualizar updated_at automáticamente
     console.log('📋 Creando función para updated_at...');
     await client.query(`
