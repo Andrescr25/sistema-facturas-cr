@@ -9,6 +9,7 @@ import EstadoCatalogo from '../components/facturacion/EstadoCatalogo'
 import PasoCliente from '../components/facturacion/PasoCliente'
 import TarjetaCliente from '../components/facturacion/TarjetaCliente'
 import AgregarProductos from '../components/facturacion/AgregarProductos'
+import BarraSugerencias from '../components/facturacion/BarraSugerencias'
 import LineaFactura from '../components/facturacion/LineaFactura'
 import PanelCobro from '../components/facturacion/PanelCobro'
 import ModalCantidad from '../components/facturacion/ModalCantidad'
@@ -47,7 +48,7 @@ export default function Facturacion() {
   const {
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
-    productos, facturasPendientes,
+    productos, sugerencias, agregarSugerencia, facturasPendientes,
     clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
@@ -184,6 +185,15 @@ export default function Facturacion() {
                   productosEncontrados={productosEncontrados}
                   totalProductosEncontrados={totalProductosEncontrados}
                   onSeleccionarProducto={abrirModalCantidadProducto}
+                />
+
+                {/* Lo que este cliente lleva siempre. Va DEBAJO de agregar
+                    productos y encima de la factura: es el momento en que el
+                    agente todavía puede preguntar "¿y esto, no ocupa?". */}
+                <BarraSugerencias
+                  sugerencias={sugerencias}
+                  items={items}
+                  onAgregar={agregarSugerencia}
                 />
 
                 {hayLineas ? (
