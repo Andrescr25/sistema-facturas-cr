@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { conMiniaturasProxeadas } from '../utils/imagenSugeridaUtils'
 
@@ -80,6 +80,12 @@ export function useGestionCatalogo() {
     setToast({ type, message })
   }
 
+  // El mismo listado que `subcategorias`, pero legible YA, sin esperar el
+  // re-render. Hace falta porque al crear una subcategoría se la asigna
+  // enseguida al producto, y en ese instante el estado todavía tiene la lista
+  // vieja: buscar ahí la recién creada no la encuentra.
+  const subcategoriasRef = useRef([])
+
   // Load products
   const cargarSubcategorias = async () => {
     try {
@@ -89,10 +95,15 @@ export function useGestionCatalogo() {
       loadCategorias()
 
       const { data } = await api.get('/alegra/catalog/subcategorias')
-      if (data?.success) setSubcategorias(data.subcategorias || [])
+      const lista = data?.success ? (data.subcategorias || []) : []
+      subcategoriasRef.current = lista
+      setSubcategorias(lista)
+      return lista
     } catch {
       // Sin subcategorías el catálogo se sigue usando como hasta ahora.
+      subcategoriasRef.current = []
       setSubcategorias([])
+      return []
     }
   }
 
@@ -112,10 +123,25 @@ export function useGestionCatalogo() {
     await cargarSubcategorias()
   }
 
-  /** Ponerle o quitarle la subcategoría a un producto. `null` la quita. */
+  /**
+   * Ponerle o quitarle la subcategoría a un producto. `null` la quita.
+   *
+   * LA PANTALLA SE ACTUALIZA A MANO, y no hacerlo era el bug de "la
+   * subcategoría no deja clickearse": el desplegable está controlado por
+   * `producto.subcategoria`, pero acá solo se recargaba la LISTA de
+   * subcategorías —que no cambia al asignar—. El producto seguía con la
+   * vieja, así que al elegir una opción el desplegable se devolvía solo y
+   * parecía muerto, cuando en la base ya había quedado guardada.
+   */
   const asignarSubcategoria = async (alegraId, subcategoriaId) => {
     await api.put(`/alegra/catalog/productos/${alegraId}/subcategoria`, { subcategoriaId })
-    await cargarSubcategorias()
+
+    const id = subcategoriaId ? Number(subcategoriaId) : null
+    const s = id ? subcategoriasRef.current.find(x => x.id === id) : null
+    const puesta = s ? { id: s.id, nombre: s.nombre } : null
+
+    setProductos(prev => prev.map(p => (p.alegraId === alegraId ? { ...p, subcategoria: puesta } : p)))
+    setSelectedProduct(prev => (prev?.alegraId === alegraId ? { ...prev, subcategoria: puesta } : prev))
   }
 
   const fetchProducts = async () => {

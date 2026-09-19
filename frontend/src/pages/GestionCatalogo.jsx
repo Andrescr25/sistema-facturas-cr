@@ -6,7 +6,7 @@ import FiltrosCatalogo from '../components/gestion-catalogo/FiltrosCatalogo'
 import GridProductos from '../components/gestion-catalogo/GridProductos'
 import ModalSugerirImagen from '../components/ModalSugerirImagen'
 import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
-import ModalEditarProducto from '../components/gestion-catalogo/ModalEditarProducto'
+import ModalProducto from '../components/gestion-catalogo/ModalProducto'
 import ModalSubcategorias from '../components/gestion-catalogo/ModalSubcategorias'
 
 export default function GestionCatalogo() {
@@ -232,7 +232,7 @@ export default function GestionCatalogo() {
       )}
 
       {isEditModalOpen && selectedProduct && (
-        <ModalEditarProducto
+        <ModalProducto
           editName={editName}
           setEditName={setEditName}
           editRef={editRef}

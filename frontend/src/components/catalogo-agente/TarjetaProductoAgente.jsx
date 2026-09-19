@@ -115,11 +115,18 @@ function TarjetaProductoAgente({ product, stats }) {
         <h3 className="line-clamp-2 min-h-[2rem] text-[11.5px] font-bold leading-[1rem] text-neutro-900 sm:min-h-[2.5rem] sm:text-sm sm:leading-5">
           {product.name}
         </h3>
-        <p className="text-[10px] font-medium text-neutro-400 sm:text-xs">
+        <p className="truncate text-[10px] font-medium text-neutro-400 sm:text-xs">
           {/* Con el rótulo: "7413475" a secas se lee como un número suelto. */}
           {product.reference?.reference || product.reference
             ? `Ref. ${product.reference?.reference || product.reference}`
             : 'sin referencia'}
+          {/* La subcategoría va en esta misma línea y no en una propia: en la
+              tablet cada línea extra sale del alto de la foto. Solo aparece
+              cuando existe, y sirve para distinguir de un vistazo el PVC de
+              presión del sanitario, que por el nombre se confunden. */}
+          {product.subcategoria?.nombre && (
+            <span className="font-semibold text-primario-600"> · {product.subcategoria.nombre}</span>
+          )}
         </p>
 
         <div className="mt-auto pt-1">
