@@ -23,8 +23,19 @@ export default function FiltrosCatalogo({
   }, new Map())
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 border border-neutro-100">
-      <div className="relative flex-1 min-w-0">
+    // LA BARRA SE PARTE EN DOS LÍNEAS ANTES QUE APLASTAR EL BUSCADOR.
+    //
+    // Eran cuatro cajas en una sola fila y solo el buscador cedía espacio
+    // (`flex-1 min-w-0`), así que a 1280px —un portátil normal— su contenedor
+    // medía CERO: el input tiene ancho mínimo propio, se desbordaba de su
+    // caja y quedaba montado sobre el filtro de proveedores. Se veía una
+    // astilla de 58px donde debía estar el buscador.
+    //
+    // Con `flex-wrap` y un mínimo de 18rem, cuando no alcanza el espacio lo
+    // que baja a la segunda línea es el interruptor y el total —lo accesorio—
+    // en vez de desaparecer lo que más se usa.
+    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-4 border border-neutro-100">
+      <div className="relative flex-1 min-w-0 lg:min-w-[18rem]">
         <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
           <Search className="h-5 w-5" />
         </span>
@@ -42,7 +53,7 @@ export default function FiltrosCatalogo({
           El número es cuántos productos salen al elegirlo. Si la lista no
           cargó, el filtro no se muestra. */}
       {proveedores.length > 0 && (
-        <div className="relative lg:w-72">
+        <div className="relative shrink-0 lg:w-72">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
             <Truck className="h-4 w-4" />
           </span>
@@ -70,7 +81,7 @@ export default function FiltrosCatalogo({
       {/* El botón de administrar va SIEMPRE, aunque todavía no haya ninguna:
           si dependiera de que existan, no habría por dónde crear la primera.
           El desplegable sí espera a que haya algo que elegir. */}
-      <div className="relative lg:w-64 flex items-center gap-1">
+      <div className="relative flex shrink-0 items-center gap-1 lg:w-64">
         {subcategorias.length > 0 && (
           <>
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
@@ -111,7 +122,10 @@ export default function FiltrosCatalogo({
         )}
       </div>
 
-      <div className="flex items-center justify-between lg:justify-end gap-6">
+      {/* `ml-auto` lo pega a la derecha cuando sobra lugar, y es lo primero
+          que baja de línea cuando no: el total y el interruptor se consultan
+          de vez en cuando, el buscador se usa todo el rato. */}
+      <div className="flex shrink-0 items-center justify-between gap-6 lg:ml-auto lg:justify-end">
         <label className="flex items-center gap-3 cursor-pointer select-none">
           <input
             type="checkbox"
