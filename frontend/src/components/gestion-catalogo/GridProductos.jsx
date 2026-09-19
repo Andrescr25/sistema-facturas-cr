@@ -75,6 +75,12 @@ export default function GridProductos({
                 <div className="space-y-1">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-primario-600 truncate">
                     {prod.category || 'General'}
+                    {/* La subcategoría solo aparece si la tiene: la mayoría
+                        todavía no está clasificada y repetir "sin clasificar"
+                        en cada tarjeta solo agrega ruido. */}
+                    {prod.subcategoria && (
+                      <span className="ml-1 font-semibold text-primario-700">· {prod.subcategoria.nombre}</span>
+                    )}
                   </div>
                   <h3 className="text-xs font-bold text-neutro-800 line-clamp-2 h-8 leading-tight group-hover:text-primario-600 transition-colors" title={prod.name}>
                     {prod.name}
@@ -105,8 +111,12 @@ export default function GridProductos({
                 </div>
               </div>
 
-              {/* Hover overlay with action buttons */}
-              <div className="absolute inset-0 bg-neutro-900/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex flex-col justify-center items-stretch gap-2 p-4 transition-all duration-300 z-10">
+              {/* Las acciones aparecen con el puntero encima… salvo donde no
+                  hay puntero. En la tablet del mostrador no existe el hover,
+                  así que estos tres botones eran sencillamente inalcanzables:
+                  la tarjeta se veía pero no se podía hacer nada con ella. Con
+                  `hover:none` la capa queda fija en esos dispositivos. */}
+              <div className="absolute inset-0 bg-neutro-900/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 flex flex-col justify-center items-stretch gap-2 p-4 transition-all duration-300 z-10">
                 <button
                   onClick={() => onSugerirFoto(prod)}
                   className="flex items-center justify-center gap-1.5 py-1.5 bg-primario-600 hover:bg-primario-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-all"

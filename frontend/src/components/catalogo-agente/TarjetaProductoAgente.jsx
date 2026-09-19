@@ -1,4 +1,5 @@
-import { Plus, Minus, Package, Flame, TrendingDown, Repeat, AlertTriangle } from 'lucide-react'
+import { memo } from 'react'
+import { Package, Flame, TrendingDown, Repeat, AlertTriangle } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 
@@ -30,7 +31,23 @@ import { colones } from '../../utils/colones'
  *                        descuento otra vez mostraría un precio que no existe
  *                        y que el agente le prometería al cliente.
  */
-export default function TarjetaProductoAgente({ product, stats, cantidad = 0, onCambiar }) {
+/**
+ * SE ENVUELVE EN `memo`, Y ES LO QUE ARREGLA LA LENTITUD AL BUSCAR.
+ *
+ * El buscador es un input controlado: cada tecla cambia el estado de la
+ * pantalla y React vuelve a reconciliar las 2.091 tarjetas, aunque el filtro
+ * esté memorizado y ninguna haya cambiado. Medido tecleando letra por letra,
+ * el costo escalaba con la cantidad de teclas —3 letras 968 ms, 5 → 1.454,
+ * 8 → 2.252—, que es exactamente el "se pone lento de la nada" que se
+ * reportó. Con `memo`, una tarjeta cuyas props no cambiaron no se vuelve a
+ * tocar.
+ *
+ * La tarjeta es de SOLO MIRAR. Antes traía los controles de cantidad para
+ * armar el pedido acá; no se usó nunca —cero pedidos con origen 'agente' en
+ * toda la base— y el pedido se toma en Facturación. Quitarlos también aliviana
+ * la cuadrícula, que se pinta cientos de veces en cada búsqueda.
+ */
+function TarjetaProductoAgente({ product, stats }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
@@ -58,13 +75,12 @@ export default function TarjetaProductoAgente({ product, stats, cantidad = 0, on
   const disponibles = (product.inventory?.warehouses || [])
     .reduce((s, w) => s + (parseFloat(w.availableQuantity) || 0), 0)
 
-  const puedePedir = typeof onCambiar === 'function'
 
   return (
     <article
       className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 transition-shadow ${
         rebaja > 0 ? 'ring-acento-300' : 'ring-neutro-200'
-      } ${cantidad > 0 ? 'ring-2 ring-primario-600' : ''}`}
+      }`}
     >
       {/* Los avisos van sobre la foto y no debajo del nombre: es lo primero
           que el ojo encuentra al recorrer una cuadrícula. */}
@@ -99,11 +115,18 @@ export default function TarjetaProductoAgente({ product, stats, cantidad = 0, on
         <h3 className="line-clamp-2 min-h-[2rem] text-[11.5px] font-bold leading-[1rem] text-neutro-900 sm:min-h-[2.5rem] sm:text-sm sm:leading-5">
           {product.name}
         </h3>
-        <p className="text-[10px] font-medium text-neutro-400 sm:text-xs">
+        <p className="truncate text-[10px] font-medium text-neutro-400 sm:text-xs">
           {/* Con el rótulo: "7413475" a secas se lee como un número suelto. */}
           {product.reference?.reference || product.reference
             ? `Ref. ${product.reference?.reference || product.reference}`
             : 'sin referencia'}
+          {/* La subcategoría va en esta misma línea y no en una propia: en la
+              tablet cada línea extra sale del alto de la foto. Solo aparece
+              cuando existe, y sirve para distinguir de un vistazo el PVC de
+              presión del sanitario, que por el nombre se confunden. */}
+          {product.subcategoria?.nombre && (
+            <span className="font-semibold text-primario-600"> · {product.subcategoria.nombre}</span>
+          )}
         </p>
 
         <div className="mt-auto pt-1">
@@ -128,44 +151,9 @@ export default function TarjetaProductoAgente({ product, stats, cantidad = 0, on
           </div>
         </div>
 
-        {/* Sin cliente elegido la tarjeta queda de solo mirar: un pedido sin
-            cliente no se puede guardar, y descubrirlo recién al enviarlo
-            sería perder el trabajo de armarlo. */}
-        {puedePedir && (
-          <div className="mt-1.5 sm:mt-2">
-            {cantidad > 0 ? (
-              <div className="flex items-center gap-1 rounded-xl bg-primario-50 p-1">
-                <button type="button" aria-label={`Quitar uno de ${product.name}`}
-                  onClick={() => onCambiar(product, cantidad - 1)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-primario-800 ring-1 ring-primario-200 active:scale-95 sm:h-10 sm:w-10">
-                  <Minus size={15} strokeWidth={3} />
-                </button>
-                <input type="number" min="0" inputMode="numeric"
-                  aria-label={`Cantidad de ${product.name}`}
-                  value={cantidad}
-                  onChange={(e) => onCambiar(product, e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  className="w-full min-w-0 bg-transparent text-center text-sm font-extrabold text-primario-900 focus:outline-none sm:text-base" />
-                <button type="button" aria-label={`Agregar uno de ${product.name}`}
-                  onClick={() => onCambiar(product, cantidad + 1)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primario-800 text-white active:scale-95 sm:h-10 sm:w-10">
-                  <Plus size={15} strokeWidth={3} />
-                </button>
-              </div>
-            ) : (
-              /* 36px de alto es el mínimo que un dedo acierta sin mirar, que
-                 es como se usa esto — de pie, con el cliente enfrente. En la
-                 tablet, donde hay lugar, se le dan 44. */
-              <button type="button"
-                onClick={() => onCambiar(product, 1)}
-                className="flex h-9 w-full items-center justify-center gap-1 rounded-xl bg-neutro-100 text-xs font-bold text-neutro-700 transition-colors active:scale-95 hover:bg-primario-800 hover:text-white sm:h-11 sm:text-sm">
-                <Plus size={14} strokeWidth={3} />
-                Agregar
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </article>
   )
 }
+
+export default memo(TarjetaProductoAgente)

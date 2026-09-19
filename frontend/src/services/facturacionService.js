@@ -451,6 +451,24 @@ class FacturacionService {
     return codigo >= 400 && codigo < 500 && codigo !== 408 && codigo !== 429
   }
 
+  /**
+   * Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
+   *
+   * Si falla no se propaga: se factura igual que hasta ayer. Una sugerencia
+   * que no cargó no puede impedir cobrar.
+   */
+  async getSugerenciasCliente(alegraContactId) {
+    try {
+      const { data } = await api.get(`/facturacion/clientes/${alegraContactId}/sugerencias`);
+      return {
+        habituales: data?.data?.habituales || [],
+        perdidos: data?.data?.perdidos || []
+      };
+    } catch {
+      return { habituales: [], perdidos: [] };
+    }
+  }
+
   async crearFactura(facturaData, facturaVista = null) {
     try {
       console.log('🧾 Creando factura...', {

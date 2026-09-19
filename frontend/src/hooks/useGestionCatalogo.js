@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { conMiniaturasProxeadas } from '../utils/imagenSugeridaUtils'
 
@@ -25,6 +25,12 @@ export function useGestionCatalogo() {
   // Cédula del proveedor ('' = todos). Las opciones vienen del propio catálogo:
   // solo proveedores que tienen productos, con cuántos.
   const [proveedorFiltro, setProveedorFiltro] = useState('')
+
+  // Subcategorías: son NUESTRAS, no de Alegra. Sirven para partir las bolsas
+  // grandes —"Productos de PVC" son 118 piezas con sanitario, potable, conduit
+  // y pegamentos revueltos— y se crean a gusto dentro de cualquier categoría.
+  const [subcategorias, setSubcategorias] = useState([])
+  const [subcategoriaFiltro, setSubcategoriaFiltro] = useState('')
   const [proveedoresCatalogo, setProveedoresCatalogo] = useState({ proveedores: [], sinProveedor: null })
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -74,7 +80,70 @@ export function useGestionCatalogo() {
     setToast({ type, message })
   }
 
+  // El mismo listado que `subcategorias`, pero legible YA, sin esperar el
+  // re-render. Hace falta porque al crear una subcategoría se la asigna
+  // enseguida al producto, y en ese instante el estado todavía tiene la lista
+  // vieja: buscar ahí la recién creada no la encuentra.
+  const subcategoriasRef = useRef([])
+
   // Load products
+  const cargarSubcategorias = async () => {
+    try {
+      // Las categorías se cargaban solo al abrir un producto. Sin esto, el
+      // administrador de subcategorías abría con el desplegable vacío y no se
+      // podía crear ninguna sin pasar antes por una ficha.
+      loadCategorias()
+
+      const { data } = await api.get('/alegra/catalog/subcategorias')
+      const lista = data?.success ? (data.subcategorias || []) : []
+      subcategoriasRef.current = lista
+      setSubcategorias(lista)
+      return lista
+    } catch {
+      // Sin subcategorías el catálogo se sigue usando como hasta ahora.
+      subcategoriasRef.current = []
+      setSubcategorias([])
+      return []
+    }
+  }
+
+  const crearSubcategoria = async (categoria, nombre) => {
+    const { data } = await api.post('/alegra/catalog/subcategorias', { categoria, nombre })
+    await cargarSubcategorias()
+    return data.subcategoria
+  }
+
+  const renombrarSubcategoria = async (id, nombre) => {
+    await api.put(`/alegra/catalog/subcategorias/${id}`, { nombre })
+    await cargarSubcategorias()
+  }
+
+  const desactivarSubcategoria = async (id, activo) => {
+    await api.put(`/alegra/catalog/subcategorias/${id}`, { activo })
+    await cargarSubcategorias()
+  }
+
+  /**
+   * Ponerle o quitarle la subcategoría a un producto. `null` la quita.
+   *
+   * LA PANTALLA SE ACTUALIZA A MANO, y no hacerlo era el bug de "la
+   * subcategoría no deja clickearse": el desplegable está controlado por
+   * `producto.subcategoria`, pero acá solo se recargaba la LISTA de
+   * subcategorías —que no cambia al asignar—. El producto seguía con la
+   * vieja, así que al elegir una opción el desplegable se devolvía solo y
+   * parecía muerto, cuando en la base ya había quedado guardada.
+   */
+  const asignarSubcategoria = async (alegraId, subcategoriaId) => {
+    await api.put(`/alegra/catalog/productos/${alegraId}/subcategoria`, { subcategoriaId })
+
+    const id = subcategoriaId ? Number(subcategoriaId) : null
+    const s = id ? subcategoriasRef.current.find(x => x.id === id) : null
+    const puesta = s ? { id: s.id, nombre: s.nombre } : null
+
+    setProductos(prev => prev.map(p => (p.alegraId === alegraId ? { ...p, subcategoria: puesta } : p)))
+    setSelectedProduct(prev => (prev?.alegraId === alegraId ? { ...prev, subcategoria: puesta } : prev))
+  }
+
   const fetchProducts = async () => {
     setLoading(true)
     try {
@@ -83,6 +152,7 @@ export function useGestionCatalogo() {
           search: searchQuery,
           missingImageOnly: missingImageOnly.toString(),
           proveedor: proveedorFiltro,
+          subcategoria: subcategoriaFiltro,
           page: currentPage.toString(),
           limit: LIMIT.toString()
         }
@@ -103,12 +173,12 @@ export function useGestionCatalogo() {
   // Debounced search trigger or trigger on dependencies change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, missingImageOnly, proveedorFiltro])
+  }, [searchQuery, missingImageOnly, proveedorFiltro, subcategoriaFiltro])
 
   useEffect(() => {
     fetchProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, searchQuery, missingImageOnly, proveedorFiltro])
+  }, [currentPage, searchQuery, missingImageOnly, proveedorFiltro, subcategoriaFiltro])
 
   // Las opciones del filtro. Si falla, el filtro simplemente no aparece: no
   // vale un aviso de error que tape el catálogo, que sí cargó.
@@ -128,6 +198,8 @@ export function useGestionCatalogo() {
 
   useEffect(() => {
     fetchProveedoresCatalogo()
+    cargarSubcategorias()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Synchronize Cache with Alegra API
@@ -443,6 +515,13 @@ export function useGestionCatalogo() {
   }
 
   return {
+    subcategorias,
+    subcategoriaFiltro,
+    setSubcategoriaFiltro,
+    crearSubcategoria,
+    renombrarSubcategoria,
+    desactivarSubcategoria,
+    asignarSubcategoria,
     productos,
     totalProductos,
     loading,

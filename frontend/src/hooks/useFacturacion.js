@@ -69,6 +69,11 @@ export function useFacturacion() {
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+
+  // Lo que ese cliente suele llevar. Es el mismo cálculo que ve él en su
+  // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
+  // que el portal no le muestra.
+  const [sugerencias, setSugerencias] = useState({ habituales: [], perdidos: [] })
   const [items, setItems] = useState([])
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [observaciones, setObservaciones] = useState('')
@@ -740,6 +745,36 @@ export function useFacturacion() {
     enfocarYMostrarBusquedaProducto()
   }
 
+  // Se piden al elegir al cliente, no al abrir la pantalla: sin cliente no hay
+  // nada que sugerir. Si falla, se factura igual que hasta ayer.
+  useEffect(() => {
+    const id = clienteSeleccionado?.id
+    if (!id) { setSugerencias({ habituales: [], perdidos: [] }); return }
+
+    let vigente = true
+    facturacionService.getSugerenciasCliente(id)
+      .then(r => { if (vigente) setSugerencias(r) })
+      .catch(() => { if (vigente) setSugerencias({ habituales: [], perdidos: [] }) })
+    return () => { vigente = false }
+  }, [clienteSeleccionado?.id])
+
+  /**
+   * Agregar desde una sugerencia.
+   *
+   * Se busca el producto COMPLETO en el catálogo que ya está en la tablet y se
+   * agrega por el camino de siempre. La sugerencia trae nombre y precio para
+   * mostrarse, pero no el impuesto de la línea: armar el ítem con ella sería
+   * repetir el error que hacía que un producto al 1 % se facturara al 13 %.
+   */
+  const agregarSugerencia = (sugerencia) => {
+    const producto = productos.find(p => String(p.id) === String(sugerencia.id))
+    if (!producto) {
+      mostrarMensaje('Ese producto no está en el catálogo de esta tablet. Actualizá el catálogo.', 'warning', 4000)
+      return
+    }
+    agregarProductoAFactura(producto, 1)
+  }
+
   const agregarProductoAFactura = (producto, cantidad) => {
     // Verificar si ya existe
     const existente = items.find(item => item.id === producto.id)
@@ -1121,6 +1156,8 @@ export function useFacturacion() {
     // Datos
     productos,
     clientes,
+    sugerencias,
+    agregarSugerencia,
     facturasPendientes,
 
     // Factura actual

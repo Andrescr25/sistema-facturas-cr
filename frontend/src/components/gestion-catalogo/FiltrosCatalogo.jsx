@@ -1,4 +1,4 @@
-import { Search, AlertCircle, Truck } from 'lucide-react'
+import { AlertCircle, Search, Settings2, Tags, Truck } from 'lucide-react'
 
 /**
  * Barra de búsqueda, filtro por proveedor y filtro "solo sin imagen" del
@@ -8,9 +8,19 @@ export default function FiltrosCatalogo({
   searchQuery, setSearchQuery,
   missingImageOnly, setMissingImageOnly,
   proveedorFiltro, setProveedorFiltro, proveedoresCatalogo,
+  subcategorias = [], subcategoriaFiltro, setSubcategoriaFiltro, onAbrirSubcategorias,
   totalProductos
 }) {
   const { proveedores = [], sinProveedor = null } = proveedoresCatalogo || {}
+
+  // Agrupadas por categoría: el desplegable de "Productos de PVC" no tiene por
+  // qué mostrar las de Pesca. Van con `optgroup` para que se lean como lo que
+  // son, una dentro de otra.
+  const porCategoria = subcategorias.reduce((mapa, s) => {
+    if (!mapa.has(s.categoria)) mapa.set(s.categoria, [])
+    mapa.get(s.categoria).push(s)
+    return mapa
+  }, new Map())
 
   return (
     <div className="bg-white rounded-xl shadow-md p-4 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 border border-neutro-100">
@@ -54,6 +64,52 @@ export default function FiltrosCatalogo({
           </select>
         </div>
       )}
+
+      {/* Subcategoría. Es NUESTRA, no de Alegra: sirve para partir las bolsas
+          grandes. "Sin clasificar" es la lista que hay que ir vaciando. */}
+      {/* El botón de administrar va SIEMPRE, aunque todavía no haya ninguna:
+          si dependiera de que existan, no habría por dónde crear la primera.
+          El desplegable sí espera a que haya algo que elegir. */}
+      <div className="relative lg:w-64 flex items-center gap-1">
+        {subcategorias.length > 0 && (
+          <>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutro-400">
+            <Tags className="h-4 w-4" />
+          </span>
+          <select
+            value={subcategoriaFiltro}
+            onChange={(e) => setSubcategoriaFiltro(e.target.value)}
+            aria-label="Filtrar por subcategoría"
+            className={`w-full pl-9 pr-8 py-2.5 border rounded-lg text-sm truncate focus:outline-none focus:ring-2 focus:ring-primario-500 focus:bg-white transition-all ${
+              subcategoriaFiltro ? 'bg-primario-50 border-primario-300 font-semibold text-primario-800' : 'bg-neutro-50 border-neutro-200 text-neutro-900'
+            }`}
+          >
+            <option value="">Todas las subcategorías</option>
+            {[...porCategoria.entries()].map(([categoria, lista]) => (
+              <optgroup key={categoria} label={categoria}>
+                {lista.map(s => (
+                  <option key={s.id} value={String(s.id)}>{s.nombre} ({s.productos})</option>
+                ))}
+                <option value={`sin:${categoria}`}>— Sin clasificar —</option>
+              </optgroup>
+            ))}
+          </select>
+          </>
+        )}
+        {onAbrirSubcategorias && (
+          <button
+            type="button"
+            onClick={onAbrirSubcategorias}
+            title="Crear, renombrar o desactivar subcategorías"
+            className={`shrink-0 rounded-lg border border-neutro-200 bg-neutro-50 p-2.5 text-neutro-500 hover:bg-neutro-100 ${
+              subcategorias.length === 0 ? 'w-full flex items-center justify-center gap-2 text-sm font-semibold' : ''
+            }`}
+          >
+            <Settings2 className="h-4 w-4" />
+            {subcategorias.length === 0 && 'Subcategorías'}
+          </button>
+        )}
+      </div>
 
       <div className="flex items-center justify-between lg:justify-end gap-6">
         <label className="flex items-center gap-3 cursor-pointer select-none">
