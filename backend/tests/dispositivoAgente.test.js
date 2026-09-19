@@ -15,6 +15,12 @@
  *
  * Sin esto, esos pedidos aparecen recién cuando el cliente reclama que nunca
  * le llegó el producto.
+ *
+ * OJO: el catálogo del agente YA NO ARMA PEDIDOS —no se usó nunca, cero
+ * pedidos con origen 'agente' en toda la base— así que hoy ninguna tablet
+ * reporta pendientes y esta alerta no se dispara. Lo que se prueba acá sigue
+ * siendo la regla del servidor, que no se tocó; las dos pruebas que miraban
+ * el hook del pedido se quitaron con él.
  */
 
 const { test, describe } = require('node:test');
@@ -25,7 +31,6 @@ const path = require('path');
 const RUTA = path.join(__dirname, '..', 'src', 'modules', 'catalogo-agente', 'pedidos-agente.service.js');
 const FUENTE = fs.readFileSync(RUTA, 'utf8');
 const MIGRACION = fs.readFileSync(path.join(__dirname, '..', 'migrations', 'add_dispositivo_agente.sql'), 'utf8');
-const HOOK = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'usePedidoAgente.js'), 'utf8');
 
 /** La misma regla del servicio, para probarla sin base de datos. */
 function alertaDe(pendientes, minutosSinContacto) {
@@ -74,12 +79,6 @@ describe('el reporte del dispositivo', () => {
   test('sin identificador no se acepta el reporte', () => {
     assert.match(FUENTE, /if \(!dispositivoId\) throw httpError\(400/);
   });
-
-  test('el fallo del reporte no puede estorbar el envío de pedidos', () => {
-    // Es información secundaria: si no se puede reportar, se sigue.
-    const bloque = HOOK.slice(HOOK.indexOf('const reportarEstado'), HOOK.indexOf('Manda lo que haya pendiente'));
-    assert.match(bloque, /catch\s*\{/, 'el reporte debe tragarse su propio error');
-  });
 });
 
 describe('espera creciente entre reintentos', () => {
@@ -96,11 +95,5 @@ describe('espera creciente entre reintentos', () => {
     // quedaría abandonado de hecho.
     assert.equal(esperaDe(10), 30 * 60 * 1000);
     assert.equal(esperaDe(100), 30 * 60 * 1000);
-  });
-
-  test('el hook aplica esa espera y guarda cuándo fue el último intento', () => {
-    assert.match(HOOK, /const esperaDe = \(intentos\)/);
-    assert.match(HOOK, /ultimoIntento: Date\.now\(\)/,
-      'sin registrar el último intento no hay forma de saber cuánto esperar');
   });
 });

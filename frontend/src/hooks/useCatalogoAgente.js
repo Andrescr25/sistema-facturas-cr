@@ -15,13 +15,34 @@ const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
 
 const SIN_STATS = new Map()
 
+// Cuánto se espera desde la última tecla antes de filtrar. 180 ms no se nota
+// al escribir y evita filtrar cinco veces mientras se teclea "bolsa".
+const RETARDO_BUSQUEDA = 180
+
+// Cuántos resultados se pintan. Buscar "a" calza con más de mil productos, y
+// montar mil tarjetas es lo que congelaba la tablet. La búsqueda ordena por
+// parecido, así que lo que sirve está arriba; si no aparece, se afina el
+// término. El total se sigue diciendo para que nadie crea que hay menos.
+const MAX_RESULTADOS = 60
+
 export function useCatalogoAgente() {
   const [products, setProducts] = useState([])
   const [ofertas, setOfertas] = useState([])
   // Los productos a los que se les bajó el precio resignando margen. Aparte
   // de `ofertas`, que son excesos de inventario.
   const [ofertasBaja, setOfertasBaja] = useState([])
+  // Lo que se TIPEA y lo que se BUSCA son dos cosas distintas.
+  //
+  // El input tiene que responder a cada tecla, pero filtrar 2.000 productos y
+  // volver a pintar la cuadrícula en cada una hacía que la pantalla se quedara
+  // pensando un par de segundos. Se espera a que la persona deje de escribir.
   const [searchQuery, setSearchQuery] = useState('')
+  const [busquedaAplicada, setBusquedaAplicada] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaAplicada(searchQuery), RETARDO_BUSQUEDA)
+    return () => clearTimeout(t)
+  }, [searchQuery])
   const [isLoading, setIsLoading] = useState(true)
   const [lastSync, setLastSync] = useState(null)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -161,6 +182,7 @@ export function useCatalogoAgente() {
 
   const filteredData = useMemo(() => {
     let result = products
+    const searchQuery = busquedaAplicada
 
     // Búsqueda ordenada por PARECIDO, no alfabética: lo que el agente
     // escribió tiene que salir primero, y una referencia exacta antes que
@@ -195,8 +217,14 @@ export function useCatalogoAgente() {
     // "especial" que mantener sincronizada con la de antes.
     const { grouped, sortedKeys } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
 
-    return { flat: result, grouped, sortedKeys }
-  }, [products, searchQuery, statsPorProducto, habitualesCliente, perdidosCliente])
+    return {
+      flat: searchQuery ? result.slice(0, MAX_RESULTADOS) : result,
+      totalCoincidencias: result.length,
+      recortado: Boolean(searchQuery) && result.length > MAX_RESULTADOS,
+      grouped,
+      sortedKeys
+    }
+  }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente])
 
   const featuredProducts = useMemo(() => {
     if (!ofertas || ofertas.length === 0) return []
@@ -391,6 +419,9 @@ export function useCatalogoAgente() {
   }, [updateSyncUI])
 
   return {
+    // Lo YA filtrado, para que la pantalla no parpadee entre la tecla y el
+    // filtro. Lo que se tipea es `searchQuery`.
+    busquedaAplicada,
     isLoading,
     isOnline,
     isSyncing,
