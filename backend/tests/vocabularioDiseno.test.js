@@ -291,6 +291,46 @@ describe('las barras de acción no se meten debajo del sidebar', () => {
     const texto = fs.readFileSync(
       path.join(FRONT, 'components', 'revision-precios', 'RevisionFactura.jsx'), 'utf8');
     assert.match(texto, /className="sticky bottom-0/,
-      'la barra de "Enviar a Alegra" tiene que ser sticky para quedarse dentro del módulo');
+      'la barra de "Registrar compra" tiene que ser sticky para quedarse dentro del módulo');
+  });
+});
+
+/**
+ * Una franja con `overflow-x-auto` necesita `min-w-0` en su cadena de
+ * ancestros, o el desplazamiento no sirve de nada.
+ *
+ * LO QUE PASÓ
+ * "Suele faltar" (BarraSugerencias) tiene diez tarjetas de `w-36 shrink-0`
+ * pensadas para desplazarse DENTRO de su franja. Su padre en Facturación es
+ * un ítem de CSS Grid (`lg:col-span-2` dentro de `grid lg:grid-cols-3`), y un
+ * ítem de grid tiene por omisión `min-width: auto`: no se encoge por debajo
+ * del ancho de su contenido. Sin `min-w-0`, la columna entera crecía para
+ * caber las diez tarjetas sin enrollar —1.546px medidos en un teléfono de
+ * 390px de ancho— y empujaba TODA la página a lo ancho. El scroll horizontal
+ * de adentro nunca llegaba a actuar porque nada le pedía encogerse primero.
+ *
+ * Es la misma familia de bug que "la barra lateral se desplaza" más arriba
+ * (`min-h-0` para un `overflow-y-auto` que no se movía) y no se ve en una
+ * revisión visual rápida en escritorio: en una pantalla grande sobra espacio
+ * y el desborde no se nota. Solo aparece en el teléfono, que es donde vive
+ * este módulo.
+ */
+describe('un overflow-x-auto sin min-w-0 no desplaza, empuja toda la página', () => {
+  test('BarraSugerencias se puede encoger al ancho de donde la pongan', () => {
+    const texto = fs.readFileSync(
+      path.join(FRONT, 'components', 'facturacion', 'BarraSugerencias.jsx'), 'utf8');
+    const seccion = texto.match(/<section className="([^"]*)"/);
+    assert.ok(seccion, 'BarraSugerencias tiene que envolver todo en un <section>');
+    assert.match(seccion[1], /\bmin-w-0\b/,
+      'sin min-w-0 en la sección, un padre flex o grid la deja crecer con sus tarjetas en vez de contenerla');
+  });
+
+  test('el ítem de grid que la contiene en Facturación también lleva min-w-0', () => {
+    const texto = fs.readFileSync(path.join(FRONT, 'pages', 'Facturacion.jsx'), 'utf8');
+    const columna = sinComentarios(texto).match(/<div className="flex flex-col gap-4 lg:col-span-2[^"]*"/);
+    assert.ok(columna, 'la columna izquierda de Facturación cambió de forma; revisar esta prueba');
+    assert.match(columna[0], /\bmin-w-0\b/,
+      'un ítem de CSS Grid no se encoge por debajo de su contenido sin min-w-0: ' +
+      'la franja de "Suele faltar" volvería a empujar la página en el teléfono');
   });
 });
