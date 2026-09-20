@@ -62,3 +62,9 @@ productos-clase-A-a-revisar.xlsx
 # nada. Se ignoran para que al menos no lleguen nunca a un commit.
 * 2.*
 * 3.*
+
+# Era ".local.json" pero estaba versionado, y una vez quedó con una
+# autorización de una sesión puntual nombrando ocho clientes reales. Ese tipo
+# de permiso no puede vivir en un archivo que se comitea: la próxima persona
+# que lo lea lo lee como si siguiera vigente.
+.claude/settings.local.json
