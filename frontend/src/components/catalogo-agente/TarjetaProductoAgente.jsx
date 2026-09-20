@@ -47,7 +47,7 @@ import { colones } from '../../utils/colones'
  * toda la base— y el pedido se toma en Facturación. Quitarlos también aliviana
  * la cuadrícula, que se pinta cientos de veces en cada búsqueda.
  */
-function TarjetaProductoAgente({ product, stats }) {
+function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
@@ -121,10 +121,14 @@ function TarjetaProductoAgente({ product, stats }) {
             ? `Ref. ${product.reference?.reference || product.reference}`
             : 'sin referencia'}
           {/* La subcategoría va en esta misma línea y no en una propia: en la
-              tablet cada línea extra sale del alto de la foto. Solo aparece
-              cuando existe, y sirve para distinguir de un vistazo el PVC de
-              presión del sanitario, que por el nombre se confunden. */}
-          {product.subcategoria?.nombre && (
+              tablet cada línea extra sale del alto de la foto.
+
+              NO SE DICE CUANDO LA TARJETA YA ESTÁ DENTRO DE SU FAMILIA: bajo
+              un encabezado que dice "PVC 1/2", repetirlo en las 32 tarjetas
+              es el mismo ruido que el "Incluye 13% IVA" que se sacó de acá.
+              Sí se dice en la búsqueda y en las secciones del cliente, que
+              son listas mezcladas y ahí el dato ubica. */}
+          {mostrarSubcategoria && product.subcategoria?.nombre && (
             <span className="font-semibold text-primario-600"> · {product.subcategoria.nombre}</span>
           )}
         </p>

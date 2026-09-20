@@ -129,7 +129,57 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto) {
     return a.localeCompare(b)
   })
 
-  return { grouped: categorias, sortedKeys }
+  return { grouped: categorias, sortedKeys, subgrupos: partirPorSubcategoria(categorias) }
+}
+
+/**
+ * Parte cada categoría en bloques por subcategoría.
+ *
+ * PARA QUÉ. "Productos de PVC" son 118 piezas revueltas: el de 1/2 al lado
+ * del de 3/4 y del sanitario. Mostrándole eso a un cliente en el mostrador no
+ * se encuentra nada. Con los bloques, se le enseña "PVC 1/2" y ahí está todo
+ * lo de 1/2 junto.
+ *
+ * SOLO SE PARTE LA CATEGORÍA QUE TIENE SUBCATEGORÍAS. Si no, `null`, y la
+ * pantalla la dibuja como siempre, de una sola tirada. Hoy hay una
+ * subcategoría en todo el catálogo: si esto devolviera bloques para todas,
+ * las otras cuarenta categorías se llenarían de encabezados que no dicen
+ * nada.
+ *
+ * LO QUE NO TIENE SUBCATEGORÍA VA AL FINAL, bajo "Otros". No se esconde: es
+ * la lista que hay que ir vaciando a medida que se clasifica, y si
+ * desapareciera, un producto sin clasificar dejaría de verse en el catálogo
+ * sin que nadie se diera cuenta.
+ */
+export function partirPorSubcategoria(categorias) {
+  const porCategoria = {}
+
+  for (const [nombreCategoria, productos] of Object.entries(categorias)) {
+    const bloques = new Map()
+    const sueltos = []
+
+    for (const p of productos) {
+      const sub = p.subcategoria?.nombre
+      if (!sub) { sueltos.push(p); continue }
+      if (!bloques.has(sub)) bloques.set(sub, [])
+      bloques.get(sub).push(p)
+    }
+
+    if (bloques.size === 0) continue
+
+    // `numeric` para que "PVC 2" vaya antes que "PVC 10": comparadas como
+    // texto, "10" queda antes que "2" y las medidas salen desordenadas, que
+    // es justo lo que se viene a arreglar.
+    const ordenados = [...bloques.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'es', { numeric: true }))
+      .map(([nombre, lista]) => ({ nombre, productos: lista }))
+
+    if (sueltos.length > 0) ordenados.push({ nombre: 'Otros', productos: sueltos, sinClasificar: true })
+
+    porCategoria[nombreCategoria] = ordenados
+  }
+
+  return porCategoria
 }
 
 /** Minúsculas sin tildes, para que "MARIA" encuentre "María". */

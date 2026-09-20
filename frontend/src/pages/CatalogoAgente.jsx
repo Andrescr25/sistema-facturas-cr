@@ -49,7 +49,7 @@ import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
  * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
  * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
  */
-function Cuadricula({ productos, statsPorProducto }) {
+function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
       {productos.map((p) => (
@@ -57,8 +57,38 @@ function Cuadricula({ productos, statsPorProducto }) {
           key={p.id}
           product={p}
           stats={p._stats || statsPorProducto?.get(String(p.id))}
+          mostrarSubcategoria={!dentroDeSuFamilia}
         />
       ))}
+    </div>
+  )
+}
+
+/**
+ * Una familia dentro de una categoría: "PVC 1/2" dentro de "Productos de PVC".
+ *
+ * "Productos de PVC" son 118 piezas revueltas —el de 1/2 al lado del de 3/4 y
+ * del sanitario— y así no se le encuentra nada a un cliente parado en el
+ * mostrador. Partido en familias, se le enseña "PVC 1/2" y ahí está todo lo
+ * de 1/2 junto.
+ *
+ * El encabezado es deliberadamente más chico que el de la categoría y va
+ * indentado con una raya: tiene que leerse como algo DENTRO de ella, no como
+ * otra categoría más. "Otros" —lo que todavía no se clasificó— va en gris,
+ * apagado, porque no es una familia sino la lista pendiente.
+ */
+function Subgrupo({ nombre, cantidad, sinClasificar, children }) {
+  return (
+    <div className="mb-5 last:mb-0">
+      <div className={`mb-2 flex items-baseline gap-2 border-l-2 pl-2 ${
+        sinClasificar ? 'border-neutro-200' : 'border-primario-300'
+      }`}>
+        <h3 className={`text-[13px] font-bold ${sinClasificar ? 'text-neutro-400' : 'text-primario-700'}`}>
+          {nombre}
+        </h3>
+        <span className="text-[11px] font-semibold text-neutro-400">{cantidad}</span>
+      </div>
+      {children}
     </div>
   )
 }
@@ -217,13 +247,26 @@ export default function CatalogoAgente() {
 
             {filteredData.sortedKeys
               .filter((k) => enTodo || categoria === k)
-              .map((k) => (
-                <Seccion key={k} titulo={k} descripcion={`${filteredData.grouped[k].length} productos`}
-                  icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
-                  <Cuadricula productos={filteredData.grouped[k]} statsPorProducto={statsPorProducto}
-                    />
-                </Seccion>
-              ))}
+              .map((k) => {
+                // Solo la categoría que tiene subcategorías se parte. El
+                // resto se dibuja de una tirada, como siempre: llenarlas de
+                // encabezados que dicen "Otros" no ayudaría a nadie.
+                const familias = filteredData.subgrupos?.[k]
+                return (
+                  <Seccion key={k} titulo={k} descripcion={`${filteredData.grouped[k].length} productos`}
+                    icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
+                    {familias
+                      ? familias.map((f) => (
+                          <Subgrupo key={f.nombre} nombre={f.nombre} cantidad={f.productos.length}
+                            sinClasificar={f.sinClasificar}>
+                            <Cuadricula productos={f.productos} statsPorProducto={statsPorProducto}
+                              dentroDeSuFamilia={!f.sinClasificar} />
+                          </Subgrupo>
+                        ))
+                      : <Cuadricula productos={filteredData.grouped[k]} statsPorProducto={statsPorProducto} />}
+                  </Seccion>
+                )
+              })}
           </>
         )}
       </main>
