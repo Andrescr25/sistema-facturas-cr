@@ -74,6 +74,19 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'ofertasBaja')
   },
 
+  // El orden y el nombre visible de categorías, y el orden de subcategorías
+  // dentro de cada una — mismo patrón que las ofertas: una llave más del
+  // mismo almacén, sin subir DB_VERSION.
+  async saveConfigCatalogo(config) {
+    const db = await this.connect()
+    await db.put('metadata', config, 'configCatalogo')
+  },
+
+  async getConfigCatalogo() {
+    const db = await this.connect()
+    return db.get('metadata', 'configCatalogo')
+  },
+
   // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
 
   async saveClientes(clientes) {

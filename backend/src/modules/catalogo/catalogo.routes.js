@@ -29,7 +29,13 @@ router.get('/proveedores', catalogoController.listarProveedores);
 router.get('/subcategorias', catalogoController.listarSubcategorias);
 router.post('/subcategorias', catalogoController.crearSubcategoria);
 router.put('/subcategorias/:id', catalogoController.editarSubcategoria);
+router.put('/subcategorias-orden', catalogoController.reordenarSubcategorias);
 router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcategoria);
+
+// Categorías: son de Alegra, pero el orden y el nombre visible son nuestros.
+router.get('/categorias-config', catalogoController.listarCategoriasConfig);
+router.put('/categorias-config/nombre', catalogoController.renombrarCategoria);
+router.put('/categorias-config/orden', catalogoController.reordenarCategorias);
 router.get('/imagenes-por-referencia', catalogoController.buscarImagenesPorReferencia);
 router.get('/search-images', catalogoController.buscarImagenes);
 router.get('/image-proxy', catalogoController.proxyImagen);

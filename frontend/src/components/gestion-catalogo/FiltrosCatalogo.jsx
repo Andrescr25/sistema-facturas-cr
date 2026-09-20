@@ -8,19 +8,31 @@ export default function FiltrosCatalogo({
   searchQuery, setSearchQuery,
   missingImageOnly, setMissingImageOnly,
   proveedorFiltro, setProveedorFiltro, proveedoresCatalogo,
-  subcategorias = [], subcategoriaFiltro, setSubcategoriaFiltro, onAbrirSubcategorias,
+  subcategorias = [], categorias = [], subcategoriaFiltro, setSubcategoriaFiltro, onAbrirSubcategorias,
   totalProductos
 }) {
   const { proveedores = [], sinProveedor = null } = proveedoresCatalogo || {}
 
   // Agrupadas por categoría: el desplegable de "Productos de PVC" no tiene por
   // qué mostrar las de Pesca. Van con `optgroup` para que se lean como lo que
-  // son, una dentro de otra.
+  // son, una dentro de otra — en el mismo orden acomodado en "Categorías y
+  // subcategorías" (ver ModalSubcategorias), no alfabético.
   const porCategoria = subcategorias.reduce((mapa, s) => {
     if (!mapa.has(s.categoria)) mapa.set(s.categoria, [])
     mapa.get(s.categoria).push(s)
     return mapa
   }, new Map())
+
+  const ordenCategorias = categorias.map((c) => c.name)
+  const gruposOrdenados = [...porCategoria.entries()].sort((a, b) => {
+    const ia = ordenCategorias.indexOf(a[0])
+    const ib = ordenCategorias.indexOf(b[0])
+    if (ia === -1 && ib === -1) return a[0].localeCompare(b[0])
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
+  const nombreVisibleDe = (categoria) => categorias.find((c) => c.name === categoria)?.nombreVisible || categoria
 
   return (
     // LA BARRA SE PARTE EN DOS LÍNEAS ANTES QUE APLASTAR EL BUSCADOR.
@@ -96,8 +108,8 @@ export default function FiltrosCatalogo({
             }`}
           >
             <option value="">Todas las subcategorías</option>
-            {[...porCategoria.entries()].map(([categoria, lista]) => (
-              <optgroup key={categoria} label={categoria}>
+            {gruposOrdenados.map(([categoria, lista]) => (
+              <optgroup key={categoria} label={nombreVisibleDe(categoria)}>
                 {lista.map(s => (
                   <option key={s.id} value={String(s.id)}>{s.nombre} ({s.productos})</option>
                 ))}
@@ -111,7 +123,7 @@ export default function FiltrosCatalogo({
           <button
             type="button"
             onClick={onAbrirSubcategorias}
-            title="Crear, renombrar o desactivar subcategorías"
+            title="Categorías y subcategorías: crear, renombrar, ordenar o desactivar"
             className={`shrink-0 rounded-lg border border-neutro-200 bg-neutro-50 p-2.5 text-neutro-500 hover:bg-neutro-100 ${
               subcategorias.length === 0 ? 'w-full flex items-center justify-center gap-2 text-sm font-semibold' : ''
             }`}

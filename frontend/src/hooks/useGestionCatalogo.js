@@ -403,20 +403,45 @@ export function useGestionCatalogo() {
   }
 
   // --- EDIT PRODUCT ACTION ---
-  // Categorías de producto (Alegra item-categories), cargadas una sola vez
-  const loadCategorias = async () => {
-    if (categorias.length > 0) return categorias
+  // Categorías de producto (Alegra item-categories), con el orden y el
+  // nombre visible que se hayan configurado en Gestión de Catálogo. `name` es
+  // el real de Alegra y no cambia nunca: es lo que sigue viajando en
+  // `producto.category` y en `subcategoria.categoria`.
+  const cargarCategorias = async () => {
     try {
-      const response = await api.get('/alegra/categorias')
-      if (response.data?.success) {
-        const cats = response.data.categorias || []
-        setCategorias(cats)
-        return cats
-      }
+      const response = await api.get('/alegra/catalog/categorias-config')
+      const cats = response.data?.success ? (response.data.categorias || []) : []
+      setCategorias(cats)
+      return cats
     } catch (err) {
       console.error('Error cargando categorías:', err)
+      setCategorias([])
+      return []
     }
-    return []
+  }
+
+  // Cargadas una sola vez: la pantalla de edición de producto no necesita
+  // volver a pedirlas cada vez que se abre.
+  const loadCategorias = async () => {
+    if (categorias.length > 0) return categorias
+    return cargarCategorias()
+  }
+
+  const renombrarCategoria = async (categoria, nombreVisible) => {
+    await api.put('/alegra/catalog/categorias-config/nombre', { categoria, nombreVisible })
+    await cargarCategorias()
+  }
+
+  /** `nombresEnOrden` es la lista COMPLETA de categorías en su orden final. */
+  const reordenarCategorias = async (nombresEnOrden) => {
+    await api.put('/alegra/catalog/categorias-config/orden', { categorias: nombresEnOrden })
+    await cargarCategorias()
+  }
+
+  /** `idsEnOrden` es TODA la lista de subcategorías de esa categoría, en orden. */
+  const reordenarSubcategorias = async (categoria, idsEnOrden) => {
+    await api.put('/alegra/catalog/subcategorias-orden', { categoria, ids: idsEnOrden })
+    await cargarSubcategorias()
   }
 
   const openEditProduct = async (product) => {
@@ -522,6 +547,9 @@ export function useGestionCatalogo() {
     renombrarSubcategoria,
     desactivarSubcategoria,
     asignarSubcategoria,
+    reordenarSubcategorias,
+    renombrarCategoria,
+    reordenarCategorias,
     productos,
     totalProductos,
     loading,

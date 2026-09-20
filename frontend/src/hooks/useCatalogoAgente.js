@@ -8,6 +8,7 @@ const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
 const OFERTAS_BAJA_PATH = '/catalogo-agente/ofertas-baja'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
+const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
 const IMAGE_PREFETCH_CONCURRENCY = 10
@@ -53,6 +54,11 @@ export function useCatalogoAgente() {
   const [clientes, setClientes] = useState([])
   const [clienteActivoId, setClienteActivoId] = useState(null)
 
+  // Orden y nombre visible de categorías/subcategorías, acomodado en Gestión
+  // de Catálogo. `null` hasta la primera sincronización (o si nunca se
+  // configuró nada): ordenarCatalogoParaCliente cae al alfabético de siempre.
+  const [configCatalogo, setConfigCatalogo] = useState(null)
+
   useEffect(() => {
     const loadFromCache = async () => {
       try {
@@ -61,6 +67,7 @@ export function useCatalogoAgente() {
         const storedOfertas = await catalogoAgenteDb.getOfertas()
         const storedClientes = await catalogoAgenteDb.getAllClientes()
         const storedClienteActivoId = await catalogoAgenteDb.getClienteActivo()
+        const storedConfig = await catalogoAgenteDb.getConfigCatalogo()
         if (storedProducts && storedProducts.length > 0) {
           setProducts(storedProducts)
           setLastSync(lastUpdate)
@@ -77,6 +84,9 @@ export function useCatalogoAgente() {
         }
         if (storedClienteActivoId) {
           setClienteActivoId(storedClienteActivoId)
+        }
+        if (storedConfig) {
+          setConfigCatalogo(storedConfig)
         }
       } catch (error) {
         console.error('No se pudo cargar el catálogo local:', error)
@@ -215,7 +225,7 @@ export function useCatalogoAgente() {
     // Sin cliente activo, ordenarCatalogoParaCliente con un Map vacío se
     // comporta idéntico al agrupado alfabético de siempre — no hay una rama
     // "especial" que mantener sincronizada con la de antes.
-    const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
+    const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto, configCatalogo)
 
     return {
       flat: searchQuery ? result.slice(0, MAX_RESULTADOS) : result,
@@ -225,7 +235,7 @@ export function useCatalogoAgente() {
       sortedKeys,
       subgrupos
     }
-  }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente])
+  }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente, configCatalogo])
 
   const featuredProducts = useMemo(() => {
     if (!ofertas || ofertas.length === 0) return []
@@ -368,6 +378,16 @@ export function useCatalogoAgente() {
         console.error('No se pudo actualizar el historial de clientes:', historialError)
       }
 
+      try {
+        const configRes = await api.get(CONFIG_CATALOGO_PATH)
+        await catalogoAgenteDb.saveConfigCatalogo(configRes.data)
+        setConfigCatalogo(configRes.data)
+      } catch (configError) {
+        // Sin esto el catálogo sale en el orden alfabético de siempre — no
+        // vale la pena tumbar la sincronización por algo que es solo de orden.
+        console.error('No se pudo actualizar el orden del catálogo:', configError)
+      }
+
       updateSyncUI('Preparando descarga de imágenes...', 95)
       const imageUrls = new Set()
       newBuffer.forEach((product) => {
@@ -440,6 +460,7 @@ export function useCatalogoAgente() {
     seleccionarCliente,
     salirDeCliente,
     productosHabitualesDelCliente: habitualesCliente,
-    productosPerdidosDelCliente: perdidosCliente
+    productosPerdidosDelCliente: perdidosCliente,
+    configCatalogo
   }
 }

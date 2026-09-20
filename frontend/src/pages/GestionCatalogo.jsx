@@ -82,6 +82,9 @@ export default function GestionCatalogo() {
     renombrarSubcategoria,
     desactivarSubcategoria,
     asignarSubcategoria,
+    reordenarSubcategorias,
+    renombrarCategoria,
+    reordenarCategorias,
     savingEdit,
     openEditProduct,
     handleSaveEdit,
@@ -166,6 +169,7 @@ export default function GestionCatalogo() {
         setProveedorFiltro={setProveedorFiltro}
         proveedoresCatalogo={proveedoresCatalogo}
         subcategorias={subcategorias}
+        categorias={categorias}
         subcategoriaFiltro={subcategoriaFiltro}
         setSubcategoriaFiltro={setSubcategoriaFiltro}
         onAbrirSubcategorias={() => setSubcategoriasAbierto(true)}
@@ -227,6 +231,9 @@ export default function GestionCatalogo() {
           onCrear={crearSubcategoria}
           onRenombrar={renombrarSubcategoria}
           onDesactivar={desactivarSubcategoria}
+          onReordenarSubcategorias={reordenarSubcategorias}
+          onRenombrarCategoria={renombrarCategoria}
+          onReordenarCategorias={reordenarCategorias}
           onCerrar={() => setSubcategoriasAbierto(false)}
         />
       )}
