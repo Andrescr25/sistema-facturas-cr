@@ -23,6 +23,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
+const { liberarCuentaPorPagar } = require('./liberarCuentaPorPagar');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -107,45 +108,6 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
   });
 
   return { costoActualizado: true, precioActualizado: precioNuevo !== null };
-}
-
-/**
- * Libera la cuenta por pagar de esta factura, si existe, y la cuelga de la
- * compra (migración 023).
- *
- * MISMO CÁLCULO que `pagosProveedoresService.liberarCuentaPorFactura`, pero
- * repetido en SQL crudo DENTRO de esta transacción — llamar a esa función
- * usaría la conexión de Prisma, que es OTRA conexión a la base: un rollback
- * acá no revertiría lo que esa llamada ya hubiera confirmado. Es la
- * duplicación que hay que aceptar mientras convivan las dos formas de hablar
- * con la base; se puede unificar cuando Prisma se retire de este camino.
- *
- * Una compra de CONTADO puede no tener cuenta por pagar — no es un error,
- * es la mayoría de las compras al contado.
- */
-async function liberarCuentaPorPagar(cliente, facturaProveedorId, compraId) {
-  const { rows } = await cliente.query(
-    'SELECT * FROM cuentas_por_pagar WHERE factura_id = $1 FOR UPDATE', [facturaProveedorId]
-  );
-  const cxp = rows[0];
-  if (!cxp) return null;
-
-  const { rows: creditoRows } = await cliente.query(
-    'SELECT COALESCE(SUM(monto), 0) AS total FROM nota_credito_aplicacion WHERE cuenta_por_pagar_id = $1',
-    [cxp.id]
-  );
-  const credito = Number(creditoRows[0].total) || 0;
-  const saldo = Math.max(0, Math.round((Number(cxp.monto_total) - credito) * 100) / 100);
-  const vencida = cxp.fecha_vencimiento && new Date(cxp.fecha_vencimiento) < new Date();
-  const estado = saldo <= 0 ? 'PAGADA' : (vencida ? 'VENCIDA' : 'PENDIENTE');
-
-  const { rows: actualizada } = await cliente.query(
-    `UPDATE cuentas_por_pagar
-        SET liberada = true, estado = $1, saldo_pendiente = $2, compra_id = $3
-      WHERE id = $4 RETURNING *`,
-    [estado, saldo, compraId, cxp.id]
-  );
-  return actualizada[0];
 }
 
 /**

@@ -392,7 +392,29 @@ más abajo).
   el ítem de arriba: `registrarCompra` ya no le manda ningún precio a Alegra
 - [ ] Devolver la factura al proveedor o rechazarla
 - [ ] Guardar el estado de aceptación de cada compra. El envío del mensaje receptor queda con la emisión electrónica
-- [ ] Gastos recurrentes sin crear productos ni contactos en Alegra
+- [x] **Gastos recurrentes sin crear productos ni contactos en Alegra
+  (2026-09-20).** `registrarEnAlegra` creaba un contacto, un servicio por
+  concepto y un `POST /bills` en Alegra; pasó a ser `registrarComoCompra`
+  (`facturas-recibidas.adapter.js`), que crea `compra` + `compra_linea`
+  locales, igual que una factura normal, pero **sin producto**
+  (`producto_id = NULL`, a propósito: son servicios, no inventario) y **sin
+  reconstruir nada por diferencia** —ni agrupar en "servicios" ni recalcular
+  "otros cargos"—, porque `compra.total` es el del comprobante y no depende
+  de que las líneas sumen exacto. Con eso se fueron
+  `buscarOCrearServicio`, `lineasDeDetalle` y `otrosCargosDeTotales`
+  (código muerto sin la parte de Alegra). `liberarCuentaPorPagar` se
+  extrajo de `compras.service.js` a su propio archivo para que las dos
+  transacciones —Revisión de Precios y gastos recurrentes— usen la MISMA
+  función en vez de cada una llevar su copia (era la tercera vez que se
+  iba a escribir). **Una transacción POR FACTURA, no una para todas**: el
+  gasto de un mes que falla no bloquea el de otro que ya se procesó bien.
+  Verificado contra la copia local con datos `ZZ` (creados y borrados en la
+  misma corrida): proveedor resuelto por cédula (Liberty, id 24), línea con
+  `producto_id NULL`, total igual al de la factura. **Consecuencia que hay
+  que saber**: el Reporte Contador (sección 13, sin migrar) sigue leyendo
+  de Alegra — un gasto recurrente nuevo no va a aparecer ahí hasta que esa
+  sección también se independice, el mismo hueco de tránsito que ya tienen
+  Cotizaciones e Inventario con `alegra_products_cache`
 - [ ] Órdenes de compra por WhatsApp usando `producto.id`
 
 **Lista cuando:** una compra entra al inventario y a CxP sin tocar Alegra.

@@ -5,6 +5,8 @@ titulo: Compras — ya no toca Alegra para registrar una compra
 estado: vigente
 archivos:
   - backend/src/modules/compras/compras.service.js
+  - backend/src/modules/compras/liberarCuentaPorPagar.js
+  - backend/src/modules/pagos-recurrentes/scrapers/facturas-recibidas.adapter.js
   - backend/src/modules/revision-precios/revision-precios.service.js
   - backend/services/emailService.js
   - backend/services/databaseService.js
@@ -47,10 +49,26 @@ es lo que bloquea retirar `alegra_products_cache`: entre `productos-revision`
 (20 usos) y `revision-precios` (12) suman la mitad de las lecturas medidas de
 esa caché.
 
+GASTOS RECURRENTES (internet, planes móviles) TAMBIÉN DEJARON DE TOCAR
+ALEGRA (2026-09-20)
+
+`registrarComoCompra` (en el adaptador de gastos recurrentes) crea la misma
+`compra`/`compra_linea` que una factura normal, pero con `producto_id NULL`
+en cada línea —son servicios, no inventario— y sin reconstruir nada por
+diferencia: eso solo hacía falta para que Alegra aceptara un bill con items
+reales. `liberarCuentaPorPagar` se extrajo a su propio archivo justo para
+que esta transacción y la de `registrarCompra` compartan la misma función en
+vez de cada una llevar su copia.
+
+Consecuencia de tránsito: el Reporte Contador (sección 13, sin migrar)
+sigue leyendo de Alegra, así que un gasto recurrente nuevo no aparece ahí
+todavía — el mismo hueco que ya tienen Cotizaciones e Inventario con
+`alegra_products_cache`.
+
 QUÉ FALTA
 
 Inventario NO se mueve todavía —bloqueado por el conteo físico, ver
 [[bloqueo/conteo-fisico]]—, aunque `compra_linea.cantidad_propia` ya está
 lista para cuando exista. Devolver o rechazar una compra, el estado de
-aceptación, gastos recurrentes sin Alegra, y órdenes de compra por WhatsApp
-usando `producto.id` en vez del id de Alegra.
+aceptación, y órdenes de compra por WhatsApp usando `producto.id` en vez del
+id de Alegra.

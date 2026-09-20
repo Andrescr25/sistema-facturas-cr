@@ -644,16 +644,16 @@ async function sincronizarGasto(gastoId) {
   await query(`UPDATE gasto_recurrente SET ultima_consulta = CURRENT_TIMESTAMP WHERE id = $1;`, [gastoId]);
 
   // Algunas fuentes, además de traer el recibo, tienen que dejar la compra
-  // registrada en Alegra — es de ahí que el Reporte Contador toma las compras
-  // y el IVA acreditable. Se hace DESPUÉS de guardar el pago y sin tumbar la
-  // sincronización si falla: el gasto ya quedó visible, y la compra se
-  // reintenta sola en la próxima corrida.
+  // registrada (`compra` + `compra_linea`, local — ya no en Alegra, ver
+  // facturas-recibidas.adapter.js). Se hace DESPUÉS de guardar el pago y sin
+  // tumbar la sincronización si falla: el gasto ya quedó visible, y la
+  // compra se reintenta sola en la próxima corrida.
   let contabilidad = null;
-  if (typeof fuente.adaptador.registrarEnAlegra === 'function') {
+  if (typeof fuente.adaptador.registrarComoCompra === 'function') {
     try {
-      contabilidad = await fuente.adaptador.registrarEnAlegra(config);
+      contabilidad = await fuente.adaptador.registrarComoCompra(config);
     } catch (error) {
-      console.error(`❌ [Pagos Recurrentes] No se pudo registrar en Alegra: ${error.message}`);
+      console.error(`❌ [Pagos Recurrentes] No se pudo registrar la compra: ${error.message}`);
       contabilidad = { registradas: 0, fallidas: 0, error: error.message };
     }
   }
