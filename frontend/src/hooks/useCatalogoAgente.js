@@ -215,14 +215,15 @@ export function useCatalogoAgente() {
     // Sin cliente activo, ordenarCatalogoParaCliente con un Map vacío se
     // comporta idéntico al agrupado alfabético de siempre — no hay una rama
     // "especial" que mantener sincronizada con la de antes.
-    const { grouped, sortedKeys } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
+    const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
 
     return {
       flat: searchQuery ? result.slice(0, MAX_RESULTADOS) : result,
       totalCoincidencias: result.length,
       recortado: Boolean(searchQuery) && result.length > MAX_RESULTADOS,
       grouped,
-      sortedKeys
+      sortedKeys,
+      subgrupos
     }
   }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente])
 
