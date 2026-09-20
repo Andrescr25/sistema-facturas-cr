@@ -61,23 +61,40 @@ async function renombrar(categoria, nombreVisible) {
  * Fija el orden exacto: `categoriasEnOrden` es la lista COMPLETA de nombres
  * reales de categoría (los de Alegra) en el orden final deseado. Cada una
  * recibe su posición como `orden`, igual que `subcategorias.reordenar`.
+ *
+ * UN SOLO UPSERT, NO UNO POR CATEGORÍA. La primera versión hacía un
+ * `INSERT` por cada una —17 viajes de ida y vuelta contra el pooler de
+ * Supabase, uno detrás de otro— y ESO era el botón de "subir/bajar" que
+ * tardaba ~3 s en reaccionar, no la base en sí. Tampoco vuelve a preguntarle
+ * a Alegra (`listar()` sí lo hace): un reordenamiento no cambia qué
+ * categorías existen, así que arma la respuesta con lo que ya se sabe
+ * (los nombres que llegaron) más `nombre_visible` de la config local.
  */
 async function reordenar(categoriasEnOrden) {
   if (!Array.isArray(categoriasEnOrden) || categoriasEnOrden.length === 0) {
     throw httpError(400, 'Falta la lista de categorías en su nuevo orden.');
   }
 
-  for (let i = 0; i < categoriasEnOrden.length; i++) {
-    const cat = String(categoriasEnOrden[i] || '').trim();
-    if (!cat) continue;
-    await query(`
-      INSERT INTO categoria_config (categoria, orden)
-      VALUES ($1, $2)
-      ON CONFLICT (categoria) DO UPDATE SET orden = $2, actualizado_en = CURRENT_TIMESTAMP
-    `, [cat, i]);
-  }
+  const nombres = categoriasEnOrden.map((c) => String(c || '').trim()).filter(Boolean);
+  if (nombres.length === 0) throw httpError(400, 'Falta la lista de categorías en su nuevo orden.');
+  const ordenes = nombres.map((_, i) => i);
 
-  return listar();
+  await query(`
+    INSERT INTO categoria_config (categoria, orden)
+    SELECT * FROM UNNEST($1::varchar[], $2::int[])
+    ON CONFLICT (categoria) DO UPDATE SET orden = EXCLUDED.orden, actualizado_en = CURRENT_TIMESTAMP
+  `, [nombres, ordenes]);
+
+  const { rows: config } = await query(
+    `SELECT categoria, nombre_visible FROM categoria_config WHERE categoria = ANY($1::varchar[])`, [nombres]
+  );
+  const nombreVisiblePorCategoria = new Map(config.map((c) => [c.categoria, c.nombre_visible]));
+
+  return nombres.map((nombre, i) => ({
+    name: nombre,
+    nombreVisible: nombreVisiblePorCategoria.get(nombre) || nombre,
+    orden: i
+  }));
 }
 
 module.exports = { listar, renombrar, reordenar };

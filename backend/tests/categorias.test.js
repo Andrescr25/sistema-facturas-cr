@@ -24,7 +24,7 @@ const ALEGRA_CATEGORIAS = [
 function montar({ config = [] } = {}) {
   for (const r of [rutaDb, rutaAlegra, rutaServicio]) delete require.cache[r];
 
-  const visto = { consultas: [] };
+  const visto = { consultas: [], llamadasAlegra: 0 };
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: {
@@ -33,13 +33,20 @@ function montar({ config = [] } = {}) {
         if (/SELECT categoria, nombre_visible, orden FROM categoria_config/.test(sql)) {
           return { rows: config };
         }
+        if (/SELECT categoria, nombre_visible FROM categoria_config/.test(sql)) {
+          return { rows: config.map(({ categoria, nombre_visible }) => ({ categoria, nombre_visible })) };
+        }
         return { rows: [] };
       }
     }
   };
   require.cache[rutaAlegra] = {
     id: rutaAlegra, filename: rutaAlegra, loaded: true,
-    exports: { getProductService: () => ({ getItemCategories: async () => ALEGRA_CATEGORIAS }) }
+    exports: {
+      getProductService: () => ({
+        getItemCategories: async () => { visto.llamadasAlegra++; return ALEGRA_CATEGORIAS; }
+      })
+    }
   };
   return { servicio: require(rutaServicio), visto };
 }
@@ -97,14 +104,20 @@ describe('reordenar categorías', () => {
     await assert.rejects(servicio.reordenar([]), /Falta la lista/);
   });
 
-  test('cada una recibe su posición como orden', async () => {
+  test('cada una recibe su posición como orden, en un solo upsert', async () => {
+    // No una consulta por categoría: eso era lo que tardaba ~3 s con 17.
     const { servicio, visto } = montar();
-    await servicio.reordenar(['Productos de Pesca', 'Productos de PVC']);
+    const r = await servicio.reordenar(['Productos de Pesca', 'Productos de PVC']);
 
     const inserts = visto.consultas.filter((c) => /INSERT INTO categoria_config/.test(c.sql));
-    assert.deepEqual(inserts.map((i) => i.params), [
-      ['Productos de Pesca', 0],
-      ['Productos de PVC', 1]
-    ]);
+    assert.equal(inserts.length, 1, 'debería ser un solo INSERT, no uno por categoría');
+    assert.deepEqual(inserts[0].params, [['Productos de Pesca', 'Productos de PVC'], [0, 1]]);
+    assert.deepEqual(r.map((c) => c.orden), [0, 1]);
+  });
+
+  test('no le vuelve a preguntar a Alegra', async () => {
+    const { servicio, visto } = montar();
+    await servicio.reordenar(['Productos de Pesca']);
+    assert.equal(visto.llamadasAlegra, 0);
   });
 });

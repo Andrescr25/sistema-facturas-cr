@@ -427,21 +427,69 @@ export function useGestionCatalogo() {
     return cargarCategorias()
   }
 
+  // Optimista: el nombre/orden se ve cambiado YA, sin esperar la vuelta del
+  // servidor — antes esperaba el PUT y encima volvía a pedir la lista entera
+  // (con categorías, esa segunda vuelta le preguntaba a Alegra), y ese doble
+  // viaje era el botón de mover/renombrar tardando ~3 s en reaccionar.
   const renombrarCategoria = async (categoria, nombreVisible) => {
-    await api.put('/alegra/catalog/categorias-config/nombre', { categoria, nombreVisible })
-    await cargarCategorias()
+    setCategorias(prev => prev.map(c => (c.name === categoria ? { ...c, nombreVisible: nombreVisible || categoria } : c)))
+    try {
+      const { data } = await api.put('/alegra/catalog/categorias-config/nombre', { categoria, nombreVisible })
+      if (data?.success) {
+        setCategorias(prev => prev.map(c => (c.name === categoria ? { ...c, nombreVisible: data.nombreVisible } : c)))
+      }
+    } catch (err) {
+      console.error('Error renombrando categoría:', err)
+      await cargarCategorias() // se perdió: se vuelve a pedir la real
+    }
   }
 
   /** `nombresEnOrden` es la lista COMPLETA de categorías en su orden final. */
   const reordenarCategorias = async (nombresEnOrden) => {
-    await api.put('/alegra/catalog/categorias-config/orden', { categorias: nombresEnOrden })
-    await cargarCategorias()
+    setCategorias(prev => {
+      const porNombre = new Map(prev.map(c => [c.name, c]))
+      return nombresEnOrden.map((nombre, i) => ({ ...porNombre.get(nombre), name: nombre, orden: i }))
+    })
+    try {
+      const { data } = await api.put('/alegra/catalog/categorias-config/orden', { categorias: nombresEnOrden })
+      if (data?.success) {
+        // La respuesta no trae `id` (reordenar no le vuelve a preguntar a
+        // Alegra, ver categorias.service.js): se conserva el que ya se tenía.
+        setCategorias(prev => {
+          const porNombre = new Map(prev.map(c => [c.name, c]))
+          return data.categorias.map(c => ({ ...porNombre.get(c.name), ...c }))
+        })
+      }
+    } catch (err) {
+      console.error('Error reordenando categorías:', err)
+      await cargarCategorias()
+    }
   }
 
   /** `idsEnOrden` es TODA la lista de subcategorías de esa categoría, en orden. */
   const reordenarSubcategorias = async (categoria, idsEnOrden) => {
-    await api.put('/alegra/catalog/subcategorias-orden', { categoria, ids: idsEnOrden })
-    await cargarSubcategorias()
+    setSubcategorias(prev => {
+      const porId = new Map(prev.map(s => [s.id, s]))
+      const reordenadas = idsEnOrden.map((id, i) => ({ ...porId.get(id), orden: i })).filter(s => s.id !== undefined)
+      const otras = prev.filter(s => s.categoria !== categoria)
+      const lista = [...otras, ...reordenadas]
+      subcategoriasRef.current = lista
+      return lista
+    })
+    try {
+      const { data } = await api.put('/alegra/catalog/subcategorias-orden', { categoria, ids: idsEnOrden })
+      if (data?.success) {
+        setSubcategorias(prev => {
+          const otras = prev.filter(s => s.categoria !== categoria)
+          const lista = [...otras, ...data.subcategorias]
+          subcategoriasRef.current = lista
+          return lista
+        })
+      }
+    } catch (err) {
+      console.error('Error reordenando subcategorías:', err)
+      await cargarSubcategorias()
+    }
   }
 
   const openEditProduct = async (product) => {

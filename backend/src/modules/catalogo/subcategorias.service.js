@@ -158,6 +158,10 @@ async function asignarAProducto(alegraId, subcategoriaId) {
  * Se valida que cada id sea de ESA categoría por la misma razón que
  * `asignarAProducto`: sin eso, un id mandado a mano podría mover el orden de
  * una subcategoría de otra categoría sin que nadie se diera cuenta.
+ *
+ * UN SOLO UPDATE, NO UNO POR FILA. Antes eran hasta 19 `UPDATE` seguidos,
+ * cada uno su propio viaje contra el pooler de Supabase — el botón de
+ * "subir/bajar" tardaba ~3 s en reaccionar por esto, no por la base en sí.
  */
 async function reordenar(categoria, idsEnOrden) {
   const cat = categoriaValida(categoria);
@@ -173,9 +177,13 @@ async function reordenar(categoria, idsEnOrden) {
   if (ajena) throw httpError(400, `La subcategoría ${ajena.id} no es de ${cat}.`);
   if (rows.length !== ids.length) throw httpError(404, 'Alguna subcategoría no existe.');
 
-  for (let i = 0; i < ids.length; i++) {
-    await query(`UPDATE subcategoria SET orden = $2 WHERE id = $1`, [ids[i], i]);
-  }
+  const ordenes = ids.map((_, i) => i);
+  await query(`
+    UPDATE subcategoria s
+       SET orden = v.orden
+      FROM (SELECT * FROM UNNEST($1::int[], $2::int[])) AS v(id, orden)
+     WHERE s.id = v.id
+  `, [ids, ordenes]);
 
   return listar({ categoria: cat, incluirInactivas: true });
 }

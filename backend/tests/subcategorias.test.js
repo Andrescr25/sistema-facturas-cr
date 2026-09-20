@@ -148,7 +148,8 @@ describe('listar', () => {
 });
 
 describe('reordenar', () => {
-  test('cada una recibe su posición como orden', async () => {
+  test('cada una recibe su posición como orden, en un solo UPDATE', async () => {
+    // No uno por fila: eso era lo que tardaba ~3 s con hasta 19 subcategorías.
     const { servicio, visto } = montar({
       'FROM subcategoria WHERE id': [
         { id: 5, categoria: 'Productos de PVC' },
@@ -157,8 +158,9 @@ describe('reordenar', () => {
     });
     await servicio.reordenar('Productos de PVC', [9, 5]);
 
-    const updates = visto.consultas.filter(c => /UPDATE subcategoria SET orden/.test(c.sql));
-    assert.deepEqual(updates.map(u => u.params), [[9, 0], [5, 1]]);
+    const updates = visto.consultas.filter(c => /UPDATE subcategoria s\s+SET orden/.test(c.sql));
+    assert.equal(updates.length, 1, 'debería ser un solo UPDATE, no uno por fila');
+    assert.deepEqual(updates[0].params, [[9, 5], [0, 1]]);
   });
 
   test('NO deja reordenar una subcategoría de otra categoría', async () => {
