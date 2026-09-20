@@ -329,7 +329,22 @@ XML), se relaciona y pasa por Revisión de Precios. Al final va a
 Además cambia precios con `PUT /items`. Gastos recurrentes crea productos y
 contactos en Alegra.
 
-- [ ] Tablas `compra` y `compra_linea`, armadas desde el XML que ya se guarda
+- [x] Tablas `compra` y `compra_linea` (migraciones 019 y 020). **El XML NO se
+  guarda**, al revés de lo que decía esta línea: `emailService.js` lo parsea en
+  memoria y lo descarta, y la columna `archivo_xml` guarda el NOMBRE del
+  archivo, no su contenido (comprobado sobre las 862: ninguna trae un `<`). Se
+  armaron desde lo que ya estaba parseado. Cargadas **860 compras y 8.590
+  líneas** —las 855 ENVIADA más los 5 gastos recurrentes; las 2 que nadie
+  aceptó se quedan en el buzón, que es donde deben estar—, con proveedor propio
+  en las 860 y nuestro producto en 8.443 de 8.590 líneas (98,3 %). Las dos
+  migraciones se pueden volver a correr sin duplicar. **El total es el del
+  comprobante, no la suma de líneas:** hay 18 facturas donde no coinciden, de
+  ₡65 a ₡16.941 y algunas NEGATIVAS —descuentos y cargos a nivel de factura que
+  el parser no extrae—, y sin el XML no se pueden reconstruir
+- [ ] **Guardar el XML recibido.** Hoy el único lugar donde existe es el buzón
+  de correo: si se limpia o se pierde la cuenta, no queda copia de un
+  comprobante que hay que conservar. Es también lo que haría falta para
+  recuperar los descuentos y cargos de factura que hoy se pierden al parsear
 - [ ] "Enviar a Alegra" pasa a ser "Registrar compra": suma inventario, actualiza el costo y crea la cuenta por pagar
 - [ ] El cambio de precio de venta se guarda en `producto`
 - [ ] Devolver la factura al proveedor o rechazarla
@@ -417,7 +432,7 @@ facturas y notas de crédito desde Alegra.
 
 ## 15. Migración y corte
 
-- [ ] **Espejar en `setupDatabase.js` las migraciones 013 a 017.** El espejo se quedó en la 012: `013_datos_fiscales_factura`, `014_envio_whatsapp_cliente`, `015_espacio_emision_electronica`, `016_cierre_caja` y `017_cliente_id_en_portal` viven solo en `migrations/independencia/`. No afecta a la base de hoy —ese archivo solo corre en instalaciones nuevas— pero el día del corte, montar la base desde cero quedaría sin esas tablas y columnas.
+- [ ] **Espejar en `setupDatabase.js` las migraciones 013 a 020.** El espejo se quedó en la 012: `013_datos_fiscales_factura`, `014_envio_whatsapp_cliente`, `015_espacio_emision_electronica`, `016_cierre_caja`, `017_cliente_id_en_portal`, `018_mapeo_por_ids_propios`, `019_compra_y_compra_linea` y `020_cargar_compras_del_buzon` viven solo en `migrations/independencia/`. No afecta a la base de hoy —ese archivo solo corre en instalaciones nuevas— pero el día del corte, montar la base desde cero quedaría sin esas tablas y columnas.
 
 - [ ] Script de carga desde Alegra, de solo lectura y repetible: productos, clientes, proveedores, facturas con líneas, pagos, notas de crédito, compras, cotizaciones y existencias
 - [ ] Bajar el PDF y el XML de las facturas electrónicas que emitió Alegra, que hay que conservar 5 años
