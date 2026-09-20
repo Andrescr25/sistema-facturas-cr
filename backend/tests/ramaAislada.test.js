@@ -67,8 +67,8 @@ describe('la base tiene que ser local', () => {
 
 describe('nada sale al mundo real', () => {
   let contextoPrueba;
-  beforeEach(() => { contextoPrueba = process.env.NODE_TEST_CONTEXT; delete process.env.NODE_TEST_CONTEXT; delete process.env.PERMITIR_SALIDAS; });
-  afterEach(() => { if (contextoPrueba !== undefined) process.env.NODE_TEST_CONTEXT = contextoPrueba; delete process.env.PERMITIR_SALIDAS; });
+  beforeEach(() => { contextoPrueba = process.env.NODE_TEST_CONTEXT; delete process.env.NODE_TEST_CONTEXT; delete process.env.PERMITIR_SALIDAS; delete process.env.PERMITIR_LECTURA_BUZON; });
+  afterEach(() => { if (contextoPrueba !== undefined) process.env.NODE_TEST_CONTEXT = contextoPrueba; delete process.env.PERMITIR_SALIDAS; delete process.env.PERMITIR_LECTURA_BUZON; });
 
   test('fuera de las pruebas, las salidas están bloqueadas por omisión', () => {
     assert.equal(aislado.salidasBloqueadas({}), true);
@@ -121,11 +121,33 @@ describe('nada sale al mundo real', () => {
     );
   });
 
+  test('el buzón: por omisión no se puede leer, y es una llave PROPIA', () => {
+    // No es `PERMITIR_SALIDAS`: el buzón no manda nada hacia afuera, es un
+    // canal que esta rama COMPARTE con producción. Confundir las dos llaves
+    // dejaría leer el correo con la misma autorización que abre Alegra.
+    assert.equal(aislado.lecturaBuzonPermitida({}), false);
+    assert.equal(aislado.lecturaBuzonPermitida({ PERMITIR_SALIDAS: 'true' }), false, 'PERMITIR_SALIDAS no debe abrir el buzón');
+    assert.equal(aislado.lecturaBuzonPermitida({ PERMITIR_LECTURA_BUZON: 'true' }), true);
+    assert.equal(aislado.lecturaBuzonPermitida({ PERMITIR_LECTURA_BUZON: 'si' }), false, 'solo "true" exacto abre la llave');
+  });
+
   test('el buzón de facturas no se empieza a leer', () => {
+    // startMonitoring() es el arranque automático del servidor.
     const servicio = fs.readFileSync(path.join(raiz, 'services', 'emailService.js'), 'utf8');
-    const inicio = servicio.indexOf('startMonitoring() {');
-    const guarda = servicio.indexOf('salidasBloqueadas()', inicio);
-    const conecta = servicio.indexOf('this.connect();', inicio);
-    assert.ok(inicio > -1 && guarda > inicio && guarda < conecta, 'startMonitoring tiene que revisar antes de conectar al IMAP');
+    const inicioMonitoreo = servicio.indexOf('startMonitoring() {');
+    const guardaMonitoreo = servicio.indexOf('lecturaBuzonPermitida()', inicioMonitoreo);
+    const conectaMonitoreo = servicio.indexOf('this.connect();', inicioMonitoreo);
+    assert.ok(inicioMonitoreo > -1 && guardaMonitoreo > inicioMonitoreo && guardaMonitoreo < conectaMonitoreo,
+      'startMonitoring tiene que revisar antes de conectar al IMAP');
+
+    // connect() es el transporte real. Antes la guarda vivía SOLO en
+    // startMonitoring(): algo que llamara a connect() directamente —como un
+    // script recuperador de XML históricos— se conectaba sin que nada lo
+    // frenara. Ahora las dos lo revisan.
+    const inicioConnect = servicio.indexOf('connect() {');
+    const guardaConnect = servicio.indexOf('lecturaBuzonPermitida()', inicioConnect);
+    const abreImap = servicio.indexOf('this.imap.connect();', inicioConnect);
+    assert.ok(inicioConnect > -1 && guardaConnect > inicioConnect && guardaConnect < abreImap,
+      'connect() tiene que revisar antes de abrir la conexión IMAP de verdad');
   });
 });

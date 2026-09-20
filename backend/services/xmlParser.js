@@ -160,6 +160,9 @@ class XmlParser {
             // único momento en que tenemos el XML — no se persiste completo.
             ...XmlParser.extraerOtros(factura.Otros),
             productos: this.extractProductosData(factura.DetalleServicio),
+            // `<OtrosCargos>` es hermano de `<ResumenFactura>`, no está
+            // dentro: por eso se lee de `factura` y no de `factura.ResumenFactura`.
+            otrosCargos: XmlParser.extractOtrosCargos(factura.OtrosCargos),
             resumen: this.extractResumenData(factura.ResumenFactura),
             metadata: {
                 fechaProcesamiento: new Date().toISOString(),
@@ -278,6 +281,25 @@ class XmlParser {
         return `DESC-${normalized}`;
     }
 
+    /**
+     * Suma el campo de monto de un nodo que puede venir repetido.
+     *
+     * Un `<Descuento>` o un `<Impuesto>` de la línea admite hasta 5 (4.3;
+     * la 4.4 los agrupa en `<Descuentos>`/`<Impuestos>`). Con
+     * `explicitArray: false` de xml2js, dos o más hermanos con el mismo
+     * nombre llegan como ARRAY; uno solo llega como objeto suelto. El código
+     * de más abajo asumía siempre lo segundo y hacía
+     * `parseFloat(array.MontoDescuento)` → `NaN` en cuanto había más de uno.
+     * Medido sobre la copia local: 6.013 de 8.600 líneas de compra tienen
+     * descuento mayor que cero, así que el caso no es raro — es el
+     * candidato directo al descuadre entre el total de la factura y la suma
+     * de sus líneas.
+     */
+    sumarMontoRepetible(nodo, campoMonto) {
+        const lista = Array.isArray(nodo) ? nodo : [nodo];
+        return lista.reduce((suma, item) => suma + (parseFloat(item?.[campoMonto]) || 0), 0);
+    }
+
     extractLineaDetalle(linea) {
         // Primero intentamos obtener el código comercial del proveedor
         let codigoProveedor = null;
@@ -341,16 +363,30 @@ class XmlParser {
             precioUnitario: parseFloat(linea.PrecioUnitario),
             montoTotal: parseFloat(linea.MontoTotal),
             subtotal: parseFloat(linea.SubTotal),
+            // `NaturalezaDescuento` se une con "; " cuando hay más de un
+            // descuento y traen motivos distintos: se guarda como texto
+            // porque hoy no hay dónde poner una lista, pero no se descarta
+            // ninguno.
             descuento: linea.Descuento ? {
-                monto: parseFloat(linea.Descuento.MontoDescuento),
-                naturaleza: linea.Descuento.NaturalezaDescuento
+                monto: this.sumarMontoRepetible(linea.Descuento, 'MontoDescuento'),
+                naturaleza: Array.isArray(linea.Descuento)
+                    ? [...new Set(linea.Descuento.map((d) => d.NaturalezaDescuento).filter(Boolean))].join('; ')
+                    : linea.Descuento.NaturalezaDescuento
             } : null,
-            impuesto: linea.Impuesto ? {
-                codigo: linea.Impuesto.Codigo,
-                codigoTarifa: linea.Impuesto.CodigoTarifa || linea.Impuesto.CodigoTarifaIVA,
-                tarifa: parseFloat(linea.Impuesto.Tarifa),
-                monto: parseFloat(linea.Impuesto.Monto)
-            } : null,
+            // Con más de un `<Impuesto>` (IVA más un impuesto selectivo de
+            // consumo, por ejemplo), `monto` es la suma de los dos —es lo
+            // único que se usa después, para que la línea cuadre con
+            // `MontoTotalLinea`—; `codigo`, `codigoTarifa` y `tarifa`
+            // describen el primero, porque hoy nada los usa por separado.
+            impuesto: linea.Impuesto ? (() => {
+                const primero = Array.isArray(linea.Impuesto) ? linea.Impuesto[0] : linea.Impuesto;
+                return {
+                    codigo: primero.Codigo,
+                    codigoTarifa: primero.CodigoTarifa || primero.CodigoTarifaIVA,
+                    tarifa: parseFloat(primero.Tarifa),
+                    monto: this.sumarMontoRepetible(linea.Impuesto, 'Monto')
+                };
+            })() : null,
             montoTotalLinea: parseFloat(linea.MontoTotalLinea)
         };
     }
@@ -370,9 +406,36 @@ class XmlParser {
                 descuentos: parseFloat(resumen.TotalDescuentos || 0),
                 ventaNeta: parseFloat(resumen.TotalVentaNeta || 0),
                 impuesto: parseFloat(resumen.TotalImpuesto || 0),
+                // Los dos campos que faltaban y que explican por qué el total
+                // del comprobante no siempre es la suma de las líneas — ver
+                // migración 022. `otrosCargos` es un cargo a nivel de FACTURA
+                // (flete, manejo); `ivaDevuelto` es la devolución de IVA
+                // (turistas, zonas francas). Antes ninguno de los dos se leía,
+                // así que una factura con cualquiera de los dos "no cuadraba"
+                // sin que hubiera dónde ver por qué.
+                otrosCargos: parseFloat(resumen.TotalOtrosCargos || 0),
+                ivaDevuelto: parseFloat(resumen.TotalIVADevuelto || 0),
                 comprobante: parseFloat(resumen.TotalComprobante || 0)
             }
         };
+    }
+
+    /**
+     * El bloque `<OtrosCargos>` del comprobante: cargos a nivel de FACTURA,
+     * no de línea. Es el detalle detrás de `TotalOtrosCargos` — la suma sola
+     * dice cuánto, esto dice qué fue y quién lo cobró, que es lo que hace
+     * falta para explicarle a una persona una diferencia de miles de colones
+     * entre el total y la suma de las líneas.
+     */
+    static extractOtrosCargos(otrosCargos) {
+        if (!otrosCargos) return [];
+        const lista = Array.isArray(otrosCargos) ? otrosCargos : [otrosCargos];
+        return lista.map((c) => ({
+            tipo: c.TipoDocumento || null,
+            detalle: c.Detalle || null,
+            porcentaje: c.Porcentaje !== undefined ? parseFloat(c.Porcentaje) : null,
+            monto: parseFloat(c.MontoCargo || 0)
+        }));
     }
 
     parseDate(fechaString) {

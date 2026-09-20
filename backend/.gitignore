@@ -46,3 +46,7 @@ Thumbs.db
 # Rama independencia-alegra: archivos que suben los usuarios (fotos de productos)
 # Anclado a la raíz: sin la barra también ignoraba src/integrations/almacenamiento/
 /almacenamiento/
+
+# Los XML de compra: NO se sirven por HTTP —a diferencia de las fotos—,
+# porque llevan la cédula y el detalle de compras del proveedor.
+/almacenamiento-privado/

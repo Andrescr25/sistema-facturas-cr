@@ -17,18 +17,24 @@
  */
 
 const { query } = require('../config/database');
+const almacenamiento = require('../src/integrations/almacenamiento');
 
 /**
  * Guarda una NC ya parseada. Idempotente por la clave: si el mismo correo se
  * reprocesa (el monitoreo relee 30 días cada vez), no duplica ni revierte el
  * estado de aplicación.
+ *
+ * `xmlRuta` es la ruta del XML ya guardado en almacenamiento privado (ver
+ * `emailService.saveXmlAttachment`). Con `ON CONFLICT DO NOTHING`, si la
+ * nota ya existía el `INSERT` no toca nada y el XML recién guardado queda
+ * huérfano — por eso se borra cuando `result.rows.length === 0`.
  */
-async function guardarNotaCredito(nc) {
+async function guardarNotaCredito(nc, xmlRuta = null) {
   const result = await query(`
     INSERT INTO nota_credito_proveedor
       (clave, clave_referencia, numero_consecutivo, proveedor_nombre, proveedor_cedula,
-       fecha_emision, monto_total, moneda, razon, codigo_referencia, lineas)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       fecha_emision, monto_total, moneda, razon, codigo_referencia, lineas, xml_ruta)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (clave) DO NOTHING
     RETURNING id;
   `, [
@@ -42,10 +48,14 @@ async function guardarNotaCredito(nc) {
     nc.moneda || 'CRC',
     nc.razon || null,
     nc.codigoReferencia || null,
-    JSON.stringify(nc.lineas || [])
+    JSON.stringify(nc.lineas || []),
+    xmlRuta
   ]);
 
-  return { guardada: result.rows.length > 0, id: result.rows[0]?.id || null };
+  const guardada = result.rows.length > 0;
+  if (!guardada && xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
+
+  return { guardada, id: result.rows[0]?.id || null };
 }
 
 /**

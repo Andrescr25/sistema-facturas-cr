@@ -95,6 +95,41 @@ function salidasBloqueadas(env = process.env) {
   return true;
 }
 
+/**
+ * ¿Se puede abrir una conexión al buzón de correo desde esta rama?
+ *
+ * Es OTRA llave, no `PERMITIR_SALIDAS`: el buzón no es un canal de salida
+ * —no se manda nada, y `markSeen: false` no lo modifica—, es uno que esta
+ * rama COMPARTE con producción. El riesgo real no es filtrar datos hacia
+ * afuera, es que el monitoreo automático de acá compita con el de `main`
+ * procesando el mismo correo dos veces. Un recuperador de un solo uso, que
+ * lee el histórico y escribe solo en la base y el disco de esta rama, es un
+ * riesgo bien distinto de encender por accidente el monitoreo continuo — y
+ * por eso necesita su propia autorización explícita, no la misma que abre
+ * Alegra o WhatsApp.
+ *
+ * ANTES ESTA GUARDA VIVÍA SOLO EN `emailService.startMonitoring()`: nada la
+ * hacía cumplir en `connect()`, así que un código que llamara a `connect()`
+ * directamente —sin pasar por `startMonitoring()`— se conectaba sin que
+ * nada lo frenara. Ahora las dos funciones la revisan.
+ */
+function lecturaBuzonPermitida(env = process.env) {
+  if (env.PERMITIR_LECTURA_BUZON === 'true') return true;
+  if (env.NODE_TEST_CONTEXT) return true;
+  return false;
+}
+
+/** El error cuando algo intenta abrir el buzón sin la llave de arriba. */
+function errorLecturaBuzonBloqueada() {
+  const e = new Error(
+    'Rama aislada: no se lee el buzón de correo sin PERMITIR_LECTURA_BUZON=true. ' +
+    'El buzón es el mismo que usa producción (ver config/aislado.js).'
+  );
+  e.status = 423;
+  e.code = 'LECTURA_BUZON_BLOQUEADA';
+  return e;
+}
+
 /** El error que devuelve cada canal bloqueado. 423 = recurso bloqueado. */
 function errorSalidaBloqueada(accion) {
   const e = new Error(
@@ -115,5 +150,7 @@ module.exports = {
   revisarBase,
   asegurarBaseLocal,
   salidasBloqueadas,
-  errorSalidaBloqueada
+  errorSalidaBloqueada,
+  lecturaBuzonPermitida,
+  errorLecturaBuzonBloqueada
 };

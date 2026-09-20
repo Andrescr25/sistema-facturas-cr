@@ -1,5 +1,7 @@
 const prisma = require('../lib/prisma');
 const { ligarIdsPropios } = require('../src/modules/productos-revision/idsPropiosDelMapeo');
+const { guardarXmlRutaDeFactura, guardarTotalesDelResumen } = require('../src/utils/xmlRutaComprobante');
+const almacenamiento = require('../src/integrations/almacenamiento');
 
 class DatabaseService {
     constructor() {
@@ -11,9 +13,11 @@ class DatabaseService {
      * @param {Object} facturaData - Datos de la factura parseada
      * @param {String} archivoXML - Nombre del archivo XML
      * @param {String} emailId - ID del email (opcional)
+     * @param {String} xmlRuta - Ruta del XML ya guardado en almacenamiento
+     *   privado (ver `saveXmlAttachment`), o `null` si no se pudo guardar
      * @returns {Object} Factura guardada con productos
      */
-    async saveFactura(facturaData, archivoXML, emailId = null) {
+    async saveFactura(facturaData, archivoXML, emailId = null, xmlRuta = null) {
         try {
             console.log(`💾 Guardando factura en BD: ${facturaData.numeroConsecutivo}`);
 
@@ -24,6 +28,10 @@ class DatabaseService {
 
             if (facturaExistente) {
                 console.log(`⚠️ Factura ya existe en BD: ${facturaData.clave}`);
+                // El XML que se acaba de guardar en disco es un duplicado de
+                // uno que la factura existente ya trae (o nunca tuvo): no se
+                // deja huérfano.
+                if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
                 return facturaExistente;
             }
 
@@ -151,6 +159,12 @@ class DatabaseService {
                 }
             });
 
+            // La ruta del XML y los totales del resumen se guardan aparte,
+            // por SQL (ver el porqué en xmlRutaComprobante.js). No falla si
+            // no se puede: la factura ya quedó guardada.
+            await guardarXmlRutaDeFactura(facturaGuardada.id, xmlRuta);
+            await guardarTotalesDelResumen(facturaGuardada.id, facturaData.resumen?.totales, facturaData.otrosCargos);
+
             // PASO 3: Actualizar timesUsed en mapeos utilizados
             const mapeosUsados = productosConMapeo.filter(p => p.mapeoId);
             if (mapeosUsados.length > 0) {
@@ -253,6 +267,10 @@ class DatabaseService {
 
         } catch (error) {
             console.error('❌ Error guardando factura:', error);
+            // El archivo se guardó en disco antes de llegar acá; si la
+            // factura no llegó a existir en la base, no puede quedar un
+            // XML sin ningún registro que lo señale.
+            if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
             throw error;
         }
     }

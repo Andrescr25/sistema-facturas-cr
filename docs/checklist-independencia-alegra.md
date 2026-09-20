@@ -317,8 +317,9 @@ como pagada.
 
 ## 8. Compras
 
-**Hoy:** el correo trae el XML, se guarda en `facturas_proveedores` (862 con
-XML), se relaciona y pasa por Revisión de Precios. Al final va a
+**Hoy:** el correo trae el XML y, desde el 2026-09-20, se guarda por ruta en
+`facturas_proveedores.xml_ruta` (antes no se guardaba nada, ver el ítem de
+abajo). Se relaciona y pasa por Revisión de Precios. Al final va a
 `POST /bills` en Alegra: las 150 recientes dicen "Importada automáticamente".
 Además cambia precios con `PUT /items`. Gastos recurrentes crea productos y
 contactos en Alegra.
@@ -335,10 +336,26 @@ contactos en Alegra.
   comprobante, no la suma de líneas:** hay 18 facturas donde no coinciden, de
   ₡65 a ₡16.941 y algunas NEGATIVAS —descuentos y cargos a nivel de factura que
   el parser no extrae—, y sin el XML no se pueden reconstruir
-- [ ] **Guardar el XML recibido.** Hoy el único lugar donde existe es el buzón
-  de correo: si se limpia o se pierde la cuenta, no queda copia de un
-  comprobante que hay que conservar. Es también lo que haría falta para
-  recuperar los descuentos y cargos de factura que hoy se pierden al parsear
+- [x] **Guardar el XML recibido (2026-09-20).** Toda factura y nota de
+  crédito nueva guarda su XML por ruta en `almacenamiento-privado/` —NO bajo
+  `/archivos`, que `express.static` sirve sin sesión a propósito para las
+  fotos; un comprobante fiscal no puede quedar así (migración 021,
+  `bloqueo/el-xml-no-se-guarda` en el grafo). De paso se extrajeron
+  `TotalOtrosCargos`, `TotalDescuentos` y `TotalIVADevuelto`, que el parser
+  nunca leía y son justo lo que explica las 18 que no cuadraban (migración
+  022), y se corrigieron dos bugs que afectaban el cuadre: `Descuento`/
+  `Impuesto` repetidos en una línea daban `NaN` (6.013 de 8.600 líneas tienen
+  descuento > 0), y un `estadoFinal` fuera de alcance hacía que **toda**
+  factura procesada quedara marcada como error en el log aunque se hubiera
+  guardado bien. **Quedan dos scripts escritos y sin correr, porque necesitan
+  las credenciales reales de Gmail y que el usuario decida el momento:**
+  `recuperar-xml-del-buzon.js` (busca por `archivo_xml`, no por `email_id`
+  —es un seqno IMAP volátil y 69 de 862 no lo tienen— y verifica contra
+  `clave`) y `reconciliar-compras.js` (recalcula el cuadre con lo recuperado).
+  El primero necesita `PERMITIR_LECTURA_BUZON=true`, una llave nueva: no
+  `PERMITIR_SALIDAS`, porque leer el buzón no es lo mismo que escribir hacia
+  afuera, y antes esa guarda vivía solo en `startMonitoring()` y no en
+  `connect()` — corregido, las dos la revisan ahora
 - [ ] "Enviar a Alegra" pasa a ser "Registrar compra": suma inventario, actualiza el costo y crea la cuenta por pagar
 - [ ] El cambio de precio de venta se guarda en `producto`
 - [ ] Devolver la factura al proveedor o rechazarla
