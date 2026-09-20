@@ -160,7 +160,17 @@ export default function Facturacion() {
             </>
           ) : (
             <div className="grid items-start gap-4 lg:grid-cols-3 lg:gap-6">
-              <div className="flex flex-col gap-4 lg:col-span-2">
+              {/* `min-w-0`: sin esto, un item de CSS Grid tiene por omisión
+                  `min-width: auto` — se niega a encogerse por debajo del
+                  ancho de su contenido. La franja de "Suele faltar" de más
+                  abajo tiene diez tarjetas con `overflow-x-auto` adentro,
+                  pensadas para desplazarse DENTRO de este ancho; sin el
+                  `min-w-0`, esta columna crecía para caber las diez sin
+                  enrollar (1.546px medidos en un teléfono de 390px) y
+                  empujaba TODA la página a lo ancho, tapando media pantalla
+                  de gris. El `overflow-x-auto` de adentro nunca llegaba a
+                  actuar porque nada le pedía encogerse primero. */}
+              <div className="flex flex-col gap-4 lg:col-span-2 min-w-0">
                 <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
 
                 <AgregarProductos

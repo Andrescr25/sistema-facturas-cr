@@ -50,7 +50,12 @@ export default function BarraSugerencias({ sugerencias, items, onAgregar }) {
   if (lista.length === 0) return null
 
   return (
-    <section className="card rounded-2xl p-4 md:p-5">
+    // `w-full min-w-0`: la sección tiene que poder encogerse al ancho real
+    // de donde la pongan. Sin `min-w-0`, un padre flex o grid la deja crecer
+    // hasta el ancho de las tarjetas sin enrollar en vez de contenerla, y el
+    // scroll horizontal de más abajo nunca llega a actuar — le pasó a esta
+    // misma barra en Facturación (ver el comentario en Facturacion.jsx).
+    <section className="card w-full min-w-0 rounded-2xl p-4 md:p-5">
       <h3 className="mb-3 flex items-center gap-2 font-bold text-neutro-900">
         <Sparkles size={18} className="text-acento-500" />
         Suele faltar
