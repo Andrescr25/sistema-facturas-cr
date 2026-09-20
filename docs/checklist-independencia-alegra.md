@@ -319,10 +319,14 @@ como pagada.
 
 **Hoy:** el correo trae el XML y, desde el 2026-09-20, se guarda por ruta en
 `facturas_proveedores.xml_ruta` (antes no se guardaba nada, ver el ítem de
-abajo). Se relaciona y pasa por Revisión de Precios. Al final va a
-`POST /bills` en Alegra: las 150 recientes dicen "Importada automáticamente".
-Además cambia precios con `PUT /items`. Gastos recurrentes crea productos y
-contactos en Alegra.
+abajo). Se relaciona y pasa por Revisión de Precios. Al terminar, "Registrar
+compra" crea `compra`/`compra_linea` propias, actualiza costo y precio en
+`producto` y libera la cuenta por pagar — nada de esto toca Alegra (antes iba
+a `POST /bills` y `PUT /items`; ese camino viejo, `enviarFacturaAlegra`,
+sigue en el código pero ya no lo llama la pantalla, y de todos modos
+`config/aislado.js` bloquea cualquier escritura a Alegra desde esta rama).
+Gastos recurrentes todavía crea productos y contactos en Alegra (ítem propio
+más abajo).
 
 - [x] Tablas `compra` y `compra_linea` (migraciones 019 y 020). **El XML NO se
   guarda**, al revés de lo que decía esta línea: `emailService.js` lo parsea en
@@ -356,8 +360,36 @@ contactos en Alegra.
   `PERMITIR_SALIDAS`, porque leer el buzón no es lo mismo que escribir hacia
   afuera, y antes esa guarda vivía solo en `startMonitoring()` y no en
   `connect()` — corregido, las dos la revisan ahora
-- [ ] "Enviar a Alegra" pasa a ser "Registrar compra": suma inventario, actualiza el costo y crea la cuenta por pagar
-- [ ] El cambio de precio de venta se guarda en `producto`
+- [x] **"Enviar a Alegra" pasa a ser "Registrar compra" (2026-09-20), sin tocar
+  Alegra.** Módulo nuevo `src/modules/compras/`, montado en `/api/compras` con
+  el mismo permiso que Revisión de Precios (es la misma pantalla, con el
+  botón renombrado). `registrarCompra` reemplaza a `enviarFacturaAlegra`: crea
+  `compra` + `compra_linea` desde el buzón ya revisado, actualiza
+  `producto.costo_con_iva` de cada línea con producto propio (con
+  `modules/precios/costo.js`, la fuente única — no se recalculó acá), y si
+  hay precio ajustado también `producto.precio_sin_iva` más su fila en
+  `precio_historico` con `producto_id` y `origen: 'compra'` (mismo patrón que
+  `productos.service.js:250`, el de Gestión de Catálogo). **El cambio de forma
+  más grande frente a lo que reemplaza:** `enviarFacturaAlegra` toleraba que
+  crear la factura en Alegra fallara y aplicaba costos y precios de todos
+  modos; acá es una sola transacción — o entra todo, o no entra nada. Probado
+  forzando un fallo a mitad de camino: hace ROLLBACK y no queda nada a medias.
+  La cuenta por pagar se libera y se cuelga de `compra_id` (migración 023,
+  316 de 318 ya enlazadas retroactivamente) — repitiendo el cálculo de
+  `pagosProveedoresService.liberarCuentaPorFactura` en SQL crudo DENTRO de la
+  misma transacción, porque llamar a esa función usaría la conexión de Prisma,
+  otra conexión a la base, y un rollback acá no la revertiría; una compra de
+  CONTADO sin cuenta por pagar no es un error. Una línea sin producto propio
+  (123 de 8.590, migración 018) se cuenta aparte y no tumba la compra. El
+  nombre `estado: 'ENVIADA'` se conserva en la base por compatibilidad con lo
+  que ya filtra por ese valor — el frontend ya no lo MUESTRA así ("Registrada"
+  en vez de "Enviada", sin ninguna mención a Alegra en la pantalla). Verificado
+  de punta a punta contra la copia local con datos `ZZ` (creados y borrados
+  en la misma prueba) y en el navegador: el botón dice "Registrar compra" y
+  no dispara ninguna escritura hasta que se toca. 1.104 pruebas, todas pasan
+  (13 nuevas)
+- [x] El cambio de precio de venta se guarda en `producto` — mismo cambio que
+  el ítem de arriba: `registrarCompra` ya no le manda ningún precio a Alegra
 - [ ] Devolver la factura al proveedor o rechazarla
 - [ ] Guardar el estado de aceptación de cada compra. El envío del mensaje receptor queda con la emisión electrónica
 - [ ] Gastos recurrentes sin crear productos ni contactos en Alegra

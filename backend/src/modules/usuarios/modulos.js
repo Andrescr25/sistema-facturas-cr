@@ -85,7 +85,11 @@ const MODULOS = [
     nombre: 'Revisión de Precios',
     grupo: 'Compras',
     ruta: '/revision-precios',
-    rutasApi: ['/revision-precios', '/productos-revision']
+    // '/compras' es la misma pantalla: "Enviar a Alegra" pasó a ser
+    // "Registrar compra" (independencia-alegra, sección 8). No es un módulo
+    // aparte a propósito — nace con permiso nuevo obligaría a repartirlo de
+    // nuevo a quien ya tenía acceso a Revisión de Precios.
+    rutasApi: ['/revision-precios', '/productos-revision', '/compras']
   },
   {
     clave: 'gestionar-relaciones',

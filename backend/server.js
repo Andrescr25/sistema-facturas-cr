@@ -163,6 +163,7 @@ const facturacionModule = require('./src/modules/facturacion');
 const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
+const comprasModule = require('./src/modules/compras');
 const rentabilidadModule = require('./src/modules/rentabilidad');
 const authModule = require('./src/modules/auth');
 const catalogoClientesModule = require('./src/modules/catalogo-clientes');
@@ -201,6 +202,7 @@ app.use('/api/reportes', reporteRoutes);
 // /contactos, /proveedores, /faltantes, /orden-compra y /facturacion
 app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosModule.routes);
+app.use('/api/compras', comprasModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
 app.use('/api/pagos-recurrentes', pagosRecurrentesModule.routes);

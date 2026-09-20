@@ -27,7 +27,7 @@ export default function RevisionPrecios() {
     devolverFactura,
     ajustarPrecio,
     aplicarPrecioSugerido,
-    enviarAlegra,
+    registrarCompra,
 
     modalFactor,
     productoSeleccionadoFactor,
@@ -75,7 +75,7 @@ export default function RevisionPrecios() {
           onAjustarPrecio={ajustarPrecio}
           onAplicarPrecioSugerido={aplicarPrecioSugerido}
           onAbrirFactor={abrirFactor}
-          onEnviar={enviarAlegra}
+          onEnviar={registrarCompra}
         />
       )}
 

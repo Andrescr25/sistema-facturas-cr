@@ -21,14 +21,14 @@ const PASOS = {
   LISTAS_REVISION: {
     numero: 2,
     titulo: 'Revisar precios de venta',
-    detalle: 'Mirá el costo nuevo de cada producto y ajustá el precio antes de mandar la factura a Alegra.',
+    detalle: 'Mirá el costo nuevo de cada producto y ajustá el precio antes de registrar la compra.',
     tono: 'border-primario-200 bg-primario-50 text-primario-900',
     circulo: 'bg-primario-600'
   },
   ENVIADAS: {
     numero: 3,
-    titulo: 'Enviadas a Alegra',
-    detalle: 'Ya procesadas. Se pueden consultar, pero no volver a enviar: su factura de compra ya existe allá.',
+    titulo: 'Compras registradas',
+    detalle: 'Ya procesadas. Se pueden consultar, pero no volver a registrar: ya existe una compra propia.',
     tono: 'border-exito-200 bg-exito-50 text-exito-900',
     circulo: 'bg-exito-600'
   }

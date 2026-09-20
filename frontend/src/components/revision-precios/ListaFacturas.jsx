@@ -16,8 +16,8 @@ const VACIOS = {
     descripcion: 'Aparecen acá cuando quedan relacionadas al 100%.'
   },
   ENVIADAS: {
-    titulo: 'Todavía no hay facturas enviadas',
-    descripcion: 'Las que mandés a Alegra se van guardando en este historial.'
+    titulo: 'Todavía no hay compras registradas',
+    descripcion: 'Las que registrés se van guardando en este historial.'
   }
 }
 
@@ -58,7 +58,7 @@ export default function ListaFacturas({
     <div className="mx-auto max-w-5xl">
       <EncabezadoPagina
         titulo="Revisión de Precios"
-        descripcion="Mirá cómo cambió el costo y ajustá el precio antes de mandar la factura a Alegra."
+        descripcion="Mirá cómo cambió el costo y ajustá el precio antes de registrar la compra."
         icono={DollarSign}
         acciones={
           <button
@@ -81,7 +81,7 @@ export default function ListaFacturas({
         pestanas={[
           { clave: 'PENDIENTE_RELACIONAR', texto: 'Relacionar' },
           { clave: 'LISTAS_REVISION', texto: 'Revisar precios' },
-          { clave: 'ENVIADAS', texto: 'Enviadas' }
+          { clave: 'ENVIADAS', texto: 'Registradas' }
         ]}
       />
 

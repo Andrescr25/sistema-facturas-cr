@@ -27,7 +27,7 @@ export default function TarjetaFactura({ factura, paso, onAbrir }) {
       }
     : paso === 'LISTAS_REVISION'
       ? { tono: 'exito', texto: 'Lista para revisar' }
-      : { tono: 'neutro', texto: 'Enviada' }
+      : { tono: 'neutro', texto: 'Registrada' }
 
   return (
     <button
