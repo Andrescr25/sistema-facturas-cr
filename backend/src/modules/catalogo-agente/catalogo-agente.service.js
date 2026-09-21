@@ -11,6 +11,8 @@ const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const categoriasConfig = require('../catalogo/categorias.service');
+const subcategoriasConfig = require('../catalogo/subcategorias.service');
 
 const ALEGRA_LIMIT_MAXIMO = 30;
 
@@ -400,6 +402,23 @@ async function obtenerHistorialParaCatalogo() {
   };
 }
 
+/**
+ * GET /api/catalogo-agente/config-catalogo
+ *
+ * El orden y el nombre visible de categorías, y el orden de subcategorías
+ * dentro de cada una — lo que la tablet necesita para pintar el catálogo en
+ * el mismo orden que se armó en Gestión de Catálogo. Se descarga una vez por
+ * sincronización, junto con los productos: es una tabla chica (categorías +
+ * subcategorías, no productos), así que no vale la pena paginarla.
+ */
+async function obtenerConfigCatalogo() {
+  const [categorias, subcategorias] = await Promise.all([
+    categoriasConfig.listar(),
+    subcategoriasConfig.listar({ incluirInactivas: false })
+  ]);
+  return { categorias, subcategorias };
+}
+
 module.exports = {
   conSubcategoria,
   listarProductos,
@@ -408,5 +427,6 @@ module.exports = {
   listarOfertasPorBaja,
   sincronizarHistorialCompras,
   obtenerHistorialParaCatalogo,
-  eliminarLineasObsoletas
+  eliminarLineasObsoletas,
+  obtenerConfigCatalogo
 };

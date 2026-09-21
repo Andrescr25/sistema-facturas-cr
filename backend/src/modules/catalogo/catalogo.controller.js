@@ -5,6 +5,7 @@
 
 const catalogoService = require('./catalogo.service');
 const subcategorias = require('./subcategorias.service');
+const categorias = require('./categorias.service');
 
 /**
  * GET /catalog/productos
@@ -280,11 +281,64 @@ async function asignarSubcategoria(req, res) {
   }
 }
 
+/** Orden final de TODAS las subcategorías de una categoría. */
+async function reordenarSubcategorias(req, res) {
+  try {
+    const { categoria, ids } = req.body || {};
+    const lista = await subcategorias.reordenar(categoria, ids);
+    res.json({ success: true, subcategorias: lista });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Categorías de Alegra con su orden y nombre visible locales. */
+async function listarCategoriasConfig(req, res) {
+  try {
+    res.json({ success: true, categorias: await categorias.listar() });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function renombrarCategoria(req, res) {
+  try {
+    const { categoria, nombreVisible } = req.body || {};
+    res.json({ success: true, ...(await categorias.renombrar(categoria, nombreVisible)) });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Crea una categoría nueva EN ALEGRA (no solo local). */
+async function crearCategoria(req, res) {
+  try {
+    const categoria = await categorias.crear(req.body?.nombre);
+    res.status(201).json({ success: true, categoria });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function reordenarCategorias(req, res) {
+  try {
+    const lista = await categorias.reordenar(req.body?.categorias);
+    res.json({ success: true, categorias: lista });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   listarSubcategorias,
   crearSubcategoria,
   editarSubcategoria,
   asignarSubcategoria,
+  reordenarSubcategorias,
+  listarCategoriasConfig,
+  renombrarCategoria,
+  reordenarCategorias,
+  crearCategoria,
   listarProductos,
   listarProveedores,
   buscarImagenesPorReferencia,

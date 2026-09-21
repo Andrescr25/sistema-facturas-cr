@@ -33,6 +33,18 @@ async function listarCategorias(req, res) {
 }
 
 /**
+ * GET /api/catalogo-agente/config-catalogo
+ */
+async function obtenerConfigCatalogo(req, res) {
+  try {
+    res.json(await catalogoAgenteService.obtenerConfigCatalogo());
+  } catch (error) {
+    console.error('Error obteniendo la configuración del catálogo:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/catalogo-agente/ofertas
  */
 async function listarOfertasPorBaja(req, res) {
@@ -149,5 +161,6 @@ module.exports = {
   listarCategorias,
   listarOfertas,
   obtenerHistorialClientes,
-  sincronizarHistorialClientes
+  sincronizarHistorialClientes,
+  obtenerConfigCatalogo
 };

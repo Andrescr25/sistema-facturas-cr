@@ -147,6 +147,41 @@ describe('listar', () => {
   });
 });
 
+describe('reordenar', () => {
+  test('cada una recibe su posición como orden, en un solo UPDATE', async () => {
+    // No uno por fila: eso era lo que tardaba ~3 s con hasta 19 subcategorías.
+    const { servicio, visto } = montar({
+      'FROM subcategoria WHERE id': [
+        { id: 5, categoria: 'Productos de PVC' },
+        { id: 9, categoria: 'Productos de PVC' }
+      ]
+    });
+    await servicio.reordenar('Productos de PVC', [9, 5]);
+
+    const updates = visto.consultas.filter(c => /UPDATE subcategoria s\s+SET orden/.test(c.sql));
+    assert.equal(updates.length, 1, 'debería ser un solo UPDATE, no uno por fila');
+    assert.deepEqual(updates[0].params, [[9, 5], [0, 1]]);
+  });
+
+  test('NO deja reordenar una subcategoría de otra categoría', async () => {
+    const { servicio } = montar({
+      'FROM subcategoria WHERE id': [
+        { id: 5, categoria: 'Productos de PVC' },
+        { id: 9, categoria: 'Línea Eléctrica' }
+      ]
+    });
+    await assert.rejects(
+      servicio.reordenar('Productos de PVC', [5, 9]),
+      (e) => e.status === 400 && /no es de Productos de PVC/.test(e.message)
+    );
+  });
+
+  test('sin lista, se dice', async () => {
+    const { servicio } = montar();
+    await assert.rejects(servicio.reordenar('Productos de PVC', []), /Falta la lista/);
+  });
+});
+
 describe('desactivar', () => {
   test('NO desclasifica los productos que ya tiene', async () => {
     // Es lo que permite dejar de ofrecerla sin perder el trabajo de

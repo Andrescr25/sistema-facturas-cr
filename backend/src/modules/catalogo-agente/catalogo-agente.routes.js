@@ -9,6 +9,7 @@ const catalogoAgenteController = require('./catalogo-agente.controller');
 
 router.get('/productos', catalogoAgenteController.listarProductos);
 router.get('/categorias', catalogoAgenteController.listarCategorias);
+router.get('/config-catalogo', catalogoAgenteController.obtenerConfigCatalogo);
 router.get('/ofertas', catalogoAgenteController.listarOfertas);
 // Los productos a los que se les bajó el precio a propósito. Otra cosa que
 // las ofertas de arriba, que son excesos de inventario.

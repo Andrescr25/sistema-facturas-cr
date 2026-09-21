@@ -54,12 +54,12 @@ async function listar({ categoria = '', incluirInactivas = false } = {}) {
   if (!incluirInactivas) condiciones.push('s.activo');
 
   const { rows } = await query(`
-    SELECT s.id, s.categoria, s.nombre, s.activo,
+    SELECT s.id, s.categoria, s.nombre, s.activo, s.orden,
            (SELECT COUNT(*)::int FROM alegra_products_cache p
              WHERE p.subcategoria_id = s.id AND p.status = 'active') AS productos
       FROM subcategoria s
       ${condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : ''}
-     ORDER BY s.categoria, s.nombre
+     ORDER BY s.categoria, s.orden, s.nombre
   `, params);
 
   return rows;
@@ -150,4 +150,42 @@ async function asignarAProducto(alegraId, subcategoriaId) {
   return { alegraId: id, subcategoriaId: sub[0].id, nombre: sub[0].nombre };
 }
 
-module.exports = { listar, crear, renombrar, cambiarEstado, asignarAProducto };
+/**
+ * Fija el orden dentro de una categoría: `idsEnOrden` es TODA la lista de
+ * subcategorías de esa categoría, en el orden final deseado (el que ya se ve
+ * en pantalla tras mover una). Cada una recibe su posición como `orden`.
+ *
+ * Se valida que cada id sea de ESA categoría por la misma razón que
+ * `asignarAProducto`: sin eso, un id mandado a mano podría mover el orden de
+ * una subcategoría de otra categoría sin que nadie se diera cuenta.
+ *
+ * UN SOLO UPDATE, NO UNO POR FILA. Antes eran hasta 19 `UPDATE` seguidos,
+ * cada uno su propio viaje contra el pooler de Supabase — el botón de
+ * "subir/bajar" tardaba ~3 s en reaccionar por esto, no por la base en sí.
+ */
+async function reordenar(categoria, idsEnOrden) {
+  const cat = categoriaValida(categoria);
+  if (!Array.isArray(idsEnOrden) || idsEnOrden.length === 0) {
+    throw httpError(400, 'Falta la lista de subcategorías en su nuevo orden.');
+  }
+
+  const ids = idsEnOrden.map((id) => Number(id));
+  const { rows } = await query(
+    `SELECT id, categoria FROM subcategoria WHERE id = ANY($1::int[])`, [ids]
+  );
+  const ajena = rows.find((r) => r.categoria !== cat);
+  if (ajena) throw httpError(400, `La subcategoría ${ajena.id} no es de ${cat}.`);
+  if (rows.length !== ids.length) throw httpError(404, 'Alguna subcategoría no existe.');
+
+  const ordenes = ids.map((_, i) => i);
+  await query(`
+    UPDATE subcategoria s
+       SET orden = v.orden
+      FROM (SELECT * FROM UNNEST($1::int[], $2::int[])) AS v(id, orden)
+     WHERE s.id = v.id
+  `, [ids, ordenes]);
+
+  return listar({ categoria: cat, incluirInactivas: true });
+}
+
+module.exports = { listar, crear, renombrar, cambiarEstado, asignarAProducto, reordenar };

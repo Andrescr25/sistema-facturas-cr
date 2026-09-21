@@ -4,7 +4,6 @@
  * vs. sistema) y su ajuste en Alegra.
  */
 
-const cron = require('node-cron');
 const { query } = require('../../../config/database');
 const { getInventoryService, getClient } = require('../../integrations/alegra');
 const { listarVigentes } = require('../../utils/descuentosExceso');
@@ -25,12 +24,13 @@ const VENTANA_DIAS_SIN_VENTA = 60;
 // los N con más valor inmovilizado (stock × costo), para que la lista sea
 // manejable en vez de volcar todo lo detectado de una sola vez.
 const MAX_EXCESOS_POR_SEMANA = 10;
-// Escalamiento de descuento por producto (decisión de negocio, acordada con
-// el usuario 2026-07-21, ajustable): arranca en DESCUENTO_INICIAL la primera
-// vez que se detecta como exceso, y sube DESCUENTO_INCREMENTO cada semana
-// que sigue sin venderse, hasta llegar a 100% (ahí se dispara la regalía).
+// Descuento con el que arranca un producto la primera vez que se detecta
+// como exceso (decisión de negocio, acordada con el usuario 2026-07-21).
+// YA NO ESCALA cada semana: el usuario pidió quitar ese crecimiento
+// automático (2026-09-20) — ver escalarDescuentosExceso. Subirlo de ahí en
+// adelante es decisión de una persona (guardarDescuentoExceso,
+// aplicarDescuentoTanda), no del sistema.
 const DESCUENTO_INICIAL = 10;
-const DESCUENTO_INCREMENTO = 10;
 
 // IDs de Alegra que nunca deben salir como "exceso": no son inventario real,
 // son productos comodín que el usuario usa para registrar gastos (recepción
@@ -927,72 +927,30 @@ async function sincronizarVentasRecientes() {
 }
 
 /**
- * Sube el descuento de CADA producto detectado como exceso esta semana
- * (sin el tope de MAX_EXCESOS_POR_SEMANA — el descuento es por producto,
- * independiente de cuántos entren a la tanda física de empaque de la
- * semana). La primera vez que se detecta arranca en DESCUENTO_INICIAL; cada
- * vez que reaparece sube DESCUENTO_INCREMENTO. Al llegar a 100% se marca
- * "regalado" y se elige al azar un cliente real (de los de ventas
- * recientes) para la regalía — no se vuelve a tocar después de eso.
- * Devuelve la lista de regalos nuevos generados en esta corrida.
+ * Da de alta el descuento inicial de los candidatos que todavía no tienen
+ * uno. YA NO ESCALA: antes, cada vez que un producto reaparecía detectado
+ * le sumaba un % más —hasta llegar a 100% y regalarlo solo, sin que nadie
+ * lo pidiera— y el usuario pidió quitar ese crecimiento automático
+ * (2026-09-20). Un producto que ya tiene descuento se deja tal cual: subirlo,
+ * bajarlo o regalarlo de verdad es decisión de una persona
+ * (guardarDescuentoExceso, aplicarDescuentoTanda), no de esta función.
+ *
+ * Devuelve `[]` siempre — se mantiene el arreglo de salida (en vez de
+ * quitarlo) para no tener que tocar a quien la llama.
  */
 async function escalarDescuentosExceso(candidatos) {
-  const regalosNuevos = [];
-
   for (const item of candidatos) {
     const alegraItemId = String(item.alegra_id);
-    const existente = await query(`SELECT * FROM producto_descuento_exceso WHERE alegra_item_id = $1;`, [alegraItemId]);
+    const existente = await query(`SELECT id FROM producto_descuento_exceso WHERE alegra_item_id = $1;`, [alegraItemId]);
+    if (existente.rows.length > 0) continue;
 
-    if (existente.rows.length === 0) {
-      await query(`
-        INSERT INTO producto_descuento_exceso (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado)
-        VALUES ($1, $2, $3, $4, 1);
-      `, [alegraItemId, item.name, item.reference, DESCUENTO_INICIAL]);
-      continue;
-    }
-
-    const row = existente.rows[0];
-    if (row.regalado) continue; // ya se regaló, no se sigue escalando
-
-    const nuevoDescuento = Math.min(100, Number(row.descuento_porcentaje) + DESCUENTO_INCREMENTO);
-    const llegaA100 = nuevoDescuento >= 100;
-
-    // OJO: "regalado" se marca aparte, sólo después de crear el registro en
-    // regalos_exceso con éxito (ver más abajo) — así, si esa parte falla, el
-    // producto no queda marcado como regalado sin una regalía real que lo
-    // respalde (lo que lo dejaría atascado para siempre, por el `continue`
-    // de arriba en la próxima corrida).
     await query(`
-      UPDATE producto_descuento_exceso
-      SET descuento_porcentaje = $1, veces_detectado = veces_detectado + 1,
-          ultima_actualizacion = CURRENT_TIMESTAMP
-      WHERE alegra_item_id = $2;
-    `, [nuevoDescuento, alegraItemId]);
-
-    if (llegaA100) {
-      // DISTINCT + ORDER BY random() no es válido en Postgres si random() no
-      // está en el select list — se resuelve el DISTINCT en una subconsulta.
-      const clienteRes = await query(`
-        SELECT cliente_nombre FROM (
-          SELECT DISTINCT cliente_nombre FROM venta_items WHERE cliente_nombre IS NOT NULL
-        ) clientes
-        ORDER BY random() LIMIT 1;
-      `);
-      const clienteElegido = clienteRes.rows[0]?.cliente_nombre || 'Cliente no identificado';
-
-      await query(`
-        INSERT INTO regalos_exceso (alegra_item_id, nombre_producto, cliente_nombre)
-        VALUES ($1, $2, $3);
-      `, [alegraItemId, item.name, clienteElegido]);
-
-      await query(`UPDATE producto_descuento_exceso SET regalado = TRUE WHERE alegra_item_id = $1;`, [alegraItemId]);
-
-      console.log(`🎁 "${item.name}" llegó a 100% de descuento — regalado a ${clienteElegido}`);
-      regalosNuevos.push({ alegraItemId, nombre: item.name, cliente: clienteElegido });
-    }
+      INSERT INTO producto_descuento_exceso (alegra_item_id, nombre_producto, referencia, descuento_porcentaje, veces_detectado)
+      VALUES ($1, $2, $3, $4, 1);
+    `, [alegraItemId, item.name, item.reference, DESCUENTO_INICIAL]);
   }
 
-  return regalosNuevos;
+  return [];
 }
 
 /**
@@ -1059,21 +1017,6 @@ async function depurarOfertasSinStock(itemsAlegra = null) {
     revisados: vigentes.length,
     sacados: sinStock.map(o => ({ id: o.id, nombre: o.nombre, descuentoAnterior: o.descuentoPorcentaje }))
   };
-}
-
-/**
- * Lo que sí sigue corriendo solo cada semana: sincronizar ventas, escalar
- * los descuentos de lo que sigue sin venderse, y sacar de liquidación lo que
- * ya se agotó. No crea ninguna tanda — eso lo hace una persona con
- * "Generar Ahora" (ver generarTandaDeExcesos).
- */
-async function revisionSemanalDeExcesos() {
-  await sincronizarVentasRecientes();
-  const { candidatos, itemsAlegra } = await detectarCandidatosExceso();
-  const regalosNuevos = await escalarDescuentosExceso(candidatos);
-  const depurados = await depurarOfertasSinStock(itemsAlegra);
-  console.log(`✅ Revisión semanal: ${candidatos.length} en exceso, ${regalosNuevos.length} regalías nuevas, ${depurados.sacados.length} sacados de liquidación por falta de stock.`);
-  return { detectados: candidatos.length, regalosNuevos, depurados };
 }
 
 /**
@@ -1152,12 +1095,10 @@ async function detectarCandidatosExceso() {
  *
  * LA CREA UNA PERSONA, NO EL RELOJ. Antes la armaba el cron todos los
  * domingos y aparecían tandas que nadie había pedido: se acumulaban sin
- * empacar y el historial dejaba de decir nada. Ahora sale del botón
- * "Generar Ahora", cuando alguien decide que se va a empacar.
- *
- * La revisión semanal (revisionSemanalDeExcesos) sigue corriendo sola: los
- * descuentos escalan igual y las ofertas sin stock se depuran igual. Lo
- * único que espera a una persona es esta tanda.
+ * empacar y el historial dejaba de decir nada. Después hubo un cron
+ * intermedio que solo escalaba descuentos sin armar tanda; también se quitó
+ * (2026-09-20) — ya no hay nada de excesos corriendo sin que alguien lo pida
+ * desde "Generar Ahora".
  */
 async function generarTandaDeExcesos() {
   await sincronizarVentasRecientes();
@@ -1166,9 +1107,9 @@ async function generarTandaDeExcesos() {
   const totalDetectados = candidatos.length;
   const seleccionados = candidatos.slice(0, MAX_EXCESOS_POR_SEMANA);
 
-  // El descuento sube para TODOS los detectados, no solo los seleccionados
-  // para empacar — es un problema de venta, no de capacidad de los empleados
-  // para revisarlos físicamente.
+  // El descuento se da de alta para TODOS los detectados, no solo los
+  // seleccionados para empacar — es un problema de venta, no de capacidad de
+  // los empleados para revisarlos físicamente.
   const regalosNuevos = await escalarDescuentosExceso(candidatos);
 
   // Se aprovecha el catálogo en vivo que ya se trajo: sale gratis y evita
@@ -1261,18 +1202,11 @@ async function actualizarItemExceso(auditoriaId, itemId, { empacado, stockReal }
   return actualizado.rows[0];
 }
 
-/**
- * Cron semanal: Domingos 22:00 (America/Costa_Rica), una hora antes de la
- * limpieza semanal de faltantes, para no correr ambos al mismo tiempo.
- *
- * Semanal y no diario porque el descuento sube DESCUENTO_INCREMENTO por
- * corrida: a diario un producto pasaría de 10% a 100% —o sea, a regalía— en
- * diez días.
- */
 // --- Control manual de excesos ---
 //
-// La detección automática (generarExcesosSemanales) decide por stock y días
-// sin venta. Eso cubre el caso normal, pero no todo: hay productos que uno
+// La detección automática (detectarCandidatosExceso, disparada desde
+// "Generar Ahora") decide por stock y días sin venta. Eso cubre el caso
+// normal, pero no todo: hay productos que uno
 // sabe que sobran por razones que el sistema no ve (temporada que pasó,
 // proveedor que ya no se trabaja, empaque dañado) y otros que la regla
 // marca pero no conviene rematar. Estas funciones dejan corregir eso a mano
@@ -1413,14 +1347,13 @@ async function agregarItemExceso(auditoriaId, { alegraId }) {
  * Pone el mismo descuento a todos los productos de una tanda de excesos, de
  * un solo golpe.
  *
- * El escalado automático sube de a DESCUENTO_INCREMENTO por detección, que
- * sirve para el goteo semanal pero no para una tanda armada a mano: ahí uno
- * ya decidió a qué precio quiere rematar el lote completo y no tiene sentido
- * ir producto por producto.
+ * escalarDescuentosExceso solo pone el descuento inicial una vez por
+ * producto; no sirve para rematar un lote completo al precio que uno ya
+ * decidió, producto por producto.
  *
  * Reactiva los regalados por la misma razón que guardarDescuentoExceso: el
- * flag existe para que el escalado automático no los siga tocando, no para
- * prohibir que una persona decida volver a ofrecerlos.
+ * flag es historial de una regalía real, no una prohibición para que una
+ * persona decida volver a ofrecerlos.
  *
  * Descuento 0 = sacarlos del catálogo. Es la contraparte necesaria: una vez
  * rematada la tanda hay que poder bajarla entera sin borrar producto por
@@ -1581,36 +1514,11 @@ async function eliminarDescuentoExceso(alegraItemId) {
   return { eliminado: true, nombre: result.rows[0].nombre_producto };
 }
 
-function iniciarRevisionSemanalExcesos() {
-  const semanal = cron.schedule('0 22 * * 0', () => {
-    console.log('⏰ [CRON] Revisión semanal de excesos (Domingo 22:00)...');
-    revisionSemanalDeExcesos().catch(err => {
-      console.error('❌ [CRON] Error en la revisión semanal de excesos:', err.message);
-    });
-  }, {
-    timezone: 'America/Costa_Rica'
-  });
-
-  // La depuración va aparte y todos los días: un producto en liquidación se
-  // puede agotar un martes, y esperar al domingo significa cinco días
-  // ofreciéndole al cliente algo que no hay. Es barata —una consulta por
-  // oferta vigente, hoy 37— y no toca los descuentos de nadie más.
-  const diaria = cron.schedule('0 5 * * *', () => {
-    console.log('⏰ [CRON] Depurando ofertas sin stock (05:00)...');
-    depurarOfertasSinStock().catch(err => {
-      console.error('❌ [CRON] Error depurando ofertas sin stock:', err.message);
-    });
-  }, {
-    timezone: 'America/Costa_Rica'
-  });
-
-  console.log('⏰ Revisión de excesos: Domingos 22:00 — depuración de liquidación: todos los días 05:00 (America/Costa_Rica)');
-  console.log('   Las tandas de empaque ya NO se crean solas: se crean desde "Generar Ahora".');
-  return { semanal, diaria };
-}
-
 /**
  * Listar regalías entregadas (productos que llegaron a 100% de descuento).
+ * Ya no se generan solas (ver escalarDescuentosExceso) — esto queda como
+ * historial de lo que sí llegó a regalarse mientras la escalada automática
+ * existió.
  */
 async function listarRegalos() {
   const result = await query(`
@@ -1635,10 +1543,9 @@ module.exports = {
   eliminarItemDevolucion,
   sincronizarVentasRecientes,
   detectarCandidatosExceso,
+  escalarDescuentosExceso,
   generarTandaDeExcesos,
-  revisionSemanalDeExcesos,
   depurarOfertasSinStock,
-  iniciarRevisionSemanalExcesos,
   actualizarItemExceso,
   listarRegalos,
   // Control manual de excesos

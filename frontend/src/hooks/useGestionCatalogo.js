@@ -403,20 +403,93 @@ export function useGestionCatalogo() {
   }
 
   // --- EDIT PRODUCT ACTION ---
-  // Categorías de producto (Alegra item-categories), cargadas una sola vez
-  const loadCategorias = async () => {
-    if (categorias.length > 0) return categorias
+  // Categorías de producto (Alegra item-categories), con el orden y el
+  // nombre visible que se hayan configurado en Gestión de Catálogo. `name` es
+  // el real de Alegra y no cambia nunca: es lo que sigue viajando en
+  // `producto.category` y en `subcategoria.categoria`.
+  const cargarCategorias = async () => {
     try {
-      const response = await api.get('/alegra/categorias')
-      if (response.data?.success) {
-        const cats = response.data.categorias || []
-        setCategorias(cats)
-        return cats
-      }
+      const response = await api.get('/alegra/catalog/categorias-config')
+      const cats = response.data?.success ? (response.data.categorias || []) : []
+      setCategorias(cats)
+      return cats
     } catch (err) {
       console.error('Error cargando categorías:', err)
+      setCategorias([])
+      return []
     }
-    return []
+  }
+
+  // Cargadas una sola vez: la pantalla de edición de producto no necesita
+  // volver a pedirlas cada vez que se abre.
+  const loadCategorias = async () => {
+    if (categorias.length > 0) return categorias
+    return cargarCategorias()
+  }
+
+  // Optimista: el nombre/orden se ve cambiado YA, sin esperar la vuelta del
+  // servidor — antes esperaba el PUT y encima volvía a pedir la lista entera
+  // (con categorías, esa segunda vuelta le preguntaba a Alegra), y ese doble
+  // viaje era el botón de mover/renombrar tardando ~3 s en reaccionar.
+  const renombrarCategoria = async (categoria, nombreVisible) => {
+    setCategorias(prev => prev.map(c => (c.name === categoria ? { ...c, nombreVisible: nombreVisible || categoria } : c)))
+    try {
+      const { data } = await api.put('/alegra/catalog/categorias-config/nombre', { categoria, nombreVisible })
+      if (data?.success) {
+        setCategorias(prev => prev.map(c => (c.name === categoria ? { ...c, nombreVisible: data.nombreVisible } : c)))
+      }
+    } catch (err) {
+      console.error('Error renombrando categoría:', err)
+      await cargarCategorias() // se perdió: se vuelve a pedir la real
+    }
+  }
+
+  /** `nombresEnOrden` es la lista COMPLETA de categorías en su orden final. */
+  const reordenarCategorias = async (nombresEnOrden) => {
+    setCategorias(prev => {
+      const porNombre = new Map(prev.map(c => [c.name, c]))
+      return nombresEnOrden.map((nombre, i) => ({ ...porNombre.get(nombre), name: nombre, orden: i }))
+    })
+    try {
+      const { data } = await api.put('/alegra/catalog/categorias-config/orden', { categorias: nombresEnOrden })
+      if (data?.success) {
+        // La respuesta no trae `id` (reordenar no le vuelve a preguntar a
+        // Alegra, ver categorias.service.js): se conserva el que ya se tenía.
+        setCategorias(prev => {
+          const porNombre = new Map(prev.map(c => [c.name, c]))
+          return data.categorias.map(c => ({ ...porNombre.get(c.name), ...c }))
+        })
+      }
+    } catch (err) {
+      console.error('Error reordenando categorías:', err)
+      await cargarCategorias()
+    }
+  }
+
+  /** `idsEnOrden` es TODA la lista de subcategorías de esa categoría, en orden. */
+  const reordenarSubcategorias = async (categoria, idsEnOrden) => {
+    setSubcategorias(prev => {
+      const porId = new Map(prev.map(s => [s.id, s]))
+      const reordenadas = idsEnOrden.map((id, i) => ({ ...porId.get(id), orden: i })).filter(s => s.id !== undefined)
+      const otras = prev.filter(s => s.categoria !== categoria)
+      const lista = [...otras, ...reordenadas]
+      subcategoriasRef.current = lista
+      return lista
+    })
+    try {
+      const { data } = await api.put('/alegra/catalog/subcategorias-orden', { categoria, ids: idsEnOrden })
+      if (data?.success) {
+        setSubcategorias(prev => {
+          const otras = prev.filter(s => s.categoria !== categoria)
+          const lista = [...otras, ...data.subcategorias]
+          subcategoriasRef.current = lista
+          return lista
+        })
+      }
+    } catch (err) {
+      console.error('Error reordenando subcategorías:', err)
+      await cargarSubcategorias()
+    }
   }
 
   const openEditProduct = async (product) => {
@@ -522,6 +595,9 @@ export function useGestionCatalogo() {
     renombrarSubcategoria,
     desactivarSubcategoria,
     asignarSubcategoria,
+    reordenarSubcategorias,
+    renombrarCategoria,
+    reordenarCategorias,
     productos,
     totalProductos,
     loading,

@@ -95,11 +95,17 @@ export function productosPerdidos(products, statsPorProducto, limite = TOP_PERDI
 /**
  * Reordena el catálogo entero alrededor de un cliente: categorías por suma
  * de score de sus productos (desc, 'Otros' siempre al final), y dentro de
- * cada categoría los ya comprados primero (por score) y el resto alfabético.
- * Sin cliente activo (statsPorProducto vacío) el resultado es idéntico al
- * orden de siempre — no hay comportamiento especial que "apagar".
+ * cada categoría los ya comprados primero (por score) y el resto por el
+ * orden manual (ver `ordenDeCategorias`). Sin cliente activo (statsPorProducto
+ * vacío) el resultado es idéntico a ordenar solo por ese orden manual — no
+ * hay comportamiento especial que "apagar".
+ *
+ * `configCatalogo` es lo que devuelve GET /catalogo-agente/config-catalogo
+ * ({ categorias, subcategorias }), acomodado en Gestión de Catálogo. Sin él
+ * (todavía no sincronizó, o falló), todo sale alfabético — el orden de
+ * siempre antes de que existiera esta pantalla.
  */
-export function ordenarCatalogoParaCliente(products, statsPorProducto) {
+export function ordenarCatalogoParaCliente(products, statsPorProducto, configCatalogo = null) {
   const categorias = {}
   for (const p of products) {
     const catName = p.itemCategory?.name || 'Otros'
@@ -119,6 +125,8 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto) {
     })
   }
 
+  const ordenDe = ordenDeCategorias(configCatalogo)
+
   const sortedKeys = Object.keys(categorias).sort((a, b) => {
     if (a === 'Otros') return 1
     if (b === 'Otros') return -1
@@ -126,10 +134,24 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto) {
       const diff = scoreDeCategoria(b) - scoreDeCategoria(a)
       if (diff !== 0) return diff
     }
+    const diffOrden = ordenDe(a) - ordenDe(b)
+    if (diffOrden !== 0) return diffOrden
     return a.localeCompare(b)
   })
 
-  return { grouped: categorias, sortedKeys, subgrupos: partirPorSubcategoria(categorias) }
+  return { grouped: categorias, sortedKeys, subgrupos: partirPorSubcategoria(categorias, configCatalogo) }
+}
+
+/** El `name` real de Alegra -> su orden manual. Sin config, todo empata. */
+function ordenDeCategorias(configCatalogo) {
+  const mapa = new Map((configCatalogo?.categorias || []).map((c) => [c.name, c.orden]))
+  return (nombre) => (mapa.has(nombre) ? mapa.get(nombre) : Number.MAX_SAFE_INTEGER)
+}
+
+/** El nombre visible de una categoría, o el real si no se le puso otro. */
+export function nombreVisibleDeCategoria(nombre, configCatalogo) {
+  const cat = (configCatalogo?.categorias || []).find((c) => c.name === nombre)
+  return cat?.nombreVisible || nombre
 }
 
 /**
@@ -151,7 +173,7 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto) {
  * desapareciera, un producto sin clasificar dejaría de verse en el catálogo
  * sin que nadie se diera cuenta.
  */
-export function partirPorSubcategoria(categorias) {
+export function partirPorSubcategoria(categorias, configCatalogo = null) {
   const porCategoria = {}
 
   for (const [nombreCategoria, productos] of Object.entries(categorias)) {
@@ -167,11 +189,24 @@ export function partirPorSubcategoria(categorias) {
 
     if (bloques.size === 0) continue
 
-    // `numeric` para que "PVC 2" vaya antes que "PVC 10": comparadas como
-    // texto, "10" queda antes que "2" y las medidas salen desordenadas, que
-    // es justo lo que se viene a arreglar.
+    // Orden manual (Gestión de Catálogo) primero; sin configurar, cae al
+    // alfabético `numeric` de siempre, para que "PVC 2" vaya antes que
+    // "PVC 10" (comparadas como texto, "10" queda antes que "2").
+    const ordenSub = new Map(
+      (configCatalogo?.subcategorias || [])
+        .filter((s) => s.categoria === nombreCategoria)
+        .map((s) => [s.nombre, s.orden])
+    )
+
     const ordenados = [...bloques.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], 'es', { numeric: true }))
+      .sort((a, b) => {
+        const oa = ordenSub.has(a[0]) ? ordenSub.get(a[0]) : null
+        const ob = ordenSub.has(b[0]) ? ordenSub.get(b[0]) : null
+        if (oa !== null && ob !== null && oa !== ob) return oa - ob
+        if (oa !== null && ob === null) return -1
+        if (oa === null && ob !== null) return 1
+        return a[0].localeCompare(b[0], 'es', { numeric: true })
+      })
       .map(([nombre, lista]) => ({ nombre, productos: lista }))
 
     if (sueltos.length > 0) ordenados.push({ nombre: 'Otros', productos: sueltos, sinClasificar: true })

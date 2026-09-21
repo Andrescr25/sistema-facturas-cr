@@ -4,6 +4,7 @@ import {
   LayoutGrid, Tag, UserCheck, Loader2, ChevronRight
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
+import { nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import BarraSuperior from '../components/catalogo-agente/BarraSuperior'
 import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
@@ -118,7 +119,8 @@ export default function CatalogoAgente() {
     featuredProducts, productosRebajados, synchronize,
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
-    productosHabitualesDelCliente, productosPerdidosDelCliente
+    productosHabitualesDelCliente, productosPerdidosDelCliente,
+    configCatalogo
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -143,10 +145,10 @@ export default function CatalogoAgente() {
       lista.push({ clave: '__cliente', texto: 'De este cliente', icono: UserCheck, contador: productosHabitualesDelCliente.length })
     }
     filteredData.sortedKeys.forEach((k) => {
-      lista.push({ clave: k, texto: k, contador: filteredData.grouped[k]?.length || 0 })
+      lista.push({ clave: k, texto: nombreVisibleDeCategoria(k, configCatalogo), contador: filteredData.grouped[k]?.length || 0 })
     })
     return lista
-  }, [filteredData, ofertas, clienteActivo, productosHabitualesDelCliente])
+  }, [filteredData, ofertas, clienteActivo, productosHabitualesDelCliente, configCatalogo])
 
   // Una categoría que ya no existe (cambió el catálogo, o se está buscando)
   // dejaría la pantalla en blanco sin explicación.
@@ -253,7 +255,7 @@ export default function CatalogoAgente() {
                 // encabezados que dicen "Otros" no ayudaría a nadie.
                 const familias = filteredData.subgrupos?.[k]
                 return (
-                  <Seccion key={k} titulo={k} descripcion={`${filteredData.grouped[k].length} productos`}
+                  <Seccion key={k} titulo={nombreVisibleDeCategoria(k, configCatalogo)} descripcion={`${filteredData.grouped[k].length} productos`}
                     icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
                     {familias
                       ? familias.map((f) => (
