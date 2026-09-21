@@ -6,6 +6,9 @@
 
 const axios = require('axios');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
+const { clasificarProducto } = require('../precios/auditoria');
+const categoriasService = require('./categorias.service');
+const subcategoriasService = require('./subcategorias.service');
 const prisma = require('../../../lib/prisma');
 const { query } = require('../../../config/database');
 const { getProductService, getClient } = require('../../integrations/alegra');
@@ -226,6 +229,111 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
       pages: Math.ceil(total / limitNum)
     }
   };
+}
+
+/**
+ * El árbol de categorías y subcategorías con sus conteos, en el orden
+ * canónico (`categoria_config.orden` / `subcategoria.orden` — el mismo que
+ * arma el catálogo del agente en `catalogoAgentePersonalizacion.js`). Es lo
+ * que pinta el riel de Gestión de Catálogo.
+ *
+ * Los conteos usan el MISMO criterio de "visible" que `listarProductos`
+ * (`status='active' AND hidden_locally=false`): si no coincidieran, el riel
+ * diría "Sin clasificar (37)" y la lista de al lado mostraría 35 filas.
+ */
+async function arbolCatalogo() {
+  const [categoriasCfg, subcategoriasList, conteos] = await Promise.all([
+    categoriasService.listar(),
+    subcategoriasService.listar({ incluirInactivas: false }),
+    query(`
+      SELECT category, subcategoria_id, COUNT(*)::int AS n
+        FROM alegra_products_cache
+       WHERE status = 'active' AND hidden_locally = false
+       GROUP BY category, subcategoria_id
+    `)
+  ]);
+
+  const subsPorCategoria = new Map();
+  for (const s of subcategoriasList) {
+    if (!subsPorCategoria.has(s.categoria)) subsPorCategoria.set(s.categoria, []);
+    subsPorCategoria.get(s.categoria).push({ id: s.id, nombre: s.nombre, orden: s.orden, activo: s.activo, productos: s.productos });
+  }
+
+  const totalPorCategoria = new Map();
+  const sinClasificarPorCategoria = new Map();
+  for (const fila of conteos.rows) {
+    totalPorCategoria.set(fila.category, (totalPorCategoria.get(fila.category) || 0) + fila.n);
+    if (fila.subcategoria_id === null) {
+      sinClasificarPorCategoria.set(fila.category, (sinClasificarPorCategoria.get(fila.category) || 0) + fila.n);
+    }
+  }
+
+  return {
+    categorias: categoriasCfg.map((c) => ({
+      name: c.name,
+      nombreVisible: c.nombreVisible,
+      orden: c.orden,
+      total: totalPorCategoria.get(c.name) || 0,
+      sinClasificar: sinClasificarPorCategoria.get(c.name) || 0,
+      subcategorias: subsPorCategoria.get(c.name) || []
+    }))
+  };
+}
+
+/**
+ * TODOS los productos de una categoría (sin paginar — la más grande,
+ * Ferretería, son 439: entran cómodos en una sola respuesta), enriquecidos
+ * con subcategoría, rotación y proveedor principal en un solo viaje (sin
+ * N+1). Para el panel derecho del riel.
+ *
+ * El margen NO se inventa acá: sale de `clasificarProducto` (motor de
+ * precios), la misma fórmula que usa el resto del sistema — sin eso, el
+ * mismo producto podría mostrar un margen distinto en dos pantallas.
+ */
+async function productosDeCategoria(categoria) {
+  const cat = String(categoria || '').trim();
+  if (!cat) throw httpError(400, 'Falta la categoría.');
+
+  const { rows } = await query(`
+    SELECT p.alegra_id, p.name, p.reference, p.price, p.cost, p.tax_percentage,
+           p.image_url, p.category,
+           s.id AS sub_id, s.nombre AS sub_nombre,
+           r.unidades_mes,
+           prov.supplier_name, prov.supplier_cedula
+      FROM alegra_products_cache p
+      LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
+      LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+      LEFT JOIN LATERAL (
+             SELECT supplier_name, supplier_cedula
+               FROM supplier_product_mapping m
+              WHERE m.alegra_item_id = p.alegra_id
+              ORDER BY m.times_used DESC, m.last_used_date DESC
+              LIMIT 1
+           ) prov ON true
+     WHERE p.category = $1 AND p.status = 'active' AND p.hidden_locally = false
+     ORDER BY p.name ASC
+  `, [cat]);
+
+  return rows.map((r) => {
+    const { margenReal } = clasificarProducto({ price: r.price, cost: r.cost, costoDerivado: null, historialInestable: false });
+    return {
+      alegraId: r.alegra_id,
+      name: r.name,
+      reference: r.reference,
+      price: Number(r.price),
+      cost: Number(r.cost),
+      taxPercentage: r.tax_percentage,
+      imageUrl: r.image_url,
+      category: r.category,
+      subcategoria: r.sub_id ? { id: r.sub_id, nombre: r.sub_nombre } : null,
+      unidadesMes: r.unidades_mes !== null ? Number(r.unidades_mes) : null,
+      proveedor: r.supplier_name ? { nombre: r.supplier_name, cedula: r.supplier_cedula } : null,
+      precioConIva: r.tax_percentage === null || r.tax_percentage === undefined
+        ? null
+        : precioConImpuesto(r.price, r.tax_percentage),
+      margenReal
+    };
+  });
 }
 
 /**
@@ -585,6 +693,14 @@ async function duplicarConMarca({ originalProductId, name, newCode, newPrice, ne
 async function editarProducto(id, { name, reference, price, cost, category }) {
   console.log(`📝 Editando producto ${id} en Alegra...`);
 
+  // Categoría ANTES de tocar nada: si el pedido la cambia, hay que saber si
+  // de verdad cambió para limpiar la subcategoría (es DE la categoría vieja,
+  // y sin esto quedaba apuntando a una subcategoría ajena — bug arrastrado
+  // desde que existe esta pantalla).
+  const antes = category
+    ? await prisma.alegraProduct.findUnique({ where: { alegraId: String(id) }, select: { category: true } })
+    : null;
+
   // Cargar producto original de Alegra para obtener la estructura de precios actual
   const originalProduct = await client.api.get(`/items/${id}`).then(res => res.data);
   const priceList = originalProduct.price || [];
@@ -638,6 +754,7 @@ async function editarProducto(id, { name, reference, price, cost, category }) {
   const updatedAlegra = updateResponse.data;
 
   // Actualizar en caché local
+  const nuevaCategoria = updatedAlegra.itemCategory?.name || updatedAlegra.category?.name || '';
   const cachedProduct = await prisma.alegraProduct.update({
     where: { alegraId: String(id) },
     data: {
@@ -645,11 +762,17 @@ async function editarProducto(id, { name, reference, price, cost, category }) {
       reference: updatedAlegra.reference?.reference || updatedAlegra.reference || '',
       price: newPriceVal,
       cost: newCostVal,
-      category: updatedAlegra.itemCategory?.name || updatedAlegra.category?.name || '',
+      category: nuevaCategoria,
       searchText: `${updatedAlegra.name} ${updatedAlegra.reference?.reference || updatedAlegra.reference || ''} ${updatedAlegra.description || ''}`.toLowerCase(),
       updatedAt: new Date()
     }
   });
+
+  // subcategoria_id no está en el esquema de Prisma (ver subcategorias.service.js:
+  // la caché la guarda, pero Prisma no la conoce), así que se limpia aparte.
+  if (antes && antes.category !== nuevaCategoria) {
+    await query(`UPDATE alegra_products_cache SET subcategoria_id = NULL WHERE alegra_id = $1`, [String(id)]);
+  }
 
   return cachedProduct;
 }
@@ -718,6 +841,82 @@ async function eliminarProducto(id) {
 }
 
 /**
+ * Trabajos de cambio de categoría en lote, en memoria — vive mientras el
+ * proceso esté arriba, que es suficiente: es solo para que el navegador
+ * sondee un progreso que ya terminó o está por terminar (nunca minutos como
+ * la sincronización), no un historial permanente. Se borra solo 30 min
+ * después de terminar para no crecer sin límite en un servidor de larga vida.
+ */
+const trabajosCategoriaLote = new Map();
+
+function nuevoIdTrabajo() {
+  return `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Cambia la categoría de varios productos a la vez. Cada uno escribe en
+ * Alegra (~3 s: `editarProducto` hace un GET + un PUT), así que esto NO
+ * espera a que termine — crea el trabajo, lo arranca en segundo plano, y
+ * devuelve el jobId al toque para que la pantalla no se congele 3 minutos.
+ * Procesa de a 3 en paralelo. `GET /trabajos/:jobId` sondea el avance.
+ */
+async function cambiarCategoriaLote(alegraIds, categoriaId) {
+  const ids = Array.isArray(alegraIds) ? alegraIds.map((id) => String(id).trim()).filter(Boolean) : [];
+  if (ids.length === 0) throw httpError(400, 'Falta la lista de productos.');
+  if (!categoriaId) throw httpError(400, 'Falta la categoría destino.');
+
+  const productos = await prisma.alegraProduct.findMany({
+    where: { alegraId: { in: ids } },
+    select: { alegraId: true, name: true, reference: true, price: true, cost: true }
+  });
+
+  const jobId = nuevoIdTrabajo();
+  const estado = { total: productos.length, hechos: 0, errores: [], terminado: false };
+  trabajosCategoriaLote.set(jobId, estado);
+
+  procesarCategoriaLote(productos, categoriaId, estado, jobId).catch((error) => {
+    console.error('❌ Error inesperado procesando el lote de categoría:', error);
+    estado.terminado = true;
+  });
+
+  return { jobId, total: estado.total };
+}
+
+async function procesarCategoriaLote(productos, categoriaId, estado, jobId) {
+  const TAMANO_TANDA = 3;
+  for (let i = 0; i < productos.length; i += TAMANO_TANDA) {
+    const tanda = productos.slice(i, i + TAMANO_TANDA);
+    await Promise.all(tanda.map(async (p) => {
+      try {
+        await editarProducto(p.alegraId, {
+          name: p.name,
+          // Producto sin referencia (Alegra la exige en el PUT): se usa el
+          // propio alegraId como respaldo — mismo criterio ya usado a mano
+          // en reclasificaciones anteriores.
+          reference: p.reference || p.alegraId,
+          price: p.price,
+          cost: p.cost,
+          category: categoriaId
+        });
+      } catch (error) {
+        estado.errores.push({ alegraId: p.alegraId, nombre: p.name, mensaje: error.message });
+      } finally {
+        estado.hechos++;
+      }
+    }));
+  }
+  estado.terminado = true;
+  setTimeout(() => trabajosCategoriaLote.delete(jobId), 30 * 60 * 1000).unref();
+}
+
+/** El avance de un trabajo de cambio de categoría en lote. */
+function estadoTrabajo(jobId) {
+  const estado = trabajosCategoriaLote.get(jobId);
+  if (!estado) throw httpError(404, 'Ese trabajo no existe, ya terminó hace rato, o el servidor se reinició.');
+  return estado;
+}
+
+/**
  * Siguiente código libre para duplicar un producto por marca.
  *
  * El modal proponía `CODIGO-` y había que inventar el sufijo a mano, lo que
@@ -759,6 +958,8 @@ module.exports = {
   listarProductos,
   listarProveedoresDelCatalogo,
   SIN_PROVEEDOR,
+  arbolCatalogo,
+  productosDeCategoria,
   buscarImagenesPorReferencia,
   buscarImagenes,
   descargarImagen,
@@ -767,5 +968,7 @@ module.exports = {
   duplicarConMarca,
   siguienteReferenciaMarca,
   editarProducto,
-  eliminarProducto
+  eliminarProducto,
+  cambiarCategoriaLote,
+  estadoTrabajo
 };

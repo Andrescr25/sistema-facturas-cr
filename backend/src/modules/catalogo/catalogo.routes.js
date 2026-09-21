@@ -22,6 +22,8 @@ const upload = multer({
   }
 });
 
+router.get('/arbol', catalogoController.arbolCatalogo);
+router.get('/productos-de-categoria', catalogoController.productosDeCategoria);
 router.get('/productos', catalogoController.listarProductos);
 router.get('/proveedores', catalogoController.listarProveedores);
 
@@ -29,7 +31,9 @@ router.get('/proveedores', catalogoController.listarProveedores);
 router.get('/subcategorias', catalogoController.listarSubcategorias);
 router.post('/subcategorias', catalogoController.crearSubcategoria);
 router.put('/subcategorias/:id', catalogoController.editarSubcategoria);
+router.delete('/subcategorias/:id', catalogoController.eliminarSubcategoria);
 router.put('/subcategorias-orden', catalogoController.reordenarSubcategorias);
+router.put('/productos/subcategoria-lote', catalogoController.asignarSubcategoriaLote);
 router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcategoria);
 
 // Categorías: son de Alegra, pero el orden y el nombre visible son nuestros.
@@ -44,6 +48,8 @@ router.post('/upload-image-url', catalogoController.asignarImagenDesdeUrl);
 router.post('/upload-image-file/:id', upload.single('image'), catalogoController.subirImagenDesdeArchivo);
 router.get('/siguiente-referencia', catalogoController.siguienteReferenciaMarca);
 router.post('/duplicate-brand', catalogoController.duplicarConMarca);
+router.post('/productos/categoria-lote', catalogoController.cambiarCategoriaLote);
+router.get('/trabajos/:jobId', catalogoController.estadoTrabajo);
 router.put('/productos/:id', catalogoController.editarProducto);
 router.delete('/productos/:id', catalogoController.eliminarProducto);
 
