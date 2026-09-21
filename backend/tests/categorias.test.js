@@ -5,10 +5,12 @@ const path = require('path');
 /**
  * Orden y nombre visible de las categorías de Alegra.
  *
- * Las categorías son de Alegra, planas y de solo lectura: lo único que se
- * guarda acá es dónde mostrarlas y cómo llamarlas EN PANTALLA. El nombre real
- * de Alegra nunca cambia, porque es el que usa todo lo demás (productos,
- * subcategorías) para cruzar.
+ * Las categorías son de Alegra: para mostrarlas y ordenarlas, este módulo
+ * solo guarda dónde y cómo llamarlas EN PANTALLA, y el nombre real de Alegra
+ * nunca cambia acá, porque es el que usa todo lo demás (productos,
+ * subcategorías) para cruzar. La única excepción es `crear`: categorías
+ * nuevas SÍ se crean en Alegra desde acá (2026-09-21, partir "Línea de
+ * Ciclo" en bici/moto y consolidar "Bolsas y Desechables").
  */
 
 const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
@@ -40,15 +42,21 @@ function montar({ config = [] } = {}) {
       }
     }
   };
+  const creadas = [];
   require.cache[rutaAlegra] = {
     id: rutaAlegra, filename: rutaAlegra, loaded: true,
     exports: {
       getProductService: () => ({
-        getItemCategories: async () => { visto.llamadasAlegra++; return ALEGRA_CATEGORIAS; }
+        getItemCategories: async () => { visto.llamadasAlegra++; return ALEGRA_CATEGORIAS; },
+        createItemCategory: async (name) => {
+          const categoria = { id: 100 + creadas.length, name };
+          creadas.push(categoria);
+          return categoria;
+        }
       })
     }
   };
-  return { servicio: require(rutaServicio), visto };
+  return { servicio: require(rutaServicio), visto, creadas };
 }
 
 describe('listar categorías', () => {
@@ -119,5 +127,26 @@ describe('reordenar categorías', () => {
     const { servicio, visto } = montar();
     await servicio.reordenar(['Productos de Pesca']);
     assert.equal(visto.llamadasAlegra, 0);
+  });
+});
+
+describe('crear categoría', () => {
+  test('sin nombre no se crea nada', async () => {
+    const { servicio } = montar();
+    await assert.rejects(servicio.crear(''), /Falta el nombre/);
+  });
+
+  test('si ya existe en Alegra (sin importar mayúsculas), rechaza sin crear', async () => {
+    const { servicio, creadas } = montar();
+    await assert.rejects(servicio.crear('línea eléctrica'), /ya existe en Alegra/);
+    assert.equal(creadas.length, 0);
+  });
+
+  test('crea la categoría en Alegra y devuelve su id', async () => {
+    const { servicio, creadas } = montar();
+    const r = await servicio.crear('Línea de Moto');
+    assert.equal(r.name, 'Línea de Moto');
+    assert.equal(creadas.length, 1);
+    assert.equal(creadas[0].name, 'Línea de Moto');
   });
 });

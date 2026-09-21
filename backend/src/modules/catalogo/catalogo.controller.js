@@ -310,6 +310,16 @@ async function renombrarCategoria(req, res) {
   }
 }
 
+/** Crea una categoría nueva EN ALEGRA (no solo local). */
+async function crearCategoria(req, res) {
+  try {
+    const categoria = await categorias.crear(req.body?.nombre);
+    res.status(201).json({ success: true, categoria });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 async function reordenarCategorias(req, res) {
   try {
     const lista = await categorias.reordenar(req.body?.categorias);
@@ -328,6 +338,7 @@ module.exports = {
   listarCategoriasConfig,
   renombrarCategoria,
   reordenarCategorias,
+  crearCategoria,
   listarProductos,
   listarProveedores,
   buscarImagenesPorReferencia,

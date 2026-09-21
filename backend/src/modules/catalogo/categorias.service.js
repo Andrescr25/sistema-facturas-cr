@@ -97,4 +97,21 @@ async function reordenar(categoriasEnOrden) {
   }));
 }
 
-module.exports = { listar, renombrar, reordenar };
+/**
+ * Crea una categoría nueva EN ALEGRA. Hasta ahora las categorías eran de
+ * solo lectura porque nunca hizo falta crear una — esta es la excepción: el
+ * usuario pidió partir una categoría existente en dos (2026-09-21, "Línea de
+ * Ciclo" en bici/moto) y consolidar otra ("Bolsas y Desechables").
+ */
+async function crear(nombre) {
+  const nom = String(nombre || '').trim();
+  if (!nom) throw httpError(400, 'Falta el nombre de la categoría.');
+
+  const existentes = await getProductService().getItemCategories();
+  const yaExiste = existentes.find((c) => c.name.toLowerCase() === nom.toLowerCase());
+  if (yaExiste) throw httpError(409, `"${nom}" ya existe en Alegra (id ${yaExiste.id}).`);
+
+  return getProductService().createItemCategory(nom);
+}
+
+module.exports = { listar, renombrar, reordenar, crear };

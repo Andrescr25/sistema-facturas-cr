@@ -66,6 +66,20 @@ class AlegraProductService {
   }
 
   /**
+   * Crear una categoría de producto nueva en Alegra (POST /item-categories).
+   * Nunca se había necesitado antes de esto: las categorías siempre fueron
+   * de solo lectura. Se usa para partir una categoría existente en dos
+   * (2026-09-21, pedido del usuario) — el nombre tiene que ser exacto porque
+   * después se reasignan productos contra el id que devuelve esto.
+   */
+  async createItemCategory(name) {
+    console.log(`📦 Creando categoría de productos "${name}" en Alegra...`);
+    const response = await this.client.api.post('/item-categories', { name });
+    console.log(`✅ Categoría "${response.data.name}" creada con id ${response.data.id}`);
+    return { id: response.data.id, name: response.data.name };
+  }
+
+  /**
    * Buscar productos
    */
   async searchProducts(query) {

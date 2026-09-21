@@ -36,6 +36,7 @@ router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcat
 router.get('/categorias-config', catalogoController.listarCategoriasConfig);
 router.put('/categorias-config/nombre', catalogoController.renombrarCategoria);
 router.put('/categorias-config/orden', catalogoController.reordenarCategorias);
+router.post('/categorias-config/crear', catalogoController.crearCategoria);
 router.get('/imagenes-por-referencia', catalogoController.buscarImagenesPorReferencia);
 router.get('/search-images', catalogoController.buscarImagenes);
 router.get('/image-proxy', catalogoController.proxyImagen);
