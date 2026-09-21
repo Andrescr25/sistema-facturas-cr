@@ -132,6 +132,12 @@ export function useCatalogoAgente() {
 
   const salirDeCliente = useCallback(async () => {
     setClienteActivoId(null)
+    // El catálogo vuelve arriba del todo al soltar el cliente: lo que se veía
+    // era SU pedido armado a medida (lo que más compra, lo que dejó de
+    // pedir); para el próximo cliente no significa nada, y sin esto quedaba
+    // a media pantalla justo cuando el agente va a buscar a otro.
+    window.scrollTo(0, 0)
+    posicionEnCatalogo.current = 0
     try {
       await catalogoAgenteDb.saveClienteActivo(null)
     } catch (error) {
