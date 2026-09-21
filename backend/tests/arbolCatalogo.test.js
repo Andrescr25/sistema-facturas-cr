@@ -66,6 +66,7 @@ describe('el árbol de categorías (riel)', () => {
     const r = await servicio.arbolCatalogo();
     const pvc = r.categorias.find((c) => c.name === 'Productos de PVC');
 
+    assert.equal(pvc.id, 1); // el id de Alegra viaja: la ficha y el lote lo necesitan para el PUT
     assert.equal(pvc.total, 5);
     assert.equal(pvc.sinClasificar, 3);
     assert.deepEqual(pvc.subcategorias, [{ id: 4, nombre: 'PVC 1/2', orden: 0, activo: true, productos: 2 }]);

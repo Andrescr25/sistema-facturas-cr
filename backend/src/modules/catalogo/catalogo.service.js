@@ -270,6 +270,10 @@ async function arbolCatalogo() {
 
   return {
     categorias: categoriasCfg.map((c) => ({
+      // El id de Alegra viaja acá porque el riel es también de dónde sale el
+      // selector de "a qué categoría muevo esto" (la ficha del producto y el
+      // cambio en lote): ambos le mandan a Alegra ese id, nunca el nombre.
+      id: c.id,
       name: c.name,
       nombreVisible: c.nombreVisible,
       orden: c.orden,

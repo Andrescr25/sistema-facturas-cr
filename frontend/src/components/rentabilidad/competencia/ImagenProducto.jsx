@@ -3,8 +3,9 @@ import { ImageOff } from 'lucide-react'
 
 /**
  * Foto de producto con degradado a un placeholder honesto. Mismo criterio
- * que GridProductos.jsx: cuando no hay imagen se dice "sin imagen" en vez
- * de dejar el ícono roto del navegador — acá importa especialmente, porque
+ * que FilaProducto.jsx en Gestión de Catálogo: cuando no hay imagen se dice
+ * "sin imagen" en vez de dejar el ícono roto del navegador — acá importa
+ * especialmente, porque
  * la foto es el criterio con el que se decide si dos productos son el
  * mismo, y una imagen que falla en silencio se lee como "no se parecen".
  */
