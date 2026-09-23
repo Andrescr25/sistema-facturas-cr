@@ -12,7 +12,10 @@ export default function ItemFaltanteCard({
   onMarcarModo,
   onCambiarCantidad,
   onCambiarObservacion,
-  onVerImagen
+  onVerImagen,
+  // Mientras se carga lo ya registrado (o se guarda), los botones quedan
+  // quietos: lo que se tocara ahí lo pisaría lo que llega.
+  deshabilitado = false
 }) {
   const esCompleto = draft?.tipo === 'ninguno' || draft?.tipo === 'completo'
   const esTotal = draft?.tipo === 'total'
@@ -64,9 +67,10 @@ export default function ItemFaltanteCard({
 
       {/* Botones de Selección Rápidos */}
       <div className="flex flex-col gap-2.5">
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid grid-cols-3 gap-2 ${deshabilitado ? 'pointer-events-none opacity-60' : ''}`}>
           <button
             type="button"
+            disabled={deshabilitado}
             onClick={() => onMarcarModo('ninguno')}
             className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esCompleto
               ? 'bg-exito-600 border-exito-600 text-white shadow-md shadow-exito-100'
@@ -79,6 +83,7 @@ export default function ItemFaltanteCard({
 
           <button
             type="button"
+            disabled={deshabilitado}
             onClick={() => onMarcarModo('total')}
             className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esTotal
               ? 'bg-peligro-600 border-peligro-600 text-white shadow-md shadow-peligro-100'
@@ -91,6 +96,7 @@ export default function ItemFaltanteCard({
 
           <button
             type="button"
+            disabled={deshabilitado}
             onClick={() => onCambiarCantidad(esParcial ? 0 : 1)}
             className={`py-3 px-2 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition duration-150 active:scale-[0.96] ${esParcial
               ? 'bg-alerta-500 border-alerta-500 text-white shadow-md shadow-alerta-100'
@@ -114,6 +120,7 @@ export default function ItemFaltanteCard({
               {/* Botón menos */}
               <button
                 type="button"
+                disabled={deshabilitado}
                 onClick={() => onCambiarCantidad(Math.max(1, (draft?.cantidadFaltante || 0) - 1))}
                 className="w-10 h-10 rounded-xl bg-white border border-primario-200 flex items-center justify-center text-lg font-black text-primario-700 shadow-sm active:scale-95 transition"
               >
@@ -128,6 +135,7 @@ export default function ItemFaltanteCard({
               {/* Botón más */}
               <button
                 type="button"
+                disabled={deshabilitado}
                 onClick={() => onCambiarCantidad(Math.min(cantidadFactura - 1, (draft?.cantidadFaltante || 0) + 1))}
                 className="w-10 h-10 rounded-xl bg-white border border-primario-200 flex items-center justify-center text-lg font-black text-primario-700 shadow-sm active:scale-95 transition"
               >
@@ -144,6 +152,7 @@ export default function ItemFaltanteCard({
         className="input w-full rounded-xl border-neutro-200 text-sm focus:border-primario-300 focus:ring-2 focus:ring-primario-50/50 py-2.5 px-3"
         placeholder="Nota sobre este producto"
         value={draft?.observaciones || ''}
+        disabled={deshabilitado}
         onChange={(e) => onCambiarObservacion(e.target.value)}
       />
     </div>

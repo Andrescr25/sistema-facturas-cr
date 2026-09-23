@@ -1,121 +1,93 @@
+import { AlertCircle, AlertTriangle, CheckCircle, X } from 'lucide-react'
 import { useFacturasBodega } from '../hooks/useFacturasBodega'
-import { CheckCircle, AlertCircle } from 'lucide-react'
 import HeaderBodega from '../components/facturas-bodega/HeaderBodega'
 import ListadoFacturas from '../components/facturas-bodega/ListadoFacturas'
 import DetalleDespacho from '../components/facturas-bodega/DetalleDespacho'
 import ModalClienteCompletado from '../components/facturas-bodega/ModalClienteCompletado'
 import ModalImagenProducto from '../components/inventario-auditoria/ModalImagenProducto'
+import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 
+/**
+ * Facturas en Bodega, con la forma de los demás módulos: título, tarjetas
+ * de resumen que sirven para cambiar de vista, la lista como tarjetas
+ * grandes, y el despacho de una factura como su detalle.
+ */
 export default function FacturasBodega() {
-  const {
-    facturaSeleccionada,
-    faltantesDraft,
-    loading,
-    refreshing,
-    guardando,
-    error,
-    ultimaSync,
-    activeTab,
-    setActiveTab,
-    successMessage,
-    setSuccessMessage,
-    searchQuery,
-    setSearchQuery,
-    clienteCompletado,
-    setClienteCompletado,
-    filters,
-    handleFilterChange,
-    clearFilters,
-
-    imagenProductoActivo,
-    handleVerImagenProducto,
-    handleCerrarImagenProducto,
-
-    handleSeleccionarFactura,
-    cancelarDespacho,
-    marcarModoFaltante,
-    actualizarCantidadFaltante,
-    actualizarObservacionItem,
-
-    accionPrincipalLabel,
-    handleRegistrarFaltantes,
-
-    facturasMostradas,
-    checkedItemsCount,
-    progressPercent,
-    allItemsChecked
-  } = useFacturasBodega()
+  const b = useFacturasBodega()
 
   return (
-    <div className="max-w-md mx-auto space-y-4 px-3 pt-2">
-      <HeaderBodega refreshing={refreshing} ultimaSync={ultimaSync} />
+    <div className="mx-auto max-w-6xl space-y-6 pb-24">
+      {!b.facturaSeleccionada && (
+        <HeaderBodega sincronizando={b.sincronizando} ultimaSync={b.ultimaSync} onActualizar={b.actualizar} />
+      )}
 
-      {successMessage && (
-        <div className="bg-exito-50 border border-exito-200 rounded-2xl p-4 flex items-center justify-between text-exito-800 text-sm animate-fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle size={16} className="text-exito-500" />
-            <span>{successMessage}</span>
-          </div>
-          <button className="text-xs underline text-exito-600" onClick={() => setSuccessMessage(null)}>
-            Ocultar
-          </button>
+      {b.successMessage && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-exito-200 bg-exito-50 px-4 py-3 text-exito-800">
+          <span className="flex items-center gap-2"><CheckCircle size={18} className="text-exito-500" /> {b.successMessage}</span>
+          <button type="button" onClick={() => b.setSuccessMessage(null)} aria-label="Ocultar"><X size={16} /></button>
         </div>
       )}
 
-      {error && (
-        <div className="bg-peligro-50 border border-peligro-200 rounded-2xl p-4 flex items-center gap-2 text-peligro-800 text-sm animate-fade-in">
-          <AlertCircle size={16} className="text-peligro-500" />
-          <span>{error}</span>
+      {/* Un problema de sincronización NO borra la lista: se avisa y se sigue
+          trabajando con la última guardada. */}
+      {b.aviso && (
+        <div className="flex items-start justify-between gap-2 rounded-xl border border-alerta-200 bg-alerta-50 px-4 py-3 text-alerta-800">
+          <span className="flex items-start gap-2"><AlertTriangle size={18} className="mt-0.5 shrink-0" /> {b.aviso}</span>
+          <button type="button" onClick={() => b.setAviso(null)} aria-label="Ocultar el aviso"><X size={16} /></button>
         </div>
       )}
 
-      {loading ? (
-        <div className="text-center py-16 bg-white border border-neutro-50 rounded-3xl">
-          <div className="spinner mx-auto mb-3"></div>
-          <p className="text-sm text-neutro-500">Cargando facturas de bodega...</p>
+      {b.error && (
+        <div className="flex items-center gap-2 rounded-xl border border-peligro-200 bg-peligro-50 px-4 py-3 text-peligro-800">
+          <AlertCircle size={18} className="shrink-0" />
+          <span>{b.error} </span>
+          <button type="button" onClick={b.actualizar} className="ml-auto font-semibold underline">Reintentar</button>
         </div>
-      ) : facturaSeleccionada ? (
+      )}
+
+      {b.cargando ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <SkeletonContraparte /><SkeletonContraparte /><SkeletonContraparte />
+        </div>
+      ) : b.facturaSeleccionada ? (
         <DetalleDespacho
-          facturaSeleccionada={facturaSeleccionada}
-          faltantesDraft={faltantesDraft}
-          checkedItemsCount={checkedItemsCount}
-          progressPercent={progressPercent}
-          allItemsChecked={allItemsChecked}
-          guardando={guardando}
-          accionPrincipalLabel={accionPrincipalLabel}
-          onCancelar={cancelarDespacho}
-          onMarcarModo={marcarModoFaltante}
-          onCambiarCantidad={actualizarCantidadFaltante}
-          onCambiarObservacion={actualizarObservacionItem}
-          onRegistrarFaltantes={handleRegistrarFaltantes}
-          onVerImagen={handleVerImagenProducto}
+          factura={b.facturaSeleccionada}
+          faltantesDraft={b.faltantesDraft}
+          checkedItemsCount={b.checkedItemsCount}
+          progressPercent={b.progressPercent}
+          allItemsChecked={b.allItemsChecked}
+          guardando={b.guardando}
+          cargandoEstados={b.cargandoEstados}
+          esEdicion={b.esEdicion}
+          accionPrincipalLabel={b.accionPrincipalLabel}
+          onVolver={b.cerrarFactura}
+          onMarcarModo={b.marcarModoFaltante}
+          onCambiarCantidad={b.actualizarCantidadFaltante}
+          onCambiarObservacion={b.actualizarObservacionItem}
+          onGuardar={b.handleRegistrarFaltantes}
+          onVerImagen={b.handleVerImagenProducto}
         />
       ) : (
         <ListadoFacturas
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onClearFilters={clearFilters}
-          facturasMostradas={facturasMostradas}
-          onSeleccionarFactura={handleSeleccionarFactura}
+          vista={b.vista}
+          setVista={b.setVista}
+          conteos={b.conteos}
+          busqueda={b.busqueda}
+          setBusqueda={b.setBusqueda}
+          filtros={b.filtros}
+          cambiarFiltro={b.cambiarFiltro}
+          limpiarFiltros={b.limpiarFiltros}
+          facturas={b.facturasMostradas}
+          onAbrir={b.abrirFactura}
         />
       )}
 
-      {clienteCompletado && (
-        <ModalClienteCompletado
-          clienteCompletado={clienteCompletado}
-          onCerrar={() => setClienteCompletado(null)}
-        />
+      {b.clienteCompletado && (
+        <ModalClienteCompletado clienteCompletado={b.clienteCompletado} onCerrar={() => b.setClienteCompletado(null)} />
       )}
 
-      {imagenProductoActivo && (
-        <ModalImagenProducto
-          item={imagenProductoActivo}
-          onCerrar={handleCerrarImagenProducto}
-        />
+      {b.imagenProductoActivo && (
+        <ModalImagenProducto item={b.imagenProductoActivo} onCerrar={b.handleCerrarImagenProducto} />
       )}
     </div>
   )

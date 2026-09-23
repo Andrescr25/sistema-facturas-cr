@@ -46,7 +46,10 @@ const MODULOS = [
     nombre: 'Facturas en Bodega',
     grupo: 'Ventas',
     ruta: '/facturas-bodega',
-    rutasApi: ['/bodega', '/faltantes']
+    // La pantalla llama a /alegra/bodega (el router de Alegra también lo
+    // monta): sin este prefijo, esas rutas caían en /alegra, compartida, y
+    // cualquier usuario con sesión podía marcar facturas como despachadas.
+    rutasApi: ['/bodega', '/alegra/bodega', '/faltantes']
   },
   {
     clave: 'clientes',

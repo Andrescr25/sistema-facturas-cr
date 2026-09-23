@@ -101,6 +101,13 @@ describe('rutas compartidas y de administrador', () => {
     assert.equal(moduloDeRuta('/alegra/catalog/subcategorias/9/mover-categoria'), 'gestion-catalogo');
   });
 
+  test('Facturas en Bodega es dueña de /alegra/bodega aunque viva debajo de /alegra', () => {
+    // La pantalla de bodega llama ahí; estaba abierta a cualquiera con sesión.
+    assert.equal(moduloDeRuta('/alegra/bodega/facturas'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/alegra/bodega/facturas/123/estado'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/alegra/bodega/facturas/123/estados'), 'facturas-bodega');
+  });
+
   test('lo que otras pantallas leen de /alegra/catalog sigue compartido', () => {
     // Relacionar Productos sugiere fotos, Bodega pinta la foto de cada línea.
     for (const ruta of [
