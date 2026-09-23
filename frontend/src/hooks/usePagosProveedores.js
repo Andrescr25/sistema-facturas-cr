@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   getPagosProveedores,
-  actualizarPagoProveedor,
+  registrarPagoProveedor,
+  anularPagoProveedor,
   getProveedoresConCuentas,
   getSaldosAFavor,
   aplicarNotaACuenta,
@@ -90,15 +91,32 @@ export function usePagosProveedores(initialFilters = {}) {
     setFilters({ ...defaultFilters })
   }, [])
 
-  const handleActualizarEstado = useCallback(async (id, payload, mensajeExito) => {
-    setProcesandoId(id)
+  /** Registrar un pago sobre una factura. Devuelve true si quedó. */
+  const handleRegistrarPago = useCallback(async (cuentaId, datos) => {
+    setProcesandoId(cuentaId)
     try {
-      await actualizarPagoProveedor(id, payload)
+      await registrarPagoProveedor(datos)
       await loadCuentas(filters)
-      showToast(mensajeExito || 'Cuenta actualizada correctamente', 'success')
+      showToast('Pago registrado', 'success')
       return true
     } catch (err) {
-      showToast(err.message || 'Error actualizando la cuenta', 'error')
+      showToast(err.response?.data?.message || err.message || 'Error registrando el pago', 'error')
+      return false
+    } finally {
+      setProcesandoId(null)
+    }
+  }, [filters, loadCuentas, showToast])
+
+  /** Anular un pago con su motivo. El saldo de la factura vuelve solo. */
+  const handleAnularPago = useCallback(async (cuentaId, pagoId, motivo) => {
+    setProcesandoId(cuentaId)
+    try {
+      await anularPagoProveedor(pagoId, motivo)
+      await loadCuentas(filters)
+      showToast('Pago anulado', 'success')
+      return true
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Error anulando el pago', 'error')
       return false
     } finally {
       setProcesandoId(null)
@@ -181,7 +199,8 @@ export function usePagosProveedores(initialFilters = {}) {
     setFilters,
     resetFilters,
     proveedoresDisponibles,
-    actualizarEstado: handleActualizarEstado,
+    registrarPago: handleRegistrarPago,
+    anularPago: handleAnularPago,
     procesandoId,
     reload: () => { loadCuentas(filters); cargarSaldosAFavor() },
     toasts,

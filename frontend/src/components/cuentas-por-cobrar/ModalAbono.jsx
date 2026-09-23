@@ -17,9 +17,24 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * Proveedores se ve igual sin que nadie mantenga dos veces la misma hoja.
  *
  * Y se le agregó el detalle de productos, que solo tenía el módulo de
- * pagar. Las líneas no viven en el espejo local: se le piden a Alegra al
- * abrir la factura, porque es la única vez que se miran.
+ * pagar. Las líneas salen de la factura propia (GET /facturacion/facturas/:id).
  */
+
+/**
+ * El método de un abono ya registrado, como texto. Los copiados de Alegra
+ * traen su clave cruda ('cash', 'TRANSFER', 'SINPE_MOVIL'); los propios, el
+ * nombre del catálogo ('Efectivo'). La lista de abajo es solo para traducir
+ * los viejos.
+ *
+ * Antes se buscaba en METODOS_PAGO, que se dejó de importar al pasar el
+ * cobro a la base propia: abrir una factura con abonos rompía la pantalla.
+ */
+const METODOS_ALEGRA = {
+  cash: 'Efectivo', transfer: 'Transferencia', 'credit-card': 'Tarjeta de crédito',
+  'debit-card': 'Tarjeta de débito', check: 'Cheque', sinpe_movil: 'SINPE Móvil'
+}
+const nombreMetodo = (texto) => METODOS_ALEGRA[String(texto || '').toLowerCase()] || texto || '—'
+
 export default function ModalAbono({
   factura, clienteNombre, procesando, onRegistrar, onCargarAbonos, onCargarProductos, onCerrar
 }) {
@@ -157,7 +172,7 @@ export default function ModalAbono({
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={hoyEnCostaRica()}
               className="input h-12 w-full text-base"
             />
           </div>
@@ -204,10 +219,9 @@ export default function ModalAbono({
           >
             {procesando ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
             {procesando
-              ? 'Registrando en Alegra…'
+              ? 'Registrando…'
               : saldarTotal ? `Pagar ${formatCurrency(factura.saldo)}` : 'Registrar abono'}
           </button>
-          <p className="text-center text-xs text-neutro-400">Esto crea un pago real en Alegra.</p>
         </div>
       )}
 
@@ -224,11 +238,17 @@ export default function ModalAbono({
         ) : (
           <div className="divide-y divide-neutro-100 overflow-hidden rounded-xl border border-neutro-100">
             {abonos.map((abono) => (
-              <div key={abono.id} className="px-4 py-3">
-                <p className="text-base font-bold text-neutro-800">{formatCurrency(abono.monto)}</p>
-                <p className="text-sm text-neutro-500">
-                  {formatDate(abono.fecha)} · {METODOS_PAGO.find(m => m.id === abono.metodoPago)?.label || abono.metodoPago}
+              <div key={abono.id} className={`px-4 py-3 ${abono.anulado ? 'bg-neutro-50' : ''}`}>
+                <p className={`text-base font-bold ${abono.anulado ? 'text-neutro-400 line-through' : 'text-neutro-800'}`}>
+                  {formatCurrency(abono.monto)}
                 </p>
+                <p className="text-sm text-neutro-500">
+                  {formatDate(abono.fecha)} · {nombreMetodo(abono.metodo)}
+                  {abono.referencia ? ` · Ref. ${abono.referencia}` : ''}
+                </p>
+                {abono.anulado && (
+                  <p className="text-sm text-peligro-600">Anulado{abono.motivoAnulacion ? `: ${abono.motivoAnulacion}` : ''}</p>
+                )}
               </div>
             ))}
           </div>

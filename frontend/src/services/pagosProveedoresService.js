@@ -5,9 +5,38 @@ export async function getPagosProveedores(params = {}) {
   return response.data
 }
 
-export async function actualizarPagoProveedor(id, payload) {
-  const response = await api.patch(`/pagos-proveedores/${id}`, payload)
+/**
+ * Registrar un pago a un proveedor. El saldo ya no se edita: el pago es un
+ * documento (de qué cuenta salió, con qué método y referencia) y el saldo de
+ * la factura se calcula a partir de él.
+ *
+ * @param {{ aplicaciones: Array<{cuentaPorPagarId: string, monto?: number, pagarTodo?: boolean}>,
+ *           cuentaDineroId: number, metodoPagoId: number, referencia?: string, fecha?: string }} datos
+ */
+export async function registrarPagoProveedor(datos) {
+  const response = await api.post('/pagos-proveedores/pagos', datos)
   return response.data
+}
+
+/** Anular un pago: queda con su motivo y el saldo vuelve solo. */
+export async function anularPagoProveedor(pagoId, motivo) {
+  const response = await api.post(`/pagos-proveedores/pagos/${pagoId}/anular`, { motivo })
+  return response.data
+}
+
+/**
+ * De dónde puede salir un pago (cuentas de dinero) y cómo (métodos), del
+ * catálogo propio. Solo lo activo.
+ */
+export async function getOpcionesPago() {
+  const response = await api.get('/catalogos/configuracion')
+  const datos = response.data?.data ?? response.data ?? {}
+  return {
+    cuentas: (datos.cuentas ?? []).map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo })),
+    metodos: (datos.metodosPago ?? []).map((m) => ({
+      id: m.id, clave: m.clave, nombre: m.nombre, pideReferencia: m.pide_referencia
+    }))
+  }
 }
 
 export async function getProveedoresConCuentas() {

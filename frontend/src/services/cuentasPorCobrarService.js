@@ -1,4 +1,5 @@
 import api from './api'
+import { estadoFactura } from '../utils/filtrosCobros'
 
 /**
  * Traducción de NUESTRA forma a la que todavía habla la pantalla.
@@ -26,20 +27,30 @@ function adaptarDeudor(d) {
     identificacion: d.identificacion,
     telefono: d.telefono,
     totalSaldo: d.saldoTotal,
-    facturas: (d.detalle || []).map((f) => ({
-      facturaId: f.id,
-      numeroFactura: f.numero,
-      fecha: f.fecha,
-      fechaVencimiento: f.fechaVencimiento,
-      total: f.total,
-      saldo: f.saldo,
-      diasRestantes: diasHasta(f.fechaVencimiento)
-    }))
+    facturas: (d.detalle || []).map((f) => {
+      const factura = {
+        facturaId: f.id,
+        numeroFactura: f.numero,
+        fecha: f.fecha,
+        fechaVencimiento: f.fechaVencimiento,
+        total: f.total,
+        saldo: f.saldo,
+        diasRestantes: diasHasta(f.fechaVencimiento)
+      }
+      // La página pinta de rojo al cliente con alguna factura VENCIDA; sin
+      // esto ninguna tarjeta se marcaba nunca.
+      return { ...factura, estado: estadoFactura(factura) }
+    })
   }
 }
 
-export async function getCuentasPorCobrar(params = {}) {
-  const response = await api.get('/cuentas-por-cobrar/propios/deudores', { params })
+/**
+ * La cartera ENTERA. Buscar, filtrar por estado o vencimiento y el resumen
+ * se resuelven en el navegador (utils/filtrosCobros.js): el endpoint no los
+ * entiende, y son unos 60 clientes.
+ */
+export async function getCuentasPorCobrar() {
+  const response = await api.get('/cuentas-por-cobrar/propios/deudores', { params: { limite: 1000 } })
   return {
     success: true,
     data: (response.data?.data ?? []).map(adaptarDeudor),

@@ -58,7 +58,11 @@ async function listarDeudores({ buscar = '', pagina = 1, limite = 30 } = {}) {
     filtroBusqueda = ` AND ${NORMALIZAR_SQL("f.cliente_nombre || ' ' || COALESCE(f.cliente_identificacion, '')")} LIKE ${agregar(`%${normalizar(texto)}%`)}`;
   }
 
-  const lim = Math.min(Math.max(parseInt(limite, 10) || 30, 1), 100);
+  // Tope de 1.000, no de 100: la pantalla pide la cartera ENTERA (unos 60
+  // deudores) y filtra ahí. Con el tope de antes y sin paginación en la
+  // pantalla, la mitad de los deudores —los de saldo más chico— no aparecía
+  // en ningún lado.
+  const lim = Math.min(Math.max(parseInt(limite, 10) || 30, 1), 1000);
   const pag = Math.max(parseInt(pagina, 10) || 1, 1);
 
   const { rows } = await pool.query(`

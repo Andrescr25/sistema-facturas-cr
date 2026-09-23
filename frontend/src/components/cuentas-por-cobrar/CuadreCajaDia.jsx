@@ -1,6 +1,6 @@
 import { CalendarDays, Banknote, ArrowRightLeft, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react'
 import { useCuadreCaja } from '../../hooks/useCuadreCaja'
-import { formatCurrency, formatDate, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
+import { formatCurrency, formatDate } from '../../utils/cuentasPorCobrarUtils'
 import PanelCierreCaja from './PanelCierreCaja'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
 

@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import { CheckCircle2, Loader2, RotateCcw } from 'lucide-react'
-import { formatCurrency, formatDate, calcularPayloadPago } from '../../utils/pagosProveedoresUtils'
+import { useEffect, useState } from 'react'
+import { Ban, CalendarDays, CheckCircle2, CreditCard, Landmark, Loader2 } from 'lucide-react'
+import { formatCurrency, formatDate } from '../../utils/pagosProveedoresUtils'
+import { getOpcionesPago } from '../../services/pagosProveedoresService'
+import { hoyEnCostaRica } from '../../utils/fechaCR'
 import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'
 import OpcionesPago from '../pagos/OpcionesPago'
@@ -9,52 +11,87 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
 /**
  * Pagarle a un proveedor.
  *
- * QUÉ CAMBIÓ
- * Antes era un diálogo centrado con una rejilla de cuatro celdas arriba y
- * un par de botones chatos para elegir entre pago completo y abono. Ahora
- * usa la misma hoja que Cuentas por Cobrar —que es el diseño que se quiso
- * para los dos— con el saldo grande arriba y las dos tarjetas grandes de
- * decisión.
+ * EL PAGO ES UN DOCUMENTO (migración 025). Antes, "Marcar como pagada" bajaba
+ * el saldo a mano y no quedaba ni cuándo ni de dónde salió la plata. Ahora se
+ * registra un pago con su fecha, la cuenta de la que salió, el método y la
+ * referencia; el saldo de la factura se calcula a partir de los pagos, y un
+ * pago equivocado se ANULA con su motivo (reemplaza al viejo "Revertir a
+ * pendiente", que borraba el rastro).
  *
- * Lo propio de pagar se conserva: las notas de crédito del proveedor y el
- * revertir a pendiente. La tabla de productos es la misma, ahora compartida.
- *
- * SE QUITÓ LA "NOTA (OPCIONAL)"
- * Sí se guardaba en la base, pero no había dónde leerla: la única pantalla
- * que la mostraba era la tarjeta vieja de cuenta, que desapareció al
- * unificar el diseño. Quedó escribiendo a un lugar del que nada la sacaba, y
- * en 311 cuentas nadie escribió una sola. La columna sigue en la base
- * intacta; lo que se quitó es el campo que prometía algo que no pasaba.
+ * Misma hoja que Cuentas por Cobrar: el saldo grande arriba y las dos
+ * tarjetas grandes de decisión. Lo propio de pagar se conserva: las notas de
+ * crédito del proveedor.
  */
-export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onCerrar }) {
+
+/** El método que corresponde a una cuenta, para no tener que elegir dos veces. */
+const METODO_POR_TIPO = { efectivo: 'efectivo', banco: 'transferencia', tarjeta_credito: 'tarjeta_credito' }
+
+export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onAnularPago, onCerrar }) {
   const yaPagada = cuenta.estado === 'PAGADA'
-  const puedeRevertir = cuenta.estado === 'PAGADA' || cuenta.estado === 'VENCIDA'
 
   const [seleccion, setSeleccion] = useState(yaPagada ? null : 'total')
   const [monto, setMonto] = useState('')
+  // El día en Costa Rica, no en UTC: después de las 6 p.m. eso ya es mañana.
+  const [fecha, setFecha] = useState(hoyEnCostaRica())
 
-  const tipoPago = seleccion === 'parcial' ? 'parcial' : 'completo'
-  const montoInvalido = seleccion === 'parcial' &&
-    (!monto || Number(monto) <= 0 || Number(monto) > cuenta.saldoPendiente)
+  const [cuentas, setCuentas] = useState([])
+  const [metodos, setMetodos] = useState([])
+  const [cuentaDineroId, setCuentaDineroId] = useState(null)
+  const [metodoPagoId, setMetodoPagoId] = useState(null)
+  const [referencia, setReferencia] = useState('')
 
-  const handleRegistrar = async () => {
-    if (montoInvalido) return
-    const payload = calcularPayloadPago(cuenta, { tipo: tipoPago, monto })
-    const exito = await onRegistrarPago(cuenta.id, payload)
-    if (exito) onCerrar()
+  const [anulando, setAnulando] = useState(null) // id del pago que se está anulando
+  const [motivo, setMotivo] = useState('')
+
+  useEffect(() => {
+    let cancelado = false
+    getOpcionesPago()
+      .then(({ cuentas, metodos }) => {
+        if (cancelado) return
+        setCuentas(cuentas)
+        setMetodos(metodos)
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
+  const elegirCuenta = (id) => {
+    setCuentaDineroId(id)
+    // Sale de la caja → efectivo; del banco → transferencia. Se puede cambiar.
+    const tipo = cuentas.find((c) => c.id === id)?.tipo
+    const sugerido = metodos.find((m) => m.clave === METODO_POR_TIPO[tipo])
+    if (sugerido) { setMetodoPagoId(sugerido.id); setReferencia('') }
   }
 
-  const handleRevertir = async () => {
-    // Revertir vuelve al monto original MENOS las notas de crédito ya
-    // aplicadas: esas no dependen de si se pagó o no, siguen siendo un
-    // descuento del proveedor. Restaurar el monto total pelado las borraría
-    // y terminaríamos pagando de más.
-    const saldoSinPagos = Math.max(0, cuenta.montoTotal - (cuenta.creditoAplicado || 0))
+  const metodo = metodos.find((m) => m.id === metodoPagoId) || null
+  const faltaReferencia = Boolean(metodo?.pideReferencia) && !referencia.trim()
+  const pagarTodo = seleccion === 'total'
+  const montoInvalido = !pagarTodo &&
+    (!monto || Number(monto) <= 0 || Number(monto) > cuenta.saldoPendiente)
+  const incompleto = !cuentaDineroId || !metodoPagoId || faltaReferencia
+
+  const handleRegistrar = async () => {
+    if (montoInvalido || incompleto) return
+    // "Pagar todo" no manda un monto: el servidor relee el saldo CON BLOQUEO.
     const exito = await onRegistrarPago(cuenta.id, {
-      estado: 'PENDIENTE', saldoPendiente: saldoSinPagos
+      aplicaciones: [pagarTodo
+        ? { cuentaPorPagarId: cuenta.id, pagarTodo: true }
+        : { cuentaPorPagarId: cuenta.id, monto: Number(monto) }],
+      cuentaDineroId,
+      metodoPagoId,
+      referencia: referencia.trim() || null,
+      fecha
     })
     if (exito) onCerrar()
   }
+
+  const handleAnular = async (pagoId) => {
+    if (!motivo.trim()) return
+    const exito = await onAnularPago(cuenta.id, pagoId, motivo.trim())
+    if (exito) { setAnulando(null); setMotivo('') }
+  }
+
+  const pagos = cuenta.pagos || []
 
   return (
     <HojaModal
@@ -125,6 +162,84 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
         cargando={false}
       />
 
+      {/* Lo pagado antes de que los pagos se registraran: no hay dato de
+          cuándo ni desde qué cuenta, y no se inventa. */}
+      {cuenta.pagadoSinDetalle > 0 && (
+        <div className="flex items-baseline justify-between gap-3 rounded-xl border border-neutro-200 bg-neutro-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-neutro-700">Pagado antes de registrar pagos</p>
+            <p className="text-xs text-neutro-500">Sin detalle de fecha ni de cuenta: se marcó como pagada a mano.</p>
+          </div>
+          <span className="shrink-0 text-base font-bold text-neutro-800">−{formatCurrency(cuenta.pagadoSinDetalle)}</span>
+        </div>
+      )}
+
+      {pagos.length > 0 && (
+        <div>
+          <h4 className="mb-2 text-sm font-semibold text-neutro-600">Pagos registrados</h4>
+          <div className="divide-y divide-neutro-100 overflow-hidden rounded-xl border border-neutro-100">
+            {pagos.map((p) => (
+              <div key={p.id} className={`px-4 py-3 ${p.anulado ? 'bg-neutro-50' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`text-base font-bold ${p.anulado ? 'text-neutro-400 line-through' : 'text-neutro-800'}`}>
+                      {formatCurrency(p.monto)}
+                    </p>
+                    <p className="text-sm text-neutro-500">
+                      {formatDate(p.fecha)} · {p.metodo} · de {p.cuenta}
+                      {p.referencia ? ` · Ref. ${p.referencia}` : ''}
+                    </p>
+                    {p.montoPago > p.monto && (
+                      <p className="text-xs text-neutro-400">Parte de un pago de {formatCurrency(p.montoPago)} que cubrió varias facturas</p>
+                    )}
+                    {p.anulado && (
+                      <p className="text-sm text-peligro-600">Anulado{p.motivoAnulacion ? `: ${p.motivoAnulacion}` : ''}</p>
+                    )}
+                  </div>
+                  {!p.anulado && anulando !== p.id && (
+                    <button
+                      type="button"
+                      onClick={() => { setAnulando(p.id); setMotivo('') }}
+                      disabled={procesando}
+                      className="btn btn-outline inline-flex shrink-0 items-center gap-1.5 text-sm"
+                    >
+                      <Ban size={15} /> Anular
+                    </button>
+                  )}
+                </div>
+                {anulando === p.id && (
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="text"
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="¿Por qué se anula este pago?"
+                      maxLength={500}
+                      className="input h-11 w-full text-base"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAnular(p.id)}
+                        disabled={procesando || !motivo.trim()}
+                        className="btn inline-flex items-center gap-1.5 bg-peligro-600 text-white hover:bg-peligro-700 disabled:opacity-40"
+                      >
+                        {procesando ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                        Anular pago
+                      </button>
+                      <button type="button" onClick={() => setAnulando(null)} className="btn btn-outline">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!yaPagada && (
         <>
           <OpcionesPago
@@ -165,35 +280,84 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                   )}
                 </div>
               )}
+
+              <div>
+                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
+                  <Landmark size={16} className="text-neutro-400" />
+                  ¿De qué cuenta salió la plata?
+                </label>
+                <select
+                  value={cuentaDineroId ?? ''}
+                  onChange={(e) => elegirCuenta(Number(e.target.value))}
+                  className="input h-12 w-full text-base"
+                >
+                  <option value="" disabled>Elegí la cuenta…</option>
+                  {cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
+                  <CreditCard size={16} className="text-neutro-400" />
+                  ¿Cómo se pagó?
+                </label>
+                <select
+                  value={metodoPagoId ?? ''}
+                  onChange={(e) => { setMetodoPagoId(Number(e.target.value)); setReferencia('') }}
+                  className="input h-12 w-full text-base"
+                >
+                  <option value="" disabled>Elegí el método…</option>
+                  {metodos.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                  ))}
+                </select>
+                {/* Una transferencia sin número no se puede cuadrar después
+                    contra el estado del banco. El catálogo dice cuáles la piden. */}
+                {metodo?.pideReferencia && (
+                  <input
+                    type="text"
+                    value={referencia}
+                    onChange={(e) => setReferencia(e.target.value)}
+                    placeholder={`Referencia de la ${metodo.nombre.toLowerCase()}…`}
+                    maxLength={60}
+                    className="input mt-2 h-12 w-full text-base"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
+                  <CalendarDays size={16} className="text-neutro-400" />
+                  Fecha del pago
+                </label>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  max={hoyEnCostaRica()}
+                  className="input h-12 w-full text-base"
+                />
+              </div>
             </div>
           )}
 
           {seleccion && (
             <button
               onClick={handleRegistrar}
-              disabled={procesando || montoInvalido}
+              disabled={procesando || montoInvalido || incompleto}
               className={`flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-bold transition-all disabled:opacity-40 ${
-                seleccion === 'total' ? 'bg-exito-600 text-white shadow-lg hover:bg-exito-700' : 'btn btn-primary shadow-lg'
+                pagarTodo ? 'bg-exito-600 text-white shadow-lg hover:bg-exito-700' : 'btn btn-primary shadow-lg'
               }`}
             >
               {procesando ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
               {procesando
                 ? 'Guardando…'
-                : seleccion === 'total' ? 'Marcar como pagada' : 'Registrar abono'}
+                : pagarTodo ? `Pagar ${formatCurrency(cuenta.saldoPendiente)}` : 'Registrar abono'}
             </button>
           )}
         </>
-      )}
-
-      {puedeRevertir && (
-        <button
-          onClick={handleRevertir}
-          disabled={procesando}
-          className="btn btn-outline flex w-full items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {procesando ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
-          Revertir a pendiente
-        </button>
       )}
     </HojaModal>
   )

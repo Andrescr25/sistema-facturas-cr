@@ -49,14 +49,18 @@ export default function PagosProveedores() {
   const {
     cuentas, resumen, loading, error,
     filters, setFilters, resetFilters,
-    proveedoresDisponibles, actualizarEstado, procesandoId, reload,
+    proveedoresDisponibles, registrarPago, anularPago, procesandoId, reload,
     toasts, removeToast,
     saldosAFavor, totalAFavor, loadingFavor, cargarSaldosAFavor,
     handleAplicarNota, handleEliminarNota, eliminandoNota
   } = usePagosProveedores()
 
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
-  const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null)
+  // Por id, y la cuenta se busca en la lista recién cargada: así, después de
+  // pagar o anular, el modal muestra el saldo nuevo y no una copia vieja. Si
+  // la factura sale del filtro (se terminó de pagar), el modal se cierra solo.
+  const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState(null)
+  const cuentaSeleccionada = cuentas.find((c) => c.id === cuentaSeleccionadaId) || null
   const [notaAAplicar, setNotaAAplicar] = useState(null)
 
   // El servidor manda las facturas una por una; el agrupado por proveedor se
@@ -206,7 +210,7 @@ export default function PagosProveedores() {
         >
           <TablaFacturas
             facturas={filasDe(proveedorActivo.facturas)}
-            onSeleccionar={(f) => setCuentaSeleccionada(f.original)}
+            onSeleccionar={(f) => setCuentaSeleccionadaId(f.original.id)}
             vacio="Este proveedor no tiene facturas con saldo."
           />
         </DetalleContraparte>
@@ -216,8 +220,9 @@ export default function PagosProveedores() {
         <ModalDetalleCuenta
           cuenta={cuentaSeleccionada}
           procesando={procesandoId === cuentaSeleccionada.id}
-          onRegistrarPago={actualizarEstado}
-          onCerrar={() => setCuentaSeleccionada(null)}
+          onRegistrarPago={registrarPago}
+          onAnularPago={anularPago}
+          onCerrar={() => setCuentaSeleccionadaId(null)}
         />
       )}
 
