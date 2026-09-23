@@ -440,9 +440,25 @@ más abajo).
 **Hoy ya son locales:** 318 cuentas por pagar y 18 notas de crédito de
 proveedor. Dependen poco de Alegra.
 
-- [ ] Usar `proveedor.id` y `compra.id`
-- [ ] Registrar el pago a proveedor como egreso de una cuenta de dinero
-- [ ] Registrar los gastos recurrentes como egresos
+- [x] Usar `proveedor.id` y `compra.id` — `compra_id` (023) y `proveedor_id`
+  (025, las 318 por cédula); `liberarCuentaPorPagar` llena los dos al registrar
+  la compra
+- [x] **Registrar el pago a proveedor como egreso de una cuenta de dinero
+  (2026-09-23, migración 025).** `pago_proveedor` + `pago_proveedor_cuenta`:
+  fecha, cuenta de dinero, método, referencia; un pago puede cubrir varias
+  facturas del mismo proveedor; se anula con motivo. El saldo y el estado de
+  cada cuenta se CALCULAN en la vista `cuenta_por_pagar_saldo` (total − notas
+  de crédito − pagado antes del corte − pagos vigentes); editar el saldo a
+  mano quedó cerrado (400). Lo ya pagado sin registro (₡16,3 M en 246
+  facturas) quedó como `pagado_sin_detalle`, sin inventar pagos. Verificado
+  contra la copia local: los 318 saldos calculados igual a los guardados, y
+  un pago ZZ de ₡1.000 bajó y devolvió el saldo al anularse (borrado después).
+  *Falta la pantalla: sigue mandando el PATCH viejo*
+- [ ] Registrar los gastos recurrentes como egresos. *La 025 ya agregó
+  `cuenta_dinero_id` y `metodo_pago_id` a `pago_recurrente`; falta usarlos*
+- [ ] Movimientos por cuenta de dinero (lo que entró por cobros menos lo que
+  salió por pagos y gastos) y el cierre de caja restando el efectivo que
+  salió
 
 **Lista cuando:** entradas y salidas de dinero cuadran por cuenta.
 

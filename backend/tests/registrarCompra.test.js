@@ -56,7 +56,7 @@ const LINEA_SIN_PRODUCTO = {
 const PRODUCTO = { id: 7, nombre: 'Tornillo goloso', precio_sin_iva: '150.00000', costo_con_iva: '100.00000', alegra_id: null };
 const CXP = { id: 'cxp-1', factura_id: FACTURA_ID, monto_total: '10170.00', saldo_pendiente: '10170.00', fecha_vencimiento: '2026-10-01' };
 
-function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINEA_CON_PRODUCTO], producto = PRODUCTO, compraExistente = null, cxp = null, creditoAplicado = 0 } = {}) {
+function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINEA_CON_PRODUCTO], producto = PRODUCTO, compraExistente = null, cxp = null } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
@@ -88,14 +88,8 @@ function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINE
     }
     if (/INSERT INTO precio_historico/.test(texto)) return { rows: [{ id: 1 }] };
     if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
-    if (/FROM cuentas_por_pagar WHERE factura_id = \$1 FOR UPDATE/.test(texto)) {
-      return { rows: cxp ? [{ ...cxp }] : [] };
-    }
-    if (/FROM nota_credito_aplicacion WHERE cuenta_por_pagar_id/.test(texto)) {
-      return { rows: [{ total: String(creditoAplicado) }] };
-    }
     if (/UPDATE cuentas_por_pagar/.test(texto)) {
-      return { rows: [{ ...cxp, liberada: true, saldo_pendiente: params[1], compra_id: params[2] }] };
+      return { rows: cxp ? [{ ...cxp, liberada: true, compra_id: params[1] }] : [] };
     }
     if (/UPDATE facturas_proveedores SET estado/.test(texto)) return { rows: [], rowCount: 1 };
     return { rows: [], rowCount: 1 };

@@ -5,6 +5,7 @@
 
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
 const notasCreditoService = require('../../../services/notasCreditoService');
+const pagosProveedor = require('./pagosProveedor.service');
 
 /**
  * GET /pagos-proveedores
@@ -88,12 +89,43 @@ async function actualizarCuenta(req, res) {
       data: cuenta
     });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     console.error('❌ Error actualizando cuenta por pagar:', error);
     res.status(500).json({
       success: false,
       message: 'Error actualizando cuenta por pagar',
       error: error.message
     });
+  }
+}
+
+// ==================== Pagos ====================
+
+/**
+ * POST /pagos-proveedores/pagos
+ * { aplicaciones: [{ cuentaPorPagarId, monto | pagarTodo }], cuentaDineroId,
+ *   metodoPagoId, referencia?, fecha?, observaciones? }
+ */
+async function registrarPago(req, res) {
+  try {
+    const pago = await pagosProveedor.registrarPago(req.body || {}, req.usuario?.id);
+    res.status(201).json({ success: true, data: pago });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('❌ Error registrando pago a proveedor:', error);
+    res.status(500).json({ success: false, message: 'Error registrando el pago' });
+  }
+}
+
+/** POST /pagos-proveedores/pagos/:id/anular  { motivo } */
+async function anularPago(req, res) {
+  try {
+    const pago = await pagosProveedor.anularPago(req.params.id, req.body || {}, req.usuario?.id);
+    res.json({ success: true, data: pago });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('❌ Error anulando pago a proveedor:', error);
+    res.status(500).json({ success: false, message: 'Error anulando el pago' });
   }
 }
 
@@ -211,6 +243,8 @@ module.exports = {
   listarCuentas,
   listarProveedoresConCuentas,
   actualizarCuenta,
+  registrarPago,
+  anularPago,
   listarNotasHuerfanas,
   listarSaldosAFavor,
   listarCandidatas,
