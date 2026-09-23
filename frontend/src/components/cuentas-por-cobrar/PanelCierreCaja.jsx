@@ -14,9 +14,34 @@ import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
  * cuadra contra el banco, no contando billetes.
  *
  * Y una diferencia NO SE PUEDE GUARDAR SIN EXPLICARLA. Un faltante sin motivo
- * es un faltante; con motivo es un hecho ("se pagó un flete de la caja").
+ * es un faltante; con motivo es un hecho.
+ *
+ * LO QUE SALIÓ DE LA CAJA YA VIENE RESTADO (migración 026): un pago a un
+ * proveedor o un gasto pagado desde "Caja general" baja lo que debería haber,
+ * y se muestra qué fue, para que el número se pueda explicar.
  */
-export default function PanelCierreCaja({ fecha, efectivoEsperado, cierre, onCambio }) {
+function DesgloseSalidas({ cobrado, salidas }) {
+  if (!salidas?.length) return null
+  const total = salidas.reduce((s, x) => s + Number(x.monto || 0), 0)
+  return (
+    <div className="mt-3 rounded-xl border border-neutro-100 bg-neutro-50 p-3 text-sm">
+      <div className="flex justify-between text-neutro-600">
+        <span>Cobrado en efectivo</span><span className="font-semibold">{formatCurrency(cobrado)}</span>
+      </div>
+      {salidas.map((x) => (
+        <div key={`${x.tipo}-${x.id}`} className="flex justify-between text-neutro-500">
+          <span className="truncate pr-2">− {x.tipo === 'proveedor' ? 'Pago a' : 'Gasto:'} {x.descripcion}</span>
+          <span>−{formatCurrency(x.monto)}</span>
+        </div>
+      ))}
+      <div className="mt-1 flex justify-between border-t border-neutro-200 pt-1 font-semibold text-neutro-800">
+        <span>Salió de la caja</span><span>−{formatCurrency(total)}</span>
+      </div>
+    </div>
+  )
+}
+
+export default function PanelCierreCaja({ fecha, efectivoEsperado, efectivoCobrado, salidas, cierre, onCambio }) {
   const [contado, setContado] = useState('')
   const [motivo, setMotivo] = useState('')
   const [observaciones, setObservaciones] = useState('')
@@ -85,7 +110,12 @@ export default function PanelCierreCaja({ fecha, efectivoEsperado, cierre, onCam
         </div>
 
         <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-          <p className="text-neutro-500">Esperado <strong className="block text-neutro-800">{formatCurrency(cierre.efectivoEsperado)}</strong></p>
+          <p className="text-neutro-500">
+            Esperado <strong className="block text-neutro-800">{formatCurrency(cierre.efectivoEsperado)}</strong>
+            {cierre.salidasEfectivo > 0 && (
+              <span className="block text-xs">ya restados {formatCurrency(cierre.salidasEfectivo)} que salieron de la caja</span>
+            )}
+          </p>
           <p className="text-neutro-500">Contado <strong className="block text-neutro-800">{formatCurrency(cierre.efectivoContado)}</strong></p>
           <p className="text-neutro-500">Diferencia <strong className="block text-neutro-800">{formatCurrency(cierre.diferencia)}</strong></p>
         </div>
@@ -135,6 +165,8 @@ export default function PanelCierreCaja({ fecha, efectivoEsperado, cierre, onCam
       <p className="mt-0.5 text-sm text-neutro-500">
         Se cuenta solo el efectivo. SINPE, transferencias y tarjetas se cuadran contra el banco.
       </p>
+
+      <DesgloseSalidas cobrado={efectivoCobrado} salidas={salidas} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div>

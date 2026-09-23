@@ -126,6 +126,11 @@ export async function getCobrosDia(fecha) {
       cantidadCobros: d?.resumen?.cantidad ?? 0,
       anulados: d?.resumen?.anulados ?? 0,
       efectivoEsperado: d?.resumen?.efectivoEsperado ?? 0,
+      // Cobrado en efectivo − lo que salió de la caja (pagos a proveedores y
+      // gastos) = lo que debería haber. Ver migración 026.
+      efectivoCobrado: d?.resumen?.efectivoCobrado ?? 0,
+      salidasEfectivo: d?.resumen?.salidasEfectivo ?? 0,
+      salidas: d?.salidas ?? [],
       porMetodo: Object.fromEntries(
         (d?.resumen?.porMetodo ?? []).map((m) => [m.clave, { monto: m.monto, cantidad: m.cantidad, nombre: m.metodo }])
       )

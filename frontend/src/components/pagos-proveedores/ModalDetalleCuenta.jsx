@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Ban, CalendarDays, CheckCircle2, CreditCard, Landmark, Loader2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/pagosProveedoresUtils'
-import { getOpcionesPago } from '../../services/pagosProveedoresService'
+import { getOpcionesPago } from '../../services/configuracionService'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
 import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'

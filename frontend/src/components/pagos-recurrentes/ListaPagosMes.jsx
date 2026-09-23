@@ -1,17 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Undo2, Loader2, CalendarX, Receipt } from 'lucide-react'
 import { formatCurrency, formatFecha, formatFechaHora, categoriaInfo, quincenaLabel } from '../../utils/pagosRecurrentesUtils'
+import { getOpcionesPago } from '../../services/configuracionService'
 
 /**
  * Los pagos que caen en el mes. Cada fila pendiente trae su propio campo de
  * monto ya cargado con el estimado: el caso normal es que la luz llegue por
  * un monto distinto al presupuestado, así que se corrige y se marca pagado
  * en un solo gesto, sin abrir nada.
+ *
+ * Y dice DE QUÉ CUENTA salió (migración 025), para que la caja y el banco se
+ * puedan cuadrar. La fila trae elegida la cuenta que se usó la última vez
+ * para ese mismo gasto, así que sigue siendo un solo gesto.
  */
-function FilaPago({ pago, onPagar, onRevertir }) {
+function FilaPago({ pago, cuentas, onPagar, onRevertir }) {
   // Vacío (no '0') mientras se espera la consulta, para que se vea el
   // placeholder '—' en vez de un cero que parece un monto real.
   const [monto, setMonto] = useState(pago.esperandoConsulta ? '' : String(pago.monto ?? ''))
+  const [cuentaId, setCuentaId] = useState(pago.cuentaSugeridaId ? String(pago.cuentaSugeridaId) : '')
   const [guardando, setGuardando] = useState(false)
   const info = categoriaInfo(pago.categoria)
   const quincena = quincenaLabel(pago.periodo)
@@ -19,7 +25,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
   const pagar = async () => {
     setGuardando(true)
     try {
-      await onPagar(pago, monto)
+      await onPagar(pago, monto, Number(cuentaId))
     } finally {
       setGuardando(false)
     }
@@ -47,7 +53,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
         <p className="text-xs text-neutro-500 mt-0.5">
           {pago.proveedor && <>{pago.proveedor} · </>}
           Vence {formatFecha(pago.fechaVencimiento)}
-          {pagado && <> · pagado {formatFecha(pago.fechaPago)}</>}
+          {pagado && <> · pagado {formatFecha(pago.fechaPago)}{pago.cuentaNombre && <> de {pago.cuentaNombre}</>}</>}
         </p>
         {/* Trazabilidad del recibo traído por la consulta automática: sin
             esto el monto aparece "por arte de magia" y no hay forma de
@@ -81,7 +87,18 @@ function FilaPago({ pago, onPagar, onRevertir }) {
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <select
+            value={cuentaId}
+            onChange={(e) => setCuentaId(e.target.value)}
+            aria-label="De qué cuenta sale"
+            className={`py-2 px-2 border-2 rounded-xl text-sm font-semibold focus:outline-none focus:border-primario-500 ${
+              cuentaId ? 'border-neutro-200 text-neutro-800' : 'border-alerta-200 text-neutro-500'
+            }`}
+          >
+            <option value="" disabled>¿De qué cuenta?</option>
+            {cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
           <div className="relative">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-neutro-400 font-bold">₡</span>
             <input
@@ -98,7 +115,8 @@ function FilaPago({ pago, onPagar, onRevertir }) {
           </div>
           <button
             onClick={pagar}
-            disabled={guardando}
+            disabled={guardando || !cuentaId}
+            title={cuentaId ? undefined : 'Elegí de qué cuenta sale el pago'}
             className="bg-primario-600 hover:bg-primario-700 disabled:bg-neutro-200 text-white text-sm font-bold py-2 px-4 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap"
           >
             {guardando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
@@ -111,6 +129,13 @@ function FilaPago({ pago, onPagar, onRevertir }) {
 }
 
 export default function ListaPagosMes({ pagos, loading, onPagar, onRevertir }) {
+  const [cuentas, setCuentas] = useState([])
+  useEffect(() => {
+    let cancelado = false
+    getOpcionesPago().then((o) => { if (!cancelado) setCuentas(o.cuentas) }).catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
   return (
     <div className="card !p-0 overflow-hidden">
       <div className="px-5 py-4 border-b border-neutro-100 flex items-center justify-between">
@@ -126,7 +151,7 @@ export default function ListaPagosMes({ pagos, loading, onPagar, onRevertir }) {
       ) : (
         <div className="divide-y divide-neutro-100">
           {pagos.map(p => (
-            <FilaPago key={p.id} pago={p} onPagar={onPagar} onRevertir={onRevertir} />
+            <FilaPago key={p.id} pago={p} cuentas={cuentas} onPagar={onPagar} onRevertir={onRevertir} />
           ))}
         </div>
       )}

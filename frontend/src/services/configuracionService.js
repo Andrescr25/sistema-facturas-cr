@@ -41,3 +41,19 @@ export const configuracionService = {
 export function mensajeDeError(error, porDefecto) {
   return error?.response?.data?.message || error?.response?.data?.error || porDefecto
 }
+
+/**
+ * De dónde puede salir un pago (cuentas de dinero) y cómo (métodos), del
+ * catálogo propio. Solo lo activo. La usan Pagos a Proveedores y Pagos
+ * Recurrentes: los dos registran plata que sale de una cuenta.
+ */
+export async function getOpcionesPago() {
+  const response = await api.get('/catalogos/configuracion')
+  const datos = response.data?.data ?? response.data ?? {}
+  return {
+    cuentas: (datos.cuentas ?? []).map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo })),
+    metodos: (datos.metodosPago ?? []).map((m) => ({
+      id: m.id, clave: m.clave, nombre: m.nombre, pideReferencia: m.pide_referencia
+    }))
+  }
+}

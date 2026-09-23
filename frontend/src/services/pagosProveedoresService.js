@@ -24,20 +24,6 @@ export async function anularPagoProveedor(pagoId, motivo) {
   return response.data
 }
 
-/**
- * De dónde puede salir un pago (cuentas de dinero) y cómo (métodos), del
- * catálogo propio. Solo lo activo.
- */
-export async function getOpcionesPago() {
-  const response = await api.get('/catalogos/configuracion')
-  const datos = response.data?.data ?? response.data ?? {}
-  return {
-    cuentas: (datos.cuentas ?? []).map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo })),
-    metodos: (datos.metodosPago ?? []).map((m) => ({
-      id: m.id, clave: m.clave, nombre: m.nombre, pideReferencia: m.pide_referencia
-    }))
-  }
-}
 
 export async function getProveedoresConCuentas() {
   const response = await api.get('/pagos-proveedores/proveedores')
@@ -70,4 +56,3 @@ export async function eliminarNotaCredito(notaId) {
   const response = await api.delete(`/pagos-proveedores/notas-credito/${notaId}`)
   return response.data
 }
-

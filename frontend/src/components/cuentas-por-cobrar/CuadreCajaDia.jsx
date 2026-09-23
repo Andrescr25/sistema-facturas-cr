@@ -184,6 +184,20 @@ export default function CuadreCajaDia() {
         </div>
       )}
 
+      {/* El cierre va FUERA del bloque de cobros: un día sin cobros pero con
+          plata que salió de la caja (un proveedor pagado en efectivo) también
+          se cuenta y se cierra. */}
+      {!loading && !error && resumen && (
+        <PanelCierreCaja
+          fecha={fecha}
+          efectivoEsperado={resumen.efectivoEsperado}
+          efectivoCobrado={resumen.efectivoCobrado}
+          salidas={resumen.salidas}
+          cierre={cierre}
+          onCambio={recargar}
+        />
+      )}
+
       {/* ── Contenido con datos ── */}
       {!loading && !error && cobros.length > 0 && resumen && (
         <>
@@ -222,13 +236,6 @@ export default function CuadreCajaDia() {
             })}
           </div>
 
-          {/* Lista detallada de cobros */}
-          <PanelCierreCaja
-            fecha={fecha}
-            efectivoEsperado={resumen?.efectivoEsperado}
-            cierre={cierre}
-            onCambio={recargar}
-          />
 
           <div>
             <h3 className="text-sm font-semibold text-neutro-600 mb-3">Detalle de cobros</h3>

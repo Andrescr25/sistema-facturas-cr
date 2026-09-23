@@ -21,13 +21,14 @@ const path = require('path');
 const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
 const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'cuentas-por-cobrar', 'cierreCaja.service.js');
 
-function montar({ metodos = [], cierrePrevio = null } = {}) {
+function montar({ metodos = [], cierrePrevio = null, salidas = [] } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
     log.push({ sql: texto, params });
     if (/FROM cierre_caja WHERE fecha/.test(texto)) return { rows: cierrePrevio ? [{ ...cierrePrevio }] : [] };
     if (/FROM pago p LEFT JOIN metodo_pago/.test(texto) && /GROUP BY/.test(texto)) return { rows: metodos };
+    if (/FROM pago_proveedor pp/.test(texto)) return { rows: salidas };
     if (/INSERT INTO cierre_caja/.test(texto)) {
       const columnas = texto.match(/\(([^)]+)\) VALUES/)[1].split(', ').map(c => c.trim());
       return { rows: [{ id: 9, ...Object.fromEntries(columnas.map((c, i) => [c, params[i]])) }] };
@@ -98,6 +99,29 @@ describe('cerrar el día', () => {
     const { servicio } = montar({ metodos: EFECTIVO_10K, cierrePrevio: { id: 9, fecha: '2026-09-12' } });
     await assert.rejects(servicio.cerrarCaja({ fecha: '2026-09-12', efectivoContado: 10000 }, 4),
       e => e.status === 409 && /reabrirlo/.test(e.message));
+  });
+
+  test('lo que salió de la caja se resta del esperado, y se guarda aparte', async () => {
+    // Se cobraron ₡10.000 en efectivo y se le pagaron ₡3.000 a un proveedor
+    // desde la caja: al contar tiene que haber ₡7.000, no un faltante de 3.000.
+    const { servicio, log } = montar({
+      metodos: EFECTIVO_10K,
+      salidas: [{ tipo: 'proveedor', id: 1, descripcion: 'LIBERTY', monto: '3000.00' }]
+    });
+    await servicio.cerrarCaja({ fecha: '2026-09-12', efectivoContado: 7000 }, 4);
+    const ins = fila(log, /INSERT INTO cierre_caja/);
+    assert.equal(ins.params[1], 7000, 'esperado');
+    assert.equal(ins.params[3], 0, 'diferencia');
+    assert.equal(ins.params[8], 3000, 'salidas_efectivo');
+  });
+
+  test('las salidas se buscan solo en la cuenta de la caja, del día, y sin anulados', async () => {
+    const { servicio, log } = montar({ metodos: EFECTIVO_10K });
+    await servicio.cerrarCaja({ fecha: '2026-09-12', efectivoContado: 10000 }, 4);
+    const consulta = fila(log, /FROM pago_proveedor pp/);
+    assert.match(consulta.sql, /pp\.anulado = FALSE/);
+    assert.match(consulta.sql, /pr\.estado = 'pagado'/);
+    assert.deepEqual(consulta.params, ['2026-09-12', 'Caja general']);
   });
 
   test('los cobros ANULADOS no cuentan como efectivo esperado', async () => {

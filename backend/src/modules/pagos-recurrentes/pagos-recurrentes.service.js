@@ -14,6 +14,7 @@
  */
 
 const { query } = require('../../../config/database');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const acueductos = require('./scrapers/acueductos.adapter');
 const iceElectricidad = require('./scrapers/ice-electricidad.adapter');
 const facturasRecibidas = require('./scrapers/facturas-recibidas.adapter');
@@ -354,6 +355,11 @@ function mapPago(row, hoy) {
     fechaPago: row.fecha_pago,
     estado: row.estado,
     metodo: row.metodo,
+    // De qué cuenta salió (migración 025), y la que se usó la última vez para
+    // este mismo gasto: la fila la trae elegida para pagar en un solo gesto.
+    cuentaDineroId: row.cuenta_dinero_id || null,
+    cuentaNombre: row.cuenta_nombre || null,
+    cuentaSugeridaId: row.cuenta_sugerida_id || null,
     notas: row.notas,
     // "Vencido" se calcula acá y no se guarda: es una función de la fecha de
     // hoy, y guardarlo obligaría a un job que lo mantenga al día.
@@ -374,9 +380,16 @@ async function obtenerPeriodo(periodoMes) {
 
   const result = await query(`
     SELECT p.*, g.nombre, g.categoria, g.proveedor, g.frecuencia, g.monto_estimado,
-           g.fuente_auto, g.ultima_consulta
+           g.fuente_auto, g.ultima_consulta,
+           cd.nombre AS cuenta_nombre,
+           (SELECT p2.cuenta_dinero_id
+              FROM pago_recurrente p2
+             WHERE p2.gasto_id = p.gasto_id AND p2.cuenta_dinero_id IS NOT NULL
+             ORDER BY p2.fecha_pago DESC NULLS LAST
+             LIMIT 1) AS cuenta_sugerida_id
     FROM pago_recurrente p
     JOIN gasto_recurrente g ON g.id = p.gasto_id
+    LEFT JOIN cuenta_dinero cd ON cd.id = p.cuenta_dinero_id
     WHERE p.periodo LIKE $1 || '%'
     ORDER BY p.estado ASC, p.fecha_vencimiento ASC NULLS LAST, g.nombre ASC;
   `, [periodoMes]);
@@ -437,30 +450,58 @@ async function actualizarPago(id, { monto, fechaVencimiento, metodo, notas }) {
   return result.rows[0];
 }
 
+/** El método que corresponde al tipo de cuenta, si no se eligió otro. */
+const METODO_POR_TIPO = { efectivo: 'efectivo', banco: 'transferencia', tarjeta_credito: 'tarjeta_credito' };
+
 /**
  * Marca un pago como hecho. El monto es opcional: si viene, reemplaza al
  * estimado — el caso normal es que la luz venga distinta de lo presupuestado
  * y ese número real es justamente el que interesa guardar.
+ *
+ * SALE DE UNA CUENTA (checklist §9, migración 025): sin eso, lo que salió de
+ * la caja o del banco no se puede cuadrar. El método, si no viene, se deduce
+ * del tipo de cuenta (caja → efectivo, banco → transferencia).
+ *
+ * La fecha por omisión es el día de COSTA RICA, no `CURRENT_DATE`: en una
+ * base en UTC (la de producción lo es) eso es mañana después de las 6 p.m.
  */
-async function marcarPagado(id, { monto, fechaPago, metodo, notas } = {}) {
+async function marcarPagado(id, { monto, fechaPago, cuentaDineroId, metodoPagoId, notas } = {}) {
   if (monto !== undefined && monto !== null && monto !== '') {
     const n = Number(monto);
     if (!Number.isFinite(n) || n < 0) throw httpError(400, 'El monto no puede ser negativo.');
   }
+  const cuentaId = Number(cuentaDineroId);
+  if (!cuentaId) throw httpError(400, 'Falta de qué cuenta salió el pago.');
+  const fecha = fechaPago ? String(fechaPago).slice(0, 10) : hoyEnCostaRica();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw httpError(400, 'La fecha del pago no es válida.');
+
+  const cuentas = await query('SELECT id, nombre, tipo FROM cuenta_dinero WHERE id = $1 AND activo = TRUE;', [cuentaId]);
+  const cuenta = cuentas.rows[0];
+  if (!cuenta) throw httpError(400, 'Esa cuenta de dinero no existe o está inactiva.');
+
+  const metodos = metodoPagoId
+    ? await query('SELECT id, nombre FROM metodo_pago WHERE id = $1 AND activo = TRUE;', [Number(metodoPagoId)])
+    : await query('SELECT id, nombre FROM metodo_pago WHERE clave = $1 AND activo = TRUE;', [METODO_POR_TIPO[cuenta.tipo] || '']);
+  const metodo = metodos.rows[0] || null;
+  if (metodoPagoId && !metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
 
   const result = await query(`
     UPDATE pago_recurrente SET
       estado = 'pagado',
       monto = COALESCE($1, monto),
-      fecha_pago = COALESCE($2, CURRENT_DATE),
-      metodo = COALESCE($3, metodo),
-      notas = COALESCE($4, notas)
-    WHERE id = $5
+      fecha_pago = $2,
+      cuenta_dinero_id = $3,
+      metodo_pago_id = $4,
+      metodo = COALESCE($5, metodo),
+      notas = COALESCE($6, notas)
+    WHERE id = $7
     RETURNING *;
   `, [
     monto !== undefined && monto !== null && monto !== '' ? Number(monto) : null,
-    fechaPago || null,
-    metodo || null,
+    fecha,
+    cuenta.id,
+    metodo ? metodo.id : null,
+    metodo ? metodo.nombre : null,
     notas !== undefined ? notas : null,
     id
   ]);
@@ -469,9 +510,11 @@ async function marcarPagado(id, { monto, fechaPago, metodo, notas } = {}) {
   return result.rows[0];
 }
 
+/** Deshacer el pago: vuelve a pendiente y deja de contar como salida de la cuenta. */
 async function revertirPago(id) {
   const result = await query(`
-    UPDATE pago_recurrente SET estado = 'pendiente', fecha_pago = NULL
+    UPDATE pago_recurrente
+       SET estado = 'pendiente', fecha_pago = NULL, cuenta_dinero_id = NULL, metodo_pago_id = NULL
     WHERE id = $1 RETURNING *;
   `, [id]);
   if (result.rows.length === 0) throw httpError(404, 'Pago no encontrado.');

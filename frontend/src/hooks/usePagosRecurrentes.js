@@ -150,9 +150,12 @@ export function usePagosRecurrentes() {
 
   // --- Pagos del mes ---
 
-  const handleMarcarPagado = async (pago, monto) => {
+  const handleMarcarPagado = async (pago, monto, cuentaDineroId) => {
     try {
-      const data = await marcarPagadoApi(pago.id, monto !== undefined && monto !== '' ? { monto } : {})
+      const data = await marcarPagadoApi(pago.id, {
+        ...(monto !== undefined && monto !== '' ? { monto } : {}),
+        cuentaDineroId
+      })
       if (data.success) {
         showToast(`"${pago.nombre}" marcado como pagado.`, 'success')
         await cargarPeriodo(periodo)

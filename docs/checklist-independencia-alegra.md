@@ -453,12 +453,23 @@ proveedor. Dependen poco de Alegra.
   facturas) quedó como `pagado_sin_detalle`, sin inventar pagos. Verificado
   contra la copia local: los 318 saldos calculados igual a los guardados, y
   un pago ZZ de ₡1.000 bajó y devolvió el saldo al anularse (borrado después).
-  *Falta la pantalla: sigue mandando el PATCH viejo*
-- [ ] Registrar los gastos recurrentes como egresos. *La 025 ya agregó
-  `cuenta_dinero_id` y `metodo_pago_id` a `pago_recurrente`; falta usarlos*
-- [ ] Movimientos por cuenta de dinero (lo que entró por cobros menos lo que
-  salió por pagos y gastos) y el cierre de caja restando el efectivo que
-  salió
+  La pantalla (Pagos a Proveedores) registra el pago con cuenta, método y
+  referencia, lista los pagos de cada factura y los anula con motivo
+- [x] **Registrar los gastos recurrentes como egresos (2026-09-23).** Marcar
+  un gasto como pagado exige la cuenta de la que salió; el método se deduce
+  del tipo de cuenta si no se elige (caja → efectivo, banco →
+  transferencia), y la fila trae elegida la cuenta usada la última vez para
+  ese gasto. De paso: la fecha por omisión era `CURRENT_DATE` de la base —en
+  una base UTC, mañana después de las 6 p.m.—; ahora es `hoyEnCostaRica()`
+- [x] **El cierre de caja resta lo que salió de la caja (migración 026).**
+  Pagos a proveedores y gastos pagados desde "Caja general" bajan el
+  esperado, con su detalle en pantalla, y se congelan al cerrar
+  (`cierre_caja.salidas_efectivo`). El panel de cierre ahora aparece también
+  en un día sin cobros. **Pregunta abierta para el usuario:** el cierre no
+  conoce un fondo de caja; un día sin cobros y con un pago desde la caja da
+  un esperado negativo
+- [ ] Movimientos por cuenta de dinero: saldo inicial + lo que entró por
+  cobros − lo que salió por pagos y gastos, por cuenta y por período
 
 **Lista cuando:** entradas y salidas de dinero cuadran por cuenta.
 

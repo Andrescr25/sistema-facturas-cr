@@ -24,6 +24,12 @@
  * 4. UN DÍA NO SE CIERRA DOS VECES. Reabrir se puede, con motivo, y queda
  *    anotado quién y cuándo: si el segundo conteo pudiera pisar al primero en
  *    silencio, el cierre no probaría nada.
+ *
+ * 5. LO QUE SALIÓ DE LA CAJA SE RESTA (migración 026). Un pago a proveedor o
+ *    un gasto recurrente que salió de "Caja general" —la misma cuenta a la
+ *    que entran los cobros— ya no está al contar. Sin restarlo, el cierre
+ *    marcaba un faltante que no existía. Lo que sale de Caja chica o del
+ *    banco no toca este conteo. Se congela al cerrar, igual que el esperado.
  */
 
 const { pool } = require('../../../config/database');
@@ -38,10 +44,37 @@ const num = (v) => Number(v) || 0;
 
 const FECHA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
 
+// La caja que se cuenta: la misma cuenta a la que entran los cobros
+// (`cobros.service.js` los registra en 'Caja general').
+const CUENTA_CAJA = 'Caja general';
+
 function diaValido(fecha) {
   const dia = fecha ? String(fecha).slice(0, 10) : hoyEnCostaRica();
   if (!FECHA_VALIDA.test(dia)) throw httpError(400, 'La fecha va como AAAA-MM-DD.');
   return dia;
+}
+
+/**
+ * Lo que salió de la caja en un día: pagos a proveedores vigentes y gastos
+ * recurrentes pagados, desde la cuenta de la caja.
+ */
+async function salidasDeCaja(ejecutor, dia) {
+  const { rows } = await ejecutor.query(
+    `SELECT 'proveedor' AS tipo, pp.id, pp.proveedor_nombre AS descripcion, pp.monto
+       FROM pago_proveedor pp
+       JOIN cuenta_dinero cd ON cd.id = pp.cuenta_dinero_id
+      WHERE pp.fecha = $1::date AND pp.anulado = FALSE AND cd.nombre = $2
+     UNION ALL
+     SELECT 'gasto' AS tipo, pr.id, g.nombre AS descripcion, pr.monto
+       FROM pago_recurrente pr
+       JOIN gasto_recurrente g ON g.id = pr.gasto_id
+       JOIN cuenta_dinero cd ON cd.id = pr.cuenta_dinero_id
+      WHERE pr.fecha_pago = $1::date AND pr.estado = 'pagado' AND cd.nombre = $2
+      ORDER BY 1, 2`,
+    [dia, CUENTA_CAJA]
+  );
+  const salidas = rows.map(r => ({ tipo: r.tipo, id: r.id, descripcion: r.descripcion, monto: num(r.monto) }));
+  return { salidas, total: dinero(salidas.reduce((s, r) => s + r.monto, 0)) };
 }
 
 /**
@@ -89,17 +122,22 @@ async function resumenDelDia(fecha) {
   }));
 
   const efectivo = porMetodo.get('efectivo');
+  const efectivoCobrado = efectivo ? efectivo.monto : 0;
+  const { salidas, total: salidasEfectivo } = await salidasDeCaja(pool, dia);
 
   return {
     fecha: dia,
     cobros,
+    salidas,
     resumen: {
       total: dinero(vigentes.reduce((s, r) => s + num(r.monto), 0)),
       cantidad: vigentes.length,
       anulados: rows.length - vigentes.length,
       porMetodo: [...porMetodo.values()].sort((a, b) => b.monto - a.monto),
-      // Lo que la caja debería tener en billetes.
-      efectivoEsperado: efectivo ? efectivo.monto : 0
+      efectivoCobrado,
+      salidasEfectivo,
+      // Lo que la caja debería tener en billetes: lo cobrado menos lo que salió.
+      efectivoEsperado: dinero(efectivoCobrado - salidasEfectivo)
     },
     cierre: await cierreDe(dia)
   };
@@ -111,6 +149,7 @@ function aVista(c) {
   return {
     id: c.id, fecha: c.fecha,
     efectivoEsperado: num(c.efectivo_esperado),
+    salidasEfectivo: num(c.salidas_efectivo),
     efectivoContado: num(c.efectivo_contado),
     diferencia: num(c.diferencia),
     totalPorMetodo: c.total_por_metodo,
@@ -168,7 +207,9 @@ async function cerrarCaja(datos = {}, usuarioId = null) {
     const porMetodo = metodos.map(m => ({
       clave: m.clave, metodo: m.metodo, monto: dinero(m.monto), cantidad: m.cantidad
     }));
-    const esperado = dinero((porMetodo.find(m => m.clave === 'efectivo') || {}).monto || 0);
+    const cobrado = dinero((porMetodo.find(m => m.clave === 'efectivo') || {}).monto || 0);
+    const { total: salidasEfectivo } = await salidasDeCaja(cliente, dia);
+    const esperado = dinero(cobrado - salidasEfectivo);
     const diferencia = dinero(contado - esperado);
 
     // Un faltante sin explicación es un faltante; con explicación es un hecho.
@@ -183,19 +224,19 @@ async function cerrarCaja(datos = {}, usuarioId = null) {
     const { rows } = await cliente.query(
       `INSERT INTO cierre_caja
          (fecha, efectivo_esperado, efectivo_contado, diferencia, total_por_metodo,
-          observaciones, motivo_diferencia, cerrado_por)
-       VALUES ($1::date, $2, $3, $4, $5::jsonb, $6, $7, $8)
+          observaciones, motivo_diferencia, cerrado_por, salidas_efectivo)
+       VALUES ($1::date, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
        RETURNING *`,
       [
         dia, esperado, contado, diferencia, JSON.stringify(porMetodo),
         datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null,
-        motivo || null, usuarioId
+        motivo || null, usuarioId, salidasEfectivo
       ]
     );
 
     await registrarCambio(cliente, {
       entidad: 'cierre_caja', entidadId: rows[0].id, accion: 'crear',
-      despues: { fecha: dia, esperado, contado, diferencia, motivo: motivo || null },
+      despues: { fecha: dia, esperado, salidas: salidasEfectivo, contado, diferencia, motivo: motivo || null },
       usuarioId
     });
 
