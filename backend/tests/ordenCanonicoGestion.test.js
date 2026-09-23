@@ -24,10 +24,27 @@ const path = require('path');
 const FUENTE = fs.readFileSync(
   path.join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'catalogoAgentePersonalizacion.js'), 'utf8');
 
-const { partirPorSubcategoria, ordenDeCategorias } = new Function(
+const { partirPorSubcategoria, ordenDeCategorias, compararSubcategorias } = new Function(
   `${FUENTE.replace(/^export /gm, '')}
-   return { partirPorSubcategoria, ordenDeCategorias };`
+   return { partirPorSubcategoria, ordenDeCategorias, compararSubcategorias };`
 )();
+
+describe('compararSubcategorias: el orden de las secciones, igual en las dos pantallas', () => {
+  test('el orden manual manda', () => {
+    const lista = [{ nombre: 'PVC 3/4', orden: 1 }, { nombre: 'PVC 1/2', orden: 0 }].sort(compararSubcategorias);
+    assert.deepEqual(lista.map((s) => s.nombre), ['PVC 1/2', 'PVC 3/4']);
+  });
+
+  test('empatadas, los números van en su lugar ("PVC 2" antes que "PVC 10")', () => {
+    const lista = [{ nombre: 'PVC 10', orden: 0 }, { nombre: 'PVC 2', orden: 0 }].sort(compararSubcategorias);
+    assert.deepEqual(lista.map((s) => s.nombre), ['PVC 2', 'PVC 10']);
+  });
+
+  test('lo que no tiene orden va después de lo que sí', () => {
+    const lista = [{ nombre: 'A', orden: null }, { nombre: 'Z', orden: 5 }].sort(compararSubcategorias);
+    assert.deepEqual(lista.map((s) => s.nombre), ['Z', 'A']);
+  });
+});
 
 const pvc = (id, nombre, sub) => ({
   id, name: nombre,

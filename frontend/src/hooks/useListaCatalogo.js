@@ -1,49 +1,58 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../services/api'
-import { partirPorSubcategoria } from '../utils/catalogoAgentePersonalizacion'
+import { compararSubcategorias, normalizarTexto } from '../utils/catalogoAgentePersonalizacion'
 
-// Solo se demora la búsqueda de texto (para no mandar una petición por
-// tecla, el bug arrastrado de la pantalla vieja): cambiar de categoría en el
-// riel dispara al toque, no hay nada que esperar.
+// Solo se demora la búsqueda global (para no mandar una petición por tecla,
+// el bug arrastrado de la pantalla vieja): entrar a una categoría dispara al
+// toque, no hay nada que esperar.
 const RETRASO_BUSQUEDA_MS = 300
-// La búsqueda es un atajo GLOBAL sobre todo el catálogo (como la del
-// catálogo del agente: descarta el agrupado y muestra una lista plana). No
-// es el camino principal de trabajo —ese es el riel—, así que un límite
-// generoso alcanza sin tener que paginar.
+// La búsqueda es un atajo sobre todo el catálogo, como la del catálogo del
+// agente: descarta el agrupado y muestra una lista plana.
 const LIMITE_BUSQUEDA_GLOBAL = 100
 
 /**
- * Los productos de la categoría/subcategoría activa (o de una búsqueda
- * global), agrupados en el MISMO orden canónico que el catálogo del agente
- * — ver partirPorSubcategoria en catalogoAgentePersonalizacion.js.
+ * Los productos de lo que se está mirando.
  *
- * UN SOLO EFECTO, NO DOS ENCADENADOS: la pantalla vieja perdía la página al
- * cambiar cualquier filtro con un efecto aparte, y eso disparaba una
- * petición de más en cada cambio.
+ *   · Dentro de una categoría: TODOS sus productos (GET /productos-de-categoria),
+ *     repartidos en secciones por subcategoría. Las secciones salen del
+ *     árbol —no de los productos— para que aparezcan también las
+ *     subcategorías vacías: si no, una recién creada no se vería y no habría
+ *     dónde renombrarla, moverla o borrarla. El orden es el del agente
+ *     (compararSubcategorias, la misma función que usa partirPorSubcategoria),
+ *     y "Sin clasificar" siempre al final.
+ *   · En la cuadrícula, con texto en el buscador: búsqueda en todo el catálogo.
+ *
+ * UN SOLO EFECTO, NO DOS ENCADENADOS: la pantalla vieja disparaba una
+ * petición de más en cada cambio de filtro por tener dos.
  */
 export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
   const [busqueda, setBusqueda] = useState('')
+  const [filtroTexto, setFiltroTexto] = useState('')
   const [soloSinImagen, setSoloSinImagen] = useState(false)
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(false)
   const [recargarNonce, setRecargarNonce] = useState(0)
 
-  const busquedaActiva = busqueda.trim().length > 0
+  const busquedaActiva = !categoriaActiva && busqueda.trim().length > 0
   const idPedidoRef = useRef(0)
+
+  // El filtro de adentro es de ESA categoría: al cambiar de una a otra no se arrastra.
+  useEffect(() => { setFiltroTexto('') }, [categoriaActiva])
 
   useEffect(() => {
     const miId = ++idPedidoRef.current
 
-    if (!busquedaActiva && !categoriaActiva) {
+    if (!categoriaActiva && !busquedaActiva) {
       setProductos([])
+      setLoading(false)
       return
     }
 
     const disparar = () => {
       setLoading(true)
-      const pedido = busquedaActiva
-        ? api.get('/alegra/catalog/productos', { params: { search: busqueda.trim(), limit: LIMITE_BUSQUEDA_GLOBAL } })
-        : api.get('/alegra/catalog/productos-de-categoria', { params: { categoria: categoriaActiva } })
+      const pedido = categoriaActiva
+        ? api.get('/alegra/catalog/productos-de-categoria', { params: { categoria: categoriaActiva } })
+        : api.get('/alegra/catalog/productos', { params: { search: busqueda.trim(), limit: LIMITE_BUSQUEDA_GLOBAL } })
 
       pedido
         .then(({ data }) => {
@@ -60,7 +69,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
         })
     }
 
-    if (busquedaActiva) {
+    if (!categoriaActiva) {
       const t = setTimeout(disparar, RETRASO_BUSQUEDA_MS)
       return () => clearTimeout(t)
     }
@@ -70,47 +79,69 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
 
   const recargar = useCallback(() => setRecargarNonce((n) => n + 1), [])
 
-  const productosFiltrados = useMemo(
-    () => (soloSinImagen ? productos.filter((p) => !p.imageUrl) : productos),
-    [productos, soloSinImagen]
+  const categoria = useMemo(
+    () => arbol.find((c) => c.name === categoriaActiva) || null,
+    [arbol, categoriaActiva]
   )
 
-  // El orden de las subcategorías dentro del bloque sale del riel (ya viene
-  // en orden canónico desde GET /arbol), no de un criterio propio acá.
-  const configParaPartir = useMemo(() => {
-    const cat = arbol.find((c) => c.name === categoriaActiva)
-    if (!cat) return null
-    return { subcategorias: cat.subcategorias.map((s) => ({ categoria: categoriaActiva, nombre: s.nombre, orden: s.orden })) }
-  }, [arbol, categoriaActiva])
+  const subsOrdenadas = useMemo(
+    () => [...(categoria?.subcategorias || [])].sort(compararSubcategorias),
+    [categoria]
+  )
 
-  /**
-   * `null` cuando el llamador debe usar la lista plana `productosFiltrados`
-   * (modo búsqueda, igual que el catálogo del agente descarta el agrupado).
-   * Si no, un arreglo de bloques `{nombre, productos, sinClasificar?}`.
-   */
-  const bloques = useMemo(() => {
-    if (busquedaActiva || !categoriaActiva) return null
+  const hayFiltro = Boolean(filtroTexto.trim()) || soloSinImagen
 
-    if (subFoco === 'sin') {
-      const sueltos = productosFiltrados.filter((p) => !p.subcategoria)
-      return sueltos.length ? [{ nombre: 'Sin clasificar', productos: sueltos, sinClasificar: true }] : []
+  const secciones = useMemo(() => {
+    if (!categoriaActiva) return []
+
+    const texto = normalizarTexto(filtroTexto)
+    const visibles = productos.filter((p) =>
+      (!soloSinImagen || !p.imageUrl) &&
+      (!texto || normalizarTexto(`${p.name} ${p.reference || ''}`).includes(texto)))
+
+    const porSub = new Map()
+    const sueltos = []
+    for (const p of visibles) {
+      if (!p.subcategoria) { sueltos.push(p); continue }
+      if (!porSub.has(p.subcategoria.id)) porSub.set(p.subcategoria.id, [])
+      porSub.get(p.subcategoria.id).push(p)
     }
-    if (typeof subFoco === 'number') {
-      const propios = productosFiltrados.filter((p) => p.subcategoria?.id === subFoco)
-      const nombreSub = arbol.find((c) => c.name === categoriaActiva)?.subcategorias.find((s) => s.id === subFoco)?.nombre
-      return propios.length ? [{ nombre: nombreSub || 'Subcategoría', productos: propios }] : []
+
+    const lista = subsOrdenadas.map((s) => ({
+      clave: `s${s.id}`, sub: s, nombre: s.nombre, productos: porSub.get(s.id) || []
+    }))
+
+    // Productos colgados de una subcategoría que el árbol no trae (una
+    // desactivada): no se esconden, tienen su propia sección.
+    const conocidas = new Set(subsOrdenadas.map((s) => s.id))
+    for (const [id, lista2] of porSub) {
+      if (conocidas.has(id)) continue
+      const nombre = lista2[0].subcategoria.nombre
+      lista.push({ clave: `s${id}`, sub: { id, nombre, productos: lista2.length, inactiva: true }, nombre: `${nombre} (desactivada)`, productos: lista2 })
     }
-    return partirPorSubcategoria(
-      { [categoriaActiva]: productosFiltrados }, configParaPartir, { sinClasificarSiempre: true }
-    )[categoriaActiva] || []
-  }, [productosFiltrados, categoriaActiva, subFoco, configParaPartir, busquedaActiva, arbol])
+
+    lista.push({ clave: 'sin', sub: null, nombre: 'Sin clasificar', sinClasificar: true, productos: sueltos })
+
+    let resultado = lista
+    if (subFoco === 'sin') resultado = lista.filter((s) => s.sinClasificar)
+    else if (typeof subFoco === 'number') resultado = lista.filter((s) => s.sub?.id === subFoco)
+
+    // Sin filtros se ven también las subcategorías vacías (para administrarlas);
+    // "Sin clasificar" vacío no dice nada y no se muestra.
+    return resultado.filter((s) => s.productos.length > 0 || (!hayFiltro && !s.sinClasificar))
+  }, [productos, categoriaActiva, subsOrdenadas, filtroTexto, soloSinImagen, subFoco, hayFiltro])
+
+  const resultados = useMemo(
+    () => (busquedaActiva ? productos.filter((p) => !soloSinImagen || !p.imageUrl) : []),
+    [busquedaActiva, productos, soloSinImagen]
+  )
 
   /** Actualización local, para reflejar al toque una acción ya confirmada por el servidor. */
   const patchProducto = useCallback((alegraId, cambios) => {
     setProductos((prev) => prev.map((p) => (p.alegraId === alegraId ? { ...p, ...cambios } : p)))
   }, [])
 
-  /** Cuando un producto deja de pertenecer a lo que se está mirando (cambió de categoría, o se movió de bloque). */
+  /** Cuando un producto deja de pertenecer a lo que se está mirando. */
   const quitarProductos = useCallback((alegraIds) => {
     const fuera = new Set(alegraIds)
     setProductos((prev) => prev.filter((p) => !fuera.has(p.alegraId)))
@@ -118,9 +149,13 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
 
   return {
     busqueda, setBusqueda, busquedaActiva,
+    filtroTexto, setFiltroTexto,
     soloSinImagen, setSoloSinImagen,
-    productos: productosFiltrados,
-    bloques,
+    hayFiltro,
+    categoria,
+    subsOrdenadas,
+    secciones,
+    resultados,
     loading,
     recargar,
     patchProducto,

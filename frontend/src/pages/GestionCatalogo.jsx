@@ -1,40 +1,52 @@
-import { useEffect, useState } from 'react'
-import { Image as ImageIcon, RefreshCw, ExternalLink, Link as LinkIcon } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, ExternalLink, ImageOff, Layers, Link as LinkIcon, Package, RefreshCw, Search, X } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../hooks/useToast'
+import { useDialog } from '../hooks/useDialog'
 import { useTaxonomiaCatalogo } from '../hooks/useTaxonomiaCatalogo'
 import { useListaCatalogo } from '../hooks/useListaCatalogo'
 import { useSeleccionLote } from '../hooks/useSeleccionLote'
 import { useFichaCatalogo } from '../hooks/useFichaCatalogo'
 import { useAccionesLote } from '../hooks/useAccionesLote'
-import Toast from '../components/Toast'
-import RielTaxonomia from '../components/gestion-catalogo/RielTaxonomia'
-import BarraBusqueda from '../components/gestion-catalogo/BarraBusqueda'
-import ListaProductos from '../components/gestion-catalogo/ListaProductos'
+import ToastContainer from '../components/ToastContainer'
+import ConfirmModal from '../components/ConfirmModal'
+import Boton from '../components/ui/Boton'
+import TarjetasResumen from '../components/pagos/TarjetasResumen'
+import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
+import CuadriculaCategorias from '../components/gestion-catalogo/CuadriculaCategorias'
+import DetalleCategoria from '../components/gestion-catalogo/DetalleCategoria'
+import ResultadosBusqueda from '../components/gestion-catalogo/ResultadosBusqueda'
 import BarraLote from '../components/gestion-catalogo/BarraLote'
 import ModalSugerirImagen from '../components/ModalSugerirImagen'
 import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
 import ModalProducto from '../components/gestion-catalogo/ModalProducto'
 
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
+
 /**
- * Gestión de Catálogo — rediseño total (2026-09-21).
+ * Gestión de Catálogo, con la forma del resto del sistema (Cuentas por
+ * Cobrar, el reporte de proveedores): título, tarjetas de resumen que sirven
+ * de filtro, una tarjeta grande por categoría —con sus subcategorías
+ * adentro— y, al entrar a una, sus subcategorías como tarjetas con sus
+ * productos.
  *
- * ANTES: una grilla plana de 2.000+ productos paginada de 24 en 24, con el
- * filtro de subcategoría roto y ninguna acción en lote. Clasificar un
- * producto costaba ~5 pasos, y no había forma de ver de un vistazo qué
- * faltaba.
+ * TODO EN EL ORDEN DEL AGENTE: las categorías como vienen de GET /arbol
+ * (categoria_config.orden) y las subcategorías con compararSubcategorias, la
+ * misma función que usa el catálogo del agente. Lo que se acomoda acá es lo
+ * que el agente ve.
  *
- * AHORA: un riel a la izquierda con la taxonomía completa EN EL MISMO ORDEN
- * QUE VE EL AGENTE (ver useTaxonomiaCatalogo y catalogoAgentePersonalizacion.js
- * — no hay una segunda implementación del orden), con "Sin clasificar"
- * siempre visible como punto de entrada. A la derecha, todos los productos de
- * lo seleccionado, agrupados igual, con selección múltiple y dos acciones en
- * lote (mover a subcategoría, instantáneo; cambiar de categoría, que escribe
- * en Alegra y corre en segundo plano).
+ * Las dos tareas que más tiempo llevan tienen su atajo en las tarjetas de
+ * arriba: "Sin clasificar" deja solo las categorías con productos por
+ * acomodar y entra directo a ellos; "Sin foto" hace lo mismo con las fotos.
  */
 export default function GestionCatalogo() {
-  const [toast, setToast] = useState(null)
+  const { toasts, showToast, removeToast } = useToast()
+  const { confirm, dialogProps } = useDialog()
+  const mostrarToast = useCallback((type, message) => showToast(message, type), [showToast])
   const [syncing, setSyncing] = useState(false)
-  const mostrarToast = (type, message) => setToast({ type, message })
+  // Mismo formato que usan las tarjetas de Cuentas por Cobrar: `estado` es el
+  // atajo elegido (todos | sinClasificar | sinFoto).
+  const [vista, setVista] = useState({ estado: 'todos', dias: 'todos' })
 
   const taxonomia = useTaxonomiaCatalogo()
   const { arbol, loadingArbol, categoriaActiva, subFoco } = taxonomia
@@ -42,12 +54,17 @@ export default function GestionCatalogo() {
   const lista = useListaCatalogo({ arbol, categoriaActiva, subFoco })
   const seleccion = useSeleccionLote()
 
-  // Cambiar de categoría, de foco o de búsqueda invalida cualquier selección
-  // anterior: son productos que ya no se están mirando.
+  // Lo seleccionado es de lo que se estaba mirando: al cambiar de lugar se suelta.
   useEffect(() => {
     seleccion.limpiar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoriaActiva, subFoco, lista.busquedaActiva])
+
+  // En la cuadrícula, "Sin foto" también filtra los resultados de búsqueda.
+  useEffect(() => {
+    if (!categoriaActiva) lista.setSoloSinImagen(vista.estado === 'sinFoto')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista.estado, categoriaActiva])
 
   const ficha = useFichaCatalogo({
     arbol,
@@ -62,146 +79,240 @@ export default function GestionCatalogo() {
   const acciones = useAccionesLote({
     arbol,
     patchProducto: lista.patchProducto,
-    quitarProductos: lista.quitarProductos,
     recargarArbol: taxonomia.recargarArbol,
+    recargarLista: lista.recargar,
     mostrarToast
   })
 
-  const moverSeleccionADosubcategoria = async (subcategoriaId) => {
-    const ids = [...seleccion.seleccionados]
-    const ok = await acciones.moverASubcategoria(ids, subcategoriaId)
+  const totales = useMemo(() => arbol.reduce((t, c) => ({
+    productos: t.productos + c.total,
+    sinClasificar: t.sinClasificar + c.sinClasificar,
+    sinImagen: t.sinImagen + (c.sinImagen || 0),
+    subcategorias: t.subcategorias + c.subcategorias.length
+  }), { productos: 0, sinClasificar: 0, sinImagen: 0, subcategorias: 0 }), [arbol])
+
+  const tarjetas = arbol.length ? [
+    { clave: 'productos', titulo: 'Productos', icono: Package, tono: 'neutro', valor: totales.productos, pie: `en ${plural(arbol.length, 'categoría', 'categorías')}` },
+    { clave: 'sinClasificar', titulo: 'Sin clasificar', icono: AlertTriangle, tono: 'alerta', valor: totales.sinClasificar, filtro: { estado: 'sinClasificar' } },
+    { clave: 'sinFoto', titulo: 'Sin foto', icono: ImageOff, tono: 'peligro', valor: totales.sinImagen, filtro: { estado: 'sinFoto' } },
+    { clave: 'subcategorias', titulo: 'Subcategorías', icono: Layers, tono: 'exito', valor: totales.subcategorias }
+  ] : []
+
+  const filtrada = vista.estado !== 'todos'
+  const categoriasVisibles = vista.estado === 'sinClasificar'
+    ? arbol.filter((c) => c.sinClasificar > 0)
+    : vista.estado === 'sinFoto'
+      ? arbol.filter((c) => c.sinImagen > 0)
+      : arbol
+  const otrasCategorias = categoriaActiva ? arbol.filter((c) => c.name !== categoriaActiva) : arbol
+
+  const entrar = (nombre, foco) => {
+    // Con un atajo de arriba elegido, se entra directo a lo pendiente.
+    const focoFinal = foco !== undefined ? foco : (vista.estado === 'sinClasificar' ? 'sin' : null)
+    lista.setSoloSinImagen(vista.estado === 'sinFoto')
+    taxonomia.seleccionarCategoria(nombre, focoFinal)
+    window.scrollTo({ top: 0 })
+  }
+
+  const volver = () => {
+    taxonomia.volverALista()
+    window.scrollTo({ top: 0 })
+  }
+
+  const moverSubcategoria = async (sub, destino) => {
+    const origen = sub.categoriaVisible || sub.categoria
+    const ok = await confirm(
+      `"${sub.nombre}" pasa completa de ${origen} a ${destino.nombreVisible}, con ${plural(sub.productos, 'producto', 'productos')}. ` +
+      'Cada uno cambia de categoría en Alegra (unos segundos por producto) y siguen agrupados en la misma subcategoría.',
+      { title: 'Mover subcategoría', confirmLabel: 'Mover' }
+    )
+    if (!ok) return
+    if (subFoco === sub.id) taxonomia.enfocar(null)
+    acciones.moverSubcategoria(sub, destino)
+  }
+
+  const moverSeleccionASubcategoria = async (subcategoriaId) => {
+    const ok = await acciones.moverASubcategoria([...seleccion.seleccionados], subcategoriaId)
     if (ok) seleccion.limpiar()
   }
 
-  const cambiarCategoriaDeSeleccion = async (categoriaId) => {
+  const cambiarCategoriaDeSeleccion = async (destino) => {
     const ids = [...seleccion.seleccionados]
-    const ok = await acciones.cambiarCategoria(ids, categoriaId)
-    if (ok) seleccion.limpiar()
+    const ok = await confirm(
+      `${plural(ids.length, 'producto pasa', 'productos pasan')} a ${destino.nombreVisible}. ` +
+      'Se cambia la categoría en Alegra, uno por uno, y allá quedan en "Sin clasificar".',
+      { title: 'Cambiar de categoría', confirmLabel: 'Cambiar' }
+    )
+    if (!ok) return
+    if (await acciones.cambiarCategoria(ids, destino)) seleccion.limpiar()
   }
 
-  const handleSyncCatalog = async () => {
+  const eliminarSubcategoria = (id) =>
+    taxonomia.eliminarSubcategoria(categoriaActiva, id).catch((e) => {
+      mostrarToast('error', e?.response?.data?.message || 'No se pudo borrar la subcategoría.')
+    })
+
+  const sincronizar = async () => {
     setSyncing(true)
-    mostrarToast('info', 'Sincronizando inventario con Alegra... Por favor espere.')
+    mostrarToast('info', 'Sincronizando con Alegra… puede tardar unos minutos.')
     try {
       // En producción ya se vio tardar más de 3 minutos con 2000+ productos.
-      const response = await api.post('/alegra/sincronizar/cache-productos', {}, { timeout: 10 * 60 * 1000 })
-      if (response.data?.success) {
-        mostrarToast('success', `Sincronización finalizada. ${response.data.count} productos cargados.`)
+      const { data } = await api.post('/alegra/sincronizar/cache-productos', {}, { timeout: 10 * 60 * 1000 })
+      if (data?.success) {
+        mostrarToast('success', `Sincronización lista: ${data.count} productos.`)
         taxonomia.recargarArbol()
         lista.recargar()
       } else {
-        mostrarToast('error', 'La sincronización de productos falló')
+        mostrarToast('error', 'La sincronización falló.')
       }
     } catch (error) {
       console.error('Sync catalog error:', error)
-      mostrarToast('error', 'Error del servidor durante la sincronización')
+      mostrarToast('error', 'Error del servidor durante la sincronización.')
     } finally {
       setSyncing(false)
     }
   }
 
-  const catalogoAgenteUrl = `${window.location.origin}/catalogo-agente`
-  const handleCopiarLinkCatalogo = async () => {
+  const copiarLink = async () => {
     try {
-      await navigator.clipboard.writeText(catalogoAgenteUrl)
+      await navigator.clipboard.writeText(`${window.location.origin}/catalogo-agente`)
       mostrarToast('success', 'Link del catálogo copiado.')
     } catch {
       mostrarToast('error', 'No se pudo copiar el link.')
     }
   }
 
+  const accionesFila = {
+    onEditar: ficha.openEditProduct,
+    onSugerirFoto: ficha.openImageSuggestions,
+    onDuplicar: ficha.openBrandDuplication
+  }
+
   return (
-    <div className="flex h-[calc(100vh-2rem)] flex-col gap-4">
-      {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
+    <div className="mx-auto max-w-[1400px] space-y-6 pb-48">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <ConfirmModal {...dialogProps} />
 
-      <div className="shrink-0 flex flex-col items-start justify-between gap-4 rounded-xl bg-gradient-to-r from-primario-600 to-primario-700 p-5 text-white shadow-lg md:flex-row md:items-center">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-wide">
-            <ImageIcon className="h-6 w-6" /> Gestión de Catálogo
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-primario-100">Ver catálogo:</span>
-            <a href="/catalogo-agente" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-white underline underline-offset-2 hover:text-primario-100">
-              {catalogoAgenteUrl} <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-            <button onClick={handleCopiarLinkCatalogo} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 transition-colors hover:bg-white/20">
-              <LinkIcon className="h-3.5 w-3.5" /> Copiar link
-            </button>
-          </div>
+          <h1 className="text-3xl font-bold text-neutro-900">Gestión de Catálogo</h1>
+          <p className="mt-1 text-neutro-600">Categorías, subcategorías y fotos — en el mismo orden en que las ve el agente.</p>
         </div>
-
-        <button
-          onClick={handleSyncCatalog}
-          disabled={syncing}
-          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 font-semibold text-primario-600 shadow-md transition-all hover:bg-primario-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Sincronizando...' : 'Sincronizar con Alegra'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Boton variante="secundario" icono={ExternalLink} onClick={() => window.open('/catalogo-agente', '_blank', 'noopener')}>
+            Ver catálogo
+          </Boton>
+          <Boton variante="secundario" icono={LinkIcon} onClick={copiarLink}>Copiar link</Boton>
+          <Boton icono={RefreshCw} cargando={syncing} onClick={sincronizar}>
+            {syncing ? 'Sincronizando…' : 'Sincronizar con Alegra'}
+          </Boton>
+        </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-[18rem_1fr]">
-        <div className="min-h-0 md:h-full">
-          <RielTaxonomia
-            arbol={arbol}
-            loading={loadingArbol}
-            categoriaActiva={categoriaActiva}
-            subFoco={subFoco}
-            onSeleccionarCategoria={taxonomia.seleccionarCategoria}
-            onSeleccionarSub={taxonomia.seleccionarSubcategoria}
-            onSeleccionarSinClasificar={taxonomia.seleccionarSinClasificar}
-            onRenombrarCategoria={taxonomia.renombrarCategoria}
-            onReordenarCategorias={taxonomia.reordenarCategorias}
-            onCrearCategoria={taxonomia.crearCategoria}
-            onCrearSub={taxonomia.crearSubcategoria}
-            onRenombrarSub={taxonomia.renombrarSubcategoria}
-            onReordenarSub={taxonomia.reordenarSubcategorias}
-            onEliminarSub={(categoria, id) => taxonomia.eliminarSubcategoria(categoria, id).catch((e) => {
-              mostrarToast('error', e?.response?.data?.message || 'No se pudo borrar la subcategoría.')
-            })}
-          />
-        </div>
+      {!categoriaActiva ? (
+        <>
+          <TarjetasResumen tarjetas={tarjetas} filtros={vista} setFiltros={setVista} />
 
-        <div className="flex min-h-0 flex-col overflow-y-auto pr-1">
-          <BarraBusqueda
-            busqueda={lista.busqueda}
-            setBusqueda={lista.setBusqueda}
-            soloSinImagen={lista.soloSinImagen}
-            setSoloSinImagen={lista.setSoloSinImagen}
-            total={lista.bloques ? lista.bloques.reduce((n, b) => n + b.productos.length, 0) : lista.productos.length}
-          />
+          <div className="flex flex-col gap-3 rounded-xl border border-neutro-100 bg-white p-4 shadow-sm md:flex-row md:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
+              <input
+                value={lista.busqueda}
+                onChange={(e) => lista.setBusqueda(e.target.value)}
+                placeholder="Buscar un producto en todo el catálogo, por nombre o referencia…"
+                className="w-full rounded-xl border border-neutro-200 bg-neutro-50 py-3 pl-10 pr-10 text-base text-neutro-900 focus:border-primario-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primario-500/30"
+              />
+              {lista.busqueda && (
+                <button type="button" onClick={() => lista.setBusqueda('')} title="Limpiar búsqueda"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutro-400 hover:bg-neutro-100 hover:text-neutro-700">
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            {filtrada && (
+              <button type="button" onClick={() => setVista({ estado: 'todos', dias: 'todos' })}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primario-50 px-4 py-3 text-sm font-semibold text-primario-700 ring-1 ring-primario-200 hover:bg-primario-100">
+                Solo {vista.estado === 'sinClasificar' ? 'sin clasificar' : 'sin foto'} <X size={16} />
+              </button>
+            )}
+          </div>
 
-          <div className="mt-3 flex-1">
-            <ListaProductos
-              loading={lista.loading || (loadingArbol && !categoriaActiva)}
-              sinSeleccion={!lista.busquedaActiva && !categoriaActiva && !loadingArbol}
-              busquedaActiva={lista.busquedaActiva}
-              bloques={lista.bloques}
-              productos={lista.productos}
+          {lista.busquedaActiva ? (
+            <ResultadosBusqueda
+              busqueda={lista.busqueda}
+              resultados={lista.resultados}
+              loading={lista.loading}
               alternar={seleccion.alternar}
               estaSeleccionado={seleccion.estaSeleccionado}
-              seleccionarTodos={seleccion.seleccionarTodos}
-              deseleccionarTodos={seleccion.deseleccionarTodos}
-              onEditar={ficha.openEditProduct}
-              onSugerirFoto={ficha.openImageSuggestions}
-              onDuplicar={ficha.openBrandDuplication}
+              {...accionesFila}
             />
-          </div>
-
-          <BarraLote
-            cantidad={seleccion.cantidad}
-            busquedaActiva={lista.busquedaActiva}
-            categoriaActiva={categoriaActiva}
-            arbol={arbol}
-            moviendo={acciones.moviendo}
-            trabajoCategoria={acciones.trabajoCategoria}
-            onMoverASubcategoria={moverSeleccionADosubcategoria}
-            onCambiarCategoria={cambiarCategoriaDeSeleccion}
-            onCerrarTrabajo={acciones.cerrarTrabajoCategoria}
-            onLimpiar={seleccion.limpiar}
-          />
+          ) : loadingArbol && arbol.length === 0 ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <SkeletonContraparte /><SkeletonContraparte /><SkeletonContraparte />
+            </div>
+          ) : (
+            <CuadriculaCategorias
+              categorias={categoriasVisibles}
+              filtrada={filtrada}
+              onEntrar={entrar}
+              onReordenar={taxonomia.reordenarCategorias}
+              onSoltarSubcategoria={moverSubcategoria}
+              onCrearCategoria={taxonomia.crearCategoria}
+            />
+          )}
+        </>
+      ) : lista.categoria ? (
+        <DetalleCategoria
+          key={categoriaActiva}
+          categoria={lista.categoria}
+          subsOrdenadas={lista.subsOrdenadas}
+          secciones={lista.secciones}
+          loading={lista.loading}
+          subFoco={subFoco}
+          filtroTexto={lista.filtroTexto}
+          setFiltroTexto={lista.setFiltroTexto}
+          soloSinImagen={lista.soloSinImagen}
+          setSoloSinImagen={lista.setSoloSinImagen}
+          hayFiltro={lista.hayFiltro}
+          otrasCategorias={otrasCategorias}
+          alternar={seleccion.alternar}
+          estaSeleccionado={seleccion.estaSeleccionado}
+          seleccionarTodos={seleccion.seleccionarTodos}
+          deseleccionarTodos={seleccion.deseleccionarTodos}
+          onVolver={volver}
+          onEnfocar={taxonomia.enfocar}
+          onRenombrarCategoria={(nombreVisible) => taxonomia.renombrarCategoria(categoriaActiva, nombreVisible)}
+          onCrearSub={(nombre) => taxonomia.crearSubcategoria(categoriaActiva, nombre)}
+          onRenombrarSub={(id, nombre) => taxonomia.renombrarSubcategoria(categoriaActiva, id, nombre)}
+          onReordenarSub={(ids) => taxonomia.reordenarSubcategorias(categoriaActiva, ids)}
+          onEliminarSub={eliminarSubcategoria}
+          onMoverSub={(sub, destino) => moverSubcategoria(
+            { ...sub, categoria: categoriaActiva, categoriaVisible: lista.categoria.nombreVisible }, destino
+          )}
+          {...accionesFila}
+        />
+      ) : (
+        // La categoría abierta ya no está en el árbol (se recargó mientras
+        // tanto): siempre hay por dónde volver, nunca una pantalla en blanco.
+        <div className="rounded-xl border border-neutro-100 bg-white py-16 text-center shadow-sm">
+          <Package size={48} className="mx-auto mb-3 text-neutro-300" />
+          <p className="mb-4 font-semibold text-neutro-700">Esa categoría ya no está en el catálogo.</p>
+          <Boton onClick={volver}>Volver a categorías</Boton>
         </div>
-      </div>
+      )}
+
+      <BarraLote
+        cantidad={seleccion.cantidad}
+        enBusqueda={!categoriaActiva}
+        subsDeLaCategoria={lista.subsOrdenadas}
+        otrasCategorias={otrasCategorias}
+        moviendo={acciones.moviendo}
+        trabajo={acciones.trabajo}
+        onMoverASubcategoria={moverSeleccionASubcategoria}
+        onCambiarCategoria={cambiarCategoriaDeSeleccion}
+        onCerrarTrabajo={acciones.cerrarTrabajo}
+        onLimpiar={seleccion.limpiar}
+      />
 
       {ficha.isImageModalOpen && ficha.selectedProduct && (
         <ModalSugerirImagen

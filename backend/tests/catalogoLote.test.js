@@ -141,3 +141,135 @@ describe('cambiar la categoría de varios productos (trabajo en segundo plano)',
     assert.throws(() => servicio.estadoTrabajo('no-existe'), (e) => e.status === 404);
   });
 });
+
+/**
+ * Mover una subcategoría completa a otra categoría. La base va con un doble
+ * que responde según el SQL; Alegra con uno que puede rechazar productos.
+ */
+function montarMover({ yaExisteEnDestino = null, rechazar = [], productos = ['1031', '1032'] } = {}) {
+  for (const r of [rutaDb, rutaPrisma, rutaAlegra, rutaServicio, rutaCategorias, rutaSubcategorias]) {
+    delete require.cache[r];
+  }
+  const visto = { consultas: [] };
+
+  require.cache[rutaDb] = {
+    id: rutaDb, filename: rutaDb, loaded: true,
+    exports: {
+      query: async (sql, params) => {
+        visto.consultas.push({ sql, params });
+        if (/SELECT id, categoria, nombre FROM subcategoria WHERE id/.test(sql)) {
+          return { rows: [{ id: 9, categoria: 'Productos de PVC', nombre: 'Conduit' }] };
+        }
+        if (/FROM alegra_products_cache WHERE subcategoria_id = \$1/.test(sql) && /SELECT alegra_id/.test(sql)) {
+          return { rows: productos.map((id) => ({ alegraId: id, name: `P${id}`, reference: `R${id}`, price: 100, cost: 80 })) };
+        }
+        if (/WHERE categoria = \$1 AND lower\(nombre\)/.test(sql)) {
+          return { rows: yaExisteEnDestino ? [{ id: yaExisteEnDestino }] : [] };
+        }
+        if (/INSERT INTO subcategoria/.test(sql)) return { rows: [{ id: 77 }] };
+        return { rows: [] };
+      }
+    }
+  };
+
+  require.cache[rutaPrisma] = {
+    id: rutaPrisma, filename: rutaPrisma, loaded: true,
+    exports: {
+      alegraProduct: {
+        findUnique: async () => ({ category: 'Productos de PVC' }),
+        update: async ({ where, data }) => ({ alegraId: where.alegraId, ...data })
+      }
+    }
+  };
+
+  require.cache[rutaAlegra] = {
+    id: rutaAlegra, filename: rutaAlegra, loaded: true,
+    exports: {
+      getProductService: () => ({
+        getItemCategories: async () => [{ id: '16', name: 'Productos de PVC' }, { id: '10', name: 'Línea Eléctrica' }]
+      }),
+      getClient: () => ({
+        api: {
+          get: async () => ({ data: { reference: { type: 'CODE_OF_INTERNAL_USE' }, price: [{ main: true, price: '100' }] } }),
+          put: async (url, data) => {
+            const id = url.split('/').pop();
+            if (rechazar.includes(id)) throw Object.assign(new Error('rechazado'), { response: { status: 400, data: { message: 'Alegra dijo que no' } } });
+            return { data: { name: data.name, reference: data.reference, itemCategory: { name: 'Línea Eléctrica' } } };
+          }
+        }
+      })
+    }
+  };
+
+  return { servicio: require(rutaServicio), visto };
+}
+
+async function esperarFin(servicio, jobId) {
+  let estado;
+  for (let i = 0; i < 100 && !(estado?.terminado); i++) {
+    estado = servicio.estadoTrabajo(jobId);
+    if (!estado.terminado) await new Promise((r) => setTimeout(r, 10));
+  }
+  return estado;
+}
+
+describe('mover una subcategoría completa a otra categoría', () => {
+  test('si pasan todos, la subcategoría misma se muda y sus productos la conservan', async () => {
+    const { servicio, visto } = montarMover();
+    const { jobId } = await servicio.moverSubcategoriaACategoria(9, '10');
+    const estado = await esperarFin(servicio, jobId);
+
+    assert.equal(estado.hechos, 2);
+    const mudanza = visto.consultas.find((c) => /UPDATE subcategoria SET categoria = \$2/.test(c.sql));
+    assert.ok(mudanza, 'la subcategoría no se mudó');
+    assert.deepEqual(mudanza.params, [9, 'Línea Eléctrica']);
+
+    const devuelta = visto.consultas.find((c) => /SET subcategoria_id = \$2 WHERE alegra_id = ANY/.test(c.sql));
+    assert.deepEqual(devuelta.params, [['1031', '1032'], 9]);
+    assert.equal(estado.resultado.subcategoriaId, 9);
+  });
+
+  test('si el destino ya tiene una del mismo nombre, se juntan ahí y la original se borra', async () => {
+    const { servicio, visto } = montarMover({ yaExisteEnDestino: 44 });
+    const { jobId } = await servicio.moverSubcategoriaACategoria(9, '10');
+    const estado = await esperarFin(servicio, jobId);
+
+    assert.ok(!visto.consultas.some((c) => /UPDATE subcategoria SET categoria/.test(c.sql)),
+      'no puede mudarla: chocaría con el índice único (categoría + nombre)');
+    const devuelta = visto.consultas.find((c) => /SET subcategoria_id = \$2 WHERE alegra_id = ANY/.test(c.sql));
+    assert.equal(devuelta.params[1], 44);
+    assert.ok(visto.consultas.some((c) => /DELETE FROM subcategoria WHERE id = \$1/.test(c.sql)));
+    assert.equal(estado.resultado.juntada, true);
+  });
+
+  test('si Alegra rechaza algunos, la original se queda con esos y los demás van a una nueva en el destino', async () => {
+    const { servicio, visto } = montarMover({ rechazar: ['1032'] });
+    const { jobId } = await servicio.moverSubcategoriaACategoria(9, '10');
+    const estado = await esperarFin(servicio, jobId);
+
+    assert.equal(estado.errores.length, 1);
+    assert.ok(!visto.consultas.some((c) => /UPDATE subcategoria SET categoria/.test(c.sql)),
+      'la original no se puede mudar: todavía tiene un producto en la categoría vieja');
+    assert.ok(visto.consultas.some((c) => /INSERT INTO subcategoria/.test(c.sql)));
+    const devuelta = visto.consultas.find((c) => /SET subcategoria_id = \$2 WHERE alegra_id = ANY/.test(c.sql));
+    assert.deepEqual(devuelta.params, [['1031'], 77]);
+  });
+
+  test('si Alegra rechaza todos, no se toca ninguna subcategoría', async () => {
+    const { servicio, visto } = montarMover({ rechazar: ['1031', '1032'] });
+    const { jobId } = await servicio.moverSubcategoriaACategoria(9, '10');
+    await esperarFin(servicio, jobId);
+
+    assert.ok(!visto.consultas.some((c) => /UPDATE subcategoria|INSERT INTO subcategoria|DELETE FROM subcategoria/.test(c.sql)));
+  });
+
+  test('a la misma categoría en la que ya está, se dice de una vez', async () => {
+    const { servicio } = montarMover();
+    await assert.rejects(servicio.moverSubcategoriaACategoria(9, '16'), (e) => e.status === 400 && /ya está en/.test(e.message));
+  });
+
+  test('a una categoría que no existe en Alegra, 404', async () => {
+    const { servicio } = montarMover();
+    await assert.rejects(servicio.moverSubcategoriaACategoria(9, '999'), (e) => e.status === 404);
+  });
+});

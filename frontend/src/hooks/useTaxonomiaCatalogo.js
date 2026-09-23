@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import api from '../services/api'
 
 /**
- * El riel: categorías y subcategorías con sus conteos, en el orden canónico
- * (GET /catalog/arbol — el mismo orden que arma el catálogo del agente), más
- * la edición de esa taxonomía (crear, renombrar, reordenar, borrar).
- *
- * Reemplaza a ModalSubcategorias.jsx: la edición vive en el propio riel, no
- * en un modal aparte que tapa la pantalla mientras se administra.
+ * Categorías y subcategorías con sus conteos, en el orden canónico (GET
+ * /catalog/arbol — el mismo orden que arma el catálogo del agente), qué
+ * categoría se está mirando, y la edición de esa taxonomía (crear,
+ * renombrar, reordenar, borrar). La edición vive en las propias tarjetas y
+ * secciones de la pantalla, no en un modal aparte.
  *
  * REORDENAR Y RENOMBRAR SON OPTIMISTAS (el estado local cambia antes de que
  * vuelva el servidor) — mismo criterio que ya tenía useGestionCatalogo.js:
@@ -23,16 +22,12 @@ export function useTaxonomiaCatalogo() {
   // 'sin' = solo lo no clasificado, o el id de una subcategoría puntual.
   const [subFoco, setSubFoco] = useState(null)
 
-  const cargarArbol = useCallback(async ({ conservarSeleccion = true } = {}) => {
+  const cargarArbol = useCallback(async () => {
     setLoadingArbol(true)
     try {
       const { data } = await api.get('/alegra/catalog/arbol')
       const categorias = data?.success ? (data.categorias || []) : []
       setArbol(categorias)
-      if (!conservarSeleccion && categorias.length > 0) {
-        setCategoriaActiva(categorias[0].name)
-        setSubFoco(null)
-      }
       return categorias
     } catch (error) {
       console.error('Error cargando el árbol del catálogo:', error)
@@ -42,35 +37,32 @@ export function useTaxonomiaCatalogo() {
     }
   }, [])
 
+  // Se entra por la cuadrícula de categorías (sin ninguna elegida), igual que
+  // Cuentas por Cobrar o el reporte de proveedores entran por su lista.
   useEffect(() => {
-    cargarArbol({ conservarSeleccion: false })
+    cargarArbol()
   }, [cargarArbol])
 
-  const seleccionarCategoria = useCallback((nombre) => {
+  /** `foco`: null = toda la categoría, 'sin' = lo no clasificado, o el id de una subcategoría. */
+  const seleccionarCategoria = useCallback((nombre, foco = null) => {
     setCategoriaActiva(nombre)
+    setSubFoco(foco)
+  }, [])
+
+  const enfocar = useCallback((foco) => setSubFoco(foco), [])
+
+  const volverALista = useCallback(() => {
+    setCategoriaActiva(null)
     setSubFoco(null)
   }, [])
-
-  const seleccionarSubcategoria = useCallback((nombreCategoria, subId) => {
-    setCategoriaActiva(nombreCategoria)
-    setSubFoco(subId)
-  }, [])
-
-  const seleccionarSinClasificar = useCallback((nombreCategoria) => {
-    setCategoriaActiva(nombreCategoria)
-    setSubFoco('sin')
-  }, [])
-
-  const limpiarFoco = useCallback(() => setSubFoco(null), [])
 
   // --- categorías ---
 
   const crearCategoria = useCallback(async (nombre) => {
     const { data } = await api.post('/alegra/catalog/categorias-config/crear', { nombre })
     await cargarArbol()
-    if (data?.categoria?.name) seleccionarCategoria(data.categoria.name)
     return data?.categoria
-  }, [cargarArbol, seleccionarCategoria])
+  }, [cargarArbol])
 
   const renombrarCategoria = useCallback(async (categoria, nombreVisible) => {
     setArbol((prev) => prev.map((c) => (c.name === categoria ? { ...c, nombreVisible: nombreVisible || categoria } : c)))
@@ -152,9 +144,8 @@ export function useTaxonomiaCatalogo() {
     categoriaActiva,
     subFoco,
     seleccionarCategoria,
-    seleccionarSubcategoria,
-    seleccionarSinClasificar,
-    limpiarFoco,
+    enfocar,
+    volverALista,
     crearCategoria,
     renombrarCategoria,
     reordenarCategorias,

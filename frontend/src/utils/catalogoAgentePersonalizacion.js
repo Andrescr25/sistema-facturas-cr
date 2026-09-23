@@ -210,15 +210,9 @@ export function partirPorSubcategoria(categorias, configCatalogo = null, { sinCl
         .map((s) => [s.nombre, s.orden])
     )
 
+    const conOrden = (nombre) => ({ nombre, orden: ordenSub.has(nombre) ? ordenSub.get(nombre) : null })
     const ordenados = [...bloques.entries()]
-      .sort((a, b) => {
-        const oa = ordenSub.has(a[0]) ? ordenSub.get(a[0]) : null
-        const ob = ordenSub.has(b[0]) ? ordenSub.get(b[0]) : null
-        if (oa !== null && ob !== null && oa !== ob) return oa - ob
-        if (oa !== null && ob === null) return -1
-        if (oa === null && ob !== null) return 1
-        return a[0].localeCompare(b[0], 'es', { numeric: true })
-      })
+      .sort((a, b) => compararSubcategorias(conOrden(a[0]), conOrden(b[0])))
       .map(([nombre, lista]) => ({ nombre, productos: lista }))
 
     if (sueltos.length > 0) ordenados.push({ nombre: 'Otros', productos: sueltos, sinClasificar: true })
@@ -227,6 +221,24 @@ export function partirPorSubcategoria(categorias, configCatalogo = null, { sinCl
   }
 
   return porCategoria
+}
+
+/**
+ * El orden de dos subcategorías `{nombre, orden}`: el manual primero (`orden`
+ * null = sin configurar, va después); sin él, por nombre con los números en
+ * su lugar — "PVC 2" antes que "PVC 10".
+ *
+ * Una sola definición para las dos pantallas: la usa partirPorSubcategoria
+ * (el agente) y la usa Gestión de Catálogo para pintar sus secciones, incluso
+ * las que todavía no tienen productos.
+ */
+export function compararSubcategorias(a, b) {
+  const oa = a.orden ?? null
+  const ob = b.orden ?? null
+  if (oa !== null && ob !== null && oa !== ob) return oa - ob
+  if (oa !== null && ob === null) return -1
+  if (oa === null && ob !== null) return 1
+  return a.nombre.localeCompare(b.nombre, 'es', { numeric: true })
 }
 
 /** Minúsculas sin tildes, para que "MARIA" encuentre "María". */

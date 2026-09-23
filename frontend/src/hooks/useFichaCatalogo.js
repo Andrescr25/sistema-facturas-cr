@@ -227,8 +227,9 @@ export function useFichaCatalogo({ arbol, patchProducto, quitarProductos, recarg
         const categoriaNueva = categorias.find((cat) => String(cat.id) === String(editCategoria))
         const cambioDeCategoria = categoriaNueva && categoriaNueva.name !== selectedProduct.category
 
-        if (cambioDeCategoria && categoriaNueva.name !== categoriaActiva) {
-          // Ya no pertenece a lo que se está mirando: sale de la lista.
+        if (cambioDeCategoria && categoriaActiva && categoriaNueva.name !== categoriaActiva) {
+          // Ya no pertenece a la categoría que se está mirando: sale de la
+          // lista. (En los resultados de una búsqueda sí sigue apareciendo.)
           quitarProductos([selectedProduct.alegraId])
         } else {
           patchProducto(selectedProduct.alegraId, {

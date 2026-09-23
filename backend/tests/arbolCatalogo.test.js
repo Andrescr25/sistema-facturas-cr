@@ -58,8 +58,8 @@ describe('el árbol de categorías (riel)', () => {
       alegraCategorias: [{ id: 1, name: 'Productos de PVC' }],
       subcategoriasFilas: [{ id: 4, categoria: 'Productos de PVC', nombre: 'PVC 1/2', activo: true, orden: 0, productos: 2 }],
       conteos: [
-        { category: 'Productos de PVC', subcategoria_id: 4, n: 2 },
-        { category: 'Productos de PVC', subcategoria_id: null, n: 3 }
+        { category: 'Productos de PVC', subcategoria_id: 4, n: 2, sin_imagen: 1 },
+        { category: 'Productos de PVC', subcategoria_id: null, n: 3, sin_imagen: 2 }
       ]
     });
 
@@ -69,6 +69,7 @@ describe('el árbol de categorías (riel)', () => {
     assert.equal(pvc.id, 1); // el id de Alegra viaja: la ficha y el lote lo necesitan para el PUT
     assert.equal(pvc.total, 5);
     assert.equal(pvc.sinClasificar, 3);
+    assert.equal(pvc.sinImagen, 3); // suma las dos filas, clasificadas o no
     assert.deepEqual(pvc.subcategorias, [{ id: 4, nombre: 'PVC 1/2', orden: 0, activo: true, productos: 2 }]);
   });
 

@@ -32,6 +32,7 @@ router.get('/subcategorias', catalogoController.listarSubcategorias);
 router.post('/subcategorias', catalogoController.crearSubcategoria);
 router.put('/subcategorias/:id', catalogoController.editarSubcategoria);
 router.delete('/subcategorias/:id', catalogoController.eliminarSubcategoria);
+router.post('/subcategorias/:id/mover-categoria', catalogoController.moverSubcategoria);
 router.put('/subcategorias-orden', catalogoController.reordenarSubcategorias);
 router.put('/productos/subcategoria-lote', catalogoController.asignarSubcategoriaLote);
 router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcategoria);

@@ -246,7 +246,8 @@ async function arbolCatalogo() {
     categoriasService.listar(),
     subcategoriasService.listar({ incluirInactivas: false }),
     query(`
-      SELECT category, subcategoria_id, COUNT(*)::int AS n
+      SELECT category, subcategoria_id, COUNT(*)::int AS n,
+             COUNT(*) FILTER (WHERE image_url IS NULL OR image_url = '')::int AS sin_imagen
         FROM alegra_products_cache
        WHERE status = 'active' AND hidden_locally = false
        GROUP BY category, subcategoria_id
@@ -259,13 +260,14 @@ async function arbolCatalogo() {
     subsPorCategoria.get(s.categoria).push({ id: s.id, nombre: s.nombre, orden: s.orden, activo: s.activo, productos: s.productos });
   }
 
+  const sumar = (mapa, clave, n) => mapa.set(clave, (mapa.get(clave) || 0) + n);
   const totalPorCategoria = new Map();
   const sinClasificarPorCategoria = new Map();
+  const sinImagenPorCategoria = new Map();
   for (const fila of conteos.rows) {
-    totalPorCategoria.set(fila.category, (totalPorCategoria.get(fila.category) || 0) + fila.n);
-    if (fila.subcategoria_id === null) {
-      sinClasificarPorCategoria.set(fila.category, (sinClasificarPorCategoria.get(fila.category) || 0) + fila.n);
-    }
+    sumar(totalPorCategoria, fila.category, fila.n);
+    sumar(sinImagenPorCategoria, fila.category, fila.sin_imagen || 0);
+    if (fila.subcategoria_id === null) sumar(sinClasificarPorCategoria, fila.category, fila.n);
   }
 
   return {
@@ -279,6 +281,7 @@ async function arbolCatalogo() {
       orden: c.orden,
       total: totalPorCategoria.get(c.name) || 0,
       sinClasificar: sinClasificarPorCategoria.get(c.name) || 0,
+      sinImagen: sinImagenPorCategoria.get(c.name) || 0,
       subcategorias: subsPorCategoria.get(c.name) || []
     }))
   };
@@ -886,7 +889,7 @@ async function cambiarCategoriaLote(alegraIds, categoriaId) {
   return { jobId, total: estado.total };
 }
 
-async function procesarCategoriaLote(productos, categoriaId, estado, jobId) {
+async function procesarCategoriaLote(productos, categoriaId, estado, jobId, alFinalizar = null) {
   const TAMANO_TANDA = 3;
   for (let i = 0; i < productos.length; i += TAMANO_TANDA) {
     const tanda = productos.slice(i, i + TAMANO_TANDA);
@@ -909,8 +912,109 @@ async function procesarCategoriaLote(productos, categoriaId, estado, jobId) {
       }
     }));
   }
+  if (alFinalizar) {
+    try {
+      await alFinalizar(estado);
+    } catch (error) {
+      console.error('❌ Error en el paso final del trabajo de categoría:', error);
+      estado.errorFinal = error.message;
+    }
+  }
   estado.terminado = true;
   setTimeout(() => trabajosCategoriaLote.delete(jobId), 30 * 60 * 1000).unref();
+}
+
+/**
+ * Mueve una subcategoría COMPLETA —con todos sus productos— a otra categoría.
+ *
+ * Cada producto cambia de categoría en Alegra (mismo camino que el cambio en
+ * lote, en segundo plano). `editarProducto` le limpia la subcategoría a cada
+ * uno al cambiarle la categoría —correcto para un producto suelto—, así que
+ * el paso final se la vuelve a poner, ya en la categoría nueva:
+ *
+ *   · Si en el destino ya hay una subcategoría con el mismo nombre, se
+ *     juntan ahí (el índice único es por categoría + nombre en minúsculas:
+ *     dos "Sanitario" en la misma categoría no se distinguirían).
+ *   · Si se movieron todos, la subcategoría misma se muda, al final del orden
+ *     del destino.
+ *   · Si Alegra rechazó algunos, la original se queda con esos (siguen en la
+ *     categoría vieja) y los que sí pasaron van a una del mismo nombre en el
+ *     destino. Nunca quedan productos de dos categorías bajo una subcategoría.
+ */
+async function moverSubcategoriaACategoria(subcategoriaId, categoriaDestinoId) {
+  const subId = Number(subcategoriaId);
+  if (!categoriaDestinoId) throw httpError(400, 'Falta la categoría destino.');
+
+  const { rows: subRows } = await query(
+    `SELECT id, categoria, nombre FROM subcategoria WHERE id = $1`, [subId]
+  );
+  const sub = subRows[0];
+  if (!sub) throw httpError(404, 'No existe esa subcategoría.');
+
+  const categorias = await productService.getItemCategories();
+  const destino = categorias.find((c) => String(c.id) === String(categoriaDestinoId));
+  if (!destino) throw httpError(404, 'Esa categoría no existe en Alegra.');
+  if (destino.name === sub.categoria) throw httpError(400, `"${sub.nombre}" ya está en ${destino.name}.`);
+
+  const { rows: productos } = await query(
+    `SELECT alegra_id AS "alegraId", name, reference, price, cost
+       FROM alegra_products_cache WHERE subcategoria_id = $1`,
+    [subId]
+  );
+
+  const jobId = nuevoIdTrabajo();
+  const estado = { total: productos.length, hechos: 0, errores: [], terminado: false };
+  trabajosCategoriaLote.set(jobId, estado);
+
+  const alFinalizar = async (est) => {
+    const conError = new Set(est.errores.map((e) => e.alegraId));
+    const movidos = productos.map((p) => p.alegraId).filter((id) => !conError.has(id));
+    if (productos.length > 0 && movidos.length === 0) return; // no pasó ninguno: todo queda como estaba
+
+    const todos = movidos.length === productos.length;
+    const { rows: yaExiste } = await query(
+      `SELECT id FROM subcategoria WHERE categoria = $1 AND lower(nombre) = lower($2)`,
+      [destino.name, sub.nombre]
+    );
+    const alFinal = `(SELECT COALESCE(MAX(orden) + 1, 0) FROM subcategoria WHERE categoria = $2)`;
+
+    let destinoId;
+    if (yaExiste[0]) {
+      destinoId = yaExiste[0].id;
+    } else if (todos) {
+      await query(`UPDATE subcategoria SET categoria = $2, orden = ${alFinal} WHERE id = $1`, [subId, destino.name]);
+      destinoId = subId;
+    } else {
+      const { rows: nueva } = await query(
+        `INSERT INTO subcategoria (categoria, nombre, orden) VALUES ($2, $1, ${alFinal}) RETURNING id`,
+        [sub.nombre, destino.name]
+      );
+      destinoId = nueva[0].id;
+    }
+
+    if (movidos.length > 0) {
+      await query(
+        `UPDATE alegra_products_cache SET subcategoria_id = $2 WHERE alegra_id = ANY($1::varchar[])`,
+        [movidos, destinoId]
+      );
+    }
+    // Se juntó con una que ya existía y no le quedó nada: la original sobra.
+    if (yaExiste[0] && todos) {
+      await query(
+        `DELETE FROM subcategoria WHERE id = $1
+           AND NOT EXISTS (SELECT 1 FROM alegra_products_cache WHERE subcategoria_id = $1)`,
+        [subId]
+      );
+    }
+    est.resultado = { subcategoriaId: destinoId, categoria: destino.name, juntada: Boolean(yaExiste[0]) };
+  };
+
+  procesarCategoriaLote(productos, categoriaDestinoId, estado, jobId, alFinalizar).catch((error) => {
+    console.error('❌ Error inesperado moviendo la subcategoría:', error);
+    estado.terminado = true;
+  });
+
+  return { jobId, total: estado.total, subcategoria: sub.nombre, categoriaDestino: destino.name };
 }
 
 /** El avance de un trabajo de cambio de categoría en lote. */
@@ -974,5 +1078,6 @@ module.exports = {
   editarProducto,
   eliminarProducto,
   cambiarCategoriaLote,
+  moverSubcategoriaACategoria,
   estadoTrabajo
 };

@@ -258,6 +258,20 @@ async function cambiarCategoriaLote(req, res) {
   }
 }
 
+/**
+ * POST /catalog/subcategorias/:id/mover-categoria — la subcategoría completa,
+ * con todos sus productos, a otra categoría. Mismo trabajo en segundo plano
+ * que el cambio en lote (escribe en Alegra por cada producto).
+ */
+async function moverSubcategoria(req, res) {
+  try {
+    const r = await catalogoService.moverSubcategoriaACategoria(req.params.id, req.body?.categoriaId);
+    res.status(202).json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 /** GET /catalog/trabajos/:jobId — para sondear un cambio de categoría en lote. */
 async function estadoTrabajo(req, res) {
   try {
@@ -431,5 +445,6 @@ module.exports = {
   editarProducto,
   eliminarProducto,
   cambiarCategoriaLote,
+  moverSubcategoria,
   estadoTrabajo
 };
