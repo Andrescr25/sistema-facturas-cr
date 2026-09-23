@@ -16,6 +16,9 @@
  * 2. "PAGAR TODO" USA EL SALDO RECIÉN LEÍDO, no el que mostraba la pantalla.
  * 3. NO SE PAGA MÁS QUE EL SALDO: un excedente no es un abono.
  * 4. UN PAGO NO SE BORRA: se anula con motivo, y el saldo vuelve solo.
+ * 5. SALE DE CAJA GENERAL, siempre (decisión del usuario, 2026-09-23): no hay
+ *    cajas separadas. El método dice cómo se pagó; la cuenta es una sola. El
+ *    movimiento aparece en la vista `movimiento_caja` con sus facturas.
  */
 
 const { pool } = require('../../../config/database');
@@ -23,6 +26,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { idCajaGeneral } = require('../../utils/cajaGeneral');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -106,15 +110,12 @@ function leerAplicaciones(datos) {
  *
  * @param {object} datos
  * @param {Array<{cuentaPorPagarId: string, monto?: number, pagarTodo?: boolean}>} datos.aplicaciones
- * @param {number} datos.cuentaDineroId  de dónde salió la plata
- * @param {number} datos.metodoPagoId
+ * @param {number} datos.metodoPagoId  cómo se pagó (sale siempre de Caja General)
  * @param {string} [datos.referencia]    obligatoria si el método la pide
  * @param {string} [datos.fecha]         YYYY-MM-DD; por omisión, hoy en Costa Rica
  */
 async function registrarPago(datos = {}, usuarioId = null) {
   const aplicaciones = leerAplicaciones(datos);
-  const cuentaDineroId = Number(datos.cuentaDineroId);
-  if (!cuentaDineroId) throw httpError(400, 'Falta de qué cuenta sale el pago.');
   const metodoId = Number(datos.metodoPagoId);
   if (!metodoId) throw httpError(400, 'Falta el método de pago.');
 
@@ -162,10 +163,7 @@ async function registrarPago(datos = {}, usuarioId = null) {
     });
     const total = dinero(detalle.reduce((s, d) => s + d.monto, 0));
 
-    const { rows: cuentasDinero } = await cliente.query(
-      'SELECT id, nombre FROM cuenta_dinero WHERE id = $1 AND activo = TRUE', [cuentaDineroId]
-    );
-    if (!cuentasDinero[0]) throw httpError(400, 'Esa cuenta de dinero no existe o está inactiva.');
+    const cuentaDineroId = await idCajaGeneral(cliente);
 
     const { rows: metodos } = await cliente.query(
       'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE', [metodoId]
@@ -203,7 +201,7 @@ async function registrarPago(datos = {}, usuarioId = null) {
       entidad: 'pago_proveedor', entidadId: pago.id, accion: 'crear',
       despues: {
         proveedor: primera.proveedor_nombre, monto: total, metodo: metodo.nombre,
-        cuenta: cuentasDinero[0].nombre, referencia,
+        referencia,
         facturas: detalle.map((d) => ({
           factura: d.cuenta.numero_consecutivo, monto: d.monto,
           saldoAntes: d.saldoAntes, saldoDespues: dinero(d.saldoAntes - d.monto)

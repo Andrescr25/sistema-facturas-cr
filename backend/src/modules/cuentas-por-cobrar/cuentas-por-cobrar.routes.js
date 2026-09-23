@@ -29,6 +29,7 @@ router.post('/propios/clientes/:id/recordatorio', cobros.enviarRecordatorio);
 
 // El cierre de caja: lo cobrado en el día y si el efectivo cuadra.
 router.get('/propios/caja', cobros.resumenCaja);
+router.get('/propios/caja/movimientos', cobros.movimientosCaja);
 router.post('/propios/caja/cerrar', cobros.cerrarCaja);
 router.post('/propios/caja/reabrir', cobros.reabrirCaja);
 

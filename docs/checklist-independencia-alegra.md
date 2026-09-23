@@ -468,10 +468,22 @@ proveedor. Dependen poco de Alegra.
   en un día sin cobros. **Pregunta abierta para el usuario:** el cierre no
   conoce un fondo de caja; un día sin cobros y con un pago desde la caja da
   un esperado negativo
-- [ ] Movimientos por cuenta de dinero: saldo inicial + lo que entró por
-  cobros − lo que salió por pagos y gastos, por cuenta y por período
+- [x] **Caja General, el punto central (2026-09-23, migración 027).**
+  Decisión del usuario: sin fondo fijo ni cajas separadas. Todo cobro entra a
+  Caja General, todo pago a proveedor o de gasto sale de ella; el método dice
+  cómo. Los movimientos son la vista `movimiento_caja`, armada sobre los
+  mismos documentos (`pago`, `pago_proveedor`, `pago_recurrente`) — sin una
+  segunda tabla que duplique o se desincronice—, cada uno con las facturas
+  que lo originaron; los anulados se ven y no suman. Un cobro o un pago puede
+  cubrir VARIAS facturas de la misma contraparte (casillas + "Cobrar/Pagar N
+  facturas"). Pestaña "Caja General" en Cuentas por Cobrar, por período. El
+  cierre resta solo lo que salió EN EFECTIVO. Verificado desde la pantalla
+  con un cobro y un pago de 2 facturas cada uno (borrados después)
+- [ ] **Compras de contado sin cuenta por pagar.** 544 de 860 compras (62
+  desde agosto, ₡2,75 M) no tienen CxP, así que su pago no tiene contra qué
+  registrarse y no llega a Caja General. *Pregunta abierta para el usuario*
 
-**Lista cuando:** entradas y salidas de dinero cuadran por cuenta.
+**Lista cuando:** entradas y salidas de dinero cuadran en Caja General.
 
 ---
 

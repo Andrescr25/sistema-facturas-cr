@@ -24,14 +24,16 @@ const FACTURA = {
 const EFECTIVO = { id: 1, nombre: 'Efectivo', pide_referencia: false };
 const SINPE = { id: 2, nombre: 'SINPE Móvil', pide_referencia: true };
 
-function montar({ factura = FACTURA, metodo = EFECTIVO, pago = null } = {}) {
+function montar({ factura = FACTURA, facturas = null, metodo = EFECTIVO, pago = null } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
     log.push({ sql: texto, params });
-    if (/FROM factura f WHERE f\.id = \$1 FOR UPDATE/.test(texto)) {
-      return { rows: factura ? [{ ...factura }] : [] };
+    if (/FROM factura f WHERE f\.id = ANY\(\$1::int\[\]\) ORDER BY f\.id FOR UPDATE/.test(texto)) {
+      const todas = facturas || (factura ? [factura] : []);
+      return { rows: todas.filter((f) => params[0].includes(f.id)).map((f) => ({ ...f })) };
     }
+    if (/FROM cuenta_dinero WHERE nombre/.test(texto)) return { rows: [{ id: 3 }] };
     if (/FROM metodo_pago WHERE id/.test(texto)) return { rows: metodo ? [{ ...metodo }] : [] };
     if (/FROM pago WHERE id = \$1 FOR UPDATE/.test(texto)) return { rows: pago ? [{ ...pago }] : [] };
     if (/INSERT INTO pago \(/.test(texto)) {
@@ -53,11 +55,11 @@ function montar({ factura = FACTURA, metodo = EFECTIVO, pago = null } = {}) {
 
 const fila = (log, patron) => log.find(l => patron.test(l.sql));
 
-// El INSERT de `pago` mezcla parámetros con un subselect (la cuenta de dinero)
-// y un literal, así que la posición de la columna NO coincide con la del
-// parámetro: hay 11 columnas y 9 parámetros. Se nombran los índices reales.
+// El INSERT de `pago` lleva el nombre de la cuenta como literal, así que la
+// posición de la columna NO coincide con la del parámetro: hay 11 columnas y
+// 10 parámetros. Se nombran los índices reales.
 const PARAM = { fecha: 0, clienteId: 1, clienteNombre: 2, metodoId: 3, metodoTexto: 4,
-                referencia: 5, monto: 6, observaciones: 7, usuario: 8 };
+                cuenta: 5, referencia: 6, monto: 7, observaciones: 8, usuario: 9 };
 
 beforeEach(() => { for (const r of [rutaDb, rutaServicio]) delete require.cache[r]; });
 
@@ -76,7 +78,8 @@ describe('registrar un abono', () => {
     const { servicio, log } = montar();
     const r = await servicio.registrarAbono(BASE, 4);
     assert.equal(fila(log, /INSERT INTO pago \(/).params[PARAM.monto], 3000);
-    assert.deepEqual(fila(log, /INSERT INTO pago_factura/).params, [77, 500, 3000]);
+    assert.deepEqual(fila(log, /INSERT INTO pago_factura/).params, [77, 500, '001000014868', 3000]);
+    assert.equal(fila(log, /INSERT INTO pago \(/).params[PARAM.cuenta], 3, 'entra a Caja General');
     assert.equal(r.saldoAnterior, 10000);
     assert.equal(r.saldoNuevo, 7000);
   });
@@ -127,6 +130,29 @@ describe('registrar un abono', () => {
     const { hoyEnCostaRica } = require('../src/utils/fechaCR');
     await servicio.registrarAbono(BASE, 4);
     assert.equal(fila(log, /INSERT INTO pago \(/).params[PARAM.fecha], hoyEnCostaRica());
+  });
+
+  test('un cobro puede cubrir varias facturas del mismo cliente: un pago, una línea por factura', async () => {
+    const OTRA = { ...FACTURA, id: 501, numero: '001000014869', saldo_real: '2500.00' };
+    const { servicio, log } = montar({ facturas: [FACTURA, OTRA] });
+    const r = await servicio.registrarAbono({
+      metodoPagoId: 1,
+      aplicaciones: [{ facturaId: 500, saldarTotal: true }, { facturaId: 501, monto: 2000 }]
+    }, 4);
+    assert.equal(log.filter((l) => /INSERT INTO pago \(/.test(l.sql)).length, 1);
+    assert.equal(fila(log, /INSERT INTO pago \(/).params[PARAM.monto], 12000);
+    const lineas = log.filter((l) => /INSERT INTO pago_factura/.test(l.sql)).map((l) => l.params);
+    assert.deepEqual(lineas, [[77, 500, '001000014868', 10000], [77, 501, '001000014869', 2000]]);
+    assert.deepEqual(r.facturas.map((f) => f.saldoNuevo), [0, 500]);
+  });
+
+  test('facturas de dos clientes no van en el mismo cobro', async () => {
+    const DE_OTRO = { ...FACTURA, id: 502, cliente_id: 9, numero: '001000014870' };
+    const { servicio } = montar({ facturas: [FACTURA, DE_OTRO] });
+    await assert.rejects(
+      servicio.registrarAbono({ metodoPagoId: 1, aplicaciones: [{ facturaId: 500, monto: 1 }, { facturaId: 502, monto: 1 }] }, 4),
+      /mismo cliente/
+    );
   });
 
   test('queda en la bitácora con el saldo antes y después', async () => {

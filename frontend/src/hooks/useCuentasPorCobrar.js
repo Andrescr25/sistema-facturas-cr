@@ -131,6 +131,35 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [confirm, loadCuentas, showToast])
 
+  /**
+   * Un cobro que cubre VARIAS facturas del mismo cliente: un solo documento y
+   * un solo movimiento que entra a Caja General, con una línea por factura.
+   */
+  const handleRegistrarCobroVarias = useCallback(async ({ lineas, metodoPagoId, referencia, fecha }) => {
+    const total = lineas.reduce((s, l) => s + Number(l.monto || 0), 0)
+    const confirmado = await confirm(
+      `¿Registrar un cobro de ₡${total.toLocaleString('es-CR')} que cubre ${lineas.length} factura${lineas.length === 1 ? '' : 's'}? Entra a Caja General.`,
+      { title: 'Confirmar cobro', confirmLabel: 'Registrar cobro' }
+    )
+    if (!confirmado) return false
+
+    setRegistrandoAbono(true)
+    try {
+      await registrarAbono({
+        aplicaciones: lineas.map((l) => (l.todo ? { facturaId: l.id, saldarTotal: true } : { facturaId: l.id, monto: l.monto })),
+        metodoPagoId, referencia, fecha
+      })
+      await loadCuentas()
+      showToast('Cobro registrado', 'success')
+      return true
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Error registrando el cobro', 'error')
+      return false
+    } finally {
+      setRegistrandoAbono(false)
+    }
+  }, [confirm, loadCuentas, showToast])
+
   return {
     clientes,
     resumen,
@@ -145,6 +174,7 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     handleCargarProductos,
     registrandoAbono,
     handleRegistrarAbono,
+    handleRegistrarCobroVarias,
     reload: () => loadCuentas(),
     dialogProps,
     toasts,

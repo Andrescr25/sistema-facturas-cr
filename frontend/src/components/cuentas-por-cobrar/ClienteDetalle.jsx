@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Users } from 'lucide-react'
 import DetalleContraparte from '../pagos/DetalleContraparte'
 import TablaFacturas from '../pagos/TablaFacturas'
 import ModalAbono from './ModalAbono'
+import ModalPagoVarias from '../pagos/ModalPagoVarias'
+import BarraSeleccion from '../pagos/BarraSeleccion'
 import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
 import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import api from '../../services/api'
@@ -15,8 +17,20 @@ import { formatCurrency } from '../../utils/pagos'
  * components/pagos/): lo único propio de acá es cobrar —el modal de abono— y
  * los dos envíos por WhatsApp.
  */
-export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCargarProductos, registrandoAbono, onRegistrarAbono }) {
+export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCargarProductos, registrandoAbono, onRegistrarAbono, onRegistrarCobroVarias }) {
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
+  // Varias facturas en un solo cobro ("este pago cubre A, B y C"): un solo
+  // movimiento que entra a Caja General. Al cambiar de cliente se suelta.
+  const [elegidas, setElegidas] = useState(new Set())
+  const [cobrandoVarias, setCobrandoVarias] = useState(false)
+  useEffect(() => { setElegidas(new Set()) }, [cliente.clienteId, cliente.clienteNombre])
+  // Lo elegido que ya no está (se saldó) no se arrastra.
+  const elegidasVigentes = new Set(cliente.facturas.filter((f) => elegidas.has(f.facturaId)).map((f) => f.facturaId))
+  const alternar = (f) => setElegidas((prev) => {
+    const nuevo = new Set(prev)
+    if (nuevo.has(f.id)) nuevo.delete(f.id); else nuevo.add(f.id)
+    return nuevo
+  })
   // Recordatorio de saldo: el texto lo propone el servidor con los saldos de
   // este momento, no el navegador — que puede tener la lista abierta desde
   // antes de un abono y mandarle al cliente una cifra que ya no debe.
@@ -64,9 +78,22 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         </button>
       }
     >
+      {cliente.facturas.length > 1 && (
+        <BarraSeleccion
+          cantidad={elegidasVigentes.size}
+          total={cliente.facturas.filter((f) => elegidasVigentes.has(f.facturaId)).reduce((s, f) => s + Number(f.saldo || 0), 0)}
+          totalFacturas={cliente.facturas.length}
+          accion="Cobrar"
+          onElegirTodas={() => setElegidas(new Set(cliente.facturas.map((f) => f.facturaId)))}
+          onQuitar={() => setElegidas(new Set())}
+          onAccion={() => setCobrandoVarias(true)}
+        />
+      )}
       <TablaFacturas
         facturas={filas}
         onSeleccionar={(f) => setFacturaSeleccionada(f.original)}
+        seleccionadas={elegidasVigentes}
+        onAlternar={cliente.facturas.length > 1 ? alternar : undefined}
         vacio="Este cliente no tiene facturas con saldo."
         accion={(f) => (
           <button
@@ -114,6 +141,23 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
             return data.data
           }}
           onCerrar={() => setFacturaAEnviar(null)}
+        />
+      )}
+
+      {cobrandoVarias && elegidasVigentes.size > 0 && (
+        <ModalPagoVarias
+          sentido="entrada"
+          titulo={cliente.clienteNombre}
+          facturas={cliente.facturas
+            .filter((f) => elegidasVigentes.has(f.facturaId))
+            .map((f) => ({ id: f.facturaId, numero: f.numeroFactura, saldo: Number(f.saldo) }))}
+          procesando={registrandoAbono}
+          onRegistrar={async (datos) => {
+            const ok = await onRegistrarCobroVarias(datos)
+            if (ok) setElegidas(new Set())
+            return ok
+          }}
+          onCerrar={() => setCobrandoVarias(false)}
         />
       )}
 

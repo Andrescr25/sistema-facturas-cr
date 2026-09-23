@@ -8,6 +8,7 @@
 
 const servicio = require('./cobros.service');
 const caja = require('./cierreCaja.service');
+const cajaGeneral = require('./cajaGeneral.service');
 
 function fallo(res, error, contexto) {
   const s = error.status || 500;
@@ -75,6 +76,15 @@ module.exports = {
       res.json({ success: true, data: await caja.resumenDelDia(req.query.fecha) });
     } catch (error) {
       fallo(res, error, 'resumenCaja');
+    }
+  },
+
+  /** GET /cuentas-por-cobrar/propios/caja/movimientos?desde=&hasta= — lo que entró y salió de Caja General. */
+  movimientosCaja: async (req, res) => {
+    try {
+      res.json({ success: true, data: await cajaGeneral.movimientos(req.query) });
+    } catch (error) {
+      fallo(res, error, 'movimientosCaja');
     }
   },
 

@@ -25,11 +25,13 @@
  *    anotado quién y cuándo: si el segundo conteo pudiera pisar al primero en
  *    silencio, el cierre no probaría nada.
  *
- * 5. LO QUE SALIÓ DE LA CAJA SE RESTA (migración 026). Un pago a proveedor o
- *    un gasto recurrente que salió de "Caja general" —la misma cuenta a la
- *    que entran los cobros— ya no está al contar. Sin restarlo, el cierre
- *    marcaba un faltante que no existía. Lo que sale de Caja chica o del
- *    banco no toca este conteo. Se congela al cerrar, igual que el esperado.
+ * 5. LO QUE SALIÓ EN EFECTIVO SE RESTA (migración 026). Todo pasa por Caja
+ *    General (decisión del usuario, 2026-09-23); lo que dice si la plata
+ *    salió de los billetes que se cuentan es el MÉTODO. Un pago a proveedor o
+ *    un gasto pagado en efectivo ya no está al contar; uno por SINPE o
+ *    transferencia no toca la caja física. Se congela al cerrar, igual que el
+ *    esperado. Las salidas salen de la vista `movimiento_caja` (027), la
+ *    misma que muestra la pantalla de Caja General.
  */
 
 const { pool } = require('../../../config/database');
@@ -44,9 +46,6 @@ const num = (v) => Number(v) || 0;
 
 const FECHA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
 
-// La caja que se cuenta: la misma cuenta a la que entran los cobros
-// (`cobros.service.js` los registra en 'Caja general').
-const CUENTA_CAJA = 'Caja general';
 
 function diaValido(fecha) {
   const dia = fecha ? String(fecha).slice(0, 10) : hoyEnCostaRica();
@@ -55,25 +54,21 @@ function diaValido(fecha) {
 }
 
 /**
- * Lo que salió de la caja en un día: pagos a proveedores vigentes y gastos
- * recurrentes pagados, desde la cuenta de la caja.
+ * Lo que salió de la caja EN EFECTIVO en un día: pagos a proveedores y gastos
+ * vigentes, con las facturas que cubrieron.
  */
 async function salidasDeCaja(ejecutor, dia) {
   const { rows } = await ejecutor.query(
-    `SELECT 'proveedor' AS tipo, pp.id, pp.proveedor_nombre AS descripcion, pp.monto
-       FROM pago_proveedor pp
-       JOIN cuenta_dinero cd ON cd.id = pp.cuenta_dinero_id
-      WHERE pp.fecha = $1::date AND pp.anulado = FALSE AND cd.nombre = $2
-     UNION ALL
-     SELECT 'gasto' AS tipo, pr.id, g.nombre AS descripcion, pr.monto
-       FROM pago_recurrente pr
-       JOIN gasto_recurrente g ON g.id = pr.gasto_id
-       JOIN cuenta_dinero cd ON cd.id = pr.cuenta_dinero_id
-      WHERE pr.fecha_pago = $1::date AND pr.estado = 'pagado' AND cd.nombre = $2
-      ORDER BY 1, 2`,
-    [dia, CUENTA_CAJA]
+    `SELECT tipo, documento_id, contraparte, monto, facturas
+       FROM movimiento_caja
+      WHERE sentido = 'salida' AND fecha = $1::date AND anulado = FALSE AND metodo_clave = 'efectivo'
+      ORDER BY tipo, documento_id`,
+    [dia]
   );
-  const salidas = rows.map(r => ({ tipo: r.tipo, id: r.id, descripcion: r.descripcion, monto: num(r.monto) }));
+  const salidas = rows.map(r => ({
+    tipo: r.tipo === 'pago_proveedor' ? 'proveedor' : r.tipo,
+    id: r.documento_id, descripcion: r.contraparte, facturas: r.facturas, monto: num(r.monto)
+  }));
   return { salidas, total: dinero(salidas.reduce((s, r) => s + r.monto, 0)) };
 }
 

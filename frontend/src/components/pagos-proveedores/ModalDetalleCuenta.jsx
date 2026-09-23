@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Ban, CalendarDays, CheckCircle2, CreditCard, Landmark, Loader2 } from 'lucide-react'
+import { Ban, CalendarDays, CheckCircle2, CreditCard, Loader2, Wallet } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/pagosProveedoresUtils'
 import { getOpcionesPago } from '../../services/configuracionService'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
@@ -12,9 +12,9 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * Pagarle a un proveedor.
  *
  * EL PAGO ES UN DOCUMENTO (migración 025). Antes, "Marcar como pagada" bajaba
- * el saldo a mano y no quedaba ni cuándo ni de dónde salió la plata. Ahora se
- * registra un pago con su fecha, la cuenta de la que salió, el método y la
- * referencia; el saldo de la factura se calcula a partir de los pagos, y un
+ * el saldo a mano y no quedaba ni cuándo ni cómo se pagó. Ahora se registra
+ * un pago con su fecha, el método y la referencia, y SALE DE CAJA GENERAL
+ * (decisión del usuario: no hay cajas separadas); el saldo de la factura se calcula a partir de los pagos, y un
  * pago equivocado se ANULA con su motivo (reemplaza al viejo "Revertir a
  * pendiente", que borraba el rastro).
  *
@@ -22,9 +22,6 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * tarjetas grandes de decisión. Lo propio de pagar se conserva: las notas de
  * crédito del proveedor.
  */
-
-/** El método que corresponde a una cuenta, para no tener que elegir dos veces. */
-const METODO_POR_TIPO = { efectivo: 'efectivo', banco: 'transferencia', tarjeta_credito: 'tarjeta_credito' }
 
 export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onAnularPago, onCerrar }) {
   const yaPagada = cuenta.estado === 'PAGADA'
@@ -34,9 +31,7 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
   // El día en Costa Rica, no en UTC: después de las 6 p.m. eso ya es mañana.
   const [fecha, setFecha] = useState(hoyEnCostaRica())
 
-  const [cuentas, setCuentas] = useState([])
   const [metodos, setMetodos] = useState([])
-  const [cuentaDineroId, setCuentaDineroId] = useState(null)
   const [metodoPagoId, setMetodoPagoId] = useState(null)
   const [referencia, setReferencia] = useState('')
 
@@ -46,29 +41,17 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
   useEffect(() => {
     let cancelado = false
     getOpcionesPago()
-      .then(({ cuentas, metodos }) => {
-        if (cancelado) return
-        setCuentas(cuentas)
-        setMetodos(metodos)
-      })
+      .then(({ metodos }) => { if (!cancelado) setMetodos(metodos) })
       .catch(() => {})
     return () => { cancelado = true }
   }, [])
-
-  const elegirCuenta = (id) => {
-    setCuentaDineroId(id)
-    // Sale de la caja → efectivo; del banco → transferencia. Se puede cambiar.
-    const tipo = cuentas.find((c) => c.id === id)?.tipo
-    const sugerido = metodos.find((m) => m.clave === METODO_POR_TIPO[tipo])
-    if (sugerido) { setMetodoPagoId(sugerido.id); setReferencia('') }
-  }
 
   const metodo = metodos.find((m) => m.id === metodoPagoId) || null
   const faltaReferencia = Boolean(metodo?.pideReferencia) && !referencia.trim()
   const pagarTodo = seleccion === 'total'
   const montoInvalido = !pagarTodo &&
     (!monto || Number(monto) <= 0 || Number(monto) > cuenta.saldoPendiente)
-  const incompleto = !cuentaDineroId || !metodoPagoId || faltaReferencia
+  const incompleto = !metodoPagoId || faltaReferencia
 
   const handleRegistrar = async () => {
     if (montoInvalido || incompleto) return
@@ -77,7 +60,6 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
       aplicaciones: [pagarTodo
         ? { cuentaPorPagarId: cuenta.id, pagarTodo: true }
         : { cuentaPorPagarId: cuenta.id, monto: Number(monto) }],
-      cuentaDineroId,
       metodoPagoId,
       referencia: referencia.trim() || null,
       fecha
@@ -281,22 +263,10 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                 </div>
               )}
 
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
-                  <Landmark size={16} className="text-neutro-400" />
-                  ¿De qué cuenta salió la plata?
-                </label>
-                <select
-                  value={cuentaDineroId ?? ''}
-                  onChange={(e) => elegirCuenta(Number(e.target.value))}
-                  className="input h-12 w-full text-base"
-                >
-                  <option value="" disabled>Elegí la cuenta…</option>
-                  {cuentas.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              <p className="flex items-center gap-2 text-sm text-neutro-600">
+                <Wallet size={16} className="text-neutro-400" />
+                Sale de <strong className="font-semibold text-neutro-800">Caja General</strong>
+              </p>
 
               <div>
                 <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">

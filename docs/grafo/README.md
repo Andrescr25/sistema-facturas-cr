@@ -38,6 +38,7 @@ toca, qué no se regenera).
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)
 - [Los archivos grandes se guardan como ruta, no como columna](decision/la-ruta-no-el-contenido.md)
+- [Caja General es el centro — todo cobro entra, todo pago sale](decision/caja-general-es-el-centro.md)
 
 ## Lecciones
 

@@ -27,11 +27,11 @@ const cuenta = (id, extra = {}) => ({
 });
 const EFECTIVO = { id: 1, nombre: 'Efectivo', pide_referencia: false };
 const TRANSFERENCIA = { id: 3, nombre: 'Transferencia', pide_referencia: true };
-const BANCO = { id: 2, nombre: 'Banco 1' };
+const CAJA = { id: 3 };
 
 function montar({
   cuentas = [cuenta(CXP_A)], saldos = { [CXP_A]: '10000.00' },
-  metodo = EFECTIVO, cuentaDinero = BANCO, pago = null
+  metodo = EFECTIVO, caja = CAJA, pago = null
 } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
@@ -45,7 +45,7 @@ function montar({
         }))
       };
     }
-    if (/FROM cuenta_dinero WHERE id/.test(texto)) return { rows: cuentaDinero ? [{ ...cuentaDinero }] : [] };
+    if (/FROM cuenta_dinero WHERE nombre/.test(texto)) return { rows: caja ? [{ ...caja }] : [] };
     if (/FROM metodo_pago WHERE id/.test(texto)) return { rows: metodo ? [{ ...metodo }] : [] };
     if (/INSERT INTO pago_proveedor \(/.test(texto)) {
       const columnas = texto.match(/\(([^)]+)\) VALUES/)[1].split(', ');
@@ -67,7 +67,7 @@ function montar({
 
 const fila = (log, patron) => log.find((l) => patron.test(l.sql));
 const indice = (log, patron) => log.findIndex((l) => patron.test(l.sql));
-const BASE = { aplicaciones: [{ cuentaPorPagarId: CXP_A, monto: 3000 }], cuentaDineroId: 2, metodoPagoId: 1 };
+const BASE = { aplicaciones: [{ cuentaPorPagarId: CXP_A, monto: 3000 }], metodoPagoId: 1 };
 
 beforeEach(() => { for (const r of [rutaDb, rutaServicio]) delete require.cache[r]; });
 
@@ -80,13 +80,13 @@ describe('registrar un pago a proveedor', () => {
     assert.ok(bloqueo < indice(log, /FROM cuenta_por_pagar_saldo/), 'el saldo se leyó antes de tomar las facturas');
   });
 
-  test('deja el pago, de qué cuenta salió, y su enlace con la factura', async () => {
+  test('deja el pago, que sale de Caja General, y su enlace con la factura', async () => {
     const { servicio, log } = montar();
     const r = await servicio.registrarPago(BASE, 4);
     const insert = fila(log, /INSERT INTO pago_proveedor \(/);
     const col = (nombre) => insert.params[insert.sql.match(/\(([^)]+)\) VALUES/)[1].split(', ').indexOf(nombre)];
     assert.equal(col('monto'), 3000);
-    assert.equal(col('cuenta_dinero_id'), 2);
+    assert.equal(col('cuenta_dinero_id'), 3, 'sale de Caja General');
     assert.equal(col('metodo_pago_id'), 1);
     assert.equal(col('proveedor_id'), 24);
     assert.deepEqual(fila(log, /INSERT INTO pago_proveedor_cuenta/).params, [90, CXP_A, 3000]);
@@ -148,14 +148,22 @@ describe('registrar un pago a proveedor', () => {
     await assert.rejects(servicio.registrarPago({ ...BASE, metodoPagoId: 3 }, 4), /referencia/);
   });
 
-  test('la cuenta de dinero tiene que existir y estar activa', async () => {
-    const { servicio } = montar({ cuentaDinero: null });
-    await assert.rejects(servicio.registrarPago(BASE, 4), /cuenta de dinero/);
+  test('sin Caja General (o inactiva) no se registra un pago que no sale de ningún lado', async () => {
+    const { servicio, log } = montar({ caja: null });
+    await assert.rejects(servicio.registrarPago(BASE, 4), (e) => e.status === 409 && /Caja general/.test(e.message));
+    assert.equal(fila(log, /INSERT INTO pago_proveedor/), undefined);
   });
 
-  test('sin cuenta de dinero o sin método, ni siquiera abre la transacción', async () => {
+  test('una cuenta que venga de la pantalla se ignora: sale de Caja General', async () => {
     const { servicio, log } = montar();
-    await assert.rejects(servicio.registrarPago({ ...BASE, cuentaDineroId: null }, 4), /de qué cuenta/);
+    await servicio.registrarPago({ ...BASE, cuentaDineroId: 99 }, 4);
+    const insert = fila(log, /INSERT INTO pago_proveedor \(/);
+    const cols = insert.sql.match(/\(([^)]+)\) VALUES/)[1].split(', ');
+    assert.equal(insert.params[cols.indexOf('cuenta_dinero_id')], 3);
+  });
+
+  test('sin método, ni siquiera abre la transacción', async () => {
+    const { servicio, log } = montar();
     await assert.rejects(servicio.registrarPago({ ...BASE, metodoPagoId: null }, 4), /método/);
     assert.equal(log.length, 0);
   });

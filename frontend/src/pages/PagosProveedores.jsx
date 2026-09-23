@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, Clock, Shield, Truck, Wallet } from 'lucide-react'
 import { usePagosProveedores } from '../hooks/usePagosProveedores'
 import ToastContainer from '../components/ToastContainer'
@@ -9,6 +9,8 @@ import DetalleContraparte from '../components/pagos/DetalleContraparte'
 import TablaFacturas from '../components/pagos/TablaFacturas'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ModalDetalleCuenta from '../components/pagos-proveedores/ModalDetalleCuenta'
+import ModalPagoVarias from '../components/pagos/ModalPagoVarias'
+import BarraSeleccion from '../components/pagos/BarraSeleccion'
 import SaldosAFavor from '../components/pagos-proveedores/SaldosAFavor'
 import ModalAplicarNota from '../components/pagos-proveedores/ModalAplicarNota'
 import { agruparPorContraparte, formatCurrency } from '../utils/pagos'
@@ -62,6 +64,18 @@ export default function PagosProveedores() {
   const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState(null)
   const cuentaSeleccionada = cuentas.find((c) => c.id === cuentaSeleccionadaId) || null
   const [notaAAplicar, setNotaAAplicar] = useState(null)
+
+  // Varias facturas del mismo proveedor en un solo pago ("este pago cubre A,
+  // B y C"): un solo movimiento que sale de Caja General. Lo elegido es de
+  // ESE proveedor: al cambiar de proveedor se suelta.
+  const [elegidas, setElegidas] = useState(new Set())
+  const [pagandoVarias, setPagandoVarias] = useState(false)
+  useEffect(() => { setElegidas(new Set()) }, [proveedorActivoId])
+  const alternar = (f) => setElegidas((prev) => {
+    const nuevo = new Set(prev)
+    if (nuevo.has(f.id)) nuevo.delete(f.id); else nuevo.add(f.id)
+    return nuevo
+  })
 
   // El servidor manda las facturas una por una; el agrupado por proveedor se
   // hace acá, que es donde ya están los datos.
@@ -208,12 +222,47 @@ export default function PagosProveedores() {
           textoVolver="Volver a proveedores"
           onVolver={() => setProveedorActivoId(null)}
         >
+          {proveedorActivo.facturas.length > 1 && (
+            <BarraSeleccion
+              cantidad={elegidas.size}
+              total={proveedorActivo.facturas.filter((c) => elegidas.has(c.id)).reduce((s, c) => s + c.saldoPendiente, 0)}
+              totalFacturas={proveedorActivo.facturas.length}
+              accion="Pagar"
+              onElegirTodas={() => setElegidas(new Set(proveedorActivo.facturas.map((c) => c.id)))}
+              onQuitar={() => setElegidas(new Set())}
+              onAccion={() => setPagandoVarias(true)}
+            />
+          )}
           <TablaFacturas
             facturas={filasDe(proveedorActivo.facturas)}
             onSeleccionar={(f) => setCuentaSeleccionadaId(f.original.id)}
             vacio="Este proveedor no tiene facturas con saldo."
+            seleccionadas={elegidas}
+            onAlternar={proveedorActivo.facturas.length > 1 ? alternar : undefined}
           />
         </DetalleContraparte>
+      )}
+
+      {pagandoVarias && proveedorActivo && (
+        <ModalPagoVarias
+          sentido="salida"
+          titulo={proveedorActivo.nombre}
+          facturas={proveedorActivo.facturas
+            .filter((c) => elegidas.has(c.id))
+            .map((c) => ({ id: c.id, numero: c.numeroConsecutivo, saldo: c.saldoPendiente }))}
+          procesando={procesandoId === 'varias'}
+          onRegistrar={async ({ lineas, metodoPagoId, referencia, fecha }) => {
+            const ok = await registrarPago('varias', {
+              aplicaciones: lineas.map((l) => (l.todo
+                ? { cuentaPorPagarId: l.id, pagarTodo: true }
+                : { cuentaPorPagarId: l.id, monto: l.monto })),
+              metodoPagoId, referencia, fecha
+            })
+            if (ok) setElegidas(new Set())
+            return ok
+          }}
+          onCerrar={() => setPagandoVarias(false)}
+        />
       )}
 
       {cuentaSeleccionada && (

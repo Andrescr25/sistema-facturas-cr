@@ -23,6 +23,9 @@
  *
  * 4. NO SE COBRA MÁS QUE EL SALDO. Un excedente no es un abono: es plata que
  *    hay que devolver o dejar a cuenta, y eso es otra conversación.
+ *
+ * 5. TODO COBRO ENTRA A CAJA GENERAL (decisión del usuario, 2026-09-23), y
+ *    puede cubrir varias facturas del mismo cliente en un solo documento.
  */
 
 const { pool } = require('../../../config/database');
@@ -33,6 +36,7 @@ const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service'
 const { hoyEnCostaRica, diaEnCostaRica } = require('../../utils/fechaCR');
 const { telefonosDe, validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
+const { CAJA_GENERAL, idCajaGeneral } = require('../../utils/cajaGeneral');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -126,54 +130,87 @@ async function abonosDeFactura(facturaId) {
   }));
 }
 
-/** La factura con su saldo, leída con bloqueo dentro de la transacción. */
-async function traerFacturaConSaldo(cliente, facturaId) {
+/**
+ * Las facturas con su saldo, leídas con bloqueo dentro de la transacción. Se
+ * toman todas juntas y POR ID: dos cobros simultáneos sobre las mismas
+ * facturas las piden en el mismo orden y no se traban entre sí.
+ */
+async function traerFacturasConSaldo(cliente, facturaIds) {
   const { rows } = await cliente.query(
     `SELECT f.*, f.total - ${COBRADO} - ${ACREDITADO} AS saldo_real
        FROM factura f
-      WHERE f.id = $1
+      WHERE f.id = ANY($1::int[])
+      ORDER BY f.id
       FOR UPDATE`,
-    [facturaId]
+    [facturaIds]
   );
-  const factura = rows[0];
-  if (!factura) throw httpError(404, 'No existe esa factura.');
-  if (factura.estado === 'anulada') {
-    throw httpError(409, `La factura ${factura.numero} está anulada: no se le puede aplicar un abono.`);
+  if (rows.length !== facturaIds.length) throw httpError(404, 'Alguna de esas facturas no existe.');
+  for (const factura of rows) {
+    if (factura.estado === 'anulada') {
+      throw httpError(409, `La factura ${factura.numero} está anulada: no se le puede aplicar un abono.`);
+    }
+    if (factura.estado !== 'emitida') {
+      throw httpError(409, `La factura ${factura.numero} todavía es un borrador.`);
+    }
   }
-  if (factura.estado !== 'emitida') {
-    throw httpError(409, `La factura ${factura.numero} todavía es un borrador.`);
-  }
-  return factura;
+  return new Map(rows.map((f) => [f.id, f]));
+}
+
+/** Una o varias facturas: la forma nueva (`aplicaciones`) o la de siempre (`facturaId`). */
+function leerAplicacionesCobro(datos) {
+  const lista = Array.isArray(datos.aplicaciones) && datos.aplicaciones.length
+    ? datos.aplicaciones
+    : [{ facturaId: datos.facturaId, monto: datos.monto, saldarTotal: datos.saldarTotal }];
+  const vistas = new Set();
+  return lista.map((a) => {
+    const facturaId = idValido(a?.facturaId);
+    if (vistas.has(facturaId)) throw httpError(400, 'La misma factura viene dos veces en el cobro.');
+    vistas.add(facturaId);
+    return { facturaId, saldarTotal: a.saldarTotal === true, monto: dinero(a.monto) };
+  });
 }
 
 /**
- * Registrar un abono sobre una factura.
+ * Registrar un cobro sobre una o varias facturas del MISMO cliente: "este
+ * pago cubre las facturas A, B y C". Es un solo documento (`pago`) con una
+ * línea por factura (`pago_factura`), y ENTRA A CAJA GENERAL: es un solo
+ * movimiento de caja (vista `movimiento_caja`), que dice qué facturas cubrió.
  *
- * @param {number}  datos.facturaId
- * @param {number}  datos.monto        lo que entregó el cliente
- * @param {boolean} datos.saldarTotal  cobra el saldo recién leído, no el de la pantalla
+ * @param {Array<{facturaId, monto?, saldarTotal?}>} [datos.aplicaciones]
+ * @param {number}  [datos.facturaId]    forma de una sola factura, la de siempre
+ * @param {number}  [datos.monto]
+ * @param {boolean} [datos.saldarTotal]  cobra el saldo recién leído, no el de la pantalla
  */
 async function registrarAbono(datos = {}, usuarioId = null) {
-  const facturaId = idValido(datos.facturaId);
+  const aplicaciones = leerAplicacionesCobro(datos);
   const metodoId = Number(datos.metodoPagoId);
   if (!metodoId) throw httpError(400, 'Falta el método de pago.');
 
   return enTransaccion(async (cliente) => {
-    const factura = await traerFacturaConSaldo(cliente, facturaId);
-    const saldo = dinero(factura.saldo_real);
+    const facturas = await traerFacturasConSaldo(cliente, aplicaciones.map((a) => a.facturaId));
 
-    if (saldo <= 0) {
-      throw httpError(409, `La factura ${factura.numero} ya no tiene saldo pendiente.`);
-    }
+    // Un cobro es de UN cliente. Las facturas sin ficha (se borró en Alegra
+    // antes de la copia) se agrupan por el nombre copiado.
+    const clientes = new Set([...facturas.values()].map((f) => f.cliente_id ?? `nombre:${f.cliente_nombre}`));
+    if (clientes.size > 1) throw httpError(400, 'Un cobro solo puede cubrir facturas del mismo cliente.');
 
-    // "Saldar total" usa el saldo RECIÉN LEÍDO: entre que la pantalla lo
-    // mostró y alguien apretó, otra caja pudo haber cobrado.
-    const monto = datos.saldarTotal ? saldo : dinero(datos.monto);
-    if (monto <= 0) throw httpError(400, 'El monto del abono tiene que ser mayor que cero.');
-    if (monto > saldo + 0.01) {
-      throw httpError(400,
-        `El abono de ₡${monto} supera el saldo de la factura ${factura.numero}, que es ₡${saldo}.`);
-    }
+    const detalle = aplicaciones.map((a) => {
+      const factura = facturas.get(a.facturaId);
+      const saldo = dinero(factura.saldo_real);
+      if (saldo <= 0) {
+        throw httpError(409, `La factura ${factura.numero} ya no tiene saldo pendiente.`);
+      }
+      // "Saldar total" usa el saldo RECIÉN LEÍDO: entre que la pantalla lo
+      // mostró y alguien apretó, otra caja pudo haber cobrado.
+      const monto = a.saldarTotal ? saldo : a.monto;
+      if (monto <= 0) throw httpError(400, 'El monto del abono tiene que ser mayor que cero.');
+      if (monto > saldo + 0.01) {
+        throw httpError(400,
+          `El abono de ₡${monto} supera el saldo de la factura ${factura.numero}, que es ₡${saldo}.`);
+      }
+      return { factura, monto: dinero(monto), saldoAntes: saldo };
+    });
+    const total = dinero(detalle.reduce((s, d) => s + d.monto, 0));
 
     const { rows: metodos } = await cliente.query(
       'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE',
@@ -188,43 +225,54 @@ async function registrarAbono(datos = {}, usuarioId = null) {
     }
 
     const fecha = datos.fecha ? String(datos.fecha).slice(0, 10) : hoyEnCostaRica();
+    const cajaId = await idCajaGeneral(cliente);
+    const primera = detalle[0].factura;
 
     const { rows } = await cliente.query(
       `INSERT INTO pago (fecha, cliente_id, cliente_nombre, metodo_pago_id, metodo_pago_texto,
                          cuenta_dinero_id, cuenta_texto, referencia, monto, observaciones, registrado_por)
-       VALUES ($1, $2, $3, $4, $5,
-               (SELECT id FROM cuenta_dinero WHERE nombre = 'Caja general' AND activo LIMIT 1),
-               'Caja general', $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, '${CAJA_GENERAL}', $7, $8, $9, $10)
        RETURNING *`,
       [
-        fecha, factura.cliente_id, factura.cliente_nombre,
-        metodo.id, String(metodo.nombre).slice(0, 40), referencia, monto,
+        fecha, primera.cliente_id, primera.cliente_nombre,
+        metodo.id, String(metodo.nombre).slice(0, 40), cajaId, referencia, total,
         datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null,
         usuarioId
       ]
     );
     const pago = rows[0];
 
-    await cliente.query(
-      'INSERT INTO pago_factura (pago_id, factura_id, monto) VALUES ($1, $2, $3)',
-      [pago.id, factura.id, monto]
-    );
+    for (const d of detalle) {
+      await cliente.query(
+        'INSERT INTO pago_factura (pago_id, factura_id, factura_numero, monto) VALUES ($1, $2, $3, $4)',
+        [pago.id, d.factura.id, d.factura.numero, d.monto]
+      );
+    }
 
     await registrarCambio(cliente, {
       entidad: 'pago', entidadId: pago.id, accion: 'crear',
       despues: {
-        factura: factura.numero, cliente: factura.cliente_nombre,
-        monto, metodo: metodo.nombre, saldoAntes: saldo, saldoDespues: dinero(saldo - monto)
+        cliente: primera.cliente_nombre, monto: total, metodo: metodo.nombre,
+        facturas: detalle.map((d) => ({
+          factura: d.factura.numero, monto: d.monto,
+          saldoAntes: d.saldoAntes, saldoDespues: dinero(d.saldoAntes - d.monto)
+        }))
       },
       usuarioId
     });
 
+    const facturasCobro = detalle.map((d) => ({
+      id: d.factura.id, numero: d.factura.numero, monto: d.monto,
+      saldoAnterior: d.saldoAntes, saldoNuevo: dinero(d.saldoAntes - d.monto)
+    }));
     return {
       ...pago,
       monto: num(pago.monto),
-      factura: { id: factura.id, numero: factura.numero },
-      saldoAnterior: saldo,
-      saldoNuevo: dinero(saldo - monto)
+      facturas: facturasCobro,
+      // La forma de siempre, para quien cobra una sola factura.
+      factura: { id: facturasCobro[0].id, numero: facturasCobro[0].numero },
+      saldoAnterior: facturasCobro[0].saldoAnterior,
+      saldoNuevo: facturasCobro[0].saldoNuevo
     };
   });
 }

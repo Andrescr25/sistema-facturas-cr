@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, ClipboardList, Clock, Users, Wallet } from 'lucide-react'
+import { AlertTriangle, ClipboardList, Clock, Landmark, Users, Wallet } from 'lucide-react'
 import { useCuentasPorCobrar } from '../hooks/useCuentasPorCobrar'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
@@ -9,6 +9,7 @@ import ListaContrapartes from '../components/pagos/ListaContrapartes'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ClienteDetalle from '../components/cuentas-por-cobrar/ClienteDetalle'
 import CuadreCajaDia from '../components/cuentas-por-cobrar/CuadreCajaDia'
+import CajaGeneral from '../components/cuentas-por-cobrar/CajaGeneral'
 import { formatCurrency } from '../utils/pagos'
 
 /**
@@ -29,7 +30,7 @@ export default function CuentasPorCobrar() {
     clientes, resumen, loading, error,
     filters, setFilters, resetFilters,
     actualizando, handleActualizar,
-    handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono,
+    handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono, handleRegistrarCobroVarias,
     dialogProps, toasts, removeToast
   } = useCuentasPorCobrar()
 
@@ -48,7 +49,8 @@ export default function CuentasPorCobrar() {
   const [tab, setTab] = useState('pendientes')
   const tabs = [
     { key: 'pendientes', label: 'Pendientes', icon: ClipboardList },
-    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet }
+    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet },
+    { key: 'caja', label: 'Caja General', icon: Landmark }
   ]
 
   const tarjetas = resumen ? [
@@ -97,7 +99,7 @@ export default function CuentasPorCobrar() {
         </div>
       </div>
 
-      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
+      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-xl">
         {tabs.map((t) => {
           const Icon = t.icon
           const activa = tab === t.key
@@ -164,12 +166,14 @@ export default function CuentasPorCobrar() {
               onCargarProductos={handleCargarProductos}
               registrandoAbono={registrandoAbono}
               onRegistrarAbono={handleRegistrarAbono}
+              onRegistrarCobroVarias={handleRegistrarCobroVarias}
             />
           )}
         </>
       )}
 
       {tab === 'cobros-dia' && <CuadreCajaDia />}
+      {tab === 'caja' && <CajaGeneral />}
     </div>
   )
 }

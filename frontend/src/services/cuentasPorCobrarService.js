@@ -152,3 +152,12 @@ export async function reabrirCaja(fecha, motivo) {
   return response.data?.data ?? null
 }
 
+
+/**
+ * Lo que entró y salió de Caja General en un período, con las facturas que
+ * originaron cada movimiento. Sin fechas, el mes en curso.
+ */
+export async function getMovimientosCaja({ desde, hasta } = {}) {
+  const response = await api.get('/cuentas-por-cobrar/propios/caja/movimientos', { params: { desde, hasta } })
+  return response.data?.data ?? null
+}
