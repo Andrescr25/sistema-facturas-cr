@@ -15,7 +15,7 @@
  */
 
 const { query } = require('../../../config/database');
-const { clasificarProducto, IVA_ASUMIDO } = require('../precios/auditoria');
+const { clasificarProducto, tasaIvaDe } = require('../precios/auditoria');
 const { obtenerCostosDerivados } = require('../precios/costoDerivado');
 const { calcularTechoCompetencia } = require('../precios/motor');
 
@@ -39,7 +39,7 @@ function mediana(valores) {
 async function obtenerCatalogoClasificado() {
   const [productos, derivadoPorItem, competencia] = await Promise.all([
     query(`
-      SELECT p.alegra_id, p.name, p.category, p.price, p.cost, p.image_url,
+      SELECT p.alegra_id, p.name, p.category, p.price, p.cost, p.tax_percentage, p.image_url,
              r.clase AS clase_rotacion, r.unidades_mes, r.clientes_distintos,
              r.facturacion_12m, r.meses_sin_venta
       FROM alegra_products_cache p
@@ -70,7 +70,7 @@ async function obtenerCatalogoClasificado() {
     const derivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
     const costoDerivado = derivado ? derivado.costo : null;
     const historialInestable = derivado ? derivado.historialInestable : false;
-    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable });
+    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable, tasaIva: p.tax_percentage });
     const comp = competenciaPorItem.get(String(p.alegra_id)) ?? null;
     const techoCompetencia = comp ? calcularTechoCompetencia(comp.precio) : null;
 
@@ -87,7 +87,7 @@ async function obtenerCatalogoClasificado() {
 
     // Los costos vienen CON IVA y el precio SIN IVA (asimetría de Alegra),
     // así que hay que bajar el costo antes de comparar.
-    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + IVA_ASUMIDO / 100) : null;
+    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + tasaIvaDe(p.tax_percentage) / 100) : null;
     const margenEfectivo = costoEfectivoSinIva !== null && precio > 0
       ? ((precio - costoEfectivoSinIva) / precio) * 100
       : null;

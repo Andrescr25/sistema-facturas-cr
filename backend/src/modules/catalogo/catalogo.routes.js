@@ -38,7 +38,6 @@ router.put('/productos/subcategoria-lote', catalogoController.asignarSubcategori
 router.put('/productos/:alegraId/subcategoria', catalogoController.asignarSubcategoria);
 
 // Categorías: son de Alegra, pero el orden y el nombre visible son nuestros.
-router.get('/categorias-config', catalogoController.listarCategoriasConfig);
 router.put('/categorias-config/nombre', catalogoController.renombrarCategoria);
 router.put('/categorias-config/orden', catalogoController.reordenarCategorias);
 router.post('/categorias-config/crear', catalogoController.crearCategoria);

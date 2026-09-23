@@ -382,15 +382,6 @@ async function reordenarSubcategorias(req, res) {
   }
 }
 
-/** Categorías de Alegra con su orden y nombre visible locales. */
-async function listarCategoriasConfig(req, res) {
-  try {
-    res.json({ success: true, categorias: await categorias.listar() });
-  } catch (error) {
-    res.status(error.status || 500).json({ success: false, message: error.message });
-  }
-}
-
 async function renombrarCategoria(req, res) {
   try {
     const { categoria, nombreVisible } = req.body || {};
@@ -427,7 +418,6 @@ module.exports = {
   asignarSubcategoriaLote,
   eliminarSubcategoria,
   reordenarSubcategorias,
-  listarCategoriasConfig,
   renombrarCategoria,
   reordenarCategorias,
   crearCategoria,

@@ -6,9 +6,12 @@
  *
  * El `cost` de Alegra (alegra_products_cache.cost) viene CON IVA; el
  * `price` viene SIN IVA — asimetría confirmada en revision-precios.service.js.
- * La tarifa de IVA real no está persistida por producto todavía (Costa Rica
- * tiene 0/1/2/4/8/13%, no solo 13%) — se asume IVA_ASUMIDO como el resto del
- * código ya hace, documentado como limitación conocida a resolver después.
+ * Para pasar el costo a sin-IVA hace falta la tarifa REAL del producto
+ * (`alegra_products_cache.tax_percentage`; Costa Rica tiene 0/1/2/4/8/13 %):
+ * con el 13 % fijo, un producto al 1 % con margen real de 20 % se leía como
+ * 28,5 % (76 productos visibles no van al 13 %, medido 2026-09-23). Quien la
+ * tenga la pasa en `tasaIva`; IVA_ASUMIDO queda solo para cuando la tarifa
+ * no se sincronizó (NULL no es "exento").
  *
  * Dos señales, no una sola, porque una sola no alcanza: un caso real
  * (CINTA MOTEX 5500) tenía el costo de Alegra Y el costo derivado de
@@ -29,7 +32,14 @@
 const RATIO_SOSPECHOSO_ALTO = 3; // costo (sin IVA) > 3x el precio de venta ⇒ casi seguro error de unidad
 const RATIO_SOSPECHOSO_BAJO = 0.05; // costo < 5% del precio (margen implícito >95%) ⇒ casi seguro costo mal cargado
 const TOLERANCIA_CRUCE_PORCENTAJE = 25; // diferencia entre costo de Alegra y costo derivado de facturas
-const IVA_ASUMIDO = 13; // TODO(fase 1.2): persistir la tarifa real de IVA por producto
+const IVA_ASUMIDO = 13; // solo si no llega la tarifa real (tasaIva)
+
+/** La tarifa real si se sincronizó; si no (NULL no es "exento"), IVA_ASUMIDO. */
+function tasaIvaDe(tasaIva) {
+  return tasaIva !== null && tasaIva !== undefined && tasaIva !== '' && Number.isFinite(Number(tasaIva))
+    ? Number(tasaIva)
+    : IVA_ASUMIDO;
+}
 
 const CLASIFICACION = {
   SIN_COSTO: 'SIN_COSTO',
@@ -54,13 +64,15 @@ const CLASIFICACION = {
  * @param {number|null} datos.costoDerivado - costo de las facturas de proveedor
  *        (ya normalizado a unidad propia, CON IVA), o null si no hay ninguna.
  *        Ver ./costoDerivado.js: es la mediana de las últimas compras válidas.
+ * @param {number|string|null} [datos.tasaIva] - tarifa de IVA del producto
+ *        (tax_percentage). null/ausente = no sincronizada → IVA_ASUMIDO.
  * @param {boolean} [datos.historialInestable] - las compras recientes de ese
  *        producto se contradicen entre sí (factor de conversión mal puesto en
  *        alguna). Basta para no confiar en el costo, venga de donde venga.
  * @returns {{clasificacion: string, costoSinIva: number|null, margenReal: number|null,
  *   costoSugerido: number|null, diffPorcentaje: number|null, origenCosto: string|null}}
  */
-function clasificarProducto({ price, cost, costoDerivado, historialInestable = false }) {
+function clasificarProducto({ price, cost, costoDerivado, historialInestable = false, tasaIva = null }) {
   const precioVenta = Number(price) || 0;
   const costoAlegra = Number(cost) || 0;
   const derivado = costoDerivado != null && Number.isFinite(Number(costoDerivado)) && Number(costoDerivado) > 0
@@ -82,7 +94,7 @@ function clasificarProducto({ price, cost, costoDerivado, historialInestable = f
     };
   }
 
-  const costoSinIva = costoBase / (1 + IVA_ASUMIDO / 100);
+  const costoSinIva = costoBase / (1 + tasaIvaDe(tasaIva) / 100);
   const ratioCostoPrecio = precioVenta > 0 ? costoSinIva / precioVenta : Infinity;
 
   const sospechoso = (diffPorcentaje = null) => ({
@@ -142,5 +154,6 @@ module.exports = {
   RATIO_SOSPECHOSO_ALTO,
   RATIO_SOSPECHOSO_BAJO,
   TOLERANCIA_CRUCE_PORCENTAJE,
-  IVA_ASUMIDO
+  IVA_ASUMIDO,
+  tasaIvaDe
 };

@@ -3,12 +3,13 @@ import { Loader2, PackageSearch, Search } from 'lucide-react'
 import FilaProducto from './FilaProducto'
 
 /**
- * Buscar en todo el catálogo: una lista plana, como hace el catálogo del
- * agente al buscar. Cada fila dice en qué categoría y subcategoría está,
- * porque acá no hay agrupado que lo diga.
+ * Buscar en todo el catálogo (por texto, por proveedor o las dos): una lista
+ * plana, como hace el catálogo del agente al buscar. Cada fila dice en qué
+ * categoría y subcategoría está, porque acá no hay agrupado que lo diga.
  */
 export default function ResultadosBusqueda({
   busqueda,
+  proveedorNombre = '',
   resultados,
   loading,
   alternar,
@@ -18,6 +19,10 @@ export default function ResultadosBusqueda({
   onDuplicar
 }) {
   const ordenPlano = useMemo(() => resultados.map((p) => p.alegraId), [resultados])
+  const descripcion = [
+    busqueda.trim() && ` para "${busqueda.trim()}"`,
+    proveedorNombre && (proveedorNombre.startsWith('sin ') ? `, ${proveedorNombre}` : ` de ${proveedorNombre}`)
+  ].filter(Boolean).join('')
   const manejarAlternar = (alegraId, nativeEvent) => alternar(alegraId, { rango: !!nativeEvent?.shiftKey, ordenPlano })
 
   if (loading) {
@@ -33,8 +38,10 @@ export default function ResultadosBusqueda({
     return (
       <div className="rounded-xl border border-neutro-100 bg-white py-16 text-center shadow-sm">
         <PackageSearch className="mx-auto mb-4 text-neutro-300" size={56} />
-        <h3 className="mb-1 text-xl font-bold text-neutro-900">Nada con "{busqueda.trim()}"</h3>
-        <p className="text-neutro-500">Probá con parte del nombre o con la referencia.</p>
+        <h3 className="mb-1 text-xl font-bold text-neutro-900">Nada{descripcion}</h3>
+        <p className="text-neutro-500">
+          {busqueda.trim() ? 'Probá con parte del nombre o con la referencia.' : 'Ese proveedor no tiene productos visibles.'}
+        </p>
       </div>
     )
   }
@@ -46,7 +53,7 @@ export default function ResultadosBusqueda({
           <Search size={20} className="text-primario-600" />
         </div>
         <h3 className="text-lg font-bold text-neutro-800">
-          {resultados.length} resultado{resultados.length === 1 ? '' : 's'} para "{busqueda.trim()}"
+          {resultados.length} resultado{resultados.length === 1 ? '' : 's'}{descripcion}
         </h3>
       </div>
       <div className="divide-y divide-neutro-100">

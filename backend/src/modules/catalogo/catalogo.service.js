@@ -56,6 +56,17 @@ function httpError(status, message, extra = {}) {
 // proveedor". No choca con una cédula real: esas son solo dígitos.
 const SIN_PROVEEDOR = 'sin-proveedor';
 
+// El proveedor al que más se le compra ese producto, por cédula (ver
+// listarProveedoresDelCatalogo). Lo comparten la vista de categoría y la
+// búsqueda, para que la misma fila diga lo mismo en las dos.
+const JOIN_PROVEEDOR_PRINCIPAL = `LEFT JOIN LATERAL (
+         SELECT supplier_name, supplier_cedula
+           FROM supplier_product_mapping m
+          WHERE m.alegra_item_id = p.alegra_id
+          ORDER BY m.times_used DESC, m.last_used_date DESC
+          LIMIT 1
+       ) prov ON true`;
+
 /**
  * Proveedores que tienen productos en el catálogo, para el filtro.
  *
@@ -198,27 +209,40 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
   // taxPercentage NULL es "todavía no se sincronizó", no "exento": ahí se
   // devuelve null en vez de repetir el precio sin impuesto como si lo
   // llevara.
-  // La subcategoría va en una consulta aparte y no en el findMany porque no
-  // está en el esquema de Prisma (ver el filtro de arriba). Son los productos
-  // de ESTA página, así que es una consulta chica.
-  const subPorProducto = new Map();
+  // Subcategoría, rotación y proveedor principal van en una consulta aparte
+  // y no en el findMany porque nada de eso está en el esquema de Prisma. Son
+  // los productos de ESTA página, así que es una consulta chica. Son los
+  // mismos datos que trae productosDeCategoria: la fila de la pantalla es la
+  // misma en las dos vistas, y sin esto la búsqueda mostraba "—" en margen y
+  // rotación de todos los productos.
+  const extraPorProducto = new Map();
   if (productos.length > 0) {
     const { rows } = await query(`
-      SELECT p.alegra_id, s.id, s.nombre
+      SELECT p.alegra_id, s.id AS sub_id, s.nombre AS sub_nombre, r.unidades_mes,
+             prov.supplier_name, prov.supplier_cedula
         FROM alegra_products_cache p
-        JOIN subcategoria s ON s.id = p.subcategoria_id
+        LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
+        LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+        ${JOIN_PROVEEDOR_PRINCIPAL}
        WHERE p.alegra_id = ANY($1::varchar[])
     `, [productos.map(p => p.alegraId)]);
-    rows.forEach(r => subPorProducto.set(r.alegra_id, { id: r.id, nombre: r.nombre }));
+    rows.forEach(r => extraPorProducto.set(r.alegra_id, r));
   }
 
-  const data = productos.map((p) => ({
-    ...p,
-    subcategoria: subPorProducto.get(p.alegraId) || null,
-    precioConIva: p.taxPercentage === null || p.taxPercentage === undefined
-      ? null
-      : precioConImpuesto(p.price, p.taxPercentage)
-  }));
+  const data = productos.map((p) => {
+    const r = extraPorProducto.get(p.alegraId) || {};
+    const { margenReal } = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado: null, tasaIva: p.taxPercentage });
+    return {
+      ...p,
+      subcategoria: r.sub_id ? { id: r.sub_id, nombre: r.sub_nombre } : null,
+      unidadesMes: r.unidades_mes != null ? Number(r.unidades_mes) : null,
+      proveedor: r.supplier_name ? { nombre: r.supplier_name, cedula: r.supplier_cedula } : null,
+      precioConIva: p.taxPercentage === null || p.taxPercentage === undefined
+        ? null
+        : precioConImpuesto(p.price, p.taxPercentage),
+      margenReal
+    };
+  });
 
   return {
     data,
@@ -320,19 +344,13 @@ async function productosDeCategoria(categoria) {
       FROM alegra_products_cache p
       LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
       LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
-      LEFT JOIN LATERAL (
-             SELECT supplier_name, supplier_cedula
-               FROM supplier_product_mapping m
-              WHERE m.alegra_item_id = p.alegra_id
-              ORDER BY m.times_used DESC, m.last_used_date DESC
-              LIMIT 1
-           ) prov ON true
+      ${JOIN_PROVEEDOR_PRINCIPAL}
      WHERE p.category = $1 AND p.status = 'active' AND p.hidden_locally = false
      ORDER BY p.name ASC
   `, [cat]);
 
   return rows.map((r) => {
-    const { margenReal } = clasificarProducto({ price: r.price, cost: r.cost, costoDerivado: null, historialInestable: false });
+    const { margenReal } = clasificarProducto({ price: r.price, cost: r.cost, costoDerivado: null, tasaIva: r.tax_percentage });
     return {
       alegraId: r.alegra_id,
       name: r.name,

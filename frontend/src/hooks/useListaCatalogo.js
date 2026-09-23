@@ -9,6 +9,9 @@ const RETRASO_BUSQUEDA_MS = 300
 // La búsqueda es un atajo sobre todo el catálogo, como la del catálogo del
 // agente: descarta el agrupado y muestra una lista plana.
 const LIMITE_BUSQUEDA_GLOBAL = 100
+// Con un proveedor elegido se trae todo lo suyo: el más grande tiene ~500
+// productos, en el orden de una categoría grande, que ya se pinta entera.
+const LIMITE_POR_PROVEEDOR = 1000
 
 /**
  * Los productos de lo que se está mirando.
@@ -20,21 +23,35 @@ const LIMITE_BUSQUEDA_GLOBAL = 100
  *     dónde renombrarla, moverla o borrarla. El orden es el del agente
  *     (compararSubcategorias, la misma función que usa partirPorSubcategoria),
  *     y "Sin clasificar" siempre al final.
- *   · En la cuadrícula, con texto en el buscador: búsqueda en todo el catálogo.
+ *   · En la cuadrícula, con texto en el buscador o un proveedor elegido:
+ *     lista plana sobre todo el catálogo. El proveedor va por CÉDULA (el
+ *     mismo proveedor aparece escrito de dos formas en las facturas), con las
+ *     opciones de GET /proveedores: solo los que tienen productos, con cuántos.
  *
  * UN SOLO EFECTO, NO DOS ENCADENADOS: la pantalla vieja disparaba una
  * petición de más en cada cambio de filtro por tener dos.
  */
 export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
   const [busqueda, setBusqueda] = useState('')
+  const [proveedor, setProveedor] = useState('')
+  const [proveedores, setProveedores] = useState({ proveedores: [], sinProveedor: null })
   const [filtroTexto, setFiltroTexto] = useState('')
   const [soloSinImagen, setSoloSinImagen] = useState(false)
   const [productos, setProductos] = useState([])
   const [loading, setLoading] = useState(false)
   const [recargarNonce, setRecargarNonce] = useState(0)
 
-  const busquedaActiva = !categoriaActiva && busqueda.trim().length > 0
+  const busquedaActiva = !categoriaActiva && (busqueda.trim().length > 0 || Boolean(proveedor))
   const idPedidoRef = useRef(0)
+
+  // Una vez: si no carga, el filtro simplemente no se muestra.
+  useEffect(() => {
+    api.get('/alegra/catalog/proveedores')
+      .then(({ data }) => {
+        if (data?.success) setProveedores({ proveedores: data.proveedores || [], sinProveedor: data.sinProveedor || null })
+      })
+      .catch((error) => console.error('Error cargando proveedores del catálogo:', error))
+  }, [])
 
   // El filtro de adentro es de ESA categoría: al cambiar de una a otra no se arrastra.
   useEffect(() => { setFiltroTexto('') }, [categoriaActiva])
@@ -52,7 +69,9 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
       setLoading(true)
       const pedido = categoriaActiva
         ? api.get('/alegra/catalog/productos-de-categoria', { params: { categoria: categoriaActiva } })
-        : api.get('/alegra/catalog/productos', { params: { search: busqueda.trim(), limit: LIMITE_BUSQUEDA_GLOBAL } })
+        : api.get('/alegra/catalog/productos', {
+            params: { search: busqueda.trim(), proveedor, limit: proveedor ? LIMITE_POR_PROVEEDOR : LIMITE_BUSQUEDA_GLOBAL }
+          })
 
       pedido
         .then(({ data }) => {
@@ -75,7 +94,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
     }
     disparar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, busquedaActiva, categoriaActiva, recargarNonce])
+  }, [busqueda, proveedor, busquedaActiva, categoriaActiva, recargarNonce])
 
   const recargar = useCallback(() => setRecargarNonce((n) => n + 1), [])
 
@@ -149,6 +168,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
 
   return {
     busqueda, setBusqueda, busquedaActiva,
+    proveedor, setProveedor, proveedores,
     filtroTexto, setFiltroTexto,
     soloSinImagen, setSoloSinImagen,
     hayFiltro,

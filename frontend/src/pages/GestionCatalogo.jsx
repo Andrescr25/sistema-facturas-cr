@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ExternalLink, ImageOff, Layers, Link as LinkIcon, Package, RefreshCw, Search, X } from 'lucide-react'
+import { AlertTriangle, ExternalLink, ImageOff, Layers, Link as LinkIcon, Package, RefreshCw, Search, Truck, X } from 'lucide-react'
 import api from '../services/api'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
@@ -53,6 +53,12 @@ export default function GestionCatalogo() {
 
   const lista = useListaCatalogo({ arbol, categoriaActiva, subFoco })
   const seleccion = useSeleccionLote()
+
+  const nombreProveedor = useMemo(() => {
+    if (!lista.proveedor) return ''
+    if (lista.proveedor === lista.proveedores.sinProveedor?.valor) return 'sin proveedor relacionado'
+    return lista.proveedores.proveedores.find((p) => p.cedula === lista.proveedor)?.nombre || ''
+  }, [lista.proveedor, lista.proveedores])
 
   // Lo seleccionado es de lo que se estaba mirando: al cambiar de lugar se suelta.
   useEffect(() => {
@@ -245,6 +251,28 @@ export default function GestionCatalogo() {
                 </button>
               )}
             </div>
+            {/* Proveedor, por cédula. Si la lista no cargó, el filtro no se muestra. */}
+            {lista.proveedores.proveedores.length > 0 && (
+              <div className="relative shrink-0 md:w-80">
+                <Truck size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
+                <select
+                  value={lista.proveedor}
+                  onChange={(e) => lista.setProveedor(e.target.value)}
+                  aria-label="Filtrar por proveedor"
+                  className={`w-full truncate rounded-xl border py-3 pl-10 pr-8 text-base focus:outline-none focus:ring-2 focus:ring-primario-500/30 ${
+                    lista.proveedor ? 'border-primario-300 bg-primario-50 font-semibold text-primario-800' : 'border-neutro-200 bg-neutro-50 text-neutro-900'
+                  }`}
+                >
+                  <option value="">Todos los proveedores</option>
+                  {lista.proveedores.proveedores.map((p) => (
+                    <option key={p.cedula} value={p.cedula}>{p.nombre} ({p.productos})</option>
+                  ))}
+                  {lista.proveedores.sinProveedor?.productos > 0 && (
+                    <option value={lista.proveedores.sinProveedor.valor}>Sin proveedor relacionado ({lista.proveedores.sinProveedor.productos})</option>
+                  )}
+                </select>
+              </div>
+            )}
             {filtrada && (
               <button type="button" onClick={() => setVista({ estado: 'todos', dias: 'todos' })}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primario-50 px-4 py-3 text-sm font-semibold text-primario-700 ring-1 ring-primario-200 hover:bg-primario-100">
@@ -256,6 +284,7 @@ export default function GestionCatalogo() {
           {lista.busquedaActiva ? (
             <ResultadosBusqueda
               busqueda={lista.busqueda}
+              proveedorNombre={nombreProveedor}
               resultados={lista.resultados}
               loading={lista.loading}
               alternar={seleccion.alternar}
