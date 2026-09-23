@@ -7,8 +7,7 @@ import {
   filtrarPorBusqueda,
   calcularDiasYLimite,
   normalizeReferenceValue,
-  aplicarEstadosGuardados,
-  esHoyCR
+  aplicarEstadosGuardados
 } from '../utils/facturasBodegaUtils'
 
 // Cada 2 minutos: el servidor contesta con lo guardado al toque y se
@@ -58,7 +57,7 @@ export function useFacturasBodega() {
 
   const [vista, setVistaEstado] = useState(() => {
     const v = leer(STORAGE_KEYS.vista)
-    return ['pendientes', 'historial', 'faltantes'].includes(v) ? v : 'pendientes'
+    return v === 'historial' ? 'historial' : 'pendientes'
   })
   const [busqueda, setBusqueda] = useState('')
   const [filtros, setFiltros] = useState(() => {
@@ -338,7 +337,6 @@ export function useFacturasBodega() {
         ...factura,
         estado_bodega: 'procesado',
         despachada_en: new Date().toISOString(),
-        faltantes_pendientes: faltantesSeleccionados.length,
         estadosProductos: { ...faltantesDraft }
       }
       setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== factura.alegra_id))
@@ -365,7 +363,7 @@ export function useFacturasBodega() {
   }
 
   const setVista = (v) => {
-    const valor = ['pendientes', 'historial', 'faltantes'].includes(v) ? v : 'pendientes'
+    const valor = v === 'historial' ? 'historial' : 'pendientes'
     setVistaEstado(valor)
     escribir(STORAGE_KEYS.vista, valor)
   }
@@ -384,13 +382,12 @@ export function useFacturasBodega() {
   }
 
   const pendientes = useMemo(() => filtrarPendientesPorFecha(pendientesRaw, filtros), [pendientesRaw, filtros])
-  const conFaltantes = useMemo(() => listas.filter((f) => Number(f.faltantes_pendientes) > 0), [listas])
-  const despachadasHoy = useMemo(() => listas.filter((f) => esHoyCR(f.despachada_en)).length, [listas])
-
-  const facturasMostradas = useMemo(() => {
-    const lista = vista === 'historial' ? listas : vista === 'faltantes' ? conFaltantes : pendientes
-    return filtrarPorBusqueda(lista, busqueda)
-  }, [vista, pendientes, listas, conFaltantes, busqueda])
+  // Dos vistas: lo que hay que alistar y el historial. Los faltantes se
+  // siguen en su propio módulo (decisión del usuario, 2026-09-23).
+  const facturasMostradas = useMemo(
+    () => filtrarPorBusqueda(vista === 'historial' ? listas : pendientes, busqueda),
+    [vista, pendientes, listas, busqueda]
+  )
 
   const checkedItemsCount = useMemo(() => {
     if (!facturaSeleccionada?.items) return 0
@@ -410,7 +407,7 @@ export function useFacturasBodega() {
     vista, setVista, busqueda, setBusqueda,
     filtros, cambiarFiltro, limpiarFiltros,
     facturasMostradas,
-    conteos: { porPreparar: pendientes.length, despachadasHoy, conFaltantes: conFaltantes.length, historial: listas.length },
+    conteos: { porPreparar: pendientes.length, historial: listas.length },
 
     // despacho
     facturaSeleccionada, faltantesDraft, cargandoEstados, guardando, esEdicion,

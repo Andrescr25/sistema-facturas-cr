@@ -38,13 +38,6 @@ function diaCR(fecha) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_CR, year: 'numeric', month: '2-digit', day: '2-digit' }).format(fecha)
 }
 
-/** ¿Este instante (ISO) cae hoy, en Costa Rica? */
-export function esHoyCR(iso, ahora = new Date()) {
-  if (!iso) return false
-  const d = new Date(iso)
-  return !Number.isNaN(d.getTime()) && diaCR(d) === diaCR(ahora)
-}
-
 /**
  * Cuándo se despachó, en palabras: "hoy 3:42 p. m.", "ayer 5:10 p. m." o
  * "20 sept, 3:42 p. m.". Sin hora (despachadas antes del 25 de agosto), null.

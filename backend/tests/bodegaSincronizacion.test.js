@@ -52,7 +52,6 @@ function montar({ paginas = [[factura(1, '2026-09-20'), factura(2, '2026-09-21')
   const ejecutar = async (sql) => {
     const texto = String(sql).replace(/\s+/g, ' ');
     if (/FROM facturas WHERE alegra_id = ANY/.test(texto)) return { rows: estados };
-    if (/FROM faltantes f JOIN facturas fa/.test(texto)) return { rows: [] };
     return { rows: [{}] };
   };
   require.cache[rutaDb] = { id: rutaDb, filename: rutaDb, loaded: true, exports: { query: ejecutar, pool: { query: ejecutar } } };
@@ -122,16 +121,6 @@ describe('sincronización de bodega', () => {
     await servicio.getFacturasBodega({ dias: 30, limit: 40 });
     await servicio.getFacturasBodega({ dias: 90, limit: 120 });
     assert.equal(contador.alegra, 2, 'la de 90 días no se contesta con la de 30');
-  });
-});
-
-describe('el conteo de faltantes', () => {
-  test("no cuenta los productos que salieron completos (tipo 'completo' ni cantidad 0)", async () => {
-    const fs = require('fs');
-    const fuente = fs.readFileSync(rutaServicio, 'utf8');
-    const consulta = fuente.slice(fuente.indexOf('AS faltantes_pendientes') - 300, fuente.indexOf('AS faltantes_pendientes'));
-    assert.match(consulta, /tipo_faltante <> 'completo'/);
-    assert.match(consulta, /cantidad_faltante, 0\) > 0/);
   });
 });
 

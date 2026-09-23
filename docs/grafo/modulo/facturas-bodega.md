@@ -40,10 +40,13 @@ TRAMPAS QUE YA COSTARON
   (`GET /bodega/facturas/:id/estados`) y los botones esperan quietos.
 - Bodega registra también los productos COMPLETOS (tipo 'completo') para poder
   reabrir la factura igual: cualquier conteo de faltantes tiene que excluirlos
-  (`tipo_faltante <> 'completo' AND cantidad_faltante > 0`), o se infla.
+  (`tipo_faltante <> 'completo' AND cantidad_faltante > 0`), o se infla. Esta
+  pantalla ya no cuenta faltantes (decisión del usuario, 2026-09-23: se
+  siguen en su propio módulo); solo Por preparar e Historial.
 - Al reabrir una del historial, 'completo' tiene que volverse 'ninguno' en la
-  pantalla; si no, guardar la modificación lo registraba como 'parcial' con 0
-  (quedaron 10 filas así en 3 facturas).
+  pantalla; si no, guardar la modificación lo registraba como 'parcial' con 0.
+  Quedaron 10 filas así en 3 facturas (14910, 14915, 14919): corregidas en
+  producción el 2026-09-23, con autorización y copia previa.
 - Las fechas 'YYYY-MM-DD' se leen como día local (`fechaLocal`): con
   `new Date()` la lista mostraba cada factura con un día menos.
 - `/alegra/bodega` es del módulo (no compartida): antes cualquiera con sesión

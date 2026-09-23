@@ -1,24 +1,23 @@
-import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock, Package, Search, X } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, Clock, History, Package, Search, X } from 'lucide-react'
 import TarjetasResumen from '../pagos/TarjetasResumen'
 import { formatCurrency, formatDate, horaDespacho } from '../../utils/facturasBodegaUtils'
 
 /**
- * La lista de Facturas en Bodega, con la forma del resto del sistema:
- * tarjetas de resumen arriba que sirven para cambiar de vista, y cada
- * factura como una tarjeta grande que se toca entera.
+ * La lista de Facturas en Bodega, con la forma del resto del sistema: dos
+ * tarjetas arriba que cambian de vista —Por preparar e Historial— y cada
+ * factura como una tarjeta grande que se toca entera. Los faltantes no se
+ * siguen acá: tienen su propio módulo.
  *
  * El HISTORIAL va en orden de despacho: la última despachada primero, la
  * anterior segunda, y así (lo ordena el servidor por la hora de despacho).
  */
 const TITULOS = {
   pendientes: { titulo: 'Por preparar', vacio: '¡Todo al día en bodega!', detalle: 'No hay facturas esperando despacho.' },
-  historial: { titulo: 'Historial', subtitulo: 'La última despachada primero', vacio: 'Todavía no hay facturas despachadas.', detalle: '' },
-  faltantes: { titulo: 'Con faltantes', subtitulo: 'Despachadas con productos pendientes', vacio: 'Ninguna despachada tiene faltantes pendientes.', detalle: '' }
+  historial: { titulo: 'Historial', subtitulo: 'La última despachada primero', vacio: 'Todavía no hay facturas despachadas.', detalle: '' }
 }
 
 function TarjetaFactura({ factura, onAbrir }) {
   const despachada = factura.estado_bodega === 'procesado'
-  const faltantes = Number(factura.faltantes_pendientes) || 0
   const cuando = horaDespacho(factura.despachada_en)
   const productos = factura.items?.length || 0
 
@@ -28,11 +27,13 @@ function TarjetaFactura({ factura, onAbrir }) {
       onClick={() => onAbrir(factura)}
       className="card flex w-full flex-col gap-3 p-5 text-left transition hover:border-primario-200 hover:shadow-md active:scale-[0.99]"
     >
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="rounded-full bg-primario-50 px-2.5 py-0.5 font-semibold text-primario-700">
+      {/* flex-wrap: con un número largo, la fecha baja entera en vez de
+          partirse en tres renglones al lado. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
+        <span className="min-w-0 break-all rounded-full bg-primario-50 px-2.5 py-0.5 font-semibold text-primario-700">
           #{factura.numero_completo || factura.numero_factura}
         </span>
-        <span className="text-neutro-500">{formatDate(factura.fecha_emision)}</span>
+        <span className="whitespace-nowrap text-neutro-500">{formatDate(factura.fecha_emision)}</span>
       </div>
 
       <h3 className="break-words text-xl font-bold leading-tight text-neutro-900">{factura.cliente_nombre}</h3>
@@ -41,19 +42,10 @@ function TarjetaFactura({ factura, onAbrir }) {
       </p>
 
       {despachada ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutro-100 pt-3">
-          <span className="flex items-center gap-1.5 text-sm text-neutro-600">
-            <Clock size={15} className="text-neutro-400" />
-            {cuando ? `Despachada ${cuando}` : 'Despachada'}
-          </span>
-          {faltantes > 0 ? (
-            <span className="rounded-full bg-alerta-100 px-2.5 py-0.5 text-xs font-bold uppercase text-alerta-800">
-              {faltantes} faltante{faltantes === 1 ? '' : 's'}
-            </span>
-          ) : (
-            <span className="rounded-full bg-exito-100 px-2.5 py-0.5 text-xs font-bold uppercase text-exito-800">Completa</span>
-          )}
-        </div>
+        <p className="flex items-center gap-1.5 border-t border-neutro-100 pt-3 text-sm text-neutro-600">
+          <Clock size={15} className="shrink-0 text-neutro-400" />
+          {cuando ? `Despachada ${cuando}` : 'Despachada'}
+        </p>
       ) : (
         <span className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-primario-600 py-3 text-base font-bold text-white">
           Iniciar despacho <ArrowRight size={18} />
@@ -68,8 +60,7 @@ export default function ListadoFacturas({
 }) {
   const tarjetas = [
     { clave: 'pendientes', titulo: 'Por preparar', icono: Package, tono: conteos.porPreparar > 0 ? 'alerta' : 'exito', valor: conteos.porPreparar, filtro: { estado: 'pendientes' } },
-    { clave: 'hoy', titulo: 'Despachadas hoy', icono: CheckCircle2, tono: 'exito', valor: conteos.despachadasHoy, filtro: { estado: 'historial' } },
-    { clave: 'faltantes', titulo: 'Con faltantes', icono: AlertTriangle, tono: 'peligro', valor: conteos.conFaltantes, filtro: { estado: 'faltantes' } }
+    { clave: 'historial', titulo: 'Historial', icono: History, tono: 'neutro', valor: conteos.historial, filtro: { estado: 'historial' } }
   ]
   const textos = TITULOS[vista] || TITULOS.pendientes
 
@@ -88,18 +79,11 @@ export default function ListadoFacturas({
         }}
       />
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-neutro-900">
-            {textos.titulo} <span className="font-normal text-neutro-400">· {facturas.length}</span>
-          </h2>
-          {textos.subtitulo && <p className="text-sm text-neutro-500">{textos.subtitulo}</p>}
-        </div>
-        {vista !== 'pendientes' && (
-          <button type="button" onClick={() => setVista('pendientes')} className="text-sm font-semibold text-primario-600 hover:text-primario-800">
-            Volver a Por preparar
-          </button>
-        )}
+      <div>
+        <h2 className="text-xl font-bold text-neutro-900">
+          {textos.titulo} <span className="font-normal text-neutro-400">· {facturas.length}</span>
+        </h2>
+        {textos.subtitulo && <p className="text-sm text-neutro-500">{textos.subtitulo}</p>}
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -114,7 +98,7 @@ export default function ListadoFacturas({
           />
           {busqueda && (
             <button type="button" onClick={() => setBusqueda('')} aria-label="Limpiar búsqueda"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-neutro-400 hover:bg-neutro-100">
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-lg p-2.5 text-neutro-400 hover:bg-neutro-100">
               <X size={18} />
             </button>
           )}
@@ -130,7 +114,7 @@ export default function ListadoFacturas({
               className="input h-12 rounded-xl text-base"
             />
             {filtros.fechaInicio && (
-              <button type="button" onClick={limpiarFiltros} className="text-sm font-semibold text-primario-600">Quitar</button>
+              <button type="button" onClick={limpiarFiltros} className="rounded-lg px-2 py-3 text-sm font-semibold text-primario-600">Quitar</button>
             )}
           </label>
         )}

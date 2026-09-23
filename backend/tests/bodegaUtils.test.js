@@ -9,9 +9,9 @@ const path = require('path');
  */
 const FUENTE = fs.readFileSync(
   path.join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'facturasBodegaUtils.js'), 'utf8');
-const { formatDate, filtrarPendientesPorFecha, horaDespacho, esHoyCR, aplicarEstadosGuardados } = new Function(
+const { formatDate, filtrarPendientesPorFecha, horaDespacho, aplicarEstadosGuardados } = new Function(
   `${FUENTE.replace(/^export /gm, '')}
-   return { formatDate, filtrarPendientesPorFecha, horaDespacho, esHoyCR, aplicarEstadosGuardados };`
+   return { formatDate, filtrarPendientesPorFecha, horaDespacho, aplicarEstadosGuardados };`
 )();
 
 describe('fechas de las facturas', () => {
@@ -40,8 +40,7 @@ describe('cuándo se despachó', () => {
   test('"hoy" es el día de Costa Rica: las 11 p.m. del 22 en CR no son el 23', () => {
     // 2026-09-23T05:00Z = 22 de setiembre, 11 p.m. en Costa Rica.
     assert.match(horaDespacho('2026-09-23T05:00:00Z', ahora), /^ayer /);
-    assert.equal(esHoyCR('2026-09-23T05:00:00Z', ahora), false);
-    assert.equal(esHoyCR('2026-09-23T07:00:00Z', ahora), true);
+    assert.match(horaDespacho('2026-09-23T07:00:00Z', ahora), /^hoy /);
   });
 
   test('sin hora (despachadas antes de que existiera), null', () => {

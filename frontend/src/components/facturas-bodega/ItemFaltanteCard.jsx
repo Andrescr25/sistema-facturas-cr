@@ -34,21 +34,25 @@ export default function ItemFaltanteCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 flex-1">
-          <h4 className="text-base font-bold text-neutro-900 leading-tight flex items-center gap-1.5">
-            {item.nombre || item.name}
+          {/* El nombre baja de renglón sin empujar el botón de la foto, que
+              tiene 40×40 para el dedo (medía 23×23). */}
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="min-w-0 break-words text-base font-bold leading-tight text-neutro-900">
+              {item.nombre || item.name}
+            </h4>
             <button
               type="button"
               onClick={onVerImagen}
               aria-label={`Ver foto de ${item.nombre || item.name}`}
-              className="p-1 text-neutro-400 hover:text-primario-600 hover:bg-primario-50 rounded-lg transition-colors shrink-0"
+              className="-mr-2 -mt-2 shrink-0 rounded-lg p-2.5 text-neutro-400 transition-colors hover:bg-primario-50 hover:text-primario-600"
             >
-              <ImageIcon size={15} />
+              <ImageIcon size={18} />
             </button>
-          </h4>
+          </div>
           <p className="text-sm font-semibold text-neutro-600">
             Cantidad a despachar: {cantidadFactura}
           </p>
-          <p className="text-xs text-neutro-400">Referencia: {draft?.referencia || 'N/A'}</p>
+          <p className="break-all text-xs text-neutro-400">Referencia: {draft?.referencia || 'N/A'}</p>
           {(item.descripcion || item.description) && (
             <div className="mt-3 bg-alerta-50 border-2 border-alerta-200 text-alerta-900 rounded-2xl p-3 shadow-sm flex flex-col gap-1.5">
               <div className="flex items-center gap-1.5 text-alerta-700">
@@ -77,8 +81,8 @@ export default function ItemFaltanteCard({
               : 'bg-white border-neutro-200 text-neutro-600 hover:bg-neutro-50'
               }`}
           >
-            <Check size={14} />
-            Completo
+            <Check size={14} className="hidden shrink-0 min-[360px]:block" />
+            <span className="whitespace-nowrap">Completo</span>
           </button>
 
           <button
@@ -90,8 +94,8 @@ export default function ItemFaltanteCard({
               : 'bg-white border-neutro-200 text-neutro-600 hover:bg-neutro-50'
               }`}
           >
-            <X size={14} />
-            Faltó Todo
+            <X size={14} className="hidden shrink-0 min-[360px]:block" />
+            <span className="whitespace-nowrap">Faltó Todo</span>
           </button>
 
           <button
@@ -103,8 +107,8 @@ export default function ItemFaltanteCard({
               : 'bg-white border-neutro-200 text-neutro-600 hover:bg-neutro-50'
               }`}
           >
-            <AlertTriangle size={14} />
-            Parcial
+            <AlertTriangle size={14} className="hidden shrink-0 min-[360px]:block" />
+            <span className="whitespace-nowrap">Parcial</span>
           </button>
         </div>
 

@@ -31,14 +31,18 @@ export default function DetalleDespacho({
 
   return (
     <div>
-      <button onClick={onVolver} className="mb-5 flex items-center text-neutro-500 transition-colors hover:text-primario-600">
+      <button type="button" onClick={onVolver} className="-ml-2 mb-3 flex items-center rounded-xl px-2 py-2.5 text-neutro-500 transition-colors hover:text-primario-600">
         <ArrowLeft className="mr-2" size={20} /> Volver a facturas
       </button>
 
       <div className="mb-5 rounded-xl border border-neutro-100 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        {/* En fila recién desde pantallas grandes: en tableta el nombre
+            compartía la fila con los totales y se partía a media palabra. */}
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="shrink-0 rounded-xl bg-primario-100 p-3.5">
+            {/* En el teléfono el ícono se va: le quitaba ancho al nombre y lo
+                partía a la mitad de una palabra. */}
+            <div className="hidden shrink-0 rounded-xl bg-primario-100 p-3.5 sm:block">
               <ClipboardList className="text-primario-600" size={28} />
             </div>
             <div className="min-w-0">
@@ -48,14 +52,16 @@ export default function DetalleDespacho({
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 divide-x divide-neutro-200 rounded-xl bg-neutro-50 p-4">
-            <div className="px-5 text-center">
+          {/* En el teléfono, dos renglones; desde tableta, dos columnas. En
+              columnas no entraba un total de siete cifras a 320-360 px. */}
+          <div className="w-full shrink-0 rounded-xl bg-neutro-50 p-4 md:flex md:w-auto md:divide-x md:divide-neutro-200">
+            <div className="flex items-baseline justify-between gap-3 md:block md:px-5 md:text-center">
               <p className="text-sm font-medium text-neutro-500">Productos</p>
-              <p className="text-2xl font-bold text-neutro-900">{totalItems}</p>
+              <p className="text-xl font-bold text-neutro-900 md:text-2xl">{totalItems}</p>
             </div>
-            <div className="px-5 text-center">
+            <div className="mt-1 flex items-baseline justify-between gap-3 md:mt-0 md:block md:px-5 md:text-center">
               <p className="text-sm font-medium text-neutro-500">Total</p>
-              <p className="text-2xl font-bold text-primario-600">{formatCurrency(factura.total)}</p>
+              <p className="whitespace-nowrap text-xl font-bold text-primario-600 md:text-2xl">{formatCurrency(factura.total)}</p>
             </div>
           </div>
         </div>

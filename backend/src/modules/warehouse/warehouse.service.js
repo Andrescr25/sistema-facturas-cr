@@ -301,39 +301,18 @@ async function facturasDeAlegra({ dias, limit, forceRefresh }) {
 }
 
 /**
- * Lo nuestro, siempre fresco: estado de bodega, cuándo se despachó y los
- * faltantes pendientes, por `alegra_id` (la identidad real de la factura;
- * antes se cruzaba por número).
+ * Lo nuestro, siempre fresco: estado de bodega y cuándo se despachó, por
+ * `alegra_id` (la identidad real de la factura; antes se cruzaba por número).
+ * Los faltantes no se cuentan acá: se siguen en su propio módulo.
  */
 async function estadosLocales(alegraIds) {
-  if (alegraIds.length === 0) return { estados: new Map(), faltantes: new Map() };
-  const [estadosResult, faltantesResult] = await Promise.all([
-    query(`
-      SELECT alegra_id, estado_bodega, estado_procesamiento, observaciones_adicionales, id, bodega_procesado_en
-      FROM facturas
-      WHERE alegra_id = ANY($1::int[])
-    `, [alegraIds]),
-    // Solo lo que FALTÓ: bodega registra también los productos que salieron
-    // completos (tipo 'completo', para poder reabrir la factura igual), y
-    // contarlos inflaba el número —29 de 36 facturas, 6 marcadas "con
-    // faltantes" sin tener ninguno—. Misma condición que el Reporte de faltantes.
-    query(`
-      SELECT
-        fa.alegra_id,
-        SUM(CASE WHEN f.estado = 'pendiente' AND f.tipo_faltante <> 'completo'
-                  AND COALESCE(f.cantidad_faltante, 0) > 0 THEN 1 ELSE 0 END) AS faltantes_pendientes,
-        SUM(CASE WHEN f.estado = 'pendiente' AND f.tipo_faltante <> 'completo'
-                  THEN COALESCE(f.cantidad_faltante, 0) ELSE 0 END) AS cantidad_pendiente
-      FROM faltantes f
-      JOIN facturas fa ON f.factura_id = fa.id
-      WHERE fa.alegra_id = ANY($1::int[])
-      GROUP BY fa.alegra_id
-    `, [alegraIds])
-  ]);
-  return {
-    estados: new Map(estadosResult.rows.map((row) => [String(row.alegra_id), row])),
-    faltantes: new Map(faltantesResult.rows.map((row) => [String(row.alegra_id), row]))
-  };
+  if (alegraIds.length === 0) return new Map();
+  const { rows } = await query(`
+    SELECT alegra_id, estado_bodega, estado_procesamiento, observaciones_adicionales, id, bodega_procesado_en
+    FROM facturas
+    WHERE alegra_id = ANY($1::int[])
+  `, [alegraIds]);
+  return new Map(rows.map((row) => [String(row.alegra_id), row]));
 }
 
 /**
@@ -358,20 +337,17 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
   const alegraIds = alegra.facturas
     .map((inv) => parseInt(inv.alegra_id, 10))
     .filter((id) => Number.isInteger(id));
-  const { estados, faltantes } = await estadosLocales(alegraIds);
+  const estados = await estadosLocales(alegraIds);
 
   const enriched = alegra.facturas.map((invoice) => {
     const estadoLocal = estados.get(String(invoice.alegra_id));
-    const faltanteInfo = faltantes.get(String(invoice.alegra_id));
     return {
       ...invoice,
       estado_bodega: estadoLocal?.estado_bodega || 'pendiente',
       estado_procesamiento: estadoLocal?.estado_procesamiento || 'pendiente',
       observaciones_adicionales: estadoLocal?.observaciones_adicionales || null,
       factura_local_id: estadoLocal?.id || null,
-      despachada_en: estadoLocal?.bodega_procesado_en || null,
-      faltantes_pendientes: parseInt(faltanteInfo?.faltantes_pendientes || 0, 10),
-      cantidad_faltante: parseInt(faltanteInfo?.cantidad_pendiente || 0, 10)
+      despachada_en: estadoLocal?.bodega_procesado_en || null
     };
   });
 

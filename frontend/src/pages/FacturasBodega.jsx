@@ -24,7 +24,7 @@ export default function FacturasBodega() {
       {b.successMessage && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-exito-200 bg-exito-50 px-4 py-3 text-exito-800">
           <span className="flex items-center gap-2"><CheckCircle size={18} className="text-exito-500" /> {b.successMessage}</span>
-          <button type="button" onClick={() => b.setSuccessMessage(null)} aria-label="Ocultar"><X size={16} /></button>
+          <button type="button" onClick={() => b.setSuccessMessage(null)} aria-label="Ocultar" className="-m-2 rounded-lg p-2.5"><X size={18} /></button>
         </div>
       )}
 
@@ -33,7 +33,7 @@ export default function FacturasBodega() {
       {b.aviso && (
         <div className="flex items-start justify-between gap-2 rounded-xl border border-alerta-200 bg-alerta-50 px-4 py-3 text-alerta-800">
           <span className="flex items-start gap-2"><AlertTriangle size={18} className="mt-0.5 shrink-0" /> {b.aviso}</span>
-          <button type="button" onClick={() => b.setAviso(null)} aria-label="Ocultar el aviso"><X size={16} /></button>
+          <button type="button" onClick={() => b.setAviso(null)} aria-label="Ocultar el aviso" className="-m-2 rounded-lg p-2.5"><X size={18} /></button>
         </div>
       )}
 
@@ -41,7 +41,7 @@ export default function FacturasBodega() {
         <div className="flex items-center gap-2 rounded-xl border border-peligro-200 bg-peligro-50 px-4 py-3 text-peligro-800">
           <AlertCircle size={18} className="shrink-0" />
           <span>{b.error} </span>
-          <button type="button" onClick={b.actualizar} className="ml-auto font-semibold underline">Reintentar</button>
+          <button type="button" onClick={b.actualizar} className="ml-auto rounded-lg px-2 py-2 font-semibold underline">Reintentar</button>
         </div>
       )}
 
