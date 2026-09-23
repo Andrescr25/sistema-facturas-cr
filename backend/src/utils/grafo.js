@@ -4,10 +4,11 @@ const path = require('path');
 /**
  * Lee el grafo de conocimiento (`docs/grafo/`) y lo deja como datos.
  *
- * NO HAY LIBRERÍA DE YAML DISPONIBLE, Y NO SE INSTALA UNA. `node_modules` en
- * esta rama es un enlace al árbol de `developer`; un `npm install` le
- * cambiaría las dependencias a esa rama, y su `postinstall` corre
- * `prisma generate`, que es justo lo que no se puede hacer desde acá.
+ * NO HAY LIBRERÍA DE YAML DISPONIBLE, Y NO SE INSTALA UNA. `node_modules` lo
+ * comparten las dos ramas (en `independencia-alegra` es un enlace al de
+ * `developer`): un `npm install` les cambiaría las dependencias a ambas, y
+ * su `postinstall` corre `prisma generate` — ver
+ * `bloqueo/prisma-no-se-regenera`.
  *
  * Por eso el frontmatter de cada nodo usa un subconjunto de YAML deliberado
  * y chico, no YAML completo: escalares de una línea, una lista simple

@@ -12,7 +12,7 @@ aristas:
   reemplaza: [tabla/facturas-proveedores]
   bloqueado_por: [decision/el-total-manda-sobre-las-lineas]
   relacionado: [tabla/compra-linea, tabla/cuentas-por-pagar]
-medido: 2026-09-20
+medido: 2026-09-23
 ---
 
 Ver [[decision/el-buzon-no-es-la-compra]] para el porqué de separarla de
@@ -28,8 +28,7 @@ parcial para que reprocesar el correo no duplique.
 
 `estado` solo admite `registrada`/`anulada` (migración 024 — escrita; a la
 copia local todavía no se le aplicó, así que ahí el `CHECK` aún acepta
-`devuelta`). Traía un tercer
-valor, `devuelta` ("se le devolvió la mercadería al proveedor"), que salió de
+`devuelta`). Traía un tercer valor, `devuelta` ("se le devolvió la mercadería al proveedor"), que salió de
 una alucinación de una sesión anterior: nunca fue un pedido real, ninguna de
 las 860 lo usaba y nada del código lo leía. Lo que el usuario sí pidió, y ya
 existe, es otra cosa —devolver una factura mal relacionada a `PROCESADA` para

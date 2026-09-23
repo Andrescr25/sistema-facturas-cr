@@ -42,6 +42,7 @@ toca, qué no se regenera).
 ## Lecciones
 
 - [En los worktrees main/developer, "local" es producción](leccion/la-db-local-es-produccion.md)
+- [Dos funciones `texto` con firmas opuestas](leccion/dos-helpers-texto.md)
 
 ## Bloqueos
 
@@ -52,6 +53,6 @@ toca, qué no se regenera).
 ## El grafo de la otra rama
 
 `developer`/`main` tienen su propio grafo, con los módulos que viven allá
-(catálogo, permisos, revisión de precios…). Cada rama describe SU código —el
+(catálogo, permisos, revisión de precios, impuestos…). Cada rama describe SU código —el
 validador exige que cada archivo citado exista en la rama—, y se juntan
 cuando las ramas se unan.

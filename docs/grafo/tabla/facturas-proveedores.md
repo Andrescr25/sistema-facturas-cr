@@ -9,7 +9,7 @@ archivos:
 aristas:
   bloqueado_por: [bloqueo/xml-historico-sin-recuperar]
   relacionado: [tabla/compra]
-medido: 2026-09-20
+medido: 2026-09-23
 ---
 
 Encabezado de cada factura de proveedor recibida por correo, con sus líneas en
@@ -19,7 +19,11 @@ Encabezado de cada factura de proveedor recibida por correo, con sus líneas en
 La columna `archivo_xml` es texto (`TEXT`), pero guarda el NOMBRE del archivo
 adjunto, no su contenido. Comprobado en las 882 de producción y las 862 de la
 copia local: cero tienen un `<` en esa columna. Ver
-[[bloqueo/xml-historico-sin-recuperar]].
+[[bloqueo/xml-historico-sin-recuperar]]. Las que llegan desde 2026-09-20 sí
+guardan el XML, como ruta en `xml_ruta` (ver
+[[decision/la-ruta-no-el-contenido]]): `saveFactura` escribe primero el
+archivo y después la fila, y solo borra el archivo si la fila no llegó a
+crearse.
 
 `email_id` guarda un `seqno` de IMAP —posicional, volátil, 69 de 862 en
 NULL—, no un UID. La llave para recuperar un XML es `archivo_xml` (el nombre

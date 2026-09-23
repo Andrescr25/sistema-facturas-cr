@@ -14,7 +14,7 @@ aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
   relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-09-20
+medido: 2026-09-23
 ---
 
 QUÉ ES HOY
@@ -28,6 +28,12 @@ terminar, el botón "Registrar compra" (`src/modules/compras/compras.service.js`
 costo y precio de cada producto, y libera la cuenta por pagar
 ([[tabla/cuentas-por-pagar]]) — todo en una sola transacción, sin tocar
 Alegra.
+
+Una línea de REGALÍA (la bonificación del proveedor: otra línea del mismo
+producto con 100 % de descuento, costo 0) no toca el costo del producto; si
+se le ajustó el precio, se aplica solo el precio
+(`actualizarProductoDeLinea`). Mandarla como costo pisaba el costo bueno de
+la línea pagada con ₡0.
 
 `enviarFacturaAlegra` (`revision-precios.service.js:595-858`), el camino
 viejo que hacía `POST /bills` y `PUT /items`, sigue en el código pero la
