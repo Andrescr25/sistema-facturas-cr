@@ -12,6 +12,8 @@ archivos:
   - backend/src/modules/pagos-proveedores/pagosProveedor.service.js
   - frontend/src/components/cuentas-por-cobrar/CajaGeneral.jsx
   - frontend/src/components/pagos/ModalPagoVarias.jsx
+  - backend/migrations/independencia/028_cuenta_de_contado.sql
+  - backend/src/modules/compras/liberarCuentaPorPagar.js
 aristas:
   relacionado: [tabla/cuentas-por-pagar, modulo/compras]
 medido: 2026-09-23
@@ -43,5 +45,8 @@ casi ninguna salida registrada (los pagos viejos a proveedores quedaron como
 `pagado_sin_detalle`), así que un saldo acumulado desde el principio no
 significa nada.
 
-HUECO CONOCIDO: las compras de contado no tienen cuenta por pagar, así que
-su pago no tiene contra qué registrarse y no llega a Caja General.
+COMPRAS DE CONTADO (028): al registrarlas nace su cuenta por pagar
+PENDIENTE, marcada `de_contado` y con estado CONTADO (no "vencida"). No se
+pagan solas —decisión del usuario—: una persona anota cómo se pagó y recién
+ahí sale de Caja General. Los gastos recurrentes no la crean: se pagan en
+Pagos Recurrentes, y una cuenta acá contaría la salida dos veces.

@@ -85,9 +85,20 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
       <ResumenSaldo
         saldo={cuenta.saldoPendiente}
         etiqueta={yaPagada ? 'Saldo (ya pagada)' : 'Saldo pendiente'}
-        fechaVencimiento={cuenta.fechaVencimiento}
+        // De contado vence el día que se recibe, pero no es un atraso: es un
+        // pago que falta anotar. Sin fecha, no se pinta "vencida hace N días".
+        fechaVencimiento={cuenta.deContado ? null : cuenta.fechaVencimiento}
         diasRestantes={cuenta.diasRestantes}
       />
+
+      {/* Una compra de contado nace pendiente (migración 028): se pagó al
+          recibirla, pero el pago lo anota una persona, que es quien sabe cómo
+          se hizo. */}
+      {cuenta.deContado && !yaPagada && (
+        <div className="rounded-xl border border-alerta-200 bg-alerta-50 px-4 py-3 text-sm text-alerta-800">
+          <strong>Compra de contado.</strong> Anotá cómo se pagó —efectivo, SINPE, transferencia— y sale de Caja General.
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 px-1 text-sm text-neutro-500">
         <span>Emitida el {formatDate(cuenta.fechaEmision)}</span>

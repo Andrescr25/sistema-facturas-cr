@@ -19,6 +19,10 @@ import { formatCurrency, formatDate, diasLabel, estiloEstado, colorVencimiento }
  * cobrar o pagar VARIAS facturas en un solo movimiento de caja. Sin ellas la
  * tabla se ve como siempre.
  */
+// Una compra de contado vence el día que se recibe; decir "vencida hace N
+// días" la pintaría de atraso cuando lo que falta es anotar cómo se pagó.
+const SE_PAGA_AL_RECIBIR = 'De contado: falta anotar el pago'
+
 function Casilla({ marcada, onCambio, etiqueta }) {
   return (
     <input
@@ -63,7 +67,7 @@ export default function TablaFacturas({
                 <div className="min-w-0 flex-1">
                   <h4 className="font-bold text-neutro-900 truncate">Factura #{f.numero}</h4>
                   <p className="text-xs text-neutro-400">
-                    {formatDate(f.fechaVencimiento)} • {diasLabel(f.diasRestantes)}
+                    {formatDate(f.fechaVencimiento)} • {f.estado === 'CONTADO' ? SE_PAGA_AL_RECIBIR : diasLabel(f.diasRestantes)}
                   </p>
                 </div>
                 <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${estilo.badge}`}>
@@ -119,8 +123,8 @@ export default function TablaFacturas({
                   </td>
                   <td className="px-6 py-4 text-neutro-500">
                     {formatDate(f.fechaVencimiento)}
-                    <span className={`block text-xs mt-0.5 ${colorVencimiento(f.diasRestantes)}`}>
-                      {diasLabel(f.diasRestantes)}
+                    <span className={`block text-xs mt-0.5 ${f.estado === 'CONTADO' ? 'text-neutro-500' : colorVencimiento(f.diasRestantes)}`}>
+                      {f.estado === 'CONTADO' ? SE_PAGA_AL_RECIBIR : diasLabel(f.diasRestantes)}
                     </span>
                   </td>
                   <td className="px-6 py-4">

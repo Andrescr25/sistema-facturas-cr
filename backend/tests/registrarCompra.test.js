@@ -88,6 +88,7 @@ function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINE
     }
     if (/INSERT INTO precio_historico/.test(texto)) return { rows: [{ id: 1 }] };
     if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
+    if (/INSERT INTO cuentas_por_pagar/.test(texto)) return { rows: [{ id: 'cxp-contado', de_contado: true }] };
     if (/UPDATE cuentas_por_pagar/.test(texto)) {
       return { rows: cxp ? [{ ...cxp, liberada: true, compra_id: params[1] }] : [] };
     }
@@ -140,6 +141,29 @@ describe('registrarCompra — camino feliz', () => {
     const { servicio } = montar({ cxp: null });
     const r = await servicio.registrarCompra(FACTURA_ID, {});
     assert.equal(r.cuentaLiberada, false);
+  });
+
+  test('de contado: nace su cuenta por pagar PENDIENTE, sin ningún pago', async () => {
+    // Decisión del usuario: no sale pagada de una vez; una persona anota
+    // "se pagó vía efectivo" en Pagos a Proveedores y recién ahí sale de Caja General.
+    const { servicio, log } = montar({ cxp: null });
+    const r = await servicio.registrarCompra(FACTURA_ID, {});
+    assert.equal(r.cuentaDeContado, true);
+    const insert = fila(log, /INSERT INTO cuentas_por_pagar/);
+    assert.match(insert.sql, /'PENDIENTE', TRUE, \$7, \$8, TRUE\)/, 'pendiente, liberada, de contado');
+    assert.match(insert.sql, /ON CONFLICT \(factura_id\) DO NOTHING/);
+    assert.equal(insert.params[0], FACTURA_ID);
+    assert.equal(insert.params[5], FACTURA_BUZON.total_factura, 'el monto es el total de la factura');
+    assert.equal(insert.params[6], 501, 'colgada de la compra');
+    assert.equal(log.some((l) => /INSERT INTO pago_proveedor/.test(l.sql)), false, 'no se paga sola');
+  });
+
+  test('a crédito: se libera la que ya tenía y no se crea otra', async () => {
+    const { servicio, log } = montar({ cxp: CXP });
+    const r = await servicio.registrarCompra(FACTURA_ID, {});
+    assert.equal(r.cuentaLiberada, true);
+    assert.equal(r.cuentaDeContado, false);
+    assert.equal(fila(log, /INSERT INTO cuentas_por_pagar/), undefined);
   });
 
   test('una línea sin producto propio se cuenta aparte y no toca producto ni bitácora de producto', async () => {

@@ -101,6 +101,9 @@ class PagosProveedoresService {
       // De qué se compone el saldo, para poder explicarlo en la pantalla.
       pagado: cuenta.saldo?.pagado ?? 0,
       pagadoSinDetalle: cuenta.saldo?.pagadoSinDetalle ?? 0,
+      // De contado (migración 028): nació al registrar la compra y espera que
+      // alguien anote cómo se pagó.
+      deContado: cuenta.saldo?.deContado ?? false,
       diasRestantes: cuenta.diasRestantes,
       notas: cuenta.notas,
       productos: cuenta.factura?.productos?.map((producto) => ({
@@ -124,7 +127,9 @@ class PagosProveedoresService {
     const totalVencidas = cuentas
       .filter((c) => c.estado === 'VENCIDA')
       .reduce((sum, c) => sum + c.saldoPendiente, 0);
-    const proximas = cuentas.filter((c) => c.diasRestantes >= 0 && c.diasRestantes <= 7);
+    // Las de contado no "vencen pronto": se pagaron al recibirlas y falta anotarlo.
+    const proximas = cuentas.filter((c) => c.estado !== 'CONTADO' && c.diasRestantes >= 0 && c.diasRestantes <= 7);
+    const contado = cuentas.filter((c) => c.estado === 'CONTADO');
     const proximasMonto = proximas.reduce((sum, c) => sum + c.saldoPendiente, 0);
 
     // Sumas de colones con decimales: sin redondear salían cosas como
@@ -138,6 +143,11 @@ class PagosProveedoresService {
       proximasAVencer: {
         cantidad: proximas.length,
         monto: redondear(proximasMonto)
+      },
+      // Compras de contado a las que falta anotarles el pago.
+      deContado: {
+        cantidad: contado.length,
+        monto: redondear(contado.reduce((sum, c) => sum + c.saldoPendiente, 0))
       }
     };
   }

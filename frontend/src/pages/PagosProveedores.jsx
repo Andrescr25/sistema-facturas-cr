@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, Shield, Truck, Wallet } from 'lucide-react'
+import { AlertTriangle, Banknote, Clock, Shield, Truck, Wallet } from 'lucide-react'
 import { usePagosProveedores } from '../hooks/usePagosProveedores'
 import ToastContainer from '../components/ToastContainer'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
@@ -44,6 +44,8 @@ const ESTADOS = [
   { value: 'todos', label: 'Todos' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'vencida', label: 'Vencidas' },
+  // Compras de contado a las que falta anotarles cómo se pagaron (028).
+  { value: 'contado', label: 'De contado' },
   { value: 'pagada', label: 'Pagadas' }
 ]
 
@@ -85,7 +87,8 @@ export default function PagosProveedores() {
     (c) => c.saldoPendiente
   ).map((g) => ({
     ...g,
-    urgente: g.facturas.some((f) => f.estado === 'VENCIDA' || f.diasRestantes < 0)
+    // Una de contado no es un atraso (vence el día que se recibe).
+    urgente: g.facturas.some((f) => f.estado === 'VENCIDA' || (f.estado !== 'CONTADO' && f.diasRestantes < 0))
   }))
 
   const proveedorActivo = grupos.find((g) => g.id === proveedorActivoId)
@@ -105,6 +108,12 @@ export default function PagosProveedores() {
       valor: formatCurrency(resumen.proximasAVencer?.monto || 0),
       filtro: { dias: 'vence7' }
     },
+    // Solo cuando hay alguna: es trabajo pendiente, no un dato fijo.
+    ...(resumen.deContado?.cantidad > 0 ? [{
+      clave: 'contado', titulo: `De contado sin anotar (${resumen.deContado.cantidad})`, icono: Banknote, tono: 'alerta',
+      valor: formatCurrency(resumen.deContado.monto),
+      filtro: { estado: 'contado' }
+    }] : []),
     {
       clave: 'proveedores', titulo: 'Proveedores activos', icono: Shield, tono: 'exito',
       valor: resumen.totalProveedores

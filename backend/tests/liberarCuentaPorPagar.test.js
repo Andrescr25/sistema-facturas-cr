@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { liberarCuentaPorPagar } = require('../src/modules/compras/liberarCuentaPorPagar');
+const { liberarCuentaPorPagar, crearCuentaDeContado } = require('../src/modules/compras/liberarCuentaPorPagar');
 
 /**
  * Se extrajo de `compras.service.js` para que la transacción de una compra
@@ -58,5 +58,25 @@ describe('liberarCuentaPorPagar', () => {
     for (const { sql } of log) {
       assert.doesNotMatch(sql, /saldo_pendiente|estado =/);
     }
+  });
+});
+
+describe('crearCuentaDeContado', () => {
+  test('una compra de total cero no deja nada que pagar', async () => {
+    const { cliente, log } = montarCliente();
+    const r = await crearCuentaDeContado(cliente, { id: 'factura-1' }, { id: 501, total: '0.00' });
+    assert.equal(r, null);
+    assert.equal(log.length, 0);
+  });
+
+  test('nace pendiente, de contado, venciendo el día de la factura', async () => {
+    const { cliente, log } = montarCliente();
+    await crearCuentaDeContado(cliente,
+      { id: 'factura-1', proveedor_nombre: ' LIBERTY ', proveedor_cedula: '3101', numero_consecutivo: '001' },
+      { id: 501, total: '1500.00', fecha_emision: '2026-09-23', proveedor_id: 24 });
+    const insert = log[0];
+    assert.match(insert.sql, /INSERT INTO cuentas_por_pagar/);
+    assert.match(insert.sql, /VALUES \(\$1, \$2, \$3, \$4, '01', 0, \$5, \$5, \$6, \$6, 'PENDIENTE', TRUE, \$7, \$8, TRUE\)/);
+    assert.deepEqual(insert.params, ['factura-1', 'LIBERTY', '3101', '001', '2026-09-23', '1500.00', 501, 24]);
   });
 });

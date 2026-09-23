@@ -314,7 +314,8 @@ export function useRevisionPrecios() {
           `💰 Costos actualizados: ${resultado.costosActualizados}\n` +
           `🔄 Precios ajustados: ${resultado.preciosActualizados}` +
           (resultado.sinProductoPropio ? `\n⚠️ ${resultado.sinProductoPropio} línea(s) sin producto propio, sin actualizar` : '') +
-          (resultado.cuentaLiberada ? `\n💳 Cuenta por pagar liberada` : ''),
+          (resultado.cuentaLiberada ? `\n💳 Cuenta por pagar liberada` : '') +
+          (resultado.cuentaDeContado ? `\n💵 De contado: quedó pendiente en Pagos a Proveedores para anotar cómo se pagó` : ''),
           'success',
           8000
         )

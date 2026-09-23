@@ -69,8 +69,8 @@ describe('los chips de la pantalla', () => {
       'el filtro PARCIAL filtraba a una lista siempre vacía');
   });
 
-  test('quedan los cuatro que sirven', () => {
-    for (const valor of ['todos', 'pendiente', 'vencida', 'pagada']) {
+  test('quedan los que sirven, más "De contado" (migración 028)', () => {
+    for (const valor of ['todos', 'pendiente', 'vencida', 'contado', 'pagada']) {
       assert.match(pagina, new RegExp(`value: '${valor}'`));
     }
   });

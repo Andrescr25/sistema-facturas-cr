@@ -23,7 +23,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
-const { liberarCuentaPorPagar } = require('./liberarCuentaPorPagar');
+const { liberarCuentaPorPagar, crearCuentaDeContado } = require('./liberarCuentaPorPagar');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -221,6 +221,9 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
     }
 
     const cuentaLiberada = await liberarCuentaPorPagar(cliente, id, compra.id);
+    // Sin cuenta por pagar es de contado: nace una PENDIENTE para que alguien
+    // anote cómo se pagó y salga de Caja General (migración 028).
+    const cuentaDeContado = cuentaLiberada ? null : await crearCuentaDeContado(cliente, factura, compra);
 
     // El nombre del estado se conserva por compatibilidad con las pantallas
     // que ya filtran y muestran por 'ENVIADA' — no porque algo se haya
@@ -236,7 +239,8 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       costosActualizados,
       preciosActualizados,
       sinProductoPropio,
-      cuentaLiberada: !!cuentaLiberada
+      cuentaLiberada: !!cuentaLiberada,
+      cuentaDeContado: !!cuentaDeContado
     };
   });
 }

@@ -479,9 +479,16 @@ proveedor. Dependen poco de Alegra.
   facturas"). Pestaña "Caja General" en Cuentas por Cobrar, por período. El
   cierre resta solo lo que salió EN EFECTIVO. Verificado desde la pantalla
   con un cobro y un pago de 2 facturas cada uno (borrados después)
-- [ ] **Compras de contado sin cuenta por pagar.** 544 de 860 compras (62
-  desde agosto, ₡2,75 M) no tienen CxP, así que su pago no tiene contra qué
-  registrarse y no llega a Caja General. *Pregunta abierta para el usuario*
+- [x] **Compras de contado (2026-09-23, migración 028).** No tenían cuenta
+  por pagar —solo nace al recibir el correo si es a crédito o trae plazo—,
+  así que su pago no llegaba a Caja General. Decisión del usuario: al
+  registrar la compra nace su cuenta PENDIENTE (`de_contado`), no pagada de
+  una vez; una persona anota "se pagó vía efectivo" en Pagos a Proveedores y
+  recién ahí sale de Caja General. Estado CONTADO (no "vencida"), filtro y
+  tarjeta "De contado sin anotar". Los gastos recurrentes no la crean (se
+  pagan en su pantalla). Las 544 históricas no se tocaron. Verificado con la
+  función real sobre una compra histórica y el pago desde la pantalla
+  (borrado después)
 
 **Lista cuando:** entradas y salidas de dinero cuadran en Caja General.
 

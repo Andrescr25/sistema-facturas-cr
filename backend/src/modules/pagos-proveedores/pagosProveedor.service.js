@@ -40,7 +40,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function saldosDeCuentas(ids, ejecutor = pool) {
   if (!ids || ids.length === 0) return new Map();
   const { rows } = await ejecutor.query(
-    `SELECT id, saldo, estado, credito, pagado, pagado_sin_detalle
+    `SELECT id, saldo, estado, credito, pagado, pagado_sin_detalle, de_contado
        FROM cuenta_por_pagar_saldo
       WHERE id = ANY($1::uuid[])`,
     [ids]
@@ -50,7 +50,8 @@ async function saldosDeCuentas(ids, ejecutor = pool) {
     estado: r.estado,
     credito: num(r.credito),
     pagado: num(r.pagado),
-    pagadoSinDetalle: num(r.pagado_sin_detalle)
+    pagadoSinDetalle: num(r.pagado_sin_detalle),
+    deContado: r.de_contado === true
   }]));
 }
 

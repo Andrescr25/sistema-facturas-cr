@@ -17,7 +17,7 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
   if (!tarjetas?.length) return null
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className={`grid grid-cols-1 md:grid-cols-2 ${tarjetas.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-4`}>
       {tarjetas.map((t) => {
         const Icono = t.icono
         const tono = TONOS[t.tono] || TONOS.neutro
