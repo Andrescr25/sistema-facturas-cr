@@ -113,17 +113,6 @@ export const alegraService = {
     }
   },
 
-  // Obtener factura para registrar faltantes
-  async getFacturaDetalle(id) {
-    try {
-      const response = await api.get(`/alegra/facturas/detalle/${id}`)
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo factura:', error)
-      throw new Error(`Error obteniendo factura: ${error.message}`)
-    }
-  },
-
   // Obtener productos de Alegra
   async getProductos(page = 1, limit = 30) {
     try {
@@ -411,8 +400,20 @@ export const alegraService = {
       return response.data;
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo facturas para bodega:', error);
-      throw new Error(`Error obteniendo facturas para bodega: ${error.message}`);
+      // En palabras de persona: antes llegaba al teléfono "timeout of 180000ms exceeded".
+      const mensaje = error.code === 'ECONNABORTED'
+        ? 'El servidor tardó demasiado en responder.'
+        : !error.response
+          ? 'No hay conexión con el servidor.'
+          : (error.response.data?.message || error.message);
+      throw new Error(mensaje);
     }
+  },
+
+  /** Lo que bodega ya registró de una factura, producto por producto (de la base, sin Alegra). */
+  async getEstadosFacturaBodega(alegraId) {
+    const response = await api.get(`/alegra/bodega/facturas/${alegraId}/estados`);
+    return response.data?.data || [];
   },
 
   async getImagenesPorReferencia(referencias) {

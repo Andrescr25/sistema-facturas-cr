@@ -19,14 +19,10 @@ async function getFacturas(req, res) {
     res.json(response);
 
   } catch (error) {
+    // Solo llega acá sin NADA guardado de esa ventana (primera carga o
+    // servidor recién reiniciado): con algo guardado, el servicio lo devuelve
+    // con un aviso en vez de fallar.
     console.error('❌ Error obteniendo facturas para bodega:', error);
-
-    // Intentar usar caché como fallback
-    const cachedData = warehouseService.getCachedData();
-    if (cachedData) {
-      console.log('⚠️ Usando caché expirado como fallback');
-      return res.json(cachedData);
-    }
 
     // Determinar el código de estado y mensaje apropiado
     let statusCode = 500;
@@ -64,6 +60,21 @@ async function getFacturas(req, res) {
 }
 
 /**
+ * GET /bodega/facturas/:alegraId/estados
+ * Lo que bodega ya registró de la factura, producto por producto (de la base,
+ * sin pasar por Alegra).
+ */
+async function getEstadosFactura(req, res) {
+  try {
+    res.json({ success: true, data: await warehouseService.estadosDeFactura(req.params.alegraId) });
+  } catch (error) {
+    const status = error.status || 500;
+    if (status >= 500) console.error('❌ Error leyendo estados de la factura en bodega:', error);
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
+/**
  * POST /bodega/facturas/:alegraId/estado
  * Actualiza el estado de una factura en bodega
  */
@@ -96,5 +107,6 @@ async function updateEstadoFactura(req, res) {
 
 module.exports = {
   getFacturas,
+  getEstadosFactura,
   updateEstadoFactura
 };

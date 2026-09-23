@@ -26,6 +26,7 @@ correo son los de PRODUCCIÓN.
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md)
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
+- [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
 
 ## Tablas
 

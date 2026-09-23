@@ -146,14 +146,17 @@ export default function Layout({ children }) {
         {/* Header móvil */}
         <div className="sticky top-0 z-40 lg:hidden">
           <div className="flex items-center justify-between h-16 px-4 bg-white border-b border-neutro-200">
+            {/* 44×44 de área para el dedo: el ícono solo medía 24×24. */}
             <button
+              type="button"
               onClick={() => setSidebarOpen(true)}
-              className="text-neutro-400 hover:text-neutro-600"
+              aria-label="Abrir el menú"
+              className="-ml-2.5 rounded-xl p-2.5 text-neutro-400 hover:bg-neutro-100 hover:text-neutro-600"
             >
               <Menu size={24} />
             </button>
             <h1 className="text-lg font-semibold text-neutro-900">Sistema de Faltantes</h1>
-            <div className="w-6" />
+            <div className="w-10" />
           </div>
         </div>
 

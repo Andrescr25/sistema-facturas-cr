@@ -12,12 +12,19 @@
  * botón que alterna ese filtro; sin `filtro` es solo un número.
  *
  * @param {Array<{clave, titulo, icono, valor, pie?, tono?, filtro?}>} tarjetas
+ * @param {boolean} [compacta]  en el teléfono, todas en una fila y sin el
+ *        "Click para filtrar" (Facturas en Bodega: se usa de pie, con una mano)
  */
-export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
+export default function TarjetasResumen({ tarjetas, filtros, setFiltros, compacta = false }) {
   if (!tarjetas?.length) return null
 
+  const rejilla = compacta
+    ? `grid ${tarjetas.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-4`
+    : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4'
+  const relleno = compacta ? 'p-3 sm:p-5' : 'p-5'
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className={rejilla}>
       {tarjetas.map((t) => {
         const Icono = t.icono
         const tono = TONOS[t.tono] || TONOS.neutro
@@ -29,7 +36,7 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
               <Icono size={14} className={tono.icono} />
               {t.titulo}
             </p>
-            <p className={`text-2xl font-semibold mt-1 ${tono.valor}`}>{t.valor}</p>
+            <p className={`${compacta ? 'text-xl sm:text-2xl' : 'text-2xl'} font-semibold mt-1 ${tono.valor}`}>{t.valor}</p>
             {t.pie && <span className="text-xs text-neutro-500">{t.pie}</span>}
           </>
         )
@@ -37,7 +44,7 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
         // `.card` solo trae margen interno en móvil (index.css, .mobile-device
         // .card): en escritorio el texto quedaba pegado al borde.
         if (!t.filtro) {
-          return <div key={t.clave} className="card p-5">{cuerpo}</div>
+          return <div key={t.clave} className={`card ${relleno}`}>{cuerpo}</div>
         }
 
         return (
@@ -45,12 +52,14 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
             key={t.clave}
             type="button"
             onClick={() => setFiltros((prev) => alternar(prev, t.filtro))}
-            className={`card p-5 text-left transition hover:shadow-md ${tono.hover} ${activa ? tono.activa : ''}`}
+            className={`card ${relleno} text-left transition hover:shadow-md ${tono.hover} ${activa ? tono.activa : ''}`}
           >
             {cuerpo}
-            <span className="text-xs text-neutro-500">
-              {activa ? 'Click para quitar el filtro' : 'Click para filtrar'}
-            </span>
+            {!compacta && (
+              <span className="text-xs text-neutro-500">
+                {activa ? 'Click para quitar el filtro' : 'Click para filtrar'}
+              </span>
+            )}
           </button>
         )
       })}
