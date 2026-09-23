@@ -19,11 +19,12 @@ const VENTANA_DIAS_HISTORIAL_VENTAS = 120;
 // Días sin venta para considerar un producto "exceso" (decisión de negocio,
 // acordada con el usuario 2026-07-20).
 const VENTANA_DIAS_SIN_VENTA = 60;
-// Tope semanal de productos a liquidar (decisión de negocio, acordada con el
-// usuario 2026-07-20) — de todos los candidatos detectados, solo se crean
+// Tope de productos por tanda de excesos (decisión de negocio, acordada con
+// el usuario 2026-07-20) — de todos los candidatos detectados, solo entran
 // los N con más valor inmovilizado (stock × costo), para que la lista sea
-// manejable en vez de volcar todo lo detectado de una sola vez.
-const MAX_EXCESOS_POR_SEMANA = 10;
+// manejable. Se llamaba "por semana" cuando la tanda la armaba un cron
+// semanal; desde el 2026-09-20 la arma una persona con "Generar Ahora".
+const MAX_EXCESOS_POR_TANDA = 10;
 // Descuento con el que arranca un producto la primera vez que se detecta
 // como exceso (decisión de negocio, acordada con el usuario 2026-07-21).
 // YA NO ESCALA cada semana: el usuario pidió quitar ese crecimiento
@@ -1105,7 +1106,7 @@ async function generarTandaDeExcesos() {
 
   const { candidatos, itemsAlegra } = await detectarCandidatosExceso();
   const totalDetectados = candidatos.length;
-  const seleccionados = candidatos.slice(0, MAX_EXCESOS_POR_SEMANA);
+  const seleccionados = candidatos.slice(0, MAX_EXCESOS_POR_TANDA);
 
   // El descuento se da de alta para TODOS los detectados, no solo los
   // seleccionados para empacar — es un problema de venta, no de capacidad de

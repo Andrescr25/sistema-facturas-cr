@@ -13,7 +13,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { clasificarProducto, CLASIFICACION } = require('../src/modules/precios/auditoria');
+const { clasificarProducto, CLASIFICACION, IVA_ASUMIDO, tasaIvaDe } = require('../src/modules/precios/auditoria');
 
 describe('clasificarProducto — casos reales de producción', () => {
   test('SILICON BARRA DELGADA — factor 60 no aplicado en el costo de Alegra', () => {
@@ -137,5 +137,25 @@ describe('clasificarProducto — reglas', () => {
   test('nunca explota con datos faltantes/negativos', () => {
     const r = clasificarProducto({ price: null, cost: undefined, costoDerivado: -5 });
     assert.equal(r.clasificacion, CLASIFICACION.SIN_COSTO);
+  });
+
+  test('usa la tarifa real del producto: al 1 % el margen es 20 %, no 28,5 %', () => {
+    // costo sin IVA 1000 → con IVA al 1 % = 1010; precio sin IVA 1250.
+    const r = clasificarProducto({ price: 1250, cost: 1010, costoDerivado: null, tasaIva: '1.000' });
+    assert.equal(Math.round(r.costoSinIva), 1000);
+    assert.equal(Math.round(r.margenReal * 10) / 10, 20);
+  });
+
+  test('exento (0 %): el costo con IVA ya es el costo sin IVA', () => {
+    const r = clasificarProducto({ price: 1250, cost: 1000, costoDerivado: null, tasaIva: 0 });
+    assert.equal(r.costoSinIva, 1000);
+  });
+
+  test('tarifa sin sincronizar (null): cae al 13 %, no a exento', () => {
+    const r = clasificarProducto({ price: 1250, cost: 1130, costoDerivado: null, tasaIva: null });
+    assert.equal(Math.round(r.costoSinIva), 1000);
+    assert.equal(tasaIvaDe(null), IVA_ASUMIDO);
+    assert.equal(tasaIvaDe(undefined), IVA_ASUMIDO);
+    assert.equal(tasaIvaDe('4.000'), 4);
   });
 });

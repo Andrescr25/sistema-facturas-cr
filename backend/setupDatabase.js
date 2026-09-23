@@ -665,9 +665,9 @@ async function setupDatabase() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_envio_whatsapp_contacto ON envio_whatsapp (alegra_contact_id, creado_en DESC)`);
 
     // Subcategorías dentro de cada categoría (ver migrations/add_subcategorias.sql).
-    // Las categorías vienen de Alegra y son planas: 18 bolsas grandes donde no
-    // se encuentra nada. La subcategoría es NUESTRA y se cuelga del NOMBRE de
-    // la categoría, que es lo que guarda la caché de productos.
+    // Las categorías vienen de Alegra y llegan planas; la subcategoría es
+    // NUESTRA y se cuelga del NOMBRE de la categoría, que es lo que guarda la
+    // caché de productos.
     console.log('📋 Creando tabla de subcategorías...');
     await client.query(`
       CREATE TABLE IF NOT EXISTS subcategoria (
@@ -687,6 +687,21 @@ async function setupDatabase() {
         ADD COLUMN IF NOT EXISTS subcategoria_id INTEGER REFERENCES subcategoria(id) ON DELETE SET NULL
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_productos_subcategoria ON alegra_products_cache (subcategoria_id) WHERE subcategoria_id IS NOT NULL`);
+
+    // Orden manual de categorías y subcategorías, y nombre visible de la
+    // categoría (ver migrations/add_orden_categorias.sql). `orden` de
+    // categoria_config es NULABLE a propósito: un renombre sin haberla movido
+    // nunca no puede mandarla al principio.
+    console.log('📋 Creando tabla de orden de categorías...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS categoria_config (
+          categoria      VARCHAR(120) PRIMARY KEY,
+          nombre_visible VARCHAR(120),
+          orden          INTEGER,
+          actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await client.query(`ALTER TABLE subcategoria ADD COLUMN IF NOT EXISTS orden INTEGER NOT NULL DEFAULT 0`);
 
     // Crear función para actualizar updated_at automáticamente
     console.log('📋 Creando función para updated_at...');

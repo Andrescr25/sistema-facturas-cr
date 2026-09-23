@@ -142,8 +142,15 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto, configCat
   return { grouped: categorias, sortedKeys, subgrupos: partirPorSubcategoria(categorias, configCatalogo) }
 }
 
-/** El `name` real de Alegra -> su orden manual. Sin config, todo empata. */
-function ordenDeCategorias(configCatalogo) {
+/**
+ * El `name` real de Alegra -> su orden manual. Sin config, todo empata.
+ *
+ * Exportada para que Gestión de Catálogo pinte su riel en el MISMO orden
+ * canónico que ve el agente, sin una segunda implementación por separado
+ * (la que había en FiltrosCatalogo.jsx ordenaba por `indexOf`, un criterio
+ * distinto que podía desacomodarse con categorías huérfanas de config).
+ */
+export function ordenDeCategorias(configCatalogo) {
   const mapa = new Map((configCatalogo?.categorias || []).map((c) => [c.name, c.orden]))
   return (nombre) => (mapa.has(nombre) ? mapa.get(nombre) : Number.MAX_SAFE_INTEGER)
 }
@@ -162,18 +169,23 @@ export function nombreVisibleDeCategoria(nombre, configCatalogo) {
  * se encuentra nada. Con los bloques, se le enseña "PVC 1/2" y ahí está todo
  * lo de 1/2 junto.
  *
- * SOLO SE PARTE LA CATEGORÍA QUE TIENE SUBCATEGORÍAS. Si no, `null`, y la
- * pantalla la dibuja como siempre, de una sola tirada. Hoy hay una
- * subcategoría en todo el catálogo: si esto devolviera bloques para todas,
+ * SOLO SE PARTE LA CATEGORÍA QUE TIENE SUBCATEGORÍAS — con una excepción:
+ * `sinClasificarSiempre` (que usa Gestión de Catálogo, nunca el agente) la
+ * fuerza a partirse igual, para poder mostrar "Sin clasificar" como punto de
+ * entrada incluso en una categoría que todavía no tiene NINGUNA
+ * subcategoría creada — que es justo el caso más común al empezar a
+ * clasificar una categoría nueva. Sin la excepción (comportamiento del
+ * agente), esa categoría se dibuja de una sola tirada: hoy hay una sola
+ * subcategoría en todo el catálogo, y si esto devolviera bloques para todas,
  * las otras cuarenta categorías se llenarían de encabezados que no dicen
  * nada.
  *
  * LO QUE NO TIENE SUBCATEGORÍA VA AL FINAL, bajo "Otros". No se esconde: es
  * la lista que hay que ir vaciando a medida que se clasifica, y si
- * desapareciera, un producto sin clasificar dejaría de verse en el catálogo
- * sin que nadie se diera cuenta.
+ * desapareciera, un producto sin clasificar dejaría de verse sin que nadie
+ * se diera cuenta.
  */
-export function partirPorSubcategoria(categorias, configCatalogo = null) {
+export function partirPorSubcategoria(categorias, configCatalogo = null, { sinClasificarSiempre = false } = {}) {
   const porCategoria = {}
 
   for (const [nombreCategoria, productos] of Object.entries(categorias)) {
@@ -187,7 +199,7 @@ export function partirPorSubcategoria(categorias, configCatalogo = null) {
       bloques.get(sub).push(p)
     }
 
-    if (bloques.size === 0) continue
+    if (bloques.size === 0 && !sinClasificarSiempre) continue
 
     // Orden manual (Gestión de Catálogo) primero; sin configurar, cae al
     // alfabético `numeric` de siempre, para que "PVC 2" vaya antes que
@@ -198,15 +210,9 @@ export function partirPorSubcategoria(categorias, configCatalogo = null) {
         .map((s) => [s.nombre, s.orden])
     )
 
+    const conOrden = (nombre) => ({ nombre, orden: ordenSub.has(nombre) ? ordenSub.get(nombre) : null })
     const ordenados = [...bloques.entries()]
-      .sort((a, b) => {
-        const oa = ordenSub.has(a[0]) ? ordenSub.get(a[0]) : null
-        const ob = ordenSub.has(b[0]) ? ordenSub.get(b[0]) : null
-        if (oa !== null && ob !== null && oa !== ob) return oa - ob
-        if (oa !== null && ob === null) return -1
-        if (oa === null && ob !== null) return 1
-        return a[0].localeCompare(b[0], 'es', { numeric: true })
-      })
+      .sort((a, b) => compararSubcategorias(conOrden(a[0]), conOrden(b[0])))
       .map(([nombre, lista]) => ({ nombre, productos: lista }))
 
     if (sueltos.length > 0) ordenados.push({ nombre: 'Otros', productos: sueltos, sinClasificar: true })
@@ -215,6 +221,24 @@ export function partirPorSubcategoria(categorias, configCatalogo = null) {
   }
 
   return porCategoria
+}
+
+/**
+ * El orden de dos subcategorías `{nombre, orden}`: el manual primero (`orden`
+ * null = sin configurar, va después); sin él, por nombre con los números en
+ * su lugar — "PVC 2" antes que "PVC 10".
+ *
+ * Una sola definición para las dos pantallas: la usa partirPorSubcategoria
+ * (el agente) y la usa Gestión de Catálogo para pintar sus secciones, incluso
+ * las que todavía no tienen productos.
+ */
+export function compararSubcategorias(a, b) {
+  const oa = a.orden ?? null
+  const ob = b.orden ?? null
+  if (oa !== null && ob !== null && oa !== ob) return oa - ob
+  if (oa !== null && ob === null) return -1
+  if (oa === null && ob !== null) return 1
+  return a.nombre.localeCompare(b.nombre, 'es', { numeric: true })
 }
 
 /** Minúsculas sin tildes, para que "MARIA" encuentre "María". */

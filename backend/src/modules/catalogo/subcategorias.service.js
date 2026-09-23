@@ -1,10 +1,12 @@
 /**
  * Subcategorías dentro de cada categoría.
  *
- * Las categorías vienen de Alegra y son PLANAS: 18 bolsas grandes donde no se
- * encuentra nada. "Productos de PVC" son 118 piezas con sanitario, potable,
- * conduit, pegamentos y accesorios de baño revueltos; en Eléctrica pasa con los
- * bombillos y en Pesca con casi todo.
+ * Las categorías vienen de Alegra y llegan planas: "Productos de PVC" son 118
+ * piezas con sanitario, potable, conduit, pegamentos y accesorios de baño
+ * revueltos; en Eléctrica pasa con los bombillos y en Pesca con casi todo.
+ * (Desde 2026-09-21 también se pueden crear categorías nuevas EN Alegra —ver
+ * categorias.service.js `crear`—, pero eso no cambia nada de lo de acá: cada
+ * categoría, nueva o vieja, se sigue pudiendo partir en subcategorías propias.)
  *
  * LA SUBCATEGORÍA ES NUESTRA. No se manda a Alegra ni se lee de allá: sirve
  * para ordenar el catálogo acá adentro, y se puede crear la que haga falta.
@@ -53,10 +55,14 @@ async function listar({ categoria = '', incluirInactivas = false } = {}) {
   }
   if (!incluirInactivas) condiciones.push('s.activo');
 
+  // El conteo usa el mismo criterio de "visible" que la lista de productos
+  // (status activo Y no oculto localmente) — antes solo miraba `status`, así
+  // que un producto oculto seguía sumando a una subcategoría que en la
+  // pantalla real aparecía con menos productos de los que este número decía.
   const { rows } = await query(`
     SELECT s.id, s.categoria, s.nombre, s.activo, s.orden,
            (SELECT COUNT(*)::int FROM alegra_products_cache p
-             WHERE p.subcategoria_id = s.id AND p.status = 'active') AS productos
+             WHERE p.subcategoria_id = s.id AND p.status = 'active' AND p.hidden_locally = false) AS productos
       FROM subcategoria s
       ${condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : ''}
      ORDER BY s.categoria, s.orden, s.nombre
@@ -188,4 +194,64 @@ async function reordenar(categoria, idsEnOrden) {
   return listar({ categoria: cat, incluirInactivas: true });
 }
 
-module.exports = { listar, crear, renombrar, cambiarEstado, asignarAProducto, reordenar };
+/**
+ * Ponerle (o quitarle) la subcategoría a VARIOS productos de una vez — la
+ * acción en lote del riel. Misma regla que `asignarAProducto`: todos tienen
+ * que ser de la categoría de la subcategoría destino, y un solo `UPDATE`.
+ */
+async function asignarLote(alegraIds, subcategoriaId) {
+  if (!Array.isArray(alegraIds) || alegraIds.length === 0) {
+    throw httpError(400, 'Falta la lista de productos.');
+  }
+  const ids = alegraIds.map((id) => String(id).trim()).filter(Boolean);
+  if (ids.length === 0) throw httpError(400, 'Falta la lista de productos.');
+
+  if (subcategoriaId === null || subcategoriaId === undefined || subcategoriaId === '') {
+    const { rowCount } = await query(
+      `UPDATE alegra_products_cache SET subcategoria_id = NULL WHERE alegra_id = ANY($1::varchar[])`,
+      [ids]
+    );
+    return { actualizados: rowCount, subcategoriaId: null };
+  }
+
+  const { rows: sub } = await query(
+    `SELECT id, categoria, nombre FROM subcategoria WHERE id = $1`, [Number(subcategoriaId)]
+  );
+  if (!sub[0]) throw httpError(404, 'No existe esa subcategoría.');
+
+  const { rows: ajenos } = await query(
+    `SELECT alegra_id FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND category <> $2`,
+    [ids, sub[0].categoria]
+  );
+  if (ajenos.length > 0) {
+    throw httpError(400, `${ajenos.length} de los productos no son de ${sub[0].categoria}.`);
+  }
+
+  const { rowCount } = await query(
+    `UPDATE alegra_products_cache SET subcategoria_id = $2 WHERE alegra_id = ANY($1::varchar[])`,
+    [ids, sub[0].id]
+  );
+  return { actualizados: rowCount, subcategoriaId: sub[0].id, nombre: sub[0].nombre };
+}
+
+/**
+ * Borra una subcategoría — solo si ya no tiene NINGÚN producto colgado
+ * (activo, inactivo u oculto: `ON DELETE SET NULL` la desengancharía igual,
+ * pero borrar una que todavía clasifica algo sería perder ese trabajo sin
+ * avisar). Mover los productos primero con `asignarLote`.
+ */
+async function eliminar(id) {
+  const subId = Number(id);
+  const { rows: cuenta } = await query(
+    `SELECT COUNT(*)::int AS n FROM alegra_products_cache WHERE subcategoria_id = $1`, [subId]
+  );
+  if (cuenta[0].n > 0) {
+    throw httpError(409, `Todavía tiene ${cuenta[0].n} producto(s). Muévelos antes de borrarla.`);
+  }
+
+  const { rows } = await query(`DELETE FROM subcategoria WHERE id = $1 RETURNING id`, [subId]);
+  if (!rows[0]) throw httpError(404, 'No existe esa subcategoría.');
+  return { id: subId };
+}
+
+module.exports = { listar, crear, renombrar, cambiarEstado, asignarAProducto, asignarLote, eliminar, reordenar };

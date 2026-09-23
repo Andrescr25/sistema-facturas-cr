@@ -167,7 +167,27 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/catalog', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/alegra/contactos', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, false);
+  });
+
+  test('Gestión de Catálogo ya no queda abierta por vivir debajo de /alegra', async () => {
+    // Antes este mismo prefijo era el EJEMPLO de ruta compartida: cualquiera
+    // con sesión podía borrar productos o cambiar categorías en Alegra en lote.
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(middleware, { ruta: '/alegra/catalog/productos/categoria-lote', usuario: { id: 4 } });
+
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.codigo, 403);
+    assert.equal(r.cuerpo.modulo, 'gestion-catalogo');
+  });
+
+  test('las fotos que usan otras pantallas siguen abiertas a quien tenga sesión', async () => {
+    const { middleware } = cargarConDobles({});
+    const r = await correr(middleware, { ruta: '/alegra/catalog/search-images', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 

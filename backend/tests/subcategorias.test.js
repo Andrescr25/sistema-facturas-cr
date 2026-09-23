@@ -195,3 +195,85 @@ describe('desactivar', () => {
     );
   });
 });
+
+describe('asignar la subcategoría a varios productos de una vez (lote)', () => {
+  test('un solo UPDATE, no uno por producto', async () => {
+    // Es la acción del riel: seleccionar 20 productos y moverlos juntos. Un
+    // UPDATE por fila sería el mismo problema de ~3 s que ya se corrigió en
+    // reordenar().
+    const { servicio, visto } = montar({
+      'FROM subcategoria WHERE id': [{ id: 4, categoria: 'Productos de PVC', nombre: 'Sanitario' }],
+      'AND category <>': []
+    });
+    const r = await servicio.asignarLote(['1031', '1032', '1033'], 4);
+
+    const updates = visto.consultas.filter(c => /SET subcategoria_id = \$2 WHERE alegra_id = ANY/.test(c.sql));
+    assert.equal(updates.length, 1, 'debería ser un solo UPDATE, no uno por producto');
+    assert.deepEqual(updates[0].params, [['1031', '1032', '1033'], 4]);
+    assert.equal(r.subcategoriaId, 4);
+  });
+
+  test('NO deja mover un producto de otra categoría', async () => {
+    const { servicio } = montar({
+      'FROM subcategoria WHERE id': [{ id: 4, categoria: 'Productos de PVC', nombre: 'Sanitario' }],
+      'AND category <>': [{ alegra_id: '2001' }]
+    });
+
+    await assert.rejects(
+      servicio.asignarLote(['1031', '2001'], 4),
+      (e) => e.status === 400 && /no son de Productos de PVC/.test(e.message)
+    );
+  });
+
+  test('mandar vacío la quita de todos, también en un solo UPDATE', async () => {
+    const { servicio, visto } = montar();
+    const r = await servicio.asignarLote(['1031', '1032'], null);
+
+    const updates = visto.consultas.filter(c => /SET subcategoria_id = NULL WHERE alegra_id = ANY/.test(c.sql));
+    assert.equal(updates.length, 1);
+    assert.equal(r.subcategoriaId, null);
+  });
+
+  test('sin lista, se dice', async () => {
+    const { servicio } = montar();
+    await assert.rejects(servicio.asignarLote([], 4), /Falta la lista/);
+  });
+
+  test('una subcategoría que no existe se dice', async () => {
+    const { servicio } = montar();
+    await assert.rejects(servicio.asignarLote(['1031'], 777), (e) => e.status === 404);
+  });
+});
+
+describe('borrar una subcategoría', () => {
+  test('la borra cuando ya no tiene productos', async () => {
+    const { servicio, visto } = montar({
+      'COUNT\\(\\*\\)::int AS n FROM alegra_products_cache': [{ n: 0 }],
+      'DELETE FROM subcategoria': [{ id: 8 }]
+    });
+    const r = await servicio.eliminar(8);
+
+    assert.equal(r.id, 8);
+    assert.ok(visto.consultas.some(c => /DELETE FROM subcategoria/.test(c.sql)));
+  });
+
+  test('con productos todavía adentro, 409 y no borra', async () => {
+    const { servicio, visto } = montar({
+      'COUNT\\(\\*\\)::int AS n FROM alegra_products_cache': [{ n: 7 }]
+    });
+
+    await assert.rejects(
+      servicio.eliminar(8),
+      (e) => e.status === 409 && /7 producto/.test(e.message)
+    );
+    assert.ok(!visto.consultas.some(c => /DELETE FROM subcategoria/.test(c.sql)), 'borró con productos adentro');
+  });
+
+  test('una que no existe se dice', async () => {
+    const { servicio } = montar({
+      'COUNT\\(\\*\\)::int AS n FROM alegra_products_cache': [{ n: 0 }],
+      'DELETE FROM subcategoria': []
+    });
+    await assert.rejects(servicio.eliminar(999), (e) => e.status === 404);
+  });
+});

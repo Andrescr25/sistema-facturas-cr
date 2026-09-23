@@ -34,8 +34,10 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
           </>
         )
 
+        // `.card` solo trae margen interno en móvil (index.css, .mobile-device
+        // .card): en escritorio el texto quedaba pegado al borde.
         if (!t.filtro) {
-          return <div key={t.clave} className="card">{cuerpo}</div>
+          return <div key={t.clave} className="card p-5">{cuerpo}</div>
         }
 
         return (
@@ -43,7 +45,7 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros }) {
             key={t.clave}
             type="button"
             onClick={() => setFiltros((prev) => alternar(prev, t.filtro))}
-            className={`card text-left transition hover:shadow-md ${tono.hover} ${activa ? tono.activa : ''}`}
+            className={`card p-5 text-left transition hover:shadow-md ${tono.hover} ${activa ? tono.activa : ''}`}
           >
             {cuerpo}
             <span className="text-xs text-neutro-500">

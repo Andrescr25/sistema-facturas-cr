@@ -62,3 +62,6 @@ productos-clase-A-a-revisar.xlsx
 # nada. Se ignoran para que al menos no lleguen nunca a un commit.
 * 2.*
 * 3.*
+
+# Configuración local de Claude Code: es de cada máquina, no del proyecto.
+.claude/settings.local.json
