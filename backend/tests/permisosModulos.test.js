@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  MODULOS, CLAVES, COMPARTIDAS, porGrupo, moduloDeRuta, esCompartida, esRutaAdmin
+  MODULOS, CLAVES, COMPARTIDAS, porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin
 } = require('../src/modules/usuarios/modulos');
 
 describe('catálogo de módulos', () => {
@@ -42,8 +42,10 @@ describe('catálogo de módulos', () => {
     }
   });
 
-  test('ningún prefijo de módulo está también en COMPARTIDAS', () => {
-    // Si lo estuviera, esCompartida ganaría y el módulo quedaría sin proteger.
+  test('ningún prefijo de módulo termina clasificado como compartido', () => {
+    // Un prefijo de módulo PUEDE vivir debajo de uno compartido
+    // ('/alegra/catalog' bajo '/alegra'): gana el más específico. Lo que no
+    // puede pasar es que el propio prefijo del módulo resuelva a compartida.
     for (const m of MODULOS) {
       for (const p of m.rutasApi) {
         assert.equal(esCompartida(p), false, `"${p}" (${m.clave}) quedaría abierto por estar en COMPARTIDAS`);
@@ -86,8 +88,36 @@ describe('moduloDeRuta — a qué módulo pertenece cada llamada', () => {
 describe('rutas compartidas y de administrador', () => {
   test('las compartidas se reconocen, con y sin subruta', () => {
     assert.equal(esCompartida('/alegra'), true);
-    assert.equal(esCompartida('/alegra/catalog/items'), true);
+    assert.equal(esCompartida('/alegra/contactos/buscar'), true);
     assert.equal(esCompartida('/auth/yo'), true);
+  });
+
+  test('Gestión de Catálogo es dueña de /alegra/catalog aunque viva debajo de /alegra', () => {
+    // El agujero: '/alegra' compartida ganaba primero, y cualquiera con sesión
+    // podía borrar productos o cambiar categorías en Alegra en lote.
+    assert.equal(esCompartida('/alegra/catalog/productos/1031'), false);
+    assert.equal(moduloDeRuta('/alegra/catalog/productos/1031'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/alegra/catalog/productos/categoria-lote'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/alegra/catalog/subcategorias/9/mover-categoria'), 'gestion-catalogo');
+  });
+
+  test('lo que otras pantallas leen de /alegra/catalog sigue compartido', () => {
+    // Relacionar Productos sugiere fotos, Bodega pinta la foto de cada línea.
+    for (const ruta of [
+      '/alegra/catalog/search-images',
+      '/alegra/catalog/imagenes-por-referencia',
+      '/alegra/catalog/image-proxy'
+    ]) {
+      assert.equal(esCompartida(ruta), true, ruta);
+      assert.equal(moduloDeRuta(ruta), null, ruta);
+    }
+  });
+
+  test('gana el prefijo más específico, sea de módulo o compartido', () => {
+    assert.equal(clasificarRuta('/alegra/items').tipo, 'compartida');
+    assert.equal(clasificarRuta('/alegra/catalog/arbol').clave, 'gestion-catalogo');
+    assert.equal(clasificarRuta('/alegra/catalog/search-images').tipo, 'compartida');
+    assert.equal(clasificarRuta('/no-existe'), null);
   });
 
   test('una ruta parecida a una compartida NO pasa por compartida', () => {

@@ -56,6 +56,7 @@ function NuevaCategoria({ onCrear }) {
 export default function CuadriculaCategorias({
   categorias,
   filtrada,
+  puedeCrear = true,
   onEntrar,
   onReordenar,
   onSoltarSubcategoria,
@@ -111,7 +112,7 @@ export default function CuadriculaCategorias({
             onBajar={() => mover(c.name, 1)}
           />
         ))}
-        {!filtrada && <NuevaCategoria onCrear={onCrearCategoria} />}
+        {!filtrada && puedeCrear && <NuevaCategoria onCrear={onCrearCategoria} />}
       </div>
     </div>
   )

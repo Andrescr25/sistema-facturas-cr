@@ -114,6 +114,35 @@ describe('enviar a Alegra', () => {
       (e) => /segunda factura de compra/.test(e.message));
   });
 
+  test('una línea de regalía (100 % de descuento) NO pisa el costo del producto', () => {
+    // "10 pagados + 1 de regalía" del mismo producto: la regalía sale con
+    // costo 0 y dejaba el producto en ₡0 (medido: 4 veces en el histórico).
+    const { servicio } = montar(facturaEn('RELACIONADA'));
+    const regalia = { precioUnitario: 500, cantidad: 1, descuento: 500, impuesto: 0, totalLinea: 0 };
+
+    const r = servicio.actualizacionDeLinea(regalia, undefined);
+    assert.equal(r.esRegalia, true);
+    assert.equal(r.updateData, null, 'sin precio que cambiar, no hay nada que mandarle a Alegra');
+  });
+
+  test('una regalía con precio ajustado manda SOLO el precio', () => {
+    const { servicio } = montar(facturaEn('RELACIONADA'));
+    const regalia = { precioUnitario: 500, cantidad: 1, descuento: 500, impuesto: 0, totalLinea: 0 };
+
+    const r = servicio.actualizacionDeLinea(regalia, 900);
+    assert.deepEqual(r.updateData, { price: 900 });
+  });
+
+  test('una línea pagada sí manda el costo, anidado en inventory.unitCost', () => {
+    const { servicio } = montar(facturaEn('RELACIONADA'));
+    const pagada = { precioUnitario: 500, cantidad: 10, descuento: 0, impuesto: 650, totalLinea: 5650 };
+
+    const r = servicio.actualizacionDeLinea(pagada, undefined);
+    assert.equal(r.esRegalia, false);
+    assert.equal(r.updateData.inventory.unitCost, '565');
+    assert.equal(r.updateData.price, undefined);
+  });
+
   test('la guarda no bloquea a las que todavía no se enviaron', async () => {
     // Si una factura quedó en RELACIONADA porque el envío falló, hay que
     // poder reintentar: ese es el caso que la guarda NO debe tocar.

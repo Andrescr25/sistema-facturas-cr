@@ -617,6 +617,44 @@ async function getProductosBatch(alegraIds) {
 }
 
 /**
+ * Qué se le manda a Alegra por UNA línea de la factura: el costo nuevo y, si
+ * se ajustó, el precio. `updateData` null = no hay nada que mandar.
+ *
+ * UNA LÍNEA DE REGALÍA NO TOCA EL COSTO. La bonificación del proveedor viene
+ * como otra línea del MISMO producto con 100 % de descuento: su costo sale 0,
+ * y mandarlo pisaba el costo bueno de la línea pagada con ₡0 (medido: 4 veces
+ * en el histórico). Peor, las líneas se mandan en paralelo, así que cuál
+ * quedaba dependía de cuál llegaba último. Una regalía no es el costo del
+ * producto: es mercadería gratis dentro de una compra.
+ *
+ * OJO: el costo va anidado en `inventory.unitCost` — un `cost` suelto en la
+ * raíz del payload Alegra lo ignora en silencio (el PUT responde 200 y el
+ * costo no cambia).
+ */
+function actualizacionDeLinea(producto, precioAjustado) {
+  // Costo real por unidad propia — fórmula única, ver precios/costo.js.
+  const { costoUnitario, costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(
+    producto,
+    producto.mapeo?.factorConversion
+  );
+  const costoSinIvaPropio = costoSinIvaConDescuento / factor;
+  const esRegalia = !(costoUnitario > 0);
+  const precioNuevo = precioAjustado && Number(precioAjustado) > 0 ? parseFloat(precioAjustado) : null;
+
+  const updateData = {};
+  if (!esRegalia) updateData.inventory = { unitCost: (Math.round(costoUnitario * 100) / 100).toString() };
+  if (precioNuevo !== null) updateData.price = precioNuevo;
+
+  return {
+    updateData: Object.keys(updateData).length > 0 ? updateData : null,
+    esRegalia,
+    costoUnitario,
+    costoSinIvaPropio,
+    precioNuevo
+  };
+}
+
+/**
  * Enviar factura completa a Alegra:
  * 1. Crear factura de compra en Alegra con precios originales e IVA real por línea
  * 2. Actualizar costos y precios de los productos en Alegra en paralelo
@@ -761,34 +799,15 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       const alegraId = producto.alegraItemId;
       if (!alegraId) return { success: false, precioAjustado: false };
 
-      // Costo real por unidad propia — ver backend/src/modules/precios/costo.js
-      // (fórmula única, antes duplicada acá y en otros 2 módulos).
-      const { costoUnitario: costoNuevoNegocio, costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(
-        producto,
-        producto.mapeo?.factorConversion
-      );
-      const costoSinIvaPropio = costoSinIvaConDescuento / factor;
+      const {
+        updateData, esRegalia, costoUnitario: costoNuevoNegocio, costoSinIvaPropio, precioNuevo
+      } = actualizacionDeLinea(producto, preciosAjustados[producto.id]);
+      const precioAjustado = precioNuevo !== null;
+      if (precioAjustado) console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${precioNuevo.toFixed(2)}`);
 
-      // OJO: a diferencia de "price" (que Alegra sí acepta como número suelto),
-      // "cost" tiene que ir anidado en inventory.unitCost — confirmado en vivo
-      // que un "cost" suelto en la raíz del payload se ignora silenciosamente
-      // (el PUT responde 200 pero el costo nunca cambia). Este bug es previo
-      // al factor de conversión: existía incluso con factor=1.
-      const updateData = {
-        inventory: {
-          unitCost: (Math.round(costoNuevoNegocio * 100) / 100).toString()
-        }
-      };
-
-      let precioAjustado = false;
-      let precioNuevo = null;
-
-      // Si el usuario ajustó el precio, incluirlo
-      if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
-        precioNuevo = parseFloat(preciosAjustados[producto.id]);
-        updateData.price = precioNuevo;
-        precioAjustado = true;
-        console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
+      if (!updateData) {
+        console.log(`🎁 ${producto.descripcion}: línea de regalía (costo 0), el costo del producto no se toca`);
+        return { success: true, precioAjustado: false, sinCosto: true };
       }
 
       const actualizacion = await productService.updateProduct(alegraId, updateData);
@@ -820,6 +839,10 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
         }
       }
 
+      if (esRegalia) {
+        console.log(`🎁 ${producto.descripcion}: línea de regalía, solo se aplicó el precio`);
+        return { success: true, precioAjustado, sinCosto: true };
+      }
       console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevoNegocio.toFixed(2)}`);
       return { success: true, precioAjustado };
     } catch (error) {
@@ -830,7 +853,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
 
   const results = await Promise.all(updatePromises);
 
-  const costosActualizados = results.filter(r => r.success).length;
+  const costosActualizados = results.filter(r => r.success && !r.sinCosto).length;
   const preciosActualizados = results.filter(r => r.precioAjustado).length;
 
   console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
@@ -901,5 +924,6 @@ module.exports = {
   enviarFacturaAlegra,
   // Funciones puras exportadas para tests
   construirItemsFactura,
-  inferirTipoIdentificacion
+  inferirTipoIdentificacion,
+  actualizacionDeLinea
 };

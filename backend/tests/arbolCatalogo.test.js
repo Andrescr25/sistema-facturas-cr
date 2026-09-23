@@ -19,7 +19,7 @@ const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'c
 const rutaCategorias = path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'categorias.service.js');
 const rutaSubcategorias = path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'subcategorias.service.js');
 
-function montar({ alegraCategorias = [], subcategoriasFilas = [], conteos = [], productosDeCategoria = [] } = {}) {
+function montar({ alegraCategorias = [], alegraCae = false, categoriasCache = [], subcategoriasFilas = [], conteos = [], productosDeCategoria = [] } = {}) {
   for (const r of [rutaDb, rutaPrisma, rutaAlegra, rutaServicio, rutaCategorias, rutaSubcategorias]) {
     delete require.cache[r];
   }
@@ -31,6 +31,7 @@ function montar({ alegraCategorias = [], subcategoriasFilas = [], conteos = [], 
         if (/SELECT categoria, nombre_visible, orden FROM categoria_config/.test(sql)) {
           return { rows: [] }; // sin config: categorias.service usa el orden de llegada de Alegra
         }
+        if (/SELECT DISTINCT category AS name/.test(sql)) return { rows: categoriasCache.map((name) => ({ name })) };
         if (/FROM subcategoria s/.test(sql)) return { rows: subcategoriasFilas };
         if (/GROUP BY category, subcategoria_id/.test(sql)) return { rows: conteos };
         if (/FROM alegra_products_cache p\s+LEFT JOIN subcategoria/.test(sql)) return { rows: productosDeCategoria };
@@ -42,7 +43,12 @@ function montar({ alegraCategorias = [], subcategoriasFilas = [], conteos = [], 
   require.cache[rutaAlegra] = {
     id: rutaAlegra, filename: rutaAlegra, loaded: true,
     exports: {
-      getProductService: () => ({ getItemCategories: async () => alegraCategorias }),
+      getProductService: () => ({
+        getItemCategories: async () => {
+          if (alegraCae) throw new Error('ECONNRESET');
+          return alegraCategorias;
+        }
+      }),
       getClient: () => ({})
     }
   };
@@ -80,6 +86,29 @@ describe('el árbol de categorías (riel)', () => {
     assert.equal(r.categorias[0].total, 0);
     assert.equal(r.categorias[0].sinClasificar, 0);
     assert.deepEqual(r.categorias[0].subcategorias, []);
+  });
+
+  test('si Alegra no responde, sale igual desde la copia local y lo avisa', async () => {
+    // Antes la pantalla quedaba vacía, sin aviso, aunque todos los productos
+    // estuvieran en la copia local.
+    const { servicio } = montar({
+      alegraCae: true,
+      categoriasCache: ['Productos de PVC', 'Ferretería'],
+      conteos: [{ category: 'Ferretería', subcategoria_id: null, n: 4, sin_imagen: 0 }]
+    });
+
+    const r = await servicio.arbolCatalogo();
+    assert.equal(r.sinAlegra, true);
+    assert.deepEqual(r.categorias.map((c) => c.name).sort(), ['Ferretería', 'Productos de PVC']);
+    assert.equal(r.categorias.find((c) => c.name === 'Ferretería').total, 4);
+    // Sin id de Alegra: con el respaldo no se puede mover nada de categoría.
+    assert.ok(r.categorias.every((c) => c.id === null));
+  });
+
+  test('con Alegra arriba, sinAlegra es false', async () => {
+    const { servicio } = montar({ alegraCategorias: [{ id: 1, name: 'Productos de PVC' }] });
+    const r = await servicio.arbolCatalogo();
+    assert.equal(r.sinAlegra, false);
   });
 
   test('las categorías llegan en el orden canónico (el que devuelve categorias.service.listar)', async () => {

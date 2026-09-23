@@ -2,10 +2,10 @@ import { Gift } from 'lucide-react'
 import { formatDate } from '../../utils/inventarioAuditoriaUtils'
 
 /**
- * Regalías: productos que subieron de descuento semana tras semana hasta
- * llegar a 100% (ver escalarDescuentosExceso en el backend) y fueron
- * entregados a un cliente elegido al azar entre los de ventas recientes.
- * Sólo lectura — no hay acción posible desde acá.
+ * Regalías: el historial de productos que llegaron a 100 % de descuento y se
+ * le entregaron a un cliente elegido al azar, mientras existió la escalada
+ * semanal automática (se quitó el 2026-09-20: hoy ningún descuento sube
+ * solo). Sólo lectura — no hay acción posible desde acá.
  */
 export default function SeccionRegalias({ regalos }) {
   if (!regalos || regalos.length === 0) return null

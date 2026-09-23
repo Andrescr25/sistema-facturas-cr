@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, ArrowLeft, Check, Loader2, PackageSearch, Pencil, Plus, Search, Tag, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Check, CheckCircle2, Loader2, PackageSearch, Pencil, Plus, Search, Tag, X } from 'lucide-react'
 import Boton from '../ui/Boton'
 import SeccionSubcategoria from './SeccionSubcategoria'
 
@@ -208,6 +208,15 @@ export default function DetalleCategoria({
         <div className="flex min-h-[300px] items-center justify-center gap-3 rounded-xl border border-neutro-100 bg-white shadow-sm">
           <Loader2 size={24} className="animate-spin text-primario-600" />
           <span className="text-base font-semibold text-neutro-500">Cargando productos…</span>
+        </div>
+      ) : secciones.length === 0 && subFoco === 'sin' && !hayFiltro ? (
+        // Es el final del trabajo de clasificar, no una categoría vacía: antes
+        // decía "Esta categoría está vacía" justo al acomodar el último.
+        <div className="rounded-xl border border-exito-200 bg-white py-16 text-center shadow-sm">
+          <CheckCircle2 className="mx-auto mb-4 text-exito-500" size={56} />
+          <h3 className="mb-1 text-xl font-bold text-neutro-900">Todo clasificado</h3>
+          <p className="mb-5 text-neutro-500">No queda ningún producto de {categoria.nombreVisible} sin subcategoría.</p>
+          <Boton variante="secundario" onClick={() => onEnfocar(null)}>Ver todas las subcategorías</Boton>
         </div>
       ) : secciones.length === 0 ? (
         <div className="rounded-xl border border-neutro-100 bg-white py-16 text-center shadow-sm">

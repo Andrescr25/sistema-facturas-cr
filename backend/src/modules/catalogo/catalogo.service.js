@@ -242,8 +242,17 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
  * diría "Sin clasificar (37)" y la lista de al lado mostraría 35 filas.
  */
 async function arbolCatalogo() {
+  // Si Alegra no responde, las categorías salen de la copia local (sin id de
+  // Alegra) y la pantalla lo avisa con `sinAlegra`, en vez de quedar vacía.
+  let sinAlegra = false;
+  const categoriasPromesa = categoriasService.listar().catch((error) => {
+    console.warn('⚠️ Alegra no respondió al pedir las categorías; se usa la copia local:', error.message);
+    sinAlegra = true;
+    return categoriasService.listarDesdeCache();
+  });
+
   const [categoriasCfg, subcategoriasList, conteos] = await Promise.all([
-    categoriasService.listar(),
+    categoriasPromesa,
     subcategoriasService.listar({ incluirInactivas: false }),
     query(`
       SELECT category, subcategoria_id, COUNT(*)::int AS n,
@@ -271,6 +280,7 @@ async function arbolCatalogo() {
   }
 
   return {
+    sinAlegra,
     categorias: categoriasCfg.map((c) => ({
       // El id de Alegra viaja acá porque el riel es también de dónde sale el
       // selector de "a qué categoría muevo esto" (la ficha del producto y el

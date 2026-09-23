@@ -49,7 +49,7 @@ export default function GestionCatalogo() {
   const [vista, setVista] = useState({ estado: 'todos', dias: 'todos' })
 
   const taxonomia = useTaxonomiaCatalogo()
-  const { arbol, loadingArbol, categoriaActiva, subFoco } = taxonomia
+  const { arbol, loadingArbol, categoriaActiva, subFoco, sinAlegra, errorArbol } = taxonomia
 
   const lista = useListaCatalogo({ arbol, categoriaActiva, subFoco })
   const seleccion = useSeleccionLote()
@@ -104,7 +104,9 @@ export default function GestionCatalogo() {
     : vista.estado === 'sinFoto'
       ? arbol.filter((c) => c.sinImagen > 0)
       : arbol
-  const otrasCategorias = categoriaActiva ? arbol.filter((c) => c.name !== categoriaActiva) : arbol
+  // Solo las que tienen id de Alegra: sin él no hay a dónde mandar el cambio
+  // (pasa cuando Alegra no respondió y las categorías salieron de la copia local).
+  const otrasCategorias = arbol.filter((c) => c.id != null && c.name !== categoriaActiva)
 
   const entrar = (nombre, foco) => {
     // Con un atajo de arriba elegido, se entra directo a lo pendiente.
@@ -120,6 +122,10 @@ export default function GestionCatalogo() {
   }
 
   const moverSubcategoria = async (sub, destino) => {
+    if (destino.id == null) {
+      mostrarToast('error', 'Alegra no está respondiendo: por ahora no se puede mover nada de categoría.')
+      return
+    }
     const origen = sub.categoriaVisible || sub.categoria
     const ok = await confirm(
       `"${sub.nombre}" pasa completa de ${origen} a ${destino.nombreVisible}, con ${plural(sub.productos, 'producto', 'productos')}. ` +
@@ -209,6 +215,16 @@ export default function GestionCatalogo() {
         </div>
       </div>
 
+      {sinAlegra && (
+        <div className="flex items-start gap-3 rounded-xl border border-alerta-200 bg-alerta-50 px-5 py-4 text-alerta-800">
+          <AlertTriangle size={22} className="mt-0.5 shrink-0" />
+          <p className="text-base">
+            Alegra no está respondiendo: las categorías salen de la copia local. Se puede ver, clasificar en
+            subcategorías y poner fotos, pero mover productos de categoría y crear categorías vuelve cuando Alegra responda.
+          </p>
+        </div>
+      )}
+
       {!categoriaActiva ? (
         <>
           <TarjetasResumen tarjetas={tarjetas} filtros={vista} setFiltros={setVista} />
@@ -250,10 +266,18 @@ export default function GestionCatalogo() {
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               <SkeletonContraparte /><SkeletonContraparte /><SkeletonContraparte />
             </div>
+          ) : errorArbol && arbol.length === 0 ? (
+            <div className="rounded-xl border border-peligro-200 bg-white py-14 text-center shadow-sm">
+              <AlertTriangle size={48} className="mx-auto mb-3 text-peligro-400" />
+              <p className="mb-1 text-lg font-bold text-neutro-900">No se pudieron cargar las categorías</p>
+              <p className="mb-5 text-neutro-500">{errorArbol}</p>
+              <Boton icono={RefreshCw} onClick={() => taxonomia.recargarArbol()}>Reintentar</Boton>
+            </div>
           ) : (
             <CuadriculaCategorias
               categorias={categoriasVisibles}
               filtrada={filtrada}
+              puedeCrear={!sinAlegra}
               onEntrar={entrar}
               onReordenar={taxonomia.reordenarCategorias}
               onSoltarSubcategoria={moverSubcategoria}

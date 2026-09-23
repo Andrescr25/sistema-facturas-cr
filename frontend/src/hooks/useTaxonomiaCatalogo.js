@@ -22,15 +22,24 @@ export function useTaxonomiaCatalogo() {
   // 'sin' = solo lo no clasificado, o el id de una subcategoría puntual.
   const [subFoco, setSubFoco] = useState(null)
 
+  // `sinAlegra`: las categorías vinieron de la copia local porque Alegra no
+  // respondió (sin id: no se puede mover nada de categoría). `errorArbol`:
+  // ni eso — la pantalla lo dice en vez de quedar vacía.
+  const [sinAlegra, setSinAlegra] = useState(false)
+  const [errorArbol, setErrorArbol] = useState(null)
+
   const cargarArbol = useCallback(async () => {
     setLoadingArbol(true)
     try {
       const { data } = await api.get('/alegra/catalog/arbol')
       const categorias = data?.success ? (data.categorias || []) : []
       setArbol(categorias)
+      setSinAlegra(Boolean(data?.sinAlegra))
+      setErrorArbol(null)
       return categorias
     } catch (error) {
       console.error('Error cargando el árbol del catálogo:', error)
+      setErrorArbol(error.response?.data?.message || 'No se pudieron cargar las categorías.')
       return []
     } finally {
       setLoadingArbol(false)
@@ -141,6 +150,8 @@ export function useTaxonomiaCatalogo() {
   return {
     arbol,
     loadingArbol,
+    sinAlegra,
+    errorArbol,
     categoriaActiva,
     subFoco,
     seleccionarCategoria,

@@ -43,6 +43,37 @@ async function listar() {
     .sort((a, b) => a.orden - b.orden || a.name.localeCompare(b.name));
 }
 
+/**
+ * Las categorías sin preguntarle a Alegra: las que tienen productos en la
+ * copia local, con el mismo orden y nombre visible de `categoria_config`.
+ *
+ * Es el respaldo de Gestión de Catálogo cuando Alegra no responde — sin esto
+ * la pantalla entera quedaba vacía, aunque todos los productos estuvieran en
+ * la copia local. Sin `id` de Alegra: con este respaldo no se puede mover
+ * nada de categoría (eso escribe en Alegra de todos modos).
+ */
+async function listarDesdeCache() {
+  const [{ rows: nombres }, { rows: config }] = await Promise.all([
+    query(`SELECT DISTINCT category AS name FROM alegra_products_cache
+            WHERE category <> '' AND status = 'active' AND hidden_locally = false
+            ORDER BY category`),
+    query(`SELECT categoria, nombre_visible, orden FROM categoria_config`)
+  ]);
+  const configPorNombre = new Map(config.map((c) => [c.categoria, c]));
+
+  return nombres
+    .map(({ name }, index) => {
+      const cfg = configPorNombre.get(name);
+      return {
+        id: null,
+        name,
+        nombreVisible: cfg?.nombre_visible || name,
+        orden: (cfg && cfg.orden !== null) ? cfg.orden : 100000 + index
+      };
+    })
+    .sort((a, b) => a.orden - b.orden || a.name.localeCompare(b.name));
+}
+
 async function renombrar(categoria, nombreVisible) {
   const cat = String(categoria || '').trim();
   if (!cat) throw httpError(400, 'Falta la categoría.');
@@ -114,4 +145,4 @@ async function crear(nombre) {
   return getProductService().createItemCategory(nom);
 }
 
-module.exports = { listar, renombrar, reordenar, crear };
+module.exports = { listar, listarDesdeCache, renombrar, reordenar, crear };
