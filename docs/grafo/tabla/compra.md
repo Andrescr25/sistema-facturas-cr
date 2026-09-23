@@ -26,9 +26,8 @@ parcial para que reprocesar el correo no duplique.
 5 `GASTO_RECURRENTE`. Las 2 que nadie había aceptado (`PROCESADA`,
 `RELACIONADA`) se quedaron en el buzón, que es donde deben estar.
 
-`estado` solo admite `registrada`/`anulada` (migración 024 — escrita; a la
-copia local todavía no se le aplicó, así que ahí el `CHECK` aún acepta
-`devuelta`). Traía un tercer valor, `devuelta` ("se le devolvió la mercadería al proveedor"), que salió de
+`estado` solo admite `registrada`/`anulada` (migración 024, aplicada a la
+copia local el 2026-09-23). Traía un tercer valor, `devuelta` ("se le devolvió la mercadería al proveedor"), que salió de
 una alucinación de una sesión anterior: nunca fue un pedido real, ninguna de
 las 860 lo usaba y nada del código lo leía. Lo que el usuario sí pidió, y ya
 existe, es otra cosa —devolver una factura mal relacionada a `PROCESADA` para

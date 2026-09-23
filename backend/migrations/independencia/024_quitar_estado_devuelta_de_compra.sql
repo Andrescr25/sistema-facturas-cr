@@ -6,7 +6,7 @@
 -- `factura.estado` (`devolverFactura`), no en `compra.estado`, y no necesita
 -- ningún estado nuevo aquí.
 
-ALTER TABLE compra DROP CONSTRAINT compra_estado_valido;
+ALTER TABLE compra DROP CONSTRAINT IF EXISTS compra_estado_valido;
 
 ALTER TABLE compra
   ADD CONSTRAINT compra_estado_valido CHECK (estado IN ('registrada', 'anulada'));

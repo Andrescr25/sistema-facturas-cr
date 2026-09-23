@@ -48,8 +48,9 @@ marca `- [x]` al terminar.
   Nunca al revés: esta rama no se mezcla a `developer` ni a `main` hasta el
   corte.
 - **Migraciones de la rama** en `backend/migrations/independencia/NNN_nombre.sql`.
-  Se aplican a la base local, se reflejan en `setupDatabase.js` y el script
-  de refresco las vuelve a correr.
+  Se aplican a la base local y el script de refresco las vuelve a correr
+  todas, en orden, sobre cada copia nueva de producción. NO se copian a
+  `setupDatabase.js` (ver §15: ese script no puede montar esta base).
 - **Pruebas:** `cd backend && npm test`. Las que usan base van contra la copia
   local. Las de escritura real, dentro de una transacción que se revierte, se
   corren con `PROBAR_BASE_LOCAL=1`.
@@ -402,8 +403,8 @@ más abajo).
   falta ninguna construcción nueva. Migración `024` escrita para quitar
   `'devuelta'` del `CHECK` de `compra` (migración 019), porque no
   correspondía a nada real y nada del código lo usaba (confirmado: 860/860
-  compras en `registrada`, cero en `devuelta`) — **escrita, todavía no
-  aplicada** a la copia local, el ALTER quedó pendiente de autorización
+  compras en `registrada`, cero en `devuelta`) — aplicada a la copia local
+  el 2026-09-23
 - [ ] Guardar el estado de aceptación de cada compra. El envío del mensaje receptor queda con la emisión electrónica
 - [x] **Gastos recurrentes sin crear productos ni contactos en Alegra
   (2026-09-20).** `registrarEnAlegra` creaba un contacto, un servicio por
@@ -510,8 +511,20 @@ facturas y notas de crédito desde Alegra.
 
 ## 15. Migración y corte
 
-- [ ] **Espejar en `setupDatabase.js` las migraciones 013 a 020.** El espejo se quedó en la 012: `013_datos_fiscales_factura`, `014_envio_whatsapp_cliente`, `015_espacio_emision_electronica`, `016_cierre_caja`, `017_cliente_id_en_portal`, `018_mapeo_por_ids_propios`, `019_compra_y_compra_linea` y `020_cargar_compras_del_buzon` viven solo en `migrations/independencia/`. No afecta a la base de hoy —ese archivo solo corre en instalaciones nuevas— pero el día del corte, montar la base desde cero quedaría sin esas tablas y columnas.
-
+- [x] **~~Espejar en `setupDatabase.js` las migraciones 013 a 020~~ — no
+  corresponde (revisado 2026-09-23).** `setupDatabase.js` no puede montar esta
+  base desde cero con o sin el espejo: no crea las tablas que maneja Prisma
+  (`facturas_proveedores`, `supplier_product_mapping`,
+  `alegra_products_cache`) ni las del portal (`cliente_portal`,
+  `pedido_cliente`), borra todo al empezar e inserta proveedores de ejemplo.
+  Las migraciones 018 a 023 alteran justamente esas tablas, así que copiarlas
+  ahí fallaría o daría una seguridad falsa. La base del corte se arma como ya
+  la arma `scripts/db-local/refrescar-copia.sh`: copia de producción +
+  `migrations/independencia/*.sql` en orden — ese camino es el que se ejercita
+  en cada refresco, así que lo que hay que cuidar es que cada migración corra
+  en orden sobre una copia fresca de producción. Si algún día hiciera falta una instalación desde cero, es un script
+  nuevo (`prisma db push` + `migrations/*.sql` + `migrations/independencia/*.sql`),
+  no más copias a mano.
 - [ ] Script de carga desde Alegra, de solo lectura y repetible: productos, clientes, proveedores, facturas con líneas, pagos, notas de crédito, compras, cotizaciones y existencias
 - [ ] Bajar el PDF y el XML de las facturas electrónicas que emitió Alegra, que hay que conservar 5 años
 - [ ] Conciliación: cantidades y totales por mes iguales entre Alegra y la base propia
