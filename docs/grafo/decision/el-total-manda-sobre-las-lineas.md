@@ -6,7 +6,7 @@ estado: vigente
 archivos:
   - backend/migrations/independencia/020_cargar_compras_del_buzon.sql
 aristas:
-  bloqueado_por: [bloqueo/el-xml-no-se-guarda]
+  bloqueado_por: [bloqueo/xml-historico-sin-recuperar]
   relacionado: [tabla/compra]
 medido: 2026-09-19
 ---
@@ -22,5 +22,5 @@ de líneas, porque es lo que se le debe al proveedor: calcularlo sumando
 líneas le pagaría de menos a unos y de más a otros.
 
 Este nodo se marca `retirado` (no se borra) el día que
-[[bloqueo/el-xml-no-se-guarda]] se resuelva y las 18 se reconcilien de verdad
+[[bloqueo/xml-historico-sin-recuperar]] se resuelva y las 18 se reconcilien de verdad
 extrayendo esos campos del XML.

@@ -12,8 +12,8 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
-  bloqueado_por: [bloqueo/el-xml-no-se-guarda, bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
-  relacionado: [modulo/inventario]
+  bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
+  relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-09-20
 ---
 
@@ -69,6 +69,11 @@ QUÉ FALTA
 
 Inventario NO se mueve todavía —bloqueado por el conteo físico, ver
 [[bloqueo/conteo-fisico]]—, aunque `compra_linea.cantidad_propia` ya está
-lista para cuando exista. Devolver o rechazar una compra, el estado de
-aceptación, y órdenes de compra por WhatsApp usando `producto.id` en vez del
-id de Alegra.
+lista para cuando exista. El estado de aceptación de cada compra, y órdenes
+de compra por WhatsApp usando `producto.id` en vez del id de Alegra.
+
+"Devolver o rechazar una compra" salió de esta lista (2026-09-20): era una
+alucinación de una sesión anterior, nunca un pedido real. Lo que el usuario
+pidió de verdad —devolver una factura mal relacionada para corregirla— ya
+existe (`devolverFactura` en `revision-precios.service.js`, arriba en
+`archivos:`) y no tiene nada que ver con `compra`.

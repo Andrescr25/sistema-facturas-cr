@@ -18,6 +18,10 @@ class DatabaseService {
      * @returns {Object} Factura guardada con productos
      */
     async saveFactura(facturaData, archivoXML, emailId = null, xmlRuta = null) {
+        // Marca el punto sin retorno: a partir de acá la fila existe y
+        // `xml_ruta` apunta al archivo, así que un error posterior (los
+        // mapeos, la cuenta por pagar) ya NO puede borrarlo.
+        let facturaCreada = false;
         try {
             console.log(`💾 Guardando factura en BD: ${facturaData.numeroConsecutivo}`);
 
@@ -159,6 +163,8 @@ class DatabaseService {
                 }
             });
 
+            facturaCreada = true;
+
             // La ruta del XML y los totales del resumen se guardan aparte,
             // por SQL (ver el porqué en xmlRutaComprobante.js). No falla si
             // no se puede: la factura ya quedó guardada.
@@ -269,8 +275,9 @@ class DatabaseService {
             console.error('❌ Error guardando factura:', error);
             // El archivo se guardó en disco antes de llegar acá; si la
             // factura no llegó a existir en la base, no puede quedar un
-            // XML sin ningún registro que lo señale.
-            if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
+            // XML sin ningún registro que lo señale. Si SÍ llegó a existir,
+            // su fila ya lo señala: borrarlo dejaría la ruta apuntando a nada.
+            if (xmlRuta && !facturaCreada) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
             throw error;
         }
     }

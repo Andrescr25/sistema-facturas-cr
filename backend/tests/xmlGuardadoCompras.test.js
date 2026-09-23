@@ -277,3 +277,95 @@ describe('factura de proveedor duplicada: el XML recién guardado no queda huér
     assert.deepEqual(borrados, []);
   });
 });
+
+describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó a existir', () => {
+  const rutaPrisma = path.join(__dirname, '..', 'lib', 'prisma.js');
+  const rutaAlmacenamiento = path.join(__dirname, '..', 'src', 'integrations', 'almacenamiento', 'index.js');
+  const rutaXmlRuta = path.join(__dirname, '..', 'src', 'utils', 'xmlRutaComprobante.js');
+  const rutaGastoRecurrente = path.join(__dirname, '..', 'src', 'modules', 'pagos-recurrentes', 'scrapers', 'facturas-recibidas.adapter.js');
+  const rutaServicio = path.join(__dirname, '..', 'services', 'databaseService.js');
+
+  const facturaData = {
+    clave: 'CLAVE-NUEVA',
+    numeroConsecutivo: '0001',
+    fechaEmision: { iso: '2026-09-01T10:00:00-06:00' },
+    emisor: { nombre: 'Proveedor', identificacion: { numero: '3101000000' } },
+    resumen: { totales: { comprobante: 1000 }, moneda: { codigo: 'CRC' } },
+    productos: [{ numeroLinea: 1, codigo: 'A1', descripcion: 'Producto', cantidad: 1, precioUnitario: 1000, montoTotalLinea: 1000 }]
+  };
+
+  function montar({ falla }) {
+    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaServicio]) {
+      delete require.cache[r];
+    }
+
+    require.cache[rutaPrisma] = {
+      id: rutaPrisma, filename: rutaPrisma, loaded: true,
+      exports: {
+        factura: {
+          findUnique: async () => null,
+          create: async () => {
+            if (falla === 'create') throw new Error('la base se cayó');
+            return { id: 'factura-nueva', productos: [{}] };
+          },
+          update: async () => ({})
+        },
+        supplierProductMapping: {
+          // Un mapeo existente obliga a pasar por el PASO 3, después de crear la fila.
+          findUnique: async () => ({ id: 'mapeo-1', alegraItemId: '99', alegraName: 'X', confidence: 1 }),
+          update: async () => {
+            if (falla === 'mapeos') throw new Error('falló después de crear la fila');
+            return {};
+          }
+        },
+        cuentaPorPagar: { upsert: async () => ({}) }
+      }
+    };
+
+    const borrados = [];
+    require.cache[rutaAlmacenamiento] = {
+      id: rutaAlmacenamiento, filename: rutaAlmacenamiento, loaded: true,
+      exports: { borrarPrivado: async (ruta) => { borrados.push(ruta); return true; } }
+    };
+    const rutasGuardadas = [];
+    require.cache[rutaXmlRuta] = {
+      id: rutaXmlRuta, filename: rutaXmlRuta, loaded: true,
+      exports: {
+        guardarXmlRutaDeFactura: async (id, ruta) => { rutasGuardadas.push([id, ruta]); },
+        guardarTotalesDelResumen: async () => {}
+      }
+    };
+    require.cache[rutaGastoRecurrente] = {
+      id: rutaGastoRecurrente, filename: rutaGastoRecurrente, loaded: true,
+      exports: { esEmisorDeGastoRecurrente: async () => false, ESTADO_GASTO_RECURRENTE: 'GASTO_RECURRENTE' }
+    };
+
+    const DatabaseService = require(rutaServicio);
+    return { servicio: new DatabaseService(), borrados, rutasGuardadas };
+  }
+
+  after(() => {
+    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaServicio]) {
+      delete require.cache[r];
+    }
+  });
+
+  test('si falla la creación de la fila, el XML se borra', async () => {
+    const { servicio, borrados } = montar({ falla: 'create' });
+    await assert.rejects(
+      servicio.saveFactura(facturaData, 'archivo.xml', 'email-1', 'compras-proveedor/xml-nuevo.xml'),
+      /la base se cayó/
+    );
+    assert.deepEqual(borrados, ['compras-proveedor/xml-nuevo.xml']);
+  });
+
+  test('si falla algo DESPUÉS de crear la fila, el XML se queda: la fila lo señala', async () => {
+    const { servicio, borrados, rutasGuardadas } = montar({ falla: 'mapeos' });
+    await assert.rejects(
+      servicio.saveFactura(facturaData, 'archivo.xml', 'email-1', 'compras-proveedor/xml-nuevo.xml'),
+      /después de crear la fila/
+    );
+    assert.deepEqual(rutasGuardadas, [['factura-nueva', 'compras-proveedor/xml-nuevo.xml']]);
+    assert.deepEqual(borrados, []);
+  });
+});

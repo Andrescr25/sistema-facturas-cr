@@ -142,13 +142,66 @@ function cargarGrafo() {
   return { nodos, errores };
 }
 
+const RUTA_MAPA = path.join(RAIZ_GRAFO, 'README.md');
+
+/**
+ * Los ids que enlaza el mapa de entrada (`docs/grafo/README.md`), leídos de
+ * sus enlaces `](tipo/nombre.md)`. `null` si el mapa no existe.
+ *
+ * EL MAPA ES LA PUERTA. Quien llega sin contexto —otra persona, otro agente—
+ * no sabe qué nodos hay sin listar la carpeta y abrirlos uno por uno. El
+ * validador exige que el mapa nombre cada nodo y solo nodos que existen, así
+ * que no puede quedarse atrás del grafo sin que falle una prueba.
+ */
+function idsDelMapa() {
+  if (!fs.existsSync(RUTA_MAPA)) return null;
+  const texto = fs.readFileSync(RUTA_MAPA, 'utf8');
+  return [...texto.matchAll(/\]\(([a-z]+\/[a-z0-9-]+)\.md\)/g)].map((m) => m[1]);
+}
+
+/**
+ * Nodos cuyo código cambió DESPUÉS de su fecha `medido`: candidatos a estar
+ * describiendo algo que ya no es así. Compara contra la fecha del último
+ * commit de cada archivo citado en `archivos:`.
+ *
+ * Es un AVISO, no una prueba que falla: casi cualquier cambio de código
+ * tocaría algún nodo, y obligar a editarlo en el mismo commit terminaría en
+ * fechas actualizadas sin haber releído nada. Lo que sí hace es que nadie
+ * pueda decir que no sabía cuáles revisar. Sin git a mano devuelve [].
+ */
+function nodosDesactualizados(nodos) {
+  const { execFileSync } = require('child_process');
+  const fechaDe = (archivo) => execFileSync('git', ['log', '-1', '--format=%cs', '--', archivo], {
+    cwd: RAIZ_REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
+  }).trim();
+
+  const salida = [];
+  try {
+    for (const nodo of nodos.values()) {
+      if (!nodo.medido || nodo.estado === 'retirado') continue;
+      let ultimo = '';
+      for (const archivo of nodo.archivos || []) {
+        const fecha = fechaDe(archivo);
+        if (fecha > ultimo) ultimo = fecha;
+      }
+      if (ultimo && ultimo > nodo.medido) salida.push({ id: nodo.id, medido: nodo.medido, cambio: ultimo });
+    }
+  } catch {
+    return [];
+  }
+  return salida;
+}
+
 module.exports = {
   RAIZ_GRAFO,
   RAIZ_REPO,
+  RUTA_MAPA,
   TIPOS_VALIDOS,
   ARISTAS_VALIDAS,
   ESTADOS_VALIDOS,
   cargarGrafo,
+  idsDelMapa,
+  nodosDesactualizados,
   parsearFrontmatter,
   extraerFrontmatter
 };

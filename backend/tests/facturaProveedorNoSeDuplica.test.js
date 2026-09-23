@@ -81,12 +81,12 @@ describe('devolver a relacionar', () => {
     assert.equal(registro.actualizaciones.length, 0, 'no debió cambiarle el estado');
   });
 
-  test('el mensaje dice qué hacer, no solo que no se puede', async () => {
-    // Quien está en el mostrador necesita saber que el arreglo está en
-    // Alegra, no en esta pantalla.
+  test('el mensaje dice qué hace falta, y ya no manda a Alegra', async () => {
+    // En esta rama ENVIADA es "ya existe la compra", no "existe en Alegra":
+    // mandar a anular allá era mandar al lugar equivocado.
     const { servicio } = montar(facturaEn('ENVIADA'));
     await assert.rejects(() => servicio.devolverFactura('f1'),
-      (e) => /anule la factura de compra en Alegra/.test(e.message));
+      (e) => /registrada como compra/.test(e.message) && /anular la compra/.test(e.message) && !/Alegra/.test(e.message));
   });
 
   test('una factura que todavía no se envió sí se devuelve', async () => {

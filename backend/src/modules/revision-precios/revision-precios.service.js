@@ -399,21 +399,21 @@ async function devolverFactura(facturaId) {
     throw httpError(404, 'Factura no encontrada');
   }
 
-  // UNA FACTURA YA ENVIADA NO SE DEVUELVE.
-  // `ENVIADA` significa que la factura de compra SÍ se creó en Alegra — si
-  // ese paso falla, el estado no avanza a propósito (ver enviarFacturaAlegra).
-  // Devolverla la regresa a la lista de revisión con el botón "Enviar a
-  // Alegra" activo, y volver a enviarla crea una SEGUNDA factura de compra
-  // por la misma compra del proveedor: el gasto queda contado dos veces.
+  // UNA FACTURA YA REGISTRADA NO SE DEVUELVE.
+  // En esta rama `ENVIADA` quiere decir que ya existe su fila en `compra`
+  // (registrarCompra la deja así, ver compras.service.js) — ya no que exista
+  // una factura de compra en Alegra. Devolverla la regresaría a la lista de
+  // revisión con "Registrar compra" activo: registrarCompra la frenaría con un
+  // 409, pero la pantalla quedaría ofreciendo algo que no se puede hacer.
   //
-  // Pasaba de verdad: el historial abre la misma pantalla de revisión, con
-  // los dos botones activos y sin decir en ningún lado que ya se había
-  // enviado. Con 838 facturas en ese estado, era cuestión de un clic.
+  // Para rehacer una compra mal relacionada hay que ANULARLA primero, y eso
+  // todavía no existe (compra.estado ya admite 'anulada'; falta la función):
+  // el mensaje lo dice en vez de mandar a Alegra, que ya no es el lugar.
   if (factura.estado === 'ENVIADA') {
     throw httpError(409,
-      `La factura ${factura.numeroConsecutivo} ya se envió a Alegra y su factura de compra existe allá. ` +
-      `Devolverla permitiría enviarla otra vez y duplicar el gasto. ` +
-      `Si de verdad hay que rehacerla, primero anule la factura de compra en Alegra.`);
+      `La factura ${factura.numeroConsecutivo} ya está registrada como compra. ` +
+      `Devolverla a relacionar permitiría registrarla otra vez y duplicar el gasto. ` +
+      `Para corregirla habría que anular la compra primero, y eso todavía no está disponible.`);
   }
 
   await prisma.factura.update({

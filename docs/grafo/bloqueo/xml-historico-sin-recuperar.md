@@ -1,7 +1,7 @@
 ---
-id: bloqueo/el-xml-no-se-guarda
+id: bloqueo/xml-historico-sin-recuperar
 tipo: bloqueo
-titulo: El XML de compra no se guarda — se guardó SOLO el nombre
+titulo: Las 882 facturas de compra viejas no tienen su XML — las nuevas sí lo guardan
 estado: vigente
 archivos:
   - backend/services/emailService.js
@@ -11,14 +11,19 @@ archivos:
 aristas:
   depende_de: [decision/la-ruta-no-el-contenido]
   relacionado: [tabla/facturas-proveedores, decision/el-total-manda-sobre-las-lineas]
-medido: 2026-09-20
+medido: 2026-09-23
 ---
 
-`emailService.js` parsea el adjunto XML en memoria (`saveXmlAttachment`) y el
-Buffer muere ahí: la última vez que existe es al pasarlo a
-`xmlParser.parseFacturaXML` antes de guardar. `archivo_xml` guarda el NOMBRE
+QUÉ FALTA HOY (2026-09-23): recuperar del buzón el XML de las facturas que
+llegaron ANTES del arreglo, y reconciliar las 18 que no cuadran. Toda factura
+nueva ya guarda su XML (parte 1). Este nodo se llamaba "el XML no se guarda":
+se renombró cuando dejó de ser cierto para las nuevas, porque un índice que
+solo lee títulos se llevaba una afirmación falsa.
+
+CÓMO ERA: `emailService.js` parseaba el adjunto XML en memoria
+(`saveXmlAttachment`) y el Buffer moría ahí. `archivo_xml` guardaba el NOMBRE
 del archivo, nunca su contenido. Comprobado: **0 de 882** en producción y **0
-de 862** en la copia local tienen un `<` en esa columna.
+de 862** en la copia local tenían un `<` en esa columna.
 
 Las facturas van del 2025-07-24 al 2026-09-18: más de un año de comprobantes
 cuyo único ejemplar vive en el buzón de correo (por ley, hay que

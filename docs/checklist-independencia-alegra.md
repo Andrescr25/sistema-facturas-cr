@@ -344,7 +344,7 @@ más abajo).
   crédito nueva guarda su XML por ruta en `almacenamiento-privado/` —NO bajo
   `/archivos`, que `express.static` sirve sin sesión a propósito para las
   fotos; un comprobante fiscal no puede quedar así (migración 021,
-  `bloqueo/el-xml-no-se-guarda` en el grafo). De paso se extrajeron
+  `bloqueo/xml-historico-sin-recuperar` en el grafo). De paso se extrajeron
   `TotalOtrosCargos`, `TotalDescuentos` y `TotalIVADevuelto`, que el parser
   nunca leía y son justo lo que explica las 18 que no cuadraban (migración
   022), y se corrigieron dos bugs que afectaban el cuadre: `Descuento`/
@@ -390,7 +390,20 @@ más abajo).
   (13 nuevas)
 - [x] El cambio de precio de venta se guarda en `producto` — mismo cambio que
   el ítem de arriba: `registrarCompra` ya no le manda ningún precio a Alegra
-- [ ] Devolver la factura al proveedor o rechazarla
+- [x] **"Devolver la factura al proveedor o rechazarla" era una alucinación de una sesión anterior (2026-09-20).**
+  Nunca fue un pedido real — no hay una acción de rechazo hacia el proveedor en
+  ningún lado de esta conversación ni de las anteriores rastreables por git. Lo
+  que sí existe, y siempre existió, es otra cosa: cuando una factura queda mal
+  relacionada en Relación de Productos, se **devuelve a relacionar**
+  (`devolverFactura` en `revision-precios.service.js`, botón "Devolver a
+  Relacionar"), que la manda de vuelta a `PROCESADA` para corregir y volver a
+  cargar. Es 100 % interno — nunca tocó Alegra, nunca tuvo fricción por ser
+  local — y ya tiene pruebas (`facturaProveedorNoSeDuplica.test.js`). No hace
+  falta ninguna construcción nueva. Migración `024` escrita para quitar
+  `'devuelta'` del `CHECK` de `compra` (migración 019), porque no
+  correspondía a nada real y nada del código lo usaba (confirmado: 860/860
+  compras en `registrada`, cero en `devuelta`) — **escrita, todavía no
+  aplicada** a la copia local, el ALTER quedó pendiente de autorización
 - [ ] Guardar el estado de aceptación de cada compra. El envío del mensaje receptor queda con la emisión electrónica
 - [x] **Gastos recurrentes sin crear productos ni contactos en Alegra
   (2026-09-20).** `registrarEnAlegra` creaba un contacto, un servicio por

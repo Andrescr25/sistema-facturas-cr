@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const {
-  RAIZ_REPO, TIPOS_VALIDOS, ARISTAS_VALIDAS, ESTADOS_VALIDOS, cargarGrafo
+  RAIZ_REPO, TIPOS_VALIDOS, ARISTAS_VALIDAS, ESTADOS_VALIDOS, cargarGrafo, idsDelMapa, nodosDesactualizados
 } = require('../src/utils/grafo');
 
 /**
@@ -14,10 +14,11 @@ const {
  * guardaba, y nada lo desmentía—, y esta prueba es la que existe para que no
  * se repita con el grafo.
  *
- * Las cinco comprobaciones son las del plan: id único y consistente con la
- * ruta, aristas que apuntan a algo que existe, vocabulario cerrado de tipos y
- * aristas, archivos citados que existen de verdad en el disco, y ningún nodo
- * sin ninguna arista.
+ * Las comprobaciones: id único y consistente con la ruta, aristas que apuntan
+ * a algo que existe, vocabulario cerrado de tipos y aristas, archivos citados
+ * que existen de verdad en el disco, ningún nodo sin ninguna arista, y un
+ * mapa de entrada (docs/grafo/README.md) que nombra todos los nodos. Aparte,
+ * un AVISO (no falla) con los nodos cuyo código cambió después de medirlos.
  */
 
 describe('el grafo de conocimiento', () => {
@@ -124,6 +125,27 @@ describe('el grafo de conocimiento', () => {
       .filter((n) => !entrantes.has(n.id) && Object.values(n.aristas || {}).every((d) => d.length === 0))
       .map((n) => n.id);
     assert.deepEqual(huerfanos, [], huerfanos.join('\n'));
+  });
+
+  test('el mapa de entrada nombra cada nodo, y solo nodos que existen', () => {
+    // docs/grafo/README.md es por donde entra quien llega sin contexto. Si no
+    // nombra un nodo, ese nodo no se encuentra sin listar la carpeta.
+    const { nodos } = cargarGrafo();
+    const enMapa = idsDelMapa();
+    assert.ok(enMapa, 'falta docs/grafo/README.md: es la puerta de entrada del grafo');
+    const faltan = [...nodos.keys()].filter((id) => !enMapa.includes(id));
+    const sobran = enMapa.filter((id) => !nodos.has(id));
+    assert.deepEqual({ faltan, sobran }, { faltan: [], sobran: [] },
+      `El mapa se desincronizó. Faltan: ${faltan.join(', ') || '—'}. Nombra nodos que no existen: ${sobran.join(', ') || '—'}.`);
+  });
+
+  test('aviso: nodos cuyo código cambió después de medirlos', (t) => {
+    // No falla (ver nodosDesactualizados): deja escrito en la salida de
+    // `npm test` cuáles hay que releer.
+    const { nodos } = cargarGrafo();
+    for (const v of nodosDesactualizados(nodos)) {
+      t.diagnostic(`releer ${v.id}: medido ${v.medido}, su código cambió el ${v.cambio}`);
+    }
   });
 
   test('hay al menos un nodo cargado', () => {

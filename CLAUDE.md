@@ -1,8 +1,10 @@
 # Invariantes de este repositorio
 
-No es documentación del sistema — eso vive en [docs/grafo/](docs/grafo/), que
-describe cómo es cada módulo, tabla, decisión y bloqueo, con aristas tipadas
-que se validan solas (`backend/tests/grafo.test.js`, corre con `npm test`).
+No es documentación del sistema — eso vive en el grafo: **empezá por
+[docs/grafo/README.md](docs/grafo/README.md)**, el mapa de todos los nodos
+(módulos, tablas, decisiones, lecciones, bloqueos), con aristas tipadas que se
+validan solas (`backend/tests/grafo.test.js`, corre con `npm test`). Cada rama
+tiene su propio grafo, que describe el código de ESA rama.
 Este archivo es más corto: solo lo que, si se ignora, rompe algo real.
 
 ## Dos worktrees, dos realidades de base de datos

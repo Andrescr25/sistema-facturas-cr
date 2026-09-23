@@ -71,15 +71,21 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
 
   const precioNuevo = precioAjustado && precioAjustado > 0 ? Math.round(precioAjustado * 100) / 100 : null;
 
-  const cambios = precioNuevo !== null
-    ? { costo_con_iva: costoNuevo, precio_sin_iva: precioNuevo }
-    : { costo_con_iva: costoNuevo };
+  // UNA LÍNEA DE REGALÍA NO TOCA EL COSTO. La bonificación del proveedor
+  // viene como otra línea del MISMO producto con 100 % de descuento: su costo
+  // sale 0, y escribirlo pisaba el costo bueno de la línea pagada (medido: 4
+  // veces en el histórico del buzón). Si trae precio ajustado, se aplica solo
+  // el precio.
+  const esRegalia = !(costoNuevo > 0);
+  if (esRegalia && precioNuevo === null) {
+    return { costoActualizado: false, precioActualizado: false, regalia: true };
+  }
 
   const { rows: actualizados } = await cliente.query(
-    `UPDATE producto SET costo_con_iva = $1, precio_sin_iva = COALESCE($2, precio_sin_iva),
+    `UPDATE producto SET costo_con_iva = COALESCE($1, costo_con_iva), precio_sin_iva = COALESCE($2, precio_sin_iva),
         actualizado_en = CURRENT_TIMESTAMP
       WHERE id = $3 RETURNING *`,
-    [costoNuevo, precioNuevo, linea.producto_id]
+    [esRegalia ? null : costoNuevo, precioNuevo, linea.producto_id]
   );
   const despues = actualizados[0];
 
@@ -107,7 +113,7 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
     motivo: `compra ${compraId}`
   });
 
-  return { costoActualizado: true, precioActualizado: precioNuevo !== null };
+  return { costoActualizado: !esRegalia, precioActualizado: precioNuevo !== null };
 }
 
 /**

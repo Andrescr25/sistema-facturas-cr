@@ -179,6 +179,34 @@ describe('registrarCompra — camino feliz', () => {
   });
 });
 
+describe('registrarCompra — la regalía no pisa el costo', () => {
+  // "10 pagados + 1 de regalía" del mismo producto: la regalía viene con 100 %
+  // de descuento y su costo sale 0. Escribirlo dejaba el producto en ₡0.
+  const REGALIA = {
+    ...LINEA_CON_PRODUCTO, id: 'linea-3', numero_linea: 3,
+    cantidad: '1.0000', precio_unitario: '900.00000', descuento: '900', impuesto: '0', total_linea: '0'
+  };
+
+  test('una línea pagada y su regalía: el costo que queda es el de la pagada', async () => {
+    const { servicio, log } = montar({ lineas: [LINEA_CON_PRODUCTO, REGALIA] });
+    const r = await servicio.registrarCompra(FACTURA_ID, {});
+
+    const updates = todas(log, /UPDATE producto SET costo_con_iva/);
+    assert.equal(updates.length, 1, 'la regalía no debió actualizar el producto');
+    assert.ok(updates[0].params[0] > 0, 'el costo escrito es el de la línea pagada');
+    assert.equal(r.costosActualizados, 1);
+  });
+
+  test('una regalía con precio ajustado cambia el precio y deja el costo como estaba', async () => {
+    const { servicio, log } = montar({ lineas: [REGALIA] });
+    await servicio.registrarCompra(FACTURA_ID, { [REGALIA.id]: 180 });
+
+    const update = fila(log, /UPDATE producto SET costo_con_iva/);
+    assert.equal(update.params[0], null, 'costo null = COALESCE conserva el que tenía');
+    assert.equal(update.params[1], 180);
+  });
+});
+
 describe('registrarCompra — guardas', () => {
   test('un id que no es UUID se rechaza con 400, sin tocar la base', async () => {
     const { servicio, log } = montar();
