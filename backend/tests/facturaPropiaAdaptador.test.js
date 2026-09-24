@@ -129,7 +129,9 @@ test('la línea lleva nuestro id de producto', () => {
 
 test('los catálogos de la pantalla salen de la base propia', () => {
   const fuente = fs.readFileSync(SERVICIO, 'utf8');
-  for (const ruta of ['/maestro/productos', '/clientes', '/catalogos/configuracion', '/facturacion/facturas']) {
+  // /catalogos y no /maestro ni /clientes: esos son de otros módulos y un
+  // cajero con solo Facturación recibía 403 (ver permisosModulos.test.js).
+  for (const ruta of ['/catalogos/productos', '/catalogos/clientes', '/catalogos/configuracion', '/facturacion/facturas']) {
     assert.ok(fuente.includes(ruta), `la pantalla ya no lee de ${ruta}`);
   }
   // Ni impuestos ni métodos de pago escritos a mano como respaldo: si la lista

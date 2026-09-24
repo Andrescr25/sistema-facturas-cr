@@ -139,6 +139,13 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
 - "Agregar marcas" sugiere la referencia siguiente leyendo la caché de Alegra, así que no ve los productos creados solo en la base propia. Pasa a leer `producto` cuando se retire la caché.
 - Las acciones de cada tarjeta (sugerir foto, agregar marca, editar) aparecen solo al pasar el mouse, así que en el teléfono no se llega a ellas. El problema ya estaba antes.
 
+- **El catálogo del agente no se partía por categoría en esta rama.
+  CORREGIDO (2026-09-24).** La tablet agrupa por `itemCategory` —como lo
+  llama Alegra— y la versión propia mandaba `category`: los 2.012 productos
+  caían en "Otros" y la barra de categorías quedaba vacía. La verificación de
+  la sincronización contó productos y fotos, no categorías. Se vio al traer
+  de `developer` las familias por subcategoría.
+
 **Lista cuando:** se puede crear, editar y desactivar cualquier producto sin
 abrir Alegra.
 
@@ -600,6 +607,16 @@ facturas y notas de crédito desde Alegra.
 **Hoy ya son locales.**
 
 - [ ] Permisos para los módulos nuevos: clientes, productos, inventario, caja, notas de crédito y configuración
+
+**Hallazgos de esta sección:**
+- **Un cajero con solo Facturación no podía cargar productos ni clientes.
+  CORREGIDO (2026-09-24).** Facturación leía de `/maestro/productos` (dueño:
+  Gestión de Catálogo) y de `/clientes` (dueño: Clientes), y el servidor
+  exige el módulo también en las lecturas: 403 y la pantalla sin nada que
+  vender. Afectaba a un usuario real ("familia vargas araya", solo con
+  Facturación). Ahora lee de `/catalogos/productos` y `/catalogos/clientes`,
+  la lectura compartida de lo activo, y `permisosModulos.test.js` falla si
+  Facturación vuelve a pedir una ruta de otro módulo.
 - [ ] Definir qué acciones requieren administrador: anular, nota de crédito, ajustar inventario, editar una factura emitida y cerrar caja
 - [ ] Pantalla para consultar la bitácora
 

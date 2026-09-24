@@ -99,7 +99,10 @@ class FacturacionService {
       let paginas = 1;
       const MAXIMO_VUELTAS = 200;
       do {
-        const response = await api.get('/maestro/productos', { params: { pagina, limite: 100 } });
+        // /catalogos y no /maestro: /maestro es de Gestión de Catálogo, y un
+        // cajero con solo Facturación recibía 403 — la pantalla se quedaba sin
+        // productos. /catalogos es la lectura compartida de lo activo.
+        const response = await api.get('/catalogos/productos', { params: { pagina, limite: 100 } });
         productos.push(...(response.data?.data ?? []));
         paginas = response.data?.paginacion?.paginas ?? 1;
         pagina += 1;
@@ -118,7 +121,8 @@ class FacturacionService {
         // Texto siempre: la referencia "0005" pierde los ceros como número.
         reference: String(p.referencia ?? '').trim(),
         price: Number(p.precio_sin_iva) || 0,
-        status: p.activo ? 'active' : 'inactive',
+        // La lectura compartida trae solo activos y sin el campo `activo`.
+        status: p.activo === false ? 'inactive' : 'active',
         type: 'product',
         // La tarifa viene del maestro, que es la que el servidor va a cobrar.
         // Así el cajero ve el mismo impuesto que va a salir impreso.
@@ -152,7 +156,9 @@ class FacturacionService {
       let paginas = 1;
       const MAXIMO_VUELTAS = 200;
       do {
-        const response = await api.get('/clientes', { params: { pagina, limite: 100 } });
+        // /catalogos y no /clientes: /clientes es del módulo Clientes (mismo
+        // 403 que con los productos para quien solo tiene Facturación).
+        const response = await api.get('/catalogos/clientes', { params: { pagina, limite: 100 } });
         clientes.push(...(response.data?.data ?? []));
         paginas = response.data?.paginacion?.paginas ?? 1;
         pagina += 1;
@@ -170,7 +176,7 @@ class FacturacionService {
         phonePrimary: c.telefono || '',
         mobile: c.celular || '',
         plazoCreditoId: c.plazo_credito_id || null,
-        status: c.activo ? 'active' : 'inactive'
+        status: c.activo === false ? 'inactive' : 'active'
       }));
 
       await indexedDBService.saveClientes(normalizados);

@@ -301,7 +301,7 @@ async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}
   return {
     ...r,
     data: r.data.map(p => ({
-      id: p.id, alegra_id: p.alegra_id, nombre: p.nombre, referencia: p.referencia, unidad: p.unidad,
+      id: p.id, alegra_id: p.alegra_id, nombre: p.nombre, referencia: p.referencia, descripcion: p.descripcion, unidad: p.unidad,
       cabys: p.cabys, categoria: p.categoria, impuesto_id: p.impuesto_id, tarifa: p.tarifa,
       precio_sin_iva: p.precio_sin_iva, precio_con_iva: p.precio_con_iva, imagen_url: p.imagen_url,
       es_medicamento: p.es_medicamento

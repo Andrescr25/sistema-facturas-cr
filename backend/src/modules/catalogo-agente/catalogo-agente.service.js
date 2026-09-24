@@ -52,7 +52,11 @@ function aFormaDeTablet(row) {
     price: [{ price: Number(row.precio_sin_iva) || 0 }],
     tax: Number.isFinite(tarifa) && tarifa > 0 ? [{ percentage: tarifa }] : [],
     images: row.imagen_url ? [{ url: row.imagen_url, favorite: true }] : [],
-    category: row.categoria ? { name: row.categoria } : null
+    // `itemCategory`, como lo llama Alegra en /items: es lo que lee la tablet
+    // para partir el catálogo (catalogoAgentePersonalizacion.js). Con
+    // `category` —el nombre que usa la caché, no Alegra— los 2.012 productos
+    // caían en "Otros" y la barra de categorías quedaba vacía.
+    itemCategory: row.categoria ? { name: row.categoria } : null
   };
 }
 

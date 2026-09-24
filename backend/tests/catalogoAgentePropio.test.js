@@ -100,6 +100,18 @@ describe('la forma que espera la tablet', () => {
     assert.equal(p.images[0].url, '/archivos/productos/3-abc.jpg');
   });
 
+  test('la categoría va en `itemCategory`, que es donde la busca la tablet', async () => {
+    // Con `category` todo el catálogo caía en "Otros": la tablet lee
+    // p.itemCategory?.name (catalogoAgentePersonalizacion.js).
+    const { servicio } = montar();
+    const [p] = (await servicio.listarProductos({})).products;
+    assert.deepEqual(p.itemCategory, { name: 'Ferretería' });
+
+    const fuente = require('fs').readFileSync(
+      require('path').join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'catalogoAgentePersonalizacion.js'), 'utf8');
+    assert.match(fuente, /p\.itemCategory\?\.name/, 'la tablet cambió de campo: revisar aFormaDeTablet');
+  });
+
   test('cada producto lleva su subcategoría, para partir la categoría en familias', async () => {
     // Viaja con el catálogo que la tablet guarda sin conexión: pedirla aparte
     // obligaría a una segunda descarga en el campo.

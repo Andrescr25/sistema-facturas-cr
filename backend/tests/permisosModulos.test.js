@@ -179,3 +179,29 @@ describe('el espejo del frontend no se separa del backend', () => {
     );
   });
 });
+
+describe('una pantalla solo pide rutas de su módulo o compartidas', () => {
+  /**
+   * Las rutas que llama un archivo del frontend, hasta el primer `${` o `?`.
+   * Alcanza con el prefijo: el dueño de una ruta lo decide el prefijo más
+   * largo que calza.
+   */
+  function rutasQueLlama(archivo) {
+    const fuente = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', archivo), 'utf8');
+    return [...fuente.matchAll(/api\.(?:get|post|put|patch|delete)\(\s*[`'"](\/[^`'"$?]*)/g)].map((m) => m[1]);
+  }
+
+  test('Facturación no depende de tener el módulo Catálogo ni Clientes', () => {
+    // Pasó en la rama de la migración: Facturación cargaba los productos de
+    // /maestro (Gestión de Catálogo) y los clientes de /clientes (Clientes).
+    // Un cajero con solo Facturación —hay uno— recibía 403 y la pantalla se
+    // quedaba sin productos que vender. Lo que Facturación lee de otros
+    // módulos va por /catalogos, que es compartida.
+    const { moduloDeRuta } = require('../src/modules/usuarios/modulos');
+    const ajenas = ['services/facturacionService.js', 'hooks/useFacturacion.js']
+      .flatMap((a) => rutasQueLlama(a).map((r) => ({ a, r, m: moduloDeRuta(r) })))
+      .filter(({ m }) => m && m !== 'facturacion')
+      .map(({ a, r, m }) => `${a}: ${r} es del módulo "${m}"`);
+    assert.deepEqual(ajenas, []);
+  });
+});
