@@ -58,8 +58,8 @@ export default function DetalleCategoria({
   const [errorSub, setErrorSub] = useState(null)
 
   // Shift-clic selecciona el rango contra el orden en que están dibujadas.
-  const ordenPlano = useMemo(() => secciones.flatMap((s) => s.productos.map((p) => p.alegraId)), [secciones])
-  const manejarAlternar = (alegraId, nativeEvent) => alternar(alegraId, { rango: !!nativeEvent?.shiftKey, ordenPlano })
+  const ordenPlano = useMemo(() => secciones.flatMap((s) => s.productos.map((p) => p.id)), [secciones])
+  const manejarAlternar = (id, nativeEvent) => alternar(id, { rango: !!nativeEvent?.shiftKey, ordenPlano })
 
   const idsOrdenados = subsOrdenadas.map((s) => s.id)
   const moverSub = (id, delta) => {
@@ -129,7 +129,7 @@ export default function DetalleCategoria({
                 <button
                   type="button"
                   onClick={() => { setNombreVisible(categoria.nombreVisible); setEditandoNombre(true) }}
-                  title="Cambiar el nombre que ve el agente (en Alegra no cambia)"
+                  title="Cambiar el nombre que se ve en los catálogos"
                   className="shrink-0 rounded-lg p-2 text-neutro-400 hover:bg-neutro-100 hover:text-primario-700"
                 >
                   <Pencil size={18} />
@@ -137,7 +137,7 @@ export default function DetalleCategoria({
               </div>
             )}
             <p className="mt-0.5 text-sm text-neutro-500">
-              {categoria.nombreVisible !== categoria.name && <>En Alegra: {categoria.name} · </>}
+              {categoria.nombreVisible !== categoria.name && <>En el sistema: {categoria.name} · </>}
               {subsOrdenadas.length} subcategoría{subsOrdenadas.length === 1 ? '' : 's'}
             </p>
           </div>

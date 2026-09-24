@@ -10,7 +10,7 @@ archivos:
   - backend/tests/subcategorias.test.js
 aristas:
   relacionado: [tabla/alegra-products-cache, tabla/categoria-config, decision/orden-canonico-compartido]
-medido: 2026-09-23
+medido: 2026-09-24
 ---
 
 `subcategoria (id, categoria, nombre, activo, orden)`, única por
@@ -27,3 +27,8 @@ Reglas que el servicio hace cumplir:
   categoría.
 - Borrar solo se puede si está en 0 productos (409 si no).
 - `orden` es manual, dentro de su categoría ([[decision/orden-canonico-compartido]]).
+
+EN `independencia-alegra`: los productos la apuntan con
+`producto.subcategoria_id` (migración 030), porque el maestro es `producto`.
+La columna de la caché se sigue llenando en `main` hasta el corte y se copia
+en cada carga de productos. Ver `modulo/gestion-catalogo`.

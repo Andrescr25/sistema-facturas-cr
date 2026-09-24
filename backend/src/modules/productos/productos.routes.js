@@ -24,6 +24,21 @@ const subirImagen = (req, res, next) => upload.single('imagen')(req, res, (error
 });
 
 const routes = express.Router();
+// El rediseño de Gestión de Catálogo (el de `main`, sobre `producto`). Van
+// ANTES de '/productos/:id': si no, Express lee "lote" como un id.
+routes.get('/arbol', controller.arbol);
+routes.get('/buscar', controller.buscar);
+routes.get('/categorias/:id/productos', controller.productosDeCategoria);
+routes.put('/lote/subcategoria', controller.loteSubcategoria);
+routes.put('/lote/categoria', controller.loteCategoria);
+routes.post('/subcategorias', controller.crearSubcategoria);
+routes.put('/subcategorias-orden', controller.reordenarSubcategorias);
+routes.put('/subcategorias/:id', controller.renombrarSubcategoria);
+routes.delete('/subcategorias/:id', controller.eliminarSubcategoria);
+routes.post('/subcategorias/:id/mover', controller.moverSubcategoria);
+routes.put('/categorias-orden', controller.reordenarCategorias);
+routes.put('/categorias/:id/nombre-visible', controller.nombreVisibleCategoria);
+
 routes.get('/productos', controller.listar);
 routes.get('/productos/proveedores', controller.proveedores);
 routes.get('/productos/:id', controller.obtener);

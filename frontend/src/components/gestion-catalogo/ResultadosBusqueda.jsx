@@ -18,12 +18,12 @@ export default function ResultadosBusqueda({
   onSugerirFoto,
   onDuplicar
 }) {
-  const ordenPlano = useMemo(() => resultados.map((p) => p.alegraId), [resultados])
+  const ordenPlano = useMemo(() => resultados.map((p) => p.id), [resultados])
   const descripcion = [
     busqueda.trim() && ` para "${busqueda.trim()}"`,
     proveedorNombre && (proveedorNombre.startsWith('sin ') ? `, ${proveedorNombre}` : ` de ${proveedorNombre}`)
   ].filter(Boolean).join('')
-  const manejarAlternar = (alegraId, nativeEvent) => alternar(alegraId, { rango: !!nativeEvent?.shiftKey, ordenPlano })
+  const manejarAlternar = (id, nativeEvent) => alternar(id, { rango: !!nativeEvent?.shiftKey, ordenPlano })
 
   if (loading) {
     return (
@@ -59,10 +59,10 @@ export default function ResultadosBusqueda({
       <div className="divide-y divide-neutro-100">
         {resultados.map((p) => (
           <FilaProducto
-            key={p.alegraId}
+            key={p.id}
             producto={p}
             mostrarCategoria
-            seleccionado={estaSeleccionado(p.alegraId)}
+            seleccionado={estaSeleccionado(p.id)}
             onAlternarSeleccion={manejarAlternar}
             onEditar={onEditar}
             onSugerirFoto={onSugerirFoto}

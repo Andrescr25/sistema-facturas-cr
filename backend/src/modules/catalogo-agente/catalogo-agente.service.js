@@ -63,11 +63,14 @@ function aFormaDeTablet(row) {
 /**
  * Pegarle a cada producto su subcategoría.
  *
- * La subcategoría es NUESTRA —vive en `alegra_products_cache`, no en Alegra—,
- * así que los productos que bajan por `/items` no la traen. Se agrega acá, de
- * a página, para que viaje con el catálogo que la tablet guarda para trabajar
- * sin señal: pedirla aparte obligaría a una segunda descarga que en el campo
- * no siempre se puede hacer.
+ * Sale de `producto.subcategoria_id` (migración 030), que es donde la pone
+ * Gestión de Catálogo en esta rama. En `main` vive en `alegra_products_cache`;
+ * leerla de allá acá haría que lo que se clasifica en la pantalla no llegara
+ * nunca a la tablet.
+ *
+ * Se agrega de a página, para que viaje con el catálogo que la tablet guarda
+ * para trabajar sin señal: pedirla aparte obligaría a una segunda descarga
+ * que en el campo no siempre se puede hacer.
  *
  * Si la consulta falla, el catálogo sale sin subcategorías en vez de no
  * salir: es un dato para ordenar la vista, no para vender.
@@ -76,18 +79,18 @@ async function conSubcategoria(productos) {
   if (productos.length === 0) return productos;
 
   try {
-    const ids = productos.map((p) => String(p.id));
+    const ids = productos.map((p) => p.productoId).filter(Boolean);
     const { rows } = await query(
-      `SELECT c.alegra_id, s.id AS sub_id, s.nombre AS sub_nombre
-         FROM alegra_products_cache c
-         JOIN subcategoria s ON s.id = c.subcategoria_id AND s.activo = true
-        WHERE c.alegra_id = ANY($1::text[])`,
+      `SELECT p.id AS producto_id, s.id AS sub_id, s.nombre AS sub_nombre
+         FROM producto p
+         JOIN subcategoria s ON s.id = p.subcategoria_id AND s.activo = true
+        WHERE p.id = ANY($1::int[])`,
       [ids]
     );
 
-    const porId = new Map(rows.map((r) => [r.alegra_id, { id: r.sub_id, nombre: r.sub_nombre }]));
+    const porId = new Map(rows.map((r) => [r.producto_id, { id: r.sub_id, nombre: r.sub_nombre }]));
     return productos.map((p) => {
-      const sub = porId.get(String(p.id));
+      const sub = porId.get(p.productoId);
       return sub ? { ...p, subcategoria: sub } : p;
     });
   } catch (error) {

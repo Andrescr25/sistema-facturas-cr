@@ -4,6 +4,7 @@
 
 const servicio = require('./productos.service');
 const imagenes = require('./productos.imagenes');
+const taxonomia = require('./taxonomia.service');
 
 function responder(res, promesa, contexto, status = 200) {
   return promesa
@@ -31,6 +32,20 @@ module.exports = {
   imagenDesdeUrl: (req, res) => responder(res, imagenes.asignarImagenDesdeUrl(req.params.id, req.body, usuario(req)), 'foto por dirección'),
   /** POST /maestro/productos/:id/imagen/archivo  (multipart, campo "imagen") */
   imagenDesdeArchivo: (req, res) => responder(res, imagenes.asignarImagenDesdeArchivo(req.params.id, req.file, usuario(req)), 'foto por archivo'),
+
+  // ─── Árbol, filas y lotes (el rediseño de Gestión de Catálogo) ───
+  arbol: (req, res) => responder(res, taxonomia.arbol(), 'árbol'),
+  productosDeCategoria: (req, res) => responder(res, taxonomia.productosDeCategoria(req.params.id), 'productos de categoría'),
+  buscar: (req, res) => responder(res, taxonomia.buscar(req.query), 'buscar'),
+  loteSubcategoria: (req, res) => responder(res, taxonomia.asignarSubcategoria(req.body, usuario(req)), 'lote subcategoría'),
+  loteCategoria: (req, res) => responder(res, taxonomia.cambiarCategoria(req.body, usuario(req)), 'lote categoría'),
+  crearSubcategoria: (req, res) => responder(res, taxonomia.crearSubcategoria(req.body), 'crear subcategoría', 201),
+  renombrarSubcategoria: (req, res) => responder(res, taxonomia.renombrarSubcategoria(req.params.id, req.body), 'renombrar subcategoría'),
+  reordenarSubcategorias: (req, res) => responder(res, taxonomia.reordenarSubcategorias(req.body), 'ordenar subcategorías'),
+  eliminarSubcategoria: (req, res) => responder(res, taxonomia.eliminarSubcategoria(req.params.id), 'borrar subcategoría'),
+  moverSubcategoria: (req, res) => responder(res, taxonomia.moverSubcategoria(req.params.id, req.body, usuario(req)), 'mover subcategoría'),
+  reordenarCategorias: (req, res) => responder(res, taxonomia.reordenarCategorias(req.body?.categorias), 'ordenar categorías'),
+  nombreVisibleCategoria: (req, res) => responder(res, taxonomia.nombreVisibleCategoria(req.params.id, req.body?.nombreVisible), 'nombre visible'),
 
   listarCategorias: (req, res) => responder(res, servicio.listarCategorias(), 'categorías'),
   crearCategoria: (req, res) => responder(res, servicio.crearCategoria(req.body, usuario(req)), 'crear categoría', 201),

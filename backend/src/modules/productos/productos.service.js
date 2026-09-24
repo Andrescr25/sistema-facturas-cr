@@ -364,6 +364,18 @@ async function editarCategoria(id, datos, usuarioId) {
       const { rows: previas } = await cliente.query('SELECT * FROM categoria_producto WHERE id = $1 FOR UPDATE', [n]);
       if (!previas[0]) throw httpError(404, 'No existe esa categoría.');
       const { rows } = await cliente.query('UPDATE categoria_producto SET nombre = $1 WHERE id = $2 RETURNING *', [cambios.nombre, n]);
+      // `subcategoria` y `categoria_config` cuelgan del NOMBRE de la
+      // categoría (así los hizo `main`, donde la categoría es de Alegra).
+      // Renombrar sin arrastrarlo dejaría sus subcategorías y su orden
+      // colgando de un nombre que ya no existe. El nombre visible se limpia:
+      // el nombre de verdad ahora es el que se quiere ver.
+      if (previas[0].nombre !== rows[0].nombre) {
+        await cliente.query('UPDATE subcategoria SET categoria = $1 WHERE categoria = $2', [rows[0].nombre, previas[0].nombre]);
+        await cliente.query(
+          'UPDATE categoria_config SET categoria = $1, nombre_visible = NULL, actualizado_en = CURRENT_TIMESTAMP WHERE categoria = $2',
+          [rows[0].nombre, previas[0].nombre]
+        );
+      }
       await registrarCambio(cliente, { entidad: 'categoria_producto', entidadId: n, accion: 'editar', antes: sinTiempos(previas[0]), despues: sinTiempos(rows[0]), usuarioId });
       return rows[0];
     });

@@ -1,39 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import api from '../services/api'
-
-const SONDEO_MS = 2000
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios)
 
 /**
- * Las acciones que mueven productos de lugar.
+ * Las acciones que mueven productos de lugar, sobre el maestro propio.
  *
- * MOVER A SUBCATEGORÍA es local e instantánea (un solo UPDATE). CAMBIAR DE
- * CATEGORÍA —unos productos sueltos, o una subcategoría completa— escribe en
- * Alegra (~3 s por producto): arranca un trabajo en el servidor y se sondea
- * su avance, para que la pantalla no se congele. Por eso son acciones
- * distintas y no un solo botón: quien lo usa tiene que saber cuándo espera.
+ * En `main` cambiar de categoría escribe en Alegra (~3 s por producto) y es
+ * un trabajo de fondo que se sondea. Acá las tres acciones son un UPDATE en
+ * la base propia y vuelven en el momento, así que no hay trabajo ni panel de
+ * avance: `trabajo` queda siempre en null y BarraLote no lo muestra.
  *
- * Un solo trabajo a la vez: el panel de avance es uno, y dos movimientos
- * cruzados sobre las mismas categorías serían difíciles de seguir.
+ * Siguen siendo acciones DISTINTAS por lo que le pasa al producto: mover a
+ * subcategoría lo deja en su categoría; cambiar de categoría lo manda a "Sin
+ * clasificar" de la otra.
+ *
+ * Los ids son los PROPIOS del producto (`producto.id`).
  */
-export function useAccionesLote({ arbol, patchProducto, recargarArbol, recargarLista, mostrarToast }) {
+export function useAccionesLote({ arbol, patchProducto, quitarProductos, recargarArbol, recargarLista, mostrarToast }) {
   const [moviendo, setMoviendo] = useState(false)
-  const [trabajo, setTrabajo] = useState(null)
-  const intervaloRef = useRef(null)
 
-  const detenerSondeo = () => {
-    if (intervaloRef.current) { clearInterval(intervaloRef.current); intervaloRef.current = null }
-  }
-  useEffect(() => detenerSondeo, [])
-
-  const ocupado = Boolean(trabajo && !trabajo.terminado)
-
-  const moverASubcategoria = useCallback(async (ids, subcategoriaId) => {
-    if (ids.length === 0) return false
+  const conMovimiento = useCallback(async (trabajo, mensajeError) => {
     setMoviendo(true)
     try {
-      await api.put('/alegra/catalog/productos/subcategoria-lote', { alegraIds: ids, subcategoriaId })
+      return await trabajo()
+    } catch (error) {
+      console.error(mensajeError, error)
+      mostrarToast('error', error.response?.data?.message || mensajeError)
+      return false
+    } finally {
+      setMoviendo(false)
+    }
+  }, [mostrarToast])
+
+  const moverASubcategoria = useCallback((ids, subcategoriaId) => {
+    if (ids.length === 0) return Promise.resolve(false)
+    return conMovimiento(async () => {
+      await api.put('/maestro/lote/subcategoria', { productoIds: ids, subcategoriaId: subcategoriaId || null })
       const sub = subcategoriaId
         ? arbol.flatMap((c) => c.subcategorias).find((s) => s.id === Number(subcategoriaId))
         : null
@@ -42,105 +45,42 @@ export function useAccionesLote({ arbol, patchProducto, recargarArbol, recargarL
       mostrarToast('success', `${ids.length} ${plural(ids.length, 'producto movido', 'productos movidos')} a ${sub ? `"${sub.nombre}"` : 'Sin clasificar'}.`)
       recargarArbol()
       return true
-    } catch (error) {
-      console.error('Error moviendo el lote a subcategoría:', error)
-      mostrarToast('error', error.response?.data?.message || 'No se pudo mover el lote.')
-      return false
-    } finally {
-      setMoviendo(false)
-    }
-  }, [arbol, patchProducto, recargarArbol, mostrarToast])
-
-  const seguir = useCallback((jobId, alTerminar) => {
-    detenerSondeo()
-    intervaloRef.current = setInterval(async () => {
-      try {
-        const { data } = await api.get(`/alegra/catalog/trabajos/${jobId}`)
-        if (!data?.success) throw new Error('sin datos')
-        setTrabajo((prev) => ({ ...prev, total: data.total, hechos: data.hechos, errores: data.errores || [], terminado: data.terminado }))
-        if (data.terminado) {
-          detenerSondeo()
-          recargarArbol()
-          recargarLista()
-          alTerminar(data)
-        }
-      } catch (error) {
-        console.error('Error sondeando el trabajo de categoría:', error)
-        detenerSondeo()
-        setTrabajo((prev) => (prev ? { ...prev, terminado: true, perdido: true } : prev))
-        mostrarToast('error', 'Se perdió el seguimiento del movimiento. Revisá el catálogo en un momento.')
-      }
-    }, SONDEO_MS)
-  }, [recargarArbol, recargarLista, mostrarToast])
-
-  const avisarOcupado = () =>
-    mostrarToast('info', 'Hay un movimiento en curso. Esperá a que termine para empezar otro.')
+    }, 'No se pudo mover el lote.')
+  }, [arbol, patchProducto, recargarArbol, mostrarToast, conMovimiento])
 
   /** Productos sueltos a otra categoría. `categoria` es la del árbol ({id, name, nombreVisible}). */
-  const cambiarCategoria = useCallback(async (ids, categoria) => {
-    if (ids.length === 0 || !categoria) return false
-    if (ocupado) { avisarOcupado(); return false }
-    try {
-      const { data } = await api.post('/alegra/catalog/productos/categoria-lote', { alegraIds: ids, categoriaId: categoria.id })
-      if (!data?.success) throw new Error('no se pudo iniciar')
-      setTrabajo({
-        jobId: data.jobId, total: data.total, hechos: 0, errores: [], terminado: false,
-        descripcion: `${ids.length} ${plural(ids.length, 'producto', 'productos')} a ${categoria.nombreVisible}`
-      })
-      seguir(data.jobId, (fin) => {
-        const fallaron = fin.errores?.length || 0
-        mostrarToast(
-          fallaron ? 'error' : 'success',
-          fallaron
-            ? `${fin.hechos - fallaron} de ${fin.total} pasaron a ${categoria.nombreVisible}. ${fallaron} fallaron y quedaron donde estaban.`
-            : `${fin.hechos} ${plural(fin.hechos, 'producto pasó', 'productos pasaron')} a ${categoria.nombreVisible}.`
-        )
-      })
+  const cambiarCategoria = useCallback((ids, categoria) => {
+    if (ids.length === 0 || !categoria) return Promise.resolve(false)
+    return conMovimiento(async () => {
+      await api.put('/maestro/lote/categoria', { productoIds: ids, categoriaId: categoria.id })
+      // Dejan de pertenecer a lo que se está mirando.
+      quitarProductos(ids)
+      mostrarToast('success', `${ids.length} ${plural(ids.length, 'producto pasó', 'productos pasaron')} a ${categoria.nombreVisible}, en "Sin clasificar".`)
+      recargarArbol()
       return true
-    } catch (error) {
-      console.error('Error iniciando el cambio de categoría en lote:', error)
-      mostrarToast('error', error.response?.data?.message || 'No se pudo iniciar el cambio de categoría.')
-      return false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ocupado, seguir, mostrarToast])
+    }, 'No se pudo cambiar de categoría.')
+  }, [quitarProductos, recargarArbol, mostrarToast, conMovimiento])
 
   /** Una subcategoría completa, con todos sus productos, a otra categoría. */
-  const moverSubcategoria = useCallback(async (sub, categoria) => {
-    if (!sub || !categoria) return false
-    if (ocupado) { avisarOcupado(); return false }
-    try {
-      const { data } = await api.post(`/alegra/catalog/subcategorias/${sub.id}/mover-categoria`, { categoriaId: categoria.id })
-      if (!data?.success) throw new Error('no se pudo iniciar')
-      setTrabajo({
-        jobId: data.jobId, total: data.total, hechos: 0, errores: [], terminado: false,
-        descripcion: `"${sub.nombre}" a ${categoria.nombreVisible}`
-      })
-      seguir(data.jobId, (fin) => {
-        const fallaron = fin.errores?.length || 0
-        if (fin.errorFinal) {
-          mostrarToast('error', `Los productos cambiaron de categoría pero "${sub.nombre}" no se pudo reubicar: ${fin.errorFinal}`)
-        } else if (fallaron) {
-          mostrarToast('error', `${fin.hechos - fallaron} de ${fin.total} pasaron a ${categoria.nombreVisible}. ${fallaron} fallaron y siguen en "${sub.nombre}" donde estaba.`)
-        } else {
-          mostrarToast('success', fin.resultado?.juntada
-            ? `"${sub.nombre}" se juntó con la que ya había en ${categoria.nombreVisible}.`
-            : `"${sub.nombre}" ya está en ${categoria.nombreVisible}.`)
-        }
-      })
+  const moverSubcategoria = useCallback((sub, categoria) => {
+    if (!sub || !categoria) return Promise.resolve(false)
+    return conMovimiento(async () => {
+      const { data } = await api.post(`/maestro/subcategorias/${sub.id}/mover`, { categoriaId: categoria.id })
+      const movidos = data?.data?.movidos ?? 0
+      mostrarToast('success', `"${sub.nombre}" ya está en ${categoria.nombreVisible}, con ${movidos} ${plural(movidos, 'producto', 'productos')}.`)
+      recargarArbol()
+      recargarLista()
       return true
-    } catch (error) {
-      console.error('Error moviendo la subcategoría:', error)
-      mostrarToast('error', error.response?.data?.message || 'No se pudo mover la subcategoría.')
-      return false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ocupado, seguir, mostrarToast])
+    }, 'No se pudo mover la subcategoría.')
+  }, [recargarArbol, recargarLista, mostrarToast, conMovimiento])
 
-  const cerrarTrabajo = useCallback(() => {
-    detenerSondeo()
-    setTrabajo(null)
-  }, [])
-
-  return { moviendo, trabajo, ocupado, moverASubcategoria, cambiarCategoria, moverSubcategoria, cerrarTrabajo }
+  return {
+    moviendo,
+    trabajo: null,
+    ocupado: moviendo,
+    moverASubcategoria,
+    cambiarCategoria,
+    moverSubcategoria,
+    cerrarTrabajo: () => {}
+  }
 }

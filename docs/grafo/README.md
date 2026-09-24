@@ -26,7 +26,7 @@ toca, qué no se regenera).
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)
 - [Facturación de venta — ya cerrado en la migración](modulo/facturacion.md)
 - [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
-- [Gestión de Catálogo — categorías, subcategorías y fotos, en el orden del agente](modulo/gestion-catalogo.md)
+- [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
@@ -50,7 +50,7 @@ toca, qué no se regenera).
 - [Los archivos grandes se guardan como ruta, no como columna](decision/la-ruta-no-el-contenido.md)
 - [Caja General es el centro — todo cobro entra, todo pago sale](decision/caja-general-es-el-centro.md)
 - [El orden del catálogo vive en UN archivo del frontend, y ese archivo no puede importar nada](decision/orden-canonico-compartido.md)
-- [Cambiar la categoría de muchos productos es un trabajo de fondo que se sondea](decision/cambio-de-categoria-en-segundo-plano.md) · *lado Alegra*
+- [Cambiar la categoría de muchos productos es un trabajo de fondo que se sondea](decision/cambio-de-categoria-en-segundo-plano.md) · *lado Alegra; acá es inmediato*
 - [A quién pertenece una ruta — gana el prefijo más largo](decision/permisos-por-prefijo-mas-especifico.md)
 - [Una línea de regalía (100 % de descuento) nunca toca el costo del producto](decision/la-regalia-no-es-costo.md)
 

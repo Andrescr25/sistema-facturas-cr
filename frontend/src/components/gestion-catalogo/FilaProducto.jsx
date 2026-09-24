@@ -61,7 +61,7 @@ export default function FilaProducto({
         <input
           type="checkbox"
           checked={seleccionado}
-          onChange={(e) => onAlternarSeleccion(p.alegraId, e.nativeEvent)}
+          onChange={(e) => onAlternarSeleccion(p.id, e.nativeEvent)}
           className="h-5 w-5 shrink-0 cursor-pointer rounded border-neutro-300 text-primario-600 focus:ring-primario-500"
         />
         <VistaPreviaImagen src={p.imageUrl} nombre={p.name} />

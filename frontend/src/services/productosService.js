@@ -10,6 +10,12 @@ export const productosService = {
     return { productos: data.data, paginacion: data.paginacion }
   },
 
+  /** La ficha completa (CABYS, impuesto, unidad, medicamento…): la fila de la lista no la trae. */
+  async obtener(id) {
+    const { data } = await api.get(`/maestro/productos/${id}`)
+    return data.data
+  },
+
   async proveedores() {
     const { data } = await api.get('/maestro/productos/proveedores')
     return data.data

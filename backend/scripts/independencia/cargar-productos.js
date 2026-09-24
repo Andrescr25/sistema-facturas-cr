@@ -93,8 +93,26 @@ async function main() {
       );
     }
 
+    // Hasta el corte, `main` sigue clasificando en subcategorías sobre la
+    // caché de Alegra: se copia la que calza con la categoría que el producto
+    // tiene acá, y se suelta la que quedó de otra (se movió de categoría).
+    // Son las mismas dos sentencias de la migración 030.
+    const copiadas = await cliente.query(`
+      UPDATE producto p SET subcategoria_id = c.subcategoria_id
+        FROM alegra_products_cache c
+        JOIN subcategoria s ON s.id = c.subcategoria_id
+        JOIN categoria_producto cp ON cp.nombre = s.categoria
+       WHERE c.alegra_id = p.alegra_id AND cp.id = p.categoria_id
+         AND p.subcategoria_id IS DISTINCT FROM c.subcategoria_id`);
+    const sueltas = await cliente.query(`
+      UPDATE producto p SET subcategoria_id = NULL
+        FROM subcategoria s
+       WHERE s.id = p.subcategoria_id
+         AND s.categoria IS DISTINCT FROM (SELECT nombre FROM categoria_producto WHERE id = p.categoria_id)`);
+
     await cliente.query('COMMIT');
     console.log(`✓ Productos cargados: ${items.length} (${activos} activos), ${categorias.size} categorías.`);
+    console.log(`  Subcategorías: ${copiadas.rowCount} copiadas de main, ${sueltas.rowCount} soltadas por cambio de categoría.`);
     console.log('  Pendientes de corregir en los ACTIVOS:', Object.keys(avisos).length ? JSON.stringify(avisos) : 'ninguno');
   } catch (error) {
     await cliente.query('ROLLBACK');

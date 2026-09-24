@@ -13,7 +13,7 @@ archivos:
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
-medido: 2026-09-23
+medido: 2026-09-24
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
@@ -33,3 +33,10 @@ lista plana; Gestión de Catálogo hace lo mismo al buscar.
 
 Las ofertas en la tarjeta son DOS cosas distintas — ver
 [[leccion/dos-clases-de-oferta]].
+
+EN `independencia-alegra` (2026-09-24): los productos salen de `producto`, no
+de Alegra ni de la caché, y la subcategoría de `producto.subcategoria_id`
+(`conSubcategoria`), que es donde la pone Gestión de Catálogo en esta rama.
+La categoría viaja en `itemCategory` —como la llama Alegra—, porque es lo
+que lee `catalogoAgentePersonalizacion.js`: con `category` todo el catálogo
+caía en "Otros".

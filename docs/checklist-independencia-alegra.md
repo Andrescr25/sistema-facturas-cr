@@ -129,6 +129,22 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
 - [x] Fotos en almacenamiento propio. Las URL de Alegra vencen. Toda foto nueva (subida o sugerida) se guarda en `/archivos`, solo se aceptan imágenes de verdad y la descarga rechaza direcciones de la red interna. Las **2.022 que ya existían** se pasaron con `scripts/independencia/migrar-fotos.js` (270 MB en disco, 54 s). El script se puede volver a correr: salta lo que ya es nuestro y, si una firma venció, le pide a Alegra una dirección nueva. `cargar-productos.js` ya no pisa una foto propia con una de Alegra. Una persona sube hasta 2 MB; la migración acepta hasta 8 MB porque 20 fotos de la empresa pesaban más. Quedan 108 productos que nunca tuvieron foto
 - [x] `precio_historico` y `costo_historico` apuntando al id propio (migración `independencia/005`): 209 de 209 y 7.903 de 7.907 enlazadas; las 4 restantes son de productos que ya no existen en Alegra. `alegra_item_id` dejó de ser obligatorio
 - [x] **Facturación, catálogo del agente, catálogo de clientes y portal leyendo de `producto`.** Ya estaban el catálogo de clientes, las ofertas por baja de precio, TODO el portal y Facturación (que lee de `/maestro/productos`). Faltaba **el catálogo del agente, que era un proxy de solo lectura a Alegra**: la tablet paginaba de a 30 *contra Alegra*, así que sincronizar el catálogo en el campo dependía de que Alegra contestara — era la última pantalla que lo hacía. Qué es un producto visible no se redefine ahí: sale de `catalogo-clientes/consultaProducto`, el mismo lugar que usan el catálogo de clientes y el portal. **Se conservan los nombres de Alegra en la respuesta** (`name`, `price`, `tax`, `images`) porque la tablet los lee así y guarda el catálogo sin conexión; cambiarlos obligaría a resincronizar todas las tablets el mismo día (deuda de §16). **NO se manda `inventory`, a propósito**: el maestro propio todavía no lleva existencias, y mandar un inventario vacío hacía que la tarjeta contara cero disponibles y marcara **todo el catálogo como "Agotado"** — la tarjeta ahora distingue "no se sabe" de "cero" y no dice nada cuando no hay dato. Verificado en el navegador: la tablet sincronizó los **2.012 productos** desde nuestra base, con fotos, precios y rebajas, sin una sola petición a Alegra
+- [x] **Gestión de Catálogo con el rediseño de `main`, sobre el maestro propio
+  (2026-09-24).** Se trajo de `developer` la pantalla nueva (tarjetas de
+  resumen, categorías en el orden del agente con sus subcategorías, barra de
+  lote) y se conectó a `producto`: la subcategoría pasó a
+  `producto.subcategoria_id` (migración 030, con las 2.075 clasificaciones
+  que ya había en `main`) y árbol, lista, búsqueda y lotes van por
+  `/maestro/*` (`productos/taxonomia.service.js`). Cambiar de categoría es
+  inmediato —en `main` es un trabajo de fondo contra Alegra—. La ficha sigue
+  siendo la propia (CABYS, impuesto, ocultar, dar de baja) y los ocultos y
+  dados de baja se buscan con el filtro de estado. El catálogo del agente lee
+  la subcategoría del mismo lugar. Verificado en el navegador (1440 y 390 px,
+  sin desborde ni llamadas a Alegra) y por HTTP: clasificar, rechazar un
+  producto de otra categoría, cambiar de categoría, mover una subcategoría
+  entera, no borrar una con productos, nombre visible — todo devuelto
+  después. **Antes del corte:** `cargar-productos.js` copia lo que `main`
+  siga clasificando
 - [ ] Retirar `alegra_products_cache`. **Medido el 17 de setiembre de 2026: la consultan de verdad 20 archivos** (7 son scripts), y los que más la usan son justamente los módulos que todavía no se migran: `productos-revision` (23 usos) y `revision-precios` (13) de Compras, `catalogo.service` (12), `inventario-auditorias` (4), `cotizaciones` (3), rentabilidad y reportes. **No es una tarea independiente: es la consecuencia de migrar las secciones 5, 8, 10 y 13.** Los catálogos y el portal ya no la tocan
 - [ ] Retirar la sincronización de productos cada 6 horas. *Bloqueado por lo mismo: es la que llena esa caché*
 - [ ] Datos a corregir entre los activos (medido al cargar): 14 sin impuesto, 42 sin categoría y 10 medicamentos sin registro sanitario. Además, 9 productos al 4 % y 3 al 8 % coinciden con los que dejó mal el error de ids de impuesto

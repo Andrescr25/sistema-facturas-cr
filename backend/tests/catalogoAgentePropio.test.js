@@ -34,9 +34,9 @@ function montar(filas = [FILA]) {
       query: async (sql, params) => {
         // La subcategoría de cada producto se pega aparte (conSubcategoria,
         // que vino de developer). No es "la" consulta del catálogo.
-        if (/FROM alegra_products_cache c/.test(sql)) {
-          visto.subcategorias = params;
-          return { rows: [{ alegra_id: '1031', sub_id: 5, sub_nombre: 'Extensiones' }] };
+        if (/JOIN subcategoria s/.test(sql)) {
+          visto.subcategorias = { sql, params };
+          return { rows: [{ producto_id: 77, sub_id: 5, sub_nombre: 'Extensiones' }] };
         }
         visto.sql = sql; visto.params = params;
         if (/FROM categoria_producto/.test(sql)) return { rows: [{ id: 3, nombre: 'Ferretería' }] };
@@ -119,7 +119,11 @@ describe('la forma que espera la tablet', () => {
     const [p] = (await servicio.listarProductos({})).products;
 
     assert.deepEqual(p.subcategoria, { id: 5, nombre: 'Extensiones' });
-    assert.deepEqual(visto.subcategorias, [['1031']]);
+    // De `producto` (lo que clasifica Gestión de Catálogo en esta rama), por
+    // el id PROPIO, no de la caché de Alegra.
+    assert.match(visto.subcategorias.sql, /FROM producto p/);
+    assert.doesNotMatch(visto.subcategorias.sql, /alegra_products_cache/);
+    assert.deepEqual(visto.subcategorias.params, [[77]]);
   });
 
   test('NO se manda inventario, y eso es a propósito', async () => {
