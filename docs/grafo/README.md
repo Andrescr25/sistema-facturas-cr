@@ -23,6 +23,7 @@ toca, qué no se regenera).
 ## Módulos
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
+- [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)
 - [Facturación de venta — ya cerrado en la migración](modulo/facturacion.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
 
@@ -44,6 +45,7 @@ toca, qué no se regenera).
 
 - [En los worktrees main/developer, "local" es producción](leccion/la-db-local-es-produccion.md)
 - [Dos funciones `texto` con firmas opuestas](leccion/dos-helpers-texto.md)
+- [Un id propio y uno de Alegra no son intercambiables](leccion/ids-propios-y-de-alegra-no-se-mezclan.md)
 
 ## Bloqueos
 

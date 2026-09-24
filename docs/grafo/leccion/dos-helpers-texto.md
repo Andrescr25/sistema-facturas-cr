@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/facturacion/facturaPropia.service.js
 aristas:
   relacionado: [modulo/facturacion]
-medido: 2026-09-23
+medido: 2026-09-24
 ---
 
 En este backend conviven dos funciones llamadas `texto`:

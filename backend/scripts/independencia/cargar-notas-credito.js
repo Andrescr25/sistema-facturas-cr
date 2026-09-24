@@ -113,6 +113,18 @@ async function main() {
     cliente.release();
   }
 
+  // La serie sigue desde lo copiado (mismo motivo que en cargar-facturas.js).
+  const series = await pool.query(`
+    UPDATE serie_consecutivo s
+       SET siguiente = GREATEST(s.siguiente, m.maximo + 1)
+      FROM (SELECT serie, MAX(consecutivo) AS maximo
+              FROM nota_credito
+             WHERE serie IS NOT NULL AND consecutivo IS NOT NULL
+             GROUP BY serie) m
+     WHERE m.serie = s.serie
+     RETURNING s.serie, s.siguiente`);
+  console.log('  Próximo número por serie:', series.rows.map((r) => `${r.serie} → ${r.siguiente}`).join(', ') || 'ninguna serie calzó');
+
   const segundos = Math.round((Date.now() - inicio) / 1000);
   console.log(`✓ Notas de crédito: ${conteo.notas} por ₡${conteo.monto.toLocaleString('es-CR')}, con ${conteo.lineas} líneas, acreditando ${conteo.acreditadas} facturas, en ${segundos} s.`);
   console.log('  Por motivo:', JSON.stringify(conteo.motivos));

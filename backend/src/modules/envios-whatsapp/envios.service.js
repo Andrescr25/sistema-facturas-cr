@@ -19,6 +19,7 @@
 
 const { query } = require('../../../config/database');
 const whatsapp = require('../../integrations/whatsapp');
+const { telefonosDe } = require('../../utils/telefonosCliente');
 
 const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra'];
 
@@ -105,4 +106,34 @@ async function historial({ tipo, referencia, limite = 5 }) {
   }));
 }
 
-module.exports = { enviarYRegistrar, historial, TIPOS };
+/**
+ * Los números a los que se le puede escribir a un cliente, leídos de su
+ * ficha PROPIA.
+ *
+ * Existe aparte de `/telefonos/:contactoId` (que le pregunta a Alegra) porque
+ * los dos ids NO son intercambiables: el cliente propio 8 es "AB CHANA", y el
+ * contacto 8 de Alegra es "EL LLANO". Pasarle un id propio a la ruta de Alegra
+ * proponía el celular de otra persona para mandarle la factura — pasó en
+ * Cuentas por Cobrar, con 47 de sus 54 deudores.
+ */
+async function telefonosDeCliente(clienteId) {
+  const id = Number(clienteId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw Object.assign(new Error('Identificador inválido.'), { status: 400 });
+  }
+  const r = await query(
+    'SELECT nombre, telefono, telefono_secundario, celular FROM cliente WHERE id = $1;',
+    [id]
+  );
+  const ficha = r.rows[0];
+  if (!ficha) throw Object.assign(new Error('No se encontró ese cliente.'), { status: 404 });
+
+  const { candidatos, sinReconocer } = telefonosDe({
+    phonePrimary: ficha.telefono,
+    phoneSecondary: ficha.telefono_secundario,
+    mobile: ficha.celular
+  });
+  return { cliente: ficha.nombre, telefonos: candidatos, telefonosSinReconocer: sinReconocer };
+}
+
+module.exports = { enviarYRegistrar, historial, telefonosDeCliente, TIPOS };

@@ -1,565 +1,531 @@
 /**
- * Test de cotizaciones.service.js.
+ * Test de cotizaciones.service.js (base propia, migración 029).
  *
  * POR QUÉ EXISTE ESTE ARCHIVO
  * Una cotización es una promesa de precio. No es documento fiscal —si sale
  * mal se corrige— pero el cliente YA la vio, y eso no se corrige: o se le
  * cobra de más al facturar, o se pierde la diferencia por sostener el precio
- * equivocado.
+ * equivocado. Lo que se fija acá:
  *
- * Los dos errores que este archivo fija ya pasaron en producción, en otro
- * módulo:
+ *   1. El precio sale del catálogo del SERVIDOR, sin impuesto, y la tarifa del
+ *      maestro — nunca de lo que mande el navegador.
+ *   2. Al facturar vale el precio COTIZADO, no el de hoy; y la factura nace en
+ *      la MISMA transacción que marca la cotización.
+ *   3. Una vencida no se factura sin confirmar; una facturada no se cambia ni
+ *      se borra.
+ *   4. El número sale de la serie, dentro de la transacción: si la
+ *      cotización no se guarda, el número no se gasta.
  *
- *   1. Línea sin `tax`. Alegra no completa solo el impuesto del producto: el
- *      documento sale 13% más barato. Pasó con las facturas del portal
- *      (ver facturarPedidoConImpuesto.test.js).
- *   2. Precio tomado de lo que manda el navegador. Cualquiera podría cotizar
- *      a ₡1. El precio se lee siempre del catálogo del servidor.
- *
- * Y uno propio de este módulo: al facturar hay que usar el precio COTIZADO,
- * no el de hoy. Si el producto subió entre la cotización y la aceptación,
- * cobrarle el nuevo es romper lo que se le prometió al cliente.
- *
- * CÓMO SE PRUEBA SIN BASE DE DATOS NI ALEGRA
- * La base local ES la de producción y la cuenta de Alegra es la real: crear
- * una cotización de prueba de verdad consumiría un número. Se sustituyen
- * `config/database`, la integración de Alegra y facturacion.service por
- * dobles en require.cache ANTES de pedir el servicio, y se limpian los
- * cuatro módulos de la cadena en cada prueba.
+ * CÓMO SE PRUEBA SIN BASE DE DATOS
+ * Se sustituyen `config/database` (pool y conexión con un registro de cada
+ * sentencia), la creación de la factura y el envío por WhatsApp por dobles
+ * en require.cache ANTES de pedir el servicio. `armarLineas` es el real: es
+ * justamente lo que tiene que dar el mismo redondeo que la factura.
  */
 
-const { test, describe, beforeEach } = require('node:test');
+const { test, describe, beforeEach, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
 const rutaDb = require.resolve('../config/database');
-const rutaAlegra = require.resolve('../src/integrations/alegra');
-const rutaFacturacion = require.resolve('../src/modules/facturacion/facturacion.service');
+const rutaFactura = require.resolve('../src/modules/facturacion/facturaPropia.service');
+const rutaEnvios = require.resolve('../src/modules/envios-whatsapp/envios.service');
 const rutaServicio = require.resolve('../src/modules/cotizaciones/cotizaciones.service');
+const CADENA = [rutaDb, rutaFactura, rutaEnvios, rutaServicio,
+  require.resolve('../src/modules/clientes/clientes.service')];
 
-/** El catálogo de impuestos tal como lo devuelve la cuenta real. */
-const IMPUESTOS_ALEGRA = [
-  { id: '1', name: 'IVA', percentage: '13.00', type: 'IVA', status: 'active' },
-  { id: '2', name: 'IVA exento', percentage: '0.00', type: 'IVA', status: 'active' },
-  { id: '6', name: 'IVA reducido', percentage: '4.00', type: 'IVA', status: 'active' },
-  // Mismo porcentaje, otro tipo: no se debe colar en el mapa.
-  { id: '9', name: 'Factor bienes usados', percentage: '4.00', type: 'IVA_BIENES_USADOS', status: 'active' }
+const SECRETO_PREVIO = process.env.JWT_SECRET;
+before(() => { process.env.JWT_SECRET = 'secreto-de-prueba-cotizaciones'; });
+after(() => {
+  if (SECRETO_PREVIO === undefined) delete process.env.JWT_SECRET;
+  else process.env.JWT_SECRET = SECRETO_PREVIO;
+});
+
+/** Fila de `producto` con su tarifa. `precio_sin_iva` como lo guarda el maestro. */
+const producto = (id, nombre, precio, tarifa = 13, extra = {}) => ({
+  id, alegra_id: String(1000 + id), nombre, referencia: `R${id}`, descripcion: null, cabys: null,
+  unidad: 'Unid', activo: true, impuesto_id: tarifa === 13 ? 1 : tarifa === 1 ? 4 : 2,
+  precio_sin_iva: String(precio), tarifa: tarifa === null ? null : String(tarifa), ...extra
+});
+
+const CATALOGO = [
+  producto(1, 'ACEITE 20W-50', 5000, 13),
+  producto(2, 'LAPICERO BIC AZUL', 200, 1),
+  producto(3, 'ARROZ 1 KG', 1000, 0),
+  producto(4, 'DADO DE BAJA', 999, 13, { activo: false })
 ];
 
-/** Fila de alegra_products_cache. `price` va SIN impuesto, como en Alegra. */
-function producto({ id, nombre, precio, iva = 13, estado = 'active', ref = '' }) {
+const CLIENTE = { id: 8, nombre: 'AB CHANA', identificacion: '101110111', activo: true };
+
+/** Cabecera como la devuelve SELECT_CABECERA (con el estado ya calculado). */
+function cabecera(extra = {}) {
   return {
-    alegra_id: String(id), name: nombre, reference: ref,
-    price: String(precio), tax_percentage: String(iva), status: estado
+    id: 55, consecutivo: 12, numero: '12', fecha: '2026-09-20', vence: '2026-10-05',
+    cliente_id: 8, cliente_nombre: 'AB CHANA', cliente_identificacion: '101110111', observaciones: null,
+    subtotal: '10000.00', descuento: '0.00', impuesto: '1300.00', total: '11300.00',
+    factura_id: null, facturada_en: null, factura_numero: null, factura_estado: null,
+    alegra_id: null, estado: 'vigente', ...extra
   };
 }
 
-/**
- * Arma el entorno: catálogo en la base, respuestas de Alegra, y devuelve el
- * servicio junto con el registro de lo que se le pidió a cada doble.
- */
-function montar({ catalogo = [], intentoPrevio = [], alegraResponde = {}, facturaCreada } = {}) {
-  const registro = { peticiones: [], escrituras: [], facturas: [] };
+/** Línea guardada de una cotización: el precio es el COTIZADO. */
+const lineaGuardada = (extra = {}) => ({
+  numero_linea: 1, producto_id: 1, nombre: 'ACEITE 20W-50', referencia: 'R1', cantidad: '2.0000',
+  precio_unitario: '5000.00000', descuento_porcentaje: '0.000', descuento_monto: '0.00',
+  impuesto_id: 1, tarifa: '13.000', impuesto_monto: '1300.00', total: '11300.00', ...extra
+});
 
+function montar({
+  catalogo = CATALOGO, cliente = CLIENTE, cot = null, lineas = [], previa = null,
+  serie = 12, choqueClave = false
+} = {}) {
+  const log = [];
+  const facturas = [];
+  const envios = [];
+
+  const ejecutar = async (sql, params = []) => {
+    const texto = String(sql).replace(/\s+/g, ' ').trim();
+    log.push({ sql: texto, params });
+
+    if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(texto)) return { rows: [] };
+    if (/FROM cotizacion c LEFT JOIN factura f/.test(texto)) {
+      if (/ORDER BY c\.consecutivo DESC/.test(texto)) return { rows: cot ? [cot] : [] };
+      return { rows: cot && Number(params[0]) === cot.id ? [{ ...cot }] : [] };
+    }
+    if (/FROM cotizacion_linea WHERE cotizacion_id/.test(texto)) return { rows: lineas.map((l) => ({ ...l })) };
+    if (/FROM cotizacion WHERE clave_idempotencia/.test(texto)) return { rows: previa ? [previa] : [] };
+    if (/FROM cliente WHERE id = \$1/.test(texto)) {
+      return { rows: cliente && Number(params[0]) === cliente.id ? [{ ...cliente }] : [] };
+    }
+    if (/FROM producto p LEFT JOIN impuesto i ON i\.id = p\.impuesto_id WHERE p\.id = ANY/.test(texto)) {
+      const pedidos = (params[0] || []).map(Number);
+      return { rows: catalogo.filter((p) => pedidos.includes(p.id)) };
+    }
+    if (/WHERE p\.activo AND NOT p\.oculto/.test(texto)) return { rows: catalogo.filter((p) => p.activo) };
+    if (/UPDATE serie_consecutivo/.test(texto)) return { rows: serie ? [{ consecutivo: String(serie) }] : [] };
+    if (/INSERT INTO cotizacion \(/.test(texto)) {
+      if (choqueClave) {
+        throw Object.assign(new Error('duplicate key'), {
+          code: '23505', constraint: 'cotizacion_clave_idempotencia_key'
+        });
+      }
+      return { rows: [{ id: 70, numero: params[1], total: String(params[11]) }] };
+    }
+    if (/UPDATE cotizacion SET vence/.test(texto)) return { rows: [{ numero: cot.numero, total: String(params[8]) }] };
+    if (/INSERT INTO bitacora_cambio/.test(texto)) return { rows: [{ id: '1' }] };
+    return { rows: [], rowCount: 1 };
+  };
+
+  const conexion = { query: ejecutar, release: () => {} };
+  const pool = { connect: async () => conexion, query: ejecutar };
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
-    exports: {
-      query: async (sql, params = []) => {
-        const texto = String(sql);
-        if (/FROM alegra_products_cache/i.test(texto)) {
-          const pedidos = (params[0] || []).map(String);
-          return { rows: catalogo.filter(p => pedidos.includes(String(p.alegra_id))) };
-        }
-        if (/SELECT .*FROM factura_intento/i.test(texto)) {
-          return { rows: intentoPrevio.filter(r => r.clave === params[0]) };
-        }
-        registro.escrituras.push({ sql: texto, params });
-        return { rows: [] };
-      }
+    exports: { pool, query: (...a) => pool.query(...a) }
+  };
+
+  // La creación de la factura es de facturación y tiene sus propias pruebas.
+  // Acá importa QUÉ se le pide y sobre QUÉ conexión.
+  delete require.cache[rutaFactura];
+  const real = require(rutaFactura);
+  require.cache[rutaFactura].exports = {
+    ...real,
+    crearFacturaEnTransaccion: async (cx, datos, usuarioId) => {
+      facturas.push({ cx, datos, usuarioId });
+      return { id: 901, numero: '001000014900', total: 11300 };
     }
   };
 
-  require.cache[rutaAlegra] = {
-    id: rutaAlegra, filename: rutaAlegra, loaded: true,
-    exports: {
-      getClient: () => ({
-        request: async (metodo, ruta, cuerpo) => {
-          registro.peticiones.push({ metodo, ruta, cuerpo });
-          const clave = `${metodo} ${ruta}`;
-          if (Object.prototype.hasOwnProperty.call(alegraResponde, clave)) {
-            const r = alegraResponde[clave];
-            return typeof r === 'function' ? r(cuerpo) : r;
-          }
-          if (metodo === 'POST' && ruta === '/estimates') {
-            return { id: 777, numberTemplate: { fullNumber: 'COT-777' }, total: 0 };
-          }
-          if (metodo === 'PUT' && /^\/estimates\/\d+$/.test(ruta)) {
-            return { id: 55, number: 55, total: 0 };
-          }
-          if (metodo === 'DELETE' && /^\/estimates\/\d+$/.test(ruta)) {
-            return { deleted: true };
-          }
-          throw new Error(`El doble de Alegra no esperaba ${clave}`);
-        }
-      })
-    }
-  };
-
-  class FacturacionDoble {
-    async getTaxes() { return { success: true, data: IMPUESTOS_ALEGRA }; }
-    async createInvoice(datos, clave) {
-      registro.facturas.push({ datos, clave });
-      return { success: true, data: facturaCreada || { id: 9001, numberTemplate: { fullNumber: 'FE-9001' } } };
-    }
-  }
-  require.cache[rutaFacturacion] = {
-    id: rutaFacturacion, filename: rutaFacturacion, loaded: true, exports: FacturacionDoble
+  require.cache[rutaEnvios] = {
+    id: rutaEnvios, filename: rutaEnvios, loaded: true,
+    exports: { enviarYRegistrar: async (datos) => { envios.push(datos); return { telefono: datos.telefono }; } }
   };
 
   delete require.cache[rutaServicio];
-  return { servicio: require(rutaServicio), registro };
+  return { servicio: require(rutaServicio), log, facturas, envios, conexion, pool, ejecutar };
 }
 
-/** El POST que se le mandó a Alegra para crear la cotización. */
-const cuerpoCotizacion = (registro) =>
-  registro.peticiones.find(p => p.metodo === 'POST' && p.ruta === '/estimates')?.cuerpo;
-
-/** Una cotización tal como la devuelve GET /estimates/:id. */
-function cotizacionEnAlegra({ id = 55, status = 'unbilled', items = [], vence } = {}) {
-  const enUnMes = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-  return {
-    id, status, date: '2026-09-01', dueDate: vence || enUnMes,
-    numberTemplate: { fullNumber: 'COT-55' },
-    client: { id: 38, name: 'Pulpería La Esquina' },
-    total: 1000,
-    items
-  };
+const fila = (log, patron) => log.find((l) => patron.test(l.sql));
+const filas = (log, patron) => log.filter((l) => patron.test(l.sql));
+/** Las líneas insertadas, como objetos con el nombre de su columna. */
+function lineasInsertadas(log) {
+  return filas(log, /INSERT INTO cotizacion_linea/).map((l) => {
+    const columnas = l.sql.match(/\(([^)]+)\) VALUES/)[1].split(', ');
+    return Object.fromEntries(columnas.map((c, i) => [c, l.params[i]]));
+  });
 }
 
-beforeEach(() => {
-  for (const r of [rutaDb, rutaAlegra, rutaFacturacion, rutaServicio]) delete require.cache[r];
-});
+beforeEach(() => { for (const r of CADENA) delete require.cache[r]; });
 
 describe('crear cotización', () => {
-  test('cada línea lleva el impuesto que le toca, y el exento va sin impuesto', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [
-        producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000, iva: 13 }),
-        producto({ id: 200, nombre: 'ARROZ 1KG', precio: 900, iva: 0 }),
-        producto({ id: 300, nombre: 'MEDICAMENTO', precio: 2000, iva: 4 })
-      ]
-    });
-
+  test('cada línea lleva la tarifa de SU producto, y el exento va en 0', async () => {
+    const { servicio, log } = montar();
     await servicio.crear({
-      clienteId: 38,
-      lineas: [
-        { alegraItemId: '100', cantidad: 2 },
-        { alegraItemId: '200', cantidad: 1 },
-        { alegraItemId: '300', cantidad: 3 }
-      ]
-    });
+      clienteId: 8,
+      lineas: [{ productoId: 1, cantidad: 2 }, { productoId: 2, cantidad: 10 }, { productoId: 3, cantidad: 1 }]
+    }, 4);
 
-    const items = cuerpoCotizacion(registro).items;
-    const porId = Object.fromEntries(items.map(i => [i.id, i]));
+    const [aceite, lapicero, arroz] = lineasInsertadas(log);
+    assert.equal(aceite.tarifa, 13);
+    assert.equal(aceite.impuesto_monto, 1300);
+    assert.equal(lapicero.tarifa, 1, 'el lapicero es al 1 %: al 13 % sería cobrarle de más al cliente');
+    assert.equal(lapicero.impuesto_monto, 20);
+    assert.equal(arroz.tarifa, 0);
+    assert.equal(arroz.impuesto_monto, 0);
 
-    // El error que salió caro en el portal: sin `tax`, Alegra deja la línea
-    // sin impuesto y el documento sale 13% más barato.
-    assert.deepEqual(porId[100].tax, [{ id: '1', percentage: 13, name: 'IVA', type: 'IVA' }]);
-    assert.deepEqual(porId[300].tax, [{ id: '6', percentage: 4, name: 'IVA reducido', type: 'IVA' }]);
-
-    // Un exento va con tax vacío a propósito: Alegra tiene TRES tasas de 0%
-    // distintas y el porcentaje suelto no dice cuál corresponde.
-    assert.deepEqual(porId[200].tax, []);
+    const cab = fila(log, /INSERT INTO cotizacion \(/).params;
+    // subtotal, descuento, impuesto, total
+    assert.deepEqual(cab.slice(8, 12), [13000, 0, 1320, 14320]);
   });
 
   test('el precio sale del catálogo del servidor, no del que mande el navegador', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })]
-    });
-
-    await servicio.crear({
-      clienteId: 38,
-      // Un navegador manipulado mandando precio y nombre propios.
-      lineas: [{ alegraItemId: '100', cantidad: 1, precio: 1, price: 1, nombre: 'REGALADO' }]
-    });
-
-    assert.equal(cuerpoCotizacion(registro).items[0].price, 5000);
+    const { servicio, log } = montar();
+    await servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 1, precio: 1 }] }, 4);
+    assert.equal(lineasInsertadas(log)[0].precio_unitario, 5000, 'con ₡1 cualquiera podría cotizar regalado');
   });
 
   test('un producto inactivo o que ya no existe queda fuera, avisando cuál', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [
-        producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 }),
-        producto({ id: 200, nombre: 'DESCONTINUADO', precio: 800, estado: 'inactive' })
-      ]
-    });
-
+    const { servicio, log } = montar();
     const r = await servicio.crear({
-      clienteId: 38,
-      lineas: [
-        { alegraItemId: '100', cantidad: 1 },
-        { alegraItemId: '200', cantidad: 1 },
-        { alegraItemId: '999', cantidad: 1 }   // no está en el catálogo
-      ]
-    });
-
-    assert.equal(cuerpoCotizacion(registro).items.length, 1);
-    assert.equal(r.noDisponibles.length, 2);
-    const fuera = r.noDisponibles.map(x => x.nombre);
-    assert.ok(fuera.includes('DESCONTINUADO'), 'el inactivo debe quedar fuera');
-    assert.ok(fuera.includes(null), 'el que ya no existe queda fuera, sin nombre que dar');
+      clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }, { productoId: 4, cantidad: 1 }, { productoId: 99, cantidad: 1 }]
+    }, 4);
+    assert.equal(lineasInsertadas(log).length, 1);
+    assert.deepEqual(r.noDisponibles.map((x) => x.productoId), [4, 99]);
+    assert.equal(r.noDisponibles[0].nombre, 'DADO DE BAJA');
   });
 
-  test('si no queda ninguna línea válida no se manda nada a Alegra', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 200, nombre: 'DESCONTINUADO', precio: 800, estado: 'inactive' })]
-    });
-
+  test('si no queda ninguna línea válida no se gasta número ni se guarda nada', async () => {
+    const { servicio, log } = montar();
     await assert.rejects(
-      () => servicio.crear({ clienteId: 38, lineas: [{ alegraItemId: '200', cantidad: 1 }] }),
-      (e) => e.status === 400
+      () => servicio.crear({ clienteId: 8, lineas: [{ productoId: 4, cantidad: 1 }] }, 4),
+      (e) => e.status === 400 && /Ninguno/.test(e.message)
     );
-    assert.equal(cuerpoCotizacion(registro), undefined);
+    assert.ok(!fila(log, /INSERT INTO cotizacion/));
+    assert.ok(fila(log, /ROLLBACK/), 'la transacción se deshace: el número no se gasta');
   });
 
   test('cantidad cero no cotiza una línea vacía', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [
-        producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 }),
-        producto({ id: 200, nombre: 'ARROZ 1KG', precio: 900 })
-      ]
-    });
-
-    await servicio.crear({
-      clienteId: 38,
-      lineas: [{ alegraItemId: '100', cantidad: 2 }, { alegraItemId: '200', cantidad: 0 }]
-    });
-
-    const items = cuerpoCotizacion(registro).items;
-    assert.equal(items.length, 1);
-    assert.equal(items[0].id, 100);
+    const { servicio } = montar();
+    await assert.rejects(
+      () => servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 0 }] }, 4),
+      (e) => e.status === 400 && /mayor que cero/.test(e.message)
+    );
   });
 
-  test('si el impuesto del producto no existe en Alegra, se falla en vez de cotizar barato', async () => {
-    const { servicio, registro } = montar({
-      // 8% no está en el catálogo de impuestos de la cuenta.
-      catalogo: [producto({ id: 100, nombre: 'RARO', precio: 1000, iva: 8 })]
-    });
-
-    await assert.rejects(
-      () => servicio.crear({ clienteId: 38, lineas: [{ alegraItemId: '100', cantidad: 1 }] }),
-      (e) => e.status === 500 && /8%/.test(e.message)
-    );
-    // Lo importante: NO se creó una cotización sin ese impuesto.
-    assert.equal(cuerpoCotizacion(registro), undefined);
+  test('el número sale de la serie DENTRO de la transacción', async () => {
+    const { servicio, log } = montar({ serie: 12 });
+    const r = await servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }] }, 4);
+    assert.equal(r.numero, '12');
+    const i = log.findIndex((l) => /UPDATE serie_consecutivo/.test(l.sql));
+    assert.ok(i > log.findIndex((l) => l.sql === 'BEGIN') && i < log.findIndex((l) => l.sql === 'COMMIT'));
   });
 
   test('la fecha de vencimiento respeta los días de validez pedidos', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })]
-    });
-
-    await servicio.crear({
-      clienteId: 38, validezDias: 30, lineas: [{ alegraItemId: '100', cantidad: 1 }]
-    });
-
-    const { date, dueDate } = cuerpoCotizacion(registro);
-    const dias = (new Date(dueDate) - new Date(date)) / 86400000;
+    const { servicio, log } = montar();
+    await servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }], validezDias: 30 }, 4);
+    const [, , fecha, vence] = fila(log, /INSERT INTO cotizacion \(/).params;
+    const dias = (new Date(`${vence}T00:00:00Z`) - new Date(`${fecha}T00:00:00Z`)) / 86400000;
     assert.equal(dias, 30);
   });
 
-  test('la misma clave no crea una segunda cotización con otro número', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      intentoPrevio: [{ clave: 'cot-abc', alegra_invoice_id: '777', numero_factura: 'COT-777' }]
-    });
-
+  test('la misma clave devuelve la cotización que ya existe, sin gastar otro número', async () => {
+    const { servicio, log } = montar({ previa: { id: 70, numero: '12', total: '5650.00' } });
     const r = await servicio.crear({
-      clienteId: 38,
-      claveIdempotencia: 'cot-abc',
-      lineas: [{ alegraItemId: '100', cantidad: 1 }]
-    });
-
+      clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }], claveIdempotencia: 'cot-abc'
+    }, 4);
     assert.equal(r.yaExistia, true);
-    assert.equal(r.numero, 'COT-777');
-    assert.equal(cuerpoCotizacion(registro), undefined, 'no debió pedirle otra cotización a Alegra');
+    assert.equal(r.numero, '12');
+    assert.ok(!fila(log, /UPDATE serie_consecutivo/));
   });
 
-  test('sin cliente o sin líneas no se llama a Alegra', async () => {
-    const { servicio, registro } = montar({ catalogo: [] });
+  test('dos envíos simultáneos con la misma clave: el que choca devuelve el que ganó', async () => {
+    // Los dos pasan la consulta previa; el segundo choca con la UNIQUE.
+    const entorno = montar({ choqueClave: true });
+    let consultas = 0;
+    entorno.pool.query = async (sql, params) => {
+      if (/clave_idempotencia/.test(sql)) {
+        consultas++;
+        return { rows: consultas === 1 ? [] : [{ id: 70, numero: '12', total: '5650.00' }] };
+      }
+      return entorno.ejecutar(sql, params);
+    };
+    const r = await entorno.servicio.crear({
+      clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }], claveIdempotencia: 'cot-abc'
+    }, 4);
+    assert.equal(r.yaExistia, true);
+    assert.equal(r.id, 70);
+  });
 
-    await assert.rejects(() => servicio.crear({ lineas: [{ alegraItemId: '1', cantidad: 1 }] }),
-      (e) => e.status === 400);
-    await assert.rejects(() => servicio.crear({ clienteId: 38, lineas: [] }),
-      (e) => e.status === 400);
-    assert.equal(registro.peticiones.length, 0);
+  test('sin cliente o sin líneas no se abre ninguna transacción', async () => {
+    const { servicio, log } = montar();
+    await assert.rejects(() => servicio.crear({ lineas: [{ productoId: 1, cantidad: 1 }] }, 4), (e) => e.status === 400);
+    await assert.rejects(() => servicio.crear({ clienteId: 8, lineas: [] }, 4), (e) => e.status === 400);
+    assert.equal(log.length, 0);
+  });
+
+  test('a un cliente inactivo no se le cotiza', async () => {
+    const { servicio } = montar({ cliente: { ...CLIENTE, activo: false } });
+    await assert.rejects(
+      () => servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }] }, 4),
+      (e) => e.status === 400 && /inactivo/.test(e.message)
+    );
+  });
+
+  test('queda en la bitácora con quién la hizo', async () => {
+    const { servicio, log } = montar();
+    await servicio.crear({ clienteId: 8, lineas: [{ productoId: 1, cantidad: 1 }] }, 4);
+    const b = fila(log, /INSERT INTO bitacora_cambio/);
+    assert.ok(b.params.includes('cotizacion'));
+    assert.ok(b.params.includes('crear'));
   });
 });
 
-describe('listar', () => {
-  test('nunca le pide a Alegra más de 30, que es su tope para cotizaciones', async () => {
-    // Pedir 40 devuelve 400 ("El límite de cotizaciones para retornar debe
-    // estar entre 0 y 30") y la pantalla sale en blanco. No es el mismo tope
-    // que el de facturas: se descubrió con la lista ya en el navegador.
-    const { servicio, registro } = montar({ alegraResponde: { 'GET /estimates': [] } });
-
-    await servicio.listar({ limite: 500 });
-    assert.equal(registro.peticiones[0].cuerpo.limit, 30);
-
-    registro.peticiones.length = 0;
+describe('listar y ver', () => {
+  test('el estado lo calcula la base con el día de Costa Rica, no la hora del servidor', async () => {
+    const { servicio, log } = montar({ cot: cabecera() });
     await servicio.listar();
-    assert.ok(registro.peticiones[0].cuerpo.limit <= 30);
+    const sql = log[0].sql;
+    assert.match(sql, /America\/Costa_Rica/);
+    assert.match(sql, /f\.estado <> 'anulada'/, 'una factura anulada tiene que devolver la cotización a vigente');
   });
 
-  test('"unbilled" es la que todavía no se facturó', async () => {
+  test('una con la factura anulada queda vigente y dice cuál factura se anuló', async () => {
     const { servicio } = montar({
-      alegraResponde: {
-        'GET /estimates': [
-          cotizacionEnAlegra({ id: 1, status: 'unbilled' }),
-          cotizacionEnAlegra({ id: 2, status: 'billed' })
-        ]
-      }
+      cot: cabecera({ factura_id: 900, factura_numero: '0010000149', factura_estado: 'anulada' })
     });
+    const [c] = await servicio.listar();
+    assert.equal(c.facturada, false);
+    assert.deepEqual(c.factura, { id: 900, numero: '0010000149', anulada: true });
+  });
 
-    const lista = await servicio.listar();
-    assert.equal(lista[0].facturada, false);
-    assert.equal(lista[1].facturada, true);
-    assert.equal(lista[0].clienteNombre, 'Pulpería La Esquina');
+  test('el detalle muestra el precio NETO por unidad: cantidad × precio da el total guardado', async () => {
+    const { servicio } = montar({
+      cot: cabecera(),
+      lineas: [lineaGuardada({ descuento_porcentaje: '10.000', precio_unitario: '5000.00000' })]
+    });
+    const d = await servicio.detalle(55);
+    assert.equal(d.lineas[0].precio, 4500);
+    assert.equal(d.lineas[0].precioLista, 5000);
+  });
+
+  test('el enlace público se arma con el id propio', async () => {
+    const { servicio } = montar({ cot: cabecera() });
+    const d = await servicio.detalle(55);
+    assert.match(d.enlacePublico, /\/cotizacion\/55-/);
+  });
+
+  test('una que no existe es 404', async () => {
+    const { servicio } = montar();
+    await assert.rejects(() => servicio.detalle(1), (e) => e.status === 404);
   });
 });
 
 describe('facturar', () => {
-  const LINEAS = [
-    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 },
-    { id: 200, name: 'ARROZ 1KG', reference: '900', quantity: 1, price: 900, tax: [], total: 900 }
-  ];
+  const vigente = () => montar({ cot: cabecera(), lineas: [lineaGuardada()] });
 
   test('factura con el precio COTIZADO, aunque el catálogo ya haya subido', async () => {
-    const { servicio, registro } = montar({
-      // El precio de hoy es otro: si se colara, el cliente pagaría de más.
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 6500 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS }) }
+    const entorno = montar({
+      cot: cabecera(), lineas: [lineaGuardada()],
+      catalogo: [producto(1, 'ACEITE 20W-50', 9999, 13)]
     });
-
-    await servicio.facturar(55);
-
-    const items = registro.facturas[0].datos.items;
-    assert.equal(items.find(i => i.id === 100).price, 5000);
-    assert.equal(items.find(i => i.id === 200).price, 900);
+    await entorno.servicio.facturar(55, {}, 4);
+    const [pedido] = entorno.facturas;
+    assert.equal(pedido.datos.items[0].precio, 5000);
+    assert.equal(pedido.datos.items[0].productoId, 1);
+    assert.equal(pedido.datos.clienteId, 8);
+    assert.equal(pedido.datos.observaciones, 'Cotización 12');
   });
 
-  test('la factura conserva el impuesto de cada línea cotizada', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS }) }
-    });
-
-    await servicio.facturar(55);
-
-    const items = registro.facturas[0].datos.items;
-    assert.deepEqual(items.find(i => i.id === 100).tax,
-      [{ id: '1', percentage: 13, name: 'IVA', type: 'IVA' }]);
-    assert.deepEqual(items.find(i => i.id === 200).tax, []);
+  test('la factura nace en la MISMA transacción que marca la cotización', async () => {
+    const { servicio, facturas, conexion, log } = vigente();
+    const r = await servicio.facturar(55, {}, 4);
+    assert.equal(facturas[0].cx, conexion, 'la factura se creó en otra conexión: un corte en el medio la deja huérfana');
+    const marca = fila(log, /UPDATE cotizacion SET factura_id/);
+    assert.deepEqual(marca.params, [901, 55]);
+    assert.ok(log.findIndex((l) => l.sql === 'COMMIT') > log.indexOf(marca));
+    assert.equal(r.numeroFactura, '001000014900');
   });
 
-  test('facturar dos veces la misma cotización usa la misma clave', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS }) }
-    });
-
-    await servicio.facturar(55);
-    assert.equal(registro.facturas[0].clave, 'cotizacion-55');
+  test('la cotización se toma CON BLOQUEO: un doble clic espera al primero', async () => {
+    const { servicio, log } = vigente();
+    await servicio.facturar(55, {}, 4);
+    assert.match(fila(log, /FROM cotizacion c LEFT JOIN factura f/).sql, /FOR UPDATE OF c/);
   });
 
-  test('una cotización ya facturada no se vuelve a facturar', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS }) }
+  test('una ya facturada devuelve su factura en vez de crear otra', async () => {
+    const { servicio, facturas } = montar({
+      cot: cabecera({ estado: 'facturada', factura_id: 901, factura_numero: '001000014900', factura_estado: 'emitida' }),
+      lineas: [lineaGuardada()]
     });
+    const r = await servicio.facturar(55, {}, 4);
+    assert.equal(r.yaExistia, true);
+    assert.equal(r.numeroFactura, '001000014900');
+    assert.equal(facturas.length, 0);
+  });
 
-    await assert.rejects(() => servicio.facturar(55), (e) => e.status === 400);
-    assert.equal(registro.facturas.length, 0);
+  test('una facturada en Alegra, sin factura copiada, no se vuelve a facturar', async () => {
+    const { servicio } = montar({ cot: cabecera({ estado: 'facturada', facturada_en: new Date() }) });
+    await assert.rejects(() => servicio.facturar(55, {}, 4), (e) => e.status === 409 && /Alegra/.test(e.message));
   });
 
   test('una cotización VENCIDA no se factura sin confirmar', async () => {
-    // En la cuenta real hay cotizaciones de 2024 por más de un millón de
-    // colones, todas con el botón "Facturar" al lado. Facturar usa el precio
-    // COTIZADO —que es lo correcto mientras esté vigente— así que un clic
-    // distraído vendería a precios de hace dos años.
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS, vence: '2024-07-30' }) }
-    });
-
-    await assert.rejects(() => servicio.facturar(55), (e) => e.status === 409 && /venció/.test(e.message));
-    assert.equal(registro.facturas.length, 0, 'no debió crearse ninguna factura');
+    const { servicio, facturas } = montar({ cot: cabecera({ estado: 'vencida', vence: '2026-09-01' }), lineas: [lineaGuardada()] });
+    await assert.rejects(() => servicio.facturar(55, {}, 4), (e) => e.status === 409 && /venció/.test(e.message));
+    assert.equal(facturas.length, 0);
   });
 
   test('confirmando, la vencida sí se factura y con su precio de entonces', async () => {
-    // Se puede sostener un precio vencido a propósito; lo que no se puede es
-    // hacerlo sin enterarse.
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS, vence: '2024-07-30' }) }
-    });
-
-    await servicio.facturar(55, { aunqueVencida: true });
-    assert.equal(registro.facturas.length, 1);
-    assert.equal(registro.facturas[0].datos.items.find(i => i.id === 100).price, 5000);
+    const { servicio, facturas } = montar({ cot: cabecera({ estado: 'vencida' }), lineas: [lineaGuardada()] });
+    await servicio.facturar(55, { aunqueVencida: true }, 4);
+    assert.equal(facturas[0].datos.items[0].precio, 5000);
   });
 
-  test('una cotización vigente se factura sin pedir nada', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS }) }
-    });
-
-    await servicio.facturar(55);
-    assert.equal(registro.facturas.length, 1);
+  test('una línea sin producto propio no llega a la factura: se pide editar', async () => {
+    const { servicio, facturas } = montar({ cot: cabecera(), lineas: [lineaGuardada({ producto_id: null, nombre: 'VIEJO' })] });
+    await assert.rejects(() => servicio.facturar(55, {}, 4), (e) => e.status === 409 && /VIEJO/.test(e.message));
+    assert.equal(facturas.length, 0);
   });
 
   test('una cotización sin líneas no genera una factura vacía', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: [] }) }
-    });
-
-    await assert.rejects(() => servicio.facturar(55), (e) => e.status === 400);
-    assert.equal(registro.facturas.length, 0);
+    const { servicio, facturas } = montar({ cot: cabecera(), lineas: [] });
+    await assert.rejects(() => servicio.facturar(55, {}, 4), (e) => e.status === 400);
+    assert.equal(facturas.length, 0);
   });
 });
 
 describe('editar', () => {
-  const LINEAS_ALEGRA = [
-    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
-  ];
-
-  /** El PUT que se le mandó a Alegra. */
-  const cuerpoPut = (registro) => registro.peticiones.find(p => p.metodo === 'PUT')?.cuerpo;
-
-  test('editar también manda el impuesto de cada línea', async () => {
-    // El motivo de que crear y editar compartan armarItems: si editar armara
-    // las líneas por su cuenta, tocar una cantidad podría dejar la cotización
-    // sin IVA y nadie lo notaría hasta ver el total.
-    const { servicio, registro } = montar({
-      catalogo: [
-        producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5200, iva: 13 }),
-        producto({ id: 200, nombre: 'ARROZ 1KG', precio: 900, iva: 0 })
-      ],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
+  test('las líneas se reemplazan enteras y con los precios de hoy', async () => {
+    const { servicio, log } = montar({
+      cot: cabecera(), catalogo: [producto(1, 'ACEITE 20W-50', 6000, 13)]
     });
-
-    await servicio.editar(55, {
-      lineas: [{ alegraItemId: '100', cantidad: 5 }, { alegraItemId: '200', cantidad: 2 }]
-    });
-
-    const items = cuerpoPut(registro).items;
-    assert.deepEqual(items.find(i => i.id === 100).tax,
-      [{ id: '1', percentage: 13, name: 'IVA', type: 'IVA' }]);
-    assert.deepEqual(items.find(i => i.id === 200).tax, []);
+    await servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }] }, 4);
+    assert.ok(fila(log, /DELETE FROM cotizacion_linea/));
+    assert.equal(lineasInsertadas(log)[0].precio_unitario, 6000);
   });
 
-  test('editar actualiza los precios a los de hoy', async () => {
-    // Es lo contrario que facturar, y a propósito: quien reabre una
-    // cotización para cambiarla espera el precio de hoy; quien la factura
-    // sin tocarla espera sostener el que prometió.
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 6500 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
-    });
-
-    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 2 }] });
-    assert.equal(cuerpoPut(registro).items[0].price, 6500);
+  test('la fecha de emisión no se mueve; el vencimiento sí se puede correr', async () => {
+    const { servicio, log } = montar({ cot: cabecera() });
+    await servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }], vence: '2026-10-30' }, 4);
+    const u = fila(log, /UPDATE cotizacion SET vence/);
+    assert.doesNotMatch(u.sql, /fecha =/);
+    assert.equal(u.params[0], '2026-10-30');
   });
 
-  test('la fecha de emisión no se mueve al editar', async () => {
-    // Moverla haría parecer que una cotización de la semana pasada es de hoy.
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
-    });
-
-    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 2 }], vence: '2026-12-31' });
-    assert.equal(cuerpoPut(registro).date, '2026-09-01', 'la de emisión es la original');
-    assert.equal(cuerpoPut(registro).dueDate, '2026-12-31', 'la de vencimiento sí se puede correr');
+  test('no puede vencer antes de emitirse', async () => {
+    const { servicio } = montar({ cot: cabecera() });
+    await assert.rejects(
+      () => servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }], vence: '2026-09-01' }, 4),
+      (e) => e.status === 400 && /antes de su fecha/.test(e.message)
+    );
   });
 
-  test('sin fecha nueva se conserva la que ya tenía', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA, vence: '2026-10-05' }) }
-    });
+  test('sin fecha nueva ni cliente se conservan los que tenía', async () => {
+    const { servicio, log } = montar({ cot: cabecera() });
+    await servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }] }, 4);
+    const u = fila(log, /UPDATE cotizacion SET vence/).params;
+    assert.equal(u[0], '2026-10-05');
+    assert.equal(u[1], 8);
+  });
 
-    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 1 }] });
-    assert.equal(cuerpoPut(registro).dueDate, '2026-10-05');
+  test('la nota se puede borrar mandándola vacía', async () => {
+    const { servicio, log } = montar({ cot: cabecera({ observaciones: 'Entrega el lunes' }) });
+    await servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }], observaciones: null }, 4);
+    assert.equal(fila(log, /UPDATE cotizacion SET vence/).params[4], null);
   });
 
   test('una cotización ya facturada no se puede cambiar', async () => {
-    // La factura la copia y es la que vale ante Hacienda: si la cotización
-    // cambiara, los dos documentos dirían cosas distintas.
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_ALEGRA }) }
-    });
-
+    const { servicio } = montar({ cot: cabecera({ estado: 'facturada', factura_id: 901 }) });
     await assert.rejects(
-      () => servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 9 }] }),
-      (e) => e.status === 400 && /ya se facturó/.test(e.message)
+      () => servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 1 }] }, 4),
+      (e) => e.status === 409 && /ya se facturó/.test(e.message)
     );
-    assert.equal(cuerpoPut(registro), undefined, 'no debió mandarse ningún PUT');
   });
 
   test('no se puede dejar sin productos', async () => {
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
-    });
-
-    await assert.rejects(() => servicio.editar(55, { lineas: [] }), (e) => e.status === 400);
-    assert.equal(cuerpoPut(registro), undefined);
+    const { servicio } = montar({ cot: cabecera() });
+    await assert.rejects(() => servicio.editar(55, { lineas: [] }, 4), (e) => e.status === 400);
   });
 
-  test('no se devuelve el total: Alegra contesta el PUT con el anterior', async () => {
-    // Comprobado contra la cuenta real: se editó una cotización de ₡231 a
-    // ₡4.355 y la respuesta del PUT seguía diciendo 231. Devolverlo sería
-    // enseñarle al vendedor un número que ya no existe.
-    const { servicio } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      alegraResponde: {
-        'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }),
-        'PUT /estimates/55': { id: 55, number: 55, total: 231 }
-      }
-    });
+  test('devuelve el total NUEVO', async () => {
+    const { servicio } = montar({ cot: cabecera() });
+    const r = await servicio.editar(55, { lineas: [{ productoId: 1, cantidad: 3 }] }, 4);
+    assert.equal(r.total, 16950);
+  });
+});
 
-    const r = await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 4 }] });
-    assert.equal(r.total, undefined);
-    assert.equal(r.numero, '55');
+describe('eliminar', () => {
+  test('una cotización sin facturar se borra y queda en la bitácora', async () => {
+    const { servicio, log } = montar({ cot: cabecera() });
+    const r = await servicio.eliminar(55, 4);
+    assert.equal(r.borrada, true);
+    assert.ok(fila(log, /DELETE FROM cotizacion WHERE id/));
+    assert.ok(fila(log, /INSERT INTO bitacora_cambio/).params.includes('borrar'));
   });
 
-  test('si no se manda cliente se conserva el que tenía', async () => {
-    const { servicio, registro } = montar({
-      catalogo: [producto({ id: 100, nombre: 'ACEITE 20W-50', precio: 5000 })],
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_ALEGRA }) }
-    });
+  test('una YA FACTURADA no se borra, aunque su factura se haya anulado', async () => {
+    for (const estado of ['facturada', 'vigente']) {
+      const { servicio, log } = montar({
+        cot: cabecera({ estado, factura_id: 901, factura_numero: '001000014900' })
+      });
+      await assert.rejects(
+        () => servicio.eliminar(55, 4),
+        (e) => e.status === 409 && /001000014900/.test(e.message) && /referencia/.test(e.message)
+      );
+      assert.ok(!fila(log, /DELETE FROM cotizacion WHERE/));
+    }
+  });
+});
 
-    await servicio.editar(55, { lineas: [{ alegraItemId: '100', cantidad: 1 }] });
-    assert.equal(cuerpoPut(registro).client, 38);
+describe('WhatsApp y enlace público', () => {
+  test('se manda con el id PROPIO del cliente y el número validado', async () => {
+    const { servicio, envios } = montar({ cot: cabecera(), lineas: [lineaGuardada()] });
+    await servicio.enviarPorWhatsApp(55, { telefono: '8888 7777', mensaje: 'Hola', usuarioId: 4 });
+    assert.equal(envios[0].clienteId, 8);
+    assert.equal(envios[0].alegraContactId, undefined, 'mezclar ids propone el teléfono de otra persona');
+    assert.equal(envios[0].telefono, '50688887777');
+    assert.ok(Buffer.isBuffer(envios[0].pdf));
+  });
+
+  test('un número mal escrito no sale', async () => {
+    const { servicio, envios } = montar({ cot: cabecera(), lineas: [lineaGuardada()] });
+    await assert.rejects(
+      () => servicio.enviarPorWhatsApp(55, { telefono: '8888 777', mensaje: 'Hola' }),
+      (e) => e.status === 400
+    );
+    assert.equal(envios.length, 0);
+  });
+
+  test('un enlace viejo de Alegra se busca por alegra_id, nunca por id', async () => {
+    const entorno = montar({ cot: cabecera({ id: 1, alegra_id: '11' }), lineas: [lineaGuardada()] });
+    // El token que salió por WhatsApp antes de la migración: firmado como
+    // "cotizacion:11".
+    const crypto = require('crypto');
+    const firma = crypto.createHmac('sha256', process.env.JWT_SECRET).update('cotizacion:11')
+      .digest('base64url').slice(0, 22);
+    entorno.pool.query = async (sql, params) =>
+      (/WHERE alegra_id = \$1/.test(sql) ? { rows: [{ id: 1 }] } : entorno.ejecutar(sql, params));
+
+    const r = await entorno.servicio.publicaPorToken(`11-${firma}`);
+    assert.equal(r.numero, '12');
+    assert.ok(!entorno.log.some((l) => /WHERE c\.id = \$1/.test(l.sql) && Number(l.params[0]) === 11),
+      'buscó el id de Alegra como id propio: abriría la cotización de otro cliente');
+  });
+
+  test('la página pública no lleva ids internos', async () => {
+    const { servicio } = montar({ cot: cabecera(), lineas: [lineaGuardada()] });
+    const { tokenDe } = require('../src/modules/cotizaciones/enlacePublico');
+    const r = await servicio.publicaPorToken(tokenDe(55));
+    assert.equal(r.lineas[0].precioConIva, 5650);
+    assert.equal(r.lineas[0].importe, 10000);
+    assert.doesNotMatch(JSON.stringify(r), /clienteId|productoId|"id"/);
   });
 });
 
 describe('pdf', () => {
-  const LINEAS_PDF = [
-    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
-  ];
-
-  test('devuelve un PDF armado acá, no un enlace de Alegra', async () => {
-    // Antes se le mandaba al cliente el PDF que genera Alegra: se ve viejo y
-    // no lleva nada de la marca. Una cotización es muchas veces lo PRIMERO
-    // que un cliente nuevo ve del negocio.
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_PDF }) }
-    });
-
+  test('devuelve un PDF armado acá', async () => {
+    const { servicio } = montar({ cot: cabecera(), lineas: [lineaGuardada()] });
     const r = await servicio.pdf(55);
     assert.ok(Buffer.isBuffer(r.archivo), 'debe devolver el archivo, no una URL');
     assert.equal(r.archivo.subarray(0, 5).toString(), '%PDF-');
-    assert.equal(r.numero, 'COT-55');
-
-    // Y ya no se le pide a Alegra el enlace del suyo.
-    assert.ok(!registro.peticiones.some(p => p.cuerpo?.fields === 'pdf'),
-      'no debería pedir fields=pdf');
+    assert.equal(r.numero, '12');
   });
 
   test('el PDF sobrevive a los casos raros de una cotización', async () => {
@@ -601,44 +567,20 @@ describe('pdf', () => {
   });
 });
 
-describe('eliminar', () => {
-  const LINEAS_BORRAR = [
-    { id: 100, name: 'ACEITE 20W-50', reference: '167', quantity: 2, price: 5000, tax: [{ id: '1', percentage: '13.00' }], total: 11300 }
-  ];
-
-  /** El DELETE que se le mandó a Alegra. */
-  const borradoEnAlegra = (registro) => registro.peticiones.find(p => p.metodo === 'DELETE');
-
-  test('una cotización sin facturar se borra de Alegra', async () => {
-    // No es documento fiscal: no hay nada que conservar de una que nunca se
-    // vendió, y dejarlas ahí tapa las vigentes.
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ items: LINEAS_BORRAR }) }
-    });
-
-    const r = await servicio.eliminar(55);
-    assert.equal(r.borrada, true);
-    assert.equal(r.numero, 'COT-55');
-    assert.equal(borradoEnAlegra(registro)?.ruta, '/estimates/55');
+describe('catálogo y clientes para el modal', () => {
+  test('el catálogo viene con el precio CON impuesto de cada tarifa, sin los dados de baja', async () => {
+    const { servicio } = montar();
+    const c = await servicio.catalogoParaCotizar();
+    const porId = Object.fromEntries(c.map((p) => [p.id, p.precio]));
+    assert.equal(porId['1'], 5650);
+    assert.equal(porId['2'], 202);
+    assert.equal(porId['3'], 1000);
+    assert.equal(porId['4'], undefined);
   });
 
-  test('una YA FACTURADA no se borra', async () => {
-    // Su factura la referencia en las observaciones ("Cotización N"): sin la
-    // cotización, quien revise esa factura no tiene cómo saber de dónde
-    // salieron los precios.
-    const { servicio, registro } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_BORRAR }) }
-    });
-
-    await assert.rejects(() => servicio.eliminar(55), (e) => e.status === 409);
-    assert.equal(borradoEnAlegra(registro), undefined, 'no debió mandarse ningún DELETE');
-  });
-
-  test('el mensaje explica por qué no, no solo que no', async () => {
-    const { servicio } = montar({
-      alegraResponde: { 'GET /estimates/55': cotizacionEnAlegra({ status: 'billed', items: LINEAS_BORRAR }) }
-    });
-    await assert.rejects(() => servicio.eliminar(55),
-      (e) => /de dónde salieron esos precios/.test(e.message));
+  test('buscar clientes con una sola letra no consulta nada', async () => {
+    const { servicio, log } = montar();
+    assert.deepEqual(await servicio.buscarClientes('a'), []);
+    assert.equal(log.length, 0);
   });
 });

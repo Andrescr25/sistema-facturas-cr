@@ -496,12 +496,62 @@ proveedor. Dependen poco de Alegra.
 
 ## 10. Cotizaciones
 
-**Hoy en Alegra:** se crean, editan y borran en `/estimates` (hay 2). El PDF
-y el enlace público ya son propios. Facturar una cotización crea la factura
-en Alegra.
+**Estaban en Alegra hasta el 2026-09-24:** se creaban, editaban y borraban
+en `/estimates`, y facturar una creaba la factura en Alegra. El PDF y el
+enlace público ya eran propios. **Ahora viven en la base propia** (ver
+`docs/grafo/modulo/cotizaciones.md`).
 
-- [ ] Tablas `cotizacion` y `cotizacion_linea`, y cargar las 2 existentes
-- [ ] Crear, editar, borrar, vencer y facturar, generando una factura propia
+- [x] **Tablas `cotizacion` y `cotizacion_linea` (migración 029) y la carga
+  desde Alegra (`scripts/independencia/cargar-cotizaciones.js`, 2026-09-24).**
+  En Alegra quedaba UNA (la 2, de La Ecosr, ₡1.231): se copió con su precio
+  cotizado y su tarifa por línea, y su total calzó (₡1.231,15; Alegra redondea
+  a colones enteros). La carga es repetible —actualiza por `alegra_id`— y al
+  final sube la serie si encuentra una cotización mayor: en `main` se siguen
+  haciendo en Alegra hasta el corte. Una facturada en Alegra se enlaza a su
+  factura copiada por el "Cotización N" de las observaciones. Numeración
+  propia en `serie_consecutivo` (tipo `cotizacion`, sin prefijo), continuando
+  en la 3; borrar no devuelve el número
+- [x] **Crear, editar, borrar, vencer y facturar generando una factura propia
+  (2026-09-24).** El precio sale del maestro del servidor y las líneas se
+  arman con el mismo `armarLineas` de la factura, así que cotización y factura
+  redondean igual. El estado NO se guarda: facturada / vencida (día de Costa
+  Rica) / vigente se calcula, y anular la factura devuelve la cotización a
+  vigente sola. **Facturar crea la factura y marca la cotización en UNA
+  transacción** (`crearFacturaEnTransaccion`), con la cotización tomada con
+  bloqueo: un doble clic devuelve la misma factura. Vale el precio cotizado;
+  una vencida pide confirmación. Una que se facturó no se edita ni se borra
+  —tampoco si su factura se anuló—. Bitácora en crear, editar, borrar y
+  facturar. Clientes y catálogo salen de la base propia; WhatsApp con el id
+  propio del cliente. Verificado de punta a punta por HTTP contra la copia
+  local (crear, misma clave, editar, PDF, página pública, facturar dos veces,
+  borrar/editar una facturada → 409, anular la factura → vigente → facturar
+  de nuevo, borrar otra, enlace viejo de Alegra) con total de la factura igual
+  al de la cotización (₡19.450,50); todo lo de prueba borrado y las series
+  devueltas a 4869 y 3. Y en el navegador a 320–1280 px, sin una sola
+  llamada a Alegra
+
+**Hallazgos de esta sección:**
+- **Los enlaces públicos ya mandados apuntan a ids de Alegra.** El token
+  firmaba `cotizacion:<id>` y las cotizaciones propias arrancan en 1: con la
+  misma firma, el enlace viejo de la 11 de Alegra habría abierto la
+  cotización propia 11, de otro cliente. Las propias firman
+  `cotizacion-propia:<id>` y un token viejo se busca por `alegra_id`
+  (verificado: el enlace de la 11 abre la 2 copiada).
+- **WhatsApp desde Cuentas por Cobrar proponía el teléfono de OTRA persona.
+  CORREGIDO.** El modal buscaba los teléfonos preguntándole a Alegra por
+  `contactoId`, pero Cuentas por Cobrar —ya propia desde la sección 7— le
+  pasaba el id propio del cliente. A "AB CHANA" (propio 8) le proponía el
+  celular de "EL LLANO" (contacto 8 de Alegra). **Medido: 47 de los 54
+  deudores.** El número queda a la vista antes de mandar, que es lo que
+  evitó que saliera, pero el que aparecía elegido era el equivocado. Ahora
+  hay dos rutas y dos props con nombres distintos (`telefonos-cliente/:clienteId`
+  lee la ficha propia; `telefonos/:contactoId` queda solo para el aviso de
+  pedidos del portal, sección 12). Ver `docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md`.
+- **Las claves `cotizacion-<id>` de `factura_intento` son de ids de Alegra**
+  (hay 5). Facturar una cotización propia no las usa: se protege con el
+  bloqueo de la fila, no con idempotencia por clave.
+- La lista de cotizaciones en el teléfono sacaba el botón de borrar fuera de
+  la tarjeta (la fila de botones no podía encogerse). Corregido.
 
 ---
 
@@ -571,7 +621,18 @@ facturas y notas de crédito desde Alegra.
   en orden sobre una copia fresca de producción. Si algún día hiciera falta una instalación desde cero, es un script
   nuevo (`prisma db push` + `migrations/*.sql` + `migrations/independencia/*.sql`),
   no más copias a mano.
-- [ ] Script de carga desde Alegra, de solo lectura y repetible: productos, clientes, proveedores, facturas con líneas, pagos, notas de crédito, compras, cotizaciones y existencias
+- [ ] Script de carga desde Alegra, de solo lectura y repetible: productos, clientes, proveedores, facturas con líneas, pagos, notas de crédito, compras, cotizaciones y existencias. *Cotizaciones ya tiene el suyo (`cargar-cotizaciones.js`)*
+- [ ] **Correr la carga de facturas y notas de crédito JUSTO antes del corte, y
+  revisar el próximo número que imprime.** Medido el 2026-09-24: la serie
+  propia `00100001` está en 4869 pero Alegra ya emitió hasta la **4936** (67
+  números, según la tabla de bodega de la copia del 23 de setiembre). Sin
+  recargar, la primera factura propia choca con la UNIQUE (tipo, serie,
+  consecutivo) y el mostrador no puede facturar. `cargar-facturas.js` y
+  `cargar-notas-credito.js` ahora suben cada serie hasta lo copiado
+  (`GREATEST`, nunca retrocede). El mismo choque deja a la factura propia
+  **fuera de Facturas en Bodega**: su espejo en la tabla vieja `facturas` se
+  inserta con `ON CONFLICT (numero_factura) DO NOTHING`, así que si el número
+  ya lo tiene una de Alegra, se descarta sin avisar
 - [ ] Bajar el PDF y el XML de las facturas electrónicas que emitió Alegra, que hay que conservar 5 años
 - [ ] Conciliación: cantidades y totales por mes iguales entre Alegra y la base propia
 - [ ] Ensayo de corte completo en la base de la rama

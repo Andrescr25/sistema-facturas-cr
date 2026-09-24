@@ -42,6 +42,16 @@ async function telefonosDelContacto(req, res) {
   }
 }
 
+/** Los números de un cliente, desde su ficha propia (ver envios.service.js). */
+async function telefonosDelCliente(req, res) {
+  try {
+    res.json({ success: true, data: await servicio.telefonosDeCliente(req.params.clienteId) });
+  } catch (error) {
+    console.error('Error obteniendo los teléfonos del cliente:', error.message);
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 /** Qué se le mandó ya de este documento, para no mandarlo dos veces. */
 async function historial(req, res) {
   try {
@@ -56,4 +66,4 @@ async function historial(req, res) {
   }
 }
 
-module.exports = { telefonosDelContacto, historial };
+module.exports = { telefonosDelContacto, telefonosDelCliente, historial };

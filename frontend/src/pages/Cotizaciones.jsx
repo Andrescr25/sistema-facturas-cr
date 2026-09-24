@@ -11,16 +11,14 @@ import { mensajeCotizacion } from '../utils/mensajesWhatsApp'
 import { colones } from '../utils/colones'
 
 /**
- * Cotizaciones (proformas).
+ * Cotizaciones (proformas), en la base propia (migración 029).
  *
- * Se guardan en Alegra, no en una tabla propia: Alegra ya lleva la numeración,
- * el PDF y el estado "sin facturar" hasta que se convierte en venta. Tener una
- * copia aparte sería mantener dos versiones de lo mismo, y el día que alguien
- * la facture desde Alegra dejarían de coincidir sin que nadie se entere.
+ * El estado —vigente, vencida, facturada— lo calcula el servidor con el día
+ * de Costa Rica: calcularlo acá con la hora del teléfono daba "vencida" una
+ * noche antes.
  *
- * Facturar desde acá usa el mismo camino que el resto del sistema, con su
- * mapeo de impuestos y su clave de idempotencia: tocar dos veces no crea dos
- * facturas.
+ * Facturar crea una factura propia en la misma transacción que marca la
+ * cotización: tocar dos veces devuelve la misma factura, no crea dos.
  */
 
 
@@ -68,7 +66,9 @@ export default function Cotizaciones() {
     setPorConfirmar(null)
     try {
       const { data } = await api.post(`/cotizaciones/${c.id}/facturar`, { aunqueVencida })
-      setAviso(`Cotización ${c.numero} facturada: ${data.data.numeroFactura}`)
+      setAviso(data.data.yaExistia
+        ? `La cotización ${c.numero} ya estaba facturada: factura ${data.data.numeroFactura}.`
+        : `Cotización ${c.numero} facturada: factura ${data.data.numeroFactura}.`)
       await traer()
     } catch (e) {
       // 409 = el servidor no se niega, pide que se confirme: la cotización
@@ -123,13 +123,13 @@ export default function Cotizaciones() {
   }
 
   const eliminar = async (c) => {
-    // Se pregunta porque borra de verdad en Alegra y no hay deshacer. El
-    // texto nombra el cliente y el monto: "¿Eliminar la 8?" no alcanza para
-    // darse cuenta de que es la equivocada.
+    // Se pregunta porque borra de verdad y no hay deshacer. El texto nombra
+    // el cliente y el monto: "¿Eliminar la 8?" no alcanza para darse cuenta
+    // de que es la equivocada.
     const ok = await confirm(
       `¿Eliminar la cotización ${c.numero}?\n\n` +
       `${c.clienteNombre || 'Sin cliente'} · ${colones(c.total)}\n\n` +
-      `Se borra de Alegra y no se puede recuperar.`,
+      `Se borra y no se puede recuperar.`,
       { confirmLabel: 'Eliminar', variant: 'danger', title: 'Eliminar cotización' }
     )
     if (!ok) return
@@ -147,8 +147,6 @@ export default function Cotizaciones() {
       setBorrando(null)
     }
   }
-
-  const vencida = (c) => !c.facturada && c.vence && c.vence < new Date().toISOString().split('T')[0]
 
   return (
     <div className="space-y-5">
@@ -214,9 +212,9 @@ export default function Cotizaciones() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-extrabold text-neutro-900">{c.numero}</p>
-                  {c.facturada
+                  {c.estado === 'facturada'
                     ? <Insignia tono="exito" icono={CheckCircle2}>Facturada</Insignia>
-                    : vencida(c)
+                    : c.estado === 'vencida'
                       ? <Insignia tono="peligro" icono={Clock}>Vencida</Insignia>
                       : <Insignia tono="activo" icono={Clock}>Sin facturar</Insignia>}
                 </div>
@@ -224,11 +222,26 @@ export default function Cotizaciones() {
                 <p className="text-[11px] text-neutro-400">
                   {fecha(c.fecha)} · vale hasta {fecha(c.vence)}
                 </p>
+                {/* De qué factura salió, o por qué se puede volver a facturar:
+                    una factura anulada devuelve la cotización a vigente. */}
+                {c.factura && (
+                  <p className={`text-[11px] font-semibold ${c.factura.anulada ? 'text-alerta-700' : 'text-neutro-500'}`}>
+                    {c.factura.anulada
+                      ? `Su factura ${c.factura.numero} se anuló`
+                      : `Factura ${c.factura.numero}`}
+                  </p>
+                )}
+                {c.facturadaEnAlegra && (
+                  <p className="text-[11px] font-semibold text-neutro-500">Facturada en Alegra</p>
+                )}
               </div>
 
               <p className="shrink-0 text-lg font-extrabold text-neutro-900">{colones(c.total)}</p>
 
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* En el teléfono ocupan el renglón entero y bajan de línea: con
+                  shrink-0 la fila medía lo que los cinco botones juntos y el
+                  de borrar quedaba afuera de la tarjeta. */}
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 <Boton
                   variante="secundario"
                   tamano="sm"
@@ -251,7 +264,7 @@ export default function Cotizaciones() {
                 {/* Una cotización facturada ya tiene una factura que la
                     copia: cambiarla dejaría los dos documentos diciendo cosas
                     distintas, y la factura es la que vale. */}
-                {!c.facturada && (
+                {c.estado !== 'facturada' && (
                   <Boton
                     variante="secundario"
                     tamano="sm"
@@ -263,7 +276,7 @@ export default function Cotizaciones() {
                   </Boton>
                 )}
 
-                {!c.facturada && (
+                {c.estado !== 'facturada' && (
                   <Boton
                     variante="primario"
                     tamano="sm"
@@ -274,9 +287,10 @@ export default function Cotizaciones() {
                   </Boton>
                 )}
 
-                {/* Una facturada no se puede borrar: su factura la referencia
-                    y sin ella nadie sabría de dónde salieron esos precios. */}
-                {!c.facturada && (
+                {/* Una facturada no se puede borrar —tampoco si su factura se
+                    anuló—: la factura la referencia y sin ella nadie sabría de
+                    dónde salieron esos precios. */}
+                {!c.factura && !c.facturadaEnAlegra && (
                   <button
                     type="button"
                     onClick={() => eliminar(c)}
@@ -299,7 +313,7 @@ export default function Cotizaciones() {
         <ModalEnviarWhatsApp
           titulo={`Mandar la cotización ${enviandoWhatsApp.numero}`}
           subtitulo={`Va con el PDF adjunto, a ${enviandoWhatsApp.clienteNombre || 'el cliente'}`}
-          contactoId={enviandoWhatsApp.clienteId}
+          clienteId={enviandoWhatsApp.clienteId}
           documento={{ tipo: 'cotizacion', referencia: enviandoWhatsApp.numero }}
           mensajeInicial={mensajeCotizacion({
             numero: enviandoWhatsApp.numero,

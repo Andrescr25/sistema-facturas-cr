@@ -408,18 +408,61 @@ function semanaDe(fecha) {
   return Math.max(1, Math.ceil((dias + inicio.getUTCDay() + 1) / 7));
 }
 
-/**
- * @param {object} datos  lo que manda la pantalla: cliente, líneas, fecha…
- * @param {number} usuarioId
- * @param {{clave?: string|null}} opciones  clave de idempotencia
- */
-async function crearFactura(datos, usuarioId, { clave = null } = {}) {
+/** Lo que se revisa antes de abrir la transacción: cabecera, líneas y cliente. */
+function revisarPedido(datos) {
   const cabecera = validar(CAMPOS_FACTURA, datos, { crear: false });
   const items = Array.isArray(datos.items) ? datos.items : [];
   if (items.length === 0) throw httpError(400, 'La factura no tiene líneas.');
   if (datos.client === undefined && datos.clienteId === undefined) {
     throw httpError(400, 'Falta el cliente.');
   }
+  return { cabecera, items };
+}
+
+/** Cliente, productos, líneas y el guardado — todo sobre la transacción recibida. */
+async function emitirCon(cliente, datos, { cabecera, items }, usuarioId) {
+  const clienteFacturado = await buscarCliente(cliente, {
+    clienteId: datos.clienteId,
+    alegraClienteId: datos.client
+  });
+
+  const usaAlegraId = items.some(i => i.productoId === undefined);
+  const productos = await buscarProductos(
+    cliente,
+    usaAlegraId ? items.map(i => i.id) : [],
+    usaAlegraId ? [] : items.map(i => i.productoId)
+  );
+  const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
+  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
+
+  return guardarFactura(cliente, {
+    datos: { ...datos, ...cabecera },
+    clienteFacturado,
+    armado,
+    usuarioId
+  });
+}
+
+/**
+ * Crear una factura dentro de una transacción que abrió OTRO módulo.
+ *
+ * Para quien tiene que dejar algo más escrito en el mismo commit que la
+ * factura: la cotización que se factura queda marcada con su factura, o no
+ * queda ninguna de las dos. Con dos transacciones, un corte en el medio deja
+ * una factura que la cotización no conoce, y facturarla de nuevo la cobra
+ * dos veces.
+ */
+async function crearFacturaEnTransaccion(cliente, datos, usuarioId) {
+  return emitirCon(cliente, datos, revisarPedido(datos), usuarioId);
+}
+
+/**
+ * @param {object} datos  lo que manda la pantalla: cliente, líneas, fecha…
+ * @param {number} usuarioId
+ * @param {{clave?: string|null}} opciones  clave de idempotencia
+ */
+async function crearFactura(datos, usuarioId, { clave = null } = {}) {
+  const pedido = revisarPedido(datos);
 
   if (clave) {
     const reserva = await idempotencia.reservar(clave, datos);
@@ -434,28 +477,7 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
   }
 
   try {
-    const factura = await enTransaccion(async (cliente) => {
-      const clienteFacturado = await buscarCliente(cliente, {
-        clienteId: datos.clienteId,
-        alegraClienteId: datos.client
-      });
-
-      const usaAlegraId = datos.items.some(i => i.productoId === undefined);
-      const productos = await buscarProductos(
-        cliente,
-        usaAlegraId ? items.map(i => i.id) : [],
-        usaAlegraId ? [] : items.map(i => i.productoId)
-      );
-      const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
-      const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
-
-      return guardarFactura(cliente, {
-        datos: { ...datos, ...cabecera },
-        clienteFacturado,
-        armado,
-        usuarioId
-      });
-    });
+    const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId));
 
     if (clave) {
       await idempotencia.marcarCreada(clave, {
@@ -668,4 +690,5 @@ async function editarFactura(id, datos, usuarioId) {
 }
 
 module.exports = {
-  hoyEnCostaRica, registrarCobro, crearFactura, editarFactura, anularFactura, armarLineas, sumarDias, semanaDe };
+  hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, anularFactura,
+  armarLineas, sumarDias, semanaDe };

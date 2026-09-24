@@ -201,3 +201,43 @@ describe('el registro de lo que sale', () => {
     assert.equal(registro.peticiones.length, 0);
   });
 });
+
+describe('los teléfonos de un cliente por su id PROPIO', () => {
+  /** La base con una sola ficha: el cliente propio 8. */
+  function conFicha() {
+    const consultas = [];
+    require.cache[rutaDb] = {
+      id: rutaDb, filename: rutaDb, loaded: true,
+      exports: {
+        query: async (sql, params) => {
+          consultas.push({ sql: String(sql), params });
+          return {
+            rows: Number(params?.[0]) === 8
+              ? [{ nombre: 'AB CHANA', telefono: '2445 1010', telefono_secundario: '22 33', celular: '8827 2453' }]
+              : []
+          };
+        }
+      }
+    };
+    for (const r of [rutaCliente, rutaIndice, rutaEnvios]) delete require.cache[r];
+    return { envios: require(rutaEnvios), consultas };
+  }
+
+  test('se leen de la ficha propia, no de Alegra', async () => {
+    // El cliente propio 8 es "AB CHANA"; el contacto 8 de Alegra es "EL
+    // LLANO". Preguntarle a Alegra con el id propio proponía el celular de
+    // otra persona (47 de los 54 deudores de Cuentas por Cobrar).
+    const { envios, consultas } = conFicha();
+    const r = await envios.telefonosDeCliente(8);
+    assert.match(consultas[0].sql, /FROM cliente WHERE id = \$1/);
+    assert.equal(r.cliente, 'AB CHANA');
+    assert.equal(r.telefonos[0].nacional, '88272453', 'el celular va primero');
+    assert.deepEqual(r.telefonosSinReconocer, ['22 33'], 'lo ilegible se avisa, no se descarta');
+  });
+
+  test('un cliente que no existe es 404, y un id raro es 400', async () => {
+    const { envios } = conFicha();
+    await assert.rejects(() => envios.telefonosDeCliente(99), (e) => e.status === 404);
+    await assert.rejects(() => envios.telefonosDeCliente('abc'), (e) => e.status === 400);
+  });
+});

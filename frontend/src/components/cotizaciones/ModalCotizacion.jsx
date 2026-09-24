@@ -14,11 +14,10 @@ import { colones } from '../../utils/colones'
  * tener el código a mano, igual que el agente en la calle.
  *
  * EL CLIENTE SE BUSCA EN EL SERVIDOR, EL PRODUCTO EN EL NAVEGADOR
- * No es una inconsistencia. Los productos del catálogo son ~120 y bajan en
- * medio segundo, así que se filtran acá sin ida y vuelta. Los contactos son
- * más de mil y bajarlos todos tardaba 31 segundos con el modal en blanco:
- * ahora se le pregunta a Alegra conforme se escribe. De paso aparece el
- * cliente dado de alta hoy, que es a quien más se le cotiza.
+ * No es una inconsistencia. El catálogo baja entero una vez y se filtra acá
+ * sin ida y vuelta. Los clientes son más de mil: se buscan en la base propia
+ * conforme se escribe, así aparece también el dado de alta hoy, que es a
+ * quien más se le cotiza.
  *
  * Los precios que se muestran acá son de referencia. El que vale es el que
  * pone el servidor al crear la cotización: este navegador puede tener el
@@ -26,7 +25,7 @@ import { colones } from '../../utils/colones'
  * el cliente.
  *
  * Los precios que se ven acá llevan impuesto incluido, como en el catálogo
- * del cliente y como en el PDF que Alegra genera. El total del pie tiene que
+ * del cliente y como en el total del PDF. El total del pie tiene que
  * coincidir con el de la cotización, o el vendedor lee un número y el cliente
  * recibe otro.
  */
@@ -90,9 +89,9 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
     if (!editando || productos.length === 0) return
     const porIdCatalogo = new Map(productos.map(p => [String(p.id), p]))
     setLineas((cotizacion.lineas || []).map(l => {
-      const p = porIdCatalogo.get(String(l.alegraItemId))
+      const p = porIdCatalogo.get(String(l.productoId))
       return {
-        alegraItemId: String(l.alegraItemId),
+        productoId: String(l.productoId),
         nombre: p?.name || l.nombre,
         precio: p ? Number(p.precio) || 0 : 0,
         cantidad: Number(l.cantidad) || 0,
@@ -129,15 +128,15 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
     return buscarProductos(productos, busqueda).slice(0, 8)
   }, [productos, busqueda])
 
-  const porId = Object.fromEntries(lineas.map(l => [String(l.alegraItemId), l]))
+  const porId = Object.fromEntries(lineas.map(l => [String(l.productoId), l]))
   const total = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0)
 
   const cambiar = (producto, cantidad) => {
     const n = Math.max(0, Math.floor(Number(cantidad) || 0))
     setLineas(prev => {
-      const otras = prev.filter(l => String(l.alegraItemId) !== String(producto.id))
+      const otras = prev.filter(l => String(l.productoId) !== String(producto.id))
       return n === 0 ? otras : [...otras, {
-        alegraItemId: String(producto.id),
+        productoId: String(producto.id),
         nombre: producto.name,
         precio: Number(producto.precio) || 0,
         cantidad: n
@@ -155,11 +154,10 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
       const cuerpo = {
         clienteId: cliente.id,
         observaciones: observaciones.trim() || null,
-        lineas: lineas.map(l => ({ alegraItemId: l.alegraItemId, cantidad: l.cantidad }))
+        lineas: lineas.map(l => ({ productoId: Number(l.productoId), cantidad: l.cantidad }))
       }
-      // Alegra solo acepta PUT en cotizaciones y reemplaza el documento
-      // entero: por eso se mandan siempre todas las líneas, no las que
-      // cambiaron.
+      // Editar reemplaza las líneas enteras: por eso se mandan siempre
+      // todas, no las que cambiaron.
       const { data } = editando
         ? await api.put(`/cotizaciones/${cotizacion.id}`, { ...cuerpo, vence })
         : await api.post('/cotizaciones', { ...cuerpo, validezDias, claveIdempotencia: clave })
@@ -281,7 +279,7 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
             {lineas.length > 0 && (
               <div className="rounded-2xl border border-neutro-200">
                 {lineas.map(l => (
-                  <div key={l.alegraItemId} className="flex items-center gap-3 border-b border-neutro-100 px-3 py-2 last:border-0">
+                  <div key={l.productoId} className="flex items-center gap-3 border-b border-neutro-100 px-3 py-2 last:border-0">
                     <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-neutro-900">
                       {l.nombre}
                       {l.fueraDeCatalogo && (
@@ -292,7 +290,7 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
                     </span>
                     <input
                       type="number" min="0" inputMode="numeric" value={l.cantidad}
-                      onChange={(e) => cambiar({ id: l.alegraItemId, name: l.nombre, precio: l.precio }, e.target.value)}
+                      onChange={(e) => cambiar({ id: l.productoId, name: l.nombre, precio: l.precio }, e.target.value)}
                       onFocus={(e) => e.target.select()}
                       aria-label={`Cantidad de ${l.nombre}`}
                       className="w-16 rounded-lg border-2 border-neutro-200 py-1 text-center text-sm font-extrabold focus:border-acento-500 focus:outline-none"
@@ -301,7 +299,7 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
                       {colones(l.cantidad * l.precio)}
                     </span>
                     <button type="button" aria-label={`Quitar ${l.nombre}`}
-                      onClick={() => cambiar({ id: l.alegraItemId }, 0)}
+                      onClick={() => cambiar({ id: l.productoId }, 0)}
                       className="shrink-0 text-neutro-300 hover:text-peligro-600"><X size={15} /></button>
                   </div>
                 ))}

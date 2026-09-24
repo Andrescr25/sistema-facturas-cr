@@ -129,7 +129,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         <ModalEnviarWhatsApp
           titulo={`Mandar la factura ${facturaAEnviar.numeroFactura}`}
           subtitulo={`Va con el PDF adjunto, a ${cliente.clienteNombre}`}
-          contactoId={cliente.clienteId}
+          clienteId={cliente.clienteId}
           documento={{ tipo: 'factura', referencia: facturaAEnviar.numeroFactura }}
           mensajeInicial={mensajeFactura({
             numero: facturaAEnviar.numeroFactura,

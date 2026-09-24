@@ -151,8 +151,25 @@ async function main() {
     if (limite && conteo.facturas >= limite) break;
   }
 
+  // LA SERIE SIGUE DESDE LO COPIADO. Mientras `main` factura en Alegra, la
+  // serie propia se queda donde se sembró (4869) y Alegra sigue numerando: con
+  // la copia del 23 de setiembre ya iba en la 4936. Sin esto, la primera
+  // factura propia después del corte choca con la UNIQUE (tipo, serie,
+  // consecutivo) y el mostrador se queda sin poder facturar. GREATEST: nunca
+  // retrocede, así que correr la carga otra vez no reusa números.
+  const series = await pool.query(`
+    UPDATE serie_consecutivo s
+       SET siguiente = GREATEST(s.siguiente, m.maximo + 1)
+      FROM (SELECT serie, MAX(consecutivo) AS maximo
+              FROM factura
+             WHERE serie IS NOT NULL AND consecutivo IS NOT NULL
+             GROUP BY serie) m
+     WHERE m.serie = s.serie
+     RETURNING s.serie, s.siguiente`);
+
   const segundos = Math.round((Date.now() - inicio) / 1000);
   console.log(`✓ Facturas cargadas: ${conteo.facturas} con ${conteo.lineas} líneas en ${segundos} s.`);
+  console.log('  Próximo número por serie:', series.rows.map((r) => `${r.serie} → ${r.siguiente}`).join(', ') || 'ninguna serie calzó');
   console.log('  Por estado:', JSON.stringify(conteo.estados));
   console.log('  Por tipo:', JSON.stringify(conteo.tipos));
   console.log('  Avisos:', Object.keys(conteo.avisos).length ? JSON.stringify(conteo.avisos) : 'ninguno');
