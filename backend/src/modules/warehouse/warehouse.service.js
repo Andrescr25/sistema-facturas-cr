@@ -7,13 +7,35 @@ const { getInvoiceService, getClient } = require('../../integrations/alegra');
 const invoiceService = getInvoiceService();
 const client = getClient();
 const { query } = require('../../../config/database');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
-// Sistema de caché para facturas de bodega
-const bodegaFacturasCache = {
-  data: null,
-  timestamp: null,
-  TTL: 5 * 60 * 1000 // 5 minutos en milisegundos
-};
+/**
+ * LO DE ALEGRA SE GUARDA; LO NUESTRO SE LEE SIEMPRE.
+ *
+ * Antes la caché guardaba la respuesta ENTERA —facturas de Alegra con sus
+ * estados de bodega pegados— y cada factura despachada la invalidaba. Como se
+ * despacha una tras otra, casi cada apertura de la pantalla terminaba en una
+ * sincronización completa con Alegra (6-10 s en un buen momento; con Alegra
+ * lenta, 60 s por página × 4 intentos). Ese era el "timeout al sincronizar"
+ * del teléfono: el navegador corta a los 3 minutos.
+ *
+ * Ahora la caché guarda solo lo que viene de Alegra (las facturas y sus
+ * productos), por ventana de días; los estados, los faltantes y la hora de
+ * despacho se leen de la base en cada pedido, que es barato. Despachar una
+ * factura ya no obliga a volver a preguntarle nada a Alegra.
+ *
+ * Y el teléfono NO espera a Alegra: con la caché vencida se le contesta con
+ * lo guardado y se actualiza por detrás (`actualizando: true`). Solo espera
+ * la primera vez de cada ventana o cuando alguien aprieta "Actualizar". Si ya
+ * hay una sincronización en curso, las demás peticiones se cuelgan de ELLA en
+ * vez de lanzar otra: varios teléfonos abriendo a la vez eran varias
+ * sincronizaciones en paralelo, y Alegra respondía limitando peticiones.
+ */
+const FRESCA_MS = 2 * 60 * 1000;
+const TIMEOUT_PAGINA_MS = 25000;
+const REINTENTOS_PAGINA = 2;
+const cacheAlegra = new Map(); // `${dias}:${limit}` → { facturas, timestamp }
+const enCurso = new Map();     // `${dias}:${limit}` → Promise
 
 /**
  * Normaliza una fecha a formato YYYY-MM-DD
@@ -105,8 +127,7 @@ async function upsertFacturaDesdeAlegra(invoice) {
  * Invalida el caché de facturas de bodega
  */
 function invalidateCache() {
-  bodegaFacturasCache.data = null;
-  bodegaFacturasCache.timestamp = null;
+  cacheAlegra.clear();
   console.log('🔄 Caché de facturas de bodega invalidado');
 }
 
@@ -153,24 +174,21 @@ async function marcarAnuladasEnLocal(invoicesAnuladas) {
 }
 
 
-async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }) {
-  // Verificar si hay datos en caché válidos
-  const now = new Date();
-  const cacheIsValid = !forceRefresh &&
-                      bodegaFacturasCache.data &&
-                      bodegaFacturasCache.timestamp &&
-                      (now.getTime() - bodegaFacturasCache.timestamp) < bodegaFacturasCache.TTL;
+/** El día `n` días antes de `dia` (YYYY-MM-DD), sin pasar por la hora del servidor. */
+function diaMenos(dia, n) {
+  const d = new Date(`${dia}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
 
-  if (cacheIsValid) {
-    console.log(`📦 Sirviendo facturas de bodega desde caché (${Math.round((now.getTime() - bodegaFacturasCache.timestamp) / 1000)}s desde última actualización)`);
-    return bodegaFacturasCache.data;
-  }
-
-  const endDate = normalizeDateOnly(now.toISOString());
-  const startDateObj = new Date(now);
-  startDateObj.setDate(startDateObj.getDate() - dias);
-  const startDate = startDateObj.toISOString().split('T')[0];
-
+/**
+ * Trae de Alegra las facturas de la ventana, deja anotadas las anuladas y
+ * registra las vigentes en la base. Es la parte lenta: corre una vez por
+ * ventana cada tanto, no en cada pedido.
+ */
+async function sincronizarConAlegra({ dias, limit }) {
+  const endDate = hoyEnCostaRica();
+  const startDate = diaMenos(endDate, dias);
   console.log(`📦 Sincronizando facturas de Alegra para bodega (${startDate} → ${endDate}, límite ${limit})`);
 
   const invoicesRaw = [];
@@ -179,11 +197,7 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
 
   while (fetched < limit) {
     const pageLimit = Math.min(30, limit - fetched);
-
     try {
-      // timeout explícito a 60s: el cliente compartido usa 30s por defecto
-      // (alegra.config.js), pero esta sincronización masiva por rango de
-      // fechas necesitaba los 60s que tenía el axios del servicio legacy.
       const response = await client.requestWithRetry(
         () => client.api.get('/invoices', {
           params: {
@@ -195,44 +209,28 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
             order_field: 'date',
             order_direction: 'DESC'
           },
-          timeout: 60000
+          timeout: TIMEOUT_PAGINA_MS
         }),
-        3,
+        REINTENTOS_PAGINA,
         1000,
         { metodo: 'GET' }
       );
 
       const pageData = response.data?.data || response.data || [];
-      if (!Array.isArray(pageData) || pageData.length === 0) {
-        break;
-      }
+      if (!Array.isArray(pageData) || pageData.length === 0) break;
 
       invoicesRaw.push(...pageData);
       fetched += pageData.length;
-      if (pageData.length < pageLimit) {
-        break;
-      }
+      if (pageData.length < pageLimit) break;
       start += pageLimit;
-
-      if (fetched < limit) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      if (fetched < limit) await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {
-      if (error.response?.status === 500) {
-        console.warn(`⚠️ Alegra API error 500 al obtener página ${start}, continuando con lo obtenido...`);
+      // Con algo ya traído, se sigue con eso: una lista corta es mejor que
+      // ninguna. Sin nada, el error sube.
+      if (invoicesRaw.length > 0) {
+        console.warn(`⚠️ Alegra falló en la página ${start} (${error.code || error.response?.status || error.message}); se sigue con ${invoicesRaw.length} facturas`);
         break;
       }
-
-      if (error.code === 'ECONNABORTED') {
-        console.error(`❌ Error de timeout obteniendo facturas después de múltiples reintentos`);
-        console.error(`📊 Facturas obtenidas antes del timeout: ${invoicesRaw.length}`);
-
-        if (invoicesRaw.length > 0) {
-          console.log(`✅ Continuando con ${invoicesRaw.length} facturas obtenidas antes del error`);
-          break;
-        }
-      }
-
       throw error;
     }
   }
@@ -250,79 +248,164 @@ async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }
     await marcarAnuladasEnLocal(invoicesAnuladas);
   }
 
-  const invoicesNormalized = invoicesVigentes.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
+  const facturas = invoicesVigentes.map((invoice) => invoiceService.transformInvoiceForFrontend(invoice));
+  await Promise.all(facturas.map((invoice) => upsertFacturaDesdeAlegra(invoice)));
+  return facturas;
+}
 
-  // Actualizar/insertar en BD local para mantener tracking de estados
-  await Promise.all(invoicesNormalized.map((invoice) => upsertFacturaDesdeAlegra(invoice)));
+/**
+ * Las facturas de Alegra de una ventana: de la caché si está fresca; si
+ * venció, la vieja al toque y una actualización por detrás; si no hay nada
+ * (o se pidió forzar), se espera la sincronización. Nunca dos sincronizaciones
+ * de la misma ventana a la vez.
+ */
+async function facturasDeAlegra({ dias, limit, forceRefresh }) {
+  const clave = `${dias}:${limit}`;
+  const guardada = cacheAlegra.get(clave);
 
-  const numerosFactura = invoicesNormalized.map((inv) => inv.numero_factura);
-  let estadosMap = new Map();
-  let faltantesMap = new Map();
+  const sincronizar = () => {
+    if (!enCurso.has(clave)) {
+      const promesa = sincronizarConAlegra({ dias, limit })
+        .then((facturas) => {
+          cacheAlegra.set(clave, { facturas, timestamp: Date.now() });
+          return facturas;
+        })
+        .finally(() => enCurso.delete(clave));
+      enCurso.set(clave, promesa);
+    }
+    return enCurso.get(clave);
+  };
 
-  if (numerosFactura.length > 0) {
-    const estadosResult = await query(`
-      SELECT numero_factura, estado_bodega, estado_procesamiento, observaciones_adicionales, id, alegra_id
-      FROM facturas
-      WHERE numero_factura = ANY($1::text[])
-    `, [numerosFactura]);
-
-    estadosMap = new Map(estadosResult.rows.map((row) => [row.numero_factura, row]));
-
-    const faltantesResult = await query(`
-      SELECT
-        fa.alegra_id,
-        SUM(CASE WHEN f.estado = 'pendiente' THEN 1 ELSE 0 END) AS faltantes_pendientes,
-        SUM(CASE WHEN f.estado = 'pendiente' THEN f.cantidad_faltante ELSE 0 END) AS cantidad_pendiente
-      FROM faltantes f
-      JOIN facturas fa ON f.factura_id = fa.id
-      WHERE fa.numero_factura = ANY($1::text[])
-      GROUP BY fa.alegra_id
-    `, [numerosFactura]);
-
-    faltantesMap = new Map(faltantesResult.rows.map((row) => [row.alegra_id?.toString(), row]));
+  if (guardada && !forceRefresh) {
+    const edad = Date.now() - guardada.timestamp;
+    if (edad < FRESCA_MS) return { ...guardada, actualizando: false };
+    // Vencida: se contesta con lo guardado y se actualiza por detrás.
+    sincronizar().catch((error) => console.error('⚠️ Sincronización de bodega en segundo plano falló:', error.message));
+    return { ...guardada, actualizando: true };
   }
 
-  const enriched = invoicesNormalized.map((invoice) => {
-    const estadoLocal = estadosMap.get(invoice.numero_factura);
-    const faltanteInfo = faltantesMap.get(invoice.alegra_id?.toString());
+  try {
+    const facturas = await sincronizar();
+    return { facturas, timestamp: cacheAlegra.get(clave)?.timestamp || Date.now(), actualizando: false };
+  } catch (error) {
+    // Forzada y falló, pero hay algo guardado: se muestra eso, diciéndolo.
+    if (guardada) {
+      return {
+        ...guardada,
+        actualizando: false,
+        aviso: 'Alegra no respondió: se muestran las facturas de la última sincronización.'
+      };
+    }
+    throw error;
+  }
+}
 
+/**
+ * Lo nuestro, siempre fresco: estado de bodega y cuándo se despachó, por
+ * `alegra_id` (la identidad real de la factura; antes se cruzaba por número).
+ * Los faltantes no se cuentan acá: se siguen en su propio módulo.
+ */
+async function estadosLocales(alegraIds) {
+  if (alegraIds.length === 0) return new Map();
+  const { rows } = await query(`
+    SELECT alegra_id, estado_bodega, estado_procesamiento, observaciones_adicionales, id, bodega_procesado_en
+    FROM facturas
+    WHERE alegra_id = ANY($1::int[])
+  `, [alegraIds]);
+  return new Map(rows.map((row) => [String(row.alegra_id), row]));
+}
+
+/**
+ * El historial en ORDEN DE DESPACHO: la última factura despachada primero, la
+ * anterior segunda, y así. Las despachadas antes de que existiera la hora
+ * (antes del 25 de agosto) van al final, por fecha de emisión.
+ */
+function ordenarHistorial(listas) {
+  return [...listas].sort((a, b) => {
+    const ta = a.despachada_en ? new Date(a.despachada_en).getTime() : null;
+    const tb = b.despachada_en ? new Date(b.despachada_en).getTime() : null;
+    if (ta !== null && tb !== null) return tb - ta;
+    if (ta !== null) return -1;
+    if (tb !== null) return 1;
+    return String(b.fecha_emision || '').localeCompare(String(a.fecha_emision || ''));
+  });
+}
+
+async function getFacturasBodega({ dias = 30, limit = 40, forceRefresh = false }) {
+  const alegra = await facturasDeAlegra({ dias, limit, forceRefresh });
+
+  const alegraIds = alegra.facturas
+    .map((inv) => parseInt(inv.alegra_id, 10))
+    .filter((id) => Number.isInteger(id));
+  const estados = await estadosLocales(alegraIds);
+
+  const enriched = alegra.facturas.map((invoice) => {
+    const estadoLocal = estados.get(String(invoice.alegra_id));
     return {
       ...invoice,
       estado_bodega: estadoLocal?.estado_bodega || 'pendiente',
       estado_procesamiento: estadoLocal?.estado_procesamiento || 'pendiente',
       observaciones_adicionales: estadoLocal?.observaciones_adicionales || null,
       factura_local_id: estadoLocal?.id || null,
-      faltantes_pendientes: parseInt(faltanteInfo?.faltantes_pendientes || 0, 10),
-      cantidad_faltante: parseInt(faltanteInfo?.cantidad_pendiente || 0, 10)
+      despachada_en: estadoLocal?.bodega_procesado_en || null
     };
   });
 
-  const pendientes = enriched.filter((inv) => inv.estado_bodega !== 'procesado');
-  const listas = enriched.filter((inv) => inv.estado_bodega === 'procesado');
+  // Una anulada que ya estaba en la base (la marcó `marcarAnuladasEnLocal`)
+  // no se alista ni va al historial.
+  const vigentes = enriched.filter((inv) => inv.estado_bodega !== 'anulada');
+  const pendientes = vigentes.filter((inv) => inv.estado_bodega !== 'procesado');
+  const listas = ordenarHistorial(vigentes.filter((inv) => inv.estado_bodega === 'procesado'));
 
-  const response = {
+  return {
     success: true,
     data: {
       pendientes,
       listas,
       resumen: {
-        total: enriched.length,
+        total: vigentes.length,
         pendientes: pendientes.length,
         listas: listas.length
       }
     },
     metadata: {
-      filtros: { dias, limit, startDate, endDate },
-      lastSync: new Date().toISOString()
+      filtros: { dias, limit },
+      // Cuándo se habló con Alegra por última vez, no cuándo se armó esta respuesta.
+      lastSync: new Date(alegra.timestamp).toISOString(),
+      actualizando: alegra.actualizando,
+      aviso: alegra.aviso || null
     }
   };
+}
 
-  // Guardar en caché
-  bodegaFacturasCache.data = response;
-  bodegaFacturasCache.timestamp = now.getTime();
-  console.log(`💾 Facturas de bodega guardadas en caché (válido por ${bodegaFacturasCache.TTL / 60000} minutos)`);
-
-  return response;
+/**
+ * Lo que bodega ya registró de una factura, producto por producto, leído de
+ * la base: para abrir una del historial sin preguntarle a Alegra. Antes se
+ * pedía el detalle completo a Alegra, y al llegar (2-6 s después) pisaba lo
+ * que el bodeguero ya había empezado a marcar.
+ */
+async function estadosDeFactura(alegraId) {
+  const id = parseInt(alegraId, 10);
+  if (!Number.isInteger(id)) {
+    const error = new Error('Factura inválida.');
+    error.status = 400;
+    throw error;
+  }
+  const { rows } = await query(`
+    SELECT f.tipo_faltante, f.cantidad_faltante, f.observaciones,
+           p.codigo AS referencia, p.alegra_id AS alegra_item_id
+      FROM faltantes f
+      JOIN productos p ON f.producto_id = p.id
+      JOIN facturas fa ON fa.id = f.factura_id
+     WHERE fa.alegra_id = $1
+  `, [id]);
+  return rows.map((r) => ({
+    referencia: r.referencia ? String(r.referencia).trim() : null,
+    alegraItemId: r.alegra_item_id ? String(r.alegra_item_id).trim() : null,
+    tipoFaltante: r.tipo_faltante,
+    cantidadFaltante: Number(r.cantidad_faltante) || 0,
+    observaciones: r.observaciones || ''
+  }));
 }
 
 /**
@@ -403,8 +486,9 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
     }
   }
 
-  // Invalidar caché
-  invalidateCache();
+  // La caché NO se invalida: guarda solo lo de Alegra, y el estado se lee de
+  // la base en cada pedido. Invalidarla acá era lo que forzaba una
+  // sincronización completa con Alegra después de cada factura despachada.
 
   return {
     success: true,
@@ -413,29 +497,14 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
   };
 }
 
-/**
- * Obtiene el caché actual (para fallback en caso de error)
- */
-function getCachedData() {
-  if (bodegaFacturasCache.data && bodegaFacturasCache.timestamp) {
-    const cacheAge = Math.round((Date.now() - bodegaFacturasCache.timestamp) / 1000);
-    return {
-      ...bodegaFacturasCache.data,
-      _fallback: true,
-      _cacheAge: cacheAge,
-      _warning: 'Datos del caché debido a que Alegra no está disponible'
-    };
-  }
-  return null;
-}
-
 module.exports = {
   // Exportada para poder probarla: es la que evita que una factura anulada
   // siga apareciendo como trabajo pendiente.
   marcarAnuladasEnLocal,
   getFacturasBodega,
+  estadosDeFactura,
+  ordenarHistorial,
   actualizarEstadoFactura,
   invalidateCache,
-  getCachedData,
   upsertFacturaDesdeAlegra
 };

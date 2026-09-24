@@ -53,6 +53,11 @@ Costa Rica es UTC−6. `new Date().toISOString().slice(0,10)` da el día de
 mañana después de las 6 p.m. Usar `utils/fechaCR.js`
 (`hoyEnCostaRica`, `diaEnCostaRica`).
 
+## Precio sin IVA, costo con IVA
+
+Nunca multiplicar ni dividir por 1,13 a mano: hay tarifas de 0/1/2/4/8/13 %.
+Ver [docs/grafo/leccion/precio-sin-iva-costo-con-iva.md](docs/grafo/leccion/precio-sin-iva-costo-con-iva.md).
+
 ## Datos de prueba
 
 `zz-*` / `ZZ` se borran después de verificar. Nunca se fabrican registros de
@@ -61,8 +66,8 @@ distinguirlos después.
 
 ## Antes de escribir un nodo nuevo en `docs/grafo/`
 
-Cada ruta que se cite en `archivos:` tiene que existir de verdad —
-`grafo.test.js` lo va a rechazar si no. Si algo se puede leer del código, va
-ahí, no a la memoria de `~/.claude`: esa queda para preferencias del usuario,
-decisiones suyas y lecciones de sesiones pasadas, no para lo que el código ya
-dice por sí solo.
+Cada ruta que se cite en `archivos:` tiene que existir de verdad en ESTA
+rama — `grafo.test.js` lo va a rechazar si no. Si algo se puede leer del
+código, va ahí, no a la memoria de `~/.claude`: esa queda para preferencias
+del usuario, decisiones suyas y lecciones de sesiones pasadas, no para lo que
+el código ya dice por sí solo.

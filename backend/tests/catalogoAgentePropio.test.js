@@ -32,6 +32,12 @@ function montar(filas = [FILA]) {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: {
       query: async (sql, params) => {
+        // La subcategoría de cada producto se pega aparte (conSubcategoria,
+        // que vino de developer). No es "la" consulta del catálogo.
+        if (/FROM alegra_products_cache c/.test(sql)) {
+          visto.subcategorias = params;
+          return { rows: [{ alegra_id: '1031', sub_id: 5, sub_nombre: 'Extensiones' }] };
+        }
         visto.sql = sql; visto.params = params;
         if (/FROM categoria_producto/.test(sql)) return { rows: [{ id: 3, nombre: 'Ferretería' }] };
         return { rows: filas };
@@ -92,6 +98,16 @@ describe('la forma que espera la tablet', () => {
     assert.equal(p.price[0].price, 5465);
     assert.equal(p.tax[0].percentage, 13);
     assert.equal(p.images[0].url, '/archivos/productos/3-abc.jpg');
+  });
+
+  test('cada producto lleva su subcategoría, para partir la categoría en familias', async () => {
+    // Viaja con el catálogo que la tablet guarda sin conexión: pedirla aparte
+    // obligaría a una segunda descarga en el campo.
+    const { servicio, visto } = montar();
+    const [p] = (await servicio.listarProductos({})).products;
+
+    assert.deepEqual(p.subcategoria, { id: 5, nombre: 'Extensiones' });
+    assert.deepEqual(visto.subcategorias, [['1031']]);
   });
 
   test('NO se manda inventario, y eso es a propósito', async () => {

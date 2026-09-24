@@ -53,6 +53,9 @@ router.post('/invoices', controller.createInvoice);
 router.get('/invoices/:id/pdf', controller.getInvoicePDF);
 // Mandarle la factura al cliente por WhatsApp, con el PDF adjunto.
 router.post('/invoices/:id/whatsapp', controller.enviarFacturaWhatsApp);
+// Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
+router.get('/clientes/:alegraContactId/sugerencias', controller.getSugerenciasCliente);
+
 router.get('/taxes', controller.getTaxes);
 router.get('/payment-methods', controller.getPaymentMethods);
 

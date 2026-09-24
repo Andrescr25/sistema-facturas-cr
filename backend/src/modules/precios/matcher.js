@@ -26,8 +26,25 @@
 const LONGITUD_MINIMA_PALABRA = 3;
 const MAX_PALABRAS_CLAVE = 5;
 const MIN_PALABRAS_CLAVE = 2; // con menos de esto, el score no es confiable — ver comentario arriba
+const MIN_COINCIDENCIAS = 2; // una palabra en común es casualidad; dos son señal
 const UMBRAL_AUTOCONFIRMAR = 80; // mismo umbral que emailService.js para auto-relacionar
 const UMBRAL_SUGERENCIA = 40; // mismo umbral que getProductosPendientes
+const LONGITUD_MINIMA_REFERENCIA = 3;
+const REFERENCIAS_NO_CONFIABLES = new Set([
+  '0',
+  '00',
+  '000',
+  '0000',
+  '1',
+  '01',
+  '001',
+  'na',
+  // Se escriben YA NORMALIZADAS (sin barras ni espacios): `normalizarReferencia`
+  // le quita la puntuación, así que 'n/a' o 's/ref' acá nunca calzarían.
+  'sref',
+  'sinref',
+  'sinreferencia'
+]);
 
 function normalizar(texto) {
   return (texto || '')
@@ -47,6 +64,42 @@ function palabrasClave(texto, max = MAX_PALABRAS_CLAVE) {
 }
 
 /**
+ * ¿La palabra aparece en el texto EMPEZANDO una palabra?
+ *
+ * Antes se usaba `includes`, que calza en medio de otra: "lite" dentro de
+ * "SPLITER" (sp-LITE-r) hacía que "NEXT TV LITE" sugiriera un spliter de TV.
+ * Se acepta el comienzo y no la palabra entera para no perder los plurales
+ * —"tornillo" tiene que seguir calzando con "TORNILLOS"—.
+ */
+function apareceComoPalabra(palabra, textoNormalizado) {
+  if (!palabra) return false;
+  const inicio = `(^|[^a-z0-9])${palabra.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+  return new RegExp(inicio).test(textoNormalizado);
+}
+
+function normalizarReferencia(texto) {
+  return normalizar(texto).replace(/\s+/g, '');
+}
+
+function esReferenciaConfiable(texto) {
+  const ref = normalizarReferencia(texto);
+  if (ref.length < LONGITUD_MINIMA_REFERENCIA) return false;
+  if (REFERENCIAS_NO_CONFIABLES.has(ref)) return false;
+  if (/^0+$/.test(ref)) return false;
+  return true;
+}
+
+function calcularScoreCatalogo(nombrePropio, productoCatalogo) {
+  const textoCatalogo = [
+    productoCatalogo?.name,
+    productoCatalogo?.reference,
+    productoCatalogo?.description
+  ].filter(Boolean).join(' ');
+
+  return calcularScoreSimilitud(nombrePropio, textoCatalogo);
+}
+
+/**
  * Score de similitud 0-100 entre un nombre propio y un nombre externo:
  * % de las palabras clave del nombre propio que aparecen como substring en
  * el nombre externo normalizado.
@@ -56,7 +109,17 @@ function calcularScoreSimilitud(nombrePropio, nombreExterno) {
   if (propias.length < MIN_PALABRAS_CLAVE) return 0;
 
   const externoNormalizado = normalizar(nombreExterno);
-  const coincidencias = propias.filter(palabra => externoNormalizado.includes(palabra)).length;
+  const coincidencias = propias.filter(palabra => apareceComoPalabra(palabra, externoNormalizado)).length;
+
+  // UNA palabra en común es una casualidad; dos son una señal.
+  //
+  // Medido contra los pendientes reales: "INTERES DE MORA 3%" y "Cargo por
+  // mora" sacaban 50 % contra "F.HIDROXON 500ML MORA AZUL" y "CUERDA ALBAÑIL
+  // MORADO" —una sola palabra, la misma que el ratio premiaba por ser corta
+  // la descripción—. Con el mismo 50 % salía "ESPUMIL TACO 750G" contra
+  // "JABON ESPUMIL TACO 1X4", que SÍ es el producto: ahí coinciden dos.
+  // El ratio no los distingue; la cuenta sí.
+  if (coincidencias < MIN_COINCIDENCIAS) return 0;
 
   return Math.round((coincidencias / propias.length) * 100);
 }
@@ -81,9 +144,13 @@ function encontrarMejorMatch(nombrePropio, candidatos) {
 module.exports = {
   normalizar,
   palabrasClave,
+  normalizarReferencia,
+  esReferenciaConfiable,
   calcularScoreSimilitud,
+  calcularScoreCatalogo,
   encontrarMejorMatch,
   UMBRAL_AUTOCONFIRMAR,
   UMBRAL_SUGERENCIA,
-  MIN_PALABRAS_CLAVE
+  MIN_PALABRAS_CLAVE,
+  MIN_COINCIDENCIAS
 };

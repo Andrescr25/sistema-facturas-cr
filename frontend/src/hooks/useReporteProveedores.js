@@ -28,6 +28,13 @@ export function useReporteProveedores() {
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
   const [fechaInicio, setFechaInicio] = useState('')
 
+  // Las notas que se escribieron al facturar, para leerlas al comprar. Se
+  // piden APARTE del reporte: ese sale de la base local y aparece enseguida,
+  // y estas tienen que ir hasta Alegra. Si tardan o fallan, el reporte ya
+  // está en pantalla.
+  const [notasPorProducto, setNotasPorProducto] = useState({})
+  const [cargandoNotas, setCargandoNotas] = useState(false)
+
   // Estados Modal Asignar Lotes
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false)
   const [proveedoresAlegra, setProveedoresAlegra] = useState([])
@@ -74,6 +81,19 @@ export function useReporteProveedores() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }, [fechaInicio])
+
+  const loadNotas = useCallback(async () => {
+    setCargandoNotas(true)
+    try {
+      const r = await alegraService.getNotasDeFaltantes(fechaInicio)
+      setNotasPorProducto(r?.data?.porProducto || {})
+    } catch {
+      // Sin notas se compra como se compraba hasta ayer: no se estorba.
+      setNotasPorProducto({})
+    } finally {
+      setCargandoNotas(false)
     }
   }, [fechaInicio])
 
@@ -136,6 +156,7 @@ export function useReporteProveedores() {
 
   useEffect(() => {
     loadReporte()
+    loadNotas()
     loadCantidadesGuardadas()
     loadPedidosEnviados()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -523,6 +544,8 @@ export function useReporteProveedores() {
   }, [productosAgregados])
 
   return {
+    notasPorProducto,
+    cargandoNotas,
     proveedores,
     pedidosEnviados,
     resumen,

@@ -8,6 +8,7 @@ const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
 const OFERTAS_BAJA_PATH = '/catalogo-agente/ofertas-baja'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
+const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
 const IMAGE_PREFETCH_CONCURRENCY = 10
@@ -15,13 +16,34 @@ const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
 
 const SIN_STATS = new Map()
 
+// Cuánto se espera desde la última tecla antes de filtrar. 180 ms no se nota
+// al escribir y evita filtrar cinco veces mientras se teclea "bolsa".
+const RETARDO_BUSQUEDA = 180
+
+// Cuántos resultados se pintan. Buscar "a" calza con más de mil productos, y
+// montar mil tarjetas es lo que congelaba la tablet. La búsqueda ordena por
+// parecido, así que lo que sirve está arriba; si no aparece, se afina el
+// término. El total se sigue diciendo para que nadie crea que hay menos.
+const MAX_RESULTADOS = 60
+
 export function useCatalogoAgente() {
   const [products, setProducts] = useState([])
   const [ofertas, setOfertas] = useState([])
   // Los productos a los que se les bajó el precio resignando margen. Aparte
   // de `ofertas`, que son excesos de inventario.
   const [ofertasBaja, setOfertasBaja] = useState([])
+  // Lo que se TIPEA y lo que se BUSCA son dos cosas distintas.
+  //
+  // El input tiene que responder a cada tecla, pero filtrar 2.000 productos y
+  // volver a pintar la cuadrícula en cada una hacía que la pantalla se quedara
+  // pensando un par de segundos. Se espera a que la persona deje de escribir.
   const [searchQuery, setSearchQuery] = useState('')
+  const [busquedaAplicada, setBusquedaAplicada] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaAplicada(searchQuery), RETARDO_BUSQUEDA)
+    return () => clearTimeout(t)
+  }, [searchQuery])
   const [isLoading, setIsLoading] = useState(true)
   const [lastSync, setLastSync] = useState(null)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -32,6 +54,11 @@ export function useCatalogoAgente() {
   const [clientes, setClientes] = useState([])
   const [clienteActivoId, setClienteActivoId] = useState(null)
 
+  // Orden y nombre visible de categorías/subcategorías, acomodado en Gestión
+  // de Catálogo. `null` hasta la primera sincronización (o si nunca se
+  // configuró nada): ordenarCatalogoParaCliente cae al alfabético de siempre.
+  const [configCatalogo, setConfigCatalogo] = useState(null)
+
   useEffect(() => {
     const loadFromCache = async () => {
       try {
@@ -40,6 +67,7 @@ export function useCatalogoAgente() {
         const storedOfertas = await catalogoAgenteDb.getOfertas()
         const storedClientes = await catalogoAgenteDb.getAllClientes()
         const storedClienteActivoId = await catalogoAgenteDb.getClienteActivo()
+        const storedConfig = await catalogoAgenteDb.getConfigCatalogo()
         if (storedProducts && storedProducts.length > 0) {
           setProducts(storedProducts)
           setLastSync(lastUpdate)
@@ -56,6 +84,9 @@ export function useCatalogoAgente() {
         }
         if (storedClienteActivoId) {
           setClienteActivoId(storedClienteActivoId)
+        }
+        if (storedConfig) {
+          setConfigCatalogo(storedConfig)
         }
       } catch (error) {
         console.error('No se pudo cargar el catálogo local:', error)
@@ -101,6 +132,12 @@ export function useCatalogoAgente() {
 
   const salirDeCliente = useCallback(async () => {
     setClienteActivoId(null)
+    // El catálogo vuelve arriba del todo al soltar el cliente: lo que se veía
+    // era SU pedido armado a medida (lo que más compra, lo que dejó de
+    // pedir); para el próximo cliente no significa nada, y sin esto quedaba
+    // a media pantalla justo cuando el agente va a buscar a otro.
+    window.scrollTo(0, 0)
+    posicionEnCatalogo.current = 0
     try {
       await catalogoAgenteDb.saveClienteActivo(null)
     } catch (error) {
@@ -161,6 +198,7 @@ export function useCatalogoAgente() {
 
   const filteredData = useMemo(() => {
     let result = products
+    const searchQuery = busquedaAplicada
 
     // Búsqueda ordenada por PARECIDO, no alfabética: lo que el agente
     // escribió tiene que salir primero, y una referencia exacta antes que
@@ -193,10 +231,17 @@ export function useCatalogoAgente() {
     // Sin cliente activo, ordenarCatalogoParaCliente con un Map vacío se
     // comporta idéntico al agrupado alfabético de siempre — no hay una rama
     // "especial" que mantener sincronizada con la de antes.
-    const { grouped, sortedKeys } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto)
+    const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(paraCategorias, statsPorProducto, configCatalogo)
 
-    return { flat: result, grouped, sortedKeys }
-  }, [products, searchQuery, statsPorProducto, habitualesCliente, perdidosCliente])
+    return {
+      flat: searchQuery ? result.slice(0, MAX_RESULTADOS) : result,
+      totalCoincidencias: result.length,
+      recortado: Boolean(searchQuery) && result.length > MAX_RESULTADOS,
+      grouped,
+      sortedKeys,
+      subgrupos
+    }
+  }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente, configCatalogo])
 
   const featuredProducts = useMemo(() => {
     if (!ofertas || ofertas.length === 0) return []
@@ -339,6 +384,16 @@ export function useCatalogoAgente() {
         console.error('No se pudo actualizar el historial de clientes:', historialError)
       }
 
+      try {
+        const configRes = await api.get(CONFIG_CATALOGO_PATH)
+        await catalogoAgenteDb.saveConfigCatalogo(configRes.data)
+        setConfigCatalogo(configRes.data)
+      } catch (configError) {
+        // Sin esto el catálogo sale en el orden alfabético de siempre — no
+        // vale la pena tumbar la sincronización por algo que es solo de orden.
+        console.error('No se pudo actualizar el orden del catálogo:', configError)
+      }
+
       updateSyncUI('Preparando descarga de imágenes...', 95)
       const imageUrls = new Set()
       newBuffer.forEach((product) => {
@@ -391,6 +446,9 @@ export function useCatalogoAgente() {
   }, [updateSyncUI])
 
   return {
+    // Lo YA filtrado, para que la pantalla no parpadee entre la tecla y el
+    // filtro. Lo que se tipea es `searchQuery`.
+    busquedaAplicada,
     isLoading,
     isOnline,
     isSyncing,
@@ -408,6 +466,7 @@ export function useCatalogoAgente() {
     seleccionarCliente,
     salirDeCliente,
     productosHabitualesDelCliente: habitualesCliente,
-    productosPerdidosDelCliente: perdidosCliente
+    productosPerdidosDelCliente: perdidosCliente,
+    configCatalogo
   }
 }

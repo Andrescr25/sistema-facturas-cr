@@ -4,18 +4,49 @@
  */
 
 const catalogoService = require('./catalogo.service');
+const subcategorias = require('./subcategorias.service');
+const categorias = require('./categorias.service');
 
 /**
  * GET /catalog/productos
  */
 async function listarProductos(req, res) {
   try {
-    const { search, missingImageOnly, proveedor, page, limit } = req.query;
-    const result = await catalogoService.listarProductos({ search, missingImageOnly, proveedor, page, limit });
+    const { search, missingImageOnly, proveedor, subcategoria, page, limit } = req.query;
+    const result = await catalogoService.listarProductos({ search, missingImageOnly, proveedor, subcategoria, page, limit });
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error en GET /catalog/productos:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /catalog/arbol — categorías y subcategorías con sus conteos, en el
+ * orden canónico (el mismo que ve el agente). Es lo que pinta el riel de
+ * Gestión de Catálogo.
+ */
+async function arbolCatalogo(req, res) {
+  try {
+    const arbol = await catalogoService.arbolCatalogo();
+    res.json({ success: true, ...arbol });
+  } catch (error) {
+    console.error('❌ Error en GET /catalog/arbol:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * GET /catalog/productos-de-categoria?categoria=X — TODOS los productos de
+ * una categoría (sin paginar), enriquecidos con margen, rotación y proveedor
+ * principal. Para el panel derecho del riel.
+ */
+async function productosDeCategoria(req, res) {
+  try {
+    const data = await catalogoService.productosDeCategoria(req.query.categoria);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
   }
 }
 
@@ -212,6 +243,46 @@ async function editarProducto(req, res) {
 }
 
 /**
+ * POST /catalog/productos/categoria-lote — cambia la categoría de varios
+ * productos a la vez. Escribe en Alegra (~3 s por producto), así que no
+ * responde con el resultado: devuelve un jobId al toque y el trabajo sigue
+ * en segundo plano (ver GET /catalog/trabajos/:jobId).
+ */
+async function cambiarCategoriaLote(req, res) {
+  try {
+    const { alegraIds, categoriaId } = req.body || {};
+    const r = await catalogoService.cambiarCategoriaLote(alegraIds, categoriaId);
+    res.status(202).json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * POST /catalog/subcategorias/:id/mover-categoria — la subcategoría completa,
+ * con todos sus productos, a otra categoría. Mismo trabajo en segundo plano
+ * que el cambio en lote (escribe en Alegra por cada producto).
+ */
+async function moverSubcategoria(req, res) {
+  try {
+    const r = await catalogoService.moverSubcategoriaACategoria(req.params.id, req.body?.categoriaId);
+    res.status(202).json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** GET /catalog/trabajos/:jobId — para sondear un cambio de categoría en lote. */
+async function estadoTrabajo(req, res) {
+  try {
+    const estado = catalogoService.estadoTrabajo(req.params.jobId);
+    res.json({ success: true, ...estado });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/**
  * DELETE /catalog/productos/:id
  */
 async function eliminarProducto(req, res) {
@@ -239,9 +310,121 @@ async function siguienteReferenciaMarca(req, res) {
   }
 }
 
+/** Las subcategorías, opcionalmente las de una sola categoría. */
+async function listarSubcategorias(req, res) {
+  try {
+    res.json({ success: true, subcategorias: await subcategorias.listar(req.query) });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function crearSubcategoria(req, res) {
+  try {
+    const s = await subcategorias.crear(req.body || {});
+    res.status(201).json({ success: true, subcategoria: s, message: `"${s.nombre}" creada en ${s.categoria}.` });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function editarSubcategoria(req, res) {
+  try {
+    const { nombre, activo } = req.body || {};
+    const s = activo === undefined
+      ? await subcategorias.renombrar(req.params.id, { nombre })
+      : await subcategorias.cambiarEstado(req.params.id, activo);
+    res.json({ success: true, subcategoria: s });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Ponerle o quitarle la subcategoría a un producto. */
+async function asignarSubcategoria(req, res) {
+  try {
+    const r = await subcategorias.asignarAProducto(req.params.alegraId, req.body?.subcategoriaId);
+    res.json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Ponerle o quitarle la subcategoría a varios productos de una vez. */
+async function asignarSubcategoriaLote(req, res) {
+  try {
+    const { alegraIds, subcategoriaId } = req.body || {};
+    const r = await subcategorias.asignarLote(alegraIds, subcategoriaId);
+    res.json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Borra una subcategoría — solo si ya no tiene productos. */
+async function eliminarSubcategoria(req, res) {
+  try {
+    const r = await subcategorias.eliminar(req.params.id);
+    res.json({ success: true, ...r });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Orden final de TODAS las subcategorías de una categoría. */
+async function reordenarSubcategorias(req, res) {
+  try {
+    const { categoria, ids } = req.body || {};
+    const lista = await subcategorias.reordenar(categoria, ids);
+    res.json({ success: true, subcategorias: lista });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function renombrarCategoria(req, res) {
+  try {
+    const { categoria, nombreVisible } = req.body || {};
+    res.json({ success: true, ...(await categorias.renombrar(categoria, nombreVisible)) });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+/** Crea una categoría nueva EN ALEGRA (no solo local). */
+async function crearCategoria(req, res) {
+  try {
+    const categoria = await categorias.crear(req.body?.nombre);
+    res.status(201).json({ success: true, categoria });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
+async function reordenarCategorias(req, res) {
+  try {
+    const lista = await categorias.reordenar(req.body?.categorias);
+    res.json({ success: true, categorias: lista });
+  } catch (error) {
+    res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  listarSubcategorias,
+  crearSubcategoria,
+  editarSubcategoria,
+  asignarSubcategoria,
+  asignarSubcategoriaLote,
+  eliminarSubcategoria,
+  reordenarSubcategorias,
+  renombrarCategoria,
+  reordenarCategorias,
+  crearCategoria,
   listarProductos,
   listarProveedores,
+  arbolCatalogo,
+  productosDeCategoria,
   buscarImagenesPorReferencia,
   buscarImagenes,
   proxyImagen,
@@ -250,5 +433,8 @@ module.exports = {
   duplicarConMarca,
   siguienteReferenciaMarca,
   editarProducto,
-  eliminarProducto
+  eliminarProducto,
+  cambiarCategoriaLote,
+  moverSubcategoria,
+  estadoTrabajo
 };

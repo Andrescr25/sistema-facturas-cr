@@ -14,10 +14,21 @@ const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { sincronizarCostoDeLineas } = require('../precios/costoHistorico');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
+const {
+  palabrasClave,
+  normalizarReferencia,
+  esReferenciaConfiable,
+  calcularScoreCatalogo,
+  UMBRAL_SUGERENCIA
+} = require('../precios/matcher');
 
 const productService = getProductService();
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
+const MAX_FACTURAS_RELACIONADAS = 100;
+// Tope de productos del catálogo que se traen para puntuar contra TODOS los
+// pendientes a la vez. Es una consulta, no una por producto.
+const MAX_CANDIDATOS = 400;
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -191,50 +202,70 @@ async function getProductosPendientes() {
 
   const productosConSugerencias = [];
 
+  // UNA sola consulta para todos, no una por producto.
+  //
+  // Antes se consultaba el catálogo dentro del bucle: 26 productos pendientes
+  // eran 26 viajes a la base y la pantalla tardaba 28 segundos en abrir —lo
+  // suficiente para parecer colgada—. Se juntan las palabras y los códigos de
+  // todos, se traen los candidatos de una vez y se puntúa en memoria.
+  const claves = new Map();   // producto.id → palabras clave
+  const codigos = new Map();  // producto.id → códigos confiables
+  const palabrasTodas = new Set();
+  const codigosTodos = new Set();
+
   for (const producto of productosPendientes) {
-    // Buscar productos similares en la caché de Alegra
-    const palabrasClave = producto.descripcion.toLowerCase()
-      .split(' ')
-      .filter(palabra => palabra.length > 3)
+    const suyas = palabrasClave(producto.descripcion, 4);
+    const suyos = [producto.codigoComercial, producto.codigoProveedor].filter(esReferenciaConfiable);
+
+    claves.set(producto.id, suyas.length >= 2 ? suyas : []);
+    codigos.set(producto.id, suyos);
+    if (suyas.length >= 2) suyas.forEach(p => palabrasTodas.add(p));
+    suyos.forEach(c => codigosTodos.add(c));
+  }
+
+  const condiciones = [
+    ...[...codigosTodos].map(codigo => ({ reference: { equals: codigo, mode: 'insensitive' } })),
+    ...[...palabrasTodas].map(palabra => ({ searchText: { contains: palabra, mode: 'insensitive' } }))
+  ];
+
+  const candidatos = condiciones.length > 0
+    ? await prisma.alegraProduct.findMany({
+      where: {
+        AND: [
+          { status: 'active' },
+          { hiddenLocally: false },
+          { OR: condiciones }
+        ]
+      },
+      take: MAX_CANDIDATOS
+    })
+    : [];
+
+  for (const producto of productosPendientes) {
+    const suyas = claves.get(producto.id);
+    const suyos = codigos.get(producto.id);
+    if (suyas.length === 0 && suyos.length === 0) continue;
+
+    const codigosNormalizados = new Set(suyos.map(normalizarReferencia));
+
+    const sugerencias = candidatos.map(sim => {
+      const referenciaExacta = esReferenciaConfiable(sim.reference) &&
+        codigosNormalizados.has(normalizarReferencia(sim.reference));
+
+      return {
+        alegraId: sim.alegraId,
+        name: sim.name,
+        reference: sim.reference,
+        price: sim.price,
+        similarityScore: referenciaExacta ? 100 : calcularScoreCatalogo(producto.descripcion, sim)
+      };
+    })
+      .filter(s => s.similarityScore >= UMBRAL_SUGERENCIA)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, 3);
 
-    if (palabrasClave.length > 0) {
-      const similares = await prisma.alegraProduct.findMany({
-        where: {
-          OR: palabrasClave.map(palabra => ({
-            searchText: {
-              contains: palabra,
-              mode: 'insensitive'
-            }
-          }))
-        },
-        take: 3
-      });
-
-      if (similares.length > 0) {
-        // Calcular scores de similitud simples
-        const sugerencias = similares.map(sim => {
-          const matches = palabrasClave.filter(palabra =>
-            sim.name.toLowerCase().includes(palabra)
-          ).length;
-          const similarityScore = Math.round((matches / palabrasClave.length) * 100);
-
-          return {
-            alegraId: sim.alegraId,
-            name: sim.name,
-            reference: sim.reference,
-            price: sim.price,
-            similarityScore: similarityScore
-          };
-        }).filter(s => s.similarityScore >= 40);
-
-        if (sugerencias.length > 0) {
-          productosConSugerencias.push({
-            ...producto,
-            sugerencias: sugerencias
-          });
-        }
-      }
+    if (sugerencias.length > 0) {
+      productosConSugerencias.push({ ...producto, sugerencias });
     }
   }
 
@@ -438,13 +469,20 @@ async function devolverFactura(facturaId) {
 /**
  * Obtener facturas 100% relacionadas (listas para revisión de precios)
  */
-async function getFacturasRelacionadas() {
+async function getFacturasRelacionadas({ limit = MAX_FACTURAS_RELACIONADAS } = {}) {
   console.log('📋 Obteniendo facturas 100% relacionadas para revisión de precios...');
+  const limite = Math.min(Math.max(parseInt(limit, 10) || MAX_FACTURAS_RELACIONADAS, 1), 200);
 
   const facturas = await prisma.factura.findMany({
     where: {
       estado: {
         in: ['RELACIONADA', 'PROCESADA']
+      },
+      productos: {
+        some: {},
+        every: {
+          estadoRelacionado: 'RELACIONADO'
+        }
       }
     },
     include: {
@@ -456,19 +494,13 @@ async function getFacturasRelacionadas() {
     },
     orderBy: {
       fechaEmision: 'desc'
-    }
+    },
+    take: limite
   });
 
-  // Filtrar solo facturas 100% relacionadas
-  const facturasCompletas = facturas.filter(factura => {
-    const total = factura.productos.length;
-    const relacionados = factura.productos.filter(p => p.estadoRelacionado === 'RELACIONADO').length;
-    return total > 0 && relacionados === total;
-  });
+  console.log(`✅ ${facturas.length} facturas 100% relacionadas encontradas`);
 
-  console.log(`✅ ${facturasCompletas.length} facturas 100% relacionadas encontradas`);
-
-  return { facturas: facturasCompletas };
+  return { facturas };
 }
 
 /**
@@ -583,6 +615,44 @@ async function getProductosBatch(alegraIds) {
     productos,
     total: Object.keys(productos).length,
     solicitados: alegraIds.length
+  };
+}
+
+/**
+ * Qué se le manda a Alegra por UNA línea de la factura: el costo nuevo y, si
+ * se ajustó, el precio. `updateData` null = no hay nada que mandar.
+ *
+ * UNA LÍNEA DE REGALÍA NO TOCA EL COSTO. La bonificación del proveedor viene
+ * como otra línea del MISMO producto con 100 % de descuento: su costo sale 0,
+ * y mandarlo pisaba el costo bueno de la línea pagada con ₡0 (medido: 4 veces
+ * en el histórico). Peor, las líneas se mandan en paralelo, así que cuál
+ * quedaba dependía de cuál llegaba último. Una regalía no es el costo del
+ * producto: es mercadería gratis dentro de una compra.
+ *
+ * OJO: el costo va anidado en `inventory.unitCost` — un `cost` suelto en la
+ * raíz del payload Alegra lo ignora en silencio (el PUT responde 200 y el
+ * costo no cambia).
+ */
+function actualizacionDeLinea(producto, precioAjustado) {
+  // Costo real por unidad propia — fórmula única, ver precios/costo.js.
+  const { costoUnitario, costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(
+    producto,
+    producto.mapeo?.factorConversion
+  );
+  const costoSinIvaPropio = costoSinIvaConDescuento / factor;
+  const esRegalia = !(costoUnitario > 0);
+  const precioNuevo = precioAjustado && Number(precioAjustado) > 0 ? parseFloat(precioAjustado) : null;
+
+  const updateData = {};
+  if (!esRegalia) updateData.inventory = { unitCost: (Math.round(costoUnitario * 100) / 100).toString() };
+  if (precioNuevo !== null) updateData.price = precioNuevo;
+
+  return {
+    updateData: Object.keys(updateData).length > 0 ? updateData : null,
+    esRegalia,
+    costoUnitario,
+    costoSinIvaPropio,
+    precioNuevo
   };
 }
 
@@ -731,34 +801,15 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
       const alegraId = producto.alegraItemId;
       if (!alegraId) return { success: false, precioAjustado: false };
 
-      // Costo real por unidad propia — ver backend/src/modules/precios/costo.js
-      // (fórmula única, antes duplicada acá y en otros 2 módulos).
-      const { costoUnitario: costoNuevoNegocio, costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(
-        producto,
-        producto.mapeo?.factorConversion
-      );
-      const costoSinIvaPropio = costoSinIvaConDescuento / factor;
+      const {
+        updateData, esRegalia, costoUnitario: costoNuevoNegocio, costoSinIvaPropio, precioNuevo
+      } = actualizacionDeLinea(producto, preciosAjustados[producto.id]);
+      const precioAjustado = precioNuevo !== null;
+      if (precioAjustado) console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${precioNuevo.toFixed(2)}`);
 
-      // OJO: a diferencia de "price" (que Alegra sí acepta como número suelto),
-      // "cost" tiene que ir anidado en inventory.unitCost — confirmado en vivo
-      // que un "cost" suelto en la raíz del payload se ignora silenciosamente
-      // (el PUT responde 200 pero el costo nunca cambia). Este bug es previo
-      // al factor de conversión: existía incluso con factor=1.
-      const updateData = {
-        inventory: {
-          unitCost: (Math.round(costoNuevoNegocio * 100) / 100).toString()
-        }
-      };
-
-      let precioAjustado = false;
-      let precioNuevo = null;
-
-      // Si el usuario ajustó el precio, incluirlo
-      if (preciosAjustados[producto.id] && preciosAjustados[producto.id] > 0) {
-        precioNuevo = parseFloat(preciosAjustados[producto.id]);
-        updateData.price = precioNuevo;
-        precioAjustado = true;
-        console.log(`💰 Precio ajustado: ${producto.descripcion} → ₡${updateData.price.toFixed(2)}`);
+      if (!updateData) {
+        console.log(`🎁 ${producto.descripcion}: línea de regalía (costo 0), el costo del producto no se toca`);
+        return { success: true, precioAjustado: false, sinCosto: true };
       }
 
       const actualizacion = await productService.updateProduct(alegraId, updateData);
@@ -790,6 +841,10 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
         }
       }
 
+      if (esRegalia) {
+        console.log(`🎁 ${producto.descripcion}: línea de regalía, solo se aplicó el precio`);
+        return { success: true, precioAjustado, sinCosto: true };
+      }
       console.log(`✅ Costo actualizado: ${producto.descripcion} → ₡${costoNuevoNegocio.toFixed(2)}`);
       return { success: true, precioAjustado };
     } catch (error) {
@@ -800,7 +855,7 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
 
   const results = await Promise.all(updatePromises);
 
-  const costosActualizados = results.filter(r => r.success).length;
+  const costosActualizados = results.filter(r => r.success && !r.sinCosto).length;
   const preciosActualizados = results.filter(r => r.precioAjustado).length;
 
   console.log(`✅ Actualizaciones paralelas completadas: ${costosActualizados}/${productos.length} costos, ${preciosActualizados} precios`);
@@ -871,5 +926,6 @@ module.exports = {
   enviarFacturaAlegra,
   // Funciones puras exportadas para tests
   construirItemsFactura,
-  inferirTipoIdentificacion
+  inferirTipoIdentificacion,
+  actualizacionDeLinea
 };

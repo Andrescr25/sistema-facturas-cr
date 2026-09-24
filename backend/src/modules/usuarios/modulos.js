@@ -46,7 +46,10 @@ const MODULOS = [
     nombre: 'Facturas en Bodega',
     grupo: 'Ventas',
     ruta: '/facturas-bodega',
-    rutasApi: ['/bodega', '/faltantes']
+    // La pantalla llama a /alegra/bodega (el router de Alegra también lo
+    // monta): sin este prefijo, esas rutas caían en /alegra, compartida, y
+    // cualquier usuario con sesión podía marcar facturas como despachadas.
+    rutasApi: ['/bodega', '/alegra/bodega', '/faltantes']
   },
   {
     clave: 'clientes',
@@ -133,7 +136,11 @@ const MODULOS = [
     nombre: 'Gestión de Catálogo',
     grupo: 'Inventario',
     ruta: '/gestion-catalogo',
-    rutasApi: ['/maestro']   // productos y categorías propios; /alegra/catalog sigue compartida con Revisión de Precios
+    // /maestro: productos y categorías propios (lo que esta pantalla edita).
+    // /alegra/catalog: lo que todavía lee de la caché de Alegra (buscar fotos,
+    // siguiente referencia). Las lecturas que usan otras pantallas están en
+    // COMPARTIDAS, con su prefijo propio: gana el más específico.
+    rutasApi: ['/maestro', '/alegra/catalog']
   },
 
   // ---- Finanzas ----
@@ -177,14 +184,24 @@ const MODULOS = [
  *
  * No exponen decisiones de plata (márgenes, saldos, costos por proveedor):
  * eso vive en los módulos de arriba, que sí piden permiso.
+ *
+ * GANA EL PREFIJO MÁS ESPECÍFICO, sea de módulo o compartido (ver
+ * `clasificarRuta`): '/alegra/catalog' (Gestión de Catálogo) le gana a
+ * '/alegra', y '/alegra/catalog/search-images' (compartida) le gana a
+ * '/alegra/catalog'. Así un módulo puede ser dueño de un pedazo de un prefijo
+ * compartido sin cerrarle a nadie el resto.
  */
 const COMPARTIDAS = [
   '/auth',        // entrar, ver quién soy, cambiar mi propia contraseña
   '/alegra',      // catálogo, contactos e imágenes de Alegra
   '/productos',   // el catálogo local
   '/facturas',    // consulta de facturas, la usan varias pantallas
-  '/reportes',     // reporte de clientes y de proveedores comparten prefijo
-  '/catalogos'    // impuestos, métodos de pago, plazos y cuentas activos, solo lectura (Facturación, Cobros)
+  '/reportes',    // reporte de clientes y de proveedores comparten prefijo
+  '/catalogos',   // impuestos, métodos de pago, plazos, cuentas y productos activos, solo lectura (Facturación, Cobros)
+  // Lecturas de /alegra/catalog que usan pantallas de otros módulos:
+  '/alegra/catalog/search-images',           // Relacionar Productos (sugerir foto)
+  '/alegra/catalog/imagenes-por-referencia', // Bodega (foto de cada línea)
+  '/alegra/catalog/image-proxy'              // miniaturas (además es pública, ver auth.middleware)
 ];
 
 /** Solo para administradores: gestionar usuarios y sus permisos. */
@@ -204,25 +221,40 @@ function porGrupo() {
 }
 
 /**
- * A qué módulo pertenece un prefijo de la API, o null si es compartida.
- * Devuelve el módulo con el prefijo MÁS LARGO que coincida, para que
- * '/alegra/catalog' pudiera ganarle a '/alegra' si algún día hiciera falta.
+ * De quién es una ruta: el prefijo MÁS LARGO que calce, entre los de los
+ * módulos y los compartidos. `null` si ninguno calza.
+ *
+ * Antes se miraba primero si era compartida, y eso dejaba abierto cualquier
+ * módulo que viviera debajo de un prefijo compartido — Gestión de Catálogo,
+ * debajo de /alegra, quedaba al alcance de cualquiera con sesión.
  */
-function moduloDeRuta(ruta) {
+function clasificarRuta(ruta) {
+  const calza = (p) => ruta === p || ruta.startsWith(`${p}/`);
   let mejor = null;
   for (const m of MODULOS) {
     for (const prefijo of m.rutasApi) {
-      if ((ruta === prefijo || ruta.startsWith(`${prefijo}/`))
-        && (!mejor || prefijo.length > mejor.prefijo.length)) {
-        mejor = { clave: m.clave, prefijo };
+      if (calza(prefijo) && (!mejor || prefijo.length > mejor.prefijo.length)) {
+        mejor = { tipo: 'modulo', clave: m.clave, prefijo };
       }
     }
   }
-  return mejor ? mejor.clave : null;
+  for (const prefijo of COMPARTIDAS) {
+    if (calza(prefijo) && (!mejor || prefijo.length > mejor.prefijo.length)) {
+      mejor = { tipo: 'compartida', clave: null, prefijo };
+    }
+  }
+  return mejor;
+}
+
+/** A qué módulo pertenece una ruta, o null si es compartida o no tiene dueño. */
+function moduloDeRuta(ruta) {
+  const c = clasificarRuta(ruta);
+  return c && c.tipo === 'modulo' ? c.clave : null;
 }
 
 function esCompartida(ruta) {
-  return COMPARTIDAS.some(p => ruta === p || ruta.startsWith(`${p}/`));
+  const c = clasificarRuta(ruta);
+  return Boolean(c) && c.tipo === 'compartida';
 }
 
 function esRutaAdmin(ruta) {
@@ -231,5 +263,5 @@ function esRutaAdmin(ruta) {
 
 module.exports = {
   MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN,
-  porGrupo, moduloDeRuta, esCompartida, esRutaAdmin
+  porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin
 };

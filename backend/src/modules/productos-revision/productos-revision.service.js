@@ -15,6 +15,12 @@ const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
 const { sincronizarCostoDeLineas, sincronizarCostoDeMapeo } = require('../precios/costoHistorico');
+const {
+  palabrasClave,
+  normalizarReferencia,
+  esReferenciaConfiable,
+  calcularScoreCatalogo
+} = require('../precios/matcher');
 
 const productService = getProductService();
 
@@ -41,6 +47,38 @@ function httpError(status, message, extra = {}) {
   return error;
 }
 
+// Tope de productos del catálogo que entran en una búsqueda. Un término corto
+// —"bolsa"— calza con cientos, y mandarlos todos en un IN haría la consulta
+// más lenta que útil. Con este tope el buscador sigue sirviendo para lo que
+// se usa: encontrar UN producto por su nombre.
+const MAX_PRODUCTOS_BUSQUEDA = 300;
+const MAX_CANDIDATOS_BUSQUEDA_ALEGRA = 80;
+
+function ordenarProductosPorRelevancia(termino, productos, limite = 20) {
+  const terminoRef = normalizarReferencia(termino);
+  const terminoEsReferencia = esReferenciaConfiable(termino);
+
+  return productos
+    .map(producto => {
+      const referenciaExacta = terminoEsReferencia &&
+        esReferenciaConfiable(producto.reference) &&
+        normalizarReferencia(producto.reference) === terminoRef;
+      const scoreTexto = calcularScoreCatalogo(termino, producto);
+
+      return {
+        ...producto,
+        similarityScore: referenciaExacta ? 100 : scoreTexto,
+        referenciaExacta
+      };
+    })
+    .sort((a, b) => {
+      if (a.referenciaExacta !== b.referenciaExacta) return a.referenciaExacta ? -1 : 1;
+      if (a.similarityScore !== b.similarityScore) return b.similarityScore - a.similarityScore;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'es');
+    })
+    .slice(0, limite);
+}
+
 /**
  * Obtener productos relacionados con filtros (relaciones únicas por proveedor+código)
  */
@@ -60,9 +98,29 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
     filtros.OR = [
       { supplierDesc: { contains: busqueda, mode: 'insensitive' } },
       { supplierCode: { contains: busqueda, mode: 'insensitive' } },
+      // `alegraName` es una FOTO de cuando se creó la relación y nadie la
+      // refresca. Se sigue buscando por ahí para que el nombre viejo también
+      // encuentre —quien lo recuerde así lo va a teclear—, pero no alcanza.
       { alegraName: { contains: busqueda, mode: 'insensitive' } },
       { alegraReference: { contains: busqueda, mode: 'insensitive' } }
     ];
+
+    // Y TAMBIÉN POR EL NOMBRE DE HOY. La lista muestra el nombre actual del
+    // catálogo, así que se podía leer "EXTENSION CTE BLANCA 3 MTS VOLTECK" en
+    // pantalla, copiarlo tal cual al buscador y no encontrar nada: la relación
+    // lo tiene guardado como "...3 MTS CTE", de antes de que lo renombraran.
+    // No poder encontrar algo por el nombre con que la propia pantalla lo
+    // llama es de las cosas que hacen desconfiar del buscador entero.
+    // Son 98 de 2.056 relaciones las que tienen el nombre desfasado.
+    const productos = await query(
+      `SELECT alegra_id FROM alegra_products_cache
+        WHERE name ILIKE $1 OR reference ILIKE $1
+        LIMIT ${MAX_PRODUCTOS_BUSQUEDA}`,
+      [`%${busqueda}%`]
+    );
+    if (productos.rows.length > 0) {
+      filtros.OR.push({ alegraItemId: { in: productos.rows.map(f => String(f.alegra_id)) } });
+    }
   }
 
   const skip = (page - 1) * limit;
@@ -1063,27 +1121,46 @@ async function guardarFactorConversion(mapeoId, factorNumerico) {
  * Buscar productos en la caché local de Alegra
  */
 async function buscarEnCache(q) {
-  console.log(`🔍 Buscando en caché local: "${q}"`);
+  const termino = String(q || '').trim();
+  console.log(`🔍 Buscando en caché local: "${termino}"`);
+
+  const claves = palabrasClave(termino, 4);
+  const condiciones = [
+    { name: { contains: termino, mode: 'insensitive' } },
+    { reference: { contains: termino, mode: 'insensitive' } },
+    { searchText: { contains: termino, mode: 'insensitive' } },
+    ...claves.map(palabra => ({
+      searchText: {
+        contains: palabra,
+        mode: 'insensitive'
+      }
+    }))
+  ];
 
   const productos = await prisma.alegraProduct.findMany({
     where: {
-      OR: [
-        { name: { contains: q, mode: 'insensitive' } },
-        { reference: { contains: q, mode: 'insensitive' } },
-        { searchText: { contains: q, mode: 'insensitive' } }
+      AND: [
+        { status: 'active' },
+        { hiddenLocally: false },
+        { OR: condiciones }
       ]
     },
-    take: 20,
+    take: MAX_CANDIDATOS_BUSQUEDA_ALEGRA,
     orderBy: {
       name: 'asc'
     }
   });
 
-  const productosFormateados = productos.map(p => ({
+  const productosOrdenados = ordenarProductosPorRelevancia(termino, productos);
+
+  const productosFormateados = productosOrdenados.map(p => ({
     id: p.alegraId,
     name: p.name,
     reference: p.reference,
-    price: p.price
+    price: p.price,
+    cost: p.cost,
+    category: p.category,
+    similarityScore: p.similarityScore
   }));
 
   return { productos: productosFormateados, total: productosFormateados.length };

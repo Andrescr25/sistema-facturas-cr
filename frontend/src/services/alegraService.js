@@ -113,17 +113,6 @@ export const alegraService = {
     }
   },
 
-  // Obtener factura para registrar faltantes
-  async getFacturaDetalle(id) {
-    try {
-      const response = await api.get(`/alegra/facturas/detalle/${id}`)
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo factura:', error)
-      throw new Error(`Error obteniendo factura: ${error.message}`)
-    }
-  },
-
   // Obtener productos de Alegra
   async getProductos(page = 1, limit = 30) {
     try {
@@ -260,6 +249,14 @@ export const alegraService = {
   },
 
   // Procesar factura individual
+  /**
+   * OJO: este método estaba DUPLICADO en este mismo objeto, y en JavaScript
+   * gana el último. El de abajo mandaba `{ factura, items_editados }` anidado
+   * y el servidor lee los campos de la raíz, así que respondía
+   * "alegra_id es requerido" y NINGUNA modificación se aplicaba: el PDF salía
+   * con la factura sin tocar. Por eso el de acá, que aplana el payload, no
+   * puede volver a tener un gemelo más abajo.
+   */
   async procesarFacturaIndividual(factura, itemsEditados = null) {
     try {
       console.log('📋 Frontend: Procesando factura individual:', factura.numero_factura);
@@ -377,21 +374,6 @@ export const alegraService = {
   // Estos métodos no se usan actualmente - el flujo principal usa los métodos en líneas 250 y 277
   /*
   // Procesar factura individual con actualización de precios
-  async procesarFacturaIndividual(factura, itemsEditados = null) {
-    try {
-      console.log('🖨️ Frontend: Procesando factura individual:', factura.numero_factura);
-      const response = await api.post('/alegra/facturas/procesar-individual', {
-        factura,
-        items_editados: itemsEditados
-      })
-      console.log('✅ Frontend: Factura procesada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error procesando factura individual:', error);
-      throw new Error(`Error procesando factura: ${error.message}`)
-    }
-  },
-
   // Recuperar factura procesada
   async recuperarFactura(alegraId) {
     try {
@@ -418,8 +400,20 @@ export const alegraService = {
       return response.data;
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo facturas para bodega:', error);
-      throw new Error(`Error obteniendo facturas para bodega: ${error.message}`);
+      // En palabras de persona: antes llegaba al teléfono "timeout of 180000ms exceeded".
+      const mensaje = error.code === 'ECONNABORTED'
+        ? 'El servidor tardó demasiado en responder.'
+        : !error.response
+          ? 'No hay conexión con el servidor.'
+          : (error.response.data?.message || error.message);
+      throw new Error(mensaje);
     }
+  },
+
+  /** Lo que bodega ya registró de una factura, producto por producto (de la base, sin Alegra). */
+  async getEstadosFacturaBodega(alegraId) {
+    const response = await api.get(`/alegra/bodega/facturas/${alegraId}/estados`);
+    return response.data?.data || [];
   },
 
   async getImagenesPorReferencia(referencias) {
@@ -463,6 +457,19 @@ export const alegraService = {
   },
 
   // Obtener reporte de faltantes por proveedor
+
+  /**
+   * Las notas que se le escribieron a cada producto al facturarlo.
+   *
+   * Va aparte del reporte a propósito: el reporte sale de la base local y
+   * carga rápido, y esto tiene que ir a Alegra. Si fallan las notas, el
+   * reporte se sigue viendo.
+   */
+  async getNotasDeFaltantes(fechaInicio = null) {
+    const params = fechaInicio ? { fecha_inicio: fechaInicio } : {}
+    const response = await api.get('/alegra/reportes/faltantes/notas', { params })
+    return response.data
+  },
   async getReporteFaltantesProveedor(fechaInicio) {
     try {
       console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor', fechaInicio ? `desde ${fechaInicio}` : '');

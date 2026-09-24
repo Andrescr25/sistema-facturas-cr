@@ -115,8 +115,8 @@ export function useInventarioAuditoria() {
   const [descuentos, setDescuentos] = useState([])
   const [loadingDescuentos, setLoadingDescuentos] = useState(false)
 
-  // Regalías: productos que llegaron a 100% de descuento acumulado y ya
-  // fueron entregados a un cliente elegido al azar (ver escalarDescuentosExceso).
+  // Regalías: historial de lo que se regaló mientras existió la escalada
+  // semanal automática del descuento (quitada el 2026-09-20).
   const [regalos, setRegalos] = useState([])
 
   // Load initial dashboard data

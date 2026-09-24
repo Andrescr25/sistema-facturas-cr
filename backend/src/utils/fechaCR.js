@@ -29,6 +29,10 @@ const FORMATO = new Intl.DateTimeFormat('en-CA', {
  * formatearlo en UTC−6, devolvía "2026-09-07". Pasar de un día de calendario
  * a un día de calendario es la identidad; la conversión solo tiene sentido
  * para un INSTANTE (un Date con hora).
+ *
+ * Hoy todos los que llaman acá pasan un Date, así que el error estaba
+ * latente. Se vio en la rama de la migración, donde un recordatorio le decía
+ * a un cliente "vencida hace 6 días" cuando eran 5.
  */
 const SOLO_DIA = /^\d{4}-\d{2}-\d{2}$/;
 

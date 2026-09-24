@@ -1,5 +1,7 @@
 import { Users, Package, RefreshCw, FileText, Download, MessageCircle, Trash2, ArrowLeft } from 'lucide-react'
 import { getCantidadFinal, usaDatosProveedor } from '../../utils/reporteProveedoresUtils'
+import NotasDelProducto from './NotasDelProducto'
+import PanelNotasProveedor from './PanelNotasProveedor'
 
 /**
  * Panel de detalle de un proveedor: acciones (guardar cambios, generar PDF,
@@ -29,7 +31,9 @@ export default function ProveedorDetalle({
   eliminarProductoAgregado,
   onAgregarProducto,
   onAbrirWhatsApp,
-  onAbrirModalAsignar
+  onAbrirModalAsignar,
+  notasPorProducto,
+  cargandoNotas
 }) {
   return (
     <div className="animate-fade-in-up">
@@ -97,6 +101,14 @@ export default function ProveedorDetalle({
         </div>
       </div>
 
+      {/* Lo que pidieron los clientes, junto y plegado, para leerlo antes de
+          empezar a poner cantidades. */}
+      <PanelNotasProveedor
+        productos={proveedor.productos_faltantes}
+        notasPorProducto={notasPorProducto}
+        cargando={cargandoNotas}
+      />
+
       {/* Lista de Productos del Proveedor */}
       <div className="card shadow-sm p-0 overflow-hidden border border-neutro-200">
         <div className="bg-neutro-50 border-b border-neutro-200 p-4 flex justify-between items-center">
@@ -125,6 +137,10 @@ export default function ProveedorDetalle({
                   <div className="flex-1 min-w-0">
                     <p className={`font-semibold truncate ${estaEliminado ? 'line-through text-neutro-400' : 'text-neutro-900'}`}>{producto.nombre}</p>
                     <p className="text-xs text-neutro-500 truncate">Código: {pCodigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
+                    {/* Qué variante pidió el cliente. Solo aparece si la hay. */}
+                    {!estaEliminado && (
+                      <NotasDelProducto notas={notasPorProducto?.[String(producto.alegra_item_id)]} />
+                    )}
                   </div>
                 </div>
 

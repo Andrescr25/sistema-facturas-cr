@@ -15,7 +15,7 @@
  */
 
 const { query } = require('../../../config/database');
-const { clasificarProducto, IVA_ASUMIDO } = require('../precios/auditoria');
+const { clasificarProducto, tasaIvaDe } = require('../precios/auditoria');
 const { obtenerCostosDerivados } = require('../precios/costoDerivado');
 const { calcularTechoCompetencia } = require('../precios/motor');
 
@@ -105,8 +105,7 @@ async function obtenerCatalogoClasificado() {
     // están al 13% (44 al 1%, 15 al 2%, 9 al 4%, 6 exentos, 3 al 8%) y
     // quitarles un 13% que no pagan les corría el margen que muestra la
     // pantalla. Sin tarifa asignada —14 productos— se cae al supuesto de antes.
-    const tasaIva = p.tarifa === null || p.tarifa === undefined ? IVA_ASUMIDO : Number(p.tarifa);
-    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + tasaIva / 100) : null;
+    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + tasaIvaDe(p.tarifa) / 100) : null;
     const margenEfectivo = costoEfectivoSinIva !== null && precio > 0
       ? ((precio - costoEfectivoSinIva) / precio) * 100
       : null;

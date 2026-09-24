@@ -25,6 +25,8 @@ const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const categoriasConfig = require('../catalogo/categorias.service');
+const subcategoriasConfig = require('../catalogo/subcategorias.service');
 
 // La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
 // tamaño de página para no tener que cambiarla a ella también.
@@ -55,6 +57,42 @@ function aFormaDeTablet(row) {
 }
 
 /**
+ * Pegarle a cada producto su subcategoría.
+ *
+ * La subcategoría es NUESTRA —vive en `alegra_products_cache`, no en Alegra—,
+ * así que los productos que bajan por `/items` no la traen. Se agrega acá, de
+ * a página, para que viaje con el catálogo que la tablet guarda para trabajar
+ * sin señal: pedirla aparte obligaría a una segunda descarga que en el campo
+ * no siempre se puede hacer.
+ *
+ * Si la consulta falla, el catálogo sale sin subcategorías en vez de no
+ * salir: es un dato para ordenar la vista, no para vender.
+ */
+async function conSubcategoria(productos) {
+  if (productos.length === 0) return productos;
+
+  try {
+    const ids = productos.map((p) => String(p.id));
+    const { rows } = await query(
+      `SELECT c.alegra_id, s.id AS sub_id, s.nombre AS sub_nombre
+         FROM alegra_products_cache c
+         JOIN subcategoria s ON s.id = c.subcategoria_id AND s.activo = true
+        WHERE c.alegra_id = ANY($1::text[])`,
+      [ids]
+    );
+
+    const porId = new Map(rows.map((r) => [r.alegra_id, { id: r.sub_id, nombre: r.sub_nombre }]));
+    return productos.map((p) => {
+      const sub = porId.get(String(p.id));
+      return sub ? { ...p, subcategoria: sub } : p;
+    });
+  } catch (error) {
+    console.error('⚠️ No se pudieron adjuntar subcategorías al catálogo:', error.message);
+    return productos;
+  }
+}
+
+/**
  * GET /api/catalogo-agente/productos?start=&limit=
  * Devuelve { products, debug } igual que el proxy original, filtrando solo
  * productos activos.
@@ -72,7 +110,7 @@ async function listarProductos({ start = 0, limit = 30 } = {}) {
   `, [limitNum, startNum]);
 
   return {
-    products: rows.map(aFormaDeTablet),
+    products: await conSubcategoria(rows.map(aFormaDeTablet)),
     debug: {
       start: startNum,
       limit: limitNum,
@@ -388,12 +426,31 @@ async function obtenerHistorialParaCatalogo() {
   };
 }
 
+/**
+ * GET /api/catalogo-agente/config-catalogo
+ *
+ * El orden y el nombre visible de categorías, y el orden de subcategorías
+ * dentro de cada una — lo que la tablet necesita para pintar el catálogo en
+ * el mismo orden que se armó en Gestión de Catálogo. Se descarga una vez por
+ * sincronización, junto con los productos: es una tabla chica (categorías +
+ * subcategorías, no productos), así que no vale la pena paginarla.
+ */
+async function obtenerConfigCatalogo() {
+  const [categorias, subcategorias] = await Promise.all([
+    categoriasConfig.listar(),
+    subcategoriasConfig.listar({ incluirInactivas: false })
+  ]);
+  return { categorias, subcategorias };
+}
+
 module.exports = {
+  conSubcategoria,
   listarProductos,
   listarCategorias,
   listarOfertas,
   listarOfertasPorBaja,
   sincronizarHistorialCompras,
   obtenerHistorialParaCatalogo,
-  eliminarLineasObsoletas
+  eliminarLineasObsoletas,
+  obtenerConfigCatalogo
 };

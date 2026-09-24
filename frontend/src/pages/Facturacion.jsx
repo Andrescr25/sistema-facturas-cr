@@ -10,6 +10,7 @@ import EstadoCatalogo from '../components/facturacion/EstadoCatalogo'
 import PasoCliente from '../components/facturacion/PasoCliente'
 import TarjetaCliente from '../components/facturacion/TarjetaCliente'
 import AgregarProductos from '../components/facturacion/AgregarProductos'
+import BarraSugerencias from '../components/facturacion/BarraSugerencias'
 import LineaFactura from '../components/facturacion/LineaFactura'
 import PanelCobro from '../components/facturacion/PanelCobro'
 import ModalCantidad from '../components/facturacion/ModalCantidad'
@@ -50,7 +51,7 @@ export default function Facturacion() {
     metodosPago, metodoPagoId, elegirMetodoPago, referenciaPago, setReferenciaPago,
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
-    productos, facturasPendientes,
+    productos, sugerencias, agregarSugerencia, facturasPendientes,
     clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
@@ -170,7 +171,17 @@ export default function Facturacion() {
             </>
           ) : (
             <div className="grid items-start gap-4 lg:grid-cols-3 lg:gap-6">
-              <div className="flex flex-col gap-4 lg:col-span-2">
+              {/* `min-w-0`: sin esto, un item de CSS Grid tiene por omisión
+                  `min-width: auto` — se niega a encogerse por debajo del
+                  ancho de su contenido. La franja de "Suele faltar" de más
+                  abajo tiene diez tarjetas con `overflow-x-auto` adentro,
+                  pensadas para desplazarse DENTRO de este ancho; sin el
+                  `min-w-0`, esta columna crecía para caber las diez sin
+                  enrollar (1.546px medidos en un teléfono de 390px) y
+                  empujaba TODA la página a lo ancho, tapando media pantalla
+                  de gris. El `overflow-x-auto` de adentro nunca llegaba a
+                  actuar porque nada le pedía encogerse primero. */}
+              <div className="flex flex-col gap-4 lg:col-span-2 min-w-0">
                 <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
 
                 <AgregarProductos
@@ -195,6 +206,15 @@ export default function Facturacion() {
                   productosEncontrados={productosEncontrados}
                   totalProductosEncontrados={totalProductosEncontrados}
                   onSeleccionarProducto={abrirModalCantidadProducto}
+                />
+
+                {/* Lo que este cliente lleva siempre. Va DEBAJO de agregar
+                    productos y encima de la factura: es el momento en que el
+                    agente todavía puede preguntar "¿y esto, no ocupa?". */}
+                <BarraSugerencias
+                  sugerencias={sugerencias}
+                  items={items}
+                  onAgregar={agregarSugerencia}
                 />
 
                 {hayLineas ? (

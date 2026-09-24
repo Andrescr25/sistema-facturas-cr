@@ -3,12 +3,37 @@
  */
 
 const ReportService = require('./report.service');
+const notasDeFaltantes = require('./notasDeFaltantes');
 const ResponseHelper = require('../../utils/response.helper');
 
 class ReportController {
   constructor() {
     this.reportService = new ReportService();
   }
+
+  /**
+   * GET /reports/faltantes/notas — las notas que se le escribieron a cada
+   * producto al facturarlo, para leerlas mientras se le compra al proveedor.
+   *
+   * Va aparte del reporte a propósito: ese se arma con la base local y carga
+   * rápido. Si esto viviera adentro, el día que Alegra esté lenta no se
+   * podría ni ver qué hay que comprar.
+   */
+  getNotasDeFaltantes = async (req, res) => {
+    try {
+      const { fecha_inicio } = req.query;
+      const r = await notasDeFaltantes.notasPorProducto(fecha_inicio || null);
+      return res.json({ success: true, data: r });
+    } catch (error) {
+      console.error('❌ Error trayendo las notas de los faltantes:', error.message);
+      // No se cae el reporte por esto: se responde vacío diciendo qué pasó.
+      return res.json({
+        success: false,
+        data: { porProducto: {}, facturas: 0, desde: null },
+        message: 'No se pudieron traer las notas en este momento.'
+      });
+    }
+  };
 
   getMissingItemsBySupplier = async (req, res) => {
     try {

@@ -27,14 +27,17 @@ const rutaServicio = require.resolve('../src/modules/inventario-auditorias/inven
  * `stockEnAlegra` es lo que contesta Alegra hoy por cada producto.
  */
 function montar({ vigentes = [], stockEnAlegra = {} } = {}) {
-  const registro = { escrituras: [], pedidosAAlegra: [] };
+  const registro = { escrituras: [], pedidosAAlegra: [], existeFila: false };
 
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: {
       query: async (sql, params) => {
         const texto = String(sql);
-        if (/UPDATE producto_descuento_exceso/.test(texto)) {
+        if (/SELECT id FROM producto_descuento_exceso WHERE alegra_item_id/.test(texto)) {
+          return { rows: registro.existeFila ? [{ id: 1 }] : [] };
+        }
+        if (/(UPDATE|INSERT INTO) producto_descuento_exceso/.test(texto)) {
           registro.escrituras.push({ sql: texto, params });
         }
         return { rows: [] };
@@ -148,23 +151,55 @@ describe('sacar de liquidación lo que se agotó', () => {
   });
 });
 
-describe('la tanda de excesos ya no nace sola', () => {
-  test('el arranque programa la revisión, no la creación de tandas', async () => {
+describe('el exceso ya no corre solo', () => {
+  // Antes había un cron intermedio (iniciarRevisionSemanalExcesos) que no
+  // creaba tandas pero sí escalaba descuentos cada domingo sin que nadie lo
+  // pidiera. El usuario pidió quitarlo del todo (2026-09-20): ya no queda
+  // NADA de excesos corriendo desatendido, ni la tanda ni el descuento.
+  test('ni el cron ni la revisión semanal existen', async () => {
     const { servicio } = montar({ vigentes: [] });
-    // Lo que se exporta define lo que puede correr desatendido.
-    assert.equal(typeof servicio.iniciarRevisionSemanalExcesos, 'function');
-    assert.equal(typeof servicio.revisionSemanalDeExcesos, 'function');
+    assert.equal(servicio.iniciarRevisionSemanalExcesos, undefined,
+      'ya no debe quedar ningún cron de excesos');
+    assert.equal(servicio.revisionSemanalDeExcesos, undefined,
+      'la revisión semanal se fue con el cron: escalaba descuentos sola');
     assert.equal(typeof servicio.generarTandaDeExcesos, 'function');
-    assert.equal(servicio.generarExcesosSemanales, undefined,
-      'generarExcesosSemanales ya no existe: se partió en revisión (automática) y tanda (manual)');
+    assert.equal(servicio.generarExcesosSemanales, undefined);
   });
 
-  test('nada en el servidor arranca la creación de tandas', () => {
+  test('nada en el servidor arranca la creación de tandas ni ningún cron de excesos', () => {
     const fs = require('fs');
     const arranque = fs.readFileSync(require.resolve('../server.js'), 'utf8');
     assert.ok(!/generarTandaDeExcesos/.test(arranque),
       'el servidor no debe crear tandas al arrancar ni por reloj');
-    assert.match(arranque, /iniciarRevisionSemanalExcesos/);
+    assert.ok(!/iniciarRevisionSemanalExcesos/.test(arranque),
+      'el servidor no debe registrar ningún cron de excesos');
+  });
+
+  test('el descuento inicial se pone una sola vez y no vuelve a subir', async () => {
+    const { servicio, registro } = montar({ vigentes: [] });
+    const candidato = { alegra_id: '99', name: 'PRODUCTO X', reference: 'REF-X' };
+
+    // Primera vez: no existe fila todavía -> se inserta con el inicial.
+    await servicio.escalarDescuentosExceso([candidato]);
+    const insert = registro.escrituras.find(e => /INSERT INTO producto_descuento_exceso/.test(e.sql));
+    assert.ok(insert, 'debería insertar el descuento inicial la primera vez');
+
+    // Segunda vez: ya "existe" fila -> no debe haber ningún UPDATE que le
+    // suba el porcentaje ni ninguna consulta de regalo.
+    registro.escrituras.length = 0;
+    registro.existeFila = true;
+    await servicio.escalarDescuentosExceso([candidato]);
+    assert.equal(registro.escrituras.length, 0,
+      'un producto que ya tiene descuento no debe tocarse de nuevo');
+  });
+
+  test('no queda ningún incremento semanal en el código', () => {
+    const fs = require('fs');
+    const fuente = fs.readFileSync(
+      require.resolve('../src/modules/inventario-auditorias/inventario-auditorias.service'), 'utf8'
+    );
+    assert.ok(!/DESCUENTO_INCREMENTO/.test(fuente),
+      'no debe quedar ninguna constante ni lógica de incremento semanal');
   });
 });
 

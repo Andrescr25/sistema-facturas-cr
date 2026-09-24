@@ -6,6 +6,11 @@
 const axios = require('axios');
 const { getInstance: getAlegraClient } = require('../alegra.client');
 const prisma = require('../../../../lib/prisma');
+const {
+  palabrasClave,
+  calcularScoreCatalogo,
+  UMBRAL_SUGERENCIA
+} = require('../../../modules/precios/matcher');
 
 // Algunos sitios de origen rechazan descargas server-side que no parezcan
 // venir de un navegador real. No evita bloqueos serios (WAFs tipo Cloudflare
@@ -58,6 +63,20 @@ class AlegraProductService {
       console.error('❌ Error obteniendo categorías de productos de Alegra:', error.response?.data || error.message);
       throw error;
     }
+  }
+
+  /**
+   * Crear una categoría de producto nueva en Alegra (POST /item-categories).
+   * Nunca se había necesitado antes de esto: las categorías siempre fueron
+   * de solo lectura. Se usa para partir una categoría existente en dos
+   * (2026-09-21, pedido del usuario) — el nombre tiene que ser exacto porque
+   * después se reasignan productos contra el id que devuelve esto.
+   */
+  async createItemCategory(name) {
+    console.log(`📦 Creando categoría de productos "${name}" en Alegra...`);
+    const response = await this.client.api.post('/item-categories', { name });
+    console.log(`✅ Categoría "${response.data.name}" creada con id ${response.data.id}`);
+    return { id: response.data.id, name: response.data.name };
   }
 
   /**
@@ -485,33 +504,36 @@ class AlegraProductService {
    */
   async findSimilarProducts(description, supplierCode) {
     try {
-      const keywords = description.toLowerCase()
-        .split(' ')
-        .filter(word => word.length > 2)
-        .slice(0, 5);
+      const keywords = palabrasClave(description);
 
-      if (keywords.length === 0) return [];
+      if (keywords.length < 2) return [];
 
       const products = await this.prisma.alegraProduct.findMany({
         where: {
-          OR: keywords.map(keyword => ({
-            searchText: {
-              contains: keyword,
-              mode: 'insensitive'
+          AND: [
+            { status: 'active' },
+            { hiddenLocally: false },
+            {
+              OR: keywords.map(keyword => ({
+                searchText: {
+                  contains: keyword,
+                  mode: 'insensitive'
+                }
+              }))
             }
-          }))
+          ]
         },
         take: 10
       });
 
       const productsWithScore = products.map(product => {
-        const score = this.calculateSimilarityScore(description, product);
+        const score = calcularScoreCatalogo(description, product);
         return {
           ...product,
           similarityScore: score
         };
       })
-        .filter(product => product.similarityScore > 30)
+        .filter(product => product.similarityScore >= UMBRAL_SUGERENCIA)
         .sort((a, b) => b.similarityScore - a.similarityScore);
 
       return productsWithScore;
@@ -522,16 +544,7 @@ class AlegraProductService {
   }
 
   calculateSimilarityScore(supplierDesc, alegraProduct) {
-    const supplierWords = supplierDesc.toLowerCase().split(' ').filter(w => w.length > 2);
-    const alegraText = `${alegraProduct.name} ${alegraProduct.reference} ${alegraProduct.description}`.toLowerCase();
-
-    let matches = 0;
-    supplierWords.forEach(word => {
-      if (alegraText.includes(word)) matches++;
-    });
-
-    const score = Math.round((matches / supplierWords.length) * 100);
-    return Math.min(score, 100);
+    return calcularScoreCatalogo(supplierDesc, alegraProduct);
   }
 }
 

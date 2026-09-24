@@ -11,6 +11,9 @@ const reportController = new ReportController();
 // Reporte de faltantes por proveedor
 router.get('/faltantes/proveedor', reportController.getMissingItemsBySupplier);
 
+// Las notas escritas al facturar, para leerlas al comprar
+router.get('/faltantes/notas', reportController.getNotasDeFaltantes);
+
 // Reporte de faltantes por cliente
 router.get('/faltantes/cliente', reportController.getMissingItemsByClient);
 

@@ -8,7 +8,12 @@ const axios = require('axios');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { query } = require('../../../config/database');
 const idempotencia = require('./idempotencia');
+const ventaSinStock = require('../../integrations/alegra/ventaSinStock');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+
+// Cuántos productos trabados se destraban en un mismo envío. Alegra nombra uno
+// por vez; el tope evita que un rechazo distinto se vuelva un ciclo.
+const MAX_DESTRABES = 5;
 
 class FacturacionService {
   constructor() {
@@ -85,13 +90,27 @@ class FacturacionService {
    * Obtiene todos los productos de Alegra para cache offline
    */
   async getItems() {
-    console.log('📦 Obteniendo todos los productos de Alegra para cache (paralelo)...');
-    const allItems = await this.fetchAllParallel('/items', { type: 'product' }, 5, 30);
+    console.log('📦 Obteniendo los productos ACTIVOS de Alegra para cache (paralelo)...');
+
+    // SOLO LOS ACTIVOS. Antes venían todos, incluidos los desactivados, y la
+    // pantalla de Facturación los ofrecía igual: el 14 de setiembre de 2026 se
+    // facturó "DISCO 1000 HOJAS LIJAR", que estaba desactivado por ser un
+    // duplicado, en vez del bueno —y a ₡775 en vez de ₡515—. El resto del
+    // sistema ya aplicaba esta regla (el catálogo de clientes y el interno
+    // filtran por `status = 'active'`); Facturación era la que no.
+    const allItems = await this.fetchAllParallel('/items', { type: 'product', status: 'active' }, 5, 30);
+
+    // Y se filtra de nuevo acá. El parámetro lo respeta Alegra hoy; esto es
+    // para que el día que deje de respetarlo no vuelva a pasar en silencio.
+    const activos = allItems.filter(i => i.status === 'active');
+    if (activos.length !== allItems.length) {
+      console.warn(`⚠️ Alegra devolvió ${allItems.length - activos.length} productos desactivados pese al filtro: se descartaron.`);
+    }
 
     return {
       success: true,
-      data: allItems,
-      total: allItems.length,
+      data: activos,
+      total: activos.length,
       timestamp: new Date().toISOString()
     };
   }
@@ -128,6 +147,10 @@ class FacturacionService {
       items: invoiceData.items?.length,
       clave: claveIdempotencia || '(sin clave)'
     });
+
+    // Antes de reservar la clave: una factura que no se puede armar no tiene
+    // por qué dejar un intento registrado ni llegar a Alegra.
+    await this._revisarProductosActivos(invoiceData);
 
     if (!claveIdempotencia) {
       console.warn('⚠️ Factura sin clave de idempotencia: si esta petición se reenvía, se duplicará.');
@@ -170,10 +193,108 @@ class FacturacionService {
     }
   }
 
+  /**
+   * Ningún producto DESACTIVADO se factura.
+   *
+   * POR QUÉ NO ALCANZA CON SACARLOS DEL CATÁLOGO. La lista viaja al
+   * dispositivo y se guarda ahí para poder facturar sin señal. Una tablet que
+   * bajó el catálogo antes de que el producto se desactivara lo sigue
+   * ofreciendo, y la factura que arma llega igual al servidor. El 14 de
+   * setiembre de 2026 pasó con "DISCO 1000 HOJAS LIJAR", duplicado de otro y
+   * desactivado justamente por eso.
+   *
+   * SE MIRA EL CATÁLOGO LOCAL, no Alegra: preguntarle a Alegra por cada línea
+   * serían diez idas y vueltas antes de cada factura. Y se rechaza SOLO si el
+   * catálogo dice que existe y está desactivado; un producto que no está en la
+   * copia pasa, porque puede ser nuevo y no haber entrado en la última
+   * sincronización. Bloquear por no saber sería peor que el problema.
+   */
+  async _revisarProductosActivos(invoiceData) {
+    const ids = [...new Set((invoiceData.items || []).map(i => String(i.id)).filter(Boolean))];
+    if (ids.length === 0) return;
+
+    const { rows } = await query(
+      `SELECT alegra_id, name FROM alegra_products_cache
+        WHERE alegra_id = ANY($1::text[]) AND status <> 'active'`,
+      [ids]
+    );
+    if (rows.length === 0) return;
+
+    const nombres = rows.map(r => r.name).join(', ');
+    const e = new Error(
+      rows.length === 1
+        ? `"${nombres}" está desactivado y no se puede facturar. Si es un duplicado, buscá el producto bueno; si lo reactivaste hace poco, actualizá el catálogo.`
+        : `Estos productos están desactivados y no se pueden facturar: ${nombres}. Si son duplicados, buscá los productos buenos.`
+    );
+    e.status = 400;
+    throw e;
+  }
+
+  /**
+   * Manda la factura, y si Alegra la rechaza porque un producto no se puede
+   * facturar sin existencias, le prende el permiso a ESE producto y la manda
+   * otra vez.
+   *
+   * POR QUÉ SE HACE SOLO. La casa casi no maneja inventario: quedan artículos
+   * de antes de un cambio interno con el permiso apagado, y cuando entran
+   * varios pedidos se van a negativo. El cajero no tiene por qué entrar a
+   * Alegra a destrabar un producto con el cliente enfrente.
+   *
+   * ALEGRA NOMBRA UN PRODUCTO POR VEZ, así que se repite: destrabar, mandar,
+   * y si sale otro, otra vuelta. Con tope, para que un rechazo que no sea de
+   * stock no se convierta en un ciclo.
+   *
+   * REENVIAR ES SEGURO ACÁ: Alegra CONTESTÓ que no. Con respuesta consta que
+   * no creó nada, que es justo lo que distingue un rechazo de un timeout.
+   *
+   * Se puede apagar con FACTURAR_SIN_STOCK=false sin tocar código.
+   */
+  async _mandarFacturaDestrabando(invoiceData) {
+    const automatico = process.env.FACTURAR_SIN_STOCK !== 'false';
+    const items = Array.isArray(invoiceData.items) ? invoiceData.items : [];
+    const destrabados = [];
+
+    for (let vuelta = 0; vuelta <= MAX_DESTRABES; vuelta++) {
+      try {
+        return { respuesta: await this.client.request('POST', '/invoices', invoiceData), destrabados };
+      } catch (error) {
+        const ultimaVuelta = vuelta === MAX_DESTRABES;
+        if (!automatico || ultimaVuelta || !ventaSinStock.esFaltaDeStock(error)) throw error;
+
+        // Cuál producto es. Se pregunta por los de ESTA factura y se elige el
+        // que Alegra nombró: tocar otro sería cambiar configuración que nadie
+        // pidió. Si el texto no calza con ninguno, el error sube tal cual.
+        const mensaje = error.response?.data?.message || '';
+        const fichas = await Promise.all(
+          items.map((i) => this.client.request('GET', `/items/${i.id}`).catch(() => null))
+        );
+        const culpable = ventaSinStock.itemDelMensaje(mensaje, fichas.filter(Boolean));
+
+        if (!culpable) {
+          console.warn('⚠️ Alegra rechazó por stock pero no se reconoció el producto en el mensaje:', mensaje);
+          throw error;
+        }
+
+        const r = await ventaSinStock.permitirVentaSinStock(this.client, culpable.id);
+        if (!r.cambiado) {
+          console.warn(`⚠️ No se pudo habilitar la venta sin stock de "${r.nombre}": ${r.aviso}`);
+          throw error;
+        }
+        destrabados.push(r.nombre);
+      }
+    }
+
+    // Inalcanzable: la última vuelta relanza. Queda por si alguien cambia el tope.
+    throw new Error('No se pudo enviar la factura.');
+  }
+
   /** El llamado a Alegra y el registro local, sin la capa de idempotencia. */
   async _crearEnAlegraYRegistrar(invoiceData) {
-    const response = await this.client.request('POST', '/invoices', invoiceData);
+    const { respuesta: response, destrabados } = await this._mandarFacturaDestrabando(invoiceData);
     console.log('✅ Factura creada exitosamente:', response.id);
+    if (destrabados.length) {
+      console.log(`ℹ️ Para poder facturarla se habilitó la venta sin existencias de: ${destrabados.join(', ')}`);
+    }
 
     // Registrar en BD local
     try {

@@ -81,6 +81,11 @@ export function useFacturacion() {
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+
+  // Lo que ese cliente suele llevar. Es el mismo cálculo que ve él en su
+  // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
+  // que el portal no le muestra.
+  const [sugerencias, setSugerencias] = useState({ habituales: [], perdidos: [] })
   const [items, setItems] = useState([])
   const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [observaciones, setObservaciones] = useState('')
@@ -756,6 +761,56 @@ export function useFacturacion() {
     enfocarYMostrarBusquedaProducto()
   }
 
+  // Se piden al elegir al cliente, no al abrir la pantalla: sin cliente no hay
+  // nada que sugerir. Si falla, se factura igual que hasta ayer.
+  //
+  // EL HISTÓRICO TODAVÍA HABLA EN IDS DE ALEGRA (sección 12): se pide con el
+  // id de Alegra del cliente, y cada sugerencia llega con el id de Alegra del
+  // producto. Con el id propio se sugerían las compras de OTRO cliente —el
+  // contacto de Alegra que tiene ese número— y tocar una agregaba OTRO
+  // producto. Ver docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
+  // Un cliente creado solo en la base propia no tiene histórico: nada que
+  // sugerir.
+  useEffect(() => {
+    const alegraId = clienteSeleccionado?.alegraId
+    if (!alegraId) { setSugerencias({ habituales: [], perdidos: [] }); return }
+
+    let vigente = true
+    facturacionService.getSugerenciasCliente(alegraId)
+      .then(r => { if (vigente) setSugerencias(r) })
+      .catch(() => { if (vigente) setSugerencias({ habituales: [], perdidos: [] }) })
+    return () => { vigente = false }
+  }, [clienteSeleccionado?.alegraId])
+
+  // Las sugerencias con el id PROPIO del producto —el de `productos` y el de
+  // las líneas de la factura—, traducidas una sola vez acá. Así la barra y
+  // "agregar" comparan ids de la misma clase. La que no está en el catálogo
+  // de la tablet no se muestra: no se podría agregar.
+  const sugerenciasPropias = useMemo(() => {
+    const porAlegra = new Map(productos.filter(p => p.alegraId).map(p => [String(p.alegraId), p.id]))
+    const traducir = (lista) => (lista || [])
+      .map(s => (porAlegra.has(String(s.id)) ? { ...s, id: porAlegra.get(String(s.id)) } : null))
+      .filter(Boolean)
+    return { habituales: traducir(sugerencias.habituales), perdidos: traducir(sugerencias.perdidos) }
+  }, [sugerencias, productos])
+
+  /**
+   * Agregar desde una sugerencia.
+   *
+   * Se busca el producto COMPLETO en el catálogo que ya está en la tablet y se
+   * agrega por el camino de siempre. La sugerencia trae nombre y precio para
+   * mostrarse, pero no el impuesto de la línea: armar el ítem con ella sería
+   * repetir el error que hacía que un producto al 1 % se facturara al 13 %.
+   */
+  const agregarSugerencia = (sugerencia) => {
+    const producto = productos.find(p => String(p.id) === String(sugerencia.id))
+    if (!producto) {
+      mostrarMensaje('Ese producto no está en el catálogo de esta tablet. Actualizá el catálogo.', 'warning', 4000)
+      return
+    }
+    agregarProductoAFactura(producto, 1)
+  }
+
   const agregarProductoAFactura = (producto, cantidad) => {
     // Verificar si ya existe
     const existente = items.find(item => item.id === producto.id)
@@ -1207,6 +1262,8 @@ export function useFacturacion() {
     // Datos
     productos,
     clientes,
+    sugerencias: sugerenciasPropias,
+    agregarSugerencia,
     facturasPendientes,
 
     // Factura actual

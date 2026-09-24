@@ -17,6 +17,8 @@ import ToastContainer from '../components/ToastContainer'
 export default function ReporteProveedores() {
   const {
     proveedores,
+    notasPorProducto,
+    cargandoNotas,
     pedidosEnviados,
     resumen,
     loading,
@@ -205,6 +207,8 @@ export default function ReporteProveedores() {
         />
       ) : proveedorActivo ? (
         <ProveedorDetalle
+          notasPorProducto={notasPorProducto}
+          cargandoNotas={cargandoNotas}
           proveedor={proveedorActivo}
           onVolver={() => setProveedorActivoId(null)}
           cantidadesModificadas={cantidadesModificadas}

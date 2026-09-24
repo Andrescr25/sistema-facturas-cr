@@ -2,6 +2,31 @@ const prisma = require('../lib/prisma');
 const { ligarIdsPropios } = require('../src/modules/productos-revision/idsPropiosDelMapeo');
 const { guardarXmlRutaDeFactura, guardarTotalesDelResumen } = require('../src/utils/xmlRutaComprobante');
 const almacenamiento = require('../src/integrations/almacenamiento');
+const {
+    normalizar,
+    palabrasClave,
+    esReferenciaConfiable,
+    calcularScoreSimilitud,
+    UMBRAL_SUGERENCIA
+} = require('../src/modules/precios/matcher');
+
+const UMBRAL_DESCRIPCION_MAPEO_DEBIL = 70;
+
+function esCodigoGeneradoPorDescripcion(codigo) {
+    return String(codigo || '').startsWith('DESC-');
+}
+
+function descripcionesCompatibles(actual, guardada) {
+    if (!actual || !guardada) return true;
+    if (normalizar(actual) === normalizar(guardada)) return true;
+    return calcularScoreSimilitud(actual, guardada) >= UMBRAL_DESCRIPCION_MAPEO_DEBIL;
+}
+
+function mapeoSeguroParaReusar(producto, mapeo) {
+    if (esCodigoGeneradoPorDescripcion(producto.codigo)) return true;
+    if (esReferenciaConfiable(producto.codigo)) return true;
+    return descripcionesCompatibles(producto.descripcion, mapeo.supplierDesc);
+}
 
 class DatabaseService {
     constructor() {
@@ -56,7 +81,7 @@ class DatabaseService {
                     }
                 });
 
-                if (mapeo) {
+                if (mapeo && mapeoSeguroParaReusar(producto, mapeo)) {
                     console.log(`✅ Mapeo encontrado: ${producto.codigo} → ${mapeo.alegraName} (${mapeo.alegraItemId})`);
                     productosConMapeo.push({
                         ...producto,
@@ -66,6 +91,12 @@ class DatabaseService {
                         confianza: mapeo.confidence
                     });
                 } else {
+                    if (mapeo) {
+                        console.warn(
+                            `⚠️ Mapeo ignorado por código débil/descripción distinta: ` +
+                            `${producto.codigo} guardado como "${mapeo.supplierDesc}" y llegó "${producto.descripcion}"`
+                        );
+                    }
                     console.log(`⚠️ Sin mapeo previo: ${producto.codigo} - ${producto.descripcion.substring(0, 50)}`);
                     productosConMapeo.push({
                         ...producto,
@@ -309,15 +340,12 @@ class DatabaseService {
             }
 
             // 2. Buscar mapeos similares por descripción
-            const palabrasClave = descripcion.toLowerCase()
-                .split(' ')
-                .filter(palabra => palabra.length > 3)
-                .slice(0, 3); // Tomar solo las primeras 3 palabras importantes
+            const claves = palabrasClave(descripcion, 4);
 
-            if (palabrasClave.length > 0) {
+            if (claves.length >= 2) {
                 const mapeosSimilares = await this.prisma.supplierProductMapping.findMany({
                     where: {
-                        OR: palabrasClave.map(palabra => ({
+                        OR: claves.map(palabra => ({
                             supplierDesc: {
                                 contains: palabra,
                                 mode: 'insensitive'
@@ -331,19 +359,16 @@ class DatabaseService {
                 });
 
                 const sugerencias = mapeosSimilares.map(mapeo => {
-                    // Calcular confianza básica basada en palabras coincidentes
-                    const coincidencias = palabrasClave.filter(palabra =>
-                        mapeo.supplierDesc.toLowerCase().includes(palabra)
-                    ).length;
-
-                    const confianza = Math.round((coincidencias / palabrasClave.length) * 80);
+                    const confianza = normalizar(descripcion) === normalizar(mapeo.supplierDesc)
+                        ? 100
+                        : calcularScoreSimilitud(descripcion, mapeo.supplierDesc);
 
                     return {
                         tipo: 'SIMILAR',
                         confianza: confianza,
                         mapeo: mapeo
                     };
-                }).filter(sugerencia => sugerencia.confianza > 30);
+                }).filter(sugerencia => sugerencia.confianza >= UMBRAL_SUGERENCIA);
 
                 if (sugerencias.length > 0) {
                     console.log(`💡 ${sugerencias.length} sugerencias encontradas`);
@@ -555,4 +580,3 @@ class DatabaseService {
 }
 
 module.exports = DatabaseService;
-

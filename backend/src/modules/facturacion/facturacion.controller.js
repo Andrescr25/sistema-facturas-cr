@@ -4,7 +4,9 @@
  */
 
 const FacturacionService = require('./facturacion.service');
+const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.service');
 const ResponseHelper = require('../../utils/response.helper');
+const { explicarFalloAlegra } = require('../../integrations/alegra');
 
 class FacturacionController {
   constructor() {
@@ -46,12 +48,20 @@ class FacturacionController {
       const result = await this.facturacionService.createInvoice(invoiceData, claveIdempotencia || null);
       return ResponseHelper.success(res, result.data, result.message);
     } catch (error) {
-      console.error('❌ Error creando factura en Alegra:', error);
-      // Los conflictos de idempotencia (ya en vuelo, o quedó incierta) NO son
-      // un error del servidor: son un aviso de que reenviar duplicaría. Van
-      // con su propio código para que el navegador no los trate como falla.
-      const estado = error.status || 500;
-      return ResponseHelper.error(res, error.message, estado, error.response?.data);
+      console.error('❌ Error creando factura en Alegra:', error.response?.data || error);
+
+      // EL MOTIVO DE ALEGRA VA EN EL MENSAJE, no en el detalle.
+      //
+      // Antes se mandaba `error.message` —el de axios, "Request failed with
+      // status code 400"— y el motivo real viajaba como cuarto argumento, que
+      // `ResponseHelper.error` SOLO incluye cuando NODE_ENV es 'development'.
+      // En producción se descartaba: Alegra explicaba que el producto estaba
+      // configurado para no facturarse sin stock y el cajero leía un código.
+      //
+      // Los conflictos de idempotencia (ya en vuelo, o quedó incierta) pasan
+      // por acá sin tocarse: ya traen su código y su mensaje escrito.
+      const fallo = explicarFalloAlegra(error);
+      return ResponseHelper.error(res, fallo.mensaje, fallo.status, error.response?.data);
     }
   };
 
@@ -83,6 +93,30 @@ class FacturacionController {
     } catch (error) {
       console.error('❌ Error obteniendo PDF de factura:', error);
       return ResponseHelper.error(res, error.message, 500);
+    }
+  };
+
+  /**
+   * GET /facturacion/clientes/:alegraContactId/sugerencias
+   *
+   * Lo que ese cliente suele llevar, para que el agente se lo pueda recordar
+   * mientras le toma el pedido con él enfrente. Es exactamente el mismo
+   * cálculo que ve el cliente en su catálogo —si fueran dos cuentas
+   * distintas, el agente le ofrecería algo que el portal no le muestra—, así
+   * que se reusa el servicio en vez de escribirlo otra vez.
+   *
+   * ACÁ EL CLIENTE VIENE EN LA RUTA, y en el portal sale del token. No es una
+   * inconsistencia: quien factura es del personal y le está cobrando a ese
+   * cliente, mientras que un cliente no puede pedir la portada de otro.
+   */
+  getSugerenciasCliente = async (req, res) => {
+    try {
+      const { habituales, perdidos } = await obtenerInicio(req.params.alegraContactId);
+      return ResponseHelper.success(res, { habituales, perdidos });
+    } catch (error) {
+      console.error('❌ Error obteniendo sugerencias del cliente:', error.message);
+      // Sin sugerencias se factura igual que hasta ayer: no se estorba.
+      return ResponseHelper.success(res, { habituales: [], perdidos: [] });
     }
   };
 
