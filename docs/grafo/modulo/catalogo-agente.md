@@ -12,6 +12,7 @@ archivos:
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
   - frontend/src/components/catalogo-agente/SelectorCliente.jsx
+  - backend/tests/liquidacionSinStock.test.js
   - backend/src/modules/ventas/rotacion.js
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
@@ -43,10 +44,12 @@ CLIENTE NUEVO (2026-09-25). En el selector de clientes, "Cliente nuevo" va
 siempre arriba y aparece al buscarlo. No existe en Alegra: es un id fijo
 (`CLIENTE_NUEVO_ID`) sin compras. Con él elegido, en vez del catálogo
 completo se ve `catalogoClienteNuevo`: OFERTA (las rebajas, con la etiqueta
-"OFERTA" en vez del porcentaje), después rotación A ("Lo más vendido") y
-después B ("También se vende bien"), cada una por categoría y subcategoría.
-Lo que está en oferta no se repite en A/B, la C no se muestra, y el buscador
-sigue viendo todo el catálogo. La rotación baja al sincronizar de
+"OFERTA" en vez del porcentaje), LIQUIDACIÓN (los excesos, con su
+descuento), después rotación A ("Lo más vendido") y después B ("También se
+vende bien"), cada una por categoría y subcategoría. Ningún producto sale dos
+veces: la liquidación gana (su descuento se cobra encima del precio rebajado,
+así que es el precio real), y lo de oferta no se repite en A/B. La C no se
+muestra, y el buscador sigue viendo todo el catálogo. La rotación baja al sincronizar de
 `GET /catalogo-agente/rotacion` (solo ids, pide sesión) y se guarda en la
 tablet como las rebajas. Es la rotación EN EL MOMENTO de
 `ventas/rotacion.js` (unidades de los últimos 3 meses, la misma de
@@ -54,3 +57,9 @@ tablet como las rebajas. Es la rotación EN EL MOMENTO de
 
 Las ofertas en la tarjeta son DOS cosas distintas — ver
 [[leccion/dos-clases-de-oferta]].
+
+LA TARJETA NO DICE NADA DEL STOCK (2026-09-25, decisión del usuario): el
+negocio es intermediario, casi nunca tiene existencias y vende con el stock
+del proveedor. "Agotado" y "Quedan N" se quitaron, y un producto en cero sale
+en su lugar como cualquier otro. La única excepción es Liquidación, que sí es
+mercadería física (sale sola cuando se acaba: `liquidacionSinStock.test.js`).

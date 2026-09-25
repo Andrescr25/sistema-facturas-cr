@@ -8,9 +8,10 @@
  * buscador si el cliente pregunta.
  *
  * LO QUE SE CUIDA
- *  - el orden: oferta, después A, después B — y dentro de cada una, por
- *    categoría y subcategoría, como el resto del catálogo;
- *  - que lo que ya está en oferta no salga otra vez en A o B;
+ *  - el orden: oferta, liquidación, después A, después B — y dentro de cada
+ *    una, por categoría y subcategoría, como el resto del catálogo;
+ *  - que ningún producto salga dos veces (la liquidación gana: su precio es
+ *    el que se cobra);
  *  - que la C no aparezca;
  *  - que la rotación no quede abierta al público: dice qué es lo que más se
  *    vende.
@@ -72,7 +73,7 @@ describe('el catálogo de "Cliente nuevo"', () => {
     const c = catalogoClienteNuevo(CATALOGO, { rotacion: ROTACION, configCatalogo: CONFIG });
     const todos = [...c.A, ...c.B].flatMap((b) => b.productos.map((p) => p.id));
     assert.ok(!todos.includes('7'));
-    assert.deepEqual(c.totales, { oferta: 0, A: 4, B: 2 });
+    assert.deepEqual(c.totales, { oferta: 0, liquidacion: 0, A: 4, B: 2 });
   });
 
   test('lo que está en oferta no se repite en A ni en B', () => {
@@ -81,12 +82,25 @@ describe('el catálogo de "Cliente nuevo"', () => {
     const enAyB = [...c.A, ...c.B].flatMap((b) => b.productos.map((p) => p.id));
     assert.ok(!enAyB.includes('2') && !enAyB.includes('5'));
     assert.deepEqual(c.oferta.map((b) => b.clave), ['Productos de PVC', 'Ferretería']);
-    assert.deepEqual(c.totales, { oferta: 2, A: 3, B: 1 });
+    assert.deepEqual(c.totales, { oferta: 2, liquidacion: 0, A: 3, B: 1 });
+  });
+
+  test('la liquidación va por categoría, y lo que está ahí no sale en ninguna otra parte', () => {
+    const rebajados = [{ ...CATALOGO[1], precioAntes: 500 }, { ...CATALOGO[4], precioAntes: 9000 }];
+    const liquidacion = [{ ...CATALOGO[4], descuentoPorcentaje: 30 }, { ...CATALOGO[0], descuentoPorcentaje: 20 }, { ...CATALOGO[6], descuentoPorcentaje: 50 }];
+    const c = catalogoClienteNuevo(CATALOGO, { rebajados, liquidacion, rotacion: ROTACION, configCatalogo: CONFIG });
+    assert.deepEqual(c.liquidacion.map((b) => b.clave), ['Ferretería', 'Limpieza'], 'por categoría, no por porcentaje');
+    const ids = (bloques) => bloques.flatMap((b) => b.productos.map((p) => p.id));
+    assert.deepEqual(ids(c.oferta), ['2'], 'la sierra también bajó de precio, pero se cobra con el descuento de liquidación');
+    assert.ok(!ids(c.A).includes('1') && !ids(c.B).includes('5'));
+    const todos = [...ids(c.oferta), ...ids(c.liquidacion), ...ids(c.A), ...ids(c.B)];
+    assert.equal(new Set(todos).size, todos.length, 'ningún producto dos veces');
+    assert.deepEqual(c.totales, { oferta: 1, liquidacion: 3, A: 2, B: 1 });
   });
 
   test('sin rotación descargada, queda solo la oferta', () => {
     const c = catalogoClienteNuevo(CATALOGO, { rebajados: [CATALOGO[0]], rotacion: null, configCatalogo: CONFIG });
-    assert.deepEqual(c.totales, { oferta: 1, A: 0, B: 0 });
+    assert.deepEqual(c.totales, { oferta: 1, liquidacion: 0, A: 0, B: 0 });
   });
 
   test('"Cliente nuevo" no tiene compras: no arma "lo que más compra"', () => {

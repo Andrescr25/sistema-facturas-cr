@@ -9,7 +9,7 @@ archivos:
   - backend/tests/catalogoLote.test.js
 aristas:
   relacionado: [modulo/gestion-catalogo, leccion/la-db-local-es-produccion]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 La categoría es de Alegra: cambiarla es un `GET` + un `PUT /items/:id` por

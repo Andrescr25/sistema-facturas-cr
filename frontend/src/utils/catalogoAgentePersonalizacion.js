@@ -179,38 +179,49 @@ export function esClienteNuevo(cliente) {
 }
 
 /**
- * El catálogo para un cliente nuevo, en tres partes y en este orden:
+ * El catálogo para un cliente nuevo, en cuatro partes y en este orden:
  *
  *   1. OFERTA: lo que bajó de precio (las mismas rebajas de "Bajamos el
  *      precio"; a quien no conoce el precio de antes se le dice "oferta").
- *   2. Rotación A: lo que más se vende, que es lo más fácil de vender.
- *   3. Rotación B: cuando se termina la A.
+ *   2. LIQUIDACIÓN: los excesos de inventario, con su descuento (agregada el
+ *      2026-09-25 a pedido del usuario).
+ *   3. Rotación A: lo que más se vende, que es lo más fácil de vender.
+ *   4. Rotación B: cuando se termina la A.
  *
  * Cada parte en bloques por categoría y, dentro, por subcategoría — el mismo
  * orden que el resto del catálogo (`enOrdenDelCatalogo`).
  *
- * Lo que ya está en OFERTA no se repite en A ni en B: saldría dos veces y el
- * agente creería que son productos distintos. La C no se muestra; si el
- * cliente pregunta por algo que no está, lo encuentra la búsqueda, que
- * siempre mira el catálogo entero.
+ * NINGÚN PRODUCTO SALE DOS VECES: el agente creería que son productos
+ * distintos. Lo que está en Liquidación no se repite en ninguna otra parte
+ * —ni siquiera en Oferta si además bajó de precio: el descuento de
+ * liquidación se cobra ENCIMA del precio rebajado, así que el precio de
+ * Liquidación es el que el cliente paga de verdad—. Lo de Oferta no se
+ * repite en A ni en B. La C no se muestra; si el cliente pregunta por algo
+ * que no está, lo encuentra la búsqueda, que siempre mira el catálogo entero.
+ *
+ * Las existencias no cuentan para nada: el negocio vende con el stock del
+ * proveedor.
  *
  * `rotacion` es lo que devuelve GET /catalogo-agente/rotacion ({ A, B }, ids
- * de Alegra). Sin él (nunca sincronizó) no hay A ni B: solo la oferta.
+ * de Alegra). Sin él (nunca sincronizó) no hay A ni B: solo las ofertas.
  */
-export function catalogoClienteNuevo(products, { rebajados = [], rotacion = null, configCatalogo = null } = {}) {
-  const enOferta = new Set(rebajados.map((p) => String(p.id)))
+export function catalogoClienteNuevo(products, { rebajados = [], liquidacion = [], rotacion = null, configCatalogo = null } = {}) {
+  const enLiquidacion = new Set(liquidacion.map((p) => String(p.id)))
+  const oferta = rebajados.filter((p) => !enLiquidacion.has(String(p.id)))
+  const yaMostrados = new Set([...enLiquidacion, ...oferta.map((p) => String(p.id))])
   const claseA = new Set((rotacion?.A || []).map(String))
   const claseB = new Set((rotacion?.B || []).map(String))
 
-  const deClase = (clase) => products.filter((p) => clase.has(String(p.id)) && !enOferta.has(String(p.id)))
+  const deClase = (clase) => products.filter((p) => clase.has(String(p.id)) && !yaMostrados.has(String(p.id)))
   const a = deClase(claseA)
   const b = deClase(claseB)
 
   return {
-    oferta: enOrdenDelCatalogo(rebajados, configCatalogo),
+    oferta: enOrdenDelCatalogo(oferta, configCatalogo),
+    liquidacion: enOrdenDelCatalogo(liquidacion, configCatalogo),
     A: enOrdenDelCatalogo(a, configCatalogo),
     B: enOrdenDelCatalogo(b, configCatalogo),
-    totales: { oferta: rebajados.length, A: a.length, B: b.length }
+    totales: { oferta: oferta.length, liquidacion: liquidacion.length, A: a.length, B: b.length }
   }
 }
 

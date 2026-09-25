@@ -171,12 +171,13 @@ export default function CatalogoAgente() {
   )
 
   const categorias = useMemo(() => {
-    // "Cliente nuevo": la barra salta entre sus tres partes, no entre las
+    // "Cliente nuevo": la barra salta entre sus cuatro partes, no entre las
     // categorías del catálogo completo (que en este modo no se muestra).
     if (clienteNuevo) {
       const { totales } = clienteNuevo
-      const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: totales.oferta + totales.A + totales.B }]
+      const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: totales.oferta + totales.liquidacion + totales.A + totales.B }]
       if (totales.oferta > 0) lista.push({ clave: '__oferta', texto: 'Oferta', icono: Tag, contador: totales.oferta })
+      if (totales.liquidacion > 0) lista.push({ clave: '__liquidacion', texto: 'Liquidación', icono: Flame, contador: totales.liquidacion })
       if (totales.A > 0) lista.push({ clave: '__rotA', texto: 'Lo más vendido', icono: Award, contador: totales.A })
       if (totales.B > 0) lista.push({ clave: '__rotB', texto: 'También se vende bien', icono: ThumbsUp, contador: totales.B })
       return lista
@@ -258,13 +259,20 @@ export default function CatalogoAgente() {
           </Seccion>
         ) : clienteNuevo ? (
           /* "Cliente nuevo": en vez del catálogo completo, lo más fácil de
-             vender — la oferta, y después la rotación A y la B, cada una por
-             categoría y subcategoría. Lo demás sigue a mano en el buscador. */
+             vender — la oferta, la liquidación, y después la rotación A y la
+             B, cada una por categoría y subcategoría. Lo demás sigue a mano
+             en el buscador. */
           <>
             {(enTodo || categoria === '__oferta') && clienteNuevo.totales.oferta > 0 && (
               <Seccion titulo="Oferta" descripcion="Precios especiales"
                 icono={Tag} color="bg-acento-50 text-acento-600">
                 <BloquesPorCategoria bloques={clienteNuevo.oferta} comoOferta />
+              </Seccion>
+            )}
+            {(enTodo || categoria === '__liquidacion') && clienteNuevo.totales.liquidacion > 0 && (
+              <Seccion titulo="Liquidación" descripcion="Mientras dure la existencia"
+                icono={Flame} color="bg-nota-50 text-nota-600">
+                <BloquesPorCategoria bloques={clienteNuevo.liquidacion} />
               </Seccion>
             )}
             {(enTodo || categoria === '__rotA') && clienteNuevo.totales.A > 0 && (

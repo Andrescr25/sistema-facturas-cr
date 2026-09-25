@@ -271,7 +271,7 @@ export function useCatalogoAgente() {
   }, [products, ofertas])
 
   // Las bajas de precio traen su propia forma; se cruzan con el catálogo
-  // descargado para que la tarjeta reciba el producto completo (foto, stock)
+  // descargado para que la tarjeta reciba el producto completo (foto, subcategoría)
   // y de paso se descartan las de productos que el agente no tiene bajados.
   const productosRebajados = useMemo(() => {
     if (!ofertasBaja || ofertasBaja.length === 0) return []
@@ -287,12 +287,15 @@ export function useCatalogoAgente() {
       .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
   }, [products, ofertasBaja])
 
-  // El catálogo de "Cliente nuevo": oferta, rotación A y rotación B, cada una
-  // por categoría y subcategoría. Solo se arma con ese cliente elegido.
+  // El catálogo de "Cliente nuevo": oferta, liquidación, rotación A y
+  // rotación B, cada una por categoría y subcategoría. Solo se arma con ese
+  // cliente elegido.
   const clienteNuevo = useMemo(() => {
     if (!esClienteNuevo(clienteActivo)) return null
-    return catalogoClienteNuevo(products, { rebajados: productosRebajados, rotacion, configCatalogo })
-  }, [clienteActivo, products, productosRebajados, rotacion, configCatalogo])
+    return catalogoClienteNuevo(products, {
+      rebajados: productosRebajados, liquidacion: featuredProducts, rotacion, configCatalogo
+    })
+  }, [clienteActivo, products, productosRebajados, featuredProducts, rotacion, configCatalogo])
 
 
   const updateSyncUI = useCallback((message, percent) => {

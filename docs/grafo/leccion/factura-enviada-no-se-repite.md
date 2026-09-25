@@ -8,7 +8,7 @@ archivos:
   - backend/tests/facturaProveedorNoSeDuplica.test.js
 aristas:
   relacionado: [modulo/revision-precios]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 En Revisión de Precios, el estado `ENVIADA` de una factura de proveedor es la
