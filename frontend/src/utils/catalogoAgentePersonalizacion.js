@@ -143,6 +143,25 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto, configCat
 }
 
 /**
+ * Una lista corta —las rebajas de "Bajamos el precio"— en el orden del
+ * catálogo: un bloque por categoría, en el orden de Gestión de Catálogo, y
+ * dentro de cada una sus productos por subcategoría (en su orden; lo sin
+ * clasificar al final de su categoría). Antes salían por porcentaje de rebaja,
+ * revueltas: el PVC entre un cortaúñas y un bombillo.
+ *
+ * Es `ordenarCatalogoParaCliente` sin cliente, a propósito: el mismo orden
+ * que el resto del catálogo, no uno aparte que se pueda desacomodar.
+ */
+export function enOrdenDelCatalogo(productos, configCatalogo = null) {
+  const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(productos, new Map(), configCatalogo)
+  return sortedKeys.map((clave) => ({
+    clave,
+    nombre: nombreVisibleDeCategoria(clave, configCatalogo),
+    productos: subgrupos[clave] ? subgrupos[clave].flatMap((f) => f.productos) : grouped[clave]
+  }))
+}
+
+/**
  * El `name` real de Alegra -> su orden manual. Sin config, todo empata.
  *
  * Exportada para que Gestión de Catálogo pinte su riel en el MISMO orden

@@ -13,7 +13,7 @@ archivos:
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
-medido: 2026-09-23
+medido: 2026-09-24
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
@@ -30,6 +30,11 @@ arriba de todo.
 
 La búsqueda (`buscarCatalogoAgente.js`) descarta el agrupado y devuelve una
 lista plana; Gestión de Catálogo hace lo mismo al buscar.
+
+"Bajamos el precio" también va en el orden del catálogo (2026-09-24): un
+bloque por categoría y, dentro, por subcategoría (`enOrdenDelCatalogo`, que
+es `ordenarCatalogoParaCliente` sin cliente). Antes iba por porcentaje de
+rebaja y los productos salían revueltos. "Liquidación" sigue por porcentaje.
 
 Las ofertas en la tarjeta son DOS cosas distintas — ver
 [[leccion/dos-clases-de-oferta]].

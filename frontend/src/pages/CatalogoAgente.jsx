@@ -4,7 +4,7 @@ import {
   LayoutGrid, Tag, UserCheck, Loader2, ChevronRight
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
-import { nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
+import { enOrdenDelCatalogo, nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import BarraSuperior from '../components/catalogo-agente/BarraSuperior'
 import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
@@ -138,6 +138,13 @@ export default function CatalogoAgente() {
     [productosRebajados, featuredProducts]
   )
 
+  // "Bajamos el precio" en el orden del catálogo: por categoría y, dentro,
+  // por subcategoría. Revueltas por porcentaje, el agente no encontraba nada.
+  const rebajasPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(productosRebajados, configCatalogo),
+    [productosRebajados, configCatalogo]
+  )
+
   const categorias = useMemo(() => {
     const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: filteredData.flat.length }]
     if (ofertas.length > 0) lista.push({ clave: '__ofertas', texto: 'Ofertas', icono: Tag, contador: ofertas.length })
@@ -219,7 +226,13 @@ export default function CatalogoAgente() {
             {(enTodo || categoria === '__ofertas') && productosRebajados.length > 0 && (
               <Seccion titulo="Bajamos el precio" descripcion="Ahora cuestan menos que antes"
                 icono={TrendingDown} color="bg-acento-50 text-acento-600">
-                <Cuadricula productos={productosRebajados} />
+                {/* Un bloque por categoría; cada tarjeta dice su subcategoría. */}
+                {rebajasPorCategoria.map((b) => (
+                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
+                    sinClasificar={b.clave === 'Otros'}>
+                    <Cuadricula productos={b.productos} />
+                  </Subgrupo>
+                ))}
               </Seccion>
             )}
 
