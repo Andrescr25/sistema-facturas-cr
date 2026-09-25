@@ -27,6 +27,7 @@ correo son los de PRODUCCIÓN.
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md)
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
+- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md)
 
 ## Tablas
 
@@ -34,6 +35,7 @@ correo son los de PRODUCCIÓN.
 - [Subcategorías — nuestras, colgadas del NOMBRE de la categoría de Alegra](tabla/subcategoria.md) — `subcategoria`
 - [Orden y nombre visible de las categorías de Alegra](tabla/categoria-config.md) — `categoria_config`
 - [Quién vende qué — el vínculo producto ↔ proveedor, por cédula](tabla/supplier-product-mapping.md) — `supplier_product_mapping`
+- [El historial de ventas — una línea por producto y factura, de donde sale la rotación](tabla/venta-historico.md) — `venta_historico`
 
 ## Decisiones
 
@@ -52,6 +54,7 @@ correo son los de PRODUCCIÓN.
 - [ENVIADA prueba que la compra ya existe en Alegra — reenviarla duplica el gasto](leccion/factura-enviada-no-se-repite.md)
 - [El día del calendario no se saca con toISOString()](leccion/fecha-utc-costa-rica.md)
 - [Los teléfonos de Alegra vienen sucios](leccion/telefonos-sucios.md)
+- [Un borrador no es una venta — el historial contaba 24 borradores y 132 anuladas](leccion/un-borrador-no-es-una-venta.md)
 
 ## Bloqueos
 

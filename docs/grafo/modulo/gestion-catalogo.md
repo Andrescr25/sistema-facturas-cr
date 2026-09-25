@@ -18,7 +18,7 @@ archivos:
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   relacionado: [modulo/catalogo-agente, decision/orden-canonico-compartido, decision/cambio-de-categoria-en-segundo-plano, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/proveedor-por-cedula]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 QUÉ ES
@@ -38,7 +38,8 @@ DE DÓNDE SALE CADA COSA
   (esas escriben en Alegra, y sin su id no hay a dónde).
 - `GET /productos-de-categoria`: TODOS los productos de una categoría (la más
   grande ronda 450), con margen, rotación y proveedor principal en una sola
-  consulta.
+  consulta. La rotación es la de `ventas/rotacion.js`, en el momento (ver
+  [[modulo/rentabilidad]]).
 - `GET /productos`: la búsqueda en todo el catálogo, por texto y/o por
   proveedor (cédula). Trae los mismos datos por fila que la vista de
   categoría.

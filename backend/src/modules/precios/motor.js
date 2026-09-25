@@ -108,9 +108,9 @@ function calcularTechoCompetencia(precioCompetencia, margenPulperia = MARGEN_PUL
  * @param {number} datos.margenMetaCategoria - de config_precios
  * @param {number} datos.margenMinimoCategoria - de config_precios
  * @param {number|null} datos.unidadesMes - unidades vendidas por mes
- *        (producto_rotacion.unidades_mes). NO la clase A/B/C: esa mide
- *        facturación, no rotación.
- * @param {number|null} datos.clientesDistintos - producto_rotacion
+ *        (ventas/rotacion.js, 12 meses). NO la clase A/B/C: esa mide
+ *        un ranking relativo (Pareto por unidades), no una velocidad.
+ * @param {number|null} datos.clientesDistintos - ventas/rotacion.js
  * @param {number|null} [datos.precioTechoCompetencia] - Fase 3, opcional.
  *        Si viene y el precio calculado lo supera, se limita a ese techo
  *        sin bajar nunca del piso (margen mínimo) — un techo de competencia

@@ -12,8 +12,9 @@ archivos:
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
   - frontend/src/components/catalogo-agente/SelectorCliente.jsx
+  - backend/src/modules/ventas/rotacion.js
 aristas:
-  depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config]
+  depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
 medido: 2026-09-25
 ---
@@ -47,8 +48,9 @@ después B ("También se vende bien"), cada una por categoría y subcategoría.
 Lo que está en oferta no se repite en A/B, la C no se muestra, y el buscador
 sigue viendo todo el catálogo. La rotación baja al sincronizar de
 `GET /catalogo-agente/rotacion` (solo ids, pide sesión) y se guarda en la
-tablet como las rebajas. Sale de `producto_rotacion`, que se recalcula a mano
-con `scripts/calcular-rotacion.js`.
+tablet como las rebajas. Es la rotación EN EL MOMENTO de
+`ventas/rotacion.js` (unidades de los últimos 3 meses, la misma de
+[[modulo/rentabilidad]]); la foto a mano de `producto_rotacion` ya no se usa.
 
 Las ofertas en la tarjeta son DOS cosas distintas — ver
 [[leccion/dos-clases-de-oferta]].

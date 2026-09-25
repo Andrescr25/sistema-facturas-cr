@@ -15,6 +15,7 @@ const { clasificarProducto, CLASIFICACION } = require('../src/modules/precios/au
 const { obtenerCostosDerivados } = require('../src/modules/precios/costoDerivado');
 const { calcularPrecioSugerido } = require('../src/modules/precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../src/modules/precios/config');
+const { SQL_ROTACION_PRECIOS } = require('../src/modules/ventas/rotacion');
 
 async function main() {
   console.log('🧪 Simulando el motor de precios sobre todo el catálogo (solo lectura, no escribe nada)...\n');
@@ -22,7 +23,8 @@ async function main() {
   const [productos, derivados, rotaciones, configPrecios] = await Promise.all([
     query(`SELECT alegra_id, name, category, price, cost FROM alegra_products_cache WHERE status = 'active'`),
     obtenerCostosDerivados(), // mediana de compras válidas, ver precios/costoDerivado.js
-    query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM producto_rotacion`),
+    // La misma rotación en el momento que usa Revisión de Precios (12 meses).
+    query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM (${SQL_ROTACION_PRECIOS}) r`),
     obtenerConfigPrecios()
   ]);
 
