@@ -22,9 +22,9 @@ const path = require('path');
 const FUENTE = fs.readFileSync(
   path.join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'catalogoAgentePersonalizacion.js'), 'utf8');
 
-const { partirPorSubcategoria, ordenarCatalogoParaCliente } = new Function(
+const { partirPorSubcategoria, ordenarCatalogoParaCliente, enOrdenDelCatalogo } = new Function(
   `${FUENTE.replace(/^export /gm, '')}
-   return { partirPorSubcategoria, ordenarCatalogoParaCliente };`
+   return { partirPorSubcategoria, ordenarCatalogoParaCliente, enOrdenDelCatalogo };`
 )();
 
 const pvc = (id, nombre, sub) => ({
@@ -94,5 +94,49 @@ describe('las familias dentro de una categoría', () => {
     assert.deepEqual(sortedKeys, ['Productos de PVC']);
     assert.equal(grouped['Productos de PVC'].length, 2);
     assert.deepEqual(subgrupos['Productos de PVC'].map(b => b.nombre), ['PVC 1/2', 'PVC 3/4']);
+  });
+});
+
+describe('"Bajamos el precio" en el orden del catálogo', () => {
+  // Antes salían por porcentaje de rebaja: el PVC entre un cortaúñas y un
+  // bombillo. Ahora por categoría (orden de Gestión de Catálogo) y, dentro,
+  // por subcategoría en su orden.
+  const producto = (id, nombre, categoria, sub) => ({
+    id, name: nombre, itemCategory: { name: categoria },
+    ...(sub ? { subcategoria: { id: sub.length, nombre: sub } } : {})
+  });
+  const config = {
+    categorias: [
+      { name: 'Productos de PVC', nombreVisible: 'Productos de PVC', orden: 0 },
+      { name: 'r.Venenos', nombreVisible: 'Venenos', orden: 11 },
+      { name: 'Productos Personales', nombreVisible: 'Productos Personales', orden: 7 }
+    ],
+    subcategorias: [
+      { categoria: 'Productos de PVC', nombre: 'PVC 3/4', orden: 1 },
+      { categoria: 'Productos de PVC', nombre: 'PVC 1/2', orden: 0 }
+    ]
+  };
+  const rebajas = [
+    producto(1, 'CORTA UNAS PEQ', 'Productos Personales', 'Cuidado de Uñas'),
+    producto(2, 'UNION 3/4 PVC', 'Productos de PVC', 'PVC 3/4'),
+    producto(3, 'VENENO RATAS', 'r.Venenos'),
+    producto(4, 'TAPON LISO 1/2', 'Productos de PVC', 'PVC 1/2'),
+    producto(5, 'CODO SIN CLASIFICAR', 'Productos de PVC'),
+    producto(6, 'SIN CATEGORIA')
+  ].map((p) => (p.id === 6 ? { ...p, itemCategory: undefined } : p));
+
+  test('bloques por categoría en el orden manual, "Otros" al final, con el nombre visible', () => {
+    const bloques = enOrdenDelCatalogo(rebajas, config);
+    assert.deepEqual(bloques.map((b) => b.nombre), ['Productos de PVC', 'Productos Personales', 'Venenos', 'Otros']);
+  });
+
+  test('dentro de la categoría, por subcategoría en su orden y lo sin clasificar al final', () => {
+    const [pvc] = enOrdenDelCatalogo(rebajas, config);
+    assert.deepEqual(pvc.productos.map((p) => p.id), [4, 2, 5]);
+  });
+
+  test('sin configuración igual agrupa por categoría (alfabético)', () => {
+    const bloques = enOrdenDelCatalogo(rebajas, null);
+    assert.deepEqual(bloques.map((b) => b.clave), ['Productos de PVC', 'Productos Personales', 'r.Venenos', 'Otros']);
   });
 });
