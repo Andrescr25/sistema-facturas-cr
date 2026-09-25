@@ -111,6 +111,14 @@ describe('la sincronización con Alegra', () => {
     assert.equal(pedidos[0].date_before, hoyEnCostaRica());
     assert.equal(pedidos[0].date_after, '2026-09-18', 'dos días antes de la última fecha guardada');
   });
+
+  test('un repaso se puede hacer por tramos, con desde y hasta', async () => {
+    const { servicio, pedidos, log } = montar({ facturas: [] });
+    await servicio.sincronizarHistorialCompras({ desde: '2024-10-31', hasta: '2024-12-01' });
+    assert.equal(pedidos[0].date_after, '2024-10-31');
+    assert.equal(pedidos[0].date_before, '2024-12-01');
+    assert.ok(!log.some((l) => /MAX\(fecha_emision\)/.test(l.sql)), 'con desde no mira la última fecha guardada');
+  });
 });
 
 describe('la factura recién creada', () => {

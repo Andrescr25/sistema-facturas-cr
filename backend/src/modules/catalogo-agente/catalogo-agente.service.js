@@ -333,13 +333,16 @@ function diasAntes(dia, n) {
  * `desde` sirve para repasar una ventana más larga: una factura vieja que se
  * anula HOY conserva su fecha vieja, y la corrida incremental no la vuelve a
  * mirar (ver server.js: una vez al día se repasan los últimos 60 días).
+ * `hasta` (por omisión hoy) corta la ventana: un repaso del historial entero
+ * son ~185 páginas y media hora, y por tramos un corte de internet solo obliga
+ * a repetir el tramo, no todo (pasó el 2026-09-25, en la página 90).
  *
  * Los días son de Costa Rica: con `toISOString()`, después de las 6 p.m. "hoy"
  * ya era mañana.
  */
-async function sincronizarHistorialCompras({ desde } = {}) {
+async function sincronizarHistorialCompras({ desde, hasta } = {}) {
   const client = getClient();
-  const endDate = hoyEnCostaRica();
+  const endDate = hasta || hoyEnCostaRica();
 
   let startDate = desde || null;
   if (!startDate) {
