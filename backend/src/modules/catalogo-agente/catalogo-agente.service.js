@@ -419,7 +419,35 @@ async function obtenerConfigCatalogo() {
   return { categorias, subcategorias };
 }
 
+/**
+ * GET /api/catalogo-agente/rotacion
+ *
+ * Qué productos son de rotación A y cuáles B, para el catálogo de "Cliente
+ * nuevo": a quien todavía no compra se le enseña lo que más se vende, que es
+ * lo más fácil de vender.
+ *
+ * Sale de `producto_rotacion` (scripts/calcular-rotacion.js: ABC por
+ * facturación de los últimos 12 meses; A = hasta el 80 % acumulado, B = del
+ * 80 al 95 %). Solo los ids: la facturación que da la clase no le sirve a la
+ * tablet y no tiene por qué viajar. La C no se manda: no se muestra.
+ */
+async function obtenerRotacion() {
+  const { rows } = await query(`
+    SELECT alegra_item_id, clase, calculado_en
+      FROM producto_rotacion
+     WHERE clase IN ('A', 'B')
+  `);
+  const clases = { A: [], B: [] };
+  let calculadoEn = null;
+  for (const r of rows) {
+    clases[r.clase].push(String(r.alegra_item_id));
+    if (r.calculado_en && (!calculadoEn || r.calculado_en > calculadoEn)) calculadoEn = r.calculado_en;
+  }
+  return { ...clases, calculadoEn };
+}
+
 module.exports = {
+  obtenerRotacion,
   conSubcategoria,
   listarProductos,
   listarCategorias,

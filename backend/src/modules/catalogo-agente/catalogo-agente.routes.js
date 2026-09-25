@@ -10,6 +10,10 @@ const catalogoAgenteController = require('./catalogo-agente.controller');
 router.get('/productos', catalogoAgenteController.listarProductos);
 router.get('/categorias', catalogoAgenteController.listarCategorias);
 router.get('/config-catalogo', catalogoAgenteController.obtenerConfigCatalogo);
+// Qué productos son A y B en rotación: el catálogo de "Cliente nuevo". Pide
+// sesión (no está en las rutas públicas de auth.middleware): dice qué es lo
+// que más se vende.
+router.get('/rotacion', catalogoAgenteController.obtenerRotacion);
 router.get('/ofertas', catalogoAgenteController.listarOfertas);
 // Los productos a los que se les bajó el precio a propósito. Otra cosa que
 // las ofertas de arriba, que son excesos de inventario.

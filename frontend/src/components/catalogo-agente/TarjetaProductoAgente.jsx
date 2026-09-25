@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package, Flame, TrendingDown, Repeat, AlertTriangle } from 'lucide-react'
+import { Package, Flame, TrendingDown, Repeat, AlertTriangle, Tag } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 
@@ -47,7 +47,13 @@ import { colones } from '../../utils/colones'
  * toda la base— y el pedido se toma en Facturación. Quitarlos también aliviana
  * la cuadrícula, que se pinta cientos de veces en cada búsqueda.
  */
-function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
+/**
+ * `comoOferta`: la rebaja dice "OFERTA" en vez del porcentaje. Es para el
+ * catálogo de "Cliente nuevo": a quien no conoce el precio de antes, "bajamos
+ * el precio" no le dice nada; "oferta", sí. El precio de antes se sigue
+ * viendo tachado.
+ */
+function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, comoOferta = false }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
@@ -87,8 +93,8 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
         {rebaja > 0 && (
           <Etiqueta tono={descuentoPorcentaje > 0 ? 'liquidacion' : 'oferta'}
-            icono={descuentoPorcentaje > 0 ? Flame : TrendingDown}>
-            −{rebaja}%
+            icono={descuentoPorcentaje > 0 ? Flame : comoOferta ? Tag : TrendingDown}>
+            {comoOferta && descuentoPorcentaje === 0 ? 'OFERTA' : `−${rebaja}%`}
           </Etiqueta>
         )}
         {stats?.esHabitual && (

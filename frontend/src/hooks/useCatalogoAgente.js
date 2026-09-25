@@ -2,13 +2,17 @@ import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } fr
 import api from '../services/api'
 import { buscarProductos } from '../utils/buscarCatalogoAgente'
 import { catalogoAgenteDb } from '../utils/catalogoAgenteDb'
-import { construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente } from '../utils/catalogoAgentePersonalizacion'
+import {
+  construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente,
+  CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo
+} from '../utils/catalogoAgentePersonalizacion'
 
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
 const OFERTAS_BAJA_PATH = '/catalogo-agente/ofertas-baja'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
 const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
+const ROTACION_PATH = '/catalogo-agente/rotacion'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
 const IMAGE_PREFETCH_CONCURRENCY = 10
@@ -58,6 +62,9 @@ export function useCatalogoAgente() {
   // de Catálogo. `null` hasta la primera sincronización (o si nunca se
   // configuró nada): ordenarCatalogoParaCliente cae al alfabético de siempre.
   const [configCatalogo, setConfigCatalogo] = useState(null)
+  // Qué productos son A y B en rotación: el catálogo de "Cliente nuevo".
+  // `null` hasta la primera sincronización que la traiga.
+  const [rotacion, setRotacion] = useState(null)
 
   useEffect(() => {
     const loadFromCache = async () => {
@@ -68,6 +75,7 @@ export function useCatalogoAgente() {
         const storedClientes = await catalogoAgenteDb.getAllClientes()
         const storedClienteActivoId = await catalogoAgenteDb.getClienteActivo()
         const storedConfig = await catalogoAgenteDb.getConfigCatalogo()
+        const storedRotacion = await catalogoAgenteDb.getRotacion()
         if (storedProducts && storedProducts.length > 0) {
           setProducts(storedProducts)
           setLastSync(lastUpdate)
@@ -87,6 +95,9 @@ export function useCatalogoAgente() {
         }
         if (storedConfig) {
           setConfigCatalogo(storedConfig)
+        }
+        if (storedRotacion) {
+          setRotacion(storedRotacion)
         }
       } catch (error) {
         console.error('No se pudo cargar el catálogo local:', error)
@@ -108,8 +119,12 @@ export function useCatalogoAgente() {
     }
   }, [])
 
+  // "Cliente nuevo" no está en la lista que baja del servidor (no existe en
+  // Alegra): se reconoce por su id fijo.
   const clienteActivo = useMemo(
-    () => clientes.find((c) => c.id === clienteActivoId) || null,
+    () => (clienteActivoId === CLIENTE_NUEVO_ID
+      ? CLIENTE_NUEVO
+      : clientes.find((c) => c.id === clienteActivoId) || null),
     [clientes, clienteActivoId]
   )
 
@@ -272,6 +287,13 @@ export function useCatalogoAgente() {
       .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
   }, [products, ofertasBaja])
 
+  // El catálogo de "Cliente nuevo": oferta, rotación A y rotación B, cada una
+  // por categoría y subcategoría. Solo se arma con ese cliente elegido.
+  const clienteNuevo = useMemo(() => {
+    if (!esClienteNuevo(clienteActivo)) return null
+    return catalogoClienteNuevo(products, { rebajados: productosRebajados, rotacion, configCatalogo })
+  }, [clienteActivo, products, productosRebajados, rotacion, configCatalogo])
+
 
   const updateSyncUI = useCallback((message, percent) => {
     setSyncProgress({ message, percent })
@@ -394,6 +416,16 @@ export function useCatalogoAgente() {
         console.error('No se pudo actualizar el orden del catálogo:', configError)
       }
 
+      try {
+        const rotacionRes = await api.get(ROTACION_PATH)
+        await catalogoAgenteDb.saveRotacion(rotacionRes.data)
+        setRotacion(rotacionRes.data)
+      } catch (rotacionError) {
+        // Sin esto "Cliente nuevo" muestra solo la oferta: no vale la pena
+        // tumbar la sincronización.
+        console.error('No se pudo actualizar la rotación:', rotacionError)
+      }
+
       updateSyncUI('Preparando descarga de imágenes...', 95)
       const imageUrls = new Set()
       newBuffer.forEach((product) => {
@@ -467,6 +499,8 @@ export function useCatalogoAgente() {
     salirDeCliente,
     productosHabitualesDelCliente: habitualesCliente,
     productosPerdidosDelCliente: perdidosCliente,
-    configCatalogo
+    configCatalogo,
+    clienteNuevo,
+    rotacionCalculadaEn: rotacion?.calculadoEn || null
   }
 }

@@ -10,10 +10,12 @@ archivos:
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
   - backend/tests/subgruposCatalogoAgente.test.js
   - backend/tests/busquedaCatalogoAgente.test.js
+  - backend/tests/catalogoClienteNuevo.test.js
+  - frontend/src/components/catalogo-agente/SelectorCliente.jsx
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
-medido: 2026-09-24
+medido: 2026-09-25
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
@@ -35,6 +37,18 @@ lista plana; Gestión de Catálogo hace lo mismo al buscar.
 bloque por categoría y, dentro, por subcategoría (`enOrdenDelCatalogo`, que
 es `ordenarCatalogoParaCliente` sin cliente). Antes iba por porcentaje de
 rebaja y los productos salían revueltos. "Liquidación" sigue por porcentaje.
+
+CLIENTE NUEVO (2026-09-25). En el selector de clientes, "Cliente nuevo" va
+siempre arriba y aparece al buscarlo. No existe en Alegra: es un id fijo
+(`CLIENTE_NUEVO_ID`) sin compras. Con él elegido, en vez del catálogo
+completo se ve `catalogoClienteNuevo`: OFERTA (las rebajas, con la etiqueta
+"OFERTA" en vez del porcentaje), después rotación A ("Lo más vendido") y
+después B ("También se vende bien"), cada una por categoría y subcategoría.
+Lo que está en oferta no se repite en A/B, la C no se muestra, y el buscador
+sigue viendo todo el catálogo. La rotación baja al sincronizar de
+`GET /catalogo-agente/rotacion` (solo ids, pide sesión) y se guarda en la
+tablet como las rebajas. Sale de `producto_rotacion`, que se recalcula a mano
+con `scripts/calcular-rotacion.js`.
 
 Las ofertas en la tarjeta son DOS cosas distintas — ver
 [[leccion/dos-clases-de-oferta]].

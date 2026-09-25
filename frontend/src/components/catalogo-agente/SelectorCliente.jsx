@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, X, Users, Check } from 'lucide-react'
-import { filtrarClientes } from '../../utils/catalogoAgentePersonalizacion'
+import { Search, X, Users, Check, UserPlus } from 'lucide-react'
+import { filtrarClientes, normalizarTexto, CLIENTE_NUEVO } from '../../utils/catalogoAgentePersonalizacion'
 
 /**
  * Elegir a quién se está visitando.
@@ -15,6 +15,10 @@ import { filtrarClientes } from '../../utils/catalogoAgentePersonalizacion'
  * parado al lado del agente no tiene por qué ver los nombres de los demás.
  * Por eso la lista vive en una hoja que se abre a propósito y se cierra al
  * elegir — no en la pantalla principal.
+ *
+ * "CLIENTE NUEVO" VA SIEMPRE ARRIBA (y aparece al buscarlo): no es alguien de
+ * la lista sino el catálogo para salir a buscar clientes — oferta y lo que
+ * más se vende. Tiene que estar aunque la tablet todavía no tenga clientes.
  */
 export default function SelectorCliente({ isOpen, onClose, clientes, clienteActivoId, onSeleccionar }) {
   const [busqueda, setBusqueda] = useState('')
@@ -32,6 +36,10 @@ export default function SelectorCliente({ isOpen, onClose, clientes, clienteActi
     const ordenados = [...clientes].sort((a, b) => (a.n || '').localeCompare(b.n || ''))
     return filtrarClientes(ordenados, busqueda)
   }, [clientes, busqueda])
+
+  const t = normalizarTexto(busqueda)
+  const muestraNuevo = !t || normalizarTexto(CLIENTE_NUEVO.n).includes(t)
+  const nuevoActivo = clienteActivoId === CLIENTE_NUEVO.id
 
   if (!isOpen) return null
 
@@ -66,6 +74,21 @@ export default function SelectorCliente({ isOpen, onClose, clientes, clienteActi
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          {muestraNuevo && (
+            <button type="button" onClick={() => elegir(CLIENTE_NUEVO.id)}
+              className={`mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ring-1 transition-colors ${
+                nuevoActivo ? 'bg-exito-50 ring-exito-200' : 'bg-acento-50 ring-acento-200 hover:bg-acento-100'
+              }`}>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-acento-600">
+                <UserPlus size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-extrabold text-neutro-900">{CLIENTE_NUEVO.n}</span>
+                <span className="text-[11px] text-neutro-500">Ofertas y lo que más se vende</span>
+              </span>
+              {nuevoActivo && <Check size={16} className="shrink-0 text-exito-600" />}
+            </button>
+          )}
           {clientes.length === 0 ? (
             <div className="px-4 py-10 text-center">
               <Users size={30} className="mx-auto text-neutro-200" />
@@ -75,9 +98,11 @@ export default function SelectorCliente({ isOpen, onClose, clientes, clienteActi
               </p>
             </div>
           ) : clientesFiltrados.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-neutro-400">
-              Nadie con ese nombre.
-            </p>
+            !muestraNuevo && (
+              <p className="px-4 py-10 text-center text-sm text-neutro-400">
+                Nadie con ese nombre.
+              </p>
+            )
           ) : (
             <div className="space-y-1">
               {clientesFiltrados.map((c) => {
