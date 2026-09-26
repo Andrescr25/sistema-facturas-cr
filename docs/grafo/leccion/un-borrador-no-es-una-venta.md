@@ -25,9 +25,13 @@ producto de rotación C en la A.
 
 Ahora `esVenta` deja fuera `draft`, `void` y `isVoidedByCreditNote`, y
 `lineasDeFactura` devuelve esas facturas SIN líneas, para que la
-reconciliación borre lo que hubiera quedado de ellas. Lo que el arreglo
-alcanza a limpiar solo son las facturas que vuelve a leer (los últimos 60
-días); las filas viejas se limpian releyendo el historial completo una vez.
+reconciliación borre lo que hubiera quedado de ellas. Solo se limpia lo que
+se vuelve a leer, así que el mismo 2026-09-25 se releyó el historial entero
+(con autorización y respaldo previo): salieron 162 facturas y ₡297,8
+millones; 2024 pasó de ₡348 a ₡52 millones. Entre ellas había 5 anuladas por
+nota de crédito DESPUÉS de entrar como venta: es el caso que cubre el repaso
+diario de 60 días. Un repaso así se hace por tramos (`desde`/`hasta`): de un
+tirón son ~185 páginas y un corte de internet obliga a empezar de nuevo.
 
 La lección de método: una suma que "se ve grande" no se discute, se desarma
 por factura. Ordenar por `cantidad × precio` descendente y mirar las cinco de
