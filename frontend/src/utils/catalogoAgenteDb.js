@@ -87,6 +87,18 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'configCatalogo')
   },
 
+  // Qué productos son A y B en rotación (catálogo de "Cliente nuevo"). Una
+  // llave más del mismo almacén, sin subir DB_VERSION.
+  async saveRotacion(rotacion) {
+    const db = await this.connect()
+    await db.put('metadata', rotacion, 'rotacion')
+  },
+
+  async getRotacion() {
+    const db = await this.connect()
+    return db.get('metadata', 'rotacion')
+  },
+
   // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
 
   async saveClientes(clientes) {

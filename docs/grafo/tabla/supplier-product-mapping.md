@@ -8,7 +8,7 @@ archivos:
   - backend/src/modules/catalogo/catalogo.service.js
 aristas:
   relacionado: [leccion/proveedor-por-cedula, modulo/revision-precios]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 `supplier_product_mapping`: `supplier_cedula` + `supplier_code` (el código del

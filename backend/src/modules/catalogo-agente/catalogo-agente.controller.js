@@ -45,6 +45,18 @@ async function obtenerConfigCatalogo(req, res) {
 }
 
 /**
+ * GET /api/catalogo-agente/rotacion — qué productos son A y cuáles B.
+ */
+async function obtenerRotacion(req, res) {
+  try {
+    res.json(await catalogoAgenteService.obtenerRotacion());
+  } catch (error) {
+    console.error('Error obteniendo la rotación del catálogo:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/catalogo-agente/ofertas
  */
 async function listarOfertasPorBaja(req, res) {
@@ -162,5 +174,6 @@ module.exports = {
   listarOfertas,
   obtenerHistorialClientes,
   sincronizarHistorialClientes,
-  obtenerConfigCatalogo
+  obtenerConfigCatalogo,
+  obtenerRotacion
 };

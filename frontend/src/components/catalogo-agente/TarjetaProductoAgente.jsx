@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package, Flame, TrendingDown, Repeat, AlertTriangle } from 'lucide-react'
+import { Package, Flame, TrendingDown, Repeat, Tag } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 
@@ -12,9 +12,14 @@ import { colones } from '../../utils/colones'
  * ("30 disp."). En una tablet de 9 pulgadas entraban ocho productos por
  * pantalla y el recorrido completo eran trece mil píxeles de scroll.
  *
- * Ahora: la foto manda, el nombre cabe en dos líneas, el precio es lo más
- * grande, y solo se dice del stock lo que cambia una decisión —quedan pocas,
- * o no hay—. Que haya treinta en bodega no es noticia.
+ * Ahora: la foto manda, el nombre cabe en dos líneas y el precio es lo más
+ * grande.
+ *
+ * NO SE DICE NADA DEL STOCK (2026-09-25, decisión del usuario). El negocio
+ * trabaja de intermediario: casi nunca tiene existencias y vende con el stock
+ * del proveedor. "Agotado" o "Quedan 2" le decían al cliente algo falso de
+ * casi todo el catálogo, así que se quitaron; lo que está en cero sale en su
+ * lugar como cualquier otro.
  *
  * Y la tarjeta crece con la pantalla. El primer intento las dejó chicas y en
  * la tablet entraban doce a la vez: demasiadas para que el cliente que mira
@@ -47,7 +52,13 @@ import { colones } from '../../utils/colones'
  * toda la base— y el pedido se toma en Facturación. Quitarlos también aliviana
  * la cuadrícula, que se pinta cientos de veces en cada búsqueda.
  */
-function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
+/**
+ * `comoOferta`: la rebaja dice "OFERTA" en vez del porcentaje. Es para el
+ * catálogo de "Cliente nuevo": a quien no conoce el precio de antes, "bajamos
+ * el precio" no le dice nada; "oferta", sí. El precio de antes se sigue
+ * viendo tachado.
+ */
+function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, comoOferta = false }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
@@ -72,10 +83,6 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
     ? descuentoPorcentaje
     : (precioTachado > 0 ? Math.round(((precioTachado - precioConIva) / precioTachado) * 100) : 0)
 
-  const disponibles = (product.inventory?.warehouses || [])
-    .reduce((s, w) => s + (parseFloat(w.availableQuantity) || 0), 0)
-
-
   return (
     <article
       className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 transition-shadow ${
@@ -87,8 +94,8 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
         {rebaja > 0 && (
           <Etiqueta tono={descuentoPorcentaje > 0 ? 'liquidacion' : 'oferta'}
-            icono={descuentoPorcentaje > 0 ? Flame : TrendingDown}>
-            −{rebaja}%
+            icono={descuentoPorcentaje > 0 ? Flame : comoOferta ? Tag : TrendingDown}>
+            {comoOferta && descuentoPorcentaje === 0 ? 'OFERTA' : `−${rebaja}%`}
           </Etiqueta>
         )}
         {stats?.esHabitual && (
@@ -141,18 +148,6 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true }) {
             {colones(precioFinal)}
           </p>
 
-          {/* Del stock solo se dice lo que cambia una decisión. Que haya
-              treinta en bodega no es noticia; que queden dos, sí. */}
-          {/* Alto fijo aunque no haya nada que decir: sin el hueco, la
-              tarjeta sin etiqueta dejaba su precio más abajo que el de las
-              vecinas y la fila entera se veía torcida. */}
-          <div className="mt-1 flex h-[18px] items-center sm:h-5">
-            {disponibles <= 0 ? (
-              <Etiqueta tono="agotado" icono={AlertTriangle}>Agotado</Etiqueta>
-            ) : disponibles <= 5 ? (
-              <Etiqueta tono="ultimas">Quedan {disponibles}</Etiqueta>
-            ) : null}
-          </div>
         </div>
 
       </div>

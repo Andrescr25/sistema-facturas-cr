@@ -7,7 +7,7 @@ archivos:
   - backend/src/modules/catalogo/catalogo.service.js
 aristas:
   relacionado: [tabla/supplier-product-mapping, modulo/gestion-catalogo]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 "Qué le compro a este proveedor" parte de

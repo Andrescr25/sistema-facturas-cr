@@ -8,7 +8,7 @@ archivos:
   - backend/tests/facturaProveedorNoSeDuplica.test.js
 aristas:
   relacionado: [modulo/revision-precios, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 La bonificación de un proveedor viene como OTRA línea del mismo producto con

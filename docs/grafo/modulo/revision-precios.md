@@ -11,7 +11,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/alegra-products-cache]
   relacionado: [decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 Las facturas electrónicas de los proveedores llegan por correo, se relacionan
@@ -30,6 +30,10 @@ antes de mandarlas. `enviarFacturaAlegra` hace dos cosas:
 Las dos trampas que ya costaron: una línea de regalía pisaba el costo con ₡0
 ([[decision/la-regalia-no-es-costo]]), y reenviar una factura ENVIADA
 duplicaba el gasto ([[leccion/factura-enviada-no-se-repite]]).
+
+El precio sugerido usa la rotación de los últimos 12 meses
+(`SQL_ROTACION_PRECIOS` de `ventas/rotacion.js`), calculada en el momento: los
+umbrales del motor (10 u/mes = rotación alta) se calibraron con esa ventana.
 
 En la rama `independencia-alegra` esto se reemplaza por "Registrar compra",
 que no toca Alegra; ver el grafo de esa rama.

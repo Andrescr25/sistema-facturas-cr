@@ -1,114 +1,76 @@
-import { useState } from 'react'
-import { LayoutGrid, Store, Activity } from 'lucide-react'
+import { AlertTriangle, Award, Coins, Receipt, ThumbsUp, TrendingDown } from 'lucide-react'
 import { useRentabilidad } from '../hooks/useRentabilidad'
-import { useCompetencia } from '../hooks/useCompetencia'
-import ResumenCards from '../components/rentabilidad/ResumenCards'
-import TablaCategorias from '../components/rentabilidad/TablaCategorias'
-import FiltrosProductos from '../components/rentabilidad/FiltrosProductos'
-import TablaProductos from '../components/rentabilidad/TablaProductos'
-import TabCompetencia from '../components/rentabilidad/competencia/TabCompetencia'
-import MonitoreoMargenes from '../components/rentabilidad/MonitoreoMargenes'
+import EncabezadoPagina from '../components/ui/EncabezadoPagina'
+import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
+import Dato from '../components/rentabilidad/Dato'
+import CuandoSeVende from '../components/rentabilidad/CuandoSeVende'
+import ListaProductos from '../components/rentabilidad/ListaProductos'
+import DetalleProducto from '../components/rentabilidad/DetalleProducto'
+import { colonesCorto, porcentaje } from '../utils/rentabilidadFormato'
 
 /**
- * Tablero de Rentabilidad — estrategia de precios completa. Pestaña
- * Catálogo (Fase 1-2: calidad de costo y margen real) y pestaña
- * Competencia (Fase 3: precios de EPA/Walmart/Mas x Menos y el techo que
- * derivan). Una sola pantalla a propósito — ver plan en
- * /Users/joseandres/.claude/plans/ok-ya-lo-vi-adaptive-sky.md.
+ * Rentabilidad — una sola pantalla, sin pestañas (rehecha el 2026-09-25).
+ *
+ * Arriba el negocio entero: lo vendido y lo ganado en los últimos 3 meses,
+ * cuántos productos hay en cada clase de rotación, y cuándo se vende (por
+ * semana, mes y año; qué días del mes, de la semana y qué meses). Abajo los
+ * productos, y al tocar uno, su detalle con sus propias gráficas.
+ *
+ * Todo en el momento: la rotación y las estadísticas salen de las ventas
+ * cada vez que se abre, no de una foto sacada con un script.
  */
 export default function Rentabilidad() {
-  const [tab, setTab] = useState('catalogo')
+  const r = useRentabilidad()
+  const { resumen, filtros, setFiltros } = r
 
-  const {
-    resumen,
-    loadingResumen,
-    filtros,
-    setFiltros,
-    setPagina,
-    resetFiltros,
-    productos,
-    totalProductos,
-    loadingProductos,
-    error,
-    tendencia,
-    deterioro,
-    loadingMonitoreo
-  } = useRentabilidad()
+  const filtrar = (cambios) => {
+    const yaEsta = Object.entries(cambios).every(([k, v]) => filtros[k] === v)
+    setFiltros(yaEsta ? Object.fromEntries(Object.keys(cambios).map((k) => [k, ''])) : cambios)
+    document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
-  const competencia = useCompetencia()
-
-  const tabs = [
-    { key: 'catalogo', label: 'Catálogo', icon: LayoutGrid },
-    { key: 'margenes', label: 'Márgenes', icon: Activity },
-    { key: 'competencia', label: 'Competencia', icon: Store, count: competencia.pendientes.length }
-  ]
+  if (r.seleccionado) {
+    return (
+      <div className="mx-auto max-w-6xl pb-24">
+        <DetalleProducto seleccionado={r.seleccionado} detalle={r.detalle} cargando={r.cargandoDetalle}
+          error={r.errorDetalle} onVolver={r.cerrar} />
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-7xl mx-auto pb-24 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-neutro-900">Rentabilidad</h1>
-        <p className="text-neutro-600 mt-1">Margen real por producto, calidad del costo registrado, rotación y techo de precio según la competencia.</p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 pb-24">
+      <EncabezadoPagina titulo="Rentabilidad"
+        descripcion="Margen de cada producto, su rotación real y cuándo se vende — al día, con las ventas de los últimos 3 meses." />
 
-      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
-        {tabs.map((t) => {
-          const Icon = t.icon
-          const isCurrent = tab === t.key
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 ${
-                isCurrent ? 'bg-white text-nota-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
-              }`}
-            >
-              <Icon size={16} />
-              <span>{t.label}</span>
-              {t.count > 0 && (
-                <span className={`text-xxs px-2 py-0.5 rounded-full ${isCurrent ? 'bg-nota-100 text-nota-800' : 'bg-neutro-200 text-neutro-700'}`}>
-                  {t.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {r.errorResumen && <p className="rounded-xl bg-peligro-50 px-4 py-3 text-sm text-peligro-800">{r.errorResumen}</p>}
 
-      {tab === 'catalogo' ? (
-        <>
-          {error && (
-            <div className="card bg-peligro-50 border-peligro-200 text-peligro-700 p-4">
-              <p>{error}</p>
-            </div>
-          )}
-
-          {loadingResumen && !resumen ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="card h-28 animate-pulse bg-neutro-50 lg:col-span-2" />
-              <div className="card h-28 animate-pulse bg-neutro-50" />
-            </div>
-          ) : (
-            <>
-              <ResumenCards resumen={resumen} filtros={filtros} setFiltros={setFiltros} />
-              <TablaCategorias categorias={resumen?.categorias} filtros={filtros} setFiltros={setFiltros} />
-            </>
-          )}
-
-          <FiltrosProductos filtros={filtros} setFiltros={setFiltros} resetFiltros={resetFiltros} categorias={resumen?.categorias || []} />
-
-          <TablaProductos
-            productos={productos}
-            total={totalProductos}
-            filtros={filtros}
-            setPagina={setPagina}
-            loading={loadingProductos}
-          />
-        </>
-      ) : tab === 'margenes' ? (
-        <MonitoreoMargenes tendencia={tendencia} deterioro={deterioro} loading={loadingMonitoreo} />
+      {!resumen ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3"><SkeletonContraparte /><SkeletonContraparte /><SkeletonContraparte /></div>
       ) : (
-        <TabCompetencia categorias={resumen?.categorias || []} {...competencia} />
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <Dato titulo="Ventas · 3 meses" icono={Receipt} valor={colonesCorto(resumen.ventas)}
+              pie={`${resumen.facturas} facturas · ${resumen.clientes} clientes · sin IVA`} />
+            <Dato titulo="Ganancia · 3 meses" icono={Coins} valor={colonesCorto(resumen.ganancia)}
+              pie={`Margen ${porcentaje(resumen.margenPonderado)} sobre el ${porcentaje(resumen.coberturaCosto)} de lo vendido que tiene costo`} />
+            <Dato titulo="Lo más vendido" icono={Award} valor={`${resumen.porClase.A} productos`}
+              pie="Rotación A: el 80 % de las unidades" onClick={() => filtrar({ clase: 'A' })} activo={filtros.clase === 'A'} />
+            <Dato titulo="Se venden bien" icono={ThumbsUp} valor={`${resumen.porClase.B} productos`}
+              pie="Rotación B: el siguiente 15 %" onClick={() => filtrar({ clase: 'B' })} activo={filtros.clase === 'B'} />
+            <Dato titulo="Bajo el costo" icono={TrendingDown} valor={`${resumen.margenNegativo} productos`} tono={resumen.margenNegativo ? 'peligro' : 'neutro'}
+              pie="Se venden por menos de lo que cuestan" onClick={() => filtrar({ costo: 'negativo' })} activo={filtros.costo === 'negativo'} />
+            <Dato titulo="Sin costo confiable" icono={AlertTriangle} valor={`${resumen.sinCosto} productos`} tono={resumen.sinCosto ? 'alerta' : 'neutro'}
+              pie="Sin costo no hay margen que calcular" onClick={() => filtrar({ costo: 'sin-costo' })} activo={filtros.costo === 'sin-costo'} />
+          </div>
+
+          <CuandoSeVende series={resumen.series} medida="ventas" titulo="Cuándo se vende · todo el negocio" />
+        </>
       )}
+
+      <ListaProductos filtros={filtros} setFiltros={setFiltros} limpiarFiltros={r.limpiarFiltros}
+        lista={r.lista} cargando={r.cargandoLista} error={r.errorLista}
+        categorias={resumen?.categorias || []} onAbrir={r.abrir} />
     </div>
   )
 }

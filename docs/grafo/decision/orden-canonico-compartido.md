@@ -9,7 +9,7 @@ archivos:
   - backend/tests/subgruposCatalogoAgente.test.js
 aristas:
   relacionado: [modulo/gestion-catalogo, modulo/catalogo-agente, tabla/categoria-config, tabla/subcategoria]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 Gestión de Catálogo tiene que mostrar las categorías y familias en el MISMO
@@ -19,7 +19,9 @@ funciones de `catalogoAgentePersonalizacion.js`: `ordenDeCategorias`,
 `partirPorSubcategoria` y `compararSubcategorias`. Gestión pasa
 `{ sinClasificarSiempre: true }` para que el bloque "Sin clasificar" aparezca
 aunque la categoría no tenga ninguna subcategoría (es justo donde hay que
-crear la primera); el agente no.
+crear la primera); el agente no. Los bloques que no son el catálogo entero
+—"Bajamos el precio" (`enOrdenDelCatalogo`) y las secciones de Cliente nuevo
+(`catalogoClienteNuevo`)— se ordenan con las mismas funciones.
 
 LA TRAMPA: ESE ARCHIVO NO PUEDE TENER NI UNA LÍNEA `import`.
 
