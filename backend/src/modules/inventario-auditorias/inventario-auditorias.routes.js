@@ -15,6 +15,11 @@ router.get('/categorias', inventarioAuditoriasController.listarCategorias);
 router.get('/buscar-productos', inventarioAuditoriasController.buscarProductosParaDevolucion);
 router.get('/regalos', inventarioAuditoriasController.listarRegalos);
 router.get('/descuentos', inventarioAuditoriasController.listarDescuentosExceso);
+// "Productos nuevos" del catálogo del agente. Antes de '/:id', que si no se
+// traga '/productos-nuevos' como si fuera el id de una auditoría.
+router.get('/productos-nuevos', inventarioAuditoriasController.listarProductosNuevos);
+router.post('/productos-nuevos', inventarioAuditoriasController.agregarProductoNuevo);
+router.delete('/productos-nuevos/:alegraItemId', inventarioAuditoriasController.quitarProductoNuevo);
 router.post('/', inventarioAuditoriasController.crearAuditoria);
 router.post('/devolucion', inventarioAuditoriasController.crearDevolucion);
 router.post('/generar-excesos', inventarioAuditoriasController.generarExcesos);

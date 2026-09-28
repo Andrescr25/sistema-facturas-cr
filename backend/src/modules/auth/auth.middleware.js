@@ -49,7 +49,7 @@ const PUBLICAS = [
  * que el que abría la tablet al día siguiente se encontraba con el login y sin
  * red para pasarlo — con el catálogo YA descargado en el dispositivo.
  *
- * Se abren solo las seis rutas que esa pantalla usa. Queda fuera lo que es
+ * Se abren solo las rutas que esa pantalla usa. Queda fuera lo que es
  * administrativo: GET /dispositivos (el monitor de tablets del personal) y
  * POST /historial-clientes/sync.
  *
@@ -63,6 +63,9 @@ const PUBLICAS_EXACTAS = [
   '/catalogo-agente/categorias',
   '/catalogo-agente/ofertas',
   '/catalogo-agente/ofertas-baja',
+  // Solo ids de la lista manual de "Productos nuevos" (2026-09-27): la misma
+  // naturaleza que las rebajas, y sin sesión el agente la perdería igual.
+  '/catalogo-agente/productos-nuevos',
   '/catalogo-agente/historial-clientes',
   '/catalogo-agente/pedidos',
   '/catalogo-agente/dispositivos/estado'

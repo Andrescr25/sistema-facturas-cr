@@ -18,6 +18,7 @@ router.get('/ofertas', catalogoAgenteController.listarOfertas);
 // Los productos a los que se les bajó el precio a propósito. Otra cosa que
 // las ofertas de arriba, que son excesos de inventario.
 router.get('/ofertas-baja', catalogoAgenteController.listarOfertasPorBaja);
+router.get('/productos-nuevos', catalogoAgenteController.listarProductosNuevos);
 router.get('/historial-clientes', catalogoAgenteController.obtenerHistorialClientes);
 router.post('/historial-clientes/sync', catalogoAgenteController.sincronizarHistorialClientes);
 
