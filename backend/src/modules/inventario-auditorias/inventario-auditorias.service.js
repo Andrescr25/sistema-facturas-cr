@@ -229,6 +229,10 @@ async function inicializarTablas() {
       );
     `);
 
+    // "Productos nuevos" del catálogo del agente: lista manual (ver
+    // productosNuevos.js).
+    await query(require('./productosNuevos').SQL_TABLA);
+
     console.log('Tablas de auditoría de inventario inicializadas/verificadas');
   } catch (err) {
     console.error('Error inicializando tablas de inventario:', err);

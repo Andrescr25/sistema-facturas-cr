@@ -901,6 +901,10 @@ export function useInventarioAuditoria() {
 
     toasts,
     removeToast,
-    dialogProps
+    dialogProps,
+    // Para las secciones con su propio hook (Productos nuevos): usan los
+    // mismos avisos y la misma confirmación que el resto de la página.
+    showToast,
+    confirm
   }
 }

@@ -13,11 +13,14 @@ archivos:
   - backend/tests/catalogoClienteNuevo.test.js
   - frontend/src/components/catalogo-agente/SelectorCliente.jsx
   - backend/tests/liquidacionSinStock.test.js
+  - backend/src/modules/inventario-auditorias/productosNuevos.js
+  - backend/tests/productosNuevos.test.js
+  - frontend/src/components/inventario-auditoria/SeccionProductosNuevos.jsx
   - backend/src/modules/ventas/rotacion.js
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
-medido: 2026-09-25
+medido: 2026-09-27
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
@@ -39,6 +42,17 @@ lista plana; Gestión de Catálogo hace lo mismo al buscar.
 bloque por categoría y, dentro, por subcategoría (`enOrdenDelCatalogo`, que
 es `ordenarCatalogoParaCliente` sin cliente). Antes iba por porcentaje de
 rebaja y los productos salían revueltos. "Liquidación" sigue por porcentaje.
+
+PRODUCTOS NUEVOS (2026-09-27, decisión del usuario): sección propia justo
+después de "Bajamos el precio", en el mismo orden por categoría. Es una lista
+MANUAL (`producto_nuevo_catalogo`: qué producto, cuándo, quién) que se
+administra en Auditoría de Inventario, pestaña "Productos nuevos" — agregar o
+quitar, nada automático. Solo entra un producto activo y visible; uno que
+después se desactiva queda en la lista marcado ("No sale: …") en vez de
+borrarse solo. La tablet baja solo los ids de `GET
+/catalogo-agente/productos-nuevos`, abierta sin sesión como las rebajas; la
+administración (`/inventario-auditorias/productos-nuevos`) pide sesión. No
+entra en "Cliente nuevo".
 
 CLIENTE NUEVO (2026-09-25). En el selector de clientes, "Cliente nuevo" va
 siempre arriba y aparece al buscarlo. No existe en Alegra: es un id fijo

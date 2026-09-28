@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Flame, TrendingDown, Star, RotateCcw, PackageOpen,
-  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp
+  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp, Sparkles
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
 import { enOrdenDelCatalogo, nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
@@ -141,7 +141,7 @@ export default function CatalogoAgente() {
   const {
     isLoading, isOnline, isSyncing, syncProgress, lastSync,
     searchQuery, setSearchQuery, busquedaAplicada, filteredData,
-    featuredProducts, productosRebajados, synchronize,
+    featuredProducts, productosRebajados, productosNuevos, synchronize,
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
     productosHabitualesDelCliente, productosPerdidosDelCliente,
@@ -170,6 +170,13 @@ export default function CatalogoAgente() {
     [productosRebajados, configCatalogo]
   )
 
+  // "Productos nuevos" (lista manual de Auditoría de Inventario), igual que
+  // las rebajas: por categoría y, dentro, por subcategoría.
+  const nuevosPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(productosNuevos, configCatalogo),
+    [productosNuevos, configCatalogo]
+  )
+
   const categorias = useMemo(() => {
     // "Cliente nuevo": la barra salta entre sus cuatro partes, no entre las
     // categorías del catálogo completo (que en este modo no se muestra).
@@ -184,6 +191,7 @@ export default function CatalogoAgente() {
     }
     const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: filteredData.flat.length }]
     if (ofertas.length > 0) lista.push({ clave: '__ofertas', texto: 'Ofertas', icono: Tag, contador: ofertas.length })
+    if (productosNuevos.length > 0) lista.push({ clave: '__nuevos', texto: 'Nuevos', icono: Sparkles, contador: productosNuevos.length })
     if (clienteActivo && productosHabitualesDelCliente.length > 0) {
       lista.push({ clave: '__cliente', texto: 'De este cliente', icono: UserCheck, contador: productosHabitualesDelCliente.length })
     }
@@ -191,7 +199,7 @@ export default function CatalogoAgente() {
       lista.push({ clave: k, texto: nombreVisibleDeCategoria(k, configCatalogo), contador: filteredData.grouped[k]?.length || 0 })
     })
     return lista
-  }, [filteredData, ofertas, clienteActivo, productosHabitualesDelCliente, configCatalogo, clienteNuevo])
+  }, [filteredData, ofertas, productosNuevos, clienteActivo, productosHabitualesDelCliente, configCatalogo, clienteNuevo])
 
   // Una categoría que ya no existe (cambió el catálogo, o se está buscando)
   // dejaría la pantalla en blanco sin explicación.
@@ -303,6 +311,20 @@ export default function CatalogoAgente() {
                 icono={TrendingDown} color="bg-acento-50 text-acento-600">
                 {/* Un bloque por categoría; cada tarjeta dice su subcategoría. */}
                 {rebajasPorCategoria.map((b) => (
+                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
+                    sinClasificar={b.clave === 'Otros'}>
+                    <Cuadricula productos={b.productos} />
+                  </Subgrupo>
+                ))}
+              </Seccion>
+            )}
+
+            {/* Lista manual de Auditoría de Inventario, justo después de las
+                rebajas (decisión del usuario, 2026-09-27). */}
+            {(enTodo || categoria === '__nuevos') && productosNuevos.length > 0 && (
+              <Seccion titulo="Productos nuevos" descripcion="Recién llegados al catálogo"
+                icono={Sparkles} color="bg-primario-50 text-primario-600">
+                {nuevosPorCategoria.map((b) => (
                   <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
                     sinClasificar={b.clave === 'Otros'}>
                     <Cuadricula productos={b.productos} />

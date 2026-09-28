@@ -74,6 +74,18 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'ofertasBaja')
   },
 
+  // "Productos nuevos": la lista manual de Auditoría de Inventario (solo ids).
+  // Una llave más del mismo almacén, sin subir DB_VERSION.
+  async saveProductosNuevos(productos) {
+    const db = await this.connect()
+    await db.put('metadata', productos, 'productosNuevos')
+  },
+
+  async getProductosNuevos() {
+    const db = await this.connect()
+    return db.get('metadata', 'productosNuevos')
+  },
+
   // El orden y el nombre visible de categorías, y el orden de subcategorías
   // dentro de cada una — mismo patrón que las ofertas: una llave más del
   // mismo almacén, sin subir DB_VERSION.

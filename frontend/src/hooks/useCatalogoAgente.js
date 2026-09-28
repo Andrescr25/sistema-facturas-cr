@@ -10,6 +10,7 @@ import {
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
 const OFERTAS_BAJA_PATH = '/catalogo-agente/ofertas-baja'
+const PRODUCTOS_NUEVOS_PATH = '/catalogo-agente/productos-nuevos'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
 const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
 const ROTACION_PATH = '/catalogo-agente/rotacion'
@@ -36,6 +37,8 @@ export function useCatalogoAgente() {
   // Los productos a los que se les bajó el precio resignando margen. Aparte
   // de `ofertas`, que son excesos de inventario.
   const [ofertasBaja, setOfertasBaja] = useState([])
+  // "Productos nuevos": lista manual de Auditoría de Inventario, solo ids.
+  const [productosNuevosIds, setProductosNuevosIds] = useState([])
   // Lo que se TIPEA y lo que se BUSCA son dos cosas distintas.
   //
   // El input tiene que responder a cada tecla, pero filtrar 2.000 productos y
@@ -86,6 +89,10 @@ export function useCatalogoAgente() {
         const storedBaja = await catalogoAgenteDb.getOfertasBaja()
         if (storedBaja) {
           setOfertasBaja(storedBaja)
+        }
+        const storedNuevos = await catalogoAgenteDb.getProductosNuevos()
+        if (storedNuevos) {
+          setProductosNuevosIds(storedNuevos)
         }
         if (storedClientes) {
           setClientes(storedClientes)
@@ -287,6 +294,15 @@ export function useCatalogoAgente() {
       .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
   }, [products, ofertasBaja])
 
+  // "Productos nuevos" cruzados con el catálogo descargado: la tarjeta
+  // necesita el producto completo, y un id que la tablet no tiene (inactivo,
+  // o todavía no sincronizado) no se puede mostrar.
+  const productosNuevos = useMemo(() => {
+    if (!productosNuevosIds || productosNuevosIds.length === 0) return []
+    const porId = new Map(products.map((p) => [String(p.id), p]))
+    return productosNuevosIds.map((n) => porId.get(String(n.alegraItemId))).filter(Boolean)
+  }, [products, productosNuevosIds])
+
   // El catálogo de "Cliente nuevo": oferta, liquidación, rotación A y
   // rotación B, cada una por categoría y subcategoría. Solo se arma con ese
   // cliente elegido.
@@ -398,6 +414,16 @@ export function useCatalogoAgente() {
         console.error('No se pudieron actualizar las bajas de precio:', bajaError)
       }
 
+      try {
+        const nuevosRes = await api.get(PRODUCTOS_NUEVOS_PATH)
+        const nuevos = nuevosRes.data.productos || []
+        await catalogoAgenteDb.saveProductosNuevos(nuevos)
+        setProductosNuevosIds(nuevos)
+      } catch (nuevosError) {
+        // Igual que las rebajas: sin esto solo falta esa sección.
+        console.error('No se pudieron actualizar los productos nuevos:', nuevosError)
+      }
+
       updateSyncUI('Actualizando historial de clientes...', 92)
       try {
         const historialRes = await api.get(HISTORIAL_CLIENTES_PATH)
@@ -494,6 +520,7 @@ export function useCatalogoAgente() {
     filteredData,
     featuredProducts,
     productosRebajados,
+    productosNuevos,
     synchronize,
     clientes,
     clienteActivo,
