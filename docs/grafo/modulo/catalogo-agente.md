@@ -19,7 +19,7 @@ archivos:
   - backend/src/modules/ventas/rotacion.js
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
-  relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
+  relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
 medido: 2026-09-27
 ---
 
@@ -77,3 +77,8 @@ negocio es intermediario, casi nunca tiene existencias y vende con el stock
 del proveedor. "Agotado" y "Quedan N" se quitaron, y un producto en cero sale
 en su lugar como cualquier otro. La única excepción es Liquidación, que sí es
 mercadería física (sale sola cuando se acaba: `liquidacionSinStock.test.js`).
+
+LA ACTUALIZACIÓN SIN SESIÓN Y LAS FOTOS: ver
+[[leccion/fotos-del-catalogo-en-la-tablet]]. En esta pantalla un 401 no manda
+al ingreso; el orden y la rotación (que piden sesión) se quedan como estaban
+y la pantalla lo avisa.

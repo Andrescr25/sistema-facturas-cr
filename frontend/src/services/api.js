@@ -81,9 +81,17 @@ api.interceptors.response.use(
     // ingreso. Sin esto la aplicación queda dibujada pero muerta, fallando
     // cada pantalla por su cuenta sin decir que hay que volver a entrar.
     // Se excluye el propio login para no reemplazar su mensaje de error.
+    //
+    // EXCEPTO EN EL CATÁLOGO DEL AGENTE, que está hecho para usarse sin sesión
+    // (zonas sin señal; la sesión dura 12 horas). Ahí un 401 es de una parte
+    // opcional —el orden de Gestión de Catálogo, la rotación— y mandar al
+    // ingreso cortaba la actualización a la mitad, justo antes de bajar las
+    // fotos: el catálogo quedaba en orden alfabético y sin imágenes
+    // (2026-09-27, reproducido). La pantalla avisa lo que no se actualizó.
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       localStorage.removeItem(TOKEN_KEY)
-      if (!window.location.pathname.startsWith('/ingresar')) {
+      const pantallaSinSesion = window.location.pathname.startsWith('/catalogo-agente')
+      if (!pantallaSinSesion && !window.location.pathname.startsWith('/ingresar')) {
         window.location.href = '/ingresar'
       }
     }

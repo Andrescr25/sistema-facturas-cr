@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Flame, TrendingDown, Star, RotateCcw, PackageOpen,
-  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp, Sparkles
+  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp, Sparkles, KeyRound
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
 import { enOrdenDelCatalogo, nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
@@ -145,7 +146,7 @@ export default function CatalogoAgente() {
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
     productosHabitualesDelCliente, productosPerdidosDelCliente,
-    configCatalogo, clienteNuevo
+    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -240,6 +241,28 @@ export default function CatalogoAgente() {
       )}
 
       <main className="px-3 py-4">
+        {/* La actualización terminó, pero sin sesión el orden y la rotación
+            no se pueden traer: se quedó lo que ya estaba guardado. */}
+        {sinSesionEnSync.length > 0 && !isSyncing && (
+          <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-alerta-50 px-4 py-3 text-sm text-alerta-800 ring-1 ring-alerta-200 sm:flex-row sm:items-center">
+            <KeyRound size={18} className="shrink-0" />
+            <p className="flex-1">
+              Se actualizaron los productos y las fotos, pero no {sinSesionEnSync.join(' ni ')}: la sesión venció.
+              Iniciá sesión y volvé a actualizar.
+            </p>
+            <Link to="/ingresar" state={{ destino: '/catalogo-agente' }}
+              className="shrink-0 rounded-xl bg-alerta-600 px-4 py-2 text-center font-semibold text-white">
+              Iniciar sesión
+            </Link>
+          </div>
+        )}
+        {/* Chrome cobra ~14,7 MB por foto guardada (ver cacheImagenesCatalogo.js):
+            las del fondo del catálogo pueden no caber. */}
+        {fotosSinLugar > 0 && !isSyncing && (
+          <p className="mb-4 rounded-2xl bg-neutro-100 px-4 py-3 text-xs text-neutro-600">
+            No cupieron {fotosSinLugar} fotos en esta tablet: esas se ven solo con internet. Las de arriba del catálogo sí quedaron guardadas.
+          </p>
+        )}
         {vacio ? (
           <div className="mx-auto mt-16 max-w-sm rounded-2xl bg-white p-8 text-center ring-1 ring-neutro-200">
             <PackageOpen size={36} className="mx-auto text-neutro-200" />

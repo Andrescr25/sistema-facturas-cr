@@ -55,6 +55,7 @@ correo son los de PRODUCCIÓN.
 - [El día del calendario no se saca con toISOString()](leccion/fecha-utc-costa-rica.md)
 - [Los teléfonos de Alegra vienen sucios](leccion/telefonos-sucios.md)
 - [Un borrador no es una venta — el historial contaba 24 borradores y 132 anuladas](leccion/un-borrador-no-es-una-venta.md)
+- [Las fotos de Alegra cambian de firma en cada pedido y cada una le cuesta a Chrome ~14,7 MB de cuota](leccion/fotos-del-catalogo-en-la-tablet.md)
 
 ## Bloqueos
 
