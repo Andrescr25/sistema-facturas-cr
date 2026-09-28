@@ -4,8 +4,9 @@ import { buscarProductos } from '../utils/buscarCatalogoAgente'
 import { catalogoAgenteDb } from '../utils/catalogoAgenteDb'
 import {
   construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente,
-  CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo
+  CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo, enOrdenDelCatalogo
 } from '../utils/catalogoAgentePersonalizacion'
+import { fotosEnOrden, guardarFotosDelCatalogo } from '../utils/cacheImagenesCatalogo'
 
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
@@ -16,7 +17,6 @@ const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
 const ROTACION_PATH = '/catalogo-agente/rotacion'
 const ALEGRA_PAGE_LIMIT = 30
 const SYNC_CONCURRENCY = 5
-const IMAGE_PREFETCH_CONCURRENCY = 10
 const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
 
 const SIN_STATS = new Map()
@@ -68,6 +68,13 @@ export function useCatalogoAgente() {
   // Qué productos son A y B en rotación: el catálogo de "Cliente nuevo".
   // `null` hasta la primera sincronización que la traiga.
   const [rotacion, setRotacion] = useState(null)
+  // Qué no se pudo actualizar por falta de sesión en la última
+  // sincronización (el orden y la rotación la piden). Se conserva lo que ya
+  // estaba guardado y se avisa, en vez de mandar al agente al ingreso.
+  const [sinSesionEnSync, setSinSesionEnSync] = useState([])
+  // Cuántas fotos no cupieron en la tablet en la última sincronización (se
+  // ven con internet). Ver utils/cacheImagenesCatalogo.js.
+  const [fotosSinLugar, setFotosSinLugar] = useState(0)
 
   useEffect(() => {
     const loadFromCache = async () => {
@@ -321,6 +328,10 @@ export function useCatalogoAgente() {
   const synchronize = useCallback(async () => {
     setIsSyncing(true)
     updateSyncUI('Iniciando sincronización...', 5)
+    const sinSesion = []
+    const faltoSesion = (error) => error?.response?.status === 401
+    // Lo que va arriba del catálogo, para guardar sus fotos primero.
+    const destacados = new Set()
 
     try {
       let start = 0
@@ -397,6 +408,7 @@ export function useCatalogoAgente() {
       try {
         const ofertasRes = await api.get(OFERTAS_PATH)
         const nuevasOfertas = ofertasRes.data.ofertas || []
+        nuevasOfertas.forEach((o) => destacados.add(String(o.id)))
         await catalogoAgenteDb.saveOfertas(nuevasOfertas)
         setOfertas(nuevasOfertas)
       } catch (ofertasError) {
@@ -406,6 +418,7 @@ export function useCatalogoAgente() {
       try {
         const bajaRes = await api.get(OFERTAS_BAJA_PATH)
         const nuevasBaja = bajaRes.data.ofertas || []
+        nuevasBaja.forEach((o) => destacados.add(String(o.alegraItemId)))
         await catalogoAgenteDb.saveOfertasBaja(nuevasBaja)
         setOfertasBaja(nuevasBaja)
       } catch (bajaError) {
@@ -417,6 +430,7 @@ export function useCatalogoAgente() {
       try {
         const nuevosRes = await api.get(PRODUCTOS_NUEVOS_PATH)
         const nuevos = nuevosRes.data.productos || []
+        nuevos.forEach((n) => destacados.add(String(n.alegraItemId)))
         await catalogoAgenteDb.saveProductosNuevos(nuevos)
         setProductosNuevosIds(nuevos)
       } catch (nuevosError) {
@@ -442,6 +456,8 @@ export function useCatalogoAgente() {
       } catch (configError) {
         // Sin esto el catálogo sale en el orden alfabético de siempre — no
         // vale la pena tumbar la sincronización por algo que es solo de orden.
+        // Lo guardado antes se queda.
+        if (faltoSesion(configError)) sinSesion.push('el orden del catálogo')
         console.error('No se pudo actualizar el orden del catálogo:', configError)
       }
 
@@ -452,50 +468,37 @@ export function useCatalogoAgente() {
       } catch (rotacionError) {
         // Sin esto "Cliente nuevo" muestra solo la oferta: no vale la pena
         // tumbar la sincronización.
+        if (faltoSesion(rotacionError)) sinSesion.push('lo más vendido')
         console.error('No se pudo actualizar la rotación:', rotacionError)
       }
 
-      updateSyncUI('Preparando descarga de imágenes...', 95)
-      const imageUrls = new Set()
-      newBuffer.forEach((product) => {
-        if (product.images && product.images.length > 0) {
-          const favoriteImage = product.images.find((img) => img.favorite === true) || product.images[0]
-          if (favoriteImage && favoriteImage.url) {
-            imageUrls.add(favoriteImage.url)
-          }
-        }
-      })
-
-      const urlsArray = Array.from(imageUrls)
-      const totalImages = urlsArray.length
-      let downloadedImages = 0
-
-      if (totalImages > 0) {
-        for (let i = 0; i < urlsArray.length; i += IMAGE_PREFETCH_CONCURRENCY) {
-          const chunk = urlsArray.slice(i, i + IMAGE_PREFETCH_CONCURRENCY)
-          await Promise.all(
-            chunk.map(
-              (url) =>
-                new Promise((resolve) => {
-                  const img = new Image()
-                  img.onload = () => resolve()
-                  img.onerror = () => resolve()
-                  img.src = url
-                })
-            )
-          )
-          downloadedImages += chunk.length
-          updateSyncUI(
-            `Guardando imágenes: ${Math.min(downloadedImages, totalImages)} / ${totalImages}`,
-            Math.min(100, (downloadedImages / totalImages) * 100)
-          )
-        }
+      // Las fotos, en el orden en que se ven: lo destacado (rebajas, nuevos,
+      // liquidación) y después el catálogo en el orden de Gestión de Catálogo
+      // (el recién bajado o, sin sesión, el último guardado). Si no caben
+      // todas, las que quedan afuera son las del fondo.
+      updateSyncUI('Preparando las fotos...', 95)
+      let resultadoFotos = { sinLugar: 0 }
+      try {
+        const configParaOrden = await catalogoAgenteDb.getConfigCatalogo().catch(() => null)
+        const enOrden = [
+          ...newBuffer.filter((p) => destacados.has(String(p.id))),
+          ...enOrdenDelCatalogo(newBuffer, configParaOrden).flatMap((b) => b.productos)
+        ]
+        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden), (hechas, total) => {
+          updateSyncUI(`Guardando fotos: ${hechas} / ${total}`, total ? Math.min(100, (hechas / total) * 100) : 100)
+        })
+        console.info('Fotos del catálogo:', resultadoFotos)
+      } catch (fotosError) {
+        // Las fotos son lo último y lo menos grave: con internet se ven igual.
+        console.error('No se pudieron guardar las fotos:', fotosError)
       }
 
       const timestamp = Date.now()
       await catalogoAgenteDb.saveLastUpdate(timestamp)
       setProducts(newBuffer)
       setLastSync(timestamp)
+      setSinSesionEnSync(sinSesion)
+      setFotosSinLugar(resultadoFotos.sinLugar || 0)
       setIsSyncing(false)
       return { success: true, count: newBuffer.length }
     } catch (error) {
@@ -521,6 +524,8 @@ export function useCatalogoAgente() {
     featuredProducts,
     productosRebajados,
     productosNuevos,
+    sinSesionEnSync,
+    fotosSinLugar,
     synchronize,
     clientes,
     clienteActivo,
