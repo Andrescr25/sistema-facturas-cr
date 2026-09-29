@@ -50,11 +50,21 @@ LO QUE NO SE PUEDE ROMPER
 - **No aparece "en línea"** (`markOnlineOnConnect: false`): si no, el
   teléfono del dueño deja de sonar con los mensajes que le llegan.
 
-VINCULAR: Configuración → WhatsApp → número del celular → código de 8
-caracteres que se escribe en el teléfono (Dispositivos vinculados →
-Vincular con el número de teléfono). Sin QR. Las rutas son
-`/api/admin/whatsapp` (estado), `/vincular` y `/desvincular`: bajo `/admin`,
-o sea del módulo Configuración.
+VINCULAR: Configuración → WhatsApp → "Vincular con código QR" (lo
+principal: WhatsApp → Dispositivos vinculados → Vincular un dispositivo, y
+se apunta la cámara; el QR se renueva cada ~20 s y la pantalla pregunta cada
+3 s) o, como alternativa, con el número del celular y un código de 8
+caracteres. Las rutas son `/api/admin/whatsapp` (estado, con el QR vigente),
+`/vincular` (`{ modo: 'qr' }` o `{ modo: 'codigo', telefono }`) y
+`/desvincular`: bajo `/admin`, o sea del módulo Configuración.
+
+EL "NAVEGADOR" TIENE QUE SER UNO QUE WHATSAPP CONOZCA. El primer intento en
+producción falló con "No se pudo vincular el dispositivo", código tras
+código: con `Browsers.ubuntu('Sistema Facturas')` Baileys declaraba el
+dispositivo como "otro cliente web" (tipo 9) y WhatsApp lo rechaza. Con
+'Chrome' es tipo 1 (medido: el tipo va al final del texto del QR). En el
+teléfono aparece como "Chrome (Ubuntu)". `whatsappInterno.test.js` lo
+verifica contra la tabla de la propia librería.
 
 Baileys es 7.0.0-rc14, fijo (ESM: se carga con `import()` desde CommonJS;
 pide Node 20). Se instaló con `--ignore-scripts` para no regenerar Prisma

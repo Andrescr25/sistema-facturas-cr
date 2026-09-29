@@ -14,9 +14,15 @@
  *  1. Tomar el turno (turno.js): una sola copia del servidor conectada.
  *  2. Con teléfono vinculado, conectar y mantenerse conectado.
  *  3. Sin teléfono vinculado, no conectar hasta que alguien pida vincular
- *     desde Configuración: se genera un código de 8 caracteres que se
- *     escribe en el teléfono (WhatsApp → Dispositivos vinculados →
- *     Vincular con el número de teléfono). Sin QR.
+ *     desde Configuración: con el QR (WhatsApp → Dispositivos vinculados →
+ *     Vincular un dispositivo, y se apunta la cámara) o con un código de 8
+ *     caracteres (… → Vincular con el número de teléfono).
+ *
+ * EL "NAVEGADOR" TIENE QUE SER UNO QUE WHATSAPP CONOZCA (2026-09-29). Con
+ * `Browsers.ubuntu('Sistema Facturas')` Baileys declaraba el dispositivo como
+ * "otro cliente web" (companion-reg-client-utils.js) y WhatsApp rechazaba
+ * toda vinculación: "No se pudo vincular el dispositivo", código tras
+ * código. Con 'Chrome' sale en el teléfono como "Chrome (Ubuntu)".
  *
  * LO QUE NO HACE
  *  - No aparece "en línea" (markOnlineOnConnect: false): si lo hiciera, el
@@ -35,6 +41,8 @@ const CICLO_SIN_TURNO_MS = 5000;
 const ESPERA_CODIGO_MS = 20000;
 const PAUSA_TRAS_REEMPLAZO_MS = 60000;
 const MENSAJES_RECORDADOS = 200;
+// Ver arriba: el segundo valor TIENE que ser un navegador conocido.
+const NAVEGADOR = ['Ubuntu', 'Chrome', '22.04.4'];
 
 const dueno = `${os.hostname()}-${process.pid}-${crypto.randomBytes(3).toString('hex')}`;
 
@@ -44,7 +52,7 @@ let detenido = false;
 let temporizador = null;
 let reintentos = 0;
 let noAntesDe = 0;
-let pedidoDeVinculo = null; // { numero, resolver, rechazar, timeout }
+let pedidoDeVinculo = null; // { modo: 'qr'|'codigo', numero, resolver, rechazar, timeout }
 const recientes = new Map(); // id → mensaje: WhatsApp los pide de nuevo si un reenvío falla
 
 const estado = {
@@ -55,6 +63,7 @@ const estado = {
   numero: null,
   nombre: null,
   codigo: null,
+  qr: null, // el QR vigente mientras se vincula con QR; WhatsApp lo renueva cada ~20 s
   ultimoError: null,
   conectadoDesde: null
 };
@@ -102,7 +111,7 @@ async function conectar({ forzar = false } = {}) {
   sock = b.default({
     version,
     auth: { creds: state.creds, keys: b.makeCacheableSignalKeyStore(state.keys, silencioso) },
-    browser: b.Browsers.ubuntu('Sistema Facturas'),
+    browser: NAVEGADOR,
     logger: silencioso,
     markOnlineOnConnect: false,
     syncFullHistory: false,
@@ -119,7 +128,12 @@ async function conectar({ forzar = false } = {}) {
 async function manejarConexion(este, { connection, lastDisconnect, qr }) {
   if (este !== sock) return; // eventos de un socket que ya se reemplazó
 
-  if (qr && pedidoDeVinculo && !estado.codigo) {
+  if (qr && pedidoDeVinculo?.modo === 'qr') {
+    // Cada QR nuevo reemplaza al anterior: la pantalla pregunta seguido.
+    estado.qr = qr;
+    clearTimeout(pedidoDeVinculo.timeout);
+    pedidoDeVinculo.resolver({ qr });
+  } else if (qr && pedidoDeVinculo && !estado.codigo) {
     const pedido = pedidoDeVinculo;
     try {
       const codigo = await sock.requestPairingCode(pedido.numero);
@@ -140,6 +154,7 @@ async function manejarConexion(este, { connection, lastDisconnect, qr }) {
     estado.conectado = true;
     estado.vinculado = true;
     estado.codigo = null;
+    estado.qr = null;
     estado.ultimoError = null;
     estado.conectadoDesde = new Date().toISOString();
     estado.numero = b.jidNormalizedUser(sock.user?.id || '').split('@')[0] || null;
@@ -159,7 +174,7 @@ async function manejarConexion(este, { connection, lastDisconnect, qr }) {
     if (motivo === R.loggedOut) {
       // El teléfono sacó a este dispositivo (o se desvinculó desde acá).
       await sesion.borrarSesion();
-      Object.assign(estado, { vinculado: false, numero: null, nombre: null, codigo: null });
+      Object.assign(estado, { vinculado: false, numero: null, nombre: null, codigo: null, qr: null });
       estado.ultimoError = 'El teléfono desvinculó este sistema. Vuelva a vincularlo en Configuración.';
       terminarPedido(falla('DESVINCULADO', estado.ultimoError));
       return;
@@ -176,9 +191,11 @@ async function manejarConexion(este, { connection, lastDisconnect, qr }) {
       return;
     }
     if (!estado.vinculado && !(await sesion.hayVinculo())) {
-      // Se estaba vinculando y el código venció sin usarse.
+      // Se estaba vinculando y el QR o el código vencieron sin usarse.
+      const eraQr = pedidoDeVinculo?.modo === 'qr' || estado.qr;
       estado.codigo = null;
-      estado.ultimoError = 'El código de vinculación venció sin usarse.';
+      estado.qr = null;
+      estado.ultimoError = eraQr ? 'El QR venció sin escanearse.' : 'El código de vinculación venció sin usarse.';
       terminarPedido(falla('CODIGO_VENCIDO', estado.ultimoError, 408));
       return;
     }
@@ -248,27 +265,33 @@ async function detener() {
 // -------------------------------------------------------------- acciones
 
 /**
- * Pide un código para vincular el teléfono `numero` (con código de país).
- * Solo la copia con el turno puede hacerlo.
+ * Empieza a vincular un teléfono. Solo la copia con el turno puede hacerlo.
+ *   { modo: 'qr' }                  → { qr }: el texto del QR (el primero; los
+ *                                     siguientes salen en estado().qr)
+ *   { modo: 'codigo', numero }      → el código de 8 caracteres para `numero`
+ *                                     (con código de país)
  */
-async function vincular(numero) {
+async function vincular({ modo = 'qr', numero = null } = {}) {
   if (!habilitado()) throw falla('APAGADO', 'WhatsApp interno está apagado (falta WHATSAPP_PROVEEDOR=interno en el servidor).');
   if (!estado.conTurno) throw falla('SIN_TURNO', 'El servidor se está reiniciando. Intente en unos segundos.');
   if (estado.vinculado) throw falla('YA_VINCULADO', `Ya hay un teléfono vinculado (${estado.numero || 'conectando'}). Desvincúlelo primero.`, 409);
   if (pedidoDeVinculo) terminarPedido(falla('REEMPLAZADO', 'Se pidió otro código.'));
+  if (modo === 'codigo' && !numero) throw falla('SIN_NUMERO', 'Falta el número del teléfono.', 400);
   cerrarSocket();
   await sesion.borrarSesion(); // una vinculación a medias no se reutiliza
   estado.codigo = null;
+  estado.qr = null;
+  estado.ultimoError = null;
   noAntesDe = 0;
 
-  const codigo = new Promise((resolver, rechazar) => {
+  const resultado = new Promise((resolver, rechazar) => {
     pedidoDeVinculo = {
-      numero, resolver, rechazar,
+      modo, numero, resolver, rechazar,
       timeout: setTimeout(() => terminarPedido(falla('SIN_CODIGO', 'WhatsApp no respondió a tiempo. Intente de nuevo.', 504)), ESPERA_CODIGO_MS)
     };
   });
   await conectar();
-  return codigo;
+  return resultado;
 }
 
 async function desvincular() {
@@ -279,7 +302,7 @@ async function desvincular() {
   }
   cerrarSocket();
   await sesion.borrarSesion();
-  Object.assign(estado, { vinculado: false, conectado: false, numero: null, nombre: null, codigo: null, ultimoError: null });
+  Object.assign(estado, { vinculado: false, conectado: false, numero: null, nombre: null, codigo: null, qr: null, ultimoError: null });
 }
 
 /** Espera hasta `ms` a que la conexión esté abierta. */
@@ -329,6 +352,7 @@ module.exports = {
   habilitado, iniciar, detener, vincular, desvincular, esperarConexion,
   enviarTexto, enviarDocumento, estado: obtenerEstado,
   // para las pruebas
+  _NAVEGADOR: NAVEGADOR,
   _manejarConexion: manejarConexion,
   _usar: ({ modulo, socket, conTurno } = {}) => {
     if (modulo) baileys = modulo;

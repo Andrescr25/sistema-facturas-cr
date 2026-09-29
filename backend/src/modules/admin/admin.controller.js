@@ -64,15 +64,23 @@ async function estadoWhatsApp(req, res) {
   });
 }
 
-/** POST /api/admin/whatsapp/vincular { telefono } — devuelve el código de 8 caracteres. */
+/**
+ * POST /api/admin/whatsapp/vincular
+ *   { modo: 'qr' }               → { qr }: el texto del QR para escanear
+ *   { modo: 'codigo', telefono } → { codigo, telefono }: 8 caracteres
+ */
 async function vincularWhatsApp(req, res) {
   try {
+    if ((req.body?.modo || 'qr') === 'qr') {
+      const { qr } = await whatsapp.vincular({ modo: 'qr' });
+      return res.json({ success: true, data: { qr } });
+    }
     const revision = validarTelefonoEscrito(req.body?.telefono);
     if (!revision.valido) return res.status(400).json({ success: false, message: revision.motivo });
     if (!revision.esMovil) {
       return res.status(400).json({ success: false, message: `${revision.formateado} es un teléfono fijo: tiene que ser el celular que tiene el WhatsApp.` });
     }
-    const codigo = await whatsapp.vincular(revision.numero);
+    const codigo = await whatsapp.vincular({ modo: 'codigo', numero: revision.numero });
     res.json({ success: true, data: { codigo, telefono: revision.formateado } });
   } catch (error) {
     responderWhatsApp(res, error);
