@@ -10,7 +10,7 @@ archivos:
   - backend/tests/cacheImagenesCatalogo.test.js
 aristas:
   relacionado: [modulo/catalogo-agente]
-medido: 2026-09-27
+medido: 2026-09-28
 ---
 
 Reportado desde una tablet (la app instalada como acceso directo): al

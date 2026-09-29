@@ -1,5 +1,11 @@
 /**
- * El único lugar del sistema que le habla a Evolution API.
+ * El único lugar del sistema que manda mensajes de WhatsApp.
+ *
+ * DOS CANALES (2026-09-29). El de adentro (conexion.js: Baileys corriendo en
+ * este mismo servidor, WHATSAPP_PROVEEDOR=interno) y Evolution API, el
+ * servicio aparte de antes. Mientras el teléfono no esté vinculado adentro,
+ * todo sigue saliendo por Evolution: la mudanza no corta los envíos. Una
+ * vez vinculado, Evolution se puede apagar (quitar WHATSAPP_API_URL).
  *
  * POR QUÉ EXISTE
  * Hasta ahora había dos copias de esta llamada —la orden de compra al
@@ -18,6 +24,11 @@
 
 const axios = require('axios');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
+const interno = require('./conexion');
+
+// Cuánto se espera al canal de adentro si está vinculado pero reconectando
+// (un despliegue, un corte): el turno pasa de una copia a otra en segundos.
+const ESPERA_INTERNO_MS = 20000;
 
 // Evolution responde despacio la primera vez del día: corre en Render y se
 // duerme sin tráfico. Despertarlo toma 20-30 segundos, medido en vivo.
@@ -101,6 +112,40 @@ function prepararNumero(telefono) {
   return revision;
 }
 
+/** Por dónde sale el mensaje: 'interno' o 'evolution'. */
+async function canal() {
+  if (interno.habilitado()) {
+    const e = interno.estado();
+    if (e.conectado) return 'interno';
+    if (e.vinculado && await interno.esperarConexion(ESPERA_INTERNO_MS)) return 'interno';
+  }
+  if (process.env.WHATSAPP_API_URL) return 'evolution';
+  throw errorDeEnvio(interno.habilitado()
+    ? (interno.estado().vinculado
+      ? 'WhatsApp se está reconectando. Intente de nuevo en un momento.'
+      : 'WhatsApp no está vinculado en este sistema. Vincúlelo en Configuración → WhatsApp.')
+    : 'WhatsApp no está configurado en el servidor.', 503);
+}
+
+/** Los fallos del canal de adentro, en el mismo idioma que los de Evolution. */
+function explicarFalloInterno(error, { telefono, sujeto = 'cliente' }) {
+  if (error.codigo === 'SIN_WHATSAPP') {
+    return errorDeEnvio(`El número ${telefono} no pudo recibir el mensaje. Lo más probable es que no tenga WhatsApp (por ejemplo, si es un teléfono fijo) o que esté mal escrito. Verifique el número del ${sujeto}.`, 400);
+  }
+  if (error.codigo === 'SIN_CONEXION') {
+    return errorDeEnvio('WhatsApp se está reconectando. Intente de nuevo en un momento.', 503);
+  }
+  return errorDeEnvio(`WhatsApp no pudo mandar el mensaje: ${error.message}`, error.status || 502);
+}
+
+async function mandarInterno(accion, { telefono, sujeto }) {
+  try {
+    return await accion();
+  } catch (error) {
+    throw explicarFalloInterno(error, { telefono, sujeto });
+  }
+}
+
 async function postear(ruta, payload, { telefono, sujeto }) {
   const { url, clave, instancia } = configuracion();
   try {
@@ -125,10 +170,15 @@ async function enviarTexto({ telefono, mensaje, sujeto = 'cliente' }) {
   const texto = String(mensaje ?? '').trim();
   if (!texto) throw errorDeEnvio('El mensaje está vacío.', 400);
 
-  await postear('message/sendText', { number: numero.numero, text: texto },
-    { telefono: numero.formateado, sujeto });
+  const via = await canal();
+  if (via === 'interno') {
+    await mandarInterno(() => interno.enviarTexto(numero.numero, texto), { telefono: numero.formateado, sujeto });
+  } else {
+    await postear('message/sendText', { number: numero.numero, text: texto },
+      { telefono: numero.formateado, sujeto });
+  }
 
-  return { enviado: true, telefono: numero.formateado, numero: numero.numero };
+  return { enviado: true, telefono: numero.formateado, numero: numero.numero, via };
 }
 
 /**
@@ -148,16 +198,23 @@ async function enviarDocumento({ telefono, mensaje, pdf, nombreArchivo, sujeto =
     throw errorDeEnvio('No se pudo preparar el documento para enviar.', 500);
   }
 
-  await postear('message/sendMedia', {
-    number: numero.numero,
-    mediatype: 'document',
-    mimetype: 'application/pdf',
-    media: pdf.toString('base64'),
-    fileName: nombreArchivo || 'documento.pdf',
-    caption: String(mensaje ?? '').trim() || undefined
-  }, { telefono: numero.formateado, sujeto });
+  const archivo = nombreArchivo || 'documento.pdf';
+  const pie = String(mensaje ?? '').trim() || undefined;
+  const via = await canal();
+  if (via === 'interno') {
+    await mandarInterno(() => interno.enviarDocumento(numero.numero, pdf, archivo, pie), { telefono: numero.formateado, sujeto });
+  } else {
+    await postear('message/sendMedia', {
+      number: numero.numero,
+      mediatype: 'document',
+      mimetype: 'application/pdf',
+      media: pdf.toString('base64'),
+      fileName: archivo,
+      caption: pie
+    }, { telefono: numero.formateado, sujeto });
+  }
 
-  return { enviado: true, telefono: numero.formateado, numero: numero.numero };
+  return { enviado: true, telefono: numero.formateado, numero: numero.numero, via };
 }
 
 module.exports = { enviarTexto, enviarDocumento, explicarFallo, prepararNumero };
