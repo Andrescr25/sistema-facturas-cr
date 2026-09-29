@@ -28,6 +28,7 @@ correo son los de PRODUCCIÓN.
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
 - [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md)
+- [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md)
 
 ## Tablas
 

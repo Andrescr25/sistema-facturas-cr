@@ -12,6 +12,7 @@ const EmailService = require('./services/emailService');
 const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
+const whatsapp = require('./src/integrations/whatsapp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -315,6 +316,10 @@ async function pingWhatsApp() {
   // Fuera de los días elegidos no se toca: el servicio duerme y no consume
   // horas de la cuota gratuita. Si alguien manda una orden ese día igual
   // funciona — Render lo despierta, tarda unos 30 segundos la primera vez.
+  // Con WhatsApp conectado adentro del sistema, Evolution ya no manda nada:
+  // no vale la pena gastarle horas gratuitas despertándolo.
+  if (whatsapp.estado().conectado) return;
+
   if (!debeMantenerDespierto(new Date(), WHATSAPP_PING_DIAS)) {
     // Se olvida el estado para que al volver el día de ping se vuelva a
     // informar si el WhatsApp quedó desvinculado mientras tanto.
@@ -525,6 +530,11 @@ const server = app.listen(PORT, () => {
     console.log('\n📱 Ping a WhatsApp no aplica (WHATSAPP_API_URL apunta a este equipo o no está configurada)\n');
   }
 
+  // WhatsApp adentro del sistema (Baileys): solo con WHATSAPP_PROVEEDOR=interno.
+  // Sin esa variable no hace nada — el backend local, que usa la base de
+  // producción, no le disputa la sesión al servidor de Render.
+  whatsapp.iniciar().catch((e) => console.error('📱 No se pudo iniciar WhatsApp interno:', e.message));
+
   // Historial de ventas: cada HORA lo nuevo (la rotación y Rentabilidad son en
   // tiempo real, y lo facturado en el sistema ya entró al crearse), y una vez
   // al día un repaso de los últimos 60 días para sacar lo que se anuló tarde.
@@ -582,6 +592,10 @@ const gracefulShutdown = async (signal) => {
     console.log('📱 Deteniendo ping a WhatsApp...');
     clearInterval(whatsappPingInterval);
   }
+
+  // WhatsApp adentro: cerrar SIN desvincular y soltar el turno, para que la
+  // copia nueva del servidor se conecte en segundos y no a los 60.
+  await whatsapp.detener().catch(() => {});
 
   // Detener monitoreo de emails
   if (emailService) {

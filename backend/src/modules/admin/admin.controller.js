@@ -40,7 +40,59 @@ async function databaseInfo(req, res) {
   }
 }
 
+// ==================== WHATSAPP (adentro del sistema) ====================
+
+const whatsapp = require('../../integrations/whatsapp');
+const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
+
+function responderWhatsApp(res, error) {
+  const status = error.status || 500;
+  if (status >= 500) console.error('WhatsApp (Configuración):', error.message);
+  res.status(status).json({ success: false, message: error.message, codigo: error.codigo || null });
+}
+
+/** GET /api/admin/whatsapp — cómo está la conexión, y por dónde salen los mensajes. */
+async function estadoWhatsApp(req, res) {
+  const e = whatsapp.estado();
+  res.json({
+    success: true,
+    data: {
+      ...e,
+      evolutionConfigurado: Boolean(process.env.WHATSAPP_API_URL),
+      saleLoPor: e.conectado ? 'interno' : (process.env.WHATSAPP_API_URL ? 'evolution' : 'ninguno')
+    }
+  });
+}
+
+/** POST /api/admin/whatsapp/vincular { telefono } — devuelve el código de 8 caracteres. */
+async function vincularWhatsApp(req, res) {
+  try {
+    const revision = validarTelefonoEscrito(req.body?.telefono);
+    if (!revision.valido) return res.status(400).json({ success: false, message: revision.motivo });
+    if (!revision.esMovil) {
+      return res.status(400).json({ success: false, message: `${revision.formateado} es un teléfono fijo: tiene que ser el celular que tiene el WhatsApp.` });
+    }
+    const codigo = await whatsapp.vincular(revision.numero);
+    res.json({ success: true, data: { codigo, telefono: revision.formateado } });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** POST /api/admin/whatsapp/desvincular */
+async function desvincularWhatsApp(req, res) {
+  try {
+    await whatsapp.desvincular();
+    res.json({ success: true });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
 module.exports = {
   testSimple,
-  databaseInfo
+  databaseInfo,
+  estadoWhatsApp,
+  vincularWhatsApp,
+  desvincularWhatsApp
 };

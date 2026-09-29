@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Building2, Save, CreditCard, Database, Trash2 } from 'lucide-react';
 import { alegraService } from '../services/alegraService';
+import { useDialog } from '../hooks/useDialog';
+import ConfirmModal from '../components/ConfirmModal';
+import SeccionWhatsApp from '../components/configuracion/SeccionWhatsApp';
 
 export default function Configuracion() {
+  const { confirm, dialogProps } = useDialog();
+  const confirmarDesvincular = (mensaje) =>
+    confirm(mensaje, { title: '¿Desvincular WhatsApp?', confirmLabel: 'Desvincular', variant: 'danger' });
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
@@ -129,7 +135,7 @@ export default function Configuracion() {
 
       <div className="space-y-6">
         {/* Información de la Empresa */}
-        <div className="card">
+        <div className="card p-5 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Building2 size={24} className="text-primario-600" />
             Información de la Empresa
@@ -205,7 +211,7 @@ export default function Configuracion() {
         </div>
 
         {/* Cuentas Bancarias */}
-        <div className="card">
+        <div className="card p-5 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <CreditCard size={24} className="text-exito-600" />
             Cuentas Bancarias
@@ -248,8 +254,10 @@ export default function Configuracion() {
           </div>
         </div>
 
+        <SeccionWhatsApp confirmar={confirmarDesvincular} />
+
         {/* Zona de Peligro / Mantenimiento */}
-        <div className="card border-peligro-200">
+        <div className="card border-peligro-200 p-5 sm:p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-peligro-700">
             <Database size={24} />
             Mantenimiento del Sistema
@@ -273,6 +281,7 @@ export default function Configuracion() {
           </div>
         </div>
       </div>
+      <ConfirmModal {...dialogProps} />
     </div>
   );
 }

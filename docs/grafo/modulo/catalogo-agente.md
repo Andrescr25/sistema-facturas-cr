@@ -20,7 +20,7 @@ archivos:
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
-medido: 2026-09-27
+medido: 2026-09-28
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el

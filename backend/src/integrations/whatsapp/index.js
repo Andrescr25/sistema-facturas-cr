@@ -1,9 +1,19 @@
 /**
- * Integración con WhatsApp (Evolution API).
+ * Integración con WhatsApp.
  *
- * Toda la conversación con Evolution pasa por acá: enviar texto, enviar un
- * documento y traducir sus errores a algo accionable.
+ * Mandar (texto o PDF) pasa por whatsapp.client.js, que elige el canal: el de
+ * adentro (conexion.js, Baileys en este servidor) o Evolution API. La
+ * conexión de adentro se enciende y se apaga con el servidor (server.js) y se
+ * vincula desde Configuración.
  */
 const cliente = require('./whatsapp.client');
+const conexion = require('./conexion');
 
-module.exports = cliente;
+module.exports = {
+  ...cliente,
+  iniciar: conexion.iniciar,
+  detener: conexion.detener,
+  estado: conexion.estado,
+  vincular: conexion.vincular,
+  desvincular: conexion.desvincular
+};
