@@ -6,8 +6,9 @@ export async function getEstadoWhatsApp() {
   return data.data
 }
 
-export async function vincularWhatsApp(telefono) {
-  const { data } = await api.post('/admin/whatsapp/vincular', { telefono })
+/** { modo: 'qr' } → { qr } · { modo: 'codigo', telefono } → { codigo, telefono } */
+export async function vincularWhatsApp(pedido) {
+  const { data } = await api.post('/admin/whatsapp/vincular', pedido)
   return data.data
 }
 

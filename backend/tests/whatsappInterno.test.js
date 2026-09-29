@@ -88,7 +88,7 @@ describe('apagado por omisión', () => {
     await conexion.iniciar();
     assert.equal(consultas.length, 0);
     assert.equal(conexion.estado().habilitado, false);
-    await assert.rejects(() => conexion.vincular('50688887777'), (e) => e.codigo === 'APAGADO');
+    await assert.rejects(() => conexion.vincular({ modo: 'codigo', numero: '50688887777' }), (e) => e.codigo === 'APAGADO');
   });
 });
 
@@ -247,7 +247,7 @@ describe('vincular', () => {
     const { conexion } = montar({ proveedor: 'interno' });
     const { modulo, creados } = baileysFalso();
     conexion._usar({ modulo, socket: null, conTurno: true });
-    const codigo = await conexion.vincular('50662984143');
+    const codigo = await conexion.vincular({ modo: 'codigo', numero: '50662984143' });
     assert.equal(codigo, 'ABCD1234');
     assert.deepEqual(creados[0].pedidosDeCodigo, ['50662984143']);
     assert.equal(conexion.estado().codigo, 'ABCD1234');
@@ -257,13 +257,47 @@ describe('vincular', () => {
     const { conexion } = montar({ proveedor: 'interno' });
     const { modulo, creados } = baileysFalso();
     const { socket } = conexion._usar({ modulo, socket: null, conTurno: true });
-    await conexion.vincular('50662984143');
+    await conexion.vincular({ modo: 'codigo', numero: '50662984143' });
     // Mucho después, la persona escribe el código: WhatsApp cierra con 515.
     await conexion._manejarConexion(socket(), cierre(baileys.DisconnectReason.restartRequired));
     assert.equal(creados.length, 2, 'se reconecta aunque la sesión todavía no diga "registrada"');
     await conexion._manejarConexion(socket(), { connection: 'open' });
     assert.equal(conexion.estado().conectado, true);
     assert.equal(conexion.estado().codigo, null);
+  });
+
+  test('con QR: entrega el primero y la pantalla ve cada QR nuevo', async () => {
+    const { conexion } = montar({ proveedor: 'interno' });
+    const { modulo, creados } = baileysFalso();
+    const { socket } = conexion._usar({ modulo, socket: null, conTurno: true });
+    const r = await conexion.vincular({ modo: 'qr' });
+    assert.deepEqual(r, { qr: 'qr-1' });
+    assert.equal(creados[0].pedidosDeCodigo.length, 0, 'con QR no se pide código');
+    await conexion._manejarConexion(socket(), { qr: 'qr-1b' });
+    assert.equal(conexion.estado().qr, 'qr-1b');
+    await conexion._manejarConexion(socket(), cierre(baileys.DisconnectReason.restartRequired));
+    await conexion._manejarConexion(socket(), { connection: 'open' });
+    assert.equal(conexion.estado().qr, null, 'conectado, el QR ya no se muestra');
+    assert.equal(conexion.estado().conectado, true);
+  });
+
+  test('si el QR vence sin escanearse, lo dice', async () => {
+    const { conexion } = montar({ proveedor: 'interno' });
+    const { modulo } = baileysFalso();
+    const { socket } = conexion._usar({ modulo, socket: null, conTurno: true });
+    await conexion.vincular({ modo: 'qr' });
+    await conexion._manejarConexion(socket(), cierre(baileys.DisconnectReason.timedOut));
+    assert.equal(conexion.estado().qr, null);
+    assert.match(conexion.estado().ultimoError, /QR venció/);
+  });
+
+  test('el "navegador" es uno que WhatsApp conoce (si no, rechaza toda vinculación)', () => {
+    const { conexion } = montar({ proveedor: 'interno' });
+    // La tabla de la propia librería: lo que no está ahí se declara como
+    // "otro cliente web" y el teléfono responde "No se pudo vincular".
+    const fuente = require('fs').readFileSync(require('path').join(__dirname, '..', 'node_modules', 'baileys', 'lib', 'Utils', 'companion-reg-client-utils.js'), 'utf8');
+    const tabla = fuente.slice(fuente.indexOf('BROWSER_TO_COMPANION_WEB_CLIENT = {'), fuente.indexOf('};', fuente.indexOf('BROWSER_TO_COMPANION_WEB_CLIENT = {')));
+    assert.match(tabla, new RegExp(`\\b${conexion._NAVEGADOR[1]}:`), `"${conexion._NAVEGADOR[1]}" no es un navegador que WhatsApp reconozca`);
   });
 
   test('sin el turno no se vincula: otra copia del servidor lo tiene', async () => {

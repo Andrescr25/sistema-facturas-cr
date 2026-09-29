@@ -12,7 +12,7 @@ archivos:
   - backend/tests/rotacionVentas.test.js
 aristas:
   relacionado: [modulo/rentabilidad, modulo/catalogo-agente, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
-medido: 2026-09-25
+medido: 2026-09-29
 ---
 
 `venta_historico (alegra_invoice_id, alegra_item_id, cliente_id,
