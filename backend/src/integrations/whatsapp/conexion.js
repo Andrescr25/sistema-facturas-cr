@@ -99,7 +99,7 @@ async function conectar({ forzar = false } = {}) {
   if (Date.now() < noAntesDe) return;
   const b = await cargarBaileys();
   const { state, saveCreds } = await sesion.usarSesionDb(b);
-  estado.vinculado = state.creds.registered === true;
+  estado.vinculado = sesion.sesionCompleta(state.creds);
   // Sin vínculo y sin nadie pidiéndolo, conectar solo generaría códigos QR
   // que nadie mira. `forzar`: el reinicio que WhatsApp pide justo después de
   // escribir el código, cuando la sesión todavía no dice "registrada".
@@ -354,6 +354,7 @@ module.exports = {
   // para las pruebas
   _NAVEGADOR: NAVEGADOR,
   _manejarConexion: manejarConexion,
+  _conectar: conectar,
   _usar: ({ modulo, socket, conTurno } = {}) => {
     if (modulo) baileys = modulo;
     if (socket !== undefined) sock = socket;

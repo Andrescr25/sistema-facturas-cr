@@ -111,11 +111,15 @@ describe('la sesión en la base', () => {
     assert.ok(otra.state.creds.noiseKey.private.equals(state.creds.noiseKey.private), 'la identidad sobrevive a un reinicio');
   });
 
-  test('"vinculado" es que la sesión esté registrada', async () => {
+  test('"vinculado" es que la vinculación terminó, sea por QR o por código', async () => {
     const { sesion } = montar({ proveedor: 'interno' });
     assert.equal(await sesion.hayVinculo(), false);
-    filas.set('creds', JSON.stringify({ registered: true }));
+    // Vinculada con QR: Baileys NUNCA pone registered en true por este camino.
+    filas.set('creds', JSON.stringify({ registered: false, me: { id: '50662984143:12@s.whatsapp.net' }, account: { details: 'x' } }));
     assert.equal(await sesion.hayVinculo(), true);
+    // Código pedido pero sin escribir: `me` ya está, la cuenta firmada no.
+    filas.set('creds', JSON.stringify({ registered: false, me: { id: '50662984143@s.whatsapp.net', name: '~' } }));
+    assert.equal(await sesion.hayVinculo(), false);
     await sesion.borrarSesion();
     assert.equal(await sesion.hayVinculo(), false);
   });
@@ -298,6 +302,21 @@ describe('vincular', () => {
     const fuente = require('fs').readFileSync(require('path').join(__dirname, '..', 'node_modules', 'baileys', 'lib', 'Utils', 'companion-reg-client-utils.js'), 'utf8');
     const tabla = fuente.slice(fuente.indexOf('BROWSER_TO_COMPANION_WEB_CLIENT = {'), fuente.indexOf('};', fuente.indexOf('BROWSER_TO_COMPANION_WEB_CLIENT = {')));
     assert.match(tabla, new RegExp(`\\b${conexion._NAVEGADOR[1]}:`), `"${conexion._NAVEGADOR[1]}" no es un navegador que WhatsApp reconozca`);
+  });
+
+  test('vinculada con QR, después de un corte se reconecta sola (pasó en producción)', async () => {
+    const { conexion } = montar({ proveedor: 'interno' });
+    const creds = baileys.initAuthCreds();
+    creds.me = { id: '50662984143:12@s.whatsapp.net', name: 'Tachi' };
+    creds.account = { details: Buffer.from([1, 2]), accountSignatureKey: Buffer.from([3]) };
+    assert.equal(creds.registered, false, 'así queda una sesión vinculada con QR');
+    filas.set('creds', JSON.stringify(creds, baileys.BufferJSON.replacer));
+
+    const { modulo, creados } = baileysFalso();
+    conexion._usar({ modulo, socket: null, conTurno: true });
+    await conexion._conectar(); // lo que hace el ciclo tras un reinicio o un corte
+    assert.equal(creados.length, 1, 'se conectó con la sesión guardada');
+    assert.equal(conexion.estado().vinculado, true);
   });
 
   test('sin el turno no se vincula: otra copia del servidor lo tiene', async () => {

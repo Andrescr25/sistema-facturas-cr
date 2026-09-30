@@ -66,6 +66,14 @@ dispositivo como "otro cliente web" (tipo 9) y WhatsApp lo rechaza. Con
 teléfono aparece como "Chrome (Ubuntu)". `whatsappInterno.test.js` lo
 verifica contra la tabla de la propia librería.
 
+"VINCULADO" NO ES `creds.registered`. Baileys solo la pone en true al
+vincular con el código; con el QR queda en false para siempre. En
+producción el sistema, vinculado con QR, se "desconectó de la nada" al
+primer corte (reinicio o red): al releer la sesión creía que no había
+teléfono y no reconectaba, mientras el teléfono lo mostraba conectado.
+Vinculado es `sesionCompleta(creds)`: `me` + `account` (la identidad firmada
+que llega con "pair-success", por cualquiera de los dos caminos).
+
 Baileys es 7.0.0-rc14, fijo (ESM: se carga con `import()` desde CommonJS;
 pide Node 20). Se instaló con `--ignore-scripts` para no regenerar Prisma
 (ver bloqueo de Prisma); ninguna dependencia necesita scripts al instalar.
