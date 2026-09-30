@@ -28,9 +28,10 @@
  *    reintentar es seguro. Lo que sigue haciendo falta es que reenviar la
  *    misma clave devuelva la factura que ya existe en vez de crear otra.
  *
- * 5. SE SIGUE ALIMENTANDO LA TABLA VIEJA `facturas`. De ahí leen Facturas en
- *    Bodega y Faltantes. Cuando esos módulos lean `factura` (sección 11 del
- *    checklist), esta escritura se retira.
+ * 5. SE SIGUE ALIMENTANDO LA TABLA VIEJA `facturas`, enlazada por
+ *    `factura_propia_id`. Facturas en Bodega ya lee `factura` (sección 11,
+ *    paso 1); Faltantes, la cola de impresión y el portal todavía leen la
+ *    vieja. Cuando la lean `factura` (pasos 2 y 3), esta escritura se retira.
  */
 
 const { pool } = require('../../../config/database');
@@ -319,14 +320,18 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     usuarioId
   });
 
-  // Facturas en Bodega y Faltantes todavía leen la tabla vieja.
+  // Faltantes, la cola de impresión y el portal todavía leen la tabla vieja
+  // (pasos 2 y 3 de la sección 11). La copia queda ENLAZADA por
+  // `factura_propia_id` y SIN id de Alegra: antes entraba con alegra_id = 0
+  // y, como esa columna es única, la segunda factura propia chocaba con la
+  // primera y no se podía facturar (migración 031).
   await cliente.query(
-    `INSERT INTO facturas (numero_factura, alegra_id, cliente_nombre, cliente_email,
+    `INSERT INTO facturas (numero_factura, alegra_id, factura_propia_id, cliente_nombre, cliente_email,
                            fecha_emision, semana, mes, ano, total, estado_bodega)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
+     VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
      ON CONFLICT (numero_factura) DO NOTHING`,
     [
-      factura.numero, 0, factura.cliente_nombre, factura.cliente_correo,
+      factura.numero, factura.id, factura.cliente_nombre, factura.cliente_correo,
       fecha, semanaDe(fecha), Number(fecha.slice(5, 7)), Number(fecha.slice(0, 4)), armado.total
     ]
   );

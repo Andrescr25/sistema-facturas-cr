@@ -5,7 +5,7 @@
 
 const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
-const { resolverProductoLocal } = require('../../utils/resolverProducto');
+const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { query } = require('../../../config/database');
 
 class InvoiceService {
@@ -1049,70 +1049,9 @@ class InvoiceService {
         facturaLocalId = facturaResult.rows[0].id;
       }
 
-      // 2. Guardar faltantes
-      for (const faltante of faltantes) {
-        // item_id/producto_codigo (si llegan) se tratan siempre como
-        // referencia, nunca como alegra_id.
-        const referencia = faltante.referencia || faltante.item_id || faltante.producto_codigo || null;
-        const alegraItemId = faltante.alegra_item_id || null;
-
-        if (!referencia && !alegraItemId) {
-          console.warn('⚠️ Faltante sin identificador:', faltante);
-          continue;
-        }
-
-        const resuelto = await resolverProductoLocal({
-          alegraId: alegraItemId,
-          referencia,
-          nombreFallback: faltante.nombre_producto
-        });
-
-        if (!resuelto) {
-          console.warn(`⚠️ No se pudo resolver el producto (ref=${referencia}, alegraId=${alegraItemId}), se omite el faltante.`);
-          continue;
-        }
-
-        const productoId = resuelto.productoId;
-
-        const existingFaltante = await query(`
-          SELECT id FROM faltantes 
-          WHERE factura_id = $1 AND producto_id = $2
-          LIMIT 1
-        `, [facturaLocalId, productoId]);
-
-        if (existingFaltante.rows.length > 0) {
-          await query(`
-            UPDATE faltantes
-            SET cantidad_faltante = $1,
-                tipo_faltante = $2,
-                observaciones = $3,
-                registrado_por = $4,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $5
-          `, [
-            faltante.cantidad_faltante,
-            faltante.tipo_faltante,
-            faltante.observaciones || '',
-            registradoPor,
-            existingFaltante.rows[0].id
-          ]);
-        } else {
-          await query(`
-            INSERT INTO faltantes (
-              factura_id, producto_id, cantidad_faltante, tipo_faltante,
-              observaciones, registrado_por, estado
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
-          `, [
-            facturaLocalId,
-            productoId,
-            faltante.cantidad_faltante,
-            faltante.tipo_faltante,
-            faltante.observaciones || '',
-            registradoPor
-          ]);
-        }
-      }
+      // 2. Guardar faltantes (utils/guardarFaltantes.js: lo usa también
+      //    Bodega con las facturas propias).
+      await guardarFaltantes(facturaLocalId, faltantes, registradoPor);
 
       // 3. Guardar observaciones adicionales si existen
       if (observacionesAdicionales) {

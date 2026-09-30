@@ -409,6 +409,36 @@ async function estadosDeFactura(alegraId) {
 }
 
 /**
+ * Manda una factura despachada SIN faltantes a la cola de impresión.
+ * `facturaLocalId` es el id de la tabla vieja `facturas` (la cola todavía
+ * cuelga de ella: paso 2 de la sección 11). La categoría 'sin_pendientes'
+ * permite omitir el ajuste de precios en el centro de impresión.
+ * La usan el camino de Alegra y el de la factura propia (bodegaPropia.js).
+ */
+async function encolarImpresion(facturaLocalId, etiqueta = facturaLocalId) {
+  const existe = await query(`SELECT id FROM facturas_reimpresion WHERE factura_id = $1`, [facturaLocalId]);
+  if (existe.rows.length === 0) {
+    await query(`
+      INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
+      VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
+    `, [facturaLocalId]);
+    console.log(`🖨️ Factura ${etiqueta} agregada a cola de impresión (sin_pendientes)`);
+  } else {
+    await query(`
+      UPDATE facturas_reimpresion
+      SET estado = 'pendiente',
+          ajustes_realizados = '[]'::jsonb,
+          categoria = 'sin_pendientes',
+          total_ajustes = 0,
+          fecha_creacion = CURRENT_TIMESTAMP,
+          fecha_procesamiento = NULL
+      WHERE factura_id = $1
+    `, [facturaLocalId]);
+    console.log(`🖨️ Factura ${etiqueta} actualizada en cola de impresión (sin_pendientes)`);
+  }
+}
+
+/**
  * Actualiza el estado de una factura en bodega
  */
 async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviarAImpresion }) {
@@ -455,35 +485,8 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
   console.log(`✅ Factura ${alegraId} marcada como ${estado} en BODEGA`);
 
   // Enviar a cola de impresión si se solicita
-  // NOTA: categoria = 'sin_pendientes' permite omitir ajuste de precios en centro de impresión
   if (estado === 'procesado' && enviarAImpresion && facturaLocal.rows.length > 0) {
-    const facturaId = facturaLocal.rows[0].id;
-    
-    const existeReimpresion = await query(`
-      SELECT id FROM facturas_reimpresion WHERE factura_id = $1
-    `, [facturaId]);
-
-    if (existeReimpresion.rows.length === 0) {
-      // Insertar como 'pendiente' con categoría 'sin_pendientes'
-      await query(`
-        INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
-        VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
-      `, [facturaId]);
-      console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin_pendientes)`);
-    } else {
-      // Actualizar existente a pendiente
-      await query(`
-        UPDATE facturas_reimpresion 
-        SET estado = 'pendiente', 
-            ajustes_realizados = '[]'::jsonb,
-            categoria = 'sin_pendientes',
-            total_ajustes = 0,
-            fecha_creacion = CURRENT_TIMESTAMP,
-            fecha_procesamiento = NULL
-        WHERE factura_id = $1
-      `, [facturaId]);
-      console.log(`🖨️ Factura ${alegraId} actualizada en cola de impresión (sin_pendientes)`);
-    }
+    await encolarImpresion(facturaLocal.rows[0].id, alegraId);
   }
 
   // La caché NO se invalida: guarda solo lo de Alegra, y el estado se lee de
@@ -505,6 +508,7 @@ module.exports = {
   estadosDeFactura,
   ordenarHistorial,
   actualizarEstadoFactura,
+  encolarImpresion,
   invalidateCache,
   upsertFacturaDesdeAlegra
 };

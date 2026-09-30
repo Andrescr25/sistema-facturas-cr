@@ -584,8 +584,15 @@ enlace público ya eran propios. **Ahora viven en la base propia** (ver
 Faltantes leen las facturas de Alegra por periodo y cambian su estado usando
 el `alegraId`.
 
-- [ ] Leer las facturas propias
-- [ ] Estados de alistado por `factura.id`
+- [x] Leer las facturas propias — *Facturas en Bodega (2026-09-29):
+  `warehouse/bodegaPropia.js` lista las emitidas de `factura` con sus líneas;
+  la pantalla usa `factura_id`. Falta impresión y reimpresión (paso 2).*
+- [x] Estados de alistado por `factura.id` — *migración 031: `factura.estado_bodega`,
+  `bodega_procesado_en`, `bodega_observaciones`; lo ya despachado se copió.
+  Puente: `facturas.factura_propia_id`, y despachar escribe en las dos hasta
+  que Faltantes, la cola de impresión y el portal lean `factura`. De paso:
+  la copia de la factura propia entraba con `alegra_id = 0` en una columna
+  única y la SEGUNDA factura propia no se podía crear; ahora entra con NULL.*
 - [ ] Faltantes y ajustes con `producto.id` y `factura.id`
 - [ ] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
   Proveedores dura un ciclo (`ciclo_pedidos`): la limpieza semanal y el botón

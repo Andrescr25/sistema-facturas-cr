@@ -1,7 +1,7 @@
 ---
 id: modulo/facturas-bodega
 tipo: modulo
-titulo: Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra
+titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia
 estado: vigente
 archivos:
   - backend/src/modules/warehouse/warehouse.service.js
@@ -11,10 +11,40 @@ archivos:
   - frontend/src/utils/facturasBodegaUtils.js
   - backend/tests/bodegaSincronizacion.test.js
   - backend/tests/bodegaUtils.test.js
+  - backend/src/modules/warehouse/bodegaPropia.js
+  - backend/src/utils/guardarFaltantes.js
+  - backend/migrations/independencia/031_bodega_en_factura.sql
+  - frontend/src/services/bodegaPropiaService.js
+  - backend/tests/bodegaPropia.test.js
 aristas:
-  relacionado: [modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica]
-medido: 2026-09-23
+  relacionado: [modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-09-29
 ---
+
+EN ESTA RAMA, SOBRE LA FACTURA PROPIA (2026-09-29, sección 11, paso 1). La
+pantalla lista las facturas EMITIDAS de `factura` con sus líneas
+(`bodegaPropia.js`, `GET /alegra/bodega/facturas-propias`), con `factura_id`
+como identidad; el estado de alistado vive en `factura` (migración 031). Las
+rutas por `alegraId` siguen vivas pero la pantalla de la rama no las usa. Lo
+guardado en el teléfono va bajo claves nuevas (`facturasBodegaPropia:*`):
+con las viejas, un borrador de la factura 12 de Alegra se habría aplicado a
+la factura propia 12.
+
+EL PUENTE CON LA TABLA VIEJA: Faltantes, el Reporte de Proveedores, la cola
+de impresión y el portal todavía leen `facturas`. Cada factura propia se
+enlaza a su fila por `facturas.factura_propia_id` (`filaVieja`: por id de
+Alegra si vino de allá, por número si es la misma; un número de otra factura
+de Alegra da 409). Despachar escribe en las dos en una transacción, con la
+misma hora copiada en SQL, y los faltantes se guardan con la misma función
+que el camino de Alegra (`utils/guardarFaltantes.js`). Se retira en los pasos
+2 y 3.
+
+EL CERO EN UNA COLUMNA ÚNICA: la copia de cada factura propia entraba con
+`facturas.alegra_id = 0`, y esa columna es única: la SEGUNDA factura propia
+chocaba con la primera y no se podía facturar. No saltó porque la copia local
+no tenía facturas propias. Ahora entra con NULL (031 suelta el NOT NULL).
+
+Lo que sigue es cómo funciona en `main`, donde las facturas son de Alegra:
 
 Bodega alista cada factura de venta desde el teléfono: marca cada producto
 como completo, faltó todo o parcial, y la factura pasa al historial (y, sin

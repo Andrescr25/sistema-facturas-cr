@@ -129,7 +129,7 @@ export default function ListadoFacturas({
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {facturas.map((factura) => (
-            <TarjetaFactura key={factura.alegra_id} factura={factura} onAbrir={onAbrir} />
+            <TarjetaFactura key={factura.factura_id} factura={factura} onAbrir={onAbrir} />
           ))}
         </div>
       )}
