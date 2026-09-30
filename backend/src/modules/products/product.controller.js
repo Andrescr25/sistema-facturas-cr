@@ -32,13 +32,15 @@ class ProductController {
 
   searchProducts = async (req, res) => {
     try {
-      const { query } = req.query;
+      const { query, soloActivos } = req.query;
 
       if (!query) {
         return ResponseHelper.validationError(res, { query: ['Query es requerido'] });
       }
 
-      const result = await this.productService.searchProducts(query);
+      const result = await this.productService.searchProducts(query, {
+        soloActivos: soloActivos === '1' || soloActivos === 'true'
+      });
 
       if (result.success) {
         return ResponseHelper.success(res, result.data, 'Productos encontrados');

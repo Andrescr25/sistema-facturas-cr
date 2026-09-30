@@ -8,7 +8,7 @@ archivos:
   - backend/src/modules/orders-whatsapp/orders-whatsapp.service.js
 aristas:
   relacionado: [leccion/la-db-local-es-produccion]
-medido: 2026-09-23
+medido: 2026-09-29
 ---
 
 De 120 fichas de clientes (2026-09-03), 19 tenían el teléfono escrito de una

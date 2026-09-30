@@ -27,9 +27,9 @@ class ProductService {
   /**
    * Buscar productos
    */
-  async searchProducts(searchQuery) {
+  async searchProducts(searchQuery, opciones = {}) {
     try {
-      const result = await this.alegraProductService.searchProducts(searchQuery);
+      const result = await this.alegraProductService.searchProducts(searchQuery, opciones);
       return result;
     } catch (error) {
       console.error('❌ Error buscando productos:', error);
