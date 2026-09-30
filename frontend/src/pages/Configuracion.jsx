@@ -4,6 +4,7 @@ import { alegraService } from '../services/alegraService';
 import { useDialog } from '../hooks/useDialog';
 import ConfirmModal from '../components/ConfirmModal';
 import SeccionWhatsApp from '../components/configuracion/SeccionWhatsApp';
+import SeccionAvisosPedidos from '../components/configuracion/SeccionAvisosPedidos';
 
 export default function Configuracion() {
   const { confirm, dialogProps } = useDialog();
@@ -255,6 +256,8 @@ export default function Configuracion() {
         </div>
 
         <SeccionWhatsApp confirmar={confirmarDesvincular} />
+
+        <SeccionAvisosPedidos />
 
         {/* Zona de Peligro / Mantenimiento */}
         <div className="card border-peligro-200 p-5 sm:p-6">

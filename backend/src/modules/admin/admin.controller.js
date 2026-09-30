@@ -97,7 +97,41 @@ async function desvincularWhatsApp(req, res) {
   }
 }
 
+// ==================== AVISOS DE PEDIDOS DEL PORTAL ====================
+
+const avisoPedidoNuevo = require('../portal-clientes/avisoPedidoNuevo');
+
+/** GET /api/admin/avisos-pedidos */
+async function obtenerAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: { ...(await avisoPedidoNuevo.obtenerDestinos()), correoDisponible: require('../../../services/mailer').estaConfigurado() } });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** PUT /api/admin/avisos-pedidos { whatsapp, correo } */
+async function guardarAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: await avisoPedidoNuevo.guardarDestinos(req.body || {}) });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** POST /api/admin/avisos-pedidos/prueba — manda un aviso de mentira a los destinos guardados. */
+async function probarAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: await avisoPedidoNuevo.avisarPrueba() });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
 module.exports = {
+  obtenerAvisosPedidos,
+  guardarAvisosPedidos,
+  probarAvisosPedidos,
   testSimple,
   databaseInfo,
   estadoWhatsApp,

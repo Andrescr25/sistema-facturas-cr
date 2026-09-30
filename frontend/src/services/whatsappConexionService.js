@@ -15,3 +15,19 @@ export async function vincularWhatsApp(pedido) {
 export async function desvincularWhatsApp() {
   await api.post('/admin/whatsapp/desvincular')
 }
+
+// A dónde avisar cuando un cliente hace un pedido en el portal.
+export async function getAvisosPedidos() {
+  const { data } = await api.get('/admin/avisos-pedidos')
+  return data.data
+}
+
+export async function guardarAvisosPedidos(destinos) {
+  const { data } = await api.put('/admin/avisos-pedidos', destinos)
+  return data.data
+}
+
+export async function probarAvisosPedidos() {
+  const { data } = await api.post('/admin/avisos-pedidos/prueba')
+  return data.data
+}

@@ -10,6 +10,7 @@ const {
 } = require('./portal-clientes.auth');
 
 const { obtenerCarrito, vaciarCarrito } = require('./portal-clientes.carrito.service');
+const avisoPedidoNuevo = require('./avisoPedidoNuevo');
 const { etapaDePedido, seguimientoDePedido } = require('./seguimiento');
 
 const MIN_PASSWORD = 8;
@@ -218,6 +219,17 @@ async function crearPedido(clienteId, { observaciones } = {}) {
   // El carrito se vacía recién cuando el pedido ya quedó guardado: si algo
   // falla antes, el cliente conserva lo que armó.
   await vaciarCarrito(clienteId);
+
+  // Aviso a la empresa (WhatsApp y/o correo, avisoPedidoNuevo.js). Sin
+  // esperarlo: el cliente no tiene por qué esperar un WhatsApp, y un aviso que
+  // falla nunca deshace un pedido ya guardado.
+  avisoPedidoNuevo.avisar({
+    cliente: cuenta.nombre,
+    pedidoId: pedido.id,
+    lineas: carrito.lineas.length,
+    total: Number(pedido.total),
+    observaciones: pedido.observaciones
+  }).catch(() => {});
 
   // `creadoEn` viaja para que la pantalla de confirmación dibuje la línea de
   // tiempo con su fecha real, sin tener que volver a pedir el pedido.

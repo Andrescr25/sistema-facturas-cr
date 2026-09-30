@@ -17,4 +17,9 @@ router.get('/whatsapp', adminController.estadoWhatsApp);
 router.post('/whatsapp/vincular', adminController.vincularWhatsApp);
 router.post('/whatsapp/desvincular', adminController.desvincularWhatsApp);
 
+// A dónde avisar cuando un cliente hace un pedido en el portal.
+router.get('/avisos-pedidos', adminController.obtenerAvisosPedidos);
+router.put('/avisos-pedidos', adminController.guardarAvisosPedidos);
+router.post('/avisos-pedidos/prueba', adminController.probarAvisosPedidos);
+
 module.exports = router;
