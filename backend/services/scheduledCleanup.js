@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { query } = require('../config/database');
 const OrdersWhatsappService = require('../src/modules/orders-whatsapp/orders-whatsapp.service');
+const cicloPedidos = require('../src/modules/orders-whatsapp/cicloPedidos');
 
 const ordersWhatsappService = new OrdersWhatsappService();
 
@@ -141,6 +142,9 @@ function iniciarLimpiezaProgramada() {
   const task = cron.schedule('59 23 * * 0', async () => {
     console.log('⏰ [CRON] Disparando limpieza semanal (Domingo 23:59)...');
     await ejecutarLimpiezaFaltantes();
+    // "Pedido enviado" vuelve a "Sin enviar" para todos (cicloPedidos.js). Va
+    // aparte: la limpieza de arriba sale antes si no hay faltantes.
+    await cicloPedidos.reiniciar().catch((e) => console.error('❌ [CRON] No se pudo reiniciar el ciclo de pedidos:', e.message));
     await reiniciarAsignacionesManuales();
     const eliminadosOrden = await ordersWhatsappService.limpiarCantidades();
     console.log(`🧹 [CRON] Orden de compra temporal reiniciada: ${eliminadosOrden} registro(s) borrados`);
