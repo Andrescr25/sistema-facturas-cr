@@ -82,11 +82,21 @@ class AlegraProductService {
   /**
    * Buscar productos
    */
-  async searchProducts(query) {
-    return await this.client.get('/items', {
+  /**
+   * `soloActivos`: sin productos desactivados (2026-09-29, pedido del usuario:
+   * el modal "Agregar producto" del Reporte de Proveedores los ofrecía). Se le
+   * pide a Alegra y además se filtra acá, por si alguno llega igual.
+   */
+  async searchProducts(query, { soloActivos = false } = {}) {
+    const result = await this.client.get('/items', {
       query: query,
-      type: 'product'
+      type: 'product',
+      ...(soloActivos ? { status: 'active' } : {})
     });
+    if (soloActivos && result.success && Array.isArray(result.data)) {
+      result.data = result.data.filter((p) => !p.status || p.status === 'active');
+    }
+    return result;
   }
 
   /**
