@@ -98,11 +98,30 @@ async function usarSesionDb({ BufferJSON, initAuthCreds, proto }) {
   };
 }
 
+/**
+ * ¿Esta sesión terminó de vincularse?
+ *
+ * NO ES `creds.registered` (2026-09-29, pasó en producción): Baileys solo la
+ * pone en true al vincular con el CÓDIGO de 8 caracteres; con el QR queda en
+ * false para siempre. El sistema, vinculado con QR, funcionaba hasta el
+ * primer corte (un reinicio de Render, un corte de red): al releer la
+ * sesión creía que no había teléfono y no se reconectaba, mientras el
+ * teléfono lo seguía mostrando conectado.
+ *
+ * Lo que sí prueba que la vinculación terminó, por cualquiera de los dos
+ * caminos, es `account`: la identidad del dispositivo firmada por WhatsApp,
+ * que Baileys guarda al recibir "pair-success". `me` solo no alcanza: con el
+ * código se llena ANTES de que la persona lo escriba.
+ */
+function sesionCompleta(creds) {
+  return Boolean(creds?.me?.id && creds?.account);
+}
+
 /** ¿Hay un teléfono vinculado? (sin cargar Baileys) */
 async function hayVinculo() {
   const { rows } = await query(`SELECT valor FROM whatsapp_sesion WHERE clave = 'creds'`);
   if (!rows[0]) return false;
-  try { return JSON.parse(rows[0].valor).registered === true; } catch { return false; }
+  try { return sesionCompleta(JSON.parse(rows[0].valor)); } catch { return false; }
 }
 
 /** Borra la sesión entera: el teléfono queda desvinculado de este sistema. */
@@ -110,4 +129,4 @@ async function borrarSesion() {
   await query(`DELETE FROM whatsapp_sesion`);
 }
 
-module.exports = { SQL_TABLA, asegurarTabla, usarSesionDb, hayVinculo, borrarSesion };
+module.exports = { SQL_TABLA, asegurarTabla, usarSesionDb, hayVinculo, borrarSesion, sesionCompleta };

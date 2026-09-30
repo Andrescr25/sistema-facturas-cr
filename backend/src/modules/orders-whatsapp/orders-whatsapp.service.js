@@ -10,6 +10,7 @@ const { query } = require('../../../config/database');
 // PDF y se pide el envío. El traductor de errores se mudó con ella.
 const whatsapp = require('../../integrations/whatsapp');
 const enviosWhatsapp = require('../envios-whatsapp/envios.service');
+const cicloPedidos = require('./cicloPedidos');
 
 /**
  * Deja un teléfono costarricense como lo espera WhatsApp: 506 + 8 dígitos.
@@ -593,6 +594,10 @@ class OrdersWhatsappService {
    * que no marcarlo.
    */
   async getOrdenesEnviadas(desde) {
+    // Y desde el último reinicio del ciclo de pedidos (cicloPedidos.js): la
+    // limpieza semanal vuelve a todos a "Sin enviar". GREATEST ignora el
+    // NULL de un reporte sin fecha de inicio.
+    await cicloPedidos.asegurarTabla();
     const result = await query(`
       SELECT referencia,
              MAX(creado_en) AS ultimo_envio,
@@ -601,7 +606,7 @@ class OrdersWhatsappService {
       WHERE tipo = 'orden_compra'
         AND exito = TRUE
         AND referencia IS NOT NULL
-        AND ($1::timestamp IS NULL OR creado_en >= $1)
+        AND creado_en >= GREATEST($1::timestamp, ${cicloPedidos.SQL_INICIO_CICLO})
       GROUP BY referencia
       ORDER BY MAX(creado_en) DESC;
     `, [desde || null]);

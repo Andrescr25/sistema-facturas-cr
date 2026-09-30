@@ -5,6 +5,7 @@
 
 const { query } = require('../../../config/database');
 const { asignarProveedorAutomatico } = require('../../../services/proveedorAsignacionService');
+const cicloPedidos = require('../orders-whatsapp/cicloPedidos');
 
 class ReportService {
   /**
@@ -430,6 +431,8 @@ class ReportService {
       `);
 
       if (faltantesPendientes.rows.length === 0 && faltantesProcesados.rows.length === 0) {
+        // Sin faltantes igual se resetea el ciclo: es lo que pide el botón.
+        await cicloPedidos.reiniciar();
         return {
           success: true,
           message: 'No hay faltantes pendientes ni procesados para limpiar.',
@@ -503,6 +506,9 @@ class ReportService {
               AND f.estado = 'pendiente'
           )
       `);
+
+      // "Pedido enviado" vuelve a "Sin enviar" para todos (cicloPedidos.js).
+      await cicloPedidos.reiniciar();
 
       return {
         success: true,
