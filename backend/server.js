@@ -15,6 +15,7 @@ const EmailService = require('./services/emailService');
 const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
+const whatsapp = require('./src/integrations/whatsapp');
 
 const app = express();
 // La rama aislada corre en el 3002 para convivir con developer en el 3000.
@@ -312,7 +313,7 @@ app.get('*', (req, res) => {
 let emailService = null;
 let productSyncInterval = null;
 let historialClientesSyncInterval = null;
-let snapshotMargenesInterval = null;
+let historialRepasoInterval = null;
 let whatsappPingInterval = null;
 
 // Cada cuánto se toca Evolution API. Render duerme un servicio tras ~15
@@ -347,6 +348,10 @@ async function pingWhatsApp() {
   // Fuera de los días elegidos no se toca: el servicio duerme y no consume
   // horas de la cuota gratuita. Si alguien manda una orden ese día igual
   // funciona — Render lo despierta, tarda unos 30 segundos la primera vez.
+  // Con WhatsApp conectado adentro del sistema, Evolution ya no manda nada:
+  // no vale la pena gastarle horas gratuitas despertándolo.
+  if (whatsapp.estado().conectado) return;
+
   if (!debeMantenerDespierto(new Date(), WHATSAPP_PING_DIAS)) {
     // Se olvida el estado para que al volver el día de ping se vuelva a
     // informar si el WhatsApp quedó desvinculado mientras tanto.
@@ -414,29 +419,28 @@ async function syncAlegraProducts() {
   }
 }
 
-// Función para sincronizar el espejo local de cuentas por cobrar desde Alegra
-// Función para sincronizar el histórico de compras por cliente (catálogo
-// público personalizado). Incremental por diseño: solo el backfill inicial
-// (backend/scripts/backfill-historial-compras.js) recorre todo Alegra —
-// cada corrida siguiente parte de la última fecha ya guardada.
-async function tomarSnapshotMargenes() {
+// El historial de ventas (venta_historico): de ahí salen la rotación, las
+// estadísticas de Rentabilidad y "lo que más compra" de cada cliente. En esta
+// rama las facturas propias todavía no entran acá (sección 12 del checklist):
+// se sigue trayendo de Alegra, que solo se LEE. Incremental: parte de la
+// última fecha guardada. Con `desde`, repasa una ventana más larga (una
+// factura vieja anulada hoy conserva su fecha vieja).
+async function syncHistorialClientes(desde) {
   try {
-    const rentabilidadService = require('./src/modules/rentabilidad/rentabilidad.service');
-    const r = await rentabilidadService.tomarSnapshotMargenes();
-    console.log(`\n📸 Snapshot de márgenes ${r.fecha}: ${r.productos} productos`);
+    console.log(`\n🛒 Sincronizando historial de ventas${desde ? ` (repaso desde ${desde})` : ''}...`);
+    const resultado = await catalogoAgenteModule.service.sincronizarHistorialCompras(desde ? { desde } : {});
+    console.log(`✅ Historial de ventas sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
   } catch (error) {
-    console.error('❌ Error tomando el snapshot de márgenes:', error.message);
+    console.error('❌ Error sincronizando el historial de ventas:', error.message);
   }
 }
 
-async function syncHistorialClientes() {
-  try {
-    console.log('\n🛒 Sincronizando historial de compras por cliente...');
-    const resultado = await catalogoAgenteModule.service.sincronizarHistorialCompras({});
-    console.log(`✅ Historial de compras sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando historial de compras por cliente:', error.message);
-  }
+/** Hace 60 días, en días de Costa Rica. */
+function hace60Dias() {
+  const { hoyEnCostaRica } = require('./src/utils/fechaCR');
+  const d = new Date(`${hoyEnCostaRica()}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 60);
+  return d.toISOString().slice(0, 10);
 }
 
 // Iniciar servidor
@@ -518,45 +522,34 @@ const server = app.listen(PORT, () => {
     console.log('\n📱 Ping a WhatsApp no aplica (WHATSAPP_API_URL apunta a este equipo o no está configurada)\n');
   }
 
-  // Sincronizar historial de compras por cliente (catálogo público)
+  // WhatsApp adentro del sistema (Baileys): solo con WHATSAPP_PROVEEDOR=interno.
+  // Sin esa variable no hace nada — el backend local, que usa la base de
+  // producción, no le disputa la sesión al servidor de Render.
+  whatsapp.iniciar().catch((e) => console.error('📱 No se pudo iniciar WhatsApp interno:', e.message));
+
+  // Historial de ventas: cada HORA lo nuevo (la rotación y Rentabilidad son en
+  // tiempo real, y lo facturado en el sistema ya entró al crearse), y una vez
+  // al día un repaso de los últimos 60 días para sacar lo que se anuló tarde.
   if (process.env.ENABLE_HISTORIAL_SYNC !== 'false') {
     setTimeout(() => {
       syncHistorialClientes();
     }, 12000);
 
-    // Diaria — a diferencia de cuentas por cobrar, esto no necesita reflejar
-    // cambios en minutos: el agente sincroniza la tablet una vez y sale a
-    // campo, así que alcanza con que el histórico esté al día una vez al día.
     historialClientesSyncInterval = setInterval(() => {
       syncHistorialClientes();
+    }, 60 * 60 * 1000);
+
+    historialRepasoInterval = setInterval(() => {
+      syncHistorialClientes(hace60Dias());
     }, 24 * 60 * 60 * 1000);
 
-    console.log('\n🛒 Sincronización de historial de compras por cliente activada');
-    console.log('   - Sincronización inicial: En 12 segundos');
-    console.log('   - Sincronización periódica: Cada 24 horas');
+    console.log('\n🛒 Sincronización del historial de ventas activada');
+    console.log('   - Inicial: En 12 segundos');
+    console.log('   - Periódica: Cada hora (y un repaso de 60 días cada 24 horas)');
     console.log('   - Para desactivar: ENABLE_HISTORIAL_SYNC=false en .env\n');
   } else {
-    console.log('\n⚠️ Sincronización de historial de compras por cliente desactivada');
+    console.log('\n⚠️ Sincronización del historial de ventas desactivada');
     console.log('   Establece ENABLE_HISTORIAL_SYNC=true en .env para activarla\n');
-  }
-
-  // Foto semanal del margen de todo el catálogo. Semanal y no diaria a
-  // propósito: el margen se mueve por cambios de costo o de precio, que no
-  // pasan todos los días, y una serie semanal se lee mucho mejor que 365
-  // puntos al año. Correrlo dos veces el mismo día no duplica (UPSERT).
-  if (process.env.ENABLE_SNAPSHOT_MARGENES !== 'false') {
-    setTimeout(() => {
-      tomarSnapshotMargenes();
-    }, 20000);
-
-    snapshotMargenesInterval = setInterval(() => {
-      tomarSnapshotMargenes();
-    }, 7 * 24 * 60 * 60 * 1000);
-
-    console.log('\n📸 Monitoreo de márgenes activado');
-    console.log('   - Foto inicial: En 20 segundos');
-    console.log('   - Foto periódica: Cada 7 días');
-    console.log('   - Para desactivar: ENABLE_SNAPSHOT_MARGENES=false en .env\n');
   }
 
 });
@@ -572,8 +565,8 @@ const gracefulShutdown = async (signal) => {
   }
 
   // Detener sincronización de historial de compras por cliente
-  if (snapshotMargenesInterval) {
-    clearInterval(snapshotMargenesInterval);
+  if (historialRepasoInterval) {
+    clearInterval(historialRepasoInterval);
   }
   if (historialClientesSyncInterval) {
     console.log('🛒 Deteniendo sincronización de historial de compras...');
@@ -585,6 +578,10 @@ const gracefulShutdown = async (signal) => {
     console.log('📱 Deteniendo ping a WhatsApp...');
     clearInterval(whatsappPingInterval);
   }
+
+  // WhatsApp adentro: cerrar SIN desvincular y soltar el turno, para que la
+  // copia nueva del servidor se conecte en segundos y no a los 60.
+  await whatsapp.detener().catch(() => {});
 
   // Detener monitoreo de emails
   if (emailService) {

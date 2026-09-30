@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Building2, Wrench, RefreshCw } from 'lucide-react'
+import { Settings, Building2, Wrench, RefreshCw, MessageCircle } from 'lucide-react'
 import ToastContainer from '../components/ToastContainer'
 import EncabezadoPagina from '../components/ui/EncabezadoPagina'
 import Pestanas from '../components/ui/Pestanas'
@@ -11,6 +11,10 @@ import ModalElementoCatalogo from '../components/configuracion/ModalElementoCata
 import Mantenimiento from '../components/configuracion/Mantenimiento'
 import { CATALOGOS, catalogoPorClave } from '../components/configuracion/catalogos'
 import { useConfiguracion } from '../hooks/useConfiguracion'
+import { useDialog } from '../hooks/useDialog'
+import ConfirmModal from '../components/ConfirmModal'
+import SeccionWhatsApp from '../components/configuracion/SeccionWhatsApp'
+import SeccionAvisosPedidos from '../components/configuracion/SeccionAvisosPedidos'
 
 /**
  * Configuración (rama independencia-alegra).
@@ -27,6 +31,9 @@ export default function Configuracion() {
   } = useConfiguracion()
   const [pestana, setPestana] = useState('empresa')
   const [edicion, setEdicion] = useState(null)
+  const { confirm, dialogProps } = useDialog()
+  const confirmarDesvincular = (mensaje) =>
+    confirm(mensaje, { title: '¿Desvincular WhatsApp?', confirmLabel: 'Desvincular', variant: 'danger' })
 
   const pestanas = [
     { clave: 'empresa', texto: 'Empresa', icono: Building2 },
@@ -36,6 +43,9 @@ export default function Configuracion() {
       icono: c.icono,
       contador: datos?.[c.datos]?.filter(f => f.activo).length || 0
     })),
+    // Vino de main (2026-09-29): el WhatsApp del sistema y los avisos de
+    // pedidos del portal. En esta rama aislada no sale ningún mensaje.
+    { clave: 'whatsapp', texto: 'WhatsApp', icono: MessageCircle },
     { clave: 'mantenimiento', texto: 'Mantenimiento', icono: Wrench }
   ]
   const catalogo = catalogoPorClave(pestana)
@@ -43,6 +53,13 @@ export default function Configuracion() {
   let contenido
   if (pestana === 'mantenimiento') {
     contenido = <Mantenimiento showToast={showToast} />
+  } else if (pestana === 'whatsapp') {
+    contenido = (
+      <div className="space-y-6">
+        <SeccionWhatsApp confirmar={confirmarDesvincular} />
+        <SeccionAvisosPedidos />
+      </div>
+    )
   } else if (cargando) {
     contenido = (
       <div className="rounded-2xl border border-neutro-200 bg-white p-8 text-center text-sm text-neutro-500">
@@ -93,6 +110,7 @@ export default function Configuracion() {
           onCerrar={() => setEdicion(null)}
         />
       )}
+      <ConfirmModal {...dialogProps} />
     </div>
   )
 }

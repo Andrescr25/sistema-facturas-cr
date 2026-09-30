@@ -143,6 +143,89 @@ export function ordenarCatalogoParaCliente(products, statsPorProducto, configCat
 }
 
 /**
+ * Una lista corta —las rebajas de "Bajamos el precio"— en el orden del
+ * catálogo: un bloque por categoría, en el orden de Gestión de Catálogo, y
+ * dentro de cada una sus productos por subcategoría (en su orden; lo sin
+ * clasificar al final de su categoría). Antes salían por porcentaje de rebaja,
+ * revueltas: el PVC entre un cortaúñas y un bombillo.
+ *
+ * Es `ordenarCatalogoParaCliente` sin cliente, a propósito: el mismo orden
+ * que el resto del catálogo, no uno aparte que se pueda desacomodar.
+ */
+export function enOrdenDelCatalogo(productos, configCatalogo = null) {
+  const { grouped, sortedKeys, subgrupos } = ordenarCatalogoParaCliente(productos, new Map(), configCatalogo)
+  return sortedKeys.map((clave) => ({
+    clave,
+    nombre: nombreVisibleDeCategoria(clave, configCatalogo),
+    productos: subgrupos[clave] ? subgrupos[clave].flatMap((f) => f.productos) : grouped[clave],
+    // Las familias (subcategorías) de la categoría, o null si no tiene: el
+    // catálogo de "Cliente nuevo" las dibuja con su encabezado.
+    familias: subgrupos[clave] || null
+  }))
+}
+
+/**
+ * "Cliente nuevo": un cliente que NO existe en Alegra, a propósito. Es el
+ * que elige el agente cuando sale a buscar clientes; en vez de todo el
+ * catálogo le enseña solo lo más fácil de vender (ver `catalogoClienteNuevo`).
+ * Va en la lista de clientes de la tablet sin compras (`p` vacío), así que
+ * no tiene "lo que más compra" ni "dejó de comprar".
+ */
+export const CLIENTE_NUEVO_ID = '__cliente_nuevo__'
+export const CLIENTE_NUEVO = { id: CLIENTE_NUEVO_ID, n: 'Cliente nuevo', p: [], nuevo: true }
+
+export function esClienteNuevo(cliente) {
+  return cliente?.id === CLIENTE_NUEVO_ID
+}
+
+/**
+ * El catálogo para un cliente nuevo, en cuatro partes y en este orden:
+ *
+ *   1. OFERTA: lo que bajó de precio (las mismas rebajas de "Bajamos el
+ *      precio"; a quien no conoce el precio de antes se le dice "oferta").
+ *   2. LIQUIDACIÓN: los excesos de inventario, con su descuento (agregada el
+ *      2026-09-25 a pedido del usuario).
+ *   3. Rotación A: lo que más se vende, que es lo más fácil de vender.
+ *   4. Rotación B: cuando se termina la A.
+ *
+ * Cada parte en bloques por categoría y, dentro, por subcategoría — el mismo
+ * orden que el resto del catálogo (`enOrdenDelCatalogo`).
+ *
+ * NINGÚN PRODUCTO SALE DOS VECES: el agente creería que son productos
+ * distintos. Lo que está en Liquidación no se repite en ninguna otra parte
+ * —ni siquiera en Oferta si además bajó de precio: el descuento de
+ * liquidación se cobra ENCIMA del precio rebajado, así que el precio de
+ * Liquidación es el que el cliente paga de verdad—. Lo de Oferta no se
+ * repite en A ni en B. La C no se muestra; si el cliente pregunta por algo
+ * que no está, lo encuentra la búsqueda, que siempre mira el catálogo entero.
+ *
+ * Las existencias no cuentan para nada: el negocio vende con el stock del
+ * proveedor.
+ *
+ * `rotacion` es lo que devuelve GET /catalogo-agente/rotacion ({ A, B }, ids
+ * de Alegra). Sin él (nunca sincronizó) no hay A ni B: solo las ofertas.
+ */
+export function catalogoClienteNuevo(products, { rebajados = [], liquidacion = [], rotacion = null, configCatalogo = null } = {}) {
+  const enLiquidacion = new Set(liquidacion.map((p) => String(p.id)))
+  const oferta = rebajados.filter((p) => !enLiquidacion.has(String(p.id)))
+  const yaMostrados = new Set([...enLiquidacion, ...oferta.map((p) => String(p.id))])
+  const claseA = new Set((rotacion?.A || []).map(String))
+  const claseB = new Set((rotacion?.B || []).map(String))
+
+  const deClase = (clase) => products.filter((p) => clase.has(String(p.id)) && !yaMostrados.has(String(p.id)))
+  const a = deClase(claseA)
+  const b = deClase(claseB)
+
+  return {
+    oferta: enOrdenDelCatalogo(oferta, configCatalogo),
+    liquidacion: enOrdenDelCatalogo(liquidacion, configCatalogo),
+    A: enOrdenDelCatalogo(a, configCatalogo),
+    B: enOrdenDelCatalogo(b, configCatalogo),
+    totales: { oferta: oferta.length, liquidacion: liquidacion.length, A: a.length, B: b.length }
+  }
+}
+
+/**
  * El `name` real de Alegra -> su orden manual. Sin config, todo empata.
  *
  * Exportada para que Gestión de Catálogo pinte su riel en el MISMO orden

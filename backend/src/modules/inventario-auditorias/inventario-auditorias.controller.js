@@ -4,6 +4,7 @@
  */
 
 const inventarioAuditoriasService = require('./inventario-auditorias.service');
+const productosNuevos = require('./productosNuevos');
 
 /**
  * GET /inventario-auditorias
@@ -413,7 +414,46 @@ async function eliminarDescuentoExceso(req, res) {
   }
 }
 
+// ==================== PRODUCTOS NUEVOS (catálogo del agente) ====================
+
+function responderError(res, error, contexto) {
+  if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+  console.error(contexto, error);
+  return res.status(500).json({ success: false, error: error.message });
+}
+
+/** GET /inventario-auditorias/productos-nuevos */
+async function listarProductosNuevos(req, res) {
+  try {
+    res.json({ success: true, data: await productosNuevos.listar() });
+  } catch (error) {
+    responderError(res, error, 'Error listando productos nuevos:');
+  }
+}
+
+/** POST /inventario-auditorias/productos-nuevos  { alegraItemId } */
+async function agregarProductoNuevo(req, res) {
+  try {
+    const quien = req.usuario?.nombre || req.usuario?.usuario || null;
+    res.json({ success: true, data: await productosNuevos.agregar(req.body?.alegraItemId, quien) });
+  } catch (error) {
+    responderError(res, error, 'Error agregando producto nuevo:');
+  }
+}
+
+/** DELETE /inventario-auditorias/productos-nuevos/:alegraItemId */
+async function quitarProductoNuevo(req, res) {
+  try {
+    res.json({ success: true, data: await productosNuevos.quitar(req.params.alegraItemId) });
+  } catch (error) {
+    responderError(res, error, 'Error quitando producto nuevo:');
+  }
+}
+
 module.exports = {
+  listarProductosNuevos,
+  agregarProductoNuevo,
+  quitarProductoNuevo,
   listarAuditorias,
   listarCategorias,
   crearAuditoria,

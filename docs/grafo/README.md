@@ -31,6 +31,8 @@ toca, qué no se regenera).
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
+- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *productos del maestro propio; ventas todavía de Alegra*
+- [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*
 
 ## Tablas
 
@@ -42,6 +44,7 @@ toca, qué no se regenera).
 - [Subcategorías — nuestras, colgadas del NOMBRE de la categoría de Alegra](tabla/subcategoria.md) — `subcategoria`
 - [Orden y nombre visible de las categorías de Alegra](tabla/categoria-config.md) — `categoria_config`
 - [Quién vende qué — el vínculo producto ↔ proveedor, por cédula](tabla/supplier-product-mapping.md) — `supplier_product_mapping`
+- [El historial de ventas — una línea por producto y factura, de donde sale la rotación](tabla/venta-historico.md) — `venta_historico`
 
 ## Decisiones
 
@@ -66,6 +69,8 @@ toca, qué no se regenera).
 - [ENVIADA prueba que la compra ya existe en Alegra — reenviarla duplica el gasto](leccion/factura-enviada-no-se-repite.md) · *lado Alegra*
 - [El día del calendario no se saca con toISOString()](leccion/fecha-utc-costa-rica.md)
 - [Los teléfonos de Alegra vienen sucios](leccion/telefonos-sucios.md)
+- [Un borrador no es una venta — el historial contaba 24 borradores y 132 anuladas](leccion/un-borrador-no-es-una-venta.md)
+- [Las fotos de Alegra cambian de firma en cada pedido y cada una le cuesta a Chrome ~14,7 MB de cuota](leccion/fotos-del-catalogo-en-la-tablet.md)
 
 ## Bloqueos
 

@@ -5,6 +5,7 @@
  */
 
 const axios = require('axios');
+const { SQL_ROTACION } = require('../ventas/rotacion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { clasificarProducto } = require('../precios/auditoria');
 const categoriasService = require('./categorias.service');
@@ -222,7 +223,8 @@ async function listarProductos({ search = '', missingImageOnly = 'false', provee
              prov.supplier_name, prov.supplier_cedula
         FROM alegra_products_cache p
         LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-        LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+        -- Rotación en tiempo real (ventas/rotacion.js), no la foto vieja.
+        LEFT JOIN (${SQL_ROTACION}) r ON r.alegra_item_id = p.alegra_id
         ${JOIN_PROVEEDOR_PRINCIPAL}
        WHERE p.alegra_id = ANY($1::varchar[])
     `, [productos.map(p => p.alegraId)]);
@@ -343,7 +345,8 @@ async function productosDeCategoria(categoria) {
            prov.supplier_name, prov.supplier_cedula
       FROM alegra_products_cache p
       LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-      LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+      -- Rotación en tiempo real (ventas/rotacion.js), no la foto vieja.
+        LEFT JOIN (${SQL_ROTACION}) r ON r.alegra_item_id = p.alegra_id
       ${JOIN_PROVEEDOR_PRINCIPAL}
      WHERE p.category = $1 AND p.status = 'active' AND p.hidden_locally = false
      ORDER BY p.name ASC

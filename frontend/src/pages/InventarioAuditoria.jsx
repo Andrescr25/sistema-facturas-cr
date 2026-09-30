@@ -26,6 +26,7 @@ import EjecucionExceso from '../components/inventario-auditoria/EjecucionExceso'
 import PanelFinalizarExceso from '../components/inventario-auditoria/PanelFinalizarExceso'
 import SeccionRegalias from '../components/inventario-auditoria/SeccionRegalias'
 import SeccionDescuentos from '../components/inventario-auditoria/SeccionDescuentos'
+import SeccionProductosNuevos from '../components/inventario-auditoria/SeccionProductosNuevos'
 
 export default function InventarioAuditoria() {
   const {
@@ -123,7 +124,9 @@ export default function InventarioAuditoria() {
 
     toasts,
     removeToast,
-    dialogProps
+    dialogProps,
+    showToast,
+    confirm
   } = useInventarioAuditoria()
 
   // Dashboard view
@@ -165,6 +168,8 @@ export default function InventarioAuditoria() {
               />
             )}
           </>
+        ) : vistaActiva === 'productos-nuevos' ? (
+          <SeccionProductosNuevos showToast={showToast} confirm={confirm} />
         ) : vistaActiva === 'devoluciones' ? (
           <>
             <div className="flex justify-end">

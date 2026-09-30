@@ -27,6 +27,7 @@ const { listarVigentes } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const categoriasConfig = require('../catalogo/categorias.service');
 const subcategoriasConfig = require('../catalogo/subcategorias.service');
+const rotacion = require('../ventas/rotacion');
 
 // La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
 // tamaño de página para no tener que cambiarla a ella también.
@@ -271,30 +272,114 @@ async function eliminarLineasObsoletas(paresPorFactura) {
 }
 
 /**
+ * ¿Esta factura de Alegra es una VENTA? Solo si se emitió y sigue en pie.
+ *
+ * Un BORRADOR (`draft`) no se emitió nunca, y una ANULADA (`void`, o anulada
+ * por nota de crédito) se deshizo. Hasta el 2026-09-25 solo se descartaban las
+ * anuladas por nota de crédito, y así el historial contaba 24 borradores
+ * (₡294,9 millones: cuatro de ellos con 42.057 tomacorrientes cada uno, un
+ * error de digitación que nunca se facturó) y 132 anuladas (₡2,7 millones).
+ * Eran el 60 % de toda la plata del historial, y de ahí salen la rotación, las
+ * estadísticas de Rentabilidad y "lo que más compra" de cada cliente.
+ */
+function esVenta(invoice) {
+  if (!invoice) return false;
+  if (invoice.status === 'draft' || invoice.status === 'void') return false;
+  return !invoice.isVoidedByCreditNote;
+}
+
+/**
+ * Las líneas de una factura, listas para venta_historico, y qué productos
+ * lleva (para borrar las que ya no están).
+ *
+ * Devuelve `null` si no se puede usar: sin id, sin cliente o sin fecha. Si NO
+ * es una venta (borrador o anulada) devuelve la factura SIN líneas: eso borra
+ * lo que hubiera quedado de ella en el historial.
+ *
+ * Si un producto aparece en más de una línea de la misma factura, se suman
+ * ANTES de insertar (no en el ON CONFLICT) — sumar ahí duplicaría el total
+ * cada vez que se reprocesa la misma factura.
+ */
+function lineasDeFactura(invoice) {
+  const facturaId = parseInt(invoice?.id, 10);
+  if (!Number.isInteger(facturaId)) return null;
+  if (!esVenta(invoice)) return { facturaId, filas: [], productos: new Set() };
+
+  const clienteId = invoice.client?.id;
+  const fecha = (invoice.date || '').split('T')[0];
+  if (!clienteId || !fecha) return null;
+  const clienteNombre = invoice.client?.name || null;
+
+  const porItem = new Map();
+  for (const item of invoice.items || []) {
+    if (!item.id) continue;
+    const acumulado = porItem.get(item.id) || { cantidad: 0, precioUnitario: 0 };
+    acumulado.cantidad += parseFloat(item.quantity) || 0;
+    acumulado.precioUnitario = parseFloat(item.price) || acumulado.precioUnitario;
+    porItem.set(item.id, acumulado);
+  }
+
+  const filas = [...porItem].map(([itemId, datos]) => [
+    facturaId, String(itemId), String(clienteId), clienteNombre, datos.cantidad, datos.precioUnitario, fecha
+  ]);
+  return { facturaId, filas, productos: new Set([...porItem.keys()].map(String)) };
+}
+
+/**
+ * Anota en el historial una factura RECIÉN CREADA, sin esperar a la próxima
+ * sincronización: es lo que hace que la rotación y las estadísticas estén al
+ * día apenas se vende. La llama facturacion.service después de que Alegra la
+ * confirmó.
+ *
+ * Nunca tira error: la factura ya existe y el cliente ya la tiene. Si esto
+ * falla, la sincronización de cada hora la trae igual.
+ */
+async function registrarFacturaEnHistorico(invoice) {
+  try {
+    const lineas = lineasDeFactura(invoice);
+    if (!lineas) return { lineas: 0 };
+    if (lineas.filas.length > 0) await insertarLotesVentaHistorico(lineas.filas);
+    await eliminarLineasObsoletas(new Map([[lineas.facturaId, lineas.productos]]));
+    return { lineas: lineas.filas.length };
+  } catch (error) {
+    console.error(`⚠️ No se pudo anotar la factura ${invoice?.id} en el historial de ventas (la trae la próxima sincronización):`, error.message);
+    return { lineas: 0, error: error.message };
+  }
+}
+
+/** Un día AAAA-MM-DD menos `n` días, sin pasar por la zona del servidor. */
+function diasAntes(dia, n) {
+  const d = new Date(`${String(dia).slice(0, 10)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Trae de Alegra las facturas de venta emitidas entre `startDate` y hoy y
  * hace upsert de sus líneas en venta_historico. Por defecto es incremental:
  * arranca 2 días antes de la última fecha ya sincronizada (margen por si
  * quedaron facturas del mismo día sin traer por límite de paginación). Sin
  * histórico previo y sin `desde` explícito, trae todo (backfill completo).
  *
- * Si un producto aparece en más de una línea de la misma factura, se suman
- * ANTES de insertar (no en el ON CONFLICT) — sumar ahí duplicaría el total
- * cada vez que se reprocesa la misma factura en un sync incremental.
+ * `desde` sirve para repasar una ventana más larga: una factura vieja que se
+ * anula HOY conserva su fecha vieja, y la corrida incremental no la vuelve a
+ * mirar (ver server.js: una vez al día se repasan los últimos 60 días).
+ * `hasta` (por omisión hoy) corta la ventana: un repaso del historial entero
+ * son ~185 páginas y media hora, y por tramos un corte de internet solo obliga
+ * a repetir el tramo, no todo (pasó el 2026-09-25, en la página 90).
+ *
+ * Los días son de Costa Rica: con `toISOString()`, después de las 6 p.m. "hoy"
+ * ya era mañana.
  */
-async function sincronizarHistorialCompras({ desde } = {}) {
+async function sincronizarHistorialCompras({ desde, hasta } = {}) {
   const client = getClient();
-  const hoy = new Date();
-  const endDate = hoy.toISOString().split('T')[0];
+  const endDate = hasta || hoyEnCostaRica();
 
   let startDate = desde || null;
   if (!startDate) {
-    const ultimaRes = await query('SELECT MAX(fecha_emision) as ultima FROM venta_historico;');
+    const ultimaRes = await query('SELECT MAX(fecha_emision)::text as ultima FROM venta_historico;');
     const ultimaFecha = ultimaRes.rows[0]?.ultima;
-    if (ultimaFecha) {
-      const margen = new Date(ultimaFecha);
-      margen.setDate(margen.getDate() - 2);
-      startDate = margen.toISOString().split('T')[0];
-    }
+    if (ultimaFecha) startDate = diasAntes(ultimaFecha, 2);
   }
 
   console.log(`🔄 [Catálogo] Sincronizando historial de compras${startDate ? ` desde ${startDate}` : ' (backfill completo)'} → ${endDate}...`);
@@ -302,6 +387,7 @@ async function sincronizarHistorialCompras({ desde } = {}) {
   let start = 0;
   let totalFacturas = 0;
   let totalLineas = 0;
+  let fuera = 0;
 
   while (true) {
     const params = { start, limit: LIMIT_INVOICES_HISTORIAL, order_field: 'date', order_direction: 'DESC' };
@@ -324,43 +410,15 @@ async function sincronizarHistorialCompras({ desde } = {}) {
     const filas = [];
     // Qué (factura, producto) son válidos SEGÚN ESTA RESPUESTA de Alegra,
     // factura por factura — para poder borrar después lo que ya no está
-    // (ver eliminarLineasObsoletas). Solo se listan las facturas que de
-    // verdad se procesan: una voidedByCreditNote o sin cliente/fecha no
-    // entra al mapa y sus filas viejas, si las hay, no se tocan.
+    // (ver eliminarLineasObsoletas). Un borrador o una anulada entran SIN
+    // productos: así se borra lo que hubiera quedado de ellas.
     const paresPorFactura = new Map();
     for (const invoice of invoices) {
-      if (invoice.isVoidedByCreditNote) continue;
-      const clienteId = invoice.client?.id;
-      if (!clienteId) continue;
-
-      const fecha = (invoice.date || '').split('T')[0];
-      if (!fecha) continue;
-      const clienteNombre = invoice.client?.name || null;
-      const facturaId = parseInt(invoice.id, 10);
-
-      // Agrupar líneas repetidas del mismo producto ANTES de insertar.
-      const porItem = new Map();
-      for (const item of invoice.items || []) {
-        if (!item.id) continue;
-        const acumulado = porItem.get(item.id) || { cantidad: 0, precioUnitario: 0 };
-        acumulado.cantidad += parseFloat(item.quantity) || 0;
-        acumulado.precioUnitario = parseFloat(item.price) || acumulado.precioUnitario;
-        porItem.set(item.id, acumulado);
-      }
-
-      paresPorFactura.set(facturaId, new Set([...porItem.keys()].map(String)));
-
-      for (const [itemId, datos] of porItem) {
-        filas.push([
-          facturaId,
-          String(itemId),
-          String(clienteId),
-          clienteNombre,
-          datos.cantidad,
-          datos.precioUnitario,
-          fecha
-        ]);
-      }
+      const lineas = lineasDeFactura(invoice);
+      if (!lineas) continue;
+      if (lineas.filas.length === 0 && !esVenta(invoice)) fuera++;
+      paresPorFactura.set(lineas.facturaId, lineas.productos);
+      filas.push(...lineas.filas);
     }
 
     if (filas.length > 0) {
@@ -375,8 +433,8 @@ async function sincronizarHistorialCompras({ desde } = {}) {
     await new Promise(resolve => setTimeout(resolve, 300));
   }
 
-  console.log(`✅ [Catálogo] Historial de compras sincronizado: ${totalFacturas} facturas, ${totalLineas} líneas procesadas.`);
-  return { facturas: totalFacturas, lineas: totalLineas };
+  console.log(`✅ [Catálogo] Historial de compras sincronizado: ${totalFacturas} facturas, ${totalLineas} líneas procesadas, ${fuera} borradores o anuladas fuera.`);
+  return { facturas: totalFacturas, lineas: totalLineas, fuera };
 }
 
 /**
@@ -450,13 +508,33 @@ async function obtenerConfigCatalogo() {
   return { categorias, subcategorias };
 }
 
+/**
+ * GET /api/catalogo-agente/rotacion
+ *
+ * Qué productos son de rotación A y cuáles B, para el catálogo de "Cliente
+ * nuevo": a quien todavía no compra se le enseña lo que más se vende, que es
+ * lo más fácil de vender.
+ *
+ * Es la rotación EN TIEMPO REAL de ventas/rotacion.js (unidades de los
+ * últimos 3 meses, Pareto 80/95). Solo los ids: las unidades que dan la clase
+ * no le sirven a la tablet. La C no se manda: no se muestra.
+ */
+async function obtenerRotacion() {
+  const clases = await rotacion.clasesAB();
+  return { ...clases, calculadoEn: new Date().toISOString() };
+}
+
 module.exports = {
+  obtenerRotacion,
   conSubcategoria,
   listarProductos,
   listarCategorias,
   listarOfertas,
   listarOfertasPorBaja,
   sincronizarHistorialCompras,
+  registrarFacturaEnHistorico,
+  esVenta,
+  lineasDeFactura,
   obtenerHistorialParaCatalogo,
   eliminarLineasObsoletas,
   obtenerConfigCatalogo

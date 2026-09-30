@@ -587,6 +587,10 @@ el `alegraId`.
 - [ ] Leer las facturas propias
 - [ ] Estados de alistado por `factura.id`
 - [ ] Faltantes y ajustes con `producto.id` y `factura.id`
+- [ ] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
+  Proveedores dura un ciclo (`ciclo_pedidos`): la limpieza semanal y el botón
+  de Configuración la reinician. Al migrar faltantes, conservar ese reinicio.
+  NUNCA probar la limpieza contra una base con datos de trabajo.
 
 ---
 
@@ -601,6 +605,16 @@ factura en Alegra, y el carrito usa `alegra_item_id`.
 - [ ] Un pedido facturado genera una factura propia
 - [ ] Cliente del portal ligado a `cliente.id`
 - [ ] Caché del catálogo del agente (IndexedDB) con ids propios, invalidando la caché vieja
+- [ ] *Vino de main (2026-09-29), hoy con el id de Alegra:* "Productos nuevos"
+  (`producto_nuevo_catalogo.alegra_item_id`; ya valida contra `producto`),
+  la rotación A/B de "Cliente nuevo" y "Bajamos el precio". Pasan a ids
+  propios junto con la caché de la tablet.
+- [ ] *Vino de main:* el historial solo cuenta facturas EMITIDAS (sin
+  borradores ni anuladas, `esVenta`). Al leerlo de `factura_linea`, la misma
+  regla: una proforma o una anulada no son venta.
+- [x] *Vino de main:* aviso a la empresa de cada pedido nuevo del portal
+  (`avisoPedidoNuevo.js`). Ya funciona sobre el pedido propio; en la rama
+  aislada no sale (correo y WhatsApp bloqueados).
 
 ---
 
@@ -612,6 +626,12 @@ facturas y notas de crédito desde Alegra.
 
 - [ ] Dashboard desde tablas propias
 - [ ] Rentabilidad y fotografía de márgenes desde `producto` y `factura_linea`
+  — *la Rentabilidad nueva de main (2026-09-25: sin pestañas, rotación y
+  estadísticas en tiempo real) ya lee los productos de `producto`; falta que
+  lo vendido, la rotación (`ventas/rotacion.js`) y las gráficas
+  (`ventas/estadisticas.js`) salgan de `factura_linea`. Mientras tanto solo
+  entran los productos con `alegra_id` (hoy todos). La "fotografía" semanal
+  de márgenes ya no existe: main la retiró.*
 - [ ] Reportes de proveedores y de clientes
 - [ ] Reporte para el contador desde datos propios: ventas, compras, notas de crédito e IVA por tarifa
 - [ ] Exportar a Excel (`xlsx` ya está instalado)
@@ -670,6 +690,11 @@ facturas y notas de crédito desde Alegra.
 - [ ] Conciliación: cantidades y totales por mes iguales entre Alegra y la base propia
 - [ ] Ensayo de corte completo en la base de la rama
 - [ ] Plan de corte: qué día, qué se congela en Alegra y cómo se vuelve atrás
+- [ ] WhatsApp en el servidor nuevo (vino de main, 2026-09-29): Baileys vive
+  adentro del backend (`integrations/whatsapp/conexion.js`), con la sesión en
+  la base (`whatsapp_sesion`). En el corte: `WHATSAPP_PROVEEDOR=interno` y
+  `PERMITIR_SALIDAS=true`, y copiar la sesión de producción o volver a
+  vincular con el QR. En la rama aislada no se conecta nunca.
 
 ---
 

@@ -1,385 +1,227 @@
 /**
- * Rentabilidad Module - Service
- * Tablero de rentabilidad — Fase 1 de la estrategia de precios (ver plan en
- * /Users/joseandres/.claude/plans/ok-ya-lo-vi-adaptive-sky.md). Lee de
- * alegra_products_cache + costo_historico + producto_rotacion y aplica el
- * mismo clasificador que usan los scripts de auditoría
- * (backend/src/modules/precios/auditoria.js) — una sola fuente de verdad
- * para "¿este costo es confiable?", no una copia para el script y otra
- * para la pantalla.
+ * Rentabilidad — rehecho el 2026-09-25 a pedido del usuario: una sola
+ * pantalla, sin pestañas, con el margen de cada producto, su rotación REAL y
+ * cuándo se vende (por semana, mes y año; qué parte del mes y del año).
  *
- * El catálogo activo son ~1954 productos — se trae completo y se filtra/
- * pagina en memoria en vez de repetir la lógica de clasificación en SQL.
- * Mismo criterio pragmático que ya usa cuentas-por-cobrar con su espejo
- * local.
+ * DE DÓNDE SALE CADA COSA
+ *   · El catálogo visible: en esta rama, el maestro propio `producto` (activo
+ *     y no oculto); en main, alegra_products_cache.
+ *   · El margen de HOY: `clasificarProducto` (precios/auditoria.js) — la misma
+ *     fórmula que el resto del sistema, con la tarifa real de cada producto y
+ *     el costo de las facturas de proveedor si Alegra no lo tiene. Una sola
+ *     cifra: antes había dos cálculos de margen con nombres distintos.
+ *   · La rotación y lo vendido: ventas/rotacion.js, EN EL MOMENTO (unidades de
+ *     los últimos 3 meses, Pareto 80/95). Antes era una foto sacada a mano.
+ *   · Cuándo se vende: ventas/estadisticas.js, también en el momento.
+ *
+ * LA GANANCIA DE LO VENDIDO es lo cobrado (sin IVA) menos lo que esas
+ * unidades cuestan HOY sin IVA. Es estimada: el historial no guarda el costo
+ * del día de la venta. Solo se calcula si el costo es confiable (ni "sin
+ * costo" ni "unidad sospechosa"); si no, se deja vacía en vez de inventarla.
  */
 
 const { query } = require('../../../config/database');
-const { clasificarProducto, tasaIvaDe } = require('../precios/auditoria');
+const { clasificarProducto } = require('../precios/auditoria');
 const { obtenerCostosDerivados } = require('../precios/costoDerivado');
-const { calcularTechoCompetencia } = require('../precios/motor');
+const { precioConImpuesto } = require('../catalogo-clientes/precio');
+const rotacion = require('../ventas/rotacion');
+const estadisticas = require('../ventas/estadisticas');
+const { HOY_CR, VENTANA_MESES } = rotacion;
 
-const PAGE_SIZE_DEFAULT = 50;
-const PAGE_SIZE_MAX = 200;
+const POR_PAGINA = 30;
+const COSTO_CONFIABLE = new Set(['OK', 'MARGEN_NEGATIVO']);
 
-const PRIORIDAD_CLASIFICACION = { SIN_COSTO: 0, UNIDAD_SOSPECHOSA: 1, MARGEN_NEGATIVO: 2, OK: 3 };
+// Lista → detalle → lista no tiene por qué recalcular 1.900 productos cada
+// vez: 30 segundos de memoria. "Tiempo real" con medio minuto de margen.
+const VIGENCIA_MS = 30 * 1000;
+let enMemoria = null;
 
-function mediana(valores) {
-  if (!valores || valores.length === 0) return null;
-  const ordenado = [...valores].sort((a, b) => a - b);
-  const mid = Math.floor(ordenado.length / 2);
-  return ordenado.length % 2 !== 0 ? ordenado[mid] : (ordenado[mid - 1] + ordenado[mid]) / 2;
+const redondear = (v, decimales = 2) => (v === null || v === undefined || !Number.isFinite(Number(v))
+  ? null
+  : Math.round(Number(v) * 10 ** decimales) / 10 ** decimales);
+
+function normalizar(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
 
 /**
- * Catálogo activo completo, con costo derivado (costo_historico), rotación
- * (producto_rotacion) y la clasificación de calidad de costo ya calculada.
- * Tres queries fijas, sin N+1 por producto.
+ * Una fila por producto visible, con su margen de hoy, su rotación y lo que
+ * vendió en la ventana. Tres consultas fijas, sin una por producto.
  */
-async function obtenerCatalogoClasificado() {
-  const [productos, derivadoPorItem, competencia] = await Promise.all([
-    // Del maestro propio (`producto`), no de la caché de Alegra: acá está la
-    // TARIFA de cada producto, que es justo lo que faltaba para no asumir 13%.
+async function calcularCatalogo() {
+  const [productos, derivados, rot] = await Promise.all([
+    // RAMA independencia-alegra: los productos salen del maestro propio
+    // (`producto`), con su tarifa, categoría y subcategoría de acá — no de la
+    // copia de Alegra. Los alias conservan la forma que espera el resto.
     //
-    // Los alias (name, category, price, cost, image_url) se mantienen a
-    // propósito: abajo hay sesenta líneas que mapean este resultado y una
-    // pantalla que consume esa forma. Cambiar la fuente no tiene por qué
-    // cambiar el contrato.
+    // La rotación y lo vendido siguen identificados por el id de Alegra
+    // (`venta_historico` se llena desde Alegra hasta la sección 12 del
+    // checklist), así que por ahora solo entran los productos que lo tienen:
+    // hoy son todos (medido: 0 de 2.144 sin alegra_id). Rentabilidad sobre
+    // `factura_linea`, con ids propios, es la sección 13.
     query(`
-      SELECT p.alegra_id,
-             p.nombre          AS name,
-             cat.nombre        AS category,
-             p.precio_sin_iva  AS price,
-             p.costo_con_iva   AS cost,
-             p.imagen_url      AS image_url,
-             imp.tarifa        AS tarifa,
-             r.clase AS clase_rotacion, r.unidades_mes, r.clientes_distintos,
-             r.facturacion_12m, r.meses_sin_venta
-      FROM producto p
-      LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
-      LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
-      LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
-      WHERE p.activo = TRUE
+      SELECT p.alegra_id, p.nombre AS name, p.referencia AS reference, cat.nombre AS category,
+             p.precio_sin_iva AS price, p.costo_con_iva AS cost, imp.tarifa AS tax_percentage,
+             p.imagen_url AS image_url, s.nombre AS subcategoria
+        FROM producto p
+        LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+        LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+        LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
+       WHERE p.activo = TRUE AND p.oculto = FALSE AND p.alegra_id IS NOT NULL
     `),
-    // Mediana de las últimas compras VÁLIDAS, no la última fila suelta —
-    // ver precios/costoDerivado.js para los dos defectos que arregla.
     obtenerCostosDerivados(),
-    // El precio de competencia MÁS BARATO por producto (entre todas sus
-    // fuentes confirmadas) — es el que de verdad limita cuánto puede pagar
-    // la pulpería antes de irle mejor comprándole directo al retailer.
-    query(`
-      SELECT DISTINCT ON (m.alegra_item_id) m.alegra_item_id, m.fuente, pc.precio
-      FROM competencia_mapping m
-      JOIN LATERAL (
-        SELECT precio FROM precio_competencia
-        WHERE fuente = m.fuente AND sku_externo = m.sku_externo
-        ORDER BY fecha_captura DESC LIMIT 1
-      ) pc ON true
-      ORDER BY m.alegra_item_id, pc.precio ASC
-    `)
+    rotacion.rotacionPorProducto()
   ]);
 
-  const competenciaPorItem = new Map(competencia.rows.map(r => [r.alegra_item_id, { fuente: r.fuente, precio: Number(r.precio) }]));
-
-  return productos.rows.map(p => {
-    const derivado = derivadoPorItem.get(String(p.alegra_id)) ?? null;
-    const costoDerivado = derivado ? derivado.costo : null;
-    const historialInestable = derivado ? derivado.historialInestable : false;
-    const c = clasificarProducto({ price: p.price, cost: p.cost, costoDerivado, historialInestable, tarifa: p.tarifa });
-    const comp = competenciaPorItem.get(String(p.alegra_id)) ?? null;
-    const techoCompetencia = comp ? calcularTechoCompetencia(comp.precio) : null;
-
-    // El clasificador dice SIN_COSTO cuando Alegra no tiene costo, y eso está
-    // bien como señal de calidad del dato. Pero de esos productos hay ~330
-    // que SÍ tienen costo conocido, sacado de sus facturas de proveedor: la
-    // tabla mostraba ₡0 y margen "—" para todos ellos, escondiendo un dato
-    // que sí tenemos. `costoEfectivo` es el mejor costo disponible y
-    // `origenCosto` dice de dónde salió, para no mezclar churras con merinas.
-    const precio = Number(p.price) || 0;
-    const costoAlegra = Number(p.cost) || 0;
-    const usaDerivado = costoAlegra <= 0 && costoDerivado > 0;
-    const costoEfectivo = costoAlegra > 0 ? costoAlegra : (costoDerivado || 0);
-
-    // Los costos vienen CON IVA y el precio SIN IVA, así que hay que bajar el
-    // costo antes de comparar. Con la TARIFA REAL del producto: 91 activos no
-    // están al 13% (44 al 1%, 15 al 2%, 9 al 4%, 6 exentos, 3 al 8%) y
-    // quitarles un 13% que no pagan les corría el margen que muestra la
-    // pantalla. Sin tarifa asignada —14 productos— se cae al supuesto de antes.
-    const costoEfectivoSinIva = costoEfectivo > 0 ? costoEfectivo / (1 + tasaIvaDe(p.tarifa) / 100) : null;
-    const margenEfectivo = costoEfectivoSinIva !== null && precio > 0
-      ? ((precio - costoEfectivoSinIva) / precio) * 100
-      : null;
+  return productos.rows.map((p) => {
+    const id = String(p.alegra_id);
+    const derivado = derivados.get(id) || null;
+    const c = clasificarProducto({
+      price: p.price, cost: p.cost,
+      costoDerivado: derivado ? derivado.costo : null,
+      historialInestable: derivado ? derivado.historialInestable : false,
+      tasaIva: p.tax_percentage
+    });
+    const r = rot.get(id) || null;
+    const confiable = COSTO_CONFIABLE.has(c.clasificacion) && c.costoSinIva !== null;
+    const unidades = r ? r.unidades : 0;
+    const ventas = r ? r.ventas : 0;
 
     return {
-      alegraItemId: p.alegra_id,
+      alegraItemId: id,
       nombre: p.name,
+      referencia: p.reference || '',
+      categoria: p.category || 'Sin categoría',
+      subcategoria: p.subcategoria || null,
       imagenUrl: p.image_url || '',
-      categoria: p.category || '(sin categoría)',
+      tarifa: p.tax_percentage === null || p.tax_percentage === undefined ? null : Number(p.tax_percentage),
       precio: Number(p.price) || 0,
-      costo: Number(p.cost) || 0,
-      costoDerivado,
-      // Señales del historial de compras, para poder explicar en pantalla por
-      // qué un costo no es de fiar.
-      costoDerivadoReciente: derivado ? Math.round(derivado.costoReciente * 100) / 100 : null,
-      comprasConsideradas: derivado ? derivado.entradas : 0,
-      historialInestable,
-      claseRotacion: p.clase_rotacion || null,
-      unidadesMes: p.unidades_mes !== null ? Number(p.unidades_mes) : null,
-      clientesDistintos: p.clientes_distintos !== null ? Number(p.clientes_distintos) : null,
-      facturacion12m: p.facturacion_12m !== null ? Number(p.facturacion_12m) : null,
-      mesesSinVenta: p.meses_sin_venta,
-      clasificacionCosto: c.clasificacion,
-      costoSinIva: c.costoSinIva !== null ? Math.round(c.costoSinIva * 100) / 100 : null,
-      margenReal: c.margenReal !== null ? Math.round(c.margenReal * 10) / 10 : null,
-      costoSugerido: c.costoSugerido !== null ? Math.round(c.costoSugerido * 100) / 100 : null,
-      // Mejor costo disponible y de dónde viene ('alegra' | 'facturas' | null)
-      costoEfectivo: costoEfectivo > 0 ? Math.round(costoEfectivo * 100) / 100 : null,
-      origenCosto: costoEfectivo > 0 ? (usaDerivado ? 'facturas' : 'alegra') : null,
-      margenEfectivo: margenEfectivo !== null ? Math.round(margenEfectivo * 10) / 10 : null,
-      precioCompetencia: comp ? comp.precio : null,
-      fuenteCompetencia: comp ? comp.fuente : null,
-      techoCompetencia: techoCompetencia !== null ? Math.round(techoCompetencia * 100) / 100 : null,
-      superaTechoCompetencia: techoCompetencia !== null ? (Number(p.price) || 0) > techoCompetencia : false
+      precioConIva: p.tax_percentage === null || p.tax_percentage === undefined ? null : precioConImpuesto(p.price, p.tax_percentage),
+      costoSinIva: redondear(c.costoSinIva),
+      origenCosto: c.origenCosto,
+      calidadCosto: c.clasificacion,
+      margen: redondear(c.margenReal, 1),
+      clase: r ? r.clase : 'C',
+      unidades: redondear(unidades),
+      unidadesSemana: r ? r.unidadesSemana : 0,
+      unidadesMes: r ? r.unidadesMes : 0,
+      facturas: r ? r.facturas : 0,
+      clientes: r ? r.clientesDistintos : 0,
+      ultimaVenta: r ? r.ultimaVenta : null,
+      ventas: redondear(ventas),
+      ganancia: confiable && unidades > 0 ? redondear(ventas - unidades * c.costoSinIva) : null
     };
   });
 }
 
+async function catalogo() {
+  if (enMemoria && Date.now() - enMemoria.en < VIGENCIA_MS) return enMemoria.filas;
+  const filas = await calcularCatalogo();
+  enMemoria = { en: Date.now(), filas };
+  return filas;
+}
+
+const ORDENES = {
+  vendidos: (a, b) => b.unidades - a.unidades || a.nombre.localeCompare(b.nombre),
+  ganancia: (a, b) => (b.ganancia ?? -Infinity) - (a.ganancia ?? -Infinity) || b.unidades - a.unidades,
+  'margen-alto': (a, b) => (b.margen ?? -Infinity) - (a.margen ?? -Infinity) || b.unidades - a.unidades,
+  // Los sin margen van al final también acá: arriba tienen que estar los que
+  // pierden plata, no los que no tienen costo.
+  'margen-bajo': (a, b) => (a.margen ?? Infinity) - (b.margen ?? Infinity) || b.unidades - a.unidades,
+  nombre: (a, b) => a.nombre.localeCompare(b.nombre)
+};
+
 /**
- * GET /api/rentabilidad/resumen — KPIs generales + desglose por categoría.
+ * GET /api/rentabilidad/productos
+ *   ?buscar=&categoria=&clase=A|B|C&costo=sin-costo|negativo&orden=&pagina=
+ */
+async function listarProductos({ buscar = '', categoria = '', clase = '', costo = '', orden = 'vendidos', pagina = 1 } = {}) {
+  let filas = await catalogo();
+
+  const texto = normalizar(buscar);
+  if (texto) {
+    const palabras = texto.split(/\s+/);
+    filas = filas.filter((p) => {
+      const donde = normalizar(`${p.nombre} ${p.referencia}`);
+      return palabras.every((w) => donde.includes(w));
+    });
+  }
+  if (categoria) filas = filas.filter((p) => p.categoria === categoria);
+  if (['A', 'B', 'C'].includes(clase)) filas = filas.filter((p) => p.clase === clase);
+  if (costo === 'sin-costo') filas = filas.filter((p) => p.calidadCosto === 'SIN_COSTO' || p.calidadCosto === 'UNIDAD_SOSPECHOSA');
+  if (costo === 'negativo') filas = filas.filter((p) => p.margen !== null && p.margen < 0);
+
+  filas = [...filas].sort(ORDENES[orden] || ORDENES.vendidos);
+
+  const total = filas.length;
+  const pag = Math.max(parseInt(pagina, 10) || 1, 1);
+  return {
+    data: filas.slice((pag - 1) * POR_PAGINA, pag * POR_PAGINA),
+    total,
+    pagina: pag,
+    paginas: Math.max(Math.ceil(total / POR_PAGINA), 1)
+  };
+}
+
+/**
+ * GET /api/rentabilidad/resumen — el negocio entero: lo vendido y ganado en
+ * la ventana, cuántos productos hay en cada clase, y las series de cuándo se
+ * vende (en colones: sumar unidades de productos distintos no dice nada).
  */
 async function obtenerResumen() {
-  const productos = await obtenerCatalogoClasificado();
+  const [filas, totales, series] = await Promise.all([
+    catalogo(),
+    query(`
+      SELECT COALESCE(SUM(cantidad * precio_unitario), 0) AS ventas,
+             COUNT(DISTINCT alegra_invoice_id)::int AS facturas,
+             COUNT(DISTINCT cliente_id)::int AS clientes
+        FROM venta_historico
+       WHERE fecha_emision > (${HOY_CR} - INTERVAL '${VENTANA_MESES} months')::date AND fecha_emision <= ${HOY_CR}
+    `),
+    estadisticas.series()
+  ]);
 
-  const porClasificacion = { SIN_COSTO: 0, UNIDAD_SOSPECHOSA: 0, MARGEN_NEGATIVO: 0, OK: 0 };
-  const categoriasMap = new Map();
+  const conGanancia = filas.filter((p) => p.ganancia !== null);
+  const ventasConCosto = conGanancia.reduce((s, p) => s + p.ventas, 0);
+  const ganancia = conGanancia.reduce((s, p) => s + p.ganancia, 0);
+  const t = totales.rows[0];
+  const ventas = Number(t.ventas) || 0;
 
-  for (const p of productos) {
-    porClasificacion[p.clasificacionCosto]++;
+  const porClase = { A: 0, B: 0, C: 0 };
+  for (const p of filas) porClase[p.clase]++;
 
-    if (!categoriasMap.has(p.categoria)) {
-      categoriasMap.set(p.categoria, {
-        categoria: p.categoria,
-        total: 0,
-        sinCosto: 0,
-        unidadSospechosa: 0,
-        margenNegativo: 0,
-        ok: 0,
-        margenes: []
-      });
-    }
-    const c = categoriasMap.get(p.categoria);
-    c.total++;
-    if (p.clasificacionCosto === 'SIN_COSTO') c.sinCosto++;
-    else if (p.clasificacionCosto === 'UNIDAD_SOSPECHOSA') c.unidadSospechosa++;
-    else if (p.clasificacionCosto === 'MARGEN_NEGATIVO') c.margenNegativo++;
-    else c.ok++;
-    if (p.margenReal !== null) c.margenes.push(p.margenReal);
-  }
-
-  const categorias = [...categoriasMap.values()]
-    .map(c => ({
-      categoria: c.categoria,
-      total: c.total,
-      sinCosto: c.sinCosto,
-      unidadSospechosa: c.unidadSospechosa,
-      margenNegativo: c.margenNegativo,
-      ok: c.ok,
-      margenMediana: mediana(c.margenes) !== null ? Math.round(mediana(c.margenes) * 10) / 10 : null
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  const conCompetencia = productos.filter(p => p.precioCompetencia !== null);
+  const categorias = [...new Set(filas.map((p) => p.categoria))].sort((a, b) => a.localeCompare(b, 'es'));
 
   return {
-    totalProductos: productos.length,
-    porClasificacion,
+    ventanaMeses: VENTANA_MESES,
+    ventas: redondear(ventas),
+    facturas: t.facturas,
+    clientes: t.clientes,
+    ganancia: redondear(ganancia),
+    // Sobre lo vendido CON costo conocido: la ganancia de lo que no tiene
+    // costo no se sabe, y dividir entre todo lo vendido la achicaría.
+    margenPonderado: ventasConCosto > 0 ? redondear((ganancia / ventasConCosto) * 100, 1) : null,
+    coberturaCosto: ventas > 0 ? redondear((ventasConCosto / ventas) * 100, 1) : null,
+    productos: filas.length,
+    porClase,
+    sinCosto: filas.filter((p) => p.calidadCosto === 'SIN_COSTO' || p.calidadCosto === 'UNIDAD_SOSPECHOSA').length,
+    margenNegativo: filas.filter((p) => p.margen !== null && p.margen < 0).length,
     categorias,
-    competencia: {
-      conDato: conCompetencia.length,
-      superanTecho: conCompetencia.filter(p => p.superaTechoCompetencia).length
-    }
+    series
   };
 }
 
-/**
- * GET /api/rentabilidad/productos — lista filtrable/paginada. Orden por
- * defecto: peores casos primero (sin costo → unidad sospechosa → margen
- * negativo → ok), y dentro de cada uno por facturación descendente — así
- * lo primero que ve el usuario es lo que más pesa arreglar.
- */
-async function listarProductos(filtros = {}) {
-  let productos = await obtenerCatalogoClasificado();
-
-  if (filtros.categoria && filtros.categoria !== 'todas') {
-    productos = productos.filter(p => p.categoria === filtros.categoria);
+/** GET /api/rentabilidad/productos/:alegraItemId — un producto y sus series, en unidades. */
+async function obtenerProducto(alegraItemId) {
+  const id = String(alegraItemId || '');
+  const [filas, series] = await Promise.all([catalogo(), estadisticas.series(id)]);
+  const producto = filas.find((p) => p.alegraItemId === id);
+  if (!producto) {
+    const e = new Error('Ese producto no está en el catálogo (inactivo u oculto).');
+    e.status = 404;
+    throw e;
   }
-  if (filtros.clasificacion && filtros.clasificacion !== 'todas') {
-    productos = productos.filter(p => p.clasificacionCosto === filtros.clasificacion);
-  }
-  if (filtros.clase && filtros.clase !== 'todas') {
-    productos = productos.filter(p => p.claseRotacion === filtros.clase);
-  }
-  if (filtros.superaTecho === 'true' || filtros.superaTecho === true) {
-    productos = productos.filter(p => p.superaTechoCompetencia);
-  }
-  if (filtros.search) {
-    const termino = filtros.search.toLowerCase();
-    productos = productos.filter(p => p.nombre.toLowerCase().includes(termino));
-  }
-
-  productos.sort((a, b) => {
-    const diff = PRIORIDAD_CLASIFICACION[a.clasificacionCosto] - PRIORIDAD_CLASIFICACION[b.clasificacionCosto];
-    if (diff !== 0) return diff;
-    return (b.facturacion12m || 0) - (a.facturacion12m || 0);
-  });
-
-  const total = productos.length;
-  const page = Math.max(parseInt(filtros.page, 10) || 1, 1);
-  const pageSize = Math.min(parseInt(filtros.pageSize, 10) || PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX);
-  const start = (page - 1) * pageSize;
-
-  return {
-    data: productos.slice(start, start + pageSize),
-    total,
-    page,
-    pageSize
-  };
+  return { producto, series };
 }
 
-// ==================== Monitoreo de márgenes ====================
-
-const COLUMNAS_SNAPSHOT = 10;
-const FILAS_POR_INSERT_SNAPSHOT = 150;
-
-/**
- * Guarda el margen de TODO el catálogo con la fecha de hoy.
- *
- * Usa exactamente el mismo cálculo que la pantalla (obtenerCatalogoClasificado),
- * para que la serie histórica y lo que se ve en vivo nunca digan cosas
- * distintas. Re-correrlo el mismo día actualiza la foto en vez de duplicarla.
- */
-async function tomarSnapshotMargenes(fecha = new Date()) {
-  const productos = await obtenerCatalogoClasificado();
-  const dia = fecha.toISOString().slice(0, 10);
-
-  for (let i = 0; i < productos.length; i += FILAS_POR_INSERT_SNAPSHOT) {
-    const lote = productos.slice(i, i + FILAS_POR_INSERT_SNAPSHOT);
-    const placeholders = lote.map((_, idx) => {
-      const b = idx * COLUMNAS_SNAPSHOT;
-      return `(${Array.from({ length: COLUMNAS_SNAPSHOT }, (_, c) => `$${b + c + 1}`).join(', ')})`;
-    }).join(', ');
-
-    const valores = lote.flatMap(p => [
-      dia, String(p.alegraItemId), p.categoria, p.precio, p.costoEfectivo,
-      p.origenCosto, p.margenEfectivo, p.clasificacionCosto, p.unidadesMes, p.facturacion12m
-    ]);
-
-    await query(`
-      INSERT INTO margen_snapshot (
-        fecha, alegra_item_id, categoria, precio, costo,
-        origen_costo, margen, clasificacion, unidades_mes, facturacion_12m
-      ) VALUES ${placeholders}
-      ON CONFLICT (fecha, alegra_item_id) DO UPDATE SET
-        categoria = EXCLUDED.categoria, precio = EXCLUDED.precio, costo = EXCLUDED.costo,
-        origen_costo = EXCLUDED.origen_costo, margen = EXCLUDED.margen,
-        clasificacion = EXCLUDED.clasificacion, unidades_mes = EXCLUDED.unidades_mes,
-        facturacion_12m = EXCLUDED.facturacion_12m, creado_en = CURRENT_TIMESTAMP;
-    `, valores);
-  }
-
-  return { fecha: dia, productos: productos.length };
-}
-
-/**
- * GET /api/rentabilidad/tendencia — evolución del margen por fecha.
- *
- * El margen se pondera por facturación, no se promedia a secas: un producto
- * que factura ₡2M y otro que factura ₡3.000 no pesan igual en la salud del
- * negocio, y el promedio simple queda dominado por la cola larga.
- */
-async function obtenerTendenciaMargenes({ categoria } = {}) {
-  const filtroCategoria = categoria && categoria !== 'todas' ? 'AND categoria = $1' : '';
-  const params = filtroCategoria ? [categoria] : [];
-
-  const serie = await query(`
-    SELECT fecha,
-           COUNT(*)::int AS productos,
-           COUNT(*) FILTER (WHERE margen IS NOT NULL)::int AS con_costo,
-           ROUND(
-             (SUM(margen * facturacion_12m) FILTER (WHERE margen IS NOT NULL AND facturacion_12m > 0)
-              / NULLIF(SUM(facturacion_12m) FILTER (WHERE margen IS NOT NULL AND facturacion_12m > 0), 0))::numeric, 2
-           ) AS margen_ponderado,
-           ROUND((percentile_cont(0.5) WITHIN GROUP (ORDER BY margen))::numeric, 2) AS margen_mediana,
-           COUNT(*) FILTER (WHERE clasificacion = 'MARGEN_NEGATIVO')::int AS margen_negativo,
-           COUNT(*) FILTER (WHERE clasificacion = 'SIN_COSTO')::int AS sin_costo
-    FROM margen_snapshot
-    WHERE TRUE ${filtroCategoria}
-    GROUP BY fecha ORDER BY fecha ASC;
-  `, params);
-
-  return {
-    serie: serie.rows.map(r => ({
-      fecha: r.fecha,
-      productos: r.productos,
-      conCosto: r.con_costo,
-      margenPonderado: r.margen_ponderado !== null ? Number(r.margen_ponderado) : null,
-      margenMediana: r.margen_mediana !== null ? Number(r.margen_mediana) : null,
-      margenNegativo: r.margen_negativo,
-      sinCosto: r.sin_costo
-    }))
-  };
-}
-
-/**
- * Productos cuyo margen cayó más entre la primera y la última foto.
- * Es la lista accionable del monitoreo: qué se deterioró sin que nadie lo tocara.
- */
-async function obtenerDeterioroMargenes({ limite = 20 } = {}) {
-  const fechas = await query(`SELECT MIN(fecha) primera, MAX(fecha) ultima FROM margen_snapshot`);
-  const { primera, ultima } = fechas.rows[0];
-  if (!primera || String(primera) === String(ultima)) {
-    return { desde: primera, hasta: ultima, productos: [], sinComparacion: true };
-  }
-
-  const res = await query(`
-    SELECT a.alegra_item_id, c.name, a.categoria,
-           a.margen AS margen_antes, b.margen AS margen_ahora,
-           a.costo AS costo_antes, b.costo AS costo_ahora,
-           a.precio AS precio_antes, b.precio AS precio_ahora,
-           b.facturacion_12m
-    FROM margen_snapshot a
-    JOIN margen_snapshot b ON b.alegra_item_id = a.alegra_item_id AND b.fecha = $2
-    LEFT JOIN alegra_products_cache c ON c.alegra_id::text = a.alegra_item_id
-    WHERE a.fecha = $1 AND a.margen IS NOT NULL AND b.margen IS NOT NULL
-      AND b.margen < a.margen
-    ORDER BY (a.margen - b.margen) DESC
-    LIMIT $3;
-  `, [primera, ultima, limite]);
-
-  return {
-    desde: primera,
-    hasta: ultima,
-    sinComparacion: false,
-    productos: res.rows.map(r => ({
-      alegraItemId: r.alegra_item_id,
-      nombre: r.name || r.alegra_item_id,
-      categoria: r.categoria,
-      margenAntes: Number(r.margen_antes),
-      margenAhora: Number(r.margen_ahora),
-      caida: Math.round((Number(r.margen_antes) - Number(r.margen_ahora)) * 10) / 10,
-      costoAntes: Number(r.costo_antes),
-      costoAhora: Number(r.costo_ahora),
-      precioAntes: Number(r.precio_antes),
-      precioAhora: Number(r.precio_ahora),
-      facturacion12m: Number(r.facturacion_12m)
-    }))
-  };
-}
-
-module.exports = {
-  obtenerResumen,
-  listarProductos,
-  tomarSnapshotMargenes,
-  obtenerTendenciaMargenes,
-  obtenerDeterioroMargenes
-};
+module.exports = { listarProductos, obtenerResumen, obtenerProducto, calcularCatalogo, ORDENES, _limpiarMemoria: () => { enMemoria = null; } };

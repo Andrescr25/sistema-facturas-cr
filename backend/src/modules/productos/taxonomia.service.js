@@ -27,6 +27,7 @@ const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { clasificarProducto } = require('../precios/auditoria');
 const subcategoriasTabla = require('../catalogo/subcategorias.service');
 const categoriasConfig = require('../catalogo/categorias.service');
+const { SQL_ROTACION } = require('../ventas/rotacion');
 const { listarProductos } = require('./productos.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -133,7 +134,9 @@ const SELECT_FILA = `
     LEFT JOIN categoria_producto c ON c.id = p.categoria_id
     LEFT JOIN impuesto i ON i.id = p.impuesto_id
     LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-    LEFT JOIN producto_rotacion r ON r.alegra_item_id = p.alegra_id
+    -- Rotación en tiempo real (ventas/rotacion.js), igual que en main: la
+    -- foto de producto_rotacion ya no se usa.
+    LEFT JOIN (${SQL_ROTACION}) r ON r.alegra_item_id = p.alegra_id
     LEFT JOIN LATERAL (
            SELECT supplier_name, supplier_cedula
              FROM supplier_product_mapping m

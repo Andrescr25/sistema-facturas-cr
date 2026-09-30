@@ -474,7 +474,8 @@ export function useReporteProveedores() {
     if (!query || query.length < 2) { setProductosAlegra([]); return }
     try {
       setLoadingProductos(true)
-      const res = await api.get('/alegra/productos/buscar', { params: { query } })
+      // Sin desactivados: no tiene sentido pedirle al proveedor algo que ya no se vende.
+      const res = await api.get('/alegra/productos/buscar', { params: { query, soloActivos: 1 } })
       if (res.data.success) setProductosAlegra(res.data.data || [])
     } catch (e) {
       // Búsqueda mientras se escribe: no se avisa —una petición cortada por

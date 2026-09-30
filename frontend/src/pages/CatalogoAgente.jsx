@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Flame, TrendingDown, Star, RotateCcw, PackageOpen,
-  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight
+  LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp, Sparkles, KeyRound
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
-import { nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
+import { enOrdenDelCatalogo, nombreVisibleDeCategoria } from '../utils/catalogoAgentePersonalizacion'
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import BarraSuperior from '../components/catalogo-agente/BarraSuperior'
 import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
@@ -50,7 +51,7 @@ import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
  * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
  * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
  */
-function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false }) {
+function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false, comoOferta = false }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
       {productos.map((p) => (
@@ -59,6 +60,7 @@ function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false }) 
           product={p}
           stats={p._stats || statsPorProducto?.get(String(p.id))}
           mostrarSubcategoria={!dentroDeSuFamilia}
+          comoOferta={comoOferta}
         />
       ))}
     </div>
@@ -94,6 +96,30 @@ function Subgrupo({ nombre, cantidad, sinClasificar, children }) {
   )
 }
 
+/**
+ * Las categorías DENTRO de una sección (el catálogo de "Cliente nuevo"): cada
+ * una con su nombre y, adentro, sus familias con el mismo encabezado que en
+ * el catálogo completo. Va entre la sección y la familia en tamaño: se tiene
+ * que leer como parte de "Lo más vendido", no como otra sección.
+ */
+function BloquesPorCategoria({ bloques, comoOferta = false }) {
+  return bloques.map((b) => (
+    <div key={b.clave} className="mb-6 last:mb-0">
+      <div className="mb-3 flex items-baseline gap-2 border-b border-neutro-200 pb-1.5">
+        <h3 className={`text-[15px] font-extrabold ${b.clave === 'Otros' ? 'text-neutro-400' : 'text-neutro-800'}`}>{b.nombre}</h3>
+        <span className="text-xs font-semibold text-neutro-400">{b.productos.length}</span>
+      </div>
+      {b.familias
+        ? b.familias.map((f) => (
+            <Subgrupo key={f.nombre} nombre={f.nombre} cantidad={f.productos.length} sinClasificar={f.sinClasificar}>
+              <Cuadricula productos={f.productos} dentroDeSuFamilia={!f.sinClasificar} comoOferta={comoOferta} />
+            </Subgrupo>
+          ))
+        : <Cuadricula productos={b.productos} comoOferta={comoOferta} />}
+    </div>
+  ))
+}
+
 /** Un bloque con título. El color del icono es lo único que los distingue. */
 function Seccion({ titulo, descripcion, icono: Icono, color, children }) {
   return (
@@ -116,11 +142,11 @@ export default function CatalogoAgente() {
   const {
     isLoading, isOnline, isSyncing, syncProgress, lastSync,
     searchQuery, setSearchQuery, busquedaAplicada, filteredData,
-    featuredProducts, productosRebajados, synchronize,
+    featuredProducts, productosRebajados, productosNuevos, synchronize,
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
     productosHabitualesDelCliente, productosPerdidosDelCliente,
-    configCatalogo
+    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -138,9 +164,35 @@ export default function CatalogoAgente() {
     [productosRebajados, featuredProducts]
   )
 
+  // "Bajamos el precio" en el orden del catálogo: por categoría y, dentro,
+  // por subcategoría. Revueltas por porcentaje, el agente no encontraba nada.
+  const rebajasPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(productosRebajados, configCatalogo),
+    [productosRebajados, configCatalogo]
+  )
+
+  // "Productos nuevos" (lista manual de Auditoría de Inventario), igual que
+  // las rebajas: por categoría y, dentro, por subcategoría.
+  const nuevosPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(productosNuevos, configCatalogo),
+    [productosNuevos, configCatalogo]
+  )
+
   const categorias = useMemo(() => {
+    // "Cliente nuevo": la barra salta entre sus cuatro partes, no entre las
+    // categorías del catálogo completo (que en este modo no se muestra).
+    if (clienteNuevo) {
+      const { totales } = clienteNuevo
+      const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: totales.oferta + totales.liquidacion + totales.A + totales.B }]
+      if (totales.oferta > 0) lista.push({ clave: '__oferta', texto: 'Oferta', icono: Tag, contador: totales.oferta })
+      if (totales.liquidacion > 0) lista.push({ clave: '__liquidacion', texto: 'Liquidación', icono: Flame, contador: totales.liquidacion })
+      if (totales.A > 0) lista.push({ clave: '__rotA', texto: 'Lo más vendido', icono: Award, contador: totales.A })
+      if (totales.B > 0) lista.push({ clave: '__rotB', texto: 'También se vende bien', icono: ThumbsUp, contador: totales.B })
+      return lista
+    }
     const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: filteredData.flat.length }]
     if (ofertas.length > 0) lista.push({ clave: '__ofertas', texto: 'Ofertas', icono: Tag, contador: ofertas.length })
+    if (productosNuevos.length > 0) lista.push({ clave: '__nuevos', texto: 'Nuevos', icono: Sparkles, contador: productosNuevos.length })
     if (clienteActivo && productosHabitualesDelCliente.length > 0) {
       lista.push({ clave: '__cliente', texto: 'De este cliente', icono: UserCheck, contador: productosHabitualesDelCliente.length })
     }
@@ -148,7 +200,7 @@ export default function CatalogoAgente() {
       lista.push({ clave: k, texto: nombreVisibleDeCategoria(k, configCatalogo), contador: filteredData.grouped[k]?.length || 0 })
     })
     return lista
-  }, [filteredData, ofertas, clienteActivo, productosHabitualesDelCliente, configCatalogo])
+  }, [filteredData, ofertas, productosNuevos, clienteActivo, productosHabitualesDelCliente, configCatalogo, clienteNuevo])
 
   // Una categoría que ya no existe (cambió el catálogo, o se está buscando)
   // dejaría la pantalla en blanco sin explicación.
@@ -189,6 +241,28 @@ export default function CatalogoAgente() {
       )}
 
       <main className="px-3 py-4">
+        {/* La actualización terminó, pero sin sesión el orden y la rotación
+            no se pueden traer: se quedó lo que ya estaba guardado. */}
+        {sinSesionEnSync.length > 0 && !isSyncing && (
+          <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-alerta-50 px-4 py-3 text-sm text-alerta-800 ring-1 ring-alerta-200 sm:flex-row sm:items-center">
+            <KeyRound size={18} className="shrink-0" />
+            <p className="flex-1">
+              Se actualizaron los productos y las fotos, pero no {sinSesionEnSync.join(' ni ')}: la sesión venció.
+              Iniciá sesión y volvé a actualizar.
+            </p>
+            <Link to="/ingresar" state={{ destino: '/catalogo-agente' }}
+              className="shrink-0 rounded-xl bg-alerta-600 px-4 py-2 text-center font-semibold text-white">
+              Iniciar sesión
+            </Link>
+          </div>
+        )}
+        {/* Chrome cobra ~14,7 MB por foto guardada (ver cacheImagenesCatalogo.js):
+            las del fondo del catálogo pueden no caber. */}
+        {fotosSinLugar > 0 && !isSyncing && (
+          <p className="mb-4 rounded-2xl bg-neutro-100 px-4 py-3 text-xs text-neutro-600">
+            No cupieron {fotosSinLugar} fotos en esta tablet: esas se ven solo con internet. Las de arriba del catálogo sí quedaron guardadas.
+          </p>
+        )}
         {vacio ? (
           <div className="mx-auto mt-16 max-w-sm rounded-2xl bg-white p-8 text-center ring-1 ring-neutro-200">
             <PackageOpen size={36} className="mx-auto text-neutro-200" />
@@ -214,12 +288,71 @@ export default function CatalogoAgente() {
             <Cuadricula productos={filteredData.flat} statsPorProducto={statsPorProducto}
               />
           </Seccion>
+        ) : clienteNuevo ? (
+          /* "Cliente nuevo": en vez del catálogo completo, lo más fácil de
+             vender — la oferta, la liquidación, y después la rotación A y la
+             B, cada una por categoría y subcategoría. Lo demás sigue a mano
+             en el buscador. */
+          <>
+            {(enTodo || categoria === '__oferta') && clienteNuevo.totales.oferta > 0 && (
+              <Seccion titulo="Oferta" descripcion="Precios especiales"
+                icono={Tag} color="bg-acento-50 text-acento-600">
+                <BloquesPorCategoria bloques={clienteNuevo.oferta} comoOferta />
+              </Seccion>
+            )}
+            {(enTodo || categoria === '__liquidacion') && clienteNuevo.totales.liquidacion > 0 && (
+              <Seccion titulo="Liquidación" descripcion="Mientras dure la existencia"
+                icono={Flame} color="bg-nota-50 text-nota-600">
+                <BloquesPorCategoria bloques={clienteNuevo.liquidacion} />
+              </Seccion>
+            )}
+            {(enTodo || categoria === '__rotA') && clienteNuevo.totales.A > 0 && (
+              <Seccion titulo="Lo más vendido" descripcion="Rotación A"
+                icono={Award} color="bg-exito-50 text-exito-600">
+                <BloquesPorCategoria bloques={clienteNuevo.A} />
+              </Seccion>
+            )}
+            {(enTodo || categoria === '__rotB') && clienteNuevo.totales.B > 0 && (
+              <Seccion titulo="También se vende bien" descripcion="Rotación B"
+                icono={ThumbsUp} color="bg-primario-50 text-primario-600">
+                <BloquesPorCategoria bloques={clienteNuevo.B} />
+              </Seccion>
+            )}
+            {clienteNuevo.totales.A + clienteNuevo.totales.B === 0 && (
+              <div className="mx-auto mt-6 max-w-sm rounded-2xl bg-white p-6 text-center ring-1 ring-neutro-200">
+                <p className="text-sm font-bold text-neutro-900">Falta la lista de lo más vendido</p>
+                <p className="mt-1 text-xs text-neutro-400">
+                  Conectate a internet y tocá el botón de actualizar, arriba a la derecha.
+                </p>
+              </div>
+            )}
+          </>
         ) : (
           <>
             {(enTodo || categoria === '__ofertas') && productosRebajados.length > 0 && (
               <Seccion titulo="Bajamos el precio" descripcion="Ahora cuestan menos que antes"
                 icono={TrendingDown} color="bg-acento-50 text-acento-600">
-                <Cuadricula productos={productosRebajados} />
+                {/* Un bloque por categoría; cada tarjeta dice su subcategoría. */}
+                {rebajasPorCategoria.map((b) => (
+                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
+                    sinClasificar={b.clave === 'Otros'}>
+                    <Cuadricula productos={b.productos} />
+                  </Subgrupo>
+                ))}
+              </Seccion>
+            )}
+
+            {/* Lista manual de Auditoría de Inventario, justo después de las
+                rebajas (decisión del usuario, 2026-09-27). */}
+            {(enTodo || categoria === '__nuevos') && productosNuevos.length > 0 && (
+              <Seccion titulo="Productos nuevos" descripcion="Recién llegados al catálogo"
+                icono={Sparkles} color="bg-primario-50 text-primario-600">
+                {nuevosPorCategoria.map((b) => (
+                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
+                    sinClasificar={b.clave === 'Otros'}>
+                    <Cuadricula productos={b.productos} />
+                  </Subgrupo>
+                ))}
               </Seccion>
             )}
 

@@ -40,7 +40,101 @@ async function databaseInfo(req, res) {
   }
 }
 
+// ==================== WHATSAPP (adentro del sistema) ====================
+
+const whatsapp = require('../../integrations/whatsapp');
+const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
+
+function responderWhatsApp(res, error) {
+  const status = error.status || 500;
+  if (status >= 500) console.error('WhatsApp (Configuración):', error.message);
+  res.status(status).json({ success: false, message: error.message, codigo: error.codigo || null });
+}
+
+/** GET /api/admin/whatsapp — cómo está la conexión, y por dónde salen los mensajes. */
+async function estadoWhatsApp(req, res) {
+  const e = whatsapp.estado();
+  res.json({
+    success: true,
+    data: {
+      ...e,
+      evolutionConfigurado: Boolean(process.env.WHATSAPP_API_URL),
+      saleLoPor: e.conectado ? 'interno' : (process.env.WHATSAPP_API_URL ? 'evolution' : 'ninguno')
+    }
+  });
+}
+
+/**
+ * POST /api/admin/whatsapp/vincular
+ *   { modo: 'qr' }               → { qr }: el texto del QR para escanear
+ *   { modo: 'codigo', telefono } → { codigo, telefono }: 8 caracteres
+ */
+async function vincularWhatsApp(req, res) {
+  try {
+    if ((req.body?.modo || 'qr') === 'qr') {
+      const { qr } = await whatsapp.vincular({ modo: 'qr' });
+      return res.json({ success: true, data: { qr } });
+    }
+    const revision = validarTelefonoEscrito(req.body?.telefono);
+    if (!revision.valido) return res.status(400).json({ success: false, message: revision.motivo });
+    if (!revision.esMovil) {
+      return res.status(400).json({ success: false, message: `${revision.formateado} es un teléfono fijo: tiene que ser el celular que tiene el WhatsApp.` });
+    }
+    const codigo = await whatsapp.vincular({ modo: 'codigo', numero: revision.numero });
+    res.json({ success: true, data: { codigo, telefono: revision.formateado } });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** POST /api/admin/whatsapp/desvincular */
+async function desvincularWhatsApp(req, res) {
+  try {
+    await whatsapp.desvincular();
+    res.json({ success: true });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+// ==================== AVISOS DE PEDIDOS DEL PORTAL ====================
+
+const avisoPedidoNuevo = require('../portal-clientes/avisoPedidoNuevo');
+
+/** GET /api/admin/avisos-pedidos */
+async function obtenerAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: { ...(await avisoPedidoNuevo.obtenerDestinos()), correoDisponible: require('../../../services/mailer').estaConfigurado() } });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** PUT /api/admin/avisos-pedidos { whatsapp, correo } */
+async function guardarAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: await avisoPedidoNuevo.guardarDestinos(req.body || {}) });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
+/** POST /api/admin/avisos-pedidos/prueba — manda un aviso de mentira a los destinos guardados. */
+async function probarAvisosPedidos(req, res) {
+  try {
+    res.json({ success: true, data: await avisoPedidoNuevo.avisarPrueba() });
+  } catch (error) {
+    responderWhatsApp(res, error);
+  }
+}
+
 module.exports = {
+  obtenerAvisosPedidos,
+  guardarAvisosPedidos,
+  probarAvisosPedidos,
   testSimple,
-  databaseInfo
+  databaseInfo,
+  estadoWhatsApp,
+  vincularWhatsApp,
+  desvincularWhatsApp
 };

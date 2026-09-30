@@ -20,7 +20,7 @@ aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
   relacionado: [modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-09-24
+medido: 2026-09-29
 ---
 
 QUÉ ES
@@ -43,6 +43,10 @@ LO QUE CAMBIA RESPECTO DE `main`
   impuesto, unidad, medicamento, ocultar y dar de baja. Los ocultos y los
   dados de baja no cuentan en las tarjetas —el agente tampoco los ve— y se
   encuentran con el filtro de estado del buscador.
+- La rotación de cada fila (unidades al mes) es en tiempo real
+  (`ventas/rotacion.js`, 3 meses), igual que en `main` desde el 2026-09-25:
+  la foto de `producto_rotacion` ya no se lee. Se cruza por `alegra_id`
+  porque las ventas todavía vienen de Alegra (sección 12).
 - Los componentes de `main` siguen hablando con los nombres de la caché
   (`name`, `imageUrl`…); la traducción está en UN solo lugar, `aFila` de
   `useListaCatalogo.js`, y el id es el propio.

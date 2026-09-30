@@ -63,21 +63,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Imágenes del catálogo público (CDN de Alegra, cross-origin: cdn3.alegra.com
-  // con URLs firmadas tipo /<hash>-<timestamp>-<archivo>?Expires=...&Signature=...):
-  // CacheFirst, para que sigan viéndose sin internet después de una
-  // sincronización. Van ANTES del check de "mismo origen" porque es externo.
+  // Imágenes del catálogo (CDN de Alegra, cross-origin: cdn3.alegra.com con
+  // URLs firmadas tipo /<hash>-<timestamp>-<archivo>?Expires=...&Signature=...).
+  // Van ANTES del check de "mismo origen" porque es externo.
+  //
+  // LA LLAVE ES LA FOTO, NO LA FIRMA (2026-09-27). Alegra firma de nuevo cada
+  // URL en cada pedido: guardando con la URL completa, después de cada
+  // actualización ninguna foto coincidía y los duplicados se acumulaban.
+  //
+  // ESTE WORKER SOLO SIRVE, NO GUARDA. Cada foto opaca le cuesta a Chrome
+  // ~14,7 MB de cuota: guardar todo lo que se mira llenaba la tablet y hacía
+  // fallar hasta el guardado del catálogo. Qué fotos se guardan lo decide la
+  // sincronización (src/utils/cacheImagenesCatalogo.js), que para antes de
+  // llenar la cuota. Lo que no está guardado se pide a la red.
   if (url.hostname.endsWith('.alegra.com') && url.hostname.startsWith('cdn')) {
     event.respondWith(
       caches.open(CATALOGO_IMAGENES_CACHE).then(async (cache) => {
-        const cached = await cache.match(event.request);
+        const cached = await cache.match(url.origin + url.pathname)
+          || await cache.match(event.request); // guardadas antes, con la firma
         if (cached) return cached;
         try {
-          const response = await fetch(event.request);
-          cache.put(event.request, response.clone()).catch(() => {});
-          return response;
+          return await fetch(event.request);
         } catch (err) {
-          return cached || Response.error();
+          return Response.error();
         }
       })
     );

@@ -3,6 +3,7 @@
  */
 
 const catalogoAgenteService = require('./catalogo-agente.service');
+const productosNuevos = require('../inventario-auditorias/productosNuevos');
 const pedidosAgente = require('./pedidos-agente.service');
 
 /**
@@ -45,6 +46,18 @@ async function obtenerConfigCatalogo(req, res) {
 }
 
 /**
+ * GET /api/catalogo-agente/rotacion — qué productos son A y cuáles B.
+ */
+async function obtenerRotacion(req, res) {
+  try {
+    res.json(await catalogoAgenteService.obtenerRotacion());
+  } catch (error) {
+    console.error('Error obteniendo la rotación del catálogo:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+}
+
+/**
  * GET /api/catalogo-agente/ofertas
  */
 async function listarOfertasPorBaja(req, res) {
@@ -52,6 +65,19 @@ async function listarOfertasPorBaja(req, res) {
     res.json({ ofertas: await catalogoAgenteService.listarOfertasPorBaja() });
   } catch (error) {
     console.error('Error listando las bajas de precio:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+}
+
+/**
+ * GET /api/catalogo-agente/productos-nuevos — los ids de la lista manual de
+ * Auditoría de Inventario, lo más reciente primero.
+ */
+async function listarProductosNuevos(req, res) {
+  try {
+    res.json({ productos: await productosNuevos.idsParaCatalogo() });
+  } catch (error) {
+    console.error('Error listando los productos nuevos del catálogo:', error);
     res.status(error.status || 500).json({ error: error.message });
   }
 }
@@ -154,6 +180,7 @@ async function listarDispositivos(req, res) {
 
 module.exports = {
   listarOfertasPorBaja,
+  listarProductosNuevos,
   reportarEstadoDispositivo,
   listarDispositivos,
   crearPedido,
@@ -162,5 +189,6 @@ module.exports = {
   listarOfertas,
   obtenerHistorialClientes,
   sincronizarHistorialClientes,
-  obtenerConfigCatalogo
+  obtenerConfigCatalogo,
+  obtenerRotacion
 };

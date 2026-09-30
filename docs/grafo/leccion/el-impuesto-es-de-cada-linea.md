@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/revision-precios/revision-precios.service.js
 aristas:
   relacionado: [bloqueo/impuestos-historicos-en-alegra, modulo/revision-precios, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-23
+medido: 2026-09-25
 ---
 
 La misma familia de error, tres veces:

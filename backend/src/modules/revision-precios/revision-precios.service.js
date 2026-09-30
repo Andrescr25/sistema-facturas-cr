@@ -6,6 +6,7 @@
 
 const prisma = require('../../../lib/prisma');
 const { ligarIdsPropios } = require('../productos-revision/idsPropiosDelMapeo');
+const { SQL_ROTACION_PRECIOS } = require('../ventas/rotacion');
 const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
@@ -508,7 +509,7 @@ async function getFacturasRelacionadas({ limit = MAX_FACTURAS_RELACIONADAS } = {
  * Reemplaza el `costo / 0.80` fijo que vivía en el frontend
  * (revisionPreciosUtils.js) por un margen meta real: el medido por
  * categoría (config_precios), ajustado por rotación y exclusividad del
- * producto (producto_rotacion), con un piso de seguridad del que nunca
+ * producto (ventas/rotacion.js, 12 meses), con un piso de seguridad del que nunca
  * baja. Se calcula por LÍNEA de factura (no por producto en abstracto)
  * porque el costo real de esta compra específica —con su descuento, su IVA
  * real y su factor de conversión— es lo único de lo que hay certeza al
@@ -531,7 +532,9 @@ async function obtenerSugerenciasPrecio(facturaId) {
 
   const [categorias, rotaciones, configPrecios] = await Promise.all([
     query('SELECT alegra_id, category FROM alegra_products_cache WHERE alegra_id = ANY($1::text[])', [alegraIds]),
-    query('SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM producto_rotacion WHERE alegra_item_id = ANY($1::text[])', [alegraIds]),
+    // En el momento, con la ventana de 12 meses con la que se calibró el
+    // motor (ver ventas/rotacion.js). Antes era la foto de producto_rotacion.
+    query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM (${SQL_ROTACION_PRECIOS}) r WHERE alegra_item_id = ANY($1::text[])`, [alegraIds]),
     obtenerConfigPrecios()
   ]);
 

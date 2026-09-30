@@ -131,3 +131,19 @@ export async function getRegalos() {
   const response = await api.get('/inventario-auditorias/regalos');
   return response.data;
 }
+
+// "Productos nuevos" del catálogo del agente: lista manual.
+export async function getProductosNuevos() {
+  const response = await api.get('/inventario-auditorias/productos-nuevos');
+  return response.data;
+}
+
+export async function agregarProductoNuevo(alegraItemId) {
+  const response = await api.post('/inventario-auditorias/productos-nuevos', { alegraItemId });
+  return response.data;
+}
+
+export async function quitarProductoNuevo(alegraItemId) {
+  const response = await api.delete(`/inventario-auditorias/productos-nuevos/${alegraItemId}`);
+  return response.data;
+}

@@ -32,13 +32,14 @@ function esPublica(ruta) {
 }
 
 describe('el catálogo del agente abre sin sesión', () => {
-  test('las seis rutas que usa la pantalla están abiertas', () => {
+  test('las rutas que usa la pantalla están abiertas', () => {
     // Si alguna se cierra, el agente sin señal se queda sin esa parte y no
     // hay forma de que se entere hasta que esté en la calle.
     for (const ruta of [
       '/catalogo-agente/productos',
       '/catalogo-agente/ofertas',
       '/catalogo-agente/ofertas-baja',
+      '/catalogo-agente/productos-nuevos',
       '/catalogo-agente/historial-clientes',
       '/catalogo-agente/pedidos',
       '/catalogo-agente/dispositivos/estado'
@@ -53,6 +54,12 @@ describe('lo administrativo sigue pidiendo sesión', () => {
     // Es el caso que motiva la lista exacta: con la regla de prefijo,
     // '/historial-clientes' habría abierto también su '/sync'.
     assert.equal(esPublica('/catalogo-agente/historial-clientes/sync'), false);
+  });
+
+  test('administrar "Productos nuevos" pide sesión: la tablet solo LEE la lista', () => {
+    assert.equal(esPublica('/inventario-auditorias/productos-nuevos'), false);
+    assert.equal(esPublica('/inventario-auditorias/productos-nuevos/688'), false);
+    assert.equal(esPublica('/catalogo-agente/productos-nuevos/688'), false, 'la lista exacta no abre lo que cuelga');
   });
 
   test('el monitor de tablets del personal sigue cerrado', () => {
