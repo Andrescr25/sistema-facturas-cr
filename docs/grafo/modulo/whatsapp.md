@@ -12,6 +12,8 @@ archivos:
   - frontend/src/components/configuracion/SeccionWhatsApp.jsx
   - backend/tests/whatsappInterno.test.js
   - backend/tests/erroresWhatsApp.test.js
+  - backend/src/modules/portal-clientes/avisoPedidoNuevo.js
+  - backend/tests/avisoPedidoNuevo.test.js
 aristas:
   relacionado: [leccion/telefonos-sucios, leccion/la-db-local-es-produccion]
 medido: 2026-09-29
@@ -22,6 +24,14 @@ cotización, saldo, invitación al portal, aviso de pedido) pasa por
 `whatsapp.client.js`: `enviarTexto` y `enviarDocumento`. El número se valida
 siempre ahí ([[leccion/telefonos-sucios]]). Nada sale automático: botón y
 confirmación (decisión del usuario).
+
+AVISO DE PEDIDO NUEVO DEL PORTAL (2026-09-29): el único mensaje que sale
+solo, y es INTERNO — a la empresa, no al cliente
+(`portal-clientes/avisoPedidoNuevo.js`). Por WhatsApp y/o correo
+(`services/mailer.js`), a lo configurado en Configuración → Avisos de pedidos
+(tabla `aviso_pedidos`). Se manda sin esperar después de guardar el pedido y
+nunca lo hace fallar. No acepta el número vinculado al sistema: WhatsApp no
+hace sonar los mensajes a uno mismo.
 
 DOS CANALES (2026-09-29). Antes era solo Evolution API, un servicio aparte en
 Render gratis que se suspendía antes de fin de mes. Ahora Baileys (la misma
