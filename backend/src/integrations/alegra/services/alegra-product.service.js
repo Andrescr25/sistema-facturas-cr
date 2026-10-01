@@ -171,7 +171,11 @@ class AlegraProductService {
         // Preparar datos según la API de Alegra
         const productData = {
           name: data.name,
-          description: data.description || data.name,
+          // Sin descripción va VACÍA, nunca el nombre: el usuario la quiere en
+          // blanco. Con `|| data.name`, el '' que manda Revisión de Precios
+          // (falso en JavaScript) se volvía el nombre, y cada producto nuevo
+          // llegaba a Alegra con la descripción repetida (2026-09-30).
+          description: data.description || '',
           status: data.status || 'active',
           type: data.type || 'product', // 'product' para inventario, 'service' para servicios
 
