@@ -156,3 +156,59 @@ export function clienteTieneSinCaja(cliente, facturasEstado) {
     return faltantesTotales.length >= totalItemsOriginal
   })
 }
+
+// ==================== FILTROS DE LA LISTA DE CLIENTES ====================
+// Viven en la PÁGINA, no en la lista: la lista se desmonta al entrar a un
+// cliente, y con el estado adentro los filtros se perdían al volver (pedido
+// del usuario, 2026-10-01).
+
+export const FILTROS_VACIOS = { cliente: '', producto: '', proveedores: [] }
+
+export function hayFiltros(filtros) {
+  return Boolean(filtros.cliente.trim() || filtros.producto.trim() || filtros.proveedores.length)
+}
+
+/** Sin mayúsculas ni tildes: "jabón" encuentra "JABON". */
+export function normalizarBusqueda(texto) {
+  return String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+}
+
+/**
+ * Los productos con faltante de un cliente que calzan con la búsqueda, por
+ * nombre o código. Cada palabra tiene que estar, en cualquier orden: "pvc 1/2"
+ * encuentra "TUBO PVC 1/2". El mismo producto en varias facturas se suma.
+ */
+export function productosQueCoinciden(cliente, busqueda) {
+  const palabras = normalizarBusqueda(busqueda).split(/\s+/).filter(Boolean)
+  if (palabras.length === 0) return []
+  const porProducto = new Map()
+  for (const factura of cliente.facturas_con_faltantes) {
+    for (const p of factura.productos_faltantes) {
+      if (Number(p.cantidad_faltante) <= 0) continue
+      const texto = normalizarBusqueda(`${p.nombre || ''} ${p.codigo || ''}`)
+      if (!palabras.every(w => texto.includes(w))) continue
+      const clave = p.codigo || p.nombre
+      const previo = porProducto.get(clave)
+      if (previo) previo.cantidad += Number(p.cantidad_faltante)
+      else porProducto.set(clave, { nombre: p.nombre, codigo: p.codigo, cantidad: Number(p.cantidad_faltante) })
+    }
+  }
+  return [...porProducto.values()]
+}
+
+/** Los clientes que pasan los tres filtros a la vez (cliente, producto y proveedores). */
+export function filtrarClientes(clientes, filtros) {
+  const nombre = normalizarBusqueda(filtros.cliente)
+  const proveedores = new Set(filtros.proveedores)
+  return clientes.filter(c => {
+    if (nombre && !normalizarBusqueda(c.nombre).includes(nombre)) return false
+    if (filtros.producto.trim() && productosQueCoinciden(c, filtros.producto).length === 0) return false
+    if (proveedores.size > 0) {
+      // Basta con que al menos un producto pertenezca a los proveedores seleccionados
+      return c.facturas_con_faltantes.some(f =>
+        f.productos_faltantes.some(p => Number(p.cantidad_faltante) > 0 && proveedores.has(p.proveedor_asignado || p.proveedor))
+      )
+    }
+    return true
+  })
+}

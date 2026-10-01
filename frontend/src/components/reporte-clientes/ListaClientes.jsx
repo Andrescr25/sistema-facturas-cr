@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown } from 'lucide-react'
-import { getClienteProgreso, ordenClienteProgreso, clienteTieneSinCaja, CLIENTE_ESTADO } from '../../utils/reporteClientesUtils'
+import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react'
+import {
+  getClienteProgreso, ordenClienteProgreso, clienteTieneSinCaja, CLIENTE_ESTADO,
+  FILTROS_VACIOS, hayFiltros, filtrarClientes, productosQueCoinciden
+} from '../../utils/reporteClientesUtils'
 
 // Cómo se ve cada estado de la card. La alerta de "sin caja" se superpone a
 // todos porque es la que no se puede pasar por alto.
@@ -34,17 +37,22 @@ const ESTILO_SIN_CAJA = {
 }
 
 /**
- * Vista de listado (grid) de clientes con búsqueda y filtro por proveedor,
- * más el resumen global al fondo. Extraído de ReporteClientes.jsx (antes
- * renderListaClientes). El estado de búsqueda/filtro es local a esta vista.
+ * Vista de listado (grid) de clientes con búsqueda por cliente y por
+ * producto, y filtro por proveedor, más el resumen global al fondo.
+ *
+ * LOS FILTROS LOS GUARDA LA PÁGINA (`filtros`/`onFiltrosChange`), no esta
+ * vista: se desmonta al entrar a un cliente, y con el estado acá adentro
+ * volvían vacíos al regresar a la lista (2026-10-01).
  *
  * Las cards se ordenan por urgencia (sin caja → en progreso → listo para
  * procesar → sin empezar) y las ya terminadas bajan a su propia sección.
  */
-export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, onSelectCliente, onRefresh }) {
-  const [clienteQuery, setClienteQuery] = useState('')
-  const [proveedoresFiltro, setProveedoresFiltro] = useState(new Set())
+export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, filtros, onFiltrosChange, onSelectCliente, onRefresh }) {
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
+  const proveedoresFiltro = new Set(filtros.proveedores)
+  const cambiar = (cambio) => onFiltrosChange({ ...filtros, ...cambio })
+  const filtrando = hayFiltros(filtros)
+  const cantidadFiltros = [filtros.cliente.trim(), filtros.producto.trim()].filter(Boolean).length + filtros.proveedores.length
 
   const sinCajaCount = clientes.filter(c => clienteTieneSinCaja(c, facturasEstado)).length
 
@@ -59,19 +67,12 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
     )
   )].filter(Boolean).sort()
 
-  // Filtrar clientes: mostrar clientes que tengan al menos un producto de los proveedores seleccionados
-  const clientesFiltrados = clientes
-    .filter(c => c.nombre.toLowerCase().includes(clienteQuery.toLowerCase()))
-    .filter(c => {
-      if (proveedoresFiltro.size === 0) return true
-      // Basta con que al menos un producto pertenezca a los proveedores seleccionados
-      return c.facturas_con_faltantes.some(f =>
-        f.productos_faltantes.some(p =>
-          Number(p.cantidad_faltante) > 0 && proveedoresFiltro.has(p.proveedor_asignado || p.proveedor)
-        )
-      )
-    })
-    .map(cliente => ({ cliente, progreso: getClienteProgreso(cliente, facturasEstado, entregasAjustadas) }))
+  const clientesFiltrados = filtrarClientes(clientes, filtros)
+    .map(cliente => ({
+      cliente,
+      progreso: getClienteProgreso(cliente, facturasEstado, entregasAjustadas),
+      coincidencias: productosQueCoinciden(cliente, filtros.producto)
+    }))
     .sort((a, b) => {
       const orden = ordenClienteProgreso(a.progreso) - ordenClienteProgreso(b.progreso)
       return orden !== 0 ? orden : a.cliente.nombre.localeCompare(b.cliente.nombre)
@@ -81,25 +82,29 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
   const clientesListos = clientesFiltrados.filter(({ progreso }) => progreso.estado === CLIENTE_ESTADO.LISTA)
 
   const toggleProveedor = (prov) => {
-    setProveedoresFiltro(prev => {
-      const next = new Set(prev)
-      if (next.has(prov)) next.delete(prov)
-      else next.add(prov)
-      return next
-    })
+    cambiar({ proveedores: proveedoresFiltro.has(prov) ? filtros.proveedores.filter(p => p !== prov) : [...filtros.proveedores, prov] })
   }
 
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Barra de búsqueda + acciones */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-neutro-100">
-        <input type="text" value={clienteQuery} onChange={(e) => setClienteQuery(e.target.value)} placeholder="Buscar cliente..." className="input flex-1 md:max-w-sm bg-neutro-50" />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-neutro-100">
+        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <div className="relative flex-1 lg:max-w-sm">
+            <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400 pointer-events-none" />
+            <input type="text" value={filtros.cliente} onChange={(e) => cambiar({ cliente: e.target.value })} placeholder="Buscar cliente..." aria-label="Buscar cliente" className="input w-full pl-9 bg-neutro-50" />
+          </div>
+          <div className="relative flex-1 lg:max-w-sm">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400 pointer-events-none" />
+            <input type="text" value={filtros.producto} onChange={(e) => cambiar({ producto: e.target.value })} placeholder="Buscar producto (nombre o código)..." aria-label="Buscar producto" className="input w-full pl-9 bg-neutro-50" />
+          </div>
+        </div>
         <div className="flex items-center gap-3">
-          {proveedoresFiltro.size > 0 && (
-            <button onClick={() => setProveedoresFiltro(new Set())} className="text-xs text-nota-600 hover:text-nota-800 underline whitespace-nowrap">Limpiar filtros ({proveedoresFiltro.size})</button>
+          {filtrando && (
+            <button onClick={() => onFiltrosChange(FILTROS_VACIOS)} className="text-xs text-nota-600 hover:text-nota-800 underline whitespace-nowrap">Limpiar filtros ({cantidadFiltros})</button>
           )}
           {sinCajaCount > 0 && (
-            <span className="flex items-center gap-1.5 text-sm text-peligro-700 bg-peligro-50 px-3 py-1.5 rounded-full font-medium border border-peligro-200">
+            <span className="flex items-center gap-1.5 text-sm text-peligro-700 bg-peligro-50 px-3 py-1.5 rounded-full font-medium border border-peligro-200 whitespace-nowrap">
               <AlertTriangle size={14} /> {sinCajaCount} sin caja
             </span>
           )}
@@ -132,7 +137,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
                 <div className="px-4 py-3 border-b border-neutro-100 flex items-center justify-between">
                   <span className="text-xs text-neutro-400 uppercase tracking-wider font-semibold">Proveedores</span>
                   {proveedoresFiltro.size > 0 && (
-                    <button onClick={() => setProveedoresFiltro(new Set())} className="text-xs text-nota-600 hover:text-nota-800 font-medium">Limpiar todo</button>
+                    <button onClick={() => cambiar({ proveedores: [] })} className="text-xs text-nota-600 hover:text-nota-800 font-medium">Limpiar todo</button>
                   )}
                 </div>
 
@@ -174,18 +179,19 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
       {clientesFiltrados.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-neutro-100 text-center py-16">
           <User className="mx-auto text-neutro-300 mb-4" size={64} />
-          <h3 className="text-xl font-bold text-neutro-900 mb-2">{proveedoresFiltro.size > 0 ? 'Sin resultados para estos proveedores' : 'No hay entregas pendientes'}</h3>
-          <p className="text-neutro-500">{proveedoresFiltro.size > 0 ? 'Prueba con otros proveedores o limpia los filtros.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
+          <h3 className="text-xl font-bold text-neutro-900 mb-2">{filtrando ? 'Ningún cliente coincide con la búsqueda' : 'No hay entregas pendientes'}</h3>
+          <p className="text-neutro-500">{filtrando ? 'Probá con otro texto u otros proveedores, o limpiá los filtros.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
         </div>
       ) : (
         <>
           {/* Clientes con trabajo pendiente */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {clientesPendientes.map(({ cliente, progreso }) => (
+            {clientesPendientes.map(({ cliente, progreso, coincidencias }) => (
               <ClienteCard
                 key={cliente.nombre}
                 cliente={cliente}
                 progreso={progreso}
+                coincidencias={coincidencias}
                 onSelectCliente={onSelectCliente}
               />
             ))}
@@ -202,11 +208,12 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
                 <div className="h-[1px] flex-1 bg-neutro-200" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {clientesListos.map(({ cliente, progreso }) => (
+                {clientesListos.map(({ cliente, progreso, coincidencias }) => (
                   <ClienteCard
                     key={cliente.nombre}
                     cliente={cliente}
                     progreso={progreso}
+                    coincidencias={coincidencias}
                     onSelectCliente={onSelectCliente}
                   />
                 ))}
@@ -234,7 +241,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
  * revisión, para que de un vistazo se sepa si hay que entrarle, si solo falta
  * enviarla a impresión, o si ya está terminada.
  */
-function ClienteCard({ cliente, progreso, onSelectCliente }) {
+function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente }) {
   const estilo = progreso.esSinCaja
     ? ESTILO_SIN_CAJA
     : (ESTILO_ESTADO[progreso.estado] || ESTILO_ESTADO[CLIENTE_ESTADO.SIN_EMPEZAR])
@@ -280,6 +287,21 @@ function ClienteCard({ cliente, progreso, onSelectCliente }) {
           <span className="text-[11px] bg-exito-100 text-exito-800 px-2.5 py-0.5 rounded-full font-semibold">✓ Lista</span>
         )}
       </div>
+
+      {/* Buscando por producto: cuáles de esos le faltan a este cliente */}
+      {coincidencias.length > 0 && (
+        <div className="mb-3 rounded-lg bg-nota-50 border border-nota-100 px-3 py-2 space-y-1">
+          {coincidencias.slice(0, 3).map(p => (
+            <div key={p.codigo || p.nombre} className="flex items-baseline justify-between gap-2 text-[12px]">
+              <span className="font-semibold text-nota-900 truncate">{p.nombre}</span>
+              <span className="text-nota-700 font-bold whitespace-nowrap">faltan {p.cantidad}</span>
+            </div>
+          ))}
+          {coincidencias.length > 3 && (
+            <p className="text-[11px] text-nota-600">y {coincidencias.length - 3} producto{coincidencias.length - 3 !== 1 ? 's' : ''} más</p>
+          )}
+        </div>
+      )}
 
       {/* Progreso de revisión — solo cuando ya se empezó */}
       {progreso.revisados > 0 && progreso.total > 0 && (

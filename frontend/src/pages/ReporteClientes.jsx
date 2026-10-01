@@ -5,6 +5,7 @@ import ListaClientes from '../components/reporte-clientes/ListaClientes'
 import ClienteDetalle from '../components/reporte-clientes/ClienteDetalle'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
+import { FILTROS_VACIOS } from '../utils/reporteClientesUtils'
 
 export default function ReporteClientes() {
   const {
@@ -33,6 +34,9 @@ export default function ReporteClientes() {
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente
   const [clienteActivoNombre, setClienteActivoNombre] = useState(null)
+  // Los filtros de la lista viven ACÁ y no en la lista: la lista se desmonta
+  // al entrar a un cliente, y al volver los filtros aparecían vacíos.
+  const [filtros, setFiltros] = useState(FILTROS_VACIOS)
 
   if (loading && !clientes.length) {
     return (
@@ -65,6 +69,8 @@ export default function ReporteClientes() {
           facturasEstado={facturasEstado}
           entregasAjustadas={entregasAjustadas}
           contarAjustes={contarAjustes}
+          filtros={filtros}
+          onFiltrosChange={setFiltros}
           onSelectCliente={setClienteActivoNombre}
           onRefresh={loadReporte}
         />
