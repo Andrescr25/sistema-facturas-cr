@@ -7,6 +7,7 @@ const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegra
 const DatabaseHelper = require('../../utils/database.helper');
 const { resolverProductoLocal } = require('../../utils/resolverProducto');
 const { query } = require('../../../config/database');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 class InvoiceService {
   constructor() {
@@ -855,7 +856,7 @@ class InvoiceService {
             UPDATE facturas_reimpresion
             SET ajustes_realizados = $2,
                 estado = $3,
-                fecha_creacion = CURRENT_TIMESTAMP,
+                fecha_creacion = ${AHORA_CR_SQL},
                 fecha_procesamiento = $4
             FROM facturas fa
             WHERE facturas_reimpresion.factura_id = fa.id
@@ -869,7 +870,7 @@ class InvoiceService {
         } else {
           await query(`
             INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion, fecha_procesamiento)
-            VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
+            VALUES ($1, $2, $3, ${AHORA_CR_SQL}, $4)
           `, [
             facturaLocalId,
             JSON.stringify(ajustes),

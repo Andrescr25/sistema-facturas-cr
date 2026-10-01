@@ -7,7 +7,7 @@ const { getInvoiceService, getClient } = require('../../integrations/alegra');
 const invoiceService = getInvoiceService();
 const client = getClient();
 const { query } = require('../../../config/database');
-const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { hoyEnCostaRica, AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 /**
  * LO DE ALEGRA SE GUARDA; LO NUESTRO SE LEE SIEMPRE.
@@ -467,7 +467,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
       // Insertar como 'pendiente' con categoría 'sin_pendientes'
       await query(`
         INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
-        VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
+        VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, ${AHORA_CR_SQL})
       `, [facturaId]);
       console.log(`🖨️ Factura ${alegraId} agregada a cola de impresión (sin_pendientes)`);
     } else {
@@ -478,7 +478,7 @@ async function actualizarEstadoFactura(alegraId, { estado, observaciones, enviar
             ajustes_realizados = '[]'::jsonb,
             categoria = 'sin_pendientes',
             total_ajustes = 0,
-            fecha_creacion = CURRENT_TIMESTAMP,
+            fecha_creacion = ${AHORA_CR_SQL},
             fecha_procesamiento = NULL
         WHERE factura_id = $1
       `, [facturaId]);

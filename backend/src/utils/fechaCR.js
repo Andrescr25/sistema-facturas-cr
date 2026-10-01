@@ -48,4 +48,18 @@ function hoyEnCostaRica(momento = new Date()) {
   return diaEnCostaRica(momento);
 }
 
-module.exports = { hoyEnCostaRica, diaEnCostaRica };
+/**
+ * La hora de AHORA en Costa Rica, para escribirla en SQL en una columna
+ * `timestamp` SIN zona horaria.
+ *
+ * NO usar CURRENT_TIMESTAMP ni now() a secas en esas columnas: la base se
+ * usa por el pooler de Supabase en modo transacción, y el `SET TIME ZONE`
+ * que hace cada conexión al abrirse no queda pegado. Medido el 2026-10-01:
+ * 1 de cada 5 consultas corría con la sesión en UTC, y lo guardado ahí
+ * quedaba 6 horas adelantado (una factura "enviada a impresión" a las 17:25
+ * cuando eran las 14:58). `now()` es un instante absoluto; pasarlo a la zona
+ * por nombre da la misma hora en cualquier sesión.
+ */
+const AHORA_CR_SQL = "(now() AT TIME ZONE 'America/Costa_Rica')";
+
+module.exports = { hoyEnCostaRica, diaEnCostaRica, AHORA_CR_SQL };
