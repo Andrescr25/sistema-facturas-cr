@@ -67,7 +67,7 @@ export default function ClienteDetalle({
           </div>
           <div className="px-5 text-center">
             <p className="text-sm text-neutro-500 font-medium">Por revisar</p>
-            <p className={`text-2xl font-bold ${progreso.porRevisar === 0 ? 'text-exito-600' : 'text-alerta-600'}`}>{progreso.porRevisar}</p>
+            <p className="text-2xl font-bold text-neutro-800">{progreso.porRevisar}</p>
           </div>
           <div className="px-5 text-center">
             <p className="text-sm text-neutro-500 font-medium">Revisados</p>
@@ -86,9 +86,9 @@ export default function ClienteDetalle({
 
       {/* Facturas activas */}
       {facturasActivas.length === 0 && (
-        <div className="bg-exito-50 border border-exito-200 rounded-xl p-6 text-center mb-6">
-          <Check className="mx-auto text-exito-400 mb-2" size={32} />
-          <p className="text-exito-800 font-medium">Todas las facturas de este cliente han sido procesadas.</p>
+        <div className="bg-white border border-neutro-200 rounded-xl p-6 text-center mb-6">
+          <Check className="mx-auto text-neutro-400 mb-2" size={32} />
+          <p className="text-neutro-800 font-medium">Todas las facturas de este cliente han sido procesadas.</p>
         </div>
       )}
 
@@ -131,14 +131,14 @@ export default function ClienteDetalle({
                   <div className="p-4 flex items-center justify-between">
                     <div>
                       <h5 className="font-medium text-neutro-400 line-through">
-                        <Check size={14} className="inline text-exito-500 mr-1" />
+                        <Check size={14} className="inline text-neutro-400 mr-1" />
                         Factura #{factura.numero_factura}
-                        <span className="ml-2 px-2 py-0.5 text-[10px] bg-exito-100 text-exito-700 rounded-full no-underline inline-block">✓ Procesada</span>
+                        <span className="ml-2 px-2 py-0.5 text-[10px] bg-neutro-100 text-neutro-600 rounded-full no-underline inline-block">✓ Procesada</span>
                       </h5>
                       <p className="text-xs text-neutro-400 mt-0.5">{formatDate(factura.fecha_emision)} • {productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
-                      {estadoFactura.timestamp && <p className="text-[10px] text-exito-600 mt-0.5">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'} — {formatDateTime(estadoFactura.timestamp)}</p>}
+                      {estadoFactura.timestamp && <p className="text-[10px] text-neutro-500 mt-0.5">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'} — {formatDateTime(estadoFactura.timestamp)}</p>}
                     </div>
-                    <button onClick={() => onRecuperarFactura(factura)} className="btn btn-sm bg-alerta-500 text-white border-alerta-500 hover:bg-alerta-600 whitespace-nowrap">
+                    <button onClick={() => onRecuperarFactura(factura)} className="btn btn-sm btn-outline whitespace-nowrap">
                       <RotateCcw size={13} className="mr-1" /> Recuperar
                     </button>
                   </div>
