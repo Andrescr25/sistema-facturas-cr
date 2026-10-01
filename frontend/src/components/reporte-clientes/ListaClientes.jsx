@@ -312,7 +312,7 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
           </div>
           <div className="h-1.5 w-full bg-neutro-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${progreso.porRevisar === 0 ? 'bg-exito-500' : 'bg-alerta-400'}`}
+              className={`h-full rounded-full transition-all duration-300 ${progreso.porRevisar === 0 ? 'bg-exito-500' : 'bg-primario-500'}`}
               style={{ width: `${Math.round((progreso.revisados / progreso.total) * 100)}%` }}
             />
           </div>
