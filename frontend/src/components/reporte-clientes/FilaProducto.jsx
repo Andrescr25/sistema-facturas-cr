@@ -13,18 +13,17 @@ import { Check, X, Undo2, CircleDot } from 'lucide-react'
  * pintaba la fila de verde, rojo o azul con una línea a la izquierda, y el
  * botón elegido cambiaba de color al pasarle encima. En la tablet ese "pasar
  * encima" se queda pegado después del toque: "Llegó todo" quedaba casi negro
- * hasta tocar otra cosa. Ahora la respuesta elegida se marca igual en los
- * tres botones y no reacciona al hover.
+ * hasta tocar otra cosa. El color vive solo en el botón elegido (verde, rojo,
+ * azul), lleno y sin sombra, y no cambia al pasarle encima.
  */
 
 const ESTADO_UI = {
-  completo: { key: 'completo', btnLabel: 'Llegó todo', Icon: Check },
-  no_llego: { key: 'no_llego', btnLabel: 'No llegó', Icon: X },
-  parcial: { key: 'parcial', btnLabel: 'Parte', Icon: CircleDot }
+  completo: { key: 'completo', btnLabel: 'Llegó todo', Icon: Check, elegido: 'bg-exito-600 text-white border-exito-600 font-semibold' },
+  no_llego: { key: 'no_llego', btnLabel: 'No llegó', Icon: X, elegido: 'bg-peligro-600 text-white border-peligro-600 font-semibold' },
+  // primario-500, no 600: el 600 es azul marino y se lee casi negro.
+  parcial: { key: 'parcial', btnLabel: 'Parte', Icon: CircleDot, elegido: 'bg-primario-500 text-white border-primario-500 font-semibold' }
 }
 
-// Claro a propósito: el primario lleno es azul marino y se lee casi negro.
-const BOTON_ELEGIDO = 'bg-primario-50 text-primario-700 border-primario-400 font-semibold'
 const BOTON_LIBRE = 'bg-white border-neutro-200 text-neutro-700 hover:bg-neutro-50 font-medium'
 
 export function FilaPorRevisar({
@@ -105,7 +104,7 @@ export function FilaPorRevisar({
           {Object.values(ESTADO_UI).map(item => {
             const isSelected = estadoSeleccionado === item.key
             const IconComponent = item.Icon
-            const btnClass = isSelected ? BOTON_ELEGIDO : BOTON_LIBRE
+            const btnClass = isSelected ? item.elegido : BOTON_LIBRE
 
             return (
               <button

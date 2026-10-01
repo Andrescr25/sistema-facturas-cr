@@ -19,8 +19,8 @@ import {
  * Extraído de ReporteClientes.jsx (antes renderFacturaActiva).
  *
  * Sobria a propósito (pedido del usuario, 2026-10-01): sin la línea de color
- * a la izquierda según el avance, sin fondos de color por sección. El único
- * color de alerta que queda es "Sin Caja".
+ * a la izquierda según el avance, sin fondos de color por sección. Quedan
+ * la barra de progreso (azul avanzando, verde al 100 %) y "Sin Caja".
  */
 export default function FacturaActivaCard({
   factura,
@@ -114,7 +114,7 @@ export default function FacturaActivaCard({
           </div>
           <div className="h-1.5 w-full bg-neutro-100 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-300 bg-primario-500"
+              className={`h-full rounded-full transition-all duration-300 ${todoRevisado ? 'bg-exito-500' : 'bg-primario-500'}`}
               style={{ width: `${progreso.porcentaje}%` }}
             />
           </div>
