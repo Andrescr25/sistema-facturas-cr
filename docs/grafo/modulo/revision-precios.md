@@ -8,10 +8,12 @@ archivos:
   - backend/src/modules/precios/costo.js
   - backend/utils/impuestosAlegra.js
   - backend/tests/facturaProveedorNoSeDuplica.test.js
+  - backend/src/integrations/alegra/services/alegra-product.service.js
+  - backend/tests/productoNuevoSinDescripcion.test.js
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/alegra-products-cache]
   relacionado: [decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-25
+medido: 2026-09-30
 ---
 
 Las facturas electrónicas de los proveedores llegan por correo, se relacionan
@@ -27,9 +29,14 @@ antes de mandarlas. `enviarFacturaAlegra` hace dos cosas:
    `inventory.unitCost`: un `cost` suelto en la raíz Alegra lo ignora sin
    avisar.
 
-Las dos trampas que ya costaron: una línea de regalía pisaba el costo con ₡0
-([[decision/la-regalia-no-es-costo]]), y reenviar una factura ENVIADA
-duplicaba el gasto ([[leccion/factura-enviada-no-se-repite]]).
+Las trampas que ya costaron: una línea de regalía pisaba el costo con ₡0
+([[decision/la-regalia-no-es-costo]]); reenviar una factura ENVIADA
+duplicaba el gasto ([[leccion/factura-enviada-no-se-repite]]); y un producto
+nuevo creado desde acá llegaba a Alegra con la DESCRIPCIÓN igual al nombre,
+aunque el usuario la quiere en blanco y el modal ya no tiene el campo: el
+servicio mandaba `''` y `createProduct` lo cambiaba por el nombre
+(`data.description || data.name`). Corregido el 2026-09-30; los productos
+2170–2175 quedaron así de antes.
 
 El precio sugerido usa la rotación de los últimos 12 meses
 (`SQL_ROTACION_PRECIOS` de `ventas/rotacion.js`), calculada en el momento: los
