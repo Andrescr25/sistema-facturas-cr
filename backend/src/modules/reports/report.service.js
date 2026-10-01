@@ -262,7 +262,10 @@ class ReportService {
           f.estado as faltante_estado,
           fa.observaciones_adicionales,
           f.created_at as fecha_registro,
-          f.updated_at as fecha_procesamiento,
+          -- Cuándo la procesó Impresión; si no hay fila, lo de antes.
+          COALESCE(fr.fecha_procesamiento, f.updated_at) as fecha_procesamiento,
+          -- Cuándo se mandó a Impresión: es la hora de la nota "En impresión".
+          fr.fecha_creacion as enviada_a_impresion_en,
           aj.cantidad_entregada,
           aj.estado as ajuste_estado,
           aj.requiere_actualizacion,
@@ -274,7 +277,15 @@ class ReportService {
         JOIN productos p ON f.producto_id = p.id
         JOIN facturas fa ON f.factura_id = fa.id
         LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
-        LEFT JOIN facturas_reimpresion fr ON fa.id = fr.factura_id
+        -- La fila MÁS RECIENTE de la cola. Un JOIN directo repetía cada
+        -- producto si la factura tenía dos filas, y no decía de cuál era la hora.
+        LEFT JOIN LATERAL (
+          SELECT r.id, r.estado, r.fecha_creacion, r.fecha_procesamiento
+            FROM facturas_reimpresion r
+           WHERE r.factura_id = fa.id
+           ORDER BY r.fecha_creacion DESC NULLS LAST, r.id DESC
+           LIMIT 1
+        ) fr ON true
         WHERE f.estado IN ('pendiente', 'procesado')
           AND f.tipo_faltante != 'completo'
           AND (f.cantidad_faltante::numeric > 0)
@@ -339,8 +350,9 @@ class ReportService {
             alegra_id: row.factura_alegra_id,
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
+            enviada_a_impresion_en: row.enviada_a_impresion_en || null,
             observaciones_adicionales: row.observaciones_adicionales,
-            en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
+            en_cola_impresion: Boolean(row.reimpresion_id) && row.reimpresion_estado === 'pendiente',
             total_items_factura: parseInt(row.total_items_factura) || 0,
             productos_faltantes: []
           });
