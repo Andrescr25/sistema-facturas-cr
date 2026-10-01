@@ -114,13 +114,17 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
       cola: require('../src/modules/reprinting/colaImpresion'),
       notas: require('../src/modules/reports/notasDeFaltantes'),
       reportes: new (require('../src/modules/reports/report.service'))(),
+      impresion: require('../src/modules/reprinting/procesarImpresion'),
       facturas: new (require('../src/modules/invoices/invoice.service'))()
     };
 
-    // Dos facturas emitidas con al menos dos líneas de productos propios.
+    // Dos facturas emitidas con al menos dos líneas de productos propios, que
+    // Impresión pueda editar: ni electrónicas, ni con cobros ni notas de crédito.
     const { rows } = await cliente.query(`
       SELECT f.id FROM factura f
-       WHERE f.estado = 'emitida'
+       WHERE f.estado = 'emitida' AND NOT f.electronica
+         AND NOT EXISTS (SELECT 1 FROM pago_factura pf WHERE pf.factura_id = f.id)
+         AND NOT EXISTS (SELECT 1 FROM nota_credito_factura nf WHERE nf.factura_id = f.id)
          AND (SELECT COUNT(DISTINCT l.producto_id) FROM factura_linea l
                WHERE l.factura_id = f.id AND l.producto_id IS NOT NULL) >= 2
        ORDER BY f.id DESC LIMIT 2
@@ -281,6 +285,94 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('sin faltantes pendientes no se manda a Impresión', async () => {
     await assert.rejects(() => m.cola.encolarDesdeReporte(B), (e) => e.status === 409 && /no tiene faltantes/.test(e.message));
     await assert.rejects(() => m.cola.encolarDesdeReporte('abc'), (e) => e.status === 400);
+  });
+
+  // ─── Impresión (parte 3) ───
+  const cantidadEnFactura = async (productoId) => Number((await cliente.query(
+    `SELECT COALESCE(SUM(cantidad), 0) AS n FROM factura_linea WHERE factura_id = $1 AND producto_id = $2`, [A, productoId])).rows[0].n);
+  const faltanteDeA = async () => (await cliente.query(
+    `SELECT id, estado, cantidad_rebajada FROM faltantes WHERE factura_propia_id = $1 AND producto_propio_id = $2`, [A, lineasA[0]])).rows[0];
+  const yo = { id: null, nombre: 'zz-prueba' };
+  let antes;
+
+  test('Impresión procesa: rebaja lo que no llegó, edita la factura propia y la marca impresa', async () => {
+    // Llegó 1 de 3 (parcial, del Reporte de Clientes): se rebajan 2.
+    await cliente.query(`UPDATE factura_linea SET cantidad = 10 WHERE factura_id = $1 AND producto_id = $2`, [A, lineasA[0]]);
+    antes = await cantidadEnFactura(lineasA[0]);
+    await m.cola.encolarDesdeReporte(A);
+
+    const detalle = await m.impresion.detalle(A);
+    const propuesta = detalle.lineas.filter((l) => l.productoId === lineasA[0]).reduce((s, l) => s + l.cantidad, 0);
+    assert.equal(propuesta, antes - 2, 'la pantalla de edición propone la rebaja');
+
+    const procesamientos = Number((await cliente.query('SELECT COUNT(*) AS n FROM procesamientos')).rows[0].n);
+    const r = await m.impresion.procesar(A, {}, yo);
+    assert.equal(r.editada, true);
+    assert.equal(await cantidadEnFactura(lineasA[0]), antes - 2);
+    assert.deepEqual(await faltanteDeA(), { id: (await faltanteDeA()).id, estado: 'procesado', cantidad_rebajada: '2' });
+    const { rows: cola } = await cliente.query(`SELECT estado FROM facturas_reimpresion WHERE factura_propia_id = $1`, [A]);
+    assert.deepEqual(cola, [{ estado: 'procesada' }]);
+    assert.equal(Number((await cliente.query('SELECT COUNT(*) AS n FROM procesamientos')).rows[0].n), procesamientos + 1);
+    const { rows: [bitacora] } = await cliente.query(
+      `SELECT accion FROM bitacora_cambio WHERE entidad = 'factura' AND entidad_id = $1 ORDER BY id DESC LIMIT 1`, [A]);
+    assert.equal(bitacora.accion, 'editar', 'la edición queda en la bitácora como cualquier otra');
+  });
+
+  test('recuperada en Impresión y vuelta a procesar: NO se rebaja dos veces', async () => {
+    const rec = await m.impresion.recuperarProcesada(A);
+    assert.ok(rec.faltantes_restaurados >= 1);
+    const r = await m.impresion.procesar(A, {}, yo);
+    assert.equal(r.editada, false, 'no había nada nuevo que aplicar');
+    assert.equal(await cantidadEnFactura(lineasA[0]), antes - 2);
+  });
+
+  test('si después llegó todo, al volver a procesar se le devuelve a la factura', async () => {
+    await m.cola.devolverAlReporte(A);
+    const { id } = await faltanteDeA();
+    await require('../src/modules/missing-items/missing-items.service').saveAdjustment({
+      faltanteId: id, cantidadEntregada: 3, estado: 'completo', requiereActualizacion: false, revisado: true
+    });
+    await m.cola.encolarDesdeReporte(A);
+    await m.impresion.procesar(A, {}, yo);
+    assert.equal(await cantidadEnFactura(lineasA[0]), antes);
+    assert.equal((await faltanteDeA()).cantidad_rebajada, '0');
+  });
+
+  test('desde la pantalla de edición se guarda lo que dejó la persona', async () => {
+    await m.impresion.recuperarProcesada(A);
+    const { lineas } = await m.impresion.detalle(A);
+    const editadas = lineas.map((l) => ({ ...l, cantidad: l.productoId === lineasA[0] ? 1 : l.cantidad }));
+    const r = await m.impresion.procesar(A, { lineas: editadas }, yo);
+    assert.equal(r.editada, true);
+    assert.equal(await cantidadEnFactura(lineasA[0]), 1);
+    const { rows: [f] } = await cliente.query('SELECT total FROM factura WHERE id = $1', [A]);
+    assert.equal(Number(f.total), r.total);
+  });
+
+  test('una que no está en la cola no se procesa', async () => {
+    await assert.rejects(() => m.impresion.procesar(A, {}, yo), (e) => e.status === 409 && /no está en la cola/.test(e.message));
+  });
+
+  test('una que Bodega despachó completa solo se marca impresa: la factura no se toca', async () => {
+    const totalAntes = (await cliente.query('SELECT total FROM factura WHERE id = $1', [B])).rows[0].total;
+    const r = await m.impresion.procesar(B, {}, yo);
+    assert.equal(r.editada, false);
+    assert.equal((await cliente.query('SELECT total FROM factura WHERE id = $1', [B])).rows[0].total, totalAntes);
+    const { rows } = await cliente.query(`SELECT estado FROM facturas_reimpresion WHERE factura_propia_id = $1`, [B]);
+    assert.deepEqual(rows, [{ estado: 'procesada' }]);
+  });
+
+  test('el PDF de Impresión es el de la factura propia', async () => {
+    const { archivo, numero } = await m.impresion.pdf(A);
+    assert.ok(Buffer.isBuffer(archivo));
+    assert.equal(archivo.subarray(0, 4).toString(), '%PDF');
+    assert.ok(numero);
+  });
+
+  test('el buscador de productos encuentra por referencia, con el id propio', async () => {
+    const { rows: [prod] } = await cliente.query(`SELECT id, referencia FROM producto WHERE activo AND referencia IS NOT NULL AND length(referencia) >= 3 ORDER BY id LIMIT 1`);
+    const r = await m.impresion.buscarProductos(prod.referencia);
+    assert.ok(r.some((x) => x.productoId === prod.id && x.reference === prod.referencia));
   });
 
   test('una factura anulada sale del Reporte de Clientes y de las notas', async () => {

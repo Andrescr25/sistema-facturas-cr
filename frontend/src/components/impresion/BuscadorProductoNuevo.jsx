@@ -1,10 +1,10 @@
 import { Search, Loader, Package, CheckCircle } from 'lucide-react'
-import { getPriceValue, getReferenceFromSearchProduct, getDescriptionFromSearchProduct } from '../../utils/impresionUtils'
 
 /**
- * Buscador de producto en Alegra para un ítem nuevo agregado a la factura
- * en edición. Solo se muestra para ítems marcados como `esNuevo`. Extraído
- * de Impresion.jsx (era renderBuscadorProducto).
+ * Buscador de producto del catálogo propio para un ítem nuevo agregado a la
+ * factura en edición (`GET /reimpresion/productos`). Solo se muestra para
+ * ítems marcados como `esNuevo`. Extraído de Impresion.jsx (era
+ * renderBuscadorProducto).
  */
 export default function BuscadorProductoNuevo({
   item,
@@ -23,7 +23,7 @@ export default function BuscadorProductoNuevo({
     <div className="border-t border-primario-100 pt-4">
       <p className="text-xs font-semibold text-primario-700 uppercase mb-2 flex items-center gap-2">
         <Search size={14} />
-        Buscar producto en Alegra
+        Buscar producto
       </p>
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400 pointer-events-none" />
@@ -47,9 +47,9 @@ export default function BuscadorProductoNuevo({
           ) : productoBusqueda.resultados.length > 0 ? (
             <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
               {productoBusqueda.resultados.map((producto) => {
-                const price = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
-                const referencia = getReferenceFromSearchProduct(producto) || 'Sin referencia'
-                const descripcion = getDescriptionFromSearchProduct(producto) || referencia || 'Producto sin nombre'
+                const price = Number(producto.price) || 0
+                const referencia = producto.reference || 'Sin referencia'
+                const descripcion = producto.name || referencia
 
                 return (
                   <div
@@ -83,7 +83,7 @@ export default function BuscadorProductoNuevo({
             </div>
           )
         ) : (
-          <p className="text-xs text-neutro-500">Empieza escribiendo para buscar en Alegra.</p>
+          <p className="text-xs text-neutro-500">Empezá escribiendo el código o el nombre.</p>
         )}
       </div>
     </div>

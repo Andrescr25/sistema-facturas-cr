@@ -1,5 +1,5 @@
 import { Plus, Printer, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
-import { formatDate } from '../../utils/impresionUtils'
+import { formatDate, totalDeItems, subtotalDeItem } from '../../utils/impresionUtils'
 import BuscadorProductoNuevo from './BuscadorProductoNuevo'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
@@ -49,13 +49,10 @@ export default function FormularioEdicionFactura({
   onGuardar
 }) {
 
-  // Las líneas que se van a eliminar por faltante no suman: el total nuevo
-  // tiene que ser el de la factura que se va a imprimir, no el de la que
-  // está en pantalla.
-  const totalNuevo = itemsEditados.reduce(
-    (suma, i) => suma + (i.eliminar_por_faltante ? 0 : (Number(i.quantity) || 0) * (Number(i.price) || 0)),
-    0
-  )
+  // El total de la factura que se va a imprimir, con el impuesto de cada
+  // línea: el original también lo lleva. Una línea que se quita por faltante
+  // ya viene en cero.
+  const totalNuevo = totalDeItems(itemsEditados)
   const totalOriginal = Number(facturaEditando.total) || 0
   const diferencia = totalNuevo - totalOriginal
 
@@ -68,7 +65,7 @@ export default function FormularioEdicionFactura({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-neutro-400">Total nuevo</p>
-            {/* Mientras las líneas vienen de Alegra NO se muestra un total:
+            {/* Mientras las líneas vienen del servidor NO se muestra un total:
                 un ₡0 con "−₡47.425 contra el original" se lee como una
                 factura vaciada, y es solo que los datos no llegaron. */}
             {cargandoItems ? (
@@ -129,13 +126,13 @@ export default function FormularioEdicionFactura({
         {cargandoItems && (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutro-400">
             <Loader2 size={18} className="animate-spin" />
-            Trayendo las líneas de la factura desde Alegra…
+            Trayendo las líneas de la factura…
           </div>
         )}
 
         <div className="space-y-3">
           {itemsEditados.map((item, index) => {
-            const subtotal = (Number(item.quantity) || 0) * (Number(item.price) || 0)
+            const subtotal = subtotalDeItem(item)
             return (
               <div
                 key={index}
@@ -180,9 +177,9 @@ export default function FormularioEdicionFactura({
                   </div>
                 )}
 
-                {/* Un producto nuevo sí necesita sus campos; uno que ya viene
-                    de Alegra no, y mostrárselos deshabilitados solo invita a
-                    hacer clic en algo que no responde. */}
+                {/* Un producto nuevo sí necesita sus campos; uno que ya está
+                    en la factura no, y mostrárselos deshabilitados solo invita
+                    a hacer clic en algo que no responde. */}
                 {item.esNuevo && (
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>

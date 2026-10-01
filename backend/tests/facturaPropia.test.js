@@ -298,7 +298,7 @@ const EMITIDA = {
 };
 
 /** Doble para editar/anular: controla cobros y notas aplicadas. */
-function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, productos = [TORNILLO], clienteNuevo = null } = {}) {
+function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, productos = [TORNILLO], clienteNuevo = null, enLaFactura = [] } = {}) {
   const log = [];
   const ejecutar = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
@@ -306,6 +306,7 @@ function montarEmitida({ factura = EMITIDA, cobrado = 0, acreditado = 0, product
     if (/FROM factura WHERE id = \$1 FOR UPDATE/.test(texto)) return { rows: factura ? [{ ...factura }] : [] };
     if (/FROM pago_factura/.test(texto)) return { rows: [{ total: cobrado }] };
     if (/FROM nota_credito_factura/.test(texto)) return { rows: [{ total: acreditado }] };
+    if (/SELECT DISTINCT producto_id FROM factura_linea/.test(texto)) return { rows: enLaFactura.map(id => ({ producto_id: id })) };
     if (/FROM producto p/.test(texto)) return { rows: productos.map(p => ({ ...p })) };
     if (/FROM cliente c/.test(texto)) return { rows: clienteNuevo ? [{ ...clienteNuevo }] : [] };
     if (/^UPDATE factura/.test(texto)) return { rows: [{ ...factura, estado: 'anulada' }] };
@@ -410,6 +411,22 @@ describe('editar una factura emitida', () => {
     // El plazo es del cliente NUEVO: pasa a crédito a 30 días.
     assert.ok(update.params.includes('credito'), 'no recalculó la condición de venta');
     assert.ok(update.params.includes('30 días'));
+  });
+
+  test('un producto desactivado DESPUÉS de facturarlo se conserva al editar; uno nuevo inactivo no entra', async () => {
+    // Impresión edita la factura para reimprimirla (rebaja faltantes, pone
+    // precios del catálogo): si un producto de la factura se desactivó
+    // después, no se podía procesar. Había 8 facturas así en el último mes.
+    const inactivo = { ...TORNILLO, activo: false };
+    const ya = montarEmitida({ productos: [inactivo], enLaFactura: [TORNILLO.id] });
+    await ya.servicio.editarFactura(500, { items: [{ productoId: TORNILLO.id, quantity: 1, price: 1000 }] }, 4);
+    assert.ok(hubo(ya.log, /^UPDATE factura/), 'no editó la factura');
+
+    const nuevo = montarEmitida({ productos: [inactivo], enLaFactura: [] });
+    await assert.rejects(
+      nuevo.servicio.editarFactura(500, { items: [{ productoId: TORNILLO.id, quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 400 && /inactivo/.test(e.message)
+    );
   });
 
   test('sin cliente nuevo, la factura conserva el suyo', async () => {

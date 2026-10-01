@@ -167,9 +167,6 @@ function aFilaDeCola(r) {
     reimpresion_id: r.reimpresion_id,
     factura_id: r.factura_id,
     numero_factura: r.numero,
-    // Solo para la pantalla vieja de Impresión, que todavía abre la factura en
-    // Alegra (paso 3). Una factura propia lo trae vacío.
-    alegra_id: r.alegra_id || null,
     cliente_nombre: r.cliente_nombre,
     cliente_email: r.cliente_correo || null,
     fecha_emision: r.fecha,
@@ -187,7 +184,7 @@ function aFilaDeCola(r) {
 const COLUMNAS = `
   fr.id AS reimpresion_id, fr.ajustes_realizados, fr.estado, fr.fecha_creacion,
   fr.fecha_procesamiento, fr.categoria,
-  f.id AS factura_id, f.numero, f.alegra_id, f.cliente_nombre, f.cliente_correo,
+  f.id AS factura_id, f.numero, f.cliente_nombre, f.cliente_correo,
   f.fecha::text AS fecha, f.total
 `;
 

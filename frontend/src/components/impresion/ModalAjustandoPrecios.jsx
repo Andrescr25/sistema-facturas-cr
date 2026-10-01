@@ -1,8 +1,8 @@
 import { Loader } from 'lucide-react'
 
 /**
- * Overlay de carga mientras se ajustan precios/se procesa la factura en
- * Alegra. Extraído de Impresion.jsx.
+ * Overlay de carga mientras se procesa la factura (faltantes y precios del
+ * catálogo). Extraído de Impresion.jsx.
  */
 export default function ModalAjustandoPrecios({ mensaje }) {
   return (
@@ -14,7 +14,7 @@ export default function ModalAjustandoPrecios({ mensaje }) {
             {mensaje}
           </h3>
           <p className="text-sm text-neutro-500 mt-1">
-            Actualizando precios desde Alegra...
+            Aplicando faltantes y precios del catálogo…
           </p>
         </div>
       </div>

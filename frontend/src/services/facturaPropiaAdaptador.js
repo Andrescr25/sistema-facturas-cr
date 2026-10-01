@@ -66,13 +66,18 @@ export function desdeFacturaPropia(f) {
  * pestaña no lleva la autorización. Es el mismo camino del PDF de cotización.
  *
  * @param {object} api el cliente con el token ya puesto
+ * @param {object} [opciones]
+ * @param {string} [opciones.ruta] otra ruta que sirve el MISMO PDF (Impresión
+ *   tiene la suya: `/facturacion` es de otro módulo y su permiso no alcanza).
+ * @param {Window} [opciones.ventana] una pestaña ya abierta: quien tiene que
+ *   esperar algo antes de pedir el PDF la abre en el clic y la pasa acá.
  */
-export async function abrirPdfFacturaPropia(api, facturaId) {
+export async function abrirPdfFacturaPropia(api, facturaId, { ruta, ventana: abierta = null } = {}) {
   // La ventana se abre ANTES de pedir el archivo: abrirla después, dentro del
   // await, el navegador la trata como emergente y la bloquea.
-  const ventana = window.open('', '_blank');
+  const ventana = abierta || window.open('', '_blank');
   try {
-    const { data } = await api.get(`/facturacion/facturas/${facturaId}/pdf`, { responseType: 'blob' });
+    const { data } = await api.get(ruta || `/facturacion/facturas/${facturaId}/pdf`, { responseType: 'blob' });
     const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
     if (ventana) ventana.location = url;
     else window.location.href = url;

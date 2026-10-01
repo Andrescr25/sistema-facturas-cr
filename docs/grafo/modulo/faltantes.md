@@ -5,10 +5,12 @@ titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el prod
 estado: vigente
 archivos:
   - backend/migrations/independencia/032_faltantes_con_ids_propios.sql
+  - backend/migrations/independencia/033_faltante_cantidad_rebajada.sql
   - backend/src/utils/guardarFaltantes.js
   - backend/src/modules/reports/report.service.js
   - backend/src/modules/reports/notasDeFaltantes.js
   - backend/src/modules/reprinting/colaImpresion.js
+  - backend/src/modules/reprinting/procesarImpresion.js
   - backend/src/modules/missing-items/missing-items.service.js
   - backend/services/proveedorAsignacionService.js
   - backend/services/scheduledCleanup.js
@@ -21,6 +23,7 @@ archivos:
   - backend/tests/faltantesIdsPropios.test.js
   - backend/tests/notasDeFaltantes.test.js
   - backend/tests/fechaCalendarioReportes.test.js
+  - backend/tests/impresionPropia.test.js
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula]
@@ -96,7 +99,33 @@ faltantes y sus ajustes, limpia el encargo que Bodega anotó en la factura
 `facturas_pendientes`: nadie escribe en ella. NUNCA se ejecuta para probar —
 ni contra la base local: su SQL se verifica con PREPARE.
 
-FALTA (pasos que siguen en la sección 11): Impresión todavía edita, procesa
-y abre el PDF por el id de Alegra (camino viejo de `invoice.service`,
-adaptado a las columnas nuevas). Después se retira el puente
-`facturas.factura_propia_id`.
+IMPRESIÓN (`procesarImpresion.js`, todo bajo `/reimpresion`, que es del
+módulo Impresión: `/facturacion` es de otro y su permiso no alcanzaría).
+Procesar una factura de la cola le rebaja lo que no llegó, le pone los
+precios del catálogo (`producto.precio_sin_iva`, sin IVA como la línea) y la
+marca impresa, en UNA transacción, con la misma edición de Facturación
+(`editarFacturaEn`). Las que Bodega despachó completas ('sin_pendientes')
+solo se marcan: la factura no se toca. La pantalla de edición recibe la
+propuesta ya armada por el servidor; lo que se guarda es lo que la persona
+deja. El PDF es el mismo de Facturación, servido por la ruta de Impresión.
+
+UN FALTANTE SE REBAJA UNA SOLA VEZ (migración 033): cada faltante recuerda
+cuánto se le quitó ya a la factura (`cantidad_rebajada`) y procesar aplica la
+diferencia. Antes —también con Alegra— se calculaba sobre la cantidad de hoy:
+una factura recuperada y vuelta a procesar se rebajaba dos veces. Si después
+llegó más, se le devuelve a la línea (o la línea vuelve, con el precio del
+catálogo). Un faltante sin respuesta se rebaja entero.
+
+UNA FACTURA CON COBROS NO SE EDITA: Impresión lo dice ("hay que revertir el
+cobro antes de editarla") y la deja en la cola. Medido en el historial: en
+222 de 240 facturas procesadas en 60 días el cobro llegó DESPUÉS de imprimir;
+solo 18 lo tenían antes (6 con ajustes).
+
+EL TOTAL de la pantalla de edición se calcula como el servidor: con la tarifa
+de cada línea y su descuento. Antes sumaba sin impuesto y lo comparaba con el
+total con impuesto: "contra el original" salía siempre negativo.
+
+FALTA (lo que sigue en la sección 11): retirar el puente
+`facturas.factura_propia_id` (el portal todavía lee el estado de alistado de
+la tabla vieja) y el camino viejo por id de Alegra que ya nadie llama
+(`invoice.service`: procesar, recuperar, listas de la cola; Bodega vieja).

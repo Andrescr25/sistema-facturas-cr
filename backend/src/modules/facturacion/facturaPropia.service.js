@@ -163,7 +163,7 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
  * también en monto para que sumar la factura no exija rehacer la regla de tres
  * en cada consulta.
  */
-function armarLineas(items, productosPorClave, claveDe) {
+function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set() } = {}) {
   const lineas = [];
   let subtotal = 0;
   let descuentoTotal = 0;
@@ -173,7 +173,12 @@ function armarLineas(items, productosPorClave, claveDe) {
     const clave = claveDe(item);
     const producto = productosPorClave.get(String(clave));
     if (!producto) throw httpError(400, `No se encontró el producto ${clave}.`);
-    if (!producto.activo) throw httpError(400, `${producto.nombre} está inactivo: no se puede facturar.`);
+    // Un producto desactivado DESPUÉS de facturarlo se puede conservar al
+    // editar esa factura (Impresión la ajusta para reimprimirla); lo que no se
+    // puede es agregarlo nuevo.
+    if (!producto.activo && !yaFacturados.has(producto.id)) {
+      throw httpError(400, `${producto.nombre} está inactivo: no se puede facturar.`);
+    }
 
     const cantidad = Number(item.quantity ?? item.cantidad);
     if (!Number.isFinite(cantidad) || cantidad <= 0) {
@@ -593,11 +598,19 @@ async function anularFactura(id, { motivo } = {}, usuarioId) {
  * las sobrantes.
  */
 async function editarFactura(id, datos, usuarioId) {
+  return enTransaccion((cliente) => editarFacturaEn(cliente, id, datos, usuarioId));
+}
+
+/**
+ * Lo mismo, dentro de una transacción que ya abrió otro: Impresión edita la
+ * factura y marca la cola en la misma (reprinting/procesarImpresion.js).
+ */
+async function editarFacturaEn(cliente, id, datos, usuarioId) {
   const n = idValido(id);
   const items = Array.isArray(datos?.items) ? datos.items : null;
   if (!items || items.length === 0) throw httpError(400, 'La factura no tiene líneas.');
 
-  return enTransaccion(async (cliente) => {
+  {
     const { rows } = await cliente.query('SELECT * FROM factura WHERE id = $1 FOR UPDATE', [n]);
     const factura = rows[0];
     if (!factura) throw httpError(404, 'No existe esa factura.');
@@ -612,7 +625,12 @@ async function editarFactura(id, datos, usuarioId) {
       usaAlegraId ? [] : items.map(i => i.productoId)
     );
     const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
-    const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
+    const { rows: yaEnLaFactura } = await cliente.query(
+      'SELECT DISTINCT producto_id FROM factura_linea WHERE factura_id = $1 AND producto_id IS NOT NULL', [n]
+    );
+    const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
+      yaFacturados: new Set(yaEnLaFactura.map(r => r.producto_id))
+    });
 
     // SE PUEDE CORREGIR EL CLIENTE, que es el error más caro de una factura:
     // el documento queda a nombre de quien no compró y la deuda se le reclama
@@ -691,9 +709,9 @@ async function editarFactura(id, datos, usuarioId) {
     });
 
     return { ...actualizada[0], lineas: armado.lineas };
-  });
+  }
 }
 
 module.exports = {
-  hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, anularFactura,
+  hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, editarFacturaEn, anularFactura,
   armarLineas, sumarDias, semanaDe };

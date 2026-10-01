@@ -1,127 +1,15 @@
 /**
- * Normalización de datos de Alegra (referencias/descripciones/precios/
- * impuestos vienen en formas muy variables), formateo, y la lógica pura de
- * armar/validar el payload de edición de una factura. Extraído de
- * Impresion.jsx.
+ * Funciones puras del centro de impresión, sobre la factura PROPIA (rama
+ * independencia-alegra, sección 11, paso 3).
+ *
+ * Hasta el 2026-09-30 este archivo traducía las líneas de Alegra —que traen
+ * la referencia, la descripción, el precio y los impuestos en formas muy
+ * variables— y armaba el payload que el servidor le reenviaba a Alegra. Ahora
+ * el servidor propone las líneas ya ajustadas (reprinting/procesarImpresion.js)
+ * y acá solo se pasan a la forma del formulario y de vuelta.
+ *
+ * SIN IMPORTS A PROPÓSITO: las pruebas lo cargan con `import()` directo.
  */
-
-export function extractStringValue(value) {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'bigint') return value.toString()
-  if (typeof value === 'object') {
-    const keysPrioridad = ['code', 'reference', 'value', 'label', 'name', 'displayName', 'text']
-    for (const key of keysPrioridad) {
-      if (typeof value[key] === 'string' && value[key].trim()) {
-        return value[key]
-      }
-    }
-    const primerString = Object.values(value).find(val => typeof val === 'string' && val.trim())
-    if (primerString) return primerString
-  }
-  return ''
-}
-
-export const getReferenceFromInvoiceItem = (item) => {
-  if (!item) return ''
-  const candidatos = [
-    item.reference,
-    item.reference?.code,
-    item.reference?.reference,
-    item.reference?.value,
-    item.code,
-    item.sku,
-    item.item?.reference,
-    item.item?.reference?.code,
-    item.item?.code,
-    item.item?.sku,
-    item.itemReference,
-    item.externalReference
-  ]
-
-  for (const candidato of candidatos) {
-    const valor = extractStringValue(candidato).trim()
-    if (valor) return valor
-  }
-
-  return ''
-}
-
-export const getDescriptionFromInvoiceItem = (item) => {
-  if (!item) return ''
-  const candidatos = [
-    item.description,
-    item.name,
-    item.item?.name,
-    item.reference?.label,
-    item.reference?.name
-  ]
-
-  for (const candidato of candidatos) {
-    const valor = extractStringValue(candidato).trim()
-    if (valor) return valor
-  }
-
-  return ''
-}
-
-export const getReferenceFromSearchProduct = (producto) => {
-  if (!producto) return ''
-  const candidatos = [
-    producto.reference,
-    producto.code,
-    producto.itemCode,
-    producto.reference?.code,
-    producto.reference?.value,
-    producto.reference?.reference,
-    producto.reference?.label,
-    producto.sku,
-    producto.id
-  ]
-
-  for (const candidato of candidatos) {
-    const valor = extractStringValue(candidato).trim()
-    if (valor) return valor
-  }
-
-  return ''
-}
-
-export const getDescriptionFromSearchProduct = (producto) => {
-  if (!producto) return ''
-  const candidatos = [
-    producto.description,
-    producto.name,
-    producto.label,
-    producto.reference?.label,
-    producto.reference?.name
-  ]
-
-  for (const candidato of candidatos) {
-    const valor = extractStringValue(candidato).trim()
-    if (valor) return valor
-  }
-
-  return ''
-}
-
-export const getPriceValue = (price) => {
-  if (Array.isArray(price)) {
-    const main = price.find(p => p.main) || price[0]
-    return Number(main?.price ?? 0)
-  }
-  if (price && typeof price === 'object') {
-    return Number(price.price ?? price.value ?? 0)
-  }
-  return Number(price ?? 0)
-}
-
-export const getTaxesArray = (tax) => {
-  if (!tax) return []
-  if (Array.isArray(tax)) return tax
-  if (Array.isArray(tax.taxes)) return tax.taxes
-  return [tax]
-}
 
 /**
  * Una fecha de calendario 'YYYY-MM-DD' (la emisión de la factura propia) se
@@ -144,161 +32,71 @@ export const formatDate = (dateString) => {
   })
 }
 
-// Puntaje de relevancia de un producto contra el término de búsqueda, usado
-// para ordenar resultados (coincidencia exacta de referencia > empieza con
-// > contiene; luego lo mismo con el nombre).
-export function puntuarCoincidenciaProducto(producto, terminoLower) {
-  const ref = getReferenceFromSearchProduct(producto).toLowerCase()
-  const name = getDescriptionFromSearchProduct(producto).toLowerCase()
-  let puntos = 0
+const numero = (v) => Number(v) || 0
+const dinero = (v) => Math.round(v * 100) / 100
 
-  if (ref === terminoLower) puntos += 1000
-  if (ref.startsWith(terminoLower)) puntos += 500
-  if (ref.includes(terminoLower)) puntos += 200
-
-  if (name === terminoLower) puntos += 150
-  if (name.startsWith(terminoLower)) puntos += 120
-  if (name.includes(terminoLower)) puntos += 80
-
-  return puntos
-}
-
-// Normaliza los items de una factura de Alegra fusionando los ajustes/
-// faltantes ya registrados localmente (reduce cantidad y marca los que se
-// eliminarán por faltante sin recibir). Extraído de handleIniciarEdicion.
-export function normalizarItemsFactura(items, factura) {
-  const ajustesDetalle = Array.isArray(factura.ajustes_realizados) ? factura.ajustes_realizados : []
-  const faltantesDetalle = Array.isArray(factura.faltantes_detalle) ? factura.faltantes_detalle : []
-
-  const ajustesPorCodigo = ajustesDetalle.reduce((acc, ajuste) => {
-    if (ajuste && ajuste.producto_codigo) {
-      acc[ajuste.producto_codigo.toString()] = ajuste
-    }
-    return acc
-  }, {})
-
-  const faltantesPorCodigo = faltantesDetalle.reduce((acc, faltante) => {
-    if (faltante && faltante.producto_codigo) {
-      acc[faltante.producto_codigo.toString()] = faltante
-    }
-    return acc
-  }, {})
-
-  return items.map(item => {
-    const reference = getReferenceFromInvoiceItem(item)
-    const description = getDescriptionFromInvoiceItem(item)
-    const price = getPriceValue(item.price)
-    const taxes = getTaxesArray(item.tax)
-    const alegraItemId = item.item?.id ?? item.productId ?? item.itemId ?? item.id ?? null
-
-    const codigoItem = (item.id ?? reference ?? item.reference?.reference ?? '').toString()
-    const ajuste = ajustesPorCodigo[codigoItem]
-    const faltante = faltantesPorCodigo[codigoItem]
-
-    let cantidadOriginal = Number(item.quantity) || 0
-    let cantidadFaltante = 0
-    let eliminarPorFaltante = false
-    let estadoAjuste = ajuste?.estado
-
-    if (ajuste) {
-      const faltanteOriginal = Number(ajuste.cantidad_faltante || ajuste.cantidad_faltante_original || 0)
-      const entregada = Number(ajuste.cantidad_entregada || 0)
-      const faltantePendiente = Math.max(faltanteOriginal - entregada, 0)
-      cantidadFaltante = faltantePendiente
-      if (faltantePendiente > 0) {
-        cantidadOriginal = Math.max(cantidadOriginal - faltantePendiente, 0)
-      }
-      if (ajuste.estado === 'no_llego' || cantidadOriginal === 0) {
-        eliminarPorFaltante = true
-      }
-    } else if (faltante) {
-      const faltantePendiente = Number(faltante.cantidad_faltante || 0)
-      if (faltantePendiente > 0) {
-        cantidadFaltante = faltantePendiente
-        cantidadOriginal = Math.max(cantidadOriginal - faltantePendiente, 0)
-        eliminarPorFaltante = cantidadOriginal === 0
-      }
-    }
-
-    return {
-      id: item.id ?? null,
-      reference,
-      description,
-      quantity: cantidadOriginal,
-      price,
-      tax: taxes,
-      itemId: item.item?.id ?? alegraItemId,
-      alegraItemId,
-      item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
-      esNuevo: false,
-      cantidad_faltante: cantidadFaltante,
-      eliminar_por_faltante: eliminarPorFaltante,
-      ajuste_estado: estadoAjuste
-    }
-  })
-}
-
-// Arma el payload que espera el backend a partir de los items editados en
-// pantalla. Extraído de handleGuardarFactura.
-export function construirPayloadItems(itemsEditados) {
-  return itemsEditados.map(item => {
-    const descripcion = (item.description ?? '').trim()
-    const referencia = (item.reference ?? '').toString().trim()
-    const quantity = Number(item.quantity) || 0
-    const price = Number(item.price) || 0
-    const tax = Array.isArray(item.tax) ? item.tax : getTaxesArray(item.tax)
-
-    const payload = {
-      reference: referencia,
-      description: descripcion || referencia,
-      name: descripcion || referencia,
-      quantity,
-      price,
-      tax
-    }
-
-    if (item.id) {
-      payload.id = item.id
-    }
-
-    if (item.item && item.item.id) {
-      payload.item = { id: item.item.id }
-    } else if (item.itemId) {
-      payload.item = { id: item.itemId }
-    }
-
-    if (payload.tax.length === 0) {
-      delete payload.tax
-    }
-
-    delete payload.esNuevo
-    if (payload.alegraItemId !== undefined) {
-      delete payload.alegraItemId
-    }
-    if (payload.itemId !== undefined) {
-      delete payload.itemId
-    }
-
-    return payload
-  })
-}
-
-// Valida los items ya transformados a payload; devuelve el mensaje de error
-// o null si está todo bien. Extraído de handleGuardarFactura.
-export function validarItemsParaGuardar(itemsParaGuardar, itemsEditados) {
-  const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
-  if (hayReferenciaVacia) {
-    return 'Todos los productos deben tener una referencia antes de guardar.'
+/**
+ * Una línea de la propuesta del servidor, en la forma que dibuja el
+ * formulario. `description` es el NOMBRE del producto (el título de la
+ * línea); la nota que se le escribió al facturar viaja aparte (`nota`) y se
+ * devuelve tal cual.
+ */
+export function aItemDeEdicion(l) {
+  return {
+    productoId: l.productoId,
+    reference: l.referencia || '',
+    description: l.nombre || '',
+    nota: l.nota ?? null,
+    quantity: numero(l.cantidad),
+    price: numero(l.precio),
+    descuento: numero(l.descuento),
+    tarifa: numero(l.tarifa),
+    esNuevo: false,
+    cantidad_faltante: numero(l.rebaja) > 0 ? numero(l.rebaja) : 0,
+    eliminar_por_faltante: numero(l.cantidad) === 0 && numero(l.cantidadOriginal) > 0
   }
+}
 
-  const hayCantidadInvalida = itemsParaGuardar.some((item, idx) => {
-    const original = itemsEditados[idx]
-    const puedeEliminarse = original?.eliminar_por_faltante
-    return item.quantity <= 0 && !puedeEliminarse
-  })
-  if (hayCantidadInvalida) {
+/** Lo que se le manda al servidor: cada línea por el id PROPIO de su producto. */
+export function lineasParaProcesar(items) {
+  return items.map((i) => ({
+    productoId: i.productoId,
+    cantidad: numero(i.quantity),
+    precio: numero(i.price),
+    descuento: numero(i.descuento),
+    nota: i.nota ?? null
+  }))
+}
+
+/** null si se puede guardar; si no, por qué. */
+export function validarItemsParaProcesar(items) {
+  if (items.some((i) => !i.productoId)) {
+    return 'Cada producto nuevo hay que elegirlo en el buscador antes de guardar.'
+  }
+  if (items.some((i) => numero(i.quantity) <= 0 && !i.eliminar_por_faltante)) {
     return 'Las cantidades deben ser mayores a cero.'
   }
-
+  if (items.every((i) => numero(i.quantity) <= 0)) {
+    return 'La factura quedaría sin productos: si no se entregó nada, se anula en Facturación.'
+  }
   return null
+}
+
+/** El subtotal de una línea, sin impuesto y con su descuento. */
+export function subtotalDeItem(i) {
+  const bruto = numero(i.quantity) * numero(i.price)
+  return dinero(bruto - dinero(bruto * numero(i.descuento) / 100))
+}
+
+/**
+ * El total de la factura como lo va a calcular el servidor: cada línea con
+ * SU tarifa (0, 1, 2, 4, 8 o 13 %), redondeando por línea. Antes se sumaba
+ * cantidad × precio sin impuesto y se comparaba contra el total CON impuesto:
+ * "contra el original" salía siempre negativo.
+ */
+export function totalDeItems(items) {
+  return dinero(items.reduce((suma, i) => {
+    const base = subtotalDeItem(i)
+    return suma + base + dinero(base * numero(i.tarifa) / 100)
+  }, 0))
 }

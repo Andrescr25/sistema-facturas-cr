@@ -613,7 +613,18 @@ el `alegraId`.
   bloqueada al recargar) o reabre los faltantes de la ya procesada. Visto en
   el navegador: Bodega → No llegó → Confirmar revisión → Enviar a impresión →
   aparece en Impresión → Recuperar → editable al recargar.*
-- [ ] Impresión: editar con la edición propia, PDF propio y marcar procesada sin Alegra
+- [x] Impresión: editar con la edición propia, PDF propio y marcar procesada
+  sin Alegra — *2026-09-30: `reprinting/procesarImpresion.js` bajo
+  `/reimpresion`: rebaja faltantes, pone precios del catálogo y marca
+  impresa en una transacción con `editarFacturaEn`. Migración 033
+  (`faltantes.cantidad_rebajada`): un faltante se rebaja UNA vez — antes una
+  factura recuperada y vuelta a procesar se rebajaba dos veces. Un producto
+  desactivado después de facturarlo ya no impide editar esa factura. Una con
+  cobros no se edita y lo dice (en el historial, 222 de 240 se imprimieron
+  antes del cobro). Visto en el navegador: proponer → Solo guardar (la 14863
+  quedó en ₡4.689,50) → Recuperar → reprocesar sin rebajar dos veces → PDF
+  propio → la 14835, con cobro, explica por qué no se edita. Todo restaurado
+  y comparado byte a byte.*
 - [ ] Retirar el puente `facturas.factura_propia_id` (el portal todavía lee
   el estado de alistado de la tabla vieja) y el camino viejo de Bodega
 - [x] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
