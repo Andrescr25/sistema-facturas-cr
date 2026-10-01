@@ -16,6 +16,9 @@ router.get('/faltantes/notas', reportController.getNotasDeFaltantes);
 
 // Reporte de faltantes por cliente
 router.get('/faltantes/cliente', reportController.getMissingItemsByClient);
+// Por el id PROPIO de la factura (migración independencia/032).
+router.post('/faltantes/cliente/facturas/:facturaId/impresion', reportController.enviarAImpresion);
+router.post('/faltantes/cliente/facturas/:facturaId/recuperar', reportController.recuperarFactura);
 
 // Limpiar faltantes procesados
 router.delete('/faltantes/proveedor/limpiar', reportController.clearProcessedSupplierMissingItems);

@@ -236,9 +236,10 @@ class ReportService {
           fa.fecha::text AS fecha_emision,
           fa.id AS factura_id,
           fa.alegra_id AS factura_alegra_id,
-          -- Procesada es lo que Impresión ya reimprimió: vive en la cola, no
-          -- en la factura (la tabla vieja lo copiaba a estado_procesamiento).
-          CASE WHEN fr.estado = 'procesada' THEN 'procesado' ELSE 'pendiente' END AS estado_procesamiento,
+          -- Procesada es lo que Impresión ya reimprimió: al procesarla, sus
+          -- faltantes pasan a 'procesado', y al recuperarla vuelven (la tabla
+          -- vieja lo copiaba además a facturas.estado_procesamiento).
+          CASE WHEN f.estado = 'procesado' THEN 'procesado' ELSE 'pendiente' END AS estado_procesamiento,
           p.id as producto_id,
           p.nombre as producto_nombre,
           p.referencia as producto_codigo,
@@ -333,7 +334,7 @@ class ReportService {
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
             observaciones_adicionales: row.observaciones_adicionales,
-            en_cola_impresion: row.reimpresion_id && row.reimpresion_estado === 'pendiente',
+            en_cola_impresion: Boolean(row.reimpresion_id) && row.reimpresion_estado === 'pendiente',
             total_items_factura: parseInt(row.total_items_factura) || 0,
             productos_faltantes: []
           });

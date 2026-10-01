@@ -3,7 +3,8 @@
 
 export function getFacturaKey(factura) {
   if (!factura) return 'factura-desconocida'
-  const identifier = factura.alegra_id ?? factura.factura_local_id ?? factura.numero_factura ?? factura.id ?? 'sin-identificador'
+  // El id PROPIO primero: una factura hecha en el sistema no tiene id de Alegra.
+  const identifier = factura.factura_id ?? factura.alegra_id ?? factura.factura_local_id ?? factura.numero_factura ?? factura.id ?? 'sin-identificador'
   return `factura-${identifier}`
 }
 

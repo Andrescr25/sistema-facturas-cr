@@ -3,6 +3,7 @@
  */
 
 const ReportService = require('./report.service');
+const colaImpresion = require('../reprinting/colaImpresion');
 const notasDeFaltantes = require('./notasDeFaltantes');
 const ResponseHelper = require('../../utils/response.helper');
 
@@ -32,6 +33,30 @@ class ReportController {
         data: { porProducto: {}, facturas: 0, desde: null },
         message: 'No se pudieron traer las notas en este momento.'
       });
+    }
+  };
+
+  /**
+   * POST /reportes/faltantes/cliente/facturas/:facturaId/impresion y
+   * .../recuperar — dar la factura por lista (a la cola de Impresión) o
+   * recuperarla para revisarla de nuevo. `facturaId` es el id PROPIO de la
+   * factura (`factura.id`), nunca el de Alegra.
+   */
+  enviarAImpresion = async (req, res) => {
+    try {
+      res.json({ success: true, data: await colaImpresion.encolarDesdeReporte(req.params.facturaId) });
+    } catch (error) {
+      if (!error.status) console.error('❌ Error enviando a impresión:', error);
+      res.status(error.status || 500).json({ success: false, message: error.message });
+    }
+  };
+
+  recuperarFactura = async (req, res) => {
+    try {
+      res.json({ success: true, data: await colaImpresion.devolverAlReporte(req.params.facturaId) });
+    } catch (error) {
+      if (!error.status) console.error('❌ Error recuperando la factura:', error);
+      res.status(error.status || 500).json({ success: false, message: error.message });
     }
   };
 

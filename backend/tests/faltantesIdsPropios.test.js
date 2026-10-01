@@ -34,7 +34,7 @@ require('dotenv').config();
 const hayBase = Boolean(process.env.DATABASE_URL);
 const SRC = path.join(__dirname, '..', 'src');
 
-let pool; let cliente; let prisma;
+let pool; let cliente;
 
 /** config/database sustituido: todo por la conexión de la prueba. */
 function baseDePrueba() {
@@ -98,6 +98,16 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
 
     const rutaDb = require.resolve('../config/database');
     require.cache[rutaDb] = { id: rutaDb, filename: rutaDb, loaded: true, exports: baseDePrueba() };
+    // Prisma (el último precio de cada proveedor, para asignar el faltante)
+    // va por su propia conexión y se cierra en un `beforeExit` que escribe en
+    // la salida DESPUÉS de que terminó la prueba: el runner de Node a veces no
+    // lo puede leer ("Unable to deserialize cloned data") y da la prueba por
+    // caída. Acá no se prueba ese precio: sin él, la asignación sigue.
+    const rutaPrisma = require.resolve('../lib/prisma');
+    require.cache[rutaPrisma] = {
+      id: rutaPrisma, filename: rutaPrisma, loaded: true,
+      exports: { productoFactura: { findFirst: async () => null } }
+    };
 
     m = {
       bodega: require('../src/modules/warehouse/bodegaPropia'),
@@ -106,7 +116,6 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
       reportes: new (require('../src/modules/reports/report.service'))(),
       facturas: new (require('../src/modules/invoices/invoice.service'))()
     };
-    prisma = require('../lib/prisma');
 
     // Dos facturas emitidas con al menos dos líneas de productos propios.
     const { rows } = await cliente.query(`
@@ -132,7 +141,6 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     await cliente?.query('ROLLBACK').catch(() => {});
     cliente?.release();
     await pool?.end().catch(() => {});
-    await prisma?.$disconnect?.().catch(() => {});
   });
 
   test('Bodega registra sobre factura.id y producto.id, sin tocar las columnas viejas', async () => {
@@ -220,11 +228,67 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     assert.equal(r.data.faltantes_restaurados, 0);
   });
 
+  test('Reporte de Clientes → Impresión: los ajustes salen de lo guardado, por el id propio', async () => {
+    const { rows: [f] } = await cliente.query(
+      `SELECT id FROM faltantes WHERE factura_propia_id = $1 AND producto_propio_id = $2`, [A, lineasA[0]]);
+    // Lo que la pantalla guarda al tocar "Parte": llegó 1 de 3.
+    await require('../src/modules/missing-items/missing-items.service').saveAdjustment({
+      faltanteId: f.id, cantidadEntregada: 1, estado: 'parcial', requiereActualizacion: true, revisado: true
+    });
+
+    const r = await m.cola.encolarDesdeReporte(A);
+    assert.equal(r.requiere_cambios, true);
+    const { rows } = await cliente.query(`SELECT estado, categoria, ajustes_realizados FROM facturas_reimpresion WHERE factura_propia_id = $1`, [A]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].categoria, 'requiere_cambios');
+    assert.deepEqual(rows[0].ajustes_realizados.map((aj) => [aj.faltante_id, aj.producto_id, aj.cantidad_faltante, aj.cantidad_entregada, aj.estado]),
+      [[f.id, lineasA[0], 3, 1, 'parcial']], 'el completo no entra; el parcial lleva lo que llegó');
+
+    const reporte = await m.reportes.getMissingItemsByClient();
+    const enReporte = reporte.data.flatMap((c) => c.facturas_con_faltantes).find((x) => x.factura_id === A);
+    assert.equal(enReporte.en_cola_impresion, true);
+  });
+
+  test('recuperar una factura que no se imprimió la saca de la cola (antes volvía bloqueada al recargar)', async () => {
+    const r = await m.cola.devolverAlReporte(A);
+    assert.equal(r.sacada_de_la_cola, true);
+    const { rows } = await cliente.query(`SELECT 1 FROM facturas_reimpresion WHERE factura_propia_id = $1`, [A]);
+    assert.equal(rows.length, 0);
+    const reporte = await m.reportes.getMissingItemsByClient();
+    const enReporte = reporte.data.flatMap((c) => c.facturas_con_faltantes).find((x) => x.factura_id === A);
+    assert.equal(enReporte.en_cola_impresion, false);
+    assert.equal(enReporte.estado_procesamiento, 'pendiente');
+  });
+
+  test('recuperar una ya procesada reabre sus faltantes y deja la fila como historial de Impresión', async () => {
+    await m.cola.encolarDesdeReporte(A);
+    // Lo que hará Impresión al procesarla (parte 3).
+    await cliente.query(`UPDATE faltantes SET estado = 'procesado' WHERE factura_propia_id = $1`, [A]);
+    await cliente.query(`UPDATE facturas_reimpresion SET estado = 'procesada', fecha_procesamiento = NOW() WHERE factura_propia_id = $1`, [A]);
+    let reporte = await m.reportes.getMissingItemsByClient();
+    assert.equal(reporte.data.flatMap((c) => c.facturas_con_faltantes).find((x) => x.factura_id === A).estado_procesamiento, 'procesado');
+
+    const r = await m.cola.devolverAlReporte(A);
+    assert.equal(r.sacada_de_la_cola, false);
+    assert.ok(r.faltantes_reabiertos >= 1);
+    reporte = await m.reportes.getMissingItemsByClient();
+    const enReporte = reporte.data.flatMap((c) => c.facturas_con_faltantes).find((x) => x.factura_id === A);
+    assert.equal(enReporte.estado_procesamiento, 'pendiente');
+    const { rows } = await cliente.query(`SELECT estado FROM facturas_reimpresion WHERE factura_propia_id = $1`, [A]);
+    assert.deepEqual(rows, [{ estado: 'procesada' }]);
+  });
+
+  test('sin faltantes pendientes no se manda a Impresión', async () => {
+    await assert.rejects(() => m.cola.encolarDesdeReporte(B), (e) => e.status === 409 && /no tiene faltantes/.test(e.message));
+    await assert.rejects(() => m.cola.encolarDesdeReporte('abc'), (e) => e.status === 400);
+  });
+
   test('una factura anulada sale del Reporte de Clientes y de las notas', async () => {
     await cliente.query(`UPDATE factura SET estado = 'anulada' WHERE id = $1`, [A]);
     const r = await m.reportes.getMissingItemsByClient();
     assert.ok(!r.data.flatMap((c) => c.facturas_con_faltantes).some((f) => f.factura_id === A));
     await assert.rejects(() => m.bodega.registrarFaltantes(A, []), (e) => e.status === 409);
+    await assert.rejects(() => m.cola.encolarDesdeReporte(A), (e) => e.status === 409 && /anulada/.test(e.message));
   });
 
   test('el SQL que no se ejecuta acá (limpiezas, auditoría) es válido para Postgres', async () => {

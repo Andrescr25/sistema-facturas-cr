@@ -15,7 +15,22 @@
  * que las listas toman la más reciente de cada factura.
  */
 
-const { query } = require('../../../config/database');
+const { query, pool } = require('../../../config/database');
+const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
+
+const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
+
+function httpError(status, message) {
+  const e = new Error(message);
+  e.status = status;
+  return e;
+}
+
+function idDeFactura(valor) {
+  const id = Number(valor);
+  if (!Number.isInteger(id) || id <= 0) throw httpError(400, 'Factura inválida.');
+  return id;
+}
 
 /** Una factura despachada sin faltantes, a la cola. `db`: cliente de transacción o el módulo. */
 async function encolarSinPendientes(facturaId, db = { query }) {
@@ -38,6 +53,104 @@ async function encolarSinPendientes(facturaId, db = { query }) {
     RETURNING id
   `, [facturaId]);
   return nueva.rows[0].id;
+}
+
+/** Deja la fila de la cola de una factura con estos datos, o la crea. */
+async function ponerEnCola(db, facturaId, { ajustes, categoria }) {
+  const datos = [facturaId, JSON.stringify(ajustes), categoria, ajustes.length];
+  const r = await db.query(`
+    UPDATE facturas_reimpresion
+       SET estado = 'pendiente', ajustes_realizados = $2::jsonb, categoria = $3, total_ajustes = $4,
+           fecha_creacion = CURRENT_TIMESTAMP, fecha_procesamiento = NULL
+     WHERE factura_propia_id = $1
+    RETURNING id
+  `, datos);
+  if (r.rows.length > 0) return r.rows[0].id;
+  const nueva = await db.query(`
+    INSERT INTO facturas_reimpresion (factura_propia_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
+    VALUES ($1, $2::jsonb, 'pendiente', $3, $4, CURRENT_TIMESTAMP)
+    RETURNING id
+  `, datos);
+  return nueva.rows[0].id;
+}
+
+/**
+ * Lo que llegó de cada faltante de una factura, tal como quedó guardado en
+ * el Reporte de Clientes (`faltantes_ajustes`, que se escribe producto por
+ * producto mientras se revisa). Un faltante sin respuesta es "no se sabe":
+ * se rebaja todo.
+ */
+async function ajustesDeFactura(db, facturaId) {
+  const { rows } = await db.query(`
+    SELECT f.id AS faltante_id, f.cantidad_faltante, p.id AS producto_id, p.referencia, p.nombre,
+           aj.cantidad_entregada, aj.estado, aj.requiere_actualizacion
+      FROM faltantes f
+      JOIN producto p ON p.id = f.producto_propio_id
+      LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
+     WHERE f.factura_propia_id = $1
+       AND f.estado = 'pendiente'
+       AND f.tipo_faltante <> 'completo'
+       AND f.cantidad_faltante > 0
+     ORDER BY f.id
+  `, [facturaId]);
+  return rows.map((r) => ({
+    faltante_id: r.faltante_id,
+    producto_id: r.producto_id,
+    producto_codigo: r.referencia,
+    producto_nombre: r.nombre,
+    cantidad_faltante: Number(r.cantidad_faltante),
+    cantidad_entregada: Number(r.cantidad_entregada) || 0,
+    estado: r.estado || 'pendiente',
+    requiere_actualizacion: r.estado ? r.requiere_actualizacion === true : true
+  }));
+}
+
+/**
+ * POST /reportes/faltantes/cliente/facturas/:facturaId/impresion — el
+ * Reporte de Clientes da la factura por lista: a la cola, con lo que llegó.
+ *
+ * Los ajustes se arman acá, de la base, y no con lo que mande la pantalla:
+ * son los mismos que la pantalla fue guardando, y así no puede llegar a
+ * Impresión una versión distinta de la que quedó registrada.
+ */
+async function encolarDesdeReporte(facturaIdCrudo) {
+  const facturaId = idDeFactura(facturaIdCrudo);
+  return enTransaccion(async (c) => {
+    const { rows: [f] } = await c.query('SELECT numero, estado FROM factura WHERE id = $1 FOR UPDATE', [facturaId]);
+    if (!f) throw httpError(404, 'Esa factura no existe.');
+    if (f.estado === 'anulada') throw httpError(409, `La factura ${f.numero} está anulada.`);
+
+    const ajustes = await ajustesDeFactura(c, facturaId);
+    if (ajustes.length === 0) throw httpError(409, `La factura ${f.numero} no tiene faltantes pendientes.`);
+    const requiereCambios = ajustes.some((aj) => aj.requiere_actualizacion);
+    await ponerEnCola(c, facturaId, { ajustes, categoria: requiereCambios ? 'requiere_cambios' : 'sin_cambios' });
+    return { factura_id: facturaId, numero_factura: f.numero, total_ajustes: ajustes.length, requiere_cambios: requiereCambios };
+  });
+}
+
+/**
+ * POST /reportes/faltantes/cliente/facturas/:facturaId/recuperar — el
+ * Reporte de Clientes recupera la factura para volver a revisarla.
+ *
+ * Si todavía no se imprimió, sale de la cola: con el camino viejo seguía ahí,
+ * y al recargar el reporte volvía a aparecer bloqueada "en impresión" (e
+ * Impresión la habría procesado con los ajustes de antes). Si ya se procesó,
+ * sus faltantes vuelven a pendientes y la fila procesada queda como
+ * historial de Impresión.
+ */
+async function devolverAlReporte(facturaIdCrudo) {
+  const facturaId = idDeFactura(facturaIdCrudo);
+  return enTransaccion(async (c) => {
+    const faltantes = await c.query(`
+      UPDATE faltantes SET estado = 'pendiente', updated_at = CURRENT_TIMESTAMP
+       WHERE factura_propia_id = $1 AND estado = 'procesado'
+      RETURNING id
+    `, [facturaId]);
+    const cola = await c.query(`
+      DELETE FROM facturas_reimpresion WHERE factura_propia_id = $1 AND estado = 'pendiente' RETURNING id
+    `, [facturaId]);
+    return { factura_id: facturaId, faltantes_reabiertos: faltantes.rows.length, sacada_de_la_cola: cola.rows.length > 0 };
+  });
 }
 
 const leerAjustes = (valor) => {
@@ -138,4 +251,7 @@ async function listarProcesadas() {
   };
 }
 
-module.exports = { encolarSinPendientes, listarPendientes, listarProcesadas, aFilaDeCola };
+module.exports = {
+  encolarSinPendientes, encolarDesdeReporte, devolverAlReporte,
+  listarPendientes, listarProcesadas, aFilaDeCola, ajustesDeFactura
+};

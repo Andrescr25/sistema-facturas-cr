@@ -606,8 +606,13 @@ el `alegraId`.
   tabla vieja de proveedores. Visto en el navegador de la rama: Bodega →
   proveedor asignado solo → la nota "CTE" en la ficha → la factura en el
   Reporte de Clientes con su fecha correcta.*
-- [ ] Reporte de Clientes: "dar por lista" y "recuperar" sobre la factura propia
-  (hoy siguen por el id de Alegra, por el camino viejo adaptado)
+- [x] Reporte de Clientes: "dar por lista" y "recuperar" sobre la factura
+  propia — *2026-09-30: `POST /reportes/faltantes/cliente/facturas/:facturaId/impresion`
+  arma los ajustes en el servidor con lo guardado producto por producto, y
+  `.../recuperar` saca de la cola la que no se imprimió (antes volvía
+  bloqueada al recargar) o reabre los faltantes de la ya procesada. Visto en
+  el navegador: Bodega → No llegó → Confirmar revisión → Enviar a impresión →
+  aparece en Impresión → Recuperar → editable al recargar.*
 - [ ] Impresión: editar con la edición propia, PDF propio y marcar procesada sin Alegra
 - [ ] Retirar el puente `facturas.factura_propia_id` (el portal todavía lee
   el estado de alistado de la tabla vieja) y el camino viejo de Bodega

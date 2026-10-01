@@ -17,6 +17,7 @@ archivos:
   - frontend/src/hooks/useImpresion.js
   - frontend/src/utils/reporteClientesUtils.js
   - frontend/src/utils/impresionUtils.js
+  - frontend/src/services/colaImpresionService.js
   - backend/tests/faltantesIdsPropios.test.js
   - backend/tests/notasDeFaltantes.test.js
   - backend/tests/fechaCalendarioReportes.test.js
@@ -64,10 +65,25 @@ EL PROVEEDOR del faltante se asigna solo con el mapeo, buscado por el
 `producto_id` propio (los mapeos lo llevan desde la 018) y, para los viejos,
 por id de Alegra o referencia.
 
-PROCESADA es lo que Impresión ya reimprimió: se lee de la cola
-(`estado = 'procesada'`), no de una columna de la factura. Una factura
-anulada sale de los dos reportes y de las notas (`factura.estado <> 'anulada'`;
-la columna es NOT NULL, así que `<>` no pierde filas).
+DAR POR LISTA (Reporte de Clientes → Impresión,
+`POST /reportes/faltantes/cliente/facturas/:facturaId/impresion`): los
+ajustes se arman en el servidor con lo que la pantalla fue guardando
+producto por producto (`faltantes_ajustes`), no con lo que mande la
+pantalla; un faltante sin respuesta se rebaja entero. La cola reusa la fila
+de la factura: hay una por factura.
+
+RECUPERAR desde el Reporte de Clientes (`.../recuperar`): si todavía no se
+imprimió, la factura SALE de la cola; si ya se procesó, sus faltantes vuelven
+a pendientes y la fila queda como historial de Impresión. Con el camino
+viejo, recuperar una factura en cola no tocaba el servidor: al recargar
+volvía bloqueada "en impresión", e Impresión la habría procesado con los
+ajustes de antes.
+
+PROCESADA es lo que Impresión ya reimprimió: al procesarla sus faltantes
+pasan a 'procesado' (y al recuperarla vuelven); el reporte lo lee de ahí.
+"En impresión" es la fila pendiente de la cola. Una factura anulada sale de
+los dos reportes y de las notas (`factura.estado <> 'anulada'`; la columna es
+NOT NULL, así que `<>` no pierde filas).
 
 LAS FECHAS de la factura propia son de calendario y viajan como 'YYYY-MM-DD'.
 `new Date('2026-09-10')` es medianoche UTC, el 9 en Costa Rica: los
@@ -80,7 +96,7 @@ faltantes y sus ajustes, limpia el encargo que Bodega anotó en la factura
 `facturas_pendientes`: nadie escribe en ella. NUNCA se ejecuta para probar —
 ni contra la base local: su SQL se verifica con PREPARE.
 
-FALTA (pasos que siguen en la sección 11): el Reporte de Clientes todavía da
-la factura por lista y la recupera por el id de Alegra (camino viejo de
-`invoice.service`, adaptado a las columnas nuevas), e Impresión todavía edita
-y abre el PDF en Alegra. Después se retira el puente `facturas.factura_propia_id`.
+FALTA (pasos que siguen en la sección 11): Impresión todavía edita, procesa
+y abre el PDF por el id de Alegra (camino viejo de `invoice.service`,
+adaptado a las columnas nuevas). Después se retira el puente
+`facturas.factura_propia_id`.

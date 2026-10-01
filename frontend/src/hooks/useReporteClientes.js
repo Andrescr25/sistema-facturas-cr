@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { alegraService } from '../services/alegraService'
+import { colaImpresionService } from '../services/colaImpresionService'
 import {
   getFacturaKey,
   getProductKey,
@@ -111,12 +112,6 @@ export function useReporteClientes() {
       }
     })
 
-    const facturaData = {
-      alegra_id: factura.alegra_id, numero_factura: factura.numero_factura, cliente_nombre: clienteNombre, fecha_emision: factura.fecha_emision, ajustes: ajustesFactura,
-      estado: ajustesFactura.length > 0 ? (ajustesFactura.some(aj => aj.requiere_actualizacion) ? 'requiere_reimpresion_con_ajustes' : 'requiere_reimpresion_solo_precios') : 'requiere_reimpresion_solo_precios',
-      marcar_como_procesada: false
-    }
-
     const ajustesHechos = ajustesFactura.filter(aj => aj.cantidad_entregada > 0).length
     const faltantesPendientes = ajustesFactura.filter(aj => aj.cantidad_entregada === 0).length
     const requiereReimpresion = ajustesFactura.some(aj => aj.requiere_actualizacion)
@@ -129,10 +124,14 @@ export function useReporteClientes() {
     if (!confirmado) return
 
     try {
-      await alegraService.procesarFacturaIndividual(facturaData)
+      // Por el id PROPIO de la factura. El servidor arma los ajustes con lo
+      // que esta pantalla fue guardando producto por producto; los de acá
+      // son solo para el resumen de la confirmación.
+      await colaImpresionService.enviarDesdeReporte(factura.factura_id)
       const facturaKey = getFacturaKey(factura)
       const nuevosEstados = new Map(facturasEstado)
-      nuevosEstados.set(facturaKey, { estado: 'procesado', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: requiereReimpresion, origen: 'procesado' })
+      // El mismo estado con que vuelve al recargar: en la cola de Impresión.
+      nuevosEstados.set(facturaKey, { estado: 'en_cola_impresion', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: true, origen: 'cola_impresion' })
       setFacturasEstado(nuevosEstados)
 
       showToast(`Factura #${factura.numero_factura} enviada a Impresión (${ajustesFactura.length} productos${requiereReimpresion ? ', requiere cambios' : ''}). Usa "Recuperar" si necesitas editarla.`, 'success')
@@ -146,7 +145,7 @@ export function useReporteClientes() {
     const confirmado = await confirm(`¿Recuperar factura #${factura.numero_factura} para editarla?`, { title: 'Recuperar factura' })
     if (!confirmado) return
     try {
-      await alegraService.recuperarFactura(factura.alegra_id)
+      await colaImpresionService.recuperarDesdeReporte(factura.factura_id)
       const nuevosEstados = new Map(facturasEstado)
       nuevosEstados.delete(facturaKey)
       setFacturasEstado(nuevosEstados)
