@@ -393,6 +393,8 @@ export function useReporteProveedores() {
         const lote = productosAAsignar.slice(i, i + BATCH_SIZE)
         const promesasLote = lote.map(({ producto, proveedorActual }) => {
           const body = {
+            // El id PROPIO del producto: los faltantes cuelgan de él (migración 032).
+            productoId: producto.producto_id || null,
             alegraReference: producto.codigo,
             alegraItemId: producto.alegra_item_id || null,
             alegraName: producto.nombre,

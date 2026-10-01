@@ -8,6 +8,7 @@ const invoiceService = getInvoiceService();
 const client = getClient();
 const { query } = require('../../../config/database');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { encolarSinPendientes } = require('../reprinting/colaImpresion');
 
 /**
  * LO DE ALEGRA SE GUARDA; LO NUESTRO SE LEE SIEMPRE.
@@ -393,11 +394,11 @@ async function estadosDeFactura(alegraId) {
   }
   const { rows } = await query(`
     SELECT f.tipo_faltante, f.cantidad_faltante, f.observaciones,
-           p.codigo AS referencia, p.alegra_id AS alegra_item_id
+           p.referencia, p.alegra_id AS alegra_item_id
       FROM faltantes f
-      JOIN productos p ON f.producto_id = p.id
-      JOIN facturas fa ON fa.id = f.factura_id
-     WHERE fa.alegra_id = $1
+      JOIN producto p ON p.id = f.producto_propio_id
+      JOIN factura fa ON fa.id = f.factura_propia_id
+     WHERE fa.alegra_id = $1::text
   `, [id]);
   return rows.map((r) => ({
     referencia: r.referencia ? String(r.referencia).trim() : null,
@@ -409,33 +410,20 @@ async function estadosDeFactura(alegraId) {
 }
 
 /**
- * Manda una factura despachada SIN faltantes a la cola de impresión.
- * `facturaLocalId` es el id de la tabla vieja `facturas` (la cola todavía
- * cuelga de ella: paso 2 de la sección 11). La categoría 'sin_pendientes'
- * permite omitir el ajuste de precios en el centro de impresión.
- * La usan el camino de Alegra y el de la factura propia (bodegaPropia.js).
+ * Manda una factura despachada SIN faltantes a la cola de impresión, por el
+ * camino viejo (la factura llega por su id de Alegra). `facturaLocalId` es el
+ * id de la tabla vieja `facturas`; la cola cuelga de `factura` desde la
+ * migración 032, así que se cruza por el puente `factura_propia_id`. Una fila
+ * vieja sin enlazar no tiene factura propia: no hay a qué colgarla.
  */
 async function encolarImpresion(facturaLocalId, etiqueta = facturaLocalId) {
-  const existe = await query(`SELECT id FROM facturas_reimpresion WHERE factura_id = $1`, [facturaLocalId]);
-  if (existe.rows.length === 0) {
-    await query(`
-      INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
-      VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
-    `, [facturaLocalId]);
-    console.log(`🖨️ Factura ${etiqueta} agregada a cola de impresión (sin_pendientes)`);
-  } else {
-    await query(`
-      UPDATE facturas_reimpresion
-      SET estado = 'pendiente',
-          ajustes_realizados = '[]'::jsonb,
-          categoria = 'sin_pendientes',
-          total_ajustes = 0,
-          fecha_creacion = CURRENT_TIMESTAMP,
-          fecha_procesamiento = NULL
-      WHERE factura_id = $1
-    `, [facturaLocalId]);
-    console.log(`🖨️ Factura ${etiqueta} actualizada en cola de impresión (sin_pendientes)`);
+  const { rows: [fila] } = await query('SELECT factura_propia_id FROM facturas WHERE id = $1', [facturaLocalId]);
+  if (!fila?.factura_propia_id) {
+    console.warn(`⚠️ Factura ${etiqueta} sin factura propia enlazada: no entra a la cola de impresión.`);
+    return;
   }
+  await encolarSinPendientes(fila.factura_propia_id);
+  console.log(`🖨️ Factura ${etiqueta} en cola de impresión (sin_pendientes)`);
 }
 
 /**

@@ -7,12 +7,14 @@
  *    anuladas), con `factura_id` como identidad y sin `alegra_id` suelto.
  *  - Las líneas llevan el id propio del producto con su nombre, y el de
  *    Alegra aparte; nunca un `id` que el borrador confunda con el de Alegra.
- *  - El puente con la tabla vieja `facturas` (de la que todavía leen
- *    Faltantes, la cola de impresión y el portal): se enlaza por el id de
- *    Alegra si la factura vino de allá, por número si es la misma, y si no se
- *    crea — SIN alegra_id. Un número de OTRA factura de Alegra no se pisa.
+ *  - El puente con la tabla vieja `facturas` (de la que todavía lee el
+ *    portal): se enlaza por el id de Alegra si la factura vino de allá, por
+ *    número si es la misma, y si no se crea — SIN alegra_id. Un número de
+ *    OTRA factura de Alegra no se pisa.
  *  - Despachar escribe en las dos tablas en una transacción, con la misma
- *    hora, y sin faltantes va a la cola de impresión.
+ *    hora, y sin faltantes va a la cola de impresión POR EL ID PROPIO, en la
+ *    misma transacción (migración 032).
+ *  - Los faltantes se guardan sobre `factura.id`, nunca sobre la fila vieja.
  *  - La copia de una factura propia entra con alegra_id NULL: con 0 (y la
  *    columna única) la SEGUNDA factura propia chocaba con la primera.
  */
@@ -25,13 +27,14 @@ const path = require('path');
 const rutaDb = require.resolve('../config/database');
 const rutaGuardar = require.resolve('../src/utils/guardarFaltantes');
 const rutaWarehouse = require.resolve('../src/modules/warehouse/warehouse.service');
+const rutaCola = require.resolve('../src/modules/reprinting/colaImpresion');
 const rutaModulo = require.resolve('../src/modules/warehouse/bodegaPropia');
 
 let consultas; let respuestas; let encoladas; let guardadas; let transacciones;
 
 /** `respuestas`: lista de [regex, filas | función(params)] que se prueban en orden. */
 function montar() {
-  for (const r of [rutaDb, rutaGuardar, rutaWarehouse, rutaModulo]) delete require.cache[r];
+  for (const r of [rutaDb, rutaGuardar, rutaWarehouse, rutaCola, rutaModulo]) delete require.cache[r];
   consultas = []; encoladas = []; guardadas = []; transacciones = [];
   const query = async (sql, params = []) => {
     const t = String(sql).replace(/\s+/g, ' ').trim();
@@ -55,8 +58,10 @@ function montar() {
   const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
   doble(rutaDb, { query, pool });
   doble(rutaGuardar, { guardarFaltantes: async (fila, faltantes, quien) => { guardadas.push({ fila, faltantes, quien }); return faltantes.length; } });
+  doble(rutaCola, {
+    encolarSinPendientes: async (facturaId, db) => { encoladas.push({ facturaId, enTransaccion: db !== undefined }); }
+  });
   doble(rutaWarehouse, {
-    encolarImpresion: async (fila, etiqueta) => { encoladas.push({ fila, etiqueta }); },
     ordenarHistorial: (l) => [...l].sort((a, b) => String(b.despachada_en).localeCompare(String(a.despachada_en)))
   });
   return require(rutaModulo);
@@ -135,7 +140,7 @@ describe('el puente con la tabla vieja', () => {
 });
 
 describe('despachar', () => {
-  test('en una transacción: la factura y su fila vieja con la misma hora; sin faltantes, a imprimir', async () => {
+  test('en una transacción: la factura y su fila vieja con la misma hora; sin faltantes, a imprimir por el id propio', async () => {
     const hora = '2026-09-29 10:00:00';
     respuestas = [
       [/^UPDATE factura SET estado_bodega/, [{ id: 7, numero: '001000014900', estado_bodega: 'procesado', bodega_procesado_en: hora }]],
@@ -146,7 +151,7 @@ describe('despachar', () => {
     const vieja = consultas.find((c) => /^UPDATE facturas SET estado_bodega/.test(c.t));
     assert.deepEqual(vieja.params, ['procesado', 7, null, 55]);
     assert.match(vieja.t, /bodega_procesado_en = \(SELECT bodega_procesado_en FROM factura WHERE id = \$2\)/, 'la misma hora, copiada en SQL');
-    assert.deepEqual(encoladas, [{ fila: 55, etiqueta: '001000014900' }]);
+    assert.deepEqual(encoladas, [{ facturaId: 7, enTransaccion: true }], 'la cola cuelga de factura.id, no de la fila vieja 55');
     assert.equal(r.enviada_a_impresion, true);
   });
 
@@ -161,11 +166,27 @@ describe('despachar', () => {
     await assert.rejects(() => b.actualizarEstado('abc', { estado: 'procesado' }), (e) => e.status === 400);
   });
 
-  test('los faltantes se guardan con la función de siempre, sobre la fila vieja', async () => {
-    respuestas = [[/SELECT id FROM facturas WHERE factura_propia_id = \$1/, [{ id: 55 }]]];
-    const r = await b.registrarFaltantes(7, [{ referencia: 'R9X14', alegra_item_id: '898', cantidad_faltante: 1, tipo_faltante: 'parcial' }]);
-    assert.equal(guardadas[0].fila, 55);
+  test('los faltantes se guardan sobre factura.id, sin pasar por la fila vieja', async () => {
+    respuestas = [[/SELECT numero, estado FROM factura WHERE id = \$1/, [{ numero: '001000014900', estado: 'emitida' }]]];
+    const r = await b.registrarFaltantes(7, [{ producto_id: 1709, cantidad_faltante: 1, tipo_faltante: 'parcial' }]);
+    assert.equal(guardadas[0].fila, 7);
     assert.equal(r.faltantes_registrados, 1);
+    assert.ok(!consultas.some((c) => /FROM facturas WHERE|INTO facturas/.test(c.t)), 'no toca la tabla vieja');
+  });
+
+  test('una factura anulada no recibe faltantes', async () => {
+    respuestas = [[/SELECT numero, estado FROM factura WHERE id = \$1/, [{ numero: '001000014900', estado: 'anulada' }]]];
+    await assert.rejects(() => b.registrarFaltantes(7, []), (e) => e.status === 409);
+    assert.equal(guardadas.length, 0);
+  });
+
+  test('lo registrado vuelve con el id propio del producto', async () => {
+    respuestas = [[/FROM faltantes f JOIN producto p ON p\.id = f\.producto_propio_id WHERE f\.factura_propia_id = \$1/,
+      [{ tipo_faltante: 'parcial', cantidad_faltante: 2, observaciones: '', producto_id: 1709, referencia: 'R9X14 ', alegra_item_id: '898' }]]];
+    const [e] = await b.estados(7);
+    assert.equal(e.productoId, 1709);
+    assert.equal(e.referencia, 'R9X14');
+    assert.equal(e.cantidadFaltante, 2);
   });
 });
 

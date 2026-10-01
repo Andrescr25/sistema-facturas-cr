@@ -139,7 +139,7 @@ export default function ProveedorDetalle({
                     <p className="text-xs text-neutro-500 truncate">Código: {pCodigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
                     {/* Qué variante pidió el cliente. Solo aparece si la hay. */}
                     {!estaEliminado && (
-                      <NotasDelProducto notas={notasPorProducto?.[String(producto.alegra_item_id)]} />
+                      <NotasDelProducto notas={notasPorProducto?.[String(producto.producto_id)]} />
                     )}
                   </div>
                 </div>

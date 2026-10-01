@@ -16,9 +16,10 @@ archivos:
   - backend/migrations/independencia/031_bodega_en_factura.sql
   - frontend/src/services/bodegaPropiaService.js
   - backend/tests/bodegaPropia.test.js
+  - backend/src/modules/reprinting/colaImpresion.js
 aristas:
-  relacionado: [modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-09-29
+  relacionado: [modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-09-30
 ---
 
 EN ESTA RAMA, SOBRE LA FACTURA PROPIA (2026-09-29, sección 11, paso 1). La
@@ -30,14 +31,19 @@ guardado en el teléfono va bajo claves nuevas (`facturasBodegaPropia:*`):
 con las viejas, un borrador de la factura 12 de Alegra se habría aplicado a
 la factura propia 12.
 
-EL PUENTE CON LA TABLA VIEJA: Faltantes, el Reporte de Proveedores, la cola
-de impresión y el portal todavía leen `facturas`. Cada factura propia se
-enlaza a su fila por `facturas.factura_propia_id` (`filaVieja`: por id de
-Alegra si vino de allá, por número si es la misma; un número de otra factura
-de Alegra da 409). Despachar escribe en las dos en una transacción, con la
-misma hora copiada en SQL, y los faltantes se guardan con la misma función
-que el camino de Alegra (`utils/guardarFaltantes.js`). Se retira en los pasos
-2 y 3.
+LOS FALTANTES Y LA COLA cuelgan de `factura.id` y `producto.id` desde la
+migración 032 (2026-09-30, ver [[modulo/faltantes]]): la pantalla manda el
+`producto_id` propio de cada línea, y lo registrado vuelve con él
+(`aplicarEstadosGuardados` empareja primero por ese id: dos productos con la
+misma referencia ya no se pisan). Despachar sin faltantes encola la factura
+por su id propio, en la misma transacción.
+
+EL PUENTE CON LA TABLA VIEJA: el portal todavía lee el estado de alistado de
+`facturas`. Cada factura propia se enlaza a su fila por
+`facturas.factura_propia_id` (`filaVieja`: por id de Alegra si vino de allá,
+por número si es la misma; un número de otra factura de Alegra da 409).
+Despachar escribe en las dos en una transacción, con la misma hora copiada
+en SQL. Se retira al final de la sección 11.
 
 EL CERO EN UNA COLUMNA ÚNICA: la copia de cada factura propia entraba con
 `facturas.alegra_id = 0`, y esa columna es única: la SEGUNDA factura propia

@@ -140,6 +140,8 @@ export const buildDraftForFactura = (factura) => {
       // Estos dos SÍ son seguros para mandar al backend: nunca se mezclan
       // entre sí, cada uno queda null si no se conoce con certeza.
       referenciaReal: referencia || null,
+      // El id propio del producto (la línea de la factura propia lo trae).
+      producto_id: item.producto_id || null,
       alegra_id: item.alegra_id || item.id || null,
       cantidadFactura: Number(item?.cantidad ?? item?.quantity ?? 0),
       tipo: factura.estado_bodega === 'procesado' ? 'ninguno' : null,
@@ -181,20 +183,23 @@ export const calcularDiasYLimite = (fechaInicio) => {
 
 /**
  * Pone sobre el borrador lo que bodega ya registró de la factura (de
- * GET /bodega/facturas/:id/estados), producto por producto: primero por
- * referencia y, si no, por el id de Alegra del producto. Un producto sin
- * nada registrado queda como vino en el borrador.
+ * GET /bodega/facturas-propias/:id/estados), producto por producto: primero
+ * por el id propio del producto, después por referencia y, si no, por el id
+ * de Alegra. Un producto sin nada registrado queda como vino en el borrador.
  */
 export function aplicarEstadosGuardados(draft, estados = []) {
+  const porProductoId = new Map()
   const porReferencia = new Map()
   const porAlegraId = new Map()
   for (const e of estados) {
+    if (e.productoId) porProductoId.set(String(e.productoId), e)
     if (e.referencia) porReferencia.set(String(e.referencia).trim(), e)
     if (e.alegraItemId) porAlegraId.set(String(e.alegraItemId).trim(), e)
   }
   const salida = {}
   for (const [key, item] of Object.entries(draft || {})) {
-    const e = (item.referenciaReal && porReferencia.get(String(item.referenciaReal).trim())) ||
+    const e = (item.producto_id && porProductoId.get(String(item.producto_id))) ||
+      (item.referenciaReal && porReferencia.get(String(item.referenciaReal).trim())) ||
       (item.alegra_id && porAlegraId.get(String(item.alegra_id).trim())) || null
     if (!e) { salida[key] = item; continue }
     // 'completo' en la base es "no faltó nada", que en la pantalla es 'ninguno'.

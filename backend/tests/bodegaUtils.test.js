@@ -67,6 +67,23 @@ describe('lo ya registrado se pone sobre el borrador', () => {
     assert.equal(r['REF-A'].tipo, null, 'sin nada registrado queda como vino');
   });
 
+  test('primero por el id PROPIO del producto: dos líneas con la misma referencia no se cruzan', () => {
+    // Dos productos distintos con la misma referencia (en `producto` hay 4
+    // referencias repetidas): por referencia, el registro de uno pisaba al otro.
+    const conIds = {
+      'L1': { key: 'L1', producto_id: 1709, referenciaReal: 'R9', alegra_id: null, tipo: null, cantidadFaltante: 0, observaciones: '' },
+      'L2': { key: 'L2', producto_id: 1710, referenciaReal: 'R9', alegra_id: null, tipo: null, cantidadFaltante: 0, observaciones: '' }
+    };
+    const r = aplicarEstadosGuardados(conIds, [
+      { productoId: 1710, referencia: 'R9', tipoFaltante: 'total', cantidadFaltante: 3 },
+      { productoId: 1709, referencia: 'R9', tipoFaltante: 'parcial', cantidadFaltante: 1 }
+    ]);
+    assert.equal(r.L1.tipo, 'parcial');
+    assert.equal(r.L1.cantidadFaltante, 1);
+    assert.equal(r.L2.tipo, 'total');
+    assert.equal(r.L2.cantidadFaltante, 3);
+  });
+
   test("'completo' de la base se vuelve 'ninguno' en la pantalla (si no, al guardar se volvía 'parcial')", () => {
     const r = aplicarEstadosGuardados(draft, [{ referencia: 'A', tipoFaltante: 'completo', cantidadFaltante: 0 }]);
     assert.equal(r['REF-A'].tipo, 'ninguno');

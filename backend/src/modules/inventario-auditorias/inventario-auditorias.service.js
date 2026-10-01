@@ -308,7 +308,7 @@ async function crearAuditoria({ tipo, categoria, nombre }) {
     const dbRes = await query(`
       SELECT p.alegra_id, COUNT(*) as total_incidencias
       FROM faltantes f
-      JOIN productos p ON f.producto_id = p.id
+      JOIN producto p ON p.id = f.producto_propio_id
       WHERE p.alegra_id IS NOT NULL
       GROUP BY p.alegra_id
       ORDER BY total_incidencias DESC

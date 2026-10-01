@@ -593,11 +593,30 @@ el `alegraId`.
   que Faltantes, la cola de impresión y el portal lean `factura`. De paso:
   la copia de la factura propia entraba con `alegra_id = 0` en una columna
   única y la SEGUNDA factura propia no se podía crear; ahora entra con NULL.*
-- [ ] Faltantes y ajustes con `producto.id` y `factura.id`
-- [ ] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
+- [x] Faltantes y ajustes con `producto.id` y `factura.id` — *migración 032
+  (2026-09-30): `faltantes.factura_propia_id`/`producto_propio_id` y
+  `facturas_reimpresion.factura_propia_id`; las columnas viejas se
+  RENOMBRARON (`factura_vieja_id`, `producto_viejo_id`) para que nada vuelva a
+  escribir ahí sin que salte. Bodega guarda por el `producto_id` de la línea;
+  Reporte de Proveedores, Reporte de Clientes, notas (ahora de
+  `factura_linea`, sin Alegra), asignación de proveedor, auditoría y las dos
+  limpiezas leen las columnas nuevas. Relleno probado en una base desechable:
+  por id de Alegra, por referencia única, y avisa lo que no enlaza. Se
+  retiraron el módulo `faltantes` y tres reportes sin consumidor que leían la
+  tabla vieja de proveedores. Visto en el navegador de la rama: Bodega →
+  proveedor asignado solo → la nota "CTE" en la ficha → la factura en el
+  Reporte de Clientes con su fecha correcta.*
+- [ ] Reporte de Clientes: "dar por lista" y "recuperar" sobre la factura propia
+  (hoy siguen por el id de Alegra, por el camino viejo adaptado)
+- [ ] Impresión: editar con la edición propia, PDF propio y marcar procesada sin Alegra
+- [ ] Retirar el puente `facturas.factura_propia_id` (el portal todavía lee
+  el estado de alistado de la tabla vieja) y el camino viejo de Bodega
+- [x] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
   Proveedores dura un ciclo (`ciclo_pedidos`): la limpieza semanal y el botón
   de Configuración la reinician. Al migrar faltantes, conservar ese reinicio.
-  NUNCA probar la limpieza contra una base con datos de trabajo.
+  NUNCA probar la limpieza contra una base con datos de trabajo. — *Se
+  conserva: las dos limpiezas siguen llamando a `cicloPedidos.reiniciar`
+  (cicloPedidos.test.js). Su SQL nuevo se verificó con PREPARE, sin ejecutarlas.*
 
 ---
 

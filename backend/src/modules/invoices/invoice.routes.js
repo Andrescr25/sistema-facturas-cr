@@ -40,7 +40,9 @@ router.post('/procesar-individual', invoiceController.processIndividualInvoice);
 router.post('/:id/recuperar', invoiceController.recoverProcessedInvoice);
 
 // ===== FALTANTES =====
-router.post('/:id/faltantes', invoiceController.registerMissingItems);
+// POST /:id/faltantes (por id de Alegra) se retiró el 2026-09-30: Bodega
+// registra sobre la factura propia (/bodega/facturas-propias/:facturaId/faltantes)
+// y los faltantes cuelgan de `factura.id` (migración independencia/032).
 
 // ===== OPERACIONES LOCALES (Parámetros comodín al final) =====
 router.get('/:id', invoiceController.getInvoiceWithRelations);

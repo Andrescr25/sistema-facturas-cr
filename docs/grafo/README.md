@@ -26,6 +26,7 @@ toca, qué no se regenera).
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)
 - [Facturación de venta — ya cerrado en la migración](modulo/facturacion.md)
 - [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
+- [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md) · *Reporte de Clientes e Impresión todavía por el id de Alegra*
 - [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*

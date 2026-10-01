@@ -34,14 +34,14 @@ async function ejecutarLimpiezaFaltantes() {
 
     // Obtener faltantes pendientes
     const faltantesPendientes = await query(`
-      SELECT f.id, f.factura_id
+      SELECT f.id
       FROM faltantes f
       WHERE f.estado = 'pendiente'
     `);
 
     // Obtener faltantes procesados
     const faltantesProcesados = await query(`
-      SELECT f.id, f.factura_id
+      SELECT f.id
       FROM faltantes f
       WHERE f.estado = 'procesado'
     `);
@@ -94,30 +94,16 @@ async function ejecutarLimpiezaFaltantes() {
       stats.procesados.faltantes = procesadosEliminados.rows.length;
     }
 
-    // Limpiar facturas pendientes manualmente relacionadas
-    const facturaIdsParaLimpiar = Array.from(new Set([
-      ...faltantesPendientes.rows.map(f => f.factura_id),
-      ...faltantesProcesados.rows.map(f => f.factura_id)
-    ])).filter(Boolean);
-
-    let pendientesManualesEliminados = 0;
-    if (facturaIdsParaLimpiar.length > 0) {
-      const pendientesResult = await query(`
-        DELETE FROM facturas_pendientes
-        WHERE factura_id = ANY($1::int[])
-        RETURNING id
-      `, [facturaIdsParaLimpiar]);
-      pendientesManualesEliminados = pendientesResult.rows.length;
-    }
-
-    // Limpiar observaciones adicionales de facturas que ya no tienen faltantes
+    // El encargo que Bodega anotó en la factura se va con sus faltantes.
+    // (`facturas_pendientes` ya no se vacía acá: nadie escribe en ella y su
+    // factura_id es el de la tabla vieja — migración independencia/032.)
     await query(`
-      UPDATE facturas 
-      SET observaciones_adicionales = NULL
-      WHERE observaciones_adicionales IS NOT NULL
+      UPDATE factura
+      SET bodega_observaciones = NULL
+      WHERE bodega_observaciones IS NOT NULL
       AND NOT EXISTS (
-        SELECT 1 FROM faltantes f 
-        WHERE f.factura_id = facturas.id 
+        SELECT 1 FROM faltantes f
+        WHERE f.factura_propia_id = factura.id
         AND f.estado = 'pendiente'
       )
     `);
@@ -126,7 +112,6 @@ async function ejecutarLimpiezaFaltantes() {
     console.log(`   ✅ ${stats.pendientes.faltantes} faltantes pendientes borrados`);
     console.log(`   ✅ ${stats.procesados.faltantes} faltantes procesados borrados`);
     console.log(`   ✅ ${stats.pendientes.ajustes + stats.procesados.ajustes} ajustes eliminados`);
-    console.log(`   ✅ ${pendientesManualesEliminados} facturas pendientes liberadas`);
 
   } catch (error) {
     console.error('❌ [CRON] Error en limpieza semanal:', error.message);

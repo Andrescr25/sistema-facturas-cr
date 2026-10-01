@@ -499,21 +499,6 @@ export const alegraService = {
   },
 
   // Registrar faltantes de una factura
-  async registrarFaltantes(facturaId, faltantes, registradoPor = 'Usuario', observacionesAdicionales = '') {
-    try {
-      console.log('📝 Frontend: Registrando faltantes para factura:', facturaId);
-      const response = await api.post(`/alegra/facturas/${facturaId}/faltantes`, {
-        faltantes,
-        registrado_por: registradoPor,
-        observaciones_adicionales: observacionesAdicionales
-      })
-      console.log('✅ Frontend: Faltantes registrados:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error registrando faltantes:', error);
-      throw new Error(`Error registrando faltantes: ${error.message}`)
-    }
-  },
 
   // Limpiar historial de procesamientos
   async limpiarHistorial() {
@@ -529,17 +514,6 @@ export const alegraService = {
   },
 
   // Obtener encargos especiales
-  async getEncargosEspeciales() {
-    try {
-      console.log('📋 Frontend: Obteniendo encargos especiales');
-      const response = await api.get('/alegra/reportes/encargos-especiales')
-      console.log('✅ Frontend: Encargos especiales obtenidos:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo encargos especiales:', error);
-      throw new Error(`Error obteniendo encargos especiales: ${error.message}`)
-    }
-  },
 
   // Obtener cantidades modificadas para orden de compra  
   async getCantidadesModificadas() {
@@ -600,18 +574,6 @@ export const alegraService = {
   },
 
   // Obtener cantidad sugerida inteligente por proveedor
-  async getCantidadSugerida(proveedor_id) {
-    try {
-      console.log('🧠 Frontend: Obteniendo cantidad sugerida para proveedor:', proveedor_id);
-      // CAMBIO: Llamar directamente al endpoint sin pasar por /alegra/
-      const response = await api.get(`/reportes/cantidad-sugerida?proveedor_id=${proveedor_id}`)
-      console.log('✅ Frontend: Cantidad sugerida obtenida:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo cantidad sugerida:', error);
-      throw new Error(`Error obteniendo cantidad sugerida: ${error.message}`)
-    }
-  },
 
   async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
     try {

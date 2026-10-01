@@ -152,7 +152,6 @@ const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
 const pagosRecurrentesModule = require('./src/modules/pagos-recurrentes');
 const reporteContadorModule = require('./src/modules/reporte-contador');
 const proveedoresModule = require('./src/modules/proveedores');
-const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
@@ -241,10 +240,10 @@ app.use('/api/bodega', warehouseModule.routes);
 app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);
 
-// ⚠️ NOTA: El endpoint /api/faltantes tiene ruteo híbrido (fall-through).
-// Las peticiones básicas de gestión de faltantes son procesadas por 'faltantesModule.routes'.
-// Las operaciones de ajustes y mantenimiento caen en 'missingItemsModule.routes' (Modular).
-app.use('/api/faltantes', faltantesModule.routes);
+// /api/faltantes: ajustes de entrega y asignación de proveedor. El módulo
+// viejo `faltantes` (alta y consulta por el id de la tabla vieja, sin
+// ninguna pantalla que lo llamara) se retiró el 2026-09-30 con la migración
+// independencia/032.
 app.use('/api/faltantes', missingItemsModule.routes);
 
 // Ruta para verificar estado de la API

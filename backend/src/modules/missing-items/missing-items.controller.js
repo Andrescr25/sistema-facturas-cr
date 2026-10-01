@@ -79,8 +79,9 @@ async function getDiagnostic(req, res) {
  */
 async function assignSupplierManual(req, res) {
   try {
-    const { alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId } = req.body;
+    const { productoId, alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId } = req.body;
     const result = await missingItemsService.assignSupplierManual({
+      productoId,
       alegraReference,
       alegraItemId,
       alegraName,

@@ -6,6 +6,7 @@
 const { query } = require('../../../config/database');
 const { getClient } = require('../../integrations/alegra');
 const { resolverProductoLocal } = require('../../utils/resolverProducto');
+const { productoPropioDe } = require('../../utils/guardarFaltantes');
 const client = getClient();
 
 /**
@@ -75,11 +76,11 @@ async function getDiagnostic(alegraReference) {
 
   // Buscar faltantes asociados
   const faltantes = await query(`
-    SELECT f.*, fa.numero_factura, fa.cliente_nombre
+    SELECT f.*, fa.numero AS numero_factura, fa.cliente_nombre
     FROM faltantes f
-    JOIN facturas fa ON f.factura_id = fa.id
-    JOIN productos p ON f.producto_id = p.id
-    WHERE p.codigo = $1 OR p.alegra_id::text = $1 OR p.nombre ILIKE $2
+    JOIN factura fa ON fa.id = f.factura_propia_id
+    JOIN producto p ON p.id = f.producto_propio_id
+    WHERE p.referencia = $1 OR p.alegra_id = $1 OR p.nombre ILIKE $2
     ORDER BY f.created_at DESC
     LIMIT 10
   `, [alegraReference, `%${alegraReference}%`]);
@@ -105,7 +106,7 @@ async function getDiagnostic(alegraReference) {
 /**
  * Asigna manualmente un proveedor a un producto (usado por ReporteProveedores)
  */
-async function assignSupplierManual({ alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId }) {
+async function assignSupplierManual({ productoId: productoPropioId, alegraReference, alegraItemId, alegraName, proveedorId, nuevoProveedorId }) {
   const targetProveedorId = proveedorId || nuevoProveedorId;
 
   if (!alegraReference && !alegraItemId) {
@@ -199,8 +200,14 @@ async function assignSupplierManual({ alegraReference, alegraItemId, alegraName,
     }
   }
 
-  // 5. Actualizar los faltantes pendientes de este producto con el nombre y cédula del proveedor
-  const updateFaltantesResult = await query(`
+  // 5. Actualizar los faltantes pendientes de este producto con el nombre y
+  //    cédula del proveedor. Los faltantes cuelgan del producto PROPIO
+  //    (migración independencia/032): el reporte lo manda; si no, se busca
+  //    por el id de Alegra o la referencia.
+  const propio = await productoPropioDe({
+    producto_id: productoPropioId, alegra_item_id: alegraItemId, referencia: alegraReference
+  });
+  const updateFaltantesResult = propio ? await query(`
     UPDATE faltantes
     SET 
       proveedor_asignado = $1,
@@ -208,8 +215,8 @@ async function assignSupplierManual({ alegraReference, alegraItemId, alegraName,
       asignacion_tipo = 'manual',
       fecha_asignacion = CURRENT_TIMESTAMP,
       mapping_id = $3
-    WHERE producto_id = $4 AND estado = 'pendiente'
-  `, [supplierName, supplierCedula, mappingId, productoId]);
+    WHERE producto_propio_id = $4 AND estado = 'pendiente'
+  `, [supplierName, supplierCedula, mappingId, propio]) : { rowCount: 0 };
 
   console.log(`✅ Asignación manual completada: ${updateFaltantesResult.rowCount} faltante(s) actualizados`);
 

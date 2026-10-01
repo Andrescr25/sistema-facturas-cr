@@ -5,7 +5,7 @@
 
 const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegraProductService } = require('../../integrations/alegra');
 const DatabaseHelper = require('../../utils/database.helper');
-const { guardarFaltantes } = require('../../utils/guardarFaltantes');
+const colaImpresion = require('../reprinting/colaImpresion');
 const { query } = require('../../../config/database');
 
 class InvoiceService {
@@ -196,149 +196,24 @@ class InvoiceService {
   }
 
   /**
-   * Obtener facturas pendientes de reimpresión
+   * Las facturas de la cola de impresión: ahora cuelgan de la factura propia
+   * (migración independencia/032) y las arma reprinting/colaImpresion.js.
    */
   async getPendingReprintInvoices() {
     try {
-      console.log('📋 Obteniendo facturas pendientes de reimpresión...');
-
-      const sql = `
-        SELECT * FROM (
-          SELECT DISTINCT ON (fa.alegra_id)
-            fr.id as id,
-            fr.ajustes_realizados,
-            fr.estado,
-            fr.fecha_creacion,
-            fr.categoria,
-            fr.total_ajustes,
-            fa.id as factura_id,
-            fa.numero_factura,
-            fa.alegra_id,
-            fa.cliente_nombre,
-            fa.cliente_email,
-            fa.fecha_emision,
-            fa.total
-          FROM facturas_reimpresion fr
-          JOIN facturas fa ON fr.factura_id = fa.id
-          WHERE fr.estado = 'pendiente'
-          ORDER BY fa.alegra_id, fr.fecha_creacion DESC
-        ) t
-        ORDER BY t.fecha_creacion DESC
-      `;
-
-      const result = await query(sql);
-
-      // Procesar los ajustes JSONB para mejor visualización
-      const facturasConAjustes = result.rows.map(factura => {
-        const ajustes = typeof factura.ajustes_realizados === 'string'
-          ? JSON.parse(factura.ajustes_realizados)
-          : factura.ajustes_realizados;
-
-        const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
-
-        return {
-          ...factura,
-          ajustes_realizados: ajustes,
-          total_ajustes: ajustes?.length || 0,
-          requiere_actualizacion: requiereActualizacion,
-          categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
-        };
-      });
-
-      const sinCambios = facturasConAjustes.filter(f => f.categoria === 'sin_cambios');
-      const requiereCambios = facturasConAjustes.filter(f => f.categoria !== 'sin_cambios');
-
-      return {
-        success: true,
-        data: {
-          sin_cambios: sinCambios,
-          requiere_cambios: requiereCambios
-        },
-        total_pendientes: facturasConAjustes.length,
-        resumen: {
-          facturas_pendientes: facturasConAjustes.length,
-          facturas_sin_cambios: sinCambios.length,
-          facturas_con_cambios: requiereCambios.length
-        }
-      };
+      return await colaImpresion.listarPendientes();
     } catch (error) {
       console.error('❌ Error obteniendo facturas pendientes:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  /**
-   * Obtener facturas procesadas (últimos 7 días)
-   */
   async getProcessedReprintInvoices() {
     try {
-      console.log('📋 Obteniendo facturas procesadas (últimos 7 días)...');
-
-      const sql = `
-        SELECT
-          fr.id as reimpresion_id,
-          fr.ajustes_realizados,
-          fr.estado as estado_reimpresion,
-          fr.fecha_creacion,
-          fr.fecha_procesamiento,
-          fr.categoria,
-          fr.total_ajustes,
-          fa.id as factura_id,
-          fa.numero_factura,
-          fa.alegra_id,
-          fa.cliente_nombre,
-          fa.cliente_email,
-          fa.fecha_emision,
-          fa.total,
-          EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) as dias_desde_procesamiento
-        FROM facturas_reimpresion fr
-        JOIN facturas fa ON fr.factura_id = fa.id
-        WHERE fr.estado = 'procesada'
-          AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
-        ORDER BY fr.fecha_procesamiento DESC
-      `;
-
-      const result = await query(sql);
-
-      // Procesar los ajustes JSONB
-      const facturasConAjustes = result.rows.map(factura => {
-        const ajustes = typeof factura.ajustes_realizados === 'string'
-          ? JSON.parse(factura.ajustes_realizados)
-          : factura.ajustes_realizados;
-
-        const requiereActualizacion = ajustes?.some(aj => aj.requiere_actualizacion) || false;
-        const tieneVariacionPrecio = ajustes?.some(aj => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa);
-
-        return {
-          ...factura,
-          ajustes_realizados: ajustes,
-          total_ajustes: ajustes?.length || 0,
-          dias_restantes_recuperacion: Math.ceil(7 - factura.dias_desde_procesamiento),
-          puede_recuperar: factura.dias_desde_procesamiento <= 7,
-          requiere_actualizacion: requiereActualizacion,
-          tiene_variacion_precio: tieneVariacionPrecio,
-          categoria: factura.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
-        };
-      });
-
-      return {
-        success: true,
-        data: facturasConAjustes,
-        total: facturasConAjustes.length,
-        resumen: {
-          facturas_procesadas: facturasConAjustes.length,
-          recuperables: facturasConAjustes.filter(f => f.puede_recuperar).length
-        }
-      };
+      return await colaImpresion.listarProcesadas();
     } catch (error) {
       console.error('❌ Error obteniendo facturas procesadas:', error);
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -369,22 +244,22 @@ class InvoiceService {
         [alegraIdInt, numeroFacturaCompleto]
       );
 
-      const localInvoiceIds = localResult.rows.map(r => r.id);
-
-      // Si existe en BD local, obtener los faltantes guardados para esta factura
+      // Los faltantes guardados para esta factura: cuelgan de la factura
+      // propia (migración independencia/032), que se busca por el id de Alegra.
       let faltantesMap = {};
-      if (localInvoiceIds.length > 0) {
+      {
         const faltantesResult = await query(`
           SELECT
             f.tipo_faltante,
             f.cantidad_faltante,
             f.observaciones,
-            p.codigo AS producto_codigo,
+            p.referencia AS producto_codigo,
             p.alegra_id AS producto_alegra_id
           FROM faltantes f
-          JOIN productos p ON f.producto_id = p.id
-          WHERE f.factura_id = ANY($1::int[])
-        `, [localInvoiceIds]);
+          JOIN producto p ON p.id = f.producto_propio_id
+          JOIN factura fa ON fa.id = f.factura_propia_id
+          WHERE fa.alegra_id = $1::text
+        `, [String(alegraIdInt)]);
 
         // Construir mapa por código de producto (y por alegra_id como fallback)
         faltantesResult.rows.forEach(row => {
@@ -843,11 +718,13 @@ class InvoiceService {
       }
 
       // 1. Si requiere reimpresión o se indica marcar como procesada, guardar o actualizar en facturas_reimpresion
+      // La cola y los faltantes cuelgan de la factura PROPIA (migración 032);
+      // este camino todavía llega con el id de Alegra y la busca por él.
       const existeReimpresion = await query(`
         SELECT fr.id FROM facturas_reimpresion fr
-        JOIN facturas fa ON fr.factura_id = fa.id
-        WHERE fa.alegra_id = $1
-      `, [alegra_id]);
+        JOIN factura f ON f.id = fr.factura_propia_id
+        WHERE f.alegra_id = $1::text
+      `, [String(alegra_id)]);
 
       if (existeReimpresion.rows.length > 0 || estado.includes('requiere_reimpresion') || marcar_como_procesada) {
         if (existeReimpresion.rows.length > 0) {
@@ -857,21 +734,19 @@ class InvoiceService {
                 estado = $3,
                 fecha_creacion = CURRENT_TIMESTAMP,
                 fecha_procesamiento = $4
-            FROM facturas fa
-            WHERE facturas_reimpresion.factura_id = fa.id
-            AND fa.alegra_id = $1
+            WHERE factura_propia_id = (SELECT id FROM factura WHERE alegra_id = $1::text)
           `, [
-            alegra_id,
+            String(alegra_id),
             JSON.stringify(ajustes),
             marcar_como_procesada ? 'procesada' : 'pendiente',
             marcar_como_procesada ? new Date() : null
           ]);
         } else {
           await query(`
-            INSERT INTO facturas_reimpresion (factura_id, ajustes_realizados, estado, fecha_creacion, fecha_procesamiento)
-            VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4)
+            INSERT INTO facturas_reimpresion (factura_propia_id, ajustes_realizados, estado, fecha_creacion, fecha_procesamiento)
+            VALUES ((SELECT id FROM factura WHERE alegra_id = $1::text), $2, $3, CURRENT_TIMESTAMP, $4)
           `, [
-            facturaLocalId,
+            String(alegra_id),
             JSON.stringify(ajustes),
             marcar_como_procesada ? 'procesada' : 'pendiente',
             marcar_como_procesada ? new Date() : null
@@ -915,10 +790,8 @@ class InvoiceService {
         await query(`
           UPDATE faltantes
           SET estado = 'procesado'
-          FROM facturas fa
-          WHERE faltantes.factura_id = fa.id
-          AND fa.alegra_id = $1
-        `, [alegra_id]);
+          WHERE factura_propia_id = (SELECT id FROM factura WHERE alegra_id = $1::text)
+        `, [String(alegra_id)]);
 
         // 4. Actualizar estado de factura a procesado en DB local solo al finalizar
         await query(`
@@ -961,12 +834,10 @@ class InvoiceService {
       const faltantesRecuperados = await query(`
         UPDATE faltantes
         SET estado = 'pendiente'
-        FROM facturas fa
-        WHERE faltantes.factura_id = fa.id
-        AND fa.alegra_id = $1
-        AND faltantes.estado = 'procesado'
-        RETURNING faltantes.id
-      `, [invoiceId]);
+        WHERE factura_propia_id = (SELECT id FROM factura WHERE alegra_id = $1::text)
+        AND estado = 'procesado'
+        RETURNING id
+      `, [String(invoiceId)]);
 
       // 2. Cambiar estado de factura
       await query(`
@@ -980,12 +851,10 @@ class InvoiceService {
         UPDATE facturas_reimpresion
         SET estado = 'pendiente',
             fecha_procesamiento = NULL
-        WHERE facturas_reimpresion.factura_id IN (
-          SELECT fa.id FROM facturas fa WHERE fa.alegra_id = $1
-        )
-        AND facturas_reimpresion.estado = 'procesada'
-        RETURNING facturas_reimpresion.id
-      `, [invoiceId]);
+        WHERE factura_propia_id = (SELECT id FROM factura WHERE alegra_id = $1::text)
+        AND estado = 'procesada'
+        RETURNING id
+      `, [String(invoiceId)]);
 
       console.log(`✅ Factura ${invoiceId} recuperada`);
 
@@ -1001,79 +870,6 @@ class InvoiceService {
       };
     } catch (error) {
       console.error('❌ Error recuperando factura:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Registrar faltantes de una factura
-   */
-  async registerMissingItems(invoiceId, faltantes, registradoPor = 'Usuario', observacionesAdicionales = '') {
-    try {
-      console.log(`📝 Registrando faltantes para factura: ${invoiceId}`);
-
-      // 1. Obtener o crear factura en BD local
-      const facturaResult = await query(`
-        SELECT id FROM facturas WHERE alegra_id = $1
-      `, [invoiceId]);
-
-      let facturaLocalId;
-
-      if (facturaResult.rows.length === 0) {
-        // Crear factura en BD local
-        const alegraResult = await this.alegraInvoiceService.getInvoiceById(invoiceId);
-
-        if (!alegraResult.success) {
-          throw new Error('Factura no encontrada en Alegra');
-        }
-
-        const factura = alegraResult.data;
-
-        const newFactura = await query(`
-          INSERT INTO facturas (alegra_id, numero_factura, fecha_emision, total, estado_procesamiento)
-          VALUES ($1, $2, $3, $4, $5)
-          RETURNING id
-        `, [
-          invoiceId,
-          factura.numberTemplate?.fullNumber,
-          factura.date,
-          factura.total,
-          'pendiente'
-        ]);
-
-        facturaLocalId = newFactura.rows[0].id;
-      } else {
-        facturaLocalId = facturaResult.rows[0].id;
-      }
-
-      // 2. Guardar faltantes (utils/guardarFaltantes.js: lo usa también
-      //    Bodega con las facturas propias).
-      await guardarFaltantes(facturaLocalId, faltantes, registradoPor);
-
-      // 3. Guardar observaciones adicionales si existen
-      if (observacionesAdicionales) {
-        await query(`
-          UPDATE facturas
-          SET observaciones_adicionales = $1
-          WHERE id = $2
-        `, [observacionesAdicionales, facturaLocalId]);
-      }
-
-      console.log(`✅ ${faltantes.length} faltantes registrados`);
-
-      return {
-        success: true,
-        message: 'Faltantes registrados correctamente',
-        data: {
-          factura_id: invoiceId,
-          faltantes_registrados: faltantes.length
-        }
-      };
-    } catch (error) {
-      console.error('❌ Error registrando faltantes:', error);
       return {
         success: false,
         error: error.message
@@ -1103,13 +899,13 @@ class InvoiceService {
         const faltanteResult = await query(`
           SELECT f.id as faltante_id
           FROM faltantes f
-          JOIN productos p ON f.producto_id = p.id
-          JOIN facturas fa ON f.factura_id = fa.id
-          WHERE fa.alegra_id = $1
-          AND p.codigo = $2
+          JOIN producto p ON p.id = f.producto_propio_id
+          JOIN factura fa ON fa.id = f.factura_propia_id
+          WHERE fa.alegra_id = $1::text
+          AND p.referencia = $2
           AND f.estado = 'pendiente'
           LIMIT 1
-        `, [alegraId, ajuste.producto_codigo]);
+        `, [String(alegraId), ajuste.producto_codigo]);
 
         if (faltanteResult.rows.length > 0) {
           const faltante_id = faltanteResult.rows[0].faltante_id;
@@ -1149,7 +945,7 @@ class InvoiceService {
                COUNT(fa.id) as total_faltantes
         FROM facturas f
         LEFT JOIN factura_items fi ON f.id = fi.factura_id
-        LEFT JOIN faltantes fa ON f.id = fa.factura_id
+        LEFT JOIN faltantes fa ON fa.factura_propia_id = f.factura_propia_id
       `;
 
       const conditions = [];
@@ -1487,7 +1283,7 @@ class InvoiceService {
                COUNT(fa.id) as total_faltantes
         FROM facturas f
         LEFT JOIN factura_items fi ON f.id = fi.factura_id
-        LEFT JOIN faltantes fa ON f.id = fa.factura_id
+        LEFT JOIN faltantes fa ON fa.factura_propia_id = f.factura_propia_id
         WHERE f.numero_factura ILIKE $1 
            OR f.cliente_nombre ILIKE $1
            OR f.cliente_email ILIKE $1

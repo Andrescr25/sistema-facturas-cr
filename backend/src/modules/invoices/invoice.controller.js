@@ -267,42 +267,6 @@ class InvoiceController {
   };
 
   /**
-   * Registrar faltantes de una factura
-   */
-  registerMissingItems = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { faltantes, registrado_por, observaciones_adicionales } = req.body;
-
-      if (!id) {
-        return ResponseHelper.validationError(res, { id: ['ID es requerido'] });
-      }
-
-      if (!faltantes || !Array.isArray(faltantes) || faltantes.length === 0) {
-        return ResponseHelper.validationError(res, {
-          faltantes: ['Faltantes debe ser un array no vacío']
-        });
-      }
-
-      const result = await this.invoiceService.registerMissingItems(
-        id,
-        faltantes,
-        registrado_por || 'Usuario',
-        observaciones_adicionales || ''
-      );
-
-      if (result.success) {
-        return ResponseHelper.success(res, result.data, result.message, 201);
-      }
-
-      return ResponseHelper.error(res, result.error, 400);
-    } catch (error) {
-      console.error('❌ Error en registerMissingItems:', error);
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  /**
    * Obtener todas las facturas locales con filtros
    */
   getInvoices = async (req, res) => {

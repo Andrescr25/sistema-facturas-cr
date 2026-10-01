@@ -21,7 +21,7 @@ export default function PanelNotasProveedor({ productos, notasPorProducto, carga
 
   const conNotas = useMemo(() => {
     return (productos || [])
-      .map(p => ({ producto: p, notas: notasPorProducto?.[String(p.alegra_item_id)] || [] }))
+      .map(p => ({ producto: p, notas: notasPorProducto?.[String(p.producto_id)] || [] }))
       .filter(x => x.notas.length > 0)
   }, [productos, notasPorProducto])
 

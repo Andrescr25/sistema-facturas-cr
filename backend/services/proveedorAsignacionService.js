@@ -11,8 +11,10 @@ const { calcularCostoUnitarioPropio } = require('../src/modules/precios/costo');
  * el que tiene el precio más bajo.
  * 
  * @param {number} faltanteId - ID del faltante en la tabla faltantes
- * @param {number} productoId - ID del producto en la tabla productos (BD local)
- * @param {number} allegraId - ID del producto en Alegra (ej: 900)
+ * @param {number} productoId - ID PROPIO del producto (`producto.id`, el de
+ *   `faltantes.producto_propio_id`; migración independencia/032)
+ * @param {number} allegraId - ID del producto en Alegra (ej: 900), para los
+ *   mapeos viejos que no tengan el id propio
  * @param {string} productoCodigo - Código/reference del producto (ej: "SED")
  * 
  * @returns {Promise<Object>} { success, proveedor, precio }
@@ -37,10 +39,12 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
     // PASO 1: Buscar TODOS los mappings del producto
     // ─────────────────────────────────────────────────────────────────────────
     // Buscamos por:
+    //   - producto_id: el id PROPIO, que los mapeos llevan desde la
+    //     migración independencia/018 (2.056 de 2.060)
     //   - alegra_item_id: El ID numérico de Alegra (ej: 900)
     //   - alegra_reference: El código interno del producto (ej: "SED")
     //
-    // ¿Por qué ambos? Porque algunos mappings usan uno u otro
+    // ¿Por qué los tres? Porque algunos mappings viejos usan uno u otro
     // ─────────────────────────────────────────────────────────────────────────
     const mappings = await query(`
       SELECT
@@ -54,14 +58,15 @@ async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, pro
         factor_conversion as "factorConversion"
       FROM supplier_product_mapping
       WHERE (
-        (alegra_item_id::text = $1 AND $1 IS NOT NULL)
+        (producto_id = $3::int AND $3::int IS NOT NULL)
+        OR (alegra_item_id::text = $1 AND $1 IS NOT NULL)
         OR alegra_reference = $2
       )
       -- Sin ORDER BY confidence: todos los mapeos los asignó una persona,
       -- así que valen lo mismo. Ordenar por ese campo hacía que un mapeo con
       -- una confianza inventada (999.99) le ganara a los reales.
       ORDER BY last_used_date DESC NULLS LAST
-    `, [allegraId?.toString(), productoCodigo]);
+    `, [allegraId?.toString() || null, productoCodigo, Number.isInteger(Number(productoId)) ? Number(productoId) : null]);
 
     if (mappings.rows.length === 0) {
       console.log(`⚠️ No se encontraron mappings para producto ${productoCodigo}`);

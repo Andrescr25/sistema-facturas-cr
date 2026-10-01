@@ -116,29 +116,32 @@ describe('el reporte de faltantes deja fuera las anuladas', { skip: hayBase ? fa
   test('ninguna factura anulada trae faltantes al reporte', async () => {
     // Solo lectura contra la base real: se comprueba la condición nueva tal
     // como la ve Postgres, sin escribir ni una fila.
+    // Desde la migración independencia/032 el faltante cuelga de la factura
+    // PROPIA, y "anulada" es su `estado` (no el estado de bodega de la tabla vieja).
     const r = await pool.query(`
       SELECT COUNT(*)::int AS n
       FROM faltantes f
-      JOIN facturas fa ON f.factura_id = fa.id
+      JOIN factura fa ON fa.id = f.factura_propia_id
       WHERE f.estado IN ('pendiente', 'procesado')
         AND f.tipo_faltante != 'completo'
         AND (f.cantidad_faltante::numeric > 0)
-        AND fa.estado_bodega IS DISTINCT FROM 'anulada'
-        AND fa.estado_bodega = 'anulada';
+        AND fa.estado <> 'anulada'
+        AND fa.estado = 'anulada';
     `);
     assert.equal(r.rows[0].n, 0, 'la condición no está filtrando lo que dice filtrar');
   });
 
-  test('la condición usa IS DISTINCT FROM y no <>, que dejaría pasar los NULL', async () => {
-    // `estado_bodega <> 'anulada'` es NULL cuando la columna es NULL, y una
-    // condición NULL descarta la fila: una factura sin estado desaparecería
-    // del reporte sin que nadie la anulara.
-    const conNull = await pool.query(`
-      SELECT
-        (NULL::varchar IS DISTINCT FROM 'anulada') AS con_is_distinct,
-        (NULL::varchar <> 'anulada')               AS con_distinto;
+  test('`estado <> \'anulada\'` no pierde facturas: la columna no admite NULL', async () => {
+    // Con la tabla vieja la condición tenía que ser IS DISTINCT FROM:
+    // `estado_bodega` podía ser NULL, `NULL <> 'anulada'` es NULL y una
+    // condición NULL descarta la fila — una factura sin estado desaparecía del
+    // reporte sin que nadie la anulara. `factura.estado` es NOT NULL (borrador,
+    // emitida o anulada), así que `<>` alcanza. Si algún día admite NULL, esta
+    // prueba avisa antes de que se pierdan faltantes.
+    const r = await pool.query(`
+      SELECT is_nullable FROM information_schema.columns
+       WHERE table_name = 'factura' AND column_name = 'estado'
     `);
-    assert.equal(conNull.rows[0].con_is_distinct, true, 'la que se usa deja pasar los NULL');
-    assert.equal(conNull.rows[0].con_distinto, null, 'la otra los descartaría en silencio');
+    assert.equal(r.rows[0]?.is_nullable, 'NO');
   });
 });

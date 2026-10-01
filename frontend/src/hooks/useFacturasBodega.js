@@ -325,6 +325,9 @@ export function useFacturasBodega() {
     try {
       setGuardando(true)
       const payload = Object.values(faltantesDraft).map((item) => ({
+        // El id PROPIO del producto primero: es con el que se guarda el
+        // faltante. La referencia y el de Alegra quedan para líneas viejas.
+        producto_id: item.producto_id || null,
         referencia: item.referenciaReal || null,
         alegra_item_id: item.alegra_id || null,
         nombre_producto: item.nombre,

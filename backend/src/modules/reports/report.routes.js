@@ -20,14 +20,9 @@ router.get('/faltantes/cliente', reportController.getMissingItemsByClient);
 // Limpiar faltantes procesados
 router.delete('/faltantes/proveedor/limpiar', reportController.clearProcessedSupplierMissingItems);
 
-// Encargos especiales
-router.get('/encargos-especiales', reportController.getEncargosEspeciales);
-
-// Reporte consolidado de faltantes
-router.get('/faltantes/consolidado', reportController.getMissingItemsConsolidated);
-
-// Reporte de compras sugeridas por proveedor
-router.get('/compras/sugeridas', reportController.getSuggestedPurchases);
+// Encargos especiales, consolidado y compras sugeridas se retiraron el
+// 2026-09-30 (rama independencia-alegra, migración 032): ninguna pantalla los
+// llamaba y leían la tabla vieja de proveedores por `productos.proveedor_id`.
 
 // Historial de procesamientos
 router.get('/historial', reportController.getProcessingHistory);

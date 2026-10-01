@@ -13,20 +13,21 @@
  *    factura sin dar error (leccion/ids-propios-y-de-alegra-no-se-mezclan).
  *  - El estado de alistado se guarda en `factura` (migración 031).
  *
- * EL PUENTE. Faltantes, el Reporte de Proveedores, la cola de impresión y la
- * línea de tiempo del portal todavía leen la tabla vieja `facturas` (pasos 2
- * y 3). Cada factura propia se enlaza a su fila vieja por
- * `facturas.factura_propia_id` (`filaVieja`), y despachar escribe en las dos.
- * Los faltantes se guardan con la misma función que usa el camino de Alegra
- * (utils/guardarFaltantes.js). Cuando esos módulos lean `factura`, el puente
- * se retira.
+ *  - Los faltantes y la cola de impresión cuelgan de `factura.id` y
+ *    `producto.id` (migración 032, pasos 2 y 3).
+ *
+ * EL PUENTE. La línea de tiempo del portal todavía lee el estado de alistado
+ * de la tabla vieja `facturas`. Cada factura propia se enlaza a su fila vieja
+ * por `facturas.factura_propia_id` (`filaVieja`), y despachar escribe en las
+ * dos. Cuando el portal lea `factura`, el puente se retira.
  */
 
 const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { semanaDe } = require('../facturacion/facturaPropia.service');
-const { encolarImpresion, ordenarHistorial } = require('./warehouse.service');
+const { ordenarHistorial } = require('./warehouse.service');
+const { encolarSinPendientes } = require('../reprinting/colaImpresion');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -190,13 +191,13 @@ async function estados(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
   const { rows } = await query(`
     SELECT f.tipo_faltante, f.cantidad_faltante, f.observaciones,
-           p.codigo AS referencia, p.alegra_id AS alegra_item_id
+           p.id AS producto_id, p.referencia, p.alegra_id AS alegra_item_id
       FROM faltantes f
-      JOIN productos p ON p.id = f.producto_id
-      JOIN facturas fa ON fa.id = f.factura_id
-     WHERE fa.factura_propia_id = $1
+      JOIN producto p ON p.id = f.producto_propio_id
+     WHERE f.factura_propia_id = $1
   `, [facturaId]);
   return rows.map((r) => ({
+    productoId: r.producto_id,
     referencia: r.referencia ? String(r.referencia).trim() : null,
     alegraItemId: r.alegra_item_id ? String(r.alegra_item_id).trim() : null,
     tipoFaltante: r.tipo_faltante,
@@ -209,15 +210,18 @@ async function estados(facturaIdCrudo) {
 async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bodega') {
   const facturaId = idDeFactura(facturaIdCrudo);
   if (!Array.isArray(faltantes)) throw httpError(400, 'No vino la lista de productos.');
-  const fila = await filaVieja(facturaId);
-  const guardados = await guardarFaltantes(fila, faltantes, registradoPor);
+  const { rows: [f] } = await query('SELECT numero, estado FROM factura WHERE id = $1', [facturaId]);
+  if (!f) throw httpError(404, 'Esa factura no existe.');
+  if (f.estado !== 'emitida') throw httpError(409, `La factura ${f.numero || facturaId} está ${f.estado}: no se alista.`);
+  const guardados = await guardarFaltantes(facturaId, faltantes, registradoPor);
   return { factura_id: facturaId, faltantes_registrados: guardados };
 }
 
 /**
  * POST /bodega/facturas-propias/:facturaId/estado — despachar (o reabrir).
  * Escribe en `factura` y en su fila vieja en la misma transacción, con la
- * misma hora. Sin faltantes, a la cola de impresión.
+ * misma hora. Sin faltantes, a la cola de impresión, en la misma transacción:
+ * una factura despachada que no llegó a la cola no la vería nadie.
  */
 async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, enviarAImpresion = false } = {}) {
   const facturaId = idDeFactura(facturaIdCrudo);
@@ -245,10 +249,10 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
              observaciones_adicionales = COALESCE($3::text, observaciones_adicionales)
        WHERE id = $4
     `, [estado, facturaId, observaciones, fila]);
-    return { factura: f, fila };
-  });
 
-  if (procesado && enviarAImpresion) await encolarImpresion(resultado.fila, resultado.factura.numero);
+    if (procesado && enviarAImpresion) await encolarSinPendientes(facturaId, c);
+    return { factura: f };
+  });
 
   return {
     success: true,

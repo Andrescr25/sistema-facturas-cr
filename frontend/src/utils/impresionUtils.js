@@ -123,7 +123,18 @@ export const getTaxesArray = (tax) => {
   return [tax]
 }
 
+/**
+ * Una fecha de calendario 'YYYY-MM-DD' (la emisión de la factura propia) se
+ * muestra como ese día, sin hora: `new Date('2026-09-10')` es medianoche UTC,
+ * que en Costa Rica todavía es el 9. Un instante (cuándo se procesó) lleva
+ * su hora.
+ */
 export const formatDate = (dateString) => {
+  const soloDia = String(dateString ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (soloDia) {
+    return new Date(Number(soloDia[1]), Number(soloDia[2]) - 1, Number(soloDia[3]))
+      .toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
   return new Date(dateString).toLocaleDateString('es-ES', {
     year: 'numeric',
     month: 'short',

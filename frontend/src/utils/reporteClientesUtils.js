@@ -34,8 +34,19 @@ export function getFacturaEstado(factura, facturasEstado) {
   return facturasEstado.get(getFacturaKey(factura)) || { estado: 'pendiente', origen: 'default' }
 }
 
+/**
+ * Una fecha de calendario 'YYYY-MM-DD' como día LOCAL. `new Date('2026-09-10')`
+ * es medianoche UTC, que en Costa Rica todavía es el 9: desde que el reporte
+ * lee la factura propia (fecha de calendario, migración 032) mostraba cada
+ * factura con un día menos. Lo demás (un instante) se lee tal cual.
+ */
+function fechaLocal(valor) {
+  const soloDia = String(valor ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return soloDia ? new Date(Number(soloDia[1]), Number(soloDia[2]) - 1, Number(soloDia[3])) : new Date(valor)
+}
+
 export function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
+  return fechaLocal(dateString).toLocaleDateString('es-CR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 export function formatDateTime(dateString) {
