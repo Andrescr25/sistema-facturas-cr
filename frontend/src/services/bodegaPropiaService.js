@@ -2,9 +2,9 @@ import api from './api'
 
 /**
  * Facturas en Bodega sobre la factura PROPIA (rama independencia-alegra,
- * sección 11 del checklist). Todo va por `facturaId`, el id propio: las rutas
- * de Alegra (`/alegra/bodega/facturas/:alegraId`) siguen en alegraService para
- * lo que todavía llega por ahí, con otro nombre a propósito.
+ * sección 11 del checklist). Todo va por `facturaId`, el id propio. Las rutas
+ * por id de Alegra (`/alegra/bodega/facturas/:alegraId`) se retiraron el
+ * 2026-09-30.
  */
 export const bodegaPropiaService = {
   async listar({ dias, limit } = {}) {

@@ -1,15 +1,13 @@
 ---
 id: modulo/facturas-bodega
 tipo: modulo
-titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia
+titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
-  - backend/src/modules/warehouse/warehouse.service.js
   - backend/src/modules/warehouse/warehouse.controller.js
   - frontend/src/hooks/useFacturasBodega.js
   - frontend/src/pages/FacturasBodega.jsx
   - frontend/src/utils/facturasBodegaUtils.js
-  - backend/tests/bodegaSincronizacion.test.js
   - backend/tests/bodegaUtils.test.js
   - backend/src/modules/warehouse/bodegaPropia.js
   - backend/src/utils/guardarFaltantes.js
@@ -22,49 +20,33 @@ aristas:
 medido: 2026-09-30
 ---
 
-EN ESTA RAMA, SOBRE LA FACTURA PROPIA (2026-09-29, sección 11, paso 1). La
-pantalla lista las facturas EMITIDAS de `factura` con sus líneas
-(`bodegaPropia.js`, `GET /alegra/bodega/facturas-propias`), con `factura_id`
-como identidad; el estado de alistado vive en `factura` (migración 031). Las
-rutas por `alegraId` siguen vivas pero la pantalla de la rama no las usa. Lo
-guardado en el teléfono va bajo claves nuevas (`facturasBodegaPropia:*`):
-con las viejas, un borrador de la factura 12 de Alegra se habría aplicado a
-la factura propia 12.
+SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
+2026-09-30). La pantalla lista las facturas EMITIDAS de `factura` con sus
+líneas (`bodegaPropia.js`, `GET /alegra/bodega/facturas-propias`), con
+`factura_id` como identidad; el estado de alistado vive en `factura`
+(migración 031). Lo guardado en el teléfono va bajo claves nuevas
+(`facturasBodegaPropia:*`): con las viejas, un borrador de la factura 12 de
+Alegra se habría aplicado a la factura propia 12.
 
 LOS FALTANTES Y LA COLA cuelgan de `factura.id` y `producto.id` desde la
-migración 032 (2026-09-30, ver [[modulo/faltantes]]): la pantalla manda el
-`producto_id` propio de cada línea, y lo registrado vuelve con él
-(`aplicarEstadosGuardados` empareja primero por ese id: dos productos con la
-misma referencia ya no se pisan). Despachar sin faltantes encola la factura
-por su id propio, en la misma transacción.
+migración 032 (ver [[modulo/faltantes]]): la pantalla manda el `producto_id`
+propio de cada línea, y lo registrado vuelve con él (`aplicarEstadosGuardados`
+empareja primero por ese id: dos productos con la misma referencia ya no se
+pisan). Despachar sin faltantes encola la factura por su id propio, en la
+misma transacción.
 
-EL PUENTE CON LA TABLA VIEJA: el portal todavía lee el estado de alistado de
-`facturas`. Cada factura propia se enlaza a su fila por
-`facturas.factura_propia_id` (`filaVieja`: por id de Alegra si vino de allá,
-por número si es la misma; un número de otra factura de Alegra da 409).
-Despachar escribe en las dos en una transacción, con la misma hora copiada
-en SQL. Se retira al final de la sección 11.
+SIN PUENTE NI ALEGRA (2026-09-30). Durante la migración cada despacho se
+copiaba también a la tabla vieja `facturas` (enlazada por
+`facturas.factura_propia_id`), porque Faltantes, la cola de impresión y la
+línea de tiempo del portal la leían. Todos leen `factura` ahora: despachar
+escribe solo ahí. Se retiraron también las rutas por id de Alegra
+(`/bodega/facturas/:alegraId`), que le pedían la lista a Alegra con una caché
+por ventana de días: en `main` siguen así.
 
 EL CERO EN UNA COLUMNA ÚNICA: la copia de cada factura propia entraba con
 `facturas.alegra_id = 0`, y esa columna es única: la SEGUNDA factura propia
-chocaba con la primera y no se podía facturar. No saltó porque la copia local
-no tenía facturas propias. Ahora entra con NULL (031 suelta el NOT NULL).
-
-Lo que sigue es cómo funciona en `main`, donde las facturas son de Alegra:
-
-Bodega alista cada factura de venta desde el teléfono: marca cada producto
-como completo, faltó todo o parcial, y la factura pasa al historial (y, sin
-faltantes, a la cola de impresión). Las facturas vienen de Alegra; el estado
-de bodega, los faltantes y la hora de despacho (`facturas.bodega_procesado_en`)
-son nuestros.
-
-LA SINCRONIZACIÓN NO HACE ESPERAR AL TELÉFONO (2026-09-23). La caché del
-servidor guarda SOLO lo de Alegra, por ventana de días; lo nuestro se lee de
-la base en cada pedido. Con la caché vencida se contesta con lo guardado y se
-actualiza por detrás (`metadata.actualizando`); dos pedidos a la vez comparten
-una sola sincronización. Antes cada factura despachada invalidaba la caché y
-la siguiente apertura sincronizaba todo con Alegra (60 s por página × 4
-intentos en un mal momento): ese era el "timeout al sincronizar" del teléfono.
+chocaba con la primera y no se podía facturar. La 031 soltó el NOT NULL; la
+copia ya no existe.
 
 EL HISTORIAL VA EN ORDEN DE DESPACHO: la última despachada primero
 (`ordenarHistorial`, por `despachada_en`); las anteriores al 25 de agosto,
@@ -72,8 +54,8 @@ sin hora, al final.
 
 TRAMPAS QUE YA COSTARON
 - Abrir una factura le pedía el detalle a Alegra y, al llegar, pisaba lo que
-  el bodeguero ya había marcado. Ahora lo registrado sale de la base
-  (`GET /bodega/facturas/:id/estados`) y los botones esperan quietos.
+  el bodeguero ya había marcado. Lo registrado sale de la base
+  (`GET /bodega/facturas-propias/:id/estados`) y los botones esperan quietos.
 - Bodega registra también los productos COMPLETOS (tipo 'completo') para poder
   reabrir la factura igual: cualquier conteo de faltantes tiene que excluirlos
   (`tipo_faltante <> 'completo' AND cantidad_faltante > 0`), o se infla. Esta

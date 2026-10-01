@@ -476,12 +476,13 @@ describe('editar una factura emitida', () => {
 });
 
 describe('rastro', () => {
-  test('queda en la bitácora y alimenta la tabla que lee Bodega', async () => {
+  test('queda en la bitácora, y ya no se copia a la tabla vieja', async () => {
     const { servicio, log } = montar();
     await servicio.crearFactura(VENTA, 4);
     assert.ok(hubo(log, /INSERT INTO bitacora_cambio/));
     assert.equal(params(log, /INSERT INTO bitacora_cambio/).includes('factura'), true);
-    // Facturas en Bodega y Faltantes todavía leen la tabla vieja.
-    assert.ok(hubo(log, /INSERT INTO facturas \(/));
+    // Bodega, Faltantes, Impresión y el portal leen `factura` desde la
+    // sección 11: la copia en `facturas` se retiró el 2026-09-30.
+    assert.equal(hubo(log, /INSERT INTO facturas \(/), false);
   });
 });

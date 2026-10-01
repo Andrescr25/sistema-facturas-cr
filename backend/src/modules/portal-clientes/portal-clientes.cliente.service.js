@@ -17,12 +17,19 @@ const MIN_PASSWORD = 8;
 
 /**
  * El pedido con su etapa y su línea de tiempo, para que el cliente vea en qué
- * va. `estado_bodega` sale de la factura local: se une por alegra_invoice_id
- * y puede venir NULL (la fila de `facturas` todavía no existe), que
- * seguimiento.js maneja como "En preparación".
+ * va. El estado de alistado sale de la factura PROPIA (`factura`, desde la
+ * sección 11 del checklist; antes, de la tabla vieja `facturas`). En esta rama
+ * el pedido todavía se factura en Alegra (sección 12), así que se une por el
+ * id de Alegra, que `factura` guarda de las que vinieron de allá. Puede venir
+ * NULL (la factura todavía no se cargó), que seguimiento.js maneja como "En
+ * preparación". Una factura anulada se ve como 'anulada': "No procesado".
  */
 const JOIN_BODEGA = `
-  LEFT JOIN facturas f ON f.alegra_id = NULLIF(p.alegra_invoice_id, '')::integer
+  LEFT JOIN factura f ON f.alegra_id = NULLIF(p.alegra_invoice_id, '')
+`;
+const COLUMNAS_BODEGA = `
+  CASE WHEN f.estado = 'anulada' THEN 'anulada' ELSE f.estado_bodega END AS estado_bodega,
+  f.bodega_procesado_en
 `;
 
 function conSeguimiento(fila, extra = {}) {
@@ -277,7 +284,7 @@ async function tasasDe(alegraItemIds) {
 
 async function misPedidos(clienteId) {
   const r = await query(`
-    SELECT p.*, f.estado_bodega, f.bodega_procesado_en,
+    SELECT p.*, ${COLUMNAS_BODEGA},
       (SELECT COUNT(*)::int FROM pedido_cliente_linea l WHERE l.pedido_id = p.id) AS lineas
     FROM pedido_cliente p
     ${JOIN_BODEGA}
@@ -299,7 +306,7 @@ async function misPedidos(clienteId) {
 
 async function detallePedido(clienteId, pedidoId) {
   const p = await query(`
-    SELECT p.*, f.estado_bodega, f.bodega_procesado_en
+    SELECT p.*, ${COLUMNAS_BODEGA}
     FROM pedido_cliente p
     ${JOIN_BODEGA}
     WHERE p.id = $1 AND p.cliente_portal_id = $2;

@@ -16,17 +16,15 @@
  *  - Los faltantes y la cola de impresión cuelgan de `factura.id` y
  *    `producto.id` (migración 032, pasos 2 y 3).
  *
- * EL PUENTE. La línea de tiempo del portal todavía lee el estado de alistado
- * de la tabla vieja `facturas`. Cada factura propia se enlaza a su fila vieja
- * por `facturas.factura_propia_id` (`filaVieja`), y despachar escribe en las
- * dos. Cuando el portal lea `factura`, el puente se retira.
+ * SIN PUENTE (2026-09-30). Hasta acá cada despacho se copiaba también a la
+ * tabla vieja `facturas` (enlazada por `factura_propia_id`), porque
+ * Faltantes, la cola de impresión y el portal la leían. Ya leen `factura`:
+ * despachar escribe solo acá.
  */
 
 const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { guardarFaltantes } = require('../../utils/guardarFaltantes');
-const { semanaDe } = require('../facturacion/facturaPropia.service');
-const { ordenarHistorial } = require('./warehouse.service');
 const { encolarSinPendientes } = require('../reprinting/colaImpresion');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
@@ -90,6 +88,22 @@ function aFactura(f, lineas) {
 }
 
 /**
+ * El historial en ORDEN DE DESPACHO: la última factura despachada primero, la
+ * anterior segunda, y así. Las despachadas antes de que existiera la hora
+ * (antes del 25 de agosto) van al final, por fecha de emisión.
+ */
+function ordenarHistorial(listas) {
+  return [...listas].sort((a, b) => {
+    const ta = a.despachada_en ? new Date(a.despachada_en).getTime() : null;
+    const tb = b.despachada_en ? new Date(b.despachada_en).getTime() : null;
+    if (ta !== null && tb !== null) return tb - ta;
+    if (ta !== null) return -1;
+    if (tb !== null) return 1;
+    return String(b.fecha_emision || '').localeCompare(String(a.fecha_emision || ''));
+  });
+}
+
+/**
  * GET /bodega/facturas-propias?dias=&limit= — la misma ventana que usaba la
  * pantalla con Alegra: las `limit` más nuevas de los últimos `dias` días.
  */
@@ -131,61 +145,6 @@ async function listar({ dias, limit } = {}) {
   };
 }
 
-/**
- * La fila de la tabla vieja `facturas` de una factura propia, creándola o
- * enlazándola si hace falta. `db` es un cliente de transacción o el módulo
- * de base.
- */
-async function filaVieja(facturaId, db = { query }) {
-  const ya = await db.query(`SELECT id FROM facturas WHERE factura_propia_id = $1`, [facturaId]);
-  if (ya.rows[0]) return ya.rows[0].id;
-
-  const { rows: [f] } = await db.query(`
-    SELECT id, numero, alegra_id, estado, cliente_nombre, cliente_correo, fecha::text AS fecha, total
-      FROM factura WHERE id = $1
-  `, [facturaId]);
-  if (!f) throw httpError(404, 'Esa factura no existe.');
-  if (f.estado !== 'emitida') throw httpError(409, `La factura ${f.numero || f.id} está ${f.estado}: no se alista.`);
-
-  // Una factura de Alegra cargada en la base propia: su fila vieja es la del
-  // mismo id de Alegra, que en las dos tablas es la identidad real.
-  if (f.alegra_id) {
-    const r = await db.query(
-      `UPDATE facturas SET factura_propia_id = $1 WHERE alegra_id = $2::int AND factura_propia_id IS NULL RETURNING id`,
-      [f.id, f.alegra_id]
-    );
-    if (r.rows[0]) return r.rows[0].id;
-  }
-
-  // Mismo número: es la misma solo si no está enlazada a otra y no es de
-  // OTRA factura de Alegra (ver sección 15 del checklist: la serie propia
-  // atrasada choca con números que Alegra ya usó).
-  const { rows: [v] } = await db.query(
-    `SELECT id, alegra_id, factura_propia_id FROM facturas WHERE numero_factura = $1`, [f.numero]
-  );
-  if (v) {
-    const esLaMisma = v.factura_propia_id === null &&
-      (v.alegra_id === null || (f.alegra_id && String(v.alegra_id) === String(f.alegra_id)));
-    if (!esLaMisma) {
-      throw httpError(409, `El número ${f.numero} ya lo tiene otra factura en la tabla vieja: revisar la serie (sección 15 del checklist).`);
-    }
-    await db.query(`UPDATE facturas SET factura_propia_id = $1 WHERE id = $2`, [f.id, v.id]);
-    return v.id;
-  }
-
-  const fecha = f.fecha;
-  const nueva = await db.query(`
-    INSERT INTO facturas (numero_factura, alegra_id, factura_propia_id, cliente_nombre, cliente_email,
-                          fecha_emision, semana, mes, ano, total, estado_bodega)
-    VALUES ($1, $2::int, $3, $4, $5, $6, $7, $8, $9, $10, 'pendiente')
-    RETURNING id
-  `, [
-    f.numero, f.alegra_id || null, f.id, f.cliente_nombre, f.cliente_correo || null,
-    fecha, semanaDe(fecha), Number(fecha.slice(5, 7)), Number(fecha.slice(0, 4)), Number(f.total) || 0
-  ]);
-  return nueva.rows[0].id;
-}
-
 /** GET /bodega/facturas-propias/:facturaId/estados — lo registrado, producto por producto. */
 async function estados(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
@@ -219,9 +178,8 @@ async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bo
 
 /**
  * POST /bodega/facturas-propias/:facturaId/estado — despachar (o reabrir).
- * Escribe en `factura` y en su fila vieja en la misma transacción, con la
- * misma hora. Sin faltantes, a la cola de impresión, en la misma transacción:
- * una factura despachada que no llegó a la cola no la vería nadie.
+ * Sin faltantes, a la cola de impresión, en la misma transacción: una factura
+ * despachada que no llegó a la cola no la vería nadie.
  */
 async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, enviarAImpresion = false } = {}) {
   const facturaId = idDeFactura(facturaIdCrudo);
@@ -239,17 +197,6 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
     `, [estado, procesado, observaciones, facturaId]);
     if (!f) throw httpError(404, 'Esa factura no existe o no está emitida.');
 
-    const fila = await filaVieja(facturaId, c);
-    // La hora se copia en SQL, no pasando por Node: un Date de JavaScript
-    // pierde los microsegundos y las dos quedarían distintas.
-    await c.query(`
-      UPDATE facturas
-         SET estado_bodega = $1,
-             bodega_procesado_en = (SELECT bodega_procesado_en FROM factura WHERE id = $2),
-             observaciones_adicionales = COALESCE($3::text, observaciones_adicionales)
-       WHERE id = $4
-    `, [estado, facturaId, observaciones, fila]);
-
     if (procesado && enviarAImpresion) await encolarSinPendientes(facturaId, c);
     return { factura: f };
   });
@@ -261,4 +208,4 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
   };
 }
 
-module.exports = { listar, estados, registrarFaltantes, actualizarEstado, filaVieja, aFactura };
+module.exports = { listar, estados, registrarFaltantes, actualizarEstado, aFactura, ordenarHistorial };

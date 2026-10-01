@@ -28,10 +28,9 @@
  *    reintentar es seguro. Lo que sigue haciendo falta es que reenviar la
  *    misma clave devuelva la factura que ya existe en vez de crear otra.
  *
- * 5. SE SIGUE ALIMENTANDO LA TABLA VIEJA `facturas`, enlazada por
- *    `factura_propia_id`. Facturas en Bodega ya lee `factura` (sección 11,
- *    paso 1); Faltantes, la cola de impresión y el portal todavía leen la
- *    vieja. Cuando la lean `factura` (pasos 2 y 3), esta escritura se retira.
+ * 5. YA NO SE COPIA A LA TABLA VIEJA `facturas` (2026-09-30). Se copiaba
+ *    para Bodega, Faltantes, la cola de impresión y el portal; todos leen
+ *    `factura` desde la sección 11 (migraciones 031 y 032).
  */
 
 const { pool } = require('../../../config/database');
@@ -325,22 +324,6 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     usuarioId
   });
 
-  // Faltantes, la cola de impresión y el portal todavía leen la tabla vieja
-  // (pasos 2 y 3 de la sección 11). La copia queda ENLAZADA por
-  // `factura_propia_id` y SIN id de Alegra: antes entraba con alegra_id = 0
-  // y, como esa columna es única, la segunda factura propia chocaba con la
-  // primera y no se podía facturar (migración 031).
-  await cliente.query(
-    `INSERT INTO facturas (numero_factura, alegra_id, factura_propia_id, cliente_nombre, cliente_email,
-                           fecha_emision, semana, mes, ano, total, estado_bodega)
-     VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente')
-     ON CONFLICT (numero_factura) DO NOTHING`,
-    [
-      factura.numero, factura.id, factura.cliente_nombre, factura.cliente_correo,
-      fecha, semanaDe(fecha), Number(fecha.slice(5, 7)), Number(fecha.slice(0, 4)), armado.total
-    ]
-  );
-
   // EL COBRO VA APARTE DE LA CONDICIÓN DE VENTA, a propósito.
   //
   // "De contado" o "a 30 días" es lo que dice el documento, y sale del plazo
@@ -407,15 +390,6 @@ async function registrarCobro(cliente, { factura, armado, cobro, usuarioId }) {
   );
 
   return rows[0].id;
-}
-
-/** La semana del año, como la calculaba el registro viejo. */
-function semanaDe(fecha) {
-  const [a, m, d] = String(fecha).split('-').map(Number);
-  const dia = new Date(Date.UTC(a, m - 1, d));
-  const inicio = new Date(Date.UTC(a, 0, 1));
-  const dias = Math.floor((dia - inicio) / 86400000);
-  return Math.max(1, Math.ceil((dias + inicio.getUTCDay() + 1) / 7));
 }
 
 /** Lo que se revisa antes de abrir la transacción: cabecera, líneas y cliente. */
@@ -714,4 +688,4 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
 
 module.exports = {
   hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, editarFacturaEn, anularFactura,
-  armarLineas, sumarDias, semanaDe };
+  armarLineas, sumarDias };

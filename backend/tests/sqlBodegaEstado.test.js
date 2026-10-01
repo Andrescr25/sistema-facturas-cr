@@ -35,24 +35,16 @@ require('dotenv').config();
 const hayBase = Boolean(process.env.DATABASE_URL);
 let pool;
 
-// La consulta tal cual la emite warehouse.service.js → actualizarEstadoFactura.
-const SQL_ESTADO_BODEGA = `
-  UPDATE facturas
-  SET estado_bodega = $1,
-      bodega_procesado_en = CASE WHEN $2::boolean THEN CURRENT_TIMESTAMP ELSE NULL END,
-      observaciones_adicionales = CASE
-        WHEN $3::text IS NULL THEN observaciones_adicionales
-        ELSE $3::text
-      END
-  WHERE alegra_id = $4
-  RETURNING *
-`;
-
-// La de duplicados-electronica, que marca la copia anulada.
-const SQL_ANULAR = `
-  UPDATE facturas SET estado_bodega = 'anulada'
-  WHERE alegra_id = $1::integer AND estado_bodega <> 'anulada'
-`;
+// La consulta tal cual la emite bodegaPropia.js → actualizarEstado, leída del
+// archivo: una copia pegada acá dejaría de probar el código el día que
+// cambiara. (Hasta el 2026-09-30 se probaba la de la Bodega vieja, que
+// escribía en la tabla `facturas`; se retiró al terminar la sección 11.)
+const fuente = require('fs').readFileSync(
+  require('path').join(__dirname, '..', 'src', 'modules', 'warehouse', 'bodegaPropia.js'), 'utf8');
+const SQL_ESTADO_BODEGA = (() => {
+  const i = fuente.indexOf('UPDATE factura\n');
+  return fuente.slice(fuente.lastIndexOf('`', i) + 1, fuente.indexOf('`', i));
+})();
 
 let contador = 0;
 
@@ -81,6 +73,11 @@ describe('SQL de estado_bodega — Postgres lo acepta', { skip: hayBase ? false 
   before(() => { ({ pool } = require('../config/database')); });
   after(async () => { await pool?.end().catch(() => {}); });
 
+  test('la consulta es la de despachar en `factura`', () => {
+    assert.match(SQL_ESTADO_BODEGA, /UPDATE factura\s+SET estado_bodega = \$1/);
+    assert.match(SQL_ESTADO_BODEGA, /CASE WHEN \$2::boolean/);
+  });
+
   test('marcar una factura en bodega es SQL válido', async () => {
     const error = await errorAlAnalizar(SQL_ESTADO_BODEGA);
     assert.equal(error, null, `Postgres rechazó la consulta: ${error?.message} (${error?.code})`);
@@ -91,19 +88,14 @@ describe('SQL de estado_bodega — Postgres lo acepta', { skip: hayBase ? false 
     assert.notEqual(error?.code, '42P08', 'volvió el bug: un parámetro con tipos incompatibles');
   });
 
-  test('marcar la copia como anulada es SQL válido', async () => {
-    const error = await errorAlAnalizar(SQL_ANULAR);
-    assert.equal(error, null, `Postgres rechazó la consulta: ${error?.message} (${error?.code})`);
-  });
-
   test('la prueba sirve: una consulta con el bug SÍ es rechazada', async () => {
     // Sin esto, los tests de arriba pasarían igual si `errorAlAnalizar`
     // devolviera null siempre por un descuido.
     const conBug = `
-      UPDATE facturas
+      UPDATE factura
       SET estado_bodega = $1,
           bodega_procesado_en = CASE WHEN $1 = 'procesado' THEN CURRENT_TIMESTAMP ELSE NULL END
-      WHERE alegra_id = $2
+      WHERE id = $2
     `;
     const error = await errorAlAnalizar(conBug);
     assert.equal(error?.code, '42P08', 'la verificación no detecta el bug que motivó este archivo');

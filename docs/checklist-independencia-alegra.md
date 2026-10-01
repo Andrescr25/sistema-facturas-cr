@@ -580,9 +580,9 @@ enlace público ya eran propios. **Ahora viven en la base propia** (ver
 
 ## 11. Bodega, impresión y faltantes
 
-**Hoy leen de Alegra:** Facturas en Bodega, Impresión y reimpresión, y
-Faltantes leen las facturas de Alegra por periodo y cambian su estado usando
-el `alegraId`.
+**Terminada el 2026-09-30.** Antes, Facturas en Bodega, Impresión y
+reimpresión, y Faltantes leían las facturas de Alegra por periodo y cambiaban
+su estado usando el `alegraId`; ahora todo va por `factura.id` y `producto.id`.
 
 - [x] Leer las facturas propias — *Facturas en Bodega (2026-09-29):
   `warehouse/bodegaPropia.js` lista las emitidas de `factura` con sus líneas;
@@ -625,8 +625,14 @@ el `alegraId`.
   quedó en ₡4.689,50) → Recuperar → reprocesar sin rebajar dos veces → PDF
   propio → la 14835, con cobro, explica por qué no se edita. Todo restaurado
   y comparado byte a byte.*
-- [ ] Retirar el puente `facturas.factura_propia_id` (el portal todavía lee
-  el estado de alistado de la tabla vieja) y el camino viejo de Bodega
+- [x] Retirar el puente `facturas.factura_propia_id` y el camino viejo de
+  Bodega — *2026-09-30: la factura propia ya no se copia a `facturas`, Bodega
+  no la espeja, y el portal (línea de tiempo del pedido) y el tablero leen el
+  alistado de `factura`. Fuera el camino por id de Alegra: la Bodega que leía
+  de Alegra, procesar/recuperar/listas de la cola en `invoice.service`, y sus
+  métodos del frontend. Una prueba barre todo el SQL del servidor buscando
+  columnas renombradas (se habían escapado dos). La columna del puente queda
+  para que la 032 corra en el corte.*
 - [x] *Vino de main (2026-09-29):* la marca "Pedido enviado" del Reporte de
   Proveedores dura un ciclo (`ciclo_pedidos`): la limpieza semanal y el botón
   de Configuración la reinician. Al migrar faltantes, conservar ese reinicio.

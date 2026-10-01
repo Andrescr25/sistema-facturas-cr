@@ -4,9 +4,9 @@ import { abrirPdfFacturaPropia } from './facturaPropiaAdaptador'
 /**
  * La cola de impresión sobre la factura PROPIA (rama independencia-alegra,
  * sección 11 del checklist). Todo va por `facturaId`, el id propio
- * (`factura.id`): las rutas viejas por id de Alegra
+ * (`factura.id`). Las rutas viejas por id de Alegra
  * (`/alegra/facturas/procesar-individual`, `/alegra/facturas/:id/recuperar`)
- * siguen en alegraService con otro nombre a propósito.
+ * se retiraron el 2026-09-30.
  */
 
 /** El mensaje que mandó el servidor, no el "Request failed with status code 409" de axios. */

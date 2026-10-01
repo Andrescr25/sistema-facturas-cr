@@ -125,7 +125,14 @@ EL TOTAL de la pantalla de edición se calcula como el servidor: con la tarifa
 de cada línea y su descuento. Antes sumaba sin impuesto y lo comparaba con el
 total con impuesto: "contra el original" salía siempre negativo.
 
-FALTA (lo que sigue en la sección 11): retirar el puente
-`facturas.factura_propia_id` (el portal todavía lee el estado de alistado de
-la tabla vieja) y el camino viejo por id de Alegra que ya nadie llama
-(`invoice.service`: procesar, recuperar, listas de la cola; Bodega vieja).
+SIN PUENTE (2026-09-30). Nada escribe ya en la tabla vieja `facturas` por
+estos flujos: la factura propia no se copia, Bodega no la espeja, y el
+portal y el tablero leen el alistado de `factura`. Se retiró el camino viejo
+por id de Alegra (procesar, recuperar, listas de la cola, la Bodega que leía
+de Alegra) con sus rutas y sus pruebas. La columna `facturas.factura_propia_id`
+queda —la usa la 032 al correr en el corte— pero nadie la lee ni la escribe.
+
+UNA PRUEBA BARRE TODO EL SQL del servidor buscando `<alias>.factura_id` o
+`.producto_id` sobre `faltantes`/`facturas_reimpresion`
+(faltantesIdsPropios.test.js): dos así se escaparon al primer barrido, en una
+ruta que ninguna pantalla llamaba.

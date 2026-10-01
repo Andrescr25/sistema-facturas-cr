@@ -115,7 +115,8 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
       notas: require('../src/modules/reports/notasDeFaltantes'),
       reportes: new (require('../src/modules/reports/report.service'))(),
       impresion: require('../src/modules/reprinting/procesarImpresion'),
-      facturas: new (require('../src/modules/invoices/invoice.service'))()
+      portal: require('../src/modules/portal-clientes/portal-clientes.cliente.service'),
+      tablero: require('../src/modules/dashboard/dashboard.service')
     };
 
     // Dos facturas emitidas con al menos dos líneas de productos propios, que
@@ -224,12 +225,6 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('las procesadas se listan', async () => {
     const r = await m.cola.listarProcesadas();
     assert.equal(r.success, true);
-  });
-
-  test('el camino viejo de Impresión (por id de Alegra) sigue corriendo contra las columnas nuevas', async () => {
-    const r = await m.facturas.recoverProcessedInvoice('999999999');
-    assert.equal(r.success, true, r.error);
-    assert.equal(r.data.faltantes_restaurados, 0);
   });
 
   test('Reporte de Clientes → Impresión: los ajustes salen de lo guardado, por el id propio', async () => {
@@ -375,6 +370,29 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     assert.ok(r.some((x) => x.productoId === prod.id && x.reference === prod.referencia));
   });
 
+  test('el tablero cuenta lo que Bodega tiene por alistar, de `factura`', async () => {
+    const antes = (await m.tablero.resumen()).bodega;
+    await cliente.query(`UPDATE factura SET estado_bodega = 'pendiente', fecha = (now() AT TIME ZONE 'America/Costa_Rica')::date WHERE id = $1`, [B]);
+    const despues = (await m.tablero.resumen()).bodega;
+    assert.equal(typeof despues, 'number');
+    assert.ok(despues >= antes, 'una emitida de hoy sin despachar cuenta');
+  });
+
+  test('el portal lee el alistado de `factura`: despachada = lista para envío, anulada = no procesado', async () => {
+    const { rows: [cp] } = await cliente.query(`SELECT id, alegra_contact_id FROM cliente_portal LIMIT 1`);
+    if (!cp) return; // la copia local no tiene clientes del portal
+    await cliente.query(`UPDATE factura SET alegra_id = 'zz-prueba-B', estado_bodega = 'procesado' WHERE id = $1`, [B]);
+    const { rows: [pedido] } = await cliente.query(`
+      INSERT INTO pedido_cliente (cliente_portal_id, alegra_contact_id, estado, total, alegra_invoice_id, numero_factura, origen)
+      VALUES ($1, $2, 'facturado', 1, 'zz-prueba-B', 'ZZ', 'portal') RETURNING id
+    `, [cp.id, cp.alegra_contact_id]);
+    let r = await m.portal.detallePedido(cp.id, pedido.id);
+    assert.equal(r.etapa, 'listo_para_envio');
+    await cliente.query(`UPDATE factura SET estado = 'anulada' WHERE id = $1`, [B]);
+    r = await m.portal.detallePedido(cp.id, pedido.id);
+    assert.equal(r.etapa, 'no_procesado');
+  });
+
   test('una factura anulada sale del Reporte de Clientes y de las notas', async () => {
     await cliente.query(`UPDATE factura SET estado = 'anulada' WHERE id = $1`, [A]);
     const r = await m.reportes.getMissingItemsByClient();
@@ -398,6 +416,40 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('la verificación sirve: una columna renombrada SÍ es rechazada', async () => {
     const error = await errorAlAnalizar('SELECT factura_id FROM faltantes');
     assert.equal(error?.code, '42703', 'faltantes.factura_id todavía existe');
+  });
+});
+
+describe('nada lee las columnas renombradas', () => {
+  // Barrido de todo el SQL del servidor: una consulta sobre `faltantes` o
+  // `facturas_reimpresion` que nombre `<alias>.factura_id` o `.producto_id`
+  // lee una columna que ya no existe (ahora son `factura_vieja_id` y
+  // `producto_viejo_id`). Dos así se escaparon al primer barrido, en una ruta
+  // que ninguna pantalla llama: habrían fallado recién en producción.
+  test('ni con alias ni sin él', () => {
+    const hallazgos = [];
+    const recorrer = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { recorrer(p); continue; }
+        if (!e.name.endsWith('.js')) continue;
+        const fuente = fs.readFileSync(p, 'utf8');
+        for (const [, sql] of fuente.matchAll(/`([^`]*)`/gs)) {
+          if (!/\b(faltantes|facturas_reimpresion)\b(?!_)/.test(sql)) continue;
+          for (const t of sql.matchAll(/\b(?:FROM|JOIN|UPDATE|INTO)\s+(faltantes|facturas_reimpresion)\b(?:\s+(?:AS\s+)?([a-z][a-z0-9_]*))?/gi)) {
+            const alias = t[2] && !/^(SET|WHERE|ON|JOIN|LEFT|INNER|ORDER|GROUP|VALUES|USING|RETURNING)$/i.test(t[2]) ? t[2] : t[1];
+            for (const c of sql.matchAll(new RegExp(`\\b${alias}\\.(factura_id|producto_id)\\b`, 'g'))) {
+              hallazgos.push(`${path.relative(path.join(__dirname, '..'), p)}: ${alias}.${c[1]}`);
+            }
+          }
+          if (/(INSERT INTO|UPDATE)\s+(faltantes|facturas_reimpresion)\b[^;]*\b(factura_id|producto_id)\b/.test(sql) &&
+              !/factura_propia_id|producto_propio_id/.test(sql)) {
+            hallazgos.push(`${path.relative(path.join(__dirname, '..'), p)}: escribe una columna vieja`);
+          }
+        }
+      }
+    };
+    for (const dir of ['src', 'services', 'routes']) recorrer(path.join(__dirname, '..', dir));
+    assert.deepEqual(hallazgos, []);
   });
 });
 

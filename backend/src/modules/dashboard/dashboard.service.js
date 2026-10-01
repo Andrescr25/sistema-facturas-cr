@@ -46,10 +46,12 @@ async function resumen() {
         FROM pendiente WHERE saldo > 1;
     `, [hoyEnCostaRica()]),
 
+    // Las mismas que Bodega tiene por alistar: emitidas de la ventana, sin
+    // despachar (bodegaPropia.js). Antes se contaba en la tabla vieja `facturas`.
     query(`
-      SELECT COUNT(*)::int n FROM facturas
-      WHERE estado_bodega = 'pendiente'
-        AND fecha_emision >= CURRENT_DATE - $1::integer;
+      SELECT COUNT(*)::int n FROM factura
+      WHERE estado = 'emitida' AND estado_bodega = 'pendiente'
+        AND fecha >= (now() AT TIME ZONE 'America/Costa_Rica')::date - $1::integer;
     `, [DIAS_BODEGA]),
 
     query(`SELECT COUNT(*)::int n FROM duplicado_electronica WHERE estado IN ('requiere_revision', 'error');`),

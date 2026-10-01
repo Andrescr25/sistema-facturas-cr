@@ -203,38 +203,6 @@ export const alegraService = {
     }
   },
 
-  // Actualizar factura en Alegra
-  async actualizarFactura(facturaId, ajustes) {
-    try {
-      console.log('🔄 Frontend: Actualizando factura en Alegra:', facturaId);
-      const response = await api.put(`/alegra/facturas/${facturaId}/actualizar-alegra`, {
-        ajustes
-      })
-      console.log('✅ Frontend: Factura actualizada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error actualizando factura:', error);
-      throw new Error(`Error actualizando factura: ${error.message}`)
-    }
-  },
-
-  // Limpiar facturas listas
-  async limpiarFacturas(facturasHistorial, facturasReimpresion) {
-    try {
-      console.log('🧹 Frontend: Enviando facturas para limpieza');
-      const response = await api.post('/alegra/facturas/limpiar', {
-        facturas_historial: facturasHistorial,
-        facturas_reimpresion: facturasReimpresion,
-        procesado_por: 'Usuario'
-      })
-      console.log('✅ Frontend: Limpieza completada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error en limpieza:', error);
-      throw new Error(`Error limpiando facturas: ${error.message}`)
-    }
-  },
-
   // Limpiar faltantes por proveedor de la BD
   async limpiarFaltantesProveedor() {
     try {
@@ -248,173 +216,10 @@ export const alegraService = {
     }
   },
 
-  // Procesar factura individual
-  /**
-   * OJO: este método estaba DUPLICADO en este mismo objeto, y en JavaScript
-   * gana el último. El de abajo mandaba `{ factura, items_editados }` anidado
-   * y el servidor lee los campos de la raíz, así que respondía
-   * "alegra_id es requerido" y NINGUNA modificación se aplicaba: el PDF salía
-   * con la factura sin tocar. Por eso el de acá, que aplana el payload, no
-   * puede volver a tener un gemelo más abajo.
-   */
-  async procesarFacturaIndividual(factura, itemsEditados = null) {
-    try {
-      console.log('📋 Frontend: Procesando factura individual:', factura.numero_factura);
-
-      // 🔧 CORREGIDO: Manejar ambos casos:
-      // 1. Desde Reimpresion: factura.ajustes_realizados, factura.requiere_actualizacion
-      // 2. Desde ReporteClientes: factura.ajustes, factura.estado
-      const ajustes = factura.ajustes || factura.ajustes_realizados || [];
-      
-      // Determinar estado: si viene desde ReporteClientes con estado explícito, usarlo
-      // Si no, calcular basado en requiere_actualizacion
-      let estado;
-      if (factura.estado) {
-        // Viene desde ReporteClientes con estado ya calculado
-        estado = factura.estado;
-      } else {
-        // Viene desde Reimpresion, calcular basado en requiere_actualizacion
-        estado = factura.requiere_actualizacion ? 'requiere_reimpresion' : 'resuelto';
-      }
-
-      // Construir payload con los campos que espera el backend
-      const payload = {
-        alegra_id: factura.alegra_id,
-        numero_factura: factura.numero_factura,
-        cliente_nombre: factura.cliente_nombre,
-        fecha_emision: factura.fecha_emision,
-        ajustes: ajustes,
-        estado: estado,  // Backend espera string que contenga 'requiere_reimpresion'
-        items_editados: itemsEditados,  // ← pasar items editados si existen
-        marcar_como_procesada: factura.marcar_como_procesada !== undefined ? factura.marcar_como_procesada : false,  // Por defecto false (desde ReporteClientes)
-        actualizar_precios: factura.actualizar_precios !== undefined ? factura.actualizar_precios : false
-      };
-
-      console.log('📤 Payload enviado:', payload);
-
-      const response = await api.post('/alegra/facturas/procesar-individual', payload)
-      console.log('✅ Frontend: Factura procesada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error procesando factura:', error);
-      throw new Error(`Error procesando factura: ${error.message}`)
-    }
-  },
-
-  // Actualización masiva de facturas en Alegra
-  async actualizarFacturasMasivo(facturasPendientes) {
-    try {
-      console.log('🖨️ Frontend: Iniciando actualización masiva');
-      const response = await api.post('/alegra/facturas/actualizar-masivo', {
-        facturas: facturasPendientes
-      })
-      console.log('✅ Frontend: Actualización masiva completada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error en actualización masiva:', error);
-      throw new Error(`Error en actualización masiva: ${error.message}`)
-    }
-  },
-
-  async recuperarFactura(facturaId) {
-    try {
-      console.log('🔄 Frontend: Recuperando factura procesada:', facturaId);
-      const response = await api.post(`/alegra/facturas/${facturaId}/recuperar`)
-      console.log('✅ Frontend: Factura recuperada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error recuperando factura:', error);
-      throw new Error(`Error recuperando factura: ${error.message}`)
-    }
-  },
-
-  // Eliminar facturas procesadas permanentemente (incluye observaciones adicionales)
-  async eliminarFacturasProceadas(facturasIds) {
-    try {
-      console.log('🗑️ Frontend: Eliminando facturas procesadas');
-      const response = await api.post('/alegra/facturas/eliminar-procesadas', {
-        facturas_ids: facturasIds
-      })
-      console.log('✅ Frontend: Facturas eliminadas (incluye observaciones adicionales):', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error eliminando facturas:', error);
-      throw new Error(`Error eliminando facturas: ${error.message}`)
-    }
-  },
-
-
-  // Obtener facturas pendientes de reimpresión
-  async getFacturasPendientesReimpresion() {
-    try {
-      console.log('📋 Frontend: Obteniendo facturas pendientes de reimpresión');
-      const response = await api.get('/alegra/facturas/pendientes-reimpresion')
-      console.log('✅ Frontend: Facturas pendientes obtenidas:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo facturas pendientes:', error);
-      throw new Error(`Error obteniendo facturas pendientes: ${error.message}`)
-    }
-  },
-
-  // Obtener facturas procesadas (recuperables últimos 7 días)
-  async getFacturasProcesadasReimpresion() {
-    try {
-      console.log('📋 Frontend: Obteniendo facturas procesadas (últimos 7 días)');
-      const response = await api.get('/alegra/facturas/procesadas-reimpresion')
-      console.log('✅ Frontend: Facturas procesadas obtenidas:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo facturas procesadas:', error);
-      throw new Error(`Error obteniendo facturas procesadas: ${error.message}`)
-    }
-  },
-
-  // ❌ COMENTADO: Métodos duplicados que estaban sobrescribiendo a los métodos principales
-  // Estos métodos no se usan actualmente - el flujo principal usa los métodos en líneas 250 y 277
-  /*
-  // Procesar factura individual con actualización de precios
-  // Recuperar factura procesada
-  async recuperarFactura(alegraId) {
-    try {
-      console.log('🔄 Frontend: Recuperando factura:', alegraId);
-      const response = await api.post(`/alegra/facturas/${alegraId}/recuperar`)
-      console.log('✅ Frontend: Factura recuperada:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error recuperando factura:', error);
-      throw new Error(`Error recuperando factura: ${error.message}`)
-    }
-  },
-  */
-
-  async getFacturasBodega(params = {}) {
-    try {
-      const searchParams = new URLSearchParams();
-      if (params.dias) searchParams.append('dias', params.dias);
-      if (params.limit) searchParams.append('limit', params.limit);
-      if (params.force_refresh) searchParams.append('force_refresh', 'true');
-      const queryString = searchParams.toString() ? `?${searchParams.toString()}` : '';
-
-      const response = await api.get(`/alegra/bodega/facturas${queryString}`);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo facturas para bodega:', error);
-      // En palabras de persona: antes llegaba al teléfono "timeout of 180000ms exceeded".
-      const mensaje = error.code === 'ECONNABORTED'
-        ? 'El servidor tardó demasiado en responder.'
-        : !error.response
-          ? 'No hay conexión con el servidor.'
-          : (error.response.data?.message || error.message);
-      throw new Error(mensaje);
-    }
-  },
-
-  /** Lo que bodega ya registró de una factura, producto por producto (de la base, sin Alegra). */
-  async getEstadosFacturaBodega(alegraId) {
-    const response = await api.get(`/alegra/bodega/facturas/${alegraId}/estados`);
-    return response.data?.data || [];
-  },
+  // La cola de impresión y Facturas en Bodega van por la factura PROPIA
+  // (colaImpresionService.js, bodegaPropiaService.js). Los métodos de acá que
+  // iban por el id de Alegra —procesar, recuperar, listas de la cola, bodega—
+  // se retiraron el 2026-09-30 junto con sus rutas.
 
   async getImagenesPorReferencia(referencias) {
     try {
@@ -426,20 +231,6 @@ export const alegraService = {
     } catch (error) {
       console.error('❌ Frontend: Error obteniendo imágenes por referencia:', error);
       return { success: false, data: [] };
-    }
-  },
-
-  async actualizarEstadoFacturaBodega(alegraId, estado, observaciones, enviarAImpresion = false) {
-    try {
-      const response = await api.post(`/alegra/bodega/facturas/${alegraId}/estado`, {
-        estado,
-        observaciones,
-        enviar_a_impresion: enviarAImpresion
-      });
-      return response.data;
-    } catch (error) {
-      console.error('❌ Frontend: Error actualizando estado de factura:', error);
-      throw new Error(`Error actualizando estado de factura: ${error.message}`);
     }
   },
 
@@ -485,33 +276,7 @@ export const alegraService = {
     }
   },
 
-  // Obtener historial de procesamientos
-  async getHistorialProcesos() {
-    try {
-      console.log('📚 Frontend: Obteniendo historial de procesamientos');
-      const response = await api.get('/alegra/reimpresion/historial')
-      console.log('✅ Frontend: Historial obtenido:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo historial:', error);
-      throw new Error(`Error obteniendo historial: ${error.message}`)
-    }
-  },
-
   // Registrar faltantes de una factura
-
-  // Limpiar historial de procesamientos
-  async limpiarHistorial() {
-    try {
-      console.log('🗑️ Frontend: Limpiando historial de procesamientos');
-      const response = await api.delete('/alegra/reimpresion/historial')
-      console.log('✅ Frontend: Historial limpiado:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error limpiando historial:', error);
-      throw new Error(`Error limpiando historial: ${error.message}`)
-    }
-  },
 
   // Obtener encargos especiales
 

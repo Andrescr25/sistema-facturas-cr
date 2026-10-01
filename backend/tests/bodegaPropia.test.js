@@ -7,16 +7,11 @@
  *    anuladas), con `factura_id` como identidad y sin `alegra_id` suelto.
  *  - Las líneas llevan el id propio del producto con su nombre, y el de
  *    Alegra aparte; nunca un `id` que el borrador confunda con el de Alegra.
- *  - El puente con la tabla vieja `facturas` (de la que todavía lee el
- *    portal): se enlaza por el id de Alegra si la factura vino de allá, por
- *    número si es la misma, y si no se crea — SIN alegra_id. Un número de
- *    OTRA factura de Alegra no se pisa.
- *  - Despachar escribe en las dos tablas en una transacción, con la misma
- *    hora, y sin faltantes va a la cola de impresión POR EL ID PROPIO, en la
- *    misma transacción (migración 032).
- *  - Los faltantes se guardan sobre `factura.id`, nunca sobre la fila vieja.
- *  - La copia de una factura propia entra con alegra_id NULL: con 0 (y la
- *    columna única) la SEGUNDA factura propia chocaba con la primera.
+ *  - Despachar escribe SOLO en `factura` (el puente con la tabla vieja
+ *    `facturas` se retiró el 2026-09-30), y sin faltantes va a la cola de
+ *    impresión POR EL ID PROPIO, en la misma transacción (migración 032).
+ *  - Los faltantes se guardan sobre `factura.id`.
+ *  - El historial va en orden de despacho.
  */
 
 const { test, describe, beforeEach } = require('node:test');
@@ -26,7 +21,6 @@ const path = require('path');
 
 const rutaDb = require.resolve('../config/database');
 const rutaGuardar = require.resolve('../src/utils/guardarFaltantes');
-const rutaWarehouse = require.resolve('../src/modules/warehouse/warehouse.service');
 const rutaCola = require.resolve('../src/modules/reprinting/colaImpresion');
 const rutaModulo = require.resolve('../src/modules/warehouse/bodegaPropia');
 
@@ -34,7 +28,7 @@ let consultas; let respuestas; let encoladas; let guardadas; let transacciones;
 
 /** `respuestas`: lista de [regex, filas | función(params)] que se prueban en orden. */
 function montar() {
-  for (const r of [rutaDb, rutaGuardar, rutaWarehouse, rutaCola, rutaModulo]) delete require.cache[r];
+  for (const r of [rutaDb, rutaGuardar, rutaCola, rutaModulo]) delete require.cache[r];
   consultas = []; encoladas = []; guardadas = []; transacciones = [];
   const query = async (sql, params = []) => {
     const t = String(sql).replace(/\s+/g, ' ').trim();
@@ -60,9 +54,6 @@ function montar() {
   doble(rutaGuardar, { guardarFaltantes: async (fila, faltantes, quien) => { guardadas.push({ fila, faltantes, quien }); return faltantes.length; } });
   doble(rutaCola, {
     encolarSinPendientes: async (facturaId, db) => { encoladas.push({ facturaId, enTransaccion: db !== undefined }); }
-  });
-  doble(rutaWarehouse, {
-    ordenarHistorial: (l) => [...l].sort((a, b) => String(b.despachada_en).localeCompare(String(a.despachada_en)))
   });
   return require(rutaModulo);
 }
@@ -100,58 +91,14 @@ describe('la lista', () => {
   });
 });
 
-describe('el puente con la tabla vieja', () => {
-  test('ya enlazada: se usa esa', async () => {
-    respuestas = [[/SELECT id FROM facturas WHERE factura_propia_id = \$1/, [{ id: 55 }]]];
-    assert.equal(await b.filaVieja(7), 55);
-  });
-
-  test('vino de Alegra: se enlaza la fila del mismo id de Alegra', async () => {
-    respuestas = [
-      [/FROM factura WHERE id = \$1/, [{ ...FACTURA, alegra_id: '4936', estado: 'emitida' }]],
-      [/^UPDATE facturas SET factura_propia_id = \$1 WHERE alegra_id = \$2::int/, [{ id: 60 }]]
-    ];
-    assert.equal(await b.filaVieja(7), 60);
-  });
-
-  test('propia y nueva: se crea SIN alegra_id y enlazada', async () => {
-    respuestas = [
-      [/FROM factura WHERE id = \$1/, [{ ...FACTURA, alegra_id: null, estado: 'emitida' }]],
-      [/^INSERT INTO facturas/, [{ id: 61 }]]
-    ];
-    assert.equal(await b.filaVieja(7), 61);
-    const ins = consultas.find((c) => /^INSERT INTO facturas/.test(c.t));
-    assert.equal(ins.params[1], null, 'alegra_id va vacío, nunca 0');
-    assert.equal(ins.params[2], 7, 'factura_propia_id');
-  });
-
-  test('un número que ya es de OTRA factura de Alegra no se pisa', async () => {
-    respuestas = [
-      [/FROM factura WHERE id = \$1/, [{ ...FACTURA, alegra_id: null, estado: 'emitida' }]],
-      [/FROM facturas WHERE numero_factura = \$1/, [{ id: 3, alegra_id: 4870, factura_propia_id: null }]]
-    ];
-    await assert.rejects(() => b.filaVieja(7), (e) => e.status === 409 && /serie/.test(e.message));
-  });
-
-  test('una anulada no se alista', async () => {
-    respuestas = [[/FROM factura WHERE id = \$1/, [{ ...FACTURA, estado: 'anulada' }]]];
-    await assert.rejects(() => b.filaVieja(7), (e) => e.status === 409);
-  });
-});
-
 describe('despachar', () => {
-  test('en una transacción: la factura y su fila vieja con la misma hora; sin faltantes, a imprimir por el id propio', async () => {
+  test('en una transacción, solo en `factura`; sin faltantes, a imprimir por el id propio', async () => {
     const hora = '2026-09-29 10:00:00';
-    respuestas = [
-      [/^UPDATE factura SET estado_bodega/, [{ id: 7, numero: '001000014900', estado_bodega: 'procesado', bodega_procesado_en: hora }]],
-      [/SELECT id FROM facturas WHERE factura_propia_id = \$1/, [{ id: 55 }]]
-    ];
+    respuestas = [[/^UPDATE factura SET estado_bodega/, [{ id: 7, numero: '001000014900', estado_bodega: 'procesado', bodega_procesado_en: hora }]]];
     const r = await b.actualizarEstado('7', { estado: 'procesado', enviarAImpresion: true });
     assert.deepEqual(transacciones, ['BEGIN', 'COMMIT']);
-    const vieja = consultas.find((c) => /^UPDATE facturas SET estado_bodega/.test(c.t));
-    assert.deepEqual(vieja.params, ['procesado', 7, null, 55]);
-    assert.match(vieja.t, /bodega_procesado_en = \(SELECT bodega_procesado_en FROM factura WHERE id = \$2\)/, 'la misma hora, copiada en SQL');
-    assert.deepEqual(encoladas, [{ facturaId: 7, enTransaccion: true }], 'la cola cuelga de factura.id, no de la fila vieja 55');
+    assert.ok(!consultas.some((c) => /\bfacturas\b/.test(c.t)), 'el puente con la tabla vieja se retiró');
+    assert.deepEqual(encoladas, [{ facturaId: 7, enTransaccion: true }], 'la cola cuelga de factura.id');
     assert.equal(r.enviada_a_impresion, true);
   });
 
@@ -166,7 +113,7 @@ describe('despachar', () => {
     await assert.rejects(() => b.actualizarEstado('abc', { estado: 'procesado' }), (e) => e.status === 400);
   });
 
-  test('los faltantes se guardan sobre factura.id, sin pasar por la fila vieja', async () => {
+  test('los faltantes se guardan sobre factura.id', async () => {
     respuestas = [[/SELECT numero, estado FROM factura WHERE id = \$1/, [{ numero: '001000014900', estado: 'emitida' }]]];
     const r = await b.registrarFaltantes(7, [{ producto_id: 1709, cantidad_faltante: 1, tipo_faltante: 'parcial' }]);
     assert.equal(guardadas[0].fila, 7);
@@ -190,12 +137,35 @@ describe('despachar', () => {
   });
 });
 
+describe('el historial va en orden de despacho', () => {
+  test('la última despachada primero, la anterior segunda', () => {
+    const orden = b.ordenarHistorial([
+      { factura_id: 'a', despachada_en: '2026-09-23T14:00:00Z', fecha_emision: '2026-09-23' },
+      { factura_id: 'b', despachada_en: '2026-09-23T16:30:00Z', fecha_emision: '2026-09-20' },
+      { factura_id: 'c', despachada_en: '2026-09-23T15:10:00Z', fecha_emision: '2026-09-22' }
+    ]).map((f) => f.factura_id);
+    assert.deepEqual(orden, ['b', 'c', 'a']);
+  });
+
+  test('las despachadas sin hora (antes de que existiera) van al final, por fecha', () => {
+    const orden = b.ordenarHistorial([
+      { factura_id: 'vieja1', despachada_en: null, fecha_emision: '2026-08-01' },
+      { factura_id: 'nueva', despachada_en: '2026-09-23T10:00:00Z', fecha_emision: '2026-09-01' },
+      { factura_id: 'vieja2', despachada_en: null, fecha_emision: '2026-08-10' }
+    ]).map((f) => f.factura_id);
+    assert.deepEqual(orden, ['nueva', 'vieja2', 'vieja1']);
+  });
+});
+
 describe('lo que no se puede romper', () => {
-  test('la copia de la factura propia entra con alegra_id NULL y enlazada (antes 0: la segunda chocaba)', () => {
-    const fuente = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'facturacion', 'facturaPropia.service.js'), 'utf8');
-    const insert = fuente.slice(fuente.indexOf('INSERT INTO facturas ('), fuente.indexOf('ON CONFLICT (numero_factura)'));
-    assert.match(insert, /VALUES \(\$1, NULL, \$2,/);
-    assert.match(fuente, /factura\.numero, factura\.id,/);
+  test('una factura propia ya no se copia a la tabla vieja `facturas`', () => {
+    for (const archivo of [
+      ['src', 'modules', 'facturacion', 'facturaPropia.service.js'],
+      ['src', 'modules', 'warehouse', 'bodegaPropia.js']
+    ]) {
+      const fuente = fs.readFileSync(path.join(__dirname, '..', ...archivo), 'utf8');
+      assert.doesNotMatch(fuente, /(INSERT INTO|UPDATE|FROM) facturas\b/, archivo.at(-1));
+    }
   });
 
   test('la migración 031 suelta el NOT NULL, enlaza y pasa lo despachado', () => {

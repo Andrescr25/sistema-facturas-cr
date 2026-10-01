@@ -28,21 +28,13 @@ router.get('/:id/pdf', invoiceController.getInvoicePDF);
 router.get('/:ano/:mes/todas', invoiceController.getInvoicesByPeriod);
 router.get('/:ano/:mes/:semana', invoiceController.getInvoicesByPeriod);
 
-// ===== REIMPRESIÓN =====
-router.get('/pendientes-reimpresion', invoiceController.getPendingReprintInvoices);
-router.get('/procesadas-reimpresion', invoiceController.getProcessedReprintInvoices);
-
-// ===== DETALLE =====
-router.get('/detalle/:id', invoiceController.getInvoiceDetail);
-
-// ===== PROCESAMIENTO =====
-router.post('/procesar-individual', invoiceController.processIndividualInvoice);
-router.post('/:id/recuperar', invoiceController.recoverProcessedInvoice);
-
-// ===== FALTANTES =====
-// POST /:id/faltantes (por id de Alegra) se retiró el 2026-09-30: Bodega
-// registra sobre la factura propia (/bodega/facturas-propias/:facturaId/faltantes)
-// y los faltantes cuelgan de `factura.id` (migración independencia/032).
+// ===== REIMPRESIÓN Y FALTANTES =====
+// Se retiraron el 2026-09-30 (sección 11 del checklist), todas por id de
+// Alegra: /pendientes-reimpresion, /procesadas-reimpresion, /detalle/:id,
+// /procesar-individual, /:id/recuperar y POST /:id/faltantes. Bodega, el
+// Reporte de Clientes e Impresión trabajan sobre la factura propia
+// (/bodega/facturas-propias, /reportes/faltantes/cliente/facturas,
+// /reimpresion/facturas).
 
 // ===== OPERACIONES LOCALES (Parámetros comodín al final) =====
 router.get('/:id', invoiceController.getInvoiceWithRelations);
