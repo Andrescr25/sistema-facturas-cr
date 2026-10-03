@@ -702,16 +702,17 @@ nuevos de la lista manual; la copia desechable se eliminó. La app queda en
 
 ## 13. Reportes
 
-**Estado al cerrar la sección 12:** Dashboard y el Reporte para el contador
-todavía dependen de datos de Alegra. Rentabilidad ya lee ventas y rotación
-propias; le falta retirar el costo derivado y la identidad de Alegra.
+**Estado al cerrar la sección 12:** Dashboard todavía depende de datos de
+Alegra. El Reporte para el contador ya sale de las tablas propias
+(2026-10-03). Rentabilidad ya lee ventas y rotación propias; le falta retirar
+el costo derivado y la identidad de Alegra.
 
 - [ ] Dashboard desde tablas propias
 - [ ] Rentabilidad y fotografía de márgenes desde `producto` y `factura_linea` — *Avance (2026-10-03): lo vendido y la rotación ya salen de `venta_linea`, por `producto.id`. Falta el costo derivado (hoy de las facturas de proveedor del buzón, por id de Alegra) y que la pantalla identifique el producto por su id propio.*
   — *La versión de main fusionada ya no usa la fotografía semanal de márgenes. No volver a migrar las ventas ni restaurar el historial viejo: `venta_linea` es su fuente desde §12. Revisar el costo del maestro, las compras propias y el contrato de la pantalla antes de continuar.*
 - [ ] Reportes de proveedores y de clientes
-- [ ] Reporte para el contador desde datos propios: ventas, compras, notas de crédito e IVA por tarifa
-- [ ] Exportar a Excel (`xlsx` ya está instalado)
+- [x] Reporte para el contador desde datos propios: ventas, compras, notas de crédito e IVA por tarifa — *2026-10-03: "Traer del sistema" arma el mes desde `factura`, `nota_credito` y `compra` (`reporte-contador/desdeElSistema.js`); se quitó la importación por la API de Alegra (`/invoices`, `/credit-notes`, `/bills`). Comparado contra los períodos guardados, que se habían traído de Alegra: **las ventas dan lo mismo** (julio 189 documentos y ₡6.288.936 de base en los dos, IVA con ₡1 de diferencia; agosto 186 documentos, ₡5.771.050 y ₡709.453 exactos). **Las compras no, y es lo correcto**: Alegra traía compras registradas dos veces (había que excluir 140–188 líneas a mano cada mes), la tarifa del producto en vez de la de la factura del proveedor (IVA de más en las compras que están en los dos lados: ₡34.106 en junio, ₡14.873 en julio, ₡3.284 en agosto) y combustible con un 0,5 % que el proveedor no cobró. La tarifa de la compra se despeja del monto del impuesto del XML. En compras del sistema ya no se buscan duplicados: `compra` es única por la clave de Hacienda, y el detector solo encontraba al proveedor que facturó lo mismo en dos renglones. **Ojo:** volver a traer un mes ya entregado al contador cambia el IVA de compras; eso lo deciden el usuario y su contador. Ver `docs/grafo/modulo/reporte-contador.md`.*
+- [ ] Exportar a Excel (`xlsx` ya está instalado) — *el Reporte del Contador ya exporta su Excel (resumen, detalle y devoluciones), también con el mes traído del sistema; los demás reportes todavía no.*
 
 ---
 
