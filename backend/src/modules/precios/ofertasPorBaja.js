@@ -20,6 +20,14 @@
  * anterior del mismo producto, que es lo mismo cuando existe. Las que no
  * tienen ni una cosa ni la otra simplemente no aparecen: es preferible
  * mostrar menos ofertas que inventar un descuento que nadie decidió.
+ *
+ * EL MARGEN SE USA PARA DECIDIR, NO SE ENTREGA. Las dos rutas que llaman a
+ * esto (`/catalogo-clientes/ofertas-baja` y `/catalogo-agente/ofertas-baja`)
+ * se abren SIN SESIÓN. Hasta el 2026-10-03 la respuesta llevaba `margenAntes`
+ * y `margenAhora` de cada producto: cualquiera con el enlace del catálogo
+ * podía leer cuánto se gana en cada uno, y con el precio al lado, sacar el
+ * costo. Ninguna pantalla los usaba. Si alguna vez hacen falta adentro, van
+ * por una ruta con sesión, no por esta función.
  */
 
 const { query } = require('../../../config/database');
@@ -64,8 +72,6 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
       p.tax_percentage                                        AS "taxPercentage",
       c.precio_antes::numeric                                 AS "precioAntes",
       c.precio_nuevo::numeric                                 AS "precioAhora",
-      c.margen_resultante::numeric                            AS "margenAhora",
-      ROUND(((c.precio_antes - c.costo_al_momento) / NULLIF(c.precio_antes, 0) * 100)::numeric, 1) AS "margenAntes",
       c.created_at                                            AS "cuando"
     FROM cambios c
     JOIN alegra_products_cache p ON p.alegra_id = c.alegra_item_id
@@ -100,8 +106,6 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
       // Lo que de verdad le importa al cliente: cuánto menos paga.
       descuentoPorcentaje: Math.round(((antes - ahora) / antes) * 100),
       ahorro: conIva(antes) - conIva(ahora),
-      margenAntes: o.margenAntes === null ? null : Number(o.margenAntes),
-      margenAhora: o.margenAhora === null ? null : Number(o.margenAhora),
       desde: o.cuando
     };
   });
