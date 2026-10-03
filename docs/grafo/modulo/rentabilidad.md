@@ -8,6 +8,10 @@ archivos:
   - backend/src/modules/rentabilidad/rentabilidad.routes.js
   - backend/src/modules/ventas/rotacion.js
   - backend/src/modules/ventas/estadisticas.js
+  - backend/src/modules/precios/costoDerivado.js
+  - backend/src/modules/precios/costoHistorico.js
+  - backend/migrations/independencia/037_costo_historico_con_producto.sql
+  - backend/tests/costoDerivadoPropio.test.js
   - frontend/src/pages/Rentabilidad.jsx
   - frontend/src/hooks/useRentabilidad.js
   - frontend/src/components/rentabilidad/GraficoBarras.jsx
@@ -17,7 +21,7 @@ archivos:
   - backend/tests/rentabilidadFormato.test.js
   - backend/tests/rotacionVentas.test.js
 aristas:
-  depende_de: [tabla/venta-linea, tabla/alegra-products-cache]
+  depende_de: [tabla/venta-linea]
   relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo]
 medido: 2026-10-03
 ---
@@ -30,15 +34,35 @@ Cobrar).
 
 TRES RUTAS, TODAS DE LECTURA: `GET /api/rentabilidad/resumen`,
 `/productos` (filtros `buscar`, `categoria`, `clase`, `costo`, `orden`,
-`pagina`; 30 por página) y `/productos/:alegraItemId` (404 si está inactivo u
-oculto).
+`pagina`; 30 por página) y `/productos/:productoId` (404 si está inactivo u
+oculto, o si el id no es un entero).
+
+TODO VA POR `producto.id` (2026-10-03): la lista, el detalle, las ventas, la
+rotación y el costo. La ficha ya no lleva `alegraItemId`, y el id de Alegra
+de un producto NO abre su detalle: aceptar los dos espacios habría abierto
+otro producto en silencio el día que coincidan los números.
 
 DE DÓNDE SALE CADA CIFRA
 
 - **Margen de hoy**: `clasificarProducto` (`precios/auditoria.js`), con la
-  tarifa real del producto y el costo de las facturas si Alegra no lo tiene.
+  tarifa real del producto y, si la ficha no tiene costo, el de las compras.
   La misma fórmula que Gestión de Catálogo — ver
   [[leccion/precio-sin-iva-costo-con-iva]].
+- **Costo de las compras** (`precios/costoDerivado.js`): la mediana de las
+  últimas 6 compras válidas de `costo_historico`, por `producto_id`. Tres
+  cosas que no se ven:
+  - La fila del historial NACE con su `producto_id` (`costoHistorico.js`).
+    Antes solo lo rellenaba la migración 005, y toda compra registrada después
+    quedaba fuera del costo del producto. La 037 empareja lo que quedó atrás.
+  - Dos compras el mismo día empataban y Postgres elegía cuáles entraban a la
+    ventana: 6 de 1.356 productos cambiaban de costo entre consultas. Se
+    desempata por `id`. Con eso, el costo por id propio y por id de Alegra
+    coinciden en los 1.356.
+  - La VALIDEZ de una fila todavía compara el id de Alegra de la fila con el
+    de la línea del buzón (`productos_factura_proveedor.alegra_item_id`): el
+    buzón relaciona así. Un producto sin ficha en Alegra no puede relacionarse
+    con una línea de proveedor, así que no tiene costo de compras —solo el de
+    su ficha— hasta que Relacionar Productos pase a ids propios.
 - **Lo que dejó en 3 meses**: lo cobrado sin IVA menos lo que esas unidades
   cuestan HOY sin IVA. Es estimado (el historial no guarda el costo del día de
   la venta) y solo se calcula con costo confiable; si no, queda vacío, no en

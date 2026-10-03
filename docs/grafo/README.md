@@ -35,7 +35,7 @@ toca, qué no se regenera).
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
 - [Reporte del Contador — el mes de ventas y compras, de las tablas propias](modulo/reporte-contador.md)
-- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *ventas de las facturas propias; el costo derivado y la identidad en pantalla, todavía por id de Alegra*
+- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *todo por `producto.id`; la relación del buzón de compras sigue por id de Alegra*
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*
 
 ## Tablas
