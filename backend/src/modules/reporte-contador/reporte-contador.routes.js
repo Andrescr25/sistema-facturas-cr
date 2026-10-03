@@ -30,8 +30,8 @@ router.post('/enviar-contador', controller.enviarAlContador);
 
 router.get('/periodos', controller.listarPeriodos);
 router.post('/periodos', upload.single('archivo'), controller.cargarPeriodo);
-// Trae el mes directo de la API de Alegra, sin Excel de por medio.
-router.post('/periodos/importar-alegra', controller.importarDesdeAlegra);
+// Trae el mes de las facturas, notas de crédito y compras propias.
+router.post('/periodos/importar-sistema', controller.importarDelSistema);
 router.get('/periodos/:id', controller.obtenerPeriodo);
 router.delete('/periodos/:id', controller.eliminarPeriodo);
 router.get('/periodos/:id/exportar', controller.exportarPeriodo);

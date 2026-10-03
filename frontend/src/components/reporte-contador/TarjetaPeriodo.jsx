@@ -5,10 +5,10 @@ import { formatCurrency, formatFecha } from '../../utils/reporteContadorUtils'
 /**
  * Tarjeta de un tipo de reporte (ventas o compras).
  *
- * El camino principal es traerlo de Alegra por API — se verificó contra el
- * Excel oficial de julio 2026 que da los mismos totales al colón. La subida
- * manual del .xlsx queda como respaldo por si la API falla o se necesita un
- * archivo puntual.
+ * El camino principal es traerlo del sistema: las facturas, notas de crédito
+ * y compras propias. Se comparó contra lo que daba Alegra para julio y agosto
+ * de 2026: las ventas dan lo mismo al colón. La subida manual del .xlsx que
+ * exportaba Alegra queda para revisar un mes viejo contra su archivo.
  */
 export default function TarjetaPeriodo({ tipo, periodo, subiendo, onSubir, onImportar, onEliminar }) {
   const inputRef = useRef(null)
@@ -46,7 +46,7 @@ export default function TarjetaPeriodo({ tipo, periodo, subiendo, onSubir, onImp
             className="w-full btn btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {subiendo === tipo ? <Loader2 size={16} className="animate-spin" /> : <DownloadCloud size={16} />}
-            {subiendo === tipo ? 'Trayendo de Alegra...' : 'Traer de Alegra'}
+            {subiendo === tipo ? 'Trayendo...' : 'Traer del sistema'}
           </button>
           <label className="flex items-center justify-center gap-1.5 border border-dashed border-neutro-200 rounded-lg py-2 cursor-pointer hover:border-primario-300 transition text-xs text-neutro-400">
             <Upload size={13} />
@@ -81,7 +81,7 @@ export default function TarjetaPeriodo({ tipo, periodo, subiendo, onSubir, onImp
             <button
               onClick={() => onImportar(tipo)}
               disabled={subiendo === tipo}
-              title="Vuelve a traerlo de Alegra (descarta las ediciones de este mes)"
+              title="Vuelve a traerlo del sistema (descarta las ediciones de este mes)"
               className="flex-1 flex items-center justify-center gap-1.5 border border-neutro-200 rounded-lg py-1.5 hover:bg-neutro-50 transition text-xs text-neutro-500 disabled:opacity-50"
             >
               {subiendo === tipo ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}

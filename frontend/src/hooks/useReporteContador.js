@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  listarPeriodos, cargarPeriodo, importarDesdeAlegra, obtenerPeriodo, eliminarPeriodo,
+  listarPeriodos, cargarPeriodo, importarDelSistema, obtenerPeriodo, eliminarPeriodo,
   toggleExcluirFactura, actualizarLinea, eliminarLinea,
   redetectarDuplicados, descargarExportado,
   listarContactos, crearContacto, eliminarContacto, enviarAlContador
@@ -144,23 +144,23 @@ export function useReporteContador() {
     }
   }
 
-  const handleImportarAlegra = async (tipo) => {
+  const handleImportarDelSistema = async (tipo) => {
     setSubiendo(tipo)
     try {
-      const data = await importarDesdeAlegra({ tipo, anio: periodoSeleccionado.anio, mes: periodoSeleccionado.mes })
+      const data = await importarDelSistema({ tipo, anio: periodoSeleccionado.anio, mes: periodoSeleccionado.mes })
       if (data.success) {
         showToast(
           data.altaConfianza > 0
-            ? `Traído de Alegra: ${data.lineasCargadas} líneas, ${data.totalFacturas} facturas. ${data.altaConfianza} posible(s) duplicado(s) marcado(s) — revisalos.`
-            : `Traído de Alegra: ${data.lineasCargadas} líneas, ${data.totalFacturas} facturas.`,
+            ? `Traído del sistema: ${data.lineasCargadas} líneas, ${data.totalFacturas} facturas. ${data.altaConfianza} posible(s) duplicado(s) marcado(s) — revisalos.`
+            : `Traído del sistema: ${data.lineasCargadas} líneas, ${data.totalFacturas} facturas.`,
           data.altaConfianza > 0 ? 'warning' : 'success', 8000
         )
         await cargarPeriodos()
         setTabActiva(tipo)
       }
     } catch (err) {
-      console.error('Error importando de Alegra:', err)
-      showToast(err.response?.data?.message || 'Error trayendo los datos de Alegra.', 'error')
+      console.error('Error trayendo el mes del sistema:', err)
+      showToast(err.response?.data?.message || 'No se pudo traer el mes.', 'error')
     } finally {
       setSubiendo(null)
     }
@@ -289,7 +289,7 @@ export function useReporteContador() {
     periodoDe,
     subiendo,
     handleSubirArchivo,
-    handleImportarAlegra,
+    handleImportarDelSistema,
     handleEliminarPeriodo,
 
     tabActiva,

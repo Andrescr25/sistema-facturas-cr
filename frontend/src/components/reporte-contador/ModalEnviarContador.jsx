@@ -175,7 +175,7 @@ export default function ModalEnviarContador({
             {adjuntos.length === 1 && (
               <p className="text-[11px] text-alerta-700 mt-1.5 flex items-start gap-1">
                 <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-                Falta el otro reporte del mes — traelo de Alegra antes de enviar si lo necesitás.
+                Falta el otro reporte del mes — traelo antes de enviar si lo necesitás.
               </p>
             )}
           </div>

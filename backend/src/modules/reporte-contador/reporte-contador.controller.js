@@ -25,13 +25,13 @@ async function cargarPeriodo(req, res) {
   }
 }
 
-async function importarDesdeAlegra(req, res) {
+async function importarDelSistema(req, res) {
   try {
     const { anio, mes, tipo } = req.body;
-    const data = await service.importarDesdeAlegra({ anio, mes, tipo });
+    const data = await service.importarDelSistema({ anio, mes, tipo });
     res.json({ success: true, ...data });
   } catch (error) {
-    manejarError(res, error, 'importando desde Alegra');
+    manejarError(res, error, 'trayendo el mes del sistema');
   }
 }
 
@@ -152,7 +152,7 @@ module.exports = {
   eliminarContacto,
   enviarAlContador,
   cargarPeriodo,
-  importarDesdeAlegra,
+  importarDelSistema,
   listarPeriodos,
   obtenerPeriodo,
   toggleExcluirFactura,

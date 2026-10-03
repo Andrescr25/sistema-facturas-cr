@@ -1,8 +1,11 @@
 /**
  * Reporte Contador — control interno mensual de ventas y compras.
  *
- * Se sube el par de Excel que exporta Alegra ("Impuestos en Ventas" /
- * "Impuestos en Compras", cada uno con hoja de resumen + hoja de detalle) y
+ * El mes se trae de las tablas propias (`factura`, `nota_credito` y `compra`,
+ * ver desdeElSistema.js). Hasta el 2026-10-03 se traía de la API de Alegra.
+ * Sigue aceptando el par de Excel que exportaba Alegra ("Impuestos en Ventas"
+ * / "Impuestos en Compras", cada uno con hoja de resumen + hoja de detalle),
+ * para poder revisar un mes viejo contra su archivo. Con las líneas adentro,
  * el módulo:
  *   1. Guarda cada línea del detalle.
  *   2. En ventas, detecta facturas duplicadas: la misma venta registrada
@@ -22,7 +25,7 @@
 
 const XLSX = require('xlsx');
 const { query } = require('../../../config/database');
-const { getInstance: getAlegraClient } = require('../../integrations/alegra/alegra.client');
+const { traerDelSistema } = require('./desdeElSistema');
 const { enviarCorreo, estaConfigurado } = require('../../../services/mailer');
 
 // Regla verificada contra los archivos reales de Alegra: el consecutivo de
@@ -56,8 +59,8 @@ function esDevolucion(linea) {
 // REDUCED, EXEMPT); el Excel de Alegra lo escribe en español. Se traduce solo
 // al exportar para que el archivo salga igual al oficial y se puedan comparar
 // lado a lado.
-const ETIQUETA_TIPO_TARIFA = { GENERAL: 'General', REDUCED: 'Reducido', EXEMPT: 'Exento' };
-const NOMBRE_POR_TIPO_TARIFA = { GENERAL: 'IVA', REDUCED: 'IVA reducido', EXEMPT: 'IVA exento' };
+const ETIQUETA_TIPO_TARIFA = { GENERAL: 'General', REDUCED: 'Reducido', EXEMPT: 'Exento', TRANSIENT: 'Transitorio' };
+const NOMBRE_POR_TIPO_TARIFA = { GENERAL: 'IVA', REDUCED: 'IVA reducido', EXEMPT: 'IVA exento', TRANSIENT: 'IVA transitorio' };
 
 function etiquetaTipoTarifa(tipoTarifa) {
   const clave = String(tipoTarifa || '').toUpperCase();
@@ -254,149 +257,6 @@ function parsearExcel(buffer, tipo) {
   return lineas;
 }
 
-// ==================== Importación directa desde la API de Alegra ====================
-
-/**
- * Alegra NO expone el reporte de impuestos por API (/reports/taxes responde
- * 403), así que se reconstruye desde /invoices y /bills. Se verificó contra
- * el Excel oficial de julio 2026: mismos documentos, mismo split de
- * emitidas/sin emisión, y totales que cuadran salvo centavos de redondeo
- * (Alegra redondea por línea en su reporte; acá se calcula en flotante).
- */
-const LIMITE_PAGINA = 30;
-
-async function traerPaginado(endpoint, params) {
-  const client = getAlegraClient();
-  const acumulado = [];
-  const vistos = new Set();
-  let start = 0;
-
-  for (;;) {
-    const res = await client.api.get(endpoint, { params: { ...params, start, limit: LIMITE_PAGINA } });
-    const lote = Array.isArray(res.data) ? res.data : [];
-
-    // Dedupe por id: si el orden no es estable entre páginas, el mismo
-    // documento puede volver en dos páginas y duplicaría los totales.
-    for (const doc of lote) {
-      const id = String(doc.id);
-      if (vistos.has(id)) continue;
-      vistos.add(id);
-      acumulado.push(doc);
-    }
-
-    if (lote.length < LIMITE_PAGINA) break;
-    start += LIMITE_PAGINA;
-    if (start > 10000) break; // guarda dura contra un bucle infinito por un filtro mal armado
-  }
-
-  return acumulado;
-}
-
-function ultimoDiaDelMes(anio, mes) {
-  return new Date(anio, mes, 0).getDate();
-}
-
-/** La factura que una nota de crédito rectifica (columna "Documento asociado"). */
-function numeroDocumentoAsociado(notaCredito) {
-  const asociada = (notaCredito.invoices || [])[0];
-  if (!asociada) return null;
-  return String(asociada.fullNumber || asociada.number || '').trim() || null;
-}
-
-/**
- * Convierte una línea de Alegra (venta o compra) al mismo formato que
- * produce el parser de Excel, para que el resto del módulo no distinga de
- * dónde vino el dato.
- */
-function lineaDesdeAlegra(item, doc, esVenta, esNotaCredito = false) {
-  const cantidad = Number(item.quantity) || 0;
-  const precioUnitario = Number(item.price) || 0;
-  const descuentoPct = Number(item.discount) || 0;
-  const bruto = precioUnitario * cantidad;
-
-  const impuestos = item.tax || [];
-  const principal = impuestos[0] || {};
-
-  // Redondeo POR LÍNEA, no al final: así lo hace Alegra en su reporte, y
-  // sumar en flotante acumulaba una deriva de miles de colones sobre 1.700
-  // líneas. Con esto el total cuadra al colón con el Excel oficial
-  // (verificado contra julio 2026).
-  //
-  // OJO con el orden: el impuesto se calcula sobre la base SIN redondear y
-  // se redondea después. Hacerlo sobre la base ya redondeada desviaba el
-  // total del impuesto (₡2 en julio).
-  const baseSinRedondear = bruto - (bruto * descuentoPct / 100);
-  const baseGravable = Math.round(baseSinRedondear);
-  const impuesto = Math.round(
-    impuestos.reduce((s, t) => s + baseSinRedondear * (Number(t.percentage) || 0) / 100, 0)
-  );
-
-  const nt = doc.numberTemplate || {};
-  const numero = String(nt.fullNumber || nt.number || '').trim();
-
-  return {
-    tipoDocumento: esNotaCredito ? TIPO_NOTA_CREDITO : (esVenta ? 'Factura' : 'Factura de proveedor'),
-    // Se deja como string 'YYYY-MM-DD' tal cual la devuelve Alegra: pasarla
-    // por `new Date()` la corría un día (ver fechaIsoLocal).
-    fecha: doc.date || null,
-    numero,
-    documentoAsociado: esNotaCredito ? numeroDocumentoAsociado(doc) : null,
-    // Alegra marca la electrónica explícitamente; es más confiable que
-    // deducirla del largo del consecutivo (aunque coincide: 12 vs 20).
-    esEmitida: nt.isElectronic !== undefined ? Boolean(nt.isElectronic) : esEmitida(numero),
-    contraparte: (esVenta ? doc.client?.name : doc.provider?.name) || '',
-    actividadEconomica: '',
-    concepto: item.name || item.description || '',
-    cantidad,
-    precioUnitario,
-    precioTotal: bruto,
-    descuento: bruto * descuentoPct / 100,
-    nombreImpuesto: principal.name || '',
-    tipoImpuesto: principal.type || '',
-    tarifa: principal.percentage ? `${Number(principal.percentage)}%` : '0%',
-    tipoTarifa: principal.rateType || '',
-    acreditable: principal.deductible === 'yes' ? 'Sí' : 'No',
-    baseGravable,
-    impuesto
-  };
-}
-
-async function traerDeAlegra(anio, mes, tipo) {
-  const desde = `${anio}-${String(mes).padStart(2, '0')}-01`;
-  const hasta = `${anio}-${String(mes).padStart(2, '0')}-${ultimoDiaDelMes(anio, mes)}`;
-  const rango = { date_afterOrNow: desde, date_beforeOrNow: hasta };
-
-  // Las líneas SIN ningún impuesto no van: este es un reporte de impuestos y
-  // Alegra tampoco las lista. Incluirlas inflaba la base (en julio 2026 era
-  // una sola línea de ₡3.015 que descuadraba el total contra el Excel).
-  const conImpuesto = (it) => (it.tax || []).length > 0;
-
-  // Las facturas ANULADAS no van: Alegra las deja fuera de su reporte de
-  // impuestos y son las que descuadraban agosto 2026 (dos anuladas, ₡8.888 de
-  // base y ₡1.156 de impuesto de más contra el Excel oficial).
-  const vigente = (doc) => doc.status !== 'void';
-
-  if (tipo === 'ventas') {
-    const facturas = await traerPaginado('/invoices', rango);
-    const lineas = facturas.filter(vigente)
-      .flatMap(f => (f.items || []).filter(conImpuesto).map(it => lineaDesdeAlegra(it, f, true)));
-
-    // Las notas de crédito NO se restan de la base gravable: Alegra las
-    // reporta aparte, en su propia hoja y en dos columnas propias del
-    // resumen ("Base devoluciones" / "Impuesto en devoluciones"). Se guardan
-    // en positivo, marcadas por tipo_documento, y se separan al totalizar.
-    const notas = await traerPaginado('/credit-notes', rango);
-    const lineasNc = notas.filter(vigente)
-      .flatMap(n => (n.items || []).filter(conImpuesto).map(it => lineaDesdeAlegra(it, n, true, true)));
-
-    return [...lineas, ...lineasNc];
-  }
-
-  const compras = await traerPaginado('/bills', rango);
-  return compras.filter(vigente)
-    .flatMap(b => ((b.purchases && b.purchases.items) || []).filter(conImpuesto).map(it => lineaDesdeAlegra(it, b, false)));
-}
-
 // ==================== Detección de duplicados ====================
 
 /**
@@ -530,6 +390,32 @@ function detectarSegunTipo(lineas, tipo) {
   return detectarDuplicados(lineas.filter(l => !esDevolucion(l)));
 }
 
+// Con este prefijo se guarda el período que se trajo de las tablas propias.
+const ORIGEN_SISTEMA = 'Traído del sistema';
+
+function esDelSistema(nombreArchivo) {
+  return String(nombreArchivo || '').startsWith(ORIGEN_SISTEMA);
+}
+
+/**
+ * Los duplicados de un mes traído del sistema.
+ *
+ * EN COMPRAS NO SE BUSCAN. El detector de compras existe porque en Alegra la
+ * misma compra quedaba registrada dos veces y cada línea salía repetida. Acá
+ * una compra no se puede registrar dos veces: `compra` es única por la clave
+ * de Hacienda y por la factura del buzón. Lo único que ese detector encuentra
+ * en una compra propia es al proveedor que facturó el mismo producto en dos
+ * renglones —pasa: mayo de 2026, Plastimex, dos líneas iguales de tornillos—
+ * y sacarla le quita al reporte un IVA que sí se pagó.
+ *
+ * En ventas sí: la misma venta hecha como factura interna y además como
+ * electrónica sigue existiendo en las facturas propias.
+ */
+function detectarEnElSistema(lineas, tipo) {
+  if (tipo === 'ventas') return detectarSegunTipo(lineas, tipo);
+  return { altaConfianza: 0, mediaConfianza: 0, totalFacturas: new Set(lineas.map(l => l.numero)).size };
+}
+
 /**
  * Guarda un conjunto de líneas ya parseadas como período. Compartido por la
  * carga de Excel y la importación desde la API, para que ambos caminos
@@ -568,23 +454,26 @@ async function guardarPeriodo({ anioNum, mesNum, tipo, lineas, nombreArchivo }) 
 }
 
 /**
- * Trae el mes directo de la API de Alegra, sin Excel de por medio.
+ * Trae el mes de las tablas propias: facturas y notas de crédito emitidas, o
+ * compras registradas. Volver a traerlo reemplaza el período, igual que
+ * volver a subir el Excel — las exclusiones hechas a mano se pierden, y por
+ * eso la pantalla lo avisa antes.
  */
-async function importarDesdeAlegra({ anio, mes, tipo }) {
+async function importarDelSistema({ anio, mes, tipo }) {
   if (!['ventas', 'compras'].includes(tipo)) throw httpError(400, 'Tipo inválido.');
   const anioNum = Number(anio);
   const mesNum = Number(mes);
   if (!anioNum || !mesNum || mesNum < 1 || mesNum > 12) throw httpError(400, 'Año o mes inválido.');
 
-  const lineas = await traerDeAlegra(anioNum, mesNum, tipo);
+  const lineas = await traerDelSistema(anioNum, mesNum, tipo);
   if (lineas.length === 0) {
-    throw httpError(404, `Alegra no devolvió ${tipo} para ${String(mesNum).padStart(2, '0')}/${anioNum}.`);
+    throw httpError(404, `No hay ${tipo} con impuesto en ${String(mesNum).padStart(2, '0')}/${anioNum}.`);
   }
 
-  const resumenDuplicados = detectarSegunTipo(lineas, tipo);
+  const resumenDuplicados = detectarEnElSistema(lineas, tipo);
   const guardado = await guardarPeriodo({
     anioNum, mesNum, tipo, lineas,
-    nombreArchivo: `Traído de Alegra · ${String(mesNum).padStart(2, '0')}/${anioNum}`
+    nombreArchivo: `${ORIGEN_SISTEMA} · ${String(mesNum).padStart(2, '0')}/${anioNum}`
   });
 
   return { ...guardado, lineasCargadas: lineas.length, ...resumenDuplicados };
@@ -808,9 +697,11 @@ async function eliminarPeriodo(periodoId) {
  * recalcula la etiqueta de confianza para las que siguen "vírgenes".
  */
 async function redetectarDuplicados(periodoId) {
-  const periodoRes = await query(`SELECT tipo FROM reporte_contador_periodo WHERE id = $1;`, [periodoId]);
+  const periodoRes = await query(`SELECT tipo, nombre_archivo FROM reporte_contador_periodo WHERE id = $1;`, [periodoId]);
   if (periodoRes.rows.length === 0) throw httpError(404, 'Período no encontrado.');
   const tipo = periodoRes.rows[0].tipo;
+  // Lo que no se buscó al traerlo tampoco se busca al repasarlo.
+  const detectar = esDelSistema(periodoRes.rows[0].nombre_archivo) ? detectarEnElSistema : detectarSegunTipo;
 
   const lineasRes = await query(`SELECT * FROM reporte_contador_linea WHERE periodo_id = $1 ORDER BY orden ASC;`, [periodoId]);
   const lineas = lineasRes.rows.map(r => ({
@@ -827,7 +718,7 @@ async function redetectarDuplicados(periodoId) {
     excluido: r.excluido
   }));
 
-  const resumen = detectarSegunTipo(lineas, tipo);
+  const resumen = detectar(lineas, tipo);
 
   for (const l of lineas) {
     await query(`
@@ -1072,7 +963,7 @@ module.exports = {
   eliminarContacto,
   enviarAlContador,
   cargarPeriodo,
-  importarDesdeAlegra,
+  importarDelSistema,
   listarPeriodos,
   obtenerPeriodo,
   toggleExcluirFactura,
