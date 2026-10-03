@@ -54,44 +54,40 @@ async function calcularCatalogo() {
     // (`producto`), con su tarifa, categoría y subcategoría de acá — no de la
     // copia de Alegra. Los alias conservan la forma que espera el resto.
     //
-    // La rotación y lo vendido salen de las facturas propias (`venta_linea`,
-    // migración 034) y se cruzan por `producto.id`. Lo que todavía va por el
-    // id de Alegra es el costo derivado de las facturas de proveedor
-    // (precios/costoDerivado) y la identidad que usa la pantalla
-    // (`alegraItemId`), así que por ahora solo entran los productos que lo
-    // tienen: hoy son todos (medido: 0 de 2.144 sin alegra_id). Pasar eso a
-    // ids propios es la sección 13.
+    // TODO SE CRUZA POR `producto.id`: la rotación y lo vendido (`venta_linea`,
+    // migración 034), el costo derivado de las compras (precios/costoDerivado)
+    // y la identidad que usa la pantalla. Un producto creado en el sistema,
+    // sin ficha en Alegra, entra igual que los demás.
     query(`
-      SELECT p.id AS producto_id, p.alegra_id, p.nombre AS name, p.referencia AS reference, cat.nombre AS category,
+      SELECT p.id AS producto_id, p.nombre AS name, p.referencia AS reference, cat.nombre AS category,
              p.precio_sin_iva AS price, p.costo_con_iva AS cost, imp.tarifa AS tax_percentage,
              p.imagen_url AS image_url, s.nombre AS subcategoria
         FROM producto p
         LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
         LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
         LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-       WHERE p.activo = TRUE AND p.oculto = FALSE AND p.alegra_id IS NOT NULL
+       WHERE p.activo = TRUE AND p.oculto = FALSE
     `),
     obtenerCostosDerivados(),
     rotacion.rotacionPorProducto()
   ]);
 
   return productos.rows.map((p) => {
-    const id = String(p.alegra_id);
-    const derivado = derivados.get(id) || null;
+    const productoId = Number(p.producto_id);
+    const derivado = derivados.get(productoId) || null;
     const c = clasificarProducto({
       price: p.price, cost: p.cost,
       costoDerivado: derivado ? derivado.costo : null,
       historialInestable: derivado ? derivado.historialInestable : false,
       tasaIva: p.tax_percentage
     });
-    const r = rot.get(Number(p.producto_id)) || null;
+    const r = rot.get(productoId) || null;
     const confiable = COSTO_CONFIABLE.has(c.clasificacion) && c.costoSinIva !== null;
     const unidades = r ? r.unidades : 0;
     const ventas = r ? r.ventas : 0;
 
     return {
-      alegraItemId: id,
-      productoId: Number(p.producto_id),
+      productoId,
       nombre: p.name,
       referencia: p.reference || '',
       categoria: p.category || 'Sin categoría',
@@ -214,16 +210,19 @@ async function obtenerResumen() {
   };
 }
 
-/** GET /api/rentabilidad/productos/:alegraItemId — un producto y sus series, en unidades. */
-async function obtenerProducto(alegraItemId) {
-  const id = String(alegraItemId || '');
-  const producto = (await catalogo()).find((p) => p.alegraItemId === id);
+/** GET /api/rentabilidad/productos/:productoId — un producto y sus series, en unidades. */
+async function obtenerProducto(productoId) {
+  // Un id que no es un entero positivo no es de ningún producto: 404, sin
+  // buscar. `Number('12abc')` es NaN y `Number('')` es 0; ninguno pasa.
+  const id = Number(productoId);
+  const producto = Number.isInteger(id) && id > 0
+    ? (await catalogo()).find((p) => p.productoId === id)
+    : null;
   if (!producto) {
     const e = new Error('Ese producto no está en el catálogo (inactivo u oculto).');
     e.status = 404;
     throw e;
   }
-  // Las series van por el id PROPIO: es con el que se guardan las ventas.
   return { producto, series: await estadisticas.series(producto.productoId) };
 }
 

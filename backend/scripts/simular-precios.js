@@ -12,7 +12,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { query } = require('../config/database');
 const { clasificarProducto, CLASIFICACION } = require('../src/modules/precios/auditoria');
-const { obtenerCostosDerivados } = require('../src/modules/precios/costoDerivado');
+const { obtenerCostosDerivadosPorAlegra } = require('../src/modules/precios/costoDerivado');
 const { calcularPrecioSugerido } = require('../src/modules/precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../src/modules/precios/config');
 const { SQL_ROTACION_PRECIOS } = require('../src/modules/ventas/rotacion');
@@ -22,7 +22,7 @@ async function main() {
 
   const [productos, derivados, rotaciones, configPrecios] = await Promise.all([
     query(`SELECT alegra_id, name, category, price, cost FROM alegra_products_cache WHERE status = 'active'`),
-    obtenerCostosDerivados(), // mediana de compras válidas, ver precios/costoDerivado.js
+    obtenerCostosDerivadosPorAlegra(), // mediana de compras válidas, ver precios/costoDerivado.js
     // La misma rotación en el momento que usa Revisión de Precios (12 meses).
     query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM (${SQL_ROTACION_PRECIOS}) r`),
     obtenerConfigPrecios()

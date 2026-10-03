@@ -20,7 +20,7 @@
  */
 
 const { query } = require('../config/database');
-const { obtenerCostosDerivados } = require('../src/modules/precios/costoDerivado');
+const { obtenerCostosDerivadosPorAlegra } = require('../src/modules/precios/costoDerivado');
 const { getProductService } = require('../src/integrations/alegra');
 const { IVA_ASUMIDO, RATIO_SOSPECHOSO_ALTO, RATIO_SOSPECHOSO_BAJO } = require('../src/modules/precios/auditoria');
 
@@ -53,7 +53,7 @@ async function main() {
   // suelta — que es justo lo que hacía que una compra con el factor mal
   // puesto, o una relación ya deshecha, decidiera el costo que se escribe en
   // la contabilidad.
-  const derivados = await obtenerCostosDerivados();
+  const derivados = await obtenerCostosDerivadosPorAlegra();
 
   const res = await query(`
     SELECT p.alegra_id, p.name, p.price, p.cost

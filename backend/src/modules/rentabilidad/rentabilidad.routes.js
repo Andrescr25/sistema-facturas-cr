@@ -12,6 +12,6 @@ const controller = require('./rentabilidad.controller');
 
 router.get('/resumen', controller.obtenerResumen);
 router.get('/productos', controller.listarProductos);
-router.get('/productos/:alegraItemId', controller.obtenerProducto);
+router.get('/productos/:productoId', controller.obtenerProducto);
 
 module.exports = router;

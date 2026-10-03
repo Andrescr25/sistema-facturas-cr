@@ -136,7 +136,7 @@ export default function ListaProductos({ filtros, setFiltros, limpiarFiltros, li
 
       {/* Mientras recarga, la lista anterior se queda atenuada: sin saltos. */}
       <div className={`grid gap-4 lg:grid-cols-2 ${cargando ? 'opacity-60' : ''}`}>
-        {lista.data.map((p) => <TarjetaProducto key={p.alegraItemId} producto={p} onAbrir={onAbrir} />)}
+        {lista.data.map((p) => <TarjetaProducto key={p.productoId} producto={p} onAbrir={onAbrir} />)}
       </div>
 
       {!cargando && lista.data.length === 0 && (

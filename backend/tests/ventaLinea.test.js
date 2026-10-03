@@ -170,8 +170,8 @@ describe('las ventas salen de las facturas propias — contra la base local', { 
     const resumen = await m.rentabilidad.obtenerResumen();
     assert.ok(resumen.ventas > 0);
     assert.ok(resumen.facturas >= 1);
-    const { rows: [p] } = await cliente.query('SELECT alegra_id FROM producto WHERE id = $1', [venta.producto_id]);
-    const detalle = await m.rentabilidad.obtenerProducto(p.alegra_id);
+    // El detalle se abre por el id propio, que es el de la venta.
+    const detalle = await m.rentabilidad.obtenerProducto(venta.producto_id);
     assert.equal(detalle.producto.productoId, Number(venta.producto_id));
     assert.ok(detalle.producto.unidades >= Number(venta.cantidad));
   });

@@ -17,5 +17,5 @@ function responder(res, promesa, contexto) {
 module.exports = {
   obtenerResumen: (req, res) => responder(res, servicio.obtenerResumen(), 'resumen'),
   listarProductos: (req, res) => responder(res, servicio.listarProductos(req.query), 'productos'),
-  obtenerProducto: (req, res) => responder(res, servicio.obtenerProducto(req.params.alegraItemId), 'producto')
+  obtenerProducto: (req, res) => responder(res, servicio.obtenerProducto(req.params.productoId), 'producto')
 };

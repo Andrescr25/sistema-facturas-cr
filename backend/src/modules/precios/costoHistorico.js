@@ -16,6 +16,13 @@
  * relación. Es idempotente y arregla las dos direcciones: si la línea quedó
  * válida la inserta o actualiza, y si dejó de serlo la borra. Llamarlo dos
  * veces con los mismos ids deja el mismo resultado.
+ *
+ * LA FILA NACE CON SU `producto_id`. El buzón guarda la relación con el id de
+ * Alegra, pero quien lee el costo (precios/costoDerivado.js) lo busca por el
+ * id propio. Hasta el 2026-10-03 este INSERT no lo escribía: la migración 005
+ * lo había rellenado una vez y toda compra posterior quedaba sin él, o sea
+ * fuera del costo del producto. Se resuelve acá, en el mismo INSERT, y al
+ * cambiar la relación de una línea se corrige junto con el id de Alegra.
  */
 
 const prisma = require('../../../lib/prisma');
@@ -91,10 +98,15 @@ async function sincronizarCostoDeLineas(productoFacturaIds) {
 
     await query(`
       INSERT INTO costo_historico
-        (alegra_item_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
-      VALUES ${placeholders}
+        (alegra_item_id, producto_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
+      SELECT v.alegra_item_id, p.id, v.producto_factura_id::uuid, v.proveedor_cedula, v.proveedor_nombre,
+             v.fecha::date, v.costo_unitario::numeric, v.factor_conversion::numeric, v.origen
+        FROM (VALUES ${placeholders})
+             AS v(alegra_item_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
+        LEFT JOIN producto p ON p.alegra_id = v.alegra_item_id
       ON CONFLICT (producto_factura_id) DO UPDATE SET
         alegra_item_id = EXCLUDED.alegra_item_id,
+        producto_id = EXCLUDED.producto_id,
         proveedor_cedula = EXCLUDED.proveedor_cedula,
         proveedor_nombre = EXCLUDED.proveedor_nombre,
         fecha = EXCLUDED.fecha,

@@ -60,70 +60,91 @@ function cargar() {
   };
   const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
   doble(rutaDb, { query });
-  doble(rutaCostos, { obtenerCostosDerivados: async () => new Map() });
+  doble(rutaCostos, { obtenerCostosDerivados: async () => COSTOS_DERIVADOS });
   doble(rutaRotacion, { HOY_CR: 'HOY', VENTANA_MESES: 3, rotacionPorProducto: async () => ROTACION });
   doble(rutaEstadisticas, { series: async (id) => { pedidasSeries.push(id ?? null); return { semanas: [] }; } });
   return require(rutaServicio);
 }
 
-let s;
-beforeEach(() => { s = cargar(); });
+// El costo derivado de las compras, por `producto.id`. Vacío salvo en la
+// prueba que lo llena.
+let COSTOS_DERIVADOS = new Map();
 
-const porId = (lista) => Object.fromEntries(lista.map((p) => [p.alegraItemId, p]));
+let s;
+beforeEach(() => { COSTOS_DERIVADOS = new Map(); s = cargar(); });
+
+// La identidad es el id PROPIO (101–104). Los ids de Alegra de los dobles
+// (1–4) son otros números a propósito: buscar con uno no encuentra nada.
+const porId = (lista) => Object.fromEntries(lista.map((p) => [p.productoId, p]));
 
 describe('el margen y la ganancia de cada producto', () => {
   test('el margen usa la tarifa real: el exento no se divide entre 1,13', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.equal(p['1'].margen, 40);
-    assert.equal(p['1'].costoSinIva, 600);
-    assert.equal(p['4'].margen, 50);
-    assert.equal(p['4'].precioConIva, 200);
-    assert.equal(p['1'].precioConIva, 1130);
+    assert.equal(p[101].margen, 40);
+    assert.equal(p[101].costoSinIva, 600);
+    assert.equal(p[104].margen, 50);
+    assert.equal(p[104].precioConIva, 200);
+    assert.equal(p[101].precioConIva, 1130);
   });
 
   test('la ganancia es lo cobrado menos lo que esas unidades cuestan hoy', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.equal(p['1'].ganancia, 100000 - 100 * 600);
-    assert.equal(p['4'].ganancia, 2000 - 10 * 100);
+    assert.equal(p[101].ganancia, 100000 - 100 * 600);
+    assert.equal(p[104].ganancia, 2000 - 10 * 100);
   });
 
   test('sin costo confiable la ganancia queda vacía, no en cero', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.equal(p['2'].calidadCosto, 'SIN_COSTO');
-    assert.equal(p['2'].margen, null);
-    assert.equal(p['2'].ganancia, null);
+    assert.equal(p[102].calidadCosto, 'SIN_COSTO');
+    assert.equal(p[102].margen, null);
+    assert.equal(p[102].ganancia, null);
+  });
+
+  test('el costo de las compras se busca por el id propio, no por el de Alegra', async () => {
+    // "Codo PVC" no tiene costo en su ficha: producto 102, 2 en Alegra. Un
+    // costo puesto bajo el 2 es de OTRO producto (el propio 2) y no le toca.
+    COSTOS_DERIVADOS = new Map([[2, { costo: 999, historialInestable: false }]]);
+    s = cargar();
+    assert.equal(porId((await s.listarProductos()).data)[102].calidadCosto, 'SIN_COSTO');
+
+    COSTOS_DERIVADOS = new Map([[102, { costo: 565, historialInestable: false }]]);
+    s = cargar();
+    const codo = porId((await s.listarProductos()).data)[102];
+    assert.equal(codo.costoSinIva, 500);          // 565 con IVA al 13 %
+    assert.equal(codo.margen, 50);
+    assert.equal(codo.origenCosto, 'facturas');   // salió de las compras, no de la ficha
   });
 
   test('lo que no se vendió en la ventana es C con cero unidades, y sin ganancia', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.equal(p['3'].clase, 'C');
-    assert.equal(p['3'].unidades, 0);
-    assert.equal(p['3'].ganancia, null);
-    assert.equal(p['3'].margen, -20);
+    assert.equal(p[103].clase, 'C');
+    assert.equal(p[103].unidades, 0);
+    assert.equal(p[103].ganancia, null);
+    assert.equal(p[103].margen, -20);
   });
 });
 
 describe('la lista', () => {
   test('por omisión, los más vendidos primero', async () => {
     const { data } = await s.listarProductos();
-    assert.deepEqual(data.map((p) => p.alegraItemId), ['1', '2', '4', '3']);
+    assert.deepEqual(data.map((p) => p.productoId), [101, 102, 104, 103]);
   });
 
   test('"Menor margen" pone arriba al que pierde plata y al final a los sin costo', async () => {
     const { data } = await s.listarProductos({ orden: 'margen-bajo' });
-    assert.deepEqual(data.map((p) => p.alegraItemId), ['3', '1', '4', '2']);
+    assert.deepEqual(data.map((p) => p.productoId), [103, 101, 104, 102]);
   });
 
   test('los filtros de las tarjetas: clase, bajo el costo y sin costo', async () => {
-    assert.deepEqual((await s.listarProductos({ clase: 'A' })).data.map((p) => p.alegraItemId), ['1']);
-    assert.deepEqual((await s.listarProductos({ costo: 'negativo' })).data.map((p) => p.alegraItemId), ['3']);
-    assert.deepEqual((await s.listarProductos({ costo: 'sin-costo' })).data.map((p) => p.alegraItemId), ['2']);
+    assert.deepEqual((await s.listarProductos({ clase: 'A' })).data.map((p) => p.productoId), [101]);
+    assert.deepEqual((await s.listarProductos({ costo: 'negativo' })).data.map((p) => p.productoId), [103]);
+    assert.deepEqual((await s.listarProductos({ costo: 'sin-costo' })).data.map((p) => p.productoId), [102]);
   });
 
   test('la búsqueda ignora tildes y mayúsculas, y busca también la referencia', async () => {
     assert.deepEqual((await s.listarProductos({ buscar: 'FERRETERIA' })).total, 0, 'la categoría no es texto de búsqueda');
-    assert.deepEqual((await s.listarProductos({ buscar: 'pvc tubo' })).data.map((p) => p.alegraItemId), ['1']);
-    assert.deepEqual((await s.listarProductos({ buscar: 'la' })).data.map((p) => p.alegraItemId), ['3']);
+    assert.deepEqual((await s.listarProductos({ buscar: 'pvc tubo' })).data.map((p) => p.productoId), [101]);
+    assert.deepEqual((await s.listarProductos({ buscar: 'la' })).data.map((p) => p.productoId), [103]);
   });
 
   test('una página fuera de rango no revienta', async () => {
@@ -150,15 +171,25 @@ describe('el resumen del negocio', () => {
 });
 
 describe('el detalle', () => {
-  test('trae el producto y SUS series', async () => {
-    const r = await s.obtenerProducto('1');
+  test('trae el producto y SUS series, por el id propio', async () => {
+    const r = await s.obtenerProducto('101');
     assert.equal(r.producto.nombre, 'Tubo PVC 1/2');
     assert.equal(r.producto.productoId, 101);
-    assert.deepEqual(pedidasSeries, [101], 'las series se piden por el id PROPIO, no por el de Alegra');
+    assert.equal('alegraItemId' in r.producto, false, 'la ficha ya no lleva el id de Alegra');
+    assert.deepEqual(pedidasSeries, [101]);
   });
 
-  test('un producto oculto o inactivo da 404', async () => {
+  test('el id de Alegra de un producto NO lo abre', async () => {
+    // "Tubo PVC 1/2" es 101 acá y 1 en Alegra. Si el detalle aceptara los dos,
+    // el día que exista el producto propio 1 se abriría ese en silencio.
+    await assert.rejects(() => s.obtenerProducto('1'), (e) => e.status === 404);
+  });
+
+  test('un producto oculto o inactivo da 404, y un id que no es un número también', async () => {
     await assert.rejects(() => s.obtenerProducto('999'), (e) => e.status === 404);
+    for (const raro of ['', 'abc', '101abc', '10.5', '-101', null, undefined]) {
+      await assert.rejects(() => s.obtenerProducto(raro), (e) => e.status === 404, `aceptó ${JSON.stringify(raro)}`);
+    }
   });
 });
 
@@ -168,7 +199,7 @@ describe('sin pestañas ni Competencia', () => {
   test('las rutas son solo resumen, lista y detalle', () => {
     const rutas = fs.readFileSync(path.join(raiz, 'backend', 'src', 'modules', 'rentabilidad', 'rentabilidad.routes.js'), 'utf8');
     const declaradas = [...rutas.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)].map((m) => `${m[1]} ${m[2]}`);
-    assert.deepEqual(declaradas.sort(), ['get /productos', 'get /productos/:alegraItemId', 'get /resumen']);
+    assert.deepEqual(declaradas.sort(), ['get /productos', 'get /productos/:productoId', 'get /resumen']);
   });
 
   test('el código de Competencia ya no existe', () => {
