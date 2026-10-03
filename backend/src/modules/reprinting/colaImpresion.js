@@ -13,10 +13,16 @@
  * La cola NO guarda una fila por intento: si la factura ya estaba (procesada
  * o no), se reusa. Hay filas repetidas de antes (80 en la copia local), así
  * que las listas toman la más reciente de cada factura.
+ *
+ * LAS HORAS se escriben con AHORA_CR_SQL, nunca con CURRENT_TIMESTAMP: son
+ * columnas sin zona horaria, y en producción el pooler de Supabase deja 1 de
+ * cada 5 consultas en UTC (la nota "En impresión" llegó a decir 17:25 para
+ * algo enviado a las 11:25; ver utils/fechaCR.js).
  */
 
 const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -40,7 +46,7 @@ async function encolarSinPendientes(facturaId, db = { query }) {
            ajustes_realizados = '[]'::jsonb,
            categoria = 'sin_pendientes',
            total_ajustes = 0,
-           fecha_creacion = CURRENT_TIMESTAMP,
+           fecha_creacion = ${AHORA_CR_SQL},
            fecha_procesamiento = NULL
      WHERE factura_propia_id = $1
     RETURNING id
@@ -49,7 +55,7 @@ async function encolarSinPendientes(facturaId, db = { query }) {
 
   const nueva = await db.query(`
     INSERT INTO facturas_reimpresion (factura_propia_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
-    VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, CURRENT_TIMESTAMP)
+    VALUES ($1, '[]'::jsonb, 'pendiente', 'sin_pendientes', 0, ${AHORA_CR_SQL})
     RETURNING id
   `, [facturaId]);
   return nueva.rows[0].id;
@@ -61,14 +67,14 @@ async function ponerEnCola(db, facturaId, { ajustes, categoria }) {
   const r = await db.query(`
     UPDATE facturas_reimpresion
        SET estado = 'pendiente', ajustes_realizados = $2::jsonb, categoria = $3, total_ajustes = $4,
-           fecha_creacion = CURRENT_TIMESTAMP, fecha_procesamiento = NULL
+           fecha_creacion = ${AHORA_CR_SQL}, fecha_procesamiento = NULL
      WHERE factura_propia_id = $1
     RETURNING id
   `, datos);
   if (r.rows.length > 0) return r.rows[0].id;
   const nueva = await db.query(`
     INSERT INTO facturas_reimpresion (factura_propia_id, ajustes_realizados, estado, categoria, total_ajustes, fecha_creacion)
-    VALUES ($1, $2::jsonb, 'pendiente', $3, $4, CURRENT_TIMESTAMP)
+    VALUES ($1, $2::jsonb, 'pendiente', $3, $4, ${AHORA_CR_SQL})
     RETURNING id
   `, datos);
   return nueva.rows[0].id;
@@ -142,7 +148,7 @@ async function devolverAlReporte(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
   return enTransaccion(async (c) => {
     const faltantes = await c.query(`
-      UPDATE faltantes SET estado = 'pendiente', updated_at = CURRENT_TIMESTAMP
+      UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'
       RETURNING id
     `, [facturaId]);
@@ -221,11 +227,11 @@ async function listarPendientes() {
 async function listarProcesadas() {
   const { rows } = await query(`
     SELECT ${COLUMNAS},
-           EXTRACT(DAY FROM (NOW() - fr.fecha_procesamiento)) AS dias_desde_procesamiento
+           EXTRACT(DAY FROM (${AHORA_CR_SQL} - fr.fecha_procesamiento)) AS dias_desde_procesamiento
       FROM facturas_reimpresion fr
       JOIN factura f ON f.id = fr.factura_propia_id
      WHERE fr.estado = 'procesada'
-       AND fr.fecha_procesamiento >= NOW() - INTERVAL '7 days'
+       AND fr.fecha_procesamiento >= ${AHORA_CR_SQL} - INTERVAL '7 days'
      ORDER BY fr.fecha_procesamiento DESC
   `);
 

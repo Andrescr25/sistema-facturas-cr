@@ -41,9 +41,11 @@ let pool;
 // escribía en la tabla `facturas`; se retiró al terminar la sección 11.)
 const fuente = require('fs').readFileSync(
   require('path').join(__dirname, '..', 'src', 'modules', 'warehouse', 'bodegaPropia.js'), 'utf8');
+const { AHORA_CR_SQL } = require('../src/utils/fechaCR');
 const SQL_ESTADO_BODEGA = (() => {
   const i = fuente.indexOf('UPDATE factura\n');
-  return fuente.slice(fuente.lastIndexOf('`', i) + 1, fuente.indexOf('`', i));
+  // La hora va interpolada en el archivo (AHORA_CR_SQL): acá se pone su valor.
+  return fuente.slice(fuente.lastIndexOf('`', i) + 1, fuente.indexOf('`', i)).split('${AHORA_CR_SQL}').join(AHORA_CR_SQL);
 })();
 
 let contador = 0;

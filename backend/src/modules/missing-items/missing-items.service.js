@@ -7,6 +7,7 @@ const { query } = require('../../../config/database');
 const { getClient } = require('../../integrations/alegra');
 const { resolverProductoLocal } = require('../../utils/resolverProducto');
 const { productoPropioDe } = require('../../utils/guardarFaltantes');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const client = getClient();
 
 /**
@@ -22,7 +23,7 @@ async function saveAdjustment({ faltanteId, cantidadEntregada, estado, requiereA
       estado = $3,
       requiere_actualizacion = $4,
       revisado = COALESCE($5, faltantes_ajustes.revisado),
-      updated_at = CURRENT_TIMESTAMP
+      updated_at = ${AHORA_CR_SQL}
   `, [faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado ?? null]);
 
   return { success: true, message: 'Ajuste guardado' };
@@ -213,7 +214,7 @@ async function assignSupplierManual({ productoId: productoPropioId, alegraRefere
       proveedor_asignado = $1,
       proveedor_cedula = $2,
       asignacion_tipo = 'manual',
-      fecha_asignacion = CURRENT_TIMESTAMP,
+      fecha_asignacion = ${AHORA_CR_SQL},
       mapping_id = $3
     WHERE producto_propio_id = $4 AND estado = 'pendiente'
   `, [supplierName, supplierCedula, mappingId, propio]) : { rowCount: 0 };

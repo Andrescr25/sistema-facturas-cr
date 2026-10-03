@@ -50,10 +50,13 @@ export function useReporteClientes() {
           cliente.facturas_con_faltantes.forEach((factura) => {
             const facturaKey = getFacturaKey(factura)
 
+            // La hora de la nota es la de la BASE: cuándo se mandó a Impresión
+            // o cuándo se procesó. Antes "en impresión" llevaba la hora de
+            // cargar la pantalla, y todos los pedidos salían con la misma.
             if (factura.estado_procesamiento === 'procesado') {
-              estadosMap.set(facturaKey, { estado: 'procesado', timestamp: factura.fecha_procesamiento || new Date().toISOString(), ajustes: [], requiere_reimpresion: false, origen: 'procesado' })
+              estadosMap.set(facturaKey, { estado: 'procesado', timestamp: factura.fecha_procesamiento || null, ajustes: [], requiere_reimpresion: false, origen: 'procesado' })
             } else if (factura.en_cola_impresion) {
-              estadosMap.set(facturaKey, { estado: 'en_cola_impresion', timestamp: new Date().toISOString(), ajustes: [], requiere_reimpresion: true, origen: 'cola_impresion' })
+              estadosMap.set(facturaKey, { estado: 'en_cola_impresion', timestamp: factura.enviada_a_impresion_en || null, ajustes: [], requiere_reimpresion: true, origen: 'cola_impresion' })
             }
 
             factura.productos_faltantes.forEach((producto) => {

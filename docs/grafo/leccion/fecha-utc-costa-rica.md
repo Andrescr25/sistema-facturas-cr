@@ -6,9 +6,10 @@ estado: vigente
 archivos:
   - backend/src/utils/fechaCR.js
   - backend/tests/fechaCR.test.js
+  - backend/tests/horaEnvioImpresion.test.js
 aristas:
   relacionado: [leccion/la-db-local-es-produccion]
-medido: 2026-09-23
+medido: 2026-10-01
 ---
 
 `new Date().toISOString().slice(0, 10)` da el día en UTC. Costa Rica es
@@ -27,3 +28,19 @@ un instante y está bien; el error es recortarlo a un día.
 La lección de método: esto no lo encontró una revisión, lo encontró la suite
 corriendo a las 19:21. Cuando una prueba falla "sin que nadie tocara nada",
 el primer sospechoso no es la prueba.
+
+LA MISMA TRAMPA EN SQL (2026-10-01). Producción usa el pooler de Supabase en
+modo transacción (puerto 6543): el `SET TIME ZONE 'America/Costa_Rica'` que
+`config/database.js` hace al abrir cada conexión NO queda pegado a la sesión
+del servidor. Medido: 1 de cada 5 consultas corre en UTC. En una columna
+`timestamp` SIN zona, `CURRENT_TIMESTAMP`/`now()` guardan entonces la hora
+6 horas adelantada en esas consultas — y `CURRENT_DATE` da mañana después de
+las 6 p.m. Se vio en la nota "En impresión" del Reporte de Clientes: una
+factura enviada a las 11:25 decía 17:25. Escribir con `AHORA_CR_SQL`
+(`now() AT TIME ZONE 'America/Costa_Rica'`, en `utils/fechaCR.js`), que da la
+hora de Costa Rica en cualquier sesión. Un `Date` de JavaScript pasado como
+parámetro sí llega bien. EN ESTA RAMA ya lo usan la cola de impresión, el
+despacho de Bodega, los faltantes y sus ajustes (sección 11); quedan otras
+columnas escritas con `CURRENT_TIMESTAMP` (bitácoras, compras, cobros): mismo
+riesgo el día del corte, cuando la rama corra sobre ese pooler.
+

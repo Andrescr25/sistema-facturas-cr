@@ -26,6 +26,7 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { encolarSinPendientes } = require('../reprinting/colaImpresion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -190,7 +191,7 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
     const { rows: [f] } = await c.query(`
       UPDATE factura
          SET estado_bodega = $1,
-             bodega_procesado_en = CASE WHEN $2::boolean THEN CURRENT_TIMESTAMP ELSE NULL END,
+             bodega_procesado_en = CASE WHEN $2::boolean THEN ${AHORA_CR_SQL} ELSE NULL END,
              bodega_observaciones = COALESCE($3::text, bodega_observaciones)
        WHERE id = $4 AND estado = 'emitida'
        RETURNING id, numero, estado_bodega, bodega_procesado_en, bodega_observaciones

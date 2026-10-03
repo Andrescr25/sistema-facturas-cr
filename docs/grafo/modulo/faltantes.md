@@ -24,10 +24,13 @@ archivos:
   - backend/tests/notasDeFaltantes.test.js
   - backend/tests/fechaCalendarioReportes.test.js
   - backend/tests/impresionPropia.test.js
+  - backend/tests/horaEnvioImpresion.test.js
+  - backend/tests/reporteClientesFiltros.test.js
+  - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula]
-medido: 2026-09-30
+medido: 2026-10-03
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -92,6 +95,20 @@ LAS FECHAS de la factura propia son de calendario y viajan como 'YYYY-MM-DD'.
 `new Date('2026-09-10')` es medianoche UTC, el 9 en Costa Rica: los
 formateadores de Reporte de Clientes e Impresión las leen como día local
 (pasó en la primera vuelta en el navegador).
+
+LAS HORAS (cuándo se mandó a Impresión, cuándo se procesó, cuándo despachó
+Bodega, cuándo se registró el faltante) se escriben con `AHORA_CR_SQL`, nunca
+con `CURRENT_TIMESTAMP`: son columnas sin zona horaria y el pooler de
+producción deja 1 de cada 5 consultas en UTC
+([[leccion/fecha-utc-costa-rica]]). La nota "🖨️ En impresión — hora" del
+Reporte de Clientes muestra la hora del envío guardada en la cola, no la de
+cargar la pantalla.
+
+LA LISTA DE CLIENTES del reporte busca también por producto (nombre o
+código; cada tarjeta dice cuánto le falta) y sus filtros viven en la página,
+para que no se pierdan al entrar a un cliente y volver. Dentro del pedido el
+color queda solo en el botón de la respuesta elegida y en la barra de
+progreso (vino de `developer`, 2026-10-03).
 
 LA LIMPIEZA SEMANAL (domingo 23:59 y el botón de Configuración) borra los
 faltantes y sus ajustes, limpia el encargo que Bodega anotó en la factura

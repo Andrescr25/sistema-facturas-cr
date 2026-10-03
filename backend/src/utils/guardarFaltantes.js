@@ -23,6 +23,7 @@
  */
 
 const { query } = require('../../config/database');
+const { AHORA_CR_SQL } = require('./fechaCR');
 
 const entero = (v) => {
   const n = Number(v);
@@ -76,7 +77,7 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
             tipo_faltante = $2,
             observaciones = $3,
             registrado_por = $4,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = ${AHORA_CR_SQL}
         WHERE id = $5
       `, [
         faltante.cantidad_faltante,
@@ -89,9 +90,9 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
       await db.query(`
         INSERT INTO faltantes (
           factura_propia_id, producto_propio_id, cantidad_faltante, tipo_faltante,
-          observaciones, registrado_por, estado
+          observaciones, registrado_por, estado, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'pendiente')
+        VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', ${AHORA_CR_SQL}, ${AHORA_CR_SQL})
       `, [
         facturaId,
         productoId,

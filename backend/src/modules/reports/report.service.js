@@ -251,7 +251,10 @@ class ReportService {
           f.estado as faltante_estado,
           fa.bodega_observaciones AS observaciones_adicionales,
           f.created_at as fecha_registro,
+          -- Cuándo la procesó Impresión; si no hay fila, lo de antes.
           COALESCE(fr.fecha_procesamiento, f.updated_at) as fecha_procesamiento,
+          -- Cuándo se mandó a Impresión: es la hora de la nota "En impresión".
+          fr.fecha_creacion as enviada_a_impresion_en,
           aj.cantidad_entregada,
           aj.estado as ajuste_estado,
           aj.requiere_actualizacion,
@@ -265,12 +268,12 @@ class ReportService {
         LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
         -- La fila más reciente de la cola: hay facturas con dos (de antes de
         -- que la cola reusara la suya), y un JOIN directo duplicaba cada
-        -- producto de esas facturas en el reporte.
+        -- producto de esas facturas en el reporte y no decía de cuál era la hora.
         LEFT JOIN LATERAL (
-          SELECT r.id, r.estado, r.fecha_procesamiento
+          SELECT r.id, r.estado, r.fecha_creacion, r.fecha_procesamiento
             FROM facturas_reimpresion r
            WHERE r.factura_propia_id = fa.id
-           ORDER BY r.fecha_creacion DESC
+           ORDER BY r.fecha_creacion DESC NULLS LAST, r.id DESC
            LIMIT 1
         ) fr ON true
         WHERE f.estado IN ('pendiente', 'procesado')
@@ -333,6 +336,7 @@ class ReportService {
             alegra_id: row.factura_alegra_id,
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
+            enviada_a_impresion_en: row.enviada_a_impresion_en || null,
             observaciones_adicionales: row.observaciones_adicionales,
             en_cola_impresion: Boolean(row.reimpresion_id) && row.reimpresion_estado === 'pendiente',
             total_items_factura: parseInt(row.total_items_factura) || 0,

@@ -26,6 +26,7 @@
 
 const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { editarFacturaEn } = require('../facturacion/facturaPropia.service');
 const { obtenerFactura } = require('../facturacion/facturaConsulta.service');
 const { generarPdfFactura } = require('../facturacion/factura.pdf');
@@ -242,12 +243,12 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
 
     for (const f of datos.faltantes) {
       await c.query(`
-        UPDATE faltantes SET estado = 'procesado', cantidad_rebajada = $2, updated_at = CURRENT_TIMESTAMP
+        UPDATE faltantes SET estado = 'procesado', cantidad_rebajada = $2, updated_at = ${AHORA_CR_SQL}
          WHERE id = $1
       `, [f.id, rebajaObjetivo(f)]);
     }
     await c.query(`
-      UPDATE facturas_reimpresion SET estado = 'procesada', fecha_procesamiento = CURRENT_TIMESTAMP
+      UPDATE facturas_reimpresion SET estado = 'procesada', fecha_procesamiento = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'pendiente'
     `, [facturaId]);
     await c.query(`
@@ -274,7 +275,7 @@ async function recuperarProcesada(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
   return enTransaccion(async (c) => {
     const faltantes = await c.query(`
-      UPDATE faltantes SET estado = 'pendiente', updated_at = CURRENT_TIMESTAMP
+      UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'
       RETURNING id
     `, [facturaId]);

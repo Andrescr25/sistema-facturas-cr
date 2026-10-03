@@ -17,6 +17,10 @@ import {
  * (¿qué llegó?). Arriba lo que falta por responder, agrupado por proveedor;
  * al fondo lo ya revisado, colapsado tras un divisor.
  * Extraído de ReporteClientes.jsx (antes renderFacturaActiva).
+ *
+ * Sobria a propósito (pedido del usuario, 2026-10-01): sin la línea de color
+ * a la izquierda según el avance, sin fondos de color por sección. Quedan
+ * la barra de progreso (azul avanzando, verde al 100 %) y "Sin Caja".
  */
 export default function FacturaActivaCard({
   factura,
@@ -51,18 +55,10 @@ export default function FacturaActivaCard({
     gruposPorProveedor.get(prov).push(producto)
   })
 
-  const bordeIzquierdo = todoRevisado
-    ? 'border-l-green-400'
-    : esFacturaSinCaja
-      ? 'border-l-red-400'
-      : progreso.revisados > 0
-        ? 'border-l-amber-300'
-        : 'border-l-gray-200'
-
   const sinConfirmarCount = Math.max((progreso.conRespuesta || 0) - progreso.revisados, 0)
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm overflow-hidden border-l-4 transition-all ${bordeIzquierdo}`}>
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-neutro-200">
       {/* Header: identidad de la factura + progreso + acciones */}
       <div className="p-5 border-b border-neutro-100">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -80,7 +76,7 @@ export default function FacturaActivaCard({
               <button
                 type="button"
                 onClick={() => onMarcarFacturaRevisada && onMarcarFacturaRevisada(factura)}
-                className="btn btn-sm bg-primario-600 text-white border-primario-600 hover:bg-primario-700 font-semibold shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                className="btn btn-sm bg-white text-neutro-800 border-neutro-300 hover:bg-neutro-50 font-semibold flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Check size={15} />
                 Confirmar revisión ({sinConfirmarCount})
@@ -94,7 +90,7 @@ export default function FacturaActivaCard({
               title={!todoRevisado ? `Falta revisar ${progreso.porRevisar} producto(s)` : 'Enviar a impresión'}
               className={`btn btn-sm whitespace-nowrap flex items-center gap-1.5 ${
                 todoRevisado
-                  ? 'bg-exito-600 text-white border-exito-600 hover:bg-primario-900 font-bold shadow-sm'
+                  ? 'bg-primario-600 text-white border-primario-600 hover:bg-primario-700 font-bold shadow-sm'
                   : 'bg-neutro-200 text-neutro-400 border-neutro-200 cursor-not-allowed opacity-60'
               }`}
             >
@@ -107,18 +103,18 @@ export default function FacturaActivaCard({
         {/* Progreso del checklist */}
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className={`font-semibold ${todoRevisado ? 'text-exito-700' : 'text-neutro-600'}`}>
+            <span className="font-semibold text-neutro-700">
               {todoRevisado
                 ? `✓ Todo revisado — ${progreso.total} producto${progreso.total !== 1 ? 's' : ''}`
                 : `${progreso.revisados} de ${progreso.total} revisados${sinConfirmarCount > 0 ? ` · ${sinConfirmarCount} listo${sinConfirmarCount !== 1 ? 's' : ''} para confirmar` : ''}`}
             </span>
             {!todoRevisado && (
-              <span className="text-alerta-700 font-medium">{progreso.porRevisar} por revisar</span>
+              <span className="text-neutro-500 font-medium">{progreso.porRevisar} por revisar</span>
             )}
           </div>
           <div className="h-1.5 w-full bg-neutro-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${todoRevisado ? 'bg-exito-500' : 'bg-alerta-400'}`}
+              className={`h-full rounded-full transition-all duration-300 ${todoRevisado ? 'bg-exito-500' : 'bg-primario-500'}`}
               style={{ width: `${progreso.porcentaje}%` }}
             />
           </div>
@@ -130,10 +126,10 @@ export default function FacturaActivaCard({
         <div>
           {[...gruposPorProveedor.entries()].map(([provNombre, productos]) => (
             <div key={provNombre}>
-              <div className="px-5 py-2 bg-nota-50 border-y border-nota-100 flex items-center gap-2">
-                <Package size={13} className="text-nota-500" />
-                <span className="text-xs font-bold text-nota-700 uppercase tracking-wider truncate">{provNombre}</span>
-                <span className="text-[10px] text-nota-400 font-medium">({productos.length})</span>
+              <div className="px-5 py-2 bg-neutro-50 border-y border-neutro-100 flex items-center gap-2">
+                <Package size={13} className="text-neutro-400" />
+                <span className="text-xs font-bold text-neutro-600 uppercase tracking-wider truncate">{provNombre}</span>
+                <span className="text-[10px] text-neutro-400 font-medium">({productos.length})</span>
               </div>
               <div className="divide-y divide-neutro-50">
                 {productos.map(producto => {
@@ -158,8 +154,8 @@ export default function FacturaActivaCard({
 
           {/* Barra de confirmación a nivel de factura al final de los productos por revisar */}
           {sinConfirmarCount > 0 && (
-            <div className="p-4 bg-primario-50/90 border-t border-primario-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <p className="text-sm font-medium text-primario-900">
+            <div className="p-4 bg-neutro-50 border-t border-neutro-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-sm font-medium text-neutro-800">
                 Tenés <strong>{sinConfirmarCount}</strong> producto{sinConfirmarCount !== 1 ? 's' : ''} respondido{sinConfirmarCount !== 1 ? 's' : ''}. ¿Confirmar revisión?
               </p>
               <button
@@ -177,10 +173,10 @@ export default function FacturaActivaCard({
 
       {/* Todo listo dentro de la factura */}
       {porRevisar.length === 0 && progreso.total > 0 && (
-        <div className="px-5 py-6 text-center bg-exito-50/40">
-          <Check className="mx-auto text-exito-500 mb-1.5" size={24} />
-          <p className="text-sm text-exito-800 font-medium">Todos los productos revisados.</p>
-          <p className="text-xs text-exito-700 mt-0.5">Ya podés enviar la factura a impresión.</p>
+        <div className="px-5 py-6 text-center">
+          <Check className="mx-auto text-neutro-400 mb-1.5" size={24} />
+          <p className="text-sm text-neutro-800 font-medium">Todos los productos revisados.</p>
+          <p className="text-xs text-neutro-500 mt-0.5">Ya podés enviar la factura a impresión.</p>
         </div>
       )}
 
@@ -222,8 +218,8 @@ export default function FacturaActivaCard({
 
       {/* Observaciones adicionales */}
       {factura.observaciones_adicionales && (
-        <div className="p-4 bg-alerta-50 border-t border-alerta-200">
-          <p className="text-sm text-alerta-800"><strong>📝 Encargos:</strong> {factura.observaciones_adicionales}</p>
+        <div className="p-4 bg-neutro-50 border-t border-neutro-100">
+          <p className="text-sm text-neutro-800"><strong>📝 Encargos:</strong> {factura.observaciones_adicionales}</p>
         </div>
       )}
     </div>
