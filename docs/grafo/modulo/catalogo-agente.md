@@ -18,14 +18,19 @@ archivos:
   - frontend/src/components/inventario-auditoria/SeccionProductosNuevos.jsx
   - backend/src/modules/ventas/rotacion.js
   - backend/src/modules/catalogo-agente/pedidos-agente.service.js
+  - backend/src/modules/catalogo-agente/catalogo-agente.service.js
+  - backend/src/modules/catalogo-agente/catalogo-agente.controller.js
+  - frontend/src/utils/catalogoAgenteDb.js
+  - frontend/src/hooks/useCatalogoAgente.js
+  - backend/tests/catalogoAgenteIdsPropios.test.js
 aristas:
-  depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-linea]
-  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
+  depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
+  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes]
 medido: 2026-10-03
 ---
 
-El catálogo que el agente le muestra al cliente. Es de solo mirar: el
-pedido también se puede guardar desde la tablet y resolver desde Clientes.
+El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
+se toma en Facturación. No tiene controles para armarlo desde esta pantalla.
 Cada categoría se parte en familias (sus
 subcategorías), en el orden de `categoria_config.orden` y `subcategoria.orden`
 — el mismo que ve Gestión de Catálogo, porque las dos pantallas usan las
@@ -51,13 +56,15 @@ MANUAL (`producto_nuevo_catalogo`: qué producto, cuándo, quién) que se
 administra en Auditoría de Inventario, pestaña "Productos nuevos" — agregar o
 quitar, nada automático. Solo entra un producto activo y visible; uno que
 después se desactiva queda en la lista marcado ("No sale: …") en vez de
-borrarse solo. La tablet baja solo los ids de `GET
+borrarse solo. La lista usa `producto_id` propio y se quita por su entrada
+`registroId`, incluso si no tiene ficha ([[tabla/producto-nuevo-catalogo]]).
+La tablet baja solo los ids de `GET
 /catalogo-agente/productos-nuevos`, abierta sin sesión como las rebajas; la
 administración (`/inventario-auditorias/productos-nuevos`) pide sesión. No
 entra en "Cliente nuevo".
 
 CLIENTE NUEVO (2026-09-25). En el selector de clientes, "Cliente nuevo" va
-siempre arriba y aparece al buscarlo. No existe en Alegra: es un id fijo
+siempre arriba y aparece al buscarlo. No es una ficha de cliente: es un id fijo
 (`CLIENTE_NUEVO_ID`) sin compras. Con él elegido, en vez del catálogo
 completo se ve `catalogoClienteNuevo`: OFERTA (las rebajas, con la etiqueta
 "OFERTA" en vez del porcentaje), LIQUIDACIÓN (los excesos, con su
@@ -92,9 +99,18 @@ LA ACTUALIZACIÓN SIN SESIÓN Y LAS FOTOS: ver
 al ingreso; el orden y la rotación (que piden sesión) se quedan como estaban
 y la pantalla lo avisa.
 
-BORDE TEMPORAL (sección 12, parte 2): la tablet y su caché todavía mandan
-ids de Alegra. `pedidos-agente.service` los resuelve contra `producto` y
-guarda las líneas con `producto_id` además de la referencia histórica. Así
-Clientes ya convierte esos pedidos en factura propia, en la misma
-transacción que marca el pedido. Migrar el contrato y la caché de la tablet
-corresponde a la parte 3.
+SECCIÓN 12, PARTE 3 (2026-10-03): productos, historial por cliente, ofertas,
+rebajas, lista manual y rotación A/B entregan ids propios, incluidos productos
+y clientes sin Alegra. Un cliente activo sin compras entra con `p: []`.
+La caché v3 invalida juntos los ids anteriores y conserva orden y fotos.
+Productos, clientes y metadatos se reemplazan en una transacción; un fallo
+de descarga o almacenamiento conserva la última copia válida. Ver
+[[leccion/cache-con-ids-propios-no-borra-pendientes]].
+
+SOLO LA COLA HISTÓRICA conserva el borde de Alegra. La migración no abre
+`SistemaFacturasCR` ni borra pedidos o facturas pendientes. El servicio
+reconoce campos antiguos explícitos y traduce por su correspondencia;
+el contrato nuevo recibe `clienteId` y `productoId`, sin mezclarlos. Precio,
+IVA y nombre salen del maestro. Cabecera y líneas se confirman juntas;
+reenvíos devuelven el pedido original. Clientes los factura con el mismo
+servicio propio del portal.

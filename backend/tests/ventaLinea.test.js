@@ -176,15 +176,16 @@ describe('las ventas salen de las facturas propias — contra la base local', { 
     assert.ok(detalle.producto.unidades >= Number(venta.cantidad));
   });
 
-  test('el historial del agente sale por cliente, con los ids de Alegra que todavía usa la tablet', async () => {
+  test('el historial del agente sale por cliente y producto propios', async () => {
     const h = await m.agente.obtenerHistorialParaCatalogo();
     assert.ok(h.clientes.length > 0);
-    const [id, veces, fecha] = h.clientes[0].p[0];
+    const conCompras = h.clientes.find(c => c.p.length)
+    const [id, veces, fecha] = conCompras.p[0];
     assert.ok(id && veces >= 1);
     assert.match(fecha, /^\d{4}-\d{2}-\d{2}$/, 'la fecha viaja como día de calendario');
     assert.ok(h.clientes.every((c) => c.p.length <= 120));
-    const { rows: [c] } = await cliente.query('SELECT 1 FROM cliente WHERE alegra_id = $1', [String(h.clientes[0].id)]);
-    assert.ok(c, 'el id del cliente es el de Alegra de una ficha propia');
+    const { rows: [c] } = await cliente.query('SELECT 1 FROM cliente WHERE id = $1', [Number(conCompras.id)]);
+    assert.ok(c, 'el id del cliente es el de la ficha propia');
   });
 
   test('portal: la portada, las compras anteriores y sus líneas, por la ficha propia del cliente', async (t) => {

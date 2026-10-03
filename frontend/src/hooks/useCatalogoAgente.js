@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from 'react'
 import api from '../services/api'
 import { buscarProductos } from '../utils/buscarCatalogoAgente'
-import { catalogoAgenteDb } from '../utils/catalogoAgenteDb'
+import { catalogoAgenteDb, validarVersionIds } from '../utils/catalogoAgenteDb'
 import {
   construirStats, productosHabituales, productosPerdidos, ordenarCatalogoParaCliente,
   CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo, enOrdenDelCatalogo
@@ -15,9 +15,9 @@ const PRODUCTOS_NUEVOS_PATH = '/catalogo-agente/productos-nuevos'
 const HISTORIAL_CLIENTES_PATH = '/catalogo-agente/historial-clientes'
 const CONFIG_CATALOGO_PATH = '/catalogo-agente/config-catalogo'
 const ROTACION_PATH = '/catalogo-agente/rotacion'
-const ALEGRA_PAGE_LIMIT = 30
+const PAGINA_CATALOGO = 30
 const SYNC_CONCURRENCY = 5
-const MAX_LOTES_FALLIDOS_CONSECUTIVOS = 3
+const MAX_INTENTOS_PAGINA = 3
 
 const SIN_STATS = new Map()
 
@@ -75,10 +75,13 @@ export function useCatalogoAgente() {
   // Cuántas fotos no cupieron en la tablet en la última sincronización (se
   // ven con internet). Ver utils/cacheImagenesCatalogo.js.
   const [fotosSinLugar, setFotosSinLugar] = useState(0)
+  const [requiereActualizar, setRequiereActualizar] = useState(false)
+  const [errorCatalogo, setErrorCatalogo] = useState('')
 
   useEffect(() => {
     const loadFromCache = async () => {
       try {
+        setRequiereActualizar(await catalogoAgenteDb.getRequiereActualizar())
         const storedProducts = await catalogoAgenteDb.getAllProducts()
         const lastUpdate = await catalogoAgenteDb.getLastUpdate()
         const storedOfertas = await catalogoAgenteDb.getOfertas()
@@ -115,6 +118,7 @@ export function useCatalogoAgente() {
         }
       } catch (error) {
         console.error('No se pudo cargar el catálogo local:', error)
+        setErrorCatalogo(error.message || 'No se pudo abrir el catálogo guardado.')
       } finally {
         setIsLoading(false)
       }
@@ -133,8 +137,7 @@ export function useCatalogoAgente() {
     }
   }, [])
 
-  // "Cliente nuevo" no está en la lista que baja del servidor (no existe en
-  // Alegra): se reconoce por su id fijo.
+  // "Cliente nuevo" es una vista sin ficha propia: se reconoce por su id fijo.
   const clienteActivo = useMemo(
     () => (clienteActivoId === CLIENTE_NUEVO_ID
       ? CLIENTE_NUEVO
@@ -291,7 +294,7 @@ export function useCatalogoAgente() {
     if (!ofertasBaja || ofertasBaja.length === 0) return []
     return ofertasBaja
       .map((o) => {
-        const product = products.find((p) => String(p.id) === String(o.alegraItemId))
+        const product = products.find((p) => String(p.id) === String(o.productoId))
         if (!product) return null
         // NO se pasa `descuentoPorcentaje`: esa prop hace que la tarjeta
         // recalcule el precio, y acá el del catálogo ya es el rebajado.
@@ -307,7 +310,7 @@ export function useCatalogoAgente() {
   const productosNuevos = useMemo(() => {
     if (!productosNuevosIds || productosNuevosIds.length === 0) return []
     const porId = new Map(products.map((p) => [String(p.id), p]))
-    return productosNuevosIds.map((n) => porId.get(String(n.alegraItemId))).filter(Boolean)
+    return productosNuevosIds.map((n) => porId.get(String(n.productoId))).filter(Boolean)
   }, [products, productosNuevosIds])
 
   // El catálogo de "Cliente nuevo": oferta, liquidación, rotación A y
@@ -327,186 +330,98 @@ export function useCatalogoAgente() {
 
   const synchronize = useCallback(async () => {
     setIsSyncing(true)
-    updateSyncUI('Iniciando sincronización...', 5)
-    const sinSesion = []
-    const faltoSesion = (error) => error?.response?.status === 401
-    // Lo que va arriba del catálogo, para guardar sus fotos primero.
-    const destacados = new Set()
-
+    setErrorCatalogo('')
+    updateSyncUI('Iniciando actualización...', 5)
+    const sinSesion = [], destacados = new Set()
     try {
-      let start = 0
-      let hasMore = true
-      let totalSynced = 0
+      let start = 0, hasMore = true
       const newBuffer = []
-
-      await catalogoAgenteDb.clearProducts()
-
-      let lotesFallidosConsecutivos = 0
-
+      // Reintentar LA MISMA página. Saltar un error y avanzar el offset
+      // guardaba un catálogo incompleto como si se hubiera actualizado bien.
+      const descargarPagina = async (offset) => {
+        for (let intento = 1; intento <= MAX_INTENTOS_PAGINA; intento++) {
+          try {
+            const { data } = await api.get(PRODUCTOS_PATH, { params: { start: offset, limit: PAGINA_CATALOGO } })
+            validarVersionIds(data)
+            return data
+          } catch (error) {
+            if (intento === MAX_INTENTOS_PAGINA || error.response?.status === 401 || (!error.response && error.message?.includes('servidor cambió'))) throw error
+          }
+        }
+      }
       while (hasMore) {
-        const promises = []
-        for (let i = 0; i < SYNC_CONCURRENCY; i++) {
-          if (!hasMore) break
-          const currentStart = start + i * ALEGRA_PAGE_LIMIT
-          const p = api
-            .get(PRODUCTOS_PATH, { params: { start: currentStart, limit: ALEGRA_PAGE_LIMIT } })
-            .then((res) => ({ start: currentStart, data: res.data, ok: true }))
-            .catch((err) => ({ start: currentStart, err, ok: false }))
-          promises.push(p)
+        const paginas = await Promise.all(Array.from({ length: SYNC_CONCURRENCY }, (_,i) => descargarPagina(start+i*PAGINA_CATALOGO)))
+        for (const data of paginas) {
+          const batch = data.products
+          if (!Array.isArray(batch) || typeof data.debug?.has_more !== 'boolean') throw new Error('El servidor devolvió un catálogo incompleto.')
+          newBuffer.push(...batch.filter(p => p.status === 'active'))
+          updateSyncUI(`Cargando productos: ${newBuffer.length} ...`, Math.min(85, newBuffer.length/600*100))
+          if (!data.debug.has_more) hasMore = false
         }
-
-        if (promises.length === 0) break
-
-        const results = await Promise.all(promises)
-
-        if (results.every((result) => !result.ok)) {
-          lotesFallidosConsecutivos++
-          if (lotesFallidosConsecutivos >= MAX_LOTES_FALLIDOS_CONSECUTIVOS) {
-            throw new Error('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.')
-          }
-        } else {
-          lotesFallidosConsecutivos = 0
+        start += SYNC_CONCURRENCY*PAGINA_CATALOGO
+      }
+      // Extras independientes. Un 401 conserva el último orden y rotación
+      // propios y se avisa; no expulsa al agente a mitad de la actualización.
+      updateSyncUI('Actualizando ofertas y clientes...', 90)
+      const solicitudes = [
+        ['ofertas', OFERTAS_PATH, 'ofertas'], ['ofertasBaja', OFERTAS_BAJA_PATH, 'ofertas'],
+        ['productosNuevos', PRODUCTOS_NUEVOS_PATH, 'productos'], ['clientes', HISTORIAL_CLIENTES_PATH, 'clientes'],
+        ['configCatalogo', CONFIG_CATALOGO_PATH, null], ['rotacion', ROTACION_PATH, null]
+      ]
+      const resultados = await Promise.allSettled(solicitudes.map(async ([clave,ruta,campo]) => {
+        const { data } = await api.get(ruta)
+        if (clave !== 'configCatalogo') validarVersionIds(data)
+        if (campo && !Array.isArray(data[campo])) throw new Error(`No se pudo verificar ${clave}.`)
+        return campo ? data[campo] : data
+      }))
+      const snapshot = { products: newBuffer, timestamp: Date.now() }
+      resultados.forEach((r,i) => {
+        const [clave] = solicitudes[i]
+        if (r.status === 'fulfilled') snapshot[clave] = r.value
+        else {
+          if (r.reason.response?.status === 401) sinSesion.push(clave === 'rotacion' ? 'lo más vendido' : clave === 'configCatalogo' ? 'el orden del catálogo' : 'el historial de clientes')
+          console.error(`No se pudo actualizar ${clave}:`, r.reason)
         }
-
-        for (const result of results) {
-          if (!result.ok) continue
-
-          const data = result.data
-          const batch = data.products || (Array.isArray(data) ? data : [])
-
-          if (batch.length === 0) {
-            hasMore = false
-          }
-
-          const activeBatch = batch.filter((p) => p.status === 'active')
-          if (activeBatch.length > 0) {
-            newBuffer.push(...activeBatch)
-            totalSynced += activeBatch.length
-          }
-
-          updateSyncUI(`Cargando productos: ${totalSynced} ...`, Math.min(95, (totalSynced / 600) * 100))
-
-          if (data.debug && typeof data.debug.has_more === 'boolean') {
-            if (!data.debug.has_more) hasMore = false
-          } else if (batch.length < ALEGRA_PAGE_LIMIT) {
-            hasMore = false
-          }
-        }
-
-        start += promises.length * ALEGRA_PAGE_LIMIT
-      }
-
-      await catalogoAgenteDb.saveProducts(newBuffer)
-
-      // Ofertas e historial de clientes se guardan ANTES del prefetch de
-      // imágenes (que sigue abajo) a propósito: ese prefetch puede llenar la
-      // cuota de almacenamiento del dispositivo con ~2000 fotos y hacer que
-      // el guardado de estos dos, que pesa muchísimo menos, falle por
-      // QuotaExceededError si quedara después (visto en pruebas). Un fallo
-      // acá no debe tumbar el resto de la sincronización.
-      updateSyncUI('Actualizando ofertas...', 90)
-      try {
-        const ofertasRes = await api.get(OFERTAS_PATH)
-        const nuevasOfertas = ofertasRes.data.ofertas || []
-        nuevasOfertas.forEach((o) => destacados.add(String(o.id)))
-        await catalogoAgenteDb.saveOfertas(nuevasOfertas)
-        setOfertas(nuevasOfertas)
-      } catch (ofertasError) {
-        console.error('No se pudieron actualizar las ofertas:', ofertasError)
-      }
-
-      try {
-        const bajaRes = await api.get(OFERTAS_BAJA_PATH)
-        const nuevasBaja = bajaRes.data.ofertas || []
-        nuevasBaja.forEach((o) => destacados.add(String(o.alegraItemId)))
-        await catalogoAgenteDb.saveOfertasBaja(nuevasBaja)
-        setOfertasBaja(nuevasBaja)
-      } catch (bajaError) {
-        // Un fallo acá no debe tumbar la sincronización: el catálogo sirve
-        // igual sin la sección de rebajas.
-        console.error('No se pudieron actualizar las bajas de precio:', bajaError)
-      }
-
-      try {
-        const nuevosRes = await api.get(PRODUCTOS_NUEVOS_PATH)
-        const nuevos = nuevosRes.data.productos || []
-        nuevos.forEach((n) => destacados.add(String(n.alegraItemId)))
-        await catalogoAgenteDb.saveProductosNuevos(nuevos)
-        setProductosNuevosIds(nuevos)
-      } catch (nuevosError) {
-        // Igual que las rebajas: sin esto solo falta esa sección.
-        console.error('No se pudieron actualizar los productos nuevos:', nuevosError)
-      }
-
-      updateSyncUI('Actualizando historial de clientes...', 92)
-      try {
-        const historialRes = await api.get(HISTORIAL_CLIENTES_PATH)
-        const nuevosClientes = historialRes.data?.clientes || []
-        await catalogoAgenteDb.clearClientes()
-        await catalogoAgenteDb.saveClientes(nuevosClientes)
-        setClientes(nuevosClientes)
-      } catch (historialError) {
-        console.error('No se pudo actualizar el historial de clientes:', historialError)
-      }
-
-      try {
-        const configRes = await api.get(CONFIG_CATALOGO_PATH)
-        await catalogoAgenteDb.saveConfigCatalogo(configRes.data)
-        setConfigCatalogo(configRes.data)
-      } catch (configError) {
-        // Sin esto el catálogo sale en el orden alfabético de siempre — no
-        // vale la pena tumbar la sincronización por algo que es solo de orden.
-        // Lo guardado antes se queda.
-        if (faltoSesion(configError)) sinSesion.push('el orden del catálogo')
-        console.error('No se pudo actualizar el orden del catálogo:', configError)
-      }
-
-      try {
-        const rotacionRes = await api.get(ROTACION_PATH)
-        await catalogoAgenteDb.saveRotacion(rotacionRes.data)
-        setRotacion(rotacionRes.data)
-      } catch (rotacionError) {
-        // Sin esto "Cliente nuevo" muestra solo la oferta: no vale la pena
-        // tumbar la sincronización.
-        if (faltoSesion(rotacionError)) sinSesion.push('lo más vendido')
-        console.error('No se pudo actualizar la rotación:', rotacionError)
-      }
-
-      // Las fotos, en el orden en que se ven: lo destacado (rebajas, nuevos,
-      // liquidación) y después el catálogo en el orden de Gestión de Catálogo
-      // (el recién bajado o, sin sesión, el último guardado). Si no caben
-      // todas, las que quedan afuera son las del fondo.
+      })
+      // No publicar ni borrar la copia anterior hasta tener TODAS las páginas.
+      // Productos, clientes y metadatos se confirman en una transacción IDB.
+      // Las fotos van después: una cuota llena nunca deja el catálogo a medias.
+      await catalogoAgenteDb.guardarCatalogo(snapshot)
+      setProducts(newBuffer)
+      setLastSync(snapshot.timestamp)
+      setRequiereActualizar(false)
+      if (snapshot.ofertas) setOfertas(snapshot.ofertas)
+      if (snapshot.ofertasBaja) setOfertasBaja(snapshot.ofertasBaja)
+      if (snapshot.productosNuevos) setProductosNuevosIds(snapshot.productosNuevos)
+      if (snapshot.clientes) setClientes(snapshot.clientes)
+      if (snapshot.configCatalogo) setConfigCatalogo(snapshot.configCatalogo)
+      if (snapshot.rotacion) setRotacion(snapshot.rotacion)
+      setSinSesionEnSync(sinSesion)
+      // Prioridad de fotos: liquidación, rebajas y nuevos; luego el orden
+      // canónico de Gestión de Catálogo. Son rutas de imagen, no ids de venta.
+      const ofertasActuales = snapshot.ofertas || await catalogoAgenteDb.getOfertas() || []
+      const bajasActuales = snapshot.ofertasBaja || await catalogoAgenteDb.getOfertasBaja() || []
+      const nuevosActuales = snapshot.productosNuevos || await catalogoAgenteDb.getProductosNuevos() || []
+      ofertasActuales.forEach(o => destacados.add(String(o.id)))
+      bajasActuales.forEach(o => destacados.add(String(o.productoId)))
+      nuevosActuales.forEach(n => destacados.add(String(n.productoId)))
       updateSyncUI('Preparando las fotos...', 95)
       let resultadoFotos = { sinLugar: 0 }
       try {
         const configParaOrden = await catalogoAgenteDb.getConfigCatalogo().catch(() => null)
-        const enOrden = [
-          ...newBuffer.filter((p) => destacados.has(String(p.id))),
-          ...enOrdenDelCatalogo(newBuffer, configParaOrden).flatMap((b) => b.productos)
-        ]
-        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden), (hechas, total) => {
-          updateSyncUI(`Guardando fotos: ${hechas} / ${total}`, total ? Math.min(100, (hechas / total) * 100) : 100)
+        const enOrden = [...newBuffer.filter(p => destacados.has(String(p.id))),
+          ...enOrdenDelCatalogo(newBuffer, configParaOrden).flatMap(b => b.productos)]
+        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden), (hechas,total) => {
+          updateSyncUI(`Guardando fotos: ${hechas} / ${total}`, total ? Math.min(100, hechas/total*100) : 100)
         })
-        console.info('Fotos del catálogo:', resultadoFotos)
-      } catch (fotosError) {
-        // Las fotos son lo último y lo menos grave: con internet se ven igual.
-        console.error('No se pudieron guardar las fotos:', fotosError)
-      }
-
-      const timestamp = Date.now()
-      await catalogoAgenteDb.saveLastUpdate(timestamp)
-      setProducts(newBuffer)
-      setLastSync(timestamp)
-      setSinSesionEnSync(sinSesion)
+      } catch (error) { console.error('No se pudieron guardar las fotos:', error) }
       setFotosSinLugar(resultadoFotos.sinLugar || 0)
-      setIsSyncing(false)
       return { success: true, count: newBuffer.length }
     } catch (error) {
-      console.error('Error sincronizando catálogo:', error)
-      setIsSyncing(false)
-      window.alert(error.message || 'No se pudo sincronizar el catálogo. Intenta de nuevo.')
+      console.error('Error actualizando catálogo:', error)
+      setErrorCatalogo(error.response?.data?.message || error.message || 'No se pudo actualizar el catálogo. Se conserva la copia anterior.')
       return { success: false, error: error.message }
-    }
+    } finally { setIsSyncing(false) }
   }, [updateSyncUI])
 
   return {
@@ -526,6 +441,8 @@ export function useCatalogoAgente() {
     productosNuevos,
     sinSesionEnSync,
     fotosSinLugar,
+    requiereActualizar,
+    errorCatalogo,
     synchronize,
     clientes,
     clienteActivo,

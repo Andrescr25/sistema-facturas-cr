@@ -23,8 +23,9 @@ router.get('/historial-clientes', catalogoAgenteController.obtenerHistorialClien
 // POST /historial-clientes/sync se retiró el 2026-10-03: el historial sale de las
 // facturas propias (`venta_linea`) y ya no hay nada que sincronizar.
 
-// El pedido que el agente levanta en la calle. Va detrás de la sesión del
-// personal: el catálogo del agente ya exige login.
+// Compatibilidad de pedidos pendientes: pide sesión del personal. La pantalla
+// actual es de consulta y no arma pedidos; conservar esta ruta permite enviar
+// la cola offline antigua sin borrarla al renovar el catálogo.
 router.post('/pedidos', catalogoAgenteController.crearPedido);
 
 // El dispositivo cuenta cuántos pedidos le quedan sin mandar; la casa lo mira.

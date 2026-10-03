@@ -26,8 +26,8 @@
  *
  * LA IDENTIDAD ES `producto_id`, el id propio. Cada fila trae además
  * `alegra_item_id` (el `producto.alegra_id`, vacío en un producto creado acá)
- * para lo que todavía se llavea por ahí: el catálogo del agente y el costo
- * derivado de Rentabilidad. Quien lea `producto` une por `producto_id`.
+ * para el costo derivado de Rentabilidad y el motor de precios, pendientes
+ * de migrar. El catálogo del agente ya usa producto_id.
  */
 
 const { query } = require('../../../config/database');
@@ -123,14 +123,12 @@ async function rotacionPorProducto() {
 /**
  * Solo los ids de A y de B: lo que usa el catálogo de "Cliente nuevo".
  *
- * POR EL ID DE ALEGRA, todavía: la tablet guarda sus productos con ese id
- * hasta que su caché pase a ids propios (sección 12, catálogo del agente).
- * Un producto creado acá, sin id de Alegra, no entra hasta entonces.
+ * Por producto.id, también los creados solo en el sistema.
  */
 async function clasesAB() {
-  const { rows } = await query(`SELECT alegra_item_id, clase FROM (${SQL_ROTACION}) r WHERE clase IN ('A', 'B') AND alegra_item_id IS NOT NULL`);
+  const { rows } = await query(`SELECT producto_id, clase FROM (${SQL_ROTACION}) r WHERE clase IN ('A', 'B') ORDER BY unidades DESC, producto_id`);
   const clases = { A: [], B: [] };
-  for (const r of rows) clases[r.clase].push(String(r.alegra_item_id));
+  for (const r of rows) clases[r.clase].push(String(r.producto_id));
   return clases;
 }
 

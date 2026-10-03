@@ -644,18 +644,17 @@ su estado usando el `alegraId`; ahora todo va por `factura.id` y `producto.id`.
 
 ## 12. Portal de clientes y catálogos
 
-**Partes 1 y 2 terminadas:** ventas desde `venta_linea`; portal con cliente,
-producto y factura propios. Queda la parte 3: identidad y caché de la tablet.
+**TERMINADA (2026-10-03), en tres partes:** ventas desde `venta_linea`;
+portal con cliente, producto y factura propios; identidad y caché de la tablet
+propios. Solo quedan referencias históricas para conciliar y enviar colas
+antiguas, y el puente de los excesos del inventario pospuesto.
 
-- [x] Productos, ofertas y categorías leídos de `producto` — *2026-10-03: el portal expone `producto.id`, incluidos los productos sin Alegra. Ofertas por exceso traducidas a ids propios; las bajas de precio no exponen márgenes al público. La identidad de la tablet queda para la parte 3.*
-- [x] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial — *2026-10-03, migración 034: la vista `venta_linea` (líneas de facturas EMITIDAS, ids propios) es la única definición de "venta". La leen la rotación, las estadísticas, Rentabilidad, Gestión de Catálogo, el portal (portada, "se lleva junto con", compras anteriores) y el historial del agente. Se quitaron la sincronización horaria contra Alegra, su ruta y el registro al facturar. Medido antes de cambiar: el historial viejo y las facturas diferían en 139 pares factura-producto de 51.330 (facturas editadas después, que el historial no reflejaba) y le faltaban 8 facturas. La compra anterior del portal se identifica ya por `factura.id`, con su total leído del documento. La parte 2 retiró el borde de Alegra del portal; queda el de la tablet para la parte 3.*
-- [x] Un pedido facturado genera una factura propia — *2026-10-03: factura y pedido se guardan en una transacción, con bloqueo del pedido; un reintento devuelve la misma factura. Vale el precio prometido y no se descuenta dos veces. También los pedidos del agente guardan el producto propio, traducido en el borde hasta la parte 3. Carrito → pedido guarda cabecera, líneas y vaciado en otra transacción; el aviso sale después del COMMIT.*
+- [x] Productos, ofertas y categorías leídos de `producto` — *2026-10-03: portal y tablet exponen `producto.id`, incluidos los productos sin Alegra. Ofertas por exceso traducidas a ids propios; las bajas de precio no exponen márgenes al público.*
+- [x] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial — *2026-10-03, migración 034: la vista `venta_linea` (líneas de facturas EMITIDAS, ids propios) es la única definición de "venta". La leen la rotación, las estadísticas, Rentabilidad, Gestión de Catálogo, el portal (portada, "se lleva junto con", compras anteriores) y el historial del agente. Se quitaron la sincronización horaria contra Alegra, su ruta y el registro al facturar. Medido antes de cambiar: el historial viejo y las facturas diferían en 139 pares factura-producto de 51.330 (facturas editadas después, que el historial no reflejaba) y le faltaban 8 facturas. La compra anterior del portal se identifica ya por `factura.id`, con su total leído del documento. Las partes 2 y 3 retiraron los ids de Alegra del portal y la tablet; queda solo la compatibilidad de colas históricas.*
+- [x] Un pedido facturado genera una factura propia — *2026-10-03: factura y pedido se guardan en una transacción, con bloqueo del pedido; un reintento devuelve la misma factura. Vale el precio prometido y no se descuenta dos veces. Los pedidos del agente guardan cliente y producto propios; solo las colas antiguas traducen referencias históricas explícitas. Carrito → pedido guarda cabecera, líneas y vaciado en otra transacción; el aviso sale después del COMMIT.*
 - [x] Cliente del portal ligado a `cliente.id` — *2026-10-03: invitación, activación, sesión, compras y saldos por la ficha propia. Tokens viejos se resuelven por la cuenta y se ignora su contacto de Alegra. Se puede invitar y facturar a un cliente creado solo en el sistema; revocar corta el acceso inmediatamente.*
-- [ ] Caché del catálogo del agente (IndexedDB) con ids propios, invalidando la caché vieja
-- [ ] *Vino de main (2026-09-29), hoy con el id de Alegra:* "Productos nuevos"
-  (`producto_nuevo_catalogo.alegra_item_id`; ya valida contra `producto`),
-  la rotación A/B de "Cliente nuevo" y "Bajamos el precio". Pasan a ids
-  propios junto con la caché de la tablet.
+- [x] Caché del catálogo del agente (IndexedDB) con ids propios, invalidando la caché vieja — *2026-10-03: `AlegraCatalogReactDB` v3 invalida juntos productos, clientes e identidades asociadas; conserva orden y fotos. No abre `SistemaFacturasCR`, donde viven pedidos y facturas pendientes. Marcador `propios-v1`, guardado atómico y reintento del mismo offset: una descarga incompleta o un error de almacenamiento conserva la última copia válida. La pantalla sigue siendo de consulta.*
+- [x] *Vino de main (2026-09-29):* "Productos nuevos", rotación A/B de "Cliente nuevo" y "Bajamos el precio" por ids propios — *2026-10-03, migración 036: la lista manual guarda `producto_id`, permite productos sin Alegra y se retira por `registroId`. Conserva huérfanos históricos para conciliar; marca ocultos/inactivos sin borrarlos. Buscador propio, sin usar el de devoluciones. El historial incluye clientes activos sin compras con `p: []`.*
 - [x] *Vino de main:* el historial solo cuenta facturas EMITIDAS (sin
   borradores ni anuladas, `esVenta`). Al leerlo de `factura_linea`, la misma
   regla: una proforma o una anulada no son venta. — *La cumple la vista (`WHERE f.estado = 'emitida'`); probado contra la base: pasar una factura a borrador o anularla la saca de las ventas en el acto.*
@@ -678,22 +677,38 @@ sin mensajes reales ni limpieza semanal. Ver
 originales coinciden con el respaldo anterior a 035, excluyendo las columnas
 nuevas de correspondencia; la copia desechable se eliminó.
 
+**Verificación de la parte 3 (2026-10-03):** 036 repetida, con
+correspondencias históricas y un huérfano, en PostgreSQL local con ROLLBACK.
+Pedido propio y cola histórica con el mismo número en ambos espacios de ids
+apuntan a fichas distintas, correctamente. Pedido → factura conserva precio
+e IVA del maestro; el fallo de líneas revierte cabecera y clave. Chromium:
+descarga real de las fichas visibles, migración v2→v3, conservación de orden,
+fotos y pendientes; CRUD manual; cliente sin compras; búsqueda sin señal y
+tras recargar; tablet de 700 px y escritorio de 1440 px. Un 503 provocado en
+el offset 30 se reintenta tres veces y no modifica el caché ni su fecha.
+Un error de cuota provocado revierte también el borrado encolado. Cinco
+envíos HTTP simultáneos crean un solo pedido completo, y cinco facturaciones
+devuelven la misma factura propia de ₡2.260. Suite completa: 1.544 pruebas
+aprobadas, una omitida; frontend compilado. Las escrituras se prueban solo
+en una copia desechable o con ROLLBACK, sin mensajes ni limpieza semanal. Ver
+`docs/grafo/leccion/cache-con-ids-propios-no-borra-pendientes.md` y
+`docs/grafo/tabla/producto-nuevo-catalogo.md`.
+036 quedó aplicada solo a la base local de independencia. Las 86 tablas
+originales coinciden con el respaldo anterior, excluyendo `id` y `producto_id`
+nuevos de la lista manual; la copia desechable se eliminó. La app queda en
+5174 → 3002 contra su base habitual.
+
 ---
 
 ## 13. Reportes
 
-**Hoy dependen de lo sincronizado:** Dashboard y Rentabilidad leen tablas
-locales que se llenan desde Alegra. El Reporte para el contador importa
-facturas y notas de crédito desde Alegra.
+**Estado al cerrar la sección 12:** Dashboard y el Reporte para el contador
+todavía dependen de datos de Alegra. Rentabilidad ya lee ventas y rotación
+propias; le falta retirar el costo derivado y la identidad de Alegra.
 
 - [ ] Dashboard desde tablas propias
 - [ ] Rentabilidad y fotografía de márgenes desde `producto` y `factura_linea` — *Avance (2026-10-03): lo vendido y la rotación ya salen de `venta_linea`, por `producto.id`. Falta el costo derivado (hoy de las facturas de proveedor del buzón, por id de Alegra) y que la pantalla identifique el producto por su id propio.*
-  — *la Rentabilidad nueva de main (2026-09-25: sin pestañas, rotación y
-  estadísticas en tiempo real) ya lee los productos de `producto`; falta que
-  lo vendido, la rotación (`ventas/rotacion.js`) y las gráficas
-  (`ventas/estadisticas.js`) salgan de `factura_linea`. Mientras tanto solo
-  entran los productos con `alegra_id` (hoy todos). La "fotografía" semanal
-  de márgenes ya no existe: main la retiró.*
+  — *La versión de main fusionada ya no usa la fotografía semanal de márgenes. No volver a migrar las ventas ni restaurar el historial viejo: `venta_linea` es su fuente desde §12. Revisar el costo del maestro, las compras propias y el contrato de la pantalla antes de continuar.*
 - [ ] Reportes de proveedores y de clientes
 - [ ] Reporte para el contador desde datos propios: ventas, compras, notas de crédito e IVA por tarifa
 - [ ] Exportar a Excel (`xlsx` ya está instalado)

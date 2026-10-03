@@ -21,9 +21,10 @@ const rutaDb = require.resolve('../config/database');
 const rutaModulo = require.resolve('../src/modules/inventario-auditorias/productosNuevos');
 
 const CACHE = {
-  688: { alegra_id: '688', name: 'TOMA CTE DOBLE PLACA', status: 'active', hidden_locally: false },
-  12: { alegra_id: '12', name: 'CODO PVC 1/2', status: 'inactive', hidden_locally: false },
-  13: { alegra_id: '13', name: 'SIERRA', status: 'active', hidden_locally: true }
+  688: { nombre: 'TOMA CTE DOBLE PLACA', activo: true, oculto: false, precio_sin_iva: 100 },
+  12: { nombre: 'CODO PVC 1/2', activo: false, oculto: false, precio_sin_iva: 100 },
+  13: { nombre: 'SIERRA', activo: true, oculto: true, precio_sin_iva: 100 },
+  700: { nombre: 'Nuevo sin Alegra', activo: true, oculto: false, precio_sin_iva: 100 }
 };
 
 let lista; // la tabla, en memoria
@@ -38,23 +39,26 @@ function cargar() {
   const query = async (sql, params = []) => {
     const texto = String(sql).replace(/\s+/g, ' ').trim();
     sentencias.push(texto);
-    if (/FROM producto WHERE alegra_id = \$1/.test(texto)) {
+    if (/FROM producto p WHERE p.id = \$1/.test(texto)) {
       return { rows: CACHE[params[0]] ? [CACHE[params[0]]] : [] };
     }
     if (/^INSERT INTO producto_nuevo_catalogo/.test(texto)) {
       if (lista.has(params[0])) return { rows: [] };
       lista.set(params[0], { agregado_en: new Date(2026, 8, lista.size + 1), agregado_por: params[1] });
-      return { rows: [{ alegra_item_id: params[0] }] };
+      return { rows: [{ id: params[0]+10000 }] };
     }
     if (/^DELETE FROM producto_nuevo_catalogo/.test(texto)) {
-      const estaba = lista.delete(params[0]);
-      return { rows: estaba ? [{ alegra_item_id: params[0] }] : [] };
+      const producto = params[0]-10000;
+      const estaba = lista.delete(producto);
+      return { rows: estaba ? [{ id: params[0] }] : [] };
     }
     if (/FROM producto_nuevo_catalogo n LEFT JOIN producto p/.test(texto)) {
-      return { rows: [...lista].reverse().map(([id, f]) => ({ alegra_item_id: id, ...f, ...(CACHE[id] || { name: null }) })) };
+      return { rows: [...lista].reverse().map(([id, f]) => ({ id: id+10000, producto_id: CACHE[id] ? id : null,
+        alegra_item_id: String(id), ...f, ...(CACHE[id] || { nombre: null }) })) };
     }
-    if (/^SELECT alegra_item_id, agregado_en FROM producto_nuevo_catalogo/.test(texto)) {
-      return { rows: [...lista].reverse().map(([id, f]) => ({ alegra_item_id: id, agregado_en: f.agregado_en })) };
+    if (/SELECT n.producto_id, n.agregado_en FROM producto_nuevo_catalogo/.test(texto)) {
+      return { rows: [...lista].reverse().filter(([id]) => CACHE[id]?.activo && !CACHE[id].oculto)
+        .map(([id, f]) => ({ producto_id: id, agregado_en: f.agregado_en })) };
     }
     throw new Error(`consulta inesperada: ${texto}`);
   };
@@ -68,12 +72,12 @@ beforeEach(() => { m = cargar(); });
 describe('agregar', () => {
   test('un producto visible entra, con quién lo agregó', async () => {
     const r = await m.agregar('688', 'José');
-    assert.deepEqual(r, { alegraItemId: '688', nombre: 'TOMA CTE DOBLE PLACA', yaEstaba: false });
-    assert.equal(lista.get('688').agregado_por, 'José');
+    assert.deepEqual(r, { productoId: 688, nombre: 'TOMA CTE DOBLE PLACA', yaEstaba: false });
+    assert.equal(lista.get(688).agregado_por, 'José');
   });
 
   test('uno inactivo u oculto no entra: no saldría en el catálogo', async () => {
-    await assert.rejects(() => m.agregar('12'), (e) => e.status === 409 && /inactivo u oculto/.test(e.message));
+    await assert.rejects(() => m.agregar('12'), (e) => e.status === 409 && /no está disponible/.test(e.message));
     await assert.rejects(() => m.agregar('13'), (e) => e.status === 409);
     assert.equal(lista.size, 0);
   });
@@ -85,48 +89,48 @@ describe('agregar', () => {
 
   test('el doble toque no es error ni cambia la fecha', async () => {
     await m.agregar('688');
-    const fecha = lista.get('688').agregado_en;
+    const fecha = lista.get(688).agregado_en;
     const r = await m.agregar('688');
     assert.equal(r.yaEstaba, true);
-    assert.equal(lista.get('688').agregado_en, fecha);
+    assert.equal(lista.get(688).agregado_en, fecha);
   });
 });
 
 describe('quitar', () => {
   test('sale de la lista; uno que no estaba da 404', async () => {
     await m.agregar('688');
-    assert.deepEqual(await m.quitar('688'), { alegraItemId: '688', quitado: true });
+    assert.deepEqual(await m.quitar(10688), { registroId: 10688, quitado: true });
     assert.equal(lista.size, 0);
-    await assert.rejects(() => m.quitar('688'), (e) => e.status === 404);
+    await assert.rejects(() => m.quitar(10688), (e) => e.status === 404);
   });
 });
 
 describe('listar', () => {
   test('lo que se desactivó después sigue en la lista, marcado', async () => {
     await m.agregar('688');
-    lista.set('12', { agregado_en: new Date(2026, 8, 20), agregado_por: null }); // se desactivó después
+    lista.set(12, { agregado_en: new Date(2026, 8, 20), agregado_por: null }); // se desactivó después
     const [codo, toma] = await m.listar();
     assert.equal(toma.visibleEnCatalogo, true);
     assert.equal(toma.motivoNoVisible, null);
     assert.equal(codo.visibleEnCatalogo, false);
-    assert.equal(codo.motivoNoVisible, 'Está inactivo en Alegra');
+    assert.equal(codo.motivoNoVisible, 'Está inactivo');
   });
 
   test('uno que ya no está en el catálogo no revienta la pantalla', async () => {
-    lista.set('555', { agregado_en: new Date(), agregado_por: null });
+    lista.set(555, { agregado_en: new Date(), agregado_por: null });
     const [p] = await m.listar();
-    assert.equal(p.nombre, 'Producto 555');
-    assert.equal(p.motivoNoVisible, 'Ya no está en el catálogo');
+    assert.equal(p.nombre, 'Producto histórico 555');
+    assert.equal(p.motivoNoVisible, 'Falta conciliar la ficha del producto');
   });
 });
 
 describe('lo que baja la tablet', () => {
   test('solo ids, lo más reciente primero', async () => {
-    lista.set('1', { agregado_en: new Date(2026, 8, 1) });
-    lista.set('2', { agregado_en: new Date(2026, 8, 2) });
+    lista.set(688, { agregado_en: new Date(2026, 8, 1) });
+    lista.set(700, { agregado_en: new Date(2026, 8, 2) });
     const ids = await m.idsParaCatalogo();
-    assert.deepEqual(ids.map((p) => p.alegraItemId), ['2', '1']);
-    assert.deepEqual(Object.keys(ids[0]).sort(), ['agregadoEn', 'alegraItemId']);
+    assert.deepEqual(ids.map((p) => p.productoId), [700, 688]);
+    assert.deepEqual(Object.keys(ids[0]).sort(), ['agregadoEn', 'productoId']);
   });
 });
 

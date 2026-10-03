@@ -123,8 +123,8 @@ describe('GET /catalogo-agente/rotacion', () => {
         query: async (sql) => {
           consulta = String(sql);
           return { rows: [
-            { alegra_item_id: '10', clase: 'A', calculado_en: new Date('2026-08-10T15:12:26Z') },
-            { alegra_item_id: '11', clase: 'B', calculado_en: new Date('2026-08-10T15:12:27Z') }
+            { producto_id: 10, clase: 'A' },
+            { producto_id: 11, clase: 'B' }
           ] };
         }
       }
@@ -132,6 +132,7 @@ describe('GET /catalogo-agente/rotacion', () => {
     const servicio = require(rutaServicio);
     const r = await servicio.obtenerRotacion();
     assert.deepEqual({ A: r.A, B: r.B }, { A: ['10'], B: ['11'] });
+    assert.equal(r.versionIds, 'propios-v1');
     assert.match(consulta, /clase IN \('A', 'B'\)/);
     assert.doesNotMatch(consulta, /facturacion/);
   });

@@ -1,169 +1,100 @@
 /**
- * Pedidos que levanta el AGENTE en la calle, junto al cliente.
+ * Pedidos del agente sin cuenta de portal. La ficha es cliente.id y las
+ * líneas usan producto.id. Precio, IVA, nombre y descuentos salen del maestro
+ * del servidor: no de la tablet, que puede llevar días sin actualizarse.
  *
- * QUÉ CAMBIA RESPECTO DEL PORTAL
- * En el portal el cliente entra con su cuenta y el carrito vive en el
- * servidor. Acá no hay nada de eso: el agente trabaja sin señal, arma el
- * pedido en su dispositivo y lo manda cuando puede. Solo 5 de los 239
- * clientes tienen cuenta de portal, así que el pedido se guarda contra el
- * contacto de Alegra, sin exigir usuario.
+ * CABECERA Y LÍNEAS SON UNA TRANSACCIÓN. La clave única reconoce reenvíos,
+ * incluso simultáneos; una respuesta nunca confirma un pedido a medias.
  *
- * LO QUE HACE QUE NO SE PIERDAN NI SE DUPLIQUEN PEDIDOS
- *
- * El dispositivo manda una CLAVE con cada pedido. Si la respuesta no llega
- * —que en la calle es lo normal— el dispositivo no sabe si entró, y reenvía.
- * Con la clave, el servidor reconoce que ya lo tiene y devuelve EL MISMO
- * pedido en vez de crear otro que después alguien facturaría dos veces.
- *
- * Quien decide no es este código sino un índice UNIQUE en la base: una
- * comprobación en JavaScript se puede olvidar o competir consigo misma
- * cuando dos envíos llegan a la vez. La base no.
- *
- * EL PRECIO SE CONGELA ACÁ, NO LLEGA DEL DISPOSITIVO
- * El navegador manda qué productos y cuántos; el precio lo pone el servidor
- * desde el catálogo. Si viajara en la petición, cualquiera podría pedir a
- * precio 1. Y como el dispositivo puede tener el catálogo de hace días, el
- * precio del pedido es el de HOY, no el que el agente vio en la tablet.
+ * COMPATIBILIDAD ACOTADA: una cola offline antigua puede enviar los campos
+ * alegraContactId / alegraItemId. Solo ESOS campos se traducen por alegra_id.
+ * Nunca se intenta primero como id propio ni se mezclan ambos contratos.
+ * Se conserva la misma clave, y un pedido ya recibido devuelve el original.
  */
-
-const { query } = require('../../../config/database');
+const { pool, query } = require('../../../config/database');
+const { idValido, httpError } = require('../../utils/validacion');
+const { enTransaccion } = require('../../utils/transaccion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios, aplicarDescuento } = require('../../utils/descuentosExceso');
 
-function httpError(status, message) {
-  const e = new Error(message);
-  e.status = status;
-  return e;
-}
-
-/**
- * Crea el pedido. `lineas` es [{ alegraItemId, cantidad }] — nada de precios.
- *
- * Devuelve `{ pedido, yaExistia }`. `yaExistia` en true significa que esta
- * clave ya se había recibido: el dispositivo puede borrar su copia local
- * tranquilo, el pedido está guardado.
- */
-async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observaciones, claveIdempotencia }) {
-  if (!alegraContactId) throw httpError(400, 'Falta el cliente del pedido.');
-  if (!Array.isArray(lineas) || lineas.length === 0) throw httpError(400, 'El pedido no tiene productos.');
-  if (!claveIdempotencia) {
-    // Sin clave no se puede distinguir un reenvío de un pedido nuevo, y en la
-    // calle los reenvíos son inevitables. Se exige en vez de aceptarla vacía.
-    throw httpError(400, 'Falta la clave del pedido. Sin ella un reenvío crearía un pedido duplicado.');
-  }
-
-  // Un reenvío de algo que ya entró: se devuelve lo mismo, sin crear nada.
-  const previo = await query(
-    `SELECT * FROM pedido_cliente WHERE clave_idempotencia = $1;`, [claveIdempotencia]
-  );
-  if (previo.rows.length > 0) {
-    return { pedido: previo.rows[0], yaExistia: true };
-  }
-
-  // Normalizar y sumar cantidades repetidas del mismo producto: el agente
-  // puede agregar el mismo dos veces y eso es UNA línea con la suma, no dos.
-  const porProducto = new Map();
-  for (const l of lineas) {
-    const id = String(l.alegraItemId || '').trim();
-    const cantidad = Math.max(0, Math.floor(Number(l.cantidad) || 0));
-    if (!id || cantidad === 0) continue;
-    porProducto.set(id, (porProducto.get(id) || 0) + cantidad);
-  }
-  if (porProducto.size === 0) throw httpError(400, 'El pedido no tiene cantidades válidas.');
-
-  // El precio de HOY, del servidor. El dispositivo puede traer un catálogo de
-  // hace días y el pedido no debe quedar con precios viejos.
-  const ids = [...porProducto.keys()];
-  const productos = await query(`
-    SELECT p.id AS producto_id, p.alegra_id, p.nombre AS name, p.referencia AS reference,
-           p.precio_sin_iva AS price, imp.tarifa AS tax_percentage
-    FROM producto p LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
-    WHERE p.alegra_id = ANY($1::varchar[])
-      AND p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0;
-  `, [ids]);
-
-  const descuentos = await mapaVigentes();
-  const encontrados = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
-
-  const noDisponibles = ids.filter(id => !encontrados.has(id));
-  if (encontrados.size === 0) {
-    throw httpError(400, 'Ninguno de los productos del pedido está disponible.');
-  }
-
-  const armadas = [];
-  for (const [id, cantidad] of porProducto) {
-    const p = encontrados.get(id);
-    if (!p) continue;   // se informa aparte, no se pierde el pedido entero
-    const precioLista = precioConImpuesto(p.price, p.tax_percentage);
-    const descuento = descuentos.get(id) || 0;
-    armadas.push({
-      alegraItemId: id,
-      productoId: p.producto_id,
-      nombre: p.name,
-      referencia: p.reference || '',
-      cantidad,
-      precio: aplicarDescuento(precioLista, descuento),
-      precioLista,
-      descuento,
-      taxPercentage: Number(p.tax_percentage) || 0
-    });
-  }
-
-  const total = armadas.reduce((s, l) => s + l.cantidad * l.precio, 0);
-
-  let pedido;
-  try {
-    // `cliente_id` sale de la ficha con ese `alegra_id`: el pedido queda ligado
-    // a NUESTRO maestro, no solo al contacto de Alegra.
-    const r = await query(`
-      INSERT INTO pedido_cliente
-        (cliente_portal_id, cliente_id, alegra_contact_id, cliente_nombre, origen,
-         creado_por_usuario_id, total, observaciones, clave_idempotencia)
-      VALUES (NULL, (SELECT id FROM cliente WHERE alegra_id = $1), $1, $2, 'agente', $3, $4::numeric, $5, $6)
-      RETURNING *;
-    `, [String(alegraContactId), clienteNombre || null, usuarioId || null,
-        Math.round(total * 100) / 100, observaciones || null, claveIdempotencia]);
-    pedido = r.rows[0];
-  } catch (error) {
-    // Dos envíos de la misma clave que llegan a la vez: el índice UNIQUE deja
-    // pasar uno solo. El otro no es un error para el agente — su pedido SÍ
-    // está guardado — así que se devuelve el que ganó.
-    if (error.code === '23505') {
-      const ganador = await query(
-        `SELECT * FROM pedido_cliente WHERE clave_idempotencia = $1;`, [claveIdempotencia]
-      );
-      if (ganador.rows.length > 0) return { pedido: ganador.rows[0], yaExistia: true };
+/** Contrato propio: { clienteId, lineas: [{ productoId, cantidad }], claveIdempotencia }. */
+async function crear(usuarioId, { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia }) {
+  if (!claveIdempotencia) throw httpError(400, 'Falta la clave del pedido. Sin ella un reenvío crearía un pedido duplicado.');
+  const clave = String(claveIdempotencia).trim();
+  if (!clave || clave.length > 120) throw httpError(400, 'La clave del pedido no es válida.');
+  if (!Array.isArray(lineas) || !lineas.length) throw httpError(400, 'El pedido no tiene productos.');
+  if (clienteId != null && alegraContactId != null) throw httpError(400, 'El pedido mezcla ids propios y antiguos. Actualice la tablet.');
+  const antiguo = clienteId == null;
+  const clienteBuscado = antiguo ? String(alegraContactId || '').trim() : idValido(clienteId);
+  if (!clienteBuscado) throw httpError(400, 'Falta el cliente del pedido.');
+  return enTransaccion(pool, async db => {
+    const previo = await db.query('SELECT * FROM pedido_cliente WHERE clave_idempotencia = $1 FOR UPDATE', [clave]);
+    if (previo.rows.length) return { pedido: previo.rows[0], yaExistia: true };
+    const { rows: [cliente] } = await db.query(`
+      SELECT id, nombre, activo FROM cliente WHERE ${antiguo ? 'alegra_id' : 'id'} = $1 FOR SHARE`, [clienteBuscado]);
+    if (!cliente) throw httpError(409, 'Falta conciliar la ficha propia de ese cliente. El pedido sigue pendiente en la tablet.');
+    if (!cliente.activo) throw httpError(409, 'Ese cliente está inactivo. Revise el pedido antes de enviarlo.');
+    const porProducto = new Map();
+    for (const l of lineas) {
+      if (!l || typeof l !== 'object' || Array.isArray(l)) throw httpError(400, 'Producto o cantidad inválidos.');
+      if (antiguo ? l.productoId != null : l.alegraItemId != null) {
+        throw httpError(400, 'El pedido mezcla ids propios y antiguos. Actualice la tablet.');
+      }
+      const id = antiguo ? String(l.alegraItemId || '').trim() : String(idValido(l.productoId));
+      const cantidad = Number(l.cantidad);
+      if (!id || !Number.isFinite(cantidad)) throw httpError(400, 'Producto o cantidad inválidos.');
+      const n = Math.max(0, Math.floor(cantidad));
+      if (n) porProducto.set(id, (porProducto.get(id) || 0) + n);
     }
-    throw error;
-  }
-
-  const COLUMNAS = 10;
-  const filas = armadas.map((_, idx) => {
-    const b = idx * COLUMNAS;
-    const casts = ['', '', '', '', '', '::numeric', '::numeric', '::numeric', '::numeric', '::numeric'];
-    return `(${casts.map((c, i) => `$${b + i + 1}${c}`).join(', ')})`;
-  }).join(', ');
-
-  const valores = armadas.flatMap(l => [
-    pedido.id, l.alegraItemId, l.productoId, l.nombre, l.referencia, l.cantidad,
-    l.precio, l.taxPercentage, l.descuento, l.precioLista
-  ]);
-
-  await query(`
-    INSERT INTO pedido_cliente_linea
-      (pedido_id, alegra_item_id, producto_id, nombre_producto, referencia, cantidad,
-       precio_unitario, tax_percentage, descuento_porcentaje, precio_lista)
-    VALUES ${filas};
-  `, valores);
-
-  return {
-    pedido,
-    yaExistia: false,
-    // Se informan pero NO se pierde el pedido: es peor descartar una venta
-    // entera por un producto que se dio de baja mientras el agente estaba en
-    // la calle.
-    noDisponibles
-  };
+    if (!porProducto.size) throw httpError(400, 'El pedido no tiene cantidades válidas.');
+    const ids = [...porProducto.keys()];
+    const { rows } = await db.query(`
+      SELECT p.id AS producto_id, p.alegra_id, p.nombre, p.referencia,
+             p.precio_sin_iva, imp.tarifa
+      FROM producto p LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+      WHERE ${antiguo ? 'p.alegra_id = ANY($1::varchar[])' : 'p.id = ANY($1::int[])'}
+        AND p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0
+      FOR SHARE OF p`, [ids]);
+    const encontrados = new Map(rows.map(p => [String(antiguo ? p.alegra_id : p.producto_id), p]));
+    const noDisponibles = ids.filter(id => !encontrados.has(id));
+    if (!encontrados.size) throw httpError(400, 'Ninguno de los productos del pedido está disponible.');
+    const descuentos = await mapaVigentesPropios(db);
+    const armadas = [];
+    for (const [id, cantidad] of porProducto) {
+      const p = encontrados.get(id);
+      if (!p) continue; // se informa sin descartar todo el pedido
+      const precioLista = precioConImpuesto(p.precio_sin_iva, p.tarifa);
+      const descuento = descuentos.get(String(p.producto_id)) || 0;
+      armadas.push({ productoId: p.producto_id, alegraItemId: antiguo ? p.alegra_id : null,
+        nombre: p.nombre, referencia: p.referencia || '', cantidad,
+        precio: aplicarDescuento(precioLista, descuento), precioLista, descuento,
+        taxPercentage: Number(p.tarifa) || 0 });
+    }
+    const total = Math.round(armadas.reduce((s,l) => s+l.cantidad*l.precio,0)*100)/100;
+    // ON CONFLICT espera al ganador. Su COMMIT incluye TODAS las líneas;
+    // si falla, su ROLLBACK libera la clave y este envío puede guardarse.
+    const { rows: creados } = await db.query(`
+      INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, alegra_contact_id,
+        cliente_nombre, origen, creado_por_usuario_id, total, observaciones, clave_idempotencia, creado_en)
+      VALUES (NULL, $1, $2, $3, 'agente', $4, $5, $6, $7, ${AHORA_CR_SQL})
+      ON CONFLICT (clave_idempotencia) WHERE clave_idempotencia IS NOT NULL DO NOTHING
+      RETURNING *`, [cliente.id, antiguo ? clienteBuscado : null, cliente.nombre,
+        usuarioId || null, total, observaciones || null, clave]);
+    if (!creados.length) {
+      const ganador = await db.query('SELECT * FROM pedido_cliente WHERE clave_idempotencia = $1', [clave]);
+      return { pedido: ganador.rows[0], yaExistia: true };
+    }
+    const pedido = creados[0];
+    const columnas = 10;
+    const filas = armadas.map((_,idx) => `(${Array.from({length:columnas}, (_,i) => '$'+(idx*columnas+i+1)).join(', ')})`).join(', ');
+    const valores = armadas.flatMap(l => [pedido.id, l.alegraItemId, l.productoId, l.nombre,
+      l.referencia, l.cantidad, l.precio, l.taxPercentage, l.descuento, l.precioLista]);
+    await db.query(`INSERT INTO pedido_cliente_linea (pedido_id, alegra_item_id, producto_id,
+      nombre_producto, referencia, cantidad, precio_unitario, tax_percentage,
+      descuento_porcentaje, precio_lista) VALUES ${filas}`, valores);
+    return { pedido, yaExistia: false, noDisponibles };
+  });
 }
 
 /**

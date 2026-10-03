@@ -11,18 +11,16 @@
  * clientes y el portal. Si cada pantalla lo decidiera por su lado, el agente
  * podría ofrecer algo que el cliente no ve, o a otro precio.
  *
- * SE DEVUELVEN LOS NOMBRES DE ALEGRA (`name`, `price`, `tax`, `images`) porque
- * la tablet todavía los lee así y guarda el catálogo sin conexión. Es la misma
- * deuda anotada en §16: se traduce el día que esos componentes hablen nuestro
- * idioma, no antes, para no obligar a resincronizar todas las tablets.
+ * La identidad es producto.id / cliente.id (sección 12, parte 3). Se
+ * conservan `name`, `price`, `tax`, `images` como forma de presentación;
+ * esos nombres NO convierten el id en uno de Alegra. `versionIds` permite
+ * rechazar un servidor viejo antes de guardar una caché con ids mezclados.
  */
 
 const { COLUMNAS, DESDE, VISIBLE } = require('../catalogo-clientes/consultaProducto');
-// Alegra ya no sirve el catálogo, pero el histórico de compras todavía se
-// sincroniza desde allá (sección 12 del checklist).
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
-const { listarVigentes } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const categoriasConfig = require('../catalogo/categorias.service');
 const subcategoriasConfig = require('../catalogo/subcategorias.service');
@@ -31,6 +29,7 @@ const rotacion = require('../ventas/rotacion');
 // La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
 // tamaño de página para no tener que cambiarla a ella también.
 const PAGINA = 30;
+const VERSION_IDS = 'propios-v1';
 
 /**
  * Una fila de `producto` con la forma que la tablet espera.
@@ -44,7 +43,7 @@ function aFormaDeTablet(row) {
   const tarifa = Number(row.tarifa);
 
   return {
-    id: String(row.alegra_id),
+    id: String(row.producto_id),
     productoId: row.producto_id,
     name: row.nombre,
     reference: row.referencia || '',
@@ -112,11 +111,12 @@ async function listarProductos({ start = 0, limit = 30 } = {}) {
     SELECT ${COLUMNAS}
     ${DESDE}
     WHERE ${VISIBLE}
-    ORDER BY p.nombre
+    ORDER BY p.nombre, p.id
     LIMIT $1 OFFSET $2
   `, [limitNum, startNum]);
 
   return {
+    versionIds: VERSION_IDS,
     products: await conSubcategoria(rows.map(aFormaDeTablet)),
     debug: {
       start: startNum,
@@ -152,7 +152,8 @@ async function listarOfertas() {
   // porque la comparten los dos catálogos y el armado del pedido. Si cada uno
   // la escribiera por su lado, el cliente podría ver una oferta que al pedirla
   // se le cobra completa.
-  return listarVigentes();
+  const descuentos = await mapaVigentesPropios();
+  return [...descuentos].map(([id, descuentoPorcentaje]) => ({ id, descuentoPorcentaje }));
 }
 
 /**
@@ -162,7 +163,8 @@ async function listarOfertas() {
  * nada, se decidió vender más barato para mover el producto.
  */
 async function listarOfertasPorBaja() {
-  return ofertasPorBajaDePrecio();
+  const ofertas = await ofertasPorBajaDePrecio();
+  return ofertas.map(({ alegraItemId, margenAntes, margenAhora, ...oferta }) => oferta);
 }
 
 // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
@@ -183,43 +185,41 @@ async function listarOfertasPorBaja() {
  * recencia se calcula en el dispositivo contra la fecha de hoy — no acá —
  * para que el score siga siendo correcto días después de sincronizar.
  *
- * LOS IDS QUE SALEN SON LOS DE ALEGRA, todavía: la tablet guarda clientes y
- * productos con ese id hasta que su caché pase a ids propios (sección 12 del
- * checklist). Adentro todo se cruza por `cliente.id` y `producto.id`; un
- * cliente o un producto creado acá, sin id de Alegra, no entra hasta entonces.
+ * IDS PROPIOS, incluso sin Alegra. Un cliente activo sin compras también
+ * entra en el selector, con `p: []`: no hay que inventarle una primera venta.
  *
  * El nombre del cliente es el de su ficha de hoy, no el que decía cada factura.
  */
 async function obtenerHistorialParaCatalogo() {
   const result = await query(`
     WITH agregado AS (
-      SELECT c.alegra_id AS cliente_id, MAX(c.nombre) AS cliente_nombre, p.alegra_id AS alegra_item_id,
+      SELECT v.cliente_id, v.producto_id,
              COUNT(DISTINCT v.factura_id) AS veces,
              MAX(v.fecha) AS ultima_compra
       FROM venta_linea v
-      JOIN cliente c ON c.id = v.cliente_id AND c.alegra_id IS NOT NULL
-      JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
-      GROUP BY c.alegra_id, p.alegra_id
+      GROUP BY v.cliente_id, v.producto_id
     ),
     rankeado AS (
-      SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.cliente_id ORDER BY a.veces DESC, a.ultima_compra DESC) AS rn
+      SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.cliente_id ORDER BY a.veces DESC, a.ultima_compra DESC, a.producto_id) AS rn
       FROM agregado a
     )
-    SELECT r.cliente_id, r.cliente_nombre, r.alegra_item_id, r.veces, r.ultima_compra::text AS ultima_compra
-    FROM rankeado r
-    WHERE r.rn <= 120
-    ORDER BY r.cliente_id, r.veces DESC;
+    SELECT c.id AS cliente_id, c.nombre AS cliente_nombre,
+           r.producto_id, r.veces, r.ultima_compra::text AS ultima_compra
+    FROM cliente c LEFT JOIN rankeado r ON r.cliente_id = c.id AND r.rn <= 120
+    WHERE c.activo = TRUE
+    ORDER BY c.nombre, c.id, r.veces DESC, r.producto_id;
   `);
 
   const clientesMap = new Map();
   for (const row of result.rows) {
     if (!clientesMap.has(row.cliente_id)) {
-      clientesMap.set(row.cliente_id, { id: row.cliente_id, n: row.cliente_nombre || '', p: [] });
+      clientesMap.set(row.cliente_id, { id: String(row.cliente_id), n: row.cliente_nombre || '', p: [] });
     }
-    clientesMap.get(row.cliente_id).p.push([row.alegra_item_id, Number(row.veces), row.ultima_compra]);
+    if (row.producto_id !== null) clientesMap.get(row.cliente_id).p.push([String(row.producto_id), Number(row.veces), row.ultima_compra]);
   }
 
   return {
+    versionIds: VERSION_IDS,
     generadoEn: hoyEnCostaRica(),
     clientes: [...clientesMap.values()]
   };
@@ -255,10 +255,11 @@ async function obtenerConfigCatalogo() {
  */
 async function obtenerRotacion() {
   const clases = await rotacion.clasesAB();
-  return { ...clases, calculadoEn: new Date().toISOString() };
+  return { ...clases, versionIds: VERSION_IDS, calculadoEn: new Date().toISOString() };
 }
 
 module.exports = {
+  VERSION_IDS,
   obtenerRotacion,
   conSubcategoria,
   listarProductos,

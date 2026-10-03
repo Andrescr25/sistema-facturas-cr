@@ -49,9 +49,9 @@ QUIÉN LA LEE, y por qué id:
 - El portal (portada, "se lleva junto con", compras anteriores): ids propios
   en todo el recorrido desde la parte 2 de la sección 12. El cliente llega
   por su ficha propia, releída desde la cuenta; una compra ajena devuelve 404.
-- El catálogo del agente (historial por cliente y clases A/B): entrega ids de
-  Alegra, que es como la tablet guarda sus productos, hasta que su caché pase
-  a ids propios.
+- El catálogo del agente (historial por cliente y clases A/B): entrega ids
+  propios desde la parte 3 de la sección 12. La caché v3 invalida los ids
+  anteriores juntos. Un cliente activo sin compras aparece con `p: []`.
 
 Los índices que la sostienen ya existían: `factura_linea(producto_id)`,
 `factura(cliente_id, fecha)` y `factura(fecha) WHERE estado = 'emitida'`.

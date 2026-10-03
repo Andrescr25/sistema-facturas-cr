@@ -11,7 +11,7 @@ const path = require('path');
  *
  * SE CONSERVAN LOS NOMBRES DE ALEGRA en la respuesta (`name`, `price`, `tax`,
  * `images`) porque la tablet los lee así y guarda el catálogo sin conexión.
- * Cambiarlos obligaría a resincronizar todas las tablets el mismo día.
+ * La identidad ya es producto.id; la caché anterior se invalida en v3.
  */
 
 const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
@@ -92,7 +92,8 @@ describe('la forma que espera la tablet', () => {
     const { servicio } = montar();
     const [p] = (await servicio.listarProductos({})).products;
 
-    assert.equal(p.id, '1031');
+    assert.equal(p.id, '77')
+    assert.equal(p.productoId, 77);
     assert.equal(p.name, 'EXTENSION CTE BLANCA 3 MTS VOLTECK');
     assert.equal(p.reference, '111');
     assert.equal(p.price[0].price, 5465);

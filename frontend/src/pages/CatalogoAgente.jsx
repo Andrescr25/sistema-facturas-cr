@@ -146,7 +146,7 @@ export default function CatalogoAgente() {
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
     productosHabitualesDelCliente, productosPerdidosDelCliente,
-    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar
+    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar, requiereActualizar, errorCatalogo
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -241,6 +241,16 @@ export default function CatalogoAgente() {
       )}
 
       <main className="px-3 py-4">
+        {requiereActualizar && !isSyncing && (
+          <p className="mb-4 rounded-2xl bg-alerta-50 px-4 py-3 text-sm text-alerta-800 ring-1 ring-alerta-200">
+            El catálogo cambió. Actualícelo con internet antes de salir a la calle.
+          </p>
+        )}
+        {errorCatalogo && !isSyncing && (
+          <p role="alert" className="mb-4 rounded-2xl bg-peligro-50 px-4 py-3 text-sm text-peligro-700 ring-1 ring-peligro-200">
+            {errorCatalogo}
+          </p>
+        )}
         {/* La actualización terminó, pero sin sesión el orden y la rotación
             no se pueden traer: se quedó lo que ya estaba guardado. */}
         {sinSesionEnSync.length > 0 && !isSyncing && (

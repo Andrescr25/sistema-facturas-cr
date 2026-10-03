@@ -431,26 +431,35 @@ async function listarProductosNuevos(req, res) {
   }
 }
 
-/** POST /inventario-auditorias/productos-nuevos  { alegraItemId } */
+async function buscarProductosNuevos(req, res) {
+  try {
+    res.json({ success: true, data: await productosNuevos.buscar(req.query.q) });
+  } catch (error) {
+    responderError(res, error, 'Error buscando productos nuevos:');
+  }
+}
+
+/** POST /inventario-auditorias/productos-nuevos { productoId: producto.id } */
 async function agregarProductoNuevo(req, res) {
   try {
     const quien = req.usuario?.nombre || req.usuario?.usuario || null;
-    res.json({ success: true, data: await productosNuevos.agregar(req.body?.alegraItemId, quien) });
+    res.json({ success: true, data: await productosNuevos.agregar(req.body?.productoId, quien) });
   } catch (error) {
     responderError(res, error, 'Error agregando producto nuevo:');
   }
 }
 
-/** DELETE /inventario-auditorias/productos-nuevos/:alegraItemId */
+/** DELETE /inventario-auditorias/productos-nuevos/registros/:registroId */
 async function quitarProductoNuevo(req, res) {
   try {
-    res.json({ success: true, data: await productosNuevos.quitar(req.params.alegraItemId) });
+    res.json({ success: true, data: await productosNuevos.quitar(req.params.registroId) });
   } catch (error) {
     responderError(res, error, 'Error quitando producto nuevo:');
   }
 }
 
 module.exports = {
+  buscarProductosNuevos,
   listarProductosNuevos,
   agregarProductoNuevo,
   quitarProductoNuevo,

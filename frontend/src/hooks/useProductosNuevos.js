@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  getProductosNuevos, agregarProductoNuevo, quitarProductoNuevo, buscarProductosDevolucion
+  getProductosNuevos, agregarProductoNuevo, quitarProductoNuevo, buscarProductosNuevos
 } from '../services/inventarioService'
 
 /**
@@ -16,7 +16,7 @@ export function useProductosNuevos({ showToast, confirm }) {
   const [busqueda, setBusqueda] = useState('')
   const [resultados, setResultados] = useState([])
   const [buscando, setBuscando] = useState(false)
-  const [ocupado, setOcupado] = useState(null) // alegraItemId que se está agregando o quitando
+  const [ocupado, setOcupado] = useState(null) // clave de la acción, con su espacio de ids explícito
   const pedidoBusqueda = useRef(0)
 
   const cargar = useCallback(async () => {
@@ -47,7 +47,7 @@ export function useProductosNuevos({ showToast, confirm }) {
     setBuscando(true)
     const t = setTimeout(async () => {
       try {
-        const r = await buscarProductosDevolucion(texto)
+        const r = await buscarProductosNuevos(texto)
         if (id === pedidoBusqueda.current && r.success) setResultados(r.data)
       } catch (err) {
         console.error('Error buscando productos:', err)
@@ -59,9 +59,9 @@ export function useProductosNuevos({ showToast, confirm }) {
   }, [busqueda])
 
   const agregar = async (producto) => {
-    setOcupado(producto.alegraId)
+    setOcupado(`producto:${producto.productoId}`)
     try {
-      const r = await agregarProductoNuevo(producto.alegraId)
+      const r = await agregarProductoNuevo(producto.productoId)
       if (r.success) {
         showToast(r.data.yaEstaba
           ? `"${r.data.nombre}" ya estaba en Productos nuevos.`
@@ -81,12 +81,12 @@ export function useProductosNuevos({ showToast, confirm }) {
       { title: '¿Quitar de Productos nuevos?', confirmLabel: 'Quitar', variant: 'danger' }
     )
     if (!ok) return
-    setOcupado(producto.alegraItemId)
+    setOcupado(`registro:${producto.registroId}`)
     try {
-      const r = await quitarProductoNuevo(producto.alegraItemId)
+      const r = await quitarProductoNuevo(producto.registroId)
       if (r.success) {
         showToast(`"${producto.nombre}" quitado de Productos nuevos.`, 'success')
-        setProductos((prev) => prev.filter((p) => p.alegraItemId !== producto.alegraItemId))
+        setProductos((prev) => prev.filter((p) => p.registroId !== producto.registroId))
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'No se pudo quitar el producto.', 'error')

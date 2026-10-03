@@ -18,8 +18,11 @@ router.get('/descuentos', inventarioAuditoriasController.listarDescuentosExceso)
 // "Productos nuevos" del catálogo del agente. Antes de '/:id', que si no se
 // traga '/productos-nuevos' como si fuera el id de una auditoría.
 router.get('/productos-nuevos', inventarioAuditoriasController.listarProductosNuevos);
+router.get('/productos-nuevos/buscar', inventarioAuditoriasController.buscarProductosNuevos);
 router.post('/productos-nuevos', inventarioAuditoriasController.agregarProductoNuevo);
-router.delete('/productos-nuevos/:alegraItemId', inventarioAuditoriasController.quitarProductoNuevo);
+// Ruta distinta: un id histórico recibido por la app vieja nunca borra una
+// entrada propia que casualmente tenga el mismo número.
+router.delete('/productos-nuevos/registros/:registroId', inventarioAuditoriasController.quitarProductoNuevo);
 router.post('/', inventarioAuditoriasController.crearAuditoria);
 router.post('/devolucion', inventarioAuditoriasController.crearDevolucion);
 router.post('/generar-excesos', inventarioAuditoriasController.generarExcesos);

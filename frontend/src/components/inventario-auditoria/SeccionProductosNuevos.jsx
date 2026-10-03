@@ -44,10 +44,10 @@ function TarjetaProductoNuevo({ producto: p, ocupado, onQuitar }) {
           Agregado el {FECHA.format(new Date(p.agregadoEn))}{p.agregadoPor ? ` · ${p.agregadoPor}` : ''}
         </p>
       </div>
-      <button type="button" onClick={() => onQuitar(p)} disabled={ocupado === p.alegraItemId}
+      <button type="button" onClick={() => onQuitar(p)} disabled={ocupado === `registro:${p.registroId}`}
         aria-label={`Quitar ${p.nombre} de Productos nuevos`}
         className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-peligro-700 transition-colors hover:bg-peligro-50 disabled:opacity-50">
-        {ocupado === p.alegraItemId ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+        {ocupado === `registro:${p.registroId}` ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
         <span className="hidden sm:inline">Quitar</span>
       </button>
     </div>
@@ -56,7 +56,7 @@ function TarjetaProductoNuevo({ producto: p, ocupado, onQuitar }) {
 
 export default function SeccionProductosNuevos({ showToast, confirm }) {
   const n = useProductosNuevos({ showToast, confirm })
-  const enLista = new Set(n.productos.map((p) => p.alegraItemId))
+  const enLista = new Set(n.productos.map((p) => String(p.productoId)))
   const buscandoAlgo = n.busqueda.trim().length >= 2
 
   return (
@@ -91,9 +91,9 @@ export default function SeccionProductosNuevos({ showToast, confirm }) {
             {!n.buscando && n.resultados.length === 0 ? (
               <p className="py-6 text-center text-sm text-neutro-400">Ningún producto con "{n.busqueda.trim()}"</p>
             ) : n.resultados.map((p) => {
-              const ya = enLista.has(String(p.alegraId))
+              const ya = enLista.has(String(p.productoId))
               return (
-                <div key={p.alegraId} className="flex items-center justify-between gap-3 p-3 sm:px-4">
+                <div key={p.productoId} className="flex items-center justify-between gap-3 p-3 sm:px-4">
                   <div className="min-w-0">
                     <p className="truncate font-bold text-neutro-900">{p.nombre}</p>
                     <p className="truncate text-xs text-neutro-400">
@@ -105,9 +105,9 @@ export default function SeccionProductosNuevos({ showToast, confirm }) {
                       <Check size={16} /> Ya está
                     </span>
                   ) : (
-                    <button type="button" onClick={() => n.agregar(p)} disabled={n.ocupado === p.alegraId}
+                    <button type="button" onClick={() => n.agregar(p)} disabled={n.ocupado === `producto:${p.productoId}`}
                       className="btn btn-primary flex h-10 shrink-0 items-center gap-1.5 disabled:opacity-50">
-                      {n.ocupado === p.alegraId ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                      {n.ocupado === `producto:${p.productoId}` ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                       Agregar
                     </button>
                   )}
@@ -131,7 +131,7 @@ export default function SeccionProductosNuevos({ showToast, confirm }) {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {n.productos.map((p) => (
-            <TarjetaProductoNuevo key={p.alegraItemId} producto={p} ocupado={n.ocupado} onQuitar={n.quitar} />
+            <TarjetaProductoNuevo key={p.registroId} producto={p} ocupado={n.ocupado} onQuitar={n.quitar} />
           ))}
         </div>
       )}

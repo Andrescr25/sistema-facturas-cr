@@ -49,6 +49,7 @@ toca, qué no se regenera).
 - [Quién vende qué — el vínculo producto ↔ proveedor, por cédula](tabla/supplier-product-mapping.md) — `supplier_product_mapping`
 - [Las ventas — una vista sobre las facturas propias emitidas](tabla/venta-linea.md) — `venta_linea`
 - [El historial de ventas viejo — ya no se lee ni se llena](tabla/venta-historico.md) — `venta_historico` · *retirado en esta rama*
+- [Productos nuevos — lista manual por producto propio, retiro por entrada](tabla/producto-nuevo-catalogo.md)
 
 ## Decisiones
 
@@ -66,6 +67,7 @@ toca, qué no se regenera).
 - [En los worktrees main/developer, "local" es producción](leccion/la-db-local-es-produccion.md)
 - [Dos funciones `texto` con firmas opuestas](leccion/dos-helpers-texto.md)
 - [Un id propio y uno de Alegra no son intercambiables](leccion/ids-propios-y-de-alegra-no-se-mezclan.md)
+- [Cambiar los ids del catálogo conserva pedidos y facturas pendientes](leccion/cache-con-ids-propios-no-borra-pendientes.md)
 - [El precio va sin IVA y el costo con IVA — compararlos crudos da un margen falso](leccion/precio-sin-iva-costo-con-iva.md)
 - [Un impuesto "principal" usado como si fuera el de cada línea — tres veces](leccion/el-impuesto-es-de-cada-linea.md)
 - [Exceso y baja de precio son ofertas distintas](leccion/dos-clases-de-oferta.md)

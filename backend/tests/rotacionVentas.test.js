@@ -66,20 +66,20 @@ describe('la rotación', () => {
     assert.match(SQL_ROTACION, /SUM\(importe\) AS ventas/, 'lo vendido lleva el descuento restado');
   });
 
-  test('el mapa va por producto.id; A y B para la tablet, por el id de Alegra y sin los que no lo tienen', async () => {
+  test('el mapa y A/B usan producto.id, incluidos los productos sin Alegra', async () => {
     const filas = [
       { producto_id: 5, alegra_item_id: '900', clase: 'A', unidades: '10', ventas: '1000', unidades_mes: '3.33', unidades_semana: '0.8', facturas: '4', clientes_distintos: '2', ultima_venta: '2026-09-30' },
       { producto_id: 6, alegra_item_id: null, clase: 'B', unidades: '2', ventas: '50', unidades_mes: '0.67', unidades_semana: '0.2', facturas: '1', clientes_distintos: '1', ultima_venta: '2026-09-01' }
     ];
     const consultas = [];
-    dobleDeBase(async (sql) => { consultas.push(String(sql)); return { rows: /clase IN/.test(sql) ? filas.filter((f) => f.alegra_item_id) : filas }; });
+    dobleDeBase(async (sql) => { consultas.push(String(sql)); return { rows: filas }; });
     delete require.cache[rutaRotacion];
     const r = require(rutaRotacion);
     const mapa = await r.rotacionPorProducto();
     assert.deepEqual([...mapa.keys()], [5, 6]);
     assert.equal(mapa.get(6).alegraItemId, null, 'un producto creado acá no tiene id de Alegra');
-    assert.deepEqual(await r.clasesAB(), { A: ['900'], B: [] });
-    assert.match(consultas.at(-1), /alegra_item_id IS NOT NULL/);
+    assert.deepEqual(await r.clasesAB(), { A: ['5'], B: ['6'] });
+    assert.doesNotMatch(consultas.at(-1), /alegra_item_id IS NOT NULL/);
   });
 });
 

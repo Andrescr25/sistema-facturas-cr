@@ -12,10 +12,10 @@
  *   3. Que el precio lo ponga el dispositivo. La tablet puede tener el
  *      catálogo de hace días, y además nadie debería poder pedir a precio 1.
  *
- * Se prueban las reglas puras y la forma del SQL. El ciclo completo —crear,
- * reenviar, verlo en la pantalla del personal— se verificó contra el sistema
- * corriendo; eso no puede correr en cada `npm test` porque escribiría en la
- * base, que acá es la de producción.
+ * Estas son las reglas estructurales. catalogoAgenteIdsPropios.test.js
+ * comprueba además el ciclo y los fallos sobre PostgreSQL LOCAL, usando
+ * BEGIN/ROLLBACK y el guard de aislamiento. La carpeta de developer tiene
+ * la base de producción: estas verificaciones pertenecen a independencia.
  */
 
 const { test, describe } = require('node:test');
@@ -51,9 +51,9 @@ describe('pedido del agente: no duplicar', () => {
   });
 
   test('si dos envíos chocan, el perdedor devuelve el pedido del ganador', () => {
-    // 23505 es la violación de unicidad de Postgres. Para el agente ese choque
+    // ON CONFLICT espera la confirmación de la transacción ganadora. Ese choque
     // NO es un error: su pedido está guardado.
-    assert.match(SERVICIO, /error\.code === '23505'/,
+    assert.match(SERVICIO, /ON CONFLICT \(clave_idempotencia\)/,
       'el choque de unicidad debe resolverse devolviendo el pedido, no fallando');
   });
 });

@@ -67,12 +67,14 @@ El exceso no se aplica otra vez. Un cambio de precio no altera el pedido; si cam
 bloquea para revisarlo. El seguimiento lee `factura_id` y su alistado.
 Un pedido viejo ya facturado pero sin correspondencia propia no se refactura.
 
-DOS BORDES TEMPORALES para la parte 3 y el inventario pospuesto:
-- La tablet todavía manda ids de Alegra. Su servicio los resuelve contra
-  `producto` y guarda también `producto_id`: esos pedidos ya generan
-  factura propia. La caché y el contrato de la tablet se migran en la parte 3.
+DOS BORDES TEMPORALES: cola offline histórica e inventario pospuesto:
+- La tablet ya usa ids propios desde la parte 3. Su caché invalida la consulta
+  antigua sin borrar pedidos pendientes. Solo esos envíos históricos pueden
+  mandar campos explícitos de Alegra, traducidos por su correspondencia.
+  Cabecera y líneas del agente se guardan juntas; generan factura propia.
 - Los excesos siguen ligados a Alegra en Inventario. `mapaVigentesPropios`
-  traduce las ofertas al id propio; el mapa antiguo queda solo para la tablet.
+  traduce las ofertas al id propio tanto para el portal como para la tablet.
+  El mapa antiguo queda para el inventario pospuesto.
   Las bajas de precio ya se leen por producto propio, y el catálogo público
   no expone los márgenes internos ni usa su id histórico como identidad.
 

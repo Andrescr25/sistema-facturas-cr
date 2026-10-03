@@ -62,7 +62,7 @@ async function obtenerRotacion(req, res) {
  */
 async function listarOfertasPorBaja(req, res) {
   try {
-    res.json({ ofertas: await catalogoAgenteService.listarOfertasPorBaja() });
+    res.json({ versionIds: catalogoAgenteService.VERSION_IDS, ofertas: await catalogoAgenteService.listarOfertasPorBaja() });
   } catch (error) {
     console.error('Error listando las bajas de precio:', error);
     res.status(error.status || 500).json({ error: error.message });
@@ -75,7 +75,7 @@ async function listarOfertasPorBaja(req, res) {
  */
 async function listarProductosNuevos(req, res) {
   try {
-    res.json({ productos: await productosNuevos.idsParaCatalogo() });
+    res.json({ versionIds: catalogoAgenteService.VERSION_IDS, productos: await productosNuevos.idsParaCatalogo() });
   } catch (error) {
     console.error('Error listando los productos nuevos del catálogo:', error);
     res.status(error.status || 500).json({ error: error.message });
@@ -85,7 +85,7 @@ async function listarProductosNuevos(req, res) {
 async function listarOfertas(req, res) {
   try {
     const data = await catalogoAgenteService.listarOfertas();
-    res.json({ ofertas: data });
+    res.json({ versionIds: catalogoAgenteService.VERSION_IDS, ofertas: data });
   } catch (error) {
     console.error('Error listando ofertas del catálogo público:', error);
     res.status(error.status || 500).json({ error: error.message });
@@ -116,9 +116,9 @@ async function obtenerHistorialClientes(req, res) {
  */
 async function crearPedido(req, res) {
   try {
-    const { alegraContactId, clienteNombre, lineas, observaciones, claveIdempotencia } = req.body;
+    const { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia } = req.body;
     const resultado = await pedidosAgente.crear(req.usuario?.id || null, {
-      alegraContactId, clienteNombre, lineas, observaciones, claveIdempotencia
+      clienteId, alegraContactId, lineas, observaciones, claveIdempotencia
     });
     res.json({
       success: true,

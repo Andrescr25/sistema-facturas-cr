@@ -138,12 +138,17 @@ export async function getProductosNuevos() {
   return response.data;
 }
 
-export async function agregarProductoNuevo(alegraItemId) {
-  const response = await api.post('/inventario-auditorias/productos-nuevos', { alegraItemId });
+export async function buscarProductosNuevos(q) {
+  const response = await api.get('/inventario-auditorias/productos-nuevos/buscar', { params: { q } });
   return response.data;
 }
 
-export async function quitarProductoNuevo(alegraItemId) {
-  const response = await api.delete(`/inventario-auditorias/productos-nuevos/${alegraItemId}`);
+export async function agregarProductoNuevo(productoId) {
+  const response = await api.post('/inventario-auditorias/productos-nuevos', { productoId });
+  return response.data;
+}
+
+export async function quitarProductoNuevo(registroId) {
+  const response = await api.delete(`/inventario-auditorias/productos-nuevos/registros/${registroId}`);
   return response.data;
 }
