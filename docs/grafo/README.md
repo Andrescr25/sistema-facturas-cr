@@ -23,6 +23,7 @@ toca, qué no se regenera).
 ## Módulos
 
 - [Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia](modulo/portal-clientes.md)
+- [Inicio — trabajo pendiente contado desde las tablas propias](modulo/dashboard.md)
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)

@@ -20,6 +20,11 @@ const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const DIAS_BODEGA = 30;
 
 async function resumen() {
+  // Una sola fecha para las tarjetas: a fin de mes, las 00:00 UTC todavía
+  // son las 18:00 del día anterior en Costa Rica. Capturarla una vez evita
+  // además mezclar dos días si esta lectura atraviesa la medianoche local.
+  const hoy = hoyEnCostaRica();
+  const periodo = hoy.slice(0, 7);
   const [pedidos, cobrar, bodega, duplicados, pagos, revision, auditorias] = await Promise.all([
     query(`SELECT COUNT(*)::int n FROM pedido_cliente WHERE estado = 'pendiente';`),
 
@@ -44,22 +49,26 @@ async function resumen() {
              COUNT(*) FILTER (WHERE fecha_vencimiento < $1::date)::int vencidas,
              COALESCE(SUM(saldo) FILTER (WHERE fecha_vencimiento < $1::date), 0)::numeric vencido
         FROM pendiente WHERE saldo > 1;
-    `, [hoyEnCostaRica()]),
+    `, [hoy]),
 
     // Las mismas que Bodega tiene por alistar: emitidas de la ventana, sin
     // despachar (bodegaPropia.js). Antes se contaba en la tabla vieja `facturas`.
     query(`
       SELECT COUNT(*)::int n FROM factura
       WHERE estado = 'emitida' AND estado_bodega = 'pendiente'
-        AND fecha >= (now() AT TIME ZONE 'America/Costa_Rica')::date - $1::integer;
-    `, [DIAS_BODEGA]),
+        AND fecha >= $1::date - $2::integer;
+    `, [hoy, DIAS_BODEGA]),
 
     query(`SELECT COUNT(*)::int n FROM duplicado_electronica WHERE estado IN ('requiere_revision', 'error');`),
 
+    // El módulo guarda YYYY-MM, YYYY-MM-Q1 y YYYY-MM-Q2; incluso puede
+    // haber varios recibos de un gasto. El mismo prefijo de obtenerPeriodo
+    // cuenta cada pago pendiente y no esconde las quincenas. Inicio solo
+    // lee: abrirlo no siembra períodos ni consulta recibos externos.
     query(`
       SELECT COUNT(*)::int n FROM pago_recurrente
-      WHERE estado <> 'pagado' AND periodo = to_char(CURRENT_DATE, 'YYYY-MM');
-    `),
+      WHERE estado <> 'pagado' AND periodo LIKE $1 || '%';
+    `, [periodo]),
 
     query(`SELECT COUNT(*)::int n FROM facturas_proveedores WHERE estado = 'PROCESADA';`),
 
