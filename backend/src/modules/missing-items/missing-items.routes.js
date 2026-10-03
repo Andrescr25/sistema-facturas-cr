@@ -17,8 +17,8 @@ router.delete('/proveedor/limpiar', missingItemsController.cleanProviderMissingI
 // Diagnóstico
 router.get('/diagnostico/:alegraReference', missingItemsController.getDiagnostic);
 
-// Asignación manual/reasignación de proveedores desde ReporteProveedores
-router.post('/reasignar-proveedor', missingItemsController.assignSupplierManual);
-router.post('/asignar-proveedor-manual', missingItemsController.assignSupplierManual);
+// Asignar un proveedor a un producto se hace por `POST /proveedores/asignaciones`
+// (proveedores.asignacion.service.js), con ids propios. Lo que había acá le
+// preguntaba el proveedor a Alegra en vivo.
 
 module.exports = router;

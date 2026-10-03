@@ -45,8 +45,14 @@ describe('buscar productos para agregar al pedido', () => {
     assert.equal(r.data.length, 3);
   });
 
-  test('el Reporte de Proveedores la pide con soloActivos', () => {
+  test('el Reporte de Proveedores busca en el maestro propio, que solo entrega activos', () => {
+    // Desde el 2026-10-03 (rama independencia-alegra) el pedido se arma con
+    // los productos propios: `/catalogos/productos` es la lectura compartida
+    // de lo ACTIVO, así que no hace falta pedir `soloActivos`.
     const hook = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useReporteProveedores.js'), 'utf8');
-    assert.match(hook, /api\.get\('\/alegra\/productos\/buscar', \{ params: \{ query, soloActivos: 1 \} \}\)/);
+    assert.match(hook, /api\.get\('\/catalogos\/productos', \{ params: \{ buscar: query, limite: 30 \} \}\)/);
+    assert.doesNotMatch(hook, /\/alegra\/productos\/buscar/);
+    const servicio = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'productos', 'productos.service.js'), 'utf8');
+    assert.match(servicio, /async function productosParaOperar[\s\S]{0,200}estado: 'activos'/);
   });
 });

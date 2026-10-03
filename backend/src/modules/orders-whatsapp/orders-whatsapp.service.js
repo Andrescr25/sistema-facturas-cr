@@ -104,7 +104,7 @@ class OrdersWhatsappService {
         supplier_cedula as "supplierCedula",
         alegra_reference as "alegraReference",
         alegra_name as "alegraName",
-        alegra_item_id as "alegraItemId",
+        producto_id as "productoId",
         confidence,
         origen,
         factor_conversion as "factorConversion",
@@ -168,14 +168,17 @@ class OrdersWhatsappService {
       return pickFirstMatching(rows);
     };
 
-    const getMappingByAlegraId = async (alegraItemId) => {
-      if (!alegraItemId) return null;
+    // Por el id PROPIO del producto (`producto.id`), que es el que manda el
+    // reporte. Un id que no sea un entero positivo no es de ningún producto.
+    const getMappingByProducto = async (productoId) => {
+      const id = Number(productoId);
+      if (!Number.isInteger(id) || id <= 0) return null;
       const rows = await fetchMappings(
         `${mappingSelect}
-          WHERE alegra_item_id::text = $1
+          WHERE producto_id = $1
           ORDER BY last_used_date DESC, times_used DESC
           LIMIT 10`,
-        [alegraItemId.toString()]
+        [id]
       );
       return pickFirstMatching(rows, { skipStrictValidation: false });
     };
@@ -231,7 +234,7 @@ class OrdersWhatsappService {
           codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
           nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
           mappingId: producto.mappingId || producto.mapping_id || null,
-          alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
+          productoId: producto.productoId || producto.producto_id || null,
           cantidadFinal: parseInt(producto.cantidad, 10) || 0,
           factorConversion: producto.factorConversion || producto.factor_conversion || 1,
           observaciones: producto.observaciones || '',
@@ -273,10 +276,10 @@ class OrdersWhatsappService {
         }
 
         if (!mapping) {
-          const mappingByAlegra = await getMappingByAlegraId(payloadInfo.alegraItemId);
-          if (mappingByAlegra) {
-            mapping = mappingByAlegra;
-            mappingFuente = 'alegraId';
+          const mappingByProducto = await getMappingByProducto(payloadInfo.productoId);
+          if (mappingByProducto) {
+            mapping = mappingByProducto;
+            mappingFuente = 'productoId';
           }
         }
 
@@ -288,7 +291,7 @@ class OrdersWhatsappService {
           }
         }
 
-        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'alegraId' && !mappingMatchesProveedor(mapping)) {
+        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'productoId' && !mappingMatchesProveedor(mapping)) {
           mapping = null;
         }
 

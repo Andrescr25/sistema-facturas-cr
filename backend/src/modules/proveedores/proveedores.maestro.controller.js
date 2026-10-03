@@ -6,6 +6,7 @@
  */
 
 const servicio = require('./proveedores.maestro.service');
+const asignacion = require('./proveedores.asignacion.service');
 
 function responder(res, promesa, contexto, status = 200) {
   return promesa
@@ -27,5 +28,7 @@ module.exports = {
   obtener: (req, res) => responder(res, servicio.obtenerFicha(req.params.id), 'obtener'),
   crear: (req, res) => responder(res, servicio.crearFicha(req.body, usuario(req)), 'crear', 201),
   editar: (req, res) => responder(res, servicio.editarFicha(req.params.id, req.body, usuario(req)), 'editar'),
-  cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoFicha(req.params.id, req.body?.activo, usuario(req)), 'estado')
+  cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoFicha(req.params.id, req.body?.activo, usuario(req)), 'estado'),
+  /** POST /proveedores/asignaciones { productoId, proveedorId } — ids propios. */
+  asignarProducto: (req, res) => responder(res, asignacion.asignarProveedorAProducto(req.body || {}), 'asignar producto')
 };

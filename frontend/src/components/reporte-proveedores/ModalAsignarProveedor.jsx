@@ -10,7 +10,7 @@ export default function ModalAsignarProveedor({
   cantidadSeleccionados,
   busquedaProveedor,
   setBusquedaProveedor,
-  proveedoresAlegra,
+  proveedoresDisponibles,
   loadingProveedores,
   onBuscar,
   onAsignar,
@@ -37,11 +37,11 @@ export default function ModalAsignarProveedor({
         <div className="flex-1 overflow-y-auto p-6 bg-neutro-50">
           {loadingProveedores ? (
             <div className="text-center py-8"><div className="spinner mx-auto mb-4"></div></div>
-          ) : proveedoresAlegra.length === 0 ? (
+          ) : proveedoresDisponibles.length === 0 ? (
             <div className="text-center py-8 text-neutro-500">Busca el proveedor destino en la barra superior.</div>
           ) : (
             <div className="grid gap-2">
-              {proveedoresAlegra.map((prov) => (
+              {proveedoresDisponibles.map((prov) => (
                 <button key={prov.id} onClick={() => onAsignar(prov.id)} className="w-full text-left p-4 bg-white border border-neutro-200 rounded-lg hover:border-primario-500 hover:shadow-md transition-all">
                   <div className="flex items-center justify-between">
                     <div><p className="font-bold text-neutro-900">{prov.name}</p><p className="text-xs text-neutro-500 mt-1">{prov.identification || 'Sin identificación'}</p></div>

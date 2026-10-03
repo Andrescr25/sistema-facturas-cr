@@ -43,7 +43,8 @@ export function construirProductosParaOrden(proveedor, { productosEliminados, ca
         observaciones: producto.observaciones || '',
         descripcionFactura: producto.descripcion_factura || '',
         mappingId: producto.mapping_id || producto.mappingId || null,
-        alegraItemId: producto.alegra_item_id || producto.alegraItemId || null
+        // El id PROPIO: con él busca el servidor cómo le llama a esto el proveedor.
+        productoId: producto.producto_id || producto.productoId || null
       }
     })
     .filter(p => p.cantidad > 0)

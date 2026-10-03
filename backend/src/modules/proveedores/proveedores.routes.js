@@ -23,6 +23,9 @@ router.post('/fichas', maestro.crear);
 router.get('/fichas/:id', maestro.obtener);
 router.put('/fichas/:id', maestro.editar);
 router.patch('/fichas/:id/estado', maestro.cambiarEstado);
+// A quién se le pide un producto que faltó (Reporte de Proveedores). También
+// antes de `/:cedula`.
+router.post('/asignaciones', maestro.asignarProducto);
 
 router.get('/', proveedoresController.getProveedores);
 router.get('/:cedula', proveedoresController.getFacturasPorCedula);

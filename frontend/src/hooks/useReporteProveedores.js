@@ -37,7 +37,7 @@ export function useReporteProveedores() {
 
   // Estados Modal Asignar Lotes
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false)
-  const [proveedoresAlegra, setProveedoresAlegra] = useState([])
+  const [proveedoresDisponibles, setProveedoresDisponibles] = useState([])
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
@@ -50,7 +50,7 @@ export function useReporteProveedores() {
   const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
   const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
   const [busquedaProducto, setBusquedaProducto] = useState('')
-  const [productosAlegra, setProductosAlegra] = useState([])
+  const [productosEncontrados, setProductosEncontrados] = useState([])
   const [loadingProductos, setLoadingProductos] = useState(false)
 
   // Estados WhatsApp
@@ -348,12 +348,16 @@ export function useReporteProveedores() {
     })
   }, [])
 
-  const cargarProveedoresAlegra = useCallback(async (busqueda) => {
+  const cargarProveedores = useCallback(async (busqueda) => {
     try {
       setLoadingProveedores(true)
-      const response = await api.get(`/alegra/proveedores`, { params: { busqueda } })
+      // Las fichas PROPIAS de proveedor (`proveedor.id`), no los contactos de
+      // Alegra. El modal las pinta con `name` e `identification`.
+      const response = await api.get('/proveedores/fichas', { params: { buscar: busqueda || '', limite: 100 } })
       if (response.data.success) {
-        setProveedoresAlegra(response.data.data)
+        setProveedoresDisponibles((response.data.data || []).map(f => ({
+          id: f.id, name: f.nombre, identification: f.identificacion || ''
+        })))
       } else {
         showToast('Error cargando proveedores: ' + response.data.message, 'error')
       }
@@ -371,8 +375,8 @@ export function useReporteProveedores() {
     }
     setModalAsignarVisible(true)
     setBusquedaProveedor('')
-    await cargarProveedoresAlegra('')
-  }, [productosSeleccionados, cargarProveedoresAlegra])
+    await cargarProveedores('')
+  }, [productosSeleccionados, cargarProveedores])
 
   const asignarProveedorManual = useCallback(async (proveedorId) => {
     if (productosSeleccionados.size === 0) return
@@ -392,16 +396,11 @@ export function useReporteProveedores() {
       for (let i = 0; i < productosAAsignar.length; i += BATCH_SIZE) {
         const lote = productosAAsignar.slice(i, i + BATCH_SIZE)
         const promesasLote = lote.map(({ producto, proveedorActual }) => {
-          const body = {
-            // El id PROPIO del producto: los faltantes cuelgan de él (migración 032).
-            productoId: producto.producto_id || null,
-            alegraReference: producto.codigo,
-            alegraItemId: producto.alegra_item_id || null,
-            alegraName: producto.nombre,
-            [proveedorActual !== 'Sin_Proveedor' ? 'nuevoProveedorId' : 'proveedorId']: proveedorId
-          }
-          const endpoint = proveedorActual !== 'Sin_Proveedor' ? '/alegra/faltantes/reasignar-proveedor' : '/alegra/faltantes/asignar-proveedor-manual'
-          return api.post(endpoint, body).catch(err => ({ data: { success: false } }))
+          // Los dos ids son PROPIOS: el producto del que cuelgan los faltantes
+          // (migración 032) y la ficha del proveedor. Asignar y reasignar son
+          // la misma operación.
+          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId })
+            .catch(err => ({ data: { success: false } }))
         })
         resultados.push(...(await Promise.all(promesasLote)))
       }
@@ -423,16 +422,21 @@ export function useReporteProveedores() {
   const crearNuevoProveedor = useCallback(async (datosProveedor) => {
     try {
       setLoading(true)
-      const response = await api.post('/alegra/proveedores', datosProveedor)
+      // Se crea la FICHA propia y se le asignan los productos elegidos.
+      const response = await api.post('/proveedores/fichas', {
+        nombre: datosProveedor.name,
+        tipo_identificacion: datosProveedor.identificationType || undefined,
+        identificacion: datosProveedor.identification || undefined
+      })
       if (response.data.success) {
-        showToast(`Proveedor creado: ${response.data.data.name}`, 'success')
+        showToast(`Proveedor creado: ${response.data.data.nombre}`, 'success')
         setModalCrearProveedor(false)
         await asignarProveedorManual(response.data.data.id)
       } else {
         showToast(`Error: ${response.data.message}`, 'error')
       }
     } catch (error) {
-      showToast('Error creando proveedor: ' + error.message, 'error')
+      showToast('Error creando proveedor: ' + (error.response?.data?.message || error.message), 'error')
     } finally {
       setLoading(false)
     }
@@ -469,16 +473,20 @@ export function useReporteProveedores() {
     setProveedorParaAgregar(proveedor)
     setModalAgregarProducto(true)
     setBusquedaProducto('')
-    setProductosAlegra([])
+    setProductosEncontrados([])
   }, [])
 
-  const buscarProductosAlegra = useCallback(async (query) => {
-    if (!query || query.length < 2) { setProductosAlegra([]); return }
+  const buscarProductos = useCallback(async (query) => {
+    if (!query || query.length < 2) { setProductosEncontrados([]); return }
     try {
       setLoadingProductos(true)
       // Sin desactivados: no tiene sentido pedirle al proveedor algo que ya no se vende.
-      const res = await api.get('/alegra/productos/buscar', { params: { query, soloActivos: 1 } })
-      if (res.data.success) setProductosAlegra(res.data.data || [])
+      // Del maestro propio, solo activos (la lectura compartida de
+      // /catalogos). El modal los pinta con `name` y `reference`.
+      const res = await api.get('/catalogos/productos', { params: { buscar: query, limite: 30 } })
+      if (res.data.success) {
+        setProductosEncontrados((res.data.data || []).map(p => ({ id: p.id, name: p.nombre, reference: p.referencia || '' })))
+      }
     } catch (e) {
       // Búsqueda mientras se escribe: no se avisa —una petición cortada por
       // la siguiente tecla no es un problema— pero sí queda en consola.
@@ -585,13 +593,13 @@ export function useReporteProveedores() {
 
     modalAsignarVisible,
     setModalAsignarVisible,
-    proveedoresAlegra,
-    setProveedoresAlegra,
+    proveedoresDisponibles,
+    setProveedoresDisponibles,
     busquedaProveedor,
     setBusquedaProveedor,
     loadingProveedores,
     abrirModalAsignar,
-    cargarProveedoresAlegra,
+    cargarProveedores,
     asignarProveedorManual,
 
     modalCrearProveedor,
@@ -608,10 +616,10 @@ export function useReporteProveedores() {
     proveedorParaAgregar,
     busquedaProducto,
     setBusquedaProducto,
-    productosAlegra,
+    productosEncontrados,
     loadingProductos,
     abrirModalAgregarProducto,
-    buscarProductosAlegra,
+    buscarProductos,
     solicitarCantidadYAgregar,
     eliminarProductoAgregado,
     actualizarCantidadAgregado,

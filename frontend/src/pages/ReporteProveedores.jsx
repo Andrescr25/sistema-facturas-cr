@@ -52,13 +52,13 @@ export default function ReporteProveedores() {
 
     modalAsignarVisible,
     setModalAsignarVisible,
-    proveedoresAlegra,
-    setProveedoresAlegra,
+    proveedoresDisponibles,
+    setProveedoresDisponibles,
     busquedaProveedor,
     setBusquedaProveedor,
     loadingProveedores,
     abrirModalAsignar,
-    cargarProveedoresAlegra,
+    cargarProveedores,
     asignarProveedorManual,
 
     modalCrearProveedor,
@@ -75,10 +75,10 @@ export default function ReporteProveedores() {
     proveedorParaAgregar,
     busquedaProducto,
     setBusquedaProducto,
-    productosAlegra,
+    productosEncontrados,
     loadingProductos,
     abrirModalAgregarProducto,
-    buscarProductosAlegra,
+    buscarProductos,
     solicitarCantidadYAgregar,
     eliminarProductoAgregado,
     actualizarCantidadAgregado,
@@ -139,7 +139,7 @@ export default function ReporteProveedores() {
   const cerrarModalAsignar = () => {
     setModalAsignarVisible(false)
     setBusquedaProveedor('')
-    setProveedoresAlegra([])
+    setProveedoresDisponibles([])
   }
 
   return (
@@ -264,9 +264,9 @@ export default function ReporteProveedores() {
           cantidadSeleccionados={productosSeleccionados.size}
           busquedaProveedor={busquedaProveedor}
           setBusquedaProveedor={setBusquedaProveedor}
-          proveedoresAlegra={proveedoresAlegra}
+          proveedoresDisponibles={proveedoresDisponibles}
           loadingProveedores={loadingProveedores}
-          onBuscar={cargarProveedoresAlegra}
+          onBuscar={cargarProveedores}
           onAsignar={asignarProveedorManual}
           onCrearNuevo={() => setModalCrearProveedor(true)}
           onCerrar={cerrarModalAsignar}
@@ -286,9 +286,9 @@ export default function ReporteProveedores() {
           proveedor={proveedorParaAgregar}
           busquedaProducto={busquedaProducto}
           setBusquedaProducto={setBusquedaProducto}
-          productosAlegra={productosAlegra}
+          productosEncontrados={productosEncontrados}
           loadingProductos={loadingProductos}
-          onBuscar={buscarProductosAlegra}
+          onBuscar={buscarProductos}
           onAgregarConCantidad={solicitarCantidadYAgregar}
           onCerrar={() => setModalAgregarProducto(false)}
         />

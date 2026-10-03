@@ -31,7 +31,7 @@ class ReportService {
 
       const sqlFaltantes = `
         SELECT
-         p.id as producto_id,          p.referencia as producto_codigo,          p.alegra_id as producto_alegra_id,          p.nombre as producto_nombre,          p.nombre as producto_nombre_actual,
+         p.id as producto_id,          p.referencia as producto_codigo,          p.nombre as producto_nombre,          p.nombre as producto_nombre_actual,
           SUM(f.cantidad_faltante) as total_faltante,
           COUNT(f.id) as facturas_afectadas,
           STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
@@ -41,7 +41,7 @@ class ReportService {
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
           (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
-        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.alegra_id, p.nombre
+        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre
         ORDER BY total_faltante DESC
       `;
 
@@ -75,12 +75,7 @@ class ReportService {
           `, [producto.producto_id]);
           
           for (const faltante of faltantesDelProducto.rows) {
-            await asignarProveedorAutomatico(
-              faltante.id,
-              producto.producto_id,
-              producto.producto_alegra_id,
-              producto.producto_codigo
-            );
+            await asignarProveedorAutomatico(faltante.id, producto.producto_id, producto.producto_codigo);
           }
         }
         
@@ -89,7 +84,7 @@ class ReportService {
         // Recargar faltantes ahora con asignaciones
         const faltantesActualizados = await query(`
           SELECT
-           p.id as producto_id,            p.referencia as producto_codigo,            p.alegra_id as producto_alegra_id,            p.nombre as producto_nombre,            p.nombre as producto_nombre_actual,
+           p.id as producto_id,            p.referencia as producto_codigo,  p.nombre as producto_nombre,            p.nombre as producto_nombre_actual,
             SUM(f.cantidad_faltante) as total_faltante,
             COUNT(f.id) as facturas_afectadas,
             STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
@@ -99,7 +94,7 @@ class ReportService {
             MAX(f.precio_asignado) as precio_asignado,
             MAX(f.asignacion_tipo) as asignacion_tipo,
             (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
-          FROM faltantes f          JOIN producto p ON p.id = f.producto_propio_id          JOIN factura fa ON fa.id = f.factura_propia_id          WHERE ${whereClause}          GROUP BY p.id, p.referencia, p.alegra_id, p.nombre
+          FROM faltantes f          JOIN producto p ON p.id = f.producto_propio_id          JOIN factura fa ON fa.id = f.factura_propia_id          WHERE ${whereClause}          GROUP BY p.id, p.referencia, p.nombre
           ORDER BY total_faltante DESC
         `, queryParams);
         
@@ -171,7 +166,6 @@ class ReportService {
           nombre: faltante.producto_nombre_actual || mappingInfo?.alegraName || faltante.producto_nombre,
           nombre_proveedor: mappingInfo?.supplierDesc || null,
           codigo: faltante.producto_codigo,
-          alegra_item_id: faltante.producto_alegra_id || null,
           codigo_proveedor: mappingInfo?.supplierCode || null,
           mapping_id: faltante.mapping_id || null,
           cantidad_faltante: parseInt(faltante.total_faltante),
@@ -235,7 +229,6 @@ class ReportService {
           fa.numero AS numero_factura,
           fa.fecha::text AS fecha_emision,
           fa.id AS factura_id,
-          fa.alegra_id AS factura_alegra_id,
           -- Procesada es lo que Impresión ya reimprimió: al procesarla, sus
           -- faltantes pasan a 'procesado', y al recuperarla vuelven (la tabla
           -- vieja lo copiaba además a facturas.estado_procesamiento).
@@ -243,7 +236,6 @@ class ReportService {
           p.id as producto_id,
           p.nombre as producto_nombre,
           p.referencia as producto_codigo,
-          p.alegra_id as producto_alegra_id,
           f.proveedor_asignado,
           f.cantidad_faltante,
           f.tipo_faltante,
@@ -295,7 +287,7 @@ class ReportService {
       if (sinAsignar.length > 0) {
         console.log(`⚠️ ${sinAsignar.length} faltantes sin proveedor asignado. Asignando automáticamente...`);
         for (const row of sinAsignar) {
-          await asignarProveedorAutomatico(row.faltante_id, row.producto_id, row.producto_alegra_id, row.producto_codigo);
+          await asignarProveedorAutomatico(row.faltante_id, row.producto_id, row.producto_codigo);
         }
 
         const idsAsignados = sinAsignar.map(row => row.faltante_id);
@@ -333,7 +325,6 @@ class ReportService {
             factura_id: row.factura_id,
             numero_factura: row.numero_factura,
             fecha_emision: row.fecha_emision,
-            alegra_id: row.factura_alegra_id,
             estado_procesamiento: row.estado_procesamiento,
             fecha_procesamiento: row.fecha_procesamiento,
             enviada_a_impresion_en: row.enviada_a_impresion_en || null,
