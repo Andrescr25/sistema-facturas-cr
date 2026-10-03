@@ -142,6 +142,47 @@ describe('rutas compartidas y de administrador', () => {
   });
 });
 
+describe('cada prefijo montado en server.js está clasificado', () => {
+  // Una ruta sin clasificar pasa para cualquiera con sesión (ver
+  // permisos.middleware.js). Eso es una red para no romper pantallas, no una
+  // forma de decidir: un módulo nuevo montado sin dueño quedaría abierto a
+  // todos sin que nadie lo haya elegido.
+  const { PUBLICAS, PUBLICAS_EXACTAS } = require('../src/modules/auth/auth.middleware');
+  const servidor = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const montados = [...new Set([...servidor.matchAll(/app\.use\(\s*['"`]\/api(\/[^'"`]+)['"`]/g)].map(m => m[1]))];
+
+  const publica = (ruta) => PUBLICAS.some(p => ruta === p || ruta.startsWith(`${p}/`)) ||
+    PUBLICAS_EXACTAS.some(p => p === ruta || p.startsWith(`${ruta}/`));
+
+  test('se encuentran los prefijos (la expresión sigue leyendo server.js)', () => {
+    assert.ok(montados.length >= 25, `solo se leyeron ${montados.length} prefijos`);
+    assert.ok(montados.includes('/facturacion') && montados.includes('/usuarios'));
+  });
+
+  test('cada uno es de un módulo, compartido, de administrador o público', () => {
+    const sinClasificar = montados.filter(ruta => !clasificarRuta(ruta) && !esRutaAdmin(ruta) && !publica(ruta));
+    assert.deepEqual(sinClasificar, [],
+      `montados sin dueño: ${sinClasificar.join(', ')}. Agregalos a un módulo (rutasApi), a COMPARTIDAS o a RUTAS_ADMIN en usuarios/modulos.js.`);
+  });
+
+  test('los módulos nuevos de la migración tienen dueño, no pasan por compartidos', () => {
+    // Clientes, productos, caja, notas de crédito y configuración (sección 14).
+    assert.equal(moduloDeRuta('/clientes/12'), 'clientes');
+    assert.equal(moduloDeRuta('/maestro/productos'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/cuentas-por-cobrar/propios/caja/cerrar'), 'cuentas-por-cobrar');
+    assert.equal(moduloDeRuta('/facturacion/notas-credito'), 'facturacion');
+    assert.equal(moduloDeRuta('/configuracion/empresa'), 'configuracion');
+    assert.equal(moduloDeRuta('/proveedores/fichas'), 'reporte-proveedores');
+    assert.equal(moduloDeRuta('/inventario-auditorias/1'), 'inventario-auditoria');
+  });
+
+  test('lo que quedó compartido a propósito son solo lecturas de apoyo', () => {
+    assert.equal(esCompartida('/envios-whatsapp/historial'), true);
+    const rutas = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'envios-whatsapp', 'envios.routes.js'), 'utf8');
+    assert.doesNotMatch(rutas, /router\.(post|put|patch|delete)\(/, '/envios-whatsapp es compartida: ahí no puede haber una ruta que escriba');
+  });
+});
+
 describe('el espejo del frontend no se separa del backend', () => {
   const rutaEspejo = path.join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'modulos.js');
 

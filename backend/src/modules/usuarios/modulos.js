@@ -198,6 +198,11 @@ const COMPARTIDAS = [
   '/facturas',    // consulta de facturas, la usan varias pantallas
   '/reportes',    // reporte de clientes y de proveedores comparten prefijo
   '/catalogos',   // impuestos, métodos de pago, plazos, cuentas y productos activos, solo lectura (Facturación, Cobros)
+  // Los teléfonos de un cliente y a quién ya se le mandó un documento: lo
+  // leen Facturación, Cotizaciones, Cuentas por Cobrar y Clientes antes de
+  // mandar un WhatsApp. Solo lecturas; cada envío es una ruta de su módulo.
+  // Estaba sin clasificar: pasaba igual, pero por omisión y no por decisión.
+  '/envios-whatsapp',
   // Lecturas de /alegra/catalog que usan pantallas de otros módulos:
   '/alegra/catalog/search-images',           // Relacionar Productos (sugerir foto)
   '/alegra/catalog/imagenes-por-referencia', // Bodega (foto de cada línea)

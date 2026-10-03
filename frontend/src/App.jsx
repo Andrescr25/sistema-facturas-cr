@@ -30,6 +30,7 @@ import Ingresar from './pages/Ingresar'
 import RequiereSesion from './components/RequiereSesion'
 import RequierePermiso from './components/RequierePermiso'
 import Usuarios from './pages/Usuarios'
+import Bitacora from './pages/Bitacora'
 import Rentabilidad from './pages/Rentabilidad'
 
 function App() {
@@ -135,6 +136,8 @@ function App() {
               <Route path="/configuracion" element={<Configuracion />} />
               <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
               <Route path="/usuarios" element={<Usuarios />} />
+              {/* Bajo /usuarios a propósito: es de administradores, igual que ella. */}
+              <Route path="/usuarios/bitacora" element={<Bitacora />} />
             </Routes>
             </RequierePermiso>
           </Layout>

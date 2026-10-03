@@ -16,9 +16,11 @@
  *                     bloqueáramos, y el daño de un falso "prohibido" acá es
  *                     que el sistema deja de funcionar sin explicación. Los
  *                     módulos con datos sensibles SÍ están mapeados, que es
- *                     lo que importa. Hay un test que revisa que cada prefijo
- *                     montado en server.js esté clasificado
- *                     (tests/permisosModulos.test.js).
+ *                     lo que importa. Que no quede ninguno sin clasificar lo
+ *                     cuida un test que recorre cada prefijo montado en
+ *                     server.js (tests/permisosModulos.test.js). Ese test se
+ *                     nombraba acá desde el principio y no existía: había un
+ *                     prefijo, /envios-whatsapp, pasando por omisión.
  */
 
 const { permisosDe } = require('./usuarios.service');
