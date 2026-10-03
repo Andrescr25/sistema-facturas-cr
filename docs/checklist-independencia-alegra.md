@@ -718,7 +718,7 @@ proveedores/clientes y sus exportaciones, según las filas pendientes.
 
 **Hoy ya son locales.**
 
-- [ ] Permisos para los módulos nuevos: clientes, productos, inventario, caja, notas de crédito y configuración
+- [x] Permisos para los módulos nuevos: clientes, productos, inventario, caja, notas de crédito y configuración — *2026-10-03: cada uno tiene dueño en `usuarios/modulos.js` —clientes; productos por `/maestro` (Gestión de Catálogo); caja por `/cuentas-por-cobrar/propios/caja` (Cuentas por Cobrar); notas de crédito por `/facturacion/notas-credito` (Facturación); configuración; e inventario, que hoy es la auditoría—. Lo que faltaba era la red: una ruta sin clasificar pasa para cualquiera con sesión, y el test que debía impedirlo se nombraba en el middleware pero no existía. Había un prefijo así, `/envios-whatsapp` (solo lecturas), que quedó compartido a propósito. Ahora `permisosModulos.test.js` recorre cada prefijo montado en `server.js`. Si caja o notas de crédito necesitan un permiso APARTE del módulo, es el punto de abajo.*
 
 **Hallazgos de esta sección:**
 - **Un cajero con solo Facturación no podía cargar productos ni clientes.
@@ -730,7 +730,7 @@ proveedores/clientes y sus exportaciones, según las filas pendientes.
   la lectura compartida de lo activo, y `permisosModulos.test.js` falla si
   Facturación vuelve a pedir una ruta de otro módulo.
 - [ ] Definir qué acciones requieren administrador: anular, nota de crédito, ajustar inventario, editar una factura emitida y cerrar caja
-- [ ] Pantalla para consultar la bitácora
+- [x] Pantalla para consultar la bitácora — *2026-10-03: `/usuarios/bitacora`, solo administradores y de solo lectura. Lista con filtros (qué, acción, quién, fechas y texto) y cada línea abierta con lo que cambió campo por campo. La bitácora se escribía desde el principio y no se podía leer sin SQL. Ver `docs/grafo/modulo/permisos.md`.*
 
 ---
 
