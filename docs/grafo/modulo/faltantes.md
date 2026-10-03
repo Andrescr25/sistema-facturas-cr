@@ -13,6 +13,9 @@ archivos:
   - backend/src/modules/reprinting/procesarImpresion.js
   - backend/src/modules/missing-items/missing-items.service.js
   - backend/services/proveedorAsignacionService.js
+  - backend/src/modules/proveedores/proveedores.asignacion.service.js
+  - backend/src/modules/orders-whatsapp/orders-whatsapp.service.js
+  - backend/tests/proveedorDeFaltantesPropio.test.js
   - backend/services/scheduledCleanup.js
   - frontend/src/hooks/useReporteClientes.js
   - frontend/src/hooks/useReporteProveedores.js
@@ -153,3 +156,31 @@ UNA PRUEBA BARRE TODO EL SQL del servidor buscando `<alias>.factura_id` o
 `.producto_id` sobre `faltantes`/`facturas_reimpresion`
 (faltantesIdsPropios.test.js): dos así se escaparon al primer barrido, en una
 ruta que ninguna pantalla llamaba.
+
+A QUIÉN SE LE PIDE CADA FALTANTE (2026-10-03, todo por ids propios)
+
+- **Automático**, al abrir el Reporte de Proveedores
+  (`proveedorAsignacionService.js`): los mapeos del producto por
+  `supplier_product_mapping.producto_id`, y de esos el más barato. Se quitó el
+  camino por el id de Alegra (medido: ningún producto activo llegaba a un
+  mapeo solo por ahí). La referencia quedó SOLO como segundo intento, cuando
+  el producto no tiene mapeo propio: sirve a 4 fichas duplicadas cuyo mapeo
+  está en la gemela. Antes los tres caminos se sumaban siempre, y el mapeo de
+  otra ficha con la misma referencia entraba a competir por precio.
+- **A mano** (`POST /proveedores/asignaciones`, `{ productoId, proveedorId }`):
+  la ficha propia del proveedor y el producto propio. Marca los faltantes
+  PENDIENTES de ese producto. Lo que había antes (`/alegra/faltantes/…`) le
+  preguntaba el contacto a Alegra en vivo, lo buscaba por nombre en la tabla
+  vieja `proveedores` y resolvía el producto contra `alegra_products_cache`.
+- **La pantalla** busca y crea proveedores en `/proveedores/fichas` y busca
+  productos para agregar al pedido en `/catalogos/productos`. Las dos
+  búsquedas iban a Alegra en vivo.
+- **El pedido por WhatsApp** (`orders-whatsapp`) busca cómo le llama el
+  proveedor al producto por `producto_id`.
+
+Sigue del lado de Alegra, fuera de este módulo: `supplier_product_mapping`
+exige `alegra_item_id` (NOT NULL), así que un producto sin ficha en Alegra no
+puede tener mapeo. Es de Relacionar Productos, igual que el buzón de compras.
+Las rutas de los reportes y del pedido siguen colgadas del prefijo `/alegra`
+(el enrutador adaptador); son módulos propios, el prefijo se va en la §16.
+
