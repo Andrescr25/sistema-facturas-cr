@@ -124,11 +124,31 @@ describe('lo que se le entrega a los catálogos', () => {
     assert.equal(o.descuentoPorcentaje, 20);
   });
 
-  test('se entregan los márgenes, para poder explicar la decisión adentro', async () => {
+  test('los márgenes NO se entregan: las dos rutas que lo llaman son públicas', async () => {
+    // Estuvieron saliendo hasta el 2026-10-03. Con el margen y el precio al
+    // lado se saca el costo, y `/catalogo-clientes/ofertas-baja` y
+    // `/catalogo-agente/ofertas-baja` se abren sin sesión. Aunque la fila los
+    // traiga, no pasan.
+    const { servicio, registro } = montar([fila()]);
+    const [o] = await servicio.ofertasPorBajaDePrecio();
+
+    const prohibidas = Object.keys(o).filter(k => /margen|costo|cost|utilidad/i.test(k));
+    assert.deepEqual(prohibidas, [], `salen campos internos: ${prohibidas.join(', ')}`);
+
+    // Y la consulta tampoco los pide como columna de salida: el margen queda
+    // solo en la condición que decide qué es una oferta.
+    const columnas = registro.consultas[0].sql.match(/AS\s+"?\w+"?/gi) || [];
+    const internas = columnas.filter(c => /margen|costo/i.test(c));
+    assert.deepEqual(internas, []);
+  });
+
+  test('las dos rutas públicas entregan exactamente lo que hace falta para pintar la oferta', async () => {
     const { servicio } = montar([fila()]);
     const [o] = await servicio.ofertasPorBajaDePrecio();
-    assert.equal(o.margenAntes, 46.5);
-    assert.equal(o.margenAhora, 26.67);
+    assert.deepEqual(Object.keys(o).sort(), [
+      'ahorro', 'alegraItemId', 'categoria', 'descuentoPorcentaje', 'desde',
+      'imagen', 'nombre', 'precioAhora', 'precioAntes', 'referencia'
+    ]);
   });
 
   test('sin cambios que califiquen, la lista viene vacía y no falla', async () => {
