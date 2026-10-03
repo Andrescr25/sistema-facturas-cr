@@ -58,6 +58,38 @@ async function conSubcategoria(productos) {
  * Devuelve { products, debug } igual que el proxy original, filtrando solo
  * productos activos.
  */
+/**
+ * Lo ÚNICO del producto de Alegra que sale hacia la tablet.
+ *
+ * ESTA RUTA ES PÚBLICA (`/catalogo-agente/productos` está en PUBLICAS_EXACTAS
+ * de auth.middleware.js, para que el agente trabaje sin sesión y sin señal).
+ * Hasta el 2026-10-03 devolvía el producto de Alegra ENTERO, tal como llega de
+ * `/items`: ahí viaja `inventory.unitCost`, el costo de compra de cada
+ * producto. Cualquiera con la dirección podía bajar la lista de costos.
+ *
+ * Por eso es una lista de lo que SÍ pasa, no de lo que se quita: si Alegra
+ * agrega mañana un campo sensible, no sale solo. Lo que está acá es
+ * exactamente lo que leen TarjetaProductoAgente.jsx y
+ * catalogoAgentePersonalizacion.js; un campo nuevo para la tablet se agrega
+ * acá a propósito.
+ */
+function aFormaDeTablet(p) {
+  const lista = Array.isArray(p.price) ? p.price[0] : null;
+  const referencia = p.reference && typeof p.reference === 'object' ? p.reference.reference : p.reference;
+
+  return {
+    id: p.id,
+    name: p.name,
+    reference: referencia || '',
+    status: p.status,
+    // Solo la primera lista de precios, que es la única que muestra la tarjeta.
+    price: lista ? [{ price: lista.price }] : [],
+    tax: (Array.isArray(p.tax) ? p.tax : []).map((t) => ({ percentage: t.percentage })),
+    images: (Array.isArray(p.images) ? p.images : []).map((i) => ({ url: i.url, favorite: i.favorite === true })),
+    itemCategory: p.itemCategory ? { name: p.itemCategory.name } : null
+  };
+}
+
 async function listarProductos({ start = 0, limit = 30 } = {}) {
   const startNum = parseInt(start, 10) || 0;
   const limitNum = Math.min(parseInt(limit, 10) || ALEGRA_LIMIT_MAXIMO, ALEGRA_LIMIT_MAXIMO);
@@ -81,7 +113,7 @@ async function listarProductos({ start = 0, limit = 30 } = {}) {
   const activeProducts = data.filter((product) => product && product.status === 'active');
 
   return {
-    products: await conSubcategoria(activeProducts),
+    products: await conSubcategoria(activeProducts.map(aFormaDeTablet)),
     debug: {
       start: startNum,
       limit: limitNum,
@@ -496,6 +528,7 @@ async function obtenerRotacion() {
 module.exports = {
   obtenerRotacion,
   conSubcategoria,
+  aFormaDeTablet,
   listarProductos,
   listarCategorias,
   listarOfertas,

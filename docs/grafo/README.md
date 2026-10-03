@@ -51,6 +51,7 @@ correo son los de PRODUCCIÓN.
 - [El precio va sin IVA y el costo con IVA — compararlos crudos da un margen falso](leccion/precio-sin-iva-costo-con-iva.md)
 - [Un impuesto "principal" usado como si fuera el de cada línea — tres veces](leccion/el-impuesto-es-de-cada-linea.md)
 - [Exceso y baja de precio son ofertas distintas](leccion/dos-clases-de-oferta.md)
+- [Una ruta pública entrega una lista de campos, nunca el objeto entero — salían el costo y los márgenes](leccion/lo-publico-no-lleva-costo-ni-margen.md)
 - [El proveedor de un producto sale del mapeo, por cédula](leccion/proveedor-por-cedula.md)
 - [ENVIADA prueba que la compra ya existe en Alegra — reenviarla duplica el gasto](leccion/factura-enviada-no-se-repite.md)
 - [El día del calendario no se saca con toISOString()](leccion/fecha-utc-costa-rica.md)
