@@ -32,7 +32,7 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula]
+  relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes]
 medido: 2026-10-03
 ---
 
@@ -71,8 +71,10 @@ sin nota trae la descripción del producto (Facturación la pone): esa no cuenta
 Van indexadas por `producto_id`, el mismo de cada línea del reporte.
 
 EL PROVEEDOR del faltante se asigna solo con el mapeo, buscado por el
-`producto_id` propio (los mapeos lo llevan desde la 018) y, para los viejos,
-por id de Alegra o referencia.
+`producto_id` propio (los mapeos lo llevan desde la 018) y por referencia
+solo como segundo intento para fichas duplicadas; ver el cierre de §13 abajo.
+Las descargas Excel reutilizan las lecturas con `asignarProveedores: false`:
+no asignan ni guardan al descargar. Ver [[modulo/exportaciones-reportes]].
 
 DAR POR LISTA (Reporte de Clientes → Impresión,
 `POST /reportes/faltantes/cliente/facturas/:facturaId/impresion`): los
@@ -183,4 +185,3 @@ exige `alegra_item_id` (NOT NULL), así que un producto sin ficha en Alegra no
 puede tener mapeo. Es de Relacionar Productos, igual que el buzón de compras.
 Las rutas de los reportes y del pedido siguen colgadas del prefijo `/alegra`
 (el enrutador adaptador); son módulos propios, el prefijo se va en la §16.
-

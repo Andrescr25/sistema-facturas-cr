@@ -72,7 +72,8 @@ const MODULOS = [
     nombre: 'Reporte Clientes',
     grupo: 'Ventas',
     ruta: '/reportes/clientes',
-    rutasApi: []   // usa /reportes, que comparte con Reporte Proveedores
+    // El Excel pertenece al módulo aunque el reporte antiguo comparta prefijo.
+    rutasApi: ['/reportes/faltantes/cliente/exportar', '/alegra/reportes/faltantes/cliente/exportar']
   },
   {
     clave: 'impresion',
@@ -106,7 +107,7 @@ const MODULOS = [
     nombre: 'Reporte Proveedores',
     grupo: 'Compras',
     ruta: '/reportes/proveedores',
-    rutasApi: ['/proveedores']
+    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/alegra/reportes/faltantes/proveedor/exportar']
   },
   {
     clave: 'pagos-proveedores',

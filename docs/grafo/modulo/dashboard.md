@@ -12,7 +12,7 @@ archivos:
   - backend/src/modules/pagos-recurrentes/pagos-recurrentes.service.js
   - backend/tests/dashboardPropio.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/portal-clientes, modulo/facturas-bodega, modulo/inventario, modulo/revision-precios, leccion/fecha-utc-costa-rica, leccion/un-borrador-no-es-una-venta]
+  relacionado: [modulo/facturacion, modulo/portal-clientes, modulo/facturas-bodega, modulo/inventario, modulo/revision-precios, leccion/fecha-utc-costa-rica, leccion/un-borrador-no-es-una-venta, modulo/exportaciones-reportes]
 medido: 2026-10-03
 ---
 
@@ -22,6 +22,10 @@ un cero sigue visible, apagado. No llama a Alegra, no relee sus espejos
 `cuentas_por_cobrar`/`facturas` y no modifica datos al abrir la pantalla.
 El trabajo de §13 aquí fue comprobar lo que ya era propio y corregir el
 conteo mensual: no reconstruir los módulos migrados en §§7, 11 y 12.
+
+`GET /api/dashboard/exportar` lee ese mismo resumen para el Excel de Inicio:
+cantidades y montos como números, sin crear pagos ni períodos. Ver
+[[modulo/exportaciones-reportes]].
 
 DE DÓNDE SALE CADA CONTADOR
 

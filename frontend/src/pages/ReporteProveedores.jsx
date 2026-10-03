@@ -13,6 +13,7 @@ import ModalAgregarProducto from '../components/reporte-proveedores/ModalAgregar
 import ModalWhatsApp from '../components/reporte-proveedores/ModalWhatsApp'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteProveedores() {
   const {
@@ -91,6 +92,7 @@ export default function ReporteProveedores() {
 
   // NAVEGACIÓN: lista de proveedores → detalle de proveedor
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
+  const [proveedorQuery, setProveedorQuery] = useState('')
 
   // Dos vistas: los faltantes de siempre y las FICHAS (quién es cada
   // proveedor), que antes no se podían ver ni corregir desde el sistema.
@@ -144,9 +146,14 @@ export default function ReporteProveedores() {
 
   return (
     <div className="max-w-[1400px] mx-auto pb-24">
-      <div className="mb-8 pl-1">
+      <div className="mb-8 pl-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
         <h1 className="text-4xl font-extrabold text-neutro-900 tracking-tight">Faltantes y Compras</h1>
         <p className="text-neutro-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
+        </div>
+        {vista === 'faltantes' && <BotonExportarExcel ruta="/reportes/faltantes/proveedor/exportar"
+          params={{ fecha_inicio: fechaInicio, buscar: proveedorActivoId ? '' : proveedorQuery, proveedor: proveedorActivoId || '' }}
+          disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
       </div>
 
       {error && (
@@ -204,6 +211,8 @@ export default function ReporteProveedores() {
           setFechaInicio={setFechaInicio}
           onRefresh={loadReporte}
           onSelectProveedor={setProveedorActivoId}
+          proveedorQuery={proveedorQuery}
+          setProveedorQuery={setProveedorQuery}
         />
       ) : proveedorActivo ? (
         <ProveedorDetalle

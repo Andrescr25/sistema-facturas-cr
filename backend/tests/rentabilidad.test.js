@@ -152,6 +152,21 @@ describe('la lista', () => {
     assert.equal(r.pagina, 1);
     assert.equal(r.paginas, 1);
   });
+
+  test('el Excel toma todos los resultados filtrados, en el mismo orden que las páginas', async () => {
+    const inicio = PRODUCTOS.length;
+    try {
+      PRODUCTOS.push(...Array.from({ length: 35 }, (_, i) => ({ ...PRODUCTOS[0], producto_id: 1000 + i,
+        name: `zz-Paginado ${String(i).padStart(2, '0')}`, reference: `zz-${i}` })));
+      s._limpiarMemoria();
+      const filtros = { buscar: 'zz-paginado', orden: 'nombre' };
+      const pagina1 = await s.listarProductos(filtros);
+      const pagina2 = await s.listarProductos({ ...filtros, pagina: 2 });
+      assert.equal(pagina1.data.length, 30);
+      assert.equal(pagina2.data.length, 5);
+      assert.deepEqual(await s.obtenerProductosFiltrados(filtros), [...pagina1.data, ...pagina2.data]);
+    } finally { PRODUCTOS.splice(inicio); }
+  });
 });
 
 describe('el resumen del negocio', () => {
@@ -196,10 +211,10 @@ describe('el detalle', () => {
 describe('sin pestañas ni Competencia', () => {
   const raiz = path.join(__dirname, '..', '..');
 
-  test('las rutas son solo resumen, lista y detalle', () => {
+  test('las rutas son lecturas del reporte y sus exportaciones', () => {
     const rutas = fs.readFileSync(path.join(raiz, 'backend', 'src', 'modules', 'rentabilidad', 'rentabilidad.routes.js'), 'utf8');
     const declaradas = [...rutas.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)].map((m) => `${m[1]} ${m[2]}`);
-    assert.deepEqual(declaradas.sort(), ['get /productos', 'get /productos/:productoId', 'get /resumen']);
+    assert.deepEqual(declaradas.sort(), ['get /exportar', 'get /productos', 'get /productos/:productoId', 'get /productos/:productoId/exportar', 'get /resumen']);
   });
 
   test('el código de Competencia ya no existe', () => {

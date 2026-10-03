@@ -6,6 +6,7 @@ import ClienteDetalle from '../components/reporte-clientes/ClienteDetalle'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
 import { FILTROS_VACIOS } from '../utils/reporteClientesUtils'
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteClientes() {
   const {
@@ -51,9 +52,14 @@ export default function ReporteClientes() {
 
   return (
     <div className="max-w-[1400px] mx-auto pb-24">
-      <div className="mb-8 pl-1">
+      <div className="mb-8 pl-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
         <h1 className="text-4xl font-extrabold text-neutro-900 tracking-tight">Faltantes por Cliente</h1>
         <p className="text-neutro-500 mt-2 text-lg">Ajusta entregas, procesa facturas y controla el estado de los pedidos.</p>
+        </div>
+        <BotonExportarExcel ruta="/reportes/faltantes/cliente/exportar"
+          params={clienteActivo ? { cliente_nombre: clienteActivo.nombre } : filtros}
+          disabled={loading || Boolean(error)} title="Descarga los faltantes y las respuestas guardadas de los clientes visibles." />
       </div>
 
       {error && (

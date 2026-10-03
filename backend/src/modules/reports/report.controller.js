@@ -6,11 +6,23 @@ const ReportService = require('./report.service');
 const colaImpresion = require('../reprinting/colaImpresion');
 const notasDeFaltantes = require('./notasDeFaltantes');
 const ResponseHelper = require('../../utils/response.helper');
+const excel = require('./report.excel');
+const { enviarExcel } = require('../../utils/exportarExcel');
 
 class ReportController {
   constructor() {
     this.reportService = new ReportService();
   }
+
+  exportarProveedores = async (req, res) => {
+    try { return enviarExcel(res, await excel.exportarProveedores(req.query)); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
+  exportarClientes = async (req, res) => {
+    try { return enviarExcel(res, await excel.exportarClientes(req.query)); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
 
   /**
    * GET /reports/faltantes/notas — las notas que se le escribieron a cada

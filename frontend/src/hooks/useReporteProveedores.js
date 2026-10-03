@@ -29,8 +29,8 @@ export function useReporteProveedores() {
   const [fechaInicio, setFechaInicio] = useState('')
 
   // Las notas que se escribieron al facturar, para leerlas al comprar. Se
-  // piden APARTE del reporte: ese sale de la base local y aparece enseguida,
-  // y estas tienen que ir hasta Alegra. Si tardan o fallan, el reporte ya
+  // piden APARTE del reporte: ambas lecturas son propias, pero agrupar las
+  // notas no debe retrasar el listado. Si tardan o fallan, el reporte ya
   // está en pantalla.
   const [notasPorProducto, setNotasPorProducto] = useState({})
   const [cargandoNotas, setCargandoNotas] = useState(false)

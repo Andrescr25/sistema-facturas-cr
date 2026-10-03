@@ -22,7 +22,7 @@ archivos:
   - backend/tests/rotacionVentas.test.js
 aristas:
   depende_de: [tabla/venta-linea]
-  relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo]
+  relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo, modulo/exportaciones-reportes]
 medido: 2026-10-03
 ---
 
@@ -32,10 +32,14 @@ Arriba el negocio entero; abajo los productos como tarjetas grandes; al tocar
 uno, su detalle con sus propias gráficas (lista → detalle, como Cuentas por
 Cobrar).
 
-TRES RUTAS, TODAS DE LECTURA: `GET /api/rentabilidad/resumen`,
+CINCO RUTAS, TODAS DE LECTURA: `GET /api/rentabilidad/resumen`,
 `/productos` (filtros `buscar`, `categoria`, `clase`, `costo`, `orden`,
 `pagina`; 30 por página) y `/productos/:productoId` (404 si está inactivo u
-oculto, o si el id no es un entero).
+oculto, o si el id no es un entero); `/exportar` y
+`/productos/:productoId/exportar` descargan Excel. La primera toma TODOS los
+productos filtrados en el mismo orden de la lista, sin paginación, con el
+resumen y las seis series del negocio completo. La segunda, la ficha y sus
+propias series. Ver [[modulo/exportaciones-reportes]].
 
 TODO VA POR `producto.id` (2026-10-03): la lista, el detalle, las ventas, la
 rotación y el costo. La ficha ya no lleva `alegraItemId`, y el id de Alegra

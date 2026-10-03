@@ -18,7 +18,7 @@ archivos:
   - backend/tests/bitacoraConsulta.test.js
   - backend/tests/bitacoraFormato.test.js
 aristas:
-  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo]
+  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes]
 medido: 2026-10-03
 ---
 
@@ -48,6 +48,12 @@ productos (`gestion-catalogo`, por `/maestro`), caja (`cuentas-por-cobrar`,
 por `/cuentas-por-cobrar/propios/caja`), notas de crédito (`facturacion`),
 proveedores (`reporte-proveedores`) y configuración.
 
+Las descargas Excel de faltantes tienen dueño también bajo los prefijos
+compartidos: `/reportes/faltantes/cliente/exportar` y
+`/reportes/faltantes/proveedor/exportar`, incluidos sus alias
+`/alegra/reportes/…`. El prefijo específico exige el módulo del reporte;
+Inicio y Rentabilidad heredan el suyo. Ver [[modulo/exportaciones-reportes]].
+
 LA BITÁCORA SE PUEDE LEER (`/usuarios/bitacora`, solo administradores).
 `utils/bitacora.js` la escribe desde el principio de la migración, dentro de
 la transacción de cada cambio; `usuarios/bitacora.service.js` la consulta:
@@ -68,4 +74,3 @@ con lo que cambió campo por campo.
 QUEDA POR DECIDIR (es del usuario): qué acciones exigen administrador —anular,
 nota de crédito, editar una factura emitida, cerrar caja—. Hoy las puede hacer
 quien tenga el módulo.
-

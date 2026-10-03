@@ -93,6 +93,8 @@ export function useRentabilidad() {
   return {
     resumen, errorResumen,
     filtros, setFiltros, limpiarFiltros,
+    filtrosAplicados: { ...filtros, buscar: buscarAplicado },
+    busquedaPendiente: filtros.buscar.trim() !== buscarAplicado,
     lista, cargandoLista, errorLista,
     seleccionado, detalle, cargandoDetalle, errorDetalle, abrir, cerrar
   }

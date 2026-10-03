@@ -8,7 +8,7 @@
  *     y no oculto); en main, alegra_products_cache.
  *   · El margen de HOY: `clasificarProducto` (precios/auditoria.js) — la misma
  *     fórmula que el resto del sistema, con la tarifa real de cada producto y
- *     el costo de las facturas de proveedor si Alegra no lo tiene. Una sola
+ *     el costo de las facturas de proveedor si la ficha propia no lo tiene. Una sola
  *     cifra: antes había dos cálculos de margen con nombres distintos.
  *   · La rotación y lo vendido: ventas/rotacion.js, EN EL MOMENTO (unidades de
  *     los últimos 3 meses, Pareto 80/95). Antes era una foto sacada a mano.
@@ -134,7 +134,7 @@ const ORDENES = {
  * GET /api/rentabilidad/productos
  *   ?buscar=&categoria=&clase=A|B|C&costo=sin-costo|negativo&orden=&pagina=
  */
-async function listarProductos({ buscar = '', categoria = '', clase = '', costo = '', orden = 'vendidos', pagina = 1 } = {}) {
+async function obtenerProductosFiltrados({ buscar = '', categoria = '', clase = '', costo = '', orden = 'vendidos' } = {}) {
   let filas = await catalogo();
 
   const texto = normalizar(buscar);
@@ -152,6 +152,14 @@ async function listarProductos({ buscar = '', categoria = '', clase = '', costo 
 
   filas = [...filas].sort(ORDENES[orden] || ORDENES.vendidos);
 
+  return filas;
+}
+
+// Pantalla y Excel comparten exactamente los filtros y el orden. La descarga
+// toma esta lista completa una vez, sin recorrer páginas que podrían cambiar
+// entre peticiones cuando vence la memoria de 30 segundos.
+async function listarProductos({ pagina = 1, ...filtros } = {}) {
+  const filas = await obtenerProductosFiltrados(filtros);
   const total = filas.length;
   const pag = Math.max(parseInt(pagina, 10) || 1, 1);
   return {
@@ -226,4 +234,4 @@ async function obtenerProducto(productoId) {
   return { producto, series: await estadisticas.series(producto.productoId) };
 }
 
-module.exports = { listarProductos, obtenerResumen, obtenerProducto, calcularCatalogo, ORDENES, _limpiarMemoria: () => { enMemoria = null; } };
+module.exports = { listarProductos, obtenerProductosFiltrados, obtenerResumen, obtenerProducto, calcularCatalogo, ORDENES, _limpiarMemoria: () => { enMemoria = null; } };

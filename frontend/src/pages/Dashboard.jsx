@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { colones } from '../utils/colones'
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 // es-CR separa los miles con un espacio duro (U+00A0): "₡204 879" se lee
 // como dos números. En Costa Rica los miles van con punto. El código del
@@ -120,9 +121,12 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
         <h1 className="text-2xl font-extrabold text-neutro-900">Inicio</h1>
         <p className="text-sm text-neutro-500 mt-0.5">Lo que está pendiente hoy</p>
+        </div>
+        <BotonExportarExcel ruta="/dashboard/exportar" disabled={cargando || !datos || Boolean(error)} />
       </div>
 
       {error && (

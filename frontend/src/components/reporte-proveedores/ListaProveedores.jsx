@@ -1,10 +1,9 @@
-import { useState } from 'react'
 import { Calendar, RefreshCw, Package, Check } from 'lucide-react'
 
 /**
  * Vista de listado (grid) de proveedores con búsqueda, filtro de fecha y
- * resumen global. Extraído de ReporteProveedores.jsx (antes
- * renderVistaLista). El texto de búsqueda es local a esta vista.
+ * resumen global. La página conserva la búsqueda: la descarga usa el mismo
+ * filtro y volver de un proveedor no lo pierde.
  *
  * LA MARCA DE "YA SE LE MANDÓ"
  * `pedidosEnviados` es un Map de nombre de proveedor a la fecha del último
@@ -15,8 +14,7 @@ import { Calendar, RefreshCw, Package, Check } from 'lucide-react'
  *
  * Solo cuenta lo que salió bien: un intento fallido no es un pedido enviado.
  */
-export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor }) {
-  const [proveedorQuery, setProveedorQuery] = useState('')
+export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor, proveedorQuery, setProveedorQuery }) {
 
   const cuandoSeEnvio = (fecha) =>
     new Date(fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })

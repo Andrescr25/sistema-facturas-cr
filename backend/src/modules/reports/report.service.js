@@ -11,7 +11,7 @@ class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor con mapping
    */
-  async getMissingItemsBySupplier(fechaInicio = null) {
+  async getMissingItemsBySupplier(fechaInicio = null, { asignarProveedores = true } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
@@ -62,7 +62,9 @@ class ReportService {
 
       // PASO 2: Asignar automáticamente productos sin asignación
       const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
-      if (productosSinAsignacion.length > 0) {
+      // Exportar lee la asignación guardada: descargar un archivo no debe
+      // cambiar a quién se le pide el faltante. La pantalla conserva su flujo.
+      if (asignarProveedores && productosSinAsignacion.length > 0) {
         console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada. Asignando automáticamente...`);
         
         for (const producto of productosSinAsignacion) {
@@ -217,7 +219,7 @@ class ReportService {
   /**
    * Obtener reporte de faltantes por cliente (Lógica original de reportes.js/alegra.js)
    */
-  async getMissingItemsByClient() {
+  async getMissingItemsByClient({ asignarProveedores = true } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por cliente (Lógica original)...');
 
@@ -284,7 +286,7 @@ class ReportService {
       // faltante nuevo cae al fallback de la tabla legacy `proveedores` aunque el
       // producto ya tenga una relación real y vigente en supplier_product_mapping.
       const sinAsignar = result.rows.filter(row => !row.proveedor_asignado);
-      if (sinAsignar.length > 0) {
+      if (asignarProveedores && sinAsignar.length > 0) {
         console.log(`⚠️ ${sinAsignar.length} faltantes sin proveedor asignado. Asignando automáticamente...`);
         for (const row of sinAsignar) {
           await asignarProveedorAutomatico(row.faltante_id, row.producto_id, row.producto_codigo);
