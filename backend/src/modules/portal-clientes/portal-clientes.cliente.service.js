@@ -161,7 +161,11 @@ async function crearPedido(cuentaId, { observaciones } = {}) {
     const carrito = await obtenerCarrito(cuentaId, db, { bloquearProductos: true });
     if (!carrito.lineas.length) throw httpError(400, carrito.noDisponibles.length
       ? 'Los productos del carrito ya no están disponibles.' : 'El carrito está vacío.');
-    if (carrito.noDisponibles.length) throw httpError(409, 'Hay productos que ya no están disponibles. Revise y vacíe el carrito antes de enviar.');
+    // Un producto que se ocultó o se dio de baja después de agregarlo NO
+    // bloquea el envío. El panel del pedido solo dibuja `lineas`, con su total:
+    // el cliente manda exactamente lo que ve. Frenarlo acá lo dejaba con un
+    // error sobre un producto que no puede ver ni quitar, y la única salida
+    // era vaciar el carrito entero.
     const { rows: [pedido] } = await db.query(`
       INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, cliente_nombre, total, observaciones, creado_en)
       VALUES ($1, $2, $3, $4, $5, ${AHORA_CR_SQL}) RETURNING *`,

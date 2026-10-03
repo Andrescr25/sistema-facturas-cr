@@ -122,6 +122,26 @@ describe('portal con ids propios — contra PostgreSQL local', () => {
     assert.equal((await saldo.facturasPendientes(clienteId)).total, 8320);
     assert.equal((await saldo.facturasPendientes(ajenoId)).total, 0);
   });
+  test('un producto que se ocultó después no frena el pedido: sale con lo que el cliente ve', async () => {
+    await carrito.ponerCantidad(cuentaId, productos[0].id, 2);
+    await carrito.ponerCantidad(cuentaId, productos[3].id, 1);
+    await conexion.query('UPDATE producto SET oculto = TRUE WHERE id = $1', [productos[0].id]);
+    const visto = await carrito.obtenerCarrito(cuentaId);
+    assert.deepEqual(visto.lineas.map(l => l.producto.id), [productos[3].id]);
+    assert.deepEqual(visto.noDisponibles, [productos[0].id]);
+    const pedido = await servicio.crearPedido(cuentaId);
+    assert.equal(pedido.lineas, 1);
+    assert.equal(pedido.total, visto.total);
+    const { rows } = await conexion.query('SELECT producto_id FROM pedido_cliente_linea WHERE pedido_id = $1', [pedido.id]);
+    assert.deepEqual(rows.map(r => r.producto_id), [productos[3].id]);
+    const despues = await carrito.obtenerCarrito(cuentaId);
+    assert.equal(despues.lineas.length + despues.noDisponibles.length, 0);
+    // Con SOLO productos que ya no están, no hay nada que mandar.
+    await conexion.query('UPDATE producto SET oculto = FALSE WHERE id = $1', [productos[0].id]);
+    await carrito.ponerCantidad(cuentaId, productos[0].id, 2);
+    await conexion.query('UPDATE producto SET oculto = TRUE WHERE id = $1', [productos[0].id]);
+    await assert.rejects(() => servicio.crearPedido(cuentaId), e => e.status === 400 && /ya no están disponibles/.test(e.message));
+  });
   test('un fallo en las líneas no deja pedido ni vacía el carrito ni avisa', async () => {
     await carrito.ponerCantidad(cuentaId, productos[0].id, 2);
     const previo = (await conexion.query('SELECT COUNT(*)::int n FROM pedido_cliente')).rows[0].n;
