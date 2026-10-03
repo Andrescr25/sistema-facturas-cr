@@ -759,12 +759,17 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   recargar, la primera factura propia choca con la UNIQUE (tipo, serie,
   consecutivo) y el mostrador no puede facturar. `cargar-facturas.js` y
   `cargar-notas-credito.js` ahora suben cada serie hasta lo copiado
-  (`GREATEST`, nunca retrocede). El mismo choque deja a la factura propia
-  **fuera de Facturas en Bodega**: su espejo en la tabla vieja `facturas` se
-  inserta con `ON CONFLICT (numero_factura) DO NOTHING`, así que si el número
-  ya lo tiene una de Alegra, se descarta sin avisar
+  (`GREATEST`, nunca retrocede). El antiguo espejo en la tabla de bodega
+  `facturas` se retiró en la sección 11: Bodega ahora consulta la factura
+  propia directamente. Sigue pendiente recargar y comprobar los numeradores
+  justo antes del corte; quitar ese espejo no resuelve una serie atrasada.
 - [ ] Bajar el PDF y el XML de las facturas electrónicas que emitió Alegra, que hay que conservar 5 años
-- [ ] Conciliación: cantidades y totales por mes iguales entre Alegra y la base propia
+- [ ] Conciliación: cantidades y totales por mes iguales entre Alegra y la base propia. **Avance 2026-10-03:** `scripts/independencia/conciliar-ventas.js` compara facturas/tiquetes y notas de crédito por mes, estado y moneda, con diferencias por documento y línea. Solo GET y una instantánea PostgreSQL READ ONLY; separa nativos sin `alegra_id`, descubre cambios de fecha fuera del tramo y aborta si la lectura es incompleta. Devuelve JSON privado fuera del repo; códigos 0 sin diferencias dentro del alcance, 2 diferencias, 1 error. **No cierra esta fila:** faltan cobros, aplicaciones, saldos calculados, compras, existencias y resolver discrepancias antes del corte. Ver [el nodo de conciliación](grafo/modulo/conciliacion-ventas.md).
+  **Medición de septiembre, 2026-10-03:** 69 facturas coinciden y faltan 119
+  en la copia local (116 emitidas + 3 anuladas); ninguna de las 69 presenta
+  diferencias en los campos/líneas comparados. La diferencia del total de
+  emitidas es ₡4.649.819. No se ejecutó ninguna carga ni se modificaron datos
+  compartidos: recargar y repetir antes del corte.
 - [ ] Ensayo de corte completo en la base de la rama
 - [ ] Plan de corte: qué día, qué se congela en Alegra y cómo se vuelve atrás
 - [ ] WhatsApp en el servidor nuevo (vino de main, 2026-09-29): Baileys vive

@@ -7,7 +7,7 @@ archivos:
   - backend/src/modules/facturacion/facturacion.service.js
   - backend/src/modules/facturacion/facturaPropia.service.js
 aristas:
-  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes]
+  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas]
 medido: 2026-10-03
 ---
 
