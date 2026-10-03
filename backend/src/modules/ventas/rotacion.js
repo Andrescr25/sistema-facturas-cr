@@ -20,9 +20,14 @@
  * El día es el de COSTA RICA, calculado en la base: la sesión puede estar en
  * otra zona, y después de las 6 p.m. "hoy" en UTC ya es mañana.
  *
- * Las ventas salen de `venta_historico`, que se llena al crear cada factura
- * (facturacion.service) y se repasa cada hora contra Alegra (anulaciones,
- * facturas hechas directo allá).
+ * Las ventas salen de `venta_linea` (migración independencia/034): las líneas
+ * de las facturas propias EMITIDAS, sin sincronizar nada. Antes salían de
+ * `venta_historico`, una copia que se repasaba cada hora contra Alegra.
+ *
+ * LA IDENTIDAD ES `producto_id`, el id propio. Cada fila trae además
+ * `alegra_item_id` (el `producto.alegra_id`, vacío en un producto creado acá)
+ * para lo que todavía se llavea por ahí: el catálogo del agente y el costo
+ * derivado de Rentabilidad. Quien lea `producto` une por `producto_id`.
  */
 
 const { query } = require('../../../config/database');
@@ -35,7 +40,7 @@ const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 
 /**
  * Una fila por producto vendido en los últimos `meses`. Se usa como
- * subconsulta: `LEFT JOIN (${SQL_ROTACION}) r ON r.alegra_item_id = p.alegra_id`.
+ * subconsulta: `LEFT JOIN (${SQL_ROTACION}) r ON r.producto_id = p.id`.
  *
  * unidades_semana divide entre las semanas REALES de la ventana (3 meses
  * son entre 89 y 92 días), no entre 13 fijas.
@@ -45,7 +50,8 @@ function sqlRotacion(meses = VENTANA_MESES) {
   if (!Number.isInteger(n) || n < 1 || n > 36) throw new Error(`Ventana de rotación inválida: ${meses}`);
   const inicio = `(${HOY_CR} - INTERVAL '${n} months')::date`;
   return `
-  SELECT v.alegra_item_id,
+  SELECT v.producto_id,
+         pr.alegra_id AS alegra_item_id,
          v.unidades,
          v.ventas,
          v.facturas,
@@ -61,23 +67,24 @@ function sqlRotacion(meses = VENTANA_MESES) {
            ELSE 'C'
          END AS clase
     FROM (
-      SELECT alegra_item_id,
+      SELECT producto_id,
              SUM(cantidad) AS unidades,
-             -- Precio de la línea SIN IVA. No descuenta descuentos: el historial
-             -- no los guarda, y pesan 0,003 % (7 de 51.750 líneas, medido).
-             SUM(cantidad * precio_unitario) AS ventas,
-             COUNT(DISTINCT alegra_invoice_id) AS facturas,
+             -- Lo vendido SIN IVA, con el descuento de la línea ya restado.
+             SUM(importe) AS ventas,
+             COUNT(DISTINCT factura_id) AS facturas,
              COUNT(DISTINCT cliente_id) AS clientes_distintos,
-             MAX(fecha_emision) AS ultima_venta,
-             SUM(SUM(cantidad)) OVER (ORDER BY SUM(cantidad) DESC, alegra_item_id
+             MAX(fecha) AS ultima_venta,
+             SUM(SUM(cantidad)) OVER (ORDER BY SUM(cantidad) DESC, producto_id
                                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS acumulado,
              SUM(SUM(cantidad)) OVER () AS total
-        FROM venta_historico
-       WHERE fecha_emision > ${inicio}
-         AND fecha_emision <= ${HOY_CR}
-       GROUP BY alegra_item_id
+        FROM venta_linea
+       WHERE fecha > ${inicio}
+         AND fecha <= ${HOY_CR}
+         AND producto_id IS NOT NULL
+       GROUP BY producto_id
       HAVING SUM(cantidad) > 0
-    ) v`;
+    ) v
+    JOIN producto pr ON pr.id = v.producto_id`;
 }
 
 /** La rotación de la pantalla y del catálogo del agente: los últimos 3 meses. */
@@ -94,7 +101,8 @@ const SQL_ROTACION_PRECIOS = sqlRotacion(12);
 
 function aFila(r) {
   return {
-    alegraItemId: String(r.alegra_item_id),
+    productoId: Number(r.producto_id),
+    alegraItemId: r.alegra_item_id === null || r.alegra_item_id === undefined ? null : String(r.alegra_item_id),
     clase: r.clase,
     unidades: Number(r.unidades),
     ventas: Number(r.ventas),
@@ -106,15 +114,21 @@ function aFila(r) {
   };
 }
 
-/** La rotación de todos los productos vendidos en la ventana, por alegra_id. */
+/** La rotación de todos los productos vendidos en la ventana, por `producto.id`. */
 async function rotacionPorProducto() {
   const { rows } = await query(SQL_ROTACION);
-  return new Map(rows.map((r) => [String(r.alegra_item_id), aFila(r)]));
+  return new Map(rows.map((r) => [Number(r.producto_id), aFila(r)]));
 }
 
-/** Solo los ids de A y de B: lo que usa el catálogo de "Cliente nuevo". */
+/**
+ * Solo los ids de A y de B: lo que usa el catálogo de "Cliente nuevo".
+ *
+ * POR EL ID DE ALEGRA, todavía: la tablet guarda sus productos con ese id
+ * hasta que su caché pase a ids propios (sección 12, catálogo del agente).
+ * Un producto creado acá, sin id de Alegra, no entra hasta entonces.
+ */
 async function clasesAB() {
-  const { rows } = await query(`SELECT alegra_item_id, clase FROM (${SQL_ROTACION}) r WHERE clase IN ('A', 'B')`);
+  const { rows } = await query(`SELECT alegra_item_id, clase FROM (${SQL_ROTACION}) r WHERE clase IN ('A', 'B') AND alegra_item_id IS NOT NULL`);
   const clases = { A: [], B: [] };
   for (const r of rows) clases[r.clase].push(String(r.alegra_item_id));
   return clases;

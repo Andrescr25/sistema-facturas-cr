@@ -20,7 +20,6 @@
 const { COLUMNAS, DESDE, VISIBLE } = require('../catalogo-clientes/consultaProducto');
 // Alegra ya no sirve el catálogo, pero el histórico de compras todavía se
 // sincroniza desde allá (sección 12 del checklist).
-const { getClient } = require('../../integrations/alegra');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { listarVigentes } = require('../../utils/descuentosExceso');
@@ -167,275 +166,15 @@ async function listarOfertasPorBaja() {
 }
 
 // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
-// Alimenta la personalización del catálogo público: qué le conviene mostrar
-// primero al agente según el cliente que está visitando. Ledger crudo en
-// venta_historico (histórico completo, sin poda) — a propósito separado de
-// venta_items, que tiene ventana móvil de 120 días para detección de excesos
-// y no conviene arriesgar.
-
-const LIMIT_INVOICES_HISTORIAL = 30; // máximo que acepta /invoices en Alegra
-const COLUMNAS_VENTA_HISTORICO = 7; // alegra_invoice_id, alegra_item_id, cliente_id, cliente_nombre, cantidad, precio_unitario, fecha_emision
-const FILAS_POR_INSERT = 150; // lotes moderados — un lote de 500 disparó un corte SSL contra el pooler de Supabase en vivo
-
-/**
- * INSERT multi-fila (chunked) con upsert, para no hacer un round-trip a
- * Supabase por cada línea de venta. `filas` es un array de arrays en el
- * mismo orden que COLUMNAS_VENTA_HISTORICO. Reintenta cada lote un par de
- * veces — el pooler de Supabase (PgBouncer) a veces corta la conexión con
- * un error SSL transitorio en queries grandes; es un INSERT idempotente
- * (ON CONFLICT), así que repetirlo es seguro.
- */
-async function insertarLotesVentaHistorico(filas) {
-  for (let i = 0; i < filas.length; i += FILAS_POR_INSERT) {
-    const lote = filas.slice(i, i + FILAS_POR_INSERT);
-    const placeholders = lote
-      .map((_, idx) => {
-        const base = idx * COLUMNAS_VENTA_HISTORICO;
-        const cols = Array.from({ length: COLUMNAS_VENTA_HISTORICO }, (_, c) => `$${base + c + 1}`);
-        return `(${cols.join(', ')})`;
-      })
-      .join(', ');
-    const valores = lote.flat();
-
-    const sql = `
-      INSERT INTO venta_historico (alegra_invoice_id, alegra_item_id, cliente_id, cliente_nombre, cantidad, precio_unitario, fecha_emision)
-      VALUES ${placeholders}
-      ON CONFLICT (alegra_invoice_id, alegra_item_id) DO UPDATE SET
-        cliente_id = EXCLUDED.cliente_id,
-        cliente_nombre = EXCLUDED.cliente_nombre,
-        cantidad = EXCLUDED.cantidad,
-        precio_unitario = EXCLUDED.precio_unitario,
-        fecha_emision = EXCLUDED.fecha_emision;
-    `;
-
-    let ultimoError;
-    for (let intento = 1; intento <= 3; intento++) {
-      try {
-        await query(sql, valores);
-        ultimoError = null;
-        break;
-      } catch (error) {
-        ultimoError = error;
-        console.log(`   ⚠️ [Catálogo] Error insertando lote (intento ${intento}/3): ${error.message}`);
-        await new Promise((r) => setTimeout(r, 800 * intento));
-      }
-    }
-    if (ultimoError) throw ultimoError;
-  }
-}
-
-/**
- * Borra de venta_historico las líneas que ya NO están en la factura.
- *
- * Una factura editada en Alegra (se le quita un producto, se le corrige una
- * cantidad) nunca vuelve a mandar esa línea vieja: el upsert de arriba
- * actualiza o agrega, pero nada la borra. Sin este paso esa línea queda
- * huérfana para siempre y se sigue sumando en cada total que lea
- * venta_historico — así se detectó: una factura de ₡279.113 en Alegra
- * aparecía en ₡316.566 en "Volver a pedir" del catálogo de clientes, con dos
- * productos de una edición anterior todavía contados.
- *
- * `paresPorFactura` es el mapa EXACTO de qué (factura, producto) siguen
- * siendo válidos según la respuesta que Alegra acaba de dar — el mismo que
- * ya se usó para armar `filas`. Cualquier fila en la base con esa
- * alegra_invoice_id que no esté en ese mapa dejó de existir en la factura.
- */
-async function eliminarLineasObsoletas(paresPorFactura) {
-  const facturaIds = [...paresPorFactura.keys()];
-  if (facturaIds.length === 0) return 0;
-
-  const paresValidos = [];
-  for (const [facturaId, itemIds] of paresPorFactura) {
-    for (const itemId of itemIds) paresValidos.push([facturaId, itemId]);
-  }
-
-  // Ninguna de las facturas de esta página tiene ítems: se borra todo lo que
-  // hubiera quedado de ellas. No se puede armar un VALUES() vacío.
-  if (paresValidos.length === 0) {
-    const r = await query(`DELETE FROM venta_historico WHERE alegra_invoice_id = ANY($1::integer[]) RETURNING 1;`, [facturaIds]);
-    return r.rows.length;
-  }
-
-  const placeholders = paresValidos.map((_, i) => `($${i * 2 + 1}::integer, $${i * 2 + 2}::varchar)`).join(', ');
-  const valores = paresValidos.flat();
-
-  const r = await query(`
-    DELETE FROM venta_historico t
-    WHERE t.alegra_invoice_id = ANY($${valores.length + 1}::integer[])
-      AND NOT EXISTS (
-        SELECT 1 FROM (VALUES ${placeholders}) AS v(invoice_id, item_id)
-        WHERE v.invoice_id = t.alegra_invoice_id AND v.item_id = t.alegra_item_id
-      )
-    RETURNING 1;
-  `, [...valores, facturaIds]);
-  return r.rows.length;
-}
-
-/**
- * ¿Esta factura de Alegra es una VENTA? Solo si se emitió y sigue en pie.
- *
- * Un BORRADOR (`draft`) no se emitió nunca, y una ANULADA (`void`, o anulada
- * por nota de crédito) se deshizo. Hasta el 2026-09-25 solo se descartaban las
- * anuladas por nota de crédito, y así el historial contaba 24 borradores
- * (₡294,9 millones: cuatro de ellos con 42.057 tomacorrientes cada uno, un
- * error de digitación que nunca se facturó) y 132 anuladas (₡2,7 millones).
- * Eran el 60 % de toda la plata del historial, y de ahí salen la rotación, las
- * estadísticas de Rentabilidad y "lo que más compra" de cada cliente.
- */
-function esVenta(invoice) {
-  if (!invoice) return false;
-  if (invoice.status === 'draft' || invoice.status === 'void') return false;
-  return !invoice.isVoidedByCreditNote;
-}
-
-/**
- * Las líneas de una factura, listas para venta_historico, y qué productos
- * lleva (para borrar las que ya no están).
- *
- * Devuelve `null` si no se puede usar: sin id, sin cliente o sin fecha. Si NO
- * es una venta (borrador o anulada) devuelve la factura SIN líneas: eso borra
- * lo que hubiera quedado de ella en el historial.
- *
- * Si un producto aparece en más de una línea de la misma factura, se suman
- * ANTES de insertar (no en el ON CONFLICT) — sumar ahí duplicaría el total
- * cada vez que se reprocesa la misma factura.
- */
-function lineasDeFactura(invoice) {
-  const facturaId = parseInt(invoice?.id, 10);
-  if (!Number.isInteger(facturaId)) return null;
-  if (!esVenta(invoice)) return { facturaId, filas: [], productos: new Set() };
-
-  const clienteId = invoice.client?.id;
-  const fecha = (invoice.date || '').split('T')[0];
-  if (!clienteId || !fecha) return null;
-  const clienteNombre = invoice.client?.name || null;
-
-  const porItem = new Map();
-  for (const item of invoice.items || []) {
-    if (!item.id) continue;
-    const acumulado = porItem.get(item.id) || { cantidad: 0, precioUnitario: 0 };
-    acumulado.cantidad += parseFloat(item.quantity) || 0;
-    acumulado.precioUnitario = parseFloat(item.price) || acumulado.precioUnitario;
-    porItem.set(item.id, acumulado);
-  }
-
-  const filas = [...porItem].map(([itemId, datos]) => [
-    facturaId, String(itemId), String(clienteId), clienteNombre, datos.cantidad, datos.precioUnitario, fecha
-  ]);
-  return { facturaId, filas, productos: new Set([...porItem.keys()].map(String)) };
-}
-
-/**
- * Anota en el historial una factura RECIÉN CREADA, sin esperar a la próxima
- * sincronización: es lo que hace que la rotación y las estadísticas estén al
- * día apenas se vende. La llama facturacion.service después de que Alegra la
- * confirmó.
- *
- * Nunca tira error: la factura ya existe y el cliente ya la tiene. Si esto
- * falla, la sincronización de cada hora la trae igual.
- */
-async function registrarFacturaEnHistorico(invoice) {
-  try {
-    const lineas = lineasDeFactura(invoice);
-    if (!lineas) return { lineas: 0 };
-    if (lineas.filas.length > 0) await insertarLotesVentaHistorico(lineas.filas);
-    await eliminarLineasObsoletas(new Map([[lineas.facturaId, lineas.productos]]));
-    return { lineas: lineas.filas.length };
-  } catch (error) {
-    console.error(`⚠️ No se pudo anotar la factura ${invoice?.id} en el historial de ventas (la trae la próxima sincronización):`, error.message);
-    return { lineas: 0, error: error.message };
-  }
-}
-
-/** Un día AAAA-MM-DD menos `n` días, sin pasar por la zona del servidor. */
-function diasAntes(dia, n) {
-  const d = new Date(`${String(dia).slice(0, 10)}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * Trae de Alegra las facturas de venta emitidas entre `startDate` y hoy y
- * hace upsert de sus líneas en venta_historico. Por defecto es incremental:
- * arranca 2 días antes de la última fecha ya sincronizada (margen por si
- * quedaron facturas del mismo día sin traer por límite de paginación). Sin
- * histórico previo y sin `desde` explícito, trae todo (backfill completo).
- *
- * `desde` sirve para repasar una ventana más larga: una factura vieja que se
- * anula HOY conserva su fecha vieja, y la corrida incremental no la vuelve a
- * mirar (ver server.js: una vez al día se repasan los últimos 60 días).
- * `hasta` (por omisión hoy) corta la ventana: un repaso del historial entero
- * son ~185 páginas y media hora, y por tramos un corte de internet solo obliga
- * a repetir el tramo, no todo (pasó el 2026-09-25, en la página 90).
- *
- * Los días son de Costa Rica: con `toISOString()`, después de las 6 p.m. "hoy"
- * ya era mañana.
- */
-async function sincronizarHistorialCompras({ desde, hasta } = {}) {
-  const client = getClient();
-  const endDate = hasta || hoyEnCostaRica();
-
-  let startDate = desde || null;
-  if (!startDate) {
-    const ultimaRes = await query('SELECT MAX(fecha_emision)::text as ultima FROM venta_historico;');
-    const ultimaFecha = ultimaRes.rows[0]?.ultima;
-    if (ultimaFecha) startDate = diasAntes(ultimaFecha, 2);
-  }
-
-  console.log(`🔄 [Catálogo] Sincronizando historial de compras${startDate ? ` desde ${startDate}` : ' (backfill completo)'} → ${endDate}...`);
-
-  let start = 0;
-  let totalFacturas = 0;
-  let totalLineas = 0;
-  let fuera = 0;
-
-  while (true) {
-    const params = { start, limit: LIMIT_INVOICES_HISTORIAL, order_field: 'date', order_direction: 'DESC' };
-    if (startDate) params.date_after = startDate;
-    params.date_before = endDate;
-
-    const response = await client.requestWithRetry(() =>
-      client.api.get('/invoices', { params, timeout: 60000 }),
-      3, 1000, { metodo: 'GET' }
-    );
-
-    const invoices = response.data?.data || response.data || [];
-    if (!Array.isArray(invoices) || invoices.length === 0) break;
-
-    // Junta TODAS las líneas de la página en un solo INSERT multi-fila en
-    // vez de uno por línea — con ~30 facturas × ~10 líneas cada una, un
-    // INSERT por fila significaba ~300 round-trips secuenciales a Supabase
-    // por página (varias horas para el histórico completo). Un solo INSERT
-    // por página lo baja a un round-trip por página.
-    const filas = [];
-    // Qué (factura, producto) son válidos SEGÚN ESTA RESPUESTA de Alegra,
-    // factura por factura — para poder borrar después lo que ya no está
-    // (ver eliminarLineasObsoletas). Un borrador o una anulada entran SIN
-    // productos: así se borra lo que hubiera quedado de ellas.
-    const paresPorFactura = new Map();
-    for (const invoice of invoices) {
-      const lineas = lineasDeFactura(invoice);
-      if (!lineas) continue;
-      if (lineas.filas.length === 0 && !esVenta(invoice)) fuera++;
-      paresPorFactura.set(lineas.facturaId, lineas.productos);
-      filas.push(...lineas.filas);
-    }
-
-    if (filas.length > 0) {
-      await insertarLotesVentaHistorico(filas);
-      totalLineas += filas.length;
-    }
-    await eliminarLineasObsoletas(paresPorFactura);
-
-    totalFacturas += invoices.length;
-    if (invoices.length < LIMIT_INVOICES_HISTORIAL) break;
-    start += LIMIT_INVOICES_HISTORIAL;
-    await new Promise(resolve => setTimeout(resolve, 300));
-  }
-
-  console.log(`✅ [Catálogo] Historial de compras sincronizado: ${totalFacturas} facturas, ${totalLineas} líneas procesadas, ${fuera} borradores o anuladas fuera.`);
-  return { facturas: totalFacturas, lineas: totalLineas, fuera };
-}
+// Alimenta la personalización del catálogo: qué le conviene mostrar primero al
+// agente según el cliente que está visitando.
+//
+// SALE DE `venta_linea` (las líneas de las facturas propias EMITIDAS,
+// migración independencia/034). Antes salía de `venta_historico`, una copia
+// que se llenaba al facturar en Alegra y se repasaba cada hora contra Alegra
+// (sincronizarHistorialCompras, registrarFacturaEnHistorico): todo eso se
+// retiró el 2026-10-03. La regla "un borrador o una anulada no es una venta"
+// ahora la cumple la vista.
 
 /**
  * Payload compacto para descarga offline: por cada cliente, sus top 120
@@ -444,32 +183,30 @@ async function sincronizarHistorialCompras({ desde, hasta } = {}) {
  * recencia se calcula en el dispositivo contra la fecha de hoy — no acá —
  * para que el score siga siendo correcto días después de sincronizar.
  *
- * El nombre del cliente se toma el más reciente por cliente_id (no por
- * cliente_nombre): Alegra permite renombrar contactos y el histórico trae
- * más nombres distintos que ids reales.
+ * LOS IDS QUE SALEN SON LOS DE ALEGRA, todavía: la tablet guarda clientes y
+ * productos con ese id hasta que su caché pase a ids propios (sección 12 del
+ * checklist). Adentro todo se cruza por `cliente.id` y `producto.id`; un
+ * cliente o un producto creado acá, sin id de Alegra, no entra hasta entonces.
+ *
+ * El nombre del cliente es el de su ficha de hoy, no el que decía cada factura.
  */
 async function obtenerHistorialParaCatalogo() {
   const result = await query(`
     WITH agregado AS (
-      SELECT cliente_id, alegra_item_id,
-             COUNT(DISTINCT alegra_invoice_id) AS veces,
-             MAX(fecha_emision) AS ultima_compra
-      FROM venta_historico
-      GROUP BY cliente_id, alegra_item_id
-    ),
-    nombre_cliente AS (
-      SELECT DISTINCT ON (cliente_id) cliente_id, cliente_nombre
-      FROM venta_historico
-      WHERE cliente_nombre IS NOT NULL
-      ORDER BY cliente_id, fecha_emision DESC
+      SELECT c.alegra_id AS cliente_id, MAX(c.nombre) AS cliente_nombre, p.alegra_id AS alegra_item_id,
+             COUNT(DISTINCT v.factura_id) AS veces,
+             MAX(v.fecha) AS ultima_compra
+      FROM venta_linea v
+      JOIN cliente c ON c.id = v.cliente_id AND c.alegra_id IS NOT NULL
+      JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
+      GROUP BY c.alegra_id, p.alegra_id
     ),
     rankeado AS (
       SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.cliente_id ORDER BY a.veces DESC, a.ultima_compra DESC) AS rn
       FROM agregado a
     )
-    SELECT r.cliente_id, nc.cliente_nombre, r.alegra_item_id, r.veces, r.ultima_compra
+    SELECT r.cliente_id, r.cliente_nombre, r.alegra_item_id, r.veces, r.ultima_compra::text AS ultima_compra
     FROM rankeado r
-    LEFT JOIN nombre_cliente nc ON nc.cliente_id = r.cliente_id
     WHERE r.rn <= 120
     ORDER BY r.cliente_id, r.veces DESC;
   `);
@@ -479,10 +216,7 @@ async function obtenerHistorialParaCatalogo() {
     if (!clientesMap.has(row.cliente_id)) {
       clientesMap.set(row.cliente_id, { id: row.cliente_id, n: row.cliente_nombre || '', p: [] });
     }
-    const fechaStr = row.ultima_compra instanceof Date
-      ? row.ultima_compra.toISOString().split('T')[0]
-      : String(row.ultima_compra).split('T')[0];
-    clientesMap.get(row.cliente_id).p.push([row.alegra_item_id, Number(row.veces), fechaStr]);
+    clientesMap.get(row.cliente_id).p.push([row.alegra_item_id, Number(row.veces), row.ultima_compra]);
   }
 
   return {
@@ -531,11 +265,6 @@ module.exports = {
   listarCategorias,
   listarOfertas,
   listarOfertasPorBaja,
-  sincronizarHistorialCompras,
-  registrarFacturaEnHistorico,
-  esVenta,
-  lineasDeFactura,
   obtenerHistorialParaCatalogo,
-  eliminarLineasObsoletas,
   obtenerConfigCatalogo
 };

@@ -32,7 +32,7 @@ toca, qué no se regenera).
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
-- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *productos del maestro propio; ventas todavía de Alegra*
+- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *ventas de las facturas propias; el costo derivado y la identidad en pantalla, todavía por id de Alegra*
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*
 
 ## Tablas
@@ -45,7 +45,8 @@ toca, qué no se regenera).
 - [Subcategorías — nuestras, colgadas del NOMBRE de la categoría de Alegra](tabla/subcategoria.md) — `subcategoria`
 - [Orden y nombre visible de las categorías de Alegra](tabla/categoria-config.md) — `categoria_config`
 - [Quién vende qué — el vínculo producto ↔ proveedor, por cédula](tabla/supplier-product-mapping.md) — `supplier_product_mapping`
-- [El historial de ventas — una línea por producto y factura, de donde sale la rotación](tabla/venta-historico.md) — `venta_historico`
+- [Las ventas — una vista sobre las facturas propias emitidas](tabla/venta-linea.md) — `venta_linea`
+- [El historial de ventas viejo — ya no se lee ni se llena](tabla/venta-historico.md) — `venta_historico` · *retirado en esta rama*
 
 ## Decisiones
 

@@ -17,9 +17,9 @@ archivos:
   - backend/tests/rentabilidadFormato.test.js
   - backend/tests/rotacionVentas.test.js
 aristas:
-  depende_de: [tabla/venta-historico, tabla/alegra-products-cache]
+  depende_de: [tabla/venta-linea, tabla/alegra-products-cache]
   relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo]
-medido: 2026-09-25
+medido: 2026-10-03
 ---
 
 Rehecho el 2026-09-25 a pedido del usuario: una sola pantalla, sin pestañas
@@ -46,7 +46,8 @@ DE DÓNDE SALE CADA CIFRA
 - **Rotación** (`ventas/rotacion.js`): unidades de los últimos 3 meses,
   Pareto — A hasta el 80 % de las unidades, B hasta el 95 %, C el resto; el
   que cruza el corte queda arriba. Se calcula en cada consulta desde
-  [[tabla/venta-historico]]; ya no hay foto ni script
+  [[tabla/venta-linea]] (las facturas propias, por `producto.id`); ya no hay
+  foto, script ni sincronización con Alegra
   (`producto_rotacion` y `scripts/calcular-rotacion.js` quedaron sin uso).
   El mismo SQL lo leen el catálogo de "Cliente nuevo" y Gestión de Catálogo;
   el motor de precios (Revisión de Precios, `simular-precios.js`) lo lee con

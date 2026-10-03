@@ -23,6 +23,7 @@
 const { query } = require('../../../config/database');
 const { mapaVigentes } = require('../../utils/descuentosExceso');
 const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
+const { HOY_CR } = require('../ventas/rotacion');
 
 // Mismos umbrales que catalogoAgentePersonalizacion.js, para que un producto
 // no sea "habitual" en la tablet del agente y otra cosa en el portal.
@@ -37,17 +38,22 @@ const TOPE_SECCION = 24; // el cliente navega en un teléfono, no en una tablet
  * `veces` cuenta FACTURAS distintas, no líneas: si un producto aparece dos
  * veces en la misma factura eso no es comprar dos veces.
  */
+// De `venta_linea` (facturas propias emitidas, migración 034), cruzado por
+// ids propios. El cliente llega por el contacto de Alegra de su sesión y el
+// producto sale con su id de Alegra, que es por donde todavía se llavean el
+// carrito y el pedido del portal (sección 12 del checklist).
 const SQL_HISTORIAL = `
   WITH agregado AS (
-    SELECT alegra_item_id,
-           COUNT(DISTINCT alegra_invoice_id) AS veces,
-           MAX(fecha_emision) AS ultima_compra
-    FROM venta_historico
-    WHERE cliente_id = $1
-    GROUP BY alegra_item_id
+    SELECT p.alegra_id AS alegra_item_id,
+           COUNT(DISTINCT v.factura_id) AS veces,
+           MAX(v.fecha) AS ultima_compra
+    FROM venta_linea v
+    JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
+    WHERE v.cliente_id = (SELECT id FROM cliente WHERE alegra_id = $1)
+    GROUP BY p.alegra_id
   )
   SELECT a.alegra_item_id, a.veces, a.ultima_compra,
-         (CURRENT_DATE - a.ultima_compra::date) AS dias
+         (${HOY_CR} - a.ultima_compra) AS dias
   FROM agregado a
   ORDER BY a.veces DESC, a.ultima_compra DESC
   LIMIT 200;

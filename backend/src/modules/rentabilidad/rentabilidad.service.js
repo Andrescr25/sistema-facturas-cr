@@ -54,13 +54,15 @@ async function calcularCatalogo() {
     // (`producto`), con su tarifa, categoría y subcategoría de acá — no de la
     // copia de Alegra. Los alias conservan la forma que espera el resto.
     //
-    // La rotación y lo vendido siguen identificados por el id de Alegra
-    // (`venta_historico` se llena desde Alegra hasta la sección 12 del
-    // checklist), así que por ahora solo entran los productos que lo tienen:
-    // hoy son todos (medido: 0 de 2.144 sin alegra_id). Rentabilidad sobre
-    // `factura_linea`, con ids propios, es la sección 13.
+    // La rotación y lo vendido salen de las facturas propias (`venta_linea`,
+    // migración 034) y se cruzan por `producto.id`. Lo que todavía va por el
+    // id de Alegra es el costo derivado de las facturas de proveedor
+    // (precios/costoDerivado) y la identidad que usa la pantalla
+    // (`alegraItemId`), así que por ahora solo entran los productos que lo
+    // tienen: hoy son todos (medido: 0 de 2.144 sin alegra_id). Pasar eso a
+    // ids propios es la sección 13.
     query(`
-      SELECT p.alegra_id, p.nombre AS name, p.referencia AS reference, cat.nombre AS category,
+      SELECT p.id AS producto_id, p.alegra_id, p.nombre AS name, p.referencia AS reference, cat.nombre AS category,
              p.precio_sin_iva AS price, p.costo_con_iva AS cost, imp.tarifa AS tax_percentage,
              p.imagen_url AS image_url, s.nombre AS subcategoria
         FROM producto p
@@ -82,13 +84,14 @@ async function calcularCatalogo() {
       historialInestable: derivado ? derivado.historialInestable : false,
       tasaIva: p.tax_percentage
     });
-    const r = rot.get(id) || null;
+    const r = rot.get(Number(p.producto_id)) || null;
     const confiable = COSTO_CONFIABLE.has(c.clasificacion) && c.costoSinIva !== null;
     const unidades = r ? r.unidades : 0;
     const ventas = r ? r.ventas : 0;
 
     return {
       alegraItemId: id,
+      productoId: Number(p.producto_id),
       nombre: p.name,
       referencia: p.reference || '',
       categoria: p.category || 'Sin categoría',
@@ -172,11 +175,11 @@ async function obtenerResumen() {
   const [filas, totales, series] = await Promise.all([
     catalogo(),
     query(`
-      SELECT COALESCE(SUM(cantidad * precio_unitario), 0) AS ventas,
-             COUNT(DISTINCT alegra_invoice_id)::int AS facturas,
+      SELECT COALESCE(SUM(importe), 0) AS ventas,
+             COUNT(DISTINCT factura_id)::int AS facturas,
              COUNT(DISTINCT cliente_id)::int AS clientes
-        FROM venta_historico
-       WHERE fecha_emision > (${HOY_CR} - INTERVAL '${VENTANA_MESES} months')::date AND fecha_emision <= ${HOY_CR}
+        FROM venta_linea
+       WHERE fecha > (${HOY_CR} - INTERVAL '${VENTANA_MESES} months')::date AND fecha <= ${HOY_CR}
     `),
     estadisticas.series()
   ]);
@@ -214,14 +217,14 @@ async function obtenerResumen() {
 /** GET /api/rentabilidad/productos/:alegraItemId — un producto y sus series, en unidades. */
 async function obtenerProducto(alegraItemId) {
   const id = String(alegraItemId || '');
-  const [filas, series] = await Promise.all([catalogo(), estadisticas.series(id)]);
-  const producto = filas.find((p) => p.alegraItemId === id);
+  const producto = (await catalogo()).find((p) => p.alegraItemId === id);
   if (!producto) {
     const e = new Error('Ese producto no está en el catálogo (inactivo u oculto).');
     e.status = 404;
     throw e;
   }
-  return { producto, series };
+  // Las series van por el id PROPIO: es con el que se guardan las ventas.
+  return { producto, series: await estadisticas.series(producto.productoId) };
 }
 
 module.exports = { listarProductos, obtenerResumen, obtenerProducto, calcularCatalogo, ORDENES, _limpiarMemoria: () => { enMemoria = null; } };

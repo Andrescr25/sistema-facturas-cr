@@ -311,8 +311,6 @@ app.get('*', (req, res) => {
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
 let productSyncInterval = null;
-let historialClientesSyncInterval = null;
-let historialRepasoInterval = null;
 let whatsappPingInterval = null;
 
 // Cada cuánto se toca Evolution API. Render duerme un servicio tras ~15
@@ -418,29 +416,10 @@ async function syncAlegraProducts() {
   }
 }
 
-// El historial de ventas (venta_historico): de ahí salen la rotación, las
-// estadísticas de Rentabilidad y "lo que más compra" de cada cliente. En esta
-// rama las facturas propias todavía no entran acá (sección 12 del checklist):
-// se sigue trayendo de Alegra, que solo se LEE. Incremental: parte de la
-// última fecha guardada. Con `desde`, repasa una ventana más larga (una
-// factura vieja anulada hoy conserva su fecha vieja).
-async function syncHistorialClientes(desde) {
-  try {
-    console.log(`\n🛒 Sincronizando historial de ventas${desde ? ` (repaso desde ${desde})` : ''}...`);
-    const resultado = await catalogoAgenteModule.service.sincronizarHistorialCompras(desde ? { desde } : {});
-    console.log(`✅ Historial de ventas sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando el historial de ventas:', error.message);
-  }
-}
-
-/** Hace 60 días, en días de Costa Rica. */
-function hace60Dias() {
-  const { hoyEnCostaRica } = require('./src/utils/fechaCR');
-  const d = new Date(`${hoyEnCostaRica()}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 60);
-  return d.toISOString().slice(0, 10);
-}
+// El historial de ventas ya no se sincroniza: la rotación, las estadísticas de
+// Rentabilidad y "lo que más compra" de cada cliente salen de las facturas
+// propias (`venta_linea`, migración independencia/034). La tarea que lo traía
+// de Alegra cada hora se retiró el 2026-10-03.
 
 // Iniciar servidor
 const server = app.listen(PORT, () => {
@@ -526,31 +505,6 @@ const server = app.listen(PORT, () => {
   // producción, no le disputa la sesión al servidor de Render.
   whatsapp.iniciar().catch((e) => console.error('📱 No se pudo iniciar WhatsApp interno:', e.message));
 
-  // Historial de ventas: cada HORA lo nuevo (la rotación y Rentabilidad son en
-  // tiempo real, y lo facturado en el sistema ya entró al crearse), y una vez
-  // al día un repaso de los últimos 60 días para sacar lo que se anuló tarde.
-  if (process.env.ENABLE_HISTORIAL_SYNC !== 'false') {
-    setTimeout(() => {
-      syncHistorialClientes();
-    }, 12000);
-
-    historialClientesSyncInterval = setInterval(() => {
-      syncHistorialClientes();
-    }, 60 * 60 * 1000);
-
-    historialRepasoInterval = setInterval(() => {
-      syncHistorialClientes(hace60Dias());
-    }, 24 * 60 * 60 * 1000);
-
-    console.log('\n🛒 Sincronización del historial de ventas activada');
-    console.log('   - Inicial: En 12 segundos');
-    console.log('   - Periódica: Cada hora (y un repaso de 60 días cada 24 horas)');
-    console.log('   - Para desactivar: ENABLE_HISTORIAL_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización del historial de ventas desactivada');
-    console.log('   Establece ENABLE_HISTORIAL_SYNC=true en .env para activarla\n');
-  }
-
 });
 
 // Manejo de cierre graceful
@@ -561,15 +515,6 @@ const gracefulShutdown = async (signal) => {
   if (productSyncInterval) {
     console.log('📦 Deteniendo sincronización de productos...');
     clearInterval(productSyncInterval);
-  }
-
-  // Detener sincronización de historial de compras por cliente
-  if (historialRepasoInterval) {
-    clearInterval(historialRepasoInterval);
-  }
-  if (historialClientesSyncInterval) {
-    console.log('🛒 Deteniendo sincronización de historial de compras...');
-    clearInterval(historialClientesSyncInterval);
   }
 
   // Detener el ping a Evolution API

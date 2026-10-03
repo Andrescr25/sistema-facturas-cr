@@ -18,9 +18,9 @@ archivos:
   - frontend/src/components/inventario-auditoria/SeccionProductosNuevos.jsx
   - backend/src/modules/ventas/rotacion.js
 aristas:
-  depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
+  depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-linea]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
-medido: 2026-09-29
+medido: 2026-10-03
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el

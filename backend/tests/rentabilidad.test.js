@@ -11,6 +11,10 @@
  *  - "Menor margen" pone arriba a los que pierden plata, no a los sin costo.
  *  - Un producto oculto o inactivo da 404, no un detalle vacío.
  *  - Ya no existen la pestaña ni las rutas de Competencia.
+ *  - EN ESTA RAMA lo vendido sale de las facturas propias (`venta_linea`) y
+ *    se cruza por `producto.id`. Los productos de prueba tienen un id propio
+ *    DISTINTO de su id de Alegra a propósito: si el código cruzara por el id
+ *    equivocado, estas pruebas lo verían (los dos son números).
  */
 
 const { test, describe, beforeEach } = require('node:test');
@@ -26,19 +30,20 @@ const rutaServicio = require.resolve('../src/modules/rentabilidad/rentabilidad.s
 
 const PRODUCTOS = [
   // 13 %: costo ₡678 con IVA = ₡600 sin IVA → margen 40 %.
-  { alegra_id: 1, name: 'Tubo PVC 1/2', reference: 'T12', category: 'PVC', price: '1000', cost: '678', tax_percentage: '13', image_url: null, subcategoria: 'PVC 1/2' },
+  { producto_id: 101, alegra_id: 1, name: 'Tubo PVC 1/2', reference: 'T12', category: 'PVC', price: '1000', cost: '678', tax_percentage: '13', image_url: null, subcategoria: 'PVC 1/2' },
   // Sin costo en ningún lado.
-  { alegra_id: 2, name: 'Codo PVC', reference: '', category: 'PVC', price: '1000', cost: '0', tax_percentage: '13', image_url: null, subcategoria: null },
+  { producto_id: 102, alegra_id: 2, name: 'Codo PVC', reference: '', category: 'PVC', price: '1000', cost: '0', tax_percentage: '13', image_url: null, subcategoria: null },
   // Bajo el costo: ₡600 sin IVA contra ₡500 de precio → −20 %.
-  { alegra_id: 3, name: 'Llave angular', reference: 'LA', category: 'Ferretería', price: '500', cost: '678', tax_percentage: '13', image_url: null, subcategoria: null },
+  { producto_id: 103, alegra_id: 3, name: 'Llave angular', reference: 'LA', category: 'Ferretería', price: '500', cost: '678', tax_percentage: '13', image_url: null, subcategoria: null },
   // Exento: el costo ₡100 ya ES sin IVA → margen 50 %, no 55,8 %.
-  { alegra_id: 4, name: 'Arroz 1 kg', reference: 'AR', category: 'Abarrotes', price: '200', cost: '100', tax_percentage: '0', image_url: null, subcategoria: null }
+  { producto_id: 104, alegra_id: 4, name: 'Arroz 1 kg', reference: 'AR', category: 'Abarrotes', price: '200', cost: '100', tax_percentage: '0', image_url: null, subcategoria: null }
 ];
 
+// Por `producto.id`, como lo devuelve ventas/rotacion.js.
 const ROTACION = new Map([
-  ['1', { clase: 'A', unidades: 100, ventas: 100000, unidadesMes: 33.33, unidadesSemana: 7.69, facturas: 12, clientesDistintos: 5, ultimaVenta: '2026-09-24' }],
-  ['2', { clase: 'B', unidades: 50, ventas: 50000, unidadesMes: 16.67, unidadesSemana: 3.85, facturas: 6, clientesDistintos: 2, ultimaVenta: '2026-09-20' }],
-  ['4', { clase: 'C', unidades: 10, ventas: 2000, unidadesMes: 3.33, unidadesSemana: 0.77, facturas: 2, clientesDistintos: 1, ultimaVenta: '2026-08-01' }]
+  [101, { clase: 'A', unidades: 100, ventas: 100000, unidadesMes: 33.33, unidadesSemana: 7.69, facturas: 12, clientesDistintos: 5, ultimaVenta: '2026-09-24' }],
+  [102, { clase: 'B', unidades: 50, ventas: 50000, unidadesMes: 16.67, unidadesSemana: 3.85, facturas: 6, clientesDistintos: 2, ultimaVenta: '2026-09-20' }],
+  [104, { clase: 'C', unidades: 10, ventas: 2000, unidadesMes: 3.33, unidadesSemana: 0.77, facturas: 2, clientesDistintos: 1, ultimaVenta: '2026-08-01' }]
 ]);
 
 let pedidasSeries;
@@ -50,7 +55,7 @@ function cargar() {
   const query = async (sql) => {
     // En esta rama los productos salen del maestro propio (`producto`).
     if (/FROM producto p/.test(sql)) return { rows: PRODUCTOS };
-    if (/FROM venta_historico/.test(sql)) return { rows: [{ ventas: '160000', facturas: 18, clientes: 7 }] };
+    if (/FROM venta_linea/.test(sql)) return { rows: [{ ventas: '160000', facturas: 18, clientes: 7 }] };
     throw new Error(`consulta inesperada: ${sql}`);
   };
   const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
@@ -148,7 +153,8 @@ describe('el detalle', () => {
   test('trae el producto y SUS series', async () => {
     const r = await s.obtenerProducto('1');
     assert.equal(r.producto.nombre, 'Tubo PVC 1/2');
-    assert.deepEqual(pedidasSeries, ['1']);
+    assert.equal(r.producto.productoId, 101);
+    assert.deepEqual(pedidasSeries, [101], 'las series se piden por el id PROPIO, no por el de Alegra');
   });
 
   test('un producto oculto o inactivo da 404', async () => {

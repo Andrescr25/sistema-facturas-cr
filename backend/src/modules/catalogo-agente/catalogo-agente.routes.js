@@ -20,7 +20,8 @@ router.get('/ofertas', catalogoAgenteController.listarOfertas);
 router.get('/ofertas-baja', catalogoAgenteController.listarOfertasPorBaja);
 router.get('/productos-nuevos', catalogoAgenteController.listarProductosNuevos);
 router.get('/historial-clientes', catalogoAgenteController.obtenerHistorialClientes);
-router.post('/historial-clientes/sync', catalogoAgenteController.sincronizarHistorialClientes);
+// POST /historial-clientes/sync se retiró el 2026-10-03: el historial sale de las
+// facturas propias (`venta_linea`) y ya no hay nada que sincronizar.
 
 // El pedido que el agente levanta en la calle. Va detrás de la sesión del
 // personal: el catálogo del agente ya exige login.

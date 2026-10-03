@@ -649,7 +649,7 @@ su estado usando el `alegraId`; ahora todo va por `factura.id` y `producto.id`.
 factura en Alegra, y el carrito usa `alegra_item_id`.
 
 - [ ] Productos, ofertas y categorías leídos de `producto`
-- [ ] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial
+- [x] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial — *2026-10-03, migración 034: la vista `venta_linea` (líneas de facturas EMITIDAS, ids propios) es la única definición de "venta". La leen la rotación, las estadísticas, Rentabilidad, Gestión de Catálogo, el portal (portada, "se lleva junto con", compras anteriores) y el historial del agente. Se quitaron la sincronización horaria contra Alegra, su ruta y el registro al facturar. Medido antes de cambiar: el historial viejo y las facturas diferían en 139 pares factura-producto de 51.330 (facturas editadas después, que el historial no reflejaba) y le faltaban 8 facturas. La compra anterior del portal se identifica ya por `factura.id`, con su total leído del documento. Quedan por el id de Alegra, en el borde: lo que el portal y la tablet muestran (puntos de abajo).*
 - [ ] Un pedido facturado genera una factura propia
 - [ ] Cliente del portal ligado a `cliente.id`
 - [ ] Caché del catálogo del agente (IndexedDB) con ids propios, invalidando la caché vieja
@@ -657,9 +657,9 @@ factura en Alegra, y el carrito usa `alegra_item_id`.
   (`producto_nuevo_catalogo.alegra_item_id`; ya valida contra `producto`),
   la rotación A/B de "Cliente nuevo" y "Bajamos el precio". Pasan a ids
   propios junto con la caché de la tablet.
-- [ ] *Vino de main:* el historial solo cuenta facturas EMITIDAS (sin
+- [x] *Vino de main:* el historial solo cuenta facturas EMITIDAS (sin
   borradores ni anuladas, `esVenta`). Al leerlo de `factura_linea`, la misma
-  regla: una proforma o una anulada no son venta.
+  regla: una proforma o una anulada no son venta. — *La cumple la vista (`WHERE f.estado = 'emitida'`); probado contra la base: pasar una factura a borrador o anularla la saca de las ventas en el acto.*
 - [x] *Vino de main:* aviso a la empresa de cada pedido nuevo del portal
   (`avisoPedidoNuevo.js`). Ya funciona sobre el pedido propio; en la rama
   aislada no sale (correo y WhatsApp bloqueados).
@@ -673,7 +673,7 @@ locales que se llenan desde Alegra. El Reporte para el contador importa
 facturas y notas de crédito desde Alegra.
 
 - [ ] Dashboard desde tablas propias
-- [ ] Rentabilidad y fotografía de márgenes desde `producto` y `factura_linea`
+- [ ] Rentabilidad y fotografía de márgenes desde `producto` y `factura_linea` — *Avance (2026-10-03): lo vendido y la rotación ya salen de `venta_linea`, por `producto.id`. Falta el costo derivado (hoy de las facturas de proveedor del buzón, por id de Alegra) y que la pantalla identifique el producto por su id propio.*
   — *la Rentabilidad nueva de main (2026-09-25: sin pestañas, rotación y
   estadísticas en tiempo real) ya lee los productos de `producto`; falta que
   lo vendido, la rotación (`ventas/rotacion.js`) y las gráficas
@@ -754,7 +754,7 @@ facturas y notas de crédito desde Alegra.
 
   Se dejaron a propósito **en el frontend y no en el servidor**: meter el vocabulario de Alegra dentro de nuestra propia API sería dejarlo ahí para siempre. Pegados al código viejo, se borran con él. Mientras existan, el precio es que hay dos nombres para lo mismo y alguien puede escribir uno esperando el otro.
 
-- [ ] Quitar las sincronizaciones de productos (6 h) e historial de clientes. *La de **CxC (30 min) ya se retiró** con la sección 7*
+- [ ] Quitar las sincronizaciones de productos (6 h) e historial de clientes. *La de **CxC (30 min) ya se retiró** con la sección 7, y la del **historial de ventas (cada hora)** con la sección 12 (2026-10-03). Queda la de productos*
 - [ ] Quitar `integrations/alegra` y las rutas `/alegra/*`: 1.645 líneas del backend y 669 del frontend
 - [ ] Dejar las columnas `alegra_*` solo como referencia histórica
 - [ ] Una prueba que falle si algún archivo vuelve a importar la integración de Alegra

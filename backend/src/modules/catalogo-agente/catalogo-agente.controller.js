@@ -107,21 +107,6 @@ async function obtenerHistorialClientes(req, res) {
 }
 
 /**
- * POST /api/catalogo-agente/historial-clientes/sync
- * Fuerza la sincronización del historial de compras desde Alegra.
- */
-async function sincronizarHistorialClientes(req, res) {
-  try {
-    const data = await catalogoAgenteService.sincronizarHistorialCompras({ desde: req.body?.desde });
-    res.json({ success: true, ...data });
-  } catch (error) {
-    console.error('Error sincronizando el historial de compras por cliente:', error);
-    res.status(error.status || 500).json({ error: error.message });
-  }
-}
-
-
-/**
  * Recibe un pedido levantado en la calle.
  *
  * Devuelve 200 tanto si el pedido se creó como si YA existía —el dispositivo
@@ -188,7 +173,6 @@ module.exports = {
   listarCategorias,
   listarOfertas,
   obtenerHistorialClientes,
-  sincronizarHistorialClientes,
   obtenerConfigCatalogo,
   obtenerRotacion
 };

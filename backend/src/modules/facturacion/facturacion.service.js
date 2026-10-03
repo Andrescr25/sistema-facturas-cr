@@ -336,13 +336,6 @@ class FacturacionService {
       console.error('⚠️ Error registrando factura en BD local (no crítico):', dbError.message);
     }
 
-    // La venta entra al historial YA: la rotación y las estadísticas de
-    // Rentabilidad se calculan de ahí en el momento, y esperar a la
-    // sincronización dejaba lo vendido hoy fuera hasta el día siguiente. No
-    // tira error (ver registrarFacturaEnHistorico). Se pide acá adentro para
-    // no cargar el módulo del catálogo solo por importar facturación.
-    await require('../catalogo-agente/catalogo-agente.service').registrarFacturaEnHistorico(response);
-
     return {
       success: true,
       data: response,
