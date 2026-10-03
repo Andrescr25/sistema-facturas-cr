@@ -14,7 +14,7 @@ archivos:
   - backend/tests/rotacionVentas.test.js
 aristas:
   reemplaza: [tabla/venta-historico]
-  relacionado: [modulo/rentabilidad, modulo/catalogo-agente, modulo/faltantes, leccion/un-borrador-no-es-una-venta, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  relacionado: [modulo/rentabilidad, modulo/catalogo-agente, modulo/faltantes, modulo/portal-clientes, leccion/un-borrador-no-es-una-venta, leccion/ids-propios-y-de-alegra-no-se-mezclan]
 medido: 2026-10-03
 ---
 
@@ -46,11 +46,9 @@ QUIÉN LA LEE, y por qué id:
   todavía cruza por ahí: el motor de precios, la Gestión de Catálogo vieja y
   el costo derivado de [[modulo/rentabilidad]].
 - Gestión de Catálogo (`productos/taxonomia.service.js`): por `producto.id`.
-- El portal (portada, "se lleva junto con", compras anteriores): adentro por
-  ids propios; hacia afuera el producto sale con su id de Alegra y el cliente
-  llega por el contacto de Alegra de su sesión, hasta que el carrito y el
-  pedido pasen a ids propios. La compra anterior ya se identifica por
-  `factura.id` — y se filtra por cliente, porque ese id es serial y adivinable.
+- El portal (portada, "se lleva junto con", compras anteriores): ids propios
+  en todo el recorrido desde la parte 2 de la sección 12. El cliente llega
+  por su ficha propia, releída desde la cuenta; una compra ajena devuelve 404.
 - El catálogo del agente (historial por cliente y clases A/B): entrega ids de
   Alegra, que es como la tablet guarda sus productos, hasta que su caché pase
   a ids propios.

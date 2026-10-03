@@ -162,7 +162,7 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
  * también en monto para que sumar la factura no exija rehacer la regla de tres
  * en cada consulta.
  */
-function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set() } = {}) {
+function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set(), preciosConImpuesto = false } = {}) {
   const lineas = [];
   let subtotal = 0;
   let descuentoTotal = 0;
@@ -183,7 +183,7 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
     if (!Number.isFinite(cantidad) || cantidad <= 0) {
       throw httpError(400, `${producto.nombre}: la cantidad tiene que ser mayor que cero.`);
     }
-    const precio = Number(item.price ?? item.precio);
+    let precio = Number(item.price ?? item.precio);
     if (!Number.isFinite(precio) || precio < 0) {
       throw httpError(400, `${producto.nombre}: el precio no es válido.`);
     }
@@ -193,12 +193,24 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
       throw httpError(400, `${producto.nombre}: el descuento va entre 0 y 100.`);
     }
 
-    const bruto = cantidad * precio;
-    const descuentoMonto = dinero((bruto * porcentajeDescuento) / 100);
-    const base = dinero(bruto - descuentoMonto);
     // La tarifa del PRODUCTO, no la que mande la pantalla.
     const tarifa = producto.tarifa === null || producto.tarifa === undefined ? 0 : Number(producto.tarifa);
-    const impuestoMonto = dinero((base * tarifa) / 100);
+    const bruto = cantidad * precio;
+    let descuentoMonto, base, impuestoMonto;
+    if (preciosConImpuesto) {
+      // El portal promete un precio FINAL. Separar base e IVA del total de
+      // la línea evita perder centavos al dividir y luego redondear de nuevo
+      // (dos unidades de ₡37.800 al 13% deben seguir costando ₡75.600).
+      const totalConImpuesto = dinero(bruto * (1 - porcentajeDescuento / 100));
+      base = dinero(totalConImpuesto / (1 + tarifa / 100));
+      impuestoMonto = dinero(totalConImpuesto - base);
+      descuentoMonto = dinero((bruto * porcentajeDescuento / 100) / (1 + tarifa / 100));
+      precio = Math.round(precio / (1 + tarifa / 100) * 100000) / 100000;
+    } else {
+      descuentoMonto = dinero((bruto * porcentajeDescuento) / 100);
+      base = dinero(bruto - descuentoMonto);
+      impuestoMonto = dinero((base * tarifa) / 100);
+    }
 
     subtotal += base;
     descuentoTotal += descuentoMonto;
@@ -404,7 +416,7 @@ function revisarPedido(datos) {
 }
 
 /** Cliente, productos, líneas y el guardado — todo sobre la transacción recibida. */
-async function emitirCon(cliente, datos, { cabecera, items }, usuarioId) {
+async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false } = {}) {
   const clienteFacturado = await buscarCliente(cliente, {
     clienteId: datos.clienteId,
     alegraClienteId: datos.client
@@ -417,7 +429,7 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId) {
     usaAlegraId ? [] : items.map(i => i.productoId)
   );
   const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
-  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId));
+  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), { preciosConImpuesto });
 
   return guardarFactura(cliente, {
     datos: { ...datos, ...cabecera },
@@ -436,8 +448,10 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId) {
  * una factura que la cotización no conoce, y facturarla de nuevo la cobra
  * dos veces.
  */
-async function crearFacturaEnTransaccion(cliente, datos, usuarioId) {
-  return emitirCon(cliente, datos, revisarPedido(datos), usuarioId);
+async function crearFacturaEnTransaccion(cliente, datos, usuarioId, { preciosConImpuesto = false } = {}) {
+  // Opción interna del portal. Una petición de Facturación no puede activar
+  // este modo: sus precios siguen siendo bases sin IVA.
+  return emitirCon(cliente, datos, revisarPedido(datos), usuarioId, { preciosConImpuesto });
 }
 
 /**

@@ -644,14 +644,13 @@ su estado usando el `alegraId`; ahora todo va por `factura.id` y `producto.id`.
 
 ## 12. Portal de clientes y catálogos
 
-**Hoy dependen de lo sincronizado:** leen `alegra_products_cache` y
-`venta_historico`, que se llena desde Alegra. Facturar un pedido crea la
-factura en Alegra, y el carrito usa `alegra_item_id`.
+**Partes 1 y 2 terminadas:** ventas desde `venta_linea`; portal con cliente,
+producto y factura propios. Queda la parte 3: identidad y caché de la tablet.
 
-- [ ] Productos, ofertas y categorías leídos de `producto`
-- [x] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial — *2026-10-03, migración 034: la vista `venta_linea` (líneas de facturas EMITIDAS, ids propios) es la única definición de "venta". La leen la rotación, las estadísticas, Rentabilidad, Gestión de Catálogo, el portal (portada, "se lleva junto con", compras anteriores) y el historial del agente. Se quitaron la sincronización horaria contra Alegra, su ruta y el registro al facturar. Medido antes de cambiar: el historial viejo y las facturas diferían en 139 pares factura-producto de 51.330 (facturas editadas después, que el historial no reflejaba) y le faltaban 8 facturas. La compra anterior del portal se identifica ya por `factura.id`, con su total leído del documento. Quedan por el id de Alegra, en el borde: lo que el portal y la tablet muestran (puntos de abajo).*
-- [ ] Un pedido facturado genera una factura propia
-- [ ] Cliente del portal ligado a `cliente.id`
+- [x] Productos, ofertas y categorías leídos de `producto` — *2026-10-03: el portal expone `producto.id`, incluidos los productos sin Alegra. Ofertas por exceso traducidas a ids propios; las bajas de precio no exponen márgenes al público. La identidad de la tablet queda para la parte 3.*
+- [x] Historial y sugerencias desde `factura_linea`, y retirar la sincronización del historial — *2026-10-03, migración 034: la vista `venta_linea` (líneas de facturas EMITIDAS, ids propios) es la única definición de "venta". La leen la rotación, las estadísticas, Rentabilidad, Gestión de Catálogo, el portal (portada, "se lleva junto con", compras anteriores) y el historial del agente. Se quitaron la sincronización horaria contra Alegra, su ruta y el registro al facturar. Medido antes de cambiar: el historial viejo y las facturas diferían en 139 pares factura-producto de 51.330 (facturas editadas después, que el historial no reflejaba) y le faltaban 8 facturas. La compra anterior del portal se identifica ya por `factura.id`, con su total leído del documento. La parte 2 retiró el borde de Alegra del portal; queda el de la tablet para la parte 3.*
+- [x] Un pedido facturado genera una factura propia — *2026-10-03: factura y pedido se guardan en una transacción, con bloqueo del pedido; un reintento devuelve la misma factura. Vale el precio prometido y no se descuenta dos veces. También los pedidos del agente guardan el producto propio, traducido en el borde hasta la parte 3. Carrito → pedido guarda cabecera, líneas y vaciado en otra transacción; el aviso sale después del COMMIT.*
+- [x] Cliente del portal ligado a `cliente.id` — *2026-10-03: invitación, activación, sesión, compras y saldos por la ficha propia. Tokens viejos se resuelven por la cuenta y se ignora su contacto de Alegra. Se puede invitar y facturar a un cliente creado solo en el sistema; revocar corta el acceso inmediatamente.*
 - [ ] Caché del catálogo del agente (IndexedDB) con ids propios, invalidando la caché vieja
 - [ ] *Vino de main (2026-09-29), hoy con el id de Alegra:* "Productos nuevos"
   (`producto_nuevo_catalogo.alegra_item_id`; ya valida contra `producto`),
@@ -663,6 +662,21 @@ factura en Alegra, y el carrito usa `alegra_item_id`.
 - [x] *Vino de main:* aviso a la empresa de cada pedido nuevo del portal
   (`avisoPedidoNuevo.js`). Ya funciona sobre el pedido propio; en la rama
   aislada no sale (correo y WhatsApp bloqueados).
+
+**Verificación de la parte 2 (2026-10-03):** migración 035 repetida sobre
+una base desechable; suite de 1.537 pruebas (1.536 aprobadas, una omitida);
+build del frontend y flujo completo en Chromium, escritorio 1440 px y
+tablet 820 px. Cliente y productos creados solo en el sistema, sin ids de
+Alegra: invitación → activación → carrito → pedido → factura propia →
+alistado → saldo → repetir compra → revocar. Cinco solicitudes simultáneas
+devuelven la misma factura. Dos unidades de ₡37.800 al 13% mantienen su total:
+la opción interna de factura separa base e IVA del total final por línea,
+sin el redondeo doble de dividir primero el precio unitario. Las pruebas
+de escritura se hicieron en una copia desechable o dentro de ROLLBACK,
+sin mensajes reales ni limpieza semanal. Ver
+`docs/grafo/modulo/portal-clientes.md`. Al terminar, las 86 tablas de datos
+originales coinciden con el respaldo anterior a 035, excluyendo las columnas
+nuevas de correspondencia; la copia desechable se eliminó.
 
 ---
 

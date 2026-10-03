@@ -6,12 +6,8 @@
  * migración independencia/034), la misma fuente que alimenta las secciones de
  * la portada. Antes salía de `venta_historico`, que se sincronizaba de Alegra.
  *
- * LOS IDS, POR AHORA: adentro todo se cruza por `producto.id`, `cliente.id` y
- * `factura.id`. Hacia afuera el producto sigue saliendo con su id de Alegra
- * (el carrito y el pedido todavía se llavean por ahí) y el cliente llega por
- * el contacto de Alegra de su sesión: `SQL_CLIENTE` y `SQL_PRODUCTO` hacen
- * esa traducción en el borde, y se van cuando el portal pase a ids propios.
- * La compra anterior ya se identifica por el id de la factura propia.
+ * Cliente, producto y factura se identifican siempre por sus ids propios.
+ * La compra anterior se filtra por el cliente de la sesión.
  *
  * POR QUÉ SE CALCULA EN VIVO Y NO EN UNA TABLA PRECALCULADA
  * La co-ocurrencia de un producto tarda ~146ms, y la de un carrito de diez
@@ -25,13 +21,10 @@
  */
 
 const { query, httpError } = require('./portal-clientes.auth');
-const { mapaVigentes } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
 const { HOY_CR } = require('../ventas/rotacion');
-
-/** El cliente propio de un contacto de Alegra, y los productos propios de unos ids de Alegra. */
-const SQL_CLIENTE = (n) => `(SELECT id FROM cliente WHERE alegra_id = $${n})`;
-const SQL_PRODUCTOS = (n) => `(SELECT id FROM producto WHERE alegra_id = ANY($${n}::varchar[]))`;
+const { idValido: idDeProducto } = require('../../utils/validacion');
 
 function idDeFactura(valor) {
   const id = Number(valor);
@@ -51,39 +44,38 @@ const MAX_SUGERENCIAS = 6;
  * `excluir` saca lo que el cliente ya tiene en el carrito: sugerirle algo
  * que acaba de agregar hace ver el sistema como si no lo estuviera mirando.
  */
-async function seLlevaJuntoCon(alegraItemIds, { excluir = [], limite = MAX_SUGERENCIAS } = {}) {
-  const ids = (Array.isArray(alegraItemIds) ? alegraItemIds : [alegraItemIds])
-    .map(x => String(x).trim()).filter(Boolean);
+async function seLlevaJuntoCon(productoIds, { excluir = [], limite = MAX_SUGERENCIAS } = {}) {
+  const ids = (Array.isArray(productoIds) ? productoIds : [productoIds])
+    .map(x => String(idDeProducto(x)));
   if (ids.length === 0) return [];
 
   const fuera = new Set([...ids, ...excluir.map(String)]);
 
   const co = await query(`
-    SELECT po.alegra_id AS alegra_item_id, COUNT(DISTINCT o.factura_id)::int juntos
+    SELECT o.producto_id, COUNT(DISTINCT o.factura_id)::int juntos
     FROM venta_linea v
     JOIN venta_linea o
       ON o.factura_id = v.factura_id
      AND o.producto_id <> v.producto_id
-    JOIN producto po ON po.id = o.producto_id AND po.alegra_id IS NOT NULL
-    WHERE v.producto_id IN ${SQL_PRODUCTOS(1)}
-    GROUP BY po.alegra_id
+    WHERE v.producto_id = ANY($1::int[])
+    GROUP BY o.producto_id
     HAVING COUNT(DISTINCT o.factura_id) >= $2
     ORDER BY juntos DESC
     LIMIT $3;
   `, [ids, MIN_COINCIDENCIAS, limite + fuera.size]);
 
-  const candidatos = co.rows.filter(r => !fuera.has(String(r.alegra_item_id))).slice(0, limite);
+  const candidatos = co.rows.filter(r => !fuera.has(String(r.producto_id))).slice(0, limite);
   if (candidatos.length === 0) return [];
 
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`,
-      [candidatos.map(c => String(c.alegra_item_id))]),
-    mapaVigentes()
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = ANY($1::int[]) AND ${VISIBLE};`,
+      [candidatos.map(c => String(c.producto_id))]),
+    mapaVigentesPropios()
   ]);
 
-  const veces = new Map(candidatos.map(c => [String(c.alegra_item_id), c.juntos]));
+  const veces = new Map(candidatos.map(c => [String(c.producto_id), c.juntos]));
   return productos.rows
-    .map(row => mapProducto(row, descuentos, { juntos: veces.get(String(row.alegra_id)) || 0 }))
+    .map(row => mapProducto(row, descuentos, { juntos: veces.get(String(row.producto_id)) || 0 }))
     .sort((a, b) => b.juntos - a.juntos);
 }
 
@@ -92,12 +84,12 @@ async function seLlevaJuntoCon(alegraItemIds, { excluir = [], limite = MAX_SUGER
  * Es lo que reemplaza a la publicidad: en vez de "otros lo recomiendan",
  * "usted lo ha llevado 26 veces".
  */
-async function fichaProducto(alegraContactId, alegraItemId) {
-  const id = String(alegraItemId).trim();
+async function fichaProducto(clienteId, productoId) {
+  const id = idDeProducto(productoId);
 
   const [prod, descuentos, hist] = await Promise.all([
-    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = $1 AND ${VISIBLE};`, [id]),
-    mapaVigentes(),
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = $1 AND ${VISIBLE};`, [id]),
+    mapaVigentesPropios(),
     query(`
       SELECT COUNT(DISTINCT factura_id)::int veces,
              MIN(fecha) AS primera,
@@ -105,9 +97,9 @@ async function fichaProducto(alegraContactId, alegraItemId) {
              SUM(cantidad)::numeric AS unidades,
              (${HOY_CR} - MAX(fecha)) AS dias
       FROM venta_linea
-      WHERE cliente_id = ${SQL_CLIENTE(1)}
-        AND producto_id = (SELECT id FROM producto WHERE alegra_id = $2);
-    `, [String(alegraContactId), id])
+      WHERE cliente_id = $1
+        AND producto_id = $2;
+    `, [Number(clienteId), id])
   ]);
 
   if (prod.rows.length === 0) throw httpError(404, 'Ese producto ya no está disponible.');
@@ -141,16 +133,16 @@ async function fichaProducto(alegraContactId, alegraItemId) {
  * `facturaId` es el id de la factura PROPIA. La pantalla lo recibe y lo
  * devuelve tal cual para abrir la compra.
  */
-async function comprasAnteriores(alegraContactId, limite = 10) {
+async function comprasAnteriores(clienteId, limite = 10) {
   const r = await query(`
     SELECT f.id AS factura_id, f.fecha, f.total,
            (SELECT COUNT(DISTINCT l.producto_id) FROM factura_linea l WHERE l.factura_id = f.id)::int AS productos
     FROM factura f
-    WHERE f.cliente_id = ${SQL_CLIENTE(1)}
+    WHERE f.cliente_id = $1
       AND f.estado = 'emitida'
     ORDER BY f.fecha DESC, f.id DESC
     LIMIT $2;
-  `, [String(alegraContactId), limite]);
+  `, [Number(clienteId), limite]);
 
   return r.rows.map(x => ({
     facturaId: x.factura_id,
@@ -167,19 +159,18 @@ async function comprasAnteriores(alegraContactId, limite = 10) {
  * factura ajena devolvería lo que compró otro negocio. Y los ids de factura
  * propios son seriales (1, 2, 3…): adivinar uno es trivial.
  */
-async function lineasDeCompra(alegraContactId, facturaId) {
+async function lineasDeCompra(clienteId, facturaId) {
   const r = await query(`
-    SELECT p.alegra_id AS alegra_item_id, SUM(v.cantidad)::numeric AS cantidad
+    SELECT v.producto_id, SUM(v.cantidad)::numeric AS cantidad
     FROM venta_linea v
-    JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
-    WHERE v.cliente_id = ${SQL_CLIENTE(1)} AND v.factura_id = $2
-    GROUP BY p.alegra_id;
-  `, [String(alegraContactId), idDeFactura(facturaId)]);
+    WHERE v.cliente_id = $1 AND v.factura_id = $2
+    GROUP BY v.producto_id;
+  `, [Number(clienteId), idDeFactura(facturaId)]);
 
   if (r.rows.length === 0) throw httpError(404, 'No encontramos esa compra.');
 
   return r.rows.map(x => ({
-    alegraItemId: String(x.alegra_item_id),
+    productoId: String(x.producto_id),
     cantidad: Math.max(1, Math.round(Number(x.cantidad)))
   }));
 }
@@ -196,26 +187,25 @@ async function lineasDeCompra(alegraContactId, facturaId) {
  * disponibles: desaparecer en silencio de una lista que el cliente reconoce
  * es peor que decirle que ese ya no se consigue.
  */
-async function detalleCompra(alegraContactId, facturaId) {
+async function detalleCompra(clienteId, facturaId) {
   const lineas = await query(`
-    SELECT p.alegra_id AS alegra_item_id, SUM(v.cantidad)::numeric AS cantidad, MAX(v.fecha) AS fecha
+    SELECT v.producto_id, SUM(v.cantidad)::numeric AS cantidad, MAX(v.fecha) AS fecha
     FROM venta_linea v
-    JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
-    WHERE v.cliente_id = ${SQL_CLIENTE(1)} AND v.factura_id = $2
-    GROUP BY p.alegra_id;
-  `, [String(alegraContactId), idDeFactura(facturaId)]);
+    WHERE v.cliente_id = $1 AND v.factura_id = $2
+    GROUP BY v.producto_id;
+  `, [Number(clienteId), idDeFactura(facturaId)]);
 
   if (lineas.rows.length === 0) throw httpError(404, 'No encontramos esa compra.');
 
-  const ids = lineas.rows.map(l => String(l.alegra_item_id));
+  const ids = lineas.rows.map(l => String(l.producto_id));
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
-    mapaVigentes()
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = ANY($1::int[]) AND ${VISIBLE};`, [ids]),
+    mapaVigentesPropios()
   ]);
-  const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
+  const porId = new Map(productos.rows.map(p => [String(p.producto_id), p]));
 
   const items = lineas.rows.map(l => {
-    const id = String(l.alegra_item_id);
+    const id = String(l.producto_id);
     const row = porId.get(id);
     const cantidad = Math.max(1, Math.round(Number(l.cantidad)));
     if (!row) return { id, disponible: false, cantidad, nombre: null };

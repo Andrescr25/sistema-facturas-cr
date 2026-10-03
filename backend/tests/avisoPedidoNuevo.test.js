@@ -114,7 +114,7 @@ describe('el aviso', () => {
 describe('el pedido no espera al aviso', () => {
   test('crearPedido lo manda sin await y sin dejar escapar un error', () => {
     const fuente = fs.readFileSync(require.resolve('../src/modules/portal-clientes/portal-clientes.cliente.service'), 'utf8');
-    const crear = fuente.slice(fuente.indexOf('async function crearPedido'), fuente.indexOf('return {', fuente.indexOf('async function crearPedido')));
+    const crear = fuente.slice(fuente.indexOf('async function crearPedido'), fuente.indexOf('async function tasasDe'));
     assert.match(crear, /\n\s+avisoPedidoNuevo\.avisar\(\{[\s\S]*?\}\)\.catch\(\(\) => \{\}\);/);
     assert.doesNotMatch(crear, /await avisoPedidoNuevo/);
     assert.ok(crear.indexOf('avisoPedidoNuevo.avisar') > crear.indexOf('INSERT INTO pedido_cliente_linea'), 'se avisa con el pedido ya guardado');

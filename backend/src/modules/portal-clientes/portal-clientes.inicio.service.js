@@ -8,9 +8,9 @@
  * DIFERENCIA CLAVE CON EL CATÁLOGO DEL AGENTE
  * El agente se descarga el historial de TODOS los clientes, porque necesita
  * elegir a cuál está visitando. Acá eso sería una fuga: el cliente vería lo
- * que compran los demás. La consulta va filtrada por su contacto y ese
- * filtro sale del TOKEN (req.cliente.contacto), nunca de un parámetro que
- * pueda cambiar en la petición.
+ * que compran los demás. La consulta se filtra por la ficha propia que el
+ * middleware resuelve desde la cuenta del token (req.cliente.clienteId),
+ * nunca de un parámetro que pueda cambiar en la petición.
  *
  * El cálculo de "habitual" y "perdido" se hace en SQL y no reusando el
  * utils del frontend porque acá ya se tiene la base a mano: traer 120 filas
@@ -21,7 +21,7 @@
  */
 
 const { query } = require('../../../config/database');
-const { mapaVigentes } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
 const { HOY_CR } = require('../ventas/rotacion');
 
@@ -38,34 +38,30 @@ const TOPE_SECCION = 24; // el cliente navega en un teléfono, no en una tablet
  * `veces` cuenta FACTURAS distintas, no líneas: si un producto aparece dos
  * veces en la misma factura eso no es comprar dos veces.
  */
-// De `venta_linea` (facturas propias emitidas, migración 034), cruzado por
-// ids propios. El cliente llega por el contacto de Alegra de su sesión y el
-// producto sale con su id de Alegra, que es por donde todavía se llavean el
-// carrito y el pedido del portal (sección 12 del checklist).
+// Ventas de la ficha propia del cliente, filtrada desde su sesión.
 const SQL_HISTORIAL = `
   WITH agregado AS (
-    SELECT p.alegra_id AS alegra_item_id,
+    SELECT v.producto_id,
            COUNT(DISTINCT v.factura_id) AS veces,
            MAX(v.fecha) AS ultima_compra
     FROM venta_linea v
-    JOIN producto p ON p.id = v.producto_id AND p.alegra_id IS NOT NULL
-    WHERE v.cliente_id = (SELECT id FROM cliente WHERE alegra_id = $1)
-    GROUP BY p.alegra_id
+    WHERE v.cliente_id = $1
+    GROUP BY v.producto_id
   )
-  SELECT a.alegra_item_id, a.veces, a.ultima_compra,
+  SELECT a.producto_id, a.veces, a.ultima_compra,
          (${HOY_CR} - a.ultima_compra) AS dias
   FROM agregado a
   ORDER BY a.veces DESC, a.ultima_compra DESC
   LIMIT 200;
 `;
 
-async function obtenerInicio(alegraContactId) {
+async function obtenerInicio(clienteId) {
   // Las compras del cliente y las ofertas vigentes no dependen entre sí, así
   // que se piden a la vez: en secuencia eran dos viajes a Supabase (~140ms
   // cada uno) para armar una pantalla que el cliente abre en el teléfono.
   const [historial, descuentos] = await Promise.all([
-    query(SQL_HISTORIAL, [String(alegraContactId)]),
-    mapaVigentes()
+    query(SQL_HISTORIAL, [Number(clienteId)]),
+    mapaVigentesPropios()
   ]);
 
   const habitualesIds = [];
@@ -75,15 +71,15 @@ async function obtenerInicio(alegraContactId) {
   for (const row of historial.rows) {
     const veces = Number(row.veces);
     const dias = Number(row.dias);
-    porItem.set(String(row.alegra_item_id), { veces, dias, ultimaCompra: row.ultima_compra });
+    porItem.set(String(row.producto_id), { veces, dias, ultimaCompra: row.ultima_compra });
 
     // Un producto vive en UNA sola sección. "Perdido" gana sobre "habitual"
     // porque perdido implica habitual (veces >= 3 > 2), y mostrarlo en las
     // dos daría etiquetas que se contradicen.
     if (veces >= VECES_MIN_PERDIDO && dias > DIAS_MIN_PERDIDO) {
-      perdidosIds.push(String(row.alegra_item_id));
+      perdidosIds.push(String(row.producto_id));
     } else if (veces >= VECES_MIN_HABITUAL) {
-      habitualesIds.push(String(row.alegra_item_id));
+      habitualesIds.push(String(row.producto_id));
     }
   }
 
@@ -99,10 +95,10 @@ async function obtenerInicio(alegraContactId) {
   // filtro de visibilidad, no aportan nada.
   const productos = await query(`
     SELECT ${COLUMNAS} ${DESDE}
-    WHERE p.alegra_id = ANY($1::varchar[]) AND ${VISIBLE};
+    WHERE p.id = ANY($1::int[]) AND ${VISIBLE};
   `, [todosLosIds]);
 
-  const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
+  const porId = new Map(productos.rows.map(p => [String(p.producto_id), p]));
 
   const armar = (ids, ordenar) => ids
     .map(id => {

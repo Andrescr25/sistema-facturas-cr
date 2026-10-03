@@ -60,20 +60,20 @@ describe('comprasAnteriores — el total de la tarjeta es el de la factura', () 
     assert.match(sql, /SELECT f\.id AS factura_id, f\.fecha, f\.total/, 'el total es el de la factura, con su impuesto');
     assert.match(sql, /FROM factura f/);
     assert.match(sql, /f\.estado = 'emitida'/, 'una proforma o una anulada no es una compra');
-    assert.match(sql, /f\.cliente_id = \(SELECT id FROM cliente WHERE alegra_id = \$1\)/, 'el cliente del portal, por su ficha propia');
+    assert.match(sql, /f\.cliente_id = \$1/, 'el cliente del portal, por su ficha propia');
     assert.doesNotMatch(sql, /venta_historico|alegra_products_cache/);
-    assert.deepEqual(params, ['38', 10]);
+    assert.deepEqual(params, [38, 10]);
     assert.deepEqual(r, [{ facturaId: 4321, fecha: new Date('2026-08-18'), productos: 20, total: 279112.86 }]);
   });
 
   test('la compra se abre por el id de la factura propia, y solo si es de ESE cliente', async () => {
-    const { svc, verConsulta } = cargarServicioConDoble([{ alegra_item_id: '900', cantidad: '2.4' }]);
+    const { svc, verConsulta } = cargarServicioConDoble([{ producto_id: '900', cantidad: '2.4' }]);
     const lineas = await svc.lineasDeCompra('38', '4321');
     const { sql, params } = verConsulta();
     assert.match(sql, /FROM venta_linea v/);
-    assert.match(sql, /v\.cliente_id = \(SELECT id FROM cliente WHERE alegra_id = \$1\) AND v\.factura_id = \$2/);
-    assert.deepEqual(params, ['38', 4321]);
-    assert.deepEqual(lineas, [{ alegraItemId: '900', cantidad: 2 }]);
+    assert.match(sql, /v\.cliente_id = \$1 AND v\.factura_id = \$2/);
+    assert.deepEqual(params, [38, 4321]);
+    assert.deepEqual(lineas, [{ productoId: '900', cantidad: 2 }]);
   });
 
   test('un id de compra que no es un número no llega a la base', async () => {

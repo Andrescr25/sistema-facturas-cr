@@ -14,12 +14,7 @@
  * sincronización haya corrido: lo que se edita en Gestión de Catálogo se ve
  * aquí de inmediato.
  *
- * EL ID QUE SE EXPONE SIGUE SIENDO EL DE ALEGRA, a propósito. El pedido del
- * portal guarda `alegra_item_id`, los descuentos por exceso se llavean por
- * ese id y el histórico de ventas también. Cambiarlo acá rompería los
- * pedidos; se cambia cuando esas tres cosas pasen a `producto.id`, que es su
- * propio punto del checklist. Mientras tanto va también `productoId`, para
- * que quien lo necesite ya lo tenga.
+ * Los productos se identifican por producto.id, como el carrito y el pedido.
  *
  * QUÉ NO SE EXPONE NUNCA
  * El costo de compra (`costo_con_iva`) no sale de este módulo bajo ninguna
@@ -29,7 +24,7 @@
 
 const { query } = require('../../../config/database');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
-const { mapaVigentes } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 // Qué es un producto para el cliente y cuál se le muestra: una sola
 // definición, compartida con el portal (carrito, portada y sugerencias).
 const { COLUMNAS, DESDE, VISIBLE: FILTRO_VISIBLE, NORMALIZAR_SQL, normalizar, mapProducto } = require('./consultaProducto');
@@ -63,7 +58,7 @@ async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porP
   const totalRes = await query(`SELECT COUNT(*)::int AS n ${DESDE} WHERE ${where};`, params);
   const total = totalRes.rows[0].n;
 
-  const descuentos = await mapaVigentes();
+  const descuentos = await mapaVigentesPropios();
 
   params.push(limite, offset);
   const result = await query(`
@@ -99,13 +94,13 @@ async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porP
  * el cliente no tiene nada descargado.
  */
 async function listarOfertas() {
-  const descuentos = await mapaVigentes();
+  const descuentos = await mapaVigentesPropios();
   if (descuentos.size === 0) return [];
 
   const result = await query(`
     SELECT ${COLUMNAS}
     ${DESDE}
-    WHERE p.alegra_id = ANY($1::varchar[]) AND ${FILTRO_VISIBLE};
+    WHERE p.id = ANY($1::int[]) AND ${FILTRO_VISIBLE};
   `, [[...descuentos.keys()]]);
 
   return result.rows
@@ -144,7 +139,8 @@ function obtenerConfiguracion() {
  * distinto y el mensaje al cliente también.
  */
 async function ofertasPorBaja() {
-  return ofertasPorBajaDePrecio();
+  const ofertas = await ofertasPorBajaDePrecio();
+  return ofertas.map(({ alegraItemId, margenAntes, margenAhora, ...oferta }) => oferta);
 }
 
 module.exports = {

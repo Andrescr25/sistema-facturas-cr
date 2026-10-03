@@ -54,9 +54,9 @@ export function useClientesPortal({ showToast, confirm }) {
   }, [clientes, busqueda])
 
   const generarInvitacion = async (cliente) => {
-    setProcesando(cliente.alegraContactId)
+    setProcesando(cliente.clienteId)
     try {
-      const { data } = await api.post(`/portal-clientes/clientes/${cliente.alegraContactId}/invitacion`)
+      const { data } = await api.post(`/portal-clientes/clientes/${cliente.clienteId}/invitacion`)
       const enlace = `${window.location.origin}/portal/activar/${data.data.token}`
       // El id va también: hace falta para mandar el enlace por WhatsApp
       // desde el modal, y el que vuelve del servidor no lo trae.
@@ -64,7 +64,7 @@ export function useClientesPortal({ showToast, confirm }) {
         ...data.data,
         enlace,
         cliente: cliente.nombre,
-        alegraContactId: cliente.alegraContactId
+        clienteId: cliente.clienteId
       })
       await cargarClientes()
     } catch (err) {
@@ -78,7 +78,7 @@ export function useClientesPortal({ showToast, confirm }) {
     const ok = await confirm?.(`¿Quitarle el acceso a "${cliente.nombre}"? No va a poder entrar ni hacer pedidos.`)
     if (!ok) return
     try {
-      await api.post(`/portal-clientes/clientes/${cliente.alegraContactId}/revocar`)
+      await api.post(`/portal-clientes/clientes/${cliente.clienteId}/revocar`)
       showToast?.('Acceso revocado.', 'success')
       await cargarClientes()
     } catch (err) {
@@ -88,7 +88,7 @@ export function useClientesPortal({ showToast, confirm }) {
 
   const reactivar = async (cliente) => {
     try {
-      await api.post(`/portal-clientes/clientes/${cliente.alegraContactId}/reactivar`)
+      await api.post(`/portal-clientes/clientes/${cliente.clienteId}/reactivar`)
       showToast?.('Acceso reactivado.', 'success')
       await cargarClientes()
     } catch (err) {
@@ -98,7 +98,7 @@ export function useClientesPortal({ showToast, confirm }) {
 
   const facturar = async (pedido) => {
     const ok = await confirm?.(
-      `¿Facturar el pedido #${pedido.id} de ${pedido.clienteNombre}? Se crea la factura de venta en Alegra y no se puede deshacer sin nota de crédito.`
+      `¿Facturar el pedido #${pedido.id} de ${pedido.clienteNombre}? Se crea la factura de venta en el sistema.`
     )
     if (!ok) return
     setProcesando(pedido.id)

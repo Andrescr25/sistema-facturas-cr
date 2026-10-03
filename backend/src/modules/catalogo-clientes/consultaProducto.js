@@ -16,17 +16,15 @@
  * SELECT *, para que agregar mañana una columna sensible al maestro no la
  * publique sin que nadie lo decida.
  *
- * EL ID QUE SE EXPONE ES EL DE ALEGRA. El carrito y el pedido guardan
- * `alegra_item_id`, y los descuentos por exceso y el histórico de ventas se
- * llavean por ese id: cambiarlo rompería los pedidos en curso. Va también
- * `productoId` para cuando eso se migre.
+ * EL ID ES producto.id, también para los productos que nunca tuvieron ficha
+ * en Alegra. Carrito, pedido e historial usan la misma identidad propia.
  */
 
 const { precioConImpuesto } = require('./precio');
 const { aplicarDescuento } = require('../../utils/descuentosExceso');
 
 const COLUMNAS = `
-  p.alegra_id, p.id AS producto_id, p.nombre, p.referencia,
+  p.id AS producto_id, p.nombre, p.referencia,
   cat.nombre AS categoria, p.precio_sin_iva, imp.tarifa, p.imagen_url`;
 
 /**
@@ -57,10 +55,10 @@ function normalizar(texto) {
  */
 function mapProducto(row, descuentos, extra = {}) {
   const precioLista = precioConImpuesto(row.precio_sin_iva, row.tarifa);
-  const descuento = descuentos?.get(String(row.alegra_id)) || 0;
+  const descuento = descuentos?.get(String(row.producto_id)) || 0;
 
   return {
-    id: row.alegra_id,
+    id: row.producto_id,
     productoId: row.producto_id,
     nombre: row.nombre,
     referencia: row.referencia || null,

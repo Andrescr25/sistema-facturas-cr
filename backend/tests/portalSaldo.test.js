@@ -77,8 +77,8 @@ describe('de dónde salen los saldos del portal', () => {
     const { servicio, visto } = cargar();
     await servicio.facturasPendientes('456');
 
-    assert.match(visto.sql, /c\.alegra_id = \$1/);
-    assert.strictEqual(visto.params[0], '456', 'el filtro tiene que salir del token');
+    assert.match(visto.sql, /f\.cliente_id = \$1/);
+    assert.strictEqual(visto.params[0], 456, 'el filtro tiene que salir del token');
     assert.doesNotMatch(
       visto.sql, /cliente_nombre/,
       'calzar por nombre le enseñaría a un cliente las facturas de otro: hay fichas que se llaman casi igual'

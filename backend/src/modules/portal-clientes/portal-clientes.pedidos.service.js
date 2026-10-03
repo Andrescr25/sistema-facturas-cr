@@ -12,33 +12,11 @@
 
 const { query, httpError } = require('./portal-clientes.auth');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
-const FacturacionService = require('../facturacion/facturacion.service');
-const { precioSinImpuesto } = require('../catalogo-clientes/precio');
-
-const facturacion = new FacturacionService();
-
-/**
- * Mapa porcentaje -> objeto de impuesto de Alegra (`{id, percentage, name,
- * type}`), para poder armar `items[].tax` a partir del `tax_percentage` que
- * ya se guardó en la línea del pedido. Solo tasas de IVA activas y mayores a
- * 0 — Alegra tiene TRES tasas de 0% distintas (exento, tarifa 0% con/sin
- * derecho a crédito) y no hay forma de saber cuál le corresponde a un
- * producto a partir de un simple porcentaje, así que un producto exento
- * manda `tax: []`, igual que en el resto del sistema cuando no hay impuesto.
- */
-async function mapaImpuestos() {
-  const { data } = await facturacion.getTaxes();
-  const lista = Array.isArray(data) ? data : data?.data || [];
-  const mapa = new Map();
-  for (const t of lista) {
-    if (t.status !== 'active' || t.type !== 'IVA') continue;
-    const pct = Math.round(parseFloat(t.percentage) * 100) / 100;
-    if (pct > 0 && !mapa.has(pct)) {
-      mapa.set(pct, [{ id: t.id, percentage: pct, name: t.name, type: t.type }]);
-    }
-  }
-  return mapa;
-}
+const { pool } = require('../../../config/database');
+const { idValido } = require('../../utils/validacion');
+const { enTransaccion } = require('../../utils/transaccion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
+const { crearFacturaEnTransaccion } = require('../facturacion/facturaPropia.service');
 
 async function listarPedidos({ estado = 'pendiente' } = {}) {
   const filtro = estado === 'todos' ? '' : 'WHERE p.estado = $1';
@@ -65,7 +43,8 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
   return r.rows.map(p => ({
     id: p.id,
     clienteNombre: p.cliente_nombre,
-    alegraContactId: p.alegra_contact_id,
+    clienteId: p.cliente_id,
+    facturaId: p.factura_id,
     estado: p.estado,
     total: Number(p.total),
     lineas: p.lineas,
@@ -79,23 +58,23 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
   }));
 }
 
-async function detalle(pedidoId) {
-  const p = await query(`
+async function detalle(pedidoId, db = { query }, { bloquear = false } = {}) {
+  const p = await db.query(`
     SELECT p.*, COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre
     FROM pedido_cliente p
     LEFT JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
-    WHERE p.id = $1;
-  `, [pedidoId]);
+    WHERE p.id = $1 ${bloquear ? 'FOR UPDATE OF p' : ''};
+  `, [idValido(pedidoId)]);
   if (p.rows.length === 0) throw httpError(404, 'Pedido no encontrado.');
 
-  const l = await query(`SELECT * FROM pedido_cliente_linea WHERE pedido_id = $1 ORDER BY nombre_producto;`, [pedidoId]);
+  const l = await db.query(`SELECT * FROM pedido_cliente_linea WHERE pedido_id = $1 ORDER BY nombre_producto;`, [pedidoId]);
 
   return {
     ...p.rows[0],
     clienteNombre: p.rows[0].cliente_nombre,
     total: Number(p.rows[0].total),
     lineas: l.rows.map(x => ({
-      alegraItemId: x.alegra_item_id,
+      productoId: x.producto_id,
       nombre: x.nombre_producto,
       referencia: x.referencia,
       cantidad: Number(x.cantidad),
@@ -109,92 +88,50 @@ async function detalle(pedidoId) {
 }
 
 /**
- * Convierte el pedido en factura de venta en Alegra.
- *
- * El precio que se manda a Alegra es SIN impuesto: Alegra guarda `price` sin
- * IVA y lo agrega según el impuesto DE LA LÍNEA. En la línea del pedido el
- * precio está congelado CON impuesto (es lo que vio el cliente), así que acá
- * se deshace esa conversión. Mandar el precio con IVA haría que Alegra le
- * sume el IVA otra vez y la factura saldría un 13% más cara.
- *
- * El impuesto en sí hay que mandarlo aparte, en `tax`: si se omite, Alegra
- * NO lo completa solo con el del producto — la línea queda sin impuesto y la
- * factura sale un 13% MÁS BARATA de lo real. Es el mismo campo que arman a
- * mano invoice.service.js, alegra-invoice.service.js y useFacturacion.js en
- * cada lugar donde crean o editan una factura; acá faltaba.
+ * Factura propia + pedido marcado en UNA transacción. El bloqueo del pedido
+ * hace que un doble clic o un reintento devuelva la misma factura: no usa las
+ * claves pedido-N de los intentos viejos que creaban facturas en Alegra.
+ * Vale el precio neto que vio el cliente; el exceso no se descuenta otra vez.
  */
 async function facturar(pedidoId, usuarioId) {
-  const pedido = await detalle(pedidoId);
-
-  if (pedido.estado === 'facturado') {
-    throw httpError(400, `Ese pedido ya se facturó (${pedido.numero_factura || pedido.alegra_invoice_id}).`);
-  }
-  if (pedido.estado === 'rechazado') {
-    throw httpError(400, 'Ese pedido está rechazado.');
-  }
-  if (pedido.lineas.length === 0) {
-    throw httpError(400, 'Ese pedido no tiene líneas.');
-  }
-
-  const impuestos = await mapaImpuestos();
-
-  const hoy = new Date();
-  const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-
-  const facturaData = {
-    date: fecha,
-    dueDate: fecha,
-    client: parseInt(pedido.alegra_contact_id, 10),
-    items: pedido.lineas.map(l => {
-      const pct = Math.round((Number(l.taxPercentage) || 0) * 100) / 100;
-      let tax = [];
-      if (pct > 0) {
-        tax = impuestos.get(pct);
-        if (!tax) {
-          throw httpError(500, `No se encontró en Alegra el impuesto de ${pct}% para "${l.nombre}" — no se puede facturar sin saber cuánto IVA cobrarle.`);
-        }
+  return enTransaccion(pool, async db => {
+    const pedido = await detalle(pedidoId, db, { bloquear: true });
+    if (pedido.estado === 'facturado') {
+      if (!pedido.factura_id) throw httpError(409, 'Ese pedido ya se facturó. Falta conciliar su factura propia; no se puede crear otra.');
+      const { rows: [factura] } = await db.query(`SELECT id, numero, total FROM factura WHERE id = $1`, [pedido.factura_id]);
+      return { facturado: true, yaExistia: true, facturaId: factura.id, numeroFactura: factura.numero, total: Number(factura.total) };
+    }
+    if (pedido.estado !== 'pendiente') throw httpError(400, 'Ese pedido está rechazado.');
+    if (!pedido.cliente_id) throw httpError(409, 'El pedido no tiene una ficha propia de cliente. Hay que conciliarla antes de facturar.');
+    if (!pedido.lineas.length) throw httpError(400, 'Ese pedido no tiene líneas.');
+    if (pedido.lineas.some(l => !l.productoId)) throw httpError(409, 'Hay líneas sin producto propio. Hay que conciliarlas antes de facturar.');
+    const { rows: productos } = await db.query(`
+      SELECT p.id, imp.tarifa FROM producto p LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+       WHERE p.id = ANY($1::int[]) FOR SHARE OF p`, [pedido.lineas.map(l => l.productoId)]);
+    const tarifas = new Map(productos.map(p => [p.id, Number(p.tarifa) || 0]));
+    for (const l of pedido.lineas) {
+      if (!tarifas.has(l.productoId) || tarifas.get(l.productoId) !== (Number(l.taxPercentage) || 0)) {
+        throw httpError(409, `El impuesto de "${l.nombre}" cambió desde el pedido. Revise el pedido antes de facturar.`);
       }
-      return {
-        id: parseInt(l.alegraItemId, 10),
-        reference: l.referencia || '',
-        quantity: l.cantidad,
-        price: precioSinImpuesto(l.precio, l.taxPercentage),
-        tax,
-        discount: 0,
-        description: ''
-      };
-    }),
-    observations: `Pedido #${pedido.id} del portal de clientes${pedido.observaciones ? ` — ${pedido.observaciones}` : ''}`,
-    status: 'open'
-  };
-
-  // La clave sale del pedido, que es estable: si alguien toca "Facturar" dos
-  // veces, o la respuesta se pierde y se reintenta, la segunda llamada
-  // devuelve la factura que ya existe en vez de crear otra.
-  const resultado = await facturacion.createInvoice(facturaData, `pedido-${pedido.id}`);
-  const creada = resultado?.data;
-  if (!creada?.id) {
-    throw httpError(502, 'Alegra no devolvió la factura creada.');
-  }
-
-  const numero = creada.numberTemplate?.fullNumber
-    || creada.numberTemplate?.formattedNumber
-    || String(creada.id);
-
-  await query(`
-    UPDATE pedido_cliente
-    SET estado = 'facturado', alegra_invoice_id = $1, numero_factura = $2,
-        resuelto_en = CURRENT_TIMESTAMP, resuelto_por = $3
-    WHERE id = $4;
-  `, [String(creada.id), numero, usuarioId || null, pedidoId]);
-
-  return { facturado: true, alegraInvoiceId: String(creada.id), numeroFactura: numero, total: Number(creada.total) || pedido.total };
+    }
+    const creada = await crearFacturaEnTransaccion(db, {
+      clienteId: pedido.cliente_id,
+      items: pedido.lineas.map(l => ({ productoId: l.productoId, quantity: l.cantidad,
+        price: l.precio, discount: 0 })),
+      observaciones: `Pedido #${pedido.id} ${pedido.origen === 'agente' ? 'del agente' : 'del portal de clientes'}${pedido.observaciones ? ` — ${pedido.observaciones}` : ''}`
+    }, usuarioId, { preciosConImpuesto: true });
+    await db.query(`
+      UPDATE pedido_cliente SET estado = 'facturado', factura_id = $1, numero_factura = $2,
+        resuelto_en = ${AHORA_CR_SQL}, resuelto_por = $3 WHERE id = $4`,
+      [creada.id, creada.numero, usuarioId || null, pedido.id]);
+    return { facturado: true, facturaId: creada.id, numeroFactura: creada.numero, total: Number(creada.total) };
+  });
 }
 
 async function rechazar(pedidoId, { motivo }, usuarioId) {
   const r = await query(`
     UPDATE pedido_cliente
-    SET estado = 'rechazado', motivo_rechazo = $1, resuelto_en = CURRENT_TIMESTAMP, resuelto_por = $2
+    SET estado = 'rechazado', motivo_rechazo = $1, resuelto_en = ${AHORA_CR_SQL}, resuelto_por = $2
     WHERE id = $3 AND estado = 'pendiente'
     RETURNING id;
   `, [String(motivo || '').trim() || 'Sin motivo indicado', usuarioId || null, pedidoId]);
@@ -226,7 +163,7 @@ async function enviarAvisoWhatsApp(pedidoId, { telefono, mensaje, usuarioId }) {
   return enviarYRegistrar({
     tipo: 'pedido',
     referencia: String(pedido.id),
-    alegraContactId: pedido.alegra_contact_id,
+    clienteId: pedido.cliente_id,
     telefono,
     mensaje,
     usuarioId

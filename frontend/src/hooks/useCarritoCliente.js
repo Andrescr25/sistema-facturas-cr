@@ -70,7 +70,7 @@ export function useCarritoCliente(cliente) {
     const id = ++peticion.current
     setError('')
     try {
-      const { data } = await apiPortal.put('/portal/carrito', { alegraItemId: producto.id, cantidad: n })
+      const { data } = await apiPortal.put('/portal/carrito', { productoId: producto.id, cantidad: n })
       aplicar(data.data, id)
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo actualizar el carrito.')

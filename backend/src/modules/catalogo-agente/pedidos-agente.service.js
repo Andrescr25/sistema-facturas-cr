@@ -75,10 +75,11 @@ async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observ
   // hace días y el pedido no debe quedar con precios viejos.
   const ids = [...porProducto.keys()];
   const productos = await query(`
-    SELECT alegra_id, name, reference, price, tax_percentage
-    FROM alegra_products_cache
-    WHERE alegra_id = ANY($1::varchar[])
-      AND status = 'active' AND hidden_locally = FALSE AND price > 0;
+    SELECT p.id AS producto_id, p.alegra_id, p.nombre AS name, p.referencia AS reference,
+           p.precio_sin_iva AS price, imp.tarifa AS tax_percentage
+    FROM producto p LEFT JOIN impuesto imp ON imp.id = p.impuesto_id
+    WHERE p.alegra_id = ANY($1::varchar[])
+      AND p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0;
   `, [ids]);
 
   const descuentos = await mapaVigentes();
@@ -97,6 +98,7 @@ async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observ
     const descuento = descuentos.get(id) || 0;
     armadas.push({
       alegraItemId: id,
+      productoId: p.producto_id,
       nombre: p.name,
       referencia: p.reference || '',
       cantidad,
@@ -135,21 +137,21 @@ async function crear(usuarioId, { alegraContactId, clienteNombre, lineas, observ
     throw error;
   }
 
-  const COLUMNAS = 9;
+  const COLUMNAS = 10;
   const filas = armadas.map((_, idx) => {
     const b = idx * COLUMNAS;
-    const casts = ['', '', '', '', '::numeric', '::numeric', '::numeric', '::numeric', '::numeric'];
+    const casts = ['', '', '', '', '', '::numeric', '::numeric', '::numeric', '::numeric', '::numeric'];
     return `(${casts.map((c, i) => `$${b + i + 1}${c}`).join(', ')})`;
   }).join(', ');
 
   const valores = armadas.flatMap(l => [
-    pedido.id, l.alegraItemId, l.nombre, l.referencia, l.cantidad,
+    pedido.id, l.alegraItemId, l.productoId, l.nombre, l.referencia, l.cantidad,
     l.precio, l.taxPercentage, l.descuento, l.precioLista
   ]);
 
   await query(`
     INSERT INTO pedido_cliente_linea
-      (pedido_id, alegra_item_id, nombre_producto, referencia, cantidad,
+      (pedido_id, alegra_item_id, producto_id, nombre_producto, referencia, cantidad,
        precio_unitario, tax_percentage, descuento_porcentaje, precio_lista)
     VALUES ${filas};
   `, valores);

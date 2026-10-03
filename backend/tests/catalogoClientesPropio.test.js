@@ -11,8 +11,8 @@ const path = require('path');
  * en verse. Ahora sale de `producto`.
  *
  * Lo que esta prueba cuida es que ese cambio no rompa tres cosas que no se ven
- * mirando la pantalla: que el costo NUNCA se publique, que el id que se expone
- * siga siendo el de Alegra (el pedido del portal guarda ese id) y que un
+ * mirando la pantalla: que el costo NUNCA se publique, que la identidad sea
+ * producto.id (aunque su correspondencia histórica sea distinta) y que un
  * producto sin impuesto no desaparezca del catálogo.
  */
 
@@ -36,7 +36,7 @@ function montar({ filas = [], total = 0, descuentos = new Map() } = {}) {
   require.cache[rutaDescuentos] = {
     id: rutaDescuentos, filename: rutaDescuentos, loaded: true,
     exports: {
-      mapaVigentes: async () => descuentos,
+      mapaVigentesPropios: async () => descuentos,
       aplicarDescuento: (precio, p) => (p > 0 ? Math.round(precio * (1 - p / 100) * 100) / 100 : precio)
     }
   };
@@ -67,7 +67,7 @@ describe('de dónde salen los productos', () => {
 
   test('el costo NO se publica, en ninguna de las consultas', async () => {
     // Es el dato que no puede salir de este módulo bajo ninguna circunstancia.
-    const { servicio, consultas } = montar({ filas: [ABANICO], total: 1, descuentos: new Map([['1183', 25]]) });
+    const { servicio, consultas } = montar({ filas: [ABANICO], total: 1, descuentos: new Map([['12', 25]]) });
     await servicio.listarProductos({});
     await servicio.listarOfertas();
     await servicio.listarCategorias();
@@ -94,12 +94,11 @@ describe('de dónde salen los productos', () => {
 });
 
 describe('lo que se le entrega al cliente', () => {
-  test('el id sigue siendo el de Alegra, y el propio viaja aparte', async () => {
-    // El pedido del portal guarda alegra_item_id: cambiar este id rompería los
-    // pedidos. `productoId` va además, para cuando eso se migre.
+  test('el id es propio, incluso con una correspondencia histórica distinta', async () => {
+    // Los dos ids pueden ser números iguales que apuntan a otro producto.
     const { servicio } = montar({ filas: [ABANICO], total: 1 });
     const { productos } = await servicio.listarProductos({});
-    assert.equal(productos[0].id, '1183');
+    assert.equal(productos[0].id, 12);
     assert.equal(productos[0].productoId, 12);
   });
 
@@ -111,7 +110,7 @@ describe('lo que se le entrega al cliente', () => {
   });
 
   test('con descuento vigente se mandan los dos precios', async () => {
-    const { servicio } = montar({ filas: [ABANICO], total: 1, descuentos: new Map([['1183', 25]]) });
+    const { servicio } = montar({ filas: [ABANICO], total: 1, descuentos: new Map([['12', 25]]) });
     const { productos } = await servicio.listarProductos({});
     assert.equal(productos[0].precioLista, 37800);
     assert.equal(productos[0].precio, 28350);

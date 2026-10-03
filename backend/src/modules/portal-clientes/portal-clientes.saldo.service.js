@@ -32,17 +32,8 @@ const { query } = require('./portal-clientes.auth');
 const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
-/**
- * @param {string} alegraContactId  el contacto que trae el token del cliente
- */
-async function facturasPendientes(alegraContactId) {
-  // El portal conoce al cliente por su id de Alegra (así se creó su cuenta);
-  // las facturas cuelgan de nuestra ficha. `cliente.alegra_id` es el puente, y
-  // es único, así que no puede traer las de dos clientes.
-  //
-  // Los días de atraso los cuenta Postgres contra el día de HOY EN COSTA RICA,
-  // no contra la hora del servidor: en Render corre en UTC, y después de las
-  // 6 de la tarde una factura que vence hoy aparecería vencida de un día.
+/** Las facturas de cliente.id, tomado de la cuenta verificada en la base. */
+async function facturasPendientes(clienteId) {
   const r = await query(`
     SELECT f.numero, f.fecha, f.fecha_vencimiento, f.total,
            f.condicion_venta, f.plazo_texto,
@@ -50,12 +41,11 @@ async function facturasPendientes(alegraContactId) {
            ${ACREDITADO} AS acreditado,
            ($2::date - f.fecha_vencimiento) AS dias_atraso
       FROM factura f
-      JOIN cliente c ON c.id = f.cliente_id
-     WHERE c.alegra_id = $1
+     WHERE f.cliente_id = $1
        AND f.estado = 'emitida'
        AND f.total - ${COBRADO} - ${ACREDITADO} > 1
      ORDER BY f.fecha_vencimiento ASC NULLS LAST, f.fecha ASC;
-  `, [String(alegraContactId), hoyEnCostaRica()]);
+  `, [Number(clienteId), hoyEnCostaRica()]);
 
   const facturas = r.rows.map((f) => {
     const total = Number(f.total) || 0;

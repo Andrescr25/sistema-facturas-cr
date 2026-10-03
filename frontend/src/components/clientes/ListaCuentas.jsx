@@ -31,10 +31,10 @@ export default function ListaCuentas({
         <div className="space-y-2">
           {clientes.map(c => {
             const badge = ESTADO[c.estado] || ESTADO.sin_cuenta
-            const ocupado = procesando === c.alegraContactId
+            const ocupado = procesando === c.clienteId
 
             return (
-              <div key={c.alegraContactId} className="bg-white rounded-2xl border border-neutro-100 p-3.5 flex items-center justify-between gap-3 flex-wrap">
+              <div key={c.clienteId} className="bg-white rounded-2xl border border-neutro-100 p-3.5 flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-neutro-900 text-sm truncate">{c.nombre}</p>

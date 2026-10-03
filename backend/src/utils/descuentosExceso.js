@@ -55,6 +55,20 @@ async function mapaVigentes() {
 }
 
 /**
+ * El portal trabaja por producto.id. Inventario conserva sus ids de Alegra
+ * hasta el conteo físico: se traduce solo al leer la oferta, sin mezclar las
+ * llaves de los catálogos. Acepta la conexión de la transacción del pedido.
+ */
+async function mapaVigentesPropios(db = { query }) {
+  const { rows } = await db.query(`
+    WITH vigentes AS (${SQL_VIGENTES.replace(/;\s*$/, '')})
+    SELECT p.id AS producto_id, v.descuento_porcentaje
+      FROM vigentes v JOIN producto p ON p.alegra_id = v.alegra_item_id
+  `);
+  return new Map(rows.map(r => [String(r.producto_id), Number(r.descuento_porcentaje) || 0]));
+}
+
+/**
  * Aplica el descuento sobre un precio ya con impuesto.
  *
  * El descuento va DESPUÉS del impuesto y no antes: es una rebaja sobre lo
@@ -68,4 +82,4 @@ function aplicarDescuento(precioConImpuesto, porcentaje) {
   return Math.round(precioConImpuesto * (1 - p / 100) * 100) / 100;
 }
 
-module.exports = { listarVigentes, mapaVigentes, aplicarDescuento, SQL_VIGENTES };
+module.exports = { listarVigentes, mapaVigentes, mapaVigentesPropios, aplicarDescuento, SQL_VIGENTES };

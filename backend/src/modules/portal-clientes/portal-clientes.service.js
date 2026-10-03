@@ -59,10 +59,6 @@ async function listarClientes({ busqueda = '' } = {}) {
 
     return {
       clienteId: r.id,
-      // Se sigue mandando `alegraContactId` con NUESTRO id porque la pantalla
-      // todavía lo llama así. Es la misma deuda anotada en §16: se borra
-      // cuando esos componentes hablen nuestro idioma.
-      alegraContactId: String(r.id),
       nombre: r.nombre,
       identificacion: r.identificacion || null,
       email: r.correo || null,
@@ -97,14 +93,14 @@ async function generarInvitacion(clienteId, usuarioId) {
   // si Alegra no contestaba, no se podía invitar a nadie—.
   const { rows } = await query(
     `SELECT id, nombre, identificacion, correo, telefono, telefono_secundario, celular
-       FROM cliente WHERE id = $1`, [id]);
+       FROM cliente WHERE id = $1 AND activo = TRUE`, [id]);
   const contacto = rows[0];
   if (!contacto) throw httpError(404, 'No existe ese cliente.');
 
   await query(`
-    INSERT INTO cliente_portal (cliente_id, alegra_contact_id, nombre, identificacion, email)
-    VALUES ($1, (SELECT alegra_id FROM cliente WHERE id = $1), $2, $3, $4)
-    ON CONFLICT (cliente_id) DO UPDATE SET
+    INSERT INTO cliente_portal (cliente_id, nombre, identificacion, email)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (cliente_id) WHERE cliente_id IS NOT NULL DO UPDATE SET
       nombre = EXCLUDED.nombre,
       identificacion = EXCLUDED.identificacion,
       email = EXCLUDED.email,
@@ -124,8 +120,8 @@ async function generarInvitacion(clienteId, usuarioId) {
   expira.setDate(expira.getDate() + DIAS_INVITACION);
 
   await query(`
-    INSERT INTO cliente_invitacion (cliente_id, alegra_contact_id, token_hash, expira_en, creado_por)
-    VALUES ($1, (SELECT alegra_id FROM cliente WHERE id = $1), $2, $3, $4);
+    INSERT INTO cliente_invitacion (cliente_id, token_hash, expira_en, creado_por)
+    VALUES ($1, $2, $3, $4);
   `, [id, hashToken(token), expira, usuarioId || null]);
 
   // Los teléfonos van con la invitación para poder ofrecer mandarla por

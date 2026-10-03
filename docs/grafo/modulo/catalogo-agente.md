@@ -17,14 +17,16 @@ archivos:
   - backend/tests/productosNuevos.test.js
   - frontend/src/components/inventario-auditoria/SeccionProductosNuevos.jsx
   - backend/src/modules/ventas/rotacion.js
+  - backend/src/modules/catalogo-agente/pedidos-agente.service.js
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-linea]
-  relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
+  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
 medido: 2026-10-03
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
-pedido se toma en Facturación. Cada categoría se parte en familias (sus
+pedido también se puede guardar desde la tablet y resolver desde Clientes.
+Cada categoría se parte en familias (sus
 subcategorías), en el orden de `categoria_config.orden` y `subcategoria.orden`
 — el mismo que ve Gestión de Catálogo, porque las dos pantallas usan las
 mismas funciones ([[decision/orden-canonico-compartido]]). El agente recibe
@@ -89,3 +91,10 @@ LA ACTUALIZACIÓN SIN SESIÓN Y LAS FOTOS: ver
 [[leccion/fotos-del-catalogo-en-la-tablet]]. En esta pantalla un 401 no manda
 al ingreso; el orden y la rotación (que piden sesión) se quedan como estaban
 y la pantalla lo avisa.
+
+BORDE TEMPORAL (sección 12, parte 2): la tablet y su caché todavía mandan
+ids de Alegra. `pedidos-agente.service` los resuelve contra `producto` y
+guarda las líneas con `producto_id` además de la referencia histórica. Así
+Clientes ya convierte esos pedidos en factura propia, en la misma
+transacción que marca el pedido. Migrar el contrato y la caché de la tablet
+corresponde a la parte 3.

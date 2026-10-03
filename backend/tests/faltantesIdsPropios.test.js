@@ -379,13 +379,13 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   });
 
   test('el portal lee el alistado de `factura`: despachada = lista para envío, anulada = no procesado', async () => {
-    const { rows: [cp] } = await cliente.query(`SELECT id, alegra_contact_id FROM cliente_portal LIMIT 1`);
+    const { rows: [cp] } = await cliente.query(`SELECT id, cliente_id FROM cliente_portal WHERE cliente_id IS NOT NULL LIMIT 1`);
     if (!cp) return; // la copia local no tiene clientes del portal
-    await cliente.query(`UPDATE factura SET alegra_id = 'zz-prueba-B', estado_bodega = 'procesado' WHERE id = $1`, [B]);
+    await cliente.query(`UPDATE factura SET estado_bodega = 'procesado' WHERE id = $1`, [B]);
     const { rows: [pedido] } = await cliente.query(`
-      INSERT INTO pedido_cliente (cliente_portal_id, alegra_contact_id, estado, total, alegra_invoice_id, numero_factura, origen)
-      VALUES ($1, $2, 'facturado', 1, 'zz-prueba-B', 'ZZ', 'portal') RETURNING id
-    `, [cp.id, cp.alegra_contact_id]);
+      INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, estado, total, factura_id, numero_factura, origen)
+      VALUES ($1, $2, 'facturado', 1, $3, 'ZZ', 'portal') RETURNING id
+    `, [cp.id, cp.cliente_id, B]);
     let r = await m.portal.detallePedido(cp.id, pedido.id);
     assert.equal(r.etapa, 'listo_para_envio');
     await cliente.query(`UPDATE factura SET estado = 'anulada' WHERE id = $1`, [B]);

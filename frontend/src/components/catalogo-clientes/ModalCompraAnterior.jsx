@@ -61,7 +61,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
     setError('')
     try {
       const { data } = await apiPortal.post('/portal/carrito/varios', {
-        lineas: elegidos.map(i => ({ alegraItemId: i.id, cantidad: cantidades[i.id] }))
+        lineas: elegidos.map(i => ({ productoId: i.id, cantidad: cantidades[i.id] }))
       })
       onAgregado?.(data.data)
       onCerrar()

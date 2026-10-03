@@ -189,30 +189,30 @@ describe('las ventas salen de las facturas propias — contra la base local', { 
 
   test('portal: la portada, las compras anteriores y sus líneas, por la ficha propia del cliente', async (t) => {
     if (!portal) return t.skip('la copia local no tiene clientes del portal con compras');
-    const inicio = await m.inicio.obtenerInicio(portal.contacto);
+    const inicio = await m.inicio.obtenerInicio(portal.cliente_id);
     assert.ok(inicio && typeof inicio === 'object');
 
-    const compras = await m.sugerencias.comprasAnteriores(portal.contacto, 5);
+    const compras = await m.sugerencias.comprasAnteriores(portal.cliente_id, 5);
     assert.ok(compras.length > 0);
     const { rows: [f] } = await cliente.query('SELECT cliente_id, total FROM factura WHERE id = $1', [compras[0].facturaId]);
     assert.equal(f.cliente_id, portal.cliente_id, 'la compra es de ESE cliente');
     assert.equal(compras[0].total, Math.round(Number(f.total) * 100) / 100, 'el total es el de la factura');
 
-    const detalle = await m.sugerencias.detalleCompra(portal.contacto, compras[0].facturaId);
-    const lineas = await m.sugerencias.lineasDeCompra(portal.contacto, compras[0].facturaId);
+    const detalle = await m.sugerencias.detalleCompra(portal.cliente_id, compras[0].facturaId);
+    const lineas = await m.sugerencias.lineasDeCompra(portal.cliente_id, compras[0].facturaId);
     assert.equal(detalle.items.length, lineas.length);
 
-    const ficha = await m.sugerencias.fichaProducto(portal.contacto, lineas[0].alegraItemId).catch((e) => e);
+    const ficha = await m.sugerencias.fichaProducto(portal.cliente_id, lineas[0].productoId).catch((e) => e);
     if (!(ficha instanceof Error)) assert.ok(ficha.historial.veces >= 1, 'lo compró: tiene historia con ese producto');
-    assert.ok(Array.isArray(await m.sugerencias.seLlevaJuntoCon([lineas[0].alegraItemId])));
+    assert.ok(Array.isArray(await m.sugerencias.seLlevaJuntoCon([lineas[0].productoId])));
   });
 
   test('portal: la compra de OTRO cliente no se abre, aunque se adivine su id', async (t) => {
     if (!portal) return t.skip('la copia local no tiene clientes del portal con compras');
     const { rows: [ajena] } = await cliente.query(
       `SELECT id FROM factura WHERE estado = 'emitida' AND cliente_id <> $1 ORDER BY id DESC LIMIT 1`, [portal.cliente_id]);
-    await assert.rejects(() => m.sugerencias.detalleCompra(portal.contacto, ajena.id), (e) => e.status === 404);
-    await assert.rejects(() => m.sugerencias.lineasDeCompra(portal.contacto, ajena.id), (e) => e.status === 404);
+    await assert.rejects(() => m.sugerencias.detalleCompra(portal.cliente_id, ajena.id), (e) => e.status === 404);
+    await assert.rejects(() => m.sugerencias.lineasDeCompra(portal.cliente_id, ajena.id), (e) => e.status === 404);
   });
 });
 

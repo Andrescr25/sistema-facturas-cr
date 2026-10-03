@@ -85,7 +85,7 @@ describe('pedido del agente: que no se pierda de vista', () => {
 
 describe('pedido del agente: el precio lo pone el servidor', () => {
   test('el precio se lee del catálogo, no de la petición', () => {
-    assert.match(SERVICIO, /FROM alegra_products_cache/,
+    assert.match(SERVICIO, /FROM producto p/,
       'el precio debe salir del catálogo del servidor');
     // La petición trae producto y cantidad; cualquier `precio` que mandara el
     // dispositivo se ignora.
@@ -94,7 +94,7 @@ describe('pedido del agente: el precio lo pone el servidor', () => {
   });
 
   test('solo entran productos activos y visibles', () => {
-    assert.match(SERVICIO, /status = 'active' AND hidden_locally = FALSE AND price > 0/);
+    assert.match(SERVICIO, /p\.activo = TRUE AND p\.oculto = FALSE AND p\.precio_sin_iva > 0/);
   });
 
   test('un producto dado de baja no tira abajo el pedido entero', () => {

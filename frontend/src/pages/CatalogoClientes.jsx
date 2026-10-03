@@ -35,7 +35,7 @@ export default function CatalogoClientes() {
   // catálogo para reutilizar la misma tarjeta, que ya sabe pintar el precio
   // anterior tachado y la insignia de descuento.
   const productosRebajados = useMemo(() => (rebajados || []).map((o) => ({
-    id: o.alegraItemId,
+    id: o.productoId,
     nombre: o.nombre,
     referencia: o.referencia,
     categoria: o.categoria,

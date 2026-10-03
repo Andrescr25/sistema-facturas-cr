@@ -25,16 +25,16 @@ const listarClientes = (req, res) =>
   responder(res, personal.listarClientes({ busqueda: req.query.q }), 'Error listando clientes del portal');
 
 const generarInvitacion = (req, res) =>
-  responder(res, personal.generarInvitacion(req.params.contactoId, req.usuario?.id), 'Error generando la invitación');
+  responder(res, personal.generarInvitacion(req.params.clienteId, req.usuario?.id), 'Error generando la invitación');
 
 const enviarInvitacionWhatsApp = (req, res) =>
-  responder(res, personal.enviarInvitacionWhatsApp(req.params.contactoId, req.body || {}), 'Error enviando la invitación por WhatsApp');
+  responder(res, personal.enviarInvitacionWhatsApp(req.params.clienteId, req.body || {}), 'Error enviando la invitación por WhatsApp');
 
 const revocarAcceso = (req, res) =>
-  responder(res, personal.revocarAcceso(req.params.contactoId), 'Error revocando el acceso');
+  responder(res, personal.revocarAcceso(req.params.clienteId), 'Error revocando el acceso');
 
 const reactivarAcceso = (req, res) =>
-  responder(res, personal.reactivarAcceso(req.params.contactoId), 'Error reactivando el acceso');
+  responder(res, personal.reactivarAcceso(req.params.clienteId), 'Error reactivando el acceso');
 
 const listarPedidos = (req, res) =>
   responder(res, pedidos.listarPedidos({ estado: req.query.estado }), 'Error listando pedidos');
@@ -68,17 +68,17 @@ const entrar = (req, res) =>
 
 const yo = (req, res) => res.json({ success: true, data: req.cliente });
 
-// El contacto sale del TOKEN, no de la petición: así un cliente no puede
-// pedir la portada de otro cambiando un parámetro.
+// La ficha propia sale de la cuenta validada por el middleware: cambiar
+// un parámetro de la petición nunca permite abrir la portada de otro.
 const portada = (req, res) =>
-  responder(res, inicio.obtenerInicio(req.cliente.contacto), 'Error armando la portada del cliente');
+  responder(res, inicio.obtenerInicio(req.cliente.clienteId), 'Error armando la portada del cliente');
 
 // ---- Carrito ----
 const verCarrito = (req, res) =>
   responder(res, carrito.obtenerCarrito(req.cliente.id), 'Error leyendo el carrito');
 
 const ponerEnCarrito = (req, res) =>
-  responder(res, carrito.ponerCantidad(req.cliente.id, req.body?.alegraItemId, req.body?.cantidad), 'Error actualizando el carrito');
+  responder(res, carrito.ponerCantidad(req.cliente.id, req.body?.productoId, req.body?.cantidad), 'Error actualizando el carrito');
 
 const vaciarCarrito = (req, res) =>
   responder(res, carrito.vaciarCarrito(req.cliente.id), 'Error vaciando el carrito');
@@ -93,16 +93,16 @@ const juntoCon = (req, res) => {
 };
 
 const fichaProducto = (req, res) =>
-  responder(res, sugerencias.fichaProducto(req.cliente.contacto, req.params.itemId), 'Error abriendo el producto');
+  responder(res, sugerencias.fichaProducto(req.cliente.clienteId, req.params.productoId), 'Error abriendo el producto');
 
 const misFacturas = (req, res) =>
-  responder(res, saldo.facturasPendientes(req.cliente.contacto), 'Error listando las facturas del cliente');
+  responder(res, saldo.facturasPendientes(req.cliente.clienteId), 'Error listando las facturas del cliente');
 
 const detalleCompra = (req, res) =>
-  responder(res, sugerencias.detalleCompra(req.cliente.contacto, req.params.facturaId), 'Error abriendo la compra');
+  responder(res, sugerencias.detalleCompra(req.cliente.clienteId, req.params.facturaId), 'Error abriendo la compra');
 
 const comprasAnteriores = (req, res) =>
-  responder(res, sugerencias.comprasAnteriores(req.cliente.contacto), 'Error listando compras anteriores');
+  responder(res, sugerencias.comprasAnteriores(req.cliente.clienteId), 'Error listando compras anteriores');
 
 /**
  * Repetir una compra: se resuelven las líneas contra el historial de ESTE
@@ -111,7 +111,7 @@ const comprasAnteriores = (req, res) =>
  */
 const repetirCompra = async (req, res) => {
   try {
-    const lineas = await sugerencias.lineasDeCompra(req.cliente.contacto, req.params.facturaId);
+    const lineas = await sugerencias.lineasDeCompra(req.cliente.clienteId, req.params.facturaId);
     const resultado = await carrito.agregarVarios(req.cliente.id, lineas);
     res.json({ success: true, data: resultado });
   } catch (error) {

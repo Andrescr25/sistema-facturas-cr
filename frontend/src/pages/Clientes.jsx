@@ -163,7 +163,7 @@ export default function Clientes() {
         <ModalEnviarWhatsApp
           titulo={`Avisarle del pedido #${avisando.id}`}
           subtitulo={avisando.clienteNombre}
-          contactoId={avisando.alegraContactId}
+          clienteId={avisando.clienteId}
           documento={{ tipo: 'pedido', referencia: String(avisando.id) }}
           mensajeInicial={mensajePedido({
             numero: avisando.id,
