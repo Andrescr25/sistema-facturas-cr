@@ -19,7 +19,7 @@ archivos:
   - backend/src/modules/ventas/rotacion.js
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
-  relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet]
+  relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/lo-publico-no-lleva-costo-ni-margen]
 medido: 2026-09-28
 ---
 
