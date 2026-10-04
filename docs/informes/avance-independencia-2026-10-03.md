@@ -36,7 +36,7 @@ descrito, no que todas sus dependencias históricas desaparecieron.
 | Portal y catálogos | 8 / 0 | Terminada; carrito, pedidos, historial, identidades y caché propios. |
 | Reportes | 5 / 0 | Terminada; Inicio, Rentabilidad, Contador y faltantes con Excel. |
 | Usuarios y permisos | 3 / 0 | Terminada por Claude; bitácora, módulos y acciones de administrador. Inventario se define cuando exista. |
-| Migración y corte | 1 / 7 | Cargadores parciales y dos conciliadores disponibles; recarga final, archivo de comprobantes, ensayo y plan de reversa pendientes. |
+| Migración y corte | 1 / 7 | Cargadores parciales y tres conciliadores disponibles; destino de una nota, recarga final, archivo de comprobantes, ensayo y plan de reversa pendientes. |
 | Retiro de Alegra | 0 / 6 | Traductores del frontend, rutas/servicios, caché/sync y referencias históricas todavía pendientes de retirar. |
 
 ## Qué terminó Claude y cómo se combinó
@@ -52,7 +52,9 @@ Codex continuó la sección 15 con worktree y PostgreSQL desechables propios,
 sin editar los archivos de permisos de Claude. La conciliación de ventas
 previa está en `391973d`. Esta entrega agrega cobros, aplicaciones y saldo
 actual; conserva las protecciones, no ejecuta cargadores, mensajes reales
-ni limpieza semanal.
+ni limpieza semanal. Después agregó la auditoría individual de notas;
+Claude abrió `tmp/claude-relacionar-20261003` para Relacionar Productos y
+Codex conservó ese trabajo separado del suyo.
 
 ## Qué muestran los datos de septiembre
 
@@ -80,10 +82,30 @@ fuera de git. Cómo ejecutarlos y su alcance:
 [ventas](../grafo/modulo/conciliacion-ventas.md) y
 [cobros](../grafo/modulo/conciliacion-cobros.md).
 
+## Notas históricas: un destino que falta en el modelo
+
+Se contrastaron por GET las notas de 2024-07-01 a 2026-10-03 con otra copia
+PostgreSQL desechable. Las **27 existen** (26 emitidas y 1 anulada) y sus
+encabezados y aplicaciones a facturas coinciden. El detalle refiere 24
+facturas distintas, todas presentes en Alegra.
+
+La consulta individual descubre que una nota aplicó **₡21.200 a una nota
+de débito de ingreso**, un destino omitido por el listado y que la tabla
+propia de aplicaciones no representa. Resultado completo: **26 coinciden
+y 1 tiene ese destino faltante**. Hace falta incorporar ese documento y
+su vínculo; ejecutar otra vez el cargador actual no lo resolvería. La
+medición no demuestra dinero perdido ni autoriza inventar una factura.
+
+Otra nota mantiene **₡8.600,20 disponibles** en ambos lados. Es una
+observación separada que permite una copia coincidente. El informe final
+devuelve 2 por el destino no representado y queda privado. Alcance y
+relevo técnico: [nodo de notas](../grafo/modulo/conciliacion-notas-credito.md).
+
 ## Qué falta y qué conviene seguir
 
-1. **Completar la conciliación:** aplicaciones de notas de crédito, otros
-   meses, compras y existencias. Actualizar ventas/cobros en una copia
+1. **Completar la conciliación:** representar el destino a nota de débito
+   de ingreso identificado, otros meses de ventas/cobros, compras y
+   existencias. Actualizar ventas/cobros en una copia
    separada y repetir para distinguir atraso de copia de discrepancias de
    negocio; verificar también numeradores. No refrescar la base de trabajo
    mientras otro agente la esté usando.
@@ -110,10 +132,19 @@ un servicio SMTP; el envío del PDF de factura por correo sigue pendiente.
 
 ## Verificación de esta entrega
 
-Integrada sobre `ab8ff90` y `09ffd18`: **1.684 pruebas aprobadas, ninguna
+Cobros (`5d9cf76`), sobre `ab8ff90` y `09ffd18`: **1.684 pruebas aprobadas, ninguna
 omitida**, con ejecución secuencial sobre una copia PostgreSQL desechable;
 frontend compilado y grafo validado. Las pruebas de lectura comprobaron que
 pagos, aplicaciones, facturas, notas y numeradores no cambian. Un fallo
 simulado retira el informe incompleto y conserva informes anteriores.
 La medición real devuelve código 2 por las diferencias encontradas. No hubo
 cargas, cambios en datos compartidos, salidas reales ni limpieza semanal.
+
+Notas: **1.705 pruebas aprobadas, ninguna omitida**, incluyendo 21 nuevas y
+el grafo. La primera corrida tuvo el error interno recurrente del ejecutor
+de Node 25.8.2 en `filtroPagosProveedores.test.js`; pasó aislado y la
+repetición completa terminó sin fallos. Se verificaron huellas de notas,
+enlaces, facturas, series y secuencias, y rechazo de UPDATE dentro del
+lector READ ONLY. La CLI retira parciales y conserva informes previos.
+Solo GET reales, sin cargadores ni cambios en la base compartida. No hubo
+migraciones, instalaciones ni servidores nuevos; frontend sin cambios.

@@ -772,8 +772,16 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   separados. De 273 facturas revisadas para saldo: 89 coinciden, 5 no
   cobrables, 119 faltan y 60 presentes difieren. Ver
   [el nodo de cobros](grafo/modulo/conciliacion-cobros.md).
-  **No cierra esta fila:** faltan aplicaciones individuales de notas de
-  crédito, compras, existencias, otros períodos y resolver discrepancias.
+  **Notas de crédito:** `conciliar-notas-credito.js` compara aplicaciones
+  individuales y consulta la ficha si el listado no respalda lo aplicado.
+  Las 27 notas históricas están copiadas; **26 coinciden y una aplica
+  ₡21.200 a una nota de débito de ingreso que el modelo propio todavía no
+  representa**. No inventar una factura para cuadrarla ni recargar esperando
+  que se resuelva: el cargador solo guarda `invoices`. Otra nota conserva
+  ₡8.600,20 sin aplicar en ambas fuentes (observación legítima, no error de
+  copia). Ver [el nodo de notas](grafo/modulo/conciliacion-notas-credito.md).
+  **No cierra esta fila:** falta representar ese destino, compras,
+  existencias, otros períodos y resolver discrepancias.
   **Medición de septiembre, 2026-10-03:** 69 facturas coinciden y faltan 119
   en la copia local (116 emitidas + 3 anuladas); ninguna de las 69 presenta
   diferencias en los campos/líneas comparados. La diferencia del total de

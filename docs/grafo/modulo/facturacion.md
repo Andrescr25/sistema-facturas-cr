@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/facturacion/facturaConsulta.service.js
   - backend/src/modules/facturacion/saldo.sql.js
 aristas:
-  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros]
+  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito]
 medido: 2026-10-03
 ---
 

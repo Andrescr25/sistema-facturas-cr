@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/facturacion/saldo.sql.js
   - backend/tests/conciliacionCobros.test.js
 aristas:
-  relacionado: [modulo/conciliacion-ventas, modulo/facturacion, modulo/portal-clientes, decision/caja-general-es-el-centro, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  relacionado: [modulo/conciliacion-ventas, modulo/conciliacion-notas-credito, modulo/facturacion, modulo/portal-clientes, decision/caja-general-es-el-centro, leccion/ids-propios-y-de-alegra-no-se-mezclan]
 medido: 2026-10-03
 ---
 
@@ -71,9 +71,10 @@ aplicaciones. Los GET de Alegra son sucesivos; no tienen la atomicidad de
 la base local. Repetir con el origen congelado antes de certificar el corte.
 
 ALCANCE PENDIENTE. Solo CRC: `pago` no tiene moneda y una factura o recibo
-extranjero impide certificar la comparación. Todavía falta auditar las
-aplicaciones individuales de las notas de crédito, compras y existencias;
-la conciliación completa del checklist sigue abierta. No reimporta meses
+extranjero impide certificar la comparación. Las aplicaciones de notas ya
+tienen auditoría propia en [[modulo/conciliacion-notas-credito]], con un
+destino a débito de ingreso pendiente de representar. Compras y existencias
+siguen pendientes; la conciliación completa permanece abierta. No reimporta meses
 del contador ni resuelve a mano cobros o notas para forzar un saldo igual.
 
 VERIFICACIÓN. Casos sintéticos de colisión entre ambos espacios de ids,

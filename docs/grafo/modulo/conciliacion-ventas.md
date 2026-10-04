@@ -8,7 +8,7 @@ archivos:
   - backend/scripts/independencia/lib/conciliacion-ventas.js
   - backend/tests/conciliacionVentas.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-10-03
 ---
@@ -16,13 +16,15 @@ medido: 2026-10-03
 Avance de la sección 15. Auditoría puntual de **facturas, tiquetes y notas de
 crédito**, con cantidades e importes por mes, tipo, estado y moneda, y con las
 diferencias por documento y línea. La fila de conciliación completa del
-checklist sigue pendiente: faltan cobros, aplicaciones, saldos calculados,
-compras y existencias, y resolver las diferencias antes del corte.
+checklist sigue pendiente: faltan completar otros períodos, compras y
+existencias, y resolver las diferencias antes del corte.
 
 Continuación del 2026-10-03: [[modulo/conciliacion-cobros]] ya compara
 recibos, aplicaciones de cobros y saldo actual calculado. Este script de
-ventas conserva su alcance; usar ambos. Siguen pendientes las aplicaciones
-individuales de notas de crédito, compras, existencias y resolver diferencias.
+ventas conserva su alcance. [[modulo/conciliacion-notas-credito]] ya compara
+aplicaciones de notas y descubrió un destino a nota de débito de ingreso que
+el modelo propio no representa. Usar los tres; compras, existencias y
+resolución de diferencias siguen pendientes.
 
 Desde `backend`, en la rama aislada:
 

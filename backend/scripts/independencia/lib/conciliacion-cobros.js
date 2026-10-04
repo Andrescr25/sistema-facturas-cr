@@ -199,7 +199,7 @@ async function ejecutar({ client, pool, p, avisar = () => {} }) {
   const cobros = compararCobros(remotos,base.cobros,p), saldos = compararSaldos(facturas,base.facturas,ids);
   return { version:1, periodo:p, lectura:{iniciada_en:inicio,terminada_en:new Date().toISOString()},
     alcance:'Cobros del tramo y sus aplicaciones; saldos ACTUALES de facturas emitidas en el tramo o referidas por sus cobros. Solo CRC. No es un saldo histórico a la fecha final.',
-    advertencia:'GET sucesivos sin instantánea en Alegra. Repetir con el origen congelado antes del corte. La conciliación de compras, existencias y aplicaciones de notas sigue pendiente.',
+    advertencia:'GET sucesivos sin instantánea en Alegra. Repetir con el origen congelado antes del corte. Auditar notas con conciliar-notas-credito.js; compras, existencias y resolución de discrepancias siguen pendientes.',
     sin_diferencias:!cobros.diferencias.length && !cobros.incidencias.length && !saldos.diferencias.length, cobros, saldos };
 }
 
