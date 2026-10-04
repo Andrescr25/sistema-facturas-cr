@@ -13,6 +13,8 @@ archivos:
   - backend/src/modules/facturacion/facturaPropia.controller.js
   - frontend/src/utils/facturacionUtils.js
   - backend/tests/sugerenciasFacturacion.test.js
+  - backend/src/modules/facturacion/idempotencia.js
+  - backend/tests/intentoDeFacturaIdPropio.test.js
 aristas:
   relacionado: [modulo/cotizaciones, modulo/facturacion, leccion/cache-con-ids-propios-no-borra-pendientes]
 medido: 2026-10-04
@@ -60,6 +62,20 @@ Casos en esta rama:
    parámetro de la ruta llegara tal cual. La prueba nueva va contra
    PostgreSQL y arma el cruce a propósito (un cliente cuyo id de Alegra es el
    id propio de otro).
+6. **Una columna con dos clases de id** (corregido el 2026-10-04, migración
+   041). `factura_intento.alegra_invoice_id` traía de producción el id de
+   Alegra de cada factura creada; el código de la rama escribía ahí el id
+   propio. Reenviar la factura 001000014841 devolvía 5369, su id de Alegra, y
+   la 5369 propia es de otro cliente. Y dentro de Alegra tampoco es un solo
+   espacio: la misma columna guarda ids de COTIZACIONES, y la cotización 7
+   calza en id y en número con la factura 7. La regla "que coincidan id y
+   número" parecía suficiente y enlazó cuatro cotizaciones con cuatro
+   facturas ajenas; se vio solo porque se miró el resultado fila por fila.
+
+**Una columna, una clase de id.** Si una tabla copiada de producción va a
+recibir ids propios, van en una columna nueva; la vieja se queda con lo que
+tenía. Y para traducir lo viejo, buscar qué distingue de verdad a cada
+documento (acá, la huella) antes de confiar en que dos números coincidan.
 
 **Al migrar un servicio a ids propios, buscar a TODOS los que lo llaman**, no
 solo el que motivó el cambio: `obtenerInicio` tenía dos (el portal y

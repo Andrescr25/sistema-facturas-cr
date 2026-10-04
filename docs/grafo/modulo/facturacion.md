@@ -15,6 +15,8 @@ archivos:
   - backend/tests/facturacionSinAlegra.test.js
   - backend/tests/sugerenciasFacturacion.test.js
   - backend/tests/idempotenciaFactura.test.js
+  - backend/tests/intentoDeFacturaIdPropio.test.js
+  - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
   relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso]
 medido: 2026-10-04
@@ -93,6 +95,19 @@ al 2026-10-04 la pantalla lo pidió con el id de Alegra: 216 de 247 clientes
 veían las compras de otro. Ver
 [[leccion/ids-propios-y-de-alegra-no-se-mezclan]], caso 5.
 
-PENDIENTE: `emitirCon` todavía acepta ids de Alegra (`client`, línea sin
-`productoId`) y `huellaDe` no incluye al cliente en el contrato propio. Está
-en el checklist, sección 6.
+NO DUPLICAR AL REENVIAR (`idempotencia.js`, tabla `factura_intento`,
+migración 041). La clave la pone la tablet una vez y viaja en cada reenvío.
+La tabla vino de producción y tenía DOS clases de id en una columna: el id
+de Alegra de lo creado allá (facturas y también cotizaciones) y, desde la
+rama, el id propio. Ahora la factura propia va en `factura_id` y
+`alegra_invoice_id` queda para lo de antes. Lo que se devuelve al reenviar es
+siempre nuestro id, o ninguno: un intento de antes del corte se resuelve por
+id de Alegra Y número, y solo si tiene huella — las cotizaciones no la
+tienen, y la cotización 7 calza en id y en número con la factura 7. La
+huella del contrato propio incluye al cliente; la del contrato de antes
+(`client`, `id`) quedó idéntica, fijada por una prueba, porque es la que
+calculan las tablets que reenvían después del corte.
+
+PENDIENTE, PARA DESPUÉS DEL CORTE: `emitirCon` acepta ids de Alegra
+(`client`, línea sin `productoId`). No se puede quitar antes: así llegan las
+facturas que una tablet armó sin señal con el sistema anterior.
