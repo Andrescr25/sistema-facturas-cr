@@ -41,17 +41,19 @@ el maestro propio y la compra usa el producto de la línea. Codex integró
 este avance sobre esos commits, usando worktree y PostgreSQL propios para
 la 040, sin editar esos módulos.
 
-Al cerrar este avance, Claude abrió `tmp/claude-buzon-20261004` para el buzón
-de compras. También aparecen sus commits de precios en `developer/main`;
-Codex no modificó esas ramas. Antes de elegir otra tarea, volver a revisar
-commits y worktrees: el buzón está ocupado por Claude.
+Durante este avance, Claude usó `tmp/claude-buzon-20261004` para el buzón
+de compras y lo completó (`0ae7f3b`, `1242f81`). Integró y subió esos cambios
+sobre el débito de Codex (`91fc635`), sin conflictos: **§8 completa**.
+Los dos worktrees temporales ya se retiraron. También corrigió el precio
+sugerido en `developer/main` (`c469365`, `8d2c073`); Codex no modificó esas
+ramas. Volver a revisar commits y worktrees antes de elegir otra tarea.
 
 ## Estado del checklist
 
-Las secciones 0–16 tienen **106 tareas principales marcadas y 33 abiertas**.
-Las cuatro tareas marcadas adicionales corresponden a Compras; el débito completa un
-tramo de §15 y no cierra la conciliación total. Esa cuenta no mide la
-preparación para producción. §§11–14 siguen terminadas.
+Las secciones 0–16 tienen **107 tareas principales marcadas y 32 abiertas**.
+Compras (§8) ya quedó completa; el débito completa un tramo de §15 y no
+cierra la conciliación total. Esa cuenta no mide la preparación para
+producción. §§11–14 siguen terminadas.
 
 ## Qué sigue pendiente
 
@@ -59,8 +61,7 @@ preparación para producción. §§11–14 siguen terminadas.
   diferencias, recargar y comprobar numeradores al preparar el corte. El
   diagnóstico de septiembre del [informe anterior](avance-independencia-2026-10-03.md)
   sigue identificado como medición anterior; este trabajo no lo recarga.
-- Terminar la dependencia del buzón de compras, que está tomando Claude, y
-  retirar caché,
+- Retirar la caché y los caminos antiguos de Compras sin pantalla,
   sincronizaciones, traductores y rutas antiguas en el orden del checklist.
 - Guardar PDF/XML originales, completar correo con PDF y verificar la
   recepción real de WhatsApp en su entorno autorizado.
