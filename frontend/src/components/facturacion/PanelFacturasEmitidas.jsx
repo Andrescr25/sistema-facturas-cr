@@ -5,6 +5,7 @@ import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
 import VistaFactura from './VistaFactura'
+import ModalEnviarFacturaCorreo from './ModalEnviarFacturaCorreo'
 import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
 import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
@@ -105,6 +106,7 @@ export default function PanelFacturasEmitidas({ f }) {
         {f.mensaje && (
           <p className="mb-3 rounded-xl bg-exito-50 px-3 py-2 text-sm text-exito-700">{f.mensaje}</p>
         )}
+        {f.error && <p role="alert" className="mb-3 rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{f.error}</p>}
         <VistaFactura
           factura={f.detalle}
           empresa={f.empresa}
@@ -119,6 +121,8 @@ export default function PanelFacturasEmitidas({ f }) {
           onAnular={setAnulando}
           onNotaCredito={setNota}
           onEnviar={f.abrirEnvio}
+          onCorreo={f.abrirCorreo}
+          cargandoCorreo={f.cargandoCorreo}
           onEditar={f.abrirEdicion}
         />
         {anulando && <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />}
@@ -138,6 +142,7 @@ export default function PanelFacturasEmitidas({ f }) {
           />
         )}
         {nota && <ModalNotaCredito factura={f.detalle} onCerrar={() => setNota(null)} onCrear={f.crearNota} />}
+        {f.correoAbierto && <ModalEnviarFacturaCorreo datos={f.correoAbierto} onEnviar={f.enviarPorCorreo} onCerrar={f.cerrarCorreo} />}
       </>
     )
   }

@@ -188,8 +188,8 @@ Las rutas de los reportes y del pedido tienen su propia dirección desde el
 2026-10-04 (`/reportes`, `/faltantes`, `/orden-compra`); el prefijo `/alegra`
 y su enrutador adaptador se retiraron.
 
-DEMOSTRACIÓN CONSERVADA (pedido del usuario, 2026-10-04). Dos proveedores
-`ZZ-DEMO`, cinco productos y 27 unidades faltantes en la base local, con dos
-borradores propios sin emisión ni series. Se dejan para que el usuario
-recorra Reporte de Proveedores; no retirarlos por una prueba posterior.
-Alcance, evidencia y retirada puntual en [[modulo/demo-reporte-proveedores]].
+DEMOSTRACIÓN RETIRADA (pedido del usuario, 2026-10-04). Tras recorrer el
+reporte, pidió eliminar el conjunto `ZZ-DEMO`: retirados sus dos proveedores,
+cinco productos, faltantes, borradores y su fila de Impresión por ids del
+manifiesto. Cero restos y nueve tablas anteriores iguales; no se ejecutó
+limpieza semanal. Evidencia en [[modulo/demo-reporte-proveedores]].

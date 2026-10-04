@@ -18,11 +18,11 @@ archivos:
   - backend/tests/intentoDeFacturaIdPropio.test.js
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso]
+  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas]
 medido: 2026-10-04
 ---
 
-Ventas ya vive sobre la base propia (sección 6 del checklist, 13 de 15). Se
+Ventas ya vive sobre la base propia (sección 6 del checklist). Se
 enlaza acá porque el checklist tuvo, durante meses, siete ítems de esta
 sección archivados por error dentro de "## 2. Productos" (líneas 130-177):
 "Ver las facturas ya emitidas", "Cómo paga el cliente", "Emitir
@@ -32,6 +32,12 @@ sus secciones (6 y 7) y recontando.
 
 Queda pendiente, y depende de Hacienda, no de código: emitir electrónicamente
 una factura ya creada. El botón existe y está apagado a propósito.
+
+CORREO CON PDF PROPIO (2026-10-04): [[modulo/correo-facturas]] describe la
+pantalla y las rutas de envío manual de facturas emitidas, desde la cuenta
+del buzón existente. Destinatario confirmado, PDF adjunto y fallos SMTP
+controlados. En la rama aislada se puede revisar el formulario pero no enviar;
+la recepción real se verifica en el ensayo del corte.
 
 SALDO PARA CONSULTA Y CONCILIACIÓN (2026-10-03): las expresiones `COBRADO` y
 `ACREDITADO` viven en `saldo.sql.js`, un archivo puro que no carga la base ni

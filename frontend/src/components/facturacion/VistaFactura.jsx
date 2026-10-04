@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
-  PencilLine, ShieldCheck, Save, X, Trash2, Plus, Search, MessageCircle
+  PencilLine, ShieldCheck, Save, X, Trash2, Plus, Search, MessageCircle, Mail
 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
@@ -65,7 +65,8 @@ const CELDA = 'w-full rounded-lg border border-primario-200 bg-primario-50/40 px
 
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
-  onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onGuardar, onCancelarEdicion, abriendoPdf
+  onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
+  onGuardar, onCancelarEdicion, abriendoPdf
 }) {
   const f = factura
   const emisor = empresa || {}
@@ -233,6 +234,12 @@ export default function VistaFactura({
               {f.estado !== 'anulada' && (
                 <button onClick={() => onEnviar(f)} className="btn btn-outline flex items-center gap-2 text-exito-700">
                   <MessageCircle size={16} /> WhatsApp
+                </button>
+              )}
+
+              {f.estado === 'emitida' && onCorreo && (
+                <button onClick={() => onCorreo(f)} disabled={cargandoCorreo} className="btn btn-outline flex items-center gap-2 disabled:opacity-50">
+                  {cargandoCorreo ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />} Correo
                 </button>
               )}
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Demostración local solicitada por el usuario. Se conserva para que pueda
- * recorrer Reporte de Proveedores; NO se ejecuta al arrancar ni al migrar.
+ * Demostración local solicitada por el usuario, ya retirada tras su revisión.
+ * Solo recrearla ante un nuevo pedido; NO corre al arrancar ni al migrar.
  * Los borradores no consumen series, no representan ventas ni generan deuda.
  * El manifiesto privado permite retirar exclusivamente este conjunto.
  */
@@ -88,6 +88,9 @@ async function retirar(db,m) {
     if(r.rows.length!==ids.length)throw new ErrorDemo('Una ficha de prueba cambió; revisar antes de retirar.');
   }
   await db.query('DELETE FROM faltantes_ajustes WHERE faltante_id IN (SELECT id FROM faltantes WHERE factura_propia_id=ANY($1::int[]))',[facturas]);
+  // La revisión puede mandar un borrador demo a Impresión. Esta fila también
+  // pertenece al conjunto: se retira por su FK propio, sin limpiar la cola.
+  await db.query('DELETE FROM facturas_reimpresion WHERE factura_propia_id=ANY($1::int[])',[facturas]);
   await db.query('DELETE FROM faltantes WHERE factura_propia_id=ANY($1::int[])',[facturas]);
   await db.query('DELETE FROM factura WHERE id=ANY($1::int[])',[facturas]);
   await db.query('DELETE FROM orden_compra_temporal WHERE proveedor_nombre=ANY($1::text[])',[PROVEEDORES.map(p=>p.nombre)]);

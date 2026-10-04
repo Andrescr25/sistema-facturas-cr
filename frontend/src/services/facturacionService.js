@@ -749,6 +749,18 @@ class FacturacionService {
     return response.data?.data ?? null;
   }
 
+  /** Propuesta de correo de la ficha actual, con remitente visible. */
+  async datosCorreoFactura(id) {
+    const response = await api.get(`/facturacion/facturas/${id}/correo`);
+    return response.data?.data ?? null;
+  }
+
+  /** Destinatario confirmado; PDF y remitente resueltos en el servidor. */
+  async enviarFacturaPorCorreo(id, { para, asunto, mensaje }) {
+    const response = await api.post(`/facturacion/facturas/${id}/correo`, { para, asunto, mensaje });
+    return response.data?.data ?? null;
+  }
+
   /** Una nota de crédito contra una factura. */
   async crearNotaCredito(datos) {
     const response = await api.post('/facturacion/notas-credito', datos);
@@ -1298,4 +1310,3 @@ class FacturacionService {
 const facturacionService = new FacturacionService();
 
 export default facturacionService;
-

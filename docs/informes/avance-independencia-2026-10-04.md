@@ -67,11 +67,12 @@ no modifica esos archivos ni reinicia sus procesos.
 
 ## Estado del checklist
 
-Las secciones 0–16 tienen **110 tareas principales marcadas y 33 abiertas**
-(revisado sobre `5a82965`).
+Las secciones 0–16 tienen **112 tareas principales marcadas y 32 abiertas**
+(revisado sobre `5a09601` más el correo con PDF propio de esta entrega).
 Compras (§8) ya quedó completa; el débito completa un tramo de §15 y no
 cierra la conciliación total. Esa cuenta no mide la preparación para
-producción. §§11–14 siguen terminadas.
+producción. Hay además una fila de Hacienda en Pospuesto: **112 marcadas y
+33 abiertas en todo el archivo**. §§11–14 siguen terminadas.
 
 ## Qué sigue pendiente
 
@@ -80,10 +81,11 @@ producción. §§11–14 siguen terminadas.
   diagnóstico de septiembre del [informe anterior](avance-independencia-2026-10-03.md)
   sigue identificado como medición anterior; este trabajo no lo recarga.
 - Retirar la caché restante, la sincronización de productos, los traductores
-  y las rutas antiguas de Facturación/Productos en el orden del checklist.
-  El catálogo antiguo y el envío antiguo de Compras ya se retiraron.
-- Guardar PDF/XML originales, completar correo con PDF y verificar la
-  recepción real de WhatsApp en su entorno autorizado.
+  en el orden del checklist. Facturación/Productos antiguos, el envío antiguo
+  de Compras y el prefijo `/alegra` ya se retiraron.
+- Guardar PDF/XML originales y verificar la recepción real de correo con
+  PDF y WhatsApp en el ensayo autorizado del corte. El flujo de correo ya
+  está implementado, con salidas bloqueadas durante el desarrollo.
 - Hacienda, aceptación electrónica y correcciones de datos se mantienen
   pospuestos con las decisiones existentes; inventario espera el conteo.
 - Ensayar el corte completo y documentar congelamiento y reversa.
@@ -153,18 +155,16 @@ La conciliación completa y el corte continúan abiertos.
 
 ## Demostración de Reporte de Proveedores para el usuario
 
-Solicitada el 2026-10-04 y **conservada en la base local de independencia**
-para que el usuario la abra ahora. Entrar en
-`http://localhost:5174/reportes/proveedores`, buscar `ZZ-DEMO` y abrir
-`ZZ-DEMO Distribuidora Norte [PRUEBA]` (3 productos, 22 unidades) o
-`ZZ-DEMO Ferretería Sur [PRUEBA]` (2 productos, 5 unidades).
+Solicitada el 2026-10-04, revisada y **retirada por pedido explícito del
+usuario**. El ejemplo tuvo dos proveedores `ZZ-DEMO`, cinco productos y
+27 unidades; ya no está en la base compartida.
 
-Hay cinco productos, cinco mapeos por ids propios, cinco faltantes y cinco
-notas de cliente. Dos borradores `ZZ-DEMO-PROV-FACT-1/2`, claramente
+La demostración tuvo cinco productos, cinco mapeos por ids propios, cinco
+faltantes y cinco notas de cliente. Dos borradores `ZZ-DEMO-PROV-FACT-1/2`, claramente
 ficticios, sostienen los FKs que exige el reporte. No tienen serie,
 consecutivo, emisión electrónica, cliente real ni cobro; no cuentan como
 ventas emitidas o deuda. Proveedores sin correo ni teléfono real.
-El usuario puede recorrer notas, cantidades, PDF, agregar productos y
+El usuario pudo recorrer notas, cantidades, PDF, agregar productos y
 reasignar; WhatsApp mantiene el bloqueo de salida de la rama.
 
 Antes de conservarla se verificaron creación, rechazo de duplicados y
@@ -184,9 +184,12 @@ completa nueva ni cambios del frontend.
 
 El script de demostración corre solo a mano y solo en base local con
 salidas bloqueadas. Conserva un manifiesto privado 0600 para la retirada
-puntual cuando el usuario termine, sin limpiar otros datos. **Otros modelos
-deben conservar este conjunto durante la revisión y no refrescar la base
-compartida.** Alcance y comandos en
+puntual. La revisión del usuario dejó una fila de Impresión y quitó una
+línea del borrador: el primer intento se revirtió entero por el FK de la
+cola. Se amplió la retirada para borrar únicamente la impresión de esos
+borradores, por `factura_propia_id`, y luego se completó.
+**Cero restos del manifiesto; nueve tablas anteriores y series iguales.**
+No volver a insertar el conjunto sin un nuevo pedido. Alcance y comandos en
 [el nodo de la demostración](../grafo/modulo/demo-reporte-proveedores.md).
 Evidencia, capturas, PDF y manifiesto fuera de git en
 `/private/tmp/codex-demo-proveedores-20261004`.
@@ -214,3 +217,35 @@ terminó con código 0. No se ejecutó la recarga completa de notas.
 
 Detalle, respaldo e informes privados fuera de git en
 `/private/tmp/codex-debitos-20261004`, archivos modo `0600`.
+
+## Continuación: facturas por correo con PDF propio
+
+Codex tomó el pendiente de §6 en `tmp/codex-correo-factura-20261004`, con
+una copia PostgreSQL desechable. Antes de editar incorporó `0e610c0` y
+`7df1d8f` (idempotencia propia), y `0787492`/`5a09601` de Claude (retirada del
+prefijo `/alegra`). No se tocaron sus rutas de reportes, permisos o servidor.
+
+Ya existe el botón Correo en el detalle de facturas emitidas. Permite
+confirmar un destinatario, asunto y mensaje, con remitente visible y PDF
+propio adjunto. GET/POST de la factura, bajo sesión y permiso Facturación;
+usa el mailer existente y la cuenta del buzón elegida por el usuario. No
+permite borradores/anuladas ni destinatarios ambiguos, controla los errores
+SMTP y confirma aceptación del servidor, sin afirmar recepción. Los envíos
+inciertos no se reintentan solos. No hay cambios de esquema ni datos de negocio.
+
+Las salidas siguen bloqueadas: API 423 y botón Enviar deshabilitado en esta
+copia. La recepción real con esa cuenta queda para el ensayo de corte de
+§15. Contrato, pruebas y siguiente verificación en
+[el nodo de correo](../grafo/modulo/correo-facturas.md).
+
+Verificación dirigida: 14 pruebas aprobadas, incluido el caso de retirada
+con impresión pendiente, con PostgreSQL desechable y ROLLBACK. Compilación
+de frontend aprobada. Chromium real a 1440/700 px: API exige sesión (401),
+permiso Facturación (403) y conserva aislamiento (423); modal bloqueado,
+aceptación/rechazo simulados, cierre bloqueado mientras envía y cero
+errores JavaScript. Ningún correo real. Evidencia privada en
+`/private/tmp/codex-correo-factura-20261004`.
+
+Suite completa con `PROBAR_BASE_LOCAL=1` contra la copia desechable:
+**1.804 pruebas aprobadas, cero fallos y cero omitidas**. No se ejecutó
+limpieza semanal ni se cambiaron datos de producción.

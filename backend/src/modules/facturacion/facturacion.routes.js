@@ -29,6 +29,9 @@ router.get('/facturas/:id/pdf', facturaPropia.pdf);
 // cédula y la dirección del cliente.
 router.get('/facturas/:id/telefonos', facturaPropia.telefonos);
 router.post('/facturas/:id/whatsapp', facturaPropia.whatsapp);
+// El correo confirma un destinatario y adjunta el mismo PDF propio.
+router.get('/facturas/:id/correo', facturaPropia.datosCorreo);
+router.post('/facturas/:id/correo', facturaPropia.correo);
 router.post('/facturas', facturaPropia.crear);
 router.put('/facturas/:id', facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un

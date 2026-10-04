@@ -10,6 +10,7 @@ const servicio = require('./facturaPropia.service');
 const consulta = require('./facturaConsulta.service');
 const { generarPdfFactura } = require('./factura.pdf');
 const envio = require('./facturaEnvio.service');
+const correoFactura = require('./facturaCorreo.service');
 const { ofertasVigentes } = require('./ofertas.service');
 const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.service');
 const { pool } = require('../../../config/database');
@@ -21,7 +22,29 @@ function fallo(res, error, contexto) {
   res.status(s).json({ success: false, message: error.message, error: error.message });
 }
 
+function falloCorreo(res, error) {
+  const status = error.status || 500;
+  const publico = ['CORREO_NO_CONFIGURADO', 'CORREO_INCIERTO', 'CORREO_RECHAZADO'].includes(error.code);
+  // No registrar errores SMTP crudos: pueden llevar autenticación.
+  const message = status < 500 || publico ? error.message : 'No se pudo preparar el correo de la factura.';
+  res.status(status).json({ success: false, message, error: message });
+}
+
 module.exports = {
+  /** GET /facturacion/facturas/:id/correo — propuesta revisable antes de enviar. */
+  datosCorreo: async (req, res) => {
+    try {
+      res.json({ success: true, data: await correoFactura.datosCorreoFactura(req.params.id) });
+    } catch (error) { falloCorreo(res, error); }
+  },
+
+  /** POST /facturacion/facturas/:id/correo — envío manual, sin reintentos. */
+  correo: async (req, res) => {
+    try {
+      const data = await correoFactura.enviarFacturaPorCorreo(req.params.id, req.body || {});
+      res.json({ success: true, data, message: 'Correo aceptado por el servidor de envío.' });
+    } catch (error) { falloCorreo(res, error); }
+  },
   /**
    * GET /facturacion/facturas — buscar en la base propia, sin Alegra.
    *

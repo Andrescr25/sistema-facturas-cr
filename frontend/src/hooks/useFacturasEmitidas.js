@@ -47,6 +47,8 @@ export function useFacturasEmitidas({ activa }) {
   // Para mandarle la factura al cliente: los números se PIDEN al abrir el
   // modal, no se adivinan de la copia guardada en la factura.
   const [enviando, setEnviando] = useState(null)
+  const [correoAbierto, setCorreoAbierto] = useState(null)
+  const [cargandoCorreo, setCargandoCorreo] = useState(false)
 
   const [abriendoPdf, setAbriendoPdf] = useState(null)
   const [mensaje, setMensaje] = useState('')
@@ -60,6 +62,13 @@ export function useFacturasEmitidas({ activa }) {
   // última, que no tiene por qué ser la del texto completo.
   const temporizador = useRef(null)
   const peticion = useRef(0)
+  const peticionCorreo = useRef(0)
+
+  const cerrarCorreo = () => {
+    peticionCorreo.current++
+    setCorreoAbierto(null)
+    setCargandoCorreo(false)
+  }
 
   const cargar = useCallback(async () => {
     const mia = ++peticion.current
@@ -102,6 +111,7 @@ export function useFacturasEmitidas({ activa }) {
   // Entrar a la factura, no desplegarla: con veinte líneas, un desplegable
   // empuja el resto de la lista fuera de la pantalla.
   const abrirDetalle = async (id) => {
+    cerrarCorreo()
     setDetalleId(id)
     setDetalle(null)
     setCargandoDetalle(true)
@@ -161,6 +171,27 @@ export function useFacturasEmitidas({ activa }) {
     }
   }
 
+  const abrirCorreo = async (factura) => {
+    const mia = ++peticionCorreo.current
+    setError('')
+    setMensaje('')
+    setCargandoCorreo(true)
+    try {
+      const datos = await facturacionService.datosCorreoFactura(factura.id)
+      if (mia !== peticionCorreo.current) return
+      setCorreoAbierto({ ...datos, facturaId: factura.id })
+    } catch (e) {
+      if (mia !== peticionCorreo.current) return
+      setError(e.response?.data?.message || 'No se pudo preparar el correo de la factura.')
+    } finally { if (mia === peticionCorreo.current) setCargandoCorreo(false) }
+  }
+
+  const enviarPorCorreo = async (datos) => {
+    const r = await facturacionService.enviarFacturaPorCorreo(correoAbierto.facturaId, datos)
+    setMensaje('Correo aceptado por el servidor de envío.')
+    return r
+  }
+
   const anular = async (id, motivo) => {
     await facturacionService.anularFacturaEmitida(id, motivo)
     setMensaje('Factura anulada. Conserva su número.')
@@ -188,11 +219,12 @@ export function useFacturasEmitidas({ activa }) {
     facturas, paginacion, cargando, error, setError,
     empresa,
     detalleId, detalle, cargandoDetalle, abrirDetalle,
-    volver: () => { setDetalleId(null); setDetalle(null); setEditando(false) },
+    volver: () => { cerrarCorreo(); setDetalleId(null); setDetalle(null); setEditando(false) },
     editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion,
     productos, clientes,
     abriendoPdf, verPdf, anular, crearNota,
     enviando, abrirEnvio, cerrarEnvio: () => setEnviando(null), enviarPorWhatsApp,
+    correoAbierto, cargandoCorreo, abrirCorreo, cerrarCorreo, enviarPorCorreo,
     mensaje, setMensaje,
     recargar: cargar
   }
