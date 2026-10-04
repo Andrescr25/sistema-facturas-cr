@@ -485,19 +485,6 @@ export const alegraService = {
     }
   },
 
-  // Obtener historial de procesamientos
-  async getHistorialProcesos() {
-    try {
-      console.log('📚 Frontend: Obteniendo historial de procesamientos');
-      const response = await api.get('/alegra/reimpresion/historial')
-      console.log('✅ Frontend: Historial obtenido:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error obteniendo historial:', error);
-      throw new Error(`Error obteniendo historial: ${error.message}`)
-    }
-  },
-
   // Registrar faltantes de una factura
   async registrarFaltantes(facturaId, faltantes, registradoPor = 'Usuario', observacionesAdicionales = '') {
     try {
@@ -512,19 +499,6 @@ export const alegraService = {
     } catch (error) {
       console.error('❌ Frontend: Error registrando faltantes:', error);
       throw new Error(`Error registrando faltantes: ${error.message}`)
-    }
-  },
-
-  // Limpiar historial de procesamientos
-  async limpiarHistorial() {
-    try {
-      console.log('🗑️ Frontend: Limpiando historial de procesamientos');
-      const response = await api.delete('/alegra/reimpresion/historial')
-      console.log('✅ Frontend: Historial limpiado:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error limpiando historial:', error);
-      throw new Error(`Error limpiando historial: ${error.message}`)
     }
   },
 

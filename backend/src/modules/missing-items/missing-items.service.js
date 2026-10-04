@@ -40,26 +40,6 @@ async function deleteAdjustment(faltanteId) {
 }
 
 /**
- * Limpia los faltantes de proveedor de la base de datos
- */
-async function cleanProviderMissingItems() {
-  // Contar faltantes antes de eliminar
-  const countResult = await query('SELECT COUNT(*) FROM faltantes');
-  const totalAntes = parseInt(countResult.rows[0].count);
-
-  // Eliminar todos los faltantes
-  await query('DELETE FROM faltantes');
-
-  console.log(`✅ Faltantes limpiados: ${totalAntes} registros eliminados`);
-
-  return {
-    success: true,
-    message: 'Faltantes limpiados correctamente',
-    registros_eliminados: totalAntes
-  };
-}
-
-/**
  * Obtiene diagnóstico de un producto por su referencia de Alegra
  */
 async function getDiagnostic(alegraReference) {
@@ -225,7 +205,6 @@ async function assignSupplierManual({ alegraReference, alegraItemId, alegraName,
 module.exports = {
   saveAdjustment,
   deleteAdjustment,
-  cleanProviderMissingItems,
   getDiagnostic,
   assignSupplierManual
 };

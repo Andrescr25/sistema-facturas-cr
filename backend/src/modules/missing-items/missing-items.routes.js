@@ -12,7 +12,11 @@ router.post('/ajustes', missingItemsController.saveAdjustment);
 router.delete('/ajustes/:faltanteId', missingItemsController.deleteAdjustment);
 
 // Limpieza
-router.delete('/proveedor/limpiar', missingItemsController.cleanProviderMissingItems);
+// `DELETE /proveedor/limpiar` se retiró el 2026-10-04. Borraba TODOS los
+// faltantes (`DELETE FROM faltantes`, sin filtro), no tenía pantalla —el botón
+// de Configuración llama a `/reportes/faltantes/proveedor/limpiar`, que borra
+// solo lo ya procesado— y por `/alegra/faltantes` la alcanzaba cualquiera con
+// sesión.
 
 // Diagnóstico
 router.get('/diagnostico/:alegraReference', missingItemsController.getDiagnostic);
