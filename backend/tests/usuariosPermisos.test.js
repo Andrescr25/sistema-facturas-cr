@@ -224,6 +224,43 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     assert.match(r.cuerpo.error, /administrador/);
   });
 
+  test('cambiar mayúsculas en la dirección NO salta el permiso', async () => {
+    // Express no distingue mayúsculas; el guardián sí lo hacía. Medido el
+    // 2026-10-03: /api/usuarios daba 403 y /api/Usuarios daba 200.
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    for (const ruta of ['/Usuarios', '/USUARIOS/', '/usuarios/', '/Usuarios/4/password']) {
+      const r = await correr(middleware, { ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.match(r.cuerpo.error, /administrador/);
+    }
+    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Alegra/Catalog/productos']) {
+      const r = await correr(middleware, { ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.equal(r.cuerpo.code, 'SIN_PERMISO');
+    }
+  });
+
+  test('y una cuenta desactivada tampoco pasa cambiando mayúsculas', async () => {
+    // Con el token todavía vigente llegaba hasta el módulo: el guardián ni
+    // siquiera miraba si la cuenta seguía activa.
+    const { middleware } = cargarConDobles({ 'FROM usuario WHERE id': [USUARIO({ activo: false })] });
+    const r = await correr(middleware, { ruta: '/Rentabilidad/resumen', usuario: { id: 4 } });
+    assert.equal(r.codigo, 401);
+  });
+
+  test('el módulo que sí tiene sigue entrando, escrito como sea', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'rentabilidad' }]
+    });
+    for (const ruta of ['/rentabilidad/resumen', '/Rentabilidad/resumen/']) {
+      assert.equal((await correr(middleware, { ruta, usuario: { id: 4 } })).bloqueado, false, `${ruta} quedó bloqueada`);
+    }
+  });
+
   test('una cuenta desactivada recibe 401 aunque su token siga vigente', async () => {
     // Es lo que evita que alguien despedido siga trabajando las 12 horas que
     // le quedan de token.
