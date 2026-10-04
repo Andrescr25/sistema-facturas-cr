@@ -27,6 +27,7 @@ toca, qué no se regenera).
 - [Excel de los reportes propios — filtros y descarga sin modificar datos](modulo/exportaciones-reportes.md)
 - [Conciliación de ventas — diferencias con Alegra por mes, documento y línea](modulo/conciliacion-ventas.md)
 - [Conciliación de cobros — destino de cada recibo y saldo actual de las facturas](modulo/conciliacion-cobros.md)
+- [Conciliación de compras — vínculos históricos y candidatos sin confirmar](modulo/conciliacion-compras.md)
 - [Conciliación de notas — aplicaciones a facturas y débitos históricos](modulo/conciliacion-notas-credito.md)
 - [Débitos históricos — el documento original y su vínculo de crédito propio](modulo/historico-debitos-ingreso.md)
 

@@ -21,10 +21,12 @@ const path = require('path');
 
 const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
 const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'productos', 'taxonomia.service.js');
+// El helper nuevo conserva la conexión al importarse. Hay que retirarlo de
+// la caché también: si queda el doble de la prueba anterior, la verificación
+// con PostgreSQL "crea" una subcategoría sin id en vez de ejecutar su INSERT.
 const CADENA = [rutaDb, rutaServicio,
   path.join(__dirname, '..', 'src', 'modules', 'productos', 'productos.service.js'),
-  path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'subcategorias.service.js'),
-  path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'categorias.service.js')];
+  path.join(__dirname, '..', 'src', 'modules', 'productos', 'taxonomiaTablas.js')];
 
 function montar(responder) {
   const log = [];

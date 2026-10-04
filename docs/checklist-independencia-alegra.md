@@ -791,6 +791,20 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   [Carga y alcance del archivo de débito](grafo/modulo/historico-debitos-ingreso.md).
   La aplicación local de la 040 se hizo con respaldo; la carga puntual
   conservó las huellas de facturas, pagos, créditos existentes y series.
+  **Compras, continuación 2026-10-04:** `conciliar-compras.js` audita
+  encabezados, total del comprobante, líneas e impuestos agregados. Solo
+  GET y PostgreSQL READ ONLY; no confundir con `reconciliar-compras.js`,
+  que escribe desde XML. Usa el id explícito del buzón; la pareja
+  proveedor+número solo propone candidatos sin confirmarlos. Medición real
+  2025-07-01 a 2026-10-04: **1.052 bills y 860 compras propias**, ninguna
+  con vínculo histórico guardado; **745 candidatos únicos y 89 grupos
+  ambiguos**, sin certificar documentos. Los únicos presentan diferencias
+  de vencimiento, total, impuesto o moneda; no corregir datos para igualar
+  Alegra. **31 bills con impuesto no informado** aun consultando su ficha
+  dejan ese importe mensual desconocido. Código 2; huellas de 14 tablas y
+  secuencias idénticas sobre copia desechable, sin cambios en la compartida.
+  Ver [el nodo de compras](grafo/modulo/conciliacion-compras.md) y
+  [el informe de avance](informes/avance-independencia-2026-10-04.md).
   **No cierra esta fila:** faltan compras, existencias, otros períodos,
   alcance restante del débito y resolver discrepancias antes del corte.
   **Medición de septiembre, 2026-10-03:** 69 facturas coinciden y faltan 119

@@ -58,8 +58,9 @@ LO QUE SE REUTILIZA SIN COPIAR
 
 `subcategoria` y `categoria_config` son tablas locales en las dos ramas,
 colgadas del NOMBRE de la categoría. Crear, renombrar y ordenar
-subcategorías, y el orden y el nombre visible de las categorías, usan los
-servicios de `catalogo/` tal cual. Renombrar una categoría DE VERDAD (pestaña
+subcategorías, y el orden y el nombre visible de las categorías, usan
+`productos/taxonomiaTablas.js`, extraído del catálogo antiguo al retirarlo.
+Renombrar una categoría DE VERDAD (pestaña
 Categorías) arrastra ese nombre en las dos tablas
 (`productos.service.editarCategoria`).
 
@@ -69,6 +70,12 @@ Mover una subcategoría falló la primera vez con "inconsistent types deduced
 for parameter $2": el mismo parámetro en el SET y en una subconsulta. Los
 dobles no lo ven; por eso `taxonomiaCatalogo.test.js` tiene pruebas contra la
 base local (`PROBAR_BASE_LOCAL=1`) que revierten todo al terminar.
+
+Al integrar el retiro de `catalogo/` (2026-10-04), esa prueba aún limpiaba
+los dos módulos borrados en vez de `taxonomiaTablas.js`. El helper nuevo
+conservaba la conexión falsa de un caso anterior y la prueba real fallaba
+con un id inexistente. Se limpia la dependencia actual antes de cada caso
+y al montar PostgreSQL; no se cambió el servicio para ocultar ese fallo.
 
 ## Agregar una marca: el código que sigue se cuenta en el maestro
 
@@ -104,4 +111,3 @@ redirección hacia la red interna; antes se bajaba con axios a secas.
 
 Con esto el catálogo del agente dejó de pedirle las categorías a Alegra en
 vivo: ver [[tabla/categoria-config]].
-

@@ -8,7 +8,7 @@ archivos:
   - backend/scripts/independencia/lib/conciliacion-ventas.js
   - backend/tests/conciliacionVentas.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/conciliacion-compras, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-10-03
 ---
@@ -26,6 +26,9 @@ aplicaciones de notas; el destino a débito de ingreso encontrado quedó
 representado por [[modulo/historico-debitos-ingreso]] desde la 040 (2026-10-04).
 Usar los tres; compras, existencias y
 resolución de diferencias siguen pendientes.
+Desde 2026-10-04, [[modulo/conciliacion-compras]] añade la auditoría de
+encabezados/importes agregados y los candidatos de compras sin vínculo
+histórico. No certifica su detalle completo ni cierra la conciliación total.
 
 Desde `backend`, en la rama aislada:
 
