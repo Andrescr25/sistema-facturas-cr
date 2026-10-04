@@ -5,10 +5,20 @@ import { useModal } from '../../hooks/useModal'
 import api from '../../services/api'
 
 /**
- * Formulario completo para crear un producto nuevo en Alegra a partir de un
- * producto del proveedor, con detección de medicamento (CABYS/categoría) y
- * los campos obligatorios de forma farmacéutica/registro sanitario.
+ * Formulario completo para crear un producto nuevo a partir de una línea del
+ * proveedor, con detección de medicamento (CABYS/categoría) y los campos
+ * obligatorios de forma farmacéutica/registro sanitario.
  * Extraído de RelacionarProductos.jsx.
+ *
+ * EL PRODUCTO SE CREA EN EL MAESTRO PROPIO (antes, en Alegra). Tres cosas
+ * cambiaron con eso:
+ *  · el IMPUESTO se elige: viene propuesto el que calza con el IVA de la
+ *    línea, pero un producto sin impuesto no se puede facturar, así que no
+ *    queda librado a una detección;
+ *  · no hay "Cantidad inicial": era el inventario inicial en Alegra y el
+ *    inventario propio todavía no existe;
+ *  · las unidades son las abreviaturas de Hacienda (Unid, m, kg…), que es
+ *    como las guarda el maestro.
  *
  * EL PRECIO DE VENTA NO SE PRELLENA CON EL COSTO
  * Los dos campos —precio y costo— venían con el mismo número: el
@@ -22,15 +32,23 @@ import api from '../../services/api'
  * sea que aceptar el prellenado creaba un producto que se vende POR DEBAJO
  * del costo.
  *
- * Ahora los dos salen del servidor: el costo con la misma fórmula que escribe
- * inventory.unitCost en Alegra, y el precio del motor de precios (margen real
- * por categoría). Se recalculan al cambiar de categoría, porque el margen
- * meta depende de ella. Si el motor no tiene una sugerencia confiable el
- * campo queda vacío y hay que escribirlo: mejor eso que inventar un número.
+ * Ahora los dos salen del servidor: el costo con la misma fórmula del resto
+ * del sistema, y el precio del motor de precios (margen real por categoría).
+ * Se recalculan al cambiar de categoría, porque el margen meta depende de
+ * ella. Si el motor no tiene una sugerencia confiable el campo queda vacío y
+ * hay que escribirlo: mejor eso que inventar un número.
+ *
+ * AL MOTOR SE LE MANDA EL NOMBRE DE LA CATEGORÍA, que es como está llaveada
+ * la configuración de márgenes. Se le mandaba el id del desplegable: nunca
+ * calzaba, y la sugerencia salía siempre con el margen por defecto (25 %)
+ * aunque Librería pida 29,2 % y Productos para perro 20 %.
  */
 export default function ModalCrearProducto({
   productoSeleccionado,
   categorias,
+  impuestos = [],
+  impuestoSugerido = null,
+  porcentajeDeLaLinea = null,
   categoriaSeleccionada,
   onCategoriaChange,
   codigoCabys,
@@ -52,29 +70,28 @@ export default function ModalCrearProducto({
   useModal(onCerrar)
   // Si el proveedor factura este producto en una unidad distinta a como se
   // vende (ej: factura 25 sueltos, se vende como 1 paquete de 25), declarar
-  // el factor acá mismo — evita que "Cantidad Inicial" se mande a Alegra en
-  // la unidad equivocada, y lo guarda para que las próximas facturas de este
+  // el factor acá mismo: se guarda para que las próximas facturas de este
   // proveedor ya vengan convertidas solas.
   // El costo real y el precio sugerido los calcula el servidor; hasta que
   // lleguen, los campos quedan vacíos en vez de mostrar un número provisional
   // que alguien podría aceptar sin mirar.
   const [sugerencia, setSugerencia] = useState(null)
   const [cargandoSugerencia, setCargandoSugerencia] = useState(true)
+  const nombreDeCategoria = categorias.find(c => String(c.id) === String(categoriaSeleccionada))?.nombre || ''
 
   useEffect(() => {
     let vivo = true
     setCargandoSugerencia(true)
     api.get(`/productos-revision/${productoSeleccionado.id}/precio-sugerido`, {
-      params: { categoria: categoriaSeleccionada?.nombre || categoriaSeleccionada || '' }
+      params: { categoria: nombreDeCategoria }
     })
       .then(r => { if (vivo) setSugerencia(r.data?.data || null) })
       .catch(() => { if (vivo) setSugerencia(null) })
       .finally(() => { if (vivo) setCargandoSugerencia(false) })
     return () => { vivo = false }
-  }, [productoSeleccionado.id, categoriaSeleccionada])
+  }, [productoSeleccionado.id, nombreDeCategoria])
 
   const cantidadProveedor = parseFloat(productoSeleccionado.cantidad) || 0
-  const [cantidadInicial, setCantidadInicial] = useState(cantidadProveedor || 0)
   const [mostrarFactor, setMostrarFactor] = useState(false)
   const [cantidadPropia, setCantidadPropia] = useState('')
 
@@ -82,11 +99,7 @@ export default function ModalCrearProducto({
     ? parseFloat(cantidadPropia) / cantidadProveedor
     : null
 
-  const handleCantidadPropiaChange = (e) => {
-    const val = e.target.value
-    setCantidadPropia(val)
-    if (val !== '') setCantidadInicial(val)
-  }
+  const handleCantidadPropiaChange = (e) => setCantidadPropia(e.target.value)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -95,7 +108,7 @@ export default function ModalCrearProducto({
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-neutro-900 flex items-center">
               <Plus className="mr-2 text-exito-600" size={24} />
-              Crear Producto Nuevo en Alegra
+              Crear producto nuevo
             </h3>
             <button
               onClick={onCerrar}
@@ -151,17 +164,16 @@ export default function ModalCrearProducto({
                   name="nombre"
                   defaultValue={productoSeleccionado.descripcion}
                   required
-                  maxLength="150"
+                  maxLength="250"
                   className="input"
-                  placeholder="Nombre que aparecerá en Alegra"
+                  placeholder="Nombre con el que se va a vender"
                 />
-                <p className="text-xs text-neutro-500 mt-1">Máximo 150 caracteres</p>
               </div>
 
               {/* La descripción se quitó del formulario: venía precargada con
-                  el mismo texto que el nombre y el backend ya cae al nombre
-                  cuando no llega (productos-revision.service.js:723), así que
-                  solo agregaba un campo que había que saltarse. */}
+                  el mismo texto que el nombre, así que solo agregaba un campo
+                  que había que saltarse. Sin ella, el producto queda sin
+                  descripción (no se le copia el nombre). */}
 
               {/* Referencia y Unidad */}
               <div className="grid grid-cols-2 gap-3">
@@ -174,19 +186,20 @@ export default function ModalCrearProducto({
                     className="input"
                     placeholder="Código interno"
                   />
+                  <p className="text-xs text-neutro-500 mt-1">No se puede repetir. Vacía, queda sin referencia.</p>
                 </div>
 
                 <div>
                   <label className="label">Unidad</label>
-                  <select name="unidad" className="input" defaultValue="unit">
-                    <option value="unit">Unidad</option>
-                    <option value="meter">Metro</option>
-                    <option value="kilogram">Kilogramo</option>
-                    <option value="gram">Gramo</option>
-                    <option value="liter">Litro</option>
-                    <option value="hour">Hora</option>
-                    <option value="day">Día</option>
-                    <option value="service">Servicio</option>
+                  <select name="unidad" className="input" defaultValue="Unid">
+                    <option value="Unid">Unidad</option>
+                    <option value="m">Metro</option>
+                    <option value="kg">Kilogramo</option>
+                    <option value="g">Gramo</option>
+                    <option value="L">Litro</option>
+                    <option value="h">Hora</option>
+                    <option value="d">Día</option>
+                    <option value="Os">Servicio</option>
                   </select>
                 </div>
               </div>
@@ -201,7 +214,7 @@ export default function ModalCrearProducto({
                     </select>
                     <p className="text-xs text-peligro-600 mt-1 flex items-center">
                       <AlertCircle size={12} className="mr-1" />
-                      No hay categorías. Ve a Alegra → Configuración → Categorías de Productos para crear una.
+                      No hay categorías. Se crean en Gestión de Catálogo.
                     </p>
                   </>
                 ) : (
@@ -216,13 +229,37 @@ export default function ModalCrearProducto({
                       <option value="">Selecciona una categoría</option>
                       {categorias.map(cat => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.name} {cat.description && `- ${cat.description}`}
+                          {cat.nombre}
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-neutro-500 mt-1">Categoría del producto en Alegra</p>
                   </>
                 )}
+              </div>
+
+              {/* Impuesto. El `key` hace que el propuesto se pinte cuando llega:
+                  React no repinta un defaultValue. */}
+              <div>
+                <label className="label">Impuesto *</label>
+                <select
+                  name="impuestoId"
+                  className="input"
+                  key={`impuesto-${impuestoSugerido?.id ?? 'vacio'}`}
+                  defaultValue={impuestoSugerido ? String(impuestoSugerido.id) : ''}
+                  required
+                >
+                  <option value="" disabled>Elegir…</option>
+                  {impuestos.map(i => (
+                    <option key={i.id} value={i.id}>{i.nombre}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-neutro-500 mt-1">
+                  {porcentajeDeLaLinea === null
+                    ? 'Con este impuesto se va a vender.'
+                    : impuestoSugerido
+                      ? `La línea del proveedor trae ${porcentajeDeLaLinea} % de IVA.`
+                      : `La línea del proveedor trae ${porcentajeDeLaLinea} % de IVA, que no calza con ninguna tarifa: hay que elegirlo.`}
+                </p>
               </div>
             </div>
 
@@ -280,22 +317,6 @@ export default function ModalCrearProducto({
                 </div>
               </div>
 
-              {/* Cantidad inicial */}
-              <div>
-                <label className="label">Cantidad Inicial (opcional)</label>
-                <input
-                  type="number"
-                  name="cantidadInicial"
-                  value={cantidadInicial}
-                  onChange={(e) => setCantidadInicial(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  className="input"
-                  placeholder="0"
-                />
-                <p className="text-xs text-neutro-500 mt-1">Inventario inicial en Alegra</p>
-              </div>
-
               {/* Factor de conversión */}
               <div className="bg-alerta-50 border border-alerta-200 rounded-lg p-3">
                 <label className="flex items-center cursor-pointer text-sm font-semibold text-alerta-900">
@@ -351,6 +372,9 @@ export default function ModalCrearProducto({
                   onChange={onCabysChange}
                   required
                   maxLength="13"
+                  pattern="[0-9]{13}"
+                  title="El CABYS tiene 13 dígitos"
+                  inputMode="numeric"
                   className="input border-nota-300 bg-white font-mono"
                   placeholder="Ej: 2413900000100"
                 />
@@ -496,7 +520,7 @@ export default function ModalCrearProducto({
               <AlertCircle className="text-primario-600 mr-3 flex-shrink-0 mt-0.5" size={20} />
               <div className="text-sm text-primario-800">
                 <p className="font-semibold mb-1">💡 Tip:</p>
-                <p>Los datos se han pre-cargado desde el producto del proveedor. Puedes editarlos antes de crear el producto en Alegra. El producto se creará y se relacionará automáticamente con esta factura.</p>
+                <p>Los datos se han pre-cargado desde el producto del proveedor. Puedes editarlos antes de crearlo. El producto se creará en el catálogo y se relacionará automáticamente con esta factura.</p>
               </div>
             </div>
           </div>
@@ -509,7 +533,7 @@ export default function ModalCrearProducto({
               disabled={categorias.length === 0}
             >
               <Plus size={20} className="mr-2" />
-              Crear Producto en Alegra
+              Crear producto
             </button>
             <button
               type="button"
@@ -521,7 +545,7 @@ export default function ModalCrearProducto({
           </div>
           {categorias.length === 0 && (
             <p className="text-center text-sm text-peligro-600 mt-3">
-              ⚠️ Debes tener al menos una categoría en Alegra para crear productos
+              ⚠️ Hace falta al menos una categoría para crear productos
             </p>
           )}
         </form>

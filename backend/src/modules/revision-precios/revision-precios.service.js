@@ -6,7 +6,7 @@
 
 const prisma = require('../../../lib/prisma');
 const { ligarIdsPropios } = require('../productos-revision/idsPropiosDelMapeo');
-const { ligarProductoDeLineas } = require('../productos-revision/relacionPropia');
+const { ligarProductoDeLineas, recalcularAvance } = require('../productos-revision/relacionPropia');
 const { SQL_ROTACION_PRECIOS } = require('../ventas/rotacion');
 const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
@@ -341,6 +341,7 @@ async function confirmarProducto({ productoId, alegraItemId, confianza }) {
   // Esta confirmación todavía llega con el id de Alegra: la línea queda
   // además con su producto propio (migración 038).
   await ligarProductoDeLineas([productoId]);
+  await recalcularAvance([productoId]).catch(e => console.warn('⚠️ No se pudo recontar el avance de la factura:', e.message));
 
   // El costo de esta compra queda disponible de inmediato para el tablero de
   // rentabilidad y el motor de precios, sin esperar a un backfill manual.
@@ -375,6 +376,7 @@ async function rechazarProducto(productoId) {
     }
   });
   await ligarProductoDeLineas([productoId]);
+  await recalcularAvance([productoId]).catch(e => console.warn('⚠️ No se pudo recontar el avance de la factura:', e.message));
 
   return { message: 'Producto rechazado exitosamente' };
 }

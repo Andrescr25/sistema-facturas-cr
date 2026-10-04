@@ -22,10 +22,12 @@ const assert = require('node:assert/strict');
  * LO QUE ESE DOBLE NO VEÍA, y costó un 500 en el navegador: el Prisma de
  * verdad valida tipos. El cliente generado declara `alegraItemId` del mapeo
  * obligatorio, así que una fila con NULL revienta cada lectura. Por eso el
- * doble de acá lo imita (falla con NULL, igual que el P2032) y hay un bloque
- * aparte que amarra las tres cosas: lo que exige el cliente, lo que permite
- * la columna y lo que escribe el código.
+ * doble (tests/dobles/buzonEnTransaccion.js) lo imita —falla con NULL, igual
+ * que el P2032— y hay un bloque aparte que amarra las tres cosas: lo que
+ * exige el cliente, lo que permite la columna y lo que escribe el código.
  */
+
+const { baseEnTransaccion, prismaDelBuzon } = require('./dobles/buzonEnTransaccion');
 
 const rutaDb = require.resolve('../config/database');
 const rutaPrisma = require.resolve('../lib/prisma');
@@ -41,70 +43,6 @@ describe('la relación de compra por producto propio — contra PostgreSQL local
   let conAlegra, sinAlegra, proveedorId, facturaId, lineaA1, lineaA2, lineaB, mapeoA;
 
   const CEDULA = 'zz-3101-relacion';
-
-  const comoLinea = (f) => ({
-    id: f.id, facturaId: f.factura_id, numeroLinea: f.numero_linea,
-    codigoProveedor: f.codigo_proveedor, descripcion: f.descripcion,
-    cantidad: Number(f.cantidad), precioUnitario: Number(f.precio_unitario),
-    descuento: Number(f.descuento || 0), impuesto: Number(f.impuesto || 0), totalLinea: Number(f.total_linea),
-    alegraItemId: f.alegra_item_id, estadoRelacionado: f.estado_relacionado, mapeoId: f.mapeo_id,
-    factura: { id: f.factura_id, fechaEmision: f.fecha_emision, proveedorNombre: f.proveedor_nombre, proveedorCedula: f.proveedor_cedula },
-    mapeo: f.mapeo_id ? leerMapeoDeLinea(f) : null
-  });
-  // Abrir una factura trae el mapeo de cada línea (`include: { mapeo: true }`).
-  const leerMapeoDeLinea = (f) => {
-    if (f.mapeo_alegra_item_id === null) throw new Error('Prisma no puede leer un mapeo con alegra_item_id NULL');
-    return { id: f.mapeo_id, factorConversion: f.factor_conversion, alegraItemId: f.mapeo_alegra_item_id };
-  };
-  const lineas = async (filtro, params) => (await conexion.query(`
-    SELECT l.*, f.fecha_emision, f.proveedor_nombre, f.proveedor_cedula, m.factor_conversion,
-           m.alegra_item_id AS mapeo_alegra_item_id
-      FROM productos_factura_proveedor l
-      JOIN facturas_proveedores f ON f.id = l.factura_id
-      LEFT JOIN supplier_product_mapping m ON m.id = l.mapeo_id
-     WHERE ${filtro} ORDER BY l.numero_linea`, params)).rows.map(comoLinea);
-  // Igual que el cliente de verdad (P2032): estos dos no pueden venir en NULL.
-  const comoMapeoPrisma = (m) => {
-    if (!m) return m;
-    for (const campo of ['alegra_item_id', 'alegra_name']) {
-      if (m[campo] === null) throw new Error(`Prisma no puede leer un mapeo con ${campo} NULL`);
-    }
-    return comoMapeoPrismaSinValidar(m);
-  };
-  const comoMapeoPrismaSinValidar = (m) => ({
-    id: m.id, supplierName: m.supplier_name, supplierCedula: m.supplier_cedula, supplierCode: m.supplier_code,
-    supplierDesc: m.supplier_desc, alegraItemId: m.alegra_item_id, alegraReference: m.alegra_reference,
-    alegraName: m.alegra_name, confidence: Number(m.confidence), timesUsed: m.times_used,
-    origen: m.origen, factorConversion: m.factor_conversion, lastUsedDate: m.last_used_date
-  });
-  const mapeos = async (filtro, params) => (await conexion.query(
-    `SELECT * FROM supplier_product_mapping WHERE ${filtro}`, params)).rows.map(comoMapeoPrisma);
-
-  const prismaDoble = {
-    productoFactura: {
-      findUnique: async ({ where }) => (await lineas('l.id = $1', [where.id]))[0] || null,
-      findMany: async ({ where }) => {
-        if (where.id?.in) return lineas('l.id = ANY($1::uuid[])', [where.id.in]);
-        if (where.mapeoId) return lineas('l.mapeo_id = $1', [where.mapeoId]);
-        return lineas('l.factura_id = $1', [where.facturaId]);
-      },
-      count: async ({ where }) => (await lineas('l.factura_id = $1', [where.facturaId]))
-        .filter(l => !where.estadoRelacionado || l.estadoRelacionado === where.estadoRelacionado).length
-    },
-    factura: {
-      findUnique: async ({ where }) => ({ id: where.id, productos: await lineas('l.factura_id = $1', [where.id]) }),
-      update: async ({ where, data }) => conexion.query(
-        'UPDATE facturas_proveedores SET porcentaje_relacionado = $2 WHERE id = $1', [where.id, data.porcentajeRelacionado])
-    },
-    supplierProductMapping: {
-      findUnique: async ({ where }) => (where.id
-        ? await mapeos('id = $1', [where.id])
-        : await mapeos('supplier_cedula = $1 AND supplier_code = $2',
-          [where.supplierCedula_supplierCode.supplierCedula, where.supplierCedula_supplierCode.supplierCode]))[0] || null,
-      findMany: async ({ where }) => (await mapeos('id = ANY($1::uuid[])', [where.id.in])).map(m => ({ ...m, productos: [] })),
-      delete: async ({ where }) => conexion.query('DELETE FROM supplier_product_mapping WHERE id = $1', [where.id])
-    }
-  };
 
   /** La línea como quedó en la base, con lo que la relación escribe. */
   const enLaBase = async (lineaId) => (await conexion.query(`
@@ -125,8 +63,8 @@ describe('la relación de compra por producto propio — contra PostgreSQL local
     await conexion.query('BEGIN');
 
     const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
-    doble(rutaDb, { query: (sql, params) => conexion.query(sql, params) });
-    doble(rutaPrisma, prismaDoble);
+    doble(rutaDb, baseEnTransaccion(conexion, 'rel'));
+    doble(rutaPrisma, prismaDelBuzon(conexion));
     for (const r of RUTAS) delete require.cache[r];
     relacion = require(RUTAS[0]);
     servicio = require(RUTAS[1]);
@@ -312,6 +250,68 @@ describe('la relación de compra por producto propio — contra PostgreSQL local
     // Sin nada que ligar no consulta, y un fallo no se propaga.
     await relacion.ligarProductoDeLineas([]);
     await relacion.ligarProductoDeLineas(null);
+  });
+
+  test('el avance de la factura se vuelve a contar desde sus líneas, también al soltar', async () => {
+    const avance = async (id = facturaId) => (await conexion.query(
+      'SELECT porcentaje_relacionado AS pct, estado_relacionado AS estado FROM facturas_proveedores WHERE id = $1', [id])).rows[0];
+
+    // Las tres líneas relacionadas: completa.
+    await servicio.crearRelacion({ productoProveedorId: lineaA1, productoPropioId: sinAlegra });
+    await servicio.crearRelacion({ productoProveedorId: lineaA2, productoPropioId: sinAlegra });
+    const tercera = await servicio.crearRelacion({ productoProveedorId: lineaB, productoPropioId: conAlegra });
+    assert.deepEqual([tercera.porcentajeRelacionado, tercera.facturaCompleta], [100, true]);
+    assert.deepEqual(await avance(), { pct: 100, estado: 'RELACIONADO' });
+
+    // Soltar una: ya no está completa. Antes se quedaba diciendo 100 %.
+    await servicio.eliminarRelacionDeProducto(lineaB);
+    assert.deepEqual(await avance(), { pct: 67, estado: null });
+
+    // Por una factura entera, y sin nada que contar no consulta.
+    await conexion.query(`UPDATE facturas_proveedores SET porcentaje_relacionado = 5, estado_relacionado = 'RELACIONADO' WHERE id = $1`, [facturaId]);
+    assert.deepEqual(await relacion.recalcularAvance({ facturaId }), [{ facturaId, porcentaje: 67, completa: false }]);
+    assert.deepEqual(await avance(), { pct: 67, estado: null });
+    assert.deepEqual(await relacion.recalcularAvance([]), []);
+    await conexion.query(`DELETE FROM supplier_product_mapping WHERE supplier_cedula = $1 AND supplier_code = 'zz-B'`, [CEDULA]);
+  });
+
+  test('completa es que no falte ninguna línea, no que el redondeo dé 100', async () => {
+    const { rows: [f] } = await conexion.query(`
+      INSERT INTO facturas_proveedores (clave, numero_consecutivo, fecha_emision, proveedor_nombre, proveedor_cedula,
+                                        total_productos, total_factura, archivo_xml)
+      VALUES ('zz-clave-avance-200', 'zz-00000000000000000039', '2031-04-11', 'zz-proveedor de relación', $1, 200, 0, '<zz/>')
+      RETURNING id`, [CEDULA]);
+    await conexion.query(`
+      INSERT INTO productos_factura_proveedor
+        (factura_id, numero_linea, codigo_proveedor, descripcion, cantidad, unidad_medida, precio_unitario, total_linea, estado_relacionado)
+      SELECT $1, n, 'zz-' || n, 'zz-línea ' || n, 1, 'Unid', 1, 1,
+             (CASE WHEN n = 200 THEN 'PENDIENTE' ELSE 'RELACIONADO' END)::estado_relacionado
+        FROM generate_series(1, 200) n`, [f.id]);
+
+    // 199 de 200 es 99,5 %: redondeado daría 100 y la factura pasaría por completa.
+    assert.deepEqual(await relacion.recalcularAvance({ facturaId: f.id }), [{ facturaId: f.id, porcentaje: 99, completa: false }]);
+  });
+
+  test('la migración 039 pone al día las facturas que quedaron desfasadas, y se puede repetir', async () => {
+    const sql = require('fs').readFileSync(require('path').join(
+      __dirname, '..', 'migrations', 'independencia', '039_avance_de_la_factura_desde_sus_lineas.sql'), 'utf8');
+    // Como estaban 62 facturas reales: marcada completa, con líneas pendientes.
+    await conexion.query(`UPDATE facturas_proveedores SET porcentaje_relacionado = 100, estado_relacionado = 'RELACIONADO' WHERE id = $1`, [facturaId]);
+    await conexion.query(sql);
+    assert.deepEqual((await conexion.query(
+      'SELECT porcentaje_relacionado AS pct, estado_relacionado AS estado FROM facturas_proveedores WHERE id = $1', [facturaId])).rows[0],
+    { pct: 67, estado: null });
+
+    const desfasadas = async () => Number((await conexion.query(`
+      SELECT COUNT(*) AS n FROM facturas_proveedores f
+        JOIN (SELECT factura_id, COUNT(*) FILTER (WHERE estado_relacionado <> 'RELACIONADO') AS faltan
+                FROM productos_factura_proveedor GROUP BY factura_id) l ON l.factura_id = f.id
+       WHERE COALESCE(f.estado_relacionado = 'RELACIONADO', FALSE) <> (l.faltan = 0)
+          OR COALESCE(f.porcentaje_relacionado = 100, FALSE) <> (l.faltan = 0)`)).rows[0].n);
+    assert.equal(await desfasadas(), 0);
+    // La segunda corrida no encuentra nada que cambiar.
+    const { rowCount } = await conexion.query(sql);
+    assert.equal(rowCount, 0);
   });
 
   test('eliminar la relación entera suelta sus líneas y borra el mapeo', async () => {

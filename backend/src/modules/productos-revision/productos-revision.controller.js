@@ -1,9 +1,10 @@
 /**
  * Productos-Revision Module - Controller
- * Controladores HTTP para la gestión de relaciones producto proveedor ↔ Alegra
+ * Controladores HTTP para la gestión de relaciones producto proveedor ↔ producto propio
  */
 
 const productosRevisionService = require('./productos-revision.service');
+const productoDesdeLinea = require('./productoDesdeLinea');
 
 /**
  * Algunos endpoints de mutación se llaman desde el frontend en dominios
@@ -67,20 +68,6 @@ async function crearRelacion(req, res) {
 }
 
 /**
- * POST /productos-revision/ajustar
- */
-async function ajustarProducto(req, res) {
-  try {
-    const { productoId, nuevaCantidad, nuevoPrecio, alegraItemId } = req.body;
-    const result = await productosRevisionService.ajustarProducto({ productoId, nuevaCantidad, nuevoPrecio, alegraItemId });
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error ajustando producto:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
-  }
-}
-
-/**
  * PUT /productos-revision/:mapeoId/editar-relacion
  */
 async function editarRelacion(req, res) {
@@ -122,7 +109,7 @@ async function eliminarRelacionPorMapeo(req, res) {
 }
 
 /**
- * POST /productos-revision/crear (multipart, imagen opcional)
+ * GET /productos-revision/:productoId/precio-sugerido
  */
 async function precioSugerido(req, res) {
   try {
@@ -139,12 +126,26 @@ async function precioSugerido(req, res) {
   }
 }
 
+/**
+ * GET /productos-revision/:productoId/formulario-producto
+ * Categorías e impuestos propios, y el impuesto que se propone para la línea.
+ */
+async function formularioProducto(req, res) {
+  try {
+    const data = await productoDesdeLinea.formularioProducto(req.params.productoId);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('Error armando el formulario de producto nuevo:', error.message);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * POST /productos-revision/crear (multipart, imagen opcional)
+ * Crea el producto en el maestro propio y relaciona la línea con él.
+ */
 async function crearProducto(req, res) {
   try {
-    console.log('📦 Creando producto nuevo en Alegra...');
-    console.log('📝 Datos recibidos:', req.body);
-    console.log('🖼️ Imagen recibida:', req.file ? req.file.originalname : (req.body.imageUrl || 'Sin imagen'));
-
     const { nombre, precio, costo, productoId } = req.body;
 
     if (!nombre || !precio || !costo || !productoId) {
@@ -154,13 +155,13 @@ async function crearProducto(req, res) {
       });
     }
 
-    const result = await productosRevisionService.crearProducto(req.body, req.file);
+    const result = await productoDesdeLinea.crearProductoDesdeLinea(req.body, req.file, req.usuario?.id);
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('❌ Error creando producto:', error);
+    console.error('❌ Error creando producto:', error.message);
     res.status(error.status || error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Error creando producto en Alegra'
+      error: error.message || 'Error creando el producto'
     });
   }
 }
@@ -272,10 +273,10 @@ module.exports = {
   getRelacionados,
   getRelacionesDeProducto,
   crearRelacion,
-  ajustarProducto,
   editarRelacion,
   eliminarRelacionPorMapeo,
   crearProducto,
+  formularioProducto,
   precioSugerido,
   guardarFactorConversion,
   buscarProductos,

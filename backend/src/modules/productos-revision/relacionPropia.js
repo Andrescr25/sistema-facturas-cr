@@ -189,7 +189,63 @@ async function ligarProductoDeLineas(cuales) {
   }
 }
 
+/**
+ * El avance de una factura del buzón: qué porcentaje de sus líneas está
+ * relacionado. SALE DE LAS LÍNEAS, siempre.
+ *
+ * `facturas_proveedores.porcentaje_relacionado` y `estado_relacionado` son una
+ * copia de ese número. Solo se escribían al relacionar una línea y al recibir
+ * la factura: soltar una relación, cambiarla o confirmarla desde Revisión de
+ * Precios no los tocaba. Medido el 2026-10-04 en la copia local: 217 de 862
+ * facturas con el porcentaje desfasado y 62 marcadas como completas con líneas
+ * pendientes. Ninguna pantalla los lee —todas cuentan las líneas—, así que el
+ * daño era solo que el dato mentía; la migración 039 lo pone al día.
+ *
+ * Por eso no hay un "estado" que decidir cuando se suelta una relación: se
+ * vuelve a contar. Y el ESTADO DE TRABAJO de la factura (`estado`: PROCESADA,
+ * ENVIADA…) no se toca desde acá — devolverla a relacionar es una acción
+ * aparte, de Revisión de Precios.
+ *
+ * Completa quiere decir que no le queda NINGUNA línea sin relacionar, no que
+ * el redondeo dé 100: con 199 de 200 queda en 99.
+ *
+ * @param {string[]|{facturaId: string}} cuales  ids de líneas, o una factura
+ * @returns {Promise<{facturaId: string, porcentaje: number, completa: boolean}[]>}
+ */
+async function recalcularAvance(cuales, db = { query }) {
+  let facturas, valor;
+  if (cuales && !Array.isArray(cuales) && cuales.facturaId) {
+    facturas = 'SELECT $1::uuid';
+    valor = String(cuales.facturaId);
+  } else {
+    const ids = [...new Set((cuales || []).filter(Boolean).map(String))];
+    if (ids.length === 0) return [];
+    facturas = 'SELECT factura_id FROM productos_factura_proveedor WHERE id = ANY($1::uuid[])';
+    valor = ids;
+  }
+
+  // El mismo cálculo que la migración 039. Una factura sin líneas no cambia.
+  const { rows } = await db.query(`
+    UPDATE facturas_proveedores f
+       SET porcentaje_relacionado = a.porcentaje,
+           estado_relacionado = CASE WHEN a.completa THEN 'RELACIONADO' END
+      FROM (
+        SELECT l.factura_id,
+               COUNT(*) FILTER (WHERE l.estado_relacionado <> 'RELACIONADO') = 0 AS completa,
+               CASE WHEN COUNT(*) FILTER (WHERE l.estado_relacionado <> 'RELACIONADO') = 0 THEN 100
+                    ELSE LEAST(99, ROUND(100.0 * COUNT(*) FILTER (WHERE l.estado_relacionado = 'RELACIONADO') / COUNT(*)))::int
+               END AS porcentaje
+          FROM productos_factura_proveedor l
+         WHERE l.factura_id IN (${facturas})
+         GROUP BY l.factura_id
+      ) a
+     WHERE a.factura_id = f.id
+    RETURNING f.id AS factura_id, a.porcentaje, a.completa`, [valor]);
+  return rows.map(r => ({ facturaId: r.factura_id, porcentaje: r.porcentaje, completa: r.completa }));
+}
+
 module.exports = {
   SIN_FICHA_EN_ALEGRA,
-  productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas, ligarProductoDeLineas
+  productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas, ligarProductoDeLineas,
+  recalcularAvance
 };

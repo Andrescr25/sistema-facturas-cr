@@ -95,19 +95,17 @@ test('el texto de búsqueda incluye nombre, referencia y descripción', () => {
   assert.equal(t, t.toLowerCase());
 });
 
-test('el alta de un producto usa este mismo mapeo y relee de Alegra', () => {
-  // La foto se sube DESPUÉS de crear el producto, así que la respuesta del
-  // alta no la trae: hay que releer o la fila nace sin foto igual que antes.
-  const servicio = fs.readFileSync(
-    path.join(__dirname, '..', 'src', 'modules', 'productos-revision', 'productos-revision.service.js'),
-    'utf8');
-  assert.match(servicio, /filaDeCache\(releido \|\| nuevoProductoAlegra\)/,
-    'crearProducto tiene que armar la fila con filaDeCache');
-  const iCrea = servicio.indexOf('createProduct(productoData)');
-  const iRelee = servicio.indexOf('getProductById(String(nuevoProductoAlegra.id))');
-  const iFoto = servicio.indexOf('uploadProductImage');
-  assert.ok(iCrea < iFoto && iFoto < iRelee,
-    'el orden tiene que ser crear → subir foto → releer, o la foto no llega a la caché');
+test('el alta de un producto desde una línea del proveedor ya no pasa por esta caché', () => {
+  // En esta rama el producto nace en el maestro propio (productoDesdeLinea.js)
+  // y Gestión de Catálogo lee de ahí: no hay fila de caché que armar ni nada
+  // que releer de Alegra. El problema que cuidaba esta prueba —el producto
+  // recién creado aparecía sin foto ni categoría— ya no puede pasar: la
+  // categoría va en el mismo INSERT y la foto se guarda sobre `producto`.
+  for (const archivo of ['productoDesdeLinea.js', 'productos-revision.service.js']) {
+    const fuente = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'modules', 'productos-revision', archivo), 'utf8');
+    assert.doesNotMatch(fuente, /filaDeCache|alegraProduct\.create|createProduct\(/, `${archivo} todavía escribe la caché o crea en Alegra`);
+  }
 });
 
 test('el sincronizador arma la fila con el mismo mapeo', () => {

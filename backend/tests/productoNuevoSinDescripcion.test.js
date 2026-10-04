@@ -37,7 +37,12 @@ test('si alguien sí escribe una descripción, se respeta', async () => {
   assert.equal((await crear({ ...BASE, description: 'Caja de 5' })).description, 'Caja de 5');
 });
 
-test('Revisión de Precios no la rellena por su lado', () => {
-  const fuente = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'productos-revision', 'productos-revision.service.js'), 'utf8');
-  assert.match(fuente, /description: descripcion\?\.trim\(\) \|\| '',/);
+test('al crear un producto desde una línea del proveedor tampoco se rellena con el nombre', () => {
+  // Desde el 2026-10-04 ese producto nace en el maestro propio
+  // (productoDesdeLinea.js), no en Alegra: sin descripción queda sin
+  // descripción. Que se guarde así de verdad está probado contra PostgreSQL
+  // en productoDesdeLinea.test.js.
+  const fuente = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'productos-revision', 'productoDesdeLinea.js'), 'utf8');
+  assert.match(fuente, /descripcion: limpio\(datos\.descripcion\) \|\| null,/);
+  assert.doesNotMatch(fuente, /descripcion: [^\n]*nombre/);
 });

@@ -44,10 +44,14 @@ export function useRelacionarProductos(facturaId) {
   // Modal crear producto
   const [modalCrear, setModalCrear] = useState(false)
   const [categorias, setCategorias] = useState([])
+  // Los impuestos propios y el que calza con el IVA de la línea elegida.
+  const [impuestos, setImpuestos] = useState([])
+  const [impuestoSugerido, setImpuestoSugerido] = useState(null)
+  const [porcentajeDeLaLinea, setPorcentajeDeLaLinea] = useState(null)
   const [imagenPreview, setImagenPreview] = useState(null)
 
   // Sugerencia automática de imagen (mismo modal que Gestión de Catálogo). El
-  // producto todavía no existe en Alegra en este punto, así que la sugerencia
+  // producto todavía no existe en este punto, así que la sugerencia
   // elegida solo se guarda como pendiente: se sube recién al crear el
   // producto (ver crearProducto), no al seleccionarla.
   const [imagenModalOpen, setImagenModalOpen] = useState(false)
@@ -205,22 +209,23 @@ export function useRelacionarProductos(facturaId) {
     }
   }
 
-  const loadCategorias = async () => {
-    if (categorias.length > 0) return
+  // Lo que el formulario de producto nuevo necesita: categorías e impuestos
+  // del maestro propio, y el impuesto que calza con el IVA de ESTA línea (por
+  // eso se pide cada vez, y no una sola vez como antes las categorías).
+  const cargarFormulario = async (producto) => {
+    setImpuestoSugerido(null)
+    setPorcentajeDeLaLinea(null)
     try {
-      const response = await api.get('/alegra/categorias')
-      if (response.data.success) {
-        const cats = response.data.categorias || []
-        setCategorias(cats)
-
-        if (cats.length === 0) {
-          console.warn('⚠️ No hay categorías de productos en Alegra. El usuario deberá crearlas primero.')
-        }
+      const { data } = await api.get(`/productos-revision/${producto.id}/formulario-producto`)
+      if (data.success) {
+        setCategorias(data.categorias || [])
+        setImpuestos(data.impuestos || [])
+        setImpuestoSugerido(data.impuestoSugerido || null)
+        setPorcentajeDeLaLinea(data.porcentajeDeLaLinea ?? null)
       }
     } catch (err) {
-      console.error('Error cargando categorías:', err)
-      showToast('Error cargando categorías de Alegra. Verifica tu conexión e inténtalo de nuevo.', 'error')
-      setCategorias([])
+      console.error('Error cargando el formulario de producto nuevo:', err)
+      showToast('No se pudieron cargar las categorías y los impuestos. Inténtalo de nuevo.', 'error')
     }
   }
 
@@ -234,7 +239,7 @@ export function useRelacionarProductos(facturaId) {
     setArchivoImagenSeleccionado(null)
     setImagenSugerencias([])
     setImagenBusqueda('')
-    loadCategorias()
+    cargarFormulario(producto)
 
     // Inicializar CABYS editable
     const cabysInicial = producto.codigoCabys || ''
@@ -398,17 +403,10 @@ export function useRelacionarProductos(facturaId) {
   const crearProducto = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const categoriaActual = categorias.find(cat => String(cat.id) === String(categoriaSeleccionada))
     // Manda la casilla, no la detección. Antes esto era un OR con las
     // reglas automáticas, así que desmarcarla no servía de nada: el producto
     // se enviaba como medicamento igual.
-    const productoEsMedicamento = esMedicamento
-
-    if (categoriaActual) {
-      formData.set('categoriaNombre', categoriaActual.name || '')
-    }
-
-    formData.set('esMedicamento', productoEsMedicamento ? 'true' : 'false')
+    formData.set('esMedicamento', esMedicamento ? 'true' : 'false')
 
     // Si el archivo se eligió desde el modal de sugerencias (no desde el
     // input nativo del formulario), FormData(e.target) no lo tiene — se
@@ -419,8 +417,8 @@ export function useRelacionarProductos(facturaId) {
     }
 
     // Si se eligió una sugerencia de imagen (en vez de subir un archivo), se
-    // manda la URL para que el backend la descargue y suba después de crear
-    // el producto en Alegra (recién ahí existe el alegraId).
+    // manda la URL para que el backend la descargue y la guarde después de
+    // crear el producto (recién ahí existe su id).
     if (imagenSugeridaUrl) {
       formData.set('imageUrl', imagenSugeridaUrl)
       if (imagenSugeridaFallbackUrl) {
@@ -520,7 +518,7 @@ export function useRelacionarProductos(facturaId) {
 
   // Cambiar relación de un producto ya relacionado
   const cambiarRelacion = async (producto) => {
-    const confirmado = await confirm(`¿Cambiar la relación del producto "${producto.descripcion}"?\n\nEsto eliminará la relación actual y podrás seleccionar un nuevo producto de Alegra.`)
+    const confirmado = await confirm(`¿Cambiar la relación del producto "${producto.descripcion}"?\n\nEsto eliminará la relación actual y podrás elegir otro producto del catálogo.`)
     if (!confirmado) return
 
     try {
@@ -618,6 +616,9 @@ export function useRelacionarProductos(facturaId) {
     modalCrear,
     setModalCrear,
     categorias,
+    impuestos,
+    impuestoSugerido,
+    porcentajeDeLaLinea,
     imagenPreview,
     abrirModalCrear,
     handleImagenChange,

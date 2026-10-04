@@ -154,7 +154,7 @@ export default function ModalBuscarProducto({
             className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-primario-800 hover:bg-primario-900 text-white font-bold transition-colors"
           >
             <Plus size={20} className="mr-2" />
-            Crear Nuevo Producto en Alegra
+            Crear producto nuevo
           </button>
         </div>
       </div>

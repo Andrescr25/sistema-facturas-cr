@@ -46,7 +46,8 @@ export function categoriaPareceMedicamento(categoriaId, categorias) {
   if (!Array.isArray(categorias)) return false
 
   const categoria = categorias.find(cat => String(cat.id) === String(categoriaId))
-  const textoCategoria = normalizarTexto(`${categoria?.name || ''} ${categoria?.description || ''}`)
+  // Las categorías propias traen `nombre`; las de Alegra traían `name`.
+  const textoCategoria = normalizarTexto(`${categoria?.nombre || categoria?.name || ''} ${categoria?.description || ''}`)
   return textoCategoria.includes('medicamento') || textoCategoria.includes('farmac')
 }
 

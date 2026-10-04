@@ -67,6 +67,9 @@ export default function RelacionarProductos() {
     setFormaFarmaceutica,
     registroSanitario,
     setRegistroSanitario,
+    impuestos,
+    impuestoSugerido,
+    porcentajeDeLaLinea,
     categoriaSeleccionada,
     handleCategoriaChange,
     codigoCabys,
@@ -145,6 +148,9 @@ export default function RelacionarProductos() {
         <ModalCrearProducto
           productoSeleccionado={productoSeleccionado}
           categorias={categorias}
+          impuestos={impuestos}
+          impuestoSugerido={impuestoSugerido}
+          porcentajeDeLaLinea={porcentajeDeLaLinea}
           categoriaSeleccionada={categoriaSeleccionada}
           onCategoriaChange={handleCategoriaChange}
           codigoCabys={codigoCabys}
