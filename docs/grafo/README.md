@@ -36,7 +36,7 @@ toca, qué no se regenera).
 - [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md)
 - [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
-- [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *crear producto nuevo y el buzón, todavía por Alegra*
+- [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *el producto nuevo nace en el maestro propio; Revisión de Precios y el buzón, todavía por id de Alegra*
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
@@ -62,6 +62,7 @@ toca, qué no se regenera).
 
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)
+- [El avance de una factura del buzón se cuenta desde sus líneas — soltar una relación no inventa un estado](decision/el-avance-de-la-factura-sale-de-sus-lineas.md)
 - [Los archivos grandes se guardan como ruta, no como columna](decision/la-ruta-no-el-contenido.md)
 - [Caja General es el centro — todo cobro entra, todo pago sale](decision/caja-general-es-el-centro.md)
 - [El orden del catálogo vive en UN archivo del frontend, y ese archivo no puede importar nada](decision/orden-canonico-compartido.md)

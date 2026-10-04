@@ -5,6 +5,7 @@ titulo: Relacionar Productos — la línea del proveedor se cuelga de `producto.
 estado: vigente
 archivos:
   - backend/src/modules/productos-revision/relacionPropia.js
+  - backend/src/modules/productos-revision/productoDesdeLinea.js
   - backend/src/modules/productos-revision/productos-revision.service.js
   - backend/src/modules/productos-revision/productos-revision.controller.js
   - backend/src/modules/productos-revision/productos-revision.routes.js
@@ -12,16 +13,20 @@ archivos:
   - backend/src/modules/precios/costoHistorico.js
   - backend/src/modules/precios/costoDerivado.js
   - backend/migrations/independencia/038_relacion_de_compra_por_producto_propio.sql
+  - backend/migrations/independencia/039_avance_de_la_factura_desde_sus_lineas.sql
   - backend/tests/relacionPropia.test.js
+  - backend/tests/productoDesdeLinea.test.js
+  - backend/tests/dobles/buzonEnTransaccion.js
   - backend/tests/buscarRelaciones.test.js
   - backend/tests/costoDerivadoPropio.test.js
   - frontend/src/hooks/useRelacionarProductos.js
   - frontend/src/hooks/useGestionarRelaciones.js
+  - frontend/src/components/relacionar-productos/ModalCrearProducto.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
-  bloqueado_por: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/revision-precios, modulo/compras, modulo/rentabilidad, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/el-doble-de-prisma-no-valida-tipos, leccion/proveedor-por-cedula]
-medido: 2026-10-03
+  bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
+  relacionado: [modulo/revision-precios, modulo/compras, modulo/rentabilidad, modulo/gestion-catalogo, decision/el-avance-de-la-factura-sale-de-sus-lineas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/el-doble-de-prisma-no-valida-tipos, leccion/proveedor-por-cedula]
+medido: 2026-10-04
 ---
 
 Dos pantallas: **Relacionar Productos** (`/relacionar-productos/:facturaId`,
@@ -81,18 +86,61 @@ todavía los leen. Salen siempre del producto propio, nunca al revés.
 `costo_historico` va NULL.
 
 Lo que todavía relaciona por el id de Alegra (confirmar en Revisión de
-Precios, crear producto desde una línea) o por un mapeo ya hecho (el buzón al
-recibir una factura) llama después a `ligarProductoDeLineas`, que deja la
-línea con su producto propio. Se va cuando esos tres migren.
+Precios) o por un mapeo ya hecho (el buzón al recibir una factura) llama
+después a `ligarProductoDeLineas`, que deja la línea con su producto propio.
+Se va cuando esos dos migren.
+
+## Crear un producto nuevo desde una línea
+
+`productoDesdeLinea.js` (2026-10-04). Antes lo creaba EN ALEGRA, le subía la
+foto allá, lo releía para copiarlo a `alegra_products_cache` y relacionaba por
+el id de Alegra; en esta rama, donde a Alegra solo se le lee, el botón no
+podía funcionar.
+
+Ahora nace en `producto` por la misma puerta que "Nuevo producto" de
+[[modulo/gestion-catalogo]] (`productos.service.crearProducto`): las mismas
+reglas —CABYS de 13 dígitos, impuesto obligatorio, referencia única entre los
+activos, medicamento con forma y registro— y la misma línea en la bitácora.
+La foto va al almacenamiento propio; si falla, el producto y la relación
+quedan y se avisa. No se escribe la caché de Alegra.
+
+Lo que cambió para quien llena el formulario:
+
+- **El impuesto se elige.** Viene propuesto el que calza con el IVA real de la
+  línea (medio punto de tolerancia; con tres impuestos de 0 %, el que ya usan
+  los productos). Si la línea trae una tarifa que no existe, no se adivina:
+  hay que elegirlo. En Alegra ese caso creaba el producto sin impuesto.
+- **La referencia vacía queda vacía.** Se rellenaba con el código del
+  proveedor; como tiene que ser única, borrar el campo mandaba otra vez el
+  mismo código y el producto no se podía crear.
+- **No hay cantidad inicial.** Era el inventario inicial en Alegra y el
+  propio todavía no existe ([[bloqueo/conteo-fisico]]).
+- **Las unidades son las de Hacienda** (Unid, m, kg…), como las guarda el
+  maestro.
+
+`GET /productos-revision/:lineaId/formulario-producto` entrega las categorías
+y los impuestos propios dentro de este módulo: quien relaciona compras no
+tiene por qué tener permiso sobre Gestión de Catálogo.
+
+**El precio sugerido no usaba el margen de la categoría.** El formulario le
+mandaba al motor el id del desplegable y la configuración de márgenes está
+llaveada por NOMBRE: nunca calzaba, y salía siempre el margen por defecto
+(25 %) aunque Librería pida 29,2 % y Productos para perro 20 %. Se manda el
+nombre. El mismo defecto está en `developer`/`main`.
+
+`POST /productos-revision/ajustar` se quitó: escribía el precio en Alegra y
+ninguna pantalla lo llamaba.
+
+## El avance de la factura
+
+Se vuelve a contar desde las líneas cada vez que una cambia:
+[[decision/el-avance-de-la-factura-sale-de-sus-lineas]].
 
 ## Lo que falta
 
-- **Crear un producto nuevo desde una línea** (`crearProducto`) todavía lo
-  crea en Alegra; el botón lo dice. `ajustarProducto` todavía puede escribir
-  el precio en Alegra.
 - **Revisión de Precios** confirma y rechaza por el id de Alegra.
 - **El buzón** (`services/databaseService.js`) relaciona solo con el mapeo y
   copia su id de Alegra a la línea.
-- Soltar una relación no recalcula `facturas_proveedores.porcentaje_relacionado`
-  ni devuelve la factura de RELACIONADO a pendiente: ya era así antes, y qué
-  estado le toca a una factura que deja de estar completa no está decidido.
+- La búsqueda de fotos sugeridas sigue colgada del prefijo adaptador
+  (`/alegra/catalog/search-images`); no le habla a Alegra, pero el nombre se
+  va con el retiro de ese prefijo.

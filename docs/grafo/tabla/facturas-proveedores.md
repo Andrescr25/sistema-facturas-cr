@@ -8,7 +8,7 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   bloqueado_por: [bloqueo/xml-historico-sin-recuperar]
-  relacionado: [tabla/compra]
+  relacionado: [tabla/compra, decision/el-avance-de-la-factura-sale-de-sus-lineas]
 medido: 2026-09-23
 ---
 
@@ -28,3 +28,9 @@ crearse.
 `email_id` guarda un `seqno` de IMAP —posicional, volátil, 69 de 862 en
 NULL—, no un UID. La llave para recuperar un XML es `archivo_xml` (el nombre
 real del adjunto) verificado contra `clave` (única en las 862).
+
+
+`porcentaje_relacionado` y `estado_relacionado` son una copia de "cuántas
+líneas están relacionadas" que ninguna pantalla lee. Se recalculan desde las
+líneas: [[decision/el-avance-de-la-factura-sale-de-sus-lineas]]. El estado de
+trabajo es `estado`.
