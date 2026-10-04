@@ -23,7 +23,7 @@ const RAIZ = path.join(__dirname, '..', '..');
 const leer = (...partes) => fs.readFileSync(path.join(RAIZ, ...partes), 'utf8');
 const existe = (...partes) => fs.existsSync(path.join(RAIZ, ...partes));
 /** Sin comentarios: nombrar una ruta retirada en un comentario no es llamarla. */
-const codigo = (texto) => texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const { sinComentarios: codigo } = require('./dobles/sinComentarios');
 
 describe('el servidor ya no factura contra Alegra', () => {
   test('se fueron el servicio, el controlador y el módulo viejo de facturas', () => {
@@ -59,13 +59,14 @@ describe('el servidor ya no factura contra Alegra', () => {
   });
 
   test('ni /api/facturas ni /api/alegra/facturas siguen montadas', () => {
+    // El adaptador de /api/alegra se borró entero ese mismo día
+    // (sinPrefijoAlegra.test.js); acá alcanza con que nadie monte esto.
     const servidor = codigo(leer('backend', 'server.js'));
-    const adaptador = codigo(leer('backend', 'routes', 'alegra.js'));
 
     assert.equal(/app\.use\('\/api\/facturas'/.test(servidor), false);
+    assert.equal(/app\.use\('\/api\/alegra/.test(servidor), false);
     assert.equal(/modules\/invoices/.test(servidor), false);
-    assert.equal(/['"`]\/facturas/.test(adaptador), false, 'el adaptador volvió a tener rutas de /facturas');
-    assert.equal(/getInvoiceService/.test(adaptador), false);
+    assert.equal(/getInvoiceService/.test(servidor), false);
   });
 
   test('"/facturas" dejó de ser un prefijo compartido: ya no hay nada ahí', () => {

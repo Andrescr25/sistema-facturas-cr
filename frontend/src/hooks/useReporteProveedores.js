@@ -447,7 +447,7 @@ export function useReporteProveedores() {
     setProductosEliminados(prev => new Set(prev).add(key))
 
     try {
-      await api.post('/alegra/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
+      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
     } catch (error) {
       console.error('Error:', error)
     }
@@ -462,7 +462,7 @@ export function useReporteProveedores() {
     })
 
     try {
-      await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
+      await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
     } catch (error) {
       console.error('No se pudo restaurar el producto:', error)
       showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -504,7 +504,7 @@ export function useReporteProveedores() {
     setProductosAgregados(nuevosAgregados)
 
     try {
-      await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
+      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
     } catch (error) {
       console.error('No se pudo registrar el producto agregado:', error)
       showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -528,7 +528,7 @@ export function useReporteProveedores() {
     setProductosAgregados(nuevos)
 
     try {
-      await api.delete('/alegra/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
+      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
     } catch (e) {
       console.error('No se pudo quitar el producto agregado:', e)
       showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -546,7 +546,7 @@ export function useReporteProveedores() {
       setProductosAgregados(nuevos)
 
       try {
-        await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
+        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
       } catch (e) {
         console.error('No se pudo guardar la cantidad:', e)
         showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')

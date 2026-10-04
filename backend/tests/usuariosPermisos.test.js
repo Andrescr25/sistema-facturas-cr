@@ -167,18 +167,18 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/reportes/faltantes/notas', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/reportes/faltantes/notas', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 
-  test('mandarle una orden de compra a un proveedor pide Reporte Proveedores, aunque la ruta cuelgue de /alegra', async () => {
-    // '/alegra' es compartida. Hasta el 2026-10-04 esto pasaba con cualquier
-    // sesión: el envío sale por WhatsApp a un proveedor de verdad.
+  test('mandarle una orden de compra a un proveedor pide Reporte Proveedores', async () => {
+    // Colgaba de '/alegra', compartida: hasta el 2026-10-04 esto pasaba con
+    // cualquier sesión, y el envío sale por WhatsApp a un proveedor de verdad.
     const sinModulo = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
     });
-    const r = await correr(sinModulo.middleware, { ruta: '/alegra/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    const r = await correr(sinModulo.middleware, { ruta: '/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
     assert.equal(r.bloqueado, true);
     assert.equal(r.codigo, 403);
     assert.equal(r.cuerpo.modulo, 'reporte-proveedores');
@@ -187,7 +187,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-proveedores' }]
     });
-    const ok = await correr(conModulo.middleware, { ruta: '/alegra/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    const ok = await correr(conModulo.middleware, { ruta: '/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
     assert.equal(ok.bloqueado, false);
   });
 
@@ -196,7 +196,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
     });
-    const r = await correr(sinModulo.middleware, { ruta: '/alegra/faltantes/ajustes', metodo: 'POST', usuario: { id: 4 } });
+    const r = await correr(sinModulo.middleware, { ruta: '/faltantes/ajustes', metodo: 'POST', usuario: { id: 4 } });
     assert.equal(r.bloqueado, true);
     assert.equal(r.cuerpo.modulo, 'reporte-clientes');
 
@@ -204,11 +204,11 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-clientes' }]
     });
-    const ok = await correr(conModulo.middleware, { ruta: '/alegra/faltantes/ajustes/33', metodo: 'DELETE', usuario: { id: 4 } });
+    const ok = await correr(conModulo.middleware, { ruta: '/faltantes/ajustes/33', metodo: 'DELETE', usuario: { id: 4 } });
     assert.equal(ok.bloqueado, false);
   });
 
-  test('Impresión ya no se alcanza por /alegra: solo por su prefijo, que pide el módulo', async () => {
+  test('procesar una factura de la cola de Impresión pide el módulo', async () => {
     const { middleware } = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
@@ -283,7 +283,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.match(r.cuerpo.error, /administrador/);
     }
-    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Maestro/Productos', '/Alegra/Bodega/facturas-propias']) {
+    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Maestro/Productos', '/Bodega/Facturas-Propias', '/Orden-Compra/cantidades']) {
       const r = await correr(middleware, { ruta, usuario: { id: 4 } });
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.equal(r.cuerpo.code, 'SIN_PERMISO');

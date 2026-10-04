@@ -137,11 +137,11 @@ if (isLocalDevelopment) {
 
 // Importar rutas
 const reporteRoutes = require('./src/modules/reports/report.routes');
-const alegraRoutes = require('./routes/alegra');
 
 // Módulos nuevos (arquitectura modular)
 const warehouseModule = require('./src/modules/warehouse');
 const missingItemsModule = require('./src/modules/missing-items');
+const ordenesDeCompraRoutes = require('./src/modules/orders-whatsapp');
 const reprintingModule = require('./src/modules/reprinting');
 const adminModule = require('./src/modules/admin');
 const revisionPreciosModule = require('./src/modules/revision-precios');
@@ -196,10 +196,10 @@ app.use('/api/dashboard', dashboardModule.routes);
 // /api/catalogos.
 app.use('/api/proveedores', proveedoresModule.routes);
 app.use('/api/reportes', reporteRoutes);
-// /api/alegra es un router adaptador (routes/alegra.js) que monta debajo
-// módulos propios: /bodega, /reimpresion, /reportes, /faltantes y
-// /orden-compra. Ya no le habla a Alegra.
-app.use('/api/alegra', alegraRoutes);
+// /api/alegra ya no existe (2026-10-04). Era un router adaptador que montaba
+// debajo de un mismo prefijo —compartido, sin permiso— módulos que hoy tienen
+// cada uno su dirección: /api/bodega, /api/reportes, /api/faltantes y
+// /api/orden-compra. Un prefijo nuevo se registra en usuarios/modulos.js.
 app.use('/api/revision-precios', revisionPreciosModule.routes);
 app.use('/api/compras', comprasModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
@@ -221,13 +221,9 @@ app.use('/api/catalogos', productosModule.rutasCompartidas);
 // Rama independencia-alegra: maestro de clientes propio. La ficha completa
 // pide el módulo Clientes; buscar un cliente para facturarle es compartido.
 app.use('/api/clientes', clientesModule.routes);
-// Facturación va en su PROPIO prefijo, no debajo de /api/alegra.
-//
-// Colgaba de ahí, y como '/alegra' está en la lista de rutas COMPARTIDAS
-// (usuarios/modulos.js), el permiso del módulo Facturación no se aplicaba:
-// cualquiera con sesión podía llamar hasta el POST que crea la factura. Se
-// corrigió primero en developer y ya está en producción; acá vale además para
-// la ruta nueva `/facturas`, que es la factura propia sin Alegra.
+// Facturación va en su PROPIO prefijo. Colgaba de /api/alegra, que era un
+// prefijo compartido: el permiso del módulo no se aplicaba y cualquiera con
+// sesión podía llamar hasta el POST que crea la factura.
 app.use('/api/facturacion', facturacionModule);
 app.use('/api/catalogos', clientesModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
@@ -240,11 +236,15 @@ app.use('/api/bodega', warehouseModule.routes);
 app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);
 
-// /api/faltantes: ajustes de entrega y asignación de proveedor. El módulo
+// /api/faltantes: los ajustes de entrega del Reporte de Clientes. El módulo
 // viejo `faltantes` (alta y consulta por el id de la tabla vieja, sin
 // ninguna pantalla que lo llamara) se retiró el 2026-09-30 con la migración
 // independencia/032.
 app.use('/api/faltantes', missingItemsModule.routes);
+
+// /api/orden-compra: la orden de compra del Reporte de Proveedores
+// (cantidades, PDF, contacto del proveedor y envío por WhatsApp).
+app.use('/api/orden-compra', ordenesDeCompraRoutes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
@@ -280,9 +280,9 @@ app.get('*', (req, res) => {
       error: 'Ruta de API no encontrada',
       path: req.originalUrl,
       availableRoutes: [
-        '/api/alegra/*',
         '/api/proveedores/*',
         '/api/faltantes/*',
+        '/api/orden-compra/*',
         '/api/reportes/*',
         '/api/pagos-proveedores/*',
         '/api/pagos-recurrentes/*',

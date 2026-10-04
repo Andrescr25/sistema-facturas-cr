@@ -64,13 +64,12 @@ describe('el archivo Excel conserva el significado de las celdas', () => {
   });
 });
 
-describe('las descargas piden el permiso del reporte también por el adaptador antiguo', () => {
+describe('las descargas piden el permiso de su reporte', () => {
   test('ninguna de las cinco rutas de Excel queda compartida', () => {
     const { moduloDeRuta, esCompartida } = require('../src/modules/usuarios/modulos');
     const rutas = [['/dashboard/exportar', 'dashboard'], ['/rentabilidad/exportar', 'rentabilidad'],
       ['/rentabilidad/productos/42/exportar', 'rentabilidad'], ['/reportes/faltantes/cliente/exportar', 'reporte-clientes'],
-      ['/reportes/faltantes/proveedor/exportar', 'reporte-proveedores'], ['/alegra/reportes/faltantes/cliente/exportar', 'reporte-clientes'],
-      ['/alegra/reportes/faltantes/proveedor/exportar', 'reporte-proveedores']];
+      ['/reportes/faltantes/proveedor/exportar', 'reporte-proveedores']];
     for (const [ruta, permiso] of rutas) {
       assert.equal(moduloDeRuta(ruta), permiso, ruta);
       assert.equal(esCompartida(ruta), false, ruta);

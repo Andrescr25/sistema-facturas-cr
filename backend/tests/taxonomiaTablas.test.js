@@ -199,10 +199,10 @@ describe('la Gestión de Catálogo vieja ya no está', () => {
   const leer = (...partes) => fs.readFileSync(path.join(backend, ...partes), 'utf8');
   const sinComentarios = (texto) => texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-  test('el módulo se borró y el router adaptador ya no lo monta', () => {
+  test('el módulo se borró y nadie lo monta', () => {
+    // El router adaptador que lo montaba (`routes/alegra.js`) también se fue.
     assert.equal(fs.existsSync(path.join(backend, 'src', 'modules', 'catalogo')), false);
-    const adaptador = sinComentarios(leer('routes', 'alegra.js'));
-    assert.doesNotMatch(adaptador, /modules\/catalogo'\)|router\.use\('\/catalog'/);
+    assert.doesNotMatch(sinComentarios(leer('server.js')), /modules\/catalogo'\)|\/catalog'/);
   });
 
   test('quienes usaban sus servicios leen las tablas propias, sin Alegra ni su caché', () => {

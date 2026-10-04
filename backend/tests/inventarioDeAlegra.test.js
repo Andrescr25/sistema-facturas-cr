@@ -2,6 +2,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const { sinComentarios } = require('./dobles/sinComentarios');
 
 /**
  * Lo que TODAVÍA depende de Alegra en el código de la aplicación, como lista
@@ -22,7 +23,8 @@ const path = require('path');
  * al retirar la facturación contra Alegra y el módulo viejo de facturas
  * (`facturacion.service`, `modules/invoices`); y 2 / 1 / 3 al retirar el
  * módulo viejo de productos, lo que el router adaptador todavía le pedía a
- * Alegra y el teléfono que WhatsApp buscaba allá.
+ * Alegra y el teléfono que WhatsApp buscaba allá; y 2 / 1 / 0 al mudar las
+ * pantallas a direcciones propias y borrar el adaptador (`routes/alegra.js`).
  *
  * Fuera de la cuenta, a propósito: `backend/scripts` (los cargadores y las
  * conciliaciones le leen a Alegra hasta el corte, que es para lo que están) y
@@ -43,14 +45,10 @@ const USAN_LA_CACHE = [
 ];
 
 /**
- * Pantallas que llaman a `/alegra/...`. Casi todas esas rutas ya responden
- * con datos propios: el prefijo es el del router adaptador, y se va con él.
+ * Pantallas que llaman a `/alegra/...`. Ninguna desde el 2026-10-04: el
+ * prefijo era el del router adaptador y se fue con él.
  */
-const PANTALLAS_QUE_LLAMAN_A_ALEGRA = [
-  'frontend/src/hooks/useReporteProveedores.js',     // órdenes de compra (prefijo adaptador)
-  'frontend/src/services/alegraService.js',          // faltantes, reportes, órdenes: 28 llamadas, casi todas ya propias
-  'frontend/src/services/bodegaPropiaService.js'     // Facturas en Bodega (prefijo adaptador)
-];
+const PANTALLAS_QUE_LLAMAN_A_ALEGRA = [];
 
 function archivos(carpeta, extensiones) {
   const base = path.join(RAIZ, carpeta);
@@ -70,9 +68,7 @@ function archivos(carpeta, extensiones) {
 
 /** El archivo sin comentarios: mencionar a Alegra en un comentario no es depender de ella. */
 function codigo(relativa) {
-  return fs.readFileSync(path.join(RAIZ, relativa), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  return sinComentarios(fs.readFileSync(path.join(RAIZ, relativa), 'utf8'));
 }
 
 const BACKEND = ['backend/src', 'backend/services', 'backend/routes', 'backend/controllers', 'backend/utils']

@@ -45,8 +45,9 @@ describe('catálogo de módulos', () => {
 
   test('ningún prefijo de módulo termina clasificado como compartido', () => {
     // Un prefijo de módulo PUEDE vivir debajo de uno compartido
-    // ('/alegra/bodega' bajo '/alegra'): gana el más específico. Lo que no
-    // puede pasar es que el propio prefijo del módulo resuelva a compartida.
+    // ('/reportes/faltantes/cliente/exportar' bajo '/reportes'): gana el más
+    // específico. Lo que no puede pasar es que el propio prefijo del módulo
+    // resuelva a compartida.
     for (const m of MODULOS) {
       for (const p of m.rutasApi) {
         assert.equal(esCompartida(p), false, `"${p}" (${m.clave}) quedaría abierto por estar en COMPARTIDAS`);
@@ -88,8 +89,8 @@ describe('moduloDeRuta — a qué módulo pertenece cada llamada', () => {
 
 describe('rutas compartidas y de administrador', () => {
   test('las compartidas se reconocen, con y sin subruta', () => {
-    assert.equal(esCompartida('/alegra'), true);
-    assert.equal(esCompartida('/alegra/reportes/faltantes/notas'), true);
+    assert.equal(esCompartida('/reportes'), true);
+    assert.equal(esCompartida('/reportes/faltantes/notas'), true);
     assert.equal(esCompartida('/auth/yo'), true);
   });
 
@@ -106,11 +107,26 @@ describe('rutas compartidas y de administrador', () => {
     assert.equal(moduloDeRuta('/maestro/productos/siguiente-referencia'), 'gestion-catalogo');
   });
 
-  test('Facturas en Bodega es dueña de /alegra/bodega aunque viva debajo de /alegra', () => {
-    // La pantalla de bodega llama ahí; estaba abierta a cualquiera con sesión.
-    assert.equal(moduloDeRuta('/alegra/bodega/facturas'), 'facturas-bodega');
-    assert.equal(moduloDeRuta('/alegra/bodega/facturas/123/estado'), 'facturas-bodega');
-    assert.equal(moduloDeRuta('/alegra/bodega/facturas/123/estados'), 'facturas-bodega');
+  test('Bodega, los ajustes de entrega y la orden de compra tienen dueño', () => {
+    // Las tres colgaron de '/alegra', compartida, y estuvieron abiertas a
+    // cualquiera con sesión. Cada una en su prefijo, con el módulo de la
+    // pantalla que la usa.
+    assert.equal(moduloDeRuta('/bodega/facturas-propias'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/bodega/facturas-propias/123/estado'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/faltantes/ajustes'), 'reporte-clientes');
+    assert.equal(moduloDeRuta('/faltantes/ajustes/33'), 'reporte-clientes');
+    assert.equal(moduloDeRuta('/orden-compra/enviar-whatsapp'), 'reporte-proveedores');
+    assert.equal(moduloDeRuta('/orden-compra/cantidades'), 'reporte-proveedores');
+    assert.equal(moduloDeRuta('/reimpresion/facturas/9/procesar'), 'impresion');
+  });
+
+  test("'/alegra' ya no es un prefijo de nadie", () => {
+    // Era el de un router que juntaba media aplicación, y compartirlo entero
+    // dejó sin permiso, en distintos momentos, seis módulos.
+    const { COMPARTIDAS } = require('../src/modules/usuarios/modulos');
+    assert.equal(COMPARTIDAS.some(p => p.startsWith('/alegra')), false);
+    assert.equal(MODULOS.some(m => m.rutasApi.some(p => p.startsWith('/alegra'))), false);
+    assert.equal(clasificarRuta('/alegra/bodega/facturas-propias'), null);
   });
 
   test('las fotos que usan varias pantallas van por /catalogos, compartida', () => {
@@ -127,19 +143,17 @@ describe('rutas compartidas y de administrador', () => {
   });
 
   test('gana el prefijo más específico, sea de módulo o compartido', () => {
-    assert.equal(clasificarRuta('/alegra/items').tipo, 'compartida');
+    assert.equal(clasificarRuta('/reportes/faltantes/notas').tipo, 'compartida');
     // Un módulo dueño de un pedazo de un prefijo compartido.
-    assert.equal(clasificarRuta('/alegra/bodega/facturas-propias').clave, 'facturas-bodega');
     assert.equal(clasificarRuta('/reportes/faltantes/cliente').tipo, 'compartida');
     assert.equal(clasificarRuta('/reportes/faltantes/cliente/exportar').clave, 'reporte-clientes');
-    // Lo que fue de la Gestión de Catálogo vieja ya no es de nadie: cae en
-    // '/alegra', y detrás no hay ninguna ruta montada.
-    assert.equal(clasificarRuta('/alegra/catalog/arbol').tipo, 'compartida');
+    assert.equal(clasificarRuta('/reportes/faltantes/proveedor/exportar').clave, 'reporte-proveedores');
     assert.equal(clasificarRuta('/no-existe'), null);
   });
 
   test('una ruta parecida a una compartida NO pasa por compartida', () => {
-    assert.equal(esCompartida('/alegra-privado'), false);
+    assert.equal(esCompartida('/reportes-privado'), false);
+    assert.equal(esCompartida('/catalogosx'), false);
   });
 
   test('/usuarios exige administrador', () => {
@@ -207,7 +221,8 @@ describe('la ruta se clasifica como la entiende Express', () => {
     assert.equal(moduloDeRuta('/RENTABILIDAD/'), 'rentabilidad');
     assert.equal(moduloDeRuta('/Reporte-Contador/periodos'), 'reporte-contador');
     assert.equal(moduloDeRuta('/Maestro/Productos'), 'gestion-catalogo');
-    assert.equal(moduloDeRuta('/Alegra/Bodega/facturas-propias'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/Bodega/Facturas-Propias'), 'facturas-bodega');
+    assert.equal(moduloDeRuta('/ORDEN-COMPRA/enviar-whatsapp'), 'reporte-proveedores');
     assert.equal(moduloDeRuta('/Cuentas-Por-Cobrar/propios/deudores'), 'cuentas-por-cobrar');
   });
 
@@ -219,7 +234,7 @@ describe('la ruta se clasifica como la entiende Express', () => {
   });
 
   test('lo compartido sigue compartido, y lo parecido sigue sin serlo', () => {
-    assert.equal(esCompartida('/Alegra/Reportes/faltantes/notas'), true);
+    assert.equal(esCompartida('/Reportes/Faltantes/notas'), true);
     assert.equal(esCompartida('/Reportes/'), true);
     assert.equal(moduloDeRuta('/usuariosx'), null);
     assert.equal(esRutaAdmin('/usuariosx'), false);

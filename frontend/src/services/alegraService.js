@@ -22,7 +22,7 @@ export const alegraService = {
   async limpiarFaltantesProveedor() {
     try {
       console.log('🗑️ Frontend: Limpiando faltantes de la BD');
-      const response = await api.delete('/alegra/reportes/faltantes/proveedor/limpiar')
+      const response = await api.delete('/reportes/faltantes/proveedor/limpiar')
       console.log('✅ Frontend: Faltantes eliminados:', response.data);
       return response.data
     } catch (error) {
@@ -55,7 +55,7 @@ export const alegraService = {
   async getReporteFaltantesCliente() {
     try {
       console.log('📋 Frontend: Obteniendo reporte de faltantes por cliente');
-      const response = await api.get('/alegra/reportes/faltantes/cliente')
+      const response = await api.get('/reportes/faltantes/cliente')
       console.log('✅ Frontend: Reporte de clientes obtenido:', response.data);
       return response.data
     } catch (error) {
@@ -75,7 +75,7 @@ export const alegraService = {
    */
   async getNotasDeFaltantes(fechaInicio = null) {
     const params = fechaInicio ? { fecha_inicio: fechaInicio } : {}
-    const response = await api.get('/alegra/reportes/faltantes/notas', { params })
+    const response = await api.get('/reportes/faltantes/notas', { params })
     return response.data
   },
   async getReporteFaltantesProveedor(fechaInicio) {
@@ -84,7 +84,7 @@ export const alegraService = {
       const params = {};
       if (fechaInicio) params.fecha_inicio = fechaInicio;
 
-      const response = await api.get('/alegra/reportes/faltantes/proveedor', { params })
+      const response = await api.get('/reportes/faltantes/proveedor', { params })
       console.log('✅ Frontend: Reporte de proveedores obtenido:', response.data);
       return response.data
     } catch (error) {
@@ -101,7 +101,7 @@ export const alegraService = {
   async getCantidadesModificadas() {
     try {
       console.log('📋 Frontend: Obteniendo cantidades modificadas');
-      const response = await api.get('/alegra/orden-compra/cantidades')
+      const response = await api.get('/orden-compra/cantidades')
       console.log('✅ Frontend: Cantidades obtenidas:', response.data);
       return response.data
     } catch (error) {
@@ -114,7 +114,7 @@ export const alegraService = {
   async guardarCantidadesModificadas(cantidades) {
     try {
       console.log('💾 Frontend: Guardando cantidades modificadas:', cantidades.length);
-      const response = await api.post('/alegra/orden-compra/cantidades', { cantidades })
+      const response = await api.post('/orden-compra/cantidades', { cantidades })
       console.log('✅ Frontend: Cantidades guardadas:', response.data);
       return response.data
     } catch (error) {
@@ -127,7 +127,7 @@ export const alegraService = {
   async limpiarCantidadesModificadas() {
     try {
       console.log('🗑️ Frontend: Limpiando cantidades modificadas');
-      const response = await api.delete('/alegra/orden-compra/cantidades')
+      const response = await api.delete('/orden-compra/cantidades')
       console.log('✅ Frontend: Cantidades limpiadas:', response.data);
       return response.data
     } catch (error) {
@@ -140,7 +140,7 @@ export const alegraService = {
   async generarPDFOrdenCompra(proveedor, productos, preferirDatosProveedor = true) {
     try {
       console.log('📄 Frontend: Generando PDF para:', proveedor);
-      const response = await api.post('/alegra/orden-compra/generar-pdf', {
+      const response = await api.post('/orden-compra/generar-pdf', {
         proveedor,
         productos,
         preferirDatosProveedor
@@ -167,7 +167,7 @@ export const alegraService = {
         revisado
       }
 
-      const response = await api.post('/alegra/faltantes/ajustes', payload)
+      const response = await api.post('/faltantes/ajustes', payload)
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error guardando ajuste:', error)
@@ -177,7 +177,7 @@ export const alegraService = {
 
   async eliminarAjusteFaltante(faltanteId) {
     try {
-      const response = await api.delete(`/alegra/faltantes/ajustes/${faltanteId}`)
+      const response = await api.delete(`/faltantes/ajustes/${faltanteId}`)
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error eliminando ajuste:', error)
@@ -192,7 +192,7 @@ export const alegraService = {
   // Obtener teléfono guardado de un proveedor
   async getTelefonoProveedor(nombreProveedor) {
     try {
-      const response = await api.get(`/alegra/orden-compra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
+      const response = await api.get(`/orden-compra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
       return response.data.telefono || null
     } catch (error) {
       console.error('❌ Error obteniendo teléfono proveedor:', error)
@@ -203,7 +203,7 @@ export const alegraService = {
   // Guardar teléfono de un proveedor
   async guardarTelefonoProveedor(nombreProveedor, telefono, cedulaProveedor = null) {
     try {
-      const response = await api.put('/alegra/orden-compra/proveedor-contacto', {
+      const response = await api.put('/orden-compra/proveedor-contacto', {
         nombreProveedor,
         cedulaProveedor,
         telefono
@@ -219,7 +219,7 @@ export const alegraService = {
   async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '') {
     try {
       console.log('📤 Enviando orden de compra por WhatsApp desde frontend...', proveedor);
-      const response = await api.post('/alegra/orden-compra/enviar-whatsapp', {
+      const response = await api.post('/orden-compra/enviar-whatsapp', {
         proveedor,
         telefono,
         productos,
@@ -243,7 +243,7 @@ export const alegraService = {
    */
   async getOrdenesEnviadas(desde = '') {
     try {
-      const response = await api.get('/alegra/orden-compra/enviados', {
+      const response = await api.get('/orden-compra/enviados', {
         params: desde ? { desde } : {}
       })
       return response.data

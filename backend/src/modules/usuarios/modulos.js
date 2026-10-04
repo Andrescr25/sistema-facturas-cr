@@ -46,10 +46,8 @@ const MODULOS = [
     nombre: 'Facturas en Bodega',
     grupo: 'Ventas',
     ruta: '/facturas-bodega',
-    // La pantalla llama a /alegra/bodega (el router de Alegra también lo
-    // monta): sin este prefijo, esas rutas caían en /alegra, compartida, y
-    // cualquier usuario con sesión podía marcar facturas como despachadas.
-    rutasApi: ['/bodega', '/alegra/bodega', '/faltantes']
+    // Marcar una factura como despachada y registrar lo que faltó.
+    rutasApi: ['/bodega']
   },
   {
     clave: 'clientes',
@@ -72,12 +70,11 @@ const MODULOS = [
     nombre: 'Reporte Clientes',
     grupo: 'Ventas',
     ruta: '/reportes/clientes',
-    // El Excel pertenece al módulo aunque el reporte antiguo comparta prefijo.
-    // '/alegra/faltantes' son los ajustes de entrega (guardar y quitar), que
-    // solo hace esta pantalla. Colgaban de '/alegra', compartida: cualquiera
-    // con sesión podía cambiarle a un cliente lo que se le entregó. Mismo caso
-    // que '/alegra/bodega' más arriba.
-    rutasApi: ['/reportes/faltantes/cliente/exportar', '/alegra/reportes/faltantes/cliente/exportar', '/alegra/faltantes']
+    // El Excel pertenece al módulo aunque el reporte comparta prefijo con el
+    // de proveedores. '/faltantes' son los ajustes de entrega (guardar y
+    // quitar), que solo hace esta pantalla: cambiarle a un cliente lo que se
+    // le entregó.
+    rutasApi: ['/reportes/faltantes/cliente/exportar', '/faltantes']
   },
   {
     clave: 'impresion',
@@ -114,11 +111,10 @@ const MODULOS = [
     nombre: 'Reporte Proveedores',
     grupo: 'Compras',
     ruta: '/reportes/proveedores',
-    // '/alegra/orden-compra' es la orden de compra que arma esta pantalla y
-    // nadie más: cantidades, el PDF, el contacto del proveedor y el envío por
-    // WhatsApp. Debajo de '/alegra', compartida, cualquiera con sesión podía
-    // mandarle una orden a un proveedor.
-    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/alegra/reportes/faltantes/proveedor/exportar', '/alegra/orden-compra']
+    // '/orden-compra' es la orden de compra que arma esta pantalla y nadie
+    // más: cantidades, el PDF, el contacto del proveedor y el envío por
+    // WhatsApp a un proveedor de verdad.
+    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/orden-compra']
   },
   {
     clave: 'pagos-proveedores',
@@ -196,16 +192,18 @@ const MODULOS = [
  * eso vive en los módulos de arriba, que sí piden permiso.
  *
  * GANA EL PREFIJO MÁS ESPECÍFICO, sea de módulo o compartido (ver
- * `clasificarRuta`): '/alegra/bodega' (Facturas en Bodega) le gana a
- * '/alegra'. Así un módulo puede ser dueño de un pedazo de un prefijo
- * compartido sin cerrarle a nadie el resto.
+ * `clasificarRuta`): '/reportes/faltantes/cliente/exportar' (Reporte
+ * Clientes) le gana a '/reportes'. Así un módulo puede ser dueño de un pedazo
+ * de un prefijo compartido sin cerrarle a nadie el resto.
+ *
+ * '/alegra' ESTUVO ACÁ hasta el 2026-10-04. Era el prefijo de un router que
+ * juntaba media aplicación, y compartirlo entero dejó sin permiso, en
+ * distintos momentos, la Gestión de Catálogo, Facturación, Bodega, Impresión,
+ * los ajustes de entrega y las órdenes de compra. Un prefijo compartido tiene
+ * que ser chico y de lectura; lo demás lleva dueño.
  */
 const COMPARTIDAS = [
   '/auth',        // entrar, ver quién soy, cambiar mi propia contraseña
-  // El prefijo del router adaptador. Ya no le habla a Alegra: debajo quedan
-  // reportes, faltantes y órdenes de compra, propios. Bodega e Impresión
-  // tienen ahí su pedazo, con permiso (gana el prefijo más específico).
-  '/alegra',
   '/reportes',    // reporte de clientes y de proveedores comparten prefijo
   // Impuestos, métodos de pago, plazos, cuentas y productos activos; la foto
   // de cada referencia (Bodega) y las fotos sugeridas (Gestión de Catálogo y

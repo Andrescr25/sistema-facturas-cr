@@ -449,7 +449,8 @@ describe('nada lee las columnas renombradas', () => {
         }
       }
     };
-    for (const dir of ['src', 'services', 'routes']) recorrer(path.join(__dirname, '..', dir));
+    // `backend/routes` (el adaptador de /api/alegra) se borró el 2026-10-04.
+    for (const dir of ['src', 'services']) recorrer(path.join(__dirname, '..', dir));
     assert.deepEqual(hallazgos, []);
   });
 });

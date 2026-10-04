@@ -52,7 +52,7 @@ describe('las rutas que el frontend llama existen', () => {
   test('cada DELETE que hace el hook tiene su ruta', () => {
     // Esta es la que habría atrapado el bug: compara lo que el frontend
     // llama contra lo que el backend define, en vez de confiar en una lista.
-    const llamadas = [...HOOK.matchAll(/api\.delete\('\/alegra\/orden-compra\/([\w-]+)'/g)].map(m => m[1]);
+    const llamadas = [...HOOK.matchAll(/api\.delete\('\/orden-compra\/([\w-]+)'/g)].map(m => m[1]);
     assert.ok(llamadas.length >= 2, `se esperaban DELETE en el hook, hay ${llamadas.length}`);
     const sinRuta = llamadas.filter(r => !new RegExp(`router\\.delete\\('/${r}'`).test(RUTAS));
     assert.deepEqual(sinRuta, [],
