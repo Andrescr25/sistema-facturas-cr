@@ -19,7 +19,6 @@ const productsRoutes = require('../src/modules/products');
 const invoicesRoutes = require('../src/modules/invoices');
 const reportsRoutes = require('../src/modules/reports');
 const ordersWhatsappRoutes = require('../src/modules/orders-whatsapp');
-const reprintingRoutes = require('../src/modules/reprinting').routes;
 const warehouseRoutes = require('../src/modules/warehouse').routes;
 const missingItemsRoutes = require('../src/modules/missing-items').routes;
 const catalogRoutes = require('../src/modules/catalogo').routes;
@@ -153,9 +152,16 @@ router.get('/facturas/:id', async (req, res) => {
 // referenciaba.
 
 // ========================================
-// 3. MODULO DE REIMPRESIÓN (/reimpresion)
+// 3. MODULO DE REIMPRESIÓN — ya NO se monta acá
 // ========================================
-router.use('/reimpresion', reprintingRoutes);
+// Vive en /api/reimpresion (server.js), que pide el módulo Impresión. Este
+// segundo montaje quedaba debajo de '/alegra', que es un prefijo COMPARTIDO:
+// cualquiera con sesión, sin el módulo, podía leer la cola y vaciar el
+// historial (`DELETE /alegra/reimpresion/historial`). Ninguna pantalla lo
+// usaba. Retirado el 2026-10-04.
+//
+// ANTES DE MONTAR ALGO DEBAJO DE /alegra: no pide permiso, salvo que
+// `usuarios/modulos.js` le dé dueño al prefijo completo (como '/alegra/bodega').
 
 // ========================================
 // 4. MODULO DE REPORTES Y HISTORIAL (/reportes)
