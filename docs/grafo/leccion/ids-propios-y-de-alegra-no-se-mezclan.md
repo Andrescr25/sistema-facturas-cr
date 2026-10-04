@@ -10,9 +10,12 @@ archivos:
   - backend/src/modules/cotizaciones/enlacePublico.js
   - backend/src/modules/catalogo-agente/pedidos-agente.service.js
   - backend/tests/catalogoAgenteIdsPropios.test.js
+  - backend/src/modules/facturacion/facturaPropia.controller.js
+  - frontend/src/utils/facturacionUtils.js
+  - backend/tests/sugerenciasFacturacion.test.js
 aristas:
   relacionado: [modulo/cotizaciones, modulo/facturacion, leccion/cache-con-ids-propios-no-borra-pendientes]
-medido: 2026-10-03
+medido: 2026-10-04
 ---
 
 Los ids propios son seriales (1, 2, 3…) y los de Alegra también. Pasar uno
@@ -22,8 +25,10 @@ persona.
 Casos en esta rama:
 
 1. **Editar una factura** — mandar un id propio a la ruta de Alegra editaba
-   OTRA factura. Por eso la edición se enruta por la marca `esPropia`
-   (sección 6 del checklist).
+   OTRA factura. Por eso la edición se enrutaba por la marca `esPropia`
+   (sección 6 del checklist). La ruta de Alegra se retiró el 2026-10-04; la
+   marca sigue, ahora al revés: lo que NO la trae salió de una copia vieja
+   de la tablet, con el id de allá, y no se manda a la ruta propia.
 2. **WhatsApp desde Cuentas por Cobrar** (corregido el 2026-09-24). El modal
    buscaba los teléfonos con `/envios-whatsapp/telefonos/:contactoId`, que le
    pregunta a Alegra, pero Cuentas por Cobrar ya le pasaba el id propio. Al
@@ -41,6 +46,21 @@ Casos en esta rama:
    explícitos impiden interpretar por accidente un pedido antiguo como uno
    propio. La prueba crea fichas distintas con el mismo número en ambos
    espacios y comprueba que cada contrato apunta a su ficha.
+5. **"Suele faltar" en Facturación** (corregido el 2026-10-04). Este es el
+   caso al revés y el más fácil de repetir: se migró el SERVIDOR a ids
+   propios (las ventas pasaron a salir de las facturas propias) y la pantalla
+   siguió mandando el id de Alegra, con un comentario que decía "el histórico
+   todavía habla en ids de Alegra" — cierto el día que se escribió. Al
+   cliente propio 186 se le pedían las compras del cliente 80. Medido: 216 de
+   247 clientes veían lo de otro, 1 coincidía por casualidad. Nada falló, y
+   la prueba que había pasaba: doblaba el servicio y solo miraba que el
+   parámetro de la ruta llegara tal cual. La prueba nueva va contra
+   PostgreSQL y arma el cruce a propósito (un cliente cuyo id de Alegra es el
+   id propio de otro).
+
+**Al migrar un servicio a ids propios, buscar a TODOS los que lo llaman**, no
+solo el que motivó el cambio: `obtenerInicio` tenía dos (el portal y
+Facturación) y se migró pensando en uno.
 
 **Cómo aplicarlo:** una ruta o una prop que recibe un id dice en su nombre
 de quién es. Si un componente puede recibir los dos, recibe dos props
