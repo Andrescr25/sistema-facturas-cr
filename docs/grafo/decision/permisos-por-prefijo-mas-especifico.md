@@ -26,7 +26,10 @@ cualquiera con sesión.
    esta regla: `gestion-catalogo` declara `/alegra/catalog`, y las tres rutas
    de fotos que usan otras pantallas (`search-images`,
    `imagenes-por-referencia`, `image-proxy`) son compartidas con su ruta
-   completa — más larga, así que ganan.
+   completa — más larga, así que ganan. *En esta rama ese módulo se retiró
+   el 2026-10-04: Gestión de Catálogo es dueña de `/maestro`, y las fotos van
+   por `/catalogos`, compartida. La regla sigue valiendo para
+   `/alegra/bodega` y para las exportaciones debajo de `/reportes`.*
 
 Al agregar un módulo: declarar sus prefijos, y agregar un caso al test de
 "usuario sin el módulo → 403" con una ruta real suya.

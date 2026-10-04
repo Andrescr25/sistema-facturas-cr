@@ -40,13 +40,11 @@ que vencen a los 7 días, y no se entera de nada de lo que se crea o cambia en
 el maestro.
 
 Quién la sigue leyendo o escribiendo está en una lista cerrada que se prueba
-sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 son seis
-archivos, y cuatro son de lo mismo: el módulo viejo de Gestión de Catálogo
-(`catalogo.service.js`, con `categorias` y `subcategorias`), que quedó
-montado con 24 rutas de las que las pantallas de esta rama usan dos —buscar
-fotos sugeridas y el proxy de miniaturas, que no tocan esta tabla—. Los otros
-son la auditoría de inventario, una lectura de Facturación, y
-`enviarFacturaAlegra`, que no tiene pantalla.
+sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 quedan TRES
+archivos: la auditoría de inventario, una lectura de Facturación, y
+`enviarFacturaAlegra`, que no tiene pantalla. Ese mismo día se fue el que más
+la usaba, la Gestión de Catálogo vieja (`modules/catalogo`, 32 de los usos):
+ver [[modulo/gestion-catalogo]].
 
 Las últimas dos lecturas con pantalla se fueron ese día: la foto de cada
 línea en Facturas en Bodega y el código de la marca que sigue, que ahora salen

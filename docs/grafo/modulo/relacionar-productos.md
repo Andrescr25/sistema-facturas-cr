@@ -168,6 +168,6 @@ Se vuelve a contar desde las líneas cada vez que una cambia:
 
 ## Lo que falta
 
-- La búsqueda de fotos sugeridas sigue colgada del prefijo adaptador
-  (`/alegra/catalog/search-images`); no le habla a Alegra, pero el nombre se
-  va con el retiro de ese prefijo.
+Nada de este módulo depende ya de Alegra. La búsqueda de fotos sugeridas,
+que colgaba del prefijo adaptador, pasó a `/catalogos/imagenes-sugeridas` el
+2026-10-04, al retirarse la Gestión de Catálogo vieja.

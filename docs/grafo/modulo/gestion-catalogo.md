@@ -8,8 +8,10 @@ archivos:
   - backend/src/modules/productos/taxonomia.service.js
   - backend/src/modules/productos/productos.routes.js
   - backend/src/modules/productos/productos.service.js
-  - backend/src/modules/catalogo/subcategorias.service.js
-  - backend/src/modules/catalogo/categorias.service.js
+  - backend/src/modules/productos/taxonomiaTablas.js
+  - backend/src/modules/productos/imagenesSugeridas.js
+  - backend/tests/taxonomiaTablas.test.js
+  - backend/tests/imagenesSugeridas.test.js
   - frontend/src/pages/GestionCatalogo.jsx
   - frontend/src/hooks/useTaxonomiaCatalogo.js
   - frontend/src/hooks/useListaCatalogo.js
@@ -82,4 +84,24 @@ también los inactivos, para que un código dado de baja no se reuse.
 La misma mudanza tuvo la foto de cada línea de Facturas en Bodega
 (`GET /catalogos/imagenes-por-referencia`): las de la caché eran direcciones
 de Alegra ya vencidas. Ver [[tabla/alegra-products-cache]].
+
+## La Gestión de Catálogo vieja se retiró (2026-10-04)
+
+`backend/src/modules/catalogo` —la pantalla de cuando el catálogo era de
+Alegra— seguía montado en `/alegra/catalog` con 24 rutas: árbol y listas
+desde la caché, subcategorías sobre la caché, y editar, borrar, duplicar y
+cambiar de categoría productos EN ALEGRA. Las pantallas de esta rama usaban
+dos. Se borró entero (1.942 líneas) y lo que seguía vivo se mudó:
+
+| Qué | Dónde quedó |
+|---|---|
+| Orden y nombre visible de las categorías; subcategorías | `productos/taxonomiaTablas.js` |
+| Buscar fotos sugeridas | `GET /catalogos/imagenes-sugeridas` (`productos/imagenesSugeridas.js`) |
+| La miniatura de cada sugerencia | `GET /catalogos/imagen-proxy`, pública y solo del CDN de Brave |
+
+La miniatura ahora pasa por `utils/descargarImagen`, que no sigue una
+redirección hacia la red interna; antes se bajaba con axios a secas.
+
+Con esto el catálogo del agente dejó de pedirle las categorías a Alegra en
+vivo: ver [[tabla/categoria-config]].
 
