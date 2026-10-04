@@ -5,7 +5,7 @@ import { Check, Link2, Settings } from 'lucide-react'
  * acciones (relacionar / cambiar / editar factor). Extraído de
  * RelacionarProductos.jsx (era el cuerpo del .map de productos).
  */
-export default function ProductoRelacionarCard({ producto, alegraInfo, onRelacionar, onCambiarRelacion, onEditarFactor }) {
+export default function ProductoRelacionarCard({ producto, productoInfo, onRelacionar, onCambiarRelacion, onEditarFactor }) {
   return (
     <div className="card border border-neutro-200 hover:shadow-md transition bg-white p-5 rounded-3xl">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -42,23 +42,23 @@ export default function ProductoRelacionarCard({ producto, alegraInfo, onRelacio
           </div>
 
           {/* Info del producto relacionado */}
-          {producto.estadoRelacionado === 'RELACIONADO' && alegraInfo && (
+          {producto.estadoRelacionado === 'RELACIONADO' && productoInfo && (
             <div className="mt-3 bg-exito-50/50 border border-exito-100 rounded-2xl p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="text-xxs font-bold uppercase tracking-wider text-exito-600 mb-1.5">
-                    Relacionado con Alegra
+                    Relacionado con
                   </div>
-                  <p className="font-semibold text-exito-950 text-sm leading-snug">{alegraInfo.name}</p>
+                  <p className="font-semibold text-exito-950 text-sm leading-snug">{productoInfo.name}</p>
                   <div className="flex flex-wrap gap-3 text-xs text-exito-800 mt-2 font-mono">
-                    <span>Ref: {alegraInfo.reference || 'N/A'}</span>
+                    <span>Ref: {productoInfo.reference || 'N/A'}</span>
                     <span>&bull;</span>
-                    <span>Precio Venta: ₡{alegraInfo.price?.toLocaleString('es-CR')}</span>
-                    {alegraInfo.factorConversion && alegraInfo.factorConversion !== 1 && (
+                    <span>Precio Venta: ₡{productoInfo.price?.toLocaleString('es-CR')}</span>
+                    {productoInfo.factorConversion && productoInfo.factorConversion !== 1 && (
                       <>
                         <span>&bull;</span>
                         <span className="text-primario-700 font-bold">
-                          Factor: {alegraInfo.factorConversion}x
+                          Factor: {productoInfo.factorConversion}x
                         </span>
                       </>
                     )}
@@ -68,7 +68,7 @@ export default function ProductoRelacionarCard({ producto, alegraInfo, onRelacio
             </div>
           )}
 
-          {producto.estadoRelacionado === 'RELACIONADO' && !alegraInfo && (
+          {producto.estadoRelacionado === 'RELACIONADO' && !productoInfo && (
             <div className="mt-2 text-xs text-exito-600 flex items-center font-semibold">
               <Check size={14} className="mr-1" />
               Relacionado (cargando información...)

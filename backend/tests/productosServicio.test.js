@@ -196,9 +196,11 @@ describe('listar', () => {
     const { servicio, log } = montar(vacio);
     await servicio.listarProductos({ proveedor: '3101013155' });
     await servicio.listarProductos({ proveedor: 'sin-proveedor' });
-    assert.match(log[0].sql, /EXISTS \(SELECT 1 FROM supplier_product_mapping m WHERE m\.alegra_item_id = p\.alegra_id AND m\.supplier_cedula = \$1\)/);
+    // Por `producto_id`: con el id de Alegra, un producto creado en el sistema
+    // salía siempre como "sin proveedor".
+    assert.match(log[0].sql, /EXISTS \(SELECT 1 FROM supplier_product_mapping m WHERE m\.producto_id = p\.id AND m\.supplier_cedula = \$1\)/);
     assert.ok(log[0].params.includes('3101013155'));
-    assert.match(log[1].sql, /NOT EXISTS/);
+    assert.match(log[1].sql, /NOT EXISTS \(SELECT 1 FROM supplier_product_mapping m WHERE m\.producto_id = p\.id\)/);
   });
 
   test('para vender no se expone el costo', async () => {

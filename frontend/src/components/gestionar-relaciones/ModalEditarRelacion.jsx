@@ -3,7 +3,7 @@ import { useModal } from '../../hooks/useModal'
 
 /**
  * Modal para reasignar la relación de un producto de proveedor a otro
- * producto de Alegra, con búsqueda incremental. Extraído de
+ * producto del catálogo propio, con búsqueda incremental. Extraído de
  * GestionarRelaciones.jsx.
  */
 export default function ModalEditarRelacion({
@@ -36,7 +36,7 @@ export default function ModalEditarRelacion({
             <p className="text-sm text-neutro-600">Código: {producto.codigoProveedor}</p>
             {producto.mapeo && (
               <p className="text-sm text-exito-700 mt-2">
-                Actualmente relacionado con: <strong>{producto.mapeo.alegraName}</strong>
+                Actualmente relacionado con: <strong>{producto.mapeo.productoNombre}</strong>
               </p>
             )}
           </div>
@@ -45,7 +45,7 @@ export default function ModalEditarRelacion({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutro-400" size={20} />
             <input
               type="text"
-              placeholder="Buscar nuevo producto en Alegra..."
+              placeholder="Buscar el producto correcto..."
               value={terminoBusqueda}
               onChange={(e) => setTerminoBusqueda(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-neutro-300 rounded-lg focus:ring-2 focus:ring-primario-500 focus:border-transparent"

@@ -41,7 +41,7 @@ export default function ModalFactorConversion({
           <div className="bg-neutro-50/70 p-5 rounded-2xl border border-neutro-100">
             <p className="text-xxs font-bold uppercase tracking-wider text-neutro-400 mb-1.5">Producto del proveedor</p>
             <p className="font-semibold text-neutro-900 text-sm leading-snug">{producto.descripcion}</p>
-            <p className="text-xs text-neutro-500 mt-1">Relacionado con: <span className="font-medium text-neutro-700">{producto.mapeo?.alegraName}</span></p>
+            <p className="text-xs text-neutro-500 mt-1">Relacionado con: <span className="font-medium text-neutro-700">{producto.mapeo?.productoNombre}</span></p>
           </div>
 
           <div className="bg-primario-50/50 p-5 rounded-2xl border border-primario-100/70">

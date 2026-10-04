@@ -16,7 +16,7 @@ import { useToast } from './useToast'
 
 /**
  * Estado y lógica de negocio de la relación de productos de una factura:
- * carga de la factura + productos, búsqueda y relación con Alegra, creación
+ * carga de la factura + productos, búsqueda y relación con el producto propio, creación
  * de producto nuevo (con detección de medicamento/CABYS/forma farmacéutica),
  * y el factor de conversión de cantidades. Extraído de RelacionarProductos.jsx.
  *
@@ -68,8 +68,8 @@ export function useRelacionarProductos(facturaId) {
   const [cantidadProveedor, setCantidadProveedor] = useState(1)
   const [cantidadMia, setCantidadMia] = useState(1)
 
-  // Estado para producto Alegra completo (con más info)
-  const [productoAlegraInfo, setProductoAlegraInfo] = useState({})
+  // El producto PROPIO con el que está relacionada cada línea, por id de línea.
+  const [productoInfoPorLinea, setProductoInfoPorLinea] = useState({})
 
   // Estado para forma farmacéutica (solo productos farmacéuticos)
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
@@ -96,17 +96,17 @@ export function useRelacionarProductos(facturaId) {
         const prods = response.data.data.productos || []
         setProductos(prods)
 
-        // La info de productos Alegra ya viene en la respuesta del backend
-        const infoAlegra = {}
+        // El producto propio de cada línea ya viene en la respuesta del backend
+        const infoPorLinea = {}
         prods.forEach(prod => {
-          if (prod.alegraProductInfo) {
-            infoAlegra[prod.id] = {
-              ...prod.alegraProductInfo,
+          if (prod.productoInfo) {
+            infoPorLinea[prod.id] = {
+              ...prod.productoInfo,
               factorConversion: prod.mapeo?.factorConversion || 1
             }
           }
         })
-        setProductoAlegraInfo(infoAlegra)
+        setProductoInfoPorLinea(infoPorLinea)
       }
     } catch (err) {
       setError(err.message || 'Error cargando factura')
@@ -166,13 +166,14 @@ export function useRelacionarProductos(facturaId) {
     setResultadosBusqueda([])
   }
 
-  const relacionarProducto = async (alegraProducto) => {
+  // `productoElegido` viene del buscador del maestro: su `id` es `producto.id`.
+  const relacionarProducto = async (productoElegido) => {
     if (!productoSeleccionado) return
 
     try {
       const response = await api.post('/productos-revision/relacion', {
         productoProveedorId: productoSeleccionado.id,
-        alegraItemId: alegraProducto.id,
+        productoPropioId: productoElegido.id,
         facturaId: facturaId
       })
 
@@ -180,15 +181,19 @@ export function useRelacionarProductos(facturaId) {
         // Actualizar producto en la lista
         setProductos(prev => prev.map(p =>
           p.id === productoSeleccionado.id
-            ? { ...p, estadoRelacionado: 'RELACIONADO', alegraItemId: alegraProducto.id }
+            ? { ...p, estadoRelacionado: 'RELACIONADO', productoPropioId: productoElegido.id }
             : p
         ))
+        setProductoInfoPorLinea(prev => ({
+          ...prev,
+          [productoSeleccionado.id]: { id: productoElegido.id, name: productoElegido.name, reference: productoElegido.reference, price: productoElegido.price }
+        }))
         cerrarModalBusqueda()
 
         // Abrir modal de conversión
         setProductoRelacionado({
           ...productoSeleccionado,
-          alegraProducto: alegraProducto,
+          productoElegido: productoElegido,
           mapeoId: response.data.mapeo.id
         })
         setCantidadProveedor(1)
@@ -525,7 +530,7 @@ export function useRelacionarProductos(facturaId) {
       // Actualizar estado local
       setProductos(prev => prev.map(p =>
         p.id === producto.id
-          ? { ...p, estadoRelacionado: 'SIN_RELACIONAR', alegraItemId: null, mapeoId: null }
+          ? { ...p, estadoRelacionado: 'SIN_RELACIONAR', productoPropioId: null, mapeoId: null }
           : p
       ))
 
@@ -538,18 +543,18 @@ export function useRelacionarProductos(facturaId) {
 
   // Editar factor de conversión de un producto relacionado
   const editarFactor = async (producto) => {
-    if (!producto.alegraItemId) return
+    if (!producto.productoPropioId) return
 
     try {
       // Obtener mapeo actual
       const response = await api.get(`/productos-revision/mapeo/${producto.id}`)
       if (response.data.success) {
         const mapeo = response.data.mapeo
-        const alegraInfo = productoAlegraInfo[producto.id]
+        const info = productoInfoPorLinea[producto.id]
 
         setProductoRelacionado({
           ...producto,
-          alegraProducto: alegraInfo || { name: 'Producto Alegra', reference: producto.alegraItemId },
+          productoElegido: info || { name: mapeo.productoNombre || 'Producto', reference: mapeo.productoReferencia || '' },
           mapeoId: mapeo.id
         })
 
@@ -598,7 +603,7 @@ export function useRelacionarProductos(facturaId) {
     productosFiltrados,
     stats,
     progreso,
-    productoAlegraInfo,
+    productoInfoPorLinea,
 
     modalBusqueda,
     productoSeleccionado,

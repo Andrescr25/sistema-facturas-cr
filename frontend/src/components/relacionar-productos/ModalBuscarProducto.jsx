@@ -2,7 +2,7 @@ import { X, Search, Loader, Package, AlertCircle, Plus } from 'lucide-react'
 import { useModal } from '../../hooks/useModal'
 
 /**
- * Modal de búsqueda de un producto de Alegra para relacionarlo con un
+ * Modal de búsqueda de un producto del catálogo propio para relacionarlo con un
  * producto del proveedor, con acceso directo a crear uno nuevo si no se
  * encuentra. Extraído de RelacionarProductos.jsx.
  */
@@ -23,7 +23,7 @@ export default function ModalBuscarProducto({
         <div className="p-6 border-b">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-neutro-900">
-              Buscar Producto en Alegra
+              Buscar producto
             </h3>
             <button
               onClick={onCerrar}
@@ -76,7 +76,7 @@ export default function ModalBuscarProducto({
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar en productos de Alegra..."
+              placeholder="Buscar por nombre o referencia..."
               className="w-full pl-10 pr-4 py-3 border-2 border-neutro-300 rounded-lg focus:border-primario-500 focus:ring-2 focus:ring-primario-200"
               autoFocus
             />
@@ -120,7 +120,7 @@ export default function ModalBuscarProducto({
                             ₡{prod.price?.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-                        {prod.cost && (
+                        {prod.cost > 0 && (
                           <div>
                             <span className="text-neutro-500">Costo:</span>
                             <span className="ml-1 font-medium text-neutro-700">

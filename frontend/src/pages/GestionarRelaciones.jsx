@@ -71,7 +71,7 @@ export default function GestionarRelaciones() {
             Gestionar Relaciones
           </h1>
           <p className="text-sm text-neutro-500 mt-0.5">
-            Consulta, edita o elimina las relaciones establecidas entre productos de proveedores y tu catálogo de Alegra.
+            Consulta, edita o elimina las relaciones establecidas entre productos de proveedores y tu catálogo.
           </p>
         </div>
         <button

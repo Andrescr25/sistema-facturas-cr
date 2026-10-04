@@ -29,12 +29,12 @@ async function getRelacionados(req, res) {
 }
 
 /**
- * GET /productos-revision/producto/:alegraItemId/relaciones
+ * GET /productos-revision/producto/:productoPropioId/relaciones
  */
 async function getRelacionesDeProducto(req, res) {
   try {
-    const { alegraItemId } = req.params;
-    const result = await productosRevisionService.getRelacionesDeProducto(alegraItemId);
+    const { productoPropioId } = req.params;
+    const result = await productosRevisionService.getRelacionesDeProducto(productoPropioId);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error obteniendo relaciones del producto:', error);
@@ -47,16 +47,18 @@ async function getRelacionesDeProducto(req, res) {
  */
 async function crearRelacion(req, res) {
   try {
-    const { productoProveedorId, alegraItemId } = req.body;
+    // `productoPropioId` es `producto.id`. No se acepta el id de Alegra: los
+    // dos son números, y tomar uno por otro relacionaría con otro producto.
+    const { productoProveedorId, productoPropioId } = req.body;
 
-    if (!productoProveedorId || !alegraItemId) {
+    if (!productoProveedorId || !productoPropioId) {
       return res.status(400).json({
         success: false,
-        error: 'Faltan campos requeridos: productoProveedorId, alegraItemId'
+        error: 'Faltan campos requeridos: productoProveedorId, productoPropioId'
       });
     }
 
-    const result = await productosRevisionService.crearRelacion({ productoProveedorId, alegraItemId });
+    const result = await productosRevisionService.crearRelacion({ productoProveedorId, productoPropioId });
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error creando relación:', error);
@@ -86,9 +88,12 @@ async function editarRelacion(req, res) {
 
   try {
     const { mapeoId } = req.params;
-    const { nuevoAlegraItemId } = req.body;
+    const { productoPropioId } = req.body;
+    if (!productoPropioId) {
+      return res.status(400).json({ success: false, error: 'Falta el producto: productoPropioId' });
+    }
 
-    const result = await productosRevisionService.editarRelacion(mapeoId, nuevoAlegraItemId);
+    const result = await productosRevisionService.editarRelacion(mapeoId, productoPropioId);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error editando relación:', error);
@@ -199,7 +204,7 @@ async function guardarFactorConversion(req, res) {
 /**
  * GET /productos-revision/buscar
  */
-async function buscarEnCache(req, res) {
+async function buscarProductos(req, res) {
   try {
     const { q } = req.query;
 
@@ -211,47 +216,11 @@ async function buscarEnCache(req, res) {
       });
     }
 
-    const result = await productosRevisionService.buscarEnCache(q);
+    const result = await productosRevisionService.buscarProductos(q);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error buscando productos:', error);
     res.status(error.status || 500).json({ success: false, error: error.message, productos: [] });
-  }
-}
-
-/**
- * GET /productos-revision/buscar-alegra
- */
-async function buscarEnAlegra(req, res) {
-  try {
-    const { q } = req.query;
-
-    if (!q || q.trim().length < 2) {
-      return res.json({
-        success: false,
-        error: 'Término de búsqueda debe tener al menos 2 caracteres'
-      });
-    }
-
-    const result = await productosRevisionService.buscarEnAlegra(q);
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error buscando en Alegra:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
-  }
-}
-
-/**
- * GET /productos-revision/info-alegra/:alegraItemId
- */
-async function getInfoAlegra(req, res) {
-  try {
-    const { alegraItemId } = req.params;
-    const result = await productosRevisionService.getInfoAlegra(alegraItemId);
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error obteniendo producto Alegra:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 }
 
@@ -309,9 +278,7 @@ module.exports = {
   crearProducto,
   precioSugerido,
   guardarFactorConversion,
-  buscarEnCache,
-  buscarEnAlegra,
-  getInfoAlegra,
+  buscarProductos,
   eliminarRelacionDeProducto,
   getMapeoDeProducto,
   getFacturaConProductos

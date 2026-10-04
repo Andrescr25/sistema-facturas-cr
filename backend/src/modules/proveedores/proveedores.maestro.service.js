@@ -68,7 +68,7 @@ const SELECT_VISTA = `
          pl.dias AS plazo_dias,
          (SELECT COUNT(DISTINCT p.id)
             FROM supplier_product_mapping m
-            JOIN producto p ON p.alegra_id = m.alegra_item_id
+            JOIN producto p ON p.id = m.producto_id
            WHERE m.supplier_cedula = pr.identificacion)::int AS productos,
          (SELECT COUNT(*) FROM facturas_proveedores f WHERE f.proveedor_cedula = pr.identificacion)::int AS compras,
          (SELECT MAX(f.fecha_emision) FROM facturas_proveedores f WHERE f.proveedor_cedula = pr.identificacion) AS ultima_compra
@@ -169,7 +169,7 @@ async function obtenerFicha(id) {
     pool.query(
       `SELECT p.id, p.nombre, p.referencia, m.supplier_code AS codigo_proveedor
          FROM supplier_product_mapping m
-         JOIN producto p ON p.alegra_id = m.alegra_item_id
+         JOIN producto p ON p.id = m.producto_id
         WHERE m.supplier_cedula = $1
         ORDER BY m.times_used DESC, lower(p.nombre)
         LIMIT 20`,

@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const { ligarIdsPropios } = require('../src/modules/productos-revision/idsPropiosDelMapeo');
+const { ligarProductoDeLineas } = require('../src/modules/productos-revision/relacionPropia');
 const { guardarXmlRutaDeFactura, guardarTotalesDelResumen } = require('../src/utils/xmlRutaComprobante');
 const almacenamiento = require('../src/integrations/almacenamiento');
 const {
@@ -201,6 +202,11 @@ class DatabaseService {
             // no se puede: la factura ya quedó guardada.
             await guardarXmlRutaDeFactura(facturaGuardada.id, xmlRuta);
             await guardarTotalesDelResumen(facturaGuardada.id, facturaData.resumen?.totales, facturaData.otrosCargos);
+
+            // Las líneas que entraron ya relacionadas por un mapeo existente
+            // quedan con su producto propio (migración 038). Prisma no conoce
+            // esa columna, así que se escribe aparte.
+            await ligarProductoDeLineas({ facturaId: facturaGuardada.id });
 
             // PASO 3: Actualizar timesUsed en mapeos utilizados
             const mapeosUsados = productosConMapeo.filter(p => p.mapeoId);
@@ -486,6 +492,9 @@ class DatabaseService {
                     estadoRelacionado: 'RELACIONADO'
                 }
             });
+            // El buzón todavía relaciona por el id de Alegra del mapeo: la línea
+            // queda además con su producto propio (migración 038).
+            await ligarProductoDeLineas([productoId]);
 
             // Actualizar estadísticas del mapeo
             if (mapeoId) {

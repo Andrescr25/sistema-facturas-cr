@@ -37,14 +37,11 @@
  * Hasta acá el mapa se llaveaba por el id de Alegra. `costo_historico` tiene
  * los dos (`producto_id` desde la migración 005) y el que manda es el propio.
  *
- * LO QUE TODAVÍA ES DE ALEGRA, y por qué no se toca acá: la condición de
- * validez compara dos ids de Alegra entre sí —el de la fila y el de la línea
- * del buzón (`productos_factura_proveedor.alegra_item_id`)—. El buzón sigue
- * guardando la relación así; migrar eso es de Relacionar Productos. Los dos
- * lados de esa comparación son del mismo espacio, así que no se mezcla nada.
- * La consecuencia: un producto creado en el sistema, SIN ficha en Alegra,
- * todavía no puede relacionarse con una línea del proveedor, así que no tiene
- * costo derivado. Su margen sale del costo de su ficha (`costo_con_iva`).
+ * LA VALIDEZ TAMBIÉN ES POR EL PRODUCTO PROPIO (migración 038): una fila
+ * cuenta si su línea del buzón sigue relacionada y sigue siendo de ESTE
+ * producto (`productos_factura_proveedor.producto_id`). Mientras se comparaban
+ * los ids de Alegra de los dos lados, un producto creado en el sistema, sin
+ * ficha allá, no podía tener costo de compras.
  *
  * LAS ÚLTIMAS N, SIN SORTEO. Dos compras del mismo día empataban en el orden
  * y Postgres elegía cuál entraba a la ventana como le caía: medido, 6 de
@@ -76,8 +73,7 @@ const SQL_COSTO_DERIVADO = `
     FROM costo_historico ch
     JOIN productos_factura_proveedor pf ON pf.id = ch.producto_factura_id
     WHERE pf.estado_relacionado = 'RELACIONADO'
-      AND pf.alegra_item_id::text = ch.alegra_item_id
-      AND ch.producto_id IS NOT NULL
+      AND pf.producto_id = ch.producto_id
   )
   SELECT producto_id,
          percentile_cont(0.5) WITHIN GROUP (ORDER BY costo_unitario) AS costo_mediana,

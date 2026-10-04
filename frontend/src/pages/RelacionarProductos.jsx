@@ -22,7 +22,7 @@ export default function RelacionarProductos() {
     productosFiltrados,
     stats,
     progreso,
-    productoAlegraInfo,
+    productoInfoPorLinea,
 
     modalBusqueda,
     productoSeleccionado,
@@ -117,7 +117,7 @@ export default function RelacionarProductos() {
           <ProductoRelacionarCard
             key={producto.id}
             producto={producto}
-            alegraInfo={productoAlegraInfo[producto.id]}
+            productoInfo={productoInfoPorLinea[producto.id]}
             onRelacionar={abrirModalBusqueda}
             onCambiarRelacion={cambiarRelacion}
             onEditarFactor={editarFactor}

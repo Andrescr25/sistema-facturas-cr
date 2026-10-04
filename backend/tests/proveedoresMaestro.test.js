@@ -168,7 +168,9 @@ describe('la lista', () => {
     const { servicio, log } = montar(base());
     await servicio.listarFichas({});
     const consulta = log[0].sql;
-    assert.match(consulta, /supplier_product_mapping m JOIN producto p ON p\.alegra_id = m\.alegra_item_id WHERE m\.supplier_cedula = pr\.identificacion/);
+    // Por `producto_id`: con el id de Alegra, un producto creado en el sistema
+    // no contaba para ningún proveedor (y 7 asignaciones manuales tampoco).
+    assert.match(consulta, /supplier_product_mapping m JOIN producto p ON p\.id = m\.producto_id WHERE m\.supplier_cedula = pr\.identificacion/);
     assert.match(consulta, /FROM facturas_proveedores f WHERE f\.proveedor_cedula = pr\.identificacion/);
   });
 

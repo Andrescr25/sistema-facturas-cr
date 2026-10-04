@@ -4,7 +4,7 @@ import { calcularFactorConversion, inferirCantidadesDesdeFactor } from '../utils
 import { useToast } from './useToast'
 
 /**
- * Estado y lógica de negocio de la gestión de relaciones producto↔Alegra:
+ * Estado y lógica de negocio de la gestión de relaciones proveedor↔producto propio:
  * listado paginado con filtros, edición de relación, factor de conversión,
  * eliminación y consulta de relaciones cruzadas. Extraído de
  * GestionarRelaciones.jsx.
@@ -134,8 +134,8 @@ export function useGestionarRelaciones() {
 
   // Ver todas las relaciones de un producto
   const abrirRelaciones = useCallback(async (producto) => {
-    if (!producto.alegraItemId) {
-      showToast('Este producto no tiene un ID de Alegra asociado', 'warning')
+    if (!producto.productoPropioId) {
+      showToast('El producto de esta relación ya no existe en el catálogo', 'warning')
       return
     }
 
@@ -145,7 +145,7 @@ export function useGestionarRelaciones() {
     setRelacionesProducto(null)
 
     try {
-      const response = await api.get(`/productos-revision/producto/${producto.alegraItemId}/relaciones`)
+      const response = await api.get(`/productos-revision/producto/${producto.productoPropioId}/relaciones`)
       if (response.data.success) {
         setRelacionesProducto(response.data)
       } else {
@@ -219,10 +219,11 @@ export function useGestionarRelaciones() {
     return () => clearTimeout(timer)
   }, [terminoBusqueda, buscarNuevoProducto])
 
-  const cambiarRelacion = useCallback(async (nuevoAlegraId, nuevoNombre) => {
+  // `nuevoProductoId` es `producto.id`: sale del buscador del maestro.
+  const cambiarRelacion = useCallback(async (nuevoProductoId, nuevoNombre) => {
     try {
       const response = await api.put(`/productos-revision/${productoSeleccionado.id}/editar-relacion`, {
-        nuevoAlegraItemId: nuevoAlegraId
+        productoPropioId: nuevoProductoId
       })
 
       if (response.data.success) {

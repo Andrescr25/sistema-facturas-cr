@@ -158,13 +158,14 @@ async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinIm
     where.push("(p.imagen_url IS NULL OR p.imagen_url = '')");
   }
 
-  // Quién vende qué sigue en supplier_product_mapping, por cédula y por el id
-  // de Alegra (pasa a producto_id en la sección de Proveedores).
+  // Quién vende qué está en supplier_product_mapping: por cédula del
+  // proveedor y por `producto_id`. Hasta el 2026-10-03 se cruzaba por el id de
+  // Alegra, y un producto creado en el sistema salía siempre "sin proveedor".
   const cedula = String(proveedor || '').trim();
   if (cedula === SIN_PROVEEDOR) {
-    where.push('NOT EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.alegra_item_id = p.alegra_id)');
+    where.push('NOT EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.producto_id = p.id)');
   } else if (cedula) {
-    where.push(`EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.alegra_item_id = p.alegra_id AND m.supplier_cedula = ${agregar(cedula)})`);
+    where.push(`EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.producto_id = p.id AND m.supplier_cedula = ${agregar(cedula)})`);
   }
 
   const lim = Math.min(Math.max(parseInt(limite, 10) || 30, 1), LIMITE_MAXIMO);
@@ -316,14 +317,14 @@ async function proveedoresConProductos() {
            (array_agg(m.supplier_name ORDER BY m.last_used_date DESC NULLS LAST))[1] AS nombre,
            COUNT(DISTINCT p.id)::int AS productos
     FROM supplier_product_mapping m
-    JOIN producto p ON p.alegra_id = m.alegra_item_id AND p.activo = TRUE AND p.oculto = FALSE
+    JOIN producto p ON p.id = m.producto_id AND p.activo = TRUE AND p.oculto = FALSE
     WHERE m.supplier_cedula IS NOT NULL AND m.supplier_cedula <> ''
     GROUP BY m.supplier_cedula
     ORDER BY nombre`), pool.query(`
     SELECT COUNT(*)::int AS productos
     FROM producto p
     WHERE p.activo = TRUE AND p.oculto = FALSE
-      AND NOT EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.alegra_item_id = p.alegra_id)`)]);
+      AND NOT EXISTS (SELECT 1 FROM supplier_product_mapping m WHERE m.producto_id = p.id)`)]);
   return {
     proveedores: conProveedor.rows,
     sinProveedor: { valor: SIN_PROVEEDOR, productos: sinProveedor.rows[0]?.productos || 0 }
