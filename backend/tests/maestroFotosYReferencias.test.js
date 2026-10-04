@@ -110,8 +110,8 @@ describe('las dos pantallas ya no le preguntan a la caché de Alegra', () => {
   });
 
   test('las rutas viejas se quitaron, y la nueva del maestro va antes de /productos/:id', () => {
-    const viejas = leer('backend', 'src', 'modules', 'catalogo', 'catalogo.routes.js');
-    assert.doesNotMatch(viejas, /imagenes-por-referencia|siguiente-referencia/);
+    // El módulo viejo entero se retiró después: ya no hay de dónde montarlas.
+    assert.equal(fs.existsSync(path.join(__dirname, '..', 'src', 'modules', 'catalogo')), false);
     const maestro = leer('backend', 'src', 'modules', 'productos', 'productos.routes.js');
     const nueva = maestro.indexOf("routes.get('/productos/siguiente-referencia'");
     assert.ok(nueva > 0);

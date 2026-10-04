@@ -171,14 +171,14 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     assert.equal(r.bloqueado, false);
   });
 
-  test('Gestión de Catálogo ya no queda abierta por vivir debajo de /alegra', async () => {
-    // Antes este mismo prefijo era el EJEMPLO de ruta compartida: cualquiera
-    // con sesión podía borrar productos o cambiar categorías en Alegra en lote.
+  test('mover productos de categoría en lote pide el permiso de Gestión de Catálogo', async () => {
+    // En la Gestión de Catálogo vieja esto vivía debajo de '/alegra', que es
+    // compartida: cualquiera con sesión podía cambiar categorías en lote.
     const { middleware } = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
     });
-    const r = await correr(middleware, { ruta: '/alegra/catalog/productos/categoria-lote', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/maestro/lote/categoria', usuario: { id: 4 } });
 
     assert.equal(r.bloqueado, true);
     assert.equal(r.codigo, 403);
@@ -187,7 +187,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('las fotos que usan otras pantallas siguen abiertas a quien tenga sesión', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/catalog/search-images', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/catalogos/imagenes-sugeridas', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 
@@ -236,7 +236,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.match(r.cuerpo.error, /administrador/);
     }
-    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Alegra/Catalog/productos']) {
+    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Maestro/Productos', '/Alegra/Bodega/facturas-propias']) {
       const r = await correr(middleware, { ruta, usuario: { id: 4 } });
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.equal(r.cuerpo.code, 'SIN_PERMISO');

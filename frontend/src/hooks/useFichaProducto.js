@@ -70,7 +70,7 @@ export function useFichaProducto({ mostrarToast, alCambiar, alPonerFoto }) {
     setLoadingSuggestions(true)
     setImageSuggestions([])
     try {
-      const response = await api.get('/alegra/catalog/search-images', { params: { q: query } })
+      const response = await api.get('/catalogos/imagenes-sugeridas', { params: { q: query } })
       if (response.data?.success) setImageSuggestions(conMiniaturasProxeadas(response.data.images))
     } catch (error) {
       console.error('Error buscando imágenes:', error)

@@ -22,7 +22,6 @@ const ordersWhatsappRoutes = require('../src/modules/orders-whatsapp');
 const reprintingRoutes = require('../src/modules/reprinting').routes;
 const warehouseRoutes = require('../src/modules/warehouse').routes;
 const missingItemsRoutes = require('../src/modules/missing-items').routes;
-const catalogRoutes = require('../src/modules/catalogo').routes;
 
 // Importar controladores para mapeo explícito de endpoints legacy
 const ProductController = require('../src/modules/products/product.controller');
@@ -31,10 +30,10 @@ const ReportController = require('../src/modules/reports/report.controller');
 const productController = new ProductController();
 const reportController = new ReportController();
 
-// ========================================
-// 0. MODULO DE GESTIÓN DE CATÁLOGO (/catalog)
-// ========================================
-router.use('/catalog', catalogRoutes);
+// La Gestión de Catálogo vieja (/catalog) se retiró el 2026-10-04: el catálogo
+// es el maestro propio (/maestro), y lo poco que las pantallas seguían usando
+// de acá —fotos sugeridas, su miniatura, la foto de cada línea de Bodega—
+// pasó a /catalogos.
 
 // ========================================
 // 1. MODULO DE PRODUCTOS (/productos)

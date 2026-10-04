@@ -21,9 +21,9 @@ const PUBLICAS = [
   // Las miniaturas de imágenes sugeridas se pintan con <img src>, y una
   // etiqueta <img> NO manda la cabecera Authorization. Detrás del login
   // devolvía 401 y no cargaba ninguna. Solo descarga de una lista fija de
-  // hosts (ver HOSTS_PERMITIDOS en catalogo.controller.js), así que no es un
-  // proxy abierto ni expone dato alguno del negocio.
-  '/alegra/catalog/image-proxy',
+  // hosts (ver HOSTS_PERMITIDOS en productos/imagenesSugeridas.js), así que no
+  // es un proxy abierto ni expone dato alguno del negocio. Va en la lista de
+  // EXACTAS, más abajo: abre esa ruta y nada de lo que cuelgue de /catalogos.
   // La cotización que el cliente abre desde el enlace que le llega por
   // WhatsApp. No queda abierta: la URL lleva un token firmado con el secreto
   // de la aplicación, así que no se adivina ni se recorre (/cotizacion/1,
@@ -68,7 +68,10 @@ const PUBLICAS_EXACTAS = [
   '/catalogo-agente/productos-nuevos',
   '/catalogo-agente/historial-clientes',
   '/catalogo-agente/pedidos',
-  '/catalogo-agente/dispositivos/estado'
+  '/catalogo-agente/dispositivos/estado',
+  // La miniatura de una foto sugerida (ver arriba, en PUBLICAS, por qué no
+  // puede pedir sesión). Exacta: de /catalogos no se abre nada más.
+  '/catalogos/imagen-proxy'
 ];
 
 // OJO: '/portal' sale de requireAuth pero NO queda abierto — adentro lo

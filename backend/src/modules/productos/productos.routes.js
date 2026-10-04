@@ -58,5 +58,10 @@ const rutasCompartidas = express.Router();
 rutasCompartidas.get('/productos', controller.paraOperar);
 // La foto de cada referencia, para Facturas en Bodega: solo lectura.
 rutasCompartidas.get('/imagenes-por-referencia', controller.imagenesPorReferencia);
+// Fotos sugeridas: las usan Gestión de Catálogo y Relacionar Productos.
+rutasCompartidas.get('/imagenes-sugeridas', controller.buscarImagenes);
+// La miniatura de cada sugerencia. Es PÚBLICA (auth.middleware.js) y solo
+// descarga del CDN de Brave: ver imagenesSugeridas.js.
+rutasCompartidas.get('/imagen-proxy', controller.miniatura);
 
 module.exports = { routes, rutasCompartidas };

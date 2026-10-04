@@ -366,7 +366,7 @@ export function useRelacionarProductos(facturaId) {
     setCargandoImagenSugerencias(true)
     setImagenSugerencias([])
     try {
-      const response = await api.get('/alegra/catalog/search-images', { params: { q: query } })
+      const response = await api.get('/catalogos/imagenes-sugeridas', { params: { q: query } })
       if (response.data?.success) {
         setImagenSugerencias(conMiniaturasProxeadas(response.data.images))
       }

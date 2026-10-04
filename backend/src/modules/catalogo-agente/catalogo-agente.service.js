@@ -22,8 +22,7 @@ const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
 const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
-const categoriasConfig = require('../catalogo/categorias.service');
-const subcategoriasConfig = require('../catalogo/subcategorias.service');
+const taxonomia = require('../productos/taxonomiaTablas');
 const rotacion = require('../ventas/rotacion');
 
 // La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
@@ -235,9 +234,13 @@ async function obtenerHistorialParaCatalogo() {
  * subcategorías, no productos), así que no vale la pena paginarla.
  */
 async function obtenerConfigCatalogo() {
+  // Del maestro propio y con el mismo orden que arma Gestión de Catálogo: las
+  // dos salen de `taxonomiaTablas.categoriasEnOrden`. Hasta el 2026-10-04 las
+  // categorías se le pedían a Alegra EN VIVO cada vez que una tablet
+  // sincronizaba.
   const [categorias, subcategorias] = await Promise.all([
-    categoriasConfig.listar(),
-    subcategoriasConfig.listar({ incluirInactivas: false })
+    taxonomia.categoriasEnOrden(),
+    taxonomia.listarSubcategorias({ incluirInactivas: false })
   ]);
   return { categorias, subcategorias };
 }

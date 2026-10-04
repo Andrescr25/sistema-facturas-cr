@@ -17,6 +17,7 @@ function responder(res, promesa, contexto, status = 200) {
 }
 
 const usuario = (req) => req.usuario?.id;
+const imagenesSugeridas = require('./imagenesSugeridas');
 
 module.exports = {
   /** GET /maestro/productos?buscar=&categoriaId=&proveedor=&sinImagen=&estado=&pagina=&limite= */
@@ -32,6 +33,26 @@ module.exports = {
   siguienteReferencia: (req, res) => servicio.siguienteReferenciaDeMarca(req.query.base)
     .then(r => res.json({ success: true, ...r }))
     .catch(error => res.status(error.status || 500).json({ success: false, message: error.message, error: error.message })),
+  /** GET /catalogos/imagenes-sugeridas?q= — fotos para elegir (ficha de producto y producto nuevo). */
+  buscarImagenes: (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ success: false, message: 'La consulta de búsqueda (q) es requerida' });
+    return imagenesSugeridas.buscarImagenes(q)
+      .then(images => res.json({ success: true, images }))
+      .catch(error => res.status(error.status || 500).json({ success: false, message: error.message, error: error.message }));
+  },
+  /** GET /catalogos/imagen-proxy?url= — la miniatura de una sugerencia. PÚBLICA: ver imagenesSugeridas.js. */
+  miniatura: (req, res) => imagenesSugeridas.miniatura(req.query.url)
+    .then(({ buffer, contentType }) => {
+      res.set('Content-Type', contentType);
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.send(buffer);
+    })
+    .catch(error => {
+      const s = error.status || 502;
+      if (s === 403) console.warn('⚠️ imagen-proxy rechazó un host no permitido:', String(req.query.url).slice(0, 120));
+      res.status(s >= 500 ? 502 : s).json({ success: false, message: s >= 500 ? 'No se pudo cargar la imagen' : error.message });
+    }),
   /** GET /catalogos/imagenes-por-referencia?referencias=a,b,c — la foto de cada referencia (Bodega). */
   imagenesPorReferencia: (req, res) => responder(res, servicio.imagenesPorReferencia(
     String(req.query.referencias || '').split(',').map(r => r.trim()).filter(Boolean)), 'imágenes por referencia'),

@@ -138,10 +138,8 @@ const MODULOS = [
     grupo: 'Inventario',
     ruta: '/gestion-catalogo',
     // /maestro: productos y categorías propios (lo que esta pantalla edita).
-    // /alegra/catalog: lo que todavía lee de la caché de Alegra (buscar fotos,
-    // siguiente referencia). Las lecturas que usan otras pantallas están en
-    // COMPARTIDAS, con su prefijo propio: gana el más específico.
-    rutasApi: ['/maestro', '/alegra/catalog']
+    // La Gestión de Catálogo vieja (/alegra/catalog) se retiró el 2026-10-04.
+    rutasApi: ['/maestro']
   },
 
   // ---- Finanzas ----
@@ -187,9 +185,8 @@ const MODULOS = [
  * eso vive en los módulos de arriba, que sí piden permiso.
  *
  * GANA EL PREFIJO MÁS ESPECÍFICO, sea de módulo o compartido (ver
- * `clasificarRuta`): '/alegra/catalog' (Gestión de Catálogo) le gana a
- * '/alegra', y '/alegra/catalog/search-images' (compartida) le gana a
- * '/alegra/catalog'. Así un módulo puede ser dueño de un pedazo de un prefijo
+ * `clasificarRuta`): '/alegra/bodega' (Facturas en Bodega) le gana a
+ * '/alegra'. Así un módulo puede ser dueño de un pedazo de un prefijo
  * compartido sin cerrarle a nadie el resto.
  */
 const COMPARTIDAS = [
@@ -198,17 +195,15 @@ const COMPARTIDAS = [
   '/productos',   // el catálogo local
   '/facturas',    // consulta de facturas, la usan varias pantallas
   '/reportes',    // reporte de clientes y de proveedores comparten prefijo
-  '/catalogos',   // impuestos, métodos de pago, plazos, cuentas y productos activos, solo lectura (Facturación, Cobros)
+  // Impuestos, métodos de pago, plazos, cuentas y productos activos; la foto
+  // de cada referencia (Bodega) y las fotos sugeridas (Gestión de Catálogo y
+  // Relacionar Productos). Solo lecturas.
+  '/catalogos',
   // Los teléfonos de un cliente y a quién ya se le mandó un documento: lo
   // leen Facturación, Cotizaciones, Cuentas por Cobrar y Clientes antes de
   // mandar un WhatsApp. Solo lecturas; cada envío es una ruta de su módulo.
   // Estaba sin clasificar: pasaba igual, pero por omisión y no por decisión.
-  '/envios-whatsapp',
-  // Lecturas de /alegra/catalog que usan pantallas de otros módulos:
-  '/alegra/catalog/search-images',           // Relacionar Productos (sugerir foto)
-  '/alegra/catalog/image-proxy'              // miniaturas (además es pública, ver auth.middleware)
-  // La foto de cada línea de Bodega ya no es de acá: va por
-  // /catalogos/imagenes-por-referencia, del maestro propio.
+  '/envios-whatsapp'
 ];
 
 /** Solo para administradores: gestionar usuarios y sus permisos. */

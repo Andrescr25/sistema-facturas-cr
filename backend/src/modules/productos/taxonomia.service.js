@@ -8,11 +8,11 @@
  * trabajo de fondo que le escribe a Alegra producto por producto. Acá las dos
  * cosas son un UPDATE sobre `producto`, en el momento.
  *
- * LO QUE SE REUTILIZA DE `main`, SIN COPIARLO: `subcategoria` y
- * `categoria_config` son tablas locales en las dos ramas, colgadas del NOMBRE
- * de la categoría. Crear, renombrar y ordenar subcategorías, y el orden y el
- * nombre visible de las categorías, usan los servicios de `catalogo/` tal
- * cual. Lo que cuenta, asigna, mueve o borra mira `producto`, y vive acá.
+ * `subcategoria` y `categoria_config` son tablas locales en las dos ramas,
+ * colgadas del NOMBRE de la categoría. Crear, renombrar y ordenar
+ * subcategorías, y el orden y el nombre visible de las categorías, están en
+ * `taxonomiaTablas.js`. Lo que cuenta, asigna, mueve o borra mira `producto`,
+ * y vive acá.
  *
  * "VISIBLE" ES LO MISMO EN TODAS LAS CONSULTAS: activo y no oculto. Si el
  * conteo de una tarjeta usara otro criterio que la lista de adentro, la
@@ -25,14 +25,13 @@ const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { clasificarProducto } = require('../precios/auditoria');
-const subcategoriasTabla = require('../catalogo/subcategorias.service');
-const categoriasConfig = require('../catalogo/categorias.service');
+const tablas = require('./taxonomiaTablas');
 const { SQL_ROTACION } = require('../ventas/rotacion');
 const { listarProductos } = require('./productos.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
-const VISIBLE = 'p.activo = TRUE AND p.oculto = FALSE';
+const { VISIBLE } = tablas;
 // Un lote más grande que esto es un error de la pantalla, no un pedido real:
 // la categoría más grande tiene ~450 productos.
 const MAXIMO_LOTE = 1000;
@@ -62,12 +61,8 @@ async function categoriaActiva(ejecutor, id) {
  */
 async function arbol() {
   const [categorias, subcategorias, conteos] = await Promise.all([
-    pool.query(`
-      SELECT c.id, c.nombre, cfg.nombre_visible, cfg.orden
-        FROM categoria_producto c
-        LEFT JOIN categoria_config cfg ON cfg.categoria = c.nombre
-       WHERE c.activo
-          OR EXISTS (SELECT 1 FROM producto p WHERE p.categoria_id = c.id AND ${VISIBLE})`),
+    // El orden lo decide UN solo lugar, el mismo del que baja la tablet.
+    tablas.categoriasEnOrden(pool),
     pool.query(`
       SELECT s.id, s.categoria, s.nombre, s.orden, s.activo,
              (SELECT COUNT(*)::int FROM producto p WHERE p.subcategoria_id = s.id AND ${VISIBLE}) AS productos
@@ -97,20 +92,13 @@ async function arbol() {
     suma.set(f.categoria_id, t);
   }
 
-  // Sin orden explícito van después de las ordenadas, alfabéticas entre ellas.
-  const ordenadas = [...categorias.rows].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  return ordenadas
-    .map((c, i) => ({
-      id: c.id,
-      name: c.nombre,
-      nombreVisible: c.nombre_visible || c.nombre,
-      orden: c.orden !== null && c.orden !== undefined ? c.orden : 100000 + i,
-      total: suma.get(c.id)?.total || 0,
-      sinClasificar: suma.get(c.id)?.sinClasificar || 0,
-      sinImagen: suma.get(c.id)?.sinImagen || 0,
-      subcategorias: subsPorCategoria.get(c.nombre) || []
-    }))
-    .sort((a, b) => a.orden - b.orden);
+  return categorias.map((c) => ({
+    ...c,
+    total: suma.get(c.id)?.total || 0,
+    sinClasificar: suma.get(c.id)?.sinClasificar || 0,
+    sinImagen: suma.get(c.id)?.sinImagen || 0,
+    subcategorias: subsPorCategoria.get(c.name) || []
+  }));
 }
 
 // ─── Las filas de la pantalla ─────────────────────────────────────────────
@@ -334,12 +322,12 @@ async function moverSubcategoria(subcategoriaId, { categoriaId } = {}, usuarioId
 /** Crear una subcategoría en una categoría propia (por id, no por nombre). */
 async function crearSubcategoria({ categoriaId, nombre } = {}) {
   const categoria = await categoriaActiva(pool, categoriaId);
-  return subcategoriasTabla.crear({ categoria: categoria.nombre, nombre });
+  return tablas.crearSubcategoria({ categoria: categoria.nombre, nombre });
 }
 
 async function reordenarSubcategorias({ categoriaId, ids } = {}) {
   const categoria = await categoriaActiva(pool, categoriaId);
-  await subcategoriasTabla.reordenar(categoria.nombre, ids);
+  await tablas.reordenarSubcategorias(categoria.nombre, ids);
   return { categoria: categoria.nombre };
 }
 
@@ -374,12 +362,11 @@ module.exports = {
   crearSubcategoria,
   reordenarSubcategorias,
   eliminarSubcategoria,
-  renombrarSubcategoria: (id, datos) => subcategoriasTabla.renombrar(idValido(id), datos || {}),
-  // El orden y el nombre visible viven en categoria_config, por nombre: los
-  // mismos de `main`, sin cambios.
-  reordenarCategorias: (nombres) => categoriasConfig.reordenar(nombres),
+  renombrarSubcategoria: (id, datos) => tablas.renombrarSubcategoria(idValido(id), datos || {}),
+  // El orden y el nombre visible viven en categoria_config, por nombre.
+  reordenarCategorias: (nombres) => tablas.reordenarCategorias(nombres),
   nombreVisibleCategoria: async (id, nombreVisible) => {
     const categoria = await categoriaActiva(pool, id);
-    return categoriasConfig.renombrar(categoria.nombre, nombreVisible);
+    return tablas.renombrarCategoria(categoria.nombre, nombreVisible);
   }
 };

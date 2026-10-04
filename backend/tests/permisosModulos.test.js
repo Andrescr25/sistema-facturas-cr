@@ -45,7 +45,7 @@ describe('catálogo de módulos', () => {
 
   test('ningún prefijo de módulo termina clasificado como compartido', () => {
     // Un prefijo de módulo PUEDE vivir debajo de uno compartido
-    // ('/alegra/catalog' bajo '/alegra'): gana el más específico. Lo que no
+    // ('/alegra/bodega' bajo '/alegra'): gana el más específico. Lo que no
     // puede pasar es que el propio prefijo del módulo resuelva a compartida.
     for (const m of MODULOS) {
       for (const p of m.rutasApi) {
@@ -93,13 +93,17 @@ describe('rutas compartidas y de administrador', () => {
     assert.equal(esCompartida('/auth/yo'), true);
   });
 
-  test('Gestión de Catálogo es dueña de /alegra/catalog aunque viva debajo de /alegra', () => {
-    // El agujero: '/alegra' compartida ganaba primero, y cualquiera con sesión
-    // podía borrar productos o cambiar categorías en Alegra en lote.
-    assert.equal(esCompartida('/alegra/catalog/productos/1031'), false);
-    assert.equal(moduloDeRuta('/alegra/catalog/productos/1031'), 'gestion-catalogo');
-    assert.equal(moduloDeRuta('/alegra/catalog/productos/categoria-lote'), 'gestion-catalogo');
-    assert.equal(moduloDeRuta('/alegra/catalog/subcategorias/9/mover-categoria'), 'gestion-catalogo');
+  test('Gestión de Catálogo es dueña de /maestro: editar el catálogo pide su permiso', () => {
+    // El catálogo es el maestro propio. La Gestión de Catálogo vieja vivía en
+    // '/alegra/catalog' y hubo que blindarla porque '/alegra' es compartida:
+    // cualquiera con sesión podía borrar productos o cambiar categorías en
+    // Alegra en lote. Ese módulo se retiró el 2026-10-04: no queda nada que
+    // blindar ahí (que no se monte está en taxonomiaTablas.test.js).
+    assert.equal(esCompartida('/maestro/productos/1031'), false);
+    assert.equal(moduloDeRuta('/maestro/productos/1031'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/maestro/lote/categoria'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/maestro/subcategorias/9/mover'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/maestro/productos/siguiente-referencia'), 'gestion-catalogo');
   });
 
   test('Facturas en Bodega es dueña de /alegra/bodega aunque viva debajo de /alegra', () => {
@@ -109,11 +113,13 @@ describe('rutas compartidas y de administrador', () => {
     assert.equal(moduloDeRuta('/alegra/bodega/facturas/123/estados'), 'facturas-bodega');
   });
 
-  test('lo que otras pantallas leen de /alegra/catalog sigue compartido', () => {
-    // Relacionar Productos sugiere fotos, Bodega pinta la foto de cada línea.
+  test('las fotos que usan varias pantallas van por /catalogos, compartida', () => {
+    // Relacionar Productos y la ficha de producto sugieren fotos; Bodega pinta
+    // la foto de cada línea. Solo lecturas, y ninguna es de un módulo.
     for (const ruta of [
-      '/alegra/catalog/search-images',
-      '/alegra/catalog/image-proxy'
+      '/catalogos/imagenes-sugeridas',
+      '/catalogos/imagen-proxy',
+      '/catalogos/imagenes-por-referencia'
     ]) {
       assert.equal(esCompartida(ruta), true, ruta);
       assert.equal(moduloDeRuta(ruta), null, ruta);
@@ -122,8 +128,13 @@ describe('rutas compartidas y de administrador', () => {
 
   test('gana el prefijo más específico, sea de módulo o compartido', () => {
     assert.equal(clasificarRuta('/alegra/items').tipo, 'compartida');
-    assert.equal(clasificarRuta('/alegra/catalog/arbol').clave, 'gestion-catalogo');
-    assert.equal(clasificarRuta('/alegra/catalog/search-images').tipo, 'compartida');
+    // Un módulo dueño de un pedazo de un prefijo compartido.
+    assert.equal(clasificarRuta('/alegra/bodega/facturas-propias').clave, 'facturas-bodega');
+    assert.equal(clasificarRuta('/reportes/faltantes/cliente').tipo, 'compartida');
+    assert.equal(clasificarRuta('/reportes/faltantes/cliente/exportar').clave, 'reporte-clientes');
+    // Lo que fue de la Gestión de Catálogo vieja ya no es de nadie: cae en
+    // '/alegra', y detrás no hay ninguna ruta montada.
+    assert.equal(clasificarRuta('/alegra/catalog/arbol').tipo, 'compartida');
     assert.equal(clasificarRuta('/no-existe'), null);
   });
 
@@ -195,7 +206,8 @@ describe('la ruta se clasifica como la entiende Express', () => {
     assert.equal(moduloDeRuta('/Rentabilidad/resumen'), 'rentabilidad');
     assert.equal(moduloDeRuta('/RENTABILIDAD/'), 'rentabilidad');
     assert.equal(moduloDeRuta('/Reporte-Contador/periodos'), 'reporte-contador');
-    assert.equal(moduloDeRuta('/Alegra/Catalog/productos'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/Maestro/Productos'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/Alegra/Bodega/facturas-propias'), 'facturas-bodega');
     assert.equal(moduloDeRuta('/Cuentas-Por-Cobrar/propios/deudores'), 'cuentas-por-cobrar');
   });
 

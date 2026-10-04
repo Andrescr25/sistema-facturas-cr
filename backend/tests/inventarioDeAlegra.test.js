@@ -16,6 +16,9 @@ const path = require('path');
  *
  * El día que las tres queden vacías, se puede borrar `integrations/alegra`.
  *
+ * Historia: 12 / 6 / 6 archivos al crearla (2026-10-04); 10 / 3 / 4 ese mismo
+ * día, al retirar la Gestión de Catálogo vieja (`modules/catalogo`).
+ *
  * Fuera de la cuenta, a propósito: `backend/scripts` (los cargadores y las
  * conciliaciones le leen a Alegra hasta el corte, que es para lo que están) y
  * la integración misma.
@@ -27,8 +30,6 @@ const RAIZ = path.join(__dirname, '..', '..');
 const IMPORTAN_LA_INTEGRACION = [
   'backend/routes/alegra.js',                                             // el router adaptador de /api/alegra
   'backend/server.js',                                                    // la sincronización de productos cada 6 horas
-  'backend/src/modules/catalogo/catalogo.service.js',                     // Gestión de Catálogo vieja (22 rutas sin pantalla)
-  'backend/src/modules/catalogo/categorias.service.js',
   'backend/src/modules/envios-whatsapp/envios.controller.js',
   'backend/src/modules/facturacion/facturacion.controller.js',
   'backend/src/modules/facturacion/facturacion.service.js',
@@ -41,9 +42,6 @@ const IMPORTAN_LA_INTEGRACION = [
 
 /** Código de la aplicación que lee o escribe `alegra_products_cache`. */
 const USAN_LA_CACHE = [
-  'backend/src/modules/catalogo/catalogo.service.js',
-  'backend/src/modules/catalogo/categorias.service.js',
-  'backend/src/modules/catalogo/subcategorias.service.js',
   'backend/src/modules/facturacion/facturacion.service.js',
   'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js',
   'backend/src/modules/revision-precios/revision-precios.service.js'      // solo `enviarFacturaAlegra`, sin pantalla
@@ -54,8 +52,6 @@ const USAN_LA_CACHE = [
  * con datos propios: el prefijo es el del router adaptador, y se va con él.
  */
 const PANTALLAS_QUE_LLAMAN_A_ALEGRA = [
-  'frontend/src/hooks/useFichaProducto.js',          // buscar fotos sugeridas
-  'frontend/src/hooks/useRelacionarProductos.js',    // buscar fotos sugeridas
   'frontend/src/hooks/useReporteProveedores.js',     // órdenes de compra (prefijo adaptador)
   'frontend/src/services/alegraService.js',          // faltantes, reportes, órdenes: 28 llamadas, casi todas ya propias
   'frontend/src/services/bodegaPropiaService.js',    // Facturas en Bodega (prefijo adaptador)
