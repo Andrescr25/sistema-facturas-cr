@@ -16,11 +16,12 @@ archivos:
   - frontend/src/hooks/useAccionesLote.js
   - frontend/src/hooks/useFichaProducto.js
   - backend/tests/taxonomiaCatalogo.test.js
+  - backend/tests/maestroFotosYReferencias.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
-  relacionado: [modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-09-29
+  relacionado: [modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
+medido: 2026-10-04
 ---
 
 QUÉ ES
@@ -66,3 +67,19 @@ Mover una subcategoría falló la primera vez con "inconsistent types deduced
 for parameter $2": el mismo parámetro en el SET y en una subconsulta. Los
 dobles no lo ven; por eso `taxonomiaCatalogo.test.js` tiene pruebas contra la
 base local (`PROBAR_BASE_LOCAL=1`) que revierten todo al terminar.
+
+## Agregar una marca: el código que sigue se cuenta en el maestro
+
+"Agregar marcas" abre el formulario con el código siguiente de la serie
+(`305-001`, `305-002`…): el menor número libre, con tres dígitos
+(`GET /maestro/productos/siguiente-referencia`, `siguienteReferenciaDeMarca`).
+
+Hasta el 2026-10-04 se contaba sobre la caché de Alegra, que en esta rama no
+se entera de los productos creados acá: después de agregar una marca volvía a
+proponer el mismo código, y el guardado lo rechazaba por repetido. Cuenta
+también los inactivos, para que un código dado de baja no se reuse.
+
+La misma mudanza tuvo la foto de cada línea de Facturas en Bodega
+(`GET /catalogos/imagenes-por-referencia`): las de la caché eran direcciones
+de Alegra ya vencidas. Ver [[tabla/alegra-products-cache]].
+

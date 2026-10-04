@@ -8,9 +8,10 @@ archivos:
   - backend/migrations/add_subcategorias.sql
   - backend/migrations/add_tax_percentage_products_cache.sql
   - backend/setupDatabase.js
+  - backend/tests/inventarioDeAlegra.test.js
 aristas:
-  relacionado: [tabla/subcategoria, bloqueo/prisma-no-se-regenera, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-23
+  relacionado: [tabla/subcategoria, bloqueo/prisma-no-se-regenera, leccion/precio-sin-iva-costo-con-iva, modulo/gestion-catalogo]
+medido: 2026-10-04
 ---
 
 Copia de los items de Alegra (`alegra_id`, `name`, `reference`, `price`,
@@ -29,3 +30,24 @@ LO QUE HAY QUE SABER ANTES DE LEERLA
 - `subcategoria_id` NO está en el esquema de Prisma (se agregó por SQL en
   `add_subcategorias.sql`): se lee y escribe con `query` crudo, nunca con el
   cliente de Prisma. Ver [[bloqueo/prisma-no-se-regenera]].
+
+EN ESTA RAMA ESTÁ DE SALIDA
+
+El catálogo que manda acá es `producto`, el maestro propio; esta tabla quedó
+como la copia de Alegra del día en que se cargó. Dos cosas la vuelven mala
+fuente aunque "tenga el dato": sus fotos son direcciones firmadas de Alegra
+que vencen a los 7 días, y no se entera de nada de lo que se crea o cambia en
+el maestro.
+
+Quién la sigue leyendo o escribiendo está en una lista cerrada que se prueba
+sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 son seis
+archivos, y cuatro son de lo mismo: el módulo viejo de Gestión de Catálogo
+(`catalogo.service.js`, con `categorias` y `subcategorias`), que quedó
+montado con 24 rutas de las que las pantallas de esta rama usan dos —buscar
+fotos sugeridas y el proxy de miniaturas, que no tocan esta tabla—. Los otros
+son la auditoría de inventario, una lectura de Facturación, y
+`enviarFacturaAlegra`, que no tiene pantalla.
+
+Las últimas dos lecturas con pantalla se fueron ese día: la foto de cada
+línea en Facturas en Bodega y el código de la marca que sigue, que ahora salen
+del maestro (`productos.service.js`).
