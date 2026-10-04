@@ -85,10 +85,10 @@ todavía los leen. Salen siempre del producto propio, nunca al revés.
 [[leccion/el-doble-de-prisma-no-valida-tipos]]. En la línea y en
 `costo_historico` va NULL.
 
-Lo que todavía relaciona por el id de Alegra (confirmar en Revisión de
-Precios) o por un mapeo ya hecho (el buzón al recibir una factura) llama
-después a `ligarProductoDeLineas`, que deja la línea con su producto propio.
-Se va cuando esos dos migren.
+El buzón, al recibir una factura, todavía relaciona con el mapeo ya hecho y
+copia su id de Alegra a la línea; después llama a `ligarProductoDeLineas`,
+que la deja con su producto propio. Era el último que quedaba: confirmar y
+rechazar desde Revisión de Precios se quitaron (nadie los llamaba).
 
 ## Crear un producto nuevo desde una línea
 
@@ -138,7 +138,6 @@ Se vuelve a contar desde las líneas cada vez que una cambia:
 
 ## Lo que falta
 
-- **Revisión de Precios** confirma y rechaza por el id de Alegra.
 - **El buzón** (`services/databaseService.js`) relaciona solo con el mapeo y
   copia su id de Alegra a la línea.
 - La búsqueda de fotos sugeridas sigue colgada del prefijo adaptador

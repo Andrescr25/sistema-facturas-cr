@@ -1,46 +1,96 @@
 ---
 id: modulo/revision-precios
 tipo: modulo
-titulo: Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos
+titulo: Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio
 estado: vigente
 archivos:
   - backend/src/modules/revision-precios/revision-precios.service.js
+  - backend/src/modules/revision-precios/revision-precios.routes.js
+  - backend/src/modules/compras/compras.service.js
   - backend/src/modules/precios/costo.js
-  - backend/utils/impuestosAlegra.js
+  - backend/src/modules/ventas/rotacion.js
+  - backend/tests/revisionPreciosPropia.test.js
+  - backend/tests/revisionPreciosRedondeo.test.js
   - backend/tests/facturaProveedorNoSeDuplica.test.js
-  - backend/src/integrations/alegra/services/alegra-product.service.js
-  - backend/tests/productoNuevoSinDescripcion.test.js
+  - frontend/src/hooks/useRevisionPrecios.js
+  - frontend/src/utils/revisionPreciosUtils.js
 aristas:
-  depende_de: [tabla/supplier-product-mapping, tabla/alegra-products-cache]
-  relacionado: [decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-30
+  depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
+  relacionado: [modulo/relacionar-productos, modulo/compras, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-10-04
 ---
 
-Las facturas electrónicas de los proveedores llegan por correo, se relacionan
-producto por producto con el catálogo (el mapeo queda por cédula, ver
-[[tabla/supplier-product-mapping]]), y acá se revisan los precios de venta
-antes de mandarlas. `enviarFacturaAlegra` hace dos cosas:
+Las facturas de los proveedores llegan al buzón, se relacionan línea por
+línea ([[modulo/relacionar-productos]]) y acá se mira cómo cambió el costo y
+se ajusta el precio de venta antes de **Registrar compra**
+([[modulo/compras]]).
 
-1. Crea la factura de compra en Alegra (`POST /bills`), con el impuesto de
-   CADA línea tomado de `GET /taxes` (`utils/impuestosAlegra.js`, caché de
-   6 h) — ver [[leccion/el-impuesto-es-de-cada-linea]].
-2. Actualiza costo y, si se ajustó, precio de cada producto (`PUT /items`),
-   con la línea resuelta por `actualizacionDeLinea`. El costo va anidado en
-   `inventory.unitCost`: un `cost` suelto en la raíz Alegra lo ignora sin
-   avisar.
+## De dónde sale lo que muestra (2026-10-04)
 
-Las trampas que ya costaron: una línea de regalía pisaba el costo con ₡0
-([[decision/la-regalia-no-es-costo]]); reenviar una factura ENVIADA
-duplicaba el gasto ([[leccion/factura-enviada-no-se-repite]]); y un producto
-nuevo creado desde acá llegaba a Alegra con la DESCRIPCIÓN igual al nombre,
-aunque el usuario la quiere en blanco y el modal ya no tiene el campo: el
-servicio mandaba `''` y `createProduct` lo cambiaba por el nombre
-(`data.description || data.name`). Corregido el 2026-09-30; los productos
-2170–2175 quedaron así de antes.
+Todo del maestro propio, por `producto.id`:
 
-El precio sugerido usa la rotación de los últimos 12 meses
-(`SQL_ROTACION_PRECIOS` de `ventas/rotacion.js`), calculada en el momento: los
-umbrales del motor (10 u/mes = rotación alta) se calibraron con esa ventana.
+- **Las facturas** (`GET /facturas`, `/facturas-relacionadas`) traen cada
+  línea con su `productoPropioId`. `producto_id` no está en el esquema de
+  Prisma, así que se agrega aparte, en una consulta.
+- **Los productos de la factura** (`POST /productos-batch` con `productoIds`):
+  nombre, precio con IVA, costo con IVA y tarifa, de `producto` e `impuesto`.
+- **El precio sugerido** (`GET /facturas/:id/sugerencias-precio`): el costo de
+  ESTA compra, el margen meta de la categoría del producto (`config_precios`,
+  llaveada por nombre de categoría) y su rotación de 12 meses
+  (`SQL_ROTACION_PRECIOS`, por `producto.id`).
 
-En la rama `independencia-alegra` esto se reemplaza por "Registrar compra",
-que no toca Alegra; ver el grafo de esa rama.
+Antes la pantalla le pedía el precio y el costo a **Alegra en vivo**, un
+producto por llamada, y las sugerencias salían por el id de Alegra con la
+categoría de la caché. Dos consecuencias: el precio que se comparaba era el
+de Alegra y no el del sistema —y "Registrar compra" cambia el precio en
+`producto`—, y un producto sin ficha en Alegra no se podía revisar.
+
+Comparado al cambiarlo, sobre las 60 facturas más recientes: las mismas 499
+líneas con sugerencia; 411 idénticas y 88 distintas **solo** porque el
+maestro tiene la categoría de hoy y la caché local estaba vieja.
+
+## 0 % es una tarifa; "sin impuesto" es otra cosa
+
+Con Alegra, un producto exento y uno al que nunca se le puso el impuesto
+llegaban igual, y a los dos se los analizaba al 13 %. En el maestro propio
+son dos estados distintos y se tratan distinto (`tarifaDeAnalisis`):
+
+- **exento** (impuesto de 0 %): se analiza con 0 %. Al 13 % se le quitaba a
+  su costo un IVA que no trae y el margen salía más alto de lo que es (en la
+  prueba: 29 % en vez de 20 %);
+- **sin impuesto asignado** (`null`): se sigue asumiendo 13 %, como siempre.
+  Son productos a corregir, no exentos.
+
+## Registrar compra usa el producto de la LÍNEA
+
+`registrarCompra` tomaba el producto del mapeo (`SELECT l.*, m.producto_id`:
+las dos columnas se llaman igual y ganaba la del mapeo sin que se notara).
+Casi siempre coinciden; cuando no —el código del proveedor se volvió a
+relacionar con otro producto después—, la revisión mostraba un producto y el
+costo y el precio se le escribían a otro. Ahora es el de la línea, con el del
+mapeo de respaldo. Ninguna factura pendiente de la copia local estaba en ese
+caso al medirlo.
+
+## Márgenes que faltan configurar
+
+`config_precios` no tiene fila para **Bolsas y Desechables** ni **Línea de
+Moto** (204 productos activos; también en producción): usan el margen por
+defecto, 25 % de meta y 12 % de mínimo. Las categorías de las que salieron
+tienen 24,5/14 (Línea Plástica) y 27,3/16 (Línea de Ciclo). Qué márgenes les
+tocan es una decisión del negocio.
+
+## Lo que queda de Alegra
+
+`enviarFacturaAlegra` y sus ayudantes (`construirItemsFactura`,
+`actualizacionDeLinea`, `POST /enviar-alegra`): el camino viejo que hacía
+`POST /bills` y `PUT /items`. La pantalla no lo llama; se va con el retiro de
+Alegra. Sus lecciones siguen valiendo para quien lea ese código:
+[[decision/la-regalia-no-es-costo]], [[leccion/factura-enviada-no-se-repite]],
+[[leccion/el-impuesto-es-de-cada-linea]].
+
+Se quitaron el 2026-10-04, por no tener pantalla, pruebas ni nadie que las
+llamara: `/productos-pendientes` (sugerencias desde la caché),
+`/confirmar-producto` y `/rechazar-producto` (relacionaban por el id de
+Alegra), `/estadisticas`, y `/actualizar-precio`, que además reescribía el
+precio de la línea de la factura RECIBIDA. También el botón "Sincronizar",
+que traía de Alegra los costos y precios.

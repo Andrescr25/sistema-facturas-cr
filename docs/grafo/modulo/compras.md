@@ -13,8 +13,8 @@ archivos:
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
-  relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-10-03
+  relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios]
+medido: 2026-10-04
 ---
 
 QUÉ ES HOY
@@ -35,9 +35,15 @@ se le ajustó el precio, se aplica solo el precio
 (`actualizarProductoDeLinea`). Mandarla como costo pisaba el costo bueno de
 la línea pagada con ₡0.
 
-`enviarFacturaAlegra` (`revision-precios.service.js:595-858`), el camino
-viejo que hacía `POST /bills` y `PUT /items`, sigue en el código pero la
-pantalla ya no lo llama — nada la borra todavía, es la siguiente limpieza.
+EL PRODUCTO DE CADA LÍNEA ES EL DE LA LÍNEA del buzón
+(`productos_factura_proveedor.producto_id`), el mismo que Revisión de Precios
+mostró; el del mapeo queda de respaldo. Hasta el 2026-10-04 se tomaba el del
+mapeo, y cuando no coincidían el costo y el precio se le escribían a un
+producto distinto del revisado: ver [[modulo/revision-precios]].
+
+`enviarFacturaAlegra` (en `revision-precios.service.js`), el camino viejo que
+hacía `POST /bills` y `PUT /items`, sigue en el código pero la pantalla ya no
+lo llama — se va con el retiro de Alegra.
 
 EL CAMBIO DE FORMA FRENTE A LO VIEJO
 
