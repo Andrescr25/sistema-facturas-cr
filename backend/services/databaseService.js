@@ -1,14 +1,13 @@
 const prisma = require('../lib/prisma');
-const { ligarIdsPropios } = require('../src/modules/productos-revision/idsPropiosDelMapeo');
-const { ligarProductoDeLineas } = require('../src/modules/productos-revision/relacionPropia');
+const {
+    mapeosDelProveedor, productoDeLineasPorMapeo, recalcularAvance
+} = require('../src/modules/productos-revision/relacionPropia');
 const { guardarXmlRutaDeFactura, guardarTotalesDelResumen } = require('../src/utils/xmlRutaComprobante');
 const almacenamiento = require('../src/integrations/almacenamiento');
 const {
     normalizar,
-    palabrasClave,
     esReferenciaConfiable,
-    calcularScoreSimilitud,
-    UMBRAL_SUGERENCIA
+    calcularScoreSimilitud
 } = require('../src/modules/precios/matcher');
 
 const UMBRAL_DESCRIPCION_MAPEO_DEBIL = 70;
@@ -71,28 +70,36 @@ class DatabaseService {
 
             console.log(`🔍 Buscando mapeos existentes para proveedor ${proveedorCedula}...`);
 
-            for (const producto of facturaData.productos) {
-                // Buscar mapeo existente con este proveedor y código
-                const mapeo = await this.prisma.supplierProductMapping.findUnique({
-                    where: {
-                        supplierCedula_supplierCode: {
-                            supplierCedula: proveedorCedula,
-                            supplierCode: producto.codigo
-                        }
-                    }
-                });
+            // Los mapeos de todos los códigos de la factura, en UNA consulta y
+            // con su producto PROPIO (`producto.id`). Antes era una consulta
+            // por línea y lo que se copiaba a la línea era el id de Alegra del
+            // mapeo: un producto creado en el sistema, sin ficha allá, se
+            // relacionaba a mano una vez y a la factura siguiente volvía a
+            // quedar a medias.
+            const mapeos = await mapeosDelProveedor(proveedorCedula, facturaData.productos.map(p => p.codigo));
 
-                if (mapeo && mapeoSeguroParaReusar(producto, mapeo)) {
-                    console.log(`✅ Mapeo encontrado: ${producto.codigo} → ${mapeo.alegraName} (${mapeo.alegraItemId})`);
+            for (const producto of facturaData.productos) {
+                const mapeo = mapeos.get(String(producto.codigo)) || null;
+
+                // UN MAPEO SIN PRODUCTO PROPIO NO RELACIONA NADA. Quedan 4 así,
+                // de productos que ya no existen: reusarlos dejaba la línea
+                // "relacionada" con nada, y la factura pasaba a revisión de
+                // precios con un renglón sin producto.
+                if (mapeo && mapeo.productoId && mapeoSeguroParaReusar(producto, mapeo)) {
+                    console.log(`✅ Mapeo encontrado: ${producto.codigo} → ${mapeo.productoNombre} (producto ${mapeo.productoId})`);
                     productosConMapeo.push({
                         ...producto,
-                        alegraItemId: mapeo.alegraItemId,
+                        // El id de Alegra va solo como referencia, y sale del
+                        // producto propio: sin ficha allá, queda vacío.
+                        alegraItemId: mapeo.alegraId,
                         mapeoId: mapeo.id,
                         estadoRelacionado: 'RELACIONADO',
                         confianza: mapeo.confidence
                     });
                 } else {
-                    if (mapeo) {
+                    if (mapeo && !mapeo.productoId) {
+                        console.warn(`⚠️ Mapeo sin producto propio, no se reusa: ${producto.codigo} ("${mapeo.supplierDesc}")`);
+                    } else if (mapeo) {
                         console.warn(
                             `⚠️ Mapeo ignorado por código débil/descripción distinta: ` +
                             `${producto.codigo} guardado como "${mapeo.supplierDesc}" y llegó "${producto.descripcion}"`
@@ -204,9 +211,15 @@ class DatabaseService {
             await guardarTotalesDelResumen(facturaGuardada.id, facturaData.resumen?.totales, facturaData.otrosCargos);
 
             // Las líneas que entraron ya relacionadas por un mapeo existente
-            // quedan con su producto propio (migración 038). Prisma no conoce
-            // esa columna, así que se escribe aparte.
-            await ligarProductoDeLineas({ facturaId: facturaGuardada.id });
+            // quedan con el producto propio de ese mapeo (migración 038).
+            // Prisma no conoce esa columna, así que se escribe aparte. No falla
+            // si no se puede: la factura ya quedó guardada, y registrar la
+            // compra sabe caer al producto del mapeo.
+            try {
+                await productoDeLineasPorMapeo(facturaGuardada.id);
+            } catch (error) {
+                console.warn('⚠️ No se pudo colgar el producto propio de las líneas:', error.message);
+            }
 
             // PASO 3: Actualizar timesUsed en mapeos utilizados
             const mapeosUsados = productosConMapeo.filter(p => p.mapeoId);
@@ -281,24 +294,15 @@ class DatabaseService {
             const productosPendientes = productosConMapeo.filter(p => p.estadoRelacionado === 'PENDIENTE').length;
             const porcentajeRelacionado = Math.round((productosRelacionados / productosConMapeo.length) * 100);
 
-            // PASO 4: Actualizar estado de la factura si está relacionada
-            if (porcentajeRelacionado > 0) {
-                try {
-                    await this.prisma.factura.update({
-                        where: { id: facturaGuardada.id },
-                        data: {
-                            porcentajeRelacionado: porcentajeRelacionado,
-                            estadoRelacionado: porcentajeRelacionado === 100 ? 'RELACIONADO' : null
-                        }
-                    });
-
-                    if (porcentajeRelacionado === 100) {
-                        console.log(`🎉 Factura 100% relacionada automáticamente!`);
-                    }
-                } catch (err) {
-                    // Ignorar si campos no existen (migración pendiente)
-                    console.log(`⚠️ No se pudo actualizar porcentaje (campos no existen)`);
-                }
+            // PASO 4: el avance de la factura, contado desde sus líneas con la
+            // misma función que usa Relacionar Productos (ver
+            // decision/el-avance-de-la-factura-sale-de-sus-lineas en el grafo).
+            // El cálculo propio que había acá redondeaba: 199 de 200 daba 100.
+            try {
+                const [avance] = await recalcularAvance({ facturaId: facturaGuardada.id });
+                if (avance?.completa) console.log(`🎉 Factura 100% relacionada automáticamente!`);
+            } catch (err) {
+                console.log(`⚠️ No se pudo actualizar el avance de la factura: ${err.message}`);
             }
 
             console.log(`✅ Factura guardada: ${facturaGuardada.id}`);
@@ -319,272 +323,11 @@ class DatabaseService {
         }
     }
 
-    /**
-     * Busca productos similares para relacionado inteligente
-     * @param {String} codigoProveedor - Código del producto del proveedor
-     * @param {String} proveedorCedula - Cédula del proveedor
-     * @param {String} descripcion - Descripción del producto
-     * @returns {Array} Productos relacionados encontrados
-     */
-    async findSimilarProducts(codigoProveedor, proveedorCedula, descripcion) {
-        try {
-            // 1. Buscar mapeo exacto existente
-            const mapeoExacto = await this.prisma.supplierProductMapping.findFirst({
-                where: {
-                    supplierCedula: proveedorCedula,
-                    supplierCode: codigoProveedor
-                }
-            });
+    // Se quitaron `findSimilarProducts`, `createProductMapping`,
+    // `updateProductMapping`, `getFacturasByEstado` y `getEstadisticas`: no
+    // los llamaba nadie, y los tres primeros leían o escribían la relación por
+    // el id de Alegra.
 
-            if (mapeoExacto) {
-                console.log(`🎯 Mapeo exacto encontrado: ${mapeoExacto.alegraName}`);
-                return [{
-                    tipo: 'EXACTO',
-                    confianza: 100,
-                    mapeo: mapeoExacto
-                }];
-            }
-
-            // 2. Buscar mapeos similares por descripción
-            const claves = palabrasClave(descripcion, 4);
-
-            if (claves.length >= 2) {
-                const mapeosSimilares = await this.prisma.supplierProductMapping.findMany({
-                    where: {
-                        OR: claves.map(palabra => ({
-                            supplierDesc: {
-                                contains: palabra,
-                                mode: 'insensitive'
-                            }
-                        }))
-                    },
-                    orderBy: {
-                        timesUsed: 'desc'
-                    },
-                    take: 5
-                });
-
-                const sugerencias = mapeosSimilares.map(mapeo => {
-                    const confianza = normalizar(descripcion) === normalizar(mapeo.supplierDesc)
-                        ? 100
-                        : calcularScoreSimilitud(descripcion, mapeo.supplierDesc);
-
-                    return {
-                        tipo: 'SIMILAR',
-                        confianza: confianza,
-                        mapeo: mapeo
-                    };
-                }).filter(sugerencia => sugerencia.confianza >= UMBRAL_SUGERENCIA);
-
-                if (sugerencias.length > 0) {
-                    console.log(`💡 ${sugerencias.length} sugerencias encontradas`);
-                    return sugerencias;
-                }
-            }
-
-            // 3. No se encontraron sugerencias
-            console.log(`🔍 No se encontraron productos similares para: ${descripcion}`);
-            return [];
-
-        } catch (error) {
-            console.error('❌ Error buscando productos similares:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Crea un nuevo mapeo de producto
-     * @param {Object} mappingData - Datos del mapeo
-     * @returns {Object} Mapeo creado
-     */
-    async createProductMapping(mappingData) {
-        try {
-            // Verificar si ya existe el mapeo
-            const mapeoExistente = await this.prisma.supplierProductMapping.findUnique({
-                where: {
-                    supplierCedula_supplierCode: {
-                        supplierCedula: mappingData.supplierCedula,
-                        supplierCode: mappingData.supplierCode
-                    }
-                }
-            });
-
-            if (mapeoExistente) {
-                // ✅ Determinar si es IMAP (automático) o manual
-                const esAutomatico = mappingData.origen === 'imap';
-                const eraManual = mapeoExistente.origen === 'manual';
-
-                // ⚠️ Si el mapeo existente era manual y llega uno automático, SOBRESCRIBIR
-                if (eraManual && esAutomatico) {
-                    console.log(`🔄 SOBRESCRIBIENDO mapeo MANUAL con IMAP: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
-                } else if (esAutomatico) {
-                    console.log(`✅ Actualizando mapeo automático: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
-                } else {
-                    console.log(`✅ Actualizando mapeo: ${mappingData.supplierCode} → ${mappingData.alegraName}`);
-                }
-
-                // Actualizar el mapeo existente (incluyendo origen si es automático)
-                const dataToUpdate = {
-                    supplierName: mappingData.supplierName.trim(),
-                    supplierDesc: mappingData.supplierDesc,
-                    alegraItemId: mappingData.alegraItemId,
-                    alegraReference: mappingData.alegraReference,
-                    alegraName: mappingData.alegraName,
-                    confidence: mappingData.confidence || 100,
-                    lastUsedDate: new Date(),
-                    timesUsed: { increment: 1 }
-                };
-
-                // Si es automático, actualizar también el origen
-                if (esAutomatico) {
-                    dataToUpdate.origen = 'imap';
-                }
-
-                const mapeoActualizado = await this.prisma.supplierProductMapping.update({
-                    where: { id: mapeoExistente.id },
-                    data: dataToUpdate
-                });
-
-                return mapeoActualizado;
-            }
-
-            // Si no existe, crear nuevo mapeo
-            const nuevoMapeo = await this.prisma.supplierProductMapping.create({
-                data: {
-                    supplierName: mappingData.supplierName.trim(),
-                    supplierCedula: mappingData.supplierCedula,
-                    supplierCode: mappingData.supplierCode,
-                    supplierDesc: mappingData.supplierDesc,
-                    alegraItemId: mappingData.alegraItemId,
-                    alegraReference: mappingData.alegraReference,
-                    alegraName: mappingData.alegraName,
-                    confidence: mappingData.confidence || 100,
-                    origen: mappingData.origen || 'manual' // ✅ Usar 'origen' en lugar de 'createdBy'
-                }
-            });
-
-            await ligarIdsPropios(nuevoMapeo.id);
-
-            console.log(`✅ Mapeo creado: ${nuevoMapeo.supplierCode} → ${nuevoMapeo.alegraName}`);
-            return nuevoMapeo;
-
-        } catch (error) {
-            console.error('❌ Error creando mapeo:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Actualiza un producto con su relación a Alegra
-     * @param {String} productoId - ID del producto en la BD
-     * @param {String} alegraItemId - ID del ítem en Alegra
-     * @param {String} mapeoId - ID del mapeo utilizado
-     * @param {Number} confianza - Nivel de confianza del relacionado
-     */
-    async updateProductMapping(productoId, alegraItemId, mapeoId, confianza = 100) {
-        try {
-            const productoActualizado = await this.prisma.productoFactura.update({
-                where: { id: productoId },
-                data: {
-                    alegraItemId: alegraItemId,
-                    mapeoId: mapeoId,
-                    confianza: confianza,
-                    estadoRelacionado: 'RELACIONADO'
-                }
-            });
-            // El buzón todavía relaciona por el id de Alegra del mapeo: la línea
-            // queda además con su producto propio (migración 038).
-            await ligarProductoDeLineas([productoId]);
-
-            // Actualizar estadísticas del mapeo
-            if (mapeoId) {
-                await this.prisma.supplierProductMapping.update({
-                    where: { id: mapeoId },
-                    data: {
-                        timesUsed: { increment: 1 },
-                        lastUsedDate: new Date()
-                    }
-                });
-            }
-
-            console.log(`✅ Producto relacionado: ${productoId} → ${alegraItemId}`);
-            return productoActualizado;
-
-        } catch (error) {
-            console.error('❌ Error actualizando relación:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Obtiene facturas pendientes de procesar
-     * @param {String} estado - Estado de las facturas a buscar
-     * @returns {Array} Facturas encontradas
-     */
-    async getFacturasByEstado(estado = 'PROCESADA') {
-        try {
-            const facturas = await this.prisma.factura.findMany({
-                where: { estado: estado },
-                include: {
-                    productos: {
-                        include: {
-                            mapeo: true
-                        }
-                    }
-                },
-                orderBy: {
-                    fechaEmision: 'desc'
-                }
-            });
-
-            return facturas;
-
-        } catch (error) {
-            console.error('❌ Error obteniendo facturas:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Obtiene estadísticas generales
-     * @returns {Object} Estadísticas del sistema
-     */
-    async getEstadisticas() {
-        try {
-            const stats = await this.prisma.factura.aggregate({
-                _count: { id: true },
-                _sum: { totalFactura: true }
-            });
-
-            const facturasPorEstado = await this.prisma.factura.groupBy({
-                by: ['estado'],
-                _count: { id: true }
-            });
-
-            const productosPendientes = await this.prisma.productoFactura.count({
-                where: { estadoRelacionado: 'PENDIENTE' }
-            });
-
-            const totalMapeos = await this.prisma.supplierProductMapping.count();
-
-            return {
-                totalFacturas: stats._count.id,
-                totalMonto: stats._sum.totalFactura || 0,
-                facturasPorEstado: facturasPorEstado,
-                productosPendientes: productosPendientes,
-                totalMapeos: totalMapeos
-            };
-
-        } catch (error) {
-            console.error('❌ Error obteniendo estadísticas:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * El cliente Prisma es compartido (lib/prisma.js) y se desconecta solo
-     * al cerrar el proceso, así que aquí no hay nada que cerrar.
-     */
     async disconnect() {}
 }
 

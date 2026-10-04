@@ -223,33 +223,29 @@ describe('la relación de compra por producto propio — contra PostgreSQL local
     assert.equal((await enLaBase(lineaA2)).producto_id, sinAlegra);
   });
 
-  test('lo que todavía relaciona por Alegra o por un mapeo deja la línea con su producto propio', async () => {
-    // Revisión de Precios confirma por el id de Alegra.
-    await conexion.query(`
-      UPDATE productos_factura_proveedor SET alegra_item_id = 'zz-910001', estado_relacionado = 'RELACIONADO' WHERE id = $1`, [lineaB]);
-    await relacion.ligarProductoDeLineas([lineaB]);
-    assert.equal((await enLaBase(lineaB)).producto_id, conAlegra);
+  test('el buzón toma el producto del mapeo: una consulta por factura, y el producto propio a la línea', async () => {
+    // Todos los códigos de la factura de una vez, con su producto propio.
+    const mapeos = await relacion.mapeosDelProveedor(CEDULA, ['zz-A', 'zz-B', 'zz-A', null]);
+    assert.deepEqual([...mapeos.keys()], ['zz-A']);
+    assert.deepEqual(mapeos.get('zz-A'), {
+      id: mapeoA, supplierDesc: 'zz-línea zz-A', confidence: 100,
+      productoId: sinAlegra, productoNombre: 'zz-relación sin Alegra', alegraId: null
+    });
+    assert.equal((await relacion.mapeosDelProveedor(CEDULA, [])).size, 0);
+    assert.equal((await relacion.mapeosDelProveedor('zz-otra-cedula', ['zz-A'])).size, 0);
 
-    // El buzón, al recibir otra factura del mismo proveedor, relaciona por el
-    // mapeo y copia su id de Alegra a la línea. Si el producto no tiene ficha
-    // lo que copia es el '' del mapeo: el producto sale del mapeo, y en la
-    // línea ese '' vuelve a ser NULL.
+    // Como deja Prisma una línea que nace relacionada por su mapeo: sin
+    // producto propio, porque no conoce esa columna.
     await conexion.query(`
-      UPDATE productos_factura_proveedor SET alegra_item_id = '', estado_relacionado = 'RELACIONADO', mapeo_id = $2 WHERE id = $1`,
+      UPDATE productos_factura_proveedor SET estado_relacionado = 'RELACIONADO', mapeo_id = $2, producto_id = NULL WHERE id = $1`,
     [lineaA1, mapeoA]);
-    await relacion.ligarProductoDeLineas({ facturaId });
+    assert.equal(await relacion.productoDeLineasPorMapeo(facturaId), 2);   // las dos líneas del código zz-A
     assert.deepEqual(
       [(await enLaBase(lineaA1)).producto_id, (await enLaBase(lineaA1)).alegra_item_id], [sinAlegra, null]);
-    assert.equal((await enLaBase(lineaB)).producto_id, conAlegra);
-
-    // Una línea que vuelve a pendiente no se queda con un producto.
-    await conexion.query(`UPDATE productos_factura_proveedor SET estado_relacionado = 'PENDIENTE' WHERE id = $1`, [lineaB]);
-    await relacion.ligarProductoDeLineas([lineaB]);
+    // Una pendiente no recibe producto.
     assert.equal((await enLaBase(lineaB)).producto_id, null);
-
-    // Sin nada que ligar no consulta, y un fallo no se propaga.
-    await relacion.ligarProductoDeLineas([]);
-    await relacion.ligarProductoDeLineas(null);
+    // Lo que relacionaba por el id de Alegra ya no existe.
+    assert.equal(relacion.ligarProductoDeLineas, undefined);
   });
 
   test('el avance de la factura se vuelve a contar desde sus líneas, también al soltar', async () => {

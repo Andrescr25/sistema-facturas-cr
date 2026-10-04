@@ -283,6 +283,7 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   const rutaAlmacenamiento = path.join(__dirname, '..', 'src', 'integrations', 'almacenamiento', 'index.js');
   const rutaXmlRuta = path.join(__dirname, '..', 'src', 'utils', 'xmlRutaComprobante.js');
   const rutaGastoRecurrente = path.join(__dirname, '..', 'src', 'modules', 'pagos-recurrentes', 'scrapers', 'facturas-recibidas.adapter.js');
+  const rutaRelacion = path.join(__dirname, '..', 'src', 'modules', 'productos-revision', 'relacionPropia.js');
   const rutaServicio = path.join(__dirname, '..', 'services', 'databaseService.js');
 
   const facturaData = {
@@ -295,9 +296,24 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   };
 
   function montar({ falla }) {
-    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaServicio]) {
+    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaRelacion, rutaServicio]) {
       delete require.cache[r];
     }
+
+    // El buzón busca los mapeos del proveedor y cuelga el producto propio por
+    // SQL (relacionPropia.js). Sin este doble esas consultas irían a la base
+    // de verdad. Un mapeo existente obliga a pasar por el PASO 3 —contar el
+    // uso—, que es DESPUÉS de crear la fila.
+    require.cache[rutaRelacion] = {
+      id: rutaRelacion, filename: rutaRelacion, loaded: true,
+      exports: {
+        mapeosDelProveedor: async () => new Map([['A1', {
+          id: 'mapeo-1', supplierDesc: 'Producto', confidence: 1, productoId: 7, productoNombre: 'X', alegraId: '99'
+        }]]),
+        productoDeLineasPorMapeo: async () => 1,
+        recalcularAvance: async () => []
+      }
+    };
 
     require.cache[rutaPrisma] = {
       id: rutaPrisma, filename: rutaPrisma, loaded: true,
@@ -311,8 +327,6 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
           update: async () => ({})
         },
         supplierProductMapping: {
-          // Un mapeo existente obliga a pasar por el PASO 3, después de crear la fila.
-          findUnique: async () => ({ id: 'mapeo-1', alegraItemId: '99', alegraName: 'X', confidence: 1 }),
           update: async () => {
             if (falla === 'mapeos') throw new Error('falló después de crear la fila');
             return {};
@@ -345,7 +359,7 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   }
 
   after(() => {
-    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaServicio]) {
+    for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaRelacion, rutaServicio]) {
       delete require.cache[r];
     }
   });

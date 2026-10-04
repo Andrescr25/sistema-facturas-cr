@@ -15,9 +15,11 @@
  * proveedor.
  *
  * LOS CAMPOS DE ALEGRA (`alegra_item_id`, `alegra_reference`, `alegra_name`)
- * se siguen llenando cuando el producto tiene ficha allá, porque el resto del
- * módulo todavía los lee. Salen SIEMPRE del producto propio, nunca al revés:
- * acá nadie recibe un id de Alegra.
+ * se siguen llenando cuando el producto tiene ficha allá, como referencia de
+ * dónde vino. Salen SIEMPRE del producto propio, nunca al revés: acá nadie
+ * recibe un id de Alegra, y desde el 2026-10-04 nadie relaciona por él —el
+ * buzón, al recibir una factura, también toma el producto del mapeo
+ * (`mapeosDelProveedor`, `productoDeLineasPorMapeo`).
  *
  * ES SQL Y NO PRISMA porque `producto_id` no está en el esquema de Prisma
  * (regenerar el cliente le cambiaría el suyo a `main`, que comparte
@@ -144,49 +146,55 @@ function filtroDeLineas({ lineaIds, deMapeoId }) {
 }
 
 /**
- * Para lo que TODAVÍA relaciona por el id de Alegra (confirmar en Revisión de
- * Precios, crear producto en Alegra) o por un mapeo ya existente (el buzón al
- * recibir una factura): deja el `producto_id` de esas líneas con su producto
- * propio. Se llama después de cada una de esas escrituras, igual que
- * `ligarIdsPropios` con el mapeo, y se va con ellas.
+ * Los mapeos de un proveedor para los códigos de una factura que acaba de
+ * llegar, cada uno con su producto PROPIO. Es lo que el buzón necesita para
+ * relacionar solo lo que ya se relacionó una vez a mano.
  *
- * De dónde sale el producto, en orden: del id de Alegra de la línea y, si no
- * lo tiene, del mapeo con el que se relacionó — que es el caso de un producto
- * sin ficha en Alegra cuando llega otra factura del mismo proveedor. Una
- * línea que no está relacionada queda sin producto.
+ * Una consulta para toda la factura (antes era una por línea, con Prisma, y
+ * sin el producto propio, que Prisma no conoce).
  *
- * De paso, el '' que el buzón copia del mapeo de un producto sin ficha vuelve
- * a ser NULL en la línea: ahí "no tiene id de Alegra" se escribe NULL.
- *
- * NO FALLA: que no se pueda colgar del id propio no es motivo para perder la
- * relación que alguien acaba de confirmar ni la factura que acaba de llegar.
- *
- * @param {string[]|{facturaId: string}} cuales  ids de líneas, o una factura entera
+ * @returns {Promise<Map<string, {id: string, supplierDesc: string, confidence: number,
+ *   productoId: number|null, productoNombre: string|null, alegraId: string|null}>>} por código del proveedor
  */
-async function ligarProductoDeLineas(cuales) {
-  let filtro, valor;
-  if (cuales && !Array.isArray(cuales) && cuales.facturaId) {
-    filtro = 'l.factura_id = $1::uuid';
-    valor = String(cuales.facturaId);
-  } else {
-    const ids = [...new Set((cuales || []).filter(Boolean).map(String))];
-    if (ids.length === 0) return;
-    filtro = 'l.id = ANY($1::uuid[])';
-    valor = ids;
-  }
+async function mapeosDelProveedor(cedula, codigos, db = { query }) {
+  const lista = [...new Set((codigos || []).filter(c => c !== null && c !== undefined).map(String))];
+  if (!cedula || lista.length === 0) return new Map();
 
-  try {
-    await query(`
-      UPDATE productos_factura_proveedor l
-         SET producto_id = CASE WHEN l.estado_relacionado = 'RELACIONADO' THEN COALESCE(
-               (SELECT p.id FROM producto p WHERE p.alegra_id = NULLIF(l.alegra_item_id::text, '')),
-               (SELECT m.producto_id FROM supplier_product_mapping m WHERE m.id = l.mapeo_id)
-             ) END,
-             alegra_item_id = NULLIF(l.alegra_item_id, '')
-       WHERE ${filtro}`, [valor]);
-  } catch (error) {
-    console.warn('⚠️ No se pudo ligar el producto propio de las líneas:', error.message);
-  }
+  const { rows } = await db.query(`
+    SELECT m.id, m.supplier_code, m.supplier_desc, m.confidence::float8 AS confidence,
+           m.producto_id, p.nombre AS producto_nombre, p.alegra_id
+      FROM supplier_product_mapping m
+      LEFT JOIN producto p ON p.id = m.producto_id
+     WHERE m.supplier_cedula = $1 AND m.supplier_code = ANY($2::text[])`, [String(cedula), lista]);
+
+  return new Map(rows.map(m => [m.supplier_code, {
+    id: m.id,
+    supplierDesc: m.supplier_desc,
+    confidence: m.confidence,
+    productoId: m.producto_id,
+    productoNombre: m.producto_nombre,
+    alegraId: m.alegra_id || null
+  }]));
+}
+
+/**
+ * A las líneas de una factura recién recibida que nacieron relacionadas por
+ * su mapeo les pone el producto propio de ese mapeo.
+ *
+ * Va aparte porque las líneas las crea Prisma junto con la factura, y Prisma
+ * no conoce `producto_id` (ver arriba).
+ *
+ * @returns {Promise<number>} cuántas líneas quedaron con su producto
+ */
+async function productoDeLineasPorMapeo(facturaId, db = { query }) {
+  const { rowCount } = await db.query(`
+    UPDATE productos_factura_proveedor l
+       SET producto_id = m.producto_id
+      FROM supplier_product_mapping m
+     WHERE l.factura_id = $1::uuid
+       AND m.id = l.mapeo_id
+       AND l.estado_relacionado = 'RELACIONADO'`, [String(facturaId)]);
+  return rowCount;
 }
 
 /**
@@ -246,6 +254,7 @@ async function recalcularAvance(cuales, db = { query }) {
 
 module.exports = {
   SIN_FICHA_EN_ALEGRA,
-  productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas, ligarProductoDeLineas,
+  productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas,
+  mapeosDelProveedor, productoDeLineasPorMapeo,
   recalcularAvance
 };

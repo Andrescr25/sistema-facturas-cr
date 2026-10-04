@@ -95,9 +95,37 @@ function prismaDelBuzon(conexion) {
     },
     factura: {
       findUnique: async ({ where }) => {
-        const { rows: [f] } = await conexion.query('SELECT * FROM facturas_proveedores WHERE id = $1', [where.id]);
-        return f ? comoFactura(f, await lineas('l.factura_id = $1', [where.id])) : null;
+        const { rows: [f] } = where.clave
+          ? await conexion.query('SELECT * FROM facturas_proveedores WHERE clave = $1', [where.clave])
+          : await conexion.query('SELECT * FROM facturas_proveedores WHERE id = $1', [where.id]);
+        return f ? comoFactura(f, await lineas('l.factura_id = $1', [f.id])) : null;
       },
+      // Guardar una factura que llega por correo, con sus líneas adentro
+      // (`productos: { create: [...] }`). Como Prisma: de las líneas escribe
+      // solo las columnas que conoce — `producto_id` no es una de ellas.
+      create: async ({ data }) => {
+        const { rows: [f] } = await conexion.query(`
+          INSERT INTO facturas_proveedores (clave, numero_consecutivo, fecha_emision, proveedor_nombre, proveedor_cedula,
+                                            proveedor_email, proveedor_telefono, total_productos, total_factura, moneda,
+                                            estado, fecha_vencimiento, periodo_facturado, archivo_xml, email_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::estado_factura,$12,$13,$14,$15) RETURNING *`,
+        [data.clave, data.numeroConsecutivo, data.fechaEmision, data.proveedorNombre, data.proveedorCedula,
+          data.proveedorEmail || null, data.proveedorTelefono || null, data.totalProductos, data.totalFactura, data.moneda,
+          data.estado, data.fechaVencimiento || null, data.periodoFacturado || null, data.archivoXML, data.emailId || null]);
+        for (const l of data.productos?.create || []) {
+          await conexion.query(`
+            INSERT INTO productos_factura_proveedor
+              (factura_id, numero_linea, codigo_proveedor, codigo_comercial, codigo_cabys, descripcion, cantidad, unidad_medida,
+               precio_unitario, descuento, impuesto, total_linea, estado_relacionado, alegra_item_id, mapeo_id, confianza)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::estado_relacionado,$14,$15,$16)`,
+          [f.id, l.numeroLinea, l.codigoProveedor, l.codigoComercial || null, l.codigoCabys || null, l.descripcion, l.cantidad,
+            l.unidadMedida, l.precioUnitario, l.descuento, l.impuesto, l.totalLinea, l.estadoRelacionado,
+            l.alegraItemId, l.mapeoId, l.confianza]);
+        }
+        return comoFactura(f, await lineas('l.factura_id = $1', [f.id]));
+      },
+      update: async ({ where, data }) => conexion.query(
+        'UPDATE facturas_proveedores SET estado = COALESCE($2::estado_factura, estado) WHERE id = $1', [where.id, data.estado || null]),
       // Lo que piden las listas de Revisión de Precios: por estado, y
       // "todas sus líneas relacionadas" (`productos: { some, every }`).
       findMany: async ({ where = {}, take = 50 } = {}) => {
@@ -123,7 +151,19 @@ function prismaDelBuzon(conexion) {
         : await mapeos('supplier_cedula = $1 AND supplier_code = $2',
           [where.supplierCedula_supplierCode.supplierCedula, where.supplierCedula_supplierCode.supplierCode]))[0] || null,
       findMany: async ({ where }) => (await mapeos('id = ANY($1::uuid[])', [where.id.in])).map(m => ({ ...m, productos: [] })),
+      // Lo que hace el buzón al reusar un mapeo: contar el uso.
+      update: async ({ where, data }) => {
+        const suma = data.timesUsed?.increment || 0;
+        await conexion.query(
+          `UPDATE supplier_product_mapping SET times_used = times_used + $2, last_used_date = COALESCE($3, last_used_date) WHERE id = $1`,
+          [where.id, suma, data.lastUsedDate || null]);
+        return (await mapeos('id = $1', [where.id]))[0];
+      },
       delete: async ({ where }) => conexion.query('DELETE FROM supplier_product_mapping WHERE id = $1', [where.id])
+    },
+    // Una factura a crédito crea su cuenta por pagar; las de estas pruebas son de contado.
+    cuentaPorPagar: {
+      upsert: async () => { throw new Error('el doble no guarda cuentas por pagar: usar una factura de contado'); }
     }
   };
 }

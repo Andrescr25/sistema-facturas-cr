@@ -6,7 +6,7 @@
  * `otros_cargos`, el detalle) — ver migraciones 021 y 022.
  *
  * SE HACE CON SQL Y NO CON PRISMA, mismo motivo que
- * `productos-revision/idsPropiosDelMapeo.js`: agregarle los campos al
+ * `productos-revision/relacionPropia.js`: agregarle los campos al
  * esquema de Prisma obliga a `prisma generate`, y en esta rama
  * `node_modules` es un enlace al árbol de `main`/`developer` — regenerar el
  * cliente desde acá le cambiaría el suyo a la otra rama. Cuando las ramas se

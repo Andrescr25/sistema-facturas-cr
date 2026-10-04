@@ -4,7 +4,6 @@ const imapConfig = require('../config/imap');
 const XmlParser = require('./xmlParser');
 const DatabaseService = require('./databaseService');
 const notasCreditoService = require('./notasCreditoService');
-const { getProductService } = require('../src/integrations/alegra');
 const almacenamiento = require('../src/integrations/almacenamiento');
 
 // Configuración de logging
@@ -15,7 +14,6 @@ class EmailService {
         this.imap = null;
         this.xmlParser = new XmlParser();
         this.dbService = new DatabaseService();
-        this.alegraProductService = getProductService();
         this.isConnected = false;
         this.isMonitoring = false;
         this.isClosingIntentionally = false; // ✅ Flag para evitar reconexión cuando cerramos a propósito
@@ -599,22 +597,15 @@ class EmailService {
                 // mirarlo, y el costo del producto equivocado terminaba
                 // afectando su precio de venta.
                 //
-                // La primera vez lo decide una persona en Revisión de
-                // Precios. A partir de ahí el sistema lo reusa solo, que es
+                // La primera vez lo decide una persona en Relacionar
+                // Productos. A partir de ahí el sistema lo reusa solo, que es
                 // cuando de verdad hay certeza.
-                const similares = await this.alegraProductService.findSimilarProducts(
-                    producto.descripcion,
-                    producto.codigoProveedor
-                );
-
-                if (similares.length > 0) {
-                    // Solo se registra en el log como pista para quien revise.
-                    console.log(`💡 Posible coincidencia (sin aplicar): ${similares[0].name}`);
-                    productosPendientes++;
-                } else {
-                    console.log(`❌ Sin productos similares`);
-                    productosPendientes++;
-                }
+                //
+                // Tampoco se busca un parecido "como pista": era una consulta
+                // a la caché de Alegra por cada línea pendiente, solo para
+                // escribir una línea en el log que nadie leía. Quien relaciona
+                // tiene el buscador del catálogo en la pantalla.
+                productosPendientes++;
             }
 
             // 3. Actualizar estado — salvo que la factura ya se haya marcado
