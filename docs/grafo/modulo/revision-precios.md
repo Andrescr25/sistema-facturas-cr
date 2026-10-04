@@ -13,7 +13,7 @@ archivos:
   - backend/src/modules/ventas/rotacion.js
   - backend/tests/revisionPreciosPropia.test.js
   - backend/tests/revisionPreciosRedondeo.test.js
-  - backend/tests/facturaProveedorNoSeDuplica.test.js
+  - backend/tests/registrarCompra.test.js
   - frontend/src/hooks/useRevisionPrecios.js
   - frontend/src/utils/revisionPreciosUtils.js
 aristas:
@@ -93,14 +93,18 @@ cómo deshacerlo está en `backend/migrations/add_margenes_bolsas_y_moto.sql`.
 Al crear una categoría nueva hay que ponerle su fila; si no, cae en el margen
 por defecto y nadie se entera. No hay pantalla para editar estos márgenes.
 
-## Lo que queda de Alegra
+## Ya no queda nada de Alegra
 
-`enviarFacturaAlegra` y sus ayudantes (`construirItemsFactura`,
-`actualizacionDeLinea`, `POST /enviar-alegra`): el camino viejo que hacía
-`POST /bills` y `PUT /items`. La pantalla no lo llama; se va con el retiro de
-Alegra. Sus lecciones siguen valiendo para quien lea ese código:
-[[decision/la-regalia-no-es-costo]], [[leccion/factura-enviada-no-se-repite]],
-[[leccion/el-impuesto-es-de-cada-linea]].
+`enviarFacturaAlegra` —el "Enviar a Alegra" de antes: `POST /bills` y un
+`PUT /items` por producto— se retiró el 2026-10-04 con sus ayudantes
+(`construirItemsFactura`, `actualizacionDeLinea`, `POST /enviar-alegra`) y con
+`utils/impuestosAlegra.js`, que elegía el impuesto de Alegra para cada línea.
+La pantalla no lo llamaba desde que existe "Registrar compra". El servicio
+pasó de 941 líneas a 308 en dos días.
+
+Lo que ese camino cuidaba sigue cuidado en `compras.service.js`:
+[[decision/la-regalia-no-es-costo]] y no registrar dos veces la misma factura
+([[leccion/factura-enviada-no-se-repite]], que acá queda como historia).
 
 Se quitaron el 2026-10-04, por no tener pantalla, pruebas ni nadie que las
 llamara: `/productos-pendientes` (sugerencias desde la caché),

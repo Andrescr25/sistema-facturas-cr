@@ -4,12 +4,17 @@ tipo: decision
 titulo: Una línea de regalía (100 % de descuento) nunca toca el costo del producto
 estado: vigente
 archivos:
-  - backend/src/modules/revision-precios/revision-precios.service.js
-  - backend/tests/facturaProveedorNoSeDuplica.test.js
+  - backend/src/modules/compras/compras.service.js
+  - backend/tests/registrarCompra.test.js
 aristas:
-  relacionado: [modulo/revision-precios, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-25
+  relacionado: [modulo/revision-precios, modulo/compras, leccion/precio-sin-iva-costo-con-iva]
+medido: 2026-10-04
 ---
+
+**En esta rama** la decisión vive en `actualizarProductoDeLinea`
+(`compras.service.js`): una línea de regalía no cambia `costo_con_iva`, y si
+se le ajustó el precio se aplica solo el precio. Donde nació —
+`actualizacionDeLinea`, del envío a Alegra— se retiró el 2026-10-04.
 
 La bonificación de un proveedor viene como OTRA línea del mismo producto con
 100 % de descuento: su costo sale ₡0. Mandarla a Alegra pisaba el costo bueno

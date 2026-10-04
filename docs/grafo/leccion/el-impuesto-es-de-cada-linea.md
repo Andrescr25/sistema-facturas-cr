@@ -4,13 +4,24 @@ tipo: leccion
 titulo: Un impuesto "principal" usado como si fuera el de cada línea — tres veces
 estado: vigente
 archivos:
-  - backend/utils/impuestosAlegra.js
+  - backend/src/modules/precios/costo.js
+  - backend/src/modules/productos-revision/productoDesdeLinea.js
   - frontend/src/hooks/useFacturacion.js
-  - backend/src/modules/revision-precios/revision-precios.service.js
+  - frontend/src/utils/revisionPreciosUtils.js
+  - backend/tests/porcentajeIva.test.js
 aristas:
   relacionado: [bloqueo/impuestos-historicos-en-alegra, modulo/revision-precios, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-25
+medido: 2026-10-04
 ---
+
+**En esta rama (2026-10-04):** la lección sigue valiendo, pero el código donde
+nació ya no está. `utils/impuestosAlegra.js` —elegir el impuesto de Alegra
+para cada línea de una compra— se retiró con `enviarFacturaAlegra`. Lo que
+queda es su aritmética, `calcularPorcentajeIva` (en `precios/costo.js`): el
+IVA REAL de la línea, del que salen el costo de cada compra y el impuesto que
+se le propone a un producto nuevo (`productoDesdeLinea.js`). La cuarta vez que
+apareció fue en la pantalla de Revisión de Precios: un producto exento se
+analizaba al 13 % (`tarifaDeAnalisis`).
 
 La misma familia de error, tres veces:
 

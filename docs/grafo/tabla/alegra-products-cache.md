@@ -40,11 +40,11 @@ que vencen a los 7 días, y no se entera de nada de lo que se crea o cambia en
 el maestro.
 
 Quién la sigue leyendo o escribiendo está en una lista cerrada que se prueba
-sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 quedan TRES
-archivos: la auditoría de inventario, una lectura de Facturación, y
-`enviarFacturaAlegra`, que no tiene pantalla. Ese mismo día se fue el que más
-la usaba, la Gestión de Catálogo vieja (`modules/catalogo`, 32 de los usos):
-ver [[modulo/gestion-catalogo]].
+sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 quedan DOS
+archivos: la auditoría de inventario (que espera el inventario propio) y una
+lectura de Facturación. Ese mismo día se fueron el que más la usaba, la
+Gestión de Catálogo vieja (`modules/catalogo`, 32 de los usos: ver
+[[modulo/gestion-catalogo]]), y `enviarFacturaAlegra`.
 
 Las últimas dos lecturas con pantalla se fueron ese día: la foto de cada
 línea en Facturas en Bodega y el código de la marca que sigue, que ahora salen

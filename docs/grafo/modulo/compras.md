@@ -41,9 +41,9 @@ mostró; el del mapeo queda de respaldo. Hasta el 2026-10-04 se tomaba el del
 mapeo, y cuando no coincidían el costo y el precio se le escribían a un
 producto distinto del revisado: ver [[modulo/revision-precios]].
 
-`enviarFacturaAlegra` (en `revision-precios.service.js`), el camino viejo que
-hacía `POST /bills` y `PUT /items`, sigue en el código pero la pantalla ya no
-lo llama — se va con el retiro de Alegra.
+`enviarFacturaAlegra`, el camino viejo que hacía `POST /bills` y `PUT /items`,
+se retiró del código el 2026-10-04: la pantalla no lo llamaba desde que
+existe "Registrar compra".
 
 EL CAMBIO DE FORMA FRENTE A LO VIEJO
 
