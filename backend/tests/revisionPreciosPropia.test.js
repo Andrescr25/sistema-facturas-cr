@@ -179,6 +179,22 @@ describe('lo que Revisión de Precios ya no tiene', () => {
     }
   });
 
+  test('el envío de la compra a Alegra se retiró: el módulo ya no importa la integración', () => {
+    const rutas = sinComentarios(backend('revision-precios.routes.js'));
+    assert.ok(!rutas.includes("'/enviar-alegra'"), '/enviar-alegra volvió');
+    const servicio = require('../src/modules/revision-precios/revision-precios.service');
+    for (const funcion of ['enviarFacturaAlegra', 'construirItemsFactura', 'inferirTipoIdentificacion', 'actualizacionDeLinea']) {
+      assert.equal(servicio[funcion], undefined, `${funcion} volvió`);
+    }
+    for (const archivo of ['revision-precios.service.js', 'revision-precios.controller.js']) {
+      assert.doesNotMatch(sinComentarios(backend(archivo)), /integrations\/alegra|impuestosAlegra|pagosProveedoresService/, `${archivo} todavía depende de Alegra`);
+    }
+    // Lo que ese camino cuidaba sigue cuidado donde se registra la compra.
+    const compras = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'compras', 'compras.service.js'), 'utf8');
+    assert.match(compras, /SELECT id FROM compra WHERE factura_proveedor_id = \$1/);   // no se registra dos veces
+    assert.match(compras, /esRegalia \? null : costoNuevo/);                            // la regalía no pisa el costo
+  });
+
   test('el lote de productos pide `productoIds` y no le pregunta a Alegra', () => {
     const controlador = sinComentarios(backend('revision-precios.controller.js'));
     assert.match(controlador, /const \{ productoIds \} = req\.body/);

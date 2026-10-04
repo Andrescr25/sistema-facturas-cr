@@ -17,7 +17,8 @@ const path = require('path');
  * El día que las tres queden vacías, se puede borrar `integrations/alegra`.
  *
  * Historia: 12 / 6 / 6 archivos al crearla (2026-10-04); 10 / 3 / 4 ese mismo
- * día, al retirar la Gestión de Catálogo vieja (`modules/catalogo`).
+ * día, al retirar la Gestión de Catálogo vieja (`modules/catalogo`); y 8 / 2 / 4
+ * al retirar el envío de compras a Alegra (`enviarFacturaAlegra`).
  *
  * Fuera de la cuenta, a propósito: `backend/scripts` (los cargadores y las
  * conciliaciones le leen a Alegra hasta el corte, que es para lo que están) y
@@ -35,16 +36,13 @@ const IMPORTAN_LA_INTEGRACION = [
   'backend/src/modules/facturacion/facturacion.service.js',
   'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js',
   'backend/src/modules/invoices/invoice.service.js',
-  'backend/src/modules/products/product.service.js',
-  'backend/src/modules/revision-precios/revision-precios.service.js',     // solo `enviarFacturaAlegra`, sin pantalla
-  'backend/utils/impuestosAlegra.js'
+  'backend/src/modules/products/product.service.js'
 ];
 
 /** Código de la aplicación que lee o escribe `alegra_products_cache`. */
 const USAN_LA_CACHE = [
   'backend/src/modules/facturacion/facturacion.service.js',
-  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js',
-  'backend/src/modules/revision-precios/revision-precios.service.js'      // solo `enviarFacturaAlegra`, sin pantalla
+  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js'
 ];
 
 /**

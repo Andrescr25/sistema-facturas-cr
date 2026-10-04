@@ -10,7 +10,7 @@ const {
  * Los casos son las respuestas reales de Alegra (11 de setiembre de 2026),
  * recortadas. Lo que más importa es el impuesto: la tarifa sale del número,
  * nunca del id. Deducirla del id es el error que registró compras al 1 %
- * como 4 % desde el 10 de julio (utils/impuestosAlegra.js).
+ * como 4 % desde el 10 de julio (el `utils/impuestosAlegra.js` de entonces).
  */
 
 // GET /taxes, tal cual.

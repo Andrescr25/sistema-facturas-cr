@@ -283,17 +283,9 @@ class PagosProveedoresService {
     };
   }
 
-  /**
-   * Libera la cuenta de una factura del buzón. Ya no toca el saldo: se calcula.
-   * Solo la llama `enviarFacturaAlegra`, el camino viejo que la pantalla ya no
-   * usa en esta rama; Registrar compra usa `compras/liberarCuentaPorPagar.js`.
-   */
-  async liberarCuentaPorFactura(facturaId) {
-    if (!facturaId) return null;
-    const cuenta = await this.prisma.cuentaPorPagar.findUnique({ where: { facturaId } });
-    if (!cuenta) return null;
-    return this.prisma.cuentaPorPagar.update({ where: { facturaId }, data: { liberada: true } });
-  }
+  // Liberar la cuenta de una factura del buzón es de Registrar compra
+  // (`compras/liberarCuentaPorPagar.js`). El método que había acá solo lo
+  // llamaba el envío viejo a Alegra, y se fue con él.
 
   /**
    * Lo único que se edita a mano de una cuenta son sus notas. El saldo y el

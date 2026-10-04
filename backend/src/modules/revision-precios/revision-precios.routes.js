@@ -17,9 +17,8 @@ router.post('/devolver-factura', revisionPreciosController.devolverFactura);
 router.post('/productos-batch', revisionPreciosController.getProductosBatch);
 router.get('/facturas/:facturaId/sugerencias-precio', revisionPreciosController.getSugerenciasPrecio);
 
-// El envío viejo a Alegra. La pantalla ya no lo llama (registra la compra por
-// /compras/registrar); se va con el retiro de Alegra.
-router.post('/enviar-alegra', revisionPreciosController.enviarAlegra);
+// La compra se registra por /compras/registrar. El envío viejo a Alegra
+// (/enviar-alegra) se retiró el 2026-10-04: ninguna pantalla lo llamaba.
 
 // Se quitaron /productos-pendientes, /confirmar-producto, /rechazar-producto,
 // /actualizar-precio y /estadisticas: ninguna pantalla las llamaba, y las tres

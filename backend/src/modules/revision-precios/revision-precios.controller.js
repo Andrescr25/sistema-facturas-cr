@@ -89,41 +89,10 @@ async function getSugerenciasPrecio(req, res) {
   }
 }
 
-/**
- * POST /revision-precios/enviar-alegra
- */
-async function enviarAlegra(req, res) {
-  try {
-    const { facturaId, preciosAjustados = {} } = req.body;
-
-    if (!facturaId) {
-      return res.status(400).json({ success: false, error: 'facturaId es requerido' });
-    }
-
-    const result = await revisionPreciosService.enviarFacturaAlegra(facturaId, preciosAjustados);
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error enviando a Alegra:', error);
-
-    // Errores de validación/negocio de Alegra responden 400
-    let statusCode = error.status || 500;
-    if (error.message?.includes('deshabilitado') ||
-        error.message?.includes('Error de Alegra')) {
-      statusCode = 400;
-    }
-
-    res.status(statusCode).json({
-      success: false,
-      error: error.message || 'Error desconocido al procesar la factura'
-    });
-  }
-}
-
 module.exports = {
   getFacturas,
   devolverFactura,
   getFacturasRelacionadas,
   getProductosBatch,
-  getSugerenciasPrecio,
-  enviarAlegra
+  getSugerenciasPrecio
 };

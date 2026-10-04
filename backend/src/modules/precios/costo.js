@@ -7,11 +7,30 @@
  *   - productos-revision/productos-revision.service.js (mostrar costo por proveedor)
  *
  * En el XML de Hacienda, `precioUnitario` viene SIN IVA. El IVA real de la
- * línea NO se asume — se deriva de impuesto/totalLinea (impuestosAlegra.js),
+ * línea NO se asume — se deriva de impuesto/totalLinea (`calcularPorcentajeIva`),
  * porque Costa Rica tiene tarifas 0/1/2/4/8/13%, no solo 13%.
  */
 
-const { calcularPorcentajeIva } = require('../../../utils/impuestosAlegra');
+/**
+ * El porcentaje de IVA que de verdad trae una línea: el monto del impuesto
+ * sobre el subtotal (el total de la línea, que ya lo incluye, menos él).
+ *
+ * Devuelve 0 para una línea exenta o con datos que no sirven, nunca NaN ni
+ * Infinity. Como sale de dividir dos montos redondeados, un 13 % puede dar
+ * 12,99 o 13,01: quien lo cruce contra una tarifa tiene que tolerarlo.
+ *
+ * Vivía en `utils/impuestosAlegra.js`, junto a lo que elegía el impuesto de
+ * Alegra para cada línea; eso se retiró con el envío a Alegra y quedó solo
+ * esto, que es aritmética.
+ */
+function calcularPorcentajeIva({ impuesto, totalLinea }) {
+  const montoImpuesto = parseFloat(impuesto) || 0;
+  const subtotal = (parseFloat(totalLinea) || 0) - montoImpuesto;
+
+  if (montoImpuesto <= 0 || subtotal <= 0) return 0;
+
+  return (montoImpuesto / subtotal) * 100;
+}
 
 /**
  * Costo con IVA, en las UNIDADES DEL PROVEEDOR (antes de aplicar el factor
@@ -54,6 +73,7 @@ function calcularCostoUnitarioPropio(linea, factorConversion) {
 }
 
 module.exports = {
+  calcularPorcentajeIva,
   calcularCostoUnitarioProveedor,
   calcularCostoUnitarioPropio
 };
