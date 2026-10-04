@@ -57,9 +57,18 @@ el envío antiguo de compras a Alegra (`a80c0e0`, `31d4b82`). Codex montó su
 auditoría sobre esos commits, en worktree y PostgreSQL propios. No editó
 esos módulos, no cambió la base compartida ni reinició sus servidores.
 
+Después, Claude retiró Facturación contra Alegra y corrigió las sugerencias
+por cliente (`6519d31`, `00b65ce`); retiró el módulo viejo de productos y las
+sobras del adaptador (`6fb1330`, `925d796`) y trajo el cierre de permisos de
+producción a la rama (`5a82965`). Codex preparó la demostración siguiente
+sobre esa base. Claude abrió después `tmp/claude-huella-factura-20261004`:
+el contrato y la idempotencia de Facturación le corresponden; este avance
+no modifica esos archivos ni reinicia sus procesos.
+
 ## Estado del checklist
 
-Las secciones 0–16 tienen **108 tareas principales marcadas y 32 abiertas**.
+Las secciones 0–16 tienen **110 tareas principales marcadas y 33 abiertas**
+(revisado sobre `5a82965`).
 Compras (§8) ya quedó completa; el débito completa un tramo de §15 y no
 cierra la conciliación total. Esa cuenta no mide la preparación para
 producción. §§11–14 siguen terminadas.
@@ -141,6 +150,46 @@ ni se omitieron pruebas. Esta entrega no modifica el frontend.
 
 Alcance y comandos en [el nodo de conciliación de compras](../grafo/modulo/conciliacion-compras.md).
 La conciliación completa y el corte continúan abiertos.
+
+## Demostración de Reporte de Proveedores para el usuario
+
+Solicitada el 2026-10-04 y **conservada en la base local de independencia**
+para que el usuario la abra ahora. Entrar en
+`http://localhost:5174/reportes/proveedores`, buscar `ZZ-DEMO` y abrir
+`ZZ-DEMO Distribuidora Norte [PRUEBA]` (3 productos, 22 unidades) o
+`ZZ-DEMO Ferretería Sur [PRUEBA]` (2 productos, 5 unidades).
+
+Hay cinco productos, cinco mapeos por ids propios, cinco faltantes y cinco
+notas de cliente. Dos borradores `ZZ-DEMO-PROV-FACT-1/2`, claramente
+ficticios, sostienen los FKs que exige el reporte. No tienen serie,
+consecutivo, emisión electrónica, cliente real ni cobro; no cuentan como
+ventas emitidas o deuda. Proveedores sin correo ni teléfono real.
+El usuario puede recorrer notas, cantidades, PDF, agregar productos y
+reasignar; WhatsApp mantiene el bloqueo de salida de la rama.
+
+Antes de conservarla se verificaron creación, rechazo de duplicados y
+retirada en BEGIN/ROLLBACK: **nueve tablas idénticas**. En Chromium real
+1440/700 px, con las APIs de 3002: ambas tarjetas, entrar/volver entre
+proveedores, productos, notas y descarga de un PDF válido (23.435 bytes),
+sin errores JS. Esa revisión no guardó cambios de la orden. Después de
+insertar y abrir el reporte, las huellas de todos los registros anteriores
+de nueve tablas siguieron idénticas; tampoco cambió `serie_consecutivo`.
+Las secuencias de ids sí avanzan al insertar, sin retrocederlas ni tocar
+numeradores de negocio. No se ejecutó la limpieza semanal ni se mandaron
+mensajes; no hubo cambios en producción.
+
+Pasaron **30 comprobaciones dirigidas**: grafo, marca de pedido enviado y
+deshacer cambios de la orden. No se atribuye a esta entrega una suite
+completa nueva ni cambios del frontend.
+
+El script de demostración corre solo a mano y solo en base local con
+salidas bloqueadas. Conserva un manifiesto privado 0600 para la retirada
+puntual cuando el usuario termine, sin limpiar otros datos. **Otros modelos
+deben conservar este conjunto durante la revisión y no refrescar la base
+compartida.** Alcance y comandos en
+[el nodo de la demostración](../grafo/modulo/demo-reporte-proveedores.md).
+Evidencia, capturas, PDF y manifiesto fuera de git en
+`/private/tmp/codex-demo-proveedores-20261004`.
 
 ## Verificación del débito histórico
 

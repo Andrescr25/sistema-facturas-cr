@@ -25,6 +25,7 @@ toca, qué no se regenera).
 - [Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia](modulo/portal-clientes.md)
 - [Inicio — trabajo pendiente contado desde las tablas propias](modulo/dashboard.md)
 - [Excel de los reportes propios — filtros y descarga sin modificar datos](modulo/exportaciones-reportes.md)
+- [Demostración local de Reporte de Proveedores — datos conservados para la revisión del usuario](modulo/demo-reporte-proveedores.md)
 - [Conciliación de ventas — diferencias con Alegra por mes, documento y línea](modulo/conciliacion-ventas.md)
 - [Conciliación de cobros — destino de cada recibo y saldo actual de las facturas](modulo/conciliacion-cobros.md)
 - [Conciliación de compras — vínculos históricos y candidatos sin confirmar](modulo/conciliacion-compras.md)

@@ -32,8 +32,8 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes]
-medido: 2026-10-03
+  relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+medido: 2026-10-04
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -180,8 +180,15 @@ A QUIÉN SE LE PIDE CADA FALTANTE (2026-10-03, todo por ids propios)
 - **El pedido por WhatsApp** (`orders-whatsapp`) busca cómo le llama el
   proveedor al producto por `producto_id`.
 
-Sigue del lado de Alegra, fuera de este módulo: `supplier_product_mapping`
-exige `alegra_item_id` (NOT NULL), así que un producto sin ficha en Alegra no
-puede tener mapeo. Es de Relacionar Productos, igual que el buzón de compras.
+Resuelto en Relacionar Productos (§8, 2026-10-04): el mapeo de un producto
+sin ficha en Alegra guarda `alegra_item_id=''` (conserva NOT NULL para el
+cliente Prisma compartido) y se identifica por `producto_id`; el buzón
+también relaciona por el producto propio.
 Las rutas de los reportes y del pedido siguen colgadas del prefijo `/alegra`
 (el enrutador adaptador); son módulos propios, el prefijo se va en la §16.
+
+DEMOSTRACIÓN CONSERVADA (pedido del usuario, 2026-10-04). Dos proveedores
+`ZZ-DEMO`, cinco productos y 27 unidades faltantes en la base local, con dos
+borradores propios sin emisión ni series. Se dejan para que el usuario
+recorra Reporte de Proveedores; no retirarlos por una prueba posterior.
+Alcance, evidencia y retirada puntual en [[modulo/demo-reporte-proveedores]].

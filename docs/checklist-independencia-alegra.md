@@ -592,6 +592,15 @@ enlace público ya eran propios. **Ahora viven en la base propia** (ver
 reimpresión, y Faltantes leían las facturas de Alegra por periodo y cambiaban
 su estado usando el `alegraId`; ahora todo va por `factura.id` y `producto.id`.
 
+**Demostración solicitada por el usuario, 2026-10-04:** en la base local
+quedan dos proveedores `ZZ-DEMO`, cinco productos y 27 unidades faltantes,
+con notas y dos borradores ficticios sin serie ni emisión. Abrir Reporte
+de Proveedores y buscar `ZZ-DEMO`; lista, detalle, notas y PDF verificados
+en el navegador. Se conservan para su revisión; no retirarlos al finalizar
+otra prueba ni refrescar la base compartida. Manifiesto privado y retirada
+puntual en [el nodo de la demostración](grafo/modulo/demo-reporte-proveedores.md).
+No es un cierre nuevo ni un ensayo del corte.
+
 - [x] Leer las facturas propias — *Facturas en Bodega (2026-09-29):
   `warehouse/bodegaPropia.js` lista las emitidas de `factura` con sus líneas;
   la pantalla usa `factura_id`. Falta impresión y reimpresión (paso 2).*
