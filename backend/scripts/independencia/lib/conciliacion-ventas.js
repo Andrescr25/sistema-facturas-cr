@@ -176,4 +176,4 @@ async function leerBase(pool, p, ids) {
   } finally { client.release(); }
 }
 
-module.exports = { ErrorConciliacion, periodo, fechaValida, normalizarBase, normalizarAlegra, leerPaginas, leerBase, conciliar };
+module.exports = { ErrorConciliacion, periodo, fechaValida, escalado, normalizarBase, normalizarAlegra, leerPaginas, leerBase, conciliar };

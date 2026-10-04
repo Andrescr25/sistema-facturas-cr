@@ -6,8 +6,10 @@ estado: vigente
 archivos:
   - backend/src/modules/facturacion/facturacion.service.js
   - backend/src/modules/facturacion/facturaPropia.service.js
+  - backend/src/modules/facturacion/facturaConsulta.service.js
+  - backend/src/modules/facturacion/saldo.sql.js
 aristas:
-  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas]
+  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros]
 medido: 2026-10-03
 ---
 
@@ -21,6 +23,14 @@ sus secciones (6 y 7) y recontando.
 
 Queda pendiente, y depende de Hacienda, no de código: emitir electrónicamente
 una factura ya creada. El botón existe y está apagado a propósito.
+
+SALDO PARA CONSULTA Y CONCILIACIÓN (2026-10-03): las expresiones `COBRADO` y
+`ACREDITADO` viven en `saldo.sql.js`, un archivo puro que no carga la base ni
+servicios. `facturaConsulta.service` las usa y conserva sus exportaciones
+para Cobros y el Portal. La conciliación las importa directamente: así mide
+la misma fórmula de la pantalla sin arrancar la aplicación. Excluye cobros
+anulados y notas anuladas; el saldo de consulta se limita a cero como antes.
+Las columnas históricas `saldo` y `total_pagado` no determinan lo que se debe.
 
 FACTURAR UN PEDIDO (sección 12, parte 2): el portal usa
 `crearFacturaEnTransaccion` con la opción interna `preciosConImpuesto`.

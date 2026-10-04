@@ -8,7 +8,7 @@ archivos:
   - backend/scripts/independencia/lib/conciliacion-ventas.js
   - backend/tests/conciliacionVentas.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-10-03
 ---
@@ -18,6 +18,11 @@ crédito**, con cantidades e importes por mes, tipo, estado y moneda, y con las
 diferencias por documento y línea. La fila de conciliación completa del
 checklist sigue pendiente: faltan cobros, aplicaciones, saldos calculados,
 compras y existencias, y resolver las diferencias antes del corte.
+
+Continuación del 2026-10-03: [[modulo/conciliacion-cobros]] ya compara
+recibos, aplicaciones de cobros y saldo actual calculado. Este script de
+ventas conserva su alcance; usar ambos. Siguen pendientes las aplicaciones
+individuales de notas de crédito, compras, existencias y resolver diferencias.
 
 Desde `backend`, en la rama aislada:
 

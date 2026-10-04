@@ -26,6 +26,7 @@ toca, qué no se regenera).
 - [Inicio — trabajo pendiente contado desde las tablas propias](modulo/dashboard.md)
 - [Excel de los reportes propios — filtros y descarga sin modificar datos](modulo/exportaciones-reportes.md)
 - [Conciliación de ventas — diferencias con Alegra por mes, documento y línea](modulo/conciliacion-ventas.md)
+- [Conciliación de cobros — destino de cada recibo y saldo actual de las facturas](modulo/conciliacion-cobros.md)
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)

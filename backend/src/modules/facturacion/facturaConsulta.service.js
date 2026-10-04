@@ -22,6 +22,7 @@
 
 const { pool } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
+const { COBRADO, ACREDITADO } = require('./saldo.sql');
 
 const LIMITE_MAXIMO = 100;
 
@@ -38,18 +39,6 @@ const numero = (v) => (v === null || v === undefined ? null : Number(v));
  * acreditado por notas de crédito. Se calcula, no se guarda: un cobro que se
  * anula tiene que devolver el saldo solo.
  */
-const COBRADO = `
-  COALESCE((SELECT SUM(pf.monto)
-              FROM pago_factura pf
-              JOIN pago p ON p.id = pf.pago_id
-             WHERE pf.factura_id = f.id AND p.anulado = FALSE), 0)`;
-
-const ACREDITADO = `
-  COALESCE((SELECT SUM(nf.monto)
-              FROM nota_credito_factura nf
-              JOIN nota_credito nc ON nc.id = nf.nota_credito_id
-             WHERE nf.factura_id = f.id AND nc.estado <> 'anulada'), 0)`;
-
 function aVista(f) {
   if (!f) return f;
   const total = numero(f.total) || 0;

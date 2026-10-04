@@ -14,7 +14,7 @@ aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
   relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-09-23
+medido: 2026-10-03
 ---
 
 QUÉ ES HOY
@@ -66,17 +66,21 @@ reales. `liberarCuentaPorPagar` se extrajo a su propio archivo justo para
 que esta transacción y la de `registrarCompra` compartan la misma función en
 vez de cada una llevar su copia.
 
-Consecuencia de tránsito: el Reporte Contador (sección 13, sin migrar)
-sigue leyendo de Alegra, así que un gasto recurrente nuevo no aparece ahí
-todavía — el mismo hueco que ya tienen Cotizaciones e Inventario con
-`alegra_products_cache`.
+El Reporte Contador ya lee ventas y compras propias (sección 13 terminada,
+2026-10-03), incluidos los gastos recurrentes registrados como compra.
+Cotizaciones también crea facturas propias (sección 10). La dependencia del
+buzón/Relacionar Productos y de Inventario respecto de
+`alegra_products_cache` todavía está pendiente; no confundirla con esos dos
+módulos ya migrados.
 
 QUÉ FALTA
 
 Inventario NO se mueve todavía —bloqueado por el conteo físico, ver
 [[bloqueo/conteo-fisico]]—, aunque `compra_linea.cantidad_propia` ya está
-lista para cuando exista. El estado de aceptación de cada compra, y órdenes
-de compra por WhatsApp usando `producto.id` en vez del id de Alegra.
+lista para cuando exista. Falta el estado de aceptación de cada compra,
+junto con el mensaje receptor de Hacienda. Las órdenes de compra por
+WhatsApp ya usan `producto.id` (2026-10-03, sección 8); la asignación del
+proveedor desde el reporte también usa la ficha propia (sección 13).
 
 "Devolver o rechazar una compra" salió de esta lista (2026-09-20): era una
 alucinación de una sesión anterior, nunca un pedido real. Lo que el usuario
