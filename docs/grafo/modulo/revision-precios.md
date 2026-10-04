@@ -8,6 +8,8 @@ archivos:
   - backend/src/modules/revision-precios/revision-precios.routes.js
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/precios/costo.js
+  - backend/src/modules/precios/config.js
+  - backend/migrations/add_margenes_bolsas_y_moto.sql
   - backend/src/modules/ventas/rotacion.js
   - backend/tests/revisionPreciosPropia.test.js
   - backend/tests/revisionPreciosRedondeo.test.js
@@ -71,13 +73,25 @@ costo y el precio se le escribían a otro. Ahora es el de la línea, con el del
 mapeo de respaldo. Ninguna factura pendiente de la copia local estaba en ese
 caso al medirlo.
 
-## Márgenes que faltan configurar
+## El margen meta se busca por el NOMBRE de la categoría
 
-`config_precios` no tiene fila para **Bolsas y Desechables** ni **Línea de
-Moto** (204 productos activos; también en producción): usan el margen por
-defecto, 25 % de meta y 12 % de mínimo. Las categorías de las que salieron
-tienen 24,5/14 (Línea Plástica) y 27,3/16 (Línea de Ciclo). Qué márgenes les
-tocan es una decisión del negocio.
+`config_precios` guarda el margen meta y el mínimo de cada categoría, llaveada
+por su nombre; la que no tiene fila usa `__default__` (25 % / 12 %). Los
+valores son la mediana real del margen de cada categoría, no números redondos.
+
+**Bolsas y Desechables** y **Línea de Moto** (204 productos activos) no tenían
+fila: se crearon al reordenar el catálogo, separándolas de Línea Plástica y
+Línea de Ciclo, y nadie se las puso. El usuario delegó la decisión el
+2026-10-04 y se les dio la mediana medida ese día con el cálculo de
+Rentabilidad, el mismo criterio del resto de la tabla: **29,1 % / 17 %** y
+**28,4 % / 16 %**. Es más de lo que venían usando: el motor les sugería
+precios por debajo de lo que ya dejan. Ese cálculo reproduce lo que estaba
+configurado (Ferretería 25,0 contra 25; Librería 28,9 contra 29,2), que es lo
+que da confianza en el método. Aplicado en producción y en la copia local;
+cómo deshacerlo está en `backend/migrations/add_margenes_bolsas_y_moto.sql`.
+
+Al crear una categoría nueva hay que ponerle su fila; si no, cae en el margen
+por defecto y nadie se entera. No hay pantalla para editar estos márgenes.
 
 ## Lo que queda de Alegra
 

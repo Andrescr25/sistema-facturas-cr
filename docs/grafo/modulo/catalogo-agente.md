@@ -19,13 +19,15 @@ archivos:
   - backend/src/modules/ventas/rotacion.js
   - backend/src/modules/catalogo-agente/pedidos-agente.service.js
   - backend/src/modules/catalogo-agente/catalogo-agente.service.js
+  - backend/tests/catalogoAgenteSinCosto.test.js
+  - backend/src/modules/precios/ofertasPorBaja.js
   - backend/src/modules/catalogo-agente/catalogo-agente.controller.js
   - frontend/src/utils/catalogoAgenteDb.js
   - frontend/src/hooks/useCatalogoAgente.js
   - backend/tests/catalogoAgenteIdsPropios.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
-  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes]
+  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
 medido: 2026-10-03
 ---
 

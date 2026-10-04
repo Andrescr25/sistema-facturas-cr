@@ -25,6 +25,15 @@
  * `alegra_products_cache`. El historial se junta por `producto_id`, que la
  * migración `independencia/005` rellenó; las pocas filas viejas que quedaron
  * sin él son de productos que ya no existen y no tendrían ficha que mostrar.
+ *
+ * EL MARGEN SE USA PARA DECIDIR, NO SE ENTREGA. Las dos rutas que llaman a
+ * esto (`/catalogo-clientes/ofertas-baja` y `/catalogo-agente/ofertas-baja`)
+ * se abren SIN SESIÓN. La respuesta llevaba `margenAntes` y `margenAhora` de
+ * cada producto: cualquiera con el enlace del catálogo podía leer cuánto se
+ * gana en cada uno, y con el precio al lado, sacar el costo. Ninguna pantalla
+ * los usaba. En `main` se corrigió el 2026-10-03; ESTA RAMA LO SIGUIÓ
+ * ENTREGANDO hasta el 2026-10-04, cuando se trajo `developer`. Si alguna vez
+ * hacen falta adentro, van por una ruta con sesión, no por esta función.
  */
 
 const { query } = require('../../../config/database');
@@ -71,8 +80,6 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
       imp.tarifa                                              AS "taxPercentage",
       c.precio_antes::numeric                                 AS "precioAntes",
       c.precio_nuevo::numeric                                 AS "precioAhora",
-      c.margen_resultante::numeric                            AS "margenAhora",
-      ROUND(((c.precio_antes - c.costo_al_momento) / NULLIF(c.precio_antes, 0) * 100)::numeric, 1) AS "margenAntes",
       c.created_at                                            AS "cuando"
     FROM cambios c
     JOIN producto p ON p.id = c.producto_id
@@ -110,8 +117,6 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
       // Lo que de verdad le importa al cliente: cuánto menos paga.
       descuentoPorcentaje: Math.round(((antes - ahora) / antes) * 100),
       ahorro: conIva(antes) - conIva(ahora),
-      margenAntes: o.margenAntes === null ? null : Number(o.margenAntes),
-      margenAhora: o.margenAhora === null ? null : Number(o.margenAhora),
       desde: o.cuando
     };
   });

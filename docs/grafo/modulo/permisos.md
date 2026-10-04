@@ -18,7 +18,7 @@ archivos:
   - backend/tests/bitacoraConsulta.test.js
   - backend/tests/bitacoraFormato.test.js
 aristas:
-  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes]
+  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-03
 ---
 
