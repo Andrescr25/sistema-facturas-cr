@@ -17,9 +17,11 @@ archivos:
   - frontend/src/utils/bitacoraFormato.js
   - backend/tests/bitacoraConsulta.test.js
   - backend/tests/bitacoraFormato.test.js
+  - backend/routes/alegra.js
+  - backend/tests/adaptadorSinAlegra.test.js
 aristas:
   relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
-medido: 2026-10-03
+medido: 2026-10-04
 ---
 
 `usuarios/modulos.js` es el registro: cada módulo declara sus `rutasApi`, y
@@ -89,3 +91,39 @@ módulo. Así se abría cualquier módulo, y la gestión de usuarios, a cualquie
 con sesión. `normalizarRuta` la pasa a minúsculas, le quita la barra final y
 las barras dobles y la decodifica antes de clasificarla. Los prefijos del
 registro van siempre en minúsculas (una prueba lo cuida).
+
+EL PREFIJO `/alegra` YA NO ES DE ALEGRA (2026-10-04). `routes/alegra.js` no
+importa la integración ni define rutas sueltas: monta cuatro módulos propios
+que las pantallas siguen llamando con esa dirección. Como `/alegra` es
+COMPARTIDO, lo que cuelga de ahí no pide permiso salvo que el registro le dé
+dueño al prefijo completo:
+
+| Prefijo | Dueño | Qué es |
+|---|---|---|
+| `/alegra/bodega` | `facturas-bodega` | Facturas en Bodega |
+| `/alegra/faltantes` | `reporte-clientes` | ajustes de entrega (guardar, quitar) |
+| `/alegra/orden-compra` | `reporte-proveedores` | la orden de compra y su envío por WhatsApp |
+| `/alegra/reportes` | compartido | lo leen los dos reportes y la cola de impresión; los Excel sí tienen dueño |
+
+UN MÓDULO NO SE MONTA DOS VECES. Impresión estaba en `/api/reimpresion` (pide
+el módulo) y también en `/api/alegra/reimpresion`, compartida. Medido el
+2026-10-04 con un usuario real sin el módulo: 403 en la primera, 200 en la
+segunda — incluido procesar una factura de la cola, que la edita. Se quitó el
+segundo montaje; la pantalla nunca lo usó. `adaptadorSinAlegra.test.js`
+recorre lo que monta el adaptador y falla si un prefijo que tiene dueño queda
+alcanzable por `/alegra` sin él. La misma revisión encontró
+`DELETE /faltantes/proveedor/limpiar`, que borraba todos los faltantes sin
+filtro y no tenía pantalla: retirada. `/productos` y `/facturas` dejaron de
+ser prefijos compartidos al irse los módulos viejos que vivían ahí.
+
+SIGUE COMPARTIDO, SIN DECIDIR: las tres escrituras de `/reportes` — mandar a
+impresión y recuperar (Reporte de Clientes) y limpiar los faltantes
+procesados (Configuración). En `developer`/`main` el montaje doble de
+Impresión y el borrado total de faltantes siguen como estaban.
+
+HUECO SIN DECIDIR: Gestionar Relaciones no tiene prefijo propio
+(`rutasApi: []`). Su pantalla llama a `/productos-revision` (de Revisión de
+Precios) y a `/proveedores` (de Reporte de Proveedores), así que un usuario con
+SOLO ese módulo recibe 403 en cada llamada. No se tocó: de quién son esas
+rutas, o si el módulo debe heredar las de Revisión de Precios, es una decisión
+del usuario.

@@ -33,8 +33,11 @@ Casos en esta rama:
    buscaba los teléfonos con `/envios-whatsapp/telefonos/:contactoId`, que le
    pregunta a Alegra, pero Cuentas por Cobrar ya le pasaba el id propio. Al
    cliente propio 8 ("AB CHANA") le proponía el celular del contacto 8 de
-   Alegra ("EL LLANO"). Medido: 47 de los 54 deudores. Ahora hay dos rutas y
-   dos props (`clienteId` / `contactoId`) con nombres distintos a propósito.
+   Alegra ("EL LLANO"). Medido: 47 de los 54 deudores. Se separaron dos
+   rutas y dos props (`clienteId` / `contactoId`) con nombres distintos a
+   propósito; la de Alegra se retiró el 2026-10-04, cuando ya nadie la
+   pasaba. La que queda conserva su nombre (`/telefonos-cliente/:clienteId`)
+   para que no se lea como "el id que tenga a mano".
 3. **El enlace público de la cotización.** El token firma `cotizacion:<id>`;
    los que ya salieron por WhatsApp llevan ids de Alegra. Con las mismas
    firmas, el enlace viejo de la 11 de Alegra abría la cotización propia 11,
