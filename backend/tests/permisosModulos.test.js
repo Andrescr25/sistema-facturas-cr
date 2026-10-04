@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  MODULOS, CLAVES, COMPARTIDAS, porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin
+  MODULOS, CLAVES, COMPARTIDAS, porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin, normalizarRuta
 } = require('../src/modules/usuarios/modulos');
 
 describe('catálogo de módulos', () => {
@@ -139,6 +139,44 @@ describe('rutas compartidas y de administrador', () => {
 
   test('ningún módulo se llama igual que una ruta compartida', () => {
     for (const p of COMPARTIDAS) assert.equal(moduloDeRuta(p), null);
+  });
+});
+
+describe('la ruta se clasifica como la entiende Express', () => {
+  // Express no distingue mayúsculas y acepta la barra final. El guardián
+  // comparaba el texto tal cual: '/Usuarios' no calzaba con '/usuarios', caía
+  // en "sin clasificar" y pasaba. Medido el 2026-10-03: /api/usuarios daba
+  // 403 y /api/Usuarios daba 200.
+  test('cambiar mayúsculas no saca a una ruta de su módulo ni de administrador', () => {
+    for (const ruta of ['/Usuarios', '/USUARIOS', '/usuarios/', '/Usuarios/4/password', '/USUARIOS//4']) {
+      assert.equal(esRutaAdmin(ruta), true, `${ruta} dejó de exigir administrador`);
+    }
+    assert.equal(moduloDeRuta('/Rentabilidad/resumen'), 'rentabilidad');
+    assert.equal(moduloDeRuta('/RENTABILIDAD/'), 'rentabilidad');
+    assert.equal(moduloDeRuta('/Reporte-Contador/periodos'), 'reporte-contador');
+    assert.equal(moduloDeRuta('/Alegra/Catalog/productos'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/Cuentas-Por-Cobrar/clientes'), 'cuentas-por-cobrar');
+  });
+
+  test('una ruta codificada se clasifica por lo que dice', () => {
+    assert.equal(esRutaAdmin('/%55suarios'), true);
+    assert.equal(moduloDeRuta('/%72entabilidad/resumen'), 'rentabilidad');
+    // Un % suelto no es una codificación válida: no revienta.
+    assert.equal(moduloDeRuta('/rentabilidad/%'), 'rentabilidad');
+  });
+
+  test('lo compartido sigue compartido, y lo parecido sigue sin serlo', () => {
+    assert.equal(esCompartida('/Alegra/contactos'), true);
+    assert.equal(esCompartida('/Productos/'), true);
+    assert.equal(moduloDeRuta('/usuariosx'), null);
+    assert.equal(esRutaAdmin('/usuariosx'), false);
+    assert.equal(normalizarRuta('/'), '/');
+    assert.equal(normalizarRuta('/Facturacion//Facturas/12/'), '/facturacion/facturas/12');
+  });
+
+  test('ningún prefijo del registro tiene mayúsculas: se comparan contra la ruta en minúsculas', () => {
+    const todos = [...MODULOS.flatMap(m => m.rutasApi), ...COMPARTIDAS];
+    assert.deepEqual(todos.filter(p => p !== p.toLowerCase()), []);
   });
 });
 

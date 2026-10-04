@@ -31,6 +31,9 @@ function requirePermiso(req, res, next) {
   // (el catálogo de clientes, el portal, /health). No hay nada que autorizar.
   if (!req.usuario) return next();
 
+  // La ruta se clasifica como la va a entender Express, que no distingue
+  // mayúsculas ni la barra final: ver `normalizarRuta` en modulos.js. Cuando se
+  // comparaba tal cual, '/Usuarios' no calzaba con nada y pasaba.
   const ruta = req.path;
   if (esCompartida(ruta)) return next();
 

@@ -10,7 +10,7 @@ archivos:
   - backend/tests/usuariosPermisos.test.js
   - frontend/src/utils/modulos.js
 aristas:
-  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo]
+  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, leccion/el-permiso-se-compara-como-express]
 medido: 2026-09-23
 ---
 
