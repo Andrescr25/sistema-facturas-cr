@@ -1,7 +1,7 @@
 ---
 id: modulo/conciliacion-notas-credito
 tipo: modulo
-titulo: Conciliación de notas — cada aplicación y los destinos que la copia no representa
+titulo: Conciliación de notas — cada aplicación a factura o débito histórico
 estado: vigente
 archivos:
   - backend/scripts/independencia/conciliar-notas-credito.js
@@ -9,9 +9,10 @@ archivos:
   - backend/tests/conciliacionNotasCredito.test.js
   - backend/src/modules/facturacion/notaDesdeAlegra.js
   - backend/migrations/independencia/010_nota_credito.sql
+  - backend/migrations/independencia/040_debitos_ingreso_historicos.sql
 aristas:
-  relacionado: [modulo/facturacion, modulo/conciliacion-ventas, modulo/conciliacion-cobros, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica]
-medido: 2026-10-03
+  relacionado: [modulo/facturacion, modulo/historico-debitos-ingreso, modulo/conciliacion-ventas, modulo/conciliacion-cobros, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica]
+medido: 2026-10-04
 ---
 
 Continúa §15. Compara las **aplicaciones actuales** de notas fechadas en un
@@ -19,6 +20,12 @@ tramo, incluidos sus pares cuya fecha cambió fuera del tramo. Las notas
 nativas se muestran aparte. Los documentos, estados y líneas completos se
 auditan con [[modulo/conciliacion-ventas]]; el saldo actual de las facturas
 con [[modulo/conciliacion-cobros]]. Los tres alcances se complementan.
+
+Desde la 040 también compara el crédito a `debito_ingreso_historico` por
+su id de Alegra, con un FK propio separado del de factura. El JSON del
+informe pasa a **versión 2**. Requiere esa migración aplicada: no inventa
+una copia vacía si falta la tabla. [[modulo/historico-debitos-ingreso]]
+describe la carga independiente que conserva cabeceras/líneas de crédito.
 
 Desde `backend`, con el aislamiento conservado:
 
@@ -69,11 +76,22 @@ respaldo individual de ese aplicado en la copia. No es plata perdida ni
 una factura que se deba inventar para cuadrar. Otra nota tiene **₡8.600,20
 sin aplicar** en ambas fuentes: observación separada. Salida 2.
 
-PENDIENTE CONCRETO. Incorporar el documento de débito de ingreso y su vínculo
-a la migración, después de determinar su alcance. Hasta resolverlo, la
-conciliación completa sigue abierta; repetir con origen congelado. No
-ejecutar el cargador actual esperando que el caso desaparezca: solo lee
-`invoices`. El detalle con ids/números queda privado fuera de git.
+RESUELTO EN LA COPIA DE PRUEBA Y LOCAL (2026-10-04). La 040 y el cargador de
+[[modulo/historico-debitos-ingreso]] incorporan ese documento y su vínculo.
+Nueva medición 2024-07-01 a 2026-10-04: **27 coincidentes, cero incidencias**,
+24 facturas y 1 débito destinatarios presentes. Los ₡8.600,20 disponibles
+permanecen como observación, sin forzar aplicaciones. Salida 0. El cargador
+completo de notas también conserva este destino en futuras recargas.
+La aplicación puntual en la base local compartida conservó cabeceras y
+líneas de crédito; sus huellas, facturas, pagos, series y secuencias previas
+no cambiaron. Se hizo respaldo antes de aplicar la migración.
+
+ALCANCE DEL DÉBITO. Verifica identidad, monto enlazado, moneda y existencia
+del destino; no certifica su cartera, sus cobros ni su emisión propia. El
+archivo completo se comprobó contra el GET en esta entrega; no se comparan
+sus líneas financieras como facturas dentro de este conciliador. Compras,
+existencias, otros períodos y resolución de diferencias siguen pendientes.
+El detalle con ids/números queda privado fuera de git.
 
 Solo CRC: una nota extranjera o una factura destino extranjera aborta;
 `nota_credito` aún no guarda moneda. No certifica cierre histórico, cartera
@@ -81,7 +99,7 @@ completa, compras ni existencias. No reimporta meses entregados al contador
 ni corrige impuestos históricos. Las lecturas GET de Alegra no son una
 instantánea transaccional.
 
-VERIFICACIÓN. 21 pruebas nuevas: reparto con montos intercambiados, colisión
+VERIFICACIÓN INICIAL (2026-10-03). 21 pruebas nuevas: reparto con montos intercambiados, colisión
 de ids, enlaces perdidos, nativos, crédito disponible, fecha cambiada,
 anuladas/borradores, desbordes, errores de lectura y detalle individual con
 otro destino. PostgreSQL real comprueba huellas de notas, aplicaciones,
@@ -94,3 +112,10 @@ error interno ya observado de Node 25.8.2 (`Unable to deserialize cloned
 data`) en `filtroPagosProveedores.test.js`. Sus 10 pruebas pasaron aisladas y
 la repetición completa terminó sin fallos. No se modificó ese test ni Node.
 Sin frontend modificado, instalaciones, migraciones ni servidores nuevos.
+
+CONTINUACIÓN (2026-10-04). Dos casos adicionales del conciliador cubren el
+destino de débito con su FK propio y su ausencia; ocho pruebas del archivo
+comprueban copia, concurrencia, rollback y recarga completa. Suite integrada:
+**1.768 aprobadas, ninguna omitida**; frontend compilado. Migración 040
+probada en base desechable y aplicada luego solo a la copia local de
+independencia. Detalle en [[modulo/historico-debitos-ingreso]].

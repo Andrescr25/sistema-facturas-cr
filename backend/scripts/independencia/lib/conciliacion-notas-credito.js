@@ -36,7 +36,7 @@ function normalizarNota(d) {
   const otros = (d.otros_destinos || []).map(v => {
     const monto = centavos(v.monto, 'otro destino');
     if (v.clase !== 'nota_debito_ingreso' || !idHistorico(v.alegra_id) || monto <= 0) throw new ErrorConciliacion('Destino adicional de nota inválido.');
-    return { clase: v.clase, alegra_id: idHistorico(v.alegra_id), monto };
+    return { clase: v.clase, alegra_id: idHistorico(v.alegra_id), monto, id_propio: v.id_propio ?? null, moneda: texto(v.moneda) };
   });
   if (new Set(otros.map(v => `${v.clase}:${v.alegra_id}`)).size !== otros.length) throw new ErrorConciliacion('Destino adicional repetido.');
   const total = centavos(d.total, 'total'), aplicado = centavos(d.total_aplicado, 'total_aplicado');
@@ -55,8 +55,7 @@ function notaAlegra(d) {
     return { factura_alegra_id: idHistorico(a.id), monto: a.amount };
   });
   // La ficha individual incluye aplicaciones a notas de débito de ingreso
-  // que el listado omite. El modelo propio solo enlaza facturas: mostrar el
-  // destino real como brecha de migración, sin inventarle una factura.
+  // que el listado omite. Son otro espacio de ids, aun si el número coincide.
   if (d.incomeDebitNotes != null && !Array.isArray(d.incomeDebitNotes)) throw new ErrorConciliacion('Destinos adicionales inválidos en Alegra.');
   const otros = (d.incomeDebitNotes || []).map(v => ({ clase: 'nota_debito_ingreso', alegra_id: v.id, monto: v.amount }));
   return normalizarNota({ alegra_id: idHistorico(d.id), numero: d.numberTemplate?.fullNumber || d.numberTemplate?.formattedNumber,
@@ -79,6 +78,10 @@ async function leerBaseNotas(pool) {
       COALESCE((SELECT jsonb_agg(jsonb_build_object('factura_id', nf.factura_id,
         'factura_alegra_id', f.alegra_id, 'factura_moneda', f.moneda, 'monto', nf.monto) ORDER BY nf.id)
         FROM nota_credito_factura nf LEFT JOIN factura f ON f.id=nf.factura_id WHERE nf.nota_credito_id=n.id), '[]'::jsonb) AS aplicaciones
+      ,COALESCE((SELECT jsonb_agg(jsonb_build_object('clase','nota_debito_ingreso','alegra_id',d.alegra_id,
+        'id_propio',d.id,'moneda',d.moneda,'monto',nd.monto) ORDER BY nd.id)
+        FROM nota_credito_debito_ingreso nd JOIN debito_ingreso_historico d ON d.id=nd.debito_ingreso_id
+        WHERE nd.nota_credito_id=n.id),'[]'::jsonb) AS otros_destinos
       FROM nota_credito n ORDER BY n.id`);
     const notas = rows.map(normalizarNota);
     await client.query('COMMIT');
@@ -114,9 +117,9 @@ function compararNotas(alegra, propias, p) {
       for (const f of new Set([...aa.keys(), ...ab.keys()])) {
         if (aa.get(f) !== ab.get(f)) cambios.push({ campo: `aplicaciones.${f}`, alegra: aa.has(f) ? aa.get(f) / 100 : null, base: ab.has(f) ? ab.get(f) / 100 : null });
       }
-      const otrosA = [...da.otros_destinos].sort((a, b) => a.alegra_id.localeCompare(b.alegra_id));
-      const otrosB = [...db.otros_destinos].sort((a, b) => a.alegra_id.localeCompare(b.alegra_id));
-      if (JSON.stringify(otrosA) !== JSON.stringify(otrosB)) cambios.push({ campo: 'destinos_no_representados', alegra: otrosA.map(v => ({ ...v, monto: v.monto / 100 })), base: otrosB.map(v => ({ ...v, monto: v.monto / 100 })) });
+      const destinos = d => d.otros_destinos.map(v => ({ clase:v.clase,alegra_id:v.alegra_id,monto:v.monto/100 })).sort((a, b) => a.alegra_id.localeCompare(b.alegra_id));
+      const otrosA = destinos(da), otrosB = destinos(db);
+      if (JSON.stringify(otrosA) !== JSON.stringify(otrosB)) cambios.push({ campo: 'otros_destinos', alegra: otrosA, base: otrosB });
     }
     if (!da || !db || cambios.length) diferencias.push({ alegra_id: id, id_propio: db?.id || null, numero: (da || db).numero,
       tipo: !db ? 'falta_en_base' : !da ? 'solo_en_base' : 'datos_distintos', cambios });
@@ -133,7 +136,10 @@ function compararNotas(alegra, propias, p) {
       const aplicado = sumar(d.aplicaciones.map(v => v.monto)), otros = sumar(d.otros_destinos.map(v => v.monto)), representado = sumar([aplicado, otros]);
       if (representado !== d.total_aplicado) incidencias.push({ ...ref, tipo: 'aplicado_declarado_sin_respaldo_individual', declarado: d.total_aplicado / 100, aplicaciones: representado / 100, diferencia: (d.total_aplicado - representado) / 100 });
       if (d.total_aplicado > d.total || representado > d.total) incidencias.push({ ...ref, tipo: 'aplicaciones_exceden_total', total: d.total / 100 });
-      for (const v of d.otros_destinos) incidencias.push({ ...ref, tipo: 'aplicacion_a_documento_no_representado', clase_destino: v.clase, alegra_id_destino: v.alegra_id, monto: v.monto / 100 });
+      for (const v of d.otros_destinos) if (fuente !== 'alegra') {
+        if (v.moneda && v.moneda !== 'CRC') throw new ErrorConciliacion('Crédito propio a débito extranjero: falta moneda en nota_credito.');
+        if (v.id_propio == null || !v.moneda) incidencias.push({ ...ref, tipo:'aplicacion_sin_debito_propio',alegra_id_destino:v.alegra_id });
+      }
       for (const v of d.aplicaciones) {
         if (v.factura_moneda && v.factura_moneda !== 'CRC') throw new ErrorConciliacion('Nota propia aplicada a una factura extranjera: falta moneda en nota_credito.');
         if (fuente !== 'alegra' && (v.factura_id == null || !v.factura_moneda)) incidencias.push({ ...ref, tipo: 'aplicacion_sin_factura_propia', monto: v.monto / 100 });
@@ -169,25 +175,39 @@ async function ejecutar({ client, pool, p, avisar = () => {} }) {
   const remotas = (await leerPaginas(lectura, '/credit-notes', {}, avisar)).map(notaAlegra);
   const propias = await leerBaseNotas(pool), porId = mapaImportadas(propias.filter(n => n.alegra_id != null));
   const seleccionadas = remotas.filter(n => dentro(n, p) || (porId.has(n.alegra_id) && dentro(porId.get(n.alegra_id), p)));
-  for (const n of seleccionadas) {
-    if (n.total_aplicado <= sumar([...n.aplicaciones, ...n.otros_destinos].map(v => v.monto))) continue;
-    const r = await lectura.get(`/credit-notes/${encodeURIComponent(n.alegra_id)}`, {});
-    if (!r?.success || !r.data || Array.isArray(r.data)) throw new ErrorConciliacion('No se pudo completar el detalle individual de una nota.');
-    const detalle = notaAlegra(r.data);
-    if (['alegra_id', 'numero', 'fecha', 'estado', 'total', 'total_aplicado'].some(k => n[k] !== detalle[k]) ||
-      n.aplicaciones.some(v => !detalle.aplicaciones.some(a => a.factura_alegra_id === v.factura_alegra_id && a.monto === v.monto))) throw new ErrorConciliacion('Una nota cambió entre listado y detalle. Repetir con el origen congelado.');
-    Object.assign(n, detalle);
-  }
+  for (const n of seleccionadas) await completarDetalleNota(lectura,n);
   const ids = [...new Set(seleccionadas.flatMap(n => n.aplicaciones.map(v => v.factura_alegra_id)))];
   const facturas = await porIds(lectura, '/invoices', ids), vistas = new Set(facturas.map(f => String(f.id)));
   for (const f of facturas) if ((f.currency?.code || 'CRC') !== 'CRC') throw new ErrorConciliacion('Nota aplicada a una factura extranjera: falta moneda en nota_credito.');
   const notas = compararNotas(remotas, propias, p);
+  const idsDebito = new Set(seleccionadas.flatMap(n=>n.otros_destinos.map(v=>v.alegra_id)));
+  // Este endpoint no documenta filtro por ids: leer el listado completo,
+  // incluso tras una página corta, y verificar los destinos explícitamente.
+  const debitos = idsDebito.size ? await leerPaginas(lectura,'/income-debit-notes',{},avisar) : [];
+  const debitosVistos = new Map(debitos.map(d=>[String(d.id),d]));
+  for (const n of seleccionadas) for (const v of n.otros_destinos) {
+    const d=debitosVistos.get(v.alegra_id);
+    if (!d) notas.incidencias.push({fuente:'alegra',alegra_id:n.alegra_id,tipo:'debito_destino_ausente_en_alegra',alegra_id_destino:v.alegra_id});
+    else if ((d.currency?.code || 'CRC') !== 'CRC') throw new ErrorConciliacion('Nota aplicada a débito extranjero: falta moneda en nota_credito.');
+  }
   for (const n of seleccionadas) for (const v of n.aplicaciones) if (!vistas.has(v.factura_alegra_id)) notas.incidencias.push({ fuente: 'alegra', alegra_id: n.alegra_id, tipo: 'factura_destino_ausente_en_alegra', factura_alegra_id: v.factura_alegra_id });
-  return { version: 1, periodo: p, lectura: { iniciada_en: inicio, terminada_en: new Date().toISOString() },
+  return { version: 2, periodo: p, lectura: { iniciada_en: inicio, terminada_en: new Date().toISOString() },
     alcance: 'Aplicaciones ACTUALES de notas fechadas en el tramo, o de sus pares con fecha cambiada; total y aplicado declarado. Solo CRC. Usar también conciliación de ventas y cobros; no es un cierre histórico.',
     advertencia: 'GET sucesivos sin instantánea en Alegra. Repetir con el origen congelado antes del corte. Compras, existencias y resolución de discrepancias siguen pendientes.',
     sin_diferencias: !notas.diferencias.length && !notas.incidencias.length,
-    destinos: { facturas_referidas: ids.length, facturas_leidas: facturas.length }, notas };
+    destinos: { facturas_referidas: ids.length, facturas_leidas: facturas.length, debitos_referidos:idsDebito.size, debitos_encontrados:[...idsDebito].filter(id=>debitosVistos.has(id)).length }, notas };
 }
 
-module.exports = { normalizarNota, notaAlegra, leerBaseNotas, compararNotas, ejecutar };
+/** El cargador y el auditor deben reconstruir el MISMO detalle omitido. */
+async function completarDetalleNota(lectura,n) {
+  if (n.total_aplicado <= sumar([...n.aplicaciones,...n.otros_destinos].map(v=>v.monto))) return null;
+  const r=await lectura.get(`/credit-notes/${encodeURIComponent(n.alegra_id)}`,{});
+  if (!r?.success || !r.data || Array.isArray(r.data)) throw new ErrorConciliacion('No se pudo completar el detalle individual de una nota.');
+  const detalle=notaAlegra(r.data);
+  if (['alegra_id','numero','fecha','estado','total','total_aplicado'].some(k=>n[k]!==detalle[k]) ||
+    n.aplicaciones.some(v=>!detalle.aplicaciones.some(a=>a.factura_alegra_id===v.factura_alegra_id && a.monto===v.monto))) throw new ErrorConciliacion('Una nota cambió entre listado y detalle. Repetir con el origen congelado.');
+  Object.assign(n,detalle);
+  return r.data;
+}
+
+module.exports = { normalizarNota, notaAlegra, completarDetalleNota, leerBaseNotas, compararNotas, ejecutar };

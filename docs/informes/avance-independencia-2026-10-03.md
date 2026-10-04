@@ -1,5 +1,10 @@
 # Avance de independencia de Alegra — 2026-10-03
 
+Estado de esa fecha. La continuación está en el
+[informe del 2026-10-04](avance-independencia-2026-10-04.md): el vínculo
+histórico del débito ya tiene modelo/cargador y las 27 notas coinciden en
+la copia de prueba; el corte completo sigue pendiente.
+
 La mayor parte de la operación ya tiene módulos propios en la rama
 `independencia-alegra`. **Todavía no está lista para el corte completo:** la
 copia está atrasada, falta conciliar el histórico, quedan dependencias del

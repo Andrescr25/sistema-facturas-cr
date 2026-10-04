@@ -9,8 +9,8 @@ archivos:
   - backend/src/modules/facturacion/facturaConsulta.service.js
   - backend/src/modules/facturacion/saldo.sql.js
 aristas:
-  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito]
-medido: 2026-10-03
+  relacionado: [modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso]
+medido: 2026-10-04
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist, 13 de 15). Se
@@ -31,6 +31,11 @@ para Cobros y el Portal. La conciliación las importa directamente: así mide
 la misma fórmula de la pantalla sin arrancar la aplicación. Excluye cobros
 anulados y notas anuladas; el saldo de consulta se limita a cero como antes.
 Las columnas históricas `saldo` y `total_pagado` no determinan lo que se debe.
+
+DÉBITO HISTÓRICO (2026-10-04): [[modulo/historico-debitos-ingreso]] conserva
+el documento de Alegra y su crédito en tablas propias separadas. No lo
+convierte en factura, deuda nueva o venta, ni cambia `ACREDITADO` de las
+facturas. Su emisión propia sigue fuera del alcance.
 
 FACTURAR UN PEDIDO (sección 12, parte 2): el portal usa
 `crearFacturaEnTransaccion` con la opción interna `preciosConImpuesto`.

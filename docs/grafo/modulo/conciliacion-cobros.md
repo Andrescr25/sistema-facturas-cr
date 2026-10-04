@@ -72,8 +72,9 @@ la base local. Repetir con el origen congelado antes de certificar el corte.
 
 ALCANCE PENDIENTE. Solo CRC: `pago` no tiene moneda y una factura o recibo
 extranjero impide certificar la comparación. Las aplicaciones de notas ya
-tienen auditoría propia en [[modulo/conciliacion-notas-credito]], con un
-destino a débito de ingreso pendiente de representar. Compras y existencias
+tienen auditoría propia en [[modulo/conciliacion-notas-credito]], y el
+destino a débito de ingreso ya tiene modelo/cargador histórico desde la 040.
+Compras y existencias
 siguen pendientes; la conciliación completa permanece abierta. No reimporta meses
 del contador ni resuelve a mano cobros o notas para forzar un saldo igual.
 

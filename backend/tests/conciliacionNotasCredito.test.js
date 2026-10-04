@@ -95,8 +95,8 @@ test('la foto exige READ ONLY y libera la conexión si falla la lectura o la val
 
 function poolFalso(filas) { return { connect: async () => ({ query: async sql => ({ rows: sql.startsWith('SELECT n.') ? filas : [] }), release() {} }) }; }
 function clienteFalso(notas, facturas = [{ id: '600', currency: { code: 'CRC' } }]) {
-  let pagina = 0;
-  return { get: async (ep) => ({ success: true, data: ep === '/credit-notes' ? (pagina++ === 0 ? notas : []) : ep.startsWith('/credit-notes/') ? notas.find(n => String(n.id) === ep.split('/').at(-1)) : facturas }) };
+  let pagina = 0, debitos=0;
+  return { get: async (ep) => ({ success: true, data: ep === '/credit-notes' ? (pagina++ === 0 ? notas : []) : ep.startsWith('/credit-notes/') ? notas.find(n => String(n.id) === ep.split('/').at(-1)) : ep==='/income-debit-notes' ? (debitos++===0?[{id:'901'}]:[]) : facturas }) };
 }
 test('flujo completo sigue tras página corta y verifica factura anterior al mes por su id', async () => {
   const llamadas = [], falso = clienteFalso([remota()]);
@@ -130,9 +130,27 @@ test('la ficha individual descubre el destino a nota de débito que el listado o
   const client = { get: async (ep, params) => ep.startsWith('/credit-notes/') ? { success: true, data: { ...notas[0], incomeDebitNotes: [{ id: '901', amount: 113 }] } } : falso.get(ep, params) };
   const r = await ejecutar({ client, pool: poolFalso([fila({ aplicaciones: [] })]), p });
   assert.equal(r.sin_diferencias, false); assert.equal(r.notas.resumen.datos_distintos, 1);
-  assert.deepEqual(r.notas.incidencias.map(i => i.tipo), ['aplicacion_a_documento_no_representado', 'aplicado_declarado_sin_respaldo_individual']);
-  assert.equal(r.notas.incidencias[0].alegra_id_destino, '901');
+  assert.deepEqual(r.notas.incidencias.map(i => i.tipo), ['aplicado_declarado_sin_respaldo_individual']);
+  assert.equal(r.destinos.debitos_referidos,1);
   assert.equal(r.notas.mensual[0].alegra.aplicado_a_otros_documentos, 113);
+});
+test('el débito acreditado se compara por su id externo y no por su serial o un id de factura', async()=>{
+  const a=remota({invoices:[],incomeDebitNotes:[{id:'901',amount:113}]});
+  const b=fila({aplicaciones:[],otros_destinos:[{clase:'nota_debito_ingreso',alegra_id:'901',id_propio:600,moneda:'CRC',monto:113}]});
+  const r=await ejecutar({client:clienteFalso([a]),pool:poolFalso([b]),p});
+  assert.equal(r.sin_diferencias,true);assert.equal(r.destinos.debitos_encontrados,1);
+  assert.equal(r.notas.resumen.coinciden,1);
+  const mal=compararNotas([notaAlegra(a)],[propia({aplicaciones:[],otros_destinos:[{clase:'nota_debito_ingreso',alegra_id:'600',id_propio:901,moneda:'CRC',monto:113}]})],p);
+  assert.equal(mal.diferencias[0].cambios[0].campo,'otros_destinos');
+});
+test('débito destino desaparecido, falta de vínculo propio y moneda extranjera se señalan',async()=>{
+  const a=remota({invoices:[],incomeDebitNotes:[{id:'901',amount:113}]});
+  const falso=clienteFalso([a]);
+  const r=await ejecutar({client:{get:(ep,params)=>ep==='/income-debit-notes'?Promise.resolve({success:true,data:[]}):falso.get(ep,params)},pool:poolFalso([]),p});
+  assert.equal(r.sin_diferencias,false);assert.equal(r.notas.incidencias[0].tipo,'debito_destino_ausente_en_alegra');
+  const invalida=propia({aplicaciones:[],otros_destinos:[{clase:'nota_debito_ingreso',alegra_id:'901',monto:113}]});
+  assert.equal(compararNotas([], [invalida], p).incidencias[0].tipo,'aplicacion_sin_debito_propio');
+  assert.throws(()=>compararNotas([], [propia({aplicaciones:[],otros_destinos:[{clase:'nota_debito_ingreso',alegra_id:'901',id_propio:5,moneda:'USD',monto:113}]})], p));
 });
 test('detalle individual fallido, ajeno o modificado impide certificar datos mezclados', async () => {
   for (const respuesta of [{ success: false, status: 403 }, { success: true, data: [] }, { success: true, data: remota({ id: 'otro' }) }, { success: true, data: remota({ total: 114 }) }]) {
@@ -148,10 +166,12 @@ test('PostgreSQL real: conserva notas, enlaces, facturas y numeradores y enlaza 
   const huella = async () => (await pool.query(`SELECT
     (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.id),'')) FROM nota_credito d) AS notas,
     (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.id),'')) FROM nota_credito_factura d) AS enlaces,
+    (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.id),'')) FROM debito_ingreso_historico d) AS debitos,
+    (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.id),'')) FROM nota_credito_debito_ingreso d) AS creditos_debito,
     (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.id),'')) FROM factura d) AS facturas,
     (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.serie),'')) FROM serie_consecutivo d) AS series,
     (SELECT md5(COALESCE(string_agg(row_to_json(d)::text,'' ORDER BY d.sequencename),'')) FROM pg_sequences d
-      WHERE d.schemaname='public' AND d.sequencename IN ('nota_credito_id_seq','nota_credito_factura_id_seq','factura_id_seq')) AS secuencias`)).rows[0];
+      WHERE d.schemaname='public' AND d.sequencename IN ('nota_credito_id_seq','nota_credito_factura_id_seq','factura_id_seq','debito_ingreso_historico_id_seq','nota_credito_debito_ingreso_id_seq')) AS secuencias`)).rows[0];
   try {
     const antes = await huella(), notas = await leerBaseNotas(pool);
     assert.ok(notas.length > 0); assert.deepEqual(await huella(), antes);

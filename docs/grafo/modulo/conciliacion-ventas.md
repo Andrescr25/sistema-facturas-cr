@@ -22,8 +22,9 @@ existencias, y resolver las diferencias antes del corte.
 Continuación del 2026-10-03: [[modulo/conciliacion-cobros]] ya compara
 recibos, aplicaciones de cobros y saldo actual calculado. Este script de
 ventas conserva su alcance. [[modulo/conciliacion-notas-credito]] ya compara
-aplicaciones de notas y descubrió un destino a nota de débito de ingreso que
-el modelo propio no representa. Usar los tres; compras, existencias y
+aplicaciones de notas; el destino a débito de ingreso encontrado quedó
+representado por [[modulo/historico-debitos-ingreso]] desde la 040 (2026-10-04).
+Usar los tres; compras, existencias y
 resolución de diferencias siguen pendientes.
 
 Desde `backend`, en la rama aislada:

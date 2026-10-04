@@ -4,20 +4,17 @@
  *
  * LEE de Alegra (solo GET) y ESCRIBE en la base local. Se puede correr las
  * veces que haga falta: actualiza por `alegra_id` y reemplaza las líneas y las
- * facturas acreditadas.
+ * facturas y débitos de ingreso acreditados. Migración 040 requerida.
  *
  * Requiere cargadas antes las facturas: una nota que no encuentra su factura
  * se guarda igual, pero no acredita nada.
  *
  * Uso:  node scripts/independencia/cargar-notas-credito.js
  */
-require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env'), quiet: true });
-const { pool } = require('../../config/database');
-const { getClient } = require('../../src/integrations/alegra');
 const { notaDesdeAlegra } = require('../../src/modules/facturacion/notaDesdeAlegra');
-
-const alegra = getClient();
-const PAGINA = 30;
+const { leerHistorico, exigirMigracion, guardarDebitos, guardarAplicacionesDebito } = require('./lib/historico-debitos-ingreso');
+const { ErrorConciliacion } = require('./lib/conciliacion-ventas');
+const { mensajeSeguro } = require('./conciliar-ventas');
 
 const NOTA = [
   'serie', 'consecutivo', 'numero', 'electronica', 'clave_hacienda', 'estado', 'fecha',
@@ -59,28 +56,20 @@ async function contextoDe(cliente) {
   };
 }
 
-async function main() {
-  const inicio = Date.now();
-  const contexto = await contextoDe(pool);
-  if (contexto.facturas.size === 0) throw new Error('No hay facturas cargadas: corra antes cargar-facturas.js');
-
-  const notas = [];
-  for (let start = 0; ; start += PAGINA) {
-    const r = await alegra.get('/credit-notes', { start, limit: PAGINA });
-    if (r?.success === false) throw new Error(`Alegra /credit-notes: ${r.status} ${r.data?.message || r.error}`);
-    const pagina = r.data ?? r;
-    if (!Array.isArray(pagina)) throw new Error('Alegra /credit-notes devolvió algo que no es una lista');
-    notas.push(...pagina);
-    if (pagina.length < PAGINA) break;
-  }
-  console.log(`→ Leídas de Alegra: ${notas.length} notas de crédito`);
-
-  const conteo = { notas: 0, lineas: 0, acreditadas: 0, monto: 0, motivos: {}, avisos: {} };
+async function cargarNotas({pool,client,avisar=()=>{}}) {
+  // Completar el detalle omitido ANTES de escribir. Un GET incompleto no
+  // puede borrar aplicaciones que ya teníamos, ni dejar una carga a medias.
+  const historico=await leerHistorico(client,avisar);
+  const conteo = { notas: 0, lineas: 0, acreditadas: 0, debitos:historico.debitos.length, aplicaciones_debito:0, monto: 0, motivos: {}, avisos: {} };
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
-    for (const notaAlegra of notas) {
-      const { fila, lineas, aplicaciones, avisos } = notaDesdeAlegra(notaAlegra, contexto);
+    await exigirMigracion(cliente);
+    const contexto=await contextoDe(cliente);
+    if(contexto.facturas.size===0) throw new ErrorConciliacion('No hay facturas cargadas; cargar-facturas.js va primero.');
+    const debitos=await guardarDebitos(cliente,historico.debitos);
+    for (const {original,normalizada} of historico.notas) {
+      const { fila, lineas, aplicaciones, avisos } = notaDesdeAlegra(original, contexto);
 
       const { rows } = await cliente.query(SENTENCIA_NOTA, NOTA.map(c => fila[c]));
       const notaId = rows[0].id;
@@ -97,14 +86,23 @@ async function main() {
           [notaId, a.factura_id, a.factura_numero, a.monto]
         );
       }
+      await guardarAplicacionesDebito(cliente,notaId,normalizada,debitos);
 
       conteo.notas++;
       conteo.lineas += lineas.length;
       conteo.acreditadas += aplicaciones.length;
+      conteo.aplicaciones_debito += normalizada.otros_destinos.length;
       conteo.monto += fila.total;
       if (fila.motivo) conteo.motivos[fila.motivo] = (conteo.motivos[fila.motivo] || 0) + 1;
       for (const x of avisos) conteo.avisos[x] = (conteo.avisos[x] || 0) + 1;
     }
+    // Numeradores y documentos son una sola carga: un fallo de series no
+    // puede dejar notas ya confirmadas. GREATEST conserva números nativos.
+    const series=await cliente.query(`UPDATE serie_consecutivo s SET siguiente=GREATEST(s.siguiente,m.maximo+1)
+      FROM (SELECT serie,MAX(consecutivo) AS maximo FROM nota_credito
+        WHERE serie IS NOT NULL AND consecutivo IS NOT NULL GROUP BY serie) m WHERE m.serie=s.serie
+      RETURNING s.serie,s.siguiente`);
+    conteo.series=series.rows;
     await cliente.query('COMMIT');
   } catch (error) {
     await cliente.query('ROLLBACK');
@@ -113,28 +111,17 @@ async function main() {
     cliente.release();
   }
 
-  // La serie sigue desde lo copiado (mismo motivo que en cargar-facturas.js).
-  const series = await pool.query(`
-    UPDATE serie_consecutivo s
-       SET siguiente = GREATEST(s.siguiente, m.maximo + 1)
-      FROM (SELECT serie, MAX(consecutivo) AS maximo
-              FROM nota_credito
-             WHERE serie IS NOT NULL AND consecutivo IS NOT NULL
-             GROUP BY serie) m
-     WHERE m.serie = s.serie
-     RETURNING s.serie, s.siguiente`);
-  console.log('  Próximo número por serie:', series.rows.map((r) => `${r.serie} → ${r.siguiente}`).join(', ') || 'ninguna serie calzó');
-
-  const segundos = Math.round((Date.now() - inicio) / 1000);
-  console.log(`✓ Notas de crédito: ${conteo.notas} por ₡${conteo.monto.toLocaleString('es-CR')}, con ${conteo.lineas} líneas, acreditando ${conteo.acreditadas} facturas, en ${segundos} s.`);
-  console.log('  Por motivo:', JSON.stringify(conteo.motivos));
-  console.log('  Avisos:', Object.keys(conteo.avisos).length ? JSON.stringify(conteo.avisos) : 'ninguno');
+  return conteo;
 }
 
-main()
-  .then(() => pool.end())
-  .catch(async (error) => {
-    console.error('✗ No se cargaron las notas de crédito:', error.message);
-    await pool.end().catch(() => {});
-    process.exit(1);
-  });
+async function main() {
+  require('dotenv').config({path:require('path').join(__dirname,'../../.env'),quiet:true});
+  require('../../config/aislado').asegurarBaseLocal();
+  const {pool}=require('../../config/database');
+  try {
+    const client=require('../../src/integrations/alegra/alegra.client').getInstance();
+    console.log(JSON.stringify(await cargarNotas({pool,client,avisar:console.log})));
+  } finally {await pool.end();}
+}
+if(require.main===module) main().catch(e=>{console.error(`Carga de notas no confirmada: ${mensajeSeguro(e)}`);process.exitCode=1;});
+module.exports={cargarNotas};

@@ -777,21 +777,26 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   separados. De 273 facturas revisadas para saldo: 89 coinciden, 5 no
   cobrables, 119 faltan y 60 presentes difieren. Ver
   [el nodo de cobros](grafo/modulo/conciliacion-cobros.md).
-  **Notas de crédito:** `conciliar-notas-credito.js` compara aplicaciones
+  **Notas de crédito, actualizado 2026-10-04:** `conciliar-notas-credito.js` compara aplicaciones
   individuales y consulta la ficha si el listado no respalda lo aplicado.
-  Las 27 notas históricas están copiadas; **26 coinciden y una aplica
-  ₡21.200 a una nota de débito de ingreso que el modelo propio todavía no
-  representa**. No inventar una factura para cuadrarla ni recargar esperando
-  que se resuelva: el cargador solo guarda `invoices`. Otra nota conserva
+  La migración 040 y `cargar-debitos-ingreso.js` conservan el débito original
+  y el crédito de ₡21.200 con FKs propios separados de factura. La carga
+  puntual no reimporta cabeceras ni líneas de crédito; la carga completa de
+  notas ya conserva también ese destino. Copia desechable y después local: **27 notas
+  coincidentes, cero incidencias**, 24 facturas y 1 débito presentes. Otra nota conserva
   ₡8.600,20 sin aplicar en ambas fuentes (observación legítima, no error de
   copia). Ver [el nodo de notas](grafo/modulo/conciliacion-notas-credito.md).
-  **No cierra esta fila:** falta representar ese destino, compras,
-  existencias, otros períodos y resolver discrepancias.
+  [Carga y alcance del archivo de débito](grafo/modulo/historico-debitos-ingreso.md).
+  La aplicación local de la 040 se hizo con respaldo; la carga puntual
+  conservó las huellas de facturas, pagos, créditos existentes y series.
+  **No cierra esta fila:** faltan compras, existencias, otros períodos,
+  alcance restante del débito y resolver discrepancias antes del corte.
   **Medición de septiembre, 2026-10-03:** 69 facturas coinciden y faltan 119
   en la copia local (116 emitidas + 3 anuladas); ninguna de las 69 presenta
   diferencias en los campos/líneas comparados. La diferencia del total de
-  emitidas es ₡4.649.819. No se ejecutó ninguna carga ni se modificaron datos
-  compartidos: recargar y repetir antes del corte.
+  emitidas es ₡4.649.819. Ese diagnóstico no ejecutó cargas ni modificó datos
+  compartidos; la carga puntual del débito no completa esas ventas/cobros:
+  recargar y repetir antes del corte.
 - [ ] Ensayo de corte completo en la base de la rama
 - [ ] Plan de corte: qué día, qué se congela en Alegra y cómo se vuelve atrás
 - [ ] WhatsApp en el servidor nuevo (vino de main, 2026-09-29): Baileys vive

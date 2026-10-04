@@ -83,13 +83,14 @@ function notaDesdeAlegra(nota, { clientes, productos, impuestos, facturas }) {
       monto: dinero(f.amount)
     };
   });
-  // Una nota que no acredita ninguna factura no corrige nada: o está a medias
-  // en Alegra, o se hizo para quedar a favor del cliente. Hay que mirarla.
-  if (aplicaciones.length === 0) avisos.add('no_acredita_ninguna_factura');
+  // La ficha individual puede acreditar un débito de ingreso en vez de una
+  // factura. Sus enlaces viven aparte; el cargador no mezcla ambos ids.
+  const debitos = Array.isArray(nota.incomeDebitNotes) ? nota.incomeDebitNotes : [];
+  if (aplicaciones.length === 0 && debitos.length === 0) avisos.add('no_acredita_ninguna_factura');
 
   const total = dinero(nota.total);
-  const aplicado = dinero(aplicaciones.reduce((s, a) => s + a.monto, 0));
-  if (aplicaciones.length > 0 && Math.abs(aplicado - dinero(nota.totalApplied)) > 1) {
+  const aplicado = dinero(aplicaciones.reduce((s, a) => s + a.monto, 0) + debitos.reduce((s,d) => s + dinero(d.amount), 0));
+  if (aplicaciones.length + debitos.length > 0 && Math.abs(aplicado - dinero(nota.totalApplied)) > 1) {
     avisos.add('lo_aplicado_no_calza_con_alegra');
   }
 
