@@ -36,11 +36,12 @@ toca, qué no se regenera).
 - [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md)
 - [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
+- [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *crear producto nuevo y el buzón, todavía por Alegra*
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md) · *lado Alegra*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
 - [Reporte del Contador — el mes de ventas y compras, de las tablas propias](modulo/reporte-contador.md)
-- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *todo por `producto.id`; la relación del buzón de compras sigue por id de Alegra*
+- [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *todo por `producto.id`, también el costo de las compras*
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*
 
 ## Tablas
@@ -74,6 +75,7 @@ toca, qué no se regenera).
 - [Dos funciones `texto` con firmas opuestas](leccion/dos-helpers-texto.md)
 - [Un id propio y uno de Alegra no son intercambiables](leccion/ids-propios-y-de-alegra-no-se-mezclan.md)
 - [Cambiar los ids del catálogo conserva pedidos y facturas pendientes](leccion/cache-con-ids-propios-no-borra-pendientes.md)
+- [Un doble de Prisma no valida tipos — un NULL donde el cliente espera un texto revienta todas las lecturas](leccion/el-doble-de-prisma-no-valida-tipos.md)
 - [El precio va sin IVA y el costo con IVA — compararlos crudos da un margen falso](leccion/precio-sin-iva-costo-con-iva.md)
 - [Un impuesto "principal" usado como si fuera el de cada línea — tres veces](leccion/el-impuesto-es-de-cada-linea.md)
 - [Exceso y baja de precio son ofertas distintas](leccion/dos-clases-de-oferta.md)

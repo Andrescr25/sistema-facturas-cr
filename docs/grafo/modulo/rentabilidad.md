@@ -22,7 +22,7 @@ archivos:
   - backend/tests/rotacionVentas.test.js
 aristas:
   depende_de: [tabla/venta-linea]
-  relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo, modulo/exportaciones-reportes]
+  relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo, modulo/exportaciones-reportes, modulo/relacionar-productos]
 medido: 2026-10-03
 ---
 
@@ -62,11 +62,13 @@ DE DÓNDE SALE CADA CIFRA
     ventana: 6 de 1.356 productos cambiaban de costo entre consultas. Se
     desempata por `id`. Con eso, el costo por id propio y por id de Alegra
     coinciden en los 1.356.
-  - La VALIDEZ de una fila todavía compara el id de Alegra de la fila con el
-    de la línea del buzón (`productos_factura_proveedor.alegra_item_id`): el
-    buzón relaciona así. Un producto sin ficha en Alegra no puede relacionarse
-    con una línea de proveedor, así que no tiene costo de compras —solo el de
-    su ficha— hasta que Relacionar Productos pase a ids propios.
+  - La VALIDEZ de una fila también es por el producto propio: cuenta si su
+    línea del buzón sigue relacionada y sigue siendo de ESE producto
+    (`productos_factura_proveedor.producto_id`, migración 038). Mientras se
+    comparaban los ids de Alegra de los dos lados, un producto sin ficha allá
+    no podía tener costo de compras; ya puede
+    ([[modulo/relacionar-productos]]). Medido al cambiarlo: 7.886 filas
+    válidas antes y las mismas 7.886 después.
 - **Lo que dejó en 3 meses**: lo cobrado sin IVA menos lo que esas unidades
   cuestan HOY sin IVA. Es estimado (el historial no guarda el costo del día de
   la venta) y solo se calcula con costo confiable; si no, queda vacío, no en
