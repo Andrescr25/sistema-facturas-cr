@@ -193,7 +193,6 @@ const COMPARTIDAS = [
   '/auth',        // entrar, ver quién soy, cambiar mi propia contraseña
   '/alegra',      // catálogo, contactos e imágenes de Alegra
   '/productos',   // el catálogo local
-  '/facturas',    // consulta de facturas, la usan varias pantallas
   '/reportes',    // reporte de clientes y de proveedores comparten prefijo
   // Impuestos, métodos de pago, plazos, cuentas y productos activos; la foto
   // de cada referencia (Bodega) y las fotos sugeridas (Gestión de Catálogo y

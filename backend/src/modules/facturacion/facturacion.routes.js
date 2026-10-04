@@ -1,27 +1,23 @@
 /**
  * Facturacion Module - Routes
  *
- * Conviven dos caminos, a propósito:
+ * Un solo camino: la factura PROPIA, que nace en nuestra base con su número
+ * de la serie propia y no manda nada a Alegra.
  *
- * - `/facturas`: la factura PROPIA, que nace en nuestra base con su número de
- *   la serie propia y no manda nada a Alegra (rama independencia-alegra).
- * - `/invoices` y las demás: las de siempre, contra Alegra.
- *
- * Las viejas no se apagan todavía: dejar a la empresa sin poder facturar
- * porque la pantalla aún no llama a la ruta nueva sería peor que tener las dos
- * un tiempo. Se retiran cuando Facturación use `/facturas` (sección 6 del
- * checklist).
+ * Las rutas de siempre contra Alegra (`/items`, `/contacts`, `/invoices`,
+ * `/invoices/:id/pdf`, `/invoices/:id/whatsapp`, `/taxes`,
+ * `/payment-methods`) se retiraron el 2026-10-04: la pantalla ya crea, edita,
+ * imprime y manda por `/facturas`, y no quedaba nadie que las llamara. Con
+ * ellas se fue lo único que todavía podía crear una factura en Alegra desde
+ * este sistema.
  */
 
 const express = require('express');
-const FacturacionController = require('./facturacion.controller');
 const facturaPropia = require('./facturaPropia.controller');
 const notaCredito = require('./notaCredito.controller');
 
 const router = express.Router();
-const controller = new FacturacionController();
 
-// ---- Factura propia, sin Alegra ----
 // Los descuentos de exceso que el cliente ya ve en el catálogo y el portal.
 router.get('/ofertas', facturaPropia.ofertas);
 router.get('/facturas', facturaPropia.listar);
@@ -46,17 +42,8 @@ router.get('/notas-credito/motivos', notaCredito.motivos);
 router.post('/notas-credito', notaCredito.crear);
 router.patch('/notas-credito/:id/anular', notaCredito.anular);
 
-// ---- Contra Alegra (lo de siempre) ----
-router.get('/items', controller.getItems);
-router.get('/contacts', controller.getContacts);
-router.post('/invoices', controller.createInvoice);
-router.get('/invoices/:id/pdf', controller.getInvoicePDF);
-// Mandarle la factura al cliente por WhatsApp, con el PDF adjunto.
-router.post('/invoices/:id/whatsapp', controller.enviarFacturaWhatsApp);
 // Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
-router.get('/clientes/:alegraContactId/sugerencias', controller.getSugerenciasCliente);
-
-router.get('/taxes', controller.getTaxes);
-router.get('/payment-methods', controller.getPaymentMethods);
+// `:clienteId` es NUESTRO id del cliente (`cliente.id`), nunca el de Alegra.
+router.get('/clientes/:clienteId/sugerencias', facturaPropia.sugerencias);
 
 module.exports = router;

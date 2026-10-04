@@ -127,3 +127,35 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
     }
   })
 }
+
+/**
+ * El id PROPIO del cliente (`cliente.id`), o null si no lo tiene.
+ *
+ * Es el que se usa para pedir lo que suele llevar. Nunca `alegraId`: los dos
+ * son números y el servidor no puede distinguirlos — con el de Alegra
+ * responde, sin error, las compras de OTRO cliente.
+ */
+export function idPropioDelCliente(cliente) {
+  const id = Number(cliente?.id)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+/**
+ * Las sugerencias que esta tablet puede agregar a la factura.
+ *
+ * Llegan con `producto.id`, el mismo id de `productos` y de las líneas: no
+ * hay nada que traducir, solo dejar las que están en el catálogo descargado
+ * (la que no está no se podría agregar).
+ *
+ * Antes se "traducían" como si trajeran el id de Alegra. Con ids propios eso
+ * cambiaba un producto por otro: el 12 propio pasaba a ser el producto cuyo
+ * id de Alegra es 12.
+ */
+export function sugerenciasDelCatalogo(sugerencias, productos) {
+  const enCatalogo = new Set((productos || []).map(p => String(p.id)))
+  const delCatalogo = (lista) => (lista || []).filter(s => enCatalogo.has(String(s.id)))
+  return {
+    habituales: delCatalogo(sugerencias?.habituales),
+    perdidos: delCatalogo(sugerencias?.perdidos)
+  }
+}

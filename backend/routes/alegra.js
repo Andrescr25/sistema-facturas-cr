@@ -8,15 +8,13 @@ const express = require('express');
 const router = express.Router();
 
 const { query } = require('../config/database');
-const { getContactService, getInvoiceService, getProductService, getSyncService } = require('../src/integrations/alegra');
+const { getContactService, getProductService, getSyncService } = require('../src/integrations/alegra');
 const contactService = getContactService();
-const invoiceService = getInvoiceService();
 const productService = getProductService();
 const syncService = getSyncService();
 
 // Importar los nuevos enrutadores modulares
 const productsRoutes = require('../src/modules/products');
-const invoicesRoutes = require('../src/modules/invoices');
 const reportsRoutes = require('../src/modules/reports');
 const ordersWhatsappRoutes = require('../src/modules/orders-whatsapp');
 const reprintingRoutes = require('../src/modules/reprinting').routes;
@@ -25,10 +23,8 @@ const missingItemsRoutes = require('../src/modules/missing-items').routes;
 
 // Importar controladores para mapeo explícito de endpoints legacy
 const ProductController = require('../src/modules/products/product.controller');
-const ReportController = require('../src/modules/reports/report.controller');
 
 const productController = new ProductController();
-const reportController = new ReportController();
 
 // La Gestión de Catálogo vieja (/catalog) se retiró el 2026-10-04: el catálogo
 // es el maestro propio (/maestro), y lo poco que las pantallas seguían usando
@@ -90,66 +86,16 @@ router.post('/sincronizar/cache-productos', async (req, res) => {
 });
 
 // ========================================
-// 2. MODULO DE FACTURAS Y BODEGA (/facturas)
+// 2. BODEGA (/bodega)
 // ========================================
 
-// IMPORTANTE: este PUT se registra ANTES de montar invoicesRoutes.
-// invoicesRoutes también define PUT /:id (updateInvoiceLocal), que solo
-// actualiza el flag "procesada" en la BD local por id local — un propósito
-// completamente distinto que quedaba ganando por orden de registro y
-// devolvía 404 al editar facturas reales en Alegra. Este es el que edita
-// la factura EN ALEGRA (lo usa facturacionService.js al sincronizar
-// ediciones pendientes, con el id numérico de Alegra).
-router.put('/facturas/:id', async (req, res) => {
-  try {
-    const result = await invoiceService.updateInvoice(req.params.id, req.body);
-    if (result.success) {
-      res.json({ success: true, data: result.data, message: 'Factura actualizada exitosamente' });
-    } else {
-      // result.data trae el body de error real de Alegra ({ message, code }), p.ej.
-      // code 3070 "La factura de venta no se puede editar". El frontend
-      // (facturacionService.sincronizarEdicionesPendientes) usa ese code para
-      // descartar automáticamente ediciones que Alegra rechaza por regla de
-      // negocio en vez de reintentarlas para siempre — antes se perdía porque
-      // aquí solo se mandaba un mensaje genérico sin code ni details.
-      res.status(400).json({
-        success: false,
-        message: result.data?.message || result.error || 'Error actualizando',
-        code: result.data?.code,
-        details: result.data
-      });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.use('/facturas', invoicesRoutes);
+// Acá vivían las facturas de Alegra: `PUT /facturas/:id` (editar la factura
+// EN ALEGRA), `GET /facturas/:id` (leerla de allá) y el módulo viejo
+// `invoices` montado en `/facturas`. Se retiraron el 2026-10-04: Facturación
+// crea, edita, imprime y busca por `/api/facturacion/facturas`, sobre la
+// factura propia, y ya no quedaba pantalla que las llamara. Con ellas se fue
+// la última forma de modificar una factura de Alegra desde este sistema.
 router.use('/bodega', warehouseRoutes);
-
-// Endpoints legacy para operaciones CRUD de items de factura
-router.get('/facturas/:id', async (req, res) => {
-  try {
-    const result = await invoiceService.getInvoiceById(req.params.id);
-    if (result.success) {
-      res.json({ success: true, data: result.data });
-    } else {
-      res.status(404).json({ success: false, message: 'Factura no encontrada' });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// NOTA: aquí vivían 7 endpoints (DELETE/PUT .../items/:itemId, POST
-// /facturas/limpiar, /actualizar-masivo, /:id/pendiente (POST y DELETE),
-// /eliminar-procesadas) que llamaban métodos que nunca existieron en
-// ningún servicio (removeItemFromInvoice, updateItemQuantity,
-// clearAllQueues, updateInvoicesBulk, setPendingStatus,
-// deletePendingStatus, clearProcessedLogs) — siempre daban 500 y no
-// tenían ningún consumidor en el frontend (verificado con grep). Se
-// eliminaron el 2026-07-10 al retirar el servicio legacy que los
-// referenciaba.
 
 // ========================================
 // 3. MODULO DE REIMPRESIÓN (/reimpresion)
@@ -159,8 +105,10 @@ router.use('/reimpresion', reprintingRoutes);
 // ========================================
 // 4. MODULO DE REPORTES Y HISTORIAL (/reportes)
 // ========================================
+// El alias `/facturas/historial-procesamientos` se retiró el 2026-10-04: lo
+// tapaba el `GET /facturas/:id` del módulo viejo (nunca respondió) y nadie lo
+// llamaba. El historial sigue en `/reportes/historial`.
 router.use('/reportes', reportsRoutes);
-router.get('/facturas/historial-procesamientos', reportController.getProcessingHistory);
 
 // ========================================
 // 5. MODULO DE CONTACTOS (/contactos)

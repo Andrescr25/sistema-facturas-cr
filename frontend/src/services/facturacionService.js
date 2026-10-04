@@ -13,6 +13,12 @@ import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
 import { desdeFacturaPropia, desdeConsultaPropia } from './facturaPropiaAdaptador';
 
+// Lo que se le dice a quien intenta editar una factura que no está marcada
+// como propia (ver `editarFactura`).
+const EDICION_DE_COPIA_VIEJA =
+  'Esta factura viene de una copia vieja guardada en la tablet, de cuando las facturas ' +
+  'estaban en Alegra. Actualizá la lista de facturas y abrila de nuevo para editarla.';
+
 class FacturacionService {
   constructor() {
     this.isOnline = navigator.onLine;
@@ -400,16 +406,17 @@ class FacturacionService {
   /**
    * Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
    *
-   * RECIBE EL ID DE ALEGRA del cliente y devuelve ids de ALEGRA de producto:
-   * el histórico (`venta_historico`) todavía se llena desde Alegra (sección
-   * 12). La traducción a ids propios la hace useFacturacion, una sola vez.
+   * RECIBE NUESTRO ID del cliente (`cliente.id`) y devuelve los productos con
+   * `producto.id`: el histórico sale de las facturas propias. Nunca el id de
+   * Alegra — son números igual que los nuestros y el servidor contestaría,
+   * sin error, lo que compra otro cliente.
    *
-   * Si falla no se propaga: se factura igual que hasta ayer. Una sugerencia
+   * Si falla no se propaga: se factura igual que siempre. Una sugerencia
    * que no cargó no puede impedir cobrar.
    */
-  async getSugerenciasCliente(alegraContactId) {
+  async getSugerenciasCliente(clienteId) {
     try {
-      const { data } = await api.get(`/facturacion/clientes/${alegraContactId}/sugerencias`);
+      const { data } = await api.get(`/facturacion/clientes/${clienteId}/sugerencias`);
       return {
         habituales: data?.data?.habituales || [],
         perdidos: data?.data?.perdidos || []
@@ -887,20 +894,21 @@ class FacturacionService {
   }
 
   /**
-   * Editar factura
-   * Si hay internet: envía directamente a Alegra
-   * Si no hay internet: guarda localmente y sincroniza después
-   */
-  /**
    * Editar factura.
+   * Con internet se guarda en el momento; sin internet queda en la tablet y
+   * se manda después.
    *
-   * LA RUTA SE ELIGE POR LA MARCA `esPropia`, NO POR EL ID. Nuestras facturas
-   * llevan ids propios (1, 2, 3…) y las de Alegra los suyos. Mandar un id
-   * nuestro a la ruta de Alegra no da un error: da OTRA factura, la que por
-   * casualidad tenga ese número allá. Por eso el que llama tiene que decir de
-   * dónde salió el documento.
+   * SOLO SE EDITA UNA FACTURA MARCADA `esPropia`. La marca dice que el id es
+   * el NUESTRO. La copia de facturas de la tablet no se borró al dejar
+   * Alegra, así que puede quedar alguna de antes, con el id de allá: mandar
+   * ese número a nuestra ruta no daría un error, editaría OTRA factura, la
+   * que por casualidad tenga ese número acá. No se adivina: se rechaza y se
+   * pide abrirla de nuevo desde la lista. La ruta que editaba en Alegra se
+   * retiró el 2026-10-04.
    */
   async editarFactura(facturaId, datosEdicion, facturaVista = null, { esPropia = false } = {}) {
+    if (!esPropia) throw new Error(EDICION_DE_COPIA_VIEJA);
+
     try {
       console.log('✏️ Editando factura...', {
         online: this.isOnline,
@@ -911,15 +919,13 @@ class FacturacionService {
 
       if (this.isOnline) {
         try {
-          const response = esPropia
-            ? await api.put(`/facturacion/facturas/${facturaId}`, datosEdicion)
-            : await api.put(`/alegra/facturas/${facturaId}`, datosEdicion);
+          const response = await api.put(`/facturacion/facturas/${facturaId}`, datosEdicion);
 
           if (response.data.success) {
             console.log('✅ Factura editada online:', facturaId);
 
             // Actualizar cache con la nueva versión
-            const editada = esPropia ? desdeFacturaPropia(response.data.data) : response.data.data;
+            const editada = desdeFacturaPropia(response.data.data);
             if (editada) {
               const facturaOnline = {
                 ...editada,
@@ -938,16 +944,15 @@ class FacturacionService {
             };
           }
         } catch (error) {
-          const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
-          const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+          const motivo = error.response?.data?.message || error.message;
 
-          if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
-            console.warn(`⚠️ Alegra no permite editar factura ${facturaId}: ${alegraMessage}`);
-            throw new Error('Esta factura no se puede editar en Alegra. Usa Reimpresión o una nota de crédito.');
-          }
+          // El servidor dijo que no y dijo por qué (tiene cobros, es
+          // electrónica, está anulada…). Guardarla "para después" la
+          // reintentaría para siempre con la misma respuesta, y a quien
+          // edita se le diría que quedó guardada. Misma regla que al crear.
+          if (this.esRechazo(error)) throw new Error(motivo);
 
-          console.warn('⚠️ Error enviando edición a Alegra, guardando offline:', alegraMessage);
-          // Si falla por otra razón, guardar offline
+          console.warn('⚠️ No se pudo enviar la edición, se guarda en la tablet:', motivo);
         }
       }
 
@@ -1118,19 +1123,32 @@ class FacturacionService {
       };
 
       for (const edicion of edicionesPendientes) {
+        // Una edición sin la marca se hizo sobre una factura de Alegra, con el
+        // id de allá. NO SE MANDA: en nuestra ruta ese número es otra
+        // factura. Tampoco se borra — queda en la lista con su motivo, para
+        // que quien la hizo la rehaga sobre la factura correcta.
+        if (!edicion.esPropia) {
+          await indexedDBService.markEdicionError(edicion.localId, EDICION_DE_COPIA_VIEJA);
+          resultados.fallidas.push({
+            localId: edicion.localId,
+            facturaId: edicion.facturaId,
+            error: EDICION_DE_COPIA_VIEJA
+          });
+          continue;
+        }
+
         try {
-          // Intentar editar en Alegra
-          const response = edicion.esPropia
-            ? await api.put(`/facturacion/facturas/${edicion.facturaId}`, edicion.datosEdicion)
-            : await api.put(`/alegra/facturas/${edicion.facturaId}`, edicion.datosEdicion);
+          const response = await api.put(`/facturacion/facturas/${edicion.facturaId}`, edicion.datosEdicion);
 
           if (response.data.success) {
             // Marcar como sincronizada
             await indexedDBService.markEdicionSincronizada(edicion.localId);
 
-            // Actualizar cache con la nueva versión
-            if (response.data.data) {
-              await indexedDBService.saveFacturasCache([response.data.data]);
+            // Actualizar cache con la nueva versión, en la forma que habla
+            // la pantalla (la respuesta viene en la nuestra).
+            const editada = desdeFacturaPropia(response.data.data);
+            if (editada) {
+              await indexedDBService.saveFacturasCache([editada]);
             }
 
             resultados.exitosas.push({
@@ -1141,30 +1159,20 @@ class FacturacionService {
             console.log(`✅ Edición ${edicion.localId} sincronizada (Factura: ${edicion.facturaId})`);
           }
         } catch (error) {
-          const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
-          const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
+          const motivo = error.response?.data?.message || error.message;
 
-          if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
-            console.warn(`⚠️ Edición ${edicion.localId} descartada: Alegra no permite modificar la factura ${edicion.facturaId}`);
-            await indexedDBService.deleteEdicionPendiente(edicion.localId);
-            resultados.exitosas.push({
-              localId: edicion.localId,
-              facturaId: edicion.facturaId,
-              nota: 'No editable en Alegra'
-            });
-            continue;
-          }
-
-          // Registrar error
-          await indexedDBService.markEdicionError(edicion.localId, alegraMessage);
+          // No se descarta sola, ni cuando el servidor la rechaza: queda en
+          // la lista con el motivo y el botón de descartar. Es el trabajo de
+          // alguien, y borrarlo sin avisar lo dejaría creyendo que se guardó.
+          await indexedDBService.markEdicionError(edicion.localId, motivo);
 
           resultados.fallidas.push({
             localId: edicion.localId,
             facturaId: edicion.facturaId,
-            error: alegraMessage
+            error: motivo
           });
 
-          console.error(`❌ Error sincronizando edición ${edicion.localId}:`, alegraMessage);
+          console.error(`❌ Error sincronizando edición ${edicion.localId}:`, motivo);
         }
       }
 
@@ -1242,6 +1250,8 @@ class FacturacionService {
         observations: facturaVista.observaciones || '',
         date: facturaVista.date || new Date().toISOString().split('T')[0],
         status: facturaVista.estado || facturaVista.status || 'open',
+        // Se conserva: es lo que deja volver a editarla sin señal.
+        esPropia: Boolean(facturaVista.esPropia),
         pendienteSincronizar: Boolean(facturaVista.pendienteSincronizar),
         pendienteEdicion: Boolean(facturaVista.pendienteEdicion),
         origen: facturaVista.origen || null,

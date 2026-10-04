@@ -1,12 +1,9 @@
 /**
  * Facturación propia — Controller
  *
- * Va aparte del controller viejo, que le habla a Alegra y devuelve la
- * respuesta de Alegra tal cual. Este responde la factura NUESTRA.
- *
- * Las dos rutas conviven a propósito mientras la pantalla se cambia: apagar
- * `/invoices` antes de que Facturación llame a `/facturas` dejaría a la
- * empresa sin poder facturar.
+ * Responde la factura NUESTRA. El controller viejo, que le hablaba a Alegra y
+ * devolvía su respuesta tal cual, se retiró el 2026-10-04 con sus rutas
+ * (`/invoices` y compañía): ya no las llamaba ninguna pantalla.
  */
 
 const servicio = require('./facturaPropia.service');
@@ -14,6 +11,7 @@ const consulta = require('./facturaConsulta.service');
 const { generarPdfFactura } = require('./factura.pdf');
 const envio = require('./facturaEnvio.service');
 const { ofertasVigentes } = require('./ofertas.service');
+const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.service');
 const { pool } = require('../../../config/database');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
@@ -114,6 +112,42 @@ module.exports = {
       res.json({ success: true, data: await ofertasVigentes() });
     } catch (error) {
       fallo(res, error, 'ofertas');
+    }
+  },
+
+  /**
+   * GET /facturacion/clientes/:clienteId/sugerencias
+   *
+   * Lo que ese cliente suele llevar, para que el agente se lo pueda recordar
+   * mientras le toma el pedido con él enfrente. Es exactamente el mismo
+   * cálculo que ve el cliente en su catálogo —si fueran dos cuentas
+   * distintas, el agente le ofrecería algo que el portal no le muestra—, así
+   * que se reusa el servicio en vez de escribirlo otra vez.
+   *
+   * ACÁ EL CLIENTE VIENE EN LA RUTA, y en el portal sale del token. No es una
+   * inconsistencia: quien factura es del personal y le está cobrando a ese
+   * cliente, mientras que un cliente no puede pedir la portada de otro.
+   *
+   * EL ID ES EL NUESTRO (`cliente.id`), y los productos vuelven con
+   * `producto.id`. Mientras la pantalla lo pidió con el id de Alegra, 216 de
+   * los 247 clientes recibían las compras de OTRO —el que tiene ese número
+   * como id propio— sin ningún error a la vista. Ver
+   * docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
+   */
+  sugerencias: async (req, res) => {
+    const vacio = { habituales: [], perdidos: [] };
+    const clienteId = Number(req.params.clienteId);
+    // Un id que no es un entero positivo no es de nadie: no se consulta.
+    if (!Number.isInteger(clienteId) || clienteId <= 0) {
+      return res.json({ success: true, data: vacio });
+    }
+    try {
+      const { habituales, perdidos } = await obtenerInicio(clienteId);
+      res.json({ success: true, data: { habituales, perdidos } });
+    } catch (error) {
+      console.error('❌ Facturación propia (sugerencias):', error.message);
+      // Sin sugerencias se factura igual que siempre: no se estorba.
+      res.json({ success: true, data: vacio });
     }
   },
 

@@ -3,7 +3,6 @@ import api from '../services/api'
 import { hoyEnCostaRica } from '../utils/fechaCR'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPropiaAdaptador'
-import { alegraService } from '../services/alegraService'
 import {
   getReference,
   normalizarImpuestos,
@@ -15,7 +14,9 @@ import {
   calcularTotal,
   detectarEsMobile,
   scrollElementIntoView,
-  enriquecerFacturasPendientes
+  enriquecerFacturasPendientes,
+  idPropioDelCliente,
+  sugerenciasDelCatalogo
 } from '../utils/facturacionUtils'
 
 const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha'
@@ -762,37 +763,30 @@ export function useFacturacion() {
   }
 
   // Se piden al elegir al cliente, no al abrir la pantalla: sin cliente no hay
-  // nada que sugerir. Si falla, se factura igual que hasta ayer.
+  // nada que sugerir. Si falla, se factura igual que siempre.
   //
-  // EL HISTÓRICO TODAVÍA HABLA EN IDS DE ALEGRA (sección 12): se pide con el
-  // id de Alegra del cliente, y cada sugerencia llega con el id de Alegra del
-  // producto. Con el id propio se sugerían las compras de OTRO cliente —el
-  // contacto de Alegra que tiene ese número— y tocar una agregaba OTRO
-  // producto. Ver docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
-  // Un cliente creado solo en la base propia no tiene histórico: nada que
-  // sugerir.
+  // TODO VA EN IDS PROPIOS: se pide con `cliente.id` y cada sugerencia llega
+  // con `producto.id`. El histórico (`venta_linea`) habla en ids propios
+  // desde que las ventas salen de las facturas propias (sección 12). Esta
+  // pantalla siguió pidiendo con el id de Alegra del cliente, y como los dos
+  // son números no hubo error: a 216 de los 247 clientes se les mostraba lo
+  // que compra OTRO, el que tiene ese número como id propio. Ver
+  // docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
+  const clienteIdSugerencias = idPropioDelCliente(clienteSeleccionado)
   useEffect(() => {
-    const alegraId = clienteSeleccionado?.alegraId
-    if (!alegraId) { setSugerencias({ habituales: [], perdidos: [] }); return }
+    if (!clienteIdSugerencias) { setSugerencias({ habituales: [], perdidos: [] }); return }
 
     let vigente = true
-    facturacionService.getSugerenciasCliente(alegraId)
+    facturacionService.getSugerenciasCliente(clienteIdSugerencias)
       .then(r => { if (vigente) setSugerencias(r) })
       .catch(() => { if (vigente) setSugerencias({ habituales: [], perdidos: [] }) })
     return () => { vigente = false }
-  }, [clienteSeleccionado?.alegraId])
+  }, [clienteIdSugerencias])
 
-  // Las sugerencias con el id PROPIO del producto —el de `productos` y el de
-  // las líneas de la factura—, traducidas una sola vez acá. Así la barra y
-  // "agregar" comparan ids de la misma clase. La que no está en el catálogo
-  // de la tablet no se muestra: no se podría agregar.
-  const sugerenciasPropias = useMemo(() => {
-    const porAlegra = new Map(productos.filter(p => p.alegraId).map(p => [String(p.alegraId), p.id]))
-    const traducir = (lista) => (lista || [])
-      .map(s => (porAlegra.has(String(s.id)) ? { ...s, id: porAlegra.get(String(s.id)) } : null))
-      .filter(Boolean)
-    return { habituales: traducir(sugerencias.habituales), perdidos: traducir(sugerencias.perdidos) }
-  }, [sugerencias, productos])
+  // Solo las que están en el catálogo de la tablet. Los ids ya son de la
+  // misma clase que los de `productos` y los de las líneas de la factura.
+  const sugerenciasPropias = useMemo(
+    () => sugerenciasDelCatalogo(sugerencias, productos), [sugerencias, productos])
 
   /**
    * Agregar desde una sugerencia.
@@ -994,6 +988,10 @@ export function useFacturacion() {
       const facturaVista = {
         id: facturaEditando?.id || null,
         localId: facturaEditando?.localId || null,
+        // La marca viaja con la copia que queda en la tablet: sin ella, una
+        // segunda edición sin señal de la misma factura ya no se reconoce
+        // como propia.
+        esPropia: Boolean(facturaEditando?.esPropia),
         cliente: clienteSeleccionado,
         items: itemsVista,
         total: calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuestos),
@@ -1026,8 +1024,8 @@ export function useFacturacion() {
           resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista)
         }
       } else if (modoEdicion && facturaEditando) {
-        // De dónde salió decide a qué ruta va: un id nuestro en la ruta de
-        // Alegra no falla, edita OTRA factura.
+        // La marca dice que el id es NUESTRO. Sin ella la factura salió de
+        // una copia vieja de la tablet, con el id de Alegra, y no se edita.
         resultado = await facturacionService.editarFactura(
           facturaEditando.id, facturaData, facturaVista, { esPropia: Boolean(facturaEditando.esPropia) })
       } else {
@@ -1054,16 +1052,11 @@ export function useFacturacion() {
 
         mostrarMensaje(mensajeTexto, 'success', 5000)
 
-        // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
+        // Abrir el PDF (solo si se creó o editó con conexión). Es el nuestro:
+        // toda factura que llega acá se guardó en la base propia.
         if (resultado.online && resultado.data?.id) {
           try {
-            // El PDF propio para las facturas propias. El de Alegra solo
-            // sirve para las que siguen viviendo allá.
-            if (resultado.data.esPropia) {
-              await abrirPdfFacturaPropia(api, resultado.data.id)
-            } else {
-              await alegraService.visualizarPDFFactura(resultado.data.id)
-            }
+            await abrirPdfFacturaPropia(api, resultado.data.id)
             mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000)
           } catch (pdfError) {
             console.error('❌ Error visualizando el PDF:', pdfError)

@@ -82,13 +82,17 @@ test('nada queda mandando facturas a Alegra', () => {
   assert.equal((fuente.match(/api\.post\('\/facturacion\/facturas'/g) || []).length, 4);
 });
 
-test('la edición se enruta por la marca, no por el id', () => {
+test('la edición va a la ruta propia, y solo la de una factura marcada como propia', () => {
+  // Mientras hubo dos rutas, la marca elegía a cuál mandar. Desde el
+  // 2026-10-04 hay una: lo que no trae la marca no se manda (el detalle está
+  // en facturacionSinAlegra.test.js).
   const fuente = fs.readFileSync(SERVICIO, 'utf8');
-  assert.match(fuente, /esPropia\s*\n?\s*\?\s*await api\.put\(`\/facturacion\/facturas\/\$\{facturaId\}`/);
+  assert.match(fuente, /await api\.put\(`\/facturacion\/facturas\/\$\{facturaId\}`, datosEdicion\)/);
+  assert.equal(/alegra\/facturas/.test(fuente), false, 'volvió la ruta que editaba en Alegra');
   // Y la edición que queda pendiente se guarda con la marca, para que el
   // reintento de dentro de tres días no tenga que adivinar.
   assert.match(fuente, /saveEdicionPendiente\(facturaId, datosEdicion, esPropia\)/);
-  assert.match(fuente, /edicion\.esPropia/);
+  assert.match(fuente, /if \(!edicion\.esPropia\)/);
 });
 
 /**

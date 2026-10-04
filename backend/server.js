@@ -136,7 +136,6 @@ if (isLocalDevelopment) {
 }
 
 // Importar rutas
-const facturaRoutes = require('./src/modules/invoices/invoice.routes');
 const productoRoutes = require('./src/modules/products/product.routes');
 const reporteRoutes = require('./src/modules/reports/report.routes');
 const alegraRoutes = require('./routes/alegra');
@@ -192,12 +191,13 @@ app.use('/api/portal-clientes', portalClientesModule.rutasPersonal);
 app.use('/api/dashboard', dashboardModule.routes);
 
 // Usar rutas de API (Rutas Legacy y Base)
-app.use('/api/facturas', facturaRoutes);
+// /api/facturas (el módulo viejo de facturas, sobre la copia local de Alegra)
+// se retiró el 2026-10-04: las facturas son las propias, en /api/facturacion.
 app.use('/api/productos', productoRoutes);
 app.use('/api/proveedores', proveedoresModule.routes);
 app.use('/api/reportes', reporteRoutes);
 // /api/alegra es un router adaptador (routes/alegra.js) que monta debajo:
-// /catalog, /productos, /facturas, /bodega, /reimpresion, /reportes,
+// /productos, /bodega, /reimpresion, /reportes,
 // /contactos, /proveedores, /faltantes, /orden-compra y /facturacion
 app.use('/api/alegra', alegraRoutes);
 app.use('/api/revision-precios', revisionPreciosModule.routes);
@@ -281,7 +281,6 @@ app.get('*', (req, res) => {
       path: req.originalUrl,
       availableRoutes: [
         '/api/alegra/*',
-        '/api/facturas/*',
         '/api/productos/*',
         '/api/proveedores/*',
         '/api/faltantes/*',
