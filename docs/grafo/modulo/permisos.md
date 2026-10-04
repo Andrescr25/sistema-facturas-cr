@@ -19,6 +19,7 @@ archivos:
   - backend/tests/bitacoraFormato.test.js
   - backend/routes/alegra.js
   - backend/tests/adaptadorSinAlegra.test.js
+  - backend/tests/permisosDebajoDeAlegra.test.js
 aristas:
   relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-04
@@ -118,8 +119,14 @@ ser prefijos compartidos al irse los módulos viejos que vivían ahí.
 
 SIGUE COMPARTIDO, SIN DECIDIR: las tres escrituras de `/reportes` — mandar a
 impresión y recuperar (Reporte de Clientes) y limpiar los faltantes
-procesados (Configuración). En `developer`/`main` el montaje doble de
-Impresión y el borrado total de faltantes siguen como estaban.
+procesados (Configuración).
+
+EN PRODUCCIÓN (`main` `1a4d666`, 2026-10-04, autorizado por el usuario) se
+cerraron el montaje doble de Impresión y el borrado total de faltantes, con
+su prueba (`permisosDebajoDeAlegra.test.js`, que llegó acá al fusionar
+`developer`). Allá sigue compartido lo que las pantallas usan por `/alegra`
+—la propia Impresión trabaja por `/alegra/facturas/...`—: el módulo decide
+quién ve la pantalla, no quién puede llamar sus rutas. En esta rama ya no.
 
 HUECO SIN DECIDIR: Gestionar Relaciones no tiene prefijo propio
 (`rutasApi: []`). Su pantalla llama a `/productos-revision` (de Revisión de
