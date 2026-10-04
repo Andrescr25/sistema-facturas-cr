@@ -10,10 +10,14 @@ archivos:
   - backend/tests/facturaProveedorNoSeDuplica.test.js
   - backend/src/integrations/alegra/services/alegra-product.service.js
   - backend/tests/productoNuevoSinDescripcion.test.js
+  - backend/src/modules/precios/config.js
+  - backend/migrations/add_margenes_bolsas_y_moto.sql
+  - backend/tests/precioSugeridoProductoNuevo.test.js
+  - frontend/src/components/relacionar-productos/ModalCrearProducto.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/alegra-products-cache]
   relacionado: [decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-30
+medido: 2026-10-04
 ---
 
 Las facturas electrónicas de los proveedores llegan por correo, se relacionan
@@ -41,6 +45,30 @@ servicio mandaba `''` y `createProduct` lo cambiaba por el nombre
 El precio sugerido usa la rotación de los últimos 12 meses
 (`SQL_ROTACION_PRECIOS` de `ventas/rotacion.js`), calculada en el momento: los
 umbrales del motor (10 u/mes = rotación alta) se calibraron con esa ventana.
+
+## El margen meta se busca por el NOMBRE de la categoría
+
+`config_precios` guarda el margen meta y el mínimo de cada categoría, llaveada
+por su nombre (`precios/config.js`); la que no tiene fila usa `__default__`
+(25 % / 12 %). Los valores son la mediana real del margen de cada categoría,
+medida en producción — no números redondos.
+
+Dos cosas que estuvieron mal sin que nada fallara, corregidas el 2026-10-04:
+
+- **El formulario de producto nuevo mandaba el id de la categoría** en vez del
+  nombre. Nunca calzaba con ninguna fila, así que el precio sugerido salía
+  siempre al 25 % por defecto: una misma línea daba ₡2.750 cuando en Librería
+  (29,2 %) corresponde ₡2.925 y en Productos para perro (20 %), ₡2.600. La
+  prueba que existía no lo veía porque usaba Ferretería, que también es 25 %.
+- **Bolsas y Desechables y Línea de Moto no tenían fila** (204 productos
+  activos): se crearon al reordenar el catálogo y nadie se las puso. Se les
+  dio la mediana medida ese día con el cálculo de Rentabilidad —29,1 % y
+  28,4 %—, que es más de lo que venían usando: el motor les sugería precios
+  por debajo de lo que ya dejan. El detalle y cómo deshacerlo están en
+  `add_margenes_bolsas_y_moto.sql`.
+
+Al crear una categoría nueva hay que ponerle su fila; si no, cae en el margen
+por defecto y nadie se entera. No hay pantalla para editar estos márgenes.
 
 En la rama `independencia-alegra` esto se reemplaza por "Registrar compra",
 que no toca Alegra; ver el grafo de esa rama.

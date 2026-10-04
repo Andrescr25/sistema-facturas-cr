@@ -118,6 +118,38 @@ describe('el precio que se propone deja margen', () => {
     assert.equal(r.margenResultante, 25);
   });
 
+  test('el margen sale del NOMBRE de la categoría: con su id cae al de por defecto', async () => {
+    // El formulario mandaba el id del desplegable ("9") y no el nombre. La
+    // configuración está llaveada por nombre, así que nunca calzaba y TODA
+    // sugerencia salía al 25 % por defecto. La prueba de arriba no lo veía
+    // porque Ferretería también es 25 %: hace falta una categoría distinta.
+    const config = [
+      { categoria: 'Librería', margen_meta: 29.2, margen_minimo: 17 },
+      { categoria: 'Productos para perro', margen_meta: 20, margen_minimo: 12 },
+      { categoria: '__default__', margen_meta: 25, margen_minimo: 12 }
+    ];
+    const servicio = montar(LINEA_BELLOTA, config);
+
+    const libreria = await servicio.precioSugerido('linea-1', 'Librería');
+    const perro = await servicio.precioSugerido('linea-1', 'Productos para perro');
+    const porId = await servicio.precioSugerido('linea-1', '9');
+
+    assert.deepEqual([libreria.margenObjetivo, perro.margenObjetivo, porId.margenObjetivo], [29.2, 20, 25]);
+    assert.ok(libreria.precioSugerido > porId.precioSugerido && porId.precioSugerido > perro.precioSugerido,
+      'el precio sugerido tiene que seguir al margen de la categoría');
+  });
+
+  test('el formulario le manda al motor el nombre de la categoría elegida, no su id', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const modal = fs.readFileSync(path.join(
+      __dirname, '..', '..', 'frontend', 'src', 'components', 'relacionar-productos', 'ModalCrearProducto.jsx'), 'utf8');
+    assert.match(modal, /params: \{ categoria: nombreDeCategoria \}/);
+    assert.match(modal, /const nombreDeCategoria = categorias\.find\(c => String\(c\.id\) === String\(categoriaSeleccionada\)\)\?\.name \|\| ''/);
+    // Y se recalcula cuando cambia ese nombre.
+    assert.match(modal, /\}, \[productoSeleccionado\.id, nombreDeCategoria\]\)/);
+  });
+
   test('una categoría sin config usa el margen por defecto, no falla', async () => {
     const servicio = montar();
     const r = await servicio.precioSugerido('linea-1', 'Categoría Que No Existe');
