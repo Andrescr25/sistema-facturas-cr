@@ -7,8 +7,9 @@ archivos:
   - backend/src/modules/productos-revision/relacionPropia.js
   - backend/migrations/independencia/039_avance_de_la_factura_desde_sus_lineas.sql
   - backend/src/modules/productos-revision/productos-revision.service.js
-  - backend/src/modules/revision-precios/revision-precios.service.js
+  - backend/services/databaseService.js
   - backend/tests/relacionPropia.test.js
+  - backend/tests/buzonPorProductoPropio.test.js
 aristas:
   relacionado: [modulo/relacionar-productos, tabla/facturas-proveedores, modulo/revision-precios]
 medido: 2026-10-04
@@ -39,8 +40,8 @@ se DERIVA de las líneas, y se vuelve a contar cada vez que una línea cambia:
 
 - `recalcularAvance` (en `relacionPropia.js`) lo hace para las facturas de las
   líneas tocadas. Lo llaman relacionar, soltar una línea, eliminar una
-  relación entera, crear un producto desde una línea, y confirmar o rechazar
-  en Revisión de Precios.
+  relación entera, crear un producto desde una línea, y el buzón al recibir
+  una factura.
 - La migración 039 pone al día las 217.
 - **Completa** es que no le falte ninguna línea, no que el redondeo dé 100:
   con 199 de 200 queda en 99 %.
@@ -52,6 +53,5 @@ se DERIVA de las líneas, y se vuelve a contar cada vez que una línea cambia:
 Prisma las selecciona en cada lectura de la factura, y en esta rama no se
 regenera. Si quedan, que digan la verdad.
 
-**Lo que falta.** El buzón, al recibir una factura, todavía calcula el suyo
-con el redondeo viejo (`services/databaseService.js`). Pasa a esta misma
-función cuando el buzón relacione por `producto.id`.
+El buzón, al recibir una factura, usa esta misma función desde el 2026-10-04
+(`services/databaseService.js`); su cálculo propio redondeaba.

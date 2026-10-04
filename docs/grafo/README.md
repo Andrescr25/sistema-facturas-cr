@@ -37,7 +37,7 @@ toca, qué no se regenera).
 - [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md)
 - [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
-- [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *el producto nuevo nace en el maestro propio; falta el buzón al recibir*
+- [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *relacionar, crear producto y el buzón: todo por `producto.id`*
 - [Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio](modulo/revision-precios.md) · *queda `enviarFacturaAlegra`, que la pantalla no llama*
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*

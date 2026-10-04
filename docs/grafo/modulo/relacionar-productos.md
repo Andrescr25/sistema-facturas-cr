@@ -9,13 +9,15 @@ archivos:
   - backend/src/modules/productos-revision/productos-revision.service.js
   - backend/src/modules/productos-revision/productos-revision.controller.js
   - backend/src/modules/productos-revision/productos-revision.routes.js
-  - backend/src/modules/productos-revision/idsPropiosDelMapeo.js
+  - backend/services/databaseService.js
+  - backend/services/emailService.js
   - backend/src/modules/precios/costoHistorico.js
   - backend/src/modules/precios/costoDerivado.js
   - backend/migrations/independencia/038_relacion_de_compra_por_producto_propio.sql
   - backend/migrations/independencia/039_avance_de_la_factura_desde_sus_lineas.sql
   - backend/tests/relacionPropia.test.js
   - backend/tests/productoDesdeLinea.test.js
+  - backend/tests/buzonPorProductoPropio.test.js
   - backend/tests/dobles/buzonEnTransaccion.js
   - backend/tests/buscarRelaciones.test.js
   - backend/tests/costoDerivadoPropio.test.js
@@ -85,10 +87,38 @@ todavía los leen. Salen siempre del producto propio, nunca al revés.
 [[leccion/el-doble-de-prisma-no-valida-tipos]]. En la línea y en
 `costo_historico` va NULL.
 
-El buzón, al recibir una factura, todavía relaciona con el mapeo ya hecho y
-copia su id de Alegra a la línea; después llama a `ligarProductoDeLineas`,
-que la deja con su producto propio. Era el último que quedaba: confirmar y
-rechazar desde Revisión de Precios se quitaron (nadie los llamaba).
+Nadie relaciona ya por el id de Alegra. El último era el buzón; confirmar y
+rechazar desde Revisión de Precios se quitaron antes (nadie los llamaba).
+
+## El buzón, al recibir una factura
+
+`saveFactura` (`services/databaseService.js`, 2026-10-04) reusa lo que una
+persona ya relacionó con ese proveedor, y lo hace por el producto propio:
+
+- pide los mapeos de todos los códigos de la factura en UNA consulta, con su
+  `producto_id` (`mapeosDelProveedor`); antes era una consulta por línea, con
+  Prisma, que no conoce esa columna;
+- la línea nace RELACIONADA con el producto de su mapeo
+  (`productoDeLineasPorMapeo`, por SQL después de que Prisma crea la factura).
+  El id de Alegra va solo de referencia y sale del producto propio;
+- **un mapeo sin producto propio no relaciona nada.** Quedan 4, de productos
+  que ya no existen: reusarlos dejaba la línea "relacionada" con nada y la
+  factura pasaba a revisión con un renglón sin producto;
+- el avance de la factura se cuenta con `recalcularAvance`, igual que en el
+  resto.
+
+Lo que se copiaba antes era el id de Alegra del mapeo: un producto creado en
+el sistema se relacionaba a mano una vez y a la factura siguiente volvía a
+quedar a medias.
+
+Lo que NO cambió, a propósito: no se crea ningún mapeo por parecido de texto
+—la primera vez decide una persona— y un código débil con otra descripción no
+se reusa. Se quitó la búsqueda de "un parecido como pista" que el correo hacía
+por cada línea pendiente: era una consulta a la caché de Alegra por línea,
+solo para escribir un renglón en el log.
+
+El correo está bloqueado en esta rama (`config/aislado.js`): esto se prueba
+llamando a `saveFactura` con una factura ya leída, contra PostgreSQL.
 
 ## Crear un producto nuevo desde una línea
 
@@ -138,8 +168,6 @@ Se vuelve a contar desde las líneas cada vez que una cambia:
 
 ## Lo que falta
 
-- **El buzón** (`services/databaseService.js`) relaciona solo con el mapeo y
-  copia su id de Alegra a la línea.
 - La búsqueda de fotos sugeridas sigue colgada del prefijo adaptador
   (`/alegra/catalog/search-images`); no le habla a Alegra, pero el nombre se
   va con el retiro de ese prefijo.
