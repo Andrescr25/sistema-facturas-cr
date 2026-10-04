@@ -76,7 +76,9 @@ function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINE
       const columnas = texto.match(/\(([^)]+)\) VALUES/)[1].split(', ');
       return { rows: [{ id: 501, ...Object.fromEntries(columnas.map((c, i) => [c, params[i]])) }] };
     }
-    if (/SELECT l\.\*, m\.producto_id/.test(texto)) {
+    // El producto es el de la LÍNEA; el del mapeo, solo de respaldo. Que eso
+    // se cumpla contra la base está en revisionPreciosPropia.test.js.
+    if (/SELECT l\.\*, COALESCE\(l\.producto_id, m\.producto_id\) AS producto_id/.test(texto)) {
       return { rows: lineas.map((l) => ({ ...l })) };
     }
     if (/INSERT INTO compra_linea/.test(texto)) return { rows: [], rowCount: 1 };

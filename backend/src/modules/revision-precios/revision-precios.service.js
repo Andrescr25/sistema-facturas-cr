@@ -1,36 +1,36 @@
 /**
  * Revision-Precios Module - Service
- * Lógica de negocio para la revisión de precios de facturas de proveedores
- * y su envío a Alegra como facturas de compra.
+ * Lógica de negocio para la revisión de precios de facturas de proveedores.
+ *
+ * LO QUE LA PANTALLA USA sale del maestro propio (2026-10-04): las facturas
+ * con el `productoPropioId` de cada línea, los productos de la revisión y el
+ * precio sugerido. Registrar la compra es de compras.service.js.
+ *
+ * LO QUE QUEDA DE ALEGRA es `enviarFacturaAlegra` y sus ayudantes: el camino
+ * viejo de "Enviar a Alegra", que la pantalla ya no llama. Se va con el retiro
+ * de Alegra (sección 16).
+ *
+ * Se quitaron, por no tener pantalla, pruebas ni nadie que las llamara:
+ * productos pendientes con sugerencias de la caché, confirmar y rechazar una
+ * relación por el id de Alegra, las estadísticas, y `actualizar-precio`, que
+ * además reescribía el precio de la línea de la factura RECIBIDA.
  */
 
 const prisma = require('../../../lib/prisma');
-const { ligarIdsPropios } = require('../productos-revision/idsPropiosDelMapeo');
-const { ligarProductoDeLineas, recalcularAvance } = require('../productos-revision/relacionPropia');
 const { SQL_ROTACION_PRECIOS } = require('../ventas/rotacion');
+const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { query } = require('../../../config/database');
 const { getProductService, getContactService, getInvoiceService } = require('../../integrations/alegra');
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
 const { obtenerImpuestoAlegra, cargarImpuestosAlegra } = require('../../../utils/impuestosAlegra');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
-const { sincronizarCostoDeLineas } = require('../precios/costoHistorico');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
-const {
-  palabrasClave,
-  normalizarReferencia,
-  esReferenciaConfiable,
-  calcularScoreCatalogo,
-  UMBRAL_SUGERENCIA
-} = require('../precios/matcher');
 
 const productService = getProductService();
 const contactService = getContactService();
 const invoiceService = getInvoiceService();
 const MAX_FACTURAS_RELACIONADAS = 100;
-// Tope de productos del catálogo que se traen para puntuar contra TODOS los
-// pendientes a la vez. Es una consulta, no una por producto.
-const MAX_CANDIDATOS = 400;
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -182,243 +182,7 @@ async function getFacturas(estado) {
     take: 50
   });
 
-  return { facturas, total: facturas.length };
-}
-
-/**
- * Obtener productos pendientes de confirmación con sugerencias desde la caché de Alegra
- */
-async function getProductosPendientes() {
-  console.log('📦 Obteniendo productos pendientes...');
-
-  const productosPendientes = await prisma.productoFactura.findMany({
-    where: { estadoRelacionado: 'PENDIENTE' },
-    include: { factura: true },
-    orderBy: {
-      factura: {
-        fechaProcesada: 'desc'
-      }
-    },
-    take: 50
-  });
-
-  const productosConSugerencias = [];
-
-  // UNA sola consulta para todos, no una por producto.
-  //
-  // Antes se consultaba el catálogo dentro del bucle: 26 productos pendientes
-  // eran 26 viajes a la base y la pantalla tardaba 28 segundos en abrir —lo
-  // suficiente para parecer colgada—. Se juntan las palabras y los códigos de
-  // todos, se traen los candidatos de una vez y se puntúa en memoria.
-  const claves = new Map();   // producto.id → palabras clave
-  const codigos = new Map();  // producto.id → códigos confiables
-  const palabrasTodas = new Set();
-  const codigosTodos = new Set();
-
-  for (const producto of productosPendientes) {
-    const suyas = palabrasClave(producto.descripcion, 4);
-    const suyos = [producto.codigoComercial, producto.codigoProveedor].filter(esReferenciaConfiable);
-
-    claves.set(producto.id, suyas.length >= 2 ? suyas : []);
-    codigos.set(producto.id, suyos);
-    if (suyas.length >= 2) suyas.forEach(p => palabrasTodas.add(p));
-    suyos.forEach(c => codigosTodos.add(c));
-  }
-
-  const condiciones = [
-    ...[...codigosTodos].map(codigo => ({ reference: { equals: codigo, mode: 'insensitive' } })),
-    ...[...palabrasTodas].map(palabra => ({ searchText: { contains: palabra, mode: 'insensitive' } }))
-  ];
-
-  const candidatos = condiciones.length > 0
-    ? await prisma.alegraProduct.findMany({
-      where: {
-        AND: [
-          { status: 'active' },
-          { hiddenLocally: false },
-          { OR: condiciones }
-        ]
-      },
-      take: MAX_CANDIDATOS
-    })
-    : [];
-
-  for (const producto of productosPendientes) {
-    const suyas = claves.get(producto.id);
-    const suyos = codigos.get(producto.id);
-    if (suyas.length === 0 && suyos.length === 0) continue;
-
-    const codigosNormalizados = new Set(suyos.map(normalizarReferencia));
-
-    const sugerencias = candidatos.map(sim => {
-      const referenciaExacta = esReferenciaConfiable(sim.reference) &&
-        codigosNormalizados.has(normalizarReferencia(sim.reference));
-
-      return {
-        alegraId: sim.alegraId,
-        name: sim.name,
-        reference: sim.reference,
-        price: sim.price,
-        similarityScore: referenciaExacta ? 100 : calcularScoreCatalogo(producto.descripcion, sim)
-      };
-    })
-      .filter(s => s.similarityScore >= UMBRAL_SUGERENCIA)
-      .sort((a, b) => b.similarityScore - a.similarityScore)
-      .slice(0, 3);
-
-    if (sugerencias.length > 0) {
-      productosConSugerencias.push({ ...producto, sugerencias });
-    }
-  }
-
-  return { productos: productosConSugerencias, total: productosConSugerencias.length };
-}
-
-/**
- * Confirmar relación de producto (crea/actualiza el mapeo proveedor→Alegra)
- */
-async function confirmarProducto({ productoId, alegraItemId, confianza }) {
-  console.log(`✅ Confirmando producto: ${productoId} → ${alegraItemId}`);
-
-  const producto = await prisma.productoFactura.findUnique({
-    where: { id: productoId },
-    include: { factura: true }
-  });
-
-  if (!producto) {
-    throw httpError(404, 'Producto no encontrado');
-  }
-
-  // Obtener info del producto de Alegra desde cache local
-  const alegraProduct = await prisma.alegraProduct.findUnique({
-    where: { alegraId: alegraItemId }
-  });
-
-  if (!alegraProduct) {
-    throw httpError(404, 'Producto de Alegra no encontrado');
-  }
-
-  const mapeo = await prisma.supplierProductMapping.upsert({
-    where: {
-      supplierCedula_supplierCode: {
-        supplierCedula: producto.factura.proveedorCedula,
-        supplierCode: producto.codigoProveedor
-      }
-    },
-    update: {
-      supplierName: producto.factura.proveedorNombre.trim(),
-      supplierDesc: producto.descripcion,
-      alegraItemId: alegraProduct.alegraId,
-      alegraReference: alegraProduct.reference,
-      alegraName: alegraProduct.name,
-      confidence: confianza || 100,
-      lastUsedDate: new Date(),
-      timesUsed: { increment: 1 }
-    },
-    create: {
-      supplierName: producto.factura.proveedorNombre.trim(),
-      supplierCedula: producto.factura.proveedorCedula,
-      supplierCode: producto.codigoProveedor,
-      supplierDesc: producto.descripcion,
-      alegraItemId: alegraProduct.alegraId,
-      alegraReference: alegraProduct.reference,
-      alegraName: alegraProduct.name,
-      confidence: confianza || 100,
-      origen: 'manual'
-    }
-  });
-  await ligarIdsPropios(mapeo.id);
-
-  await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: {
-      alegraItemId: alegraItemId,
-      estadoRelacionado: 'RELACIONADO',
-      confianza: confianza || 100,
-      mapeoId: mapeo.id
-    }
-  });
-  // Esta confirmación todavía llega con el id de Alegra: la línea queda
-  // además con su producto propio (migración 038).
-  await ligarProductoDeLineas([productoId]);
-  await recalcularAvance([productoId]).catch(e => console.warn('⚠️ No se pudo recontar el avance de la factura:', e.message));
-
-  // El costo de esta compra queda disponible de inmediato para el tablero de
-  // rentabilidad y el motor de precios, sin esperar a un backfill manual.
-  await sincronizarCostoDeLineas([productoId]);
-
-  console.log(`✅ Producto confirmado: ${producto.descripcion} → ${alegraProduct.name}`);
-
-  return { message: 'Producto confirmado exitosamente', mapeo };
-}
-
-/**
- * Rechazar relación de producto (lo devuelve a PENDIENTE sin relación)
- */
-async function rechazarProducto(productoId) {
-  console.log(`🔄 Rechazando producto: ${productoId}`);
-
-  const producto = await prisma.productoFactura.findUnique({
-    where: { id: productoId }
-  });
-
-  if (!producto) {
-    throw httpError(404, 'Producto no encontrado');
-  }
-
-  await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: {
-      alegraItemId: null,
-      estadoRelacionado: 'PENDIENTE',
-      confianza: null,
-      mapeoId: null
-    }
-  });
-  await ligarProductoDeLineas([productoId]);
-  await recalcularAvance([productoId]).catch(e => console.warn('⚠️ No se pudo recontar el avance de la factura:', e.message));
-
-  return { message: 'Producto rechazado exitosamente' };
-}
-
-/**
- * Actualizar precio unitario de un producto de factura
- */
-async function actualizarPrecio(productoId, nuevoPrecio) {
-  console.log(`💰 Actualizando precio: ${productoId} → ₡${nuevoPrecio}`);
-
-  await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: { precioUnitario: nuevoPrecio }
-  });
-
-  return { message: 'Precio actualizado exitosamente' };
-}
-
-/**
- * Obtener estadísticas de revisión de precios
- */
-async function getEstadisticas() {
-  const [
-    totalFacturas,
-    facturasProcesadas,
-    facturasRelacionadas,
-    productosPendientes
-  ] = await Promise.all([
-    prisma.factura.count(),
-    prisma.factura.count({ where: { estado: 'PROCESADA' } }),
-    prisma.factura.count({ where: { estado: 'RELACIONADA' } }),
-    prisma.productoFactura.count({ where: { estadoRelacionado: 'PENDIENTE' } })
-  ]);
-
-  return {
-    stats: {
-      totalFacturas,
-      facturasProcesadas,
-      facturasRelacionadas,
-      productosPendientes
-    }
-  };
+  return { facturas: await conProductoPropio(facturas), total: facturas.length };
 }
 
 /**
@@ -508,7 +272,7 @@ async function getFacturasRelacionadas({ limit = MAX_FACTURAS_RELACIONADAS } = {
 
   console.log(`✅ ${facturas.length} facturas 100% relacionadas encontradas`);
 
-  return { facturas };
+  return { facturas: await conProductoPropio(facturas) };
 }
 
 /**
@@ -534,33 +298,40 @@ async function obtenerSugerenciasPrecio(facturaId) {
   });
   if (!factura) throw httpError(404, 'Factura no encontrada');
 
-  const alegraIds = [...new Set(factura.productos.map(p => p.alegraItemId).filter(Boolean))];
-  if (alegraIds.length === 0) return {};
+  // TODO SALE DEL PRODUCTO PROPIO de cada línea: su categoría (la del
+  // maestro) y su rotación (`venta_linea`, por `producto.id`). Hasta el
+  // 2026-10-04 se iba por el id de Alegra y la categoría de la caché: una
+  // línea de un producto sin ficha en Alegra no recibía sugerencia.
+  const [linea] = await conProductoPropio([factura]);
+  const productoIds = [...new Set(linea.productos.map(p => p.productoPropioId).filter(Boolean))];
+  if (productoIds.length === 0) return {};
 
   const [categorias, rotaciones, configPrecios] = await Promise.all([
-    query('SELECT alegra_id, category FROM alegra_products_cache WHERE alegra_id = ANY($1::text[])', [alegraIds]),
+    query(`SELECT p.id, c.nombre AS categoria
+             FROM producto p LEFT JOIN categoria_producto c ON c.id = p.categoria_id
+            WHERE p.id = ANY($1::int[])`, [productoIds]),
     // En el momento, con la ventana de 12 meses con la que se calibró el
     // motor (ver ventas/rotacion.js). Antes era la foto de producto_rotacion.
-    query(`SELECT alegra_item_id, clase, unidades_mes, clientes_distintos FROM (${SQL_ROTACION_PRECIOS}) r WHERE alegra_item_id = ANY($1::text[])`, [alegraIds]),
+    query(`SELECT producto_id, clase, unidades_mes, clientes_distintos FROM (${SQL_ROTACION_PRECIOS}) r WHERE producto_id = ANY($1::int[])`, [productoIds]),
     obtenerConfigPrecios()
   ]);
 
-  const categoriaPorItem = new Map(categorias.rows.map(r => [r.alegra_id, r.category || '']));
-  const rotacionPorItem = new Map(rotaciones.rows.map(r => [r.alegra_item_id, {
+  const categoriaPorProducto = new Map(categorias.rows.map(r => [r.id, r.categoria || '']));
+  const rotacionPorProducto = new Map(rotaciones.rows.map(r => [Number(r.producto_id), {
     clase: r.clase,
     unidadesMes: r.unidades_mes !== null ? Number(r.unidades_mes) : null,
     clientesDistintos: Number(r.clientes_distintos)
   }]));
 
   const sugerencias = {};
-  for (const producto of factura.productos) {
-    if (!producto.alegraItemId) continue;
+  for (const producto of linea.productos) {
+    if (!producto.productoPropioId) continue;
 
     const { costoSinIvaConDescuento, factor } = calcularCostoUnitarioPropio(producto, producto.mapeo?.factorConversion);
     const costoSinIva = costoSinIvaConDescuento / factor;
 
-    const categoria = categoriaPorItem.get(producto.alegraItemId) || '';
-    const rotacion = rotacionPorItem.get(producto.alegraItemId) || { clase: null, unidadesMes: null, clientesDistintos: null };
+    const categoria = categoriaPorProducto.get(producto.productoPropioId) || '';
+    const rotacion = rotacionPorProducto.get(producto.productoPropioId) || { clase: null, unidadesMes: null, clientesDistintos: null };
     const { margenMeta, margenMinimo } = resolverConfig(configPrecios, categoria);
 
     const resultado = calcularPrecioSugerido({
@@ -584,48 +355,69 @@ async function obtenerSugerenciasPrecio(facturaId) {
 }
 
 /**
- * Obtener datos de productos en Alegra (batch) para comparación de precios
+ * Los productos de una factura en revisión, del MAESTRO PROPIO: nombre,
+ * precio y costo de hoy, y la tarifa con que se venden.
+ *
+ * Hasta el 2026-10-04 esto le preguntaba a Alegra EN VIVO, un producto por
+ * llamada. Dos problemas: el precio que mostraba era el de Alegra, no el del
+ * sistema —y "Registrar compra" cambia el precio en `producto`, así que la
+ * revisión siguiente comparaba contra un precio viejo—; y un producto sin
+ * ficha en Alegra no se podía revisar.
+ *
+ * EL PRECIO VA CON IVA y el costo con IVA, como los espera la pantalla. La
+ * tarifa es la del impuesto del producto: 0 es 0 (un exento), y `null` quiere
+ * decir que el producto no tiene impuesto asignado. Antes un exento llegaba
+ * como 13 %, porque "sin impuesto" y "0 %" eran lo mismo para un `|| 13`.
+ *
+ * @param {Array<number|string>} productoIds  ids de `producto`
+ * @returns llaveado por `producto.id`
  */
-async function getProductosBatch(alegraIds) {
-  console.log(`🔍 Obteniendo datos de ${alegraIds.length} productos en batch...`);
-
+async function getProductosDeRevision(productoIds) {
+  const ids = [...new Set((productoIds || []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
   const productos = {};
+  if (ids.length === 0) return { productos, total: 0, solicitados: 0 };
 
-  await Promise.all(
-    alegraIds.map(async (alegraId) => {
-      try {
-        const resultado = await productService.getProductById(alegraId);
-        const producto = resultado.success ? resultado.data : null;
-        if (producto) {
-          const precioSinIva = producto.price?.[0]?.price || 0;
+  const { rows } = await query(`
+    SELECT p.id, p.nombre, p.referencia, p.precio_sin_iva::float8 AS precio_sin_iva,
+           p.costo_con_iva::float8 AS costo_con_iva, i.tarifa::float8 AS tarifa
+      FROM producto p
+      LEFT JOIN impuesto i ON i.id = p.impuesto_id
+     WHERE p.id = ANY($1::int[])`, [ids]);
 
-          // Precio con el IVA propio del producto (por defecto 13%)
-          const ivaPorcentaje = producto.tax?.[0]?.percentage || 13;
-          const precioConIva = precioSinIva * (1 + ivaPorcentaje / 100);
+  for (const p of rows) {
+    productos[p.id] = {
+      id: p.id,
+      name: p.nombre,
+      reference: p.referencia,
+      // Sin impuesto asignado no se inventa el precio con IVA: se muestra el
+      // precio tal cual, y la tarifa en null lo dice.
+      price: p.tarifa === null ? p.precio_sin_iva : precioConImpuesto(p.precio_sin_iva, p.tarifa),
+      priceWithoutTax: p.precio_sin_iva,
+      cost: p.costo_con_iva || 0,
+      taxPercentage: p.tarifa
+    };
+  }
 
-          productos[alegraId] = {
-            id: producto.id,
-            name: producto.name,
-            reference: producto.reference,
-            price: precioConIva,  // Precio CON IVA para mostrar al usuario
-            priceWithoutTax: precioSinIva,  // Precio sin IVA (por si se necesita)
-            cost: producto.cost || 0,
-            taxPercentage: ivaPorcentaje
-          };
-        }
-      } catch (error) {
-        console.error(`⚠️ Error obteniendo producto ${alegraId}:`, error.message);
-      }
-    })
-  );
+  return { productos, total: rows.length, solicitados: ids.length };
+}
 
-  console.log(`✅ ${Object.keys(productos).length}/${alegraIds.length} productos obtenidos`);
+/**
+ * A cada línea de estas facturas le agrega su producto propio
+ * (`productoPropioId`). `producto_id` no está en el esquema de Prisma
+ * (migración 038), así que se lee aparte, en una sola consulta.
+ */
+async function conProductoPropio(facturas) {
+  const idsDeFacturas = facturas.map(f => f.id);
+  if (idsDeFacturas.length === 0) return facturas;
 
-  return {
-    productos,
-    total: Object.keys(productos).length,
-    solicitados: alegraIds.length
-  };
+  const { rows } = await query(
+    'SELECT id, producto_id FROM productos_factura_proveedor WHERE factura_id = ANY($1::uuid[])', [idsDeFacturas]);
+  const propio = new Map(rows.map(r => [r.id, r.producto_id]));
+
+  return facturas.map(f => ({
+    ...f,
+    productos: (f.productos || []).map(l => ({ ...l, productoPropioId: propio.get(l.id) ?? null }))
+  }));
 }
 
 /**
@@ -924,14 +716,9 @@ async function enviarFacturaAlegra(facturaId, preciosAjustados = {}) {
 
 module.exports = {
   getFacturas,
-  getProductosPendientes,
-  confirmarProducto,
-  rechazarProducto,
-  actualizarPrecio,
-  getEstadisticas,
   devolverFactura,
   getFacturasRelacionadas,
-  getProductosBatch,
+  getProductosDeRevision,
   obtenerSugerenciasPrecio,
   enviarFacturaAlegra,
   // Funciones puras exportadas para tests

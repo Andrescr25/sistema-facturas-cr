@@ -178,10 +178,19 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
     const compra = compraRows[0];
     await registrarCambio(cliente, { entidad: 'compra', entidadId: compra.id, accion: 'crear', despues: sinTiempos(compra), usuarioId });
 
-    // Las líneas, del mismo lugar que usó la carga histórica (migración 020):
-    // el buzón, con el mapeo que ya trae nuestro producto y el factor.
+    // Las líneas, del buzón. EL PRODUCTO ES EL DE LA LÍNEA
+    // (`productos_factura_proveedor.producto_id`, migración 038): el mismo que
+    // Revisión de Precios mostró y sobre el que se ajustó el precio. El del
+    // mapeo queda solo de respaldo, para una línea que todavía no lo tenga.
+    //
+    // Antes se tomaba el del mapeo (`l.*, m.producto_id`: las dos columnas se
+    // llaman igual y ganaba la del mapeo sin que se notara). Casi siempre es
+    // el mismo; cuando no —el código del proveedor se volvió a relacionar con
+    // otro producto después de relacionar esta línea— la revisión mostraba un
+    // producto y el costo y el precio se le escribían a otro. El factor de
+    // conversión sí es del mapeo: es cómo factura ese proveedor ese código.
     const { rows: lineas } = await cliente.query(
-      `SELECT l.*, m.producto_id, m.factor_conversion
+      `SELECT l.*, COALESCE(l.producto_id, m.producto_id) AS producto_id, m.factor_conversion
          FROM productos_factura_proveedor l
          LEFT JOIN supplier_product_mapping m ON m.id = l.mapeo_id
         WHERE l.factura_id = $1

@@ -11,7 +11,7 @@ export default function RevisionPrecios() {
     facturas,
     facturaSeleccionada,
     productos,
-    productosAlegra,
+    productosDelCatalogo,
     sugerenciasPrecio,
     loading,
     error,
@@ -20,8 +20,6 @@ export default function RevisionPrecios() {
     preciosAjustados,
     enviando,
     devolviendo,
-    sincronizando,
-    sincronizarProductos,
     abrirRevision,
     volverALista,
     devolverFactura,
@@ -56,15 +54,13 @@ export default function RevisionPrecios() {
           error={error}
           tabActiva={tabActiva}
           setTabActiva={setTabActiva}
-          sincronizando={sincronizando}
-          onSincronizar={sincronizarProductos}
           onAbrirRevision={abrirRevision}
         />
       ) : (
         <RevisionFactura
           facturaSeleccionada={facturaSeleccionada}
           productos={productos}
-          productosAlegra={productosAlegra}
+          productosDelCatalogo={productosDelCatalogo}
           sugerenciasPrecio={sugerenciasPrecio}
           preciosAjustados={preciosAjustados}
           loading={loading}

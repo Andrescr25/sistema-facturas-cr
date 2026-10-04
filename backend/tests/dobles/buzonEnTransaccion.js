@@ -64,6 +64,11 @@ function prismaDelBuzon(conexion) {
       LEFT JOIN supplier_product_mapping m ON m.id = l.mapeo_id
      WHERE ${filtro} ORDER BY l.numero_linea`, params)).rows.map(comoLinea);
 
+  const comoFactura = (f, productos) => ({
+    id: f.id, estado: f.estado, numeroConsecutivo: f.numero_consecutivo, fechaEmision: f.fecha_emision,
+    proveedorNombre: f.proveedor_nombre, proveedorCedula: f.proveedor_cedula, productos
+  });
+
   const comoMapeo = (m) => {
     if (!m) return m;
     for (const campo of ['alegra_item_id', 'alegra_name']) {
@@ -89,7 +94,28 @@ function prismaDelBuzon(conexion) {
       }
     },
     factura: {
-      findUnique: async ({ where }) => ({ id: where.id, productos: await lineas('l.factura_id = $1', [where.id]) })
+      findUnique: async ({ where }) => {
+        const { rows: [f] } = await conexion.query('SELECT * FROM facturas_proveedores WHERE id = $1', [where.id]);
+        return f ? comoFactura(f, await lineas('l.factura_id = $1', [where.id])) : null;
+      },
+      // Lo que piden las listas de Revisión de Precios: por estado, y
+      // "todas sus líneas relacionadas" (`productos: { some, every }`).
+      findMany: async ({ where = {}, take = 50 } = {}) => {
+        const condiciones = ['TRUE'];
+        const params = [];
+        const estados = typeof where.estado === 'string' ? [where.estado] : where.estado?.in;
+        if (estados) { params.push(estados); condiciones.push(`f.estado::text = ANY($${params.length}::text[])`); }
+        if (where.productos?.every?.estadoRelacionado) {
+          params.push(where.productos.every.estadoRelacionado);
+          condiciones.push(`EXISTS (SELECT 1 FROM productos_factura_proveedor l WHERE l.factura_id = f.id)
+            AND NOT EXISTS (SELECT 1 FROM productos_factura_proveedor l WHERE l.factura_id = f.id AND l.estado_relacionado::text <> $${params.length})`);
+        }
+        params.push(take);
+        const { rows } = await conexion.query(
+          `SELECT * FROM facturas_proveedores f WHERE ${condiciones.join(' AND ')} ORDER BY f.fecha_emision DESC LIMIT $${params.length}`, params);
+        const todas = rows.length ? await lineas('l.factura_id = ANY($1::uuid[])', [rows.map(f => f.id)]) : [];
+        return rows.map(f => comoFactura(f, todas.filter(l => l.facturaId === f.id)));
+      }
     },
     supplierProductMapping: {
       findUnique: async ({ where }) => (where.id

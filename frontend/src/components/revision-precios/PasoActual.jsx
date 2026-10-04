@@ -14,7 +14,7 @@ const PASOS = {
   PENDIENTE_RELACIONAR: {
     numero: 1,
     titulo: 'Relacionar productos',
-    detalle: 'Asociá cada producto de la factura con tu catálogo de Alegra para poder revisar sus costos.',
+    detalle: 'Asociá cada producto de la factura con tu catálogo para poder revisar sus costos.',
     tono: 'border-alerta-200 bg-alerta-50 text-alerta-900',
     circulo: 'bg-alerta-500'
   },

@@ -29,7 +29,7 @@ import { formatCurrency, formatDate } from '../../utils/pagos'
  * nunca se muestra ese nombre.
  */
 export default function RevisionFactura({
-  facturaSeleccionada, productos, productosAlegra, sugerenciasPrecio, preciosAjustados,
+  facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
   loading, devolviendo, enviando,
   onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar
 }) {
@@ -110,7 +110,7 @@ export default function RevisionFactura({
             <FilaProducto
               key={producto.id}
               producto={producto}
-              productosAlegra={productosAlegra}
+              productosDelCatalogo={productosDelCatalogo}
               sugerenciasPrecio={sugerenciasPrecio}
               preciosAjustados={preciosAjustados}
               soloLectura={yaRegistrada}

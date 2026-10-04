@@ -26,15 +26,34 @@ function aDosDecimales(n) {
   return Math.round((Number(n) || 0) * 100) / 100
 }
 
-export function analizarProducto(producto, { productosAlegra, preciosAjustados, sugerenciasPrecio = {} }) {
-  const alegraData = productosAlegra[producto.alegraItemId] || {}
+/**
+ * La tarifa con que se analiza un producto.
+ *
+ * 0 ES UNA TARIFA: un producto exento tiene 0 % y hay que analizarlo con 0.
+ * Con `tarifa || 13` un exento se analizaba al 13 %: se le "quitaba" un IVA
+ * que su costo no trae, el costo sin IVA salía más bajo de lo que es y el
+ * margen, más alto. Solo cuando la tarifa no se conoce (el producto no tiene
+ * impuesto asignado, o sus datos todavía no llegaron) se asume el 13 %.
+ */
+export function tarifaDeAnalisis(tarifa) {
+  const n = tarifa === null || tarifa === undefined || tarifa === '' ? NaN : Number(tarifa)
+  return Number.isFinite(n) && n >= 0 ? n : 13
+}
+
+/**
+ * @param {object} producto  la línea de la factura, con su `productoPropioId`
+ * @param {object} datos
+ * @param {Record<string, object>} datos.productosDelCatalogo  el maestro propio, por `producto.id`
+ */
+export function analizarProducto(producto, { productosDelCatalogo = {}, preciosAjustados, sugerenciasPrecio = {} }) {
+  const delCatalogo = productosDelCatalogo[producto.productoPropioId] || {}
   const sugerencia = sugerenciasPrecio[producto.id] || null
 
-  // Usar el porcentaje de IVA real del producto (viene del backend)
-  const IVA_PORCENTAJE = alegraData.taxPercentage || 13 // Default 13% si no viene
+  // El porcentaje de IVA real del producto (viene del backend)
+  const IVA_PORCENTAJE = tarifaDeAnalisis(delCatalogo.taxPercentage)
 
-  // Costo Anterior: último costo en Alegra (antes de esta factura)
-  const costoAnterior = alegraData.cost || 0
+  // Costo Anterior: el costo del producto antes de esta factura
+  const costoAnterior = delCatalogo.cost || 0
 
   // Aplicar factor de conversión a la cantidad
   // SIEMPRE aplicar el factor para convertir cantidad del proveedor a tu sistema
@@ -51,7 +70,7 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados, 
   const costoNuevoSinIva = aDosDecimales(costoNuevoConIva / (1 + IVA_PORCENTAJE / 100))
 
   // Precio de venta ACTUAL (CON IVA desde el backend)
-  const precioVentaConIva = alegraData.price || 0
+  const precioVentaConIva = delCatalogo.price || 0
   const precioVentaSinIva = aDosDecimales(precioVentaConIva / (1 + IVA_PORCENTAJE / 100))
 
   // Precio AJUSTADO por el usuario (si existe)
@@ -152,7 +171,7 @@ export function analizarProducto(producto, { productosAlegra, preciosAjustados, 
 
     // Otros
     alertas,
-    nombre: alegraData.name || producto.descripcion,
+    nombre: delCatalogo.name || producto.descripcion,
     precioModificado: preciosAjustados[producto.id] !== undefined,
     ivaPorcentaje: IVA_PORCENTAJE
   }

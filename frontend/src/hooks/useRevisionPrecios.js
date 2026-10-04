@@ -22,7 +22,8 @@ export function useRevisionPrecios() {
   const [facturas, setFacturas] = useState([])
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [productos, setProductos] = useState([])
-  const [productosAlegra, setProductosAlegra] = useState({})
+  // Llaveado por `producto.id`.
+  const [productosDelCatalogo, setProductosDelCatalogo] = useState({})
   const [sugerenciasPrecio, setSugerenciasPrecio] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -34,7 +35,6 @@ export function useRevisionPrecios() {
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [devolviendo, setDevolviendo] = useState(false)
-  const [sincronizando, setSincronizando] = useState(false)
 
   // Factor de conversión inline
   const [modalFactor, setModalFactor] = useState(false)
@@ -93,30 +93,6 @@ export function useRevisionPrecios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, tabActiva])
 
-  const sincronizarProductos = useCallback(async () => {
-    try {
-      setSincronizando(true)
-      showToast('Sincronizando productos desde Alegra...', 'info')
-
-      const response = await api.post('/alegra/sincronizar/cache-productos')
-
-      if (response.data.success) {
-        showToast(
-          `Sincronización exitosa: ${response.data.total} productos actualizados`,
-          'success'
-        )
-      }
-    } catch (err) {
-      console.error('Error sincronizando productos:', err)
-      showToast(
-        `Error al sincronizar: ${err.message}`,
-        'error'
-      )
-    } finally {
-      setSincronizando(false)
-    }
-  }, [showToast])
-
   const abrirRevision = useCallback(async (factura) => {
     try {
       setLoading(true)
@@ -125,18 +101,22 @@ export function useRevisionPrecios() {
       setPreciosAjustados({})
       setSugerenciasPrecio({})
 
-      // Obtener datos de Alegra para comparación
-      const alegraIds = factura.productos
-        .map(p => p.alegraItemId)
-        .filter(Boolean)
+      // El precio y el costo de HOY de cada producto, del maestro propio y
+      // por `producto.id` (cada línea trae su `productoPropioId`). Antes se le
+      // preguntaba a Alegra en vivo, por el id de Alegra: mostraba el precio
+      // de allá —no el que "Registrar compra" cambia acá— y un producto sin
+      // ficha en Alegra no se podía revisar.
+      const productoIds = [...new Set(factura.productos
+        .map(p => p.productoPropioId)
+        .filter(Boolean))]
 
-      if (alegraIds.length > 0) {
+      if (productoIds.length > 0) {
         const response = await api.post('/revision-precios/productos-batch', {
-          alegraIds
+          productoIds
         })
 
         if (response.data.success) {
-          setProductosAlegra(response.data.productos)
+          setProductosDelCatalogo(response.data.productos)
         }
       }
 
@@ -164,7 +144,7 @@ export function useRevisionPrecios() {
     setVista('lista')
     setFacturaSeleccionada(null)
     setProductos([])
-    setProductosAlegra({})
+    setProductosDelCatalogo({})
     setPreciosAjustados({})
     setSugerenciasPrecio({})
   }, [])
@@ -343,7 +323,7 @@ export function useRevisionPrecios() {
     facturas,
     facturaSeleccionada,
     productos,
-    productosAlegra,
+    productosDelCatalogo,
     sugerenciasPrecio,
     loading,
     error,
@@ -352,8 +332,6 @@ export function useRevisionPrecios() {
     preciosAjustados,
     enviando,
     devolviendo,
-    sincronizando,
-    sincronizarProductos,
     abrirRevision,
     volverALista,
     devolverFactura,
