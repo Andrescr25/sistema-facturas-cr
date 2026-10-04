@@ -18,20 +18,20 @@ import api from '../../services/api'
  * TODOS los candidatos y elige una persona. Ver
  * backend/src/utils/telefonosCliente.js.
  *
- * `clienteId` y `contactoId` NO son intercambiables: el primero es el id
- * propio del cliente y el segundo el de Alegra. El cliente propio 8 es
- * "AB CHANA" y el contacto 8 de Alegra es "EL LLANO": pasar uno por el otro
- * propone el celular de otra persona.
+ * `clienteId` ES EL ID PROPIO del cliente, nunca el de Alegra. El cliente
+ * propio 8 es "AB CHANA" y el contacto 8 de Alegra es "EL LLANO": pasar uno
+ * por el otro propone el celular de otra persona. Hubo una segunda prop,
+ * `contactoId`, que iba a buscar el teléfono a Alegra; se retiró el
+ * 2026-10-04, cuando ya nadie la pasaba.
  */
 export default function ModalEnviarWhatsApp({
   titulo,
   subtitulo,
-  // Los teléfonos ya resueltos, o de quién ir a buscarlos: `clienteId` (id
-  // propio) o `contactoId` (id de Alegra, solo el aviso de pedidos del portal).
+  // Los teléfonos ya resueltos, o de quién ir a buscarlos: `clienteId`, el
+  // id propio del cliente.
   telefonos: telefonosIniciales,
   telefonosSinReconocer: sinReconocerInicial,
   clienteId,
-  contactoId,
   mensajeInicial = '',
   // Para avisar si ya se mandó antes: { tipo, referencia }
   documento,
@@ -42,9 +42,7 @@ export default function ModalEnviarWhatsApp({
 
   const [telefonos, setTelefonos] = useState(telefonosIniciales || [])
   const [sinReconocer, setSinReconocer] = useState(sinReconocerInicial || [])
-  const origen = clienteId
-    ? `/envios-whatsapp/telefonos-cliente/${clienteId}`
-    : contactoId ? `/envios-whatsapp/telefonos/${contactoId}` : null
+  const origen = clienteId ? `/envios-whatsapp/telefonos-cliente/${clienteId}` : null
   const [cargando, setCargando] = useState(Boolean(origen) && !telefonosIniciales)
   const [previos, setPrevios] = useState([])
 

@@ -20,7 +20,9 @@ const path = require('path');
  * día, al retirar la Gestión de Catálogo vieja (`modules/catalogo`); 8 / 2 / 4
  * al retirar el envío de compras a Alegra (`enviarFacturaAlegra`); y 5 / 1 / 3
  * al retirar la facturación contra Alegra y el módulo viejo de facturas
- * (`facturacion.service`, `modules/invoices`).
+ * (`facturacion.service`, `modules/invoices`); y 2 / 1 / 3 al retirar el
+ * módulo viejo de productos, lo que el router adaptador todavía le pedía a
+ * Alegra y el teléfono que WhatsApp buscaba allá.
  *
  * Fuera de la cuenta, a propósito: `backend/scripts` (los cargadores y las
  * conciliaciones le leen a Alegra hasta el corte, que es para lo que están) y
@@ -31,11 +33,8 @@ const RAIZ = path.join(__dirname, '..', '..');
 
 /** Código de la aplicación que importa `integrations/alegra`. */
 const IMPORTAN_LA_INTEGRACION = [
-  'backend/routes/alegra.js',                                             // el router adaptador de /api/alegra
   'backend/server.js',                                                    // la sincronización de productos cada 6 horas
-  'backend/src/modules/envios-whatsapp/envios.controller.js',
-  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js',
-  'backend/src/modules/products/product.service.js'
+  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js'   // espera el conteo físico
 ];
 
 /** Código de la aplicación que lee o escribe `alegra_products_cache`. */

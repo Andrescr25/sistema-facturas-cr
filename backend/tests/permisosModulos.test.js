@@ -89,7 +89,7 @@ describe('moduloDeRuta — a qué módulo pertenece cada llamada', () => {
 describe('rutas compartidas y de administrador', () => {
   test('las compartidas se reconocen, con y sin subruta', () => {
     assert.equal(esCompartida('/alegra'), true);
-    assert.equal(esCompartida('/alegra/contactos/buscar'), true);
+    assert.equal(esCompartida('/alegra/reportes/faltantes/notas'), true);
     assert.equal(esCompartida('/auth/yo'), true);
   });
 
@@ -219,8 +219,8 @@ describe('la ruta se clasifica como la entiende Express', () => {
   });
 
   test('lo compartido sigue compartido, y lo parecido sigue sin serlo', () => {
-    assert.equal(esCompartida('/Alegra/contactos'), true);
-    assert.equal(esCompartida('/Productos/'), true);
+    assert.equal(esCompartida('/Alegra/Reportes/faltantes/notas'), true);
+    assert.equal(esCompartida('/Reportes/'), true);
     assert.equal(moduloDeRuta('/usuariosx'), null);
     assert.equal(esRutaAdmin('/usuariosx'), false);
     assert.equal(normalizarRuta('/'), '/');

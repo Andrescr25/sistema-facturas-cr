@@ -131,40 +131,6 @@ class AlegraSyncService {
   }
 
   /**
-   * Sincronizar caché de productos (alegra_products_cache / AlegraProduct)
-   */
-  async syncProductsCache() {
-    console.log('🔄 Sincronizando caché de productos de Alegra...');
-    const products = await this.syncProductsFromAlegra();
-    return {
-      success: true,
-      message: 'Caché de productos sincronizada exitosamente',
-      count: products.length
-    };
-  }
-
-  /**
-   * Sincronizar automáticamente (sincroniza caché y productos locales legacy)
-   */
-  async syncProductsAutomatically() {
-    console.log('🔄 Sincronización automática de productos iniciada...');
-    // 1. Sincronizar caché de Alegra (Prisma)
-    const cacheProducts = await this.syncProductsFromAlegra();
-
-    // 2. Sincronizar productos locales legacy (direct pg)
-    const ProductService = require('../../../modules/products/product.service');
-    const productService = new ProductService();
-    const localSyncResult = await productService.syncProducts(100, false, true);
-
-    return {
-      success: true,
-      message: 'Sincronización automática completada con éxito',
-      cacheCount: cacheProducts.length,
-      localSync: localSyncResult
-    };
-  }
-
-  /**
    * Guardar productos en BD local
    */
   /**

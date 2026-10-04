@@ -73,7 +73,11 @@ const MODULOS = [
     grupo: 'Ventas',
     ruta: '/reportes/clientes',
     // El Excel pertenece al módulo aunque el reporte antiguo comparta prefijo.
-    rutasApi: ['/reportes/faltantes/cliente/exportar', '/alegra/reportes/faltantes/cliente/exportar']
+    // '/alegra/faltantes' son los ajustes de entrega (guardar y quitar), que
+    // solo hace esta pantalla. Colgaban de '/alegra', compartida: cualquiera
+    // con sesión podía cambiarle a un cliente lo que se le entregó. Mismo caso
+    // que '/alegra/bodega' más arriba.
+    rutasApi: ['/reportes/faltantes/cliente/exportar', '/alegra/reportes/faltantes/cliente/exportar', '/alegra/faltantes']
   },
   {
     clave: 'impresion',
@@ -100,14 +104,21 @@ const MODULOS = [
     nombre: 'Gestionar Relaciones',
     grupo: 'Compras',
     ruta: '/gestionar-relaciones',
-    rutasApi: []   // trabaja sobre /productos y /facturas, compartidas
+    // Sin prefijo propio. Sus llamadas van a /productos-revision (de Revisión
+    // de Precios) y a /proveedores (de Reporte de Proveedores): quien tenga
+    // SOLO este módulo recibe 403 en la pantalla. Falta decidir de quién son.
+    rutasApi: []
   },
   {
     clave: 'reporte-proveedores',
     nombre: 'Reporte Proveedores',
     grupo: 'Compras',
     ruta: '/reportes/proveedores',
-    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/alegra/reportes/faltantes/proveedor/exportar']
+    // '/alegra/orden-compra' es la orden de compra que arma esta pantalla y
+    // nadie más: cantidades, el PDF, el contacto del proveedor y el envío por
+    // WhatsApp. Debajo de '/alegra', compartida, cualquiera con sesión podía
+    // mandarle una orden a un proveedor.
+    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/alegra/reportes/faltantes/proveedor/exportar', '/alegra/orden-compra']
   },
   {
     clave: 'pagos-proveedores',
@@ -191,8 +202,10 @@ const MODULOS = [
  */
 const COMPARTIDAS = [
   '/auth',        // entrar, ver quién soy, cambiar mi propia contraseña
-  '/alegra',      // catálogo, contactos e imágenes de Alegra
-  '/productos',   // el catálogo local
+  // El prefijo del router adaptador. Ya no le habla a Alegra: debajo quedan
+  // reportes, faltantes y órdenes de compra, propios. Bodega e Impresión
+  // tienen ahí su pedazo, con permiso (gana el prefijo más específico).
+  '/alegra',
   '/reportes',    // reporte de clientes y de proveedores comparten prefijo
   // Impuestos, métodos de pago, plazos, cuentas y productos activos; la foto
   // de cada referencia (Bodega) y las fotos sugeridas (Gestión de Catálogo y

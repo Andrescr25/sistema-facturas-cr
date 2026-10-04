@@ -405,8 +405,9 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     for (const [archivo, marcador] of [
       ['src/modules/reports/report.service.js', 'SET bodega_observaciones = NULL'],
       ['services/scheduledCleanup.js', 'SET bodega_observaciones = NULL'],
-      ['src/modules/inventario-auditorias/inventario-auditorias.service.js', 'total_incidencias'],
-      ['src/modules/missing-items/missing-items.service.js', 'JOIN producto p ON p.id = f.producto_propio_id']
+      ['src/modules/inventario-auditorias/inventario-auditorias.service.js', 'total_incidencias']
+      // El diagnóstico de `missing-items` estuvo en esta lista hasta el
+      // 2026-10-04: se retiró, sin pantalla y leyendo la tabla vieja `productos`.
     ]) {
       const error = await errorAlAnalizar(sqlDe(archivo, marcador));
       assert.equal(error, null, `${archivo}: ${error?.message}`);

@@ -167,8 +167,55 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/contactos', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/alegra/reportes/faltantes/notas', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
+  });
+
+  test('mandarle una orden de compra a un proveedor pide Reporte Proveedores, aunque la ruta cuelgue de /alegra', async () => {
+    // '/alegra' es compartida. Hasta el 2026-10-04 esto pasaba con cualquier
+    // sesión: el envío sale por WhatsApp a un proveedor de verdad.
+    const sinModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(sinModulo.middleware, { ruta: '/alegra/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.codigo, 403);
+    assert.equal(r.cuerpo.modulo, 'reporte-proveedores');
+
+    const conModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-proveedores' }]
+    });
+    const ok = await correr(conModulo.middleware, { ruta: '/alegra/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(ok.bloqueado, false);
+  });
+
+  test('cambiar lo que se le entregó a un cliente pide Reporte Clientes', async () => {
+    const sinModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(sinModulo.middleware, { ruta: '/alegra/faltantes/ajustes', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.cuerpo.modulo, 'reporte-clientes');
+
+    const conModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-clientes' }]
+    });
+    const ok = await correr(conModulo.middleware, { ruta: '/alegra/faltantes/ajustes/33', metodo: 'DELETE', usuario: { id: 4 } });
+    assert.equal(ok.bloqueado, false);
+  });
+
+  test('Impresión ya no se alcanza por /alegra: solo por su prefijo, que pide el módulo', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(middleware, { ruta: '/reimpresion/facturas/9/procesar', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.cuerpo.modulo, 'impresion');
   });
 
   test('mover productos de categoría en lote pide el permiso de Gestión de Catálogo', async () => {
