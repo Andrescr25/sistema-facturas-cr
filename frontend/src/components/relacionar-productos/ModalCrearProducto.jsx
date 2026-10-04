@@ -27,6 +27,13 @@ import api from '../../services/api'
  * por categoría). Se recalculan al cambiar de categoría, porque el margen
  * meta depende de ella. Si el motor no tiene una sugerencia confiable el
  * campo queda vacío y hay que escribirlo: mejor eso que inventar un número.
+ *
+ * AL MOTOR SE LE MANDA EL NOMBRE DE LA CATEGORÍA, que es como está llaveada
+ * la configuración de márgenes (`config_precios.categoria`). Se le mandaba el
+ * id del desplegable: nunca calzaba con ninguna fila, y la sugerencia salía
+ * siempre con el margen por defecto (25 %) aunque Librería pida 29,2 % y
+ * Productos para perro 20 %. Medido con una misma línea: ₡2.750 al 25 % por
+ * defecto, contra ₡2.925 en Librería y ₡2.600 en Productos para perro.
  */
 export default function ModalCrearProducto({
   productoSeleccionado,
@@ -60,18 +67,20 @@ export default function ModalCrearProducto({
   // que alguien podría aceptar sin mirar.
   const [sugerencia, setSugerencia] = useState(null)
   const [cargandoSugerencia, setCargandoSugerencia] = useState(true)
+  // `categoriaSeleccionada` es el id que guarda el desplegable.
+  const nombreDeCategoria = categorias.find(c => String(c.id) === String(categoriaSeleccionada))?.name || ''
 
   useEffect(() => {
     let vivo = true
     setCargandoSugerencia(true)
     api.get(`/productos-revision/${productoSeleccionado.id}/precio-sugerido`, {
-      params: { categoria: categoriaSeleccionada?.nombre || categoriaSeleccionada || '' }
+      params: { categoria: nombreDeCategoria }
     })
       .then(r => { if (vivo) setSugerencia(r.data?.data || null) })
       .catch(() => { if (vivo) setSugerencia(null) })
       .finally(() => { if (vivo) setCargandoSugerencia(false) })
     return () => { vivo = false }
-  }, [productoSeleccionado.id, categoriaSeleccionada])
+  }, [productoSeleccionado.id, nombreDeCategoria])
 
   const cantidadProveedor = parseFloat(productoSeleccionado.cantidad) || 0
   const [cantidadInicial, setCantidadInicial] = useState(cantidadProveedor || 0)
