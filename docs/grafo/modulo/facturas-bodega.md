@@ -22,7 +22,7 @@ medido: 2026-09-30
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
 2026-09-30). La pantalla lista las facturas EMITIDAS de `factura` con sus
-líneas (`bodegaPropia.js`, `GET /alegra/bodega/facturas-propias`), con
+líneas (`bodegaPropia.js`, `GET /bodega/facturas-propias`), con
 `factura_id` como identidad; el estado de alistado vive en `factura`
 (migración 031). Lo guardado en el teléfono va bajo claves nuevas
 (`facturasBodegaPropia:*`): con las viejas, un borrador de la factura 12 de
@@ -67,5 +67,6 @@ TRAMPAS QUE YA COSTARON
   producción el 2026-09-23, con autorización y copia previa.
 - Las fechas 'YYYY-MM-DD' se leen como día local (`fechaLocal`): con
   `new Date()` la lista mostraba cada factura con un día menos.
-- `/alegra/bodega` es del módulo (no compartida): antes cualquiera con sesión
-  podía marcar facturas como despachadas.
+- `/bodega` es del módulo. Mientras la pantalla llamó a `/alegra/bodega`
+  (hasta el 2026-10-04) hubo que declararlo aparte: `/alegra` era compartida
+  y cualquiera con sesión podía marcar facturas como despachadas.

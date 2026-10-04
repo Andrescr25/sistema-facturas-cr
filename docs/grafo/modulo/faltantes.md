@@ -184,8 +184,9 @@ Resuelto en Relacionar Productos (§8, 2026-10-04): el mapeo de un producto
 sin ficha en Alegra guarda `alegra_item_id=''` (conserva NOT NULL para el
 cliente Prisma compartido) y se identifica por `producto_id`; el buzón
 también relaciona por el producto propio.
-Las rutas de los reportes y del pedido siguen colgadas del prefijo `/alegra`
-(el enrutador adaptador); son módulos propios, el prefijo se va en la §16.
+Las rutas de los reportes y del pedido tienen su propia dirección desde el
+2026-10-04 (`/reportes`, `/faltantes`, `/orden-compra`); el prefijo `/alegra`
+y su enrutador adaptador se retiraron.
 
 DEMOSTRACIÓN CONSERVADA (pedido del usuario, 2026-10-04). Dos proveedores
 `ZZ-DEMO`, cinco productos y 27 unidades faltantes en la base local, con dos

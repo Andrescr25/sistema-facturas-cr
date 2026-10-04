@@ -17,9 +17,9 @@ archivos:
   - frontend/src/utils/bitacoraFormato.js
   - backend/tests/bitacoraConsulta.test.js
   - backend/tests/bitacoraFormato.test.js
-  - backend/routes/alegra.js
-  - backend/tests/adaptadorSinAlegra.test.js
-  - backend/tests/permisosDebajoDeAlegra.test.js
+  - backend/server.js
+  - backend/tests/sinPrefijoAlegra.test.js
+  - backend/tests/dobles/sinComentarios.js
 aristas:
   relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-04
@@ -93,40 +93,55 @@ con sesión. `normalizarRuta` la pasa a minúsculas, le quita la barra final y
 las barras dobles y la decodifica antes de clasificarla. Los prefijos del
 registro van siempre en minúsculas (una prueba lo cuida).
 
-EL PREFIJO `/alegra` YA NO ES DE ALEGRA (2026-10-04). `routes/alegra.js` no
-importa la integración ni define rutas sueltas: monta cuatro módulos propios
-que las pantallas siguen llamando con esa dirección. Como `/alegra` es
-COMPARTIDO, lo que cuelga de ahí no pide permiso salvo que el registro le dé
-dueño al prefijo completo:
+EL PREFIJO `/alegra` YA NO EXISTE (2026-10-04). Era el de un router
+adaptador (`backend/routes/alegra.js`, borrado) que montaba media aplicación
+debajo de una sola dirección, y esa dirección era COMPARTIDA: lo que colgaba
+de ahí pasaba con cualquier sesión. Por ahí quedaron sin permiso, en
+distintos momentos, la Gestión de Catálogo, Facturación, Bodega, Impresión,
+los ajustes de entrega y las órdenes de compra. Ahora cada módulo tiene su
+dirección y su dueño:
 
 | Prefijo | Dueño | Qué es |
 |---|---|---|
-| `/alegra/bodega` | `facturas-bodega` | Facturas en Bodega |
-| `/alegra/faltantes` | `reporte-clientes` | ajustes de entrega (guardar, quitar) |
-| `/alegra/orden-compra` | `reporte-proveedores` | la orden de compra y su envío por WhatsApp |
-| `/alegra/reportes` | compartido | lo leen los dos reportes y la cola de impresión; los Excel sí tienen dueño |
+| `/bodega` | `facturas-bodega` | Facturas en Bodega |
+| `/reimpresion` | `impresion` | la cola de Impresión |
+| `/faltantes` | `reporte-clientes` | ajustes de entrega (guardar, quitar) |
+| `/orden-compra` | `reporte-proveedores` | la orden de compra y su envío por WhatsApp |
+| `/reportes` | compartido | lo leen los dos reportes y la cola de impresión; los Excel sí tienen dueño |
 
-UN MÓDULO NO SE MONTA DOS VECES. Impresión estaba en `/api/reimpresion` (pide
-el módulo) y también en `/api/alegra/reimpresion`, compartida. Medido el
-2026-10-04 con un usuario real sin el módulo: 403 en la primera, 200 en la
-segunda — incluido procesar una factura de la cola, que la edita. Se quitó el
-segundo montaje; la pantalla nunca lo usó. `adaptadorSinAlegra.test.js`
-recorre lo que monta el adaptador y falla si un prefijo que tiene dueño queda
-alcanzable por `/alegra` sin él. La misma revisión encontró
-`DELETE /faltantes/proveedor/limpiar`, que borraba todos los faltantes sin
-filtro y no tenía pantalla: retirada. `/productos` y `/facturas` dejaron de
-ser prefijos compartidos al irse los módulos viejos que vivían ahí.
+LAS DOS FORMAS EN QUE EL HUECO VUELVE, y que cuida `sinPrefijoAlegra.test.js`:
+
+1. **Un router montado en dos prefijos.** Impresión estaba en
+   `/api/reimpresion` (pide el módulo) y también en `/api/alegra/reimpresion`.
+   Medido con un usuario real sin el módulo: 403 en la primera, 200 en la
+   segunda, incluido procesar una factura de la cola, que la edita.
+2. **Un prefijo montado que nadie registró.** Una ruta sin clasificar pasa
+   como compartida; la prueba recorre cada `app.use('/api/…')` de `server.js`
+   y exige que sea de un módulo, compartido, de administrador o público.
+
+La misma prueba compara cada llamada de las tres pantallas mudadas contra las
+rutas que define el servidor (23 llamadas): cambiar un prefijo a mano es
+donde una queda mal escrita y responde 404 recién cuando alguien toca el
+botón.
+
+UNA PRUEBA DE AUSENCIA NO PUEDE ESCONDER CÓDIGO. Las pruebas que afirman
+"nadie llama a esto" quitaban los comentarios con dos expresiones regulares,
+y un `/*` adentro de un comentario de línea o de un texto abría un bloque
+falso que se tragaba el código siguiente: en `alegraService.js` se comía dos
+llamadas de verdad, y la prueba pasaba sin haberlas mirado. Usan
+`tests/dobles/sinComentarios.js`, que sabe cuándo está dentro de una cadena.
 
 SIGUE COMPARTIDO, SIN DECIDIR: las tres escrituras de `/reportes` — mandar a
 impresión y recuperar (Reporte de Clientes) y limpiar los faltantes
 procesados (Configuración).
 
 EN PRODUCCIÓN (`main` `1a4d666`, 2026-10-04, autorizado por el usuario) se
-cerraron el montaje doble de Impresión y el borrado total de faltantes, con
-su prueba (`permisosDebajoDeAlegra.test.js`, que llegó acá al fusionar
-`developer`). Allá sigue compartido lo que las pantallas usan por `/alegra`
-—la propia Impresión trabaja por `/alegra/facturas/...`—: el módulo decide
-quién ve la pantalla, no quién puede llamar sus rutas. En esta rama ya no.
+cerraron el montaje doble de Impresión y el borrado total de faltantes. Allá
+`/alegra` sigue existiendo y compartido —la propia Impresión trabaja por
+`/alegra/facturas/...`—: el módulo decide quién ve la pantalla, no quién
+puede llamar sus rutas. Su prueba (`permisosDebajoDeAlegra.test.js`) vive en
+`developer`; en esta rama la reemplaza `sinPrefijoAlegra.test.js`, y al
+fusionar `developer` hay que dejarla borrada.
 
 HUECO SIN DECIDIR: Gestionar Relaciones no tiene prefijo propio
 (`rutasApi: []`). Su pantalla llama a `/productos-revision` (de Revisión de

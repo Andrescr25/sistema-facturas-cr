@@ -84,9 +84,9 @@ hoy, solo con costo confiable; las últimas tres series son promedios.
 
 PERMISOS. Inicio y Rentabilidad heredan su módulo. Cada ruta de exportación
 de faltantes tiene un prefijo específico de Reporte Clientes/Proveedores en
-`usuarios/modulos.js`, también bajo `/alegra/reportes` (el router adaptador
-todavía monta las mismas rutas). Esos Excel no quedan compartidos por estar
-debajo de `/reportes` o `/alegra`.
+`usuarios/modulos.js`. Esos Excel no quedan compartidos por estar debajo de
+`/reportes`. (Hasta el 2026-10-04 se montaban también bajo
+`/alegra/reportes`; ese prefijo se retiró.)
 
 LA DESCARGA usa el token del cliente API y un blob. `enviarExcel` expone
 Content-Disposition por CORS para conservar el nombre entre puertos de
