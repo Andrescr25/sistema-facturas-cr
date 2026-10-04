@@ -202,8 +202,8 @@ export function useFacturasBodega() {
     escribir(STORAGE_KEYS.draft(facturaSeleccionada.factura_id), JSON.stringify(faltantesDraft))
   }, [faltantesDraft, facturaSeleccionada, cargandoEstados])
 
-  // Las fotos ya asignadas en el catálogo, para los productos de la factura
-  // abierta: las líneas de Alegra no traen foto propia.
+  // Las fotos ya asignadas en el catálogo propio, para los productos de la
+  // factura abierta: las líneas no traen la foto.
   useEffect(() => {
     const items = facturaSeleccionada?.items
     const referencias = Array.from(new Set((items || [])

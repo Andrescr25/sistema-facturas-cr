@@ -113,7 +113,6 @@ describe('rutas compartidas y de administrador', () => {
     // Relacionar Productos sugiere fotos, Bodega pinta la foto de cada línea.
     for (const ruta of [
       '/alegra/catalog/search-images',
-      '/alegra/catalog/imagenes-por-referencia',
       '/alegra/catalog/image-proxy'
     ]) {
       assert.equal(esCompartida(ruta), true, ruta);

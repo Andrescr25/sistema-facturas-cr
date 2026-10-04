@@ -375,24 +375,6 @@ async function productosDeCategoria(categoria) {
 }
 
 /**
- * Busca en la caché local (alegra_products_cache) la foto ya asignada de
- * cada referencia, en un solo query — usado por pantallas que no tienen la
- * imagen embebida en sus propios datos (ej. líneas de una factura de
- * Alegra, que no traen fotos), a diferencia de Auditoría/Excesos donde
- * cada ítem ya guarda su propio image_url desde que se creó.
- */
-async function buscarImagenesPorReferencia(referencias) {
-  if (!Array.isArray(referencias) || referencias.length === 0) return [];
-
-  const productos = await prisma.alegraProduct.findMany({
-    where: { reference: { in: referencias } },
-    select: { reference: true, imageUrl: true }
-  });
-
-  return productos.map((p) => ({ referencia: p.reference, imageUrl: p.imageUrl }));
-}
-
-/**
  * Buscar sugerencias de imágenes usando la API oficial de Brave Search.
  * Segundo reemplazo del scraping de Bing (2026-07): primero se intentó
  * Google Custom Search JSON API, pero Google cerró esa API a cuentas/
@@ -1055,57 +1037,17 @@ function estadoTrabajo(jobId) {
   return estado;
 }
 
-/**
- * Siguiente código libre para duplicar un producto por marca.
- *
- * El modal proponía `CODIGO-` y había que inventar el sufijo a mano, lo que
- * produjo códigos sin orden ninguno (305-14, 305-908, 305-1453, 305-8567...).
- * Acá se devuelve el menor número LIBRE empezando en 1, con tres dígitos, así
- * las marcas nuevas quedan numeradas de corrido aunque las viejas no lo estén.
- *
- * Si el producto que se duplica ya es una variante (`305-14`), la base es
- * `305`: una marca hermana, no un código anidado tipo `305-14-001`.
- */
-async function siguienteReferenciaMarca(referenciaBase) {
-  const base = String(referenciaBase || '').trim().replace(/-\d+$/, '');
-  if (!base) throw httpError(400, 'Hace falta la referencia base.');
-
-  const filas = await prisma.alegraProduct.findMany({
-    where: { reference: { startsWith: `${base}-` } },
-    select: { reference: true }
-  });
-
-  const usados = new Set();
-  for (const fila of filas) {
-    const sufijo = String(fila.reference).slice(base.length + 1);
-    // Solo cuentan los sufijos puramente numéricos: '305-A' no ocupa un
-    // número de la serie.
-    if (/^\d+$/.test(sufijo)) usados.add(parseInt(sufijo, 10));
-  }
-
-  let siguiente = 1;
-  while (usados.has(siguiente)) siguiente++;
-
-  return {
-    base,
-    referencia: `${base}-${String(siguiente).padStart(3, '0')}`,
-    usados: [...usados].sort((a, b) => a - b)
-  };
-}
-
 module.exports = {
   listarProductos,
   listarProveedoresDelCatalogo,
   SIN_PROVEEDOR,
   arbolCatalogo,
   productosDeCategoria,
-  buscarImagenesPorReferencia,
   buscarImagenes,
   descargarImagen,
   asignarImagenDesdeUrl,
   subirImagenDesdeArchivo,
   duplicarConMarca,
-  siguienteReferenciaMarca,
   editarProducto,
   eliminarProducto,
   cambiarCategoriaLote,

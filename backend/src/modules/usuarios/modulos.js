@@ -206,8 +206,9 @@ const COMPARTIDAS = [
   '/envios-whatsapp',
   // Lecturas de /alegra/catalog que usan pantallas de otros módulos:
   '/alegra/catalog/search-images',           // Relacionar Productos (sugerir foto)
-  '/alegra/catalog/imagenes-por-referencia', // Bodega (foto de cada línea)
   '/alegra/catalog/image-proxy'              // miniaturas (además es pública, ver auth.middleware)
+  // La foto de cada línea de Bodega ya no es de acá: va por
+  // /catalogos/imagenes-por-referencia, del maestro propio.
 ];
 
 /** Solo para administradores: gestionar usuarios y sus permisos. */

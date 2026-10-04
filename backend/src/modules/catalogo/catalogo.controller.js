@@ -65,21 +65,6 @@ async function listarProveedores(req, res) {
 }
 
 /**
- * GET /catalog/imagenes-por-referencia?referencias=ref1,ref2,ref3
- */
-async function buscarImagenesPorReferencia(req, res) {
-  try {
-    const { referencias } = req.query;
-    const lista = (referencias || '').split(',').map((r) => r.trim()).filter(Boolean);
-    const data = await catalogoService.buscarImagenesPorReferencia(lista);
-    res.json({ success: true, data });
-  } catch (error) {
-    console.error('❌ Error en GET /catalog/imagenes-por-referencia:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-}
-
-/**
  * GET /catalog/search-images
  */
 async function buscarImagenes(req, res) {
@@ -300,16 +285,6 @@ async function eliminarProducto(req, res) {
   }
 }
 
-async function siguienteReferenciaMarca(req, res) {
-  try {
-    const data = await catalogoService.siguienteReferenciaMarca(req.query.base);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    const status = error.status || 500;
-    res.status(status).json({ success: false, message: error.message });
-  }
-}
-
 /** Las subcategorías, opcionalmente las de una sola categoría. */
 async function listarSubcategorias(req, res) {
   try {
@@ -425,13 +400,11 @@ module.exports = {
   listarProveedores,
   arbolCatalogo,
   productosDeCategoria,
-  buscarImagenesPorReferencia,
   buscarImagenes,
   proxyImagen,
   asignarImagenDesdeUrl,
   subirImagenDesdeArchivo,
   duplicarConMarca,
-  siguienteReferenciaMarca,
   editarProducto,
   eliminarProducto,
   cambiarCategoriaLote,

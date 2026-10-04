@@ -28,6 +28,13 @@ module.exports = {
   editar: (req, res) => responder(res, servicio.editarProducto(req.params.id, req.body, usuario(req)), 'editar'),
   cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoProducto(req.params.id, req.body, usuario(req)), 'estado'),
   proveedores: (req, res) => responder(res, servicio.proveedoresConProductos(), 'proveedores'),
+  /** GET /maestro/productos/siguiente-referencia?base= — el código de la marca que sigue. */
+  siguienteReferencia: (req, res) => servicio.siguienteReferenciaDeMarca(req.query.base)
+    .then(r => res.json({ success: true, ...r }))
+    .catch(error => res.status(error.status || 500).json({ success: false, message: error.message, error: error.message })),
+  /** GET /catalogos/imagenes-por-referencia?referencias=a,b,c — la foto de cada referencia (Bodega). */
+  imagenesPorReferencia: (req, res) => responder(res, servicio.imagenesPorReferencia(
+    String(req.query.referencias || '').split(',').map(r => r.trim()).filter(Boolean)), 'imágenes por referencia'),
   /** POST /maestro/productos/:id/imagen/url  { url, urlRespaldo } */
   imagenDesdeUrl: (req, res) => responder(res, imagenes.asignarImagenDesdeUrl(req.params.id, req.body, usuario(req)), 'foto por dirección'),
   /** POST /maestro/productos/:id/imagen/archivo  (multipart, campo "imagen") */

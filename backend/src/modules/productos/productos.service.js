@@ -296,6 +296,81 @@ async function cambiarEstadoProducto(id, { activo, oculto } = {}, usuarioId) {
   });
 }
 
+/**
+ * La foto de cada referencia, del maestro propio. La usa Facturas en Bodega
+ * para mostrar el producto de cada línea.
+ *
+ * Hasta el 2026-10-04 salía de `alegra_products_cache`, y en esta rama esa
+ * caché ya no sirve para esto: sus 1.995 fotos son direcciones firmadas de
+ * Alegra, que vencen a los 7 días, mientras el maestro tiene 2.022 guardadas
+ * en almacenamiento propio. En Bodega se veían rotas.
+ *
+ * Se responde con la referencia TAL COMO SE PIDIÓ, que es la llave con la que
+ * la pantalla busca; la comparación no distingue mayúsculas. Si dos productos
+ * comparten referencia (quedan 4 casos, casi siempre uno inactivo), gana el
+ * activo y, entre iguales, el más nuevo.
+ *
+ * @param {string[]} referencias
+ * @returns {Promise<{referencia: string, imageUrl: string}[]>}
+ */
+async function imagenesPorReferencia(referencias) {
+  const pedidas = [...new Set((referencias || []).map(r => String(r ?? '').trim()).filter(Boolean))].slice(0, 500);
+  if (pedidas.length === 0) return [];
+
+  const { rows } = await pool.query(`
+    SELECT DISTINCT ON (lower(p.referencia)) lower(p.referencia) AS llave, p.imagen_url
+      FROM producto p
+     WHERE lower(p.referencia) = ANY($1::text[])
+       AND p.imagen_url IS NOT NULL AND p.imagen_url <> ''
+     ORDER BY lower(p.referencia), p.activo DESC, p.id DESC`,
+  [[...new Set(pedidas.map(r => r.toLowerCase()))]]);
+
+  const foto = new Map(rows.map(r => [r.llave, r.imagen_url]));
+  return pedidas
+    .filter(r => foto.has(r.toLowerCase()))
+    .map(r => ({ referencia: r, imageUrl: foto.get(r.toLowerCase()) }));
+}
+
+/**
+ * Siguiente código libre para agregar una marca de un producto.
+ *
+ * Devuelve el menor número LIBRE empezando en 1, con tres dígitos, así las
+ * marcas nuevas quedan numeradas de corrido aunque las viejas no lo estén
+ * (305-14, 305-908, 305-1453…). Si el producto ya es una variante (`305-14`),
+ * la base es `305`: una marca hermana, no un código anidado `305-14-001`.
+ *
+ * SE CUENTA SOBRE EL MAESTRO PROPIO, también los inactivos. Se contaba sobre
+ * la caché de Alegra, que en esta rama no se entera de los productos creados
+ * acá: después de agregar una marca volvía a proponer el mismo código, y el
+ * guardado lo rechazaba por repetido.
+ */
+async function siguienteReferenciaDeMarca(referenciaBase) {
+  const base = String(referenciaBase || '').trim().replace(/-\d+$/, '');
+  if (!base) throw httpError(400, 'Hace falta la referencia base.');
+
+  // Con `left` y no con LIKE: una referencia puede traer `%` o `_`.
+  const prefijo = `${base}-`;
+  const { rows } = await pool.query(
+    'SELECT referencia FROM producto WHERE lower(left(referencia, $2)) = lower($1)', [prefijo, prefijo.length]);
+
+  const usados = new Set();
+  for (const fila of rows) {
+    const sufijo = String(fila.referencia).slice(prefijo.length);
+    // Solo cuentan los sufijos puramente numéricos: '305-A' no ocupa un
+    // número de la serie.
+    if (/^\d+$/.test(sufijo)) usados.add(parseInt(sufijo, 10));
+  }
+
+  let siguiente = 1;
+  while (usados.has(siguiente)) siguiente++;
+
+  return {
+    base,
+    referencia: `${base}-${String(siguiente).padStart(3, '0')}`,
+    usados: [...usados].sort((a, b) => a - b)
+  };
+}
+
 /** Lo que necesitan los demás módulos para vender: activo, visible y lo justo. */
 async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}) {
   const r = await listarProductos({ buscar, pagina, limite, estado: 'activos' });
@@ -406,7 +481,7 @@ module.exports = {
   crearProducto,
   editarProducto,
   cambiarEstadoProducto,
-  productosParaOperar,
+  productosParaOperar, imagenesPorReferencia, siguienteReferenciaDeMarca,
   proveedoresConProductos,
   listarCategorias,
   crearCategoria,

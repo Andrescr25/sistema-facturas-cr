@@ -215,7 +215,9 @@ export const alegraService = {
   async getImagenesPorReferencia(referencias) {
     try {
       if (!referencias || referencias.length === 0) return { success: true, data: [] };
-      const response = await api.get('/alegra/catalog/imagenes-por-referencia', {
+      // Del maestro propio: las fotos de la caché de Alegra son direcciones
+      // firmadas que vencen, y en esta rama ya están vencidas.
+      const response = await api.get('/catalogos/imagenes-por-referencia', {
         params: { referencias: referencias.join(',') }
       });
       return response.data;

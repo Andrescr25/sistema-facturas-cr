@@ -41,6 +41,8 @@ routes.put('/categorias/:id/nombre-visible', controller.nombreVisibleCategoria);
 
 routes.get('/productos', controller.listar);
 routes.get('/productos/proveedores', controller.proveedores);
+// Antes de `/productos/:id`, o "siguiente-referencia" se tomaría por un id.
+routes.get('/productos/siguiente-referencia', controller.siguienteReferencia);
 routes.get('/productos/:id', controller.obtener);
 routes.post('/productos', controller.crear);
 routes.put('/productos/:id', controller.editar);
@@ -54,5 +56,7 @@ routes.patch('/categorias/:id/activo', controller.cambiarActivoCategoria);
 
 const rutasCompartidas = express.Router();
 rutasCompartidas.get('/productos', controller.paraOperar);
+// La foto de cada referencia, para Facturas en Bodega: solo lectura.
+rutasCompartidas.get('/imagenes-por-referencia', controller.imagenesPorReferencia);
 
 module.exports = { routes, rutasCompartidas };

@@ -146,7 +146,8 @@ export function useFichaProducto({ mostrarToast, alCambiar, alPonerFoto }) {
     }
     let referencia = producto.referencia ? `${producto.referencia}-` : ''
     try {
-      const { data } = await api.get('/alegra/catalog/siguiente-referencia', { params: { base: producto.referencia || 'REF' } })
+      // Contado sobre el maestro propio: la caché de Alegra no conoce las marcas agregadas acá.
+      const { data } = await api.get('/maestro/productos/siguiente-referencia', { params: { base: producto.referencia || 'REF' } })
       if (data?.success) referencia = data.referencia
     } catch (error) {
       console.error('No se pudo calcular el siguiente código de marca:', error)
