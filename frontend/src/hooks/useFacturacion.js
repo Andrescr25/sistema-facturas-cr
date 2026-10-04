@@ -1066,7 +1066,10 @@ export function useFacturacion() {
         } else if (!resultado.online) {
           mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se envíe', 'info', 4000)
         } else {
-          console.warn('⚠️ No se puede mostrar PDF: online=', resultado.online, 'id=', resultado.data?.id)
+          // El servidor reconoció la factura pero no devolvió un id nuestro:
+          // se había creado en Alegra antes de pasar al sistema nuevo y
+          // todavía no está copiada acá. No se abre un PDF adivinando.
+          mostrarMensaje('ℹ️ Esa factura ya estaba creada desde antes del cambio de sistema. Su PDF se podrá abrir cuando esté cargada acá.', 'info', 6000)
         }
 
         // Limpiar formulario

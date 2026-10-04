@@ -73,7 +73,10 @@ function montar({ fallaElGuardado = false, productos = [producto(12), producto(9
       const f = intentos.get(params[0]);
       if (!f) return { rows: [] };
       if (/SET estado = 'creada'/.test(texto)) {
-        Object.assign(f, { estado: 'creada', alegra_invoice_id: params[1], numero_factura: params[2] });
+        // La factura propia va en `factura_id`; `alegra_invoice_id` no se toca.
+        assert.match(texto, /factura_id = \$2/);
+        assert.equal(/alegra_invoice_id/.test(texto), false, 'el id propio volvió a escribirse en la columna de Alegra');
+        Object.assign(f, { estado: 'creada', factura_id: params[1], numero_factura: params[2] });
       } else if (/SET estado = \$2/.test(texto)) {
         Object.assign(f, { estado: params[1], detalle: params[2] });
       } else if (/SET estado = 'en_proceso'/.test(texto)) {
@@ -217,6 +220,49 @@ describe('idempotencia al crear facturas propias', () => {
     assert.equal(estado.emitidas, 0);
   });
 
+  test('la misma clave con los mismos productos para OTRO cliente se rechaza', async () => {
+    // La fórmula anterior leía `client`, que en el contrato propio viene
+    // vacío: esto pasaba por reenvío y devolvía la factura del primer cliente.
+    const { servicio, estado } = montar();
+    const primera = await servicio.crearFactura(FACTURA, 1, { clave: 'pedido-3' });
+
+    await assert.rejects(
+      () => servicio.crearFactura({ ...FACTURA, clienteId: 8 }, 1, { clave: 'pedido-3' }),
+      (e) => e.status === 409 && /otro documento distinto/.test(e.message)
+    );
+    assert.equal(estado.emitidas, 1);
+    assert.ok(primera.id);
+  });
+
+  test('la clave de una cotización de antes del corte no pasa por factura ya creada', async () => {
+    // En producción las cotizaciones usan esta misma tabla, sin huella y con
+    // el id de la cotización de Alegra. Devolver eso como "la factura ya
+    // existía" sería entregar otro documento.
+    const { servicio, intentos, estado } = montar();
+    intentos.set('cot-123', { clave: 'cot-123', estado: 'creada', huella: null, alegra_invoice_id: '7', numero_factura: '7', intentos: 1 });
+
+    await assert.rejects(
+      () => servicio.crearFactura(FACTURA, 1, { clave: 'cot-123' }),
+      (e) => e.status === 409 && /otro documento distinto/.test(e.message)
+    );
+    assert.equal(estado.emitidas, 0);
+  });
+
+  test('un intento registrado con la huella anterior sigue siendo reconocido', async () => {
+    // Quedó guardado antes de este cambio, con la fórmula que no miraba al
+    // cliente. Su reenvío legítimo no puede rechazarse como "otro documento".
+    const { servicio, idem, intentos, estado } = montar();
+    intentos.set('pedido-2', {
+      clave: 'pedido-2', estado: 'creada', huella: idem.huellaAnteriorDe(FACTURA),
+      factura_id: 501, numero_factura: '001000014869', intentos: 1
+    });
+
+    const r = await servicio.crearFactura(FACTURA, 1, { clave: 'pedido-2' });
+    assert.equal(r.yaExistia, true);
+    assert.equal(r.id, 501);
+    assert.equal(estado.emitidas, 0);
+  });
+
   test('reusar una clave con OTRA factura adentro se rechaza', async () => {
     // Sería un error de programación, y devolver la factura equivocada es peor
     // que fallar.
@@ -241,10 +287,40 @@ describe('idempotencia al crear facturas propias', () => {
 
   test('la huella distingue contenidos y no cambia con el orden de los items', () => {
     const { huellaDe } = require('../src/modules/facturacion/idempotencia');
-    const a = { client: 1, date: 'x', items: [{ id: 1, quantity: 1, price: 10 }, { id: 2, quantity: 2, price: 20 }] };
-    const b = { client: 1, date: 'x', items: [{ id: 2, quantity: 2, price: 20 }, { id: 1, quantity: 1, price: 10 }] };
-    const c = { client: 1, date: 'x', items: [{ id: 1, quantity: 9, price: 10 }] };
-    assert.equal(huellaDe(a), huellaDe(b), 'el orden de los items no cambia la factura');
-    assert.notEqual(huellaDe(a), huellaDe(c), 'otra cantidad es otra factura');
+    for (const cliente of [{ client: 1 }, { clienteId: 1 }]) {
+      const a = { ...cliente, date: 'x', items: [{ id: 1, quantity: 1, price: 10 }, { id: 2, quantity: 2, price: 20 }] };
+      const b = { ...cliente, date: 'x', items: [{ id: 2, quantity: 2, price: 20 }, { id: 1, quantity: 1, price: 10 }] };
+      const c = { ...cliente, date: 'x', items: [{ id: 1, quantity: 9, price: 10 }] };
+      assert.equal(huellaDe(a), huellaDe(b), 'el orden de los items no cambia la factura');
+      assert.notEqual(huellaDe(a), huellaDe(c), 'otra cantidad es otra factura');
+    }
+  });
+
+  test('la huella del contrato de antes no cambió ni una coma', () => {
+    // Es la que tienen guardada los intentos que vienen de producción, y la
+    // que se recalcula cuando una tablet reenvía después del corte una
+    // factura que armó antes. Si cambia, ese reenvío deja de reconocerse.
+    const { huellaDe, huellaAnteriorDe } = require('../src/modules/facturacion/idempotencia');
+    const deAntes = { client: 38, date: '2026-09-01', items: [{ id: 983, quantity: 2, price: 1000 }, { id: 12, quantity: 1, price: 55.5 }] };
+    const esperada = require('crypto').createHash('sha256')
+      .update('38~2026-09-01~12:1:55.5|983:2:1000').digest('hex').slice(0, 64);
+
+    assert.equal(huellaAnteriorDe(deAntes), esperada);
+    assert.equal(huellaDe(deAntes), esperada, 'una factura armada antes del corte se sigue reconociendo por su huella de siempre');
+  });
+
+  test('un id nuestro y uno de Alegra con el mismo número no dan la misma huella', () => {
+    const { huellaDe } = require('../src/modules/facturacion/idempotencia');
+    const items = [{ id: 983, productoId: 983, quantity: 2, price: 1000 }];
+
+    assert.notEqual(
+      huellaDe({ clienteId: 38, date: '2026-09-01', items }),
+      huellaDe({ client: 38, date: '2026-09-01', items })
+    );
+    // En el contrato propio el producto es `productoId`; `id` solo si falta.
+    assert.equal(
+      huellaDe({ clienteId: 38, date: 'x', items: [{ id: 5, productoId: 983, quantity: 1, price: 1 }] }),
+      huellaDe({ clienteId: '38', date: 'x', items: [{ productoId: '983', quantity: 1, price: 1 }] })
+    );
   });
 });

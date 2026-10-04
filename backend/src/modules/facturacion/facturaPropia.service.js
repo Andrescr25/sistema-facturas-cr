@@ -465,11 +465,17 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
   if (clave) {
     const reserva = await idempotencia.reservar(clave, datos);
     if (!reserva.seguir) {
+      // `id` es nuestro id de factura, o null: la clave es de una factura
+      // creada en Alegra antes del corte que todavía no se copió acá. No se
+      // devuelve el id de Alegra — acá ese número es otra factura.
+      const { id, numero } = reserva.yaCreada;
       return {
         yaExistia: true,
-        id: reserva.yaCreada.id,
-        numero: reserva.yaCreada.numero,
-        mensaje: 'Esa factura ya estaba creada.'
+        id,
+        numero,
+        mensaje: id
+          ? 'Esa factura ya estaba creada.'
+          : `Esa factura ya se había creado${numero ? ` (${numero})` : ''} antes de pasar al sistema nuevo y todavía no está cargada acá.`
       };
     }
   }
@@ -478,10 +484,7 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
     const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId));
 
     if (clave) {
-      await idempotencia.marcarCreada(clave, {
-        id: factura.id,
-        numberTemplate: { fullNumber: factura.numero }
-      });
+      await idempotencia.marcarCreada(clave, { id: factura.id, numero: factura.numero });
     }
     return factura;
   } catch (error) {
