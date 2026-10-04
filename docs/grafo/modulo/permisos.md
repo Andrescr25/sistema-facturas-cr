@@ -71,6 +71,21 @@ con lo que cambió campo por campo.
 - La hora se muestra como está guardada, sin pasarla por `Date`: la columna
   no lleva zona horaria.
 
-QUEDA POR DECIDIR (es del usuario): qué acciones exigen administrador —anular,
-nota de crédito, editar una factura emitida, cerrar caja—. Hoy las puede hacer
-quien tenga el módulo.
+ACCIONES QUE PIDEN ADMINISTRADOR AUNQUE SE TENGA EL MÓDULO (decisión del
+usuario, 2026-10-03): anular una factura, anular un cobro y reabrir una caja
+ya cerrada. Viven en `ACCIONES_ADMIN` (`usuarios/modulos.js`), por método y
+ruta, y `requirePermiso` responde 403 diciendo cuál es. El frontend espeja las
+claves (`ACCIONES_SOLO_ADMIN`, `puedeAccion`) solo para no dibujar el botón.
+Quedaron con el módulo, a propósito: notas de crédito, editar una factura
+emitida —Impresión lo hace todos los días al rebajar faltantes— y cerrar la
+caja.
+
+LA RUTA SE CLASIFICA COMO LA ENTIENDE EXPRESS. Express no distingue mayúsculas
+y acepta la barra final; el guardián comparaba el texto tal cual. Medido el
+2026-10-03 con un usuario común: `/api/usuarios` respondía 403 y
+`/api/Usuarios` respondía 200. La ruta con otra letra no calzaba con ningún
+prefijo, caía en "sin clasificar" y pasaba; Express la entregaba igual al
+módulo. Así se abría cualquier módulo, y la gestión de usuarios, a cualquiera
+con sesión. `normalizarRuta` la pasa a minúsculas, le quita la barra final y
+las barras dobles y la decodifica antes de clasificarla. Los prefijos del
+registro van siempre en minúsculas (una prueba lo cuida).
