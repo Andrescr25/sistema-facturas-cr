@@ -6,6 +6,8 @@ import {
 import Insignia from '../ui/Insignia'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones, colonesExacto } from '../../utils/colones'
+import { useAuth } from '../../contexts/AuthContext'
+import { puedeAccion } from '../../utils/modulos'
 
 /**
  * Una factura, en su propia pantalla — y en el mismo lugar se corrige.
@@ -67,6 +69,8 @@ export default function VistaFactura({
 }) {
   const f = factura
   const emisor = empresa || {}
+  const { usuario } = useAuth()
+  const puedeAnular = puedeAccion(usuario, 'anular-factura')
   const direccionEmisor = [emisor.provincia, emisor.canton, emisor.distrito, emisor.barrio, emisor.otras_senas]
     .filter(Boolean).join(' ')
 
@@ -259,9 +263,14 @@ export default function VistaFactura({
                   <button onClick={() => onNotaCredito(f)} className="btn btn-outline flex items-center gap-2 text-nota-700">
                     <Undo2 size={16} /> Nota de crédito
                   </button>
-                  <button onClick={() => onAnular(f)} className="btn btn-outline flex items-center gap-2 text-peligro-600">
-                    <Ban size={16} /> Anular
-                  </button>
+                  {/* Anular es de administradores (decisión del usuario,
+                      2026-10-03). El servidor lo hace valer; acá solo no se
+                      ofrece un botón que va a responder que no. */}
+                  {puedeAnular && (
+                    <button onClick={() => onAnular(f)} className="btn btn-outline flex items-center gap-2 text-peligro-600">
+                      <Ban size={16} /> Anular
+                    </button>
+                  )}
                 </>
               )}
             </>

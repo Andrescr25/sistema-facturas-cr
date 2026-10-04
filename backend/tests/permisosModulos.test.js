@@ -17,7 +17,8 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  MODULOS, CLAVES, COMPARTIDAS, porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin
+  MODULOS, CLAVES, COMPARTIDAS, ACCIONES_ADMIN, porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin,
+  accionDeAdmin, normalizarRuta
 } = require('../src/modules/usuarios/modulos');
 
 describe('catálogo de módulos', () => {
@@ -180,6 +181,98 @@ describe('cada prefijo montado en server.js está clasificado', () => {
     assert.equal(esCompartida('/envios-whatsapp/historial'), true);
     const rutas = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'envios-whatsapp', 'envios.routes.js'), 'utf8');
     assert.doesNotMatch(rutas, /router\.(post|put|patch|delete)\(/, '/envios-whatsapp es compartida: ahí no puede haber una ruta que escriba');
+  });
+});
+
+describe('la ruta se clasifica como la entiende Express', () => {
+  // Express no distingue mayúsculas y acepta la barra final. El guardián
+  // comparaba el texto tal cual: '/Usuarios' no calzaba con '/usuarios', caía
+  // en "sin clasificar" y pasaba. Medido el 2026-10-03 con un usuario común:
+  // /api/usuarios daba 403 y /api/Usuarios daba 200.
+  test('cambiar mayúsculas no saca a una ruta de su módulo ni de administrador', () => {
+    for (const ruta of ['/Usuarios', '/USUARIOS', '/usuarios/', '/Usuarios/4/password', '/USUARIOS//bitacora']) {
+      assert.equal(esRutaAdmin(ruta), true, `${ruta} dejó de exigir administrador`);
+    }
+    assert.equal(moduloDeRuta('/Rentabilidad/resumen'), 'rentabilidad');
+    assert.equal(moduloDeRuta('/RENTABILIDAD/'), 'rentabilidad');
+    assert.equal(moduloDeRuta('/Reporte-Contador/periodos'), 'reporte-contador');
+    assert.equal(moduloDeRuta('/Alegra/Catalog/productos'), 'gestion-catalogo');
+    assert.equal(moduloDeRuta('/Cuentas-Por-Cobrar/propios/deudores'), 'cuentas-por-cobrar');
+  });
+
+  test('una ruta codificada se clasifica por lo que dice', () => {
+    assert.equal(esRutaAdmin('/%55suarios'), true);
+    assert.equal(moduloDeRuta('/%72entabilidad/resumen'), 'rentabilidad');
+    // Un % suelto no es una codificación válida: no revienta.
+    assert.equal(moduloDeRuta('/rentabilidad/%'), 'rentabilidad');
+  });
+
+  test('lo compartido sigue compartido, y lo parecido sigue sin serlo', () => {
+    assert.equal(esCompartida('/Alegra/contactos'), true);
+    assert.equal(esCompartida('/Productos/'), true);
+    assert.equal(moduloDeRuta('/usuariosx'), null);
+    assert.equal(esRutaAdmin('/usuariosx'), false);
+    assert.equal(normalizarRuta('/'), '/');
+    assert.equal(normalizarRuta('/Facturacion//Facturas/12/'), '/facturacion/facturas/12');
+  });
+
+  test('ningún prefijo del registro tiene mayúsculas: se comparan contra la ruta en minúsculas', () => {
+    const todos = [...MODULOS.flatMap(m => m.rutasApi), ...COMPARTIDAS];
+    assert.deepEqual(todos.filter(p => p !== p.toLowerCase()), []);
+  });
+});
+
+describe('acciones que exigen administrador aunque se tenga el módulo', () => {
+  // Decisión del usuario, 2026-10-03: anular facturas y cobros, y reabrir una
+  // caja ya cerrada. Notas de crédito, editar una factura y cerrar la caja NO.
+  test('las tres acciones, por su método y su ruta', () => {
+    assert.equal(accionDeAdmin('PATCH', '/facturacion/facturas/5482/anular').clave, 'anular-factura');
+    assert.equal(accionDeAdmin('PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular').clave, 'anular-cobro');
+    assert.equal(accionDeAdmin('POST', '/cuentas-por-cobrar/propios/caja/reabrir').clave, 'reabrir-caja');
+    assert.deepEqual(ACCIONES_ADMIN.map(a => a.clave), ['anular-factura', 'anular-cobro', 'reabrir-caja']);
+  });
+
+  test('tampoco se saltan con mayúsculas, la barra final o el método en minúscula', () => {
+    assert.equal(accionDeAdmin('patch', '/Facturacion/Facturas/12/ANULAR/').clave, 'anular-factura');
+    assert.equal(accionDeAdmin('post', '/Cuentas-Por-Cobrar/propios/caja/REABRIR').clave, 'reabrir-caja');
+    assert.equal(accionDeAdmin('PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular/').clave, 'anular-cobro');
+  });
+
+  test('lo que el usuario dejó en manos del módulo sigue ahí', () => {
+    for (const [metodo, ruta] of [
+      ['POST', '/facturacion/notas-credito'],
+      ['PATCH', '/facturacion/notas-credito/3/anular'],
+      ['PUT', '/facturacion/facturas/12'],
+      ['POST', '/cuentas-por-cobrar/propios/caja/cerrar'],
+      ['POST', '/cuentas-por-cobrar/propios/abonos'],
+      ['GET', '/facturacion/facturas/12'],
+      ['GET', '/facturacion/facturas/12/anular'],
+      ['POST', '/reimpresion/facturas/12/procesar'],
+      ['POST', '/pagos-proveedores/pagos/4/anular']
+    ]) {
+      assert.equal(accionDeAdmin(metodo, ruta), null, `${metodo} ${ruta} quedó solo para administradores`);
+    }
+  });
+
+  test('cada acción apunta a una ruta que existe, con ese método', () => {
+    // Si alguien renombra la ruta, la acción quedaría protegiendo nada.
+    const leer = (...p) => fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', ...p), 'utf8');
+    assert.match(leer('facturacion', 'facturacion.routes.js'), /router\.patch\('\/facturas\/:id\/anular'/);
+    const cxc = leer('cuentas-por-cobrar', 'cuentas-por-cobrar.routes.js');
+    assert.match(cxc, /router\.patch\('\/propios\/abonos\/:id\/anular'/);
+    assert.match(cxc, /router\.post\('\/propios\/caja\/reabrir'/);
+  });
+
+  test('el espejo del frontend tiene las mismas claves', () => {
+    const espejo = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'utils', 'modulos.js'), 'utf8');
+    const lista = espejo.match(/ACCIONES_SOLO_ADMIN = \[([^\]]*)\]/)[1].match(/'([^']+)'/g).map(s => s.slice(1, -1));
+    assert.deepEqual(lista, ACCIONES_ADMIN.map(a => a.clave));
+  });
+
+  test('las pantallas preguntan antes de dibujar el botón', () => {
+    const frente = path.join(__dirname, '..', '..', 'frontend', 'src', 'components');
+    assert.match(fs.readFileSync(path.join(frente, 'facturacion', 'VistaFactura.jsx'), 'utf8'), /puedeAccion\(usuario, 'anular-factura'\)/);
+    assert.match(fs.readFileSync(path.join(frente, 'cuentas-por-cobrar', 'PanelCierreCaja.jsx'), 'utf8'), /puedeAccion\(usuario, 'reabrir-caja'\)/);
   });
 });
 

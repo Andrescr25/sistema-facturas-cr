@@ -64,6 +64,24 @@ export function porGrupo() {
 export const RUTAS_ADMIN = ['/usuarios']
 
 /**
+ * Acciones que solo hace un administrador AUNQUE la persona tenga el módulo.
+ *
+ * Decisión del usuario (2026-10-03): anular una factura, anular un cobro y
+ * reabrir una caja ya cerrada. Espeja `ACCIONES_ADMIN` del backend
+ * (usuarios/modulos.js); una prueba compara las dos listas.
+ *
+ * Esto solo decide si se DIBUJA el botón. Quien protege es el servidor, que
+ * responde 403 aunque alguien llame la ruta a mano.
+ */
+export const ACCIONES_SOLO_ADMIN = ['anular-factura', 'anular-cobro', 'reabrir-caja']
+
+export function puedeAccion(usuario, clave) {
+  if (!usuario) return false
+  if (ACCIONES_SOLO_ADMIN.includes(clave)) return Boolean(usuario.esAdmin)
+  return true
+}
+
+/**
  * ¿Este usuario ve esta ruta?
  *
  * Una ruta que no está en el catálogo (por ejemplo /relacionar-productos/:id,

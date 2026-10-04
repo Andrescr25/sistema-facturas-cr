@@ -154,9 +154,9 @@ describe('validación de los módulos que llegan', () => {
 });
 
 describe('requirePermiso — el middleware que protege de verdad', () => {
-  function correr(middleware, { ruta, usuario }) {
+  function correr(middleware, { ruta, usuario, metodo = 'GET' }) {
     return new Promise(resolve => {
-      const req = { method: 'GET', path: ruta, usuario };
+      const req = { method: metodo, path: ruta, usuario };
       const res = {
         status(codigo) { this._codigo = codigo; return this; },
         json(cuerpo) { resolve({ bloqueado: true, codigo: this._codigo, cuerpo }); }
@@ -222,6 +222,91 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
     assert.equal(r.codigo, 403);
     assert.match(r.cuerpo.error, /administrador/);
+  });
+
+  test('cambiar mayúsculas en la dirección NO salta el permiso', async () => {
+    // Express no distingue mayúsculas; el guardián sí lo hacía. Medido el
+    // 2026-10-03: /api/usuarios daba 403 y /api/Usuarios daba 200.
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    for (const ruta of ['/Usuarios', '/USUARIOS/', '/usuarios/', '/Usuarios/4/password']) {
+      const r = await correr(middleware, { ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.match(r.cuerpo.error, /administrador/);
+    }
+    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Alegra/Catalog/productos']) {
+      const r = await correr(middleware, { ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.equal(r.cuerpo.code, 'SIN_PERMISO');
+    }
+  });
+
+  test('y una cuenta desactivada tampoco pasa cambiando mayúsculas', async () => {
+    const { middleware } = cargarConDobles({ 'FROM usuario WHERE id': [USUARIO({ activo: false })] });
+    const r = await correr(middleware, { ruta: '/Rentabilidad/resumen', usuario: { id: 4 } });
+    assert.equal(r.codigo, 401);
+  });
+
+  test('anular una factura o un cobro y reabrir la caja piden administrador aunque se tenga el módulo', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }, { modulo: 'cuentas-por-cobrar' }]
+    });
+    const casos = [
+      ['PATCH', '/facturacion/facturas/5482/anular', 'anular-factura', /anular una factura/],
+      ['PATCH', '/Facturacion/Facturas/5482/Anular/', 'anular-factura', /anular una factura/],
+      ['PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular', 'anular-cobro', /anular un cobro/],
+      ['POST', '/cuentas-por-cobrar/propios/caja/reabrir', 'reabrir-caja', /reabrir una caja/]
+    ];
+    for (const [metodo, ruta, clave, mensaje] of casos) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${metodo} ${ruta} pasó`);
+      assert.equal(r.cuerpo.accion, clave);
+      assert.match(r.cuerpo.error, mensaje);
+      assert.equal(r.cuerpo.message, r.cuerpo.error, 'la pantalla lee `message`');
+    }
+  });
+
+  test('con el módulo, todo lo demás sigue igual: facturar, nota de crédito, editar, cobrar y cerrar caja', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }, { modulo: 'cuentas-por-cobrar' }]
+    });
+    for (const [metodo, ruta] of [
+      ['POST', '/facturacion/facturas'],
+      ['PUT', '/facturacion/facturas/5482'],
+      ['POST', '/facturacion/notas-credito'],
+      ['PATCH', '/facturacion/notas-credito/3/anular'],
+      ['POST', '/cuentas-por-cobrar/propios/abonos'],
+      ['POST', '/cuentas-por-cobrar/propios/caja/cerrar'],
+      ['GET', '/facturacion/facturas/5482']
+    ]) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.bloqueado, false, `${metodo} ${ruta} quedó bloqueado`);
+    }
+  });
+
+  test('un administrador sí anula y reabre', async () => {
+    const { middleware } = cargarConDobles({ 'FROM usuario WHERE id': [USUARIO({ es_admin: true })] });
+    for (const [metodo, ruta] of [
+      ['PATCH', '/facturacion/facturas/5482/anular'],
+      ['PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular'],
+      ['POST', '/cuentas-por-cobrar/propios/caja/reabrir']
+    ]) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.bloqueado, false, `${metodo} ${ruta} bloqueó a un administrador`);
+    }
+  });
+
+  test('sin el módulo, la acción de administrador tampoco pasa (y lo dice como falta de administrador)', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': []
+    });
+    const r = await correr(middleware, { metodo: 'PATCH', ruta: '/facturacion/facturas/1/anular', usuario: { id: 4 } });
+    assert.equal(r.codigo, 403);
   });
 
   test('una cuenta desactivada recibe 401 aunque su token siga vigente', async () => {

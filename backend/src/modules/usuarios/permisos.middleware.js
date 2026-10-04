@@ -24,7 +24,7 @@
  */
 
 const { permisosDe } = require('./usuarios.service');
-const { moduloDeRuta, esCompartida, esRutaAdmin } = require('./modulos');
+const { moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin } = require('./modulos');
 
 function requirePermiso(req, res, next) {
   if (req.method === 'OPTIONS') return next();
@@ -33,11 +33,16 @@ function requirePermiso(req, res, next) {
   // (el catálogo de clientes, el portal, /health). No hay nada que autorizar.
   if (!req.usuario) return next();
 
+  // La ruta se clasifica como la va a entender Express, que no distingue
+  // mayúsculas ni la barra final: ver `normalizarRuta` en modulos.js. Cuando se
+  // comparaba tal cual, '/Usuarios' no calzaba con nada y pasaba.
   const ruta = req.path;
   if (esCompartida(ruta)) return next();
 
   const clave = moduloDeRuta(ruta);
-  const necesitaAdmin = esRutaAdmin(ruta);
+  // Lo que pide administrador aunque se tenga el módulo (anular, reabrir caja).
+  const accion = accionDeAdmin(req.method, ruta);
+  const necesitaAdmin = esRutaAdmin(ruta) || Boolean(accion);
   if (!clave && !necesitaAdmin) return next();
 
   permisosDe(req.usuario.id)
@@ -52,8 +57,12 @@ function requirePermiso(req, res, next) {
       }
 
       if (necesitaAdmin && !permisos.esAdmin) {
+        const mensaje = accion
+          ? `Solo un administrador puede ${accion.que}.`
+          : 'Solo un administrador puede hacer esto.';
         return res.status(403).json({
-          success: false, error: 'Solo un administrador puede hacer esto.', code: 'SIN_PERMISO'
+          success: false, error: mensaje, message: mensaje, code: 'SIN_PERMISO',
+          ...(accion ? { accion: accion.clave } : {})
         });
       }
 

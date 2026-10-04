@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Lock, Unlock, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cerrarCaja, reabrirCaja } from '../../services/cuentasPorCobrarService'
 import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
+import { useAuth } from '../../contexts/AuthContext'
+import { puedeAccion } from '../../utils/modulos'
 
 /**
  * Cerrar la caja del día: lo que debería haber contra lo que hay.
@@ -49,6 +51,9 @@ export default function PanelCierreCaja({ fecha, efectivoEsperado, efectivoCobra
   const [error, setError] = useState('')
   const [reabriendo, setReabriendo] = useState(false)
   const [motivoReapertura, setMotivoReapertura] = useState('')
+  // Reabrir un cierre es de administradores; cerrarlo, de quien cobra.
+  const { usuario } = useAuth()
+  const puedeReabrir = puedeAccion(usuario, 'reabrir-caja')
 
   const esperado = Number(efectivoEsperado) || 0
   const contadoNum = contado === '' ? null : Number(contado)
@@ -127,7 +132,9 @@ export default function PanelCierreCaja({ fecha, efectivoEsperado, efectivoCobra
         )}
         {cierre.observaciones && <p className="mt-2 text-sm text-neutro-600">{cierre.observaciones}</p>}
 
-        {!reabriendo ? (
+        {!puedeReabrir ? (
+          <p className="mt-4 text-sm text-neutro-500">Para reabrir este cierre hace falta un administrador.</p>
+        ) : !reabriendo ? (
           <button onClick={() => setReabriendo(true)} className="btn btn-outline mt-4 flex items-center gap-2">
             <Unlock size={15} /> Reabrir
           </button>

@@ -213,6 +213,45 @@ const COMPARTIDAS = [
 /** Solo para administradores: gestionar usuarios y sus permisos. */
 const RUTAS_ADMIN = ['/usuarios'];
 
+/**
+ * Acciones que exigen administrador AUNQUE la persona tenga el módulo.
+ *
+ * Decisión del usuario, 2026-10-03 (sección 14 del checklist): anular una
+ * factura, anular un cobro y reabrir una caja ya cerrada. Las tres deshacen
+ * plata ya contada. Crear o anular una nota de crédito y editar una factura
+ * emitida las sigue haciendo quien tenga el módulo —Impresión edita facturas
+ * todos los días al rebajar faltantes—, y cerrar la caja también: es el
+ * trabajo de quien cobra.
+ *
+ * `clave` es el nombre con que la pantalla pregunta si puede mostrar el botón
+ * (el espejo está en frontend/src/utils/modulos.js y una prueba los compara).
+ * Lo que protege de verdad es `requirePermiso`: el botón escondido es cosmética.
+ */
+const ACCIONES_ADMIN = [
+  { clave: 'anular-factura', metodo: 'PATCH', patron: /^\/facturacion\/facturas\/[^/]+\/anular$/, que: 'anular una factura' },
+  { clave: 'anular-cobro', metodo: 'PATCH', patron: /^\/cuentas-por-cobrar\/propios\/abonos\/[^/]+\/anular$/, que: 'anular un cobro' },
+  { clave: 'reabrir-caja', metodo: 'POST', patron: /^\/cuentas-por-cobrar\/propios\/caja\/reabrir$/, que: 'reabrir una caja cerrada' }
+];
+
+/**
+ * La ruta como la va a entender Express, que es más permisivo que una
+ * comparación de textos: no distingue mayúsculas y acepta la barra final.
+ *
+ * SIN ESTO EL PERMISO SE SALTABA CAMBIANDO UNA LETRA. Medido el 2026-10-03
+ * con un usuario común: `/api/usuarios` respondía 403 y `/api/Usuarios`
+ * respondía 200. El guardián comparaba '/Usuarios' contra '/usuarios', no
+ * calzaba con nada, la trataba como ruta sin clasificar y la dejaba pasar; y
+ * Express, que no distingue mayúsculas, la entregaba al módulo. Así se abría
+ * cualquier módulo —y la gestión de usuarios— a cualquiera con sesión.
+ */
+function normalizarRuta(ruta) {
+  let texto = String(ruta || '');
+  // Por si llega codificada (%55suarios): se clasifica lo que de verdad dice.
+  try { texto = decodeURIComponent(texto); } catch { /* se queda como vino */ }
+  texto = texto.toLowerCase().replace(/\/{2,}/g, '/');
+  return texto.length > 1 ? texto.replace(/\/+$/, '') : texto;
+}
+
 const CLAVES = MODULOS.map(m => m.clave);
 
 /** Los módulos agrupados como se muestran en la pantalla de permisos. */
@@ -234,7 +273,8 @@ function porGrupo() {
  * módulo que viviera debajo de un prefijo compartido — Gestión de Catálogo,
  * debajo de /alegra, quedaba al alcance de cualquiera con sesión.
  */
-function clasificarRuta(ruta) {
+function clasificarRuta(rutaCruda) {
+  const ruta = normalizarRuta(rutaCruda);
   const calza = (p) => ruta === p || ruta.startsWith(`${p}/`);
   let mejor = null;
   for (const m of MODULOS) {
@@ -263,11 +303,19 @@ function esCompartida(ruta) {
   return Boolean(c) && c.tipo === 'compartida';
 }
 
-function esRutaAdmin(ruta) {
+function esRutaAdmin(rutaCruda) {
+  const ruta = normalizarRuta(rutaCruda);
   return RUTAS_ADMIN.some(p => ruta === p || ruta.startsWith(`${p}/`));
 }
 
+/** La acción de solo-administrador que es esta petición, o null. */
+function accionDeAdmin(metodo, rutaCruda) {
+  const ruta = normalizarRuta(rutaCruda);
+  const m = String(metodo || '').toUpperCase();
+  return ACCIONES_ADMIN.find(a => a.metodo === m && a.patron.test(ruta)) || null;
+}
+
 module.exports = {
-  MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN,
-  porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin
+  MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN, ACCIONES_ADMIN,
+  porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin, normalizarRuta
 };
