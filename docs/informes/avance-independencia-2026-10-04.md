@@ -336,15 +336,15 @@ plantilla que se emitieron fiscalmente ni que perdieron su XML. Sus ids y
 motivo quedan pendientes en el manifiesto; no se generan XML ni se reemite
 para suplirlos. El descargador exige identidad fiscal y no archiva esos PDF
 como originales identificados. Revisar emisión/originales en Alegra antes
-de cerrar §15. Primer intento de las restantes 492: **446 pares completos
-y un PDF adicional**, 893 archivos, **21.467.106 bytes**. Verificación
-independiente de cada huella, formato, clave/firma y permisos aprobada.
-Los pares confirmados van de 2024-06-05 a 2026-08-11. Quedan además 3
-descargas fallidas y 43 consultas de detalle fallidas: 100 pendientes en
-total. Las primeras tres fichas de este último grupo ahora responden y
-coinciden; se reanuda con dos trabajadores para conservar los originales
-confirmados y resolver los fallos de conexión/consulta. El manifiesto
-permanece incompleto. La carpeta permanente es
+de cerrar §15. **Resultado final del reintento: 492 PDF y 492 XML**, 984
+archivos, **23.561.897 bytes**, entre 2024-06-05 y 2026-10-01. Reutilizados
+los 446 pares ya guardados; recuperadas las otras 46 consultas/descargas.
+Verificación independiente de los 984 archivos: SHA-256, formato, pertenencia
+del XML, presencia de firma y permisos correctos. No es una validación
+criptográfica ni una consulta de aceptación ante Hacienda.
+El manifiesto permanece incompleto exclusivamente por las **54 fichas
+sin XML/clave**; código final 2, cero documentos fuera de la lectura y cero
+otros fallos. La carpeta permanente es
 `/Users/joseandres/Desktop/Proyectos_Per./archivo-fiscal-alegra/ventas`;
 no retirarla al limpiar copias o bases de prueba.
 

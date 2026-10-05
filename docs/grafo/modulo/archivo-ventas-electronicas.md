@@ -93,12 +93,15 @@ ni inventarlos o reemitir para completar el archivo. Esos ids quedan en
 `fallos`, sin archivos archivados como fiscalmente identificados; la
 herramienta exige la clave. Revisar su emisión/originales en Alegra antes
 de cerrar la fila de §15. Las restantes 492 sí tienen identidad suficiente.
-Primer intento: **446 pares completos y un PDF adicional**, 100 pendientes:
-54 sin clave, 3 descargas fallidas y 43 consultas de detalle que fallaron.
-Las primeras tres de estas últimas coinciden al volver a consultarlas;
-no afirmar por ese fallo que cambiaron de identidad. Se reanuda con dos
-trabajadores, conservando todo lo confirmado. La verificación independiente
-comprobó las huellas, formato, claves/firma y permisos de los 893 archivos
-guardados. El manifiesto sigue incompleto. El resultado del reintento y
-la verificación final se registran en
+Resultado final tras reanudar con dos trabajadores: **492 PDF y 492 XML**,
+984 archivos, **23.561.897 bytes**, del 2024-06-05 al 2026-10-01.
+Se reutilizaron los 446 pares ya confirmados y se recuperaron las 46 consultas
+o descargas fallidas. Una verificación independiente leyó los 984 archivos
+y comprobó huellas, formato, pertenencia del XML, presencia de firma y
+permisos privados. Solo permanecen las 54 fichas sin clave/XML; el manifiesto
+es incompleto y terminó con código 2 por esa razón. Carpeta permanente:
+`/Users/joseandres/Desktop/Proyectos_Per./archivo-fiscal-alegra/ventas`.
+No eliminarla al limpiar bases o worktrees de prueba. El traslado al servidor
+y la última lectura con el origen congelado siguen pendientes para el corte.
+La verificación final se registra en
 [el informe de avance](../../informes/avance-independencia-2026-10-04.md).
