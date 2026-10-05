@@ -688,12 +688,7 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Finalizar una devolución: a diferencia de handleFinalize (auditorías),
-  // NO llama guardarConteos primero — los ítems ya quedaron guardados con su
-  // stock_real correcto al agregarlos. Se confirma con sus movimientos
-  // todavía. El único paso explícito y confirmado que sí aplica el ajuste en
-  // El cierre confirma sus movimientos en la misma transacción;
-  // reutilizado sin cambios.
+  // El cierre confirma la devolución y sus movimientos en la misma transacción.
   const handleFinalizeDevolucion = async () => {
     if (!auditoriaActiva) return
     if (!auditoriaActiva.items || auditoriaActiva.items.length === 0) {

@@ -125,6 +125,8 @@ async function aplicarEn(db,a,b,{completo=false,usuarioId=null}={}) {
     const s=await inv.saldo(db,i.producto_id);
     if(String(s.revision_stock)!==String(i.revision_stock))throw httpError(409,`Las existencias de ${i.nombre_producto} cambiaron después de empezar el conteo. Actualiza y vuelve a contar.`);
     const {rows:[d]}=await db.query('SELECT ($1::numeric-$2::numeric)::numeric(14,4) AS cantidad',[i.stock_real,s.existencia]);
+    if (a.tipo==='devolucion' && Number(d.cantidad)<=0) throw httpError(400,'Una devolución de cliente debe ingresar una cantidad positiva.');
+    if (a.tipo==='devolucion_proveedor' && (Number(d.cantidad)>=0 || Number(i.stock_real)<0)) throw httpError(400,'La devolución a proveedor debe salir sin superar las existencias.');
     if(Number(d.cantidad)!==0||a.tipo==='inicial')await inv.registrarEn(db,{productoId:i.producto_id,
       tipo:a.tipo==='inicial'?'inicial':a.tipo==='devolucion_proveedor'?'devolucion_proveedor':'ajuste_auditoria',
       cantidad:d.cantidad,cantidadContada:a.tipo==='inicial'?i.stock_real:null,
@@ -201,7 +203,9 @@ async function agregarItemDevolucion(id,{productoId,cantidadDevuelta}) {
     const p=await productoEn(db,productoId);
     if((await db.query('SELECT id FROM inventario_auditoria_items WHERE auditoria_id=$1 AND producto_id=$2',[a.id,p.producto_id])).rows.length)throw httpError(409,'Ese producto ya está en esta devolución.');
     const {rows:[d]}=await db.query('SELECT ($1::numeric+$2::numeric*$3)::numeric(14,4) AS cantidad',[p.existencia,cantidad,a.tipo==='devolucion_proveedor'?-1:1]);
-    if(Number(d.cantidad)<0)throw httpError(400,'La devolución a proveedor supera las existencias disponibles.');
+    // El saldo provisional puede estar negativo. Una devolución de cliente
+    // entra aunque todavía no lo recupere a cero; no es un conteo físico.
+    if(a.tipo==='devolucion_proveedor' && Number(d.cantidad)<0)throw httpError(400,'La devolución a proveedor supera las existencias disponibles.');
     return insertarItemEn(db,a,p,d.cantidad);
   });
 }

@@ -84,12 +84,21 @@ paginación, kardex (origen y responsable) y mínimos/objetivo. Si existencia
 kardex negativo queda visible sin inventar valoración. No añade etiquetas de
 stock a la tablet, según preferencia previa del usuario.
 
-MEDICIÓN. 24 pruebas reales PostgreSQL, ROLLBACK y SAVEPOINT: cadena comercial,
+MEDICIÓN. 25 pruebas reales PostgreSQL, ROLLBACK y SAVEPOINT: cadena comercial,
 fracciones, costo móvil, apertura completa, catálogo modificado, revisión
 obsoleta, histórico excluido, devoluciones, ofertas agotadas y fallos de SQL.
-Dos conexiones comprobaron el bloqueo de bodega. Suite de 1.928 pruebas sin
-fallos antes de añadir esa prueba de concurrencia; dirigida final 9/9. Build
+Dos conexiones comprobaron el bloqueo de bodega. Suite final: 1.930 pruebas sin fallos ni omitidas; dirigidas de core 9/9
+y de auditorías/comercio 16/16. Build
 frontend correcto. Navegador 1440 y 700 px: existencias, kardex, mínimos,
 conteo inicial y devolución a proveedor, cero errores JS. HTTP 401 sin sesión
 y 403 sin permiso de inventario. Pruebas en copia propia, sin mensajes,
 limpieza semanal, Hacienda ni cambios de producción.
+
+APLICACIÓN LOCAL COMPARTIDA (2026-10-05). 042 aplicada con respaldo privado
+previo: 2.144 productos en cero, ninguno confirmado como conteo físico;
+auditorías, descuentos y regalos activos: 0. Conservadas 17 auditorías y
+470 descuentos anteriores como historia. Huellas de 15 tablas comerciales
+y series idénticas antes/después. Backend local 3002 con lanzador aislado:
+HTTP confirma cero provisional y listas nuevas vacías. Producción intacta.
+Sin conteos, indicadores del panel en cero; no mostrar 100% de precisión
+sin una medición.

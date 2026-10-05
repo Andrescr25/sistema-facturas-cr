@@ -383,9 +383,9 @@ sin etiquetas de stock. El servidor ya no sincroniza productos de Alegra.
 Las tres listas de dependencias activas quedaron **0 / 0 / 0**; 20 tablas
 históricas retiradas del código protegidas por pruebas.
 
-Validación: **1.928 pruebas aprobadas, cero fallos y cero omitidas**, build
-correcto, más la nueva prueba dirigida de dos conexiones (9/9 del core).
-Son 24 pruebas PostgreSQL entre core y servicios comerciales/auditorías,
+Validación final: **1.930 pruebas aprobadas, cero fallos y cero omitidas**,
+build correcto; dirigidas 9/9 del core y 16/16 de auditorías/comercio.
+Son 25 pruebas PostgreSQL entre core y servicios comerciales/auditorías,
 con ROLLBACK/SAVEPOINT y base desechable. Ceros de todos los productos
 comprobados por SQL y navegador. Sin mensajes reales, limpieza semanal,
 Hacienda ni cambios de producción. Detalle: [inventario](../grafo/modulo/inventario.md).
@@ -394,3 +394,11 @@ Checklist tras este bloque: **130 ítems marcados y 16 pendientes** en §0–16;
 17 pendientes contando la emisión de Hacienda pospuesta. El conteo físico
 real permanece abierto; ocho de nueve puntos de inventario están cerrados.
 No se considera cerrado el corte ni la recepción externa de mensajes.
+
+Aplicado a la copia local compartida con respaldo previo: **2.144 productos
+en cero**, ninguno marcado contado; **0 auditorías, 0 descuentos y 0 regalos
+activos**. Conservadas 17 auditorías y 470 descuentos históricos. Las huellas
+de 15 tablas comerciales/series fueron iguales antes y después. Puerto 3002
+recargado con lanzador aislado, sin limpieza ni salidas; HTTP confirma stock
+provisional y listas vacías. Producción sigue intacta. También los indicadores
+de auditoría parten en cero: no se presenta una precisión de 100% sin conteos.

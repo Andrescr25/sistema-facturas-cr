@@ -28,7 +28,8 @@ export const formatDate = (value) =>
 export function calcularKpis(auditorias) {
   const finalizadas = auditorias.filter(a => a.estado === 'finalizado')
   if (finalizadas.length === 0) {
-    return { precision: 100, descuadre: 0, total: 0 }
+    // Sin conteos no hay una precisión medida. No mostrar un 100% inventado.
+    return { precision: 0, descuadre: 0, total: auditorias.length }
   }
 
   const sumPrecision = finalizadas.reduce((acc, curr) => acc + Number(curr.precision_porcentaje || 0), 0)

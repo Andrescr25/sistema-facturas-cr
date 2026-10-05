@@ -189,3 +189,8 @@ prueba('excesos se detectan por stock y ventas propios, con tope de diez y sin c
   const r=await aud.generarTandaDeExcesos();assert.equal(r.total,10);assert.equal(r.totalDetectados,12);assert.deepEqual(r.regalosNuevos,[]);
   assert.equal((await aud.getAuditoria(r.id)).items.length,10);
 });
+prueba('una devolución de cliente parcial ingresa aunque el saldo provisional siga negativo',async({c,p,u,cli})=>{
+  await ventas.crearFactura(pedido(p,cli,3),u.id);assert.equal(await saldo(c,p),-3);
+  const a=await aud.crearDevolucion('cliente');await aud.agregarItemDevolucion(a.id,{productoId:p.id,cantidadDevuelta:'1'});
+  await aud.finalizarAuditoria(a.id,'ZZ devolución parcial',u.id);assert.equal(await saldo(c,p),-2);
+});

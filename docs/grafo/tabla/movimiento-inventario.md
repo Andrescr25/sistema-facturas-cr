@@ -14,7 +14,7 @@ medido: 2026-10-05
 ---
 
 Implementado en la 042 y probado en copia PostgreSQL desechable. Nueve
-pruebas del core y quince de los servicios comerciales/auditorías verifican
+pruebas del core y dieciséis de los servicios comerciales/auditorías verifican
 transacciones reales, sin confirmar fixtures. [[modulo/inventario]].
 
 `movimiento_inventario` conserva producto propio, bodega Principal, tipo,
@@ -40,3 +40,12 @@ cantidad física explícita. Las ordinarias y devoluciones registran ajustes
 con el id del ítem, una sola vez. La interfaz muestra el origen y responsable.
 La confirmación del conteo físico REAL corresponde a producción, no a las
 pruebas. La 042 no crea cantidades ni repite operaciones históricas.
+
+APLICACIÓN LOCAL COMPARTIDA (2026-10-05). 042 aplicada con respaldo privado
+previo: 2.144 productos en cero, ninguno confirmado como conteo físico;
+auditorías, descuentos y regalos activos: 0. Conservadas 17 auditorías y
+470 descuentos anteriores como historia. Huellas de 15 tablas comerciales
+y series idénticas antes/después. Backend local 3002 con lanzador aislado:
+HTTP confirma cero provisional y listas nuevas vacías. Producción intacta.
+Sin conteos, indicadores del panel en cero; no mostrar 100% de precisión
+sin una medición.

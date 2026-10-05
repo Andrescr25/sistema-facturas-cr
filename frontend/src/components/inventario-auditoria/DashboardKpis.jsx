@@ -19,6 +19,7 @@ export default function DashboardKpis({ kpis }) {
           <h3 className="text-3xl font-extrabold text-neutro-900 mt-1">
             {kpis.precision.toFixed(1)}%
           </h3>
+          {kpis.total === 0 && <p className="text-xs text-neutro-500">Sin conteos registrados</p>}
         </div>
       </div>
 
@@ -41,7 +42,7 @@ export default function DashboardKpis({ kpis }) {
           <Boxes size={28} />
         </div>
         <div>
-          <p className="text-sm font-semibold text-neutro-400 uppercase tracking-wider">Auditorías Realizadas</p>
+          <p className="text-sm font-semibold text-neutro-400 uppercase tracking-wider">Auditorías Registradas</p>
           <h3 className="text-3xl font-extrabold text-neutro-900 mt-1">
             {kpis.total}
           </h3>
