@@ -13,7 +13,7 @@ archivos:
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios]
+  relacionado: [modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios]
 medido: 2026-10-05
 ---
 
@@ -100,3 +100,6 @@ entradas con costo de la línea, impuestos y descuento, dentro de la misma
 transacción que compra, costo/precio y CxP. Repetir el registro no vuelve a
 sumar. No convertir las compras históricas ya cargadas en nuevas entradas.
 Ver [[tabla/movimiento-inventario]] y [[modulo/inventario]].
+
+HACIENDA (2026-10-05): [[modulo/hacienda]] describe configuración, emisión y
+seguimiento fiscal separados; no repetir el movimiento comercial al enviar.

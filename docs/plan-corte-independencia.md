@@ -1,8 +1,9 @@
 # Corte de independencia: ejecución y vuelta atrás
 
 Estado al 5 de octubre de 2026: plan operativo preparado; **no ejecutado**.
-Producción continúa en `main`/`developer`. Hacienda queda fuera del trabajo
-nocturno por instrucción expresa y se revisará antes de decidir la salida.
+Producción continúa en `main`/`developer`. Hacienda fue autorizada después del
+trabajo nocturno y su [integración está implementada](plan-integracion-hacienda.md).
+La aceptación real con credenciales se verifica antes de decidir la salida.
 La fecha de calendario y la ventana de trabajo deben fijarse con el usuario;
 este documento llama **D** al día elegido, en hora de Costa Rica (UTC−6).
 No se programa ni se realiza el corte automáticamente.
@@ -112,9 +113,11 @@ plan queda listo para fijar D cuando el usuario revise las condiciones.
 Restauración, esquema completo, maestras y enlaces probados en base nueva.
 La carga de facturas se detuvo por la restricción fiscal de 015: el cargador
 no inserta `hacienda_estado`. El ensayo queda INCOMPLETO; no se asigna
-'aceptada' para hacerlo pasar. Revisar mañana el estado real del origen y
-los documentos desconocidos, respetando la exclusión de Hacienda del trabajo
-nocturno. Detalle en [el bloqueo de carga histórica](grafo/bloqueo/carga-electronica-historica.md).
+'aceptada' para hacerlo pasar. Después de la autorización de Hacienda se
+corrigieron estado fiscal y series del origen: una carga aislada completó
+5.526 facturas y 53.582 líneas. El ensayo de dos pasadas de todos los cargadores
+y conciliaciones permanece incompleto. Revisar los estados desconocidos;
+detalle en [el antecedente de carga histórica](grafo/bloqueo/carga-electronica-historica.md).
 Antes de D también comparar las correcciones de configuración/maestras de
 la rama con la candidata nueva: una carga desde Alegra no equivale a copiar
 las decisiones propias que ya se guardaron localmente.

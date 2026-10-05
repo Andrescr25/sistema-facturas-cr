@@ -2,6 +2,7 @@ import { ArrowLeft, Loader2, RotateCcw, Send, CheckCircle2 } from 'lucide-react'
 import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
+import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
 
 /**
  * Revisar los precios de una factura.
@@ -61,6 +62,7 @@ export default function RevisionFactura({
             <Insignia tono={yaRegistrada ? 'neutro' : 'exito'}>
               {yaRegistrada ? 'Ya registrada' : 'Lista para registrar'}
             </Insignia>
+            {yaRegistrada&&<DocumentoFiscal origen="compra" documento={facturaSeleccionada} desdeBuzon/>}
             {!yaRegistrada && (
               <button
                 onClick={onDevolver}

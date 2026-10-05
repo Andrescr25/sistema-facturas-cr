@@ -153,6 +153,7 @@ const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias'
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
 const configuracionModule = require('./src/modules/configuracion');
+const haciendaModule = require('./src/integrations/hacienda/rutas');
 const productosModule = require('./src/modules/productos');
 const clientesModule = require('./src/modules/clientes');
 const facturacionModule = require('./src/modules/facturacion');
@@ -212,6 +213,12 @@ app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 app.use('/api/cotizaciones', cotizacionesModule.routes);
 // Rama independencia-alegra: configuración propia. Cambiar pide el módulo
 // Configuración; leer lo activo es compartido (ver usuarios/modulos.js).
+// Mismo módulo de permisos de cada pantalla, con implementación fiscal aparte.
+app.use('/api/configuracion/hacienda', haciendaModule.configuracion);
+app.use('/api/facturacion/hacienda', haciendaModule.ventas);
+app.use('/api/compras/hacienda', haciendaModule.compras);
+// Optativo y exclusivo: consulta estados, nunca envía comprobantes nuevos.
+if (process.env.HACIENDA_TRABAJADOR === 'true') haciendaModule.iniciarSeguimiento();
 app.use('/api/configuracion', configuracionModule.routes);
 app.use('/api/catalogos', configuracionModule.rutasCompartidas);
 // Rama independencia-alegra: maestro de productos propio.

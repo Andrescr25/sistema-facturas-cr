@@ -66,11 +66,16 @@ async function enviarFacturaPorCorreo(id, datos = {}) {
   const { rows } = await pool.query('SELECT * FROM empresa WHERE id = 1');
   const pdf = await generarPdfFactura(factura, rows[0] || null);
   const numeroArchivo = String(factura.numero || factura.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+  const adjuntos=[{filename:`factura-${numeroArchivo}.pdf`,content:pdf,contentType:'application/pdf'}];
+  if(factura.fiscal) {
+    const fiscal=require('../../integrations/hacienda/emision.service').crearServicio(pool);
+    for(const respuesta of [false,true])adjuntos.push({filename:`${respuesta?'respuesta-hacienda':'comprobante'}-${factura.fiscal.consecutivo}.xml`,content:Buffer.from(await fiscal.archivo(factura.fiscal.id,respuesta)),contentType:'application/xml'});
+  }
   let resultado;
   try {
     resultado = await mailer.enviarCorreo({
       para, asunto, texto: mensaje,
-      adjuntos: [{ filename: `factura-${numeroArchivo}.pdf`, content: pdf, contentType: 'application/pdf' }]
+      adjuntos
     });
   } catch {
     // Un error de nodemailer puede llevar servidor, usuario o credenciales.

@@ -124,6 +124,7 @@ export default function PanelFacturasEmitidas({ f }) {
           onCorreo={f.abrirCorreo}
           cargandoCorreo={f.cargandoCorreo}
           onEditar={f.abrirEdicion}
+          onFiscalCambio={() => f.abrirDetalle(f.detalle.id)}
         />
         {anulando && <ModalAnular factura={anulando} onCerrar={() => setAnulando(null)} onAnular={f.anular} />}
         {f.enviando && (

@@ -101,12 +101,5 @@ describe('la pestaña de edición rápida', () => {
   });
 });
 
-test('la emisión electrónica no dice haber emitido nada', () => {
-  // Está pospuesta: el botón queda a la vista para que se sepa que el paso
-  // existe, pero apagado. Uno que dijera que emitió sin emitir sería peor que
-  // no tenerlo.
-  const vista = leer('components', 'facturacion', 'VistaFactura.jsx');
-  const bloque = vista.slice(vista.indexOf('Emitir electrónicamente') - 700, vista.indexOf('Emitir electrónicamente'));
-  assert.match(bloque, /disabled/);
-  assert.match(bloque, /todavía no está habilitada/);
-});
+// El antiguo botón deshabilitado se reemplazó por el flujo fiscal. Sus estados
+// y la aceptación real se comprueban en haciendaFiscal/haciendaPg.

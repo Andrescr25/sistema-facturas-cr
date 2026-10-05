@@ -5,14 +5,16 @@
 > real completo se hará al salir a producción. La aplicación ya no usa
 > Alegra. Para ejecutar la migración consultar el
 > [plan operativo de corte](plan-corte-independencia.md), el checklist y el
-> grafo de esta rama. Las fases fiscales siguientes quedan pospuestas;
+> grafo de esta rama. Hacienda fue autorizada y su integración está implementada;
+> la aceptación real con credenciales sigue pendiente, ver el
+> [plan fiscal ejecutado](plan-integracion-hacienda.md).
 > este plan inicial no sustituye el estado actual ni autoriza el corte.
 
 
 Rama: `independencia-alegra` · Medido el 11 de setiembre de 2026 contra
 producción (solo lectura).
 
-> **Actualización, 11 de setiembre de 2026.** Por decisión del usuario:
+> **Decisión histórica, 11 de setiembre de 2026; aplazamiento reemplazado el 5 de octubre.** Por decisión del usuario entonces:
 >
 > - El paso a factura electrónica (Fase 0 y emisor propio) **queda
 >   pospuesto**.
@@ -343,3 +345,13 @@ Se retira cada tarea de sincronización cuando su módulo ya no la necesita.
 - [HuliPractice — Conservación de facturas electrónicas](https://help.hulipractice.com/es/articles/1340031-como-se-deben-almacenar-y-conservar-las-facturas-electronicas-en-costa-rica)
 - [Hacienda — Resolución DGT-R-48-2016](https://www.hacienda.go.cr/docs/Resolucion_Comprobantes_Electronicos_DGT-R-48-2016_v4.1.pdf)
 - [Facturar Online — Qué cambió en 4.4](https://facturaronline.com/blog/facturacion-electronica-4-4-costa-rica/)
+
+## Actualización 2026-10-05: Hacienda autorizada
+
+El usuario reemplazó el aplazamiento y pidió implementación completa dentro
+del proyecto, en carpetas propias. Ver [plan ejecutado](plan-integracion-hacienda.md),
+[arquitectura](../backend/src/integrations/hacienda/README.md) y
+[nodo Hacienda](grafo/modulo/hacienda.md). La 4.4 vigente, configuración con
+.p12 y API, firma, FE/TE/NC y mensajes receptor están implementados.
+La aceptación real con sus credenciales y el corte siguen pendientes;
+no se reemiten históricos. Revisiones manuales y conteo: usuario.

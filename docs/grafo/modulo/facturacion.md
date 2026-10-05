@@ -18,7 +18,7 @@ archivos:
   - backend/tests/intentoDeFacturaIdPropio.test.js
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
+  relacionado: [modulo/hacienda, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
 medido: 2026-10-05
 ---
 
@@ -30,8 +30,10 @@ electrónicamente una factura ya creada" y otros cuatro, más 37 hallazgos de
 Cobros mezclados en el mismo bloque. Se corrigió el 2026-09-20 moviéndolos a
 sus secciones (6 y 7) y recontando.
 
-Queda pendiente, y depende de Hacienda, no de código: emitir electrónicamente
-una factura ya creada. El botón existe y está apagado a propósito.
+EMISIÓN FISCAL (2026-10-05): [[modulo/hacienda]] implementa preparación,
+envío, firma y consulta desde la factura propia. Configuración recibe .p12 y
+credenciales; aceptación REAL en pruebas y corte siguen pendientes. La venta
+y el comprobante fiscal conservan numeradores separados.
 
 CORREO CON PDF PROPIO (2026-10-04): [[modulo/correo-facturas]] describe la
 pantalla y las rutas de envío manual de facturas emitidas, desde la cuenta

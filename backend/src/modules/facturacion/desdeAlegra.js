@@ -23,6 +23,7 @@
 const ESTADOS = { draft: 'borrador', open: 'emitida', closed: 'emitida', void: 'anulada' };
 const TIPOS = { invoice: 'factura', saleTicket: 'tiquete' };
 const CONDICIONES = { CASH: 'contado', CREDIT: 'credito' };
+const { desdeAlegra: estadoFiscal, numeracionDesdeAlegra } = require('../../integrations/hacienda/historico');
 
 const texto = (v, max) => {
   if (v === null || v === undefined) return null;
@@ -142,12 +143,9 @@ function facturaDesdeAlegra(factura, { clientes, productos, impuestos, plazos, m
 
   const fila = {
     tipo_documento: tipo,
-    serie: texto(factura.numberTemplate?.prefix, 20),
-    consecutivo: factura.numberTemplate?.number === undefined || factura.numberTemplate?.number === null
-      ? null
-      : Number(String(factura.numberTemplate.number).replace(/\D/g, '')) || null,
+    ...numeracionDesdeAlegra(factura, tipo === 'tiquete' ? '04' : '01'),
     numero: texto(factura.numberTemplate?.fullNumber || factura.numberTemplate?.formattedNumber, 40),
-    electronica: Boolean(factura.numberTemplate?.isElectronic),
+    ...estadoFiscal(factura),
     clave_hacienda: texto(factura.stamp?.uuid, 60),
     estado: estado || 'emitida',
     fecha: soloFecha(factura.date),

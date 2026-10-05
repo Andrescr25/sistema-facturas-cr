@@ -27,6 +27,7 @@ const PAGINA = 30;
 
 const FACTURA = [
   'tipo_documento', 'serie', 'consecutivo', 'numero', 'electronica', 'clave_hacienda', 'estado',
+  'hacienda_estado', 'hacienda_origen', 'plantilla_electronica',
   'fecha', 'fecha_vencimiento', 'emitida_en',
   'cliente_id', 'cliente_nombre', 'cliente_tipo_identificacion', 'cliente_identificacion', 'cliente_correo',
   'condicion_venta', 'plazo_credito_id', 'plazo_texto', 'metodo_pago_id', 'metodo_pago_texto',
@@ -132,6 +133,7 @@ async function main() {
   };
   const limite = argumento('limite');
 
+  await require('../../src/integrations/hacienda/historico').normalizarSeriesHistoricas(pool,'factura');
   const contexto = await contextoDe(pool);
   if (contexto.clientes.size === 0) throw new Error('No hay clientes cargados: corra antes cargar-contactos.js');
   if (contexto.productos.size === 0) throw new Error('No hay productos cargados: corra antes cargar-productos.js');

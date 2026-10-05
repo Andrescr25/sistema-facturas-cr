@@ -34,10 +34,10 @@ ALTER TABLE factura DROP CONSTRAINT IF EXISTS factura_hacienda_estado_check;
 ALTER TABLE factura ADD CONSTRAINT factura_hacienda_estado_check
   CHECK (hacienda_estado IS NULL OR hacienda_estado IN ('pendiente', 'enviada', 'aceptada', 'rechazada'));
 
--- Una factura no puede decirse electrónica si Hacienda no la aceptó. Las 531
--- copiadas de Alegra ya vienen aceptadas de allá, así que se les anota.
-UPDATE factura SET hacienda_estado = 'aceptada'
- WHERE electronica = TRUE AND hacienda_estado IS NULL;
+-- 2026-10-05: no inferir aceptación del indicador de plantilla de Alegra.
+-- El cargador escribe el estado real de stamp.legalStatus y conserva origen.
+-- En bases antiguas ya había datos inferidos: se revisan al repetir la carga,
+-- nunca se presentan como aceptaciones obtenidas por nuestra integración.
 
 ALTER TABLE factura_linea ADD COLUMN IF NOT EXISTS descuento_naturaleza VARCHAR(80);
 

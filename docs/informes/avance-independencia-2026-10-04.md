@@ -437,3 +437,12 @@ nuevas comprueban rutas/base privada, no sobrescribir, SQL READ ONLY,
 consecutivos/ceros y preservación de datos. Checklist **131/15** (§§0–16),
 16 abiertos con Hacienda pospuesta. Estado completo, los 15 puntos y siguiente
 sesión en [el informe del 5 de octubre](estado-checklist-2026-10-05.md).
+
+## Continuación autorizada: Hacienda, 2026-10-05
+
+La instrucción de excluir Hacienda de la noche fue reemplazada por la
+autorización del usuario de diseñar y ejecutar su integración separada.
+[Informe de Hacienda](hacienda-2026-10-05.md), [plan](../plan-integracion-hacienda.md)
+y [grafo](../grafo/modulo/hacienda.md). Credenciales/certificado se cargan
+en Configuración; aceptación real en pruebas sigue pendiente. El inventario
+continúa en cero y las revisiones manuales quedan a cargo del usuario.

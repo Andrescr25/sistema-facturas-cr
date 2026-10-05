@@ -51,9 +51,11 @@ function aVista(f) {
     consecutivo: numero(f.consecutivo),
     tipoDocumento: f.tipo_documento,
     electronica: f.electronica,
+    historica: Boolean(f.alegra_id),
     // Una factura es electrónica cuando Hacienda la ACEPTA, no cuando se
     // manda. Entre las dos cosas hay un rato y puede haber un rechazo.
     haciendaEstado: f.hacienda_estado,
+    fiscal: f.fiscal || null,
     estado: f.estado,
     fecha: f.fecha,
     fechaVencimiento: f.fecha_vencimiento,
@@ -165,6 +167,7 @@ async function obtenerFactura(id) {
       FROM factura f WHERE f.id = $1
   `, [n]);
   if (!rows[0]) throw httpError(404, 'No existe esa factura.');
+  if(rows[0].hacienda_comprobante_id&&rows[0].electronica)rows[0].fiscal=await require('../../integrations/hacienda/lectura.service').aceptada(pool,rows[0].hacienda_comprobante_id);
 
   const [lineas, cobros, notas] = await Promise.all([
     pool.query(
@@ -181,7 +184,7 @@ async function obtenerFactura(id) {
       [n]
     ),
     pool.query(
-      `SELECT nc.id, nc.numero, nc.fecha, nc.motivo, nc.motivo_texto, nc.estado, nf.monto
+      `SELECT nc.id, nc.numero, nc.fecha, nc.motivo, nc.motivo_texto, nc.estado, nc.alegra_id, nf.monto
          FROM nota_credito_factura nf JOIN nota_credito nc ON nc.id = nf.nota_credito_id
         WHERE nf.factura_id = $1 ORDER BY nc.fecha`,
       [n]
@@ -214,7 +217,7 @@ async function obtenerFactura(id) {
     })),
     notasCredito: notas.rows.map(x => ({
       id: x.id, numero: x.numero, fecha: x.fecha, motivo: x.motivo,
-      motivoTexto: x.motivo_texto, estado: x.estado, monto: numero(x.monto)
+      motivoTexto: x.motivo_texto, estado: x.estado, historica:Boolean(x.alegra_id), monto: numero(x.monto)
     }))
   };
 }

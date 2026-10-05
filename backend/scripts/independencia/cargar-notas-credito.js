@@ -17,7 +17,7 @@ const { ErrorConciliacion } = require('./lib/conciliacion-ventas');
 const { mensajeSeguro } = require('./conciliar-ventas');
 
 const NOTA = [
-  'serie', 'consecutivo', 'numero', 'electronica', 'clave_hacienda', 'estado', 'fecha',
+  'serie', 'consecutivo', 'numero', 'electronica', 'plantilla_electronica', 'hacienda_estado', 'hacienda_origen', 'clave_hacienda', 'estado', 'fecha',
   'cliente_id', 'cliente_nombre', 'cliente_identificacion', 'motivo', 'motivo_texto',
   'subtotal', 'descuento', 'impuesto', 'total', 'total_aplicado', 'saldo',
   'observaciones', 'alegra_id'
@@ -65,6 +65,7 @@ async function cargarNotas({pool,client,avisar=()=>{}}) {
   try {
     await cliente.query('BEGIN');
     await exigirMigracion(cliente);
+    await require('../../src/integrations/hacienda/historico').normalizarSeriesHistoricas(cliente,'nota_credito');
     const contexto=await contextoDe(cliente);
     if(contexto.facturas.size===0) throw new ErrorConciliacion('No hay facturas cargadas; cargar-facturas.js va primero.');
     const debitos=await guardarDebitos(cliente,historico.debitos);

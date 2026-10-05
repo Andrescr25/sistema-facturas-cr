@@ -112,13 +112,14 @@ test('un tiquete no se guarda como factura', () => {
   assert.equal(fila.tipo_documento, 'tiquete');
 });
 
-test('la electrónica guarda su clave de Hacienda', () => {
+test('la aceptación fiscal del origen y una clave válida demuestran emisión', () => {
   const { fila } = facturaDesdeAlegra(
-    { ...FACTURA, numberTemplate: { ...FACTURA.numberTemplate, isElectronic: true }, stamp: { uuid: '50601091026310123456700100001010000000011' } },
+    { ...FACTURA, numberTemplate: { ...FACTURA.numberTemplate, isElectronic: true }, stamp: { legalStatus:'STAMPED_AND_ACCEPTED', uuid: '5'.repeat(50) } },
     contexto
   );
   assert.equal(fila.electronica, true);
-  assert.equal(fila.clave_hacienda.length, 41);
+  assert.equal(fila.clave_hacienda.length, 50);
+  assert.equal(fila.hacienda_estado, 'aceptada');
 });
 
 test('el plazo viene como texto: si no calza, se guarda igual y se avisa', () => {

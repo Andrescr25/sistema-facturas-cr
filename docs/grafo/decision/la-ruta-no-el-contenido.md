@@ -10,8 +10,8 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   depende_de: [bloqueo/prisma-no-se-regenera]
-  relacionado: [bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
-medido: 2026-10-04
+  relacionado: [modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
+medido: 2026-10-05
 ---
 
 Precedente ya tomado para las facturas de VENTA
@@ -34,3 +34,10 @@ NO llega a crearse (duplicada, o la base falla antes), se borra el archivo.
 Si la fila YA existe, el archivo se queda aunque falle un paso posterior —
 `saveFactura` lleva la marca `facturaCreada` para eso—: borrarlo dejaría
 `xml_ruta` apuntando a nada, que es peor que un archivo de más.
+
+Hacienda conserva XML y respuestas en archivos privados con huellas. El
+paquete pequeño de certificado/PIN/usuario/contraseña se guarda cifrado en la
+configuración por ambiente (AES-GCM); la llave maestra vive fuera de Git.
+Este cifrado permite rotación transaccional del certificado y revisión del
+token sin exponer contenido en GET/bitácora. No hay XML en la columna de
+secretos. Respaldar base, llave y archivos juntos; [[modulo/hacienda]].

@@ -1,0 +1,4 @@
+# Fuentes oficiales: conservar bytes y huellas, incluso CRLF/espacios del editor de Hacienda.
+# La comprobación de espacios sigue activa en el código propio de esta carpeta.
+esquemas/v4.4/*.xsd -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+xmldsig-core-schema.xsd -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

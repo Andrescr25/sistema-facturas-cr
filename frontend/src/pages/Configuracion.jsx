@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Building2, Wrench, RefreshCw, MessageCircle } from 'lucide-react'
+import { Settings, Building2, Wrench, RefreshCw, MessageCircle, ShieldCheck } from 'lucide-react'
 import ToastContainer from '../components/ToastContainer'
 import EncabezadoPagina from '../components/ui/EncabezadoPagina'
 import Pestanas from '../components/ui/Pestanas'
@@ -15,6 +15,7 @@ import { useDialog } from '../hooks/useDialog'
 import ConfirmModal from '../components/ConfirmModal'
 import SeccionWhatsApp from '../components/configuracion/SeccionWhatsApp'
 import SeccionAvisosPedidos from '../components/configuracion/SeccionAvisosPedidos'
+import ConfiguracionHacienda from '../integrations/hacienda/ConfiguracionHacienda'
 
 /**
  * Configuración (rama independencia-alegra).
@@ -37,6 +38,7 @@ export default function Configuracion() {
 
   const pestanas = [
     { clave: 'empresa', texto: 'Empresa', icono: Building2 },
+    { clave: 'hacienda', texto: 'Hacienda', icono: ShieldCheck },
     ...CATALOGOS.map(c => ({
       clave: c.clave,
       texto: c.texto,
@@ -51,7 +53,9 @@ export default function Configuracion() {
   const catalogo = catalogoPorClave(pestana)
 
   let contenido
-  if (pestana === 'mantenimiento') {
+  if (pestana === 'hacienda') {
+    contenido = <ConfiguracionHacienda />
+  } else if (pestana === 'mantenimiento') {
     contenido = <Mantenimiento showToast={showToast} />
   } else if (pestana === 'whatsapp') {
     contenido = (

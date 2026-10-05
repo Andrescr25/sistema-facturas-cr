@@ -16,6 +16,7 @@
  */
 
 const { lineaDesdeAlegra } = require('./desdeAlegra');
+const { desdeAlegra: estadoFiscal, numeracionDesdeAlegra } = require('../../integrations/hacienda/historico');
 
 const ESTADOS = { draft: 'borrador', open: 'emitida', closed: 'emitida', void: 'anulada' };
 
@@ -95,12 +96,9 @@ function notaDesdeAlegra(nota, { clientes, productos, impuestos, facturas }) {
   }
 
   const fila = {
-    serie: texto(nota.numberTemplate?.prefix, 20),
-    consecutivo: nota.numberTemplate?.number === undefined || nota.numberTemplate?.number === null
-      ? null
-      : Number(String(nota.numberTemplate.number).replace(/\D/g, '')) || null,
+    ...numeracionDesdeAlegra(nota, '03'),
     numero: texto(nota.numberTemplate?.fullNumber || nota.numberTemplate?.formattedNumber, 40),
-    electronica: Boolean(nota.numberTemplate?.isElectronic),
+    ...estadoFiscal(nota),
     clave_hacienda: texto(nota.stamp?.uuid, 60),
     estado: estado || 'emitida',
     fecha: nota.date ? String(nota.date).slice(0, 10) : null,

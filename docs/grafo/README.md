@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Hacienda — XML 4.4, configuración .p12 y emisión fiscal separada](modulo/hacienda.md)
+
 - [Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia](modulo/portal-clientes.md)
 - [Inicio — trabajo pendiente contado desde las tablas propias](modulo/dashboard.md)
 - [Excel de los reportes propios — filtros y descarga sin modificar datos](modulo/exportaciones-reportes.md)
@@ -99,7 +101,7 @@ toca, qué no se regenera).
 
 ## Bloqueos
 
-- [Carga histórica electrónica — estado real pendiente de revisión fiscal](bloqueo/carga-electronica-historica.md)
+- [Carga histórica electrónica — bloqueo resuelto, conservar estado real; corte y conciliación pendientes](bloqueo/carga-electronica-historica.md)
 - [Conteo real pendiente para producción; inventario propio ya implementado](bloqueo/conteo-fisico.md)
 - [Inventario nuevo en cero provisional, conteo completo al salir a producción](decision/inventario-desde-cero.md)
 - [Kardex propio, documento de origen y apertura provisional](tabla/movimiento-inventario.md)

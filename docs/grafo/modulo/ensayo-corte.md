@@ -12,8 +12,8 @@ archivos:
   - backend/tests/ensayoCorte.test.js
   - docs/plan-corte-independencia.md
 aristas:
-  relacionado: [modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-  bloqueado_por: [bloqueo/carga-electronica-historica, bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
+  relacionado: [modulo/hacienda, modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-10-05
 ---
 
@@ -28,7 +28,7 @@ y usar el Postgres local de 5434. Después de restaurar se verifica que haya
 `usuario` y no conversaciones de Evolution. Nunca usar un patrón `[A-Z]*`
 sin cita para excluirlas: puede plegar la mayúscula y seleccionar al revés.
 
-El esquema 001–042 se aplica completo **una vez**. Después de las maestras y
+El esquema 001–043 se aplica completo **una vez**. Después de las maestras y
 los documentos se repiten solo los enlaces de datos seleccionados, con 041
 al final. La 025 no se recrea: su vista anterior no puede reemplazar la vista
 ampliada de la 028. Solo se completa su FK de proveedor pendiente; no se
@@ -52,8 +52,16 @@ sin diferencias; 2: diferencias/repetibilidad no demostrada; 1: incompleto.
 bytes, conversaciones excluidas. Restauración y todas las migraciones
 completadas; maestras y enlaces cargados. La carga de facturas se detuvo por
 `factura_electronica_aceptada`: el cargador no guarda `hacienda_estado`.
-No se supuso aceptación para pasar la restricción. La resolución fiscal queda
-para mañana por pedido del usuario, en [[bloqueo/carga-electronica-historica]].
+No se supuso aceptación para pasar la restricción. La adaptación fiscal fue autorizada y corregida el 2026-10-05, en
+[[bloqueo/carga-electronica-historica]]. Una nueva pasada encontró que las
+plantillas electrónica y comercial de Alegra comparten el prefijo abreviado
+00100001 y el número 4946 (orígenes 5489 y 5524). El cargador ahora toma la
+serie y consecutivo reales de la clave cuando existe, conserva el número
+impreso y guarda la plantilla de origen. Normaliza copias previas antes de
+recargar, sin cambiar importes/aceptación ni documentos nativos. No se relajó
+la UNIQUE para pasar. Carga corregida COMPLETADA en la candidata propia:
+5.526 facturas y 53.582 líneas; 487 aceptadas en origen, 5 rechazadas y 56
+plantillas con estado desconocido. El fallo del cargador ya no es bloqueante.
 El ensayo completo y las dos pasadas NO se consideran terminados. La carga
 independiente de cotizaciones sí se probó: una importada, próxima propia 3.
 No se cambiaron documentos ni inventario de la copia compartida.

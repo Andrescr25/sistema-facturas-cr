@@ -17,8 +17,8 @@ archivos:
   - frontend/src/components/facturacion/VistaFactura.jsx
   - frontend/src/components/facturacion/ModalEnviarFacturaCorreo.jsx
 aristas:
-  relacionado: [modulo/facturacion, modulo/permisos, leccion/un-borrador-no-es-una-venta, leccion/la-db-local-es-produccion]
-medido: 2026-10-04
+  relacionado: [modulo/hacienda, modulo/facturacion, modulo/permisos, leccion/un-borrador-no-es-una-venta, leccion/la-db-local-es-produccion]
+medido: 2026-10-05
 ---
 
 ENTRADA. Facturación → Facturas → abrir una emitida → Correo. El modal
@@ -67,3 +67,6 @@ CIERRE VERIFICADO. 14 comprobaciones dirigidas; suite completa con pruebas
 PostgreSQL activadas: 1.804 aprobadas, cero fallos/omitidas. Build aprobado.
 Chromium 1440/700 px, 401 sin sesión, 403 sin Facturación, 423 en la copia
 aislada; aceptación/rechazo simulados y sin errores JS ni correos reales.
+
+HACIENDA (2026-10-05): [[modulo/hacienda]] describe configuración, emisión y
+seguimiento fiscal separados; no repetir el movimiento comercial al enviar.

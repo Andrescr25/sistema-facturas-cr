@@ -8,6 +8,7 @@ import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones, colonesExacto } from '../../utils/colones'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
+import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
 
 /**
  * Una factura, en su propia pantalla — y en el mismo lugar se corrige.
@@ -66,7 +67,7 @@ const CELDA = 'w-full rounded-lg border border-primario-200 bg-primario-50/40 px
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
   onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
-  onGuardar, onCancelarEdicion, abriendoPdf
+  onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio
 }) {
   const f = factura
   const emisor = empresa || {}
@@ -111,6 +112,7 @@ export default function VistaFactura({
     f.estado === 'anulada' ? 'Está anulada.'
     : f.estado !== 'emitida' ? 'Todavía es un borrador.'
     : f.electronica ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
+    : ['pendiente','enviada'].includes(f.haciendaEstado) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
     : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que revertirlo.'
     : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
     : null
@@ -252,17 +254,10 @@ export default function VistaFactura({
                 <PencilLine size={16} /> Editar factura
               </button>
 
-              {/* La emisión ante Hacienda está pospuesta: el botón queda a la
-                  vista para que se sepa que ese paso existe, pero apagado. Uno
-                  que dijera haber emitido sin emitir sería peor que no tenerlo. */}
-              {!f.electronica && f.estado === 'emitida' && (
-                <button
-                  disabled
-                  title="La emisión ante Hacienda todavía no está habilitada"
-                  className="btn btn-outline flex items-center gap-2 opacity-40"
-                >
-                  <ShieldCheck size={16} /> Emitir electrónicamente
-                </button>
+              {/* Preparar conserva el XML antes de cualquier envío. El estado
+                  aceptado viene de la consulta autenticada ante Hacienda. */}
+              {!f.historica && f.estado === 'emitida' && (
+                <DocumentoFiscal documento={f} onCambio={onFiscalCambio}/>
               )}
 
               {f.estado === 'emitida' && (
@@ -320,7 +315,8 @@ export default function VistaFactura({
 
           <div className="shrink-0 sm:text-right">
             <div className="flex sm:justify-end">
-              <EtiquetaTipoFactura electronica={f.electronica} tipoDocumento={f.tipoDocumento} />
+              {f.fiscal&&<p className="mb-2 break-all text-xs text-neutro-600">Consecutivo fiscal: {f.fiscal.consecutivo}<br/>Clave: {f.fiscal.clave}</p>}
+              <EtiquetaTipoFactura electronica={f.electronica} tipoDocumento={f.fiscal?.tipo==='04'?'tiquete':f.tipoDocumento} />
             </div>
             <p className="mt-1 text-xl font-extrabold text-primario-600">{f.numero}</p>
             <div className="mt-1 flex sm:justify-end"><Estado f={f} /></div>
@@ -606,6 +602,7 @@ export default function VistaFactura({
                       <span className="text-neutro-600">{n.numero} · {fecha(n.fecha)} · {n.motivo || 'sin motivo'}</span>
                       <span className="font-semibold text-nota-700">{colones(n.monto)}</span>
                       {n.estado === 'anulada' && <Insignia tono="peligro">Anulada</Insignia>}
+                      {n.estado !== 'anulada' && !n.historica && <DocumentoFiscal origen="nota_credito" documento={n} onCambio={onFiscalCambio}/>}
                     </div>
                   ))}
                 </div>

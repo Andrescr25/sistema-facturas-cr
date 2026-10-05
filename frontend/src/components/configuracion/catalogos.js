@@ -1,4 +1,5 @@
 import { Percent, CreditCard, Calendar, Wallet } from 'lucide-react'
+import { TARIFAS, MEDIOS } from '../../integrations/hacienda/catalogos'
 
 /**
  * Los cuatro catálogos de Configuración, descritos una sola vez.
@@ -38,12 +39,14 @@ export const CATALOGOS = [
     columnas: [
       { campo: 'nombre', titulo: 'Nombre', principal: true },
       { campo: 'tarifa', titulo: 'Tarifa', formato: v => `${numero.format(Number(v))} %` },
-      { campo: 'tipo', titulo: 'Tipo', formato: v => TIPOS_IMPUESTO[v] || v }
+      { campo: 'tipo', titulo: 'Tipo', formato: v => TIPOS_IMPUESTO[v] || v },
+      { campo: 'codigo_tarifa_hacienda', titulo: 'Hacienda', formato: v => v || 'Pendiente' }
     ],
     campos: [
       { campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 80 },
       { campo: 'tarifa', etiqueta: 'Tarifa (%)', tipo: 'numero', requerido: true, min: 0, max: 100, paso: '0.01' },
-      { campo: 'tipo', etiqueta: 'Tipo', tipo: 'opcion', requerido: true, opciones: opciones(TIPOS_IMPUESTO) }
+      { campo: 'tipo', etiqueta: 'Tipo', tipo: 'opcion', requerido: true, opciones: opciones(TIPOS_IMPUESTO) },
+      { campo: 'codigo_tarifa_hacienda', etiqueta: 'Tarifa fiscal de Hacienda', tipo: 'opcion', opciones: TARIFAS, ayuda: 'Debe coincidir con la tarifa y su tratamiento fiscal. Necesaria para emitir XML.' }
     ],
     nuevo: { nombre: '', tarifa: '', tipo: 'reducido' }
   },
@@ -58,12 +61,14 @@ export const CATALOGOS = [
     columnas: [
       { campo: 'nombre', titulo: 'Nombre', principal: true },
       { campo: 'clave', titulo: 'Clave' },
+      { campo: 'codigo_medio_pago_hacienda', titulo: 'Hacienda', formato: v => v || 'Pendiente' },
       { campo: 'pide_referencia', titulo: 'Referencia', formato: v => (v ? 'La pide' : 'No') }
     ],
     campos: [
       { campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 60 },
       { campo: 'clave', etiqueta: 'Clave interna', tipo: 'texto', requerido: true, max: 30, ayuda: 'Minúsculas, números y guion bajo. Por ejemplo: sinpe_movil' },
       { campo: 'pide_referencia', etiqueta: 'Pide el número de comprobante', tipo: 'si_no' },
+      { campo: 'codigo_medio_pago_hacienda', etiqueta: 'Medio de pago fiscal', tipo: 'opcion', opciones: MEDIOS, ayuda: 'Correspondencia para los comprobantes electrónicos.' },
       { campo: 'orden', etiqueta: 'Orden en las listas', tipo: 'numero', min: 0, max: 999, paso: '1' }
     ],
     nuevo: { nombre: '', clave: '', pide_referencia: false, orden: 10 }

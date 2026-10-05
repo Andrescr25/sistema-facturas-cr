@@ -514,6 +514,10 @@ async function revisarSiSePuedeTocar(cliente, factura, accion) {
       'Se corrige con una nota de crédito.');
   }
 
+  if (['pendiente','enviada'].includes(factura.hacienda_estado)) {
+    throw httpError(409, 'La factura está reservada ante Hacienda. Consulte el resultado antes de editar o anular.');
+  }
+
   const { rows: cobros } = await cliente.query(
     'SELECT COALESCE(SUM(monto), 0) AS total FROM pago_factura WHERE factura_id = $1',
     [factura.id]

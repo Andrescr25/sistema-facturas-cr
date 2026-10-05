@@ -1,0 +1,11 @@
+{
+  "name": "sistema-integracion-hacienda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dependencias de firma XML separadas del cliente Prisma compartido",
+  "dependencies": {
+    "@xmldom/xmldom": "0.9.12",
+    "node-forge": "1.4.0",
+    "xml-crypto": "6.3.3"
+  }
+}

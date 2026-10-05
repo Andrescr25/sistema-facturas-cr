@@ -32,8 +32,8 @@
  *     importe de la línea: si una de las dos cosas no se cumple, el cliente
  *     saca la calculadora en el mostrador y tiene razón.
  *
- *   · NO DICE SER UN COMPROBANTE ELECTRÓNICO. No lo es. La emisión ante
- *     Hacienda está pospuesta y el papel no puede insinuar lo contrario.
+ *   · Solo una respuesta fiscal aceptada muestra título y consecutivo
+ *     electrónicos. La foto del emisor procede del XML firmado.
  */
 
 const fs = require('fs');
@@ -151,13 +151,14 @@ function encabezado(doc, f, ancho, F, emisor) {
 
   // ---- Derecha: qué documento es ----
   const anulada = f.estado === 'anulada';
-  const titulo = f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA DE VENTA';
+  const fiscal=f.electronica&&f.haciendaEstado==='aceptada'&&f.fiscal;
+  const titulo = fiscal ? (f.fiscal.tipo==='04'?'TIQUETE ELECTRÓNICO':'FACTURA ELECTRÓNICA') : f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA DE VENTA';
   const xDer = doc.page.width - M - 240;
 
   doc.font(F.negrita).fontSize(16).fillColor(anulada ? MARCA.grisSuave : MARCA.tinta)
     .text(titulo, xDer, M, { width: 240, align: 'right' });
   doc.font(F.negrita).fontSize(13).fillColor(anulada ? MARCA.grisSuave : MARCA.naranja)
-    .text(f.numero, xDer, M + 21, { width: 240, align: 'right' });
+    .text(fiscal?f.fiscal.consecutivo:f.numero, xDer, M + 21, { width: 240, align: 'right' });
 
   let yDer = M + 40;
   // Etiqueta y valor se colocan MIDIENDO, no con `continued` + `align:right`:
@@ -171,6 +172,12 @@ function encabezado(doc, f, ancho, F, emisor) {
       .text(etiqueta, xDer, yDer, { width: 240 - anchoValor - 4, align: 'right', lineBreak: false });
     yDer += 12;
   };
+  if(fiscal) {
+    doc.font(F.normal).fontSize(7).fillColor(MARCA.gris).text('Clave: '+f.fiscal.clave,xDer,yDer,{width:240,align:'right'});
+    yDer+=24;
+    dato('Fecha fiscal:',String(f.fiscal.fecha));
+    dato('Venta:',f.numero);
+  }
   dato('Fecha de creación:', fechaLarga(f.fecha));
   if (f.fechaVencimiento) dato('Fecha de vencimiento:', fechaLarga(f.fechaVencimiento));
 
@@ -485,7 +492,7 @@ function generarPdfFactura(f, empresa = null) {
   // Los datos del emisor salen de la CONFIGURACIÓN, no del código: la cédula,
   // la dirección, la actividad económica y las cuentas de pago cambian, y
   // cambiarlas no puede pedir un despliegue.
-  const emisor = datosEmisor(empresa);
+  const emisor = datosEmisor(f.fiscal?.empresa || empresa);
 
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ margin: M, size: 'letter', bufferPages: true });

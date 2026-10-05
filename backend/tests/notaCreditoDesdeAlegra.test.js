@@ -22,7 +22,7 @@ const NOTA = {
   totalApplied: 5695,
   balance: 0,
   numberTemplate: { prefix: '0010000103', number: '81', fullNumber: '00100001030000000081', documentType: 'creditNote', isElectronic: true },
-  stamp: { uuid: '50611082026310249651800100001030000000081' },
+  stamp: { uuid: '5'.repeat(50), legalStatus: 'STAMPED_AND_ACCEPTED' },
   invoices: [{ id: '5042', fullNumber: '00100001010000002420', number: '2420', amount: 5695, total: 5695, balance: 0 }],
   items: [{
     id: '298', name: 'CINTA P/ZATO 216. CTE', reference: 'CIN01', unit: 'Unid', productKey: '4294401030100',
