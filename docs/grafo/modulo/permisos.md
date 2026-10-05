@@ -11,6 +11,7 @@ archivos:
   - frontend/src/utils/modulos.js
   - backend/routes/alegra.js
   - backend/tests/permisosDebajoDeAlegra.test.js
+  - backend/tests/permisosPrestados.test.js
 aristas:
   relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-04
@@ -42,6 +43,23 @@ a un pedazo (`/alegra/bodega` es de Facturas en Bodega). Retirado el
   (`/reportes/faltantes/proveedor/limpiar`), que borra solo lo procesado.
 
 `permisosDebajoDeAlegra.test.js` cuida que no vuelvan.
+
+UNA RUTA TIENE UN DUEÑO; SE PUEDE PRESTAR (2026-10-04, decisión del usuario).
+Gestionar Relaciones no tiene API propia: su pantalla usa las relaciones
+proveedor ↔ producto, que son de Revisión de Precios, y la lista de
+proveedores. Quien tenía SOLO ese módulo veía la pantalla en el menú y cada
+llamada le daba 403. No se le dio un segundo dueño a la ruta ni se la volvió
+compartida: el módulo declara `tambienUsa`, y el guardián deja entrar al dueño
+o a quien la tiene prestada (`modulosQuePuedenUsar`). Se presta lo justo:
+`/productos-revision` entero, y de `/proveedores` solo leer la lista
+(`exacta`, `metodos: ['GET']`). `permisosPrestados.test.js` lee las llamadas
+del hook de verdad y falla si la pantalla empieza a usar una ruta que nadie
+le prestó.
+
+"LIMPIAR FALTANTES PROCESADOS" ES DE CONFIGURACIÓN (misma fecha). El botón
+está solo en esa pantalla, pero su ruta cuelga de `/reportes` y de
+`/alegra/reportes`, compartidas: cualquiera con sesión podía borrarlos. Las
+dos direcciones quedaron con dueño; leer el reporte sigue compartido.
 
 SIGUE ASÍ, SIN DECIDIR. El módulo Impresión decide hoy quién VE la pantalla,
 no quién puede llamar lo que la pantalla usa: pendientes, procesar y recuperar

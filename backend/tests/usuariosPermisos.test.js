@@ -154,9 +154,9 @@ describe('validación de los módulos que llegan', () => {
 });
 
 describe('requirePermiso — el middleware que protege de verdad', () => {
-  function correr(middleware, { ruta, usuario }) {
+  function correr(middleware, { ruta, usuario, metodo = 'GET' }) {
     return new Promise(resolve => {
-      const req = { method: 'GET', path: ruta, usuario };
+      const req = { method: metodo, path: ruta, usuario };
       const res = {
         status(codigo) { this._codigo = codigo; return this; },
         json(cuerpo) { resolve({ bloqueado: true, codigo: this._codigo, cuerpo }); }
@@ -269,6 +269,84 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
     assert.equal(r.codigo, 401);
     assert.equal(r.cuerpo.code, 'CUENTA_INACTIVA');
+  });
+
+  test('quien tiene SOLO Gestionar Relaciones puede usar lo que su pantalla llama', async () => {
+    // Su pantalla trabaja con las relaciones proveedor ↔ producto, que son de
+    // Revisión de Precios. Sin esto veía la pantalla en el menú y cada llamada
+    // le daba 403.
+    const dobles = () => cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'gestionar-relaciones' }]
+    });
+    for (const [metodo, ruta] of [
+      ['GET', '/productos-revision/relacionados'], ['GET', '/productos-revision/buscar'],
+      ['POST', '/productos-revision/factor-conversion'], ['PUT', '/productos-revision/9/editar-relacion'],
+      ['DELETE', '/productos-revision/9/relacion'], ['GET', '/proveedores'], ['GET', '/Proveedores/']
+    ]) {
+      const r = await correr(dobles().middleware, { ruta, metodo, usuario: { id: 4 } });
+      assert.equal(r.bloqueado, false, `${metodo} ${ruta} le dio ${r.codigo}`);
+    }
+  });
+
+  test('…y nada más: lo prestado es la lista de proveedores, no todo lo que cuelga de ahí', async () => {
+    const dobles = () => cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'gestionar-relaciones' }]
+    });
+    for (const [metodo, ruta, dueno] of [
+      ['GET', '/proveedores/3101129878', 'reporte-proveedores'],
+      ['POST', '/proveedores', 'reporte-proveedores'],
+      ['GET', '/revision-precios/facturas', 'revision-precios'],
+      ['GET', '/rentabilidad/resumen', 'rentabilidad']
+    ]) {
+      const r = await correr(dobles().middleware, { ruta, metodo, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${metodo} ${ruta} pasó`);
+      assert.equal(r.cuerpo.modulo, dueno, 'el mensaje nombra al dueño de la ruta');
+    }
+  });
+
+  test('prestar no le quita nada al dueño ni le abre a quien no tiene ninguno de los dos', async () => {
+    const conDueno = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'revision-precios' }]
+    });
+    assert.equal((await correr(conDueno.middleware, { ruta: '/productos-revision/relacionados', usuario: { id: 4 } })).bloqueado, false);
+
+    const sinNinguno = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(sinNinguno.middleware, { ruta: '/productos-revision/relacionados', usuario: { id: 4 } });
+    assert.equal(r.codigo, 403);
+    assert.equal(r.cuerpo.modulo, 'revision-precios');
+  });
+
+  test('limpiar los faltantes procesados pide Configuración, por cualquiera de sus dos direcciones', async () => {
+    // Colgaba de '/reportes' y de '/alegra/reportes', compartidas: cualquiera
+    // con sesión podía borrarlos. El botón está solo en Configuración.
+    for (const ruta of ['/reportes/faltantes/proveedor/limpiar', '/alegra/reportes/faltantes/proveedor/limpiar', '/Alegra/Reportes/Faltantes/Proveedor/Limpiar/']) {
+      const sin = cargarConDobles({
+        'FROM usuario WHERE id': [USUARIO()],
+        'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-proveedores' }]
+      });
+      const r = await correr(sin.middleware, { ruta, metodo: 'DELETE', usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.equal(r.cuerpo.modulo, 'configuracion');
+
+      const con = cargarConDobles({
+        'FROM usuario WHERE id': [USUARIO()],
+        'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'configuracion' }]
+      });
+      assert.equal((await correr(con.middleware, { ruta, metodo: 'DELETE', usuario: { id: 4 } })).bloqueado, false);
+    }
+  });
+
+  test('leer el reporte de proveedores sigue abierto a quien tenga sesión', async () => {
+    const { middleware } = cargarConDobles({});
+    for (const ruta of ['/reportes/faltantes/proveedor', '/alegra/reportes/faltantes/proveedor']) {
+      assert.equal((await correr(middleware, { ruta, usuario: { id: 4 } })).bloqueado, false, ruta);
+    }
   });
 
   test('sin usuario en la petición (ruta pública) no se autoriza nada', async () => {

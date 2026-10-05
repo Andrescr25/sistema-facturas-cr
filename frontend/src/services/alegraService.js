@@ -619,11 +619,16 @@ export const alegraService = {
   // TELÉFONOS DE WHATSAPP DE PROVEEDORES
   // ========================================
 
-  // Obtener teléfono guardado de un proveedor
+  // Obtener teléfono guardado de un proveedor.
+  //
+  // El servidor lo manda adentro de `data` ({ success, data: { telefono } }).
+  // Se leía `response.data.telefono`, que no existe: daba siempre null, y el
+  // número que aparecía al mandar una orden era el que ESE navegador recordaba
+  // por su cuenta. En otra computadora había que escribirlo de nuevo.
   async getTelefonoProveedor(nombreProveedor) {
     try {
       const response = await api.get(`/alegra/orden-compra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
-      return response.data.telefono || null
+      return response.data?.data?.telefono || null
     } catch (error) {
       console.error('❌ Error obteniendo teléfono proveedor:', error)
       return null
