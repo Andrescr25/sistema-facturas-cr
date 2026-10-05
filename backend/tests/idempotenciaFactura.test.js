@@ -297,6 +297,22 @@ describe('idempotencia al crear facturas propias', () => {
     }
   });
 
+  test('otra semana cambia la huella sin modificar las colas que no tienen ciclo', () => {
+    const { huellaDe, huellaAnteriorDe } = require('../src/modules/facturacion/idempotencia');
+    const vieja = { ...FACTURA };
+    assert.equal(huellaDe(vieja), huellaDe({ ...vieja, cicloId: null }));
+    assert.notEqual(huellaDe({ ...vieja, cicloId: 1 }), huellaDe({ ...vieja, cicloId: 2 }));
+    assert.notEqual(huellaDe({ ...vieja, cicloId: 1 }), huellaDe(vieja));
+    assert.equal(huellaAnteriorDe({ ...vieja, cicloId: 1 }), huellaAnteriorDe(vieja));
+  });
+
+  test('un intento anterior sin ciclo no se reutiliza para facturar otra semana', async () => {
+    const { servicio, estado } = montar();
+    await servicio.crearFactura(FACTURA, 1, { clave: 'zz-sin-ciclo' });
+    await assert.rejects(servicio.crearFactura({ ...FACTURA, cicloId: 123 }, 1, { clave: 'zz-sin-ciclo' }), /otro contenido|distinto|misma clave/i);
+    assert.equal(estado.emitidas, 1);
+  });
+
   test('la huella del contrato de antes no cambió ni una coma', () => {
     // Es la que tienen guardada los intentos que vienen de producción, y la
     // que se recalcula cuando una tablet reenvía después del corte una

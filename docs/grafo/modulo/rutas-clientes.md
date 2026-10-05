@@ -47,7 +47,8 @@ Promoción explícita preventa → preparación → entrega → cerrado; cancela
 antes de entrega. Solo un ciclo en preparación/entrega, siguientes en preventa.
 No se cierra el anterior automáticamente ni se borra nada. **Estas acciones
 cambian el estado del ciclo: todavía NO asignan pedidos ni preparan bodega.**
-RUT-08/PRE y propagación documental siguen pendientes en el checklist.
+Pedidos/facturas y filtros de pedidos ya conservan el recorrido; ver
+[[modulo/pedidos-por-ciclo]]. Propagación a bodega/faltantes/compras pendiente.
 
 Clientes abre en fichas. Rutas tiene orden con arrastre/flechas, guardado explícito,
 creación de ciclos y recorrido histórico. Ficha separa información/contacto/

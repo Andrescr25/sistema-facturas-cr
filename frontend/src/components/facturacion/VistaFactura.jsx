@@ -1,3 +1,4 @@
+import { textoCiclo } from '../SelectorCiclo'
 import { useState, useEffect, useMemo } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
@@ -389,6 +390,7 @@ export default function VistaFactura({
             ) : (
               <>
                 <p className="text-lg font-bold text-neutro-900">{f.cliente.nombre}</p>
+                <p className="text-xs font-semibold text-primario-700">{textoCiclo(f.ciclo)}{f.anticipado ? ' · Pedido anticipado' : ''}</p>
                 <div className="mt-1 space-y-0.5 text-sm text-neutro-600">
                   {f.cliente.identificacion && (
                     <p>{f.cliente.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física'}: {f.cliente.identificacion}</p>

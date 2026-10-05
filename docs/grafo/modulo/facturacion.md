@@ -135,3 +135,7 @@ en la misma transacción. Las notas devuelven fracciones de cuatro decimales
 y el costo de la salida original; anular la nota registra reversa. Un error
 posterior revierte también movimientos y numerador. Apertura provisional en
 cero, sin volver a descontar ventas históricas: [[modulo/inventario]].
+
+2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
+al facturar se conserva el recorrido original. Colas antiguas intactas,
+filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].

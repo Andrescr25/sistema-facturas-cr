@@ -1,8 +1,9 @@
 # Checklist: clientes, rutas y ciclos operativos
 
 Solicitud y aclaración del usuario: **2026-10-05**.
-Estado: primera parte de rutas/ciclos y ficha implementada; documentos, compras y entregas pendientes.
-[Informe y evidencia](informes/rutas-clientes-2026-10-05.md).
+Estado: rutas/ciclos, ficha y pedidos/facturas por ciclo implementados; bodega, compras y entregas pendientes.
+[Primera parte](informes/rutas-clientes-2026-10-05.md) y
+[segunda parte](informes/pedidos-ciclos-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -67,26 +68,33 @@ en la ficha son los recientes (10), con origen propio distinguido.
 
 ## 3. Preventa anticipada y pedidos
 
-- [ ] PRE-01 — Mantener el flujo presencial lunes/martes y mostrar el ciclo
+- [x] PRE-01 — Mantener el flujo presencial lunes/martes y mostrar el ciclo
   en que se toma el pedido.
-- [ ] PRE-02 — Seleccionar la próxima ruta/ciclo para la preventa en línea.
+- [x] PRE-02 — Seleccionar la próxima ruta/ciclo para la preventa en línea.
 - [ ] PRE-03 — Preparar catálogos personalizados para los clientes de ese ciclo.
 - [ ] PRE-04 — Facilitar envío explícito del catálogo/enlace por cliente;
   automatización posterior debe conservar destinatario y ciclo correctos.
-- [ ] PRE-05 — Pedido en línea conserva cliente, ruta, ciclo y origen anticipado.
-- [ ] PRE-06 — Pedido adicional del agente conserva el ciclo de la visita,
+- [x] PRE-05 — Pedido en línea conserva cliente, ruta, ciclo y origen anticipado.
+- [x] PRE-06 — Pedido adicional del agente conserva el ciclo de la visita,
   sin confundirlo con el pedido en línea anterior.
-- [ ] PRE-07 — Facturar un pedido conserva su ciclo y sus vínculos.
+- [x] PRE-07 — Facturar un pedido conserva su ciclo y sus vínculos.
 - [ ] PRE-08 — Preparar y llevar pedidos anticipados para entregarlos al
   realizar la visita de la semana siguiente.
-- [ ] PRE-09 — Conservar idempotencia y pedidos offline existentes al añadir
+- [x] PRE-09 — Conservar idempotencia y pedidos offline existentes al añadir
   contexto; no duplicar ni borrar colas pendientes.
 - [ ] PRE-10 — Catálogo/enlace no da acceso a pedidos o saldos de otro cliente.
+
+Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045.
+Portal selecciona su semana; el agente toma pedidos en Facturación (catálogo
+sigue de consulta). Históricos sin ciclo y colas/claves antiguas conservados.
+PRE-10: frontera del portal verificada; revisar también los enlaces nuevos
+cuando se implemente PRE-03/04. RUT-08/FIL-11 quedan abiertos por la propagación
+a faltantes/compras/reportes que sigue pendiente. Evidencia en el segundo informe.
 
 ## 4. Contexto y filtros en toda la operación
 
 - [x] FIL-01 — Clientes: ruta y orden visibles, filtro de ruta.
-- [ ] FIL-02 — Pedidos: filtros de ruta/ciclo y origen presencial/en línea.
+- [x] FIL-02 — Pedidos: filtros de ruta/ciclo y origen presencial/en línea.
 - [ ] FIL-03 — Preventa: ruta/ciclo actual y próximo claramente identificados.
 - [ ] FIL-04 — Reporte Clientes: filtrar ruta/ciclo y mostrar orden de entrega.
 - [ ] FIL-05 — Reporte Proveedores: filtrar ruta/ciclo y ver desglose de origen.

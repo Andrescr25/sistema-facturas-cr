@@ -37,7 +37,7 @@ const reactivarAcceso = (req, res) =>
   responder(res, personal.reactivarAcceso(req.params.clienteId), 'Error reactivando el acceso');
 
 const listarPedidos = (req, res) =>
-  responder(res, pedidos.listarPedidos({ estado: req.query.estado }), 'Error listando pedidos');
+  responder(res, pedidos.listarPedidos(req.query), 'Error listando pedidos');
 
 const detallePedido = (req, res) =>
   responder(res, pedidos.detalle(req.params.pedidoId), 'Error obteniendo el pedido');
@@ -132,6 +132,7 @@ const miPedido = (req, res) =>
 
 module.exports = {
   listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
+  ciclosDisponibles: (req, res) => responder(res, require('../rutas/documentosCiclo.service').paraCuenta(req.cliente.id), 'Error consultando ciclos'),
   listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes, enviarAvisoPedido,
   verInvitacion, activar, entrar, yo, portada, crearPedido, misPedidos, miPedido,
   verCarrito, ponerEnCarrito, vaciarCarrito, agregarVariosAlCarrito,

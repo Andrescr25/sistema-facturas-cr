@@ -21,7 +21,7 @@ archivos:
   - backend/tests/baseLocalAbierta.test.js
 aristas:
   relacionado: [modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-04
+medido: 2026-10-05
 ---
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
@@ -106,3 +106,7 @@ fuera de Facturación:
 IndexedDB simulada. Reproducido y verificado en Chromium cortando y
 devolviendo la conexión en `/catalogo-agente`, con sesión, sin sesión y con la
 sesión vencida y una factura pendiente de prueba: quedó sin marcar.
+
+2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
+al facturar se conserva el recorrido original. Colas antiguas intactas,
+filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].

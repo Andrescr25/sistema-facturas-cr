@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '../services/api'
 
 /**
@@ -12,6 +12,8 @@ export function useClientesPortal({ showToast, confirm }) {
   const [pedidos, setPedidos] = useState([])
   const [vista, setVista] = useState('fichas')
   const [filtroPedidos, setFiltroPedidos] = useState('pendiente')
+  const [contextoPedidos, setContextoPedidos] = useState({ rutaId: '', cicloId: '', origen: '' })
+  const ultimaPeticionPedidos = useRef(0)
   const [busqueda, setBusqueda] = useState('')
 
   const [cargandoClientes, setCargandoClientes] = useState(false)
@@ -32,16 +34,17 @@ export function useClientesPortal({ showToast, confirm }) {
   }, [showToast])
 
   const cargarPedidos = useCallback(async (estado) => {
+    const peticion = ++ultimaPeticionPedidos.current
     setCargandoPedidos(true)
     try {
-      const { data } = await api.get('/portal-clientes/pedidos', { params: { estado } })
-      setPedidos(data.data)
+      const { data } = await api.get('/portal-clientes/pedidos', { params: { estado, ...contextoPedidos } })
+      if (peticion === ultimaPeticionPedidos.current) setPedidos(data.data)
     } catch (err) {
       showToast?.('No se pudieron cargar los pedidos.', 'error')
     } finally {
-      setCargandoPedidos(false)
+      if (peticion === ultimaPeticionPedidos.current) setCargandoPedidos(false)
     }
-  }, [showToast])
+  }, [showToast, contextoPedidos])
 
   useEffect(() => { cargarPedidos(filtroPedidos) }, [cargarPedidos, filtroPedidos])
   useEffect(() => { if (vista === 'clientes' && clientes.length === 0) cargarClientes() }, [vista])
@@ -129,7 +132,7 @@ export function useClientesPortal({ showToast, confirm }) {
   return {
     vista, setVista,
     clientes: clientesFiltrados, cargandoClientes, cargarClientes,
-    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos,
+    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
     busqueda, setBusqueda,
     procesando, invitacion, setInvitacion,
     generarInvitacion, revocar, reactivar, facturar, rechazar

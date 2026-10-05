@@ -27,7 +27,7 @@ archivos:
 aristas:
   depende_de: [tabla/venta-linea, modulo/facturacion]
   relacionado: [modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-03
+medido: 2026-10-05
 ---
 
 SECCIÓN 12, PARTE 2. El catálogo del cliente expone `producto.id`, incluidos
@@ -87,3 +87,7 @@ Chromium: flujo completo en escritorio (1440 px) y tablet (820 px), sobre
 una copia desechable, sin errores de JavaScript o HTTP ni desborde horizontal.
 Cinco facturaciones HTTP simultáneas crean una sola factura. La suite
 completa pasa (1.536 aprobadas, una omitida), y el frontend compila.
+
+2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
+al facturar se conserva el recorrido original. Colas antiguas intactas,
+filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].

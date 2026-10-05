@@ -20,6 +20,7 @@
  *    las líneas solo salen al abrir una factura.
  */
 
+const ciclos = require('../rutas/documentosCiclo.service');
 const { pool } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
 const { COBRADO, ACREDITADO } = require('./saldo.sql');
@@ -46,6 +47,7 @@ function aVista(f) {
   const acreditado = numero(f.acreditado) || 0;
   return {
     id: f.id,
+    ciclo: ciclos.aCiclo(f), anticipado: Boolean(f.preventa_anticipada),
     numero: f.numero,
     serie: f.serie,
     consecutivo: numero(f.consecutivo),
@@ -141,11 +143,12 @@ async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', ha
   const filtro = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const { rows } = await pool.query(`
-    SELECT f.*, COUNT(*) OVER() AS total_filas,
+    SELECT f.*, ${ciclos.COLUMNAS_CICLO}, COUNT(*) OVER() AS total_filas,
            ${COBRADO} AS cobrado,
            ${ACREDITADO} AS acreditado,
            (SELECT COUNT(*) FROM factura_linea l WHERE l.factura_id = f.id)::int AS lineas
       FROM factura f
+      ${ciclos.JOIN_CICLO('f')}
       ${filtro}
      ORDER BY f.fecha DESC, f.consecutivo DESC NULLS LAST
      LIMIT ${agregar(lim)} OFFSET ${agregar((pag - 1) * lim)}
@@ -162,9 +165,9 @@ async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', ha
 async function obtenerFactura(id) {
   const n = idValido(id);
   const { rows } = await pool.query(`
-    SELECT f.*, ${COBRADO} AS cobrado, ${ACREDITADO} AS acreditado,
+    SELECT f.*, ${ciclos.COLUMNAS_CICLO}, ${COBRADO} AS cobrado, ${ACREDITADO} AS acreditado,
            (SELECT COUNT(*) FROM factura_linea l WHERE l.factura_id = f.id)::int AS lineas
-      FROM factura f WHERE f.id = $1
+      FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.id = $1
   `, [n]);
   if (!rows[0]) throw httpError(404, 'No existe esa factura.');
   if(rows[0].hacienda_comprobante_id&&rows[0].electronica)rows[0].fiscal=await require('../../integrations/hacienda/lectura.service').aceptada(pool,rows[0].hacienda_comprobante_id);

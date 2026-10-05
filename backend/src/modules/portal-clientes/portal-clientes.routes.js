@@ -57,6 +57,8 @@ rutasCliente.get('/compras', controller.comprasAnteriores);
 rutasCliente.get('/compras/:facturaId', controller.detalleCompra);
 rutasCliente.post('/compras/:facturaId/repetir', controller.repetirCompra);
 
+rutasCliente.get('/ciclos', controller.ciclosDisponibles);
+
 rutasCliente.post('/pedidos', controller.crearPedido);
 rutasCliente.get('/pedidos', controller.misPedidos);
 rutasCliente.get('/pedidos/:pedidoId', controller.miPedido);

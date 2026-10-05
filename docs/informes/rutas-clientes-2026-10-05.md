@@ -56,3 +56,7 @@ Las revisiones visuales y los datos reales quedan al usuario, como acordó.
 
 Estado por ID: [checklist operativo](../checklist-rutas-ciclos-operativos.md).
 Detalle técnico y próxima entrada: [grafo de rutas/clientes](../grafo/modulo/rutas-clientes.md).
+
+Continuación del 2026-10-05: la segunda parte ya vincula pedidos/facturas
+al recorrido de su semana. Consultar [informe vigente de pedidos/ciclos](pedidos-ciclos-2026-10-05.md)
+para no usar la sección anterior como estado actual.

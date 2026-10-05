@@ -185,6 +185,7 @@ class FacturacionService {
         phonePrimary: c.telefono || '',
         mobile: c.celular || '',
         plazoCreditoId: c.plazo_credito_id || null,
+        ciclos: c.ciclos || [],
         status: c.activo === false ? 'inactive' : 'active'
       }));
 
@@ -427,6 +428,22 @@ class FacturacionService {
     } catch {
       return { habituales: [], perdidos: [] };
     }
+  }
+
+  async getCiclosCliente(clienteId) {
+    const clave = `ciclos_cliente_${clienteId}`;
+    if (this.isOnline) {
+      const { data } = await api.get(`/facturacion/clientes/${clienteId}/ciclos`);
+      const ciclos = data.data || [];
+      await indexedDBService.setConfig(clave, { ciclos, descargadoEn: Date.now() });
+      return ciclos;
+    }
+    const cliente = (await indexedDBService.getClientes()).find(c => String(c.id) === String(clienteId));
+    const copia = await indexedDBService.getConfig(clave);
+    const actualizacionClientes = await indexedDBService.getConfig('clientes_last_update') || 0;
+    const ciclos = copia?.descargadoEn > actualizacionClientes ? copia.ciclos : cliente?.ciclos ?? copia?.ciclos;
+    if (!ciclos) throw new Error('Sin conexión y sin semanas descargadas para este cliente. Actualizá con conexión para seleccionar un ciclo.');
+    return ciclos;
   }
 
   async crearFactura(facturaData, facturaVista = null) {

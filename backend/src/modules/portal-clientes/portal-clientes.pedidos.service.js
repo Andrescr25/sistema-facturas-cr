@@ -10,6 +10,7 @@
  * los segundos que ahorra.
  */
 
+const ciclos = require('../rutas/documentosCiclo.service');
 const { query, httpError } = require('./portal-clientes.auth');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { pool } = require('../../../config/database');
@@ -18,16 +19,24 @@ const { enTransaccion } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { crearFacturaEnTransaccion } = require('../facturacion/facturaPropia.service');
 
-async function listarPedidos({ estado = 'pendiente' } = {}) {
-  const filtro = estado === 'todos' ? '' : 'WHERE p.estado = $1';
-  const params = estado === 'todos' ? [] : [estado];
+async function listarPedidos({ estado = 'pendiente', rutaId, cicloId, origen } = {}) {
+  const where = [], params = [];
+  const agregar = v => { params.push(v); return '$' + params.length; };
+  if (!['pendiente','facturado','rechazado','todos'].includes(estado)) throw httpError(400, 'Estado de pedido inválido.');
+  if (estado !== 'todos') where.push(`p.estado=${agregar(estado)}`);
+  ciclos.filtrarCiclo({ rutaId, cicloId }, where, agregar);
+  if (origen) {
+    if (!['portal','agente'].includes(origen)) throw httpError(400, 'Origen de pedido inválido.');
+    where.push(`p.origen=${agregar(origen)}`);
+  }
+  const filtro = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
   // LEFT JOIN, no JOIN: un pedido levantado por el agente en la calle NO
   // tiene cuenta de portal detrás (solo 5 de 239 clientes tienen), así que
   // un JOIN normal lo dejaba fuera. El pedido entraba a la base y nadie lo
   // veía nunca — que es justo lo que no puede pasar con una venta.
   const r = await query(`
-    SELECT p.*,
+    SELECT p.*, ${ciclos.COLUMNAS_CICLO},
       COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre,
       cp.usuario,
       u.nombre AS agente_nombre,
@@ -35,6 +44,7 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
     FROM pedido_cliente p
     LEFT JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
     LEFT JOIN usuario u ON u.id = p.creado_por_usuario_id
+    ${ciclos.JOIN_CICLO('p')}
     ${filtro}
     ORDER BY p.creado_en DESC
     LIMIT 200;
@@ -45,6 +55,7 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
     clienteNombre: p.cliente_nombre,
     clienteId: p.cliente_id,
     facturaId: p.factura_id,
+    ciclo: ciclos.aCiclo(p), anticipado: p.preventa_anticipada,
     estado: p.estado,
     total: Number(p.total),
     lineas: p.lineas,
@@ -60,9 +71,10 @@ async function listarPedidos({ estado = 'pendiente' } = {}) {
 
 async function detalle(pedidoId, db = { query }, { bloquear = false } = {}) {
   const p = await db.query(`
-    SELECT p.*, COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre
+    SELECT p.*, ${ciclos.COLUMNAS_CICLO}, COALESCE(cp.nombre, p.cliente_nombre) AS cliente_nombre
     FROM pedido_cliente p
     LEFT JOIN cliente_portal cp ON cp.id = p.cliente_portal_id
+    ${ciclos.JOIN_CICLO('p')}
     WHERE p.id = $1 ${bloquear ? 'FOR UPDATE OF p' : ''};
   `, [idValido(pedidoId)]);
   if (p.rows.length === 0) throw httpError(404, 'Pedido no encontrado.');
@@ -71,6 +83,7 @@ async function detalle(pedidoId, db = { query }, { bloquear = false } = {}) {
 
   return {
     ...p.rows[0],
+    ciclo: ciclos.aCiclo(p.rows[0]),
     clienteNombre: p.rows[0].cliente_nombre,
     total: Number(p.rows[0].total),
     lineas: l.rows.map(x => ({
@@ -119,7 +132,7 @@ async function facturar(pedidoId, usuarioId) {
       items: pedido.lineas.map(l => ({ productoId: l.productoId, quantity: l.cantidad,
         price: l.precio, discount: 0 })),
       observaciones: `Pedido #${pedido.id} ${pedido.origen === 'agente' ? 'del agente' : 'del portal de clientes'}${pedido.observaciones ? ` — ${pedido.observaciones}` : ''}`
-    }, usuarioId, { preciosConImpuesto: true });
+    }, usuarioId, { preciosConImpuesto: true, contextoPedido: { recorridoId: pedido.ciclo_ruta_cliente_id || null, ciclo: pedido.ciclo, anticipado: Boolean(pedido.preventa_anticipada) } });
     await db.query(`
       UPDATE pedido_cliente SET estado = 'facturado', factura_id = $1, numero_factura = $2,
         resuelto_en = ${AHORA_CR_SQL}, resuelto_por = $3 WHERE id = $4`,

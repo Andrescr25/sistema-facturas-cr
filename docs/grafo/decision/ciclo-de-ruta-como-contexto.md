@@ -12,7 +12,7 @@ aristas:
 medido: 2026-10-05
 ---
 
-**Decisión del usuario. Rutas/ciclos implementados; vincular documentos pendiente.** La ruta define el
+**Decisión del usuario. Rutas/ciclos y pedidos/facturas implementados; faltantes/compras pendientes.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -35,4 +35,5 @@ La regla de negocio se conserva aquí; código y evidencia están en el módulo.
 
 Modelo de rutas/ciclos, asignación/orden, recorrido inmutable y ficha ya
 implementados: ver [[modulo/rutas-clientes]]. Los estados pueden coexistir;
-promoción explícita. No hay aún vínculo de pedido/factura/faltante con el ciclo.
+promoción explícita. Segunda parte: pedidos/facturas conservan el ciclo y sus filtros, ver
+[[modulo/pedidos-por-ciclo]]. Vincular faltantes y compras sigue pendiente.

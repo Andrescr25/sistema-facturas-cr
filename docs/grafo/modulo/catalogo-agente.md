@@ -28,7 +28,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-03
+medido: 2026-10-05
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
@@ -123,3 +123,7 @@ era del catálogo sino de Facturación sin señal: la base local del navegador
 solo se abría en esa pantalla, y el regreso de la conexión se escucha en toda
 la aplicación. Está explicado en [[modulo/facturacion-offline]]. El mismo
 arreglo está en producción (`main` `e19c3e5`).
+
+2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
+al facturar se conserva el recorrido original. Colas antiguas intactas,
+filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].

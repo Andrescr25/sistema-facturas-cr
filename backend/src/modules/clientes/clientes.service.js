@@ -288,6 +288,7 @@ async function cambiarEstadoCliente(id, activo, usuarioId) {
  */
 async function clientesParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}) {
   const r = await listarClientes({ buscar, pagina, limite, estado: 'activos' });
+  const ciclos = await require('../rutas/documentosCiclo.service').disponiblesParaClientes(r.data.map(c => c.id));
   return {
     ...r,
     data: r.data.map(c => ({
@@ -295,7 +296,7 @@ async function clientesParaOperar({ buscar = '', pagina = 1, limite = 30 } = {})
       tipo_identificacion: c.tipo_identificacion, identificacion: c.identificacion,
       correo: c.correo, telefono: c.telefono, celular: c.celular,
       plazo_credito_id: c.plazo_credito_id, plazo: c.plazo, plazo_dias: c.plazo_dias,
-      actividad_economica: c.actividad_economica
+      actividad_economica: c.actividad_economica, ciclos: ciclos.get(c.id) || []
     }))
   };
 }

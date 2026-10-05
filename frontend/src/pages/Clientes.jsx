@@ -39,7 +39,7 @@ export default function Clientes() {
   const {
     vista, setVista,
     clientes, cargandoClientes,
-    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos,
+    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
     busqueda, setBusqueda,
     procesando, invitacion, setInvitacion,
     generarInvitacion, revocar, reactivar, facturar, rechazar
@@ -133,6 +133,8 @@ export default function Clientes() {
         )
       ) : vista === 'pedidos' ? (
         <ListaPedidos
+          rutas={rutas.rutas} ciclos={rutas.ciclos}
+          contexto={contextoPedidos} setContexto={setContextoPedidos}
           pedidos={pedidos}
           cargando={cargandoPedidos}
           filtro={filtroPedidos}
