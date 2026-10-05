@@ -24,7 +24,7 @@
  */
 
 const { permisosDe } = require('./usuarios.service');
-const { moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin } = require('./modulos');
+const { moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin, modulosQuePuedenUsar } = require('./modulos');
 
 function requirePermiso(req, res, next) {
   if (req.method === 'OPTIONS') return next();
@@ -66,7 +66,9 @@ function requirePermiso(req, res, next) {
         });
       }
 
-      if (clave && !permisos.modulos.has(clave)) {
+      // Entra el dueño de la ruta, y también el módulo que la tiene prestada
+      // porque su pantalla trabaja con esos datos (ver `tambienUsa`).
+      if (clave && !modulosQuePuedenUsar(ruta, req.method).some(c => permisos.modulos.has(c))) {
         return res.status(403).json({
           success: false, error: 'No tiene acceso a este módulo.', code: 'SIN_PERMISO', modulo: clave
         });

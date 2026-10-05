@@ -20,6 +20,7 @@ archivos:
   - backend/server.js
   - backend/tests/sinPrefijoAlegra.test.js
   - backend/tests/dobles/sinComentarios.js
+  - backend/tests/permisosPrestados.test.js
 aristas:
   relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-04
@@ -131,9 +132,19 @@ falso que se tragaba el código siguiente: en `alegraService.js` se comía dos
 llamadas de verdad, y la prueba pasaba sin haberlas mirado. Usan
 `tests/dobles/sinComentarios.js`, que sabe cuándo está dentro de una cadena.
 
-SIGUE COMPARTIDO, SIN DECIDIR: las tres escrituras de `/reportes` — mandar a
-impresión y recuperar (Reporte de Clientes) y limpiar los faltantes
-procesados (Configuración).
+LAS ESCRITURAS DE `/reportes` TIENEN DUEÑO (2026-10-04, decisión del
+usuario). `/reportes` es compartido porque lo LEEN las dos pantallas de
+reporte y la cola de impresión. Las tres rutas que escriben eran botones de
+una sola pantalla cada una, y pasaban con cualquier sesión:
+
+| Ruta | Dueño | Botón |
+|---|---|---|
+| `POST /reportes/faltantes/cliente/facturas/:id/impresion` | `reporte-clientes` | "lista para imprimir" |
+| `POST /reportes/faltantes/cliente/facturas/:id/recuperar` | `reporte-clientes` | recuperar la factura |
+| `DELETE /reportes/faltantes/proveedor/limpiar` | `configuracion` | Mantenimiento → limpiar faltantes procesados |
+
+`permisosPrestados.test.js` lee `report.routes.js` y falla si aparece una
+escritura nueva en ese router sin dueño.
 
 EN PRODUCCIÓN (`main` `1a4d666`, 2026-10-04, autorizado por el usuario) se
 cerraron el montaje doble de Impresión y el borrado total de faltantes. Allá
@@ -143,9 +154,16 @@ puede llamar sus rutas. Su prueba (`permisosDebajoDeAlegra.test.js`) vive en
 `developer`; en esta rama la reemplaza `sinPrefijoAlegra.test.js`, y al
 fusionar `developer` hay que dejarla borrada.
 
-HUECO SIN DECIDIR: Gestionar Relaciones no tiene prefijo propio
-(`rutasApi: []`). Su pantalla llama a `/productos-revision` (de Revisión de
-Precios) y a `/proveedores` (de Reporte de Proveedores), así que un usuario con
-SOLO ese módulo recibe 403 en cada llamada. No se tocó: de quién son esas
-rutas, o si el módulo debe heredar las de Revisión de Precios, es una decisión
-del usuario.
+UNA RUTA TIENE UN DUEÑO; SE PUEDE PRESTAR (2026-10-04, decisión del usuario).
+Gestionar Relaciones no tiene API propia: su pantalla usa las relaciones
+proveedor ↔ producto, que son de Revisión de Precios, y la lista de
+proveedores. Quien tenía SOLO ese módulo veía la pantalla en el menú y cada
+llamada le daba 403. No se le dio un segundo dueño a la ruta ni se la volvió
+compartida: el módulo declara `tambienUsa`, y el guardián deja entrar al dueño
+o a quien la tiene prestada (`modulosQuePuedenUsar`). Se presta lo justo:
+`/productos-revision` entero, y de `/proveedores` solo leer la lista
+(`exacta`, `metodos: ['GET']`) — de ahí cuelgan también las fichas y las
+asignaciones, que se escriben y siguen siendo solo de Reporte Proveedores.
+`permisosPrestados.test.js` lee las llamadas del hook de verdad y falla si la
+pantalla empieza a usar una ruta que nadie le prestó. Vino de `developer`
+(`main` `b0989bf`), donde es igual.
