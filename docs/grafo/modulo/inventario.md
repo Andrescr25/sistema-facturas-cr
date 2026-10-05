@@ -8,7 +8,7 @@ archivos:
 aristas:
   bloqueado_por: [bloqueo/conteo-fisico]
   relacionado: [modulo/compras]
-medido: 2026-09-20
+medido: 2026-10-04
 ---
 
 Verificado el 2026-09-20: ninguna de las 20 migraciones de
@@ -23,4 +23,10 @@ guarda existencias").
 GENERADA pensada para el día que exista este módulo: cuando el inventario se
 mueva, se mueve en esa cantidad, no en la del proveedor.
 
-No se empieza sin el conteo físico. Ver [[bloqueo/conteo-fisico]].
+Vuelto a verificar el 2026-10-04: son 41 migraciones y sigue sin existir
+ninguna tabla de inventario propio.
+
+No se empieza sin el conteo físico. Ver [[bloqueo/conteo-fisico]], que desde
+esa fecha tiene qué hace cada parte del módulo, cuánto se usa y la decisión
+que hay que tomar para el corte: armar el inventario antes, o cortar sin
+existencias.
