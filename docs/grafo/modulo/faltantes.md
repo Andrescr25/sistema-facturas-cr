@@ -188,6 +188,21 @@ Las rutas de los reportes y del pedido tienen su propia dirección desde el
 2026-10-04 (`/reportes`, `/faltantes`, `/orden-compra`); el prefijo `/alegra`
 y su enrutador adaptador se retiraron.
 
+EL WHATSAPP DEL PROVEEDOR ES EL DE SU FICHA (2026-10-04). La orden de compra
+lo lee y lo guarda en `proveedor.telefono_whatsapp`
+(`orders-whatsapp.service.js`: `fichaDelProveedor`, `getProveedorContacto`,
+`guardarProveedorContacto`; rutas `GET`/`PUT /orden-compra/proveedor-contacto`
+con `cedula` y `nombre`). Se llega a la ficha por CÉDULA; por nombre solo si
+la orden no la trae y hay una única ficha con ese nombre — el mismo proveedor
+aparece con dos grafías y elegir entre dos fichas sería adivinar a quién se
+le escribe. Guardar pasa por `editarFicha`: misma validación, mismo formato
+("8888 2222"; al mandar se le pone el 506) y bitácora; el mismo número
+escrito de otra forma no cuenta como cambio. Antes iba a `proveedor_contactos`,
+llaveada por nombre, y la ficha no se usaba; además la pantalla leía el
+número donde el servidor no lo pone y terminaba mostrando el que recordaba
+cada navegador (`localStorage`, que queda solo como último recurso cuando la
+ficha no tiene número). Prueba: `ordenCompraTelefonoDeLaFicha.test.js`.
+
 DEMOSTRACIÓN RETIRADA (pedido del usuario, 2026-10-04). Tras recorrer el
 reporte, pidió eliminar el conjunto `ZZ-DEMO`: retirados sus dos proveedores,
 cinco productos, faltantes, borradores y su fila de Impresión por ids del
