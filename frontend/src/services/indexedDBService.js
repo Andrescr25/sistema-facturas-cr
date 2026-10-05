@@ -23,12 +23,33 @@ const STORES = {
 class IndexedDBService {
   constructor() {
     this.db = null;
+    // La apertura en curso, para que dos pedidos a la vez abran UNA sola vez.
+    this.abriendo = null;
+  }
+
+  /**
+   * La base, abierta: la abre si todavía no lo está.
+   *
+   * TODO MÉTODO PASA POR ACÁ en vez de usar `this.db` a secas. `init()` lo
+   * llama la pantalla de Facturación al montarse, pero este servicio lo usa
+   * también lo que no espera a esa pantalla: al volver la conexión se intenta
+   * mandar lo pendiente desde CUALQUIER pantalla —el catálogo del agente, por
+   * ejemplo—. Con `this.db` en null cada método reventaba con "Cannot read
+   * properties of null (reading 'transaction')", y lo pendiente no se mandaba.
+   */
+  async abierta() {
+    if (this.db) return this.db;
+    if (!this.abriendo) {
+      this.abriendo = this.init().finally(() => { this.abriendo = null; });
+    }
+    return this.abriendo;
   }
 
   /**
    * Inicializar la base de datos
    */
   async init() {
+    if (this.db) return this.db;
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -117,7 +138,8 @@ class IndexedDBService {
    * Guardar múltiples productos (reemplaza todos)
    */
   async saveProductos(productos) {
-    const transaction = this.db.transaction([STORES.PRODUCTOS], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.PRODUCTOS], 'readwrite');
     const store = transaction.objectStore(STORES.PRODUCTOS);
 
     // Limpiar productos existentes
@@ -152,8 +174,9 @@ class IndexedDBService {
    * Obtener todos los productos
    */
   async getProductos() {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.PRODUCTOS], 'readonly');
+      const transaction = db.transaction([STORES.PRODUCTOS], 'readonly');
       const store = transaction.objectStore(STORES.PRODUCTOS);
       const request = store.getAll();
 
@@ -166,7 +189,8 @@ class IndexedDBService {
    * Eliminar edición pendiente
    */
   async deleteEdicionPendiente(localId) {
-    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -183,8 +207,9 @@ class IndexedDBService {
    * Buscar producto por referencia (código)
    */
   async getProductoByReference(reference) {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.PRODUCTOS], 'readonly');
+      const transaction = db.transaction([STORES.PRODUCTOS], 'readonly');
       const store = transaction.objectStore(STORES.PRODUCTOS);
       const index = store.index('reference');
       
@@ -248,7 +273,8 @@ class IndexedDBService {
    * Guardar múltiples clientes (reemplaza todos)
    */
   async saveClientes(clientes) {
-    const transaction = this.db.transaction([STORES.CLIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.CLIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.CLIENTES);
 
     // Limpiar clientes existentes
@@ -277,8 +303,9 @@ class IndexedDBService {
    * Obtener todos los clientes
    */
   async getClientes() {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.CLIENTES], 'readonly');
+      const transaction = db.transaction([STORES.CLIENTES], 'readonly');
       const store = transaction.objectStore(STORES.CLIENTES);
       const request = store.getAll();
 
@@ -311,7 +338,8 @@ class IndexedDBService {
    * Guardar factura pendiente (sin internet)
    */
   async saveFacturaPendiente(factura) {
-    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
 
     const facturaConMetadata = {
@@ -336,7 +364,8 @@ class IndexedDBService {
    * Actualizar factura pendiente existente
    */
   async updateFacturaPendiente(localId, nuevosDatos) {
-    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -370,8 +399,9 @@ class IndexedDBService {
    * Obtener facturas pendientes de sincronización
    */
   async getFacturasPendientes() {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readonly');
+      const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readonly');
       const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
       
       // Obtener todas las facturas y filtrar manualmente
@@ -393,7 +423,8 @@ class IndexedDBService {
    * Marcar factura como sincronizada
    */
   async markFacturaSincronizada(localId, alegraId) {
-    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -425,7 +456,8 @@ class IndexedDBService {
    * Registrar error de sincronización
    */
   async markFacturaError(localId, error) {
-    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -454,7 +486,8 @@ class IndexedDBService {
    * Eliminar factura sincronizada (limpieza)
    */
   async deleteFactura(localId) {
-    const transaction = this.db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -476,7 +509,8 @@ class IndexedDBService {
    * por eso el estado vive acá y solo lo cambia una respuesta del servidor.
    */
   async guardarPedidoAgente(pedido) {
-    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
     const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
     return new Promise((resolve, reject) => {
       const request = store.put(pedido);
@@ -486,8 +520,9 @@ class IndexedDBService {
   }
 
   async getPedidosAgente() {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readonly');
+      const transaction = db.transaction([STORES.PEDIDOS_AGENTE], 'readonly');
       const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result || []);
@@ -496,7 +531,8 @@ class IndexedDBService {
   }
 
   async actualizarPedidoAgente(clave, cambios) {
-    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
     const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
     return new Promise((resolve, reject) => {
       const lectura = store.get(clave);
@@ -514,7 +550,8 @@ class IndexedDBService {
 
   /** Solo se borra lo que el servidor YA confirmó. */
   async borrarPedidoAgenteConfirmado(clave) {
-    const transaction = this.db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.PEDIDOS_AGENTE], 'readwrite');
     const store = transaction.objectStore(STORES.PEDIDOS_AGENTE);
     return new Promise((resolve, reject) => {
       const lectura = store.get(clave);
@@ -538,7 +575,8 @@ class IndexedDBService {
    * Guardar configuración
    */
   async setConfig(key, value) {
-    const transaction = this.db.transaction([STORES.CONFIGURACION], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.CONFIGURACION], 'readwrite');
     const store = transaction.objectStore(STORES.CONFIGURACION);
 
     return new Promise((resolve, reject) => {
@@ -552,8 +590,9 @@ class IndexedDBService {
    * Obtener configuración
    */
   async getConfig(key) {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.CONFIGURACION], 'readonly');
+      const transaction = db.transaction([STORES.CONFIGURACION], 'readonly');
       const store = transaction.objectStore(STORES.CONFIGURACION);
       const request = store.get(key);
 
@@ -599,7 +638,8 @@ class IndexedDBService {
    * Limpiar todo el cache (útil para desarrollo/testing)
    */
   async clearAll() {
-    const transaction = this.db.transaction(
+    const db = await this.abierta();
+    const transaction = db.transaction(
       [STORES.PRODUCTOS, STORES.CLIENTES, STORES.FACTURAS_PENDIENTES, STORES.FACTURAS_CACHE, STORES.EDICIONES_PENDIENTES, STORES.CONFIGURACION],
       'readwrite'
     );
@@ -624,12 +664,15 @@ class IndexedDBService {
    * Guardar facturas en cache (para edición offline)
    */
   async saveFacturasCache(facturas) {
-    if (!this.db) {
-      console.warn('⚠️ IndexedDB no inicializada en saveFacturasCache');
+    // Si el navegador no deja abrir la base, la copia no se guarda: no es
+    // motivo para que falle la venta que ya se hizo.
+    const db = await this.abierta().catch(() => null);
+    if (!db) {
+      console.warn('⚠️ No se pudo abrir IndexedDB en saveFacturasCache');
       return 0;
     }
 
-    const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
+    const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_CACHE);
 
     let guardadas = 0;
@@ -665,12 +708,13 @@ class IndexedDBService {
   }
 
   async deleteFacturaCache(id) {
-    if (!this.db) {
-      console.warn('⚠️ IndexedDB no inicializada en deleteFacturaCache');
+    const db = await this.abierta().catch(() => null);
+    if (!db) {
+      console.warn('⚠️ No se pudo abrir IndexedDB en deleteFacturaCache');
       return;
     }
 
-    const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
+    const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_CACHE);
 
     return new Promise((resolve, reject) => {
@@ -684,8 +728,9 @@ class IndexedDBService {
    * Obtener todas las facturas del cache
    */
   async getFacturasCache() {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readonly');
+      const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readonly');
       const store = transaction.objectStore(STORES.FACTURAS_CACHE);
       const request = store.getAll();
 
@@ -698,8 +743,9 @@ class IndexedDBService {
    * Obtener una factura específica del cache
    */
   async getFacturaById(facturaId) {
+    const db = await this.abierta();
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.FACTURAS_CACHE], 'readonly');
+      const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readonly');
       const store = transaction.objectStore(STORES.FACTURAS_CACHE);
       const request = store.get(facturaId);
 
@@ -744,7 +790,8 @@ class IndexedDBService {
    * Guardar edición pendiente de factura
    */
   async saveEdicionPendiente(facturaId, datosEdicion) {
-    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
 
     const edicionConMetadata = {
@@ -770,19 +817,16 @@ class IndexedDBService {
    * Obtener ediciones pendientes de sincronización
    */
   async getEdicionesPendientes() {
-    // Esperar a que la DB esté inicializada
-    if (!this.db) {
-      // Intentar inicializar si no está inicializada
-      try {
-        await this.init();
-      } catch (error) {
-        console.warn('⚠️ IndexedDB no inicializada en getEdicionesPendientes:', error);
-        return [];
-      }
+    let db;
+    try {
+      db = await this.abierta();
+    } catch (error) {
+      console.warn('⚠️ No se pudo abrir IndexedDB en getEdicionesPendientes:', error);
+      return [];
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readonly');
+      const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readonly');
       const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
       const request = store.getAll();
 
@@ -800,7 +844,8 @@ class IndexedDBService {
    * Marcar edición como sincronizada
    */
   async markEdicionSincronizada(localId) {
-    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
 
     return new Promise((resolve, reject) => {
@@ -831,7 +876,8 @@ class IndexedDBService {
    * Registrar error de sincronización de edición
    */
   async markEdicionError(localId, error) {
-    const transaction = this.db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
+    const db = await this.abierta();
+    const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
 
     return new Promise((resolve, reject) => {

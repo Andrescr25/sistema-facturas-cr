@@ -8,7 +8,7 @@
  * - Sincronización automática cuando hay conexión
  */
 
-import api from './api';
+import api, { TOKEN_KEY } from './api';
 import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
 
@@ -621,6 +621,15 @@ class FacturacionService {
             console.log(`✅ Factura ${factura.localId} sincronizada (Alegra: ${response.data.data.id})`);
           }
         } catch (error) {
+          // La sesión venció. No es un rechazo de ESTA factura, y las que
+          // siguen recibirían lo mismo: se corta acá sin anotarle a ninguna
+          // un error que no tiene. Se mandan al volver a ingresar.
+          if (error?.response?.status === 401) {
+            resultados.sinSesion = true;
+            console.warn('🔒 La sesión venció: las facturas pendientes quedan como estaban');
+            break;
+          }
+
           // El motivo que se guarda es el de ALEGRA, no el de axios. En la
           // tarjeta de la factura pendiente se leía "Request failed with
           // status code 400", que no dice qué arreglar; ahora dice cuál
@@ -649,6 +658,8 @@ class FacturacionService {
         success: true,
         sincronizadas: resultados.exitosas.length,
         fallidas: resultados.fallidas.length,
+        // true si se cortó porque la sesión venció: lo que faltaba sigue pendiente.
+        sinSesion: Boolean(resultados.sinSesion),
         detalles: resultados
       };
 
@@ -738,20 +749,54 @@ class FacturacionService {
   }
 
   /**
-   * Handler cuando se detecta conexión
+   * ¿Hay una sesión del personal con la que mandar algo?
+   *
+   * Sin ella, mandar lo pendiente solo consigue un 401 por cada factura.
+   */
+  haySesion() {
+    try {
+      return Boolean(localStorage.getItem(TOKEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Volvió la conexión: se intenta mandar lo que quedó pendiente.
+   *
+   * ESTO CORRE EN CUALQUIER PANTALLA, no solo en Facturación: el servicio se
+   * carga con la aplicación. Dos cosas que eso implica:
+   *
+   * - La base local puede no estar abierta (solo Facturación la abría). Cada
+   *   método de `indexedDBService` la abre si hace falta; antes esto reventaba
+   *   en el catálogo del agente con "Cannot read properties of null (reading
+   *   'transaction')" y lo pendiente no se mandaba.
+   * - Puede no haber sesión: el catálogo del agente se usa con la sesión
+   *   vencida. Sin sesión no se intenta nada; las pendientes esperan intactas
+   *   al próximo ingreso.
+   *
+   * Una después de la otra, no a la vez: las dos comparten `syncInProgress`,
+   * y lanzadas juntas la segunda se encontraba la bandera puesta y no hacía
+   * nada — al volver la conexión las ediciones pendientes nunca se mandaban.
    */
   async handleOnline() {
     console.log('🌐 Conexión detectada');
     this.isOnline = true;
 
-    // Intentar sincronizar facturas pendientes y ediciones
-    try {
-      await Promise.all([
-        this.sincronizarFacturasPendientes(),
-        this.sincronizarEdicionesPendientes()
-      ]);
-    } catch (error) {
-      console.error('Error en sincronización automática:', error);
+    if (!this.haySesion()) {
+      console.log('🔒 Sin sesión iniciada: lo pendiente se manda al volver a ingresar');
+      return;
+    }
+
+    for (const sincronizar of [
+      () => this.sincronizarFacturasPendientes(),
+      () => this.sincronizarEdicionesPendientes()
+    ]) {
+      try {
+        await sincronizar();
+      } catch (error) {
+        console.error('Error en sincronización automática:', error);
+      }
     }
   }
 
@@ -1108,6 +1153,13 @@ class FacturacionService {
             console.log(`✅ Edición ${edicion.localId} sincronizada (Factura: ${edicion.facturaId})`);
           }
         } catch (error) {
+          // La sesión venció: no es un problema de esta edición (ver arriba).
+          if (error?.response?.status === 401) {
+            resultados.sinSesion = true;
+            console.warn('🔒 La sesión venció: las ediciones pendientes quedan como estaban');
+            break;
+          }
+
           const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
           const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
 
@@ -1144,6 +1196,8 @@ class FacturacionService {
         success: true,
         sincronizadas: resultados.exitosas.length,
         fallidas: resultados.fallidas.length,
+        // true si se cortó porque la sesión venció: lo que faltaba sigue pendiente.
+        sinSesion: Boolean(resultados.sinSesion),
         detalles: resultados
       };
 
