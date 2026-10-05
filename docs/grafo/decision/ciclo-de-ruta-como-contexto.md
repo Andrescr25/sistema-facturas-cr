@@ -28,10 +28,9 @@ primer pedido más accesible. Cambiar ruta/orden del maestro no debe reescribir
 el contexto de documentos pasados. Históricos sin clasificación no reciben
 un ciclo supuesto.
 
-La reorganización de Clientes y todos los filtros operativos están detallados
-en el checklist. Este nodo registra una regla acordada; no acredita nuevas
-tablas, API o pantallas. Al implementar, añadir aquí los archivos reales y
-la evidencia de separación de ciclos.
+El checklist distingue lo implementado de los próximos vínculos y filtros.
+La regla de negocio se conserva aquí; código y evidencia están en el módulo.
+
 ## Primera parte, 2026-10-05
 
 Modelo de rutas/ciclos, asignación/orden, recorrido inmutable y ficha ya

@@ -52,6 +52,14 @@ prueba('asignar e insertar por posición compacta ambos recorridos sin tocar otr
   await clientes.editarCliente(lista[2].id, { ruta_id: null });
   assert.equal((await clientes.obtenerCliente(lista[2].id)).orden_ruta, null);
 });
+prueba('nombre obligatorio y duplicado se rechazan antes de crear otra ruta', async () => {
+  for (const datos of [undefined, {}, { nombre: ' ' }, { nombre: 42 }, { nombre: {} }]) {
+    await assert.rejects(rutas.crearRuta(datos), e => e.status === 400);
+  }
+  const n = nombre('Duplicado');
+  await rutas.crearRuta({ nombre: n });
+  await assert.rejects(rutas.crearRuta({ nombre: n.toUpperCase() }), e => e.status === 409);
+});
 prueba('orden incompleto, duplicado, cliente ajeno y versión obsoleta no cambian la ruta', async () => {
   const { ruta, lista } = await preparar();
   const ids = lista.map(c => c.id);

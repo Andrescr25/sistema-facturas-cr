@@ -127,7 +127,7 @@ export default function Clientes() {
           procesando={fichas.procesando}
           onNuevo={() => fichas.setEditando({})}
           onEditar={fichas.setEditando}
-          onCambiarEstado={fichas.cambiarEstado}
+          onCambiarEstado={async cliente => { await fichas.cambiarEstado(cliente); await rutas.refrescar() }}
           onAbrir={(c) => setFichaAbierta(c.id)}
         />
         )

@@ -56,8 +56,8 @@ refresca el detalle. Deudas incluyen facturas antiguas, no solo las diez recient
 pedidos consultan `pedido_cliente.cliente_id`, sin exigir cuenta del portal ni
 referencia externa. La sección de pedidos es reciente (10), origen distinguido.
 
-Verificación: 13 pruebas nuevas (PostgreSQL real, concurrencia, recorridos,
-estados, Maps/permisos), suite 1.948 aprobadas; build y navegador 1440/700/390.
+Verificación: 14 pruebas nuevas (PostgreSQL real, concurrencia, recorridos,
+estados, nombres/duplicados, Maps/permisos), suite 1.949 aprobadas; build y navegador 1440/700/390.
 HTTP real sin sesión 401, sin permiso 403, incluyendo POST. Navegador confirma
 flechas/guardado, ciclo, edición de ficha y conservación del día original del
 recorrido. Arrastre implementado, revisión manual del usuario pendiente.

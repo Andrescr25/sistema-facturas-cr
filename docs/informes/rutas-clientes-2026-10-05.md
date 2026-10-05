@@ -22,13 +22,17 @@ cuenta del portal; las deudas muestran también facturas anteriores a las
 
 ## Verificación y aplicación
 
-**1.948 pruebas aprobadas, cero fallos y cero omitidas**, con base PostgreSQL
-desechable propia. Trece nuevas comprueban enlaces, permisos, asignación/orden,
+**1.949 pruebas aprobadas, cero fallos y cero omitidas**, con base PostgreSQL
+desechable propia. Catorce nuevas comprueban nombre/duplicados, enlaces, permisos, asignación/orden,
 dos escrituras concurrentes, semanas, copia inmutable del recorrido, transición
 de estados y resumen con facturas antiguas/cliente sin referencia externa.
 Build aprobado; Chromium 1440/700/390 sin desbordamiento. Verificado guardar
 orden con flechas, crear ciclo, editar día, abrir enlace correcto y mantener
 el día original del recorrido; sin abrir Maps externo ni enviar mensajes.
+La aplicación habitual **5174 → 3002** también verificada con lecturas GET y
+navegador 1440/390: vistas disponibles, rutas/ciclos vacíos, clientes sin
+reasignar e inventario en cero. El backend local usa el lanzador seguro existente;
+los servidores de prueba no sustituyen la aplicación del usuario.
 
 Migración 044 aplicada **solo a la base local** con respaldo privado previo,
 13 huellas comerciales iguales y nuevas tablas vacías. No se asignaron rutas

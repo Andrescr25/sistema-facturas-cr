@@ -8,7 +8,10 @@ const { semanaValida } = require('./rutas.validacion');
 // Evita que dos pantallas pierdan miembros o calculen el mismo último puesto.
 const bloquearRutasEn = db => db.query('SELECT pg_advisory_xact_lock(44005, 1)');
 const enRuta = trabajo => enTransaccion(pool, async db => { await bloquearRutasEn(db); return trabajo(db); });
-const nombreValido = v => { const n = texto(120)(v, 'Nombre de ruta'); if (!n) throw httpError(400, 'Nombre de ruta: obligatorio.'); return n; };
+const nombreValido = v => {
+  if (typeof v !== 'string' || !v.trim()) throw httpError(400, 'Nombre de ruta: obligatorio.');
+  return texto(120)(v, 'Nombre de ruta');
+};
 async function rutaEn(db, id) {
   const { rows } = await db.query('SELECT * FROM ruta_cliente WHERE id=$1', [idValido(id)]);
   if (!rows[0]) throw httpError(404, 'No existe esa ruta.');
