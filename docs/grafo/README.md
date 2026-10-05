@@ -31,6 +31,7 @@ toca, qué no se regenera).
 - [Conciliación de compras — vínculos históricos y candidatos sin confirmar](modulo/conciliacion-compras.md)
 - [Conciliación de notas — aplicaciones a facturas y débitos históricos](modulo/conciliacion-notas-credito.md)
 - [Débitos históricos — el documento original y su vínculo de crédito propio](modulo/historico-debitos-ingreso.md)
+- [Originales electrónicos de ventas — PDF, XML y huellas fuera de Git](modulo/archivo-ventas-electronicas.md)
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)

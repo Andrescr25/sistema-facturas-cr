@@ -10,8 +10,8 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   depende_de: [bloqueo/prisma-no-se-regenera]
-  relacionado: [bloqueo/xml-historico-sin-recuperar]
-medido: 2026-09-23
+  relacionado: [bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
+medido: 2026-10-04
 ---
 
 Precedente ya tomado para las facturas de VENTA

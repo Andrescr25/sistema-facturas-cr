@@ -18,7 +18,7 @@ archivos:
   - backend/tests/intentoDeFacturaIdPropio.test.js
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline]
+  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas]
 medido: 2026-10-04
 ---
 
@@ -38,6 +38,11 @@ pantalla y las rutas de envío manual de facturas emitidas, desde la cuenta
 del buzón existente. Destinatario confirmado, PDF adjunto y fallos SMTP
 controlados. En la rama aislada se puede revisar el formulario pero no enviar;
 la recepción real se verifica en el ensayo del corte.
+
+ORIGINALES DE ALEGRA (2026-10-04): [[modulo/archivo-ventas-electronicas]]
+descarga los PDF/XML originales de las ventas electrónicas históricas.
+Viven en un archivo privado con claves y huellas; no se sustituyen por el
+PDF propio ni se presentan como nuevas emisiones.
 
 SALDO PARA CONSULTA Y CONCILIACIÓN (2026-10-03): las expresiones `COBRADO` y
 `ACREDITADO` viven en `saldo.sql.js`, un archivo puro que no carga la base ni

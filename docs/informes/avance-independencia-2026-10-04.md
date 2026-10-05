@@ -71,12 +71,12 @@ no modifica esos archivos ni reinicia sus procesos.
 
 ## Estado del checklist
 
-Las secciones 0–16 tienen **115 tareas principales marcadas y 30 abiertas**
-(recontado sobre los avances de Claude hasta `1234fb1` y el retiro del
-traductor de Facturación de esta entrega). Proveedores (§4), Compras (§8)
-y §§11–14 están completas; el débito completa un tramo de §15 y no cierra
+Las secciones 0–16 tienen **118 tareas principales marcadas y 28 abiertas**
+(recontado sobre los avances de Claude hasta `eef7dd5`; la descarga de originales
+electrónicos avanzó, pero quedan 54 fichas sin XML ni clave fiscal). §0,
+Proveedores (§4), Compras (§8) y §§11–14 están completas; el débito completa un tramo de §15 y no cierra
 la conciliación total. Esa cuenta no mide la preparación para producción.
-Hay además una fila de Hacienda en Pospuesto: **115 marcadas y 31 abiertas
+Hay además una fila de Hacienda en Pospuesto: **118 marcadas y 29 abiertas
 en todo el archivo**.
 
 ## Qué sigue pendiente
@@ -89,9 +89,10 @@ en todo el archivo**.
   inventario propio; retirar la integración tras las cargas y conciliaciones
   del corte. Facturación/Productos antiguos, el envío antiguo de Compras,
   el prefijo `/alegra` y los dos traductores frontend ya se retiraron.
-- Guardar PDF/XML originales y verificar la recepción real de correo con
-  PDF y WhatsApp en el ensayo autorizado del corte. El flujo de correo ya
-  está implementado, con salidas bloqueadas durante el desarrollo.
+- Resolver las 54 fichas electrónicas sin XML/clave fiscal en Alegra y
+  respaldar/trasladar los originales al servidor. Verificar la recepción real
+  de correo con PDF y WhatsApp en el ensayo autorizado del corte. El flujo
+  de correo ya está implementado, con salidas bloqueadas durante el desarrollo.
 - Hacienda, aceptación electrónica y correcciones de datos se mantienen
   pospuestos con las decisiones existentes; inventario espera el conteo.
 - Ensayar el corte completo y documentar congelamiento y reversa.
@@ -303,3 +304,55 @@ correo. Una copia histórica se rechaza sin consultar su id propio.
 Cero errores de JavaScript, escrituras HTTP o mensajes reales en estas
 pruebas de navegador. El detalle técnico y los archivos están en
 [Facturación sin señal](../grafo/modulo/facturacion-offline.md).
+
+
+## Continuación: originales PDF/XML de ventas electrónicas
+
+El descargador de §15 recorre el historial de Alegra, selecciona las ventas
+electrónicas emitidas y obtiene sus enlaces con `fields=pdf,xml`. Archiva
+los bytes originales; no sustituye el PDF por una reimpresión propia. El
+XML se comprueba contra la clave fiscal del documento y debe incluir firma.
+El archivo privado mantiene SHA-256 y un manifiesto de la selección, los
+comprobantes confirmados y los pendientes. No incluye enlaces firmados ni
+credenciales. No modifica facturas, series, Hacienda, compras ni SQL.
+
+La misma ejecución se puede reanudar: comprueba lo ya archivado y descarga
+lo pendiente. Una copia alterada se reporta sin reemplazarla. Las descargas
+usan concurrencia limitada; el manifiesto tiene un solo escritor. Un
+error de lectura deja la revisión incompleta, conservando los originales.
+La carpeta fiscal vive fuera de Git y de las carpetas servidas por Express.
+El traslado y respaldo en el servidor corresponden al plan de corte; no
+se escriben rutas locales del equipo dentro de `factura.xml_ruta`.
+
+Primera medición local, solo SELECT: 531 facturas electrónicas copiadas,
+entre 2024-06-05 y 2026-09-11. La descarga completa se hace desde Alegra,
+para incluir lo posterior y no limitarse a esos ids. Una muestra real de
+PDF y XML respondió 200; el XML contiene firma y su clave coincide.
+Lectura completa del origen: **5.526 facturas; 546 marcadas electrónicas**.
+**54 no entregan clave fiscal en el listado ni en el detalle**. Una segunda
+consulta de las 54 respondió correctamente: todas ofrecen PDF, ninguna
+devuelve XML; 46 están cerradas y 8 anuladas. No se concluye de esa marca de
+plantilla que se emitieron fiscalmente ni que perdieron su XML. Sus ids y
+motivo quedan pendientes en el manifiesto; no se generan XML ni se reemite
+para suplirlos. El descargador exige identidad fiscal y no archiva esos PDF
+como originales identificados. Revisar emisión/originales en Alegra antes
+de cerrar §15. Primer intento de las restantes 492: **446 pares completos
+y un PDF adicional**, 893 archivos, **21.467.106 bytes**. Verificación
+independiente de cada huella, formato, clave/firma y permisos aprobada.
+Los pares confirmados van de 2024-06-05 a 2026-08-11. Quedan además 3
+descargas fallidas y 43 consultas de detalle fallidas: 100 pendientes en
+total. Las primeras tres fichas de este último grupo ahora responden y
+coinciden; se reanuda con dos trabajadores para conservar los originales
+confirmados y resolver los fallos de conexión/consulta. El manifiesto
+permanece incompleto. La carpeta permanente es
+`/Users/joseandres/Desktop/Proyectos_Per./archivo-fiscal-alegra/ventas`;
+no retirarla al limpiar copias o bases de prueba.
+
+Coordinación: sobre `bfd5c93` (Claude corrigió reconexión), incorporados
+`8bb7f2b` y la revisión de tablas/checklist `0fdbd40`/`eef7dd5`, sin conflictos.
+No se tocaron sus worktrees, servidores ni archivos de Facturación.
+Batería combinada: **1.912 pruebas aprobadas, cero fallos**, con la base
+desechable propia y `PROBAR_BASE_LOCAL=1`; incluye 26 pruebas del archivo
+y fallos/reintentos/concurrencia. Es una herramienta de backend sin cambios
+de interfaz. Instrucciones y alcance en
+[el nodo del archivo electrónico](../grafo/modulo/archivo-ventas-electronicas.md).
