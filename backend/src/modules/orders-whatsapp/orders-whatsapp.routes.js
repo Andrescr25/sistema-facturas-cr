@@ -32,8 +32,9 @@ router.post('/producto-agregado', controller.registrarProductoAgregado);
 router.delete('/producto-eliminado', controller.quitarProductoEliminado);
 router.delete('/producto-agregado', controller.quitarProductoAgregado);
 
-// Teléfonos de WhatsApp de proveedores
-router.get('/proveedor-contacto/:nombreProveedor', controller.getProveedorContacto);
+// El WhatsApp del proveedor para la orden: el de su FICHA (`proveedor`), que
+// se busca por cédula. Antes iba por nombre a una tabla aparte.
+router.get('/proveedor-contacto', controller.getProveedorContacto);
 router.put('/proveedor-contacto', controller.guardarProveedorContacto);
 
 module.exports = router;

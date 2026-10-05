@@ -260,7 +260,8 @@ export function useReporteProveedores() {
     setMensajeWhatsApp('Hola buenas, adjunto el pedido\ngracias')
     setModalWhatsAppVisible(true)
     try {
-      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor.nombre)
+      // El de la ficha del proveedor: el mismo en todas las computadoras.
+      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor)
       if (telefonoDB) {
         setTelefonoProveedor(telefonoDB)
       } else {
@@ -295,7 +296,7 @@ export function useReporteProveedores() {
 
       // Guardar/Actualizar teléfono del proveedor de una vez
       try {
-        await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
+        await alegraService.guardarTelefonoProveedor(proveedor, telefonoProveedor)
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
       } catch (e) {
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)

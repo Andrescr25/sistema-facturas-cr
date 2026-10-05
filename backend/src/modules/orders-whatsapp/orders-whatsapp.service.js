@@ -760,38 +760,79 @@ class OrdersWhatsappService {
   }
 
   /**
-   * Obtiene el teléfono de WhatsApp registrado de un proveedor
+   * La ficha del proveedor de una orden de compra, o null si no tiene.
+   *
+   * El reporte identifica a cada proveedor por la cédula con que se le asignó
+   * el faltante, y a los que se asignaron a mano, solo por el nombre. Se busca
+   * por CÉDULA, que en el maestro es única. Por nombre solo cuando la orden
+   * no trae cédula y hay UNA ficha con ese nombre exacto: el mismo proveedor
+   * aparece con dos grafías, y elegir entre dos fichas sería adivinar a quién
+   * se le escribe.
    */
-  async getProveedorContacto(nombreProveedor) {
-    const result = await query(
-      'SELECT telefono_whatsapp FROM proveedor_contactos WHERE nombre_proveedor = $1',
-      [nombreProveedor]
-    );
-    return result.rows.length > 0 ? result.rows[0].telefono_whatsapp : null;
+  async fichaDelProveedor({ cedula, nombre } = {}) {
+    const ced = String(cedula || '').trim();
+    if (ced && ced !== 'SIN_PROVEEDOR') {
+      const { rows } = await query(
+        'SELECT id, nombre, telefono_whatsapp FROM proveedor WHERE identificacion = $1', [ced]);
+      return rows[0] || null;
+    }
+
+    const texto = String(nombre || '').trim();
+    if (!texto) return null;
+    const { rows } = await query(
+      'SELECT id, nombre, telefono_whatsapp FROM proveedor WHERE lower(trim(nombre)) = lower($1) LIMIT 2', [texto]);
+    return rows.length === 1 ? rows[0] : null;
   }
 
   /**
-   * Guarda o actualiza el teléfono de WhatsApp de un proveedor.
+   * El WhatsApp al que se le manda la orden a ese proveedor: el de su FICHA.
    *
-   * Se guarda YA NORMALIZADO (506 + 8 dígitos). Limpiarlo solo al enviar
-   * dejaría la basura invisible guardada para siempre, reapareciendo en cada
-   * pantalla que muestre el teléfono; y un número imposible se rechaza acá,
-   * al escribirlo, que es cuando la persona todavía lo tiene a la vista.
+   * Hasta el 2026-10-04 salía de `proveedor_contactos`, una tabla aparte
+   * llaveada por el NOMBRE del proveedor. La ficha tiene su propio campo
+   * ("WhatsApp (para la orden de compra)") y no se usaba: cambiarlo ahí no
+   * cambiaba a dónde iba la orden. Eran dos lugares para el mismo dato.
    */
-  async guardarProveedorContacto(nombreProveedor, cedulaProveedor, telefono) {
+  async getProveedorContacto({ cedula, nombre } = {}) {
+    const ficha = await this.fichaDelProveedor({ cedula, nombre });
+    return {
+      proveedorId: ficha ? ficha.id : null,
+      telefono: ficha?.telefono_whatsapp || null
+    };
+  }
+
+  /**
+   * Guarda en la ficha el WhatsApp que se usó para mandar la orden.
+   *
+   * Un número imposible se rechaza acá, al escribirlo, que es cuando la
+   * persona todavía lo tiene a la vista — y nunca se guarda con la basura
+   * invisible que trae un número copiado y pegado.
+   *
+   * Pasa por `editarFicha`, igual que si lo cambiaran desde la pestaña Fichas:
+   * misma validación, EL MISMO FORMATO en que la ficha guarda sus teléfonos
+   * ("8888 2222"; al mandar se le vuelve a poner el 506), y queda en la
+   * bitácora quién lo cambió. Un proveedor sin ficha no tiene dónde
+   * guardarlo: se dice, y la orden se manda igual con el número escrito.
+   */
+  async guardarProveedorContacto({ cedula, nombre, telefono } = {}, usuarioId = null) {
     const telefonoLimpio = normalizarTelefonoCR(telefono);
 
-    const result = await query(`
-      INSERT INTO proveedor_contactos (nombre_proveedor, cedula_proveedor, telefono_whatsapp, updated_at)
-      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-      ON CONFLICT (nombre_proveedor) DO UPDATE SET
-        telefono_whatsapp = EXCLUDED.telefono_whatsapp,
-        cedula_proveedor = COALESCE(EXCLUDED.cedula_proveedor, proveedor_contactos.cedula_proveedor),
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `, [nombreProveedor, cedulaProveedor || null, telefonoLimpio]);
+    const ficha = await this.fichaDelProveedor({ cedula, nombre });
+    if (!ficha) {
+      throw Object.assign(
+        new Error(`${String(nombre || 'Ese proveedor').trim()} no tiene ficha: el número no se guardó. Se puede crear en la pestaña Fichas.`),
+        { status: 404 });
+    }
+    // Sin cambio no se escribe: no ensucia la bitácora con cada envío. Se
+    // comparan como número, porque la ficha puede tenerlo con o sin el 506.
+    let actual = null;
+    try { actual = ficha.telefono_whatsapp ? normalizarTelefonoCR(ficha.telefono_whatsapp) : null; } catch { actual = null; }
+    if (actual === telefonoLimpio) {
+      return { proveedorId: ficha.id, telefono: ficha.telefono_whatsapp, cambiado: false };
+    }
 
-    return result.rows[0];
+    const { editarFicha } = require('../proveedores/proveedores.maestro.service');
+    const guardada = await editarFicha(ficha.id, { telefono_whatsapp: telefonoLimpio }, usuarioId);
+    return { proveedorId: ficha.id, telefono: guardada.telefono_whatsapp, cambiado: true };
   }
 }
 

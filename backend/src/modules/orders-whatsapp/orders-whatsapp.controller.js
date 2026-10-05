@@ -204,38 +204,41 @@ class OrdersWhatsappController {
     }
   };
 
+  /**
+   * GET /orden-compra/proveedor-contacto?cedula=…&nombre=…
+   * El WhatsApp de la ficha de ese proveedor (ver el servicio).
+   */
   getProveedorContacto = async (req, res) => {
     try {
-      const { nombreProveedor } = req.params;
-      const telefono = await this.ordersService.getProveedorContacto(nombreProveedor);
-      return ResponseHelper.success(res, { telefono }, 'Teléfono del proveedor obtenido');
+      const { cedula, nombre } = req.query;
+      const data = await this.ordersService.getProveedorContacto({ cedula, nombre });
+      return ResponseHelper.success(res, data, 'Teléfono del proveedor obtenido');
     } catch (error) {
       console.error('❌ Error obteniendo teléfono proveedor:', error);
       return ResponseHelper.error(res, error.message, 500);
     }
   };
 
+  /** PUT /orden-compra/proveedor-contacto { cedula, nombre, telefono } */
   guardarProveedorContacto = async (req, res) => {
     try {
-      const { nombreProveedor, cedulaProveedor, telefono } = req.body;
+      const { cedula, nombre, telefono } = req.body || {};
 
-      if (!nombreProveedor || !telefono) {
+      if (!nombre || !telefono) {
         return ResponseHelper.validationError(res, {
-          nombreProveedor: !nombreProveedor ? ['nombreProveedor es requerido'] : [],
+          nombre: !nombre ? ['nombre es requerido'] : [],
           telefono: !telefono ? ['telefono es requerido'] : []
         });
       }
 
       const data = await this.ordersService.guardarProveedorContacto(
-        nombreProveedor,
-        cedulaProveedor,
-        telefono
-      );
+        { cedula, nombre, telefono }, req.usuario?.id ?? null);
 
-      return ResponseHelper.success(res, data, 'Teléfono guardado correctamente');
+      return ResponseHelper.success(res, data, 'Teléfono guardado en la ficha del proveedor');
     } catch (error) {
-      console.error('❌ Error guardando teléfono proveedor:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      const status = error.status || 500;
+      if (status >= 500) console.error('❌ Error guardando teléfono proveedor:', error);
+      return ResponseHelper.error(res, error.message, status);
     }
   };
 }

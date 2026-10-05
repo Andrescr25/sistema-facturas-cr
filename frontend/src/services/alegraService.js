@@ -190,10 +190,19 @@ export const alegraService = {
   // ========================================
 
   // Obtener teléfono guardado de un proveedor
-  async getTelefonoProveedor(nombreProveedor) {
+  // El WhatsApp de la FICHA del proveedor, que se busca por cédula (y por
+  // nombre solo si la orden no la trae). Devuelve null si no tiene ficha o no
+  // tiene número.
+  //
+  // Leía `response.data.telefono`, pero el servidor lo manda adentro de
+  // `data`: daba siempre null, y el número que aparecía era el que cada
+  // navegador recordaba por su cuenta.
+  async getTelefonoProveedor({ cedula, nombre }) {
     try {
-      const response = await api.get(`/orden-compra/proveedor-contacto/${encodeURIComponent(nombreProveedor)}`)
-      return response.data.telefono || null
+      const response = await api.get('/orden-compra/proveedor-contacto', {
+        params: { cedula: cedula || '', nombre: nombre || '' }
+      })
+      return response.data?.data?.telefono || null
     } catch (error) {
       console.error('❌ Error obteniendo teléfono proveedor:', error)
       return null
@@ -201,11 +210,12 @@ export const alegraService = {
   },
 
   // Guardar teléfono de un proveedor
-  async guardarTelefonoProveedor(nombreProveedor, telefono, cedulaProveedor = null) {
+  // Deja en la ficha del proveedor el número con que se mandó la orden.
+  async guardarTelefonoProveedor({ cedula, nombre }, telefono) {
     try {
       const response = await api.put('/orden-compra/proveedor-contacto', {
-        nombreProveedor,
-        cedulaProveedor,
+        cedula: cedula || null,
+        nombre,
         telefono
       })
       return response.data
