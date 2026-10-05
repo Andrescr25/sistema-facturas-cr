@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Preventa por enlace — cliente y semana firmados, sesión propia y envío explícito](modulo/preventa-por-enlace.md)
+
 - [Pedidos y facturas por ciclo — semana fija, filtros y colas conservadas](modulo/pedidos-por-ciclo.md)
 
 - [Clientes y rutas — ficha por secciones, orden manual y recorrido fijo por ciclo](modulo/rutas-clientes.md)

@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { urlParaRegistro } = require('./src/utils/urlParaRegistro');
 const path = require('path');
 const axios = require('axios');
 require('dotenv').config();
@@ -99,10 +100,13 @@ app.use(helmet({
 
 // Logging mejorado
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+  console.log(`${req.method} ${urlParaRegistro(req.path)} - Origin: ${req.headers.origin || 'No origin'}`);
   next();
 });
 
+// Nunca guardar enlaces de acceso ni contexto personal en URL o Referer.
+morgan.token('url', req => urlParaRegistro(req.originalUrl || req.url));
+morgan.token('referrer', req => urlParaRegistro(req.headers.referer || req.headers.referrer));
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

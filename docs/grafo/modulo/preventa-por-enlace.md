@@ -1,0 +1,93 @@
+---
+id: modulo/preventa-por-enlace
+tipo: modulo
+titulo: Preventa por cliente y ciclo, con enlace que no concede acceso
+estado: vigente
+archivos:
+  - backend/server.js
+  - backend/src/utils/urlParaRegistro.js
+  - backend/src/modules/portal-clientes/preventa.service.js
+  - backend/src/modules/portal-clientes/portal-clientes.service.js
+  - backend/src/modules/portal-clientes/portal-clientes.routes.js
+  - backend/src/modules/portal-clientes/portal-clientes.controller.js
+  - backend/src/modules/portal-clientes/portal-clientes.cliente.service.js
+  - backend/src/modules/envios-whatsapp/envios.service.js
+  - frontend/src/components/clientes/VistaRutas.jsx
+  - frontend/src/components/clientes/ModalPreventa.jsx
+  - frontend/src/hooks/usePreventaCliente.js
+  - frontend/src/pages/CatalogoClientes.jsx
+  - frontend/src/components/catalogo-clientes/ModalPedido.jsx
+  - frontend/src/components/catalogo-clientes/PanelPedido.jsx
+  - frontend/src/pages/portal/PortalIngresar.jsx
+  - frontend/src/pages/portal/PortalActivar.jsx
+  - frontend/src/services/apiPortal.js
+  - frontend/src/utils/enlacePreventa.js
+  - backend/tests/preventaEnlaces.test.js
+aristas:
+  depende_de: [modulo/rutas-clientes, modulo/portal-clientes, modulo/pedidos-por-ciclo]
+  relacionado: [modulo/whatsapp, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
+medido: 2026-10-05
+---
+
+Tercera parte. Clientes → Rutas → Ver recorrido de un ciclo en preventa →
+Preparar catálogo por cliente. El enlace usa la portada personal existente
+(habituales, productos que dejó de llevar y ofertas), detrás de la sesión del
+portal; el catálogo general sigue público. No existe una portada ajena pública.
+El ciclo actual en preparación/entrega y los ciclos en preventa permanecen
+visibles por ruta/semana. Preparar/copiar jamás manda un mensaje.
+
+El contexto `pv1.clienteId.cicloId.firma` lleva HMAC SHA-256 con dominio
+`preventa-ciclo-v1`, secreto del portal y comparación en tiempo constante. No
+es un JWT ni una invitación y nunca sirve en Authorization. Es estable por
+cliente/ciclo; preparar otra copia no invalida mensajes anteriores. No lleva
+nombre, Maps, teléfono o historial. No se guarda en tablas, logs o bitácora;
+no requiere migración 046. Rotar el secreto del portal invalida estos enlaces
+y las sesiones anteriores. No hay vencimiento artificial por día: dejan de
+servir al cerrar/cancelar el ciclo, revocar la cuenta o desactivar la ficha.
+
+Staff GET `/portal-clientes/clientes/:id/preventa?cicloId=...` conserva ACL
+Clientes y exige miembro del recorrido fijo, ficha activa y ciclo en preventa.
+El modal ofrece copiar o WhatsApp, reutiliza los teléfonos propios y la
+pantalla compartida para revisar número/texto. POST `/preventa/whatsapp`
+vuelve a comprobar destinatario/contexto y presencia del enlace en el mensaje.
+`enviarYRegistrar` anota éxito/fallo como tipo `preventa`, referencia
+`cicloId:clienteId`. El registro conserva quién/cuándo/número, sin texto o token. Los logs HTTP
+registran solo la ruta, con token de invitación oculto y sin query en URL o
+Referer; evitan guardar también el contexto firmado de preventa.
+La pantalla consulta ese historial antes de reenviar; el aislamiento sigue
+bloqueando el transporte REAL en esta rama (423, registro de fallo).
+
+Cliente sin usuario: botón explícito `/preventa/invitacion` reutiliza la
+invitación de un solo uso, guardando únicamente su hash. Bloquea ficha/cuenta
+y crea invitación en una transacción; una cuenta revocada requiere la acción
+habitual de Cuentas y nunca se reactiva por preparar un catálogo. Se comparte
+la invitación con `?preventa=...`; tras activarse llega al catálogo elegido.
+Cerrar sin copiar una invitación exige generar otra: se mantiene su contrato.
+
+GET `/portal/preventa?token=...` exige `requireCliente`. El cliente se deriva
+de la cuenta; incluso otro miembro de la MISMA ruta/ciclo recibe 404 al abrir
+ese enlace. La respuesta enumera solo id/rutaId/rutaNombre/semana/orden/estado.
+Entrar, activar y redirigir por 401 conservan el contexto mediante destinos
+internos construidos por el frontend. El enlace no selecciona otra cuenta.
+
+CatalogoClientes bloquea los controles del pedido mientras comprueba el
+enlace o cuando no es válido; muestra la semana fuera del selector para móvil.
+ModalPedido vuelve a resolverlo, fija su semana y manda `preventaToken` junto
+a `cicloId`. La transacción de crearPedido comprueba cliente, firma, igualdad
+de ciclo y estado abierto antes de consumir el carrito. Su bloqueo compartido
+del ciclo espera al cierre concurrente. Un 400/404/409 conserva el carrito,
+nunca cambia a Sin ciclo o a otra semana. El cliente puede salir del enlace
+explícitamente y elegir una semana desde su catálogo general. Pedidos ya
+recibidos conservan su contexto aunque luego cierre el ciclo.
+
+Verificación: doce casos PostgreSQL con ROLLBACK, sumados a los once de
+documentos por ciclo; 23 aprobados sin fallos/omitidos. Compilación aprobada.
+La prueba de transporte retira NODE_TEST_CONTEXT únicamente durante la
+comprobación del bloqueo real; ningún proveedor externo recibe peticiones.
+Suite final: 1.974 aprobadas, cero fallos/omitidas; grafo 12 y build aprobados.
+Chromium 1440/390 verificó copia, bloqueo real 423/registro, nueva invitación,
+activación/login con semana, pedido por enlace, cuenta ajena 404 y cierre 409
+con carrito intacto. Sin errores JS/desborde y logs sin tokens. Checklist
+PRE-03/04/10 y FIL-03 cerrados (30/61). Evidencia y límites en
+`docs/informes/preventa-enlaces-2026-10-05.md`.
+Preparación/bodega, faltantes/compras/recepción y archivo 24 h siguen pendientes.

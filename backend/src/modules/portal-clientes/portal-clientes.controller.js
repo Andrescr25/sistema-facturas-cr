@@ -9,6 +9,7 @@ const inicio = require('./portal-clientes.inicio.service');
 const carrito = require('./portal-clientes.carrito.service');
 const sugerencias = require('./portal-clientes.sugerencias.service');
 const saldo = require('./portal-clientes.saldo.service');
+const preventa = require('./preventa.service');
 
 function responder(res, promesa, mensajeError) {
   return promesa
@@ -131,6 +132,10 @@ const miPedido = (req, res) =>
   responder(res, clienteSvc.detallePedido(req.cliente.id, req.params.pedidoId), 'Error obteniendo el pedido');
 
 module.exports = {
+  prepararPreventa: (req, res) => responder(res, preventa.preparar(req.params.clienteId, req.query.cicloId), 'Error preparando catálogo'),
+  invitarPreventa: (req, res) => responder(res, preventa.invitar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error preparando invitación'),
+  enviarPreventa: (req, res) => responder(res, preventa.enviar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error enviando catálogo'),
+  resolverPreventa: (req, res) => responder(res, preventa.resolver(req.cliente.id, req.query.token), 'Error abriendo catálogo de preventa'),
   listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
   ciclosDisponibles: (req, res) => responder(res, require('../rutas/documentosCiclo.service').paraCuenta(req.cliente.id), 'Error consultando ciclos'),
   listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes, enviarAvisoPedido,

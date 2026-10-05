@@ -91,3 +91,6 @@ completa pasa (1.536 aprobadas, una omitida), y el frontend compila.
 2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
 al facturar se conserva el recorrido original. Colas antiguas intactas,
 filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
+
+Tercera parte: catálogo personal por ciclo y envío explícito, con contexto
+firmado que no concede sesión: [[modulo/preventa-por-enlace]].

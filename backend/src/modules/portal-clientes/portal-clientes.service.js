@@ -86,18 +86,19 @@ async function listarClientes({ busqueda = '' } = {}) {
  * igual que con una contraseña. Quien lo pierda necesita generar otro; no
  * hay forma de recuperarlo, y eso es a propósito.
  */
-async function generarInvitacion(clienteId, usuarioId) {
+async function generarInvitacion(clienteId, usuarioId, db = null) {
+  const consultar = db ? (sql, valores) => db.query(sql, valores) : query;
   const id = Number(clienteId);
   // La ficha sale de NUESTRA base. Antes se le pedía a Alegra en vivo, así
   // que no se podía invitar a un cliente que no existiera también allá —y
   // si Alegra no contestaba, no se podía invitar a nadie—.
-  const { rows } = await query(
+  const { rows } = await consultar(
     `SELECT id, nombre, identificacion, correo, telefono, telefono_secundario, celular
        FROM cliente WHERE id = $1 AND activo = TRUE`, [id]);
   const contacto = rows[0];
   if (!contacto) throw httpError(404, 'No existe ese cliente.');
 
-  await query(`
+  await consultar(`
     INSERT INTO cliente_portal (cliente_id, nombre, identificacion, email)
     VALUES ($1, $2, $3, $4)
     ON CONFLICT (cliente_id) WHERE cliente_id IS NOT NULL DO UPDATE SET
@@ -109,7 +110,7 @@ async function generarInvitacion(clienteId, usuarioId) {
 
   // Invitaciones anteriores sin usar quedan muertas: si alguien reenvía el
   // enlace, el viejo no debe seguir sirviendo.
-  await query(
+  await consultar(
     `UPDATE cliente_invitacion SET expira_en = CURRENT_TIMESTAMP
      WHERE cliente_id = $1 AND usado_en IS NULL AND expira_en > CURRENT_TIMESTAMP;`,
     [id]
@@ -119,7 +120,7 @@ async function generarInvitacion(clienteId, usuarioId) {
   const expira = new Date();
   expira.setDate(expira.getDate() + DIAS_INVITACION);
 
-  await query(`
+  await consultar(`
     INSERT INTO cliente_invitacion (cliente_id, token_hash, expira_en, creado_por)
     VALUES ($1, $2, $3, $4);
   `, [id, hashToken(token), expira, usuarioId || null]);

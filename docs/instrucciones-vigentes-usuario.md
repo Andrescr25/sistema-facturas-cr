@@ -130,14 +130,22 @@ duplicar compras ni perder información entre semanas.
 
 ## Punto real de continuación
 
-Primera entrega local: **rutas/ciclos y ficha del cliente implementados**,
-migración 044 aplicada solo local con respaldo. El ciclo conserva el recorrido
-y sus estados; aún no se vincula con pedidos/facturas/faltantes. API, build,
-PostgreSQL y navegador verificados. [Informe](informes/rutas-clientes-2026-10-05.md).
-La base de pruebas se copió desde la local a una base desechable propia.
+Primera entrega: rutas/ciclos y ficha implementados; segunda: pedidos y
+facturas conservan su ciclo (044/045 aplicadas solo LOCAL con respaldo).
+Tercera: enlaces personalizados desde el recorrido de preventa, invitación
+explícita para clientes sin acceso, copia y revisión/envío por WhatsApp.
+El enlace conserva cliente y semana; exige sesión propia, no permite abrir
+cuentas ajenas y se comprueba de nuevo al enviar. No necesita migración nueva.
+[Informe vigente](informes/preventa-enlaces-2026-10-05.md).
 
-Lo anterior ya implementado no se vuelve a abrir por añadir estos requisitos:
-el checklist de independencia conserva su estado de **133 hechos / 14 abiertos
-incluyendo aceptación real de Hacienda**, al estado `2ab8cdb`. El trabajo nuevo
-se cuenta por separado. Próxima parte: propagar el ciclo a los pedidos y
-facturas, conservar contexto del documento y preparar preventa de próxima ruta.
+El trabajo sigue exclusivamente local, con una base desechable para pruebas.
+Inventario cero provisional, históricos sin ciclo, sin datos inventados en la
+base habitual. Lo ya implementado no se vuelve a abrir: el checklist de
+independencia conserva 133 hechos / 14 abiertos, incluidos aceptación REAL de
+Hacienda y corte. El operativo se cuenta por separado.
+
+Próxima parte: contexto y filtros en preparación/bodega/faltantes y reportes;
+luego cobertura y órdenes inmutables, factura/PDF y recepción, carga/entrega
+y retiro individual 24 h conservando historial. La limpieza global del domingo
+sigue pendiente de retirar por código: continuar con el lanzador seguro que
+la sustituye; nunca ejecutar el cron ni el botón para probar.

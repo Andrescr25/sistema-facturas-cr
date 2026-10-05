@@ -151,14 +151,18 @@ async function entrar({ usuario, password }) {
  * El precio se congela ACÁ, que es el momento del compromiso — el carrito a
  * propósito no guarda precios (ver add_carrito_cliente.sql).
  */
-async function crearPedido(cuentaId, { observaciones, cicloId } = {}) {
+async function crearPedido(cuentaId, { observaciones, cicloId, preventaToken } = {}) {
   const resultado = await enTransaccion(pool, async db => {
     const { rows: [cuenta] } = await db.query(`
       SELECT cp.*, c.nombre AS nombre, c.activo AS cliente_activo
         FROM cliente_portal cp LEFT JOIN cliente c ON c.id = cp.cliente_id
        WHERE cp.id = $1 AND cp.activo = TRUE FOR UPDATE OF cp`, [cuentaId]);
     if (!cuenta || !cuenta.cliente_id || !cuenta.cliente_activo) throw httpError(403, 'Su cuenta está desactivada.');
-    const contexto = await ciclos.validarEn(db, cuenta.cliente_id, cicloId);
+    // La semana del enlace se comprueba dentro de la misma transacción: si
+    // cerró el ciclo o cambió la cuenta, se conserva todo el carrito.
+    const contexto = preventaToken !== undefined
+      ? await require('./preventa.service').validarEn(db, cuenta, preventaToken, cicloId)
+      : await ciclos.validarEn(db, cuenta.cliente_id, cicloId);
     await bloquearCarrito(db, cuentaId);
     const carrito = await obtenerCarrito(cuentaId, db, { bloquearProductos: true });
     if (!carrito.lineas.length) throw httpError(400, carrito.noDisponibles.length

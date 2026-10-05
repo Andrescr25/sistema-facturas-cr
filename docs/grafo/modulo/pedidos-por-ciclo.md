@@ -78,3 +78,6 @@ Los datos ZZ del navegador pertenecen solo a la base desechable.
 Sigue: catálogo/enlace personalizado por cliente/ciclo y envío controlado;
 después trazabilidad de faltantes/cobertura/órdenes. El cron semanal viejo
 sigue pendiente; los lanzadores seguros continúan sustituyéndolo.
+
+Tercera parte: el enlace fija la semana y se vuelve a validar dentro de
+la transacción del pedido: [[modulo/preventa-por-enlace]].

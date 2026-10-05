@@ -21,7 +21,7 @@ const { query } = require('../../../config/database');
 const whatsapp = require('../../integrations/whatsapp');
 const { telefonosDe } = require('../../utils/telefonosCliente');
 
-const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra'];
+const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra', 'preventa'];
 
 async function anotar({ tipo, referencia, alegraContactId, clienteId, telefono, usuarioId, exito, error }) {
   try {

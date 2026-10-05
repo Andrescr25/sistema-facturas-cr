@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown, GripVertical, Plus, Save, Loader2, Pencil, ArrowLef
 import Boton from '../ui/Boton'
 import HojaModal from '../pagos/HojaModal'
 import UbicacionCliente from './UbicacionCliente'
+import ModalPreventa from './ModalPreventa'
 import { rutasService } from '../../services/rutasService'
 
 const ESTADOS = { preventa: 'Preventa', preparacion: 'Preparación', entrega: 'Entrega', cerrado: 'Cerrado', cancelado: 'Cancelado' }
@@ -13,6 +14,7 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
   const [edicion, setEdicion] = useState(null), [nombre, setNombre] = useState(''), [activo, setActivo] = useState(true)
   const [orden, setOrden] = useState([]), [arrastrado, setArrastrado] = useState(null)
   const [semana, setSemana] = useState(''), [detalle, setDetalle] = useState(null)
+  const [preventa, setPreventa] = useState(null)
   useEffect(() => { setOrden(m.ruta?.clientes || []) }, [m.ruta])
   const abrirEdicion = r => { setEdicion(r || {}); setNombre(r?.nombre || ''); setActivo(r?.activo ?? true) }
   const guardarRuta = async e => {
@@ -39,8 +41,12 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
     <h2 className="text-xl font-extrabold">{detalle.ruta_nombre} · semana {fecha(detalle.semana)}</h2>
     <p className="text-sm text-neutro-500">{ESTADOS[detalle.estado]} · Recorrido guardado para este ciclo.</p>
     <ol className="space-y-2">{detalle.clientes.map(c => <li key={c.id} className="rounded-2xl border bg-white p-4 flex flex-wrap items-center justify-between gap-3">
-      <span className="font-bold">{c.orden}. {c.cliente_nombre}</span><UbicacionCliente enlace={c.ubicacion_maps} />
+      <span className="font-bold">{c.orden}. {c.cliente_nombre}</span>
+      <div className="flex flex-wrap gap-2"><UbicacionCliente enlace={c.ubicacion_maps} />
+        {detalle.estado === 'preventa' && <Boton variante="secundario" onClick={() => setPreventa(c.cliente_id)}>Preparar catálogo</Boton>}</div>
     </li>)}</ol>
+    {detalle.estado === 'preventa' && <p className="text-sm text-neutro-600">Elegí cada cliente para preparar su enlace. Copiar o preparar no manda mensajes; revisá el número antes de enviarlos.</p>}
+    {preventa && <ModalPreventa key={`${detalle.id}:${preventa}`} clienteId={preventa} cicloId={detalle.id} onCerrar={() => setPreventa(null)} />}
   </div>
   return <div className="space-y-5">
     <div className="flex flex-wrap justify-between items-center gap-3">
@@ -82,7 +88,7 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
     <section className="space-y-3"><h3 className="text-lg font-bold">Ciclos de ruta</h3>
       {!m.ciclos.length && <p className="text-sm text-neutro-400">Todavía no hay ciclos. Cada semana tendrá su propio recorrido.</p>}
       {m.ciclos.map(c => <article key={c.id} className="rounded-2xl border bg-white p-4 flex flex-wrap justify-between items-center gap-3">
-        <div><p className="font-bold">{c.ruta_nombre} · semana {fecha(c.semana)}</p><p className="text-sm text-neutro-500">{ESTADOS[c.estado]} · {c.clientes} clientes{['preparacion','entrega'].includes(c.estado) && ' · Ruta actual'}</p></div>
+        <div><p className="font-bold">{c.ruta_nombre} · semana {fecha(c.semana)}</p><p className="text-sm text-neutro-500">{c.estado === 'preventa' ? 'Preventa anticipada' : ESTADOS[c.estado]} · {c.clientes} clientes{['preparacion','entrega'].includes(c.estado) && ' · Ruta actual'}</p></div>
         <div className="flex flex-wrap gap-2"><Boton variante="secundario" cargando={m.guardando} onClick={async () => { const r = await m.ejecutar(() => rutasService.ciclo(c.id)); if (r) setDetalle(r) }}>Ver recorrido</Boton>
           {(ACCIONES[c.estado] || []).map(estado => <Boton key={estado} variante={estado === 'cancelado' ? 'fantasma' : 'secundario'} disabled={m.guardando} onClick={() => cambiarEstado(c, estado)}>{ESTADOS[estado]}</Boton>)}
         </div>

@@ -22,7 +22,7 @@ import SeguimientoPedido from './SeguimientoPedido'
  */
 export default function PanelPedido({
   resumen, onCambiar, onVaciar, onCerrar,
-  enviando, enviado, error, onEnviar, ciclos = [], cicloId, setCicloId, cargandoCiclos, errorCiclos
+  enviando, enviado, error, onEnviar, ciclos = [], cicloId, setCicloId, cargandoCiclos, errorCiclos, cicloFijado = false
 }) {
   const { cliente } = usePortalCliente()
   const [observaciones, setObservaciones] = useState('')
@@ -104,7 +104,7 @@ export default function PanelPedido({
             </div>
 
             <div className="border-t border-neutro-100 p-4 space-y-3">
-              {cliente && <SelectorCiclo ciclos={ciclos} valor={cicloId} onChange={setCicloId} cargando={cargandoCiclos} error={errorCiclos} disabled={enviando} />}
+              {cliente && <SelectorCiclo ciclos={ciclos} valor={cicloId} onChange={setCicloId} cargando={cargandoCiclos} error={errorCiclos} disabled={enviando || cicloFijado} />}
               <input
                 type="text"
                 value={observaciones}
