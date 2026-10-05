@@ -2,7 +2,7 @@
  * 🧾 Servicio de Facturación
  * 
  * Maneja la lógica de facturación con soporte offline:
- * - Sincronización con Alegra API
+ * - Facturación contra el backend propio
  * - Cache de productos y clientes en IndexedDB
  * - Creación de facturas offline
  * - Sincronización automática cuando hay conexión
@@ -11,7 +11,8 @@
 import api from './api';
 import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
-import { desdeFacturaPropia, desdeConsultaPropia } from './facturaPropiaAdaptador';
+import { facturaEscrita, facturaConsultada } from '../utils/facturasLocales';
+import { hoyEnCostaRica } from '../utils/fechaCR';
 
 // Lo que se le dice a quien intenta editar una factura que no está marcada
 // como propia (ver `editarFactura`).
@@ -68,7 +69,9 @@ class FacturacionService {
         const primerProducto = productos[0];
         if (typeof primerProducto.reference === 'object' && primerProducto.reference !== null) {
           console.warn('⚠️ Cache corrupto detectado (reference como objeto). Limpiando...');
-          await indexedDBService.clearAll();
+          // El catálogo se puede descargar otra vez; una venta pendiente y
+          // su clave no. Reparar productos nunca borra las colas ni la copia.
+          await indexedDBService.clearProductosCache();
           return true; // Cache limpiado
         }
       }
@@ -81,7 +84,7 @@ class FacturacionService {
   }
 
   /**
-   * Actualizar cache de productos desde Alegra
+   * Actualizar cache de productos propios
    */
   /**
    * Actualizar cache de productos desde NUESTRO maestro.
@@ -237,7 +240,7 @@ class FacturacionService {
       const response = await api.get('/facturacion/facturas', {
         params: { estado: 'todas', limite: 60, pagina: 1 }
       });
-      const facturas = (response.data?.data ?? []).map(desdeConsultaPropia);
+      const facturas = (response.data?.data ?? []).map(facturaConsultada);
 
       if (facturas.length > 0) {
         const guardadas = await indexedDBService.saveFacturasCache(facturas);
@@ -362,7 +365,7 @@ class FacturacionService {
 
   /**
    * Crear factura
-   * Si hay internet: envía directamente a Alegra
+   * Si hay internet: envía directamente al servidor propio
    * Si no hay internet: guarda localmente y sincroniza después
    */
   /**
@@ -435,13 +438,13 @@ class FacturacionService {
       });
 
       // La clave nace ACÁ, antes del primer intento, y acompaña a esta factura
-      // en todos los que vengan. Si el intento en línea expira, Alegra pudo
+      // en todos los que vengan. Si el intento en línea expira, el servidor pudo
       // haberla creado: al guardarla offline conserva esta misma clave, así
       // que la sincronización posterior no crea una segunda.
       const claveIdempotencia = await nuevaClaveFactura();
 
       if (this.isOnline) {
-        // Intentar crear directamente en Alegra
+        // Intentar crear directamente en la base propia
         try {
           const response = await api.post('/facturacion/facturas', {
             ...facturaData,
@@ -449,15 +452,14 @@ class FacturacionService {
           });
           
           if (response.data.success) {
-            // La respuesta viene en NUESTRA forma; se traduce a la que habla
-            // el resto de la pantalla (ver facturaPropiaAdaptador.js).
-            const creada = desdeFacturaPropia(response.data.data);
+            // Se guarda la respuesta propia con número, cliente y líneas.
+            const creada = facturaEscrita(response.data.data);
             console.log('✅ Factura creada online:', creada.id);
 
             // Guardar en cache para edición inmediata
             const facturaOnline = {
               ...creada,
-              client: creada.client || facturaVista?.cliente || null,
+              cliente: creada.cliente?.id ? creada.cliente : facturaVista?.cliente || creada.cliente,
               pendienteSincronizar: false,
               pendienteEdicion: false,
               esLocal: false,
@@ -488,15 +490,9 @@ class FacturacionService {
       }
 
       // Modo offline: guardar localmente
-      const localId = await indexedDBService.saveFacturaPendiente(facturaData);
-
-      // La clave de idempotencia se calcula UNA vez y se guarda con la
-      // factura. Todos los reintentos —automáticos o a mano, hoy o dentro de
-      // tres días— mandan ESTA misma clave, que es lo que le permite al
-      // servidor reconocer que ya la recibió en vez de crear otra factura.
-      // Recalcularla al reintentar daría una clave nueva cada vez y no
-      // serviría de nada.
-      await indexedDBService.updateFacturaPendiente(localId, { claveIdempotencia });
+      // Cuerpo y clave se guardan juntos: dos transacciones dejarían una cola
+      // sin clave si se cierra la tablet después de la primera.
+      const localId = await indexedDBService.saveFacturaPendiente({ ...facturaData, claveIdempotencia });
 
       // Guardar versión para edición inmediata
       if (facturaVista) {
@@ -506,7 +502,7 @@ class FacturacionService {
           localId,
           pendienteSincronizar: true,
           origen: 'creacion',
-          date: facturaData.date
+          fecha: facturaData.date
         });
       }
       
@@ -526,7 +522,7 @@ class FacturacionService {
   }
 
   /**
-   * Sincronizar facturas pendientes con Alegra
+   * Sincronizar facturas pendientes con el servidor propio
    */
   async sincronizarFacturasPendientes() {
     if (this.syncInProgress) {
@@ -554,16 +550,15 @@ class FacturacionService {
 
       for (const factura of facturasPendientes) {
         try {
-          // Intentar crear en Alegra
+          // Intentar crear en la base propia
           const response = await api.post('/facturacion/facturas', {
             ...factura,
             claveIdempotencia: factura.claveIdempotencia
           });
           
           if (response.data.success) {
-            // La respuesta viene en NUESTRA forma; se traduce a la que habla
-            // el resto de la pantalla (ver facturaPropiaAdaptador.js).
-            const creada = desdeFacturaPropia(response.data.data);
+            // Se guarda la respuesta propia con número, cliente y líneas.
+            const creada = facturaEscrita(response.data.data);
             // Marcar como sincronizada
             await indexedDBService.markFacturaSincronizada(
               factura.localId, 
@@ -578,13 +573,13 @@ class FacturacionService {
             
             resultados.exitosas.push({
               localId: factura.localId,
-              alegraId: creada.id
+              facturaId: creada.id
             });
             
-            console.log(`✅ Factura ${factura.localId} sincronizada (Alegra: ${creada.id})`);
+            console.log(`✅ Factura ${factura.localId} sincronizada (Factura propia: ${creada.id})`);
           }
         } catch (error) {
-          // El motivo que se guarda es el de ALEGRA, no el de axios. En la
+          // El motivo que se guarda es el del servidor, no el de axios. En la
           // tarjeta de la factura pendiente se leía "Request failed with
           // status code 400", que no dice qué arreglar; ahora dice cuál
           // producto la está trabando.
@@ -658,9 +653,8 @@ class FacturacionService {
       });
 
       if (response.data.success) {
-        // La respuesta viene en NUESTRA forma; se traduce a la que habla
-        // el resto de la pantalla (ver facturaPropiaAdaptador.js).
-        const creada = desdeFacturaPropia(response.data.data);
+        // Se guarda la respuesta propia con número, cliente y líneas.
+        const creada = facturaEscrita(response.data.data);
         await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
         await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
         await indexedDBService.saveFacturasCache([creada]);
@@ -857,7 +851,7 @@ class FacturacionService {
           }
 
           const response = await api.get('/facturacion/facturas', { params });
-          const facturas = (response.data?.data ?? []).map(desdeConsultaPropia);
+          const facturas = (response.data?.data ?? []).map(facturaConsultada);
           if (facturas.length > 0) await indexedDBService.saveFacturasCache(facturas);
           return facturas;
         } catch (error) {
@@ -888,7 +882,7 @@ class FacturacionService {
       if (this.isOnline) {
         try {
           const response = await api.get(`/facturacion/facturas/${facturaId}`);
-          const factura = desdeConsultaPropia(response.data?.data);
+          const factura = facturaConsultada(response.data?.data);
           if (factura) {
             await indexedDBService.saveFacturasCache([factura]);
             return factura;
@@ -937,11 +931,11 @@ class FacturacionService {
             console.log('✅ Factura editada online:', facturaId);
 
             // Actualizar cache con la nueva versión
-            const editada = desdeFacturaPropia(response.data.data);
+            const editada = facturaEscrita(response.data.data);
             if (editada) {
               const facturaOnline = {
                 ...editada,
-                client: editada.client || facturaVista?.cliente || null,
+                cliente: editada.cliente?.id ? editada.cliente : facturaVista?.cliente || editada.cliente,
                 pendienteSincronizar: false,
                 pendienteEdicion: false
               };
@@ -969,8 +963,8 @@ class FacturacionService {
       }
 
       // Modo offline: guardar edición localmente
-      // Se guarda TAMBIÉN de dónde salió: al reintentarla, la ruta se elige
-      // con esta marca. Sin ella, el reintento adivina.
+      // Se guarda también de dónde salió: la marca impide que una copia
+      // histórica se reintente con su id de Alegra en el espacio propio.
       const localId = await indexedDBService.saveEdicionPendiente(facturaId, datosEdicion, esPropia);
 
       if (facturaVista) {
@@ -979,7 +973,7 @@ class FacturacionService {
           id: facturaVista.id || facturaId,
           pendienteEdicion: true,
           origen: 'edicion',
-          date: facturaVista.date || new Date().toISOString().split('T')[0]
+          fecha: facturaVista.fecha || hoyEnCostaRica()
         });
       }
 
@@ -1053,7 +1047,7 @@ class FacturacionService {
         throw new Error('ID local inválido');
       }
 
-      console.log(`🌐 Enviando factura pendiente ${numeroLocal} directamente a Alegra...`);
+      console.log(`🌐 Enviando factura pendiente ${numeroLocal} al servidor propio...`);
 
       // La clave se lee del registro guardado, no se recalcula: es la misma
       // que usaron los intentos anteriores, y eso es lo que le permite al
@@ -1067,22 +1061,21 @@ class FacturacionService {
       });
 
       if (response.data.success) {
-        // La respuesta viene en NUESTRA forma; se traduce a la que habla
-        // el resto de la pantalla (ver facturaPropiaAdaptador.js).
-        const creada = desdeFacturaPropia(response.data.data);
+        // Se guarda la respuesta propia con número, cliente y líneas.
+        const creada = facturaEscrita(response.data.data);
         await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
         await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
 
         const facturaOnline = {
           ...creada,
-          client: creada.client || facturaVista?.cliente || null,
+          cliente: creada.cliente?.id ? creada.cliente : facturaVista?.cliente || creada.cliente,
           pendienteSincronizar: false,
           pendienteEdicion: false,
           esLocal: false
         };
         await indexedDBService.saveFacturasCache([facturaOnline]);
 
-        console.log(`✅ Factura pendiente ${numeroLocal} enviada a Alegra con ID ${creada.id}`);
+        console.log(`✅ Factura pendiente ${numeroLocal} enviada con id propio ${creada.id}`);
 
         return {
           success: true,
@@ -1094,21 +1087,12 @@ class FacturacionService {
 
       throw new Error(response.data.message || 'Error enviando factura pendiente');
     } catch (error) {
-      const alegraCode = error.response?.data?.details?.code || error.response?.data?.code;
-      const alegraMessage = error.response?.data?.details?.message || error.response?.data?.message || error.message;
-
-      if (alegraCode === 3070 || /no se puede editar/i.test(alegraMessage || '')) {
-        console.warn(`⚠️ Alegra no permite reenviar factura local ${numeroLocal}: ${alegraMessage}`);
-        throw new Error('Esta factura no se puede enviar/editar en Alegra. Usa Reimpresión o una nota de crédito.');
-      }
-
-      console.error('❌ Error enviando factura pendiente:', alegraMessage);
-      throw error;
+      throw new Error(this.motivoDelFallo(error));
     }
   }
 
   /**
-   * Sincronizar ediciones pendientes con Alegra
+   * Sincronizar ediciones pendientes con el servidor propio
    */
   async sincronizarEdicionesPendientes() {
     if (this.syncInProgress) {
@@ -1156,9 +1140,8 @@ class FacturacionService {
             // Marcar como sincronizada
             await indexedDBService.markEdicionSincronizada(edicion.localId);
 
-            // Actualizar cache con la nueva versión, en la forma que habla
-            // la pantalla (la respuesta viene en la nuestra).
-            const editada = desdeFacturaPropia(response.data.data);
+            // Guardar el documento propio actualizado para editar sin señal.
+            const editada = facturaEscrita(response.data.data);
             if (editada) {
               await indexedDBService.saveFacturasCache([editada]);
             }
@@ -1234,7 +1217,7 @@ class FacturacionService {
   }
 
   /**
-   * Descartar una factura que quedó pendiente de envío (no sincronizada con Alegra).
+   * Descartar una factura que quedó pendiente de envío (no sincronizada con el servidor).
    * Elimina el registro de la cola de sincronización y su copia en el cache local
    * de edición, para que deje de aparecer como "Pendiente de envío".
    */
@@ -1247,26 +1230,19 @@ class FacturacionService {
     if (!facturaVista) return;
 
     try {
-      const numeroTemporal = facturaVista.numberTemplate?.fullNumber ||
-        facturaVista.numeroTemporal ||
-        facturaVista.id ||
-        `LOCAL-${Date.now()}`;
-
+      const numeroTemporal = facturaVista.numero || facturaVista.numeroTemporal || `LOCAL-${Date.now()}`;
       const facturaCache = {
+        ...facturaVista,
         id: facturaVista.id || numeroTemporal,
         localId: facturaVista.localId || null,
-        numberTemplate: facturaVista.numberTemplate || { fullNumber: numeroTemporal },
-        client: facturaVista.cliente || facturaVista.client || null,
-        items: facturaVista.items || [],
-        total: facturaVista.total || 0,
-        observations: facturaVista.observaciones || '',
-        date: facturaVista.date || new Date().toISOString().split('T')[0],
-        status: facturaVista.estado || facturaVista.status || 'open',
-        // Se conserva: es lo que deja volver a editarla sin señal.
+        numero: numeroTemporal,
+        cliente: facturaVista.cliente || null,
+        lineas: facturaVista.lineas || [],
+        fecha: facturaVista.fecha || hoyEnCostaRica(),
+        estado: facturaVista.estado || 'borrador',
         esPropia: Boolean(facturaVista.esPropia),
         pendienteSincronizar: Boolean(facturaVista.pendienteSincronizar),
         pendienteEdicion: Boolean(facturaVista.pendienteEdicion),
-        origen: facturaVista.origen || null,
         updatedAtLocal: Date.now()
       };
 
@@ -1297,7 +1273,7 @@ class FacturacionService {
       }
 
       // Ordenar por fecha descendente (más recientes primero)
-      facturasUnicas.sort((a, b) => new Date(b.date) - new Date(a.date));
+      facturasUnicas.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
       return facturasUnicas;
     } catch (error) {
       console.error('❌ Error obteniendo facturas precargadas:', error);

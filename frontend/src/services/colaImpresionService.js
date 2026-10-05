@@ -1,5 +1,5 @@
 import api from './api'
-import { abrirPdfFacturaPropia } from './facturaPropiaAdaptador'
+import { abrirPdfFacturaPropia } from './facturaPdf'
 
 /**
  * La cola de impresión sobre la factura PROPIA (rama independencia-alegra,

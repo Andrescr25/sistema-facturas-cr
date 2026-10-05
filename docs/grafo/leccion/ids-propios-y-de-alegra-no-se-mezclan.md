@@ -16,7 +16,7 @@ archivos:
   - backend/src/modules/facturacion/idempotencia.js
   - backend/tests/intentoDeFacturaIdPropio.test.js
 aristas:
-  relacionado: [modulo/cotizaciones, modulo/facturacion, leccion/cache-con-ids-propios-no-borra-pendientes]
+  relacionado: [modulo/cotizaciones, modulo/facturacion, modulo/facturacion-offline, leccion/cache-con-ids-propios-no-borra-pendientes]
 medido: 2026-10-04
 ---
 
@@ -30,7 +30,11 @@ Casos en esta rama:
    OTRA factura. Por eso la edición se enrutaba por la marca `esPropia`
    (sección 6 del checklist). La ruta de Alegra se retiró el 2026-10-04; la
    marca sigue, ahora al revés: lo que NO la trae salió de una copia vieja
-   de la tablet, con el id de allá, y no se manda a la ruta propia.
+   de la tablet, con el id de allá, y no se manda a la ruta propia. Tampoco
+   se consulta su detalle por ese número: la respuesta propia marcaría como
+   nuestra la factura equivocada antes de editarla. IndexedDB v4 separa
+   también la clave de la copia histórica, aunque los dos ids coincidan;
+   ver [[modulo/facturacion-offline]].
 2. **WhatsApp desde Cuentas por Cobrar** (corregido el 2026-09-24). El modal
    buscaba los teléfonos con `/envios-whatsapp/telefonos/:contactoId`, que le
    pregunta a Alegra, pero Cuentas por Cobrar ya le pasaba el id propio. Al

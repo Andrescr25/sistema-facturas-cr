@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import facturacionService from '../services/facturacionService'
-import { abrirPdfFacturaPropia } from '../services/facturaPropiaAdaptador'
+import { abrirPdfFacturaPropia } from '../services/facturaPdf'
 
 /**
  * Las facturas ya emitidas, desde nuestra base.

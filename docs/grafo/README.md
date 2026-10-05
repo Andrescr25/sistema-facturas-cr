@@ -35,6 +35,7 @@ toca, qué no se regenera).
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)
 - [Facturación de venta — ya cerrado en la migración](modulo/facturacion.md)
+- [Facturación sin señal — copia propia y colas conservadas](modulo/facturacion-offline.md)
 - [Facturas por correo — PDF propio y destinatario confirmado](modulo/correo-facturas.md)
 - [Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra](modulo/facturas-bodega.md)
 - [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md)

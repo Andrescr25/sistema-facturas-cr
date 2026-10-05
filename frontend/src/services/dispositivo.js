@@ -55,7 +55,7 @@ export async function idDispositivo() {
  * NO se arma con el localId de IndexedDB, aunque sería más legible. El
  * localId recién existe DESPUÉS de guardar, y para entonces ya se hizo el
  * primer intento en línea — que es el más peligroso: si ese POST expira,
- * Alegra pudo haber creado la factura, y la copia que se guarda offline la
+ * el servidor pudo haber creado la factura, y la copia que se guarda offline la
  * crearía una segunda vez. La clave tiene que existir antes que él.
  */
 export async function nuevaClaveFactura() {

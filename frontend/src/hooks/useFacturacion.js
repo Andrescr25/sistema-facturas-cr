@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../services/api'
 import { hoyEnCostaRica } from '../utils/fechaCR'
 import facturacionService from '../services/facturacionService'
-import { abrirPdfFacturaPropia } from '../services/facturaPropiaAdaptador'
+import { abrirPdfFacturaPropia } from '../services/facturaPdf'
 import {
   getReference,
   normalizarImpuestos,
@@ -362,7 +362,7 @@ export function useFacturacion() {
     setReintentandoLocalId(localId)
     try {
       await facturacionService.reintentarFacturaPendiente(localId)
-      mostrarMensaje('Factura enviada a Alegra correctamente', 'success')
+      mostrarMensaje('Factura enviada al servidor correctamente', 'success')
     } catch (error) {
       console.error('Error reintentando factura pendiente:', error)
       mostrarMensaje('No se pudo enviar la factura: ' + error.message, 'error')
@@ -498,7 +498,7 @@ export function useFacturacion() {
 
   // Reintento automático periódico de facturas/ediciones pendientes. No depende
   // del evento 'online' del navegador (que solo refleja si la interfaz de red
-  // está conectada, no si Alegra es realmente alcanzable) — así una factura que
+  // está conectada, no si el servidor es realmente alcanzable) — así una factura que
   // quedó pendiente por un fallo puntual se reintenta sola sin que haga falta
   // recargar la página.
   useEffect(() => {
@@ -573,8 +573,8 @@ export function useFacturacion() {
       // Primero buscar en las facturas precargadas (offline)
       const terminoLower = termino.toLowerCase()
       let facturasLocales = facturasPrecargadas.filter(factura => {
-        const numero = factura.numberTemplate?.fullNumber?.toString().toLowerCase() || ''
-        const cliente = factura.client?.name?.toLowerCase() || ''
+        const numero = factura.numero?.toString().toLowerCase() || ''
+        const cliente = factura.cliente?.nombre?.toLowerCase() || ''
         return numero.includes(terminoLower) || cliente.includes(terminoLower)
       })
 
@@ -606,6 +606,12 @@ export function useFacturacion() {
     try {
       setLoading(true)
 
+      // Una copia con id de Alegra jamás se consulta por ese número en el
+      // espacio propio: podría abrir la factura de otra persona y marcarla
+      // como nuestra antes de intentar editarla.
+      if (!factura.esPropia) {
+        throw new Error('Esta copia viene del sistema anterior. Actualizá la lista con conexión y abrí la factura propia para editarla.');
+      }
       // Obtener detalles completos de la factura
       let facturaCompleta = factura
       const esLocal = typeof factura.id === 'string' && factura.id.startsWith('local-')
@@ -628,53 +634,39 @@ export function useFacturacion() {
         facturaCompleta.pendienteSincronizar = true
       }
 
+      if (!Array.isArray(facturaCompleta.lineas) || facturaCompleta.detalleDisponible === false) {
+        throw new Error('El detalle de esta factura no está descargado. Abrila con conexión antes de editarla sin señal.');
+      }
       // Cargar datos en el formulario
       setFacturaEditando(facturaCompleta)
       setModoEdicion(true)
 
-      // Cliente
-      if (facturaCompleta.client) {
-        setClienteSeleccionado(facturaCompleta.client)
-      }
-
-      // Items
-      if (facturaCompleta.items && facturaCompleta.items.length > 0) {
-        const itemsFormateados = facturaCompleta.items.map(item => ({
-          id: item.id,
-          reference: getReference(item.reference),
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          tax: item.tax || [],
-          discount: item.discount || 0,
-          description: typeof item.description === 'string'
-            ? item.description.slice(0, DESCRIPCION_MAX)
-            : ''
-        }))
-        setItems(itemsFormateados)
-      }
-
-      // Fecha
-      if (facturaCompleta.date) {
-        setFecha(facturaCompleta.date)
-      }
-
-      // Observaciones
-      if (facturaCompleta.observations) {
-        setObservaciones(facturaCompleta.observations)
-      }
-
-      // Descuento global (si existe en la factura)
-      if (facturaCompleta.discount) {
-        setDescuentoGlobal(parseFloat(facturaCompleta.discount) || 0)
-      }
+      // Los controles del catálogo mantienen su forma de formulario; el
+      // documento y la copia persistida usan cliente y líneas propios.
+      const clienteFactura = facturaCompleta.cliente;
+      setClienteSeleccionado(clienteFactura ? {
+        ...clienteFactura,
+        name: clienteFactura.nombre,
+        identification: clienteFactura.identificacion
+      } : null);
+      setItems(facturaCompleta.lineas.map(linea => ({
+        id: linea.productoId, productoId: linea.productoId,
+        reference: getReference(linea.referencia), name: linea.nombre,
+        quantity: linea.cantidad, price: linea.precioUnitario,
+        tax: [{ id: linea.impuestoId, percentage: linea.tarifa }],
+        discount: linea.descuentoPorcentaje || 0,
+        description: String(linea.descripcion || '').slice(0, DESCRIPCION_MAX)
+      })));
+      setFecha(facturaCompleta.fecha || hoyEnCostaRica());
+      setObservaciones(facturaCompleta.observaciones || '');
+      setDescuentoGlobal(facturaCompleta.descuentoGlobal || 0);
 
       // Cambiar a la pestaña de nueva/editar para mostrar el formulario
       setTabActiva('nueva')
       setBusquedaFactura('')
       setFacturasEncontradas([])
 
-      mostrarMensaje(`Factura ${facturaCompleta.numberTemplate?.fullNumber || facturaCompleta.id} cargada para edición`, 'success')
+      mostrarMensaje(`Factura ${facturaCompleta.numero || facturaCompleta.id} cargada para edición`, 'success')
     } catch (error) {
       console.error('Error cargando factura:', error)
       mostrarMensaje('Error cargando factura: ' + error.message, 'error')
@@ -931,7 +923,7 @@ export function useFacturacion() {
     try {
       setLoading(true)
 
-      // Preparar datos según formato Alegra
+      // La petición conserva los nombres aceptados por el backend y lleva ids propios
       const facturaData = {
         date: fecha,
         dueDate: fecha, // Misma fecha por defecto
@@ -974,38 +966,28 @@ export function useFacturacion() {
         facturaData.discount = descuentoGlobal
       }
 
-      const itemsVista = items.map(item => ({
-        id: item.id,
-        name: item.name,
-        reference: item.reference,
-        quantity: item.quantity,
-        price: item.price,
-        discount: item.discount || 0,
-        description: (item.description || '').slice(0, DESCRIPCION_MAX),
-        tax: item.tax || []
-      }))
-
+      const lineasVista = items.map(item => ({
+        productoId: item.productoId ?? item.id,
+        nombre: item.name, referencia: item.reference,
+        cantidad: item.quantity, precioUnitario: item.price,
+        descuentoPorcentaje: item.discount || 0,
+        descripcion: (item.description || '').slice(0, DESCRIPCION_MAX),
+        impuestoId: item.tax?.[0]?.id, tarifa: item.tax?.[0]?.percentage || 0
+      }));
       const facturaVista = {
         id: facturaEditando?.id || null,
         localId: facturaEditando?.localId || null,
-        // La marca viaja con la copia que queda en la tablet: sin ella, una
-        // segunda edición sin señal de la misma factura ya no se reconoce
-        // como propia.
-        esPropia: Boolean(facturaEditando?.esPropia),
-        cliente: clienteSeleccionado,
-        items: itemsVista,
+        // Una factura nueva usa el catálogo propio; una edición conserva la
+        // procedencia del documento. Las colas antiguas no se renombran.
+        esPropia: !modoEdicion || Boolean(facturaEditando?.esPropia),
+        cliente: { id: clienteSeleccionado.id, nombre: clienteSeleccionado.name,
+          identificacion: clienteSeleccionado.identification },
+        lineas: lineasVista,
         total: calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuestos),
-        numberTemplate: facturaEditando?.numberTemplate || null,
-        observaciones,
-        date: fecha,
-        estado: facturaEditando?.status || 'open'
-      }
-
-      if (!facturaVista.numberTemplate) {
-        const numeroTemporal = `LOCAL-${Date.now()}`
-        facturaVista.numberTemplate = { fullNumber: numeroTemporal }
-        facturaVista.numeroTemporal = numeroTemporal
-      }
+        numero: facturaEditando?.numero || `LOCAL-${Date.now()}`,
+        observaciones, fecha, descuentoGlobal,
+        estado: facturaEditando?.estado || 'borrador'
+      };
 
       let resultado
       const esFacturaLocalPendiente = modoEdicion && (
@@ -1035,11 +1017,11 @@ export function useFacturacion() {
 
       if (resultado.success) {
         const numeroFacturaDisplay = modoEdicion
-          ? (facturaEditando?.numberTemplate?.fullNumber ||
-            facturaVista.numberTemplate?.fullNumber ||
+          ? (facturaEditando?.numero ||
+            facturaVista.numero ||
             facturaEditando?.id)
-          : (resultado.data?.numberTemplate?.fullNumber ||
-            facturaVista.numberTemplate?.fullNumber ||
+          : (resultado.data?.numero ||
+            facturaVista.numero ||
             resultado.data?.id)
 
         const mensajeTexto = modoEdicion

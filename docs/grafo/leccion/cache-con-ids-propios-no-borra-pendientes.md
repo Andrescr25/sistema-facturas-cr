@@ -12,8 +12,8 @@ archivos:
   - backend/src/modules/catalogo-agente/pedidos-agente.service.js
   - backend/tests/catalogoAgenteIdsPropios.test.js
 aristas:
-  relacionado: [modulo/catalogo-agente, modulo/portal-clientes, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fotos-del-catalogo-en-la-tablet]
-medido: 2026-10-03
+  relacionado: [modulo/catalogo-agente, modulo/portal-clientes, modulo/facturacion-offline, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fotos-del-catalogo-en-la-tablet]
+medido: 2026-10-04
 ---
 
 SECCIÓN 12, PARTE 3. `AlegraCatalogReactDB` conserva su nombre y pasa a
@@ -37,6 +37,12 @@ explícitos `alegraContactId`/`alegraItemId` se traducen SOLO por `alegra_id`.
 El contrato propio usa `clienteId`/`productoId`; mezclarlos devuelve 400.
 La clave de idempotencia se conserva. Cabecera y líneas son una transacción;
 ON CONFLICT reconoce envíos simultáneos sin dejar un pedido incompleto.
+
+FACTURACIÓN V4 (2026-10-04). Esa segunda base también conserva su nombre.
+Al retirar el traductor de Facturación se actualiza solo la copia de facturas,
+con procedencia explícita, sin escribir las tres colas ni regenerar sus claves.
+Reparar productos corruptos tampoco limpia la venta pendiente. Migración,
+fallos y reintentos se describen en [[modulo/facturacion-offline]].
 
 LA COPIA ANTERIOR SOLO SE REEMPLAZA COMPLETA. Una página fallida se reintenta
 hasta tres veces al mismo offset; si no llega, no se avanza ni se confirma.

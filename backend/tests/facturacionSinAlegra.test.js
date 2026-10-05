@@ -128,11 +128,25 @@ describe('la pantalla ya no le habla a Alegra para facturar', () => {
     const cache = servicio.slice(servicio.indexOf('async guardarFacturaLocalEnCache('));
 
     assert.match(cache, /esPropia: Boolean\(facturaVista\.esPropia\)/);
-    assert.match(hook, /esPropia: Boolean\(facturaEditando\?\.esPropia\)/);
+    assert.match(hook, /esPropia: !modoEdicion \|\| Boolean\(facturaEditando\?\.esPropia\)/);
   });
 
   test('el PDF que se abre al terminar es el nuestro', () => {
     assert.match(hook, /await abrirPdfFacturaPropia\(api, resultado\.data\.id\)/);
     assert.equal(/alegraService/.test(hook), false);
+  });
+
+  test('una copia de Alegra se rechaza antes de consultar su id como propio', () => {
+    const cuerpo = hook.slice(hook.indexOf('const cargarFacturaParaEdicion ='), hook.indexOf('const handleCodigoKeyPress'));
+    assert.ok(cuerpo.indexOf('if (!factura.esPropia)') >= 0);
+    assert.ok(cuerpo.indexOf('if (!factura.esPropia)') < cuerpo.indexOf('getFacturaById('));
+  });
+
+  test('se retiró el traductor y la pantalla no vuelve a construir facturas con numberTemplate', () => {
+    assert.equal(existe('frontend', 'src', 'services', 'facturaPropiaAdaptador.js'), false);
+    for (const ruta of ['hooks/useFacturacion.js', 'services/facturacionService.js', 'services/indexedDBService.js',
+      'components/facturacion/AvisoEdicion.jsx', 'components/facturacion/PanelEditarFacturas.jsx']) {
+      assert.doesNotMatch(codigo(leer('frontend', 'src', ruta)), /numberTemplate|facturaPropiaAdaptador/);
+    }
   });
 });

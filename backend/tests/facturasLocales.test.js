@@ -7,7 +7,7 @@ const path = require('path');
  * La pantalla de Facturación factura contra NUESTRO backend.
  *
  * Lo que se cuida acá:
- *  - que la traducción no pierda el número ni el cliente, que son lo que la
+ *  - que la copia propia no pierda el número ni el cliente, que son lo que la
  *    pantalla muestra apenas se factura;
  *  - que la factura propia quede MARCADA, porque esa marca decide a qué ruta
  *    se edita: mandar un id nuestro (1, 2, 3…) a la ruta de Alegra no da un
@@ -17,9 +17,9 @@ const path = require('path');
 
 const SERVICIO = path.join(__dirname, '..', '..', 'frontend', 'src', 'services', 'facturacionService.js');
 
-let adaptador;
+let copias;
 test.before(async () => {
-  adaptador = await import('../../frontend/src/services/facturaPropiaAdaptador.js');
+  copias = await import('../../frontend/src/utils/facturasLocales.js');
 });
 
 // Lo que devuelve el servidor propio al crear.
@@ -36,41 +36,97 @@ const PROPIA = {
 };
 
 test('el número llega entero a la pantalla', () => {
-  const f = adaptador.desdeFacturaPropia(PROPIA);
+  const f = copias.facturaEscrita(PROPIA);
   // Es lo que se muestra en "Factura #… creada". Si se pierde, el cajero no
   // sabe qué número entregó.
-  assert.equal(f.numberTemplate.fullNumber, '001000014869');
+  assert.equal(f.numero, '001000014869');
   assert.equal(f.id, 5399);
 });
 
 test('la factura propia queda marcada', () => {
   // La marca decide la ruta de edición y cuál PDF se abre.
-  assert.equal(adaptador.desdeFacturaPropia(PROPIA).esPropia, true);
+  assert.equal(copias.facturaEscrita(PROPIA).esPropia, true);
 });
 
-test('el cliente y las líneas se traducen con sus números como números', () => {
-  const f = adaptador.desdeFacturaPropia(PROPIA);
-  assert.equal(f.client.name, 'PULPERÍA LA ESQUINA');
+test('el cliente y las líneas se guardan con sus números como números', () => {
+  const f = copias.facturaEscrita(PROPIA);
+  assert.equal(f.cliente.nombre, 'PULPERÍA LA ESQUINA');
   assert.equal(f.total, 3390);
-  assert.equal(f.items.length, 1);
-  assert.equal(f.items[0].quantity, 3);
-  assert.equal(f.items[0].price, 1000);
-  assert.equal(f.items[0].tax[0].percentage, 13);
-  assert.equal(f.items[0].id, '888', 'usa el id de Alegra mientras el catálogo lo tenga');
-  assert.equal(f.items[0].productoId, 12);
+  assert.equal(f.lineas.length, 1);
+  assert.equal(f.lineas[0].cantidad, 3);
+  assert.equal(f.lineas[0].precioUnitario, 1000);
+  assert.equal(f.lineas[0].tarifa, 13);
+  assert.equal(f.lineas[0].productoId, 12, 'el id de Alegra no decide qué producto se edita');
+  assert.equal(f.lineas[0].id, undefined);
+  assert.equal(f.lineas[0].productoId, 12);
 });
 
 test('una anulada se cuenta como anulada', () => {
-  assert.equal(adaptador.desdeFacturaPropia({ ...PROPIA, estado: 'anulada' }).status, 'void');
-  assert.equal(adaptador.desdeFacturaPropia(PROPIA).status, 'open');
+  assert.equal(copias.facturaEscrita({ ...PROPIA, estado: 'anulada' }).estado, 'anulada');
+  assert.equal(copias.facturaEscrita(PROPIA).estado, 'emitida');
 });
 
 test('una respuesta sin líneas no revienta', () => {
   // Es el caso de la clave repetida: el servidor contesta "ya estaba creada"
   // con el id y el número, sin el detalle.
-  const f = adaptador.desdeFacturaPropia({ id: 5399, numero: '001000014869' });
-  assert.deepEqual(f.items, []);
-  assert.equal(f.numberTemplate.fullNumber, '001000014869');
+  const f = copias.facturaEscrita({ id: 5399, numero: '001000014869' });
+  assert.equal(f.lineas, null);
+  assert.equal(f.numero, '001000014869');
+});
+
+test('el documento de la tablet usa campos propios y no inventa el saldo desde la fila SQL', () => {
+  const f = copias.facturaEscrita({ ...PROPIA, saldo: '3390', total_pagado: 0 });
+  for (const clave of ['numberTemplate', 'client', 'items', 'status', 'date', 'saldo']) assert.equal(clave in f, false);
+});
+
+test('una lista o un acuse de idempotencia conserva las líneas y la ficha ya descargadas', () => {
+  const anterior = { ...copias.facturaEscrita(PROPIA), detalleDisponible: true };
+  const resumida = { id: PROPIA.id, numero: PROPIA.numero, lineas: 1, esPropia: true };
+  const lista = copias.combinarCopiaFactura(anterior, resumida);
+  assert.deepEqual(lista.lineas, anterior.lineas);
+  const acuse = copias.facturaEscrita({ id: PROPIA.id, numero: PROPIA.numero, yaExistia: true });
+  const guardada = copias.combinarCopiaFactura(lista, { ...acuse, cliente: undefined });
+  assert.deepEqual(guardada.cliente, anterior.cliente);
+  assert.deepEqual(guardada.lineas, anterior.lineas);
+  assert.equal(guardada.detalleDisponible, true);
+});
+
+const VIEJA = {
+  id: 12, numberTemplate: { fullNumber: 'HISTORICA-12' }, date: '2026-10-04', status: 'open',
+  client: { id: 7, name: 'Ficha histórica' }, total: 3390,
+  items: [{ id: 888, productoId: 12, name: 'Tornillo', quantity: 3, price: 1000, tax: [{ percentage: 13 }] }]
+};
+test('v3 propia conserva su marca y el producto propio aunque el id antiguo sea otro', () => {
+  const f = copias.convertirCopiaV3({ ...VIEJA, esPropia: true });
+  assert.equal(f.id, '12');
+  assert.equal(f.lineas[0].productoId, 12);
+  assert.equal(f.cliente.id, 7);
+  assert.equal(f.numero, 'HISTORICA-12');
+  assert.equal(f.esPropia, true);
+});
+test('v3 sin marca conserva los ids históricos como referencias y no adquiere permiso de edición', () => {
+  const f = copias.convertirCopiaV3(VIEJA);
+  assert.equal(f.id, 'copia-alegra-12');
+  assert.equal(f.alegraId, 12);
+  assert.equal(f.cliente.id, null);
+  assert.equal(f.lineas[0].productoId, null);
+  assert.equal(f.esPropia, false);
+});
+test('v3 local solo recupera ids propios desde un contrato explícito de su cola', () => {
+  const local = { ...VIEJA, id: 'local-1', localId: 1, items: [{ ...VIEJA.items[0], id: 12, productoId: undefined }] };
+  const cola = { clienteId: 7, items: [{ productoId: 12 }], claveIdempotencia: 'misma-clave' };
+  const antes = structuredClone(cola);
+  const f = copias.convertirCopiaV3(local, cola);
+  assert.equal(f.esPropia, true);
+  assert.equal(f.estado, 'borrador');
+  assert.equal(f.lineas[0].productoId, 12);
+  assert.deepEqual(cola, antes);
+  assert.equal(copias.convertirCopiaV3(local, { client: 7, items: [{ id: 12 }] }).esPropia, false);
+  assert.equal(copias.convertirCopiaV3(local, { ...cola, items: [{ productoId: 888 }] }).esPropia, false);
+});
+test('v3 resumida queda sin detalle disponible; no se presenta como factura vacía editable', () => {
+  const f = copias.convertirCopiaV3({ ...VIEJA, esPropia: true, items: [], cantidadLineas: 4 });
+  assert.equal(f.detalleDisponible, false);
 });
 
 test('nada queda mandando facturas a Alegra', () => {

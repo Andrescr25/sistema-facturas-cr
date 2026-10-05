@@ -1,5 +1,9 @@
 # Avance de independencia de Alegra — 2026-10-04
 
+Facturación y Cuentas por Cobrar ya usan los campos propios, sin los dos
+traductores de §16. Proveedores (§4) también quedó completa. Se preservan
+las colas de las tablets y sus claves; el inventario y el corte siguen abiertos.
+
 La auditoría de compras ya permite medir las diferencias sin escribir
 documentos: **1.052 compras de Alegra y 860 propias**, con 745 candidatos
 únicos y 89 grupos ambiguos, pendientes de confirmar. También se completó
@@ -67,12 +71,13 @@ no modifica esos archivos ni reinicia sus procesos.
 
 ## Estado del checklist
 
-Las secciones 0–16 tienen **112 tareas principales marcadas y 32 abiertas**
-(revisado sobre `5a09601` más el correo con PDF propio de esta entrega).
-Compras (§8) ya quedó completa; el débito completa un tramo de §15 y no
-cierra la conciliación total. Esa cuenta no mide la preparación para
-producción. Hay además una fila de Hacienda en Pospuesto: **112 marcadas y
-33 abiertas en todo el archivo**. §§11–14 siguen terminadas.
+Las secciones 0–16 tienen **115 tareas principales marcadas y 30 abiertas**
+(recontado sobre los avances de Claude hasta `1234fb1` y el retiro del
+traductor de Facturación de esta entrega). Proveedores (§4), Compras (§8)
+y §§11–14 están completas; el débito completa un tramo de §15 y no cierra
+la conciliación total. Esa cuenta no mide la preparación para producción.
+Hay además una fila de Hacienda en Pospuesto: **115 marcadas y 31 abiertas
+en todo el archivo**.
 
 ## Qué sigue pendiente
 
@@ -80,9 +85,10 @@ producción. Hay además una fila de Hacienda en Pospuesto: **112 marcadas y
   diferencias, recargar y comprobar numeradores al preparar el corte. El
   diagnóstico de septiembre del [informe anterior](avance-independencia-2026-10-03.md)
   sigue identificado como medición anterior; este trabajo no lo recarga.
-- Retirar la caché restante, la sincronización de productos, los traductores
-  en el orden del checklist. Facturación/Productos antiguos, el envío antiguo
-  de Compras y el prefijo `/alegra` ya se retiraron.
+- Retirar la caché restante y la sincronización de productos cuando exista
+  inventario propio; retirar la integración tras las cargas y conciliaciones
+  del corte. Facturación/Productos antiguos, el envío antiguo de Compras,
+  el prefijo `/alegra` y los dos traductores frontend ya se retiraron.
 - Guardar PDF/XML originales y verificar la recepción real de correo con
   PDF y WhatsApp en el ensayo autorizado del corte. El flujo de correo ya
   está implementado, con salidas bloqueadas durante el desarrollo.
@@ -249,3 +255,51 @@ errores JavaScript. Ningún correo real. Evidencia privada en
 Suite completa con `PROBAR_BASE_LOCAL=1` contra la copia desechable:
 **1.804 pruebas aprobadas, cero fallos y cero omitidas**. No se ejecutó
 limpieza semanal ni se cambiaron datos de producción.
+
+
+## Continuación: Facturación y la copia offline sin traductor
+
+Codex retiró `facturaPropiaAdaptador.js`. La pantalla y la copia de facturas
+usan `numero`, `cliente`, `lineas`, `fecha` y los estados propios. El GET
+conserva su saldo calculado; el normalizador de POST/PUT no copia el saldo
+histórico de SQL. El PDF mantiene su descarga autenticada y la ruta de
+Impresión mediante `facturaPdf.js`.
+
+`SistemaFacturasCR` pasa de versión 3 a 4, conservando su nombre. La
+actualización convierte solo las copias: mantiene las tres colas, sus
+claves de idempotencia, intentos y fechas, y los catálogos/configuración.
+Separa los ids de copias históricas y propias aunque coincidan. La pantalla
+rechaza una copia sin procedencia antes de consultar su detalle por la ruta
+propia, y pide descargar el detalle antes de editar un resumen sin señal.
+Las búsquedas resumidas conservan las líneas completas ya descargadas.
+
+Cuerpo y clave de una venta nueva se guardan juntos: se elimina la ventana
+que podía dejar una factura pendiente sin clave al cerrar la tablet. Reparar
+un producto corrupto ya no borra las ventas pendientes. Las ediciones
+antiguas sin marca permanecen en la cola con su motivo. No se renombra su
+cuerpo ni se cambia la huella de idempotencia: la compatibilidad de entrada
+del backend continúa abierta después del corte (§6). No hubo migración SQL.
+
+Coordinación: Claude completó Cuentas por Cobrar (`f65bae4`, `475cc2a`) y el
+WhatsApp de la ficha de proveedores (`84f6e38`, `0c023fa`), cerrando §4. Codex
+montó este cambio sobre esos commits, sin conflictos y sin editar sus
+worktrees. Durante la validación Claude integró también los permisos (`1234fb1`):
+rutas prestadas y escrituras de reportes con dueño. Codex volvió a montar
+su cambio sobre esa base sin conflictos y repitió la batería completa.
+Este cambio no modifica los archivos de permisos. Pruebas en PostgreSQL desechable y
+puertos propios; la base compartida, producción y sus procesos no se tocaron.
+
+Validación final sobre `1234fb1` más este cambio: **1.850 pruebas aprobadas,
+cero fallos**,
+con `PROBAR_BASE_LOCAL=1` en la copia desechable, y compilación frontend
+correcta (permanece el aviso previo de tamaño de algunos paquetes).
+En Chromium: migración v3→v4 con ids coincidentes, igualdad de las tres
+colas y los catálogos/configuración, reversión completa por cuota, pestaña
+que bloquea la actualización, reintento con la misma clave y dos ediciones
+sin señal. Reparar productos conserva las otras tiendas de IndexedDB.
+La pantalla de 700 px guarda una edición con `productoId` propio y la
+recupera después de recargar sin señal; en 1440 px siguen visibles PDF y
+correo. Una copia histórica se rechaza sin consultar su id propio.
+Cero errores de JavaScript, escrituras HTTP o mensajes reales en estas
+pruebas de navegador. El detalle técnico y los archivos están en
+[Facturación sin señal](../grafo/modulo/facturacion-offline.md).

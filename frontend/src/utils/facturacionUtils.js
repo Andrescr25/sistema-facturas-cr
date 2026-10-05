@@ -101,23 +101,23 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
     const cache = facturasPrecargadas.find(
       f => f.localId === pendiente.localId || f.id === `local-${pendiente.localId}`
     )
-    const clienteInfo = clientes.find(c => String(c.id) === String(pendiente.client))
+    // La cola mantiene el contrato con que se creó. Solo clienteId señala
+    // una ficha propia: `client` en un pendiente antiguo es el id de Alegra.
+    const clienteInfo = pendiente.clienteId == null ? null :
+      clientes.find(c => String(c.id) === String(pendiente.clienteId))
     const total = cache?.total ?? (pendiente.items || []).reduce(
-      (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0),
-      0
-    )
-    // El cache local (facturaVista) trae los items con nombre legible;
-    // el registro crudo de facturas_pendientes solo trae id/referencia.
-    const items = (cache?.items && cache.items.length > 0 ? cache.items : pendiente.items || [])
-      .map(item => ({
+      (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0), 0)
+    const items = Array.isArray(cache?.lineas) && cache.lineas.length > 0
+      ? cache.lineas.map(l => ({ nombre: l.nombre || l.descripcion || `Referencia ${l.referencia || l.productoId}`,
+        cantidad: Number(l.cantidad) || 0, precio: Number(l.precioUnitario) || 0 }))
+      : (pendiente.items || []).map(item => ({
         nombre: item.name || item.description || `Referencia ${item.reference || item.id}`,
-        cantidad: parseFloat(item.quantity) || 0,
-        precio: parseFloat(item.price) || 0
+        cantidad: parseFloat(item.quantity) || 0, precio: parseFloat(item.price) || 0
       }))
 
     return {
       localId: pendiente.localId,
-      clienteNombre: cache?.client?.name || clienteInfo?.name || `Cliente #${pendiente.client}`,
+      clienteNombre: cache?.cliente?.nombre || clienteInfo?.name || `Cliente #${pendiente.clienteId ?? pendiente.client}`,
       total,
       items,
       cantidadItems: items.length,

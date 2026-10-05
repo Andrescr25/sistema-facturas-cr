@@ -18,7 +18,7 @@ archivos:
   - backend/tests/intentoDeFacturaIdPropio.test.js
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas]
+  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline]
 medido: 2026-10-04
 ---
 
@@ -80,6 +80,11 @@ importa: un fallo al guardar queda `fallida` —la transacción es nuestra, no
 quedó nada y reintentar es seguro—; `incierta` era "Alegra no contestó" y el
 camino propio ya no la produce, pero el módulo sigue frenando las que haya en
 la tabla.
+
+FACTURACIÓN SIN TRADUCTOR (2026-10-04). Pantalla y caché hablan el contrato
+propio. [[modulo/facturacion-offline]] explica la actualización IndexedDB v4,
+la conservación de colas y claves y la separación de copias históricas. La
+marca se comprueba antes de consultar el detalle, además de antes de enviarlo.
 
 LA TABLET Y LA MARCA `esPropia`. La base de Facturación en el navegador
 (`SistemaFacturasCR`: facturas en copia, facturas y ediciones pendientes) NO se
