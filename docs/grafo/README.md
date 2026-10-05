@@ -22,6 +22,7 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Clientes y rutas — ficha por secciones, orden manual y recorrido fijo por ciclo](modulo/rutas-clientes.md)
 - [Hacienda — XML 4.4, configuración .p12 y emisión fiscal separada](modulo/hacienda.md)
 
 - [Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia](modulo/portal-clientes.md)
@@ -70,7 +71,7 @@ toca, qué no se regenera).
 
 ## Decisiones
 
-- [El pedido conserva su ciclo de ruta fechado — regla acordada, implementación pendiente](decision/ciclo-de-ruta-como-contexto.md)
+- [El ciclo de ruta conserva su recorrido; vincular pedidos/faltantes sigue pendiente](decision/ciclo-de-ruta-como-contexto.md)
 - [Orden enviada inmutable; archivo 24 h tras recepción conservando historial — implementación pendiente](decision/orden-enviada-y-archivo-por-recepcion.md)
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)

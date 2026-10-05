@@ -16,6 +16,8 @@ export function useClientes({ showToast, confirm }) {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('activos')
   const [pagina, setPagina] = useState(1)
+  const [rutaId, setRutaId] = useState('')
+  const [revisionFicha, setRevisionFicha] = useState(0)
   const [plazos, setPlazos] = useState([])
   const [editando, setEditando] = useState(null)   // ficha, o {} para una nueva
   const [guardando, setGuardando] = useState(false)
@@ -24,11 +26,11 @@ export function useClientes({ showToast, confirm }) {
   // Para descartar la respuesta de una búsqueda vieja que llega tarde.
   const peticion = useRef(0)
 
-  const cargar = useCallback(async (texto, filtroEstado, pag) => {
+  const cargar = useCallback(async (texto, filtroEstado, pag, filtroRuta) => {
     const mia = ++peticion.current
     setCargando(true)
     try {
-      const r = await clientesService.listar({ buscar: texto, estado: filtroEstado, pagina: pag, limite: 30 })
+      const r = await clientesService.listar({ buscar: texto, estado: filtroEstado, pagina: pag, limite: 30, rutaId: filtroRuta })
       if (mia !== peticion.current) return
       setClientes(r.clientes)
       setPaginacion(r.paginacion)
@@ -41,17 +43,17 @@ export function useClientes({ showToast, confirm }) {
   }, [showToast])
 
   useEffect(() => {
-    const t = setTimeout(() => cargar(busqueda, estado, pagina), busqueda ? 300 : 0)
+    const t = setTimeout(() => cargar(busqueda, estado, pagina, rutaId), busqueda ? 300 : 0)
     return () => clearTimeout(t)
-  }, [busqueda, estado, pagina, cargar])
+  }, [busqueda, estado, pagina, rutaId, cargar])
 
-  useEffect(() => { setPagina(1) }, [busqueda, estado])
+  useEffect(() => { setPagina(1) }, [busqueda, estado, rutaId])
 
   useEffect(() => {
     clientesService.plazos().then(setPlazos).catch(() => setPlazos([]))
   }, [])
 
-  const refrescar = () => cargar(busqueda, estado, pagina)
+  const refrescar = () => cargar(busqueda, estado, pagina, rutaId)
 
   const guardar = async (valores) => {
     setGuardando(true)
@@ -64,6 +66,7 @@ export function useClientes({ showToast, confirm }) {
         showToast('Cliente creado', 'success')
       }
       setEditando(null)
+      setRevisionFicha(n => n + 1)
       await refrescar()
       return true
     } catch (error) {
@@ -106,6 +109,7 @@ export function useClientes({ showToast, confirm }) {
     busqueda, setBusqueda,
     estado, setEstado,
     pagina, setPagina,
+    rutaId, setRutaId, revisionFicha,
     plazos,
     editando, setEditando,
     guardando, guardar,

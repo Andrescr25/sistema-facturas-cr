@@ -11,9 +11,10 @@ avanzar poco a poco. La lista detallada para tachar está en
 [checklist-rutas-ciclos-operativos.md](checklist-rutas-ciclos-operativos.md),
 y las decisiones consolidadas en
 [instrucciones-vigentes-usuario.md](instrucciones-vigentes-usuario.md).
-Estado actual: especificación e inspección; ningún punto de implementación
-de esta lista está terminado. La primera entrega aborda rutas/ciclos y ficha
-del cliente; las siguientes incorporan pedidos, filtros y compras.
+Estado actual: primera entrega de rutas/ciclos y ficha implementada;
+[informe y límites](informes/rutas-clientes-2026-10-05.md). La vinculación de
+pedidos/facturas/faltantes al ciclo sigue pendiente; siguientes partes incorporan
+pedidos, filtros y compras.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -48,8 +49,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 ## Ejecución
 
 - [ ] Modelo SQL de rutas, ciclos, asignaciones y contexto de documentos.
-- [ ] API de rutas/orden manual/Maps/ciclos con permisos y transacciones.
-- [ ] Clientes reorganizados, ficha por secciones y vista de rutas móvil.
+- [x] API de rutas/orden manual/Maps/ciclos con permisos y transacciones.
+- [x] Clientes reorganizados, ficha por secciones y vista de rutas móvil.
 - [ ] Pedidos de portal/agente y facturas conservan ciclo explícito.
 - [ ] Preventa próxima ruta con enlace por cliente y envío controlado.
 - [ ] Bodega, reportes, faltantes y exportaciones filtran ruta/ciclo.

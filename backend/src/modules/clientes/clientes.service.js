@@ -20,6 +20,8 @@ const { httpError, texto, numero, booleano, opcion, soloDigitos, correo, lista, 
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { TIPOS, limpiar, motivoQueNoCalza } = require('./identificacion');
+const { ubicacionMaps } = require('../rutas/rutas.validacion');
+const { bloquearRutasEn, prepararAsignacionEn, registrarAsignacionEn } = require('../rutas/rutas.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -60,15 +62,21 @@ const CAMPOS = {
   plazo_credito_id: { etiqueta: 'Plazo de crédito', validar: entero },
   limite_credito: { etiqueta: 'Límite de crédito', validar: numero({ min: 0, max: 1e10 }) },
   exoneracion: { etiqueta: 'Exoneración', validar: objeto({ maxBytes: 8000 }) },
-  observaciones: { etiqueta: 'Observaciones', validar: texto(2000) }
+  observaciones: { etiqueta: 'Observaciones', validar: texto(2000) },
+  ruta_id: { etiqueta: 'Ruta', validar: entero },
+  orden_ruta: { etiqueta: 'Orden en ruta', validar: entero },
+  ubicacion_maps: { etiqueta: 'Ubicación Maps', validar: ubicacionMaps },
+  dia_visita: { etiqueta: 'Día de visita', validar: numero({ min: 1, max: 7, entero: true }) },
+  dia_entrega: { etiqueta: 'Día de entrega', validar: numero({ min: 1, max: 7, entero: true }) }
 };
 
 // ─── Utilidades ────────────────────────────────────────────────────────────
 
 const SELECT_VISTA = `
-  SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias
+  SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias, r.nombre AS ruta_nombre
   FROM cliente c
-  LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id`;
+  LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id
+  LEFT JOIN ruta_cliente r ON r.id = c.ruta_id`;
 
 /** Los NUMERIC llegan como texto desde pg. */
 function aVista(f) {
@@ -123,7 +131,7 @@ function revisarIdentificacion(cambios, completa) {
  * @param {object} filtros
  * @param {'activos'|'inactivos'|'todos'} filtros.estado
  */
-async function listarClientes({ buscar = '', estado = 'activos', conCredito = false, pagina = 1, limite = 30 } = {}) {
+async function listarClientes({ buscar = '', estado = 'activos', conCredito = false, pagina = 1, limite = 30, rutaId = '' } = {}) {
   const where = [];
   const params = [];
   const agregar = (valor) => { params.push(valor); return `$${params.length}`; };
@@ -142,6 +150,8 @@ async function listarClientes({ buscar = '', estado = 'activos', conCredito = fa
   if (conCredito === true || conCredito === 'true') {
     where.push('c.plazo_credito_id IS NOT NULL AND COALESCE(p.dias, 0) > 0');
   }
+  if (rutaId === 'sin-ruta') where.push('c.ruta_id IS NULL');
+  else if (rutaId !== '' && rutaId != null) where.push(`c.ruta_id = ${agregar(idValido(rutaId))}`);
 
   const lim = Math.min(Math.max(parseInt(limite, 10) || 30, 1), LIMITE_MAXIMO);
   const pag = Math.max(parseInt(pagina, 10) || 1, 1);
@@ -150,7 +160,7 @@ async function listarClientes({ buscar = '', estado = 'activos', conCredito = fa
   const { rows } = await pool.query(
     `${SELECT_VISTA.replace('SELECT c.*,', 'SELECT c.*, COUNT(*) OVER() AS total,')}
      ${filtro}
-     ORDER BY lower(c.nombre), c.id
+     ORDER BY ${rutaId && rutaId !== 'sin-ruta' ? 'c.orden_ruta,' : ''} lower(c.nombre), c.id
      LIMIT ${agregar(lim)} OFFSET ${agregar((pag - 1) * lim)}`,
     params
   );
@@ -205,13 +215,16 @@ async function crearCliente(datos, usuarioId) {
   revisarIdentificacion(fila, fila);
 
   return enTransaccion(async (cliente) => {
+    await bloquearRutasEn(cliente);
     await revisarPlazo(cliente, fila.plazo_credito_id);
+    const asignacion = await prepararAsignacionEn(cliente, fila);
     const columnas = Object.keys(fila);
     const { rows } = await cliente.query(
       `INSERT INTO cliente (${columnas.join(', ')}) VALUES (${columnas.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
       columnas.map(c => fila[c])
     );
     await registrarCambio(cliente, { entidad: 'cliente', entidadId: rows[0].id, accion: 'crear', despues: sinTiempos(rows[0]), usuarioId });
+    await registrarAsignacionEn(cliente, asignacion, usuarioId);
     return obtenerCon(cliente, rows[0].id);
   });
 }
@@ -222,12 +235,14 @@ async function editarCliente(id, datos, usuarioId) {
   if (Object.keys(cambios).length === 0) throw httpError(400, 'No vino ningún dato para cambiar.');
 
   return enTransaccion(async (cliente) => {
+    await bloquearRutasEn(cliente);
     const { rows: previas } = await cliente.query('SELECT * FROM cliente WHERE id = $1 FOR UPDATE', [n]);
     const antes = previas[0];
     if (!antes) throw httpError(404, 'No existe ese cliente.');
 
     revisarIdentificacion(cambios, { ...antes, ...cambios });
     if ('plazo_credito_id' in cambios) await revisarPlazo(cliente, cambios.plazo_credito_id);
+    const asignacion = await prepararAsignacionEn(cliente, cambios, antes);
 
     const columnas = Object.keys(cambios);
     const { rows } = await cliente.query(
@@ -239,6 +254,7 @@ async function editarCliente(id, datos, usuarioId) {
       entidad: 'cliente', entidadId: n, accion: 'editar',
       antes: sinTiempos(antes), despues: sinTiempos(rows[0]), usuarioId
     });
+    await registrarAsignacionEn(cliente, asignacion, usuarioId);
     return obtenerCon(cliente, n);
   });
 }
@@ -248,6 +264,7 @@ async function cambiarEstadoCliente(id, activo, usuarioId) {
   const n = idValido(id);
   const valor = booleano(activo, 'Activo');
   return enTransaccion(async (cliente) => {
+    await bloquearRutasEn(cliente);
     const { rows: previas } = await cliente.query('SELECT * FROM cliente WHERE id = $1 FOR UPDATE', [n]);
     const antes = previas[0];
     if (!antes) throw httpError(404, 'No existe ese cliente.');

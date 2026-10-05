@@ -130,13 +130,14 @@ duplicar compras ni perder información entre semanas.
 
 ## Punto real de continuación
 
-Al guardar esta petición: el nuevo flujo está **especificado, pendiente de
-implementar**. Hay plan, checklist detallado y decisiones en el grafo; no hay
-migraciones de rutas/órdenes nuevas aplicadas ni interfaz nueva publicada.
+Primera entrega local: **rutas/ciclos y ficha del cliente implementados**,
+migración 044 aplicada solo local con respaldo. El ciclo conserva el recorrido
+y sus estados; aún no se vincula con pedidos/facturas/faltantes. API, build,
+PostgreSQL y navegador verificados. [Informe](informes/rutas-clientes-2026-10-05.md).
 La base de pruebas se copió desde la local a una base desechable propia.
 
 Lo anterior ya implementado no se vuelve a abrir por añadir estos requisitos:
 el checklist de independencia conserva su estado de **133 hechos / 14 abiertos
 incluyendo aceptación real de Hacienda**, al estado `2ab8cdb`. El trabajo nuevo
-se cuenta por separado. Primera parte propuesta: rutas y ciclos, campos del
-cliente, orden manual y ubicación; después propagar el ciclo a los pedidos.
+se cuenta por separado. Próxima parte: propagar el ciclo a los pedidos y
+facturas, conservar contexto del documento y preparar preventa de próxima ruta.

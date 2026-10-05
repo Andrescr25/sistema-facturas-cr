@@ -24,9 +24,10 @@ const CAMPOS = [
   'nombre', 'tipo_identificacion', 'identificacion', 'correo', 'correos_adicionales',
   'telefono', 'telefono_secundario', 'celular',
   'provincia', 'canton', 'distrito', 'barrio', 'otras_senas',
-  'actividad_economica', 'plazo_credito_id', 'limite_credito', 'observaciones'
+  'actividad_economica', 'plazo_credito_id', 'limite_credito', 'observaciones',
+  'ruta_id', 'orden_ruta', 'ubicacion_maps', 'dia_visita', 'dia_entrega'
 ]
-const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito'])
+const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega'])
 const CLASE_CAMPO = 'input h-11 w-full rounded-xl border border-neutro-300'
 
 // Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
@@ -95,7 +96,7 @@ function Aviso({ children }) {
   )
 }
 
-export default function ModalCliente({ cliente, plazos, guardando, onGuardar, onCerrar }) {
+export default function ModalCliente({ cliente, plazos, rutas = [], guardando, onGuardar, onCerrar }) {
   const editando = Boolean(cliente?.id)
   const base = useMemo(() => valoresDe(cliente), [cliente])
   const [valores, setValores] = useState(base)
@@ -185,6 +186,7 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
         )}
 
         <section className="grid gap-4 sm:grid-cols-2">
+          <h2 className="sm:col-span-2 font-bold text-neutro-800">Información general</h2>
           <div className="sm:col-span-2">
             <Etiqueta htmlFor="cliente-nombre" requerido>Nombre</Etiqueta>
             <input id="cliente-nombre" className={CLASE_CAMPO} value={valores.nombre} onChange={cambiar('nombre')} maxLength={200} required />
@@ -225,6 +227,7 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
         </section>
 
         <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
+          <h2 className="sm:col-span-2 font-bold text-neutro-800">Contacto y datos fiscales</h2>
           <div>
             <Etiqueta htmlFor="cliente-correo">Correo</Etiqueta>
             <input id="cliente-correo" type="email" className={CLASE_CAMPO} value={valores.correo} onChange={cambiar('correo')} maxLength={160} />
@@ -304,7 +307,25 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
           )}
         </section>
 
+        <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
+          <h2 className="sm:col-span-2 font-bold text-neutro-800">Ruta y visitas</h2>
+          <div><Etiqueta htmlFor="cliente-ruta_id">Ruta</Etiqueta>
+            <select id="cliente-ruta_id" className={CLASE_CAMPO} value={valores.ruta_id} onChange={e => setValores(v => ({ ...v, ruta_id: e.target.value, orden_ruta: '' }))}>
+              <option value="">Sin ruta</option>{rutas.filter(r => r.activo || String(r.id) === base.ruta_id).map(r => <option key={r.id} value={r.id}>{r.nombre}{r.activo ? '' : ' · inactiva'}</option>)}
+            </select></div>
+          <div><Etiqueta htmlFor="cliente-orden_ruta">Orden de visita</Etiqueta>
+            <input id="cliente-orden_ruta" type="number" min="1" step="1" disabled={!valores.ruta_id} className={CLASE_CAMPO} value={valores.orden_ruta} onChange={cambiar('orden_ruta')} placeholder="Al final de la ruta" />
+            <p className="text-xs text-neutro-500 mt-1">En blanco: al final al asignar una ruta.</p></div>
+          {['dia_visita', 'dia_entrega'].map(campo => <div key={campo}><Etiqueta htmlFor={`cliente-${campo}`}>{campo === 'dia_visita' ? 'Día habitual de visita' : 'Día habitual de entrega'}</Etiqueta>
+            <select id={`cliente-${campo}`} className={CLASE_CAMPO} value={valores[campo]} onChange={cambiar(campo)}><option value="">Sin definir</option>
+              {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((dia, i) => <option key={dia} value={i + 1}>{dia}</option>)}
+            </select></div>)}
+          <div className="sm:col-span-2"><Etiqueta htmlFor="cliente-ubicacion_maps">Ubicación de Google Maps</Etiqueta>
+            <input id="cliente-ubicacion_maps" type="url" className={CLASE_CAMPO} value={valores.ubicacion_maps} onChange={cambiar('ubicacion_maps')} maxLength={2000} placeholder="https://maps.app.goo.gl/..." />
+            <p className="text-xs text-neutro-500 mt-1">Pegá el enlace que comparte Google Maps.</p></div>
+        </section>
         <section className="grid gap-4 sm:grid-cols-3">
+          <h2 className="sm:col-span-3 font-bold text-neutro-800">Dirección</h2>
           <div>
             <Etiqueta htmlFor="cliente-provincia">Provincia</Etiqueta>
             <input id="cliente-provincia" className={CLASE_CAMPO} value={valores.provincia} onChange={cambiar('provincia')} maxLength={40} />
@@ -329,6 +350,7 @@ export default function ModalCliente({ cliente, plazos, guardando, onGuardar, on
 
         <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
           <div>
+            <h2 className="font-bold text-neutro-800 mb-2">Crédito</h2>
             <Etiqueta htmlFor="cliente-plazo_credito_id">Plazo de crédito</Etiqueta>
             <select id="cliente-plazo_credito_id" className={CLASE_CAMPO} value={valores.plazo_credito_id} onChange={cambiar('plazo_credito_id')}>
               <option value="">Sin plazo</option>

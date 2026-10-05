@@ -12,6 +12,7 @@ const express = require('express');
 const controller = require('./clientes.controller');
 
 const routes = express.Router();
+routes.use('/rutas', require('../rutas/rutas.routes'));
 routes.get('/', controller.listar);
 // Antes de `/:id`, o Express leería "coincidencias" como el id de un cliente.
 routes.get('/coincidencias', controller.coincidencias);

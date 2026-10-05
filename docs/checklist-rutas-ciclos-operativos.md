@@ -1,7 +1,8 @@
 # Checklist: clientes, rutas y ciclos operativos
 
 Solicitud y aclaración del usuario: **2026-10-05**.
-Estado inicial: requisitos guardados; implementación del nuevo flujo pendiente.
+Estado: primera parte de rutas/ciclos y ficha implementada; documentos, compras y entregas pendientes.
+[Informe y evidencia](informes/rutas-clientes-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -16,43 +17,53 @@ manuales del usuario se mantienen separadas de las verificaciones de código.
 
 - [x] MEM-01 — Guardar instrucciones, plan, checklist y decisiones del grafo;
   actualizar memoria de Claude y entrada común para otros modelos.
-- [ ] MEM-02 — Al cerrar cada parte de implementación, actualizar sus casillas,
+- [x] MEM-02 — Al cerrar cada parte de implementación, actualizar sus casillas,
   grafo, comentarios, memoria y un informe de listo/pendiente/siguiente paso.
 
 MEM-01 registra únicamente el guardado documental del 2026-10-05. MEM-02 es
 una obligación recurrente, se confirma con cada entrega, no al preparar el plan.
+Primera entrega: informe del 2026-10-05, grafo y memoria actualizados.
 
 ## 1. Modelo de rutas y ciclos
 
-- [ ] RUT-01 — Crear rutas con identidad propia, nombre y estado.
-- [ ] RUT-02 — Asignar cada cliente a su ruta y guardar su orden de visita.
+- [x] RUT-01 — Crear rutas con identidad propia, nombre y estado.
+- [x] RUT-02 — Asignar cada cliente a su ruta y guardar su orden de visita.
 - [ ] RUT-03 — Guardar ubicación Maps conservando las existentes.
-- [ ] RUT-04 — Evaluar/documentar e incluir día habitual de visita o entrega
+- [x] RUT-04 — Evaluar/documentar e incluir día habitual de visita o entrega
   cuando sea útil; este campo es opcional en la petición.
-- [ ] RUT-05 — Crear ciclo fechado de ruta: ruta + semana/fechas + estado.
-- [ ] RUT-06 — Permitir coexistencia de ciclo actual y próximo en estados
+- [x] RUT-05 — Crear ciclo fechado de ruta: ruta + semana/fechas + estado.
+- [x] RUT-06 — Permitir coexistencia de ciclo actual y próximo en estados
   diferentes, sin mezclar sus documentos.
-- [ ] RUT-07 — Activar/promover un ciclo mediante una acción controlada y
+- [x] RUT-07 — Activar/promover un ciclo mediante una acción controlada y
   mostrar qué pasa a preparación/entrega.
 - [ ] RUT-08 — Conservar el contexto de documentos al cambiar la ruta de un
   cliente o el ciclo activo; históricos sin clasificación siguen identificados.
-- [ ] RUT-09 — Crear migraciones SQL y API transaccional con permisos, ids
+- [x] RUT-09 — Crear migraciones SQL y API transaccional con permisos, ids
   propios y validación de ruta/ciclo/cliente.
+
+Primera parte: RUT-06/07 corresponden al estado y recorrido del ciclo. La
+separación/vinculación de documentos queda en RUT-08 y PRE-05/07. RUT-03: el
+campo Maps está implementado, falta identificar la fuente local de las
+ubicaciones anteriores; no consultar producción para completar esa casilla.
 
 ## 2. Clientes y vista de rutas
 
-- [ ] CLI-01 — Reorganizar lista y ficha para que las funciones no se mezclen.
-- [ ] CLI-02 — Separar información general y contacto.
-- [ ] CLI-03 — Mostrar ruta, orden de visita y ubicación como sección propia.
-- [ ] CLI-04 — Separar historial de pedidos y pedidos en línea.
-- [ ] CLI-05 — Mostrar facturas pendientes, notas y estado del cliente en
+- [x] CLI-01 — Reorganizar lista y ficha para que las funciones no se mezclen.
+- [x] CLI-02 — Separar información general y contacto.
+- [x] CLI-03 — Mostrar ruta, orden de visita y ubicación como sección propia.
+- [x] CLI-04 — Separar historial de pedidos y pedidos en línea.
+- [x] CLI-05 — Mostrar facturas pendientes, notas y estado del cliente en
   secciones claras.
-- [ ] CLI-06 — Crear vista de Rutas con clientes en orden y filtro por ruta.
-- [ ] CLI-07 — Modificar/persistir orden manual, idealmente drag & drop;
+- [x] CLI-06 — Crear vista de Rutas con clientes en orden y filtro por ruta.
+- [x] CLI-07 — Modificar/persistir orden manual, idealmente drag & drop;
   conservar alternativa sencilla para celular.
-- [ ] CLI-08 — Botón «Ver ubicación» abre Google Maps directamente.
-- [ ] CLI-09 — Respetar permisos de clientes/rutas y verificar uso en celular.
+- [x] CLI-08 — Botón «Ver ubicación» abre Google Maps directamente.
+- [x] CLI-09 — Respetar permisos de clientes/rutas y verificar uso en celular.
 - [ ] CLI-10 — Revisión visual y correcciones finales del usuario.
+
+CLI-01–09 y FIL-01 verificados en API y navegador 1440/700/390; arrastre
+implementado, flechas/guardado probados. CLI-10 sigue al usuario. Pedidos
+en la ficha son los recientes (10), con origen propio distinguido.
 
 ## 3. Preventa anticipada y pedidos
 
@@ -74,7 +85,7 @@ una obligación recurrente, se confirma con cada entrega, no al preparar el plan
 
 ## 4. Contexto y filtros en toda la operación
 
-- [ ] FIL-01 — Clientes: ruta y orden visibles, filtro de ruta.
+- [x] FIL-01 — Clientes: ruta y orden visibles, filtro de ruta.
 - [ ] FIL-02 — Pedidos: filtros de ruta/ciclo y origen presencial/en línea.
 - [ ] FIL-03 — Preventa: ruta/ciclo actual y próximo claramente identificados.
 - [ ] FIL-04 — Reporte Clientes: filtrar ruta/ciclo y mostrar orden de entrega.

@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Users, ClipboardList, Tablet, Contact } from 'lucide-react'
+import { Users, ClipboardList, Tablet, Contact, Map } from 'lucide-react'
+import { useRutas } from '../hooks/useRutas'
+import VistaRutas from '../components/clientes/VistaRutas'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
 import { useClientesPortal } from '../hooks/useClientesPortal'
@@ -21,9 +23,8 @@ import api from '../services/api'
  * Clientes: las fichas, las cuentas del portal y los pedidos que entraron por
  * ahí.
  *
- * Arranca en Pedidos y no en Fichas a propósito: lo que hay que atender a
- * diario son los pedidos esperando factura; la ficha se abre cuando hay algo
- * que corregir.
+ * Fichas y Rutas separan datos y recorridos de pedidos, portal y tablets.
+ * Los pedidos pendientes conservan su contador para el trabajo diario.
  *
  * "Fichas" son los datos del cliente (rama independencia-alegra): antes vivían
  * en Alegra y no había forma de crearlos ni corregirlos desde el sistema.
@@ -33,6 +34,7 @@ export default function Clientes() {
   const { toasts, showToast, removeToast } = useToast()
   const { confirm, dialogProps } = useDialog()
   const fichas = useClientes({ showToast, confirm })
+  const rutas = useRutas({ showToast })
 
   const {
     vista, setVista,
@@ -53,8 +55,9 @@ export default function Clientes() {
   const pendientes = pedidos.filter(p => p.estado === 'pendiente').length
 
   const TABS = [
+    { id: 'fichas', texto: 'Clientes', icono: Contact, contador: 0 },
+    { id: 'rutas', texto: 'Rutas', icono: Map, contador: 0 },
     { id: 'pedidos', texto: 'Pedidos', icono: ClipboardList, contador: filtroPedidos === 'pendiente' ? pendientes : 0 },
-    { id: 'fichas', texto: 'Fichas', icono: Contact, contador: 0 },
     { id: 'clientes', texto: 'Cuentas', icono: Users, contador: 0 },
     { id: 'dispositivos', texto: 'Tablets del agente', icono: Tablet, contador: 0 }
   ]
@@ -64,12 +67,11 @@ export default function Clientes() {
       <div>
         <h1 className="text-2xl font-extrabold text-neutro-900">Clientes</h1>
         <p className="text-sm text-neutro-500 mt-0.5">
-          Pedidos que entran desde el portal y desde la calle, y qué tablets tienen pedidos sin mandar.
+          Fichas y recorridos de clientes, pedidos y acceso al portal.
         </p>
       </div>
 
-      {/* Con cuatro pestañas ya no caben en una línea de teléfono: se acomodan
-          en dos en vez de salirse de la pantalla. */}
+      {/* Las cinco vistas se acomodan en varias líneas en el teléfono. */}
       <div className="flex flex-wrap gap-2">
         {TABS.map(t => {
           const Icono = t.icono
@@ -96,12 +98,17 @@ export default function Clientes() {
         })}
       </div>
 
-      {vista === 'dispositivos' ? (
+      {vista === 'rutas' ? (
+        <VistaRutas modelo={rutas} confirm={confirm}
+          onAbrirCliente={id => { setFichaAbierta(id); setVista('fichas') }}
+          onAsignarClientes={() => { setFichaAbierta(null); fichas.setRutaId('sin-ruta'); setVista('fichas') }} />
+      ) : vista === 'dispositivos' ? (
         <DispositivosAgente />
       ) : vista === 'fichas' ? (
         fichaAbierta ? (
           <FichaCliente
             clienteId={fichaAbierta}
+            revision={fichas.revisionFicha}
             onVolver={() => setFichaAbierta(null)}
             onEditar={fichas.setEditando}
           />
@@ -112,6 +119,7 @@ export default function Clientes() {
           busqueda={fichas.busqueda}
           setBusqueda={fichas.setBusqueda}
           estado={fichas.estado}
+          rutas={rutas.rutas} rutaId={fichas.rutaId} setRutaId={fichas.setRutaId}
           setEstado={fichas.setEstado}
           paginacion={fichas.paginacion}
           pagina={fichas.pagina}
@@ -151,8 +159,9 @@ export default function Clientes() {
         <ModalCliente
           cliente={fichas.editando.id ? fichas.editando : null}
           plazos={fichas.plazos}
+          rutas={rutas.rutas}
           guardando={fichas.guardando}
-          onGuardar={fichas.guardar}
+          onGuardar={async datos => { const ok = await fichas.guardar(datos); if (ok) await rutas.refrescar(); return ok }}
           onCerrar={() => fichas.setEditando(null)}
         />
       )}

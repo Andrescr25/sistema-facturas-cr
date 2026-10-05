@@ -8,11 +8,11 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-05
 ---
 
-**Decisión del usuario, pendiente de implementación.** La ruta define el
+**Decisión del usuario. Rutas/ciclos implementados; vincular documentos pendiente.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -32,3 +32,8 @@ La reorganización de Clientes y todos los filtros operativos están detallados
 en el checklist. Este nodo registra una regla acordada; no acredita nuevas
 tablas, API o pantallas. Al implementar, añadir aquí los archivos reales y
 la evidencia de separación de ciclos.
+## Primera parte, 2026-10-05
+
+Modelo de rutas/ciclos, asignación/orden, recorrido inmutable y ficha ya
+implementados: ver [[modulo/rutas-clientes]]. Los estados pueden coexistir;
+promoción explícita. No hay aún vínculo de pedido/factura/faltante con el ciclo.

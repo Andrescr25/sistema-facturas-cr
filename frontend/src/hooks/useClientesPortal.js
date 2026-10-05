@@ -10,7 +10,7 @@ import api from '../services/api'
 export function useClientesPortal({ showToast, confirm }) {
   const [clientes, setClientes] = useState([])
   const [pedidos, setPedidos] = useState([])
-  const [vista, setVista] = useState('pedidos')
+  const [vista, setVista] = useState('fichas')
   const [filtroPedidos, setFiltroPedidos] = useState('pendiente')
   const [busqueda, setBusqueda] = useState('')
 

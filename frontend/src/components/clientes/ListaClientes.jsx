@@ -1,4 +1,5 @@
 import { Loader2, Search, Plus, Pencil, Ban, RotateCcw, Mail, Phone, MapPin, CreditCard } from 'lucide-react'
+import UbicacionCliente from './UbicacionCliente'
 
 /**
  * Las fichas de clientes. Cada tarjeta dice lo que se necesita para atender
@@ -35,6 +36,7 @@ function Dato({ icono: Icono, children, falta }) {
 
 export default function ListaClientes({
   clientes, cargando, busqueda, setBusqueda, estado, setEstado,
+  rutas = [], rutaId = '', setRutaId,
   paginacion, pagina, setPagina, procesando, onNuevo, onEditar, onAbrir, onCambiarEstado
 }) {
   return (
@@ -61,6 +63,10 @@ export default function ListaClientes({
           {ESTADOS.map(e => <option key={e.valor} value={e.valor}>{e.texto}</option>)}
         </select>
 
+        <select aria-label="Filtrar clientes por ruta" value={rutaId} onChange={e => setRutaId(e.target.value)} className="input min-h-11 sm:max-w-52">
+          <option value="">Todas las rutas</option><option value="sin-ruta">Sin ruta</option>
+          {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}{r.activo ? '' : ' · inactiva'}</option>)}
+        </select>
         <button
           type="button"
           onClick={onNuevo}
@@ -112,6 +118,9 @@ export default function ListaClientes({
                   </div>
 
                   <p className="text-xs text-neutro-400">
+                    {c.ruta_nombre ? `${c.ruta_nombre} · visita ${c.orden_ruta}` : 'Sin ruta'}
+                  </p>
+                  <p className="text-xs text-neutro-400">
                     {c.identificacion
                       ? `${TIPOS[c.tipo_identificacion] || 'Identificación'}: ${c.identificacion}`
                       : 'Sin identificación'}
@@ -133,6 +142,7 @@ export default function ListaClientes({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {c.ubicacion_maps && <UbicacionCliente enlace={c.ubicacion_maps} />}
                   <button
                     type="button"
                     onClick={() => onEditar(c)}

@@ -34,12 +34,13 @@ async function resumenDeCliente(id) {
   const hoy = hoyEnCostaRica();
 
   const { rows: ficha } = await pool.query(
-    `SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias
+    `SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias, r.nombre AS ruta_nombre
        FROM cliente c LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id
+       LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
       WHERE c.id = $1`, [cliente]);
   if (!ficha[0]) throw httpError(404, 'No existe ese cliente.');
 
-  const [saldo, facturas, abonos, compras, productos, pedidos] = await Promise.all([
+  const [saldo, facturas, abonos, compras, productos, pedidos, pendientes] = await Promise.all([
     // Lo que debe HOY. El saldo se calcula: anular un cobro lo devuelve solo.
     pool.query(`
       WITH pendiente AS (
@@ -101,15 +102,19 @@ async function resumenDeCliente(id) {
        GROUP BY clave
        ORDER BY total DESC LIMIT ${ULTIMAS}`, [cliente, hoy]),
 
-    // Sus pedidos del portal. Se llega por `alegra_id` porque la cuenta del
-    // portal todavía se llavea por el contacto de Alegra; cuando eso pase a
-    // `cliente.id` (sección 9) este join se vuelve directo.
+    // El id propio incluye portal y agente, también sin cuenta del portal.
+    // No volver al contacto externo: una ficha creada acá puede no tenerlo.
     pool.query(`
-      SELECT pc.id, pc.estado, pc.creado_en, pc.total
+      SELECT pc.id, pc.estado, pc.creado_en, pc.total, pc.origen
         FROM pedido_cliente pc
-        JOIN cliente_portal cp ON cp.id = pc.cliente_portal_id
-       WHERE cp.alegra_contact_id = $1
-       ORDER BY pc.creado_en DESC LIMIT ${ULTIMAS}`, [ficha[0].alegra_id])
+       WHERE pc.cliente_id = $1
+       ORDER BY pc.creado_en DESC, pc.id DESC LIMIT ${ULTIMAS}`, [cliente]),
+    // Deudas de cualquier fecha, no solo las últimas diez facturas.
+    pool.query(`SELECT * FROM (
+      SELECT f.id, f.numero, f.fecha, f.fecha_vencimiento,
+        f.total - ${COBRADO} - ${ACREDITADO} AS saldo
+      FROM factura f WHERE f.cliente_id=$1 AND f.estado='emitida'
+    ) q WHERE saldo>1 ORDER BY fecha, id`, [cliente])
   ]);
 
   const s = saldo.rows[0];
@@ -148,6 +153,8 @@ async function resumenDeCliente(id) {
       estado: f.estado, electronica: f.electronica,
       total: n(f.total), saldo: Math.max(0, redondear(f.saldo))
     })),
+    facturasPendientes: pendientes.rows.map(f => ({ id: f.id, numero: f.numero, fecha: f.fecha,
+      vencimiento: f.fecha_vencimiento, saldo: Math.max(0, redondear(f.saldo)) })),
     abonos: abonos.rows.map((a) => ({
       id: a.id, numero: a.numero, fecha: a.fecha, monto: n(a.monto),
       metodo: a.metodo, referencia: a.referencia, anulado: a.anulado
@@ -157,7 +164,7 @@ async function resumenDeCliente(id) {
       cantidad: n(p.cantidad), total: redondear(p.total), veces: p.veces, ultima: p.ultima
     })),
     pedidos: pedidos.rows.map((p) => ({
-      id: p.id, estado: p.estado, fecha: p.creado_en, total: n(p.total)
+      id: p.id, estado: p.estado, fecha: p.creado_en, total: n(p.total), origen: p.origen
     }))
   };
 }

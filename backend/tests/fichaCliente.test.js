@@ -162,9 +162,12 @@ describe('lo que se devuelve', () => {
     await assert.rejects(servicio.resumenDeCliente(999), (e) => e.status === 404);
   });
 
-  test('los pedidos del portal se buscan por el contacto de la ficha', async () => {
+  test('los pedidos se buscan por id propio, incluidos los del agente sin cuenta del portal', async () => {
     const { servicio, log } = montar();
     await servicio.resumenDeCliente(111);
-    assert.deepStrictEqual(consulta(log, /FROM pedido_cliente/).params, ['90']);
+    const q = consulta(log, /FROM pedido_cliente/);
+    assert.deepStrictEqual(q.params, [111]);
+    assert.match(q.sql, /pc.cliente_id = \$1/);
+    assert.doesNotMatch(q.sql, /JOIN cliente_portal|alegra_contact_id/);
   });
 });
