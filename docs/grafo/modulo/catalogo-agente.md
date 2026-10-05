@@ -116,3 +116,10 @@ el contrato nuevo recibe `clienteId` y `productoId`, sin mezclarlos. Precio,
 IVA y nombre salen del maestro. Cabecera y líneas se confirman juntas;
 reenvíos devuelven el pedido original. Clientes los factura con el mismo
 servicio propio del portal.
+
+AL VOLVER LA CONEXIÓN (2026-10-04). El error que aparecía en la consola de
+esta pantalla —`Cannot read properties of null (reading 'transaction')`— no
+era del catálogo sino de Facturación sin señal: la base local del navegador
+solo se abría en esa pantalla, y el regreso de la conexión se escucha en toda
+la aplicación. Está explicado en [[modulo/facturacion-offline]]. El mismo
+arreglo está en producción (`main` `e19c3e5`).
