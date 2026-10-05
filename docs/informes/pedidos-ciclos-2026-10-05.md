@@ -47,7 +47,11 @@ JavaScript ni desborde horizontal; peticiones externas bloqueadas.
 23 huellas comerciales/operativas idénticas. Los históricos siguen sin ciclo y
 el inventario provisional sigue en cero; no se agregaron datos demo a la base
 del usuario. Producción y los otros branches permanecen intactos.
-Verificación de la aplicación habitual 5174 → 3002 pendiente de registrar.
+Aplicación habitual **5174 → 3002** verificada exclusivamente con GET y
+navegador: filtros de pedidos 1440/390, selector presencial Sin ciclo,
+históricos intactos e inventario cero. No se facturó ni insertó una demo allí.
+Implementación integrada en `d87ee54`; el cierre de esta entrega añade evidencia
+y mantiene la semana visible en celular aunque el nombre de ruta sea largo.
 
 Evidencia privada en `/private/tmp/codex-pedidos-ciclos-20261005`: suite/build,
 grafo, navegador, capturas, respaldo local y huellas. Las pruebas SQL se

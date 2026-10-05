@@ -41,7 +41,8 @@ El portal consulta `/portal/ciclos` detrás de `requireCliente`: la cuenta se
 relee en servidor y solo recibe sus semanas. El cuerpo no elige otro cliente.
 El formulario exige elegir si hay ciclos; Sin ciclo sigue disponible para
 clientes/colas sin clasificación. El cliente ve su ruta/semana en confirmación
-e historial. No se exponen Maps, otras paradas o saldos en esa consulta.
+e historial; la semana elegida queda visible aunque el select recorte un nombre
+de ruta largo en celular. No se exponen Maps, otras paradas o saldos en esa consulta.
 
 El catálogo del agente sigue de consulta, por decisión previa. El pedido
 presencial se toma en Facturación, que ahora selecciona ciclo y conserva ese

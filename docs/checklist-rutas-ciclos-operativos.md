@@ -84,7 +84,8 @@ en la ficha son los recientes (10), con origen propio distinguido.
   contexto; no duplicar ni borrar colas pendientes.
 - [ ] PRE-10 — Catálogo/enlace no da acceso a pedidos o saldos de otro cliente.
 
-Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045.
+Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045,
+commit `d87ee54`, 1.962 pruebas aprobadas y aplicación local verificada.
 Portal selecciona su semana; el agente toma pedidos en Facturación (catálogo
 sigue de consulta). Históricos sin ciclo y colas/claves antiguas conservados.
 PRE-10: frontera del portal verificada; revisar también los enlaces nuevos
