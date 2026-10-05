@@ -1,3 +1,4 @@
+import Existencias from '../components/inventario-auditoria/Existencias'
 import { Boxes, Search, ArrowLeft, RefreshCw, Plus } from 'lucide-react'
 import { useInventarioAuditoria } from '../hooks/useInventarioAuditoria'
 import { formatCurrency, formatDate, tamanoTextoMonto } from '../utils/inventarioAuditoriaUtils'
@@ -105,13 +106,10 @@ export default function InventarioAuditoria() {
     executionFilter,
     setExecutionFilter,
 
-    loadingAjuste,
-    successAjuste,
     applyingAdjustments,
 
     handleResyncAuditoria,
     handleFinalize,
-    handleApplyAlegraAdjustment,
     handleConteoChange,
     imagenProductoActivo,
     handleVerImagenProducto,
@@ -141,14 +139,16 @@ export default function InventarioAuditoria() {
               Auditoría de Inventarios
             </h1>
             <p className="text-neutro-500 mt-1">
-              Controla el inventario de la distribuidora mediante auditorías selectivas cíclicas de stock en tiempo real.
+              Existencias, movimientos y conteos físicos de la distribuidora.
             </p>
           </div>
         </div>
 
+        <div className="bg-alerta-50 border border-alerta-200 p-4 rounded-2xl text-sm">El inventario parte de cero provisional. El conteo completo al salir a producción confirmará las existencias físicas; las ventas y compras nuevas sí registran movimientos.</div>
+
         <TabsInventarioAuditoria vistaActiva={vistaActiva} onCambiarVista={cambiarVista} />
 
-        {vistaActiva === 'auditorias' ? (
+        {vistaActiva === 'existencias' ? <Existencias /> : vistaActiva === 'auditorias' ? (
           <>
             <DashboardKpis kpis={kpis} />
 
@@ -212,7 +212,7 @@ export default function InventarioAuditoria() {
               setBusquedaProducto={setBusquedaProductoExceso}
               resultadosProducto={resultadosProductoExceso}
               buscandoProducto={buscandoProductoExceso}
-              onAgregarProducto={(p) => handleGuardarDescuento(p.alegraId, 40, p.nombre)}
+              onAgregarProducto={(p) => handleGuardarDescuento(p.productoId, 40, p.nombre)}
             />
             <SeccionRegalias regalos={regalos} />
           </>
@@ -252,7 +252,7 @@ export default function InventarioAuditoria() {
 
   // Active Audit / Devolución / Exceso Screen
   const esActiva = auditoriaActiva.estado === 'en_progreso'
-  const esDevolucion = auditoriaActiva.tipo === 'devolucion'
+  const esDevolucion = ['devolucion','devolucion_proveedor'].includes(auditoriaActiva.tipo)
   const esExceso = auditoriaActiva.tipo === 'exceso'
 
   return (
@@ -285,7 +285,7 @@ export default function InventarioAuditoria() {
               <h1 className="text-2xl font-extrabold text-neutro-900 tracking-tight">{auditoriaActiva.nombre}</h1>
               <p className="text-sm text-neutro-500 flex items-center gap-3">
                 <span>Tipo: <strong className="text-neutro-700 capitalize">
-                  {esDevolucion ? 'Devolución' : esExceso ? 'Exceso de Inventario' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
+                  {esDevolucion ? (auditoriaActiva.tipo === 'devolucion_proveedor' ? 'Devolución a proveedor — salida' : 'Devolución de cliente — ingreso') : auditoriaActiva.tipo === 'inicial' ? 'Conteo inicial completo' : esExceso ? 'Exceso de Inventario' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
                 </strong></span>
                 <span>•</span>
                 <span>Creada: <strong className="text-neutro-700">{formatDate(auditoriaActiva.fecha_creacion)}</strong></span>
@@ -307,6 +307,9 @@ export default function InventarioAuditoria() {
               </div>
             )}
           </div>
+
+          {esActiva && <button type="button" onClick={handleResyncAuditoria} disabled={loading}
+            className="text-sm font-bold text-primario-700 underline">Actualizar existencias y volver a contar pendientes</button>}
 
           {/* Execution filters (solo auditorías normales, no devoluciones ni excesos) */}
           {esActiva && !esDevolucion && !esExceso && (
@@ -421,10 +424,7 @@ export default function InventarioAuditoria() {
             <ReporteFinalizado
               auditoriaActiva={auditoriaActiva}
               adjustmentsPreview={adjustmentsPreview}
-              loadingAjuste={loadingAjuste}
-              successAjuste={successAjuste}
               error={error}
-              onAplicarAjuste={handleApplyAlegraAdjustment}
               esDevolucion={esDevolucion}
             />
           )}
@@ -441,14 +441,14 @@ export default function InventarioAuditoria() {
         </>
       )}
 
-      {/* Overlay: aplicando ajustes de inventario en Alegra (puede tardar varios segundos por el loteo) */}
+      {/* Overlay: confirmando una sola transacción de inventario */}
       {applyingAdjustments && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-neutro-500 bg-opacity-75" />
           <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center border border-neutro-200">
             <RefreshCw className="animate-spin text-primario-600 mx-auto" size={32} />
             <div>
-              <p className="font-bold text-neutro-900">Aplicando ajustes de inventario en Alegra</p>
+              <p className="font-bold text-neutro-900">Confirmando el conteo y sus movimientos</p>
               <p className="text-xs text-neutro-500 mt-1">Esto puede tardar varios segundos. No cierres esta ventana.</p>
             </div>
             <div className="w-full h-2 bg-primario-100 rounded-full overflow-hidden relative">

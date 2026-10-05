@@ -27,11 +27,10 @@
  *    documento sin firmar sería un problema caro. La nuestra es 00100003 y
  *    empieza en 1 (migración independencia/012).
  *
- * TODAVÍA NO DEVUELVE AL INVENTARIO: no hay existencias propias —solo la
- * bandera `inventariable` en el producto—, porque el inventario está esperando
- * el conteo físico (sección 5 del checklist). La nota guarda la cantidad
- * devuelta por línea, que es justo lo que el inventario va a consumir cuando
- * exista. Se deja registrado, no simulado.
+ * La cantidad devuelta mueve el kardex propio en esta misma transacción.
+ * El inventario abre provisionalmente en cero por decisión del usuario;
+ * el conteo físico completo establecerá las existencias reales al salir
+ * a producción. Anular una nota revierte también su movimiento.
  */
 
 const { pool } = require('../../../config/database');
@@ -39,6 +38,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { tomarConsecutivo } = require('./consecutivo');
+const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -129,7 +129,7 @@ function armarLineas(lineasFactura, pedidas) {
       throw httpError(400, `La factura no tiene una línea ${elegida.numeroLinea}.`);
     }
 
-    const cantidad = dinero(elegida.cantidad);
+    const cantidad = Math.round(elegida.cantidad * 10000) / 10000;
     if (completa && cantidad <= 0) continue;      // ya se devolvió entera
     if (cantidad <= 0) {
       throw httpError(400, `La cantidad a devolver de "${original.nombre}" tiene que ser mayor que cero.`);
@@ -268,6 +268,7 @@ async function crearNotaCredito(datos = {}, usuarioId = null) {
       [nota.id, factura.id, factura.numero, armado.total]
     );
 
+    await reconciliarDocumentoEn(cliente, 'nota_credito', nota.id, usuarioId);
     await registrarCambio(cliente, {
       entidad: 'nota_credito', entidadId: nota.id, accion: 'crear',
       despues: {
@@ -307,6 +308,7 @@ async function anularNotaCredito(id, { motivo } = {}, usuarioId = null) {
       [notaId, razon]
     );
 
+    await reconciliarDocumentoEn(cliente, 'nota_credito', notaId, usuarioId);
     await registrarCambio(cliente, {
       entidad: 'nota_credito', entidadId: notaId, accion: 'anular',
       antes: { estado: nota.estado },

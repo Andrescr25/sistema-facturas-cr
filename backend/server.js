@@ -12,7 +12,6 @@ require('./config/aislado');
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
-const { getSyncService } = require('./src/integrations/alegra');
 const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 const whatsapp = require('./src/integrations/whatsapp');
@@ -308,7 +307,6 @@ app.get('*', (req, res) => {
 
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
-let productSyncInterval = null;
 let whatsappPingInterval = null;
 
 // Cada cuánto se toca Evolution API. Render duerme un servicio tras ~15
@@ -398,22 +396,6 @@ async function pingWhatsApp() {
   }
 }
 
-// Función para sincronizar productos de Alegra
-async function syncAlegraProducts() {
-  try {
-    console.log('\n📦 ========================================');
-    console.log('📦 Sincronizando productos de Alegra...');
-    console.log('📦 ========================================\n');
-
-    const syncService = getSyncService();
-    const productos = await syncService.syncProductsFromAlegra();
-    console.log(`✅ Sincronización completada: ${productos.length} productos actualizados`);
-    console.log(`📅 Próxima sincronización en 6 horas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando productos de Alegra:', error.message);
-  }
-}
-
 // El historial de ventas ya no se sincroniza: la rotación, las estadísticas de
 // Rentabilidad y "lo que más compra" de cada cliente salen de las facturas
 // propias (`venta_linea`, migración independencia/034). La tarea que lo traía
@@ -448,26 +430,7 @@ const server = app.listen(PORT, () => {
     console.log('   O establece ENABLE_EMAIL_MONITORING=false para desactivar este mensaje\n');
   }
 
-  // Sincronizar productos de Alegra al iniciar
-  if (process.env.ENABLE_ALEGRA_SYNC !== 'false') {
-    // Ejecutar sincronización inicial después de 5 segundos (dar tiempo al servidor para estabilizarse)
-    setTimeout(() => {
-      syncAlegraProducts();
-    }, 5000);
-
-    // Programar sincronización periódica cada 6 horas (21600000 ms)
-    productSyncInterval = setInterval(() => {
-      syncAlegraProducts();
-    }, 6 * 60 * 60 * 1000);
-
-    console.log('\n📦 Sincronización de productos Alegra activada');
-    console.log('   - Sincronización inicial: En 5 segundos');
-    console.log('   - Sincronización periódica: Cada 6 horas');
-    console.log('   - Para desactivar: ENABLE_ALEGRA_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización de productos Alegra desactivada');
-    console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
-  }
+  // Productos y existencias propios: no hay sincronización externa al iniciar.
 
   // Cuentas por cobrar YA NO SE SINCRONIZA. Se copiaba la cartera de Alegra
   // cada 30 minutos a la tabla `cuentas_por_cobrar`; ahora el saldo se calcula
@@ -508,12 +471,6 @@ const server = app.listen(PORT, () => {
 // Manejo de cierre graceful
 const gracefulShutdown = async (signal) => {
   console.log(`\n🛑 Señal ${signal} recibida. Cerrando servidor...`);
-
-  // Detener sincronización de productos
-  if (productSyncInterval) {
-    console.log('📦 Deteniendo sincronización de productos...');
-    clearInterval(productSyncInterval);
-  }
 
   // Detener el ping a Evolution API
   if (whatsappPingInterval) {

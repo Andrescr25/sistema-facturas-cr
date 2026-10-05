@@ -26,27 +26,23 @@ const { SQL_VIGENTES } = require('../../utils/descuentosExceso');
 /**
  * Las ofertas vivas, con NUESTRO id de producto.
  *
- * La tabla de descuentos guarda el id de Alegra; la facturación trabaja con
- * el id propio. El puente es `producto.alegra_id`, y un producto que todavía
- * no tenga esa correspondencia sencillamente no trae oferta: es mejor cobrar
- * el precio de lista que aplicar un descuento al producto equivocado.
+ * Inventario y facturación comparten producto.id. La apertura en cero deja
+ * las ofertas históricas fuera del precio actual; no hay puente externo.
  */
 async function ofertasVigentes() {
   const { rows } = await pool.query(`
     WITH vigentes AS (${SQL_VIGENTES.replace(/;\s*$/, '')})
     SELECT p.id AS producto_id,
-           v.alegra_item_id,
            v.nombre_producto,
            v.descuento_porcentaje
       FROM vigentes v
-      JOIN producto p ON p.alegra_id = v.alegra_item_id
+      JOIN producto p ON p.id = v.producto_id
      WHERE p.activo
      ORDER BY v.descuento_porcentaje DESC
   `);
 
   return rows.map(r => ({
     productoId: r.producto_id,
-    alegraItemId: String(r.alegra_item_id),
     nombre: r.nombre_producto,
     descuentoPorcentaje: Number(r.descuento_porcentaje) || 0
   }));

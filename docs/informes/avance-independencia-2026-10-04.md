@@ -356,3 +356,41 @@ desechable propia y `PROBAR_BASE_LOCAL=1`; incluye 26 pruebas del archivo
 y fallos/reintentos/concurrencia. Es una herramienta de backend sin cambios
 de interfaz. Instrucciones y alcance en
 [el nodo del archivo electrónico](../grafo/modulo/archivo-ventas-electronicas.md).
+
+
+## Continuación nocturna del 5 de octubre: inventario propio desde cero
+
+Por instrucción expresa del usuario se construyó el inventario sin esperar
+el conteo físico. La apertura es cero **provisional**, sin importar cantidades
+de Alegra. Auditorías, descuentos y regalos previos quedan históricos fuera
+del flujo activo; facturas y compras se conservan.
+
+La 042 crea una bodega Principal, kardex inmutable, saldo y promedio móvil
+calculados. Ventas, ediciones/anulaciones, créditos/anulaciones y compras
+registran movimientos en la misma transacción. La nota devuelve el costo de
+la salida original; compra usa unidades propias con impuestos/descuentos.
+Las auditorías usan productos propios, guardan borradores y aplican ajustes
+sin duplicar. El conteo inicial completo exige todos los productos, revisión
+estable y cantidades reales explícitas; falta realizarlo en producción.
+Devolución de cliente ingresa; devolución a proveedor sale y valida stock.
+Excesos consultan ventas y existencias propias; las ofertas desaparecen en
+la venta que agota el stock, sin cron ni aumento automático del descuento.
+
+La pestaña Existencias incluye filtros, kardex, mínimos y cantidades
+sugeridas de compra. Se revisaron escritorio y 700 px, con cero errores JS;
+HTTP exige sesión y permiso de inventario. La tablet conserva su presentación
+sin etiquetas de stock. El servidor ya no sincroniza productos de Alegra.
+Las tres listas de dependencias activas quedaron **0 / 0 / 0**; 20 tablas
+históricas retiradas del código protegidas por pruebas.
+
+Validación: **1.928 pruebas aprobadas, cero fallos y cero omitidas**, build
+correcto, más la nueva prueba dirigida de dos conexiones (9/9 del core).
+Son 24 pruebas PostgreSQL entre core y servicios comerciales/auditorías,
+con ROLLBACK/SAVEPOINT y base desechable. Ceros de todos los productos
+comprobados por SQL y navegador. Sin mensajes reales, limpieza semanal,
+Hacienda ni cambios de producción. Detalle: [inventario](../grafo/modulo/inventario.md).
+
+Checklist tras este bloque: **130 ítems marcados y 16 pendientes** en §0–16;
+17 pendientes contando la emisión de Hacienda pospuesta. El conteo físico
+real permanece abierto; ocho de nueve puntos de inventario están cerrados.
+No se considera cerrado el corte ni la recepción externa de mensajes.

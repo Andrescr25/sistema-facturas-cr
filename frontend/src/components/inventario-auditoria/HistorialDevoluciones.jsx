@@ -31,7 +31,7 @@ export default function HistorialDevoluciones({ devoluciones, loading, onRefresh
           <Undo2 size={48} className="text-neutro-300" />
           <div>
             <p className="text-lg font-bold text-neutro-700">No hay devoluciones registradas</p>
-            <p className="text-sm text-neutro-500 mt-1">Presiona "Nueva Devolución" para reingresar productos devueltos al inventario.</p>
+            <p className="text-sm text-neutro-500 mt-1">Presiona "Nueva Devolución" para registrar un ingreso de cliente o una salida a proveedor.</p>
           </div>
         </div>
       ) : (
@@ -46,7 +46,7 @@ export default function HistorialDevoluciones({ devoluciones, loading, onRefresh
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-bold text-neutro-900">{dev.nombre}</h4>
+                    <h4 className="font-bold text-neutro-900">{dev.nombre}{dev.tipo === 'devolucion_proveedor' ? ' — salida a proveedor' : ' — ingreso de cliente'}</h4>
                     <p className="text-xs text-neutro-400">{formatDate(dev.fecha_creacion)}</p>
                   </div>
                   <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
@@ -60,7 +60,7 @@ export default function HistorialDevoluciones({ devoluciones, loading, onRefresh
                 <div className="flex justify-between items-center text-xs pt-1">
                   {dev.estado === 'finalizado' ? (
                     <span>
-                      Valor reingresado: <strong className="text-primario-600">{formatCurrency(dev.descuadre_dinero)}</strong>
+                      Valor del movimiento: <strong className="text-primario-600">{formatCurrency(dev.descuadre_dinero)}</strong>
                     </span>
                   ) : (
                     <span className="text-neutro-400 italic">Agregando productos</span>
@@ -90,7 +90,7 @@ export default function HistorialDevoluciones({ devoluciones, loading, onRefresh
                     onClick={() => onSelectDevolucion(dev.id)}
                   >
                     <td className="px-6 py-4">
-                      <p className="font-bold text-neutro-900 group-hover:text-exito-700 transition-colors">{dev.nombre}</p>
+                      <p className="font-bold text-neutro-900 group-hover:text-exito-700 transition-colors">{dev.nombre}{dev.tipo === 'devolucion_proveedor' ? ' — salida a proveedor' : ' — ingreso de cliente'}</p>
                     </td>
                     <td className="px-6 py-4 text-neutro-500">
                       {formatDate(dev.fecha_creacion)}

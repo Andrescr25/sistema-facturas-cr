@@ -18,8 +18,8 @@ archivos:
   - backend/tests/intentoDeFacturaIdPropio.test.js
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas]
-medido: 2026-10-04
+  relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
+medido: 2026-10-05
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
@@ -39,7 +39,7 @@ del buzón existente. Destinatario confirmado, PDF adjunto y fallos SMTP
 controlados. En la rama aislada se puede revisar el formulario pero no enviar;
 la recepción real se verifica en el ensayo del corte.
 
-ORIGINALES DE ALEGRA (2026-10-04): [[modulo/archivo-ventas-electronicas]]
+ORIGINALES DE ALEGRA (2026-10-04): [[modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]]
 descarga los PDF/XML originales de las ventas electrónicas históricas.
 Viven en un archivo privado con claves y huellas; no se sustituyen por el
 PDF propio ni se presentan como nuevas emisiones.
@@ -127,3 +127,9 @@ calculan las tablets que reenvían después del corte.
 PENDIENTE, PARA DESPUÉS DEL CORTE: `emitirCon` acepta ids de Alegra
 (`client`, línea sin `productoId`). No se puede quitar antes: así llegan las
 facturas que una tablet armó sin señal con el sistema anterior.
+
+KARDEX PROPIO (2026-10-05). Crear, editar y anular factura mueve inventario
+en la misma transacción. Las notas devuelven fracciones de cuatro decimales
+y el costo de la salida original; anular la nota registra reversa. Un error
+posterior revierte también movimientos y numerador. Apertura provisional en
+cero, sin volver a descontar ventas históricas: [[modulo/inventario]].

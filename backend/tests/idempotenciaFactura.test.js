@@ -26,6 +26,7 @@
 
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+beforeEach(() => require('./dobles/inventario').instalar());
 
 const rutaDb = require.resolve('../config/database');
 const rutaIdem = require.resolve('../src/modules/facturacion/idempotencia');

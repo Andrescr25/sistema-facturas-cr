@@ -28,7 +28,11 @@ router.post('/devolucion', inventarioAuditoriasController.crearDevolucion);
 router.post('/generar-excesos', inventarioAuditoriasController.generarExcesos);
 router.post('/excesos', inventarioAuditoriasController.crearExcesoManual);
 router.post('/descuentos', inventarioAuditoriasController.guardarDescuentoExceso);
-router.delete('/descuentos/:alegraItemId', inventarioAuditoriasController.eliminarDescuentoExceso);
+router.delete('/descuentos/:productoId', inventarioAuditoriasController.eliminarDescuentoExceso);
+
+router.get('/existencias', inventarioAuditoriasController.listarExistencias);
+router.get('/kardex/:productoId', inventarioAuditoriasController.kardex);
+router.put('/stock/:productoId', inventarioAuditoriasController.guardarUmbrales);
 
 router.get('/:id', inventarioAuditoriasController.getAuditoria);
 router.delete('/:id', inventarioAuditoriasController.eliminarAuditoria);
@@ -40,7 +44,7 @@ router.delete('/:id/items/:itemId', inventarioAuditoriasController.eliminarItemD
 router.patch('/:id/items/:itemId/exceso', inventarioAuditoriasController.actualizarItemExceso);
 router.patch('/:id/items/:itemId/conteo', inventarioAuditoriasController.guardarConteoIndividual);
 router.post('/:id/finalizar', inventarioAuditoriasController.finalizarAuditoria);
-router.post('/:id/ajustar-alegra', inventarioAuditoriasController.ajustarEnAlegra);
+router.post('/:id/ajustar-inventario', inventarioAuditoriasController.ajustarInventario);
 router.post('/:id/resync', inventarioAuditoriasController.resincronizarAuditoria);
 
 module.exports = router;

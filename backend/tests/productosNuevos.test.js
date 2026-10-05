@@ -142,9 +142,11 @@ describe('las rutas', () => {
     assert.ok(iNuevos >= 0 && iId > iNuevos, 'GET /:id declarado antes se traga /productos-nuevos');
   });
 
-  test('la tabla se crea con las demás del módulo', () => {
+  test('la tabla propia se crea por migración, sin DDL de arranque', () => {
     const servicio = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'inventario-auditorias', 'inventario-auditorias.service.js'), 'utf8');
-    assert.match(servicio, /require\('\.\/productosNuevos'\)\.SQL_TABLA/);
+    assert.doesNotMatch(servicio, /CREATE TABLE|inicializarTablas\(\)/);
+    const migracion = fs.readFileSync(path.join(__dirname, '..', 'migrations', 'independencia', '036_catalogo_agente_con_ids_propios.sql'), 'utf8');
+    assert.match(migracion, /producto_nuevo_catalogo/);
     assert.match(m.SQL_TABLA, /CREATE TABLE IF NOT EXISTS producto_nuevo_catalogo/);
   });
 });

@@ -33,14 +33,13 @@ beforeEach(() => { for (const r of [rutaDb, rutaServicio]) delete require.cache[
 
 describe('las ofertas para facturar', () => {
   test('llegan con NUESTRO id de producto', async () => {
-    // La tabla de descuentos guarda el id de Alegra; la facturación trabaja
-    // con el propio. El puente es producto.alegra_id.
+    // Inventario y facturación comparten el id propio, incluido un producto nuevo.
     const { servicio } = montar([
       { producto_id: 48, alegra_item_id: '1231', nombre_producto: 'ADAPTADOR MACHO 2 PVC', descuento_porcentaje: 35 }
     ]);
     const r = await servicio.ofertasVigentes();
     assert.deepEqual(r, [{
-      productoId: 48, alegraItemId: '1231', nombre: 'ADAPTADOR MACHO 2 PVC', descuentoPorcentaje: 35
+      productoId: 48, nombre: 'ADAPTADOR MACHO 2 PVC', descuentoPorcentaje: 35
     }]);
   });
 

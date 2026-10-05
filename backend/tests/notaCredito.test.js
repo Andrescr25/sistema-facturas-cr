@@ -1,6 +1,7 @@
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
+beforeEach(() => require('./dobles/inventario').instalar());
 
 /**
  * Notas de crédito propias.

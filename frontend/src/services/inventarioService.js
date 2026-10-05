@@ -30,8 +30,8 @@ export async function finalizarAuditoria(id, observaciones = '') {
   return response.data;
 }
 
-export async function ajustarAlegra(id) {
-  const response = await api.post(`/inventario-auditorias/${id}/ajustar-alegra`);
+export async function ajustarInventario(id) {
+  const response = await api.post(`/inventario-auditorias/${id}/ajustar-inventario`);
   return response.data;
 }
 
@@ -45,8 +45,8 @@ export async function getDevoluciones() {
   return response.data;
 }
 
-export async function crearDevolucion() {
-  const response = await api.post('/inventario-auditorias/devolucion');
+export async function crearDevolucion(destino = 'cliente') {
+  const response = await api.post('/inventario-auditorias/devolucion', { destino });
   return response.data;
 }
 
@@ -71,8 +71,7 @@ export async function getExcesos() {
 }
 
 export async function generarExcesosAhora() {
-  // Corre en vivo contra Alegra (stock de todo el catálogo) y puede tardar
-  // varios minutos — timeout largo a propósito.
+  // Detección solicitada por el operador sobre existencias y ventas propias.
   const response = await api.post('/inventario-auditorias/generar-excesos', {}, { timeout: 10 * 60 * 1000 });
   return response.data;
 }
@@ -117,8 +116,8 @@ export async function guardarDescuentoExceso(payload) {
   return response.data;
 }
 
-export async function eliminarDescuentoExceso(alegraItemId) {
-  const response = await api.delete(`/inventario-auditorias/descuentos/${alegraItemId}`);
+export async function eliminarDescuentoExceso(productoId) {
+  const response = await api.delete(`/inventario-auditorias/descuentos/${productoId}`);
   return response.data;
 }
 
@@ -151,4 +150,14 @@ export async function agregarProductoNuevo(productoId) {
 export async function quitarProductoNuevo(registroId) {
   const response = await api.delete(`/inventario-auditorias/productos-nuevos/registros/${registroId}`);
   return response.data;
+}
+
+export async function getExistencias(params = {}) {
+  return (await api.get('/inventario-auditorias/existencias', { params })).data;
+}
+export async function getKardex(productoId, params = {}) {
+  return (await api.get(`/inventario-auditorias/kardex/${productoId}`, { params })).data;
+}
+export async function guardarUmbrales(productoId, stockMinimo, stockObjetivo) {
+  return (await api.put(`/inventario-auditorias/stock/${productoId}`, { stockMinimo, stockObjetivo })).data;
 }

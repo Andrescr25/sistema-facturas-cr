@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../../utils/inventarioAuditoriaUtils
  * Reporte de solo lectura de un "Excesos N": productos con stock que no se
  * han vendido en los últimos 60 días, generado automáticamente. A
  * diferencia de una auditoría o devolución, acá no hay ningún ajuste que
- * aplicar en Alegra — es un listado para decidir qué liquidar.
+ * aplicar en el inventario propio — es un listado para decidir qué liquidar.
  */
 export default function ReporteExceso({ auditoriaActiva }) {
   const items = auditoriaActiva.items || []
@@ -21,7 +21,7 @@ export default function ReporteExceso({ auditoriaActiva }) {
             {items.length} producto(s) generados el <strong>{formatDate(auditoriaActiva.fecha_creacion)}</strong>, con un valor inmovilizado total de <strong>{formatCurrency(valorTotal)}</strong>.
           </p>
           <p className="text-xs text-alerta-700">
-            Sin ventas registradas en los últimos 60 días al momento de generarse. Esto no modifica el inventario en Alegra — es solo un reporte para decidir qué liquidar (rebaja, promoción, devolución al proveedor).
+            Sin ventas registradas en los últimos 60 días al momento de generarse. Esto no modifica el inventario en el inventario propio — es solo un reporte para decidir qué liquidar (rebaja, promoción, devolución al proveedor).
           </p>
         </div>
       </div>

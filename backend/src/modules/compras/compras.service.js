@@ -20,6 +20,7 @@
 
 const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
+const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
 const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
@@ -213,10 +214,9 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       );
     }
 
-    // INVENTARIO: NO SE MUEVE TODAVÍA. La sección 5 del checklist está
-    // bloqueada por el conteo físico (bloqueo/conteo-fisico en el grafo).
-    // `compra_linea.cantidad_propia` ya es una columna generada, lista para
-    // cuando exista ese movimiento — este es el punto donde se engancharía.
+    // En unidades propias, incluido el factor del proveedor. El kardex usa
+    // esta misma transacción: un fallo revierte también compra y costos.
+    await reconciliarDocumentoEn(cliente, 'compra', compra.id, usuarioId);
 
     let costosActualizados = 0;
     let preciosActualizados = 0;

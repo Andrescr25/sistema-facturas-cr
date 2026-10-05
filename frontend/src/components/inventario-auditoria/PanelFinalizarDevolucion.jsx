@@ -1,12 +1,7 @@
 import { Undo2, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 
-/**
- * Panel lateral durante la ejecución de una devolución: resumen de lo
- * agregado hasta ahora, notas, y el botón para finalizar. Finalizar NO
- * aplica el ajuste en Alegra todavía — eso queda para el botón explícito
- * "Aplicar Ajuste en Alegra" del reporte finalizado (mismo que auditorías).
- */
+/** Al finalizar se confirma la devolución junto con su movimiento propio. */
 export default function PanelFinalizarDevolucion({
   itemsStats,
   liveFinancialImpact,
@@ -28,7 +23,7 @@ export default function PanelFinalizarDevolucion({
           <span className="font-extrabold text-neutro-900">{itemsStats.total}</span>
         </div>
         <div className="py-2.5 flex justify-between border-t-2 font-bold text-base pt-3">
-          <span>Valor total a reingresar:</span>
+          <span>Valor del movimiento:</span>
           <span className="text-primario-600">{formatCurrency(liveFinancialImpact)}</span>
         </div>
       </div>

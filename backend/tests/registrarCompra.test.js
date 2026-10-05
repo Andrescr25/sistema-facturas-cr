@@ -1,6 +1,7 @@
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
+beforeEach(() => require('./dobles/inventario').instalar());
 
 /**
  * "Enviar a Alegra" pasa a ser "Registrar compra".

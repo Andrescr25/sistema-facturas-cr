@@ -404,8 +404,8 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('el SQL que no se ejecuta acá (limpiezas, auditoría) es válido para Postgres', async () => {
     for (const [archivo, marcador] of [
       ['src/modules/reports/report.service.js', 'SET bodega_observaciones = NULL'],
-      ['services/scheduledCleanup.js', 'SET bodega_observaciones = NULL'],
-      ['src/modules/inventario-auditorias/inventario-auditorias.service.js', 'total_incidencias']
+      ['services/scheduledCleanup.js', 'SET bodega_observaciones = NULL']
+      // La selección crítica propia se ejecuta en auditoriasPropias.test.js.
       // El diagnóstico de `missing-items` estuvo en esta lista hasta el
       // 2026-10-04: se retiró, sin pantalla y leyendo la tabla vieja `productos`.
     ]) {

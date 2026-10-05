@@ -43,6 +43,8 @@ const ALEGRA_OBLIGATORIO_A_PROPOSITO = [
  * fuera de la cuenta: leen de donde haga falta hasta el corte.
  */
 const TABLAS_RETIRADAS = [
+  'alegra_products_cache',   // inventario usa producto y kardex propios
+  'venta_items',             // excesos consultan venta_linea
   'abonos_cobro',            // el espejo viejo de los pagos de Alegra
   'cuentas_por_cobrar',      // el espejo viejo de la cartera de Alegra
   'factura_items',           // líneas de la copia vieja de facturas

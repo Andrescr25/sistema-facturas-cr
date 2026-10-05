@@ -12,9 +12,9 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
-  bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
+  bloqueado_por: [bloqueo/prisma-no-se-regenera]
   relacionado: [modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios]
-medido: 2026-10-04
+medido: 2026-10-05
 ---
 
 QUÉ ES HOY
@@ -81,7 +81,8 @@ módulos ya migrados.
 
 QUÉ FALTA
 
-Inventario NO se mueve todavía —bloqueado por el conteo físico, ver
+Inventario propio se mueve desde la 042, en esta misma transacción; apertura
+provisional en cero autorizada por el usuario, ver
 [[bloqueo/conteo-fisico]]—, aunque `compra_linea.cantidad_propia` ya está
 lista para cuando exista. Falta el estado de aceptación de cada compra,
 junto con el mensaje receptor de Hacienda. Las órdenes de compra por
@@ -93,3 +94,9 @@ alucinación de una sesión anterior, nunca un pedido real. Lo que el usuario
 pidió de verdad —devolver una factura mal relacionada para corregirla— ya
 existe (`devolverFactura` en `revision-precios.service.js`, arriba en
 `archivos:`) y no tiene nada que ver con `compra`.
+
+KARDEX PROPIO (2026-10-05). Registrar suma `cantidad_propia` y valora las
+entradas con costo de la línea, impuestos y descuento, dentro de la misma
+transacción que compra, costo/precio y CxP. Repetir el registro no vuelve a
+sumar. No convertir las compras históricas ya cargadas en nuevas entradas.
+Ver [[tabla/movimiento-inventario]] y [[modulo/inventario]].

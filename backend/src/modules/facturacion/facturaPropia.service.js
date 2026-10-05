@@ -35,6 +35,7 @@
 
 const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
+const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
 const { httpError, texto, numero, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 // Un solo lugar sabe qué día es: Costa Rica es UTC−6 y después de las 6 de
@@ -330,6 +331,8 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     }
   }
 
+  // El documento y su salida de bodega se confirman o revierten juntos.
+  await reconciliarDocumentoEn(cliente, 'factura', factura.id, usuarioId);
   await registrarCambio(cliente, {
     entidad: 'factura', entidadId: factura.id, accion: 'crear',
     despues: { numero: factura.numero, cliente: factura.cliente_nombre, total: Number(factura.total), lineas: armado.lineas.length },
@@ -565,6 +568,7 @@ async function anularFactura(id, { motivo } = {}, usuarioId) {
       [razon, n]
     );
 
+    await reconciliarDocumentoEn(cliente, 'factura', n, usuarioId);
     await registrarCambio(cliente, {
       entidad: 'factura', entidadId: n, accion: 'anular',
       antes: { estado: factura.estado, saldo: Number(factura.saldo) },
@@ -686,6 +690,7 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
       valores
     );
 
+    await reconciliarDocumentoEn(cliente, 'factura', n, usuarioId);
     await registrarCambio(cliente, {
       entidad: 'factura', entidadId: n, accion: 'editar',
       antes: {

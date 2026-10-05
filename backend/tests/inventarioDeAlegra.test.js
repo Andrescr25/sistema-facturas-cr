@@ -24,7 +24,8 @@ const { sinComentarios } = require('./dobles/sinComentarios');
  * (`facturacion.service`, `modules/invoices`); y 2 / 1 / 3 al retirar el
  * módulo viejo de productos, lo que el router adaptador todavía le pedía a
  * Alegra y el teléfono que WhatsApp buscaba allá; y 2 / 1 / 0 al mudar las
- * pantallas a direcciones propias y borrar el adaptador (`routes/alegra.js`).
+ * pantallas a direcciones propias y borrar el adaptador (`routes/alegra.js`);
+ * y 0 / 0 / 0 al iniciar inventario propio desde cero (pedido del usuario).
  *
  * Fuera de la cuenta, a propósito: `backend/scripts` (los cargadores y las
  * conciliaciones le leen a Alegra hasta el corte, que es para lo que están) y
@@ -34,15 +35,10 @@ const { sinComentarios } = require('./dobles/sinComentarios');
 const RAIZ = path.join(__dirname, '..', '..');
 
 /** Código de la aplicación que importa `integrations/alegra`. */
-const IMPORTAN_LA_INTEGRACION = [
-  'backend/server.js',                                                    // la sincronización de productos cada 6 horas
-  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js'   // espera el conteo físico
-];
+const IMPORTAN_LA_INTEGRACION = [];
 
-/** Código de la aplicación que lee o escribe `alegra_products_cache`. */
-const USAN_LA_CACHE = [
-  'backend/src/modules/inventario-auditorias/inventario-auditorias.service.js'
-];
+/** Código de la aplicación que lee o escribe la caché antigua. */
+const USAN_LA_CACHE = [];
 
 /**
  * Pantallas que llaman a `/alegra/...`. Ninguna desde el 2026-10-04: el

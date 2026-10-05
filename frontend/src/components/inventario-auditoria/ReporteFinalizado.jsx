@@ -1,20 +1,17 @@
-import { CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { CheckCircle, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/inventarioAuditoriaUtils'
 
 /**
  * Reporte de una auditoría (o devolución) ya finalizada: resumen + lista de
  * discrepancias/productos (izquierda), y la acción correctiva de ajustar el
- * inventario en Alegra (derecha). Extraído de InventarioAuditoria.jsx.
+ * movimientos confirmados (derecha).
  * `esDevolucion` solo cambia los textos — el cálculo (adjustmentsPreview) y
  * la acción de aplicar el ajuste son exactamente los mismos.
  */
 export default function ReporteFinalizado({
   auditoriaActiva,
   adjustmentsPreview,
-  loadingAjuste,
-  successAjuste,
   error,
-  onAplicarAjuste,
   esDevolucion = false
 }) {
   return (
@@ -30,7 +27,7 @@ export default function ReporteFinalizado({
             </h4>
             <p>
               {esDevolucion ? (
-                <>La devolución se cerró el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con {adjustmentsPreview.length} producto(s) listos para reingresar al inventario.</>
+                <>La devolución se cerró el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con {adjustmentsPreview.length} producto(s) registrados en el inventario propio.</>
               ) : (
                 <>El conteo físico de stock concluyó el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con un porcentaje de precisión de <strong>{Number(auditoriaActiva.precision_porcentaje).toFixed(1)}%</strong>.</>
               )}
@@ -49,8 +46,8 @@ export default function ReporteFinalizado({
             <h3 className="font-bold text-neutro-900 flex items-center gap-2">
               <AlertTriangle className="text-peligro-500" size={18} />
               {esDevolucion
-                ? `Productos a Reingresar (${adjustmentsPreview.length})`
-                : `Detalle de Ajustes Requeridos (${adjustmentsPreview.length} discrepancias)`}
+                ? `Movimientos de devolución (${adjustmentsPreview.length})`
+                : `Detalle de ajustes aplicados (${adjustmentsPreview.length} discrepancias)`}
             </h3>
           </div>
 
@@ -98,22 +95,12 @@ export default function ReporteFinalizado({
         <div className="bg-white p-6 rounded-3xl border border-neutro-100 shadow-sm space-y-5">
           <h3 className="text-lg font-bold text-neutro-900 border-b pb-2 flex items-center gap-1.5">
             <CheckCircle className="text-exito-600" size={18} />
-            Acción Correctiva
+            Movimiento confirmado
           </h3>
 
           <p className="text-xs text-neutro-500 leading-relaxed">
-            {esDevolucion
-              ? 'Al aplicar el ajuste, Alegra sumará estas cantidades al stock actual de cada producto.'
-              : 'Una vez auditado el stock, es fundamental corregir los descuadres en el inventario oficial de Alegra para que coincidan con la existencia física real de la distribuidora.'}
+            El conteo y sus movimientos se confirmaron juntos al finalizar. El kardex conserva la cantidad, el origen y el responsable del ajuste.
           </p>
-
-          {/* Success adjustment message */}
-          {successAjuste && (
-            <div className="bg-primario-50 text-primario-900 border border-primario-200 p-4 rounded-2xl text-xs flex items-start gap-2">
-              <CheckCircle className="text-primario-600 shrink-0 mt-0.5" size={16} />
-              <span>{successAjuste}</span>
-            </div>
-          )}
 
           {/* Error feedback */}
           {error && (
@@ -123,20 +110,7 @@ export default function ReporteFinalizado({
             </div>
           )}
 
-          <button
-            onClick={onAplicarAjuste}
-            disabled={loadingAjuste || adjustmentsPreview.length === 0}
-            className="w-full bg-primario-800 hover:bg-primario-900 disabled:bg-neutro-200 disabled:text-neutro-400 text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
-          >
-            {loadingAjuste ? <RefreshCw className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-            {loadingAjuste ? 'Sincronizando...' : 'Ajustar Inventario en Alegra'}
-          </button>
-
-          {adjustmentsPreview.length === 0 && (
-            <p className="text-[10px] text-neutro-400 text-center">
-              * No se requieren ajustes ya que no hay discrepancias.
-            </p>
-          )}
+          <p className="text-sm font-bold text-exito-700">Aplicado al inventario propio</p>
         </div>
       </div>
     </div>

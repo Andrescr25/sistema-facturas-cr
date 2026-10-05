@@ -18,10 +18,10 @@ export default function PanelFinalizarExceso({
   const faltan = total - empacados
   const todoListo = faltan === 0
 
-  const corregidos = items.filter(i => i.empacado && i.ajustado_alegra).length
+  const corregidos = items.filter(i => i.empacado && i.ajustado_inventario).length
   const sinCambios = empacados - corregidos
   const impactoCorrecciones = items
-    .filter(i => i.empacado && i.ajustado_alegra && i.stock_real !== null)
+    .filter(i => i.empacado && i.ajustado_inventario && i.stock_real !== null)
     .reduce((acc, i) => acc + (Number(i.stock_real) - Number(i.stock_sistema)) * Number(i.costo_unitario || 0), 0)
 
   return (

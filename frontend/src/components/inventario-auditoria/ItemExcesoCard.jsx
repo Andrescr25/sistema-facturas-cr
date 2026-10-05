@@ -6,7 +6,7 @@ import { formatCurrency, clasificarItemConteo } from '../../utils/inventarioAudi
 // auditorías normales), para que "¿coincide o no la cantidad?" se vea igual
 // en todo el módulo.
 const ESTADO_CONFIG = {
-  // Un producto ya ajustado en Alegra: clasificarItemConteo lo devuelve como
+  // Un producto ya ajustado en el inventario propio: clasificarItemConteo lo devuelve como
   // 'ajustado' y esta tarjeta no lo contemplaba, así que config quedaba
   // undefined y la pantalla entera se caía al leer config.boton. Mismo
   // lenguaje visual que ItemAuditoriaCard, que sí lo tenía.
@@ -74,8 +74,8 @@ function BadgeDescuento({ item }) {
 /**
  * Tarjeta de un producto dentro de la "factura de empaque" de un exceso.
  * El empleado marca "Empacado" directamente, o si la cantidad física no
- * coincide con Alegra, la escribe antes de marcar — eso dispara la
- * corrección real de inventario en Alegra (mismo mecanismo que ya usan las
+ * coincide con inventario propio, la escribe antes de marcar — eso dispara la
+ * corrección real de inventario en el inventario propio (mismo mecanismo que ya usan las
  * auditorías normales). Un solo click siempre: no hay borrador/guardado por
  * separado como en la hoja de conteo normal, porque empacar debe ser rápido.
  */
@@ -108,7 +108,7 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
   }
 
   if (item.empacado) {
-    const fueCorregido = item.ajustado_alegra && item.stock_real !== null && Number(item.stock_real) !== stockSistema
+    const fueCorregido = item.ajustado_inventario && item.stock_real !== null && Number(item.stock_real) !== stockSistema
     const valorReal = fueCorregido ? Number(item.stock_real) : stockSistema
     const diff = valorReal - stockSistema
 
@@ -193,7 +193,7 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
           </span>
         ) : null}
         {/* Solo mientras está pendiente: una vez empacado y ajustado en
-            Alegra, quitarlo dejaría ese movimiento de inventario sin rastro
+            inventario propio, quitarlo dejaría ese movimiento de inventario sin rastro
             de por qué se hizo (el backend lo rechaza igual). */}
         {onEliminar && (
           <button
@@ -223,7 +223,7 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
             <input
               type="number"
               min="0"
-              step="1"
+              step="0.0001"
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               placeholder="—"

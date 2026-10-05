@@ -97,7 +97,9 @@ toca, qué no se regenera).
 
 ## Bloqueos
 
-- [Inventario espera un conteo físico que es del usuario](bloqueo/conteo-fisico.md)
+- [Conteo real pendiente para producción; inventario propio ya implementado](bloqueo/conteo-fisico.md)
+- [Inventario nuevo en cero provisional, conteo completo al salir a producción](decision/inventario-desde-cero.md)
+- [Kardex propio, documento de origen y apertura provisional](tabla/movimiento-inventario.md)
 - [node_modules es un enlace al árbol de producción](bloqueo/prisma-no-se-regenera.md)
 - [Las 882 facturas de compra viejas no tienen su XML — las nuevas sí lo guardan](bloqueo/xml-historico-sin-recuperar.md)
 - [Lo ya registrado con la tarifa equivocada sigue así — decisión del usuario y su contador](bloqueo/impuestos-historicos-en-alegra.md)

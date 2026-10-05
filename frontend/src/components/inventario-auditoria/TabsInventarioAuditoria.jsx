@@ -10,7 +10,9 @@ import { Boxes, Undo2, PackageX, Sparkles } from 'lucide-react'
  */
 export default function TabsInventarioAuditoria({ vistaActiva, onCambiarVista }) {
   return (
-    <div className="flex gap-1 sm:gap-2 border-b border-neutro-200 overflow-x-auto">
+    <div className="flex flex-wrap gap-1 sm:gap-2 border-b border-neutro-200 overflow-x-auto">
+      <button onClick={() => onCambiarVista('existencias')}
+        className={`flex-1 sm:flex-none px-2 sm:px-6 py-3 font-bold text-xs sm:text-sm ${vistaActiva === 'existencias' ? 'text-primario-700 border-b-2 border-primario-600' : 'text-neutro-500'}`}>Existencias</button>
       <button
         onClick={() => onCambiarVista('auditorias')}
         className={`flex-1 sm:flex-none justify-center px-2 sm:px-6 py-2.5 sm:py-3 font-bold text-xs sm:text-sm whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${

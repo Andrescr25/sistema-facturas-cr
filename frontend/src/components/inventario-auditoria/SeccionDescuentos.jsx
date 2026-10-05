@@ -26,7 +26,7 @@ export default function SeccionDescuentos({
 }) {
   const [filtro, setFiltro] = useState('')
   const [soloVisibles, setSoloVisibles] = useState(false)
-  const [editando, setEditando] = useState({}) // { alegraItemId: valor }
+  const [editando, setEditando] = useState({}) // { productoId: valor }
   const [mostrarBuscador, setMostrarBuscador] = useState(false)
 
   const visibles = useMemo(() => {
@@ -41,10 +41,10 @@ export default function SeccionDescuentos({
   const totalVisibles = descuentos.filter(d => d.visibleEnCatalogo).length
 
   const guardar = (d) => {
-    const valor = Number(editando[d.alegraItemId])
+    const valor = Number(editando[d.productoId])
     if (!Number.isFinite(valor) || valor < 0 || valor > 100) return
-    onGuardar(d.alegraItemId, valor, d.nombreProducto)
-    setEditando(prev => { const next = { ...prev }; delete next[d.alegraItemId]; return next })
+    onGuardar(d.productoId, valor, d.nombreProducto)
+    setEditando(prev => { const next = { ...prev }; delete next[d.productoId]; return next })
   }
 
   return (
@@ -94,7 +94,7 @@ export default function SeccionDescuentos({
                 <p className="text-sm text-neutro-400 text-center py-5">Sin resultados para "{busquedaProducto}"</p>
               ) : (
                 resultadosProducto.map(p => (
-                  <div key={p.alegraId} className="p-3 flex items-center justify-between gap-3">
+                  <div key={p.productoId} className="p-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-bold text-neutro-900 text-sm truncate">{p.nombre}</p>
                       <p className="text-xs text-neutro-400">Ref: {p.referencia || 'N/A'}</p>
@@ -147,9 +147,9 @@ export default function SeccionDescuentos({
       ) : (
         <div className="divide-y divide-neutro-100 max-h-[32rem] overflow-y-auto">
           {visibles.map(d => {
-            const enEdicion = editando[d.alegraItemId] !== undefined
+            const enEdicion = editando[d.productoId] !== undefined
             return (
-              <div key={d.alegraItemId} className="p-4 flex items-center gap-3">
+              <div key={d.productoId} className="p-4 flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-neutro-900 text-sm truncate">{d.nombreProducto}</p>
                   <p className="text-xs mt-0.5 flex items-center gap-1.5">
@@ -172,8 +172,8 @@ export default function SeccionDescuentos({
                       min="0"
                       max="100"
                       step="5"
-                      value={enEdicion ? editando[d.alegraItemId] : d.descuentoPorcentaje}
-                      onChange={(e) => setEditando(prev => ({ ...prev, [d.alegraItemId]: e.target.value }))}
+                      value={enEdicion ? editando[d.productoId] : d.descuentoPorcentaje}
+                      onChange={(e) => setEditando(prev => ({ ...prev, [d.productoId]: e.target.value }))}
                       className={`w-20 text-center py-1.5 pr-6 pl-2 border-2 rounded-xl font-extrabold text-sm focus:outline-none ${
                         enEdicion ? 'border-exito-500 bg-exito-50' : 'border-neutro-200 bg-white'
                       }`}
@@ -192,7 +192,7 @@ export default function SeccionDescuentos({
                   )}
 
                   <button
-                    onClick={() => onEliminar(d.alegraItemId, d.nombreProducto)}
+                    onClick={() => onEliminar(d.productoId, d.nombreProducto)}
                     title="Quitar descuento"
                     className="p-2 text-neutro-300 hover:text-peligro-600 transition-colors"
                   >
