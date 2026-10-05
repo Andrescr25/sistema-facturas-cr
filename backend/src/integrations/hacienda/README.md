@@ -124,3 +124,14 @@ No ejecutar la limpieza semanal para mantener este archivo.
 La verificación reconoce también el filtro XPath exacto del ejemplo oficial
 (`not(ancestor-or-self::ds:Signature)`), equivalente a excluir la única firma.
 No evalúa XPath arbitrario. Respuestas conservan ruta y SHA-256 inmutables.
+
+## Revisión de dependencias, 2026-10-05
+
+`npm audit` del paquete fiscal reporta [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+en node-forge 1.4.0, sin versión corregida publicada. Afecta la verificación
+RSA PKCS#1 v1.5 de Forge. Aquí Forge solo decodifica el `.p12`; la firma y
+verificación usan la criptografía de Node. No se llaman `publicKey.verify`,
+`cert.verify` ni validación de cadenas de Forge. Una prueba intercepta las
+llaves decodificadas y hace fallar ese verificador: el flujo válido sigue
+funcionando y el XML alterado se rechaza. El aviso no se oculta ni se declara
+audit limpio; revisar actualización publicada y mantener esa separación.

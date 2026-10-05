@@ -106,7 +106,7 @@ de ensayo/guardas/lectura. Grafo validado. Build y navegador escritorio/700 px
 aprobados para inventario; no hubo cambios de interfaz en las herramientas
 posteriores. No se enviaron mensajes, no se leyó IMAP ni se ejecutó limpieza.
 
-Estado posterior al desarrollo de Hacienda: suite **1.934 aprobadas, cero
+Estado posterior al desarrollo de Hacienda: suite **1.935 aprobadas, cero
 fallos y cero omitidas**; build y navegador de Configuración también aprobados.
 La adaptación fiscal y de series ya está corregida. La carga aislada completó
 5.526 facturas con 53.582 líneas: 487 aceptadas en origen, 5 rechazadas y 56

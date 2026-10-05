@@ -87,3 +87,9 @@ número entre venta comercial y electrónica. El adaptador conserva el número
 impreso, usa la serie/consecutivo de la clave y guarda plantilla de origen.
 La recarga normaliza series abreviadas sin inventar aceptación. La reserva
 fiscal relee también las claves del emisor para no reutilizar números.
+
+DEPENDENCIAS: node-forge 1.4.0 tiene aviso GHSA-86w9-cpqp-85rv sin parche
+publicado al 2026-10-05. Se usa solo para decodificar .p12; firma/verificación
+son de Node, no el verificador RSA de Forge. Caso de prueba con interceptor
+para conservar esa separación; análisis y fuente en README. No declarar
+audit limpio ni introducir cert.verify/publicKey.verify de Forge.

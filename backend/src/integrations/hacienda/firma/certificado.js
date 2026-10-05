@@ -2,6 +2,9 @@
 const forge = require("node-forge");
 const crypto = require("node:crypto");
 const { error } = require("../errores");
+// Forge solo decodifica PKCS#12/ASN.1. No usar publicKey.verify ni cert.verify:
+// GHSA-86w9-cpqp-85rv afecta su verificador RSA (sin parche al 2026-10-05).
+// Las firmas se crean/verifican con crypto de Node y xml-crypto, en xades.js.
 function abrir(p12, pin, ahora = new Date()) {
   try {
     if (

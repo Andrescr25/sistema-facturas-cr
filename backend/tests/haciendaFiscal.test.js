@@ -24,6 +24,33 @@ const { parsear } = require("../src/integrations/hacienda/xml/util");
 const { desdeAlegra } = require("../src/integrations/hacienda/historico");
 const almacen = require("../src/integrations/hacienda/seguridad/almacen");
 
+test("abrir .p12 y verificar firmas no usa el verificador RSA vulnerable de Forge", (t) => {
+  const forge = require("../src/integrations/hacienda/node_modules/node-forge");
+  const c = certificado(),
+    original = forge.pki.publicKeyFromAsn1;
+  let certificadosDecodificados = 0;
+  t.mock.method(forge.pki, "publicKeyFromAsn1", (...args) => {
+    const key = original(...args);
+    certificadosDecodificados++;
+    key.verify = () => {
+      throw new Error("No usar el verificador RSA de Forge");
+    };
+    return key;
+  });
+  const xml = firmar(generarVenta(venta()), c.p12, c.pin);
+  assert.ok(
+    certificadosDecodificados > 0,
+    "la prueba debe interceptar el certificado del .p12",
+  );
+  assert.equal(verificarRespuesta(xml), true);
+  const alterado = xml.replace(
+    "<TotalComprobante>113.00000</TotalComprobante>",
+    "<TotalComprobante>114.00000</TotalComprobante>",
+  );
+  assert.notEqual(alterado, xml);
+  assert.equal(verificarRespuesta(alterado), false);
+});
+
 test("FE, TE y NC cumplen los XSD actuales y una firma verificable", async () => {
   const c = certificado();
   for (const tipo of ["01", "04", "03"]) {
