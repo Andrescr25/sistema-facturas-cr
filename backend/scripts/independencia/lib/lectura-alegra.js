@@ -14,7 +14,8 @@ function falloSeguro(e) {
     (!status && ['ETIMEDOUT', 'ECONNABORTED', 'ECONNRESET', 'EAI_AGAIN', 'ENETUNREACH'].includes(e?.code));
   const error = new Error(status ? `Lectura de Alegra rechazada (HTTP ${status}).` : 'No se pudo completar la lectura de Alegra.');
   error.status = status;
-  error.code = limite ? 'LIMITE_LECTURA' : transitorio ? 'LECTURA_TRANSITORIA' : 'LECTURA_FALLIDA';
+  const red = ['ETIMEDOUT', 'ECONNABORTED', 'ECONNRESET', 'EAI_AGAIN', 'ENETUNREACH'].includes(e?.code) ? e.code : null;
+  error.code = limite ? 'LIMITE_LECTURA' : red || (transitorio ? 'LECTURA_TRANSITORIA' : 'LECTURA_FALLIDA');
   error.transitorio = transitorio;
   error.esperaMs = limite && Number.isFinite(reset) && reset > 0 ? Math.min(reset + 1, 60) * 1000 : 0;
   // Los conciliadores conocen el límite 400/429. No se devuelve el cuerpo

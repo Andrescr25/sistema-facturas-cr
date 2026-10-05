@@ -1,5 +1,14 @@
 # Plan: independizarnos de Alegra
 
+> Estado actualizado, 2026-10-05: el inventario propio ya está construido y
+> la apertura provisional en CERO fue autorizada por el usuario; el conteo
+> real completo se hará al salir a producción. La aplicación ya no usa
+> Alegra. Para ejecutar la migración consultar el
+> [plan operativo de corte](plan-corte-independencia.md), el checklist y el
+> grafo de esta rama. Las fases fiscales siguientes quedan pospuestas;
+> este plan inicial no sustituye el estado actual ni autoriza el corte.
+
+
 Rama: `independencia-alegra` · Medido el 11 de setiembre de 2026 contra
 producción (solo lectura).
 

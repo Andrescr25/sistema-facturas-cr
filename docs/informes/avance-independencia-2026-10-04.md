@@ -420,3 +420,20 @@ del código y sus pruebas antiguas, no por omisiones del ejecutor. Consulta
 real de un producto con el lector GET completada, sin escribir en Alegra.
 Checklist: **131 marcados / 15 abiertos** (§§0–16), 16 con Hacienda pospuesta.
 El retiro de columnas externas aún depende de vaciar las colas offline.
+
+
+## Cierre nocturno: herramientas y ensayo del corte
+
+Plan operativo y herramienta en candidata desechable preparados; auditoría
+READ ONLY por ficha y referencia histórica, sin completar datos supuestos.
+La restauración nueva pasó todo el esquema y las maestras/enlaces. El ensayo
+se detuvo en la restricción fiscal de las facturas históricas: el cargador no
+inserta `hacienda_estado`; su resolución queda con Hacienda para mañana.
+No se inventó aceptación ni se marcó ensayo/corte como terminados. Una
+cotización del origen se importó de forma independiente en la desechable.
+
+Suite final **1.908 aprobadas, cero fallos y cero omitidas**. Las pruebas
+nuevas comprueban rutas/base privada, no sobrescribir, SQL READ ONLY,
+consecutivos/ceros y preservación de datos. Checklist **131/15** (§§0–16),
+16 abiertos con Hacienda pospuesta. Estado completo, los 15 puntos y siguiente
+sesión en [el informe del 5 de octubre](estado-checklist-2026-10-05.md).

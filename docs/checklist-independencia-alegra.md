@@ -147,7 +147,7 @@ Revisión de Precios crea productos y cambia precios. Se sincroniza cada 6 horas
   siga clasificando
 - [x] Retirar `alegra_products_cache` del código activo. **2026-10-05:** auditorías y excesos usan `producto` y kardex propios. La tabla anterior se conserva como histórico hasta el corte; `tablasPropias.test.js` impide que la aplicación vuelva a consultarla.
 - [x] Retirar la sincronización de productos cada 6 horas. **2026-10-05:** fuera del arranque, reloj y cierre del servidor; no quedan lectores activos de la caché.
-- [ ] Datos a corregir entre los activos (medido al cargar): 14 sin impuesto, 42 sin categoría y 10 medicamentos sin registro sanitario. Además, 9 productos al 4 % y 3 al 8 % coinciden con los que dejó mal el error de ids de impuesto
+- [ ] Datos a corregir entre los activos. **Medición inicial:** 14 sin impuesto, 42 sin categoría y 10 medicamentos sin registro sanitario; 9 productos al 4 % y 3 al 8 % coinciden con los afectados por el error histórico de impuestos. **2026-10-05, compartida:** auditoría READ ONLY preparada por ficha: 14 sin impuesto, 17 sin categoría, 9 medicamentos sin registro y 76 con precio bajo su costo según la tarifa actual; no se corrigió nada automáticamente. Ver [ensayo y fichas](grafo/modulo/ensayo-corte.md).
 
 **Hallazgos de esta sección:**
 - **Tres productos que parecían dejar margen se están vendiendo al costo.** El clasificador de costos asumía 13 % de IVA para todos. De los 67 productos activos con costo y tarifa distinta de 13 %, a 5 les da pérdida con su tarifa real y **3 de esos aparentaban estar sanos**: GALON SALSA LIZANO 5L (₡12.000 de costo contra ₡11.881 de precio), MAYONESA DEL CHEF SOBRES 1X250 y SALSA TOMATE EL CHEF SOBRES 1X250 — los tres al 1 %. Asumir el 13 % les subestimaba el costo un 11,1 % en promedio. Para revisar con el contador junto con el resto de las correcciones.
@@ -838,8 +838,8 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   emitidas es ₡4.649.819. Ese diagnóstico no ejecutó cargas ni modificó datos
   compartidos; la carga puntual del débito no completa esas ventas/cobros:
   recargar y repetir antes del corte.
-- [ ] Ensayo de corte completo en la base de la rama. *Incluye validar recepción real de la factura por correo desde la cuenta del buzón elegida (§6); el formulario y el transporte están probados con dobles, pero no se habilitan salidas para desarrollar.*
-- [ ] Plan de corte: qué día, qué se congela en Alegra y cómo se vuelve atrás
+- [ ] Ensayo de corte completo en la base de la rama. **2026-10-05:** herramienta y [plan operativo](plan-corte-independencia.md) preparados; ensayo en base desechable restauró el origen y cargó esquema/maestras/enlaces. Se detuvo en la restricción fiscal de la carga histórica; ver [bloqueo](grafo/bloqueo/carga-electronica-historica.md). No se inventó aceptación. Completar después de la revisión de Hacienda de mañana. *Incluye validar recepción real de la factura por correo desde la cuenta del buzón elegida (§6); el formulario y el transporte están probados con dobles, pero no se habilitan salidas para desarrollar.*
+- [ ] Plan de corte: qué día, qué se congela en Alegra y cómo se vuelve atrás. **2026-10-05:** [plan operativo preparado](plan-corte-independencia.md), con ensayo separado, carga final/041, respaldo, congelación, conteo real, recepción y vuelta atrás antes/después de escrituras. Falta fijar D y verificar las condiciones con el usuario; no se ha cortado producción.
 - [ ] WhatsApp en el servidor nuevo (vino de main, 2026-09-29): Baileys vive
   adentro del backend (`integrations/whatsapp/conexion.js`), con la sesión en
   la base (`whatsapp_sesion`). En el corte: `WHATSAPP_PROVEEDOR=interno` y

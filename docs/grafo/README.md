@@ -31,6 +31,7 @@ toca, qué no se regenera).
 - [Conciliación de compras — vínculos históricos y candidatos sin confirmar](modulo/conciliacion-compras.md)
 - [Conciliación de notas — aplicaciones a facturas y débitos históricos](modulo/conciliacion-notas-credito.md)
 - [Débitos históricos — el documento original y su vínculo de crédito propio](modulo/historico-debitos-ingreso.md)
+- [Ensayo de corte y auditoría de fichas — candidata separada y plan de vuelta atrás](modulo/ensayo-corte.md)
 - [Lectura histórica para migración — GET sin capacidad de escritura](modulo/lectura-migracion-alegra.md)
 - [Originales electrónicos de ventas — PDF, XML y huellas fuera de Git](modulo/archivo-ventas-electronicas.md)
 
@@ -98,6 +99,7 @@ toca, qué no se regenera).
 
 ## Bloqueos
 
+- [Carga histórica electrónica — estado real pendiente de revisión fiscal](bloqueo/carga-electronica-historica.md)
 - [Conteo real pendiente para producción; inventario propio ya implementado](bloqueo/conteo-fisico.md)
 - [Inventario nuevo en cero provisional, conteo completo al salir a producción](decision/inventario-desde-cero.md)
 - [Kardex propio, documento de origen y apertura provisional](tabla/movimiento-inventario.md)
