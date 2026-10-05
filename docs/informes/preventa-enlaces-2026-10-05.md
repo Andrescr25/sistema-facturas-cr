@@ -1,6 +1,7 @@
 # Preventa por enlaces personales — 2026-10-05
 
 Tercera parte de la reorganización, solo local en `independencia-alegra`.
+Implementación `7d44a3e`, integrada por avance rápido, sin push.
 Primera y segunda partes conservadas. No hay otro worktree de Claude activo
 al comenzar; base compartida sin cambios de negocio para esta entrega.
 
@@ -36,6 +37,16 @@ PRE-04, PRE-10 y FIL-03. Las pruebas prueban el transporte bloqueado y el
 registro; la entrega REAL por WhatsApp sigue sin probarse en esta rama.
 Las revisiones manuales del usuario se mantienen pendientes. Independencia:
 133/14, incluida aceptación fiscal REAL y corte; no se presenta como cerrado.
+
+La aplicación habitual `http://localhost:5174` → backend 3002 ya usa el
+cambio, con su lanzador seguro y limpieza global sustituida. Verificada
+SOLO GET: rutas nuevas montadas, filtros de pedidos y facturación Sin ciclo,
+1440/390 sin desborde ni errores JS. No se crearon rutas, ciclos o demo en esa
+base. Comparación antes/después: **16 huellas idénticas** (clientes/cuentas/
+invitaciones, pedidos/líneas, facturas/líneas, stock, rutas/ciclos/recorrido,
+carrito/líneas, series, envíos y comprobantes). Inventario en cero provisional,
+rutas/ciclos vacíos e históricos sin ciclo. No se aplicó una migración nueva.
+Developer `5013270`, main `e19c3e5` y servidor original 3000 conservados.
 
 Evidencia privada en `/private/tmp/codex-preventa-enlaces-20261005`.
 Detalle técnico mantenible: [grafo](../grafo/modulo/preventa-por-enlace.md).

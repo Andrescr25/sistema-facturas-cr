@@ -89,7 +89,7 @@ Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045,
 commit `d87ee54`, 1.962 pruebas aprobadas y aplicación local verificada.
 Portal selecciona su semana; el agente toma pedidos en Facturación (catálogo
 sigue de consulta). Históricos sin ciclo y colas/claves antiguas conservados.
-Tercera parte: PRE-03/04/10 y FIL-03 comprobados con enlaces personales por
+Tercera parte (`7d44a3e`, solo local): PRE-03/04/10 y FIL-03 comprobados con enlaces personales por
 cliente/ciclo, invitación explícita, copia y revisión/envío por WhatsApp;
 la portada usa solo la cuenta autenticada y el pedido conserva la semana.
 1.974 pruebas aprobadas; navegador 1440/390 con login/activación, cuenta ajena

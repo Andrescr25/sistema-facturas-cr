@@ -91,3 +91,7 @@ con carrito intacto. Sin errores JS/desborde y logs sin tokens. Checklist
 PRE-03/04/10 y FIL-03 cerrados (30/61). Evidencia y límites en
 `docs/informes/preventa-enlaces-2026-10-05.md`.
 Preparación/bodega, faltantes/compras/recepción y archivo 24 h siguen pendientes.
+
+Integrado localmente como `7d44a3e`; aplicación habitual 5174→3002 verificada
+SOLO GET y 16 huellas de negocio idénticas antes/después. Sin nueva migración,
+fixtures compartidos, mensajes reales o cambios a producción/developer/main.
