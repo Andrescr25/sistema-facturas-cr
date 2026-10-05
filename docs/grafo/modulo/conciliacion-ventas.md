@@ -8,7 +8,7 @@ archivos:
   - backend/scripts/independencia/lib/conciliacion-ventas.js
   - backend/tests/conciliacionVentas.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/conciliacion-compras, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/facturacion, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/conciliacion-compras, modulo/reporte-contador, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/un-borrador-no-es-una-venta, leccion/fecha-utc-costa-rica]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
 medido: 2026-10-03
 ---

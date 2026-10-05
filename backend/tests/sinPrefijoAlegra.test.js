@@ -206,14 +206,8 @@ describe('el módulo viejo de productos se fue', () => {
     assert.deepEqual(culpables, []);
   });
 
-  test('la integración no quedó pidiendo un archivo borrado', () => {
-    const sync = leer('backend', 'src', 'integrations', 'alegra', 'services', 'alegra-sync.service.js');
-
-    assert.equal(/modules\/products/.test(sync), false);
-    assert.equal(/syncProductsAutomatically|syncProductsCache/.test(sync), false);
-    // La de cada 6 horas sigue: es la que llena la caché que todavía lee la
-    // auditoría de inventario.
-    assert.match(sync, /async syncProductsFromAlegra\(/);
+  test('la integración antigua ya no existe en la aplicación', () => {
+    assert.equal(existe('backend', 'src', 'integrations', 'alegra'), false);
   });
 
   test('"/productos" y "/facturas" ya no son prefijos de nadie; "/productos-revision" sigue con dueño', () => {

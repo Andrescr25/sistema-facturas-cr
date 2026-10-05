@@ -8,7 +8,7 @@ archivos:
   - backend/scripts/independencia/lib/archivo-electronico.js
   - backend/tests/archivoElectronico.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/conciliacion-ventas, modulo/correo-facturas, decision/la-ruta-no-el-contenido, leccion/la-db-local-es-produccion]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/facturacion, modulo/conciliacion-ventas, modulo/correo-facturas, decision/la-ruta-no-el-contenido, leccion/la-db-local-es-produccion]
 medido: 2026-10-04
 ---
 

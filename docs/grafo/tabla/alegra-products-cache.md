@@ -11,7 +11,7 @@ archivos:
   - backend/tests/inventarioDeAlegra.test.js
 aristas:
   relacionado: [tabla/subcategoria, bloqueo/prisma-no-se-regenera, leccion/precio-sin-iva-costo-con-iva, modulo/gestion-catalogo]
-medido: 2026-10-04
+medido: 2026-10-05
 ---
 
 Copia de los items de Alegra (`alegra_id`, `name`, `reference`, `price`,
@@ -39,13 +39,8 @@ fuente aunque "tenga el dato": sus fotos son direcciones firmadas de Alegra
 que vencen a los 7 días, y no se entera de nada de lo que se crea o cambia en
 el maestro.
 
-Quién la sigue leyendo o escribiendo está en una lista cerrada que se prueba
-sola: `backend/tests/inventarioDeAlegra.test.js`. Al 2026-10-04 quedan DOS
-archivos: la auditoría de inventario (que espera el inventario propio) y una
-lectura de Facturación. Ese mismo día se fueron el que más la usaba, la
-Gestión de Catálogo vieja (`modules/catalogo`, 32 de los usos: ver
-[[modulo/gestion-catalogo]]), y `enviarFacturaAlegra`.
-
-Las últimas dos lecturas con pantalla se fueron ese día: la foto de cada
-línea en Facturas en Bodega y el código de la marca que sigue, que ahora salen
-del maestro (`productos.service.js`).
+Desde el 2026-10-05 no quedan lectores ni escritores en la aplicación.
+Inventario y auditorías usan `producto` y kardex propios; se retiraron la
+sincronización de seis horas y la integración antigua. La tabla se conserva
+como historia hasta el corte, sin refrescarse ni usarse como saldo.
+`inventarioDeAlegra.test.js` y `tablasPropias.test.js` impiden volver a usarla.

@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/facturacion/saldo.sql.js
   - backend/tests/conciliacionCobros.test.js
 aristas:
-  relacionado: [modulo/conciliacion-ventas, modulo/conciliacion-notas-credito, modulo/facturacion, modulo/portal-clientes, decision/caja-general-es-el-centro, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-notas-credito, modulo/facturacion, modulo/portal-clientes, decision/caja-general-es-el-centro, leccion/ids-propios-y-de-alegra-no-se-mezclan]
 medido: 2026-10-03
 ---
 

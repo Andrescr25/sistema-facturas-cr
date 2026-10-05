@@ -14,7 +14,7 @@ async function main() {
   require('dotenv').config({ path:path.join(__dirname,'../../.env'),quiet:true });
   require('../../config/aislado').asegurarBaseLocal();
   const { pool } = require('../../config/database');
-  const client = require('../../src/integrations/alegra/alegra.client').getInstance();
+  const client = require('./lib/lectura-alegra').getInstance();
   let archivo;
   try {
     archivo = await fs.open(salida,'wx',0o600);

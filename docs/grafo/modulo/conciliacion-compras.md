@@ -9,7 +9,7 @@ archivos:
   - backend/tests/conciliacionCompras.test.js
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
-  relacionado: [modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/compras, modulo/reporte-contador, leccion/proveedor-por-cedula, leccion/ids-propios-y-de-alegra-no-se-mezclan, decision/el-total-manda-sobre-las-lineas]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/compras, modulo/reporte-contador, leccion/proveedor-por-cedula, leccion/ids-propios-y-de-alegra-no-se-mezclan, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/xml-historico-sin-recuperar, bloqueo/impuestos-historicos-en-alegra]
 medido: 2026-10-04
 ---

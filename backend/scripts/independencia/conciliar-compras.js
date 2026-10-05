@@ -18,7 +18,7 @@ async function main() {
   let archivo;
   try {
     archivo=await fs.open(salida,'wx',0o600);
-    const client=require('../../src/integrations/alegra/alegra.client').getInstance();
+    const client=require('./lib/lectura-alegra').getInstance();
     const informe=await ejecutar({pool,client,p,avisar:console.log});
     await archivo.writeFile(JSON.stringify(informe,null,2)+'\n');
     console.log(JSON.stringify({periodo:p,sin_diferencias:informe.sin_diferencias,resumen:informe.resumen,salida}));

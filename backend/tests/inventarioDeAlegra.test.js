@@ -15,7 +15,7 @@ const { sinComentarios } = require('./dobles/sinComentarios');
  *    lo saque de acá: la lista solo puede achicarse, y siempre dice la verdad
  *    de lo que falta.
  *
- * El día que las tres queden vacías, se puede borrar `integrations/alegra`.
+ * La integración antigua ya se retiró. Solo los CLI conservan un lector GET.
  *
  * Historia: 12 / 6 / 6 archivos al crearla (2026-10-04); 10 / 3 / 4 ese mismo
  * día, al retirar la Gestión de Catálogo vieja (`modules/catalogo`); 8 / 2 / 4
@@ -69,8 +69,7 @@ function codigo(relativa) {
 
 const BACKEND = ['backend/src', 'backend/services', 'backend/routes', 'backend/controllers', 'backend/utils']
   .flatMap(c => archivos(c, ['.js']))
-  .concat(['backend/server.js'])
-  .filter(a => !a.startsWith('backend/src/integrations/alegra/'));
+  .concat(['backend/server.js']);
 const FRONTEND = archivos('frontend/src', ['.js', '.jsx']);
 
 function comparar(encontrados, lista, queEs) {
@@ -82,7 +81,7 @@ function comparar(encontrados, lista, queEs) {
 
 describe('lo que queda dependiendo de Alegra', () => {
   test('quién importa la integración', () => {
-    const encontrados = BACKEND.filter(a => /require\([^)]*integrations\/alegra/.test(codigo(a)));
+    const encontrados = BACKEND.filter(a => /require\([^)]*(?:integrations\/alegra|lectura-alegra)|api\.alegra\.com/.test(codigo(a)));
     comparar(encontrados, IMPORTAN_LA_INTEGRACION, 'importa integrations/alegra');
   });
 

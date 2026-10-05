@@ -30,18 +30,7 @@ function mensajeSeguro(e) {
 }
 
 function clienteLectura() {
-  const axios = require('axios');
-  const config = require('../../src/integrations/alegra/alegra.config');
-  const api = axios.create({ baseURL: config.baseURL, timeout: config.timeout,
-    auth: { username: config.credentials.user, password: config.credentials.token },
-    maxRedirects: 0, headers: { Accept: 'application/json' } });
-  // Sin los logs generales de Axios: los enlaces firmados no se escriben,
-  // tampoco en los fallos. Solo se exponen los datos necesarios para reintentar.
-  return { async get(ruta, params) {
-    try { const r = await api.get(ruta, { params }); return { success: true, data: r.data }; }
-    catch (e) { return { success: false, status: e.response?.status, error: e.code,
-      data: { code: e.response?.data?.code, headers: e.response?.data?.headers } }; }
-  } };
+  return require('./lib/lectura-alegra').getInstance();
 }
 
 async function main() {

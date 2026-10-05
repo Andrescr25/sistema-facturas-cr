@@ -77,19 +77,16 @@ describe('nada sale al mundo real', () => {
     assert.equal(aislado.salidasBloqueadas({ NODE_TEST_CONTEXT: 'child-v8' }), false);
   });
 
-  test('Alegra: una escritura se frena antes de salir; una lectura pasa', async () => {
-    const { getInstance } = require('../src/integrations/alegra/alegra.client');
-    const cliente = getInstance();
-    const interceptor = cliente.api.interceptors.request.handlers.find(Boolean);
+  test('el lector de migración rechaza escrituras antes del transporte', async () => {
+    const { crearLector } = require('../scripts/independencia/lib/lectura-alegra');
+    let llamadas = 0;
+    const cliente = crearLector({ transporte: { get: async () => { llamadas++; return { data: [] }; } } });
     for (const method of ['post', 'put', 'delete', 'patch']) {
-      await assert.rejects(
-        Promise.resolve(interceptor.fulfilled({ method, url: '/invoices' })),
-        e => e.code === 'SALIDA_BLOQUEADA' && e.status === 423,
-        `${method} tendría que bloquearse`
-      );
+      await assert.rejects(cliente.request(method, '/invoices'), e => e.code === 'SALIDA_BLOQUEADA' && e.status === 423);
     }
-    const lectura = await interceptor.fulfilled({ method: 'get', url: '/items' });
-    assert.equal(lectura.url, '/items');
+    assert.equal(llamadas, 0);
+    assert.deepEqual(await cliente.get('/items'), { success: true, data: [] });
+    assert.equal(llamadas, 1);
   });
 
   test('WhatsApp: no llega a llamar a Evolution', async () => {

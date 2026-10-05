@@ -10,7 +10,7 @@ archivos:
   - backend/scripts/independencia/cargar-notas-credito.js
   - backend/tests/historicoDebitosIngreso.test.js
 aristas:
-  relacionado: [modulo/conciliacion-notas-credito, modulo/facturacion, modulo/conciliacion-ventas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, bloqueo/prisma-no-se-regenera]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/conciliacion-notas-credito, modulo/facturacion, modulo/conciliacion-ventas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, bloqueo/prisma-no-se-regenera]
 medido: 2026-10-04
 ---
 

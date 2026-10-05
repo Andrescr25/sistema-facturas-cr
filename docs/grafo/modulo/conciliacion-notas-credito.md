@@ -11,7 +11,7 @@ archivos:
   - backend/migrations/independencia/010_nota_credito.sql
   - backend/migrations/independencia/040_debitos_ingreso_historicos.sql
 aristas:
-  relacionado: [modulo/facturacion, modulo/historico-debitos-ingreso, modulo/conciliacion-ventas, modulo/conciliacion-cobros, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/lectura-migracion-alegra, modulo/facturacion, modulo/historico-debitos-ingreso, modulo/conciliacion-ventas, modulo/conciliacion-cobros, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica]
 medido: 2026-10-04
 ---
 

@@ -9,7 +9,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env'), quiet: true });
 const { pool } = require('../../config/database');
-const { getClient } = require('../../src/integrations/alegra');
+const { getClient } = require('./lib/lectura-alegra');
 const {
   empresaDesdeAlegra, impuestoDesdeAlegra, plazoDesdeAlegra, cuentaDesdeAlegra
 } = require('../../src/modules/configuracion/desdeAlegra');

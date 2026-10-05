@@ -119,7 +119,7 @@ async function main() {
   require('../../config/aislado').asegurarBaseLocal();
   const {pool}=require('../../config/database');
   try {
-    const client=require('../../src/integrations/alegra/alegra.client').getInstance();
+    const client=require('./lib/lectura-alegra').getInstance();
     console.log(JSON.stringify(await cargarNotas({pool,client,avisar:console.log})));
   } finally {await pool.end();}
 }

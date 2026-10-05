@@ -31,6 +31,7 @@ toca, qué no se regenera).
 - [Conciliación de compras — vínculos históricos y candidatos sin confirmar](modulo/conciliacion-compras.md)
 - [Conciliación de notas — aplicaciones a facturas y débitos históricos](modulo/conciliacion-notas-credito.md)
 - [Débitos históricos — el documento original y su vínculo de crédito propio](modulo/historico-debitos-ingreso.md)
+- [Lectura histórica para migración — GET sin capacidad de escritura](modulo/lectura-migracion-alegra.md)
 - [Originales electrónicos de ventas — PDF, XML y huellas fuera de Git](modulo/archivo-ventas-electronicas.md)
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
@@ -45,7 +46,7 @@ toca, qué no se regenera).
 - [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *relacionar, crear producto y el buzón: todo por `producto.id`*
 - [Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio](modulo/revision-precios.md)
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
-- [Inventario — todavía no existe nada propio](modulo/inventario.md) · *pospuesto*
+- [Inventario propio — apertura en cero, conteo y kardex](modulo/inventario.md)
 - [Reporte del Contador — el mes de ventas y compras, de las tablas propias](modulo/reporte-contador.md)
 - [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *todo por `producto.id`, también el costo de las compras*
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*

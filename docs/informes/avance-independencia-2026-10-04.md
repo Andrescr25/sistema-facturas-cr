@@ -402,3 +402,21 @@ de 15 tablas comerciales/series fueron iguales antes y después. Puerto 3002
 recargado con lanzador aislado, sin limpieza ni salidas; HTTP confirma stock
 provisional y listas vacías. Producción sigue intacta. También los indicadores
 de auditoría parten en cero: no se presenta una precisión de 100% sin conteos.
+
+
+## Continuación nocturna: integración antigua retirada
+
+La aplicación ya no contiene `src/integrations/alegra`. Los cargadores,
+conciliadores y el archivo usan un lector exclusivo de scripts, limitado a
+GET aun con las salidas abiertas. Autenticación privada, destino fijo,
+redirecciones apagadas, reintentos acotados y errores sin objetos Axios.
+Se retiraron los tres guiones antiguos que escribían costos/contactos/pagos
+en Alegra y las pruebas que solo ejercitaban servicios retirados. Las reglas
+comerciales propias y sus pruebas se conservan.
+
+Validación: **1.902 pruebas aprobadas, cero fallos u omitidas**, incluidas
+PostgreSQL real, y grafo 12/12. La cifra baja respecto de 1.930 por el retiro
+del código y sus pruebas antiguas, no por omisiones del ejecutor. Consulta
+real de un producto con el lector GET completada, sin escribir en Alegra.
+Checklist: **131 marcados / 15 abiertos** (§§0–16), 16 con Hacienda pospuesta.
+El retiro de columnas externas aún depende de vaciar las colas offline.

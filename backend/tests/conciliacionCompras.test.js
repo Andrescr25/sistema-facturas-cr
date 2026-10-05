@@ -144,7 +144,7 @@ test('CLI: error seguro retira el parcial, informe anterior intacto y validació
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'zz-conciliacion-compras-'));
   await fs.chmod(dir,0o700);
   const cli=path.resolve(__dirname,'../scripts/independencia/conciliar-compras.js');
-  const mod=path.resolve(__dirname,'../src/integrations/alegra/alegra.client.js');
+  const mod=path.resolve(__dirname,'../scripts/independencia/lib/lectura-alegra.js');
   const pre=path.join(dir,'doble.cjs'), salida=path.join(dir,'nuevo.json');
   try{
     await fs.writeFile(pre,`require.cache[${JSON.stringify(mod)}]={exports:{getInstance:()=>({get:async()=>({success:false,status:403,error:'ZZ-SECRETO-no-imprimir'})})}};`,{mode:0o600});
