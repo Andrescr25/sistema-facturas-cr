@@ -18,6 +18,7 @@ archivos:
   - backend/tests/facturasLocales.test.js
   - backend/tests/facturaPdfFrontend.test.js
   - backend/tests/facturacionSinAlegra.test.js
+  - backend/tests/baseLocalAbierta.test.js
 aristas:
   relacionado: [modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
 medido: 2026-10-04
@@ -76,3 +77,32 @@ DESPUÉS DEL CORTE. La conversión de las copias v3 permanece para tablets
 que aún no abrieron esta versión. No retirar la compatibilidad de entrada
 `client`/línea `id` del backend hasta vaciar las colas de los dispositivos,
 según [[modulo/facturacion]]. No se hizo una migración PostgreSQL.
+
+LA BASE LOCAL SE ABRE SOLA (2026-10-04, error reportado por el usuario en el
+catálogo del agente: `Cannot read properties of null (reading
+'transaction')`). `facturacionService` se carga con la aplicación y escucha
+`online` en TODAS las pantallas; al volver la conexión intenta mandar lo
+pendiente. Pero `indexedDBService.init()` solo lo llamaba la pantalla de
+Facturación, y cada método usaba `this.db` a secas: en cualquier otra pantalla
+—o después de que la conexión se cierra sola por un cambio de versión— era
+null, reventaba, y lo pendiente no se mandaba. Ahora todo método pide la base
+con `abierta()`, que la abre si hace falta y una sola vez aunque la pidan dos
+a la par. Guardar la copia de una factura sigue sin hacer fallar la venta si
+el navegador no deja abrir la base.
+
+AL VOLVER LA CONEXIÓN (`handleOnline`), que por lo anterior ahora sí corre
+fuera de Facturación:
+- **Sin sesión no se manda nada.** El catálogo del agente se usa con la sesión
+  vencida; mandar igual era un 401 por factura. Las pendientes esperan
+  intactas al próximo ingreso.
+- **Un 401 a mitad del envío corta el envío** sin anotarle un error a ninguna
+  factura ni edición: la sesión venció, no es un rechazo de ese documento. El
+  resultado lleva `sinSesion: true`.
+- **Primero las facturas, después las ediciones.** Las dos comparten
+  `syncInProgress`; lanzadas a la vez, la segunda encontraba la bandera puesta
+  y no hacía nada: las ediciones pendientes nunca se mandaban al reconectar.
+
+`baseLocalAbierta.test.js` carga `indexedDBService` de verdad sobre una
+IndexedDB simulada. Reproducido y verificado en Chromium cortando y
+devolviendo la conexión en `/catalogo-agente`, con sesión, sin sesión y con la
+sesión vencida y una factura pendiente de prueba: quedó sin marcar.
