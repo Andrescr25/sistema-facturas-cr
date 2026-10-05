@@ -70,6 +70,8 @@ toca, qué no se regenera).
 
 ## Decisiones
 
+- [El pedido conserva su ciclo de ruta fechado — regla acordada, implementación pendiente](decision/ciclo-de-ruta-como-contexto.md)
+- [Orden enviada inmutable; archivo 24 h tras recepción conservando historial — implementación pendiente](decision/orden-enviada-y-archivo-por-recepcion.md)
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)
 - [El avance de una factura del buzón se cuenta desde sus líneas — soltar una relación no inventa un estado](decision/el-avance-de-la-factura-sale-de-sus-lineas.md)

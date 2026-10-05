@@ -6,6 +6,12 @@
   aceptación real en pruebas y corte pendientes. Reemplaza el aplazamiento
   del 11 de setiembre. Revisiones manuales: usuario.
 - **Contexto y cifras:** ver `plan-independencia-alegra.md`.
+- **Reorganización nueva, 2026-10-05:** clientes, rutas/ciclos, preventa,
+  compras y entregas tienen [checklist propio](checklist-rutas-ciclos-operativos.md).
+  No se mezclan sus funciones pendientes con las secciones ya migradas.
+  [Instrucciones vigentes](instrucciones-vigentes-usuario.md) y
+  [plan](plan-rutas-ciclos-operativos.md); avanzar por partes y conservar
+  historial al retirar órdenes recibidas de la lista activa tras 24 h.
 
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.

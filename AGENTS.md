@@ -5,6 +5,15 @@ Esos invariantes y los nodos de **esta rama** aplican a cualquier modelo.
 El [checklist de independencia](docs/checklist-independencia-alegra.md) indica
 el avance y el trabajo pendiente; seguí las aristas del módulo antes de editar.
 
+Para la reorganización solicitada el 2026-10-05, leé también
+[las instrucciones vigentes del usuario](docs/instrucciones-vigentes-usuario.md)
+y [el checklist de rutas/ciclos](docs/checklist-rutas-ciclos-operativos.md).
+Avanzá por partes; una decisión guardada no acredita su implementación.
+La orden recibida se retira de la lista activa a las 24 h conservando historial.
+El usuario reiteró el 2026-10-05: este flujo es solo local, en la rama de
+migración `independencia-alegra`; no tocar `developer`, `main` ni conectar con
+la base de producción. Usar copias locales para desarrollo y pruebas.
+
 Trabajá únicamente en `sistema-facturas-cr-independencia`, rama
 `independencia-alegra`, para esta migración. La carpeta hermana
 `sistema-facturas-cr` usa la base de producción. No regeneres Prisma ni
