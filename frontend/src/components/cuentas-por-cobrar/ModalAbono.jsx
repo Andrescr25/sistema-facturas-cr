@@ -69,21 +69,21 @@ export default function ModalAbono({
   useEffect(() => {
     let cancelado = false
     setCargandoAbonos(true)
-    onCargarAbonos(factura.facturaId).then((data) => {
+    onCargarAbonos(factura.id).then((data) => {
       if (!cancelado) { setAbonos(data); setCargandoAbonos(false) }
     })
     return () => { cancelado = true }
-  }, [factura.facturaId, onCargarAbonos])
+  }, [factura.id, onCargarAbonos])
 
   useEffect(() => {
     if (!onCargarProductos) { setCargandoProductos(false); return }
     let cancelado = false
     setCargandoProductos(true)
-    onCargarProductos(factura.facturaId).then((data) => {
+    onCargarProductos(factura.id).then((data) => {
       if (!cancelado) { setProductos(data); setCargandoProductos(false) }
     })
     return () => { cancelado = true }
-  }, [factura.facturaId, onCargarProductos])
+  }, [factura.id, onCargarProductos])
 
   const saldarTotal = seleccion === 'total'
   const montoNum = Number(monto)
@@ -97,8 +97,8 @@ export default function ModalAbono({
     // al aplicar el abono, así no falla si otra caja cobró mientras tanto ni
     // deja un resto de céntimos.
     const exito = await onRegistrar({
-      facturaId: factura.facturaId,
-      numeroFactura: factura.numeroFactura,
+      facturaId: factura.id,
+      numero: factura.numero,
       monto: saldarTotal ? factura.saldo : montoNum,
       fecha,
       metodoPagoId,
@@ -116,7 +116,7 @@ export default function ModalAbono({
   return (
     <HojaModal
       titulo={clienteNombre}
-      subtitulo={`Factura #${factura.numeroFactura}`}
+      subtitulo={`Factura #${factura.numero}`}
       onCerrar={onCerrar}
     >
       <ResumenSaldo

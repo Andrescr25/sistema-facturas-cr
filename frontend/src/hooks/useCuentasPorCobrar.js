@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono } from '../services/cuentasPorCobrarService'
-import { filtrarDeudores, resumenDeudores } from '../utils/filtrosCobros'
+import { conVencimiento, filtrarDeudores, resumenDeudores } from '../utils/filtrosCobros'
 import { useToast } from './useToast'
 import { useDialog } from './useDialog'
 
@@ -42,7 +42,9 @@ export function useCuentasPorCobrar(initialFilters = {}) {
         return
       }
 
-      setCartera(result?.data || [])
+      // Lo único que se le agrega a lo que manda el servidor: cuánto le falta
+      // a cada factura para vencer, que depende de hoy.
+      setCartera(conVencimiento(result?.data || []))
     } catch (err) {
       setCartera([])
       setError(err.message || 'Error desconocido')
@@ -103,15 +105,15 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [])
 
-  const handleRegistrarAbono = useCallback(async ({ facturaId, numeroFactura, monto, fecha, metodoPagoId, referencia, saldarTotal = false }) => {
+  const handleRegistrarAbono = useCallback(async ({ facturaId, numero, monto, fecha, metodoPagoId, referencia, saldarTotal = false }) => {
     // Al saldar total el monto lo decide el backend con el saldo que relee
     // en ese momento (con bloqueo), así que la confirmación dice lo que va a
     // pasar en vez de un número que puede quedar viejo. Decía "esto crea un
     // pago real en Alegra": en esta rama el cobro es propio y no toca Alegra.
     const confirmado = await confirm(
       saldarTotal
-        ? `¿Saldar por completo la factura #${numeroFactura}? Se cobrará el saldo pendiente que tenga en este momento (aprox. ₡${Number(monto).toLocaleString('es-CR')}) y quedará en cero.`
-        : `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numeroFactura}?`,
+        ? `¿Saldar por completo la factura #${numero}? Se cobrará el saldo pendiente que tenga en este momento (aprox. ₡${Number(monto).toLocaleString('es-CR')}) y quedará en cero.`
+        : `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numero}?`,
       { title: saldarTotal ? 'Saldar factura completa' : 'Confirmar abono',
         confirmLabel: saldarTotal ? 'Saldar completa' : 'Registrar abono' }
     )

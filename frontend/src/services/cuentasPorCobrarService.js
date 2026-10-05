@@ -1,48 +1,4 @@
 import api from './api'
-import { estadoFactura } from '../utils/filtrosCobros'
-
-/**
- * Traducción de NUESTRA forma a la que todavía habla la pantalla.
- *
- * El backend propio nombra las cosas como son (`id`, `numero`, `saldoTotal`);
- * estos componentes fueron escritos contra el espejo de Alegra
- * (`numeroFactura`, `totalSaldo`). Se traduce ACÁ, pegado al código viejo, y
- * se borra el día que esos componentes hablen nuestro idioma.
- *
- * Lo que NO se hace: meter nuestro id en un campo llamado `alegraInvoiceId`.
- * Eso sería dejar escrita una mentira que alguien terminaría mandando a una
- * ruta de Alegra. Se usa `facturaId`.
- */
-function diasHasta(fecha) {
-  if (!fecha) return null
-  const hoy = new Date()
-  const vence = new Date(`${String(fecha).slice(0, 10)}T12:00:00`)
-  return Math.round((vence - hoy) / 86400000)
-}
-
-function adaptarDeudor(d) {
-  return {
-    clienteId: d.clienteId,
-    clienteNombre: d.nombre,
-    identificacion: d.identificacion,
-    telefono: d.telefono,
-    totalSaldo: d.saldoTotal,
-    facturas: (d.detalle || []).map((f) => {
-      const factura = {
-        facturaId: f.id,
-        numeroFactura: f.numero,
-        fecha: f.fecha,
-        fechaVencimiento: f.fechaVencimiento,
-        total: f.total,
-        saldo: f.saldo,
-        diasRestantes: diasHasta(f.fechaVencimiento)
-      }
-      // La página pinta de rojo al cliente con alguna factura VENCIDA; sin
-      // esto ninguna tarjeta se marcaba nunca.
-      return { ...factura, estado: estadoFactura(factura) }
-    })
-  }
-}
 
 /**
  * La cartera ENTERA. Buscar, filtrar por estado o vencimiento y el resumen
@@ -51,9 +7,12 @@ function adaptarDeudor(d) {
  */
 export async function getCuentasPorCobrar() {
   const response = await api.get('/cuentas-por-cobrar/propios/deudores', { params: { limite: 1000 } })
+  // Tal como la manda el servidor. Acá había un traductor (`adaptarDeudor`)
+  // a los nombres del espejo de Alegra; se retiró el 2026-10-04, cuando la
+  // pantalla pasó a usar los nuestros (`nombre`, `saldoTotal`, `numero`).
   return {
     success: true,
-    data: (response.data?.data ?? []).map(adaptarDeudor),
+    data: response.data?.data ?? [],
     paginacion: response.data?.paginacion ?? null
   }
 }

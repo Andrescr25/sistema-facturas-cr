@@ -75,13 +75,15 @@ export default function CuentasPorCobrar() {
   ] : []
 
   // El servidor ya manda los clientes agrupados; solo se marca cuáles tienen
-  // alguna factura vencida, que es lo que pinta la tarjeta de rojo.
+  // alguna factura vencida, que es lo que pinta la tarjeta de rojo. `facturas`
+  // y `totalSaldo` son las props de la lista compartida con Pagos a
+  // Proveedores (components/pagos), no los nombres del deudor.
   const grupos = clientes.map((c) => ({
     id: c.clienteId,
-    nombre: c.clienteNombre,
-    facturas: c.facturas,
-    totalSaldo: c.totalSaldo,
-    urgente: c.facturas.some((f) => f.estado === 'VENCIDA')
+    nombre: c.nombre,
+    facturas: c.detalle,
+    totalSaldo: c.saldoTotal,
+    urgente: c.detalle.some((f) => f.estado === 'VENCIDA')
   }))
 
   const hayFiltrosActivos =

@@ -23,9 +23,9 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
   // movimiento que entra a Caja General. Al cambiar de cliente se suelta.
   const [elegidas, setElegidas] = useState(new Set())
   const [cobrandoVarias, setCobrandoVarias] = useState(false)
-  useEffect(() => { setElegidas(new Set()) }, [cliente.clienteId, cliente.clienteNombre])
+  useEffect(() => { setElegidas(new Set()) }, [cliente.clienteId, cliente.nombre])
   // Lo elegido que ya no está (se saldó) no se arrastra.
-  const elegidasVigentes = new Set(cliente.facturas.filter((f) => elegidas.has(f.facturaId)).map((f) => f.facturaId))
+  const elegidasVigentes = new Set(cliente.detalle.filter((f) => elegidas.has(f.id)).map((f) => f.id))
   const alternar = (f) => setElegidas((prev) => {
     const nuevo = new Set(prev)
     if (nuevo.has(f.id)) nuevo.delete(f.id); else nuevo.add(f.id)
@@ -43,12 +43,11 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
     setRecordatorio(data.data)
   }
 
-  // La tabla compartida habla de {id, numero, saldo...}; acá se traduce la
-  // factura como la manda el servidor de cobrar. Se guarda el original para
-  // que el modal de abono siga recibiendo lo que espera.
-  const filas = cliente.facturas.map((f) => ({
-    id: f.facturaId,
-    numero: f.numeroFactura,
+  // La tabla compartida pide {id, numero, saldo…}, que es como ya viene la
+  // factura. Se guarda el original para el modal de abono.
+  const filas = cliente.detalle.map((f) => ({
+    id: f.id,
+    numero: f.numero,
     fechaVencimiento: f.fechaVencimiento,
     diasRestantes: f.diasRestantes,
     estado: f.estado,
@@ -58,10 +57,10 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
 
   return (
     <DetalleContraparte
-      nombre={cliente.clienteNombre}
+      nombre={cliente.nombre}
       icono={Users}
-      cantidadFacturas={cliente.facturas.length}
-      totalSaldo={cliente.totalSaldo}
+      cantidadFacturas={cliente.detalle.length}
+      totalSaldo={cliente.saldoTotal}
       textoVolver="Volver a clientes"
       onVolver={onVolver}
       acciones={
@@ -78,13 +77,13 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         </button>
       }
     >
-      {cliente.facturas.length > 1 && (
+      {cliente.detalle.length > 1 && (
         <BarraSeleccion
           cantidad={elegidasVigentes.size}
-          total={cliente.facturas.filter((f) => elegidasVigentes.has(f.facturaId)).reduce((s, f) => s + Number(f.saldo || 0), 0)}
-          totalFacturas={cliente.facturas.length}
+          total={cliente.detalle.filter((f) => elegidasVigentes.has(f.id)).reduce((s, f) => s + Number(f.saldo || 0), 0)}
+          totalFacturas={cliente.detalle.length}
           accion="Cobrar"
-          onElegirTodas={() => setElegidas(new Set(cliente.facturas.map((f) => f.facturaId)))}
+          onElegirTodas={() => setElegidas(new Set(cliente.detalle.map((f) => f.id)))}
           onQuitar={() => setElegidas(new Set())}
           onAccion={() => setCobrandoVarias(true)}
         />
@@ -93,7 +92,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
         facturas={filas}
         onSeleccionar={(f) => setFacturaSeleccionada(f.original)}
         seleccionadas={elegidasVigentes}
-        onAlternar={cliente.facturas.length > 1 ? alternar : undefined}
+        onAlternar={cliente.detalle.length > 1 ? alternar : undefined}
         vacio="Este cliente no tiene facturas con saldo."
         accion={(f) => (
           <button
@@ -127,17 +126,17 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
 
       {facturaAEnviar && (
         <ModalEnviarWhatsApp
-          titulo={`Mandar la factura ${facturaAEnviar.numeroFactura}`}
-          subtitulo={`Va con el PDF adjunto, a ${cliente.clienteNombre}`}
+          titulo={`Mandar la factura ${facturaAEnviar.numero}`}
+          subtitulo={`Va con el PDF adjunto, a ${cliente.nombre}`}
           clienteId={cliente.clienteId}
-          documento={{ tipo: 'factura', referencia: facturaAEnviar.numeroFactura }}
+          documento={{ tipo: 'factura', referencia: facturaAEnviar.numero }}
           mensajeInicial={mensajeFactura({
-            numero: facturaAEnviar.numeroFactura,
-            cliente: cliente.clienteNombre
+            numero: facturaAEnviar.numero,
+            cliente: cliente.nombre
           })}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(
-              `/facturacion/facturas/${facturaAEnviar.facturaId}/whatsapp`, { telefono, mensaje })
+              `/facturacion/facturas/${facturaAEnviar.id}/whatsapp`, { telefono, mensaje })
             return data.data
           }}
           onCerrar={() => setFacturaAEnviar(null)}
@@ -147,10 +146,10 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
       {cobrandoVarias && elegidasVigentes.size > 0 && (
         <ModalPagoVarias
           sentido="entrada"
-          titulo={cliente.clienteNombre}
-          facturas={cliente.facturas
-            .filter((f) => elegidasVigentes.has(f.facturaId))
-            .map((f) => ({ id: f.facturaId, numero: f.numeroFactura, saldo: Number(f.saldo) }))}
+          titulo={cliente.nombre}
+          facturas={cliente.detalle
+            .filter((f) => elegidasVigentes.has(f.id))
+            .map((f) => ({ id: f.id, numero: f.numero, saldo: Number(f.saldo) }))}
           procesando={registrandoAbono}
           onRegistrar={async (datos) => {
             const ok = await onRegistrarCobroVarias(datos)
@@ -164,7 +163,7 @@ export default function ClienteDetalle({ cliente, onVolver, onCargarAbonos, onCa
       {facturaSeleccionada && (
         <ModalAbono
           factura={facturaSeleccionada}
-          clienteNombre={cliente.clienteNombre}
+          clienteNombre={cliente.nombre}
           procesando={registrandoAbono}
           onCargarAbonos={onCargarAbonos}
           onCargarProductos={onCargarProductos}
