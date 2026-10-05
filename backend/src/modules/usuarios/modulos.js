@@ -95,7 +95,18 @@ const MODULOS = [
     nombre: 'Gestionar Relaciones',
     grupo: 'Compras',
     ruta: '/gestionar-relaciones',
-    rutasApi: []   // trabaja sobre /productos y /facturas, compartidas
+    rutasApi: [],
+    // No tiene prefijo propio: su pantalla trabaja con las relaciones
+    // proveedor ↔ producto, que son de Revisión de Precios
+    // ('/productos-revision'), y lee la lista de proveedores para el filtro.
+    // Quien tenía SOLO este módulo recibía 403 en cada llamada: veía la
+    // pantalla en el menú y no cargaba nada. Decisión del usuario
+    // (2026-10-04): usa esas rutas. Ver `modulosQuePuedenUsar`.
+    tambienUsa: [
+      { prefijo: '/productos-revision' },
+      // Solo la lista, y solo leerla: no el resto de lo que cuelga de ahí.
+      { prefijo: '/proveedores', exacta: true, metodos: ['GET'] }
+    ]
   },
   {
     clave: 'reporte-proveedores',
@@ -168,7 +179,14 @@ const MODULOS = [
     nombre: 'Configuración',
     grupo: 'Herramientas',
     ruta: '/configuracion',
-    rutasApi: ['/admin', '/duplicados-electronica']
+    // "Limpiar faltantes procesados" es un botón de esta pantalla y de ninguna
+    // otra. Su ruta cuelga de '/reportes' (y de '/alegra/reportes'), que son
+    // compartidas: cualquiera con sesión podía borrar los faltantes ya
+    // procesados. Decisión del usuario (2026-10-04): es de Configuración.
+    rutasApi: [
+      '/admin', '/duplicados-electronica',
+      '/reportes/faltantes/proveedor/limpiar', '/alegra/reportes/faltantes/proveedor/limpiar'
+    ]
   }
 ];
 
@@ -278,7 +296,33 @@ function esRutaAdmin(rutaCruda) {
   return RUTAS_ADMIN.some(p => ruta === p || ruta.startsWith(`${p}/`));
 }
 
+/**
+ * Los módulos con los que se puede usar una ruta: su dueño y los que la
+ * tienen prestada (`tambienUsa`). Vacío si la ruta no es de ningún módulo.
+ *
+ * UNA RUTA TIENE UN SOLO DUEÑO, y así sigue: el dueño es quien responde por
+ * ella y el que nombra el mensaje de "no tiene acceso". Prestar es para la
+ * pantalla que trabaja con los datos de otro módulo sin tener API propia. Lo
+ * prestado se dice ruta por ruta, con `exacta` y `metodos` cuando no hace
+ * falta todo el prefijo: prestar de más es abrir de más.
+ */
+function modulosQuePuedenUsar(rutaCruda, metodo = 'GET') {
+  const dueno = moduloDeRuta(rutaCruda);
+  if (!dueno) return [];
+
+  const ruta = normalizarRuta(rutaCruda);
+  const verbo = String(metodo || 'GET').toUpperCase();
+  const prestada = MODULOS
+    .filter(m => (m.tambienUsa || []).some(p =>
+      (p.exacta ? ruta === p.prefijo : (ruta === p.prefijo || ruta.startsWith(`${p.prefijo}/`))) &&
+      (!p.metodos || p.metodos.includes(verbo))))
+    .map(m => m.clave);
+
+  return [dueno, ...prestada.filter(c => c !== dueno)];
+}
+
 module.exports = {
   MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN,
-  porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin, normalizarRuta
+  porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin, normalizarRuta,
+  modulosQuePuedenUsar
 };
