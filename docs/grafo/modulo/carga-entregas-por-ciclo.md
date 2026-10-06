@@ -19,7 +19,7 @@ archivos:
   - docs/informes/carga-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/facturas-bodega]
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
+  relacionado: [modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
 medido: 2026-10-06
 ---
 
@@ -77,3 +77,10 @@ grafo12/build/Chromium1440/390. READ ONLY/REPEATABLE READ reales comprobados;
 producción/main/developer fuera. Base/puertos propios retirados, evidencia
 conservada. Operativo79/20; independencia133/14 aparte. Siguiente051 para
 registro físico y revisión/corrección explícita; no cerrar ENT-06 aún.
+
+REGISTRO FÍSICO051. La consulta anterior ya muestra avance por factura.
+Registro de carga/entrega/descarga/incidencia y corrección explícita viven en
+[[modulo/registro-carga-entrega]], con historial/snapshot y revisión obligatoria
+si cambia el documento. Completa sale de carga sugerida, sigue consultable
+en recorrido. La revisión de bodega sigue siendo distinta de entrega real.
+Ver informe de registro para la evidencia y el estado local vigente.

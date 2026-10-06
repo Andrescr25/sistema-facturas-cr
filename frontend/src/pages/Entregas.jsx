@@ -4,6 +4,7 @@ import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
 import ContextoCicloDocumento from '../components/ContextoCicloDocumento'
 import { textoCiclo } from '../components/SelectorCiclo'
 import ParadaDetalle from '../components/entregas/ParadaDetalle'
+import {ESTADO_FISICO} from '../components/entregas/RegistroFisico'
 import { useEntregas } from '../hooks/useEntregas'
 
 export default function Entregas() {
@@ -22,7 +23,7 @@ export default function Entregas() {
       <button type="button" className="btn btn-outline min-h-11" onClick={b.volver}>Volver al recorrido</button>
       {b.errorDetalle&&<p role="alert" className="rounded-xl bg-peligro-50 p-4 text-peligro-800">{b.errorDetalle}</p>}
       {b.cargandoDetalle&&<p role="status">Consultando documentos de la parada…</p>}
-      {b.detalle&&<ParadaDetalle parada={b.detalle}/>}
+      {b.detalle&&<ParadaDetalle parada={b.detalle} onActualizar={b.actualizarPlan}/>}
     </>:plan&&<>
       <div className="grid gap-3 sm:grid-cols-3" aria-label="Resumen de la semana">
         <div className="card p-4"><p className="text-sm text-neutro-600">Paradas con pedidos</p><p className="text-3xl font-bold">{plan.resumen.paradas}</p></div>
@@ -42,6 +43,7 @@ export default function Entregas() {
           <h3 className="break-words text-xl font-bold">{p.ciclo?`Parada ${p.ciclo.orden} · `:''}{p.clienteNombre}</h3>
           <ContextoCicloDocumento documento={p} maps/>
           <p className="text-sm">{p.documentos.filter(d=>d.tipo==='factura').length} facturas · {p.documentos.filter(d=>d.tipo==='pedido').length} pedidos por facturar</p>
+          {p.documentos.filter(d=>d.avance).map(d=><p key={d.id} className="break-words text-sm font-semibold">Factura {d.numero} · {ESTADO_FISICO[d.avance.estado]}</p>)}
           {p.documentos.some(d=>d.anticipado)&&<p className="font-semibold text-nota-700">Incluye preventa anticipada</p>}
           <button type="button" onClick={()=>b.abrir(p)} className="btn btn-outline min-h-11">Ver pedidos de {p.clienteNombre}</button>
         </article>)}
@@ -59,6 +61,7 @@ export default function Entregas() {
           <h3 className="break-words text-xl font-bold">Carga {p.ordenCarga} · {p.clienteNombre}</h3>
           <ContextoCicloDocumento documento={p} maps/>
           <p className="break-words text-sm">{p.facturas.map(f=>`Factura ${f.numero}`).join(' · ')}</p>
+          {p.facturas.map(f=><p key={f.id} className="text-sm font-semibold">{ESTADO_FISICO[f.avance?.estado]||'Por cargar'} · En camión: {Number(f.avance?.enCamion||0).toLocaleString('es-CR')}</p>)}
           {p.facturas.some(f=>f.faltantes>0)&&<p className="text-alerta-800">Incluye faltantes registrados; revisá qué paquetes están preparados.</p>}
           <button type="button" onClick={()=>b.abrir(p)} className="btn btn-outline min-h-11">Ver pedidos de {p.clienteNombre}</button>
         </article>)}

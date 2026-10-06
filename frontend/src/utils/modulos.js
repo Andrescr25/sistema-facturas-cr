@@ -74,7 +74,7 @@ export const RUTAS_ADMIN = ['/usuarios']
  * Esto solo decide si se DIBUJA el botón. Quien protege es el servidor, que
  * responde 403 aunque alguien llame la ruta a mano.
  */
-export const ACCIONES_SOLO_ADMIN = ['anular-factura', 'anular-cobro', 'reabrir-caja']
+export const ACCIONES_SOLO_ADMIN = ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega']
 
 export function puedeAccion(usuario, clave) {
   if (!usuario) return false

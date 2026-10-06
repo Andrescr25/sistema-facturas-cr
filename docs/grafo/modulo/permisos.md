@@ -22,7 +22,7 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
 aristas:
-  relacionado: [modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+  relacionado: [modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-06
 ---
 
@@ -188,3 +188,10 @@ son históricos. Limpieza global ya retirada por código en 050, ver
 Carga y Entregas: clave entregas espejo frontend/backend, /entregas dueño
 exclusivo. Maps/detalle/ciclos protegidos; no prestar rutas de Clientes ni
 cuentas. Usuario existente conserva módulos, admin asigna explícitamente.
+
+2026-10-06, registro físico051: acción admin corregir-entrega para
+POST /entregas/facturas/:id/revision; normalizar como Express. Espejo frontend
+y doble comprobación servicio/SQL. /eventos rechaza revision, aún para admin.
+Carga/entrega/descarga/incidencia ordinarias exigen Entregas, no Clientes;
+GET registro protege la misma lista blanca sin finanzas. No ampliar permisos
+a usuarios existentes. Ver [[modulo/registro-carga-entrega]].

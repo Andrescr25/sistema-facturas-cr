@@ -7,6 +7,7 @@ export function useEntregas() {
   const filtro=useFiltroCicloOperacion('/entregas/ciclos')
   const ambito=`${filtro.rutaId}|${filtro.cicloId}`
   const [pagina,setPagina]=useState(1),[clave,setClave]=useState(null),[revision,setRevision]=useState(0)
+  const [revisionPlan,setRevisionPlan]=useState(0)
   const [plan,setPlan]=useState(null),[detalle,setDetalle]=useState(null)
   const [error,setError]=useState(''),[errorDetalle,setErrorDetalle]=useState('')
   const [cargando,setCargando]=useState(false),[cargandoDetalle,setCargandoDetalle]=useState(false)
@@ -21,7 +22,7 @@ export function useEntregas() {
       .catch(e=>{if(vivo)setError(e.response?.data?.message||'No se pudo consultar la ruta.')})
       .finally(()=>{if(vivo)setCargando(false)})
     return()=>{vivo=false}
-  },[filtro.params,pagina,revision,vigente])
+  },[filtro.params,pagina,revision,revisionPlan,vigente])
   useEffect(()=>{
     let vivo=true;setDetalle(null);setErrorDetalle('');setCargandoDetalle(false)
     if(!clave||!vigente)return()=>{vivo=false}
@@ -34,5 +35,5 @@ export function useEntregas() {
   return{filtro,plan:vigente?plan:null,detalle:vigente?detalle:null,error,errorDetalle,cargando,cargandoDetalle,
     seleccion:vigente?clave:null,pagina,cambiarPagina:setPagina,
     abrir:(p)=>{setClave(p.clave);if(p.pagina)setPagina(p.pagina)},volver:()=>setClave(null),
-    actualizar:()=>setRevision(r=>r+1)}
+    actualizar:()=>setRevision(r=>r+1),actualizarPlan:()=>setRevisionPlan(r=>r+1)}
 }

@@ -39,7 +39,7 @@ async function recorridoEn(db,filtros) {
     SELECT 'factura' tipo,f.id,f.numero,f.cliente_id,
       COALESCE(rc.cliente_nombre,f.cliente_nombre) cliente_nombre,rc.id parada_id,
       f.estado_bodega,f.preventa_anticipada,${COLUMNAS_CICLO},rc.ubicacion_maps,
-      p.id pedido_id,p.origen,
+      p.id pedido_id,p.origen,entrega_resumen(f.id) avance,
       (SELECT COUNT(*)::int FROM faltantes x WHERE x.factura_propia_id=f.id
         AND x.tipo_faltante<>'completo' AND x.cantidad_faltante>0 AND x.estado IN ('pendiente','procesado')) faltantes
     FROM factura f ${JOIN_CICLO('f')}
@@ -51,7 +51,7 @@ async function recorridoEn(db,filtros) {
     SELECT 'pedido' tipo,p.id,NULL numero,p.cliente_id,
       COALESCE(rc.cliente_nombre,p.cliente_nombre) cliente_nombre,rc.id parada_id,
       NULL estado_bodega,p.preventa_anticipada,${COLUMNAS_CICLO},rc.ubicacion_maps,
-      p.id pedido_id,p.origen,0 faltantes
+      p.id pedido_id,p.origen,NULL avance,0 faltantes
     FROM pedido_cliente p ${JOIN_CICLO('p')}
     WHERE p.estado='pendiente' AND p.factura_id IS NULL AND ${filtro}
   `,params);
@@ -64,7 +64,7 @@ async function recorridoEn(db,filtros) {
     // Lista blanca para el chofer: no precios, costos, saldos o cuentas.
     grupos.get(clave).documentos.push({tipo:f.tipo,id:f.id,numero:f.numero,pedidoId:f.pedido_id,
       origen:f.origen,anticipado:contexto.anticipado,estadoBodega:f.estado_bodega,
-      revisionBodega:f.tipo==='factura'&&f.estado_bodega==='procesado',faltantes:f.faltantes});
+      revisionBodega:f.tipo==='factura'&&f.estado_bodega==='procesado',faltantes:f.faltantes,avance:f.avance});
   }
   const paradas=[...grupos.values()].sort((a,b)=>(a.ciclo?.orden??Infinity)-(b.ciclo?.orden??Infinity)
     ||a.clienteNombre.localeCompare(b.clienteNombre,'es')||a.clave.localeCompare(b.clave));
@@ -76,7 +76,7 @@ function aPlan({ciclo,paradas},{pagina,tamano}) {
   // La sugerencia considera TODA la ruta, no solo la página visible. Una
   // revisión de bodega no confirma carga/entrega ni disponibilidad completa.
   const carga=ciclo?[...paradas].reverse().flatMap(p=>{
-    const facturas=p.documentos.filter(d=>d.revisionBodega);
+    const facturas=p.documentos.filter(d=>d.revisionBodega&&d.avance?.estado!=='entregada');
     if(!facturas.length)return[];
     const indice=paradas.findIndex(x=>x.clave===p.clave);
     return[{clave:p.clave,clienteNombre:p.clienteNombre,ciclo:p.ciclo,ubicacion_maps:p.ubicacion_maps,

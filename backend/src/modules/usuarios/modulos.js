@@ -263,7 +263,8 @@ const RUTAS_ADMIN = ['/usuarios'];
 const ACCIONES_ADMIN = [
   { clave: 'anular-factura', metodo: 'PATCH', patron: /^\/facturacion\/facturas\/[^/]+\/anular$/, que: 'anular una factura' },
   { clave: 'anular-cobro', metodo: 'PATCH', patron: /^\/cuentas-por-cobrar\/propios\/abonos\/[^/]+\/anular$/, que: 'anular un cobro' },
-  { clave: 'reabrir-caja', metodo: 'POST', patron: /^\/cuentas-por-cobrar\/propios\/caja\/reabrir$/, que: 'reabrir una caja cerrada' }
+  { clave: 'reabrir-caja', metodo: 'POST', patron: /^\/cuentas-por-cobrar\/propios\/caja\/reabrir$/, que: 'reabrir una caja cerrada' },
+  { clave: 'corregir-entrega', metodo: 'POST', patron: /^\/entregas\/facturas\/[^/]+\/revision$/, que: 'corregir un registro físico de carga o entrega' }
 ];
 
 /**

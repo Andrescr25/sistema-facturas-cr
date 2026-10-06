@@ -171,7 +171,7 @@ pedidos, bodega/reportes, órdenes con PDF/envío inmutable, vínculo/PDF privad
 y comparación solicitada/facturada ya implementados. Recepción física 049:
 parcial/final, cantidades propias, motivos confirmados, auditoría y kardex
 idempotente, sin confundir aceptación financiera con entrega. Operativo
-**79/20** (99 IDs): recepción (049) y
+**82/17** (99 IDs): recepción (049) y
 [archivo individual](informes/archivo-ordenes-2026-10-06.md) (050) comprobados.
 Compras nuevas registradas después del vínculo esperan entrega física para
 stock; compras anteriores mantienen su tratamiento comercial sin nueva entrada.
@@ -179,7 +179,10 @@ Históricos sin kardex propio no se importan como stock por recibirlos.
 Retiro semanal y archivo 24 h comprobados: Historial conserva documentos/
 cobertura; parciales activas. Consulta de carga/entregas, recorrido fijo/Maps
 y carga inversa comprobados: [informe](informes/carga-entregas-2026-10-06.md).
-Siguiente: registro de carga/entrega con actor/fecha/reintentos y pendientes
-de vista stock/comprometido y cierre de enviada. Mantener lanzador seguro para salidas
+Registro físico051 comprobado: carga/entrega parcial/completa, descarga,
+incidencias, actor/hora y reintentos sin duplicar. Revisión admin con motivo
+conserva fotos/productos tras reimpresión; la próxima semana no se altera.
+[Informe de registro](informes/registro-entregas-2026-10-06.md). Siguiente:
+vista stock/requerido/comprometido y cierre de enviada. Mantener lanzador seguro para salidas
 de otros módulos; nunca ejecutar código de limpieza antigua. Factura con varias órdenes aún necesita
 asignación explícita por línea/cantidad, sin contarla completa dos veces.

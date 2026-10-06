@@ -6,7 +6,7 @@ bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
 cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
 comparación y recepción física parcial/final implementadas; archivo individual
 24 h y retiro semanal comprobados; consulta de recorrido/carga/Maps
-implementada, registro físico de carga/entrega pendiente.
+y registro físico de carga/entrega implementados.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -19,9 +19,10 @@ implementada, registro físico de carga/entrega pendiente.
 [factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md) y
 [recepción física](informes/recepcion-ordenes-2026-10-06.md) y
 [archivo individual](informes/archivo-ordenes-2026-10-06.md) y
-[recorrido y carga](informes/carga-entregas-2026-10-06.md).
-Estado vigente: **79 listos / 20 pendientes (99 IDs)**. Las cifras en las
-entregas anteriores son históricas; este estado no cierra carga/entregas.
+[recorrido y carga](informes/carga-entregas-2026-10-06.md) y
+[registro físico](informes/registro-entregas-2026-10-06.md).
+Estado vigente: **82 listos / 17 pendientes (99 IDs)**. Las cifras en las
+entregas anteriores son históricas; este estado incluye el registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -96,7 +97,7 @@ en la ficha son los recientes (10), con origen propio distinguido.
 - [x] PRE-06 — Pedido adicional del agente conserva el ciclo de la visita,
   sin confundirlo con el pedido en línea anterior.
 - [x] PRE-07 — Facturar un pedido conserva su ciclo y sus vínculos.
-- [ ] PRE-08 — Preparar y llevar pedidos anticipados para entregarlos al
+- [x] PRE-08 — Preparar y llevar pedidos anticipados para entregarlos al
   realizar la visita de la semana siguiente.
 - [x] PRE-09 — Conservar idempotencia y pedidos offline existentes al añadir
   contexto; no duplicar ni borrar colas pendientes.
@@ -170,7 +171,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-04 — Reporte Clientes: filtrar ruta/ciclo y mostrar orden de entrega.
 - [x] FIL-05 — Reporte Proveedores: filtrar ruta/ciclo y ver desglose de origen.
 - [x] FIL-06 — Preparación de pedidos: filtrar ruta/ciclo.
-- [ ] FIL-07 — Entregas: filtrar ruta/ciclo y conservar su avance propio.
+- [x] FIL-07 — Entregas: filtrar ruta/ciclo y conservar su avance propio.
 - [x] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
 - [ ] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
@@ -310,7 +311,7 @@ y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producc
 - [x] ENT-03 — Sugerir orden de carga que deje el primer pedido más accesible.
 - [x] ENT-04 — Mostrar ese contexto en Reporte Clientes y entregas.
 - [x] ENT-05 — Agente/chofer puede abrir Maps y consultar la parada desde celular.
-- [ ] ENT-06 — Registrar avance de preparación/carga/entrega sin cerrar ni
+- [x] ENT-06 — Registrar avance de preparación/carga/entrega sin cerrar ni
   alterar el trabajo del siguiente ciclo.
 
 **Consulta de carga/entregas `393ee66`, 2026-10-06:** ENT-01/03/04/05 comprobados.
@@ -327,6 +328,25 @@ Sin migración nueva ni escritura de negocio; aplicación local/relevo en inform
 79/20, 99 IDs. **ENT-06, PRE-08 y FIL-07** siguen pendientes por registro físico
 con actor/fecha/reintentos y conservación tras revisión de documentos; tener
 una consulta no equivale a confirmar carga/entrega real. Próxima SQL051.
+
+
+**Registro físico051, 2026-10-06:** ENT-06/PRE-08/FIL-07 comprobados.
+Carga nueva, entrega parcial/completa, descarga e incidencia por factura y
+recorrido fijo, cantidades propias, actor/hora del servidor e historia
+inmutable. Reintentar mismo UUID/cuerpo no duplica; dos operadores con igual
+versión confirman solo uno. Cambios de factura/bodega/reimpresión requieren
+revisión admin explícita con motivo y cantidades actuales verificadas; fotos
+y productos anteriores conservados. Factura anulada/ciclo cerrado conservan
+descarga del físico anterior. Preventa anticipada puede cargarse antes;
+entrega exige promoción controlada de SU semana a Entrega. Próxima intacta.
+No nueva venta/cobro/compra ni segundo movimiento de stock por marcar entrega.
+23 casos nuevos, **2.148 pruebas/362 suites**, sin fallos/omitidas; grafo12,
+build y Chromium1440/390. Respuesta perdida tras commit, reintento, parcial/
+completa/incidencia/descarga/recarga, anticipado facturado una vez, dos semanas,
+reimpresión y admin comprobados;20huellas comerciales iguales durante eventos.
+READ ONLY/REPEATABLE READ y concurrencia PostgreSQL real. **82/17 (99 IDs)**;
+validaciones integrales VAL-01/04–07 quedan para los pendientes de compras/
+stock/propagación. Aplicación local y relevo en informe de registro físico.
 
 ## 9. Fin de limpieza semanal y archivo
 

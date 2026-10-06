@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Registro físico de carga/entrega — parcial, descarga, incidencias y revisión](modulo/registro-carga-entrega.md)
+
 - [Carga y Entregas — recorrido fijo, carga inversa y Maps por semana](modulo/carga-entregas-por-ciclo.md)
 
 - [Recepción física — parcial/final, motivos e inventario por entrega](modulo/recepcion-ordenes-compra.md)
