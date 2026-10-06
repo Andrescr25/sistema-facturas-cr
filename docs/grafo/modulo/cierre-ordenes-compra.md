@@ -62,3 +62,11 @@ EVIDENCIA. 2191pruebas/362suites fail0/skip0,138focalizadas y22nuevas,
 grafo12/build/Chromium1440/390. Reintento de respuesta perdida un cierre,
 18huellas físicas/comerciales iguales. Informe de cierre-ordenes-2026-10-06
 registra aplicación local y relevo; todo ensayo escrito en clon propio.
+
+LOCAL. Códigoef464c3/052 integrado solo independencia-alegra con backup0600,
+36+7huellas iguales, cierres/órdenes/stock0 y compartida solo GET/SQL READ ONLY.
+App5174→3002/PID30872 con lanzador permanente seguro; original3000/PID5370
+y main/developer intactos. Base/puertos/copia/rama propios retirados al cierre,
+reserva liberada y memoria15decisiones literales conservadas. Próximo: final
+propagación de filtros/exportaciones/históricos, Maps locales y validación
+integral; operativo87/12, independencia133/14 separado.053 libre.

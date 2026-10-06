@@ -280,7 +280,7 @@ por cantidad recibida; OC-03 sigue parcial por recepción/cierre de enviada.
 047 local con respaldo y 22 huellas idénticas; cero órdenes/copias/stock nuevo.
 Validación y relevo en el informe de esta parte. No mensajes reales.
 
-**Cierre enviado /052, 2026-10-06:** FAL-08/OC-03 comprobados. Cierre
+**Cierre enviado `ef464c3` /052, 2026-10-06:** FAL-08/OC-03 comprobados. Cierre
 con revisión/confirmación/motivo, recibido conservado y pendiente liberado
 por sus mismos orígenes; conserva pedido/PDF/envío/recepciones y stock/CxP.
 UUID/cuerpo y concurrencia con recepción sin doble evento. Historial

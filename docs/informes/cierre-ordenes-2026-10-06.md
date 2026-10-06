@@ -1,9 +1,9 @@
 # Cierre de órdenes enviadas — 2026-10-06
 
-Implementado y verificado en copia propia desde9afebe3, sin commits de Claude
+Implementado, verificado e integrado solo local, código **ef464c3**, desde9afebe3, sin commits de Claude
 ni otra reserva al iniciar. Rama tmp/codex-cierre-ordenes-20261006 y base
 propia tachi_codex_cierre_ordenes_20261006, clon del dump LOCAL051.
-Integración solo local; aplicación/respaldo y relevo se registran al cierre.
+SQL052 aplicada solo a tachi LOCAL5434 con respaldo; aplicación/relevo abajo.
 
 ## Resultado
 
@@ -76,3 +76,36 @@ Propagación final de contexto ruta/semana a pantallas/exportaciones/históricos
 conservar documentos al mover clientes, validar filtros y fuente local de Maps.
 Luego prueba integral. Aceptación REAL de Hacienda/corte y datos manuales
 siguen en checklist de independencia; no son parte cumplida por este cierre.
+
+## Cierre local y relevo
+
+Código **ef464c3** integrado con rebase/avance sin fusión a independencia-alegra,
+sin push. SQL052 en tachi LOCAL localhost5434 tras backup nuevo protegido
+antes-052-local.dump0600. Únicamente esquema/vistas/protecciones; tabla de
+cierres0, órdenes/recepciones/eventos0 y stock/conteos/movimientos0.
+
+**36 huellas operativas +7 completas adicionales idénticas** al punto de
+partida, incluidas rutas/ciclos/cliente asignado del usuario, pedidos/facturas,
+stock/precios, compras/CxP/buzón, pagos/caja/bitácora y permisos. Ningún dato
+ZZ ni orden de prueba en la compartida, demo no recreada. Fuente habitual
+comprobada sólo GET/SQL READ ONLY: health/API/frontend200, rutas nuevas sin
+sesión401, cierre inexistente404. Nunca consultar reporte legado sin filtros
+para verificar: puede asignar proveedores.
+
+App5174→3002, backend **PID30872**, Vite98892; lanzador permanente seguro
+/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs.
+No server.js directo: mantener guardas de IMAP/ping/Hacienda/salidas.
+Original3000/PID5370 y developer5013270/main e19c3e5 intactos; sin producción,
+Prisma/generate/install, Hacienda/IMAP real, mensajes reales ni limpieza.
+Catálogo4/hoja, Descargas/fiscal/ensayos anteriores conservados.
+
+Base tachi_codex_cierre_ordenes_20261006 y procesos propios3003/5175 retirados
+al cerrar; copia/rama temporal se retiran tras montar documentación. Reserva
+liberada en memoria. Evidencia/dumps/capturas privados quedan en
+/private/tmp/codex-cierre-ordenes-20261006. Guiones dependientes del worktree
+retirado son evidencia, no lanzadores reutilizables.15decisiones originales
+conservadas literalmente; memoria/grafo/checklist/informe actualizados.
+
+Quedan12IDs: RUT-03/08, CLI-10, FIL-09/10/11, VAL-01/04/05/06/07/08.
+Revisiones manuales del usuario CLI-10/VAL-08; validación integral no cerrada
+por pruebas de esta parte. Siguiente SQL053 si otro cambio requiere esquema.
