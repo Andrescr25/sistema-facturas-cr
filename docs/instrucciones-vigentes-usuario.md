@@ -87,6 +87,17 @@ semanas, permitiendo adelantar trabajo de la siguiente ruta.
    de catálogos personalizados a los clientes de la próxima. Permitir sus
    pedidos en línea para preparar y llevarlos al visitarlos la semana siguiente.
    El agente puede tomar pedidos adicionales en esa visita.
+   **Adición expresa del usuario:** enviar también un PDF del catálogo junto
+   al enlace, para clientes que prefieren revisarlo y pedir por WhatsApp.
+   **El PDF debe contener las fotos de los productos.** El usuario pidió
+   además un ejemplo con datos reales en Descargas de su computadora.
+   Después de revisarlo pidió quitar del PDF el bloque «Para pedir por
+   WhatsApp, respondé al mensaje…». Mantener esas indicaciones en el mensaje
+   de envío y dejar el PDF sin ese bloque.
+   Preparar/descargar el PDF por cliente/ciclo, adjuntarlo en el envío y
+   permitir ese flujo sin obligar a crear cuenta en el portal. La invitación
+   sigue disponible para quien elija pedir en línea; no interpretar una
+   respuesta por WhatsApp como pedido registrado automáticamente.
 5. **Clientes reorganizados:** separar información general, contacto, ruta,
    orden de visita, ubicación, historial de pedidos, facturas pendientes,
    pedidos en línea, notas y estado. Incluir una vista de Rutas para ordenar

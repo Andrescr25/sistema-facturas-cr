@@ -21,6 +21,8 @@ const rutasPersonal = express.Router();
 
 rutasPersonal.get('/clientes', controller.listarClientes);
 rutasPersonal.get('/clientes/:clienteId/preventa', controller.prepararPreventa);
+rutasPersonal.post('/clientes/:clienteId/preventa/pdf', controller.prepararPdfPreventa);
+rutasPersonal.get('/clientes/:clienteId/preventa/pdf/:pdfId', controller.descargarPdfPreventa);
 rutasPersonal.post('/clientes/:clienteId/preventa/invitacion', controller.invitarPreventa);
 rutasPersonal.post('/clientes/:clienteId/preventa/whatsapp', controller.enviarPreventa);
 rutasPersonal.post('/clientes/:clienteId/invitacion', controller.generarInvitacion);

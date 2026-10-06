@@ -1,10 +1,11 @@
 # Checklist: clientes, rutas y ciclos operativos
 
 Solicitud y aclaración del usuario: **2026-10-05**.
-Estado: rutas/ciclos, ficha, pedidos/facturas y enlaces de preventa implementados; bodega, compras y entregas pendientes.
+Estado: rutas/ciclos, ficha, pedidos/facturas, enlaces y PDF con fotos implementados; bodega, compras y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
-[tercera parte](informes/preventa-enlaces-2026-10-05.md).
+[tercera parte](informes/preventa-enlaces-2026-10-05.md) y
+[ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -85,6 +86,15 @@ en la ficha son los recientes (10), con origen propio distinguido.
   contexto; no duplicar ni borrar colas pendientes.
 - [x] PRE-10 — Catálogo/enlace no da acceso a pedidos o saldos de otro cliente.
 
+- [x] PRE-11 — Generar/descargar PDF personalizado por cliente y ciclo, con
+  códigos, precios con IVA y referencia para pedir por WhatsApp.
+- [x] PRE-12 — Adjuntar el PDF revisado junto al enlace en el envío explícito;
+  conservar destinatario/ciclo y registro de éxito o fallo, sin mensajes reales.
+- [x] PRE-13 — Cliente sin cuenta puede recibir el PDF y responder por
+  WhatsApp; invitación opcional para el portal, sin alta automática de pedidos.
+- [x] PRE-14 — Incluir fotos reales del producto, conservar originales y
+  avisar cuáles no tienen foto disponible. Guardar un ejemplo real en Descargas.
+
 Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045,
 commit `d87ee54`, 1.962 pruebas aprobadas y aplicación local verificada.
 Portal selecciona su semana; el agente toma pedidos en Facturación (catálogo
@@ -97,6 +107,14 @@ la portada usa solo la cuenta autenticada y el pedido conserva la semana.
 fallo, sin mensajes reales. No requiere migración nueva. Evidencia en el
 tercer informe. RUT-08/FIL-11 quedan abiertos por la propagación a
 faltantes/compras/reportes; PRE-08 aún requiere preparación/carga/entrega.
+
+Ampliación PDF: PRE-11/12/13/14 comprobados. PDF personal con fotos y precios
+con IVA, descarga privada y copia revisada adjunta al enlace; WhatsApp sin
+cuenta, invitación opcional, sin pedido automático. 1.991 pruebas, grafo 12,
+build y Chromium 1440/390 aprobados. Ejemplo real en Descargas (60 productos,
+60 fotos); completo verificado con 1.859 productos/1.827 fotos. Aviso de fotos
+faltantes. Checklist **34 listos / 61 pendientes** (95 IDs).
+Ver informe nuevo para aislamiento, evidencia y límites del envío real.
 
 ## 4. Contexto y filtros en toda la operación
 

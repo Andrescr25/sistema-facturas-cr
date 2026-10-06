@@ -69,23 +69,25 @@ async function invitar(clienteId, { cicloId }, usuarioId) {
     return require('./portal-clientes.service').generarInvitacion(id, usuarioId, db);
   });
 }
-async function enviar(clienteId, { cicloId, token, invitacionToken, telefono, mensaje }, usuarioId) {
+async function enviar(clienteId, { cicloId, token, invitacionToken, pdfId, telefono, mensaje }, usuarioId) {
   const datos = leerToken(token);
   if (datos.clienteId !== idValido(clienteId) || datos.cicloId !== idValido(cicloId)) {
     throw httpError(400, 'El enlace debe pertenecer a ese cliente y semana.');
   }
-  const enlace = await preparar(clienteId, cicloId);
-  if (enlace.requiereInvitacion) {
+  await preparar(clienteId, cicloId);
+  if (invitacionToken) {
     const { rows } = await query(`SELECT id FROM cliente_invitacion WHERE cliente_id=$1
       AND token_hash=$2 AND usado_en IS NULL AND expira_en>CURRENT_TIMESTAMP`, [datos.clienteId, hashToken(invitacionToken || '')]);
-    if (!rows.length) throw httpError(409, 'Prepará una invitación vigente para que el cliente pueda entrar.');
+    if (!rows.length) throw httpError(409, 'La invitación ya no está vigente. Prepará otra o enviá PDF y catálogo sin invitación.');
   }
   if (typeof mensaje !== 'string' || !mensaje.includes(`preventa=${token}`)
-      || (enlace.requiereInvitacion && !mensaje.includes(`/portal/activar/${invitacionToken}`))) {
+      || (invitacionToken && !mensaje.includes(`/portal/activar/${invitacionToken}`))) {
     throw httpError(400, 'Conservá el enlace del catálogo en el mensaje.');
   }
-  // Registro por cliente y ciclo, sin guardar el enlace o la invitación.
+  const { documento, pdf } = await require('./preventaPdf.service').leer(clienteId, cicloId, pdfId);
+  // Una respuesta por WhatsApp no consume carrito ni crea pedido: el personal
+  // registra lo confirmado con su cliente/ciclo. El PDF siempre va adjunto.
   return enviarYRegistrar({ tipo: 'preventa', referencia: `${datos.cicloId}:${datos.clienteId}`,
-    clienteId: datos.clienteId, telefono, mensaje, usuarioId });
+    clienteId: datos.clienteId, telefono, mensaje, usuarioId, pdf, nombreArchivo: documento.nombreArchivo });
 }
 module.exports = { preparar, resolver, validarEn, invitar, enviar, crearToken, leerToken };

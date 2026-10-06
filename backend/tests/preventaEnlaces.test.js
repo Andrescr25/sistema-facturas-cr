@@ -126,11 +126,12 @@ caso('el envío local queda bloqueado y registra un fallo, nunca un éxito ficti
   const t = preventa.crearToken(cliente.id, proximo.id);
   // Las pruebas unitarias usan NODE_TEST_CONTEXT para sus dobles. Este
   // caso comprueba la guarda REAL: quitarlo solo aquí fuerza el bloqueo.
+  const documento = await require('../src/modules/portal-clientes/preventaPdf.service').preparar(cliente.id, { cicloId: proximo.id, alcance: 'seleccion' });
   const contexto = process.env.NODE_TEST_CONTEXT;
   delete process.env.NODE_TEST_CONTEXT;
   try {
     assert.equal(require('../config/aislado').salidasBloqueadas(), true);
-    await assert.rejects(preventa.enviar(cliente.id, { cicloId: proximo.id, token: t, telefono: '88888888', mensaje: `http://localhost/catalogo?preventa=${t}` }, null), e => e.code === 'SALIDA_BLOQUEADA' || /bloquead/i.test(e.message));
+    await assert.rejects(preventa.enviar(cliente.id, { cicloId: proximo.id, token: t, pdfId: documento.id, telefono: '88888888', mensaje: `http://localhost/catalogo?preventa=${t}` }, null), e => e.code === 'SALIDA_BLOQUEADA' || /bloquead/i.test(e.message));
   } finally { if (contexto !== undefined) process.env.NODE_TEST_CONTEXT = contexto; }
   const r = await require('../src/modules/envios-whatsapp/envios.service').historial({ tipo: 'preventa', referencia: `${proximo.id}:${cliente.id}` });
   assert.equal(r.length, 1); assert.equal(r[0].exito, false);

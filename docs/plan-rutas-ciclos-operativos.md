@@ -55,6 +55,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [x] Clientes reorganizados, ficha por secciones y vista de rutas móvil.
 - [x] Pedidos de portal/agente y facturas conservan ciclo explícito.
 - [x] Preventa próxima ruta con enlace por cliente y envío controlado.
+- [x] Ampliación: PDF personalizado con fotos, descarga y envío junto al enlace;
+  respuesta por WhatsApp sin cuenta, invitación opcional para pedir en línea.
 - [ ] Bodega, reportes, faltantes y exportaciones filtran ruta/ciclo.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
 - [ ] Recepción parcial/final, comparación de factura y PDF privado.

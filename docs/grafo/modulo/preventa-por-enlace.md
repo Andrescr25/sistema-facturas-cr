@@ -1,9 +1,15 @@
 ---
 id: modulo/preventa-por-enlace
 tipo: modulo
-titulo: Preventa por cliente y ciclo, con enlace que no concede acceso
+titulo: Preventa por cliente y ciclo, PDF con fotos y enlace que no concede acceso
 estado: vigente
 archivos:
+  - backend/package.json
+  - backend/src/modules/portal-clientes/preventaPdf.service.js
+  - backend/src/modules/portal-clientes/preventaFotos.service.js
+  - backend/src/modules/portal-clientes/preventa.pdf.js
+  - backend/tests/preventaPdf.test.js
+  - backend/tests/preventaFotos.test.js
   - backend/server.js
   - backend/src/utils/urlParaRegistro.js
   - backend/src/modules/portal-clientes/preventa.service.js
@@ -47,7 +53,8 @@ servir al cerrar/cancelar el ciclo, revocar la cuenta o desactivar la ficha.
 
 Staff GET `/portal-clientes/clientes/:id/preventa?cicloId=...` conserva ACL
 Clientes y exige miembro del recorrido fijo, ficha activa y ciclo en preventa.
-El modal ofrece copiar o WhatsApp, reutiliza los teléfonos propios y la
+El modal ofrece copiar el enlace, preparar/revisar/descargar PDF con fotos y
+WhatsApp; reutiliza los teléfonos propios y la
 pantalla compartida para revisar número/texto. POST `/preventa/whatsapp`
 vuelve a comprobar destinatario/contexto y presencia del enlace en el mensaje.
 `enviarYRegistrar` anota éxito/fallo como tipo `preventa`, referencia
@@ -57,7 +64,9 @@ Referer; evitan guardar también el contexto firmado de preventa.
 La pantalla consulta ese historial antes de reenviar; el aislamiento sigue
 bloqueando el transporte REAL en esta rama (423, registro de fallo).
 
-Cliente sin usuario: botón explícito `/preventa/invitacion` reutiliza la
+Cliente sin usuario puede recibir PDF/enlace y pedir por WhatsApp sin crear
+una cuenta. El personal registra lo confirmado en Facturación con su ciclo;
+una respuesta no crea automáticamente un pedido. Para pedir en línea: botón opcional `/preventa/invitacion` reutiliza la
 invitación de un solo uso, guardando únicamente su hash. Bloquea ficha/cuenta
 y crea invitación en una transacción; una cuenta revocada requiere la acción
 habitual de Cuentas y nunca se reactiva por preparar un catálogo. Se comparte
@@ -95,3 +104,53 @@ Preparación/bodega, faltantes/compras/recepción y archivo 24 h siguen pendient
 Integrado localmente como `7d44a3e`; aplicación habitual 5174→3002 verificada
 SOLO GET y 16 huellas de negocio idénticas antes/después. Sin nueva migración,
 fixtures compartidos, mensajes reales o cambios a producción/developer/main.
+
+## Ampliación: PDF con fotos, 2026-10-05
+
+POST staff `/portal-clientes/clientes/:id/preventa/pdf` recibe cicloId y alcance
+`completo`/`seleccion`; GET `.../pdf/:pdfId?cicloId=...` descarga exclusivamente
+su copia, con sesión/ACL Clientes y Cache-Control private,no-store. El UUID
+no es una autorización. Generar/descargar/enviar revalida ficha, recorrido fijo,
+cuenta no revocada y ciclo en preventa. No hay ruta pública de PDF.
+
+`modeloCatalogo` consulta TODOS los visibles del maestro, sin límite de página
+ni filtro por stock. Primero habituales/perdidos de ESA ficha, luego ofertas
+y resto por categoría. Selección limita esas secciones según la portada; sin
+selección cae al completo, con aviso. El precio con IVA y descuento usa
+consultaProducto/mapProducto; las bajas solo imprimen precio anterior cuando
+el precio nuevo sigue vigente. Lista blanca sin costos, márgenes, saldos,
+fiscal, Maps, cantidades de compras o historial de terceros.
+
+Cada línea imprime foto, nombre, código propio P-id, referencia y precio con
+IVA. Cliente/ruta/semana y referencia R-ciclo/C-cliente se repiten por hoja;
+las indicaciones para pedir quedan en el mensaje de WhatsApp. Por petición
+del usuario se retiró el bloque explicativo del PDF.
+PDFKit usa la marca y fuentes existentes. Sharp 0.35.5, ya disponible en el
+árbol compartido, queda declarado en package.json sin instalar ni cambiar
+node_modules/Prisma. Convierte fotos a JPEG 192×144, calidad 65, sin alterar
+originales. Miniaturas privadas por ruta/fecha/tamaño y cuatro trabajos a la
+vez; límite de original 8 MB y 24 megapíxeles. realpath impide salir de RAIZ,
+incluso mediante enlaces simbólicos. Fotos externas requieren HTTPS sin
+credenciales, descargarImagen comprueba redes internas y cada redirección;
+no se renuevan firmas vía Alegra. Aislamiento/pruebas bloquean fotos remotas.
+Ausencias/fallos dicen «Sin imagen» en el PDF y muestran su cantidad antes
+de enviar; no imprimen/loguean URL firmada ni error remoto.
+
+Guardar PDF/JSON privado en RAIZ_PRIVADA/preventa-pdf, UUID, archivos 0600,
+directorio 0700 y SHA-256. Límite final 20 MB. Descargar/enviar reutiliza los
+mismos bytes revisados aunque cambien precios. Un hash alterado da 409;
+cliente/ciclo ajenos 404. Al elegir otro alcance, el frontend invalida el
+adjunto, exige preparar de nuevo y revoca su URL blob al reemplazar/cerrar.
+Preparar no envía, no crea cuenta/invitación/pedido ni toca tablas de negocio.
+Invitación opcional reutiliza el flujo anterior. El modal WhatsApp muestra el
+archivo/productos además del número/texto. POST /whatsapp exige pdfId y enlaza
+Buffer + caption en UN envíoDocumento. Se registra éxito/fallo, tipo preventa,
+referencia cicloId:clienteId; el historial de envíos no cambia.
+
+No hay purga automática de estos PDF/miniaturas; conservar el directorio
+privado al cambiar almacenamiento de despliegue. El archivo individual 24 h
+solicitado corresponde a órdenes de compra recibidas, aún pendiente, y no
+borra estos adjuntos ni documentos fiscales.
+
+Evidencia actualizada: `docs/informes/preventa-pdf-2026-10-05.md`. Las cifras
+anteriores documentan la tercera parte; el informe nuevo gobierna el relevo.

@@ -10,6 +10,7 @@ const carrito = require('./portal-clientes.carrito.service');
 const sugerencias = require('./portal-clientes.sugerencias.service');
 const saldo = require('./portal-clientes.saldo.service');
 const preventa = require('./preventa.service');
+const preventaPdf = require('./preventaPdf.service');
 
 function responder(res, promesa, mensajeError) {
   return promesa
@@ -131,7 +132,22 @@ const misPedidos = (req, res) =>
 const miPedido = (req, res) =>
   responder(res, clienteSvc.detallePedido(req.cliente.id, req.params.pedidoId), 'Error obteniendo el pedido');
 
+async function descargarPdfPreventa(req, res) {
+  try {
+    const { documento, pdf } = await preventaPdf.leer(req.params.clienteId, req.query.cicloId, req.params.pdfId);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${documento.nombreArchivo}"`);
+    res.set('Cache-Control', 'private, no-store');
+    res.send(pdf);
+  } catch (e) {
+    if (!e.status) console.error('Error descargando catálogo PDF:', e.message);
+    res.status(e.status || 500).json({ success: false, message: e.status ? e.message : 'No se pudo preparar el PDF.' });
+  }
+}
+
 module.exports = {
+  descargarPdfPreventa,
+  prepararPdfPreventa: (req, res) => responder(res, preventaPdf.preparar(req.params.clienteId, req.body || {}), 'Error preparando catálogo PDF'),
   prepararPreventa: (req, res) => responder(res, preventa.preparar(req.params.clienteId, req.query.cicloId), 'Error preparando catálogo'),
   invitarPreventa: (req, res) => responder(res, preventa.invitar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error preparando invitación'),
   enviarPreventa: (req, res) => responder(res, preventa.enviar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error enviando catálogo'),

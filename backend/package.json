@@ -44,7 +44,8 @@
     "pg": "^8.11.3",
     "prisma": "6.17.0",
     "xlsx": "^0.18.5",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

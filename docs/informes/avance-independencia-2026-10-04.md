@@ -446,3 +446,15 @@ autorización del usuario de diseñar y ejecutar su integración separada.
 y [grafo](../grafo/modulo/hacienda.md). Credenciales/certificado se cargan
 en Configuración; aceptación real en pruebas sigue pendiente. El inventario
 continúa en cero y las revisiones manuales quedan a cargo del usuario.
+
+
+## Catálogo PDF con fotos — continuación local del 2026-10-05
+
+Rutas/clientes/pedidos y preventa por enlaces conservados; nueva ampliación
+para enviar el PDF con fotos junto al enlace, descargar/revisar su misma
+copia y recibir pedidos por WhatsApp sin cuenta. Invitación opcional para
+portal; conversaciones no crean pedidos automáticamente. Ejemplo real
+personalizado en Descargas del usuario (60 productos/fotos), fuera de Git.
+1.991 pruebas, grafo 12, build y Chromium 1440/390 aprobados. Operativo 34/61;
+independencia 133/14. No nueva migración ni mensajes reales. Evidencia,
+limitaciones y siguiente parte en [informe PDF](preventa-pdf-2026-10-05.md).
