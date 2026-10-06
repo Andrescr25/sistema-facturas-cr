@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Preventa por cliente y ciclo, PDF con fotos y enlace que no concede acceso
 estado: vigente
 archivos:
+  - backend/src/modules/precios/ofertasPorBaja.js
+  - backend/src/utils/descuentosExceso.js
+  - backend/src/modules/productos/taxonomiaTablas.js
   - backend/package.json
   - backend/src/modules/portal-clientes/preventaPdf.service.js
   - backend/src/modules/portal-clientes/preventaFotos.service.js
@@ -31,7 +34,7 @@ archivos:
   - backend/tests/preventaEnlaces.test.js
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/portal-clientes, modulo/pedidos-por-ciclo]
-  relacionado: [modulo/whatsapp, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/whatsapp, modulo/permisos, decision/ciclo-de-ruta-como-contexto, modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
 medido: 2026-10-05
 ---
 
@@ -114,20 +117,22 @@ no es una autorización. Generar/descargar/enviar revalida ficha, recorrido fijo
 cuenta no revocada y ciclo en preventa. No hay ruta pública de PDF.
 
 `modeloCatalogo` consulta TODOS los visibles del maestro, sin límite de página
-ni filtro por stock. Primero habituales/perdidos de ESA ficha, luego ofertas
-y resto por categoría. Selección limita esas secciones según la portada; sin
-selección cae al completo, con aviso. El precio con IVA y descuento usa
+ni filtro por stock. Selección incluye habituales/perdidos de ESA ficha, TODAS las rebajas
+vigentes y liquidaciones activas. Completo incluye el resto. Los dos alcances
+agrupan todo por categoría y subcategoría; sin selección cae al completo,
+con aviso. Ninguna promoción vive en una sección duplicada. El precio con IVA y descuento usa
 consultaProducto/mapProducto; las bajas solo imprimen precio anterior cuando
 el precio nuevo sigue vigente. Lista blanca sin costos, márgenes, saldos,
 fiscal, Maps, cantidades de compras o historial de terceros.
 
-Cada línea imprime foto, nombre, código propio P-id, referencia y precio con
-IVA. Cliente/ruta/semana y referencia R-ciclo/C-cliente se repiten por hoja;
+Cada tarjeta imprime foto grande, nombre, código propio P-id, referencia y
+precio con IVA, con dos tarjetas por fila. Oferta/Liquidación son etiquetas
+y el precio anterior se tacha cuando supera el actual. Cliente/ruta/semana y referencia R-ciclo/C-cliente se repiten por hoja;
 las indicaciones para pedir quedan en el mensaje de WhatsApp. Por petición
 del usuario se retiró el bloque explicativo del PDF.
 PDFKit usa la marca y fuentes existentes. Sharp 0.35.5, ya disponible en el
 árbol compartido, queda declarado en package.json sin instalar ni cambiar
-node_modules/Prisma. Convierte fotos a JPEG 192×144, calidad 65, sin alterar
+node_modules/Prisma. Convierte fotos a JPEG 480×360, calidad 72, sin alterar
 originales. Miniaturas privadas por ruta/fecha/tamaño y cuatro trabajos a la
 vez; límite de original 8 MB y 24 megapíxeles. realpath impide salir de RAIZ,
 incluso mediante enlaces simbólicos. Fotos externas requieren HTTPS sin
@@ -160,3 +165,41 @@ repetidas tras retirar el bloque a petición del usuario, grafo 12 y build.
 Chromium 1440/390 aprobado; compartida 5174→3002 solo GET, 16 huellas
 idénticas, sin nuevos ciclos/negocio/stock. Operativo 34/61. Ejemplo real con
 60 productos/fotos en Descargas; cuenta/recepción REAL de WhatsApp no probada.
+
+## Categorías, promociones y tarjetas — ampliación visual 2026-10-05
+
+El PDF usa categoria_producto/ producto.subcategoria_id y categoriasEnOrden
+para el orden y nombre visible de Gestión/el agente. Subcategoría activa de
+esa categoría: orden manual, empate natural, Otros al final. Una subcategoría
+inactiva o de otra categoría no esconde el producto. Se comprueba paridad del
+orden de subcategorías con el helper canónico del frontend, que sigue sin
+imports. No se modifica clasificación, precios ni inventario para publicar.
+
+ofertasPorBajaDePrecio({limite:null}) es una opción interna para el PDF: incluye
+todas las rebajas y conserva el tope 40/100 de las rutas públicas. Solo se
+etiqueta Oferta si el precio base actual coincide con la baja vigente. Si
+además hay liquidación, la comparación usa precioLista; el precio final sale
+de mapProducto una sola vez. Puede tener ambas etiquetas en una única ficha.
+Regalías o porcentajes ≥100 no son liquidaciones vendibles; SQL_VIGENTES ahora
+aplica explícitamente ese techo coherente con su contrato documentado.
+Historia o stock físico cero no reactivan una liquidación. Esto no impide
+incluir productos normales con cero stock del negocio intermediario.
+
+Las categorías/subcategorías contienen también las ofertas y liquidaciones:
+no hay «Tus habituales»/«Ofertas»/«Liquidaciones» como secciones del PDF. La
+selección sigue personal; la portada del portal conserva su diseño anterior.
+El renderer reserva encabezado + primera fila juntos, repite contexto y
+clasificación al cambiar de página, mide nombres sin truncarlos y dibuja
+foto arriba/datos abajo. La cache de miniaturas cambia de versión para no
+reutilizar imágenes pequeñas. Guardar/revisar/enviar una copia mantiene hash
+y bytes inmutables. El caption empieza «Te enviamos nuestro CATÁLOGO DE
+PRODUCTOS en PDF…». El bloque de instrucciones retirado no vuelve al PDF.
+
+Evidencia y relevo actual en `docs/informes/catalogo-visual-2026-10-05.md`.
+
+Verificado: 1.999 pruebas, ocho casos nuevos de taxonomía/promociones, grafo
+12, build y Chromium 1440/390. Completo con 1.859 productos/1.827 fotos,
+16.773.686 bytes (bajo 20 MB). Selección real con 58 productos/58 fotos y
+15 ofertas. Sin liquidaciones activas locales; prueba aislada con rollback.
+Checklist vigente 38/61. El informe visual sustituye las cifras de diseño
+anteriores para el relevo; conserva sus entregas y evidencia histórica.

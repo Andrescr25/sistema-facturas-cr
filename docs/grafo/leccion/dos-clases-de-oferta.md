@@ -6,9 +6,10 @@ estado: vigente
 archivos:
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
   - backend/src/modules/precios/ofertasPorBaja.js
+  - backend/src/modules/portal-clientes/preventaPdf.service.js
 aristas:
-  relacionado: [modulo/catalogo-agente, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-09-25
+  relacionado: [modulo/catalogo-agente, leccion/precio-sin-iva-costo-con-iva, modulo/preventa-por-enlace]
+medido: 2026-10-05
 ---
 
 Los catálogos (agente y cliente) muestran dos clases de oferta:
@@ -28,3 +29,14 @@ nada encima.
 Qué entra en "Bajamos el precio" lo decide `ofertasPorBaja.js`: precio más
 bajo Y al menos `PUNTOS_MARGEN_MINIMO` (5) puntos de margen menos. Un precio
 que bajó porque bajó el costo no es oferta: se gana lo mismo de siempre.
+
+El PDF de preventa mezcla ambas clases dentro de categoría/subcategoría:
+Oferta para la baja vigente del precio base, Liquidación para el descuento
+activo con existencia física. Puede tener ambas etiquetas en una sola ficha.
+mapProducto aplica la liquidación una vez; el PDF no vuelve a descontar la
+baja ni la liquidación. Comparar la revisión de precio con precioLista si
+hay liquidación y tachar precio anterior solo si supera el final. La opción
+interna limite:null incluye todas las bajas; la ruta pública conserva sus
+topes. Históricos, regalías, porcentajes ≥100 o existencia cero no se
+promocionan como liquidación vendible. Casos PostgreSQL con rollback en
+preventaPdf.test.js y evidencia en el informe de catálogo visual.

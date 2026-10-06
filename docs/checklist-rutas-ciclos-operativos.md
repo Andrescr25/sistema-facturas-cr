@@ -5,7 +5,8 @@ Estado: rutas/ciclos, ficha, pedidos/facturas, enlaces y PDF con fotos implement
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
-[ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md).
+[ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md) y
+[catálogo visual](informes/catalogo-visual-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -95,6 +96,15 @@ en la ficha son los recientes (10), con origen propio distinguido.
 - [x] PRE-14 — Incluir fotos reales del producto, conservar originales y
   avisar cuáles no tienen foto disponible. Guardar un ejemplo real en Descargas.
 
+- [x] PRE-15 — Ordenar PDF por categoría/subcategoría y su configuración
+  manual; conservar productos sin clasificar bajo Otros.
+- [x] PRE-16 — Incluir todas las rebajas/liquidaciones vigentes mezcladas con
+  los demás productos, etiquetas Oferta/Liquidación y precio anterior, sin
+  duplicación ni doble aplicación de rebajas.
+- [x] PRE-17 — PDF como catálogo: dos tarjetas por fila, fotos grandes y
+  datos debajo, con paginación y nombres largos legibles.
+- [x] PRE-18 — Mensaje WhatsApp explícito: CATÁLOGO DE PRODUCTOS en PDF.
+
 Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045,
 commit `d87ee54`, 1.962 pruebas aprobadas y aplicación local verificada.
 Portal selecciona su semana; el agente toma pedidos en Facturación (catálogo
@@ -114,7 +124,18 @@ cuenta, invitación opcional, sin pedido automático. 1.991 pruebas, grafo 12,
 build y Chromium 1440/390 aprobados. Ejemplo real en Descargas (60 productos,
 60 fotos); completo verificado con 1.859 productos/1.827 fotos. Aviso de fotos
 faltantes. Checklist **34 listos / 61 pendientes** (95 IDs).
-Ver informe nuevo para aislamiento, evidencia y límites del envío real.
+Ver informe PDF para aislamiento, evidencia y límites del envío real.
+
+Ampliación visual (2026-10-05): PRE-15/16/17/18 comprobados. Categorías y
+subcategorías respetan configuración y orden manual; todas las rebajas y
+liquidaciones vigentes se mezclan con los productos normales y se etiquetan,
+sin duplicar ni descontar dos veces. Fotos grandes arriba, datos debajo, dos
+tarjetas por fila y paginación con nombres completos. WhatsApp identifica
+explícitamente CATÁLOGO DE PRODUCTOS en PDF. **1.999 pruebas**, grafo 12,
+build y Chromium 1440/390; ejemplo real nuevo en Descargas: 58 productos,
+58 fotos y 15 ofertas. No hay liquidaciones activas en el origen local; se
+comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
+**38 listos / 61 pendientes (99 IDs)**. Ver informe de catálogo visual.
 
 ## 4. Contexto y filtros en toda la operación
 

@@ -50,10 +50,11 @@ caso('PDF completo incluye todos los visibles sin límite de paginación ni filt
 });
 caso('selección usa hábitos del cliente sin cantidades ni historial ajenos',async()=>{
   const m=await servicio.modeloCatalogo(cliente.id,ciclo.id,'seleccion');
-  assert.ok(m.secciones.find(s=>s.titulo==='Tus productos habituales').productos.some(p=>p.id===propios[0].id));
-  assert.ok(m.secciones.find(s=>s.titulo==='Para volver a pedir').productos.some(p=>p.id===propios[1].id));
+  assert.ok(productos(m).some(p=>p.id===propios[0].id));
+  assert.ok(productos(m).some(p=>p.id===propios[1].id));
+  assert.ok(m.secciones.every(s=>s.subcategoria && !['Tus productos habituales','Para volver a pedir','Ofertas y precios rebajados'].includes(s.titulo)));
   assert.ok(!productos(m).some(p=>p.id===ajenoProducto));
-  for(const p of productos(m))assert.deepEqual(Object.keys(p).sort(),['id','codigo','referencia','nombre','categoria','precio','precioAnterior','imagen'].sort());
+  for(const p of productos(m))assert.deepEqual(Object.keys(p).sort(),['id','codigo','referencia','nombre','categoria','subcategoria','precio','precioAnterior','imagen','etiquetas'].sort());
   assert.equal(m.cliente,cliente.nombre);assert.equal(m.ciclo.semana,'2026-10-19');
 });
 caso('cada producto lleva su propio IVA y código estable con referencia de ficha',async()=>{
@@ -67,6 +68,79 @@ caso('sin historial ni ofertas la selección cae al catálogo completo; cuenta n
   try{await db.query('DELETE FROM precio_historico');const m=await servicio.modeloCatalogo(nuevo.id,semana.id,'seleccion');assert.equal(m.fallback,true);assert.ok(m.total>120);assert.equal((await db.query('SELECT id FROM cliente_portal WHERE cliente_id=$1',[nuevo.id])).rows.length,0);}
   finally{await db.query('ROLLBACK TO SAVEPOINT sin_ofertas');}
 });
+const moverStock=(id,cantidad,auditoriaId)=>require('../src/modules/inventario/inventario.service').registrarEn(db,{productoId:id,tipo:'ajuste_auditoria',cantidad,costoUnitario:800,origenTipo:'auditoria_item',origenId:auditoriaId,clave:randomUUID()});
+async function promocion(fn) {
+  await db.query('SAVEPOINT promocion_catalogo');
+  try {
+    const cat=(await db.query('INSERT INTO categoria_producto(nombre) VALUES($1) RETURNING id,nombre',[nombre('Categoria PDF')])).rows[0];
+    await db.query('INSERT INTO categoria_config(categoria,nombre_visible,orden) VALUES($1,$2,-10)',[cat.nombre,'Categoria visible PDF']);
+    const subs=[];
+    for(const [sub,orden] of [['PVC 10',0],['PVC 2',0],['Primero',-1]])subs.push((await db.query('INSERT INTO subcategoria(categoria,nombre,orden) VALUES($1,$2,$3) RETURNING id,nombre,orden',[cat.nombre,sub,orden])).rows[0]);
+    for(const [i,p] of propios.entries())await db.query('UPDATE producto SET categoria_id=$1,subcategoria_id=$2 WHERE id=$3',[cat.id,i<3?subs[i].id:null,p.id]);
+    const id=propios[5].id;
+    await db.query("INSERT INTO precio_historico(producto_id,precio_anterior,precio_nuevo,costo_al_momento,margen_resultante,origen) VALUES($1,1500,1000,800,20,'revision_precios')",[id]);
+    const audit=(await db.query("INSERT INTO inventario_auditorias(nombre,tipo,historica) VALUES($1,'exceso',FALSE) RETURNING id",[nombre('Liquidacion PDF')])).rows[0];
+    audit.itemId=(await db.query('INSERT INTO inventario_auditoria_items(auditoria_id,producto_id,nombre_producto,stock_real,empacado) VALUES($1,$2,$3,5,TRUE) RETURNING id',[audit.id,id,nombre('Empaque PDF')])).rows[0].id;
+    await moverStock(id,5,audit.itemId);
+    await db.query('INSERT INTO producto_descuento_exceso(producto_id,nombre_producto,descuento_porcentaje,historica,regalado) VALUES($1,$2,30,FALSE,FALSE)',[id,nombre('Liquidacion PDF')]);
+    await fn({cat,subs,id,audit});
+  } finally {await db.query('ROLLBACK TO SAVEPOINT promocion_catalogo');}
+}
+caso('categorías visibles y orden manual/natural de subcategorías, Otros al final',()=>promocion(async({subs})=>{
+  const m=await servicio.modeloCatalogo(cliente.id,ciclo.id),grupo=m.secciones.filter(s=>s.titulo==='Categoria visible PDF');
+  assert.equal(m.secciones[0].titulo,'Categoria visible PDF');
+  assert.deepEqual(grupo.map(s=>s.subcategoria),['Primero','PVC 2','PVC 10','Otros']);
+  assert.equal(grupo.flatMap(s=>s.productos).length,propios.length);
+  const fuente=await fs.readFile(path.join(__dirname,'../../frontend/src/utils/catalogoAgentePersonalizacion.js'),'utf8');
+  const comparar=new Function(fuente.replace(/^export /gm,'')+';return compararSubcategorias;')();
+  assert.deepEqual(grupo.filter(s=>s.subcategoria!=='Otros').map(s=>s.subcategoria),[...subs].sort(comparar).map(s=>s.nombre));
+}));
+caso('Oferta y Liquidación se integran con los demás, precio final una sola vez',()=>promocion(async({id})=>{
+  const m=await servicio.modeloCatalogo(cliente.id,ciclo.id,'seleccion'),p=productos(m).find(p=>p.id===id);
+  assert.deepEqual(p.etiquetas,['Oferta','Liquidación']);assert.equal(p.precio,791);assert.equal(p.precioAnterior,1695);
+  assert.equal(p.categoria,'Categoria visible PDF');assert.equal(p.subcategoria,'Otros');
+  assert.equal(productos(m).filter(p=>p.id===id).length,1);
+  assert.ok(m.secciones.every(s=>!['Oferta','Liquidación','Ofertas y precios rebajados'].includes(s.titulo)));
+}));
+caso('sin stock o histórica no anuncia liquidación ni inventa un descuento',()=>promocion(async({id,audit})=>{
+  await moverStock(id,-5,audit.itemId);
+  let p=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id)).find(p=>p.id===id);
+  assert.deepEqual(p.etiquetas,['Oferta']);assert.equal(p.precio,1130);
+  await moverStock(id,5,audit.itemId);await db.query('UPDATE producto_descuento_exceso SET historica=TRUE WHERE producto_id=$1',[id]);
+  p=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id)).find(p=>p.id===id);assert.deepEqual(p.etiquetas,['Oferta']);assert.equal(p.precio,1130);
+}));
+caso('rebaja ya sustituida no anuncia Oferta ni se añade a la selección por ella',()=>promocion(async({id})=>{
+  await db.query('UPDATE producto SET precio_sin_iva=1100 WHERE id=$1',[id]);
+  const p=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id)).find(p=>p.id===id);
+  assert.deepEqual(p.etiquetas,['Liquidación']);assert.equal(p.precio,870.1);assert.equal(p.precioAnterior,1243);
+}));
+caso('regalía o porcentaje 100 no se publica como liquidación vendible',()=>promocion(async({id})=>{
+  await db.query('UPDATE producto_descuento_exceso SET descuento_porcentaje=100 WHERE producto_id=$1',[id]);
+  let p=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id)).find(p=>p.id===id);assert.deepEqual(p.etiquetas,['Oferta']);assert.equal(p.precio,1130);
+  await db.query('UPDATE producto_descuento_exceso SET descuento_porcentaje=30,regalado=TRUE WHERE producto_id=$1',[id]);
+  p=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id)).find(p=>p.id===id);assert.deepEqual(p.etiquetas,['Oferta']);assert.equal(p.precio,1130);
+}));
+caso('más de cien rebajas vigentes se adjuntan a la selección sin tope público',()=>promocion(async({cat,subs})=>{
+  const {rows}=await db.query(`INSERT INTO producto(nombre,precio_sin_iva,categoria_id,subcategoria_id) SELECT 'ZZ Rebaja PDF '||g,1000,$1,$2 FROM generate_series(1,107) g RETURNING id`,[cat.id,subs[0].id]);
+  const ids=rows.map(r=>r.id);
+  await db.query(`INSERT INTO precio_historico(producto_id,precio_anterior,precio_nuevo,costo_al_momento,margen_resultante,origen) SELECT id,1500,1000,800,20,'revision_precios' FROM unnest($1::int[]) id`,[ids]);
+  const ps=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id,'seleccion'));
+  assert.equal(ps.filter(p=>ids.includes(p.id)&&p.etiquetas.includes('Oferta')).length,107);assert.equal(new Set(ps.map(p=>p.id)).size,ps.length);
+  assert.ok((await require('../src/modules/catalogo-clientes/catalogo-clientes.service').ofertasPorBaja()).length<=40);
+}));
+caso('subcategoría ajena o inactiva conserva producto en Otros de su categoría',()=>promocion(async({subs})=>{
+  await db.query('UPDATE subcategoria SET activo=FALSE WHERE id=$1',[subs[0].id]);await db.query('UPDATE subcategoria SET categoria=$1 WHERE id=$2',['ZZ Otra categoria',subs[1].id]);
+  const ps=productos(await servicio.modeloCatalogo(cliente.id,ciclo.id));
+  for(const id of [propios[0].id,propios[1].id]){const p=ps.find(p=>p.id===id);assert.equal(p.categoria,'Categoria visible PDF');assert.equal(p.subcategoria,'Otros');}
+}));
+caso('renderer mantiene etiquetas y nombres largos en tarjetas con varias páginas',()=>promocion(async({id})=>{
+  await db.query('UPDATE producto SET nombre=$1,referencia=$2 WHERE id=$3',['ZZ '+('Producto con nombre largo '.repeat(9)).trim(),'ZZ-REF-LARGA-1234567890',id]);
+  const m=await servicio.modeloCatalogo(cliente.id,ciclo.id,'seleccion');
+  const pdf=await require('../src/modules/portal-clientes/preventa.pdf').generarPdfCatalogo(m);
+  assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  const artefacto=process.env.ALMACENAMIENTO_PRIVADO_DIR;
+  await fs.mkdir(artefacto,{recursive:true});await fs.writeFile(path.join(artefacto,'prueba-etiquetas.pdf'),pdf,{mode:0o600});
+}));
 caso('alcance o ciclo inválidos no generan documentos',async()=>{
   await assert.rejects(servicio.preparar(cliente.id,{cicloId:ciclo.id,alcance:'inventado'}),e=>e.status===400);
   await assert.rejects(servicio.preparar(cliente.id,{cicloId:2147483647}),e=>[400,404].includes(e.status));

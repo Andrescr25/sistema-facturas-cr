@@ -458,3 +458,12 @@ personalizado en Descargas del usuario (60 productos/fotos), fuera de Git.
 1.991 pruebas, grafo 12, build y Chromium 1440/390 aprobados. Operativo 34/61;
 independencia 133/14. No nueva migración ni mensajes reales. Evidencia,
 limitaciones y siguiente parte en [informe PDF](preventa-pdf-2026-10-05.md).
+
+## Continuidad de catálogo — 2026-10-05
+
+PDF visual implementado: categorías/subcategorías en orden manual, ofertas
+y liquidaciones dentro de sus grupos, etiquetas y dos tarjetas con fotos
+grandes por fila. Mensaje explícito de catálogo. Ver
+[entrega y límites](catalogo-visual-2026-10-05.md): 1.999 pruebas aprobadas,
+checklist operativo 38 listos/61 pendientes. Solo local; independencia
+conserva 133/14, Hacienda REAL/corte y revisiones del usuario pendientes.

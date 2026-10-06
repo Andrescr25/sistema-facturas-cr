@@ -94,6 +94,12 @@ semanas, permitiendo adelantar trabajo de la siguiente ruta.
    Después de revisarlo pidió quitar del PDF el bloque «Para pedir por
    WhatsApp, respondé al mensaje…». Mantener esas indicaciones en el mensaje
    de envío y dejar el PDF sin ese bloque.
+   **Nueva ampliación visual:** ordenar el PDF por categorías y subcategorías;
+   incluir todas las rebajas vigentes y liquidaciones activas junto a los
+   demás productos, con etiquetas «Oferta» y «Liquidación», sin apartarlas
+   ni duplicarlas. Fotos más grandes, dos tarjetas por fila con información
+   debajo. El mensaje predeterminado debe decir explícitamente que es un
+   CATÁLOGO DE PRODUCTOS en PDF.
    Preparar/descargar el PDF por cliente/ciclo, adjuntarlo en el envío y
    permitir ese flujo sin obligar a crear cuenta en el portal. La invitación
    sigue disponible para quien elija pedir en línea; no interpretar una

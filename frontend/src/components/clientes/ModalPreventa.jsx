@@ -50,7 +50,7 @@ export default function ModalPreventa({ clienteId, cicloId, onCerrar }) {
     subtitulo={`${textoCiclo(datos.ciclo)} · PDF adjunto: ${pdf.nombreArchivo} (${pdf.productos} productos)`}
     telefonos={datos.telefonos} telefonosSinReconocer={datos.telefonosSinReconocer}
     documento={{ tipo: 'preventa', referencia: `${cicloId}:${clienteId}` }}
-    mensajeInicial={`Hola ${datos.cliente}. Te adjuntamos el catálogo para ${textoCiclo(datos.ciclo)}.\nPara pedir por WhatsApp, respondé con la referencia R${cicloId}-C${clienteId}, el código del producto y la cantidad (por ejemplo, P-123 × 3).\n\nTambién podés pedir en línea${invitacion ? ' creando tu cuenta con esta invitación (vence en 7 días)' : ' con tu cuenta'}:\n${enlace}`}
+    mensajeInicial={`Hola ${datos.cliente}. Te enviamos nuestro CATÁLOGO DE PRODUCTOS en PDF para ${textoCiclo(datos.ciclo)}.\nPara pedir por WhatsApp, respondé con la referencia R${cicloId}-C${clienteId}, el código del producto y la cantidad (por ejemplo, P-123 × 3).\n\nTambién podés pedir en línea${invitacion ? ' creando tu cuenta con esta invitación (vence en 7 días)' : ' con tu cuenta'}:\n${enlace}`}
     onEnviar={async ({ telefono, mensaje }) => (await api.post(`${base}/whatsapp`, {
       cicloId, pdfId: pdf.id, token: datos.token, invitacionToken: invitacion?.token, telefono, mensaje
     })).data.data} onCerrar={() => setEnviando(false)} />
@@ -64,8 +64,8 @@ export default function ModalPreventa({ clienteId, cicloId, onCerrar }) {
           <label className="block text-xs font-bold">Contenido del PDF
             <select aria-label="Contenido del PDF" className="input w-full mt-1" value={alcance} disabled={ocupado}
               onChange={e => { setAlcance(e.target.value); setPdf(null); setUrlPdf('') }}>
-              <option value="completo">Catálogo completo, con sus habituales primero</option>
-              <option value="seleccion">Selección: habituales, sugerencias y ofertas</option>
+              <option value="completo">Catálogo completo por categoría</option>
+              <option value="seleccion">Selección: habituales, ofertas y liquidaciones</option>
             </select>
           </label>
           <Boton variante="secundario" cargando={ocupado} onClick={prepararPdf}><FileText size={16} />{pdf ? 'Actualizar PDF' : 'Preparar PDF'}</Boton>

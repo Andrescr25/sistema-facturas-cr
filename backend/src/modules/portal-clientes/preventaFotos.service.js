@@ -20,7 +20,7 @@ async function miniatura(imagen) {
       if (!archivo.startsWith(raiz + path.sep)) return null;
       const estado = await fs.stat(archivo);
       if (!estado.isFile() || estado.size > MAX_BYTES) return null;
-      clave = `${archivo}:${estado.mtimeMs}:${estado.size}`;
+      clave = `catalogo-v2-480x360-q72:${archivo}:${estado.mtimeMs}:${estado.size}`;
       const destino = path.join(CACHE, createHash('sha256').update(clave).digest('hex')+'.jpg');
       const previa = await fs.readFile(destino).catch(() => null);
       if (previa) return previa;
@@ -31,15 +31,15 @@ async function miniatura(imagen) {
       if (salidasBloqueadas() || process.env.NODE_TEST_CONTEXT) return null;
       const url = new URL(imagen);
       if (url.protocol !== 'https:' || url.username || url.password) return null;
-      clave = imagen;
+      clave = 'catalogo-v2-480x360-q72:' + imagen;
       const destino = path.join(CACHE, createHash('sha256').update(clave).digest('hex')+'.jpg');
       const previa = await fs.readFile(destino).catch(() => null);
       if (previa) return previa;
       buffer = (await descargarImagen(imagen, { maximoBytes: MAX_BYTES })).buffer;
     }
     const jpg = await sharp(buffer, { limitInputPixels: 24_000_000 }).rotate()
-      .resize({ width: 192, height: 144, fit: 'inside', withoutEnlargement: true })
-      .flatten({ background: '#ffffff' }).jpeg({ quality: 65, mozjpeg: true }).toBuffer();
+      .resize({ width: 480, height: 360, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' }).jpeg({ quality: 72, mozjpeg: true }).toBuffer();
     await fs.mkdir(CACHE, { recursive: true, mode: 0o700 });
     await fs.writeFile(path.join(CACHE, createHash('sha256').update(clave).digest('hex')+'.jpg'), jpg, { mode: 0o600 });
     return jpg;

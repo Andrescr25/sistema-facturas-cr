@@ -33,7 +33,7 @@ const SQL_VIGENTES = `
   FROM producto_descuento_exceso pde
   JOIN ultimo_empaque ue ON ue.producto_id = pde.producto_id
   JOIN inventario_saldo s ON s.producto_id = pde.producto_id
-  WHERE NOT pde.historica AND pde.regalado = FALSE AND ue.stock_efectivo > 0 AND s.existencia > 0 AND pde.descuento_porcentaje > 0
+  WHERE NOT pde.historica AND pde.regalado = FALSE AND ue.stock_efectivo > 0 AND s.existencia > 0 AND pde.descuento_porcentaje > 0 AND pde.descuento_porcentaje < 100
   ORDER BY pde.descuento_porcentaje DESC;
 `;
 

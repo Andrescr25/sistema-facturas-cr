@@ -12,10 +12,11 @@ avanzar poco a poco. La lista detallada para tachar está en
 y las decisiones consolidadas en
 [instrucciones-vigentes-usuario.md](instrucciones-vigentes-usuario.md).
 Estado actual: rutas/ciclos, ficha, pedidos/facturas y enlaces de preventa
-por cliente/ciclo implementados.
+por cliente/ciclo y PDF visual con fotos implementados.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
-[tercera parte](informes/preventa-enlaces-2026-10-05.md). Siguen filtros de
+[tercera parte](informes/preventa-enlaces-2026-10-05.md) y
+[catálogo visual](informes/catalogo-visual-2026-10-05.md). Siguen filtros de
 bodega/reportes, faltantes trazables y compras.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
@@ -57,6 +58,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [x] Preventa próxima ruta con enlace por cliente y envío controlado.
 - [x] Ampliación: PDF personalizado con fotos, descarga y envío junto al enlace;
   respuesta por WhatsApp sin cuenta, invitación opcional para pedir en línea.
+- [x] Ampliación visual: categorías/subcategorías, ofertas y liquidaciones
+  integradas con etiquetas, dos columnas/fotos grandes y WhatsApp explícito.
 - [ ] Bodega, reportes, faltantes y exportaciones filtran ruta/ciclo.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
 - [ ] Recepción parcial/final, comparación de factura y PDF privado.

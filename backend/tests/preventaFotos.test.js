@@ -11,7 +11,7 @@ before(async()=>{
 after(async()=>{if(directorio)await fs.rm(directorio,{recursive:true,force:true});});
 test('foto WEBP se incluye como JPEG pequeño y conserva el original',async()=>{
  const foto=await servicio.miniatura('/archivos/producto.webp');assert.ok(Buffer.isBuffer(foto));
- const m=await sharp(foto).metadata();assert.equal(m.format,'jpeg');assert.ok(m.width<=192&&m.height<=144);assert.ok(foto.length<original.length);
+ const m=await sharp(foto).metadata();assert.equal(m.format,'jpeg');assert.ok(m.width<=480&&m.height<=360);assert.ok(m.width>192,'La foto conserva resolución para la tarjeta grande');assert.ok(foto.length<original.length);
  assert.deepEqual(await fs.readFile(path.join(raiz,'producto.webp')),original);
 });
 test('ni traversal ni enlace simbólico permiten leer fotos fuera de almacenamiento',async()=>{

@@ -52,6 +52,9 @@ const DIAS_VIGENCIA = 30;
  * @returns {Promise<Array>} lo que necesitan los dos catálogos para pintarlas
  */
 async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DIAS_VIGENCIA, limite = 40 } = {}) {
+  // El PDF necesita todas las rebajas vigentes. null es solo una opción
+  // interna; las rutas públicas conservan su tope habitual.
+  const sinTope = limite === null;
   const r = await query(`
     WITH cambios AS (
       SELECT
@@ -93,8 +96,8 @@ async function ofertasPorBajaDePrecio({ puntos = PUNTOS_MARGEN_MINIMO, dias = DI
       -- El margen de antes, menos el de ahora, en puntos.
       AND (((c.precio_antes - c.costo_al_momento) / NULLIF(c.precio_antes, 0) * 100) - c.margen_resultante) >= $2
     ORDER BY (c.precio_antes - c.precio_nuevo) / NULLIF(c.precio_antes, 0) DESC
-    LIMIT $3;
-  `, [String(dias), puntos, Math.min(Number(limite) || 40, 100)]);
+    ${sinTope ? '' : 'LIMIT $3'};
+  `, sinTope ? [String(dias), puntos] : [String(dias), puntos, Math.min(Number(limite) || 40, 100)]);
 
   return r.rows.map(o => {
     const antes = Number(o.precioAntes);
