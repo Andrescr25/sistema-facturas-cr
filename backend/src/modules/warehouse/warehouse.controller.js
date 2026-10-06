@@ -22,7 +22,7 @@ function responderPropia(res, promesa, contexto) {
 
 /** GET /bodega/facturas-propias?dias=&limit= */
 const getFacturasPropias = (req, res) =>
-  responderPropia(res, bodegaPropia.listar({ dias: req.query.dias, limit: req.query.limit }), 'Error listando facturas propias de bodega:');
+  responderPropia(res, bodegaPropia.listar(req.query), 'Error listando facturas propias de bodega:');
 
 /** GET /bodega/facturas-propias/:facturaId/estados */
 const getEstadosFacturaPropia = (req, res) =>
@@ -40,7 +40,10 @@ const updateEstadoFacturaPropia = (req, res) =>
     enviarAImpresion: Boolean(req.body?.enviar_a_impresion)
   }), 'Error actualizando el estado de la factura:');
 
+const getCiclos = (req, res) => responderPropia(res, require('../rutas/operacionCiclo.service').listarCiclos(), 'Error leyendo ciclos de bodega:');
+
 module.exports = {
+  getCiclos,
   getFacturasPropias,
   getEstadosFacturaPropia,
   registrarFaltantesFacturaPropia,

@@ -1,3 +1,4 @@
+import ProcedenciaFaltante from './ProcedenciaFaltante'
 import { Users, Package, RefreshCw, FileText, Download, MessageCircle, Trash2, ArrowLeft } from 'lucide-react'
 import { getCantidadFinal, usaDatosProveedor } from '../../utils/reporteProveedoresUtils'
 import NotasDelProducto from './NotasDelProducto'
@@ -137,6 +138,7 @@ export default function ProveedorDetalle({
                   <div className="flex-1 min-w-0">
                     <p className={`font-semibold truncate ${estaEliminado ? 'line-through text-neutro-400' : 'text-neutro-900'}`}>{producto.nombre}</p>
                     <p className="text-xs text-neutro-500 truncate">Código: {pCodigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
+                    <ProcedenciaFaltante producto={producto} />
                     {/* Qué variante pidió el cliente. Solo aparece si la hay. */}
                     {!estaEliminado && (
                       <NotasDelProducto notas={notasPorProducto?.[String(producto.producto_id)]} />

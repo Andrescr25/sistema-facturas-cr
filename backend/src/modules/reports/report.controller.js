@@ -14,6 +14,11 @@ class ReportController {
     this.reportService = new ReportService();
   }
 
+  getCiclos = async (req, res) => {
+    try { return res.json({ success: true, data: await require('../rutas/operacionCiclo.service').listarCiclos() }); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
   exportarProveedores = async (req, res) => {
     try { return enviarExcel(res, await excel.exportarProveedores(req.query)); }
     catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
@@ -35,9 +40,10 @@ class ReportController {
   getNotasDeFaltantes = async (req, res) => {
     try {
       const { fecha_inicio } = req.query;
-      const r = await notasDeFaltantes.notasPorProducto(fecha_inicio || null);
+      const r = await notasDeFaltantes.notasPorProducto(fecha_inicio || null, req.query);
       return res.json({ success: true, data: r });
     } catch (error) {
+      if (error.status) return ResponseHelper.error(res, error.message, error.status);
       console.error('❌ Error trayendo las notas de los faltantes:', error.message);
       // No se cae el reporte por esto: se responde vacío diciendo qué pasó.
       return res.json({
@@ -75,7 +81,7 @@ class ReportController {
   getMissingItemsBySupplier = async (req, res) => {
     try {
       const { fecha_inicio } = req.query;
-      const result = await this.reportService.getMissingItemsBySupplier(fecha_inicio);
+      const result = await this.reportService.getMissingItemsBySupplier(fecha_inicio, req.query);
 
       if (result.success) {
         return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
@@ -84,7 +90,7 @@ class ReportController {
         });
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -92,7 +98,7 @@ class ReportController {
 
   getMissingItemsByClient = async (req, res) => {
     try {
-      const result = await this.reportService.getMissingItemsByClient();
+      const result = await this.reportService.getMissingItemsByClient(req.query);
 
       if (result.success) {
         return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
@@ -101,7 +107,7 @@ class ReportController {
         });
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -115,7 +121,7 @@ class ReportController {
         return ResponseHelper.success(res, { eliminados: result.eliminados }, result.message);
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -129,7 +135,7 @@ class ReportController {
         return ResponseHelper.success(res, result.data, 'Historial obtenido');
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }

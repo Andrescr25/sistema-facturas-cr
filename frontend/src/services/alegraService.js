@@ -52,10 +52,10 @@ export const alegraService = {
   },
 
   // Obtener reporte de faltantes por cliente
-  async getReporteFaltantesCliente() {
+  async getReporteFaltantesCliente(filtros = {}) {
     try {
       console.log('📋 Frontend: Obteniendo reporte de faltantes por cliente');
-      const response = await api.get('/reportes/faltantes/cliente')
+      const response = await api.get('/reportes/faltantes/cliente', { params: filtros })
       console.log('✅ Frontend: Reporte de clientes obtenido:', response.data);
       return response.data
     } catch (error) {
@@ -73,15 +73,15 @@ export const alegraService = {
    * carga rápido, y esto tiene que ir a Alegra. Si fallan las notas, el
    * reporte se sigue viendo.
    */
-  async getNotasDeFaltantes(fechaInicio = null) {
-    const params = fechaInicio ? { fecha_inicio: fechaInicio } : {}
+  async getNotasDeFaltantes(fechaInicio = null, filtros = {}) {
+    const params = { ...filtros, ...(fechaInicio ? { fecha_inicio: fechaInicio } : {}) }
     const response = await api.get('/reportes/faltantes/notas', { params })
     return response.data
   },
-  async getReporteFaltantesProveedor(fechaInicio) {
+  async getReporteFaltantesProveedor(fechaInicio, filtros = {}) {
     try {
       console.log('📋 Frontend: Obteniendo reporte de faltantes por proveedor', fechaInicio ? `desde ${fechaInicio}` : '');
-      const params = {};
+      const params = { ...filtros };
       if (fechaInicio) params.fecha_inicio = fechaInicio;
 
       const response = await api.get('/reportes/faltantes/proveedor', { params })

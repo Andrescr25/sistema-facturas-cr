@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Pedidos y facturas conservan el recorrido de su semana
 estado: vigente
 archivos:
+  - backend/src/modules/rutas/operacionCiclo.service.js
+  - backend/tests/operacionCiclos.test.js
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/components/ContextoCicloDocumento.jsx
+  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/migrations/independencia/045_documentos_por_ciclo.sql
   - backend/src/modules/rutas/documentosCiclo.service.js
   - backend/src/modules/portal-clientes/portal-clientes.cliente.service.js
@@ -81,3 +86,22 @@ sigue pendiente; los lanzadores seguros continúan sustituyéndolo.
 
 Tercera parte: el enlace fija la semana y se vuelve a validar dentro de
 la transacción del pedido: [[modulo/preventa-por-enlace]].
+
+## Operación por ciclos — 2026-10-05
+
+Bodega/reportes/notas/Excel leen JOIN_CICLO de la factura, nunca ruta actual
+del cliente. Filtros rutaId/cicloId estrictos y Sin ciclo; incompatibles
+producen vacío, inválidos 400. Recorrido/Maps fijo, semana/orden/anticipado
+en documentos. Selector propio por permiso del módulo; solo metadatos,
+sin exponer paradas/Maps/saldos en esa consulta. Listas de reportes y notas
+ahora tienen dueño específico en usuarios/modulos: llevan contexto privado.
+Bodega de un ámbito explícito no se recorta a ventana/límite del conjunto.
+Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
+Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
+ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
+un producto; Excel añade Procedencia y conserva lectura sin asignar.
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
+persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
+Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.

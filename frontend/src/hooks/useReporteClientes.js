@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import { colaImpresionService } from '../services/colaImpresionService'
 import {
@@ -22,6 +23,8 @@ import { useToast } from './useToast'
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteClientes() {
+  const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/cliente/ciclos')
+  const peticion = useRef(0)
   const { confirm, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
@@ -34,10 +37,12 @@ export function useReporteClientes() {
   const [facturasEstado, setFacturasEstado] = useState(new Map())
 
   const loadReporte = useCallback(async () => {
+    const actual = ++peticion.current
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesCliente()
+      const result = await alegraService.getReporteFaltantesCliente(filtroCiclo.params)
+      if (actual !== peticion.current) return
 
       if (result.success) {
         setClientes(result.data)
@@ -85,11 +90,11 @@ export function useReporteClientes() {
         setError(result.message || 'Error cargando reporte')
       }
     } catch (err) {
-      setError(err.message)
+      if (actual === peticion.current) { setClientes([]); setError(err.message) }
     } finally {
-      setLoading(false)
+      if (actual === peticion.current) setLoading(false)
     }
-  }, [])
+  }, [filtroCiclo.params])
 
   useEffect(() => {
     loadReporte()
@@ -389,6 +394,7 @@ export function useReporteClientes() {
   const contarClientesSinCaja = useCallback(() => clientes.filter(c => clienteTieneSinCaja(c, facturasEstado)).length, [clientes, facturasEstado])
 
   return {
+    filtroCiclo,
     clientes,
     resumen,
     loading,

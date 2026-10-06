@@ -65,9 +65,9 @@ describe('el prefijo /alegra se fue entero', () => {
       assert.ok(montados.includes(prefijo), `${prefijo} no está montado en server.js`);
       assert.equal(clasificarRuta(`${prefijo}/algo`)?.clave, dueno, `${prefijo} tendría que ser de ${dueno}`);
     }
-    // Los reportes los leen las dos pantallas de reporte y la cola de
-    // impresión: compartido a propósito. Sus Excel sí tienen dueño.
-    assert.equal(clasificarRuta('/reportes/faltantes/cliente').tipo, 'compartida');
+    // La lista ahora lleva recorrido/Maps y exige el permiso del reporte,
+    // igual que sus selectores y Excel. Impresión usa su consulta propia.
+    assert.equal(clasificarRuta('/reportes/faltantes/cliente').clave, 'reporte-clientes');
   });
 
   test('la pantalla llama a esas mismas direcciones', () => {

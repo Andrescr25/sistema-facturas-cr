@@ -9,6 +9,7 @@ const router = express.Router();
 const reportController = new ReportController();
 
 // Reporte de faltantes por proveedor
+router.get('/faltantes/proveedor/ciclos', reportController.getCiclos);
 router.get('/faltantes/proveedor', reportController.getMissingItemsBySupplier);
 router.get('/faltantes/proveedor/exportar', reportController.exportarProveedores);
 
@@ -16,6 +17,7 @@ router.get('/faltantes/proveedor/exportar', reportController.exportarProveedores
 router.get('/faltantes/notas', reportController.getNotasDeFaltantes);
 
 // Reporte de faltantes por cliente
+router.get('/faltantes/cliente/ciclos', reportController.getCiclos);
 router.get('/faltantes/cliente', reportController.getMissingItemsByClient);
 router.get('/faltantes/cliente/exportar', reportController.exportarClientes);
 // Por el id PROPIO de la factura (migración independencia/032).

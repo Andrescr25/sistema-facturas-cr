@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
+import { useState, useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { useReporteClientes } from '../hooks/useReporteClientes'
 import ListaClientes from '../components/reporte-clientes/ListaClientes'
@@ -10,6 +11,7 @@ import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteClientes() {
   const {
+    filtroCiclo,
     clientes,
     resumen,
     loading,
@@ -39,14 +41,7 @@ export default function ReporteClientes() {
   // al entrar a un cliente, y al volver los filtros aparecían vacíos.
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
 
-  if (loading && !clientes.length) {
-    return (
-      <div className="max-w-[1400px] mx-auto text-center py-12">
-        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-nota-500 rounded-full w-12 h-12 animate-spin"></div>
-        <p className="text-neutro-600">Cargando reporte de clientes...</p>
-      </div>
-    )
-  }
+  useEffect(() => { setClienteActivoNombre(null) }, [filtroCiclo.rutaId, filtroCiclo.cicloId])
 
   const clienteActivo = clientes.find(c => c.nombre === clienteActivoNombre)
 
@@ -58,9 +53,12 @@ export default function ReporteClientes() {
         <p className="text-neutro-500 mt-2 text-lg">Ajusta entregas, procesa facturas y controla el estado de los pedidos.</p>
         </div>
         <BotonExportarExcel ruta="/reportes/faltantes/cliente/exportar"
-          params={clienteActivo ? { cliente_nombre: clienteActivo.nombre } : filtros}
+          params={{ ...filtroCiclo.params, ...(clienteActivo ? { cliente_nombre: clienteActivo.nombre } : filtros) }}
           disabled={loading || Boolean(error)} title="Descarga los faltantes y las respuestas guardadas de los clientes visibles." />
       </div>
+
+      <FiltroCicloOperacion filtro={filtroCiclo} />
+      {loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
 
       {error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
@@ -68,7 +66,7 @@ export default function ReporteClientes() {
         </div>
       )}
 
-      {!clienteActivo ? (
+      {loading ? null : !clienteActivo ? (
         <ListaClientes
           clientes={clientes}
           resumen={resumen}

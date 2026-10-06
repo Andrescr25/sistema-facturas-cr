@@ -77,7 +77,9 @@ const MODULOS = [
     // mandar una factura a la cola de impresión y recuperarla: botones de
     // esta pantalla que, por colgar de '/reportes' (compartida), podía usar
     // cualquiera con sesión. Decisión del usuario, 2026-10-04.
-    rutasApi: ['/reportes/faltantes/cliente/exportar', '/reportes/faltantes/cliente/facturas', '/faltantes']
+    // 2026-10-05: la lista/selector incorporan Maps del recorrido fijo,
+    // por lo que su lectura también exige el permiso del reporte.
+    rutasApi: ['/reportes/faltantes/cliente', '/reportes/faltantes/cliente/ciclos', '/reportes/faltantes/cliente/exportar', '/reportes/faltantes/cliente/facturas', '/faltantes']
   },
   {
     clave: 'impresion',
@@ -126,7 +128,8 @@ const MODULOS = [
     // '/orden-compra' es la orden de compra que arma esta pantalla y nadie
     // más: cantidades, el PDF, el contacto del proveedor y el envío por
     // WhatsApp a un proveedor de verdad.
-    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor/exportar', '/orden-compra']
+    // La procedencia por cliente/ciclo y sus notas también son del reporte.
+    rutasApi: ['/proveedores', '/reportes/faltantes/proveedor', '/reportes/faltantes/notas', '/reportes/faltantes/proveedor/ciclos', '/reportes/faltantes/proveedor/exportar', '/orden-compra']
   },
   {
     clave: 'pagos-proveedores',

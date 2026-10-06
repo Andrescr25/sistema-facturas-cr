@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Excel de los reportes propios — filtros, datos guardados y descarga sin escrituras
 estado: vigente
 archivos:
+  - backend/src/modules/rutas/operacionCiclo.service.js
+  - backend/tests/operacionCiclos.test.js
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/components/ContextoCicloDocumento.jsx
+  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/src/utils/exportarExcel.js
   - backend/src/modules/dashboard/dashboard.excel.js
   - backend/src/modules/rentabilidad/rentabilidad.excel.js
@@ -25,7 +30,7 @@ archivos:
   - backend/tests/rentabilidad.test.js
 aristas:
   relacionado: [modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-03
+medido: 2026-10-05
 ---
 
 CIERRE DE §13. Inicio, Rentabilidad y los reportes de faltantes por cliente y
@@ -109,3 +114,22 @@ Integrado sobre los commits de Bitácora/permisos de Claude (`a0337ff`,
 `e4f3cf4`): suite completa con `PROBAR_BASE_LOCAL=1`, 1.635 pruebas aprobadas,
 sin fallos ni omisiones; frontend compilado. Las siete descargas y Chromium
 se comprobaron otra vez con el backend cargando el código combinado.
+
+## Operación por ciclos — 2026-10-05
+
+Bodega/reportes/notas/Excel leen JOIN_CICLO de la factura, nunca ruta actual
+del cliente. Filtros rutaId/cicloId estrictos y Sin ciclo; incompatibles
+producen vacío, inválidos 400. Recorrido/Maps fijo, semana/orden/anticipado
+en documentos. Selector propio por permiso del módulo; solo metadatos,
+sin exponer paradas/Maps/saldos en esa consulta. Listas de reportes y notas
+ahora tienen dueño específico en usuarios/modulos: llevan contexto privado.
+Bodega de un ámbito explícito no se recorta a ventana/límite del conjunto.
+Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
+Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
+ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
+un producto; Excel añade Procedencia y conserva lectura sin asignar.
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
+persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
+Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.

@@ -1,3 +1,5 @@
+import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
+import FaltantesPorCiclo from '../components/reporte-proveedores/FaltantesPorCiclo'
 import { useState, useEffect } from 'react'
 import { AlertCircle, Package, ClipboardList, Contact } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
@@ -17,6 +19,7 @@ import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteProveedores() {
   const {
+    filtroCiclo, consultaCiclo,
     proveedores,
     notasPorProducto,
     cargandoNotas,
@@ -127,15 +130,6 @@ export default function ReporteProveedores() {
   // El reporte de faltantes tarda; las fichas no dependen de él. Si esta
   // espera tapara toda la página, entrar a corregir un proveedor obligaría a
   // esperar un reporte que no se va a mirar.
-  if (loading && !proveedores.length && vista !== 'fichas') {
-    return (
-      <div className="max-w-6xl mx-auto text-center py-12">
-        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-primario-500 rounded-full w-12 h-12 animate-spin"></div>
-        <p className="text-neutro-600">Cargando reporte de proveedores...</p>
-      </div>
-    )
-  }
-
   const proveedorActivo = proveedores.find(p => p.id === proveedorActivoId)
 
   const cerrarModalAsignar = () => {
@@ -149,13 +143,15 @@ export default function ReporteProveedores() {
       <div className="mb-8 pl-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
         <h1 className="text-4xl font-extrabold text-neutro-900 tracking-tight">Faltantes y Compras</h1>
-        <p className="text-neutro-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
+        <p className="text-neutro-500 mt-2 text-lg">Faltantes registrados y su origen por ruta y semana.</p>
         </div>
         {vista === 'faltantes' && <BotonExportarExcel ruta="/reportes/faltantes/proveedor/exportar"
-          params={{ fecha_inicio: fechaInicio, buscar: proveedorActivoId ? '' : proveedorQuery, proveedor: proveedorActivoId || '' }}
+          params={{ ...filtroCiclo.params, fecha_inicio: fechaInicio, buscar: proveedorActivoId ? '' : proveedorQuery, proveedor: proveedorActivoId || '' }}
           disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
       </div>
 
+      {vista === 'faltantes' && <FiltroCicloOperacion filtro={filtroCiclo} />}
+      {vista === 'faltantes' && loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
       {error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
           <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
@@ -202,8 +198,9 @@ export default function ReporteProveedores() {
           onAbrir={fichas.abrirFicha}
           onCambiarEstado={fichas.cambiarEstado}
         />
-      ) : !proveedorActivoId ? (
+      ) : loading ? null : !proveedorActivoId ? (
         <ListaProveedores
+          consultaCiclo={consultaCiclo}
           proveedores={proveedores}
           pedidosEnviados={pedidosEnviados}
           resumen={resumen}
@@ -214,6 +211,8 @@ export default function ReporteProveedores() {
           proveedorQuery={proveedorQuery}
           setProveedorQuery={setProveedorQuery}
         />
+      ) : proveedorActivo && consultaCiclo ? (
+        <FaltantesPorCiclo proveedor={proveedorActivo} onVolver={() => setProveedorActivoId(null)} />
       ) : proveedorActivo ? (
         <ProveedorDetalle
           notasPorProducto={notasPorProducto}

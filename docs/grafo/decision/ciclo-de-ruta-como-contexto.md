@@ -12,7 +12,7 @@ aristas:
 medido: 2026-10-05
 ---
 
-**Decisión del usuario. Rutas/ciclos y pedidos/facturas implementados; faltantes/compras pendientes.** La ruta define el
+**Decisión del usuario. Rutas/ciclos y pedidos/facturas implementados; bodega/reportes de faltantes por ciclo implementados; órdenes/cobertura pendientes.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -37,3 +37,9 @@ Modelo de rutas/ciclos, asignación/orden, recorrido inmutable y ficha ya
 implementados: ver [[modulo/rutas-clientes]]. Los estados pueden coexistir;
 promoción explícita. Segunda parte: pedidos/facturas conservan el ciclo y sus filtros, ver
 [[modulo/pedidos-por-ciclo]]. Vincular faltantes y compras sigue pendiente.
+
+Parte de operación: faltantes derivan el ciclo de factura/recorrido fijo;
+Bodega, Clientes, Proveedores, notas y Excel filtran el mismo contexto. Sin
+ciclo mantiene históricos; compra pendiente aún no descuenta cobertura.
+Recorrido aplicado a preparación, consulta filtrada del proveedor separada
+del borrador global. Informe operacion-ciclos-2026-10-05 y [[modulo/faltantes]].

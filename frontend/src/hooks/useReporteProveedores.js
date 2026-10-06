@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 import { construirProductosParaOrden } from '../utils/reporteProveedoresUtils'
@@ -16,6 +17,9 @@ import { useToast } from './useToast'
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteProveedores() {
+  const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/proveedor/ciclos')
+  const peticion = useRef(0), peticionNotas = useRef(0)
+  const consultaCiclo = Boolean(filtroCiclo.rutaId || filtroCiclo.cicloId)
   const { prompt, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
@@ -64,10 +68,12 @@ export function useReporteProveedores() {
   const [mensajeWhatsApp, setMensajeWhatsApp] = useState('Hola buenas, adjunto el pedido\ngracias')
 
   const loadReporte = useCallback(async () => {
+    const actual = ++peticion.current
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio)
+      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio, filtroCiclo.params)
+      if (actual !== peticion.current) return
 
       if (result.success) {
         // Filtrar proveedores que NO tienen productos para limpiar la vista principal
@@ -78,24 +84,26 @@ export function useReporteProveedores() {
         setError(result.message || 'Error cargando reporte')
       }
     } catch (err) {
-      setError(err.message)
+      if (actual === peticion.current) { setProveedores([]); setError(err.message) }
     } finally {
-      setLoading(false)
+      if (actual === peticion.current) setLoading(false)
     }
-  }, [fechaInicio])
+  }, [fechaInicio, filtroCiclo.params])
 
   const loadNotas = useCallback(async () => {
+    const actual = ++peticionNotas.current
     setCargandoNotas(true)
     try {
-      const r = await alegraService.getNotasDeFaltantes(fechaInicio)
+      const r = await alegraService.getNotasDeFaltantes(fechaInicio, filtroCiclo.params)
+      if (actual !== peticionNotas.current) return
       setNotasPorProducto(r?.data?.porProducto || {})
     } catch {
       // Sin notas se compra como se compraba hasta ayer: no se estorba.
-      setNotasPorProducto({})
+      if (actual === peticionNotas.current) setNotasPorProducto({})
     } finally {
-      setCargandoNotas(false)
+      if (actual === peticionNotas.current) setCargandoNotas(false)
     }
-  }, [fechaInicio])
+  }, [fechaInicio, filtroCiclo.params])
 
   const loadCantidadesGuardadas = useCallback(async () => {
     try {
@@ -157,10 +165,10 @@ export function useReporteProveedores() {
   useEffect(() => {
     loadReporte()
     loadNotas()
-    loadCantidadesGuardadas()
-    loadPedidosEnviados()
+    if (!consultaCiclo) { loadCantidadesGuardadas(); loadPedidosEnviados() }
+    else { setPedidosEnviados(new Map()); setProductosSeleccionados(new Set()) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaInicio])
+  }, [fechaInicio, filtroCiclo.params])
 
   const usaDatosProveedor = useCallback((proveedorNombre) => {
     const preferencia = preferenciasDatosProveedor[proveedorNombre]
@@ -556,6 +564,7 @@ export function useReporteProveedores() {
   }, [productosAgregados])
 
   return {
+    filtroCiclo, consultaCiclo,
     notasPorProducto,
     cargandoNotas,
     proveedores,

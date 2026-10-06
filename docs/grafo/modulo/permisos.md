@@ -167,3 +167,10 @@ asignaciones, que se escriben y siguen siendo solo de Reporte Proveedores.
 `permisosPrestados.test.js` lee las llamadas del hook de verdad y falla si la
 pantalla empieza a usar una ruta que nadie le prestó. Vino de `developer`
 (`main` `b0989bf`), donde es igual.
+
+2026-10-05: Bodega /ciclos y reportes cliente/proveedor tienen selector bajo
+su módulo, sin requerir permiso Clientes. Listas ahora incluyen Maps/contexto
+fijo y dejan de ser compartidas; notas por producto pertenecen a Reporte
+Proveedores. Prefijo más largo conserva /proveedor/limpiar en Configuración
+(pendiente retirar por código, nunca ejecutar). Prueba operacionCiclos y
+permiso HTTP real en copia desechable; contexto en informe de operación.

@@ -6,7 +6,8 @@ Estado: rutas/ciclos, ficha, pedidos/facturas, enlaces y PDF con fotos implement
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
 [ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md) y
-[catálogo visual](informes/catalogo-visual-2026-10-05.md).
+[catálogo visual](informes/catalogo-visual-2026-10-05.md) y
+[operación por ciclos](informes/operacion-ciclos-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -142,21 +143,34 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-01 — Clientes: ruta y orden visibles, filtro de ruta.
 - [x] FIL-02 — Pedidos: filtros de ruta/ciclo y origen presencial/en línea.
 - [x] FIL-03 — Preventa: ruta/ciclo actual y próximo claramente identificados.
-- [ ] FIL-04 — Reporte Clientes: filtrar ruta/ciclo y mostrar orden de entrega.
-- [ ] FIL-05 — Reporte Proveedores: filtrar ruta/ciclo y ver desglose de origen.
-- [ ] FIL-06 — Preparación de pedidos: filtrar ruta/ciclo.
+- [x] FIL-04 — Reporte Clientes: filtrar ruta/ciclo y mostrar orden de entrega.
+- [x] FIL-05 — Reporte Proveedores: filtrar ruta/ciclo y ver desglose de origen.
+- [x] FIL-06 — Preparación de pedidos: filtrar ruta/ciclo.
 - [ ] FIL-07 — Entregas: filtrar ruta/ciclo y conservar su avance propio.
-- [ ] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
+- [x] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
 - [ ] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
 - [ ] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.
 - [ ] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
   sin asignaciones automáticas supuestas.
 
+Parte de operación (2026-10-05): FIL-04/05/06/08, FAL-02 y ENT-02
+implementados. Bodega y reportes filtran el recorrido fijo de la factura;
+Sin ciclo conserva históricos sin reasignarlos. Bodega prepara por parada,
+selector incluye semana/estado y Maps del recorrido se abre en el detalle.
+Proveedor muestra procedencia por faltante/factura/cliente/ciclo; notas y
+Excel respetan filtros (hoja Procedencia). Consulta filtrada de proveedor
+no aplica el borrador global ni su marca de envío. Órdenes persistentes,
+cobertura y recepción siguen pendientes. FIL-09/10/11, RUT-08 y FAL-01
+siguen parciales por propagación a órdenes/entregas y pedidos sin facturar.
+2.011 pruebas, grafo 12, build y navegador 1440/390 aprobados; dos Excel
+releídos y permisos HTTP comprobados. Checklist vigente **44 listos / 55
+pendientes (99 IDs)**. Ver informe de esta parte.
+
 ## 5. Faltantes y cobertura de compras
 
 - [ ] FAL-01 — Cada necesidad enlaza producto, pedido/factura, cliente y ciclo.
-- [ ] FAL-02 — Mostrar agregado y desglose: ejemplo 10 = 6 actual + 4 próxima.
+- [x] FAL-02 — Mostrar agregado y desglose: ejemplo 10 = 6 actual + 4 próxima.
 - [ ] FAL-03 — Separar stock actual, requerido y comprometido con clientes.
 - [ ] FAL-04 — Separar faltante, ya pedido, pendiente de recibir y recibido.
 - [ ] FAL-05 — Descontar cobertura válida de órdenes existentes al sugerir
@@ -201,7 +215,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 ## 8. Preparación, carga y entrega
 
 - [ ] ENT-01 — Mostrar clientes/pedidos en orden real de entrega del ciclo.
-- [ ] ENT-02 — Usar el orden en preparación y bodega.
+- [x] ENT-02 — Usar el orden en preparación y bodega.
 - [ ] ENT-03 — Sugerir orden de carga que deje el primer pedido más accesible.
 - [ ] ENT-04 — Mostrar ese contexto en Reporte Clientes y entregas.
 - [ ] ENT-05 — Agente/chofer puede abrir Maps y consultar la parada desde celular.

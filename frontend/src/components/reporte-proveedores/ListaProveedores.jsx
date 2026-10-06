@@ -14,7 +14,7 @@ import { Calendar, RefreshCw, Package, Check } from 'lucide-react'
  *
  * Solo cuenta lo que salió bien: un intento fallido no es un pedido enviado.
  */
-export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor, proveedorQuery, setProveedorQuery }) {
+export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor, proveedorQuery, setProveedorQuery, consultaCiclo = false }) {
 
   const cuandoSeEnvio = (fecha) =>
     new Date(fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
@@ -65,7 +65,7 @@ export default function ListaProveedores({ proveedores, pedidosEnviados, resumen
               {/* Ya se le mandó el pedido en este período. Va antes de los
                   números porque la pregunta al recorrer la lista es "¿a
                   quién le falta?", no "¿cuántos productos tiene?". */}
-              {enviado ? (
+              {consultaCiclo ? <p className="mb-4 text-xs font-semibold text-nota-700">Faltantes del ciclo seleccionado</p> : enviado ? (
                 <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-exito-50 px-2.5 py-1 text-xs font-bold text-exito-700 ring-1 ring-exito-200">
                   <Check size={13} strokeWidth={3} />
                   Pedido enviado {cuandoSeEnvio(enviado.ultimoEnvio)}

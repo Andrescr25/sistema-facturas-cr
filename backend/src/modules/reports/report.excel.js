@@ -27,9 +27,10 @@ function filtrarClientes(clientes, filtros) {
 }
 
 const col = (clave, titulo, tipo = 'texto', ancho) => ({ clave, titulo, tipo, ancho });
+const contexto = [col('ruta', 'Ruta', 'texto', 30), col('semana', 'Semana', 'fecha'), col('cicloId', 'ID ciclo', 'numero'), col('orden', 'Orden de entrega', 'numero'), col('anticipado', 'Preventa anticipada')];
 const producto = [col('productoId', 'ID producto', 'numero'), col('codigo', 'Código'), col('producto', 'Producto', 'texto', 45)];
 function comprobar(r) {
-  if (!r.success) throw new Error(r.error || 'No se pudo leer el reporte.');
+  if (!r.success) throw Object.assign(new Error(r.error || 'No se pudo leer el reporte.'), { status: r.status });
   return r.data;
 }
 
@@ -40,11 +41,11 @@ async function exportarProveedores(filtros = {}) {
   }
   const buscar = texto(filtros.buscar, 'buscar').toLowerCase();
   const id = texto(filtros.proveedor, 'proveedor');
-  const datos = comprobar(await new ReportService().getMissingItemsBySupplier(desde || null, { asignarProveedores: false }));
+  const datos = comprobar(await new ReportService().getMissingItemsBySupplier(desde || null, { ...filtros, asignarProveedores: false }));
   const proveedores = datos.filter(p => (!id || p.id === id) && p.nombre.toLowerCase().includes(buscar));
   return generarExcel({
     titulo: 'Faltantes por proveedor', prefijo: 'faltantes-proveedores',
-    informacion: [['Desde', desde || 'Todas las fechas'], ['Proveedor', id || 'Todos'], ['Buscar proveedor', buscar],
+    informacion: [['Ruta ID', filtros.rutaId || 'Todas'], ['Ciclo ID', filtros.cicloId || 'Todos'], ['Desde', desde || 'Todas las fechas'], ['Proveedor', id || 'Todos'], ['Buscar proveedor', buscar],
       ['Cantidades', 'Faltantes registrados; las cantidades editadas para una orden no modifican este reporte.']],
     hojas: [{ nombre: 'Faltantes', columnas: [col('proveedor', 'Proveedor', 'texto', 35), col('cedula', 'Cédula proveedor'), ...producto,
       col('codigoProveedor', 'Código proveedor'), col('nombreProveedor', 'Nombre del proveedor', 'texto', 45),
@@ -53,7 +54,15 @@ async function exportarProveedores(filtros = {}) {
     filas: proveedores.flatMap(p => p.productos_faltantes.map(f => ({ proveedor: p.nombre, cedula: p.cedula,
       productoId: f.producto_id, codigo: f.codigo, producto: f.nombre, codigoProveedor: f.codigo_proveedor,
       nombreProveedor: f.nombre_proveedor, cantidad: f.cantidad_faltante, facturas: f.facturas_afectadas,
-      clientes: f.clientes_afectados, descripcion: f.descripcion_factura }))) }]
+      clientes: f.clientes_afectados, descripcion: f.descripcion_factura }))) },
+      { nombre: 'Procedencia', columnas: [col('proveedor', 'Proveedor'), ...producto, ...contexto,
+        col('faltanteId', 'ID faltante', 'numero'), col('facturaId', 'ID factura', 'numero'), col('factura', 'Factura'),
+        col('cliente', 'Cliente'), col('cantidad', 'Cantidad faltante', 'numero')],
+        filas: proveedores.flatMap(p => p.productos_faltantes.flatMap(f => f.origenes.map(o => ({
+          proveedor: p.nombre, productoId: f.producto_id, codigo: f.codigo, producto: f.nombre,
+          ruta: o.rutaNombre || 'Sin ciclo', semana: o.semana, cicloId: o.cicloId, orden: o.orden,
+          anticipado: o.anticipado ? 'Sí' : 'No', faltanteId: o.faltanteId,
+          facturaId: o.facturaId, factura: o.factura, cliente: o.cliente, cantidad: Number(o.cantidad) })))) }]
   });
 }
 
@@ -61,18 +70,19 @@ async function exportarClientes(filtros = {}) {
   // Validar antes de consultar: un filtro mal formado no descarga el total
   // del reporte silenciosamente. La selección por producto es por cliente.
   filtrarClientes([], filtros);
-  const datos = comprobar(await new ReportService().getMissingItemsByClient({ asignarProveedores: false }));
+  const datos = comprobar(await new ReportService().getMissingItemsByClient({ ...filtros, asignarProveedores: false }));
   const clientes = filtrarClientes(datos, filtros);
   return generarExcel({
     titulo: 'Faltantes por cliente', prefijo: 'faltantes-clientes',
-    informacion: [['Cliente', filtros.cliente_nombre || filtros.cliente || 'Todos'], ['Buscar producto', filtros.producto || 'Todos'],
+    informacion: [['Ruta ID', filtros.rutaId || 'Todas'], ['Ciclo ID', filtros.cicloId || 'Todos'], ['Cliente', filtros.cliente_nombre || filtros.cliente || 'Todos'], ['Buscar producto', filtros.producto || 'Todos'],
       ['Proveedores', (filtros.proveedores || []).join(', ') || 'Todos'], ['Selección', 'Todos los faltantes de los clientes que coinciden con los filtros.']],
     hojas: [{ nombre: 'Faltantes', columnas: [col('cliente', 'Cliente', 'texto', 35), col('facturaId', 'ID factura', 'numero'),
       col('factura', 'Factura'), col('fecha', 'Fecha factura', 'fecha'), col('estadoFactura', 'Estado factura'),
-      ...producto, col('proveedor', 'Proveedor', 'texto', 35), col('faltante', 'Cantidad faltante', 'numero'),
+      ...contexto, ...producto, col('proveedor', 'Proveedor', 'texto', 35), col('faltante', 'Cantidad faltante', 'numero'),
       col('entregada', 'Cantidad entregada', 'numero'), col('respuesta', 'Respuesta de entrega'), col('revisado', 'Revisado'),
       col('observaciones', 'Observaciones', 'texto', 50)],
     filas: clientes.flatMap(c => c.facturas_con_faltantes.flatMap(f => f.productos_faltantes.map(p => ({ cliente: c.nombre,
+      ruta: f.ciclo?.rutaNombre || 'Sin ciclo', semana: f.ciclo?.semana, cicloId: f.ciclo?.id, orden: f.ciclo?.orden, anticipado: f.anticipado ? 'Sí' : 'No',
       facturaId: f.factura_id, factura: f.numero_factura, fecha: f.fecha_emision,
       estadoFactura: f.estado_procesamiento === 'procesado' ? 'Procesada' : f.en_cola_impresion ? 'En impresión' : 'Pendiente',
       productoId: p.producto_id, codigo: p.codigo, producto: p.nombre, proveedor: p.proveedor_asignado || p.proveedor,

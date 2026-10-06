@@ -26,6 +26,7 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { encolarSinPendientes } = require('../reprinting/colaImpresion');
+const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
@@ -73,6 +74,7 @@ function aLinea(l) {
 
 function aFactura(f, lineas) {
   return {
+    ...contextoDocumento(f),
     factura_id: f.id,
     numero_factura: f.numero,
     numero_completo: f.numero,
@@ -108,18 +110,24 @@ function ordenarHistorial(listas) {
  * GET /bodega/facturas-propias?dias=&limit= — la misma ventana que usaba la
  * pantalla con Alegra: las `limit` más nuevas de los últimos `dias` días.
  */
-async function listar({ dias, limit } = {}) {
+async function listar({ dias, limit, rutaId, cicloId } = {}) {
   const d = acotar(dias, 1, 365, 30);
   const l = acotar(limit, 1, 500, 40);
+  const params = (rutaId || cicloId) ? [] : [d, l], where = ["f.estado = 'emitida'"];
+  filtrosOperacion({ rutaId, cicloId }, where, params);
+  // Un ciclo no se corta por los últimos 30 días ni por las 40 facturas
+  // recientes de otra ruta. Todos sus documentos deben estar disponibles.
+  const acotado = Boolean(rutaId || cicloId);
+  if (!acotado) where.push(`f.fecha >= ${HOY_CR} - $1::int`);
   const { rows: facturas } = await query(`
     SELECT f.id, f.numero, f.fecha::text AS fecha, f.cliente_nombre, f.cliente_correo, f.total,
-           f.observaciones, f.estado_bodega, f.bodega_procesado_en, f.bodega_observaciones
-      FROM factura f
-     WHERE f.estado = 'emitida'
-       AND f.fecha >= ${HOY_CR} - $1::int
-     ORDER BY f.fecha DESC, f.id DESC
-     LIMIT $2
-  `, [d, l]);
+           f.observaciones, f.estado_bodega, f.bodega_procesado_en, f.bodega_observaciones,
+           f.preventa_anticipada, ${COLUMNAS_CICLO}, rc.ubicacion_maps
+      FROM factura f ${JOIN_CICLO('f')}
+     WHERE ${where.join(' AND ')}
+     ORDER BY cr.semana ASC NULLS LAST, cr.id, rc.orden, f.fecha DESC, f.id DESC
+     ${acotado ? '' : 'LIMIT $2'}
+  `, params.slice(0, acotado ? params.length : 2));
 
   const ids = facturas.map((f) => f.id);
   const porFactura = new Map(ids.map((id) => [id, []]));
@@ -142,7 +150,7 @@ async function listar({ dias, limit } = {}) {
     success: true,
     data: { pendientes, listas, resumen: { total: todas.length, pendientes: pendientes.length, listas: listas.length } },
     // Ya no hay nadie a quien esperar: la lista es de la base, siempre al día.
-    metadata: { filtros: { dias: d, limit: l }, lastSync: new Date().toISOString(), actualizando: false, aviso: null }
+    metadata: { filtros: { dias: acotado ? null : d, limit: acotado ? null : l, rutaId: rutaId || null, cicloId: cicloId || null }, lastSync: new Date().toISOString(), actualizando: false, aviso: null }
   };
 }
 

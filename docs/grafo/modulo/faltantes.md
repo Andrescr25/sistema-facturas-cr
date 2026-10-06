@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios
 estado: vigente
 archivos:
+  - backend/src/modules/rutas/operacionCiclo.service.js
+  - backend/tests/operacionCiclos.test.js
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/components/ContextoCicloDocumento.jsx
+  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/migrations/independencia/032_faltantes_con_ids_propios.sql
   - backend/migrations/independencia/033_faltante_cantidad_rebajada.sql
   - backend/src/utils/guardarFaltantes.js
@@ -33,7 +38,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-04
+medido: 2026-10-05
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -208,3 +213,22 @@ reporte, pidió eliminar el conjunto `ZZ-DEMO`: retirados sus dos proveedores,
 cinco productos, faltantes, borradores y su fila de Impresión por ids del
 manifiesto. Cero restos y nueve tablas anteriores iguales; no se ejecutó
 limpieza semanal. Evidencia en [[modulo/demo-reporte-proveedores]].
+
+## Operación por ciclos — 2026-10-05
+
+Bodega/reportes/notas/Excel leen JOIN_CICLO de la factura, nunca ruta actual
+del cliente. Filtros rutaId/cicloId estrictos y Sin ciclo; incompatibles
+producen vacío, inválidos 400. Recorrido/Maps fijo, semana/orden/anticipado
+en documentos. Selector propio por permiso del módulo; solo metadatos,
+sin exponer paradas/Maps/saldos en esa consulta. Listas de reportes y notas
+ahora tienen dueño específico en usuarios/modulos: llevan contexto privado.
+Bodega de un ámbito explícito no se recorta a ventana/límite del conjunto.
+Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
+Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
+ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
+un producto; Excel añade Procedencia y conserva lectura sin asignar.
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
+persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
+Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.

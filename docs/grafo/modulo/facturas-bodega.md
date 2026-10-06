@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
+  - backend/src/modules/rutas/operacionCiclo.service.js
+  - backend/tests/operacionCiclos.test.js
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/components/ContextoCicloDocumento.jsx
+  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/src/modules/warehouse/warehouse.controller.js
   - frontend/src/hooks/useFacturasBodega.js
   - frontend/src/pages/FacturasBodega.jsx
@@ -17,7 +22,7 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
   relacionado: [modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-09-30
+medido: 2026-10-05
 ---
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
@@ -70,3 +75,22 @@ TRAMPAS QUE YA COSTARON
 - `/bodega` es del módulo. Mientras la pantalla llamó a `/alegra/bodega`
   (hasta el 2026-10-04) hubo que declararlo aparte: `/alegra` era compartida
   y cualquiera con sesión podía marcar facturas como despachadas.
+
+## Operación por ciclos — 2026-10-05
+
+Bodega/reportes/notas/Excel leen JOIN_CICLO de la factura, nunca ruta actual
+del cliente. Filtros rutaId/cicloId estrictos y Sin ciclo; incompatibles
+producen vacío, inválidos 400. Recorrido/Maps fijo, semana/orden/anticipado
+en documentos. Selector propio por permiso del módulo; solo metadatos,
+sin exponer paradas/Maps/saldos en esa consulta. Listas de reportes y notas
+ahora tienen dueño específico en usuarios/modulos: llevan contexto privado.
+Bodega de un ámbito explícito no se recorta a ventana/límite del conjunto.
+Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
+Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
+ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
+un producto; Excel añade Procedencia y conserva lectura sin asignar.
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
+persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
+Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.

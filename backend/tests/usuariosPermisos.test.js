@@ -167,7 +167,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/reportes/faltantes/notas', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/reportes/historial', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 
@@ -439,10 +439,12 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     }
   });
 
-  test('leer el reporte de proveedores sigue abierto a quien tenga sesión', async () => {
-    const { middleware } = cargarConDobles({});
-    for (const ruta of ['/reportes/faltantes/proveedor', '/reportes/faltantes/cliente', '/reportes/faltantes/notas', '/reportes/historial']) {
-      assert.equal((await correr(middleware, { ruta, usuario: { id: 4 } })).bloqueado, false, ruta);
+  test('consultar faltantes o sus notas requiere el módulo dueño', async () => {
+    for (const [ruta,modulo] of [['/reportes/faltantes/proveedor','reporte-proveedores'],['/reportes/faltantes/cliente','reporte-clientes'],['/reportes/faltantes/notas','reporte-proveedores']]) {
+      const sin=cargarConDobles({'FROM usuario WHERE id':[USUARIO()],'FROM usuario_modulo WHERE usuario_id':[{modulo:'facturacion'}]});
+      assert.equal((await correr(sin.middleware,{ruta,usuario:{id:4}})).codigo,403);
+      const con=cargarConDobles({'FROM usuario WHERE id':[USUARIO()],'FROM usuario_modulo WHERE usuario_id':[{modulo}]});
+      assert.equal((await correr(con.middleware,{ruta,usuario:{id:4}})).bloqueado,false);
     }
   });
 

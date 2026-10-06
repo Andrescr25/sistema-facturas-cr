@@ -9,6 +9,7 @@ const warehouseController = require('./warehouse.controller');
 
 // Facturas PROPIAS (sección 11 del checklist), por su id. Las de Alegra
 // (`/facturas/:alegraId`) se retiraron el 2026-09-30.
+router.get('/ciclos', warehouseController.getCiclos);
 router.get('/facturas-propias', warehouseController.getFacturasPropias);
 router.get('/facturas-propias/:facturaId/estados', warehouseController.getEstadosFacturaPropia);
 router.post('/facturas-propias/:facturaId/faltantes', warehouseController.registrarFaltantesFacturaPropia);

@@ -60,7 +60,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
   respuesta por WhatsApp sin cuenta, invitación opcional para pedir en línea.
 - [x] Ampliación visual: categorías/subcategorías, ofertas y liquidaciones
   integradas con etiquetas, dos columnas/fotos grandes y WhatsApp explícito.
-- [ ] Bodega, reportes, faltantes y exportaciones filtran ruta/ciclo.
+- [x] Bodega y reportes de faltantes filtran ruta/ciclo; procedencia en Excel.
+- [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
 - [ ] Recepción parcial/final, comparación de factura y PDF privado.
 - [ ] Carga/entrega ordenadas y avance por cliente/documento.

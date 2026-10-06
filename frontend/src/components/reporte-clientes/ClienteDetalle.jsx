@@ -1,3 +1,4 @@
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { User, Mail, Clock, Check, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react'
 import FacturaActivaCard from './FacturaActivaCard'
 import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaja, formatDate, formatDateTime } from '../../utils/reporteClientesUtils'
@@ -136,6 +137,7 @@ export default function ClienteDetalle({
                         <span className="ml-2 px-2 py-0.5 text-[10px] bg-neutro-100 text-neutro-600 rounded-full no-underline inline-block">✓ Procesada</span>
                       </h5>
                       <p className="text-xs text-neutro-400 mt-0.5">{formatDate(factura.fecha_emision)} • {productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
+                      <ContextoCicloDocumento documento={factura} maps />
                       {estadoFactura.timestamp && <p className="text-[10px] text-neutro-500 mt-0.5">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'} — {formatDateTime(estadoFactura.timestamp)}</p>}
                     </div>
                     <button onClick={() => onRecuperarFactura(factura)} className="btn btn-sm btn-outline whitespace-nowrap">

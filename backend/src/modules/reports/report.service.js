@@ -5,13 +5,14 @@
 
 const { query } = require('../../../config/database');
 const { asignarProveedorAutomatico } = require('../../../services/proveedorAsignacionService');
+const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento, filtrosOperacion, listarCiclos } = require('../rutas/operacionCiclo.service');
 const cicloPedidos = require('../orders-whatsapp/cicloPedidos');
 
 class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor con mapping
    */
-  async getMissingItemsBySupplier(fechaInicio = null, { asignarProveedores = true } = {}) {
+  async getMissingItemsBySupplier(fechaInicio = null, { asignarProveedores = true, rutaId, cicloId } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
@@ -29,10 +30,19 @@ class ReportService {
         queryParams.push(fechaInicio);
       }
 
+      const whereCiclo = [];
+      filtrosOperacion({ rutaId, cicloId }, whereCiclo, queryParams);
+      if (whereCiclo.length) whereClause += ' AND ' + whereCiclo.join(' AND ');
+      const origenes = `jsonb_agg(jsonb_build_object(
+        'faltanteId',f.id,'facturaId',fa.id,'factura',fa.numero,'clienteId',fa.cliente_id,
+        'cliente',fa.cliente_nombre,'cantidad',f.cantidad_faltante,
+        'anticipado',fa.preventa_anticipada,'cicloId',cr.id,'rutaId',cr.ruta_id,
+        'rutaNombre',cr.ruta_nombre,'semana',cr.semana::text,'orden',rc.orden)
+        ORDER BY cr.semana NULLS LAST,cr.id,rc.orden,fa.id,f.id) AS origenes`;
       const sqlFaltantes = `
         SELECT
          p.id as producto_id,          p.referencia as producto_codigo,          p.nombre as producto_nombre,          p.nombre as producto_nombre_actual,
-          SUM(f.cantidad_faltante) as total_faltante,
+          SUM(f.cantidad_faltante) as total_faltante, ${origenes},
           COUNT(f.id) as facturas_afectadas,
           STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
           STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
@@ -41,7 +51,7 @@ class ReportService {
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
           (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
-        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre
+        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id ${JOIN_CICLO('fa')} WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
         ORDER BY total_faltante DESC
       `;
 
@@ -70,11 +80,11 @@ class ReportService {
         for (const producto of productosSinAsignacion) {
           const faltantesDelProducto = await query(`
             SELECT f.id
-            FROM faltantes f
-            WHERE f.producto_propio_id = $1
+            FROM faltantes f JOIN factura fa ON fa.id=f.factura_propia_id ${JOIN_CICLO('fa')}
+            WHERE ${whereClause} AND f.producto_propio_id = $${queryParams.length + 1}
               AND f.estado IN ('pendiente', 'procesado')
               AND f.proveedor_asignado IS NULL
-          `, [producto.producto_id]);
+          `, [...queryParams, producto.producto_id]);
           
           for (const faltante of faltantesDelProducto.rows) {
             await asignarProveedorAutomatico(faltante.id, producto.producto_id, producto.producto_codigo);
@@ -84,21 +94,7 @@ class ReportService {
         console.log(`✅ ${productosSinAsignacion.length} productos asignados automáticamente`);
         
         // Recargar faltantes ahora con asignaciones
-        const faltantesActualizados = await query(`
-          SELECT
-           p.id as producto_id,            p.referencia as producto_codigo,  p.nombre as producto_nombre,            p.nombre as producto_nombre_actual,
-            SUM(f.cantidad_faltante) as total_faltante,
-            COUNT(f.id) as facturas_afectadas,
-            STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
-            STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
-            MAX(f.proveedor_asignado) as proveedor_asignado,
-            MAX(f.proveedor_cedula) as proveedor_cedula,
-            MAX(f.precio_asignado) as precio_asignado,
-            MAX(f.asignacion_tipo) as asignacion_tipo,
-            (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
-          FROM faltantes f          JOIN producto p ON p.id = f.producto_propio_id          JOIN factura fa ON fa.id = f.factura_propia_id          WHERE ${whereClause}          GROUP BY p.id, p.referencia, p.nombre
-          ORDER BY total_faltante DESC
-        `, queryParams);
+        const faltantesActualizados = await query(sqlFaltantes, queryParams);
         
         faltantesResult.rows = faltantesActualizados.rows;
       }
@@ -170,7 +166,8 @@ class ReportService {
           codigo: faltante.producto_codigo,
           codigo_proveedor: mappingInfo?.supplierCode || null,
           mapping_id: faltante.mapping_id || null,
-          cantidad_faltante: parseInt(faltante.total_faltante),
+          cantidad_faltante: Number(faltante.total_faltante),
+          origenes: faltante.origenes || [],
           facturas_afectadas: parseInt(faltante.facturas_afectadas),
           tipo_faltante: faltante.tipo_faltante,
           clientes_afectados: faltante.clientes_afectados,
@@ -182,7 +179,7 @@ class ReportService {
         });
 
         proveedor.total_productos++;
-        proveedor.total_cantidad += parseInt(faltante.total_faltante);
+        proveedor.total_cantidad += Number(faltante.total_faltante);
       }
 
       const proveedoresArray = Array.from(proveedoresMap.values()).map(proveedor => ({
@@ -190,8 +187,8 @@ class ReportService {
         aliases: proveedor.aliases && proveedor.aliases.length > 0 ? proveedor.aliases : undefined
       }));
 
-      const totalProductos = faltantesResult.rows.length;
-      const productosConAsignacion = faltantesResult.rows.filter(f => f.proveedor_asignado && f.proveedor_asignado !== 'Sin_Proveedor').length;
+      const totalProductos = new Set(faltantesResult.rows.map(f => f.producto_id)).size;
+      const productosConAsignacion = new Set(faltantesResult.rows.filter(f => f.proveedor_asignado && f.proveedor_asignado !== 'Sin_Proveedor').map(f => f.producto_id)).size;
       const productosAsignacionManual = faltantesResult.rows.filter(f => f.asignacion_tipo === 'manual').length;
       const productosAsignacionAutomatica = faltantesResult.rows.filter(f => f.asignacion_tipo === 'automatica').length;
 
@@ -212,17 +209,19 @@ class ReportService {
 
     } catch (error) {
       console.error('❌ Error generando reporte por proveedor:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, status: error.status };
     }
   }
 
   /**
    * Obtener reporte de faltantes por cliente (Lógica original de reportes.js/alegra.js)
    */
-  async getMissingItemsByClient({ asignarProveedores = true } = {}) {
+  async getMissingItemsByClient({ asignarProveedores = true, rutaId, cicloId } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por cliente (Lógica original)...');
 
+      const whereCiclo = [], params = [];
+      filtrosOperacion({ rutaId, cicloId }, whereCiclo, params);
       const result = await query(`
         SELECT
           f.id AS faltante_id,
@@ -230,7 +229,7 @@ class ReportService {
           fa.cliente_correo AS cliente_email,
           fa.numero AS numero_factura,
           fa.fecha::text AS fecha_emision,
-          fa.id AS factura_id,
+          fa.id AS factura_id, fa.preventa_anticipada, ${COLUMNAS_CICLO}, rc.ubicacion_maps,
           -- Procesada es lo que Impresión ya reimprimió: al procesarla, sus
           -- faltantes pasan a 'procesado', y al recuperarla vuelven (la tabla
           -- vieja lo copiaba además a facturas.estado_procesamiento).
@@ -258,7 +257,7 @@ class ReportService {
           (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_propia_id = fa.id) as total_items_factura
         FROM faltantes f
         JOIN producto p ON p.id = f.producto_propio_id
-        JOIN factura fa ON fa.id = f.factura_propia_id
+        JOIN factura fa ON fa.id = f.factura_propia_id ${JOIN_CICLO('fa')}
         LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
         -- La fila más reciente de la cola: hay facturas con dos (de antes de
         -- que la cola reusara la suya), y un JOIN directo duplicaba cada
@@ -278,8 +277,9 @@ class ReportService {
           -- Palmares: anulada y todavía en el reporte, parecía un duplicado).
           -- Se excluye por el estado, no se borran los faltantes.
           AND fa.estado <> 'anulada'
-        ORDER BY fa.cliente_nombre, fa.fecha DESC
-      `);
+          ${whereCiclo.length ? 'AND ' + whereCiclo.join(' AND ') : ''}
+        ORDER BY cr.semana ASC NULLS LAST, cr.id, rc.orden, fa.cliente_nombre, fa.fecha DESC, fa.id
+      `, params);
 
       // PASO 2: Asignar automáticamente el proveedor de los faltantes que aún no
       // lo tienen (mismo mecanismo que usa Reporte Proveedores). Sin esto, un
@@ -320,10 +320,11 @@ class ReportService {
         }
 
         const cliente = clientesMap.get(row.cliente_nombre);
-        const facturaKey = row.numero_factura;
+        const facturaKey = row.factura_id;
 
         if (!cliente.facturas_con_faltantes.has(facturaKey)) {
           cliente.facturas_con_faltantes.set(facturaKey, {
+            ...contextoDocumento(row),
             factura_id: row.factura_id,
             numero_factura: row.numero_factura,
             fecha_emision: row.fecha_emision,
@@ -345,7 +346,7 @@ class ReportService {
           codigo: row.producto_codigo,
           proveedor: row.proveedor_asignado || 'Sin proveedor',
           proveedor_asignado: row.proveedor_asignado || 'Sin proveedor',
-          cantidad_faltante: parseInt(row.cantidad_faltante),
+          cantidad_faltante: Number(row.cantidad_faltante),
           tipo_faltante: row.tipo_faltante,
           observaciones: row.observaciones,
           fecha_registro: row.fecha_registro,
@@ -358,7 +359,7 @@ class ReportService {
 
         if (row.faltante_estado === 'pendiente') {
           cliente.total_productos++;
-          cliente.total_cantidad += parseInt(row.cantidad_faltante);
+          cliente.total_cantidad += Number(row.cantidad_faltante);
         }
 
         if (!cliente.ultima_actividad || new Date(row.fecha_registro) > new Date(cliente.ultima_actividad)) {
@@ -378,13 +379,13 @@ class ReportService {
         resumen: {
           total_productos_faltantes: result.rows.filter(r => r.faltante_estado === 'pendiente').length,
           total_cantidad_faltante: clientesArray.reduce((sum, c) => sum + c.total_cantidad, 0),
-          total_facturas_afectadas: Array.from(new Set(result.rows.map(r => r.numero_factura))).length
+          total_facturas_afectadas: Array.from(new Set(result.rows.map(r => r.factura_id))).length
         }
       };
 
     } catch (error) {
       console.error('❌ Error generando reporte por cliente:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, status: error.status };
     }
   }
 
@@ -478,7 +479,7 @@ class ReportService {
 
     } catch (error) {
       console.error('❌ Error limpiando faltantes:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, status: error.status };
     }
   }
 
@@ -495,7 +496,7 @@ class ReportService {
       return { success: true, data: result.rows };
     } catch (error) {
       console.error('❌ Error obteniendo historial:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, status: error.status };
     }
   }
 

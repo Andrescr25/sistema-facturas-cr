@@ -66,7 +66,7 @@ const LINEA = { factura_id: 7, numero_linea: 1, producto_id: 1709, nombre: 'ROLL
 
 describe('la lista', () => {
   test('solo emitidas, con la ventana acotada, y el id propio como identidad', async () => {
-    respuestas = [[/FROM factura f WHERE/, [FACTURA, { ...FACTURA, id: 8, estado_bodega: 'procesado', bodega_procesado_en: '2026-09-21T10:00:00Z' }]], [/FROM factura_linea l/, [LINEA]]];
+    respuestas = [[/FROM factura f .*WHERE/, [FACTURA, { ...FACTURA, id: 8, estado_bodega: 'procesado', bodega_procesado_en: '2026-09-21T10:00:00Z' }]], [/FROM factura_linea l/, [LINEA]]];
     const r = await b.listar({ dias: '9999', limit: 'x' });
     const q = consultas[0];
     assert.match(q.t, /WHERE f\.estado = 'emitida'/);
@@ -81,7 +81,7 @@ describe('la lista', () => {
   });
 
   test('cada línea: el id propio del producto con su nombre, el de Alegra aparte, sin `id` suelto', async () => {
-    respuestas = [[/FROM factura f WHERE/, [FACTURA]], [/FROM factura_linea l/, [LINEA]]];
+    respuestas = [[/FROM factura f .*WHERE/, [FACTURA]], [/FROM factura_linea l/, [LINEA]]];
     const [linea] = (await b.listar()).data.pendientes[0].items;
     assert.equal(linea.producto_id, 1709);
     assert.equal(linea.alegra_id, '898');

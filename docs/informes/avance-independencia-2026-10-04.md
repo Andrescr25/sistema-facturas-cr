@@ -467,3 +467,12 @@ grandes por fila. Mensaje explícito de catálogo. Ver
 [entrega y límites](catalogo-visual-2026-10-05.md): 1.999 pruebas aprobadas,
 checklist operativo 38 listos/61 pendientes. Solo local; independencia
 conserva 133/14, Hacienda REAL/corte y revisiones del usuario pendientes.
+
+## Continuidad de operación — 2026-10-05
+
+Bodega y reportes de faltantes por cliente/proveedor ahora filtran ruta/ciclo,
+con semana, orden de preparación, Maps fijo y procedencia sumable en Excel.
+[Entrega y pendientes](operacion-ciclos-2026-10-05.md): 2.011 pruebas aprobadas,
+44 listos/55 pendientes en operativo; independencia conserva 133/14. Órdenes
+persistentes/cobertura siguen pendientes; consulta filtrada no reutiliza
+borrador global ni su marca de enviado. Solo local, sin cambios de producción.

@@ -1,3 +1,4 @@
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { useState } from 'react'
 import { Check, Package, Printer, ChevronDown } from 'lucide-react'
 import { FilaPorRevisar, FilaRevisada } from './FilaProducto'
@@ -68,6 +69,7 @@ export default function FacturaActivaCard({
               {esFacturaSinCaja && <span className="ml-2 px-2 py-0.5 text-xs bg-peligro-100 text-peligro-800 rounded-full align-middle">📦 Sin Caja</span>}
             </h5>
             <p className="text-sm text-neutro-500">{formatDate(factura.fecha_emision)}</p>
+            <ContextoCicloDocumento documento={factura} maps />
           </div>
 
           {/* Acciones principales a nivel de factura */}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import { bodegaPropiaService } from '../services/bodegaPropiaService'
 import {
@@ -52,6 +53,9 @@ const borrar = (clave) => { try { localStorage.removeItem(clave) } catch { /* na
  *    guardada, con un aviso.
  */
 export function useFacturasBodega() {
+  const filtroCiclo = useFiltroCicloOperacion('/bodega/ciclos')
+  const cicloRef = useRef(filtroCiclo.params)
+  cicloRef.current = filtroCiclo.params
   const [pendientesRaw, setPendientesRaw] = useState([])
   const [listas, setListas] = useState([])
   const [ultimaSync, setUltimaSync] = useState(null)
@@ -104,7 +108,7 @@ export function useFacturasBodega() {
       const { dias, limit } = calcularDiasYLimite(filtrosRef.current.fechaInicio)
       // De la base propia (sección 11): ya no hay que esperar a Alegra.
       void forzar
-      const response = await bodegaPropiaService.listar({ dias, limit })
+      const response = await bodegaPropiaService.listar({ dias, limit, ...cicloRef.current })
       if (miPedido !== pedidoRef.current) return
       if (!response.success) throw new Error(response.message || 'No se pudo cargar la información')
 
@@ -117,7 +121,7 @@ export function useFacturasBodega() {
       setAviso(response.metadata?.aviso || null)
       setError(null)
       hayDatosRef.current = true
-      guardarLista(pendientesApi, historialApi, sync)
+      if (!cicloRef.current.rutaId && !cicloRef.current.cicloId) guardarLista(pendientesApi, historialApi, sync)
 
       // El servidor contestó con lo guardado y está trayendo lo nuevo: se
       // vuelve a preguntar en un rato, sin esperar al próximo refresco.
@@ -187,7 +191,7 @@ export function useFacturasBodega() {
   useEffect(() => {
     if (primeraVez.current) { primeraVez.current = false; return }
     cargar()
-  }, [filtros.fechaInicio, cargar])
+  }, [filtros.fechaInicio, filtroCiclo.rutaId, filtroCiclo.cicloId, cargar])
 
   // Arriba de todo al abrir una factura.
   useEffect(() => {
@@ -391,12 +395,15 @@ export function useFacturasBodega() {
     escribir(STORAGE_KEYS.filtros, JSON.stringify(nuevos))
   }
 
-  const pendientes = useMemo(() => filtrarPendientesPorFecha(pendientesRaw, filtros), [pendientesRaw, filtros])
+  const coincide = f => (!filtroCiclo.rutaId || String(f.ciclo?.rutaId) === filtroCiclo.rutaId) &&
+    (!filtroCiclo.cicloId || (filtroCiclo.cicloId === 'sin-ciclo' ? !f.ciclo : String(f.ciclo?.id) === filtroCiclo.cicloId))
+  const pendientes = filtrarPendientesPorFecha(pendientesRaw.filter(coincide), filtros)
+  const historial = listas.filter(coincide)
   // Dos vistas: lo que hay que alistar y el historial. Los faltantes se
   // siguen en su propio módulo (decisión del usuario, 2026-09-23).
   const facturasMostradas = useMemo(
-    () => filtrarPorBusqueda(vista === 'historial' ? listas : pendientes, busqueda),
-    [vista, pendientes, listas, busqueda]
+    () => filtrarPorBusqueda(vista === 'historial' ? historial : pendientes, busqueda),
+    [vista, pendientes, historial, busqueda]
   )
 
   const checkedItemsCount = useMemo(() => {
@@ -417,7 +424,8 @@ export function useFacturasBodega() {
     vista, setVista, busqueda, setBusqueda,
     filtros, cambiarFiltro, limpiarFiltros,
     facturasMostradas,
-    conteos: { porPreparar: pendientes.length, historial: listas.length },
+    filtroCiclo,
+    conteos: { porPreparar: pendientes.length, historial: historial.length },
 
     // despacho
     facturaSeleccionada, faltantesDraft, cargandoEstados, guardando, esEdicion,

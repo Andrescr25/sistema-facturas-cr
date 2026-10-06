@@ -90,7 +90,7 @@ describe('moduloDeRuta — a qué módulo pertenece cada llamada', () => {
 describe('rutas compartidas y de administrador', () => {
   test('las compartidas se reconocen, con y sin subruta', () => {
     assert.equal(esCompartida('/reportes'), true);
-    assert.equal(esCompartida('/reportes/faltantes/notas'), true);
+    assert.equal(moduloDeRuta('/reportes/faltantes/notas'), 'reporte-proveedores');
     assert.equal(esCompartida('/auth/yo'), true);
   });
 
@@ -143,9 +143,9 @@ describe('rutas compartidas y de administrador', () => {
   });
 
   test('gana el prefijo más específico, sea de módulo o compartido', () => {
-    assert.equal(clasificarRuta('/reportes/faltantes/notas').tipo, 'compartida');
+    assert.equal(clasificarRuta('/reportes/faltantes/notas').clave, 'reporte-proveedores');
     // Un módulo dueño de un pedazo de un prefijo compartido.
-    assert.equal(clasificarRuta('/reportes/faltantes/cliente').tipo, 'compartida');
+    assert.equal(clasificarRuta('/reportes/faltantes/cliente').clave, 'reporte-clientes');
     assert.equal(clasificarRuta('/reportes/faltantes/cliente/exportar').clave, 'reporte-clientes');
     assert.equal(clasificarRuta('/reportes/faltantes/proveedor/exportar').clave, 'reporte-proveedores');
     assert.equal(clasificarRuta('/no-existe'), null);
@@ -234,7 +234,7 @@ describe('la ruta se clasifica como la entiende Express', () => {
   });
 
   test('lo compartido sigue compartido, y lo parecido sigue sin serlo', () => {
-    assert.equal(esCompartida('/Reportes/Faltantes/notas'), true);
+    assert.equal(moduloDeRuta('/Reportes/Faltantes/notas'), 'reporte-proveedores');
     assert.equal(esCompartida('/Reportes/'), true);
     assert.equal(moduloDeRuta('/usuariosx'), null);
     assert.equal(esRutaAdmin('/usuariosx'), false);

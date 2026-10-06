@@ -86,8 +86,8 @@ describe('las escrituras de /reportes tienen dueño; leer sigue compartido', () 
     }
   });
 
-  test('las lecturas que comparten varias pantallas siguen abiertas a quien tenga sesión', () => {
-    for (const ruta of ['/reportes/faltantes/proveedor', '/reportes/faltantes/cliente', '/reportes/faltantes/notas', '/reportes/historial']) {
+  test('el historial de reportes conserva lectura compartida; los faltantes tienen dueño', () => {
+    for (const ruta of ['/reportes/historial']) {
       assert.equal(esCompartida(ruta), true, ruta);
     }
   });
