@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Necesidades y cobertura — stock general, demanda y compras por semana](modulo/necesidades-por-ciclo.md)
+
 - [Registro físico de carga/entrega — parcial, descarga, incidencias y revisión](modulo/registro-carga-entrega.md)
 
 - [Carga y Entregas — recorrido fijo, carga inversa y Maps por semana](modulo/carga-entregas-por-ciclo.md)

@@ -6,7 +6,8 @@ bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
 cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
 comparación y recepción física parcial/final implementadas; archivo individual
 24 h y retiro semanal comprobados; consulta de recorrido/carga/Maps
-y registro físico de carga/entrega implementados.
+y registro físico de carga/entrega implementados. Necesidades/cobertura
+con stock general, demanda y procedencia completa disponibles.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -20,8 +21,9 @@ y registro físico de carga/entrega implementados.
 [recepción física](informes/recepcion-ordenes-2026-10-06.md) y
 [archivo individual](informes/archivo-ordenes-2026-10-06.md) y
 [recorrido y carga](informes/carga-entregas-2026-10-06.md) y
-[registro físico](informes/registro-entregas-2026-10-06.md).
-Estado vigente: **82 listos / 17 pendientes (99 IDs)**. Las cifras en las
+[registro físico](informes/registro-entregas-2026-10-06.md) y
+[necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md).
+Estado vigente: **85 listos / 14 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye el registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -194,10 +196,10 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 
 ## 5. Faltantes y cobertura de compras
 
-- [ ] FAL-01 — Cada necesidad enlaza producto, pedido/factura, cliente y ciclo.
+- [x] FAL-01 — Cada necesidad enlaza producto, pedido/factura, cliente y ciclo.
 - [x] FAL-02 — Mostrar agregado y desglose: ejemplo 10 = 6 actual + 4 próxima.
-- [ ] FAL-03 — Separar stock actual, requerido y comprometido con clientes.
-- [ ] FAL-04 — Separar faltante, ya pedido, pendiente de recibir y recibido.
+- [x] FAL-03 — Separar stock actual, requerido y comprometido con clientes.
+- [x] FAL-04 — Separar faltante, ya pedido, pendiente de recibir y recibido.
 - [x] FAL-05 — Descontar cobertura válida de órdenes existentes al sugerir
   nuevas compras, aun antes del ingreso físico a bodega.
 - [x] FAL-06 — Una cantidad comprada no cubre dos necesidades/ciclos a la vez.
@@ -205,6 +207,28 @@ pendientes (99 IDs)**. Ver informe de esta parte.
   dos veces el inventario ni ignorar conversiones de unidad del proveedor.
 - [ ] FAL-08 — Cancelación/cierre sin recepción libera solo la cobertura que
   corresponde y conserva el motivo/historial.
+
+
+**Necesidades/cobertura, 2026-10-06:** FAL-01/03/04 comprobados. Consulta
+por semana/producto con pedido/factura/cliente/parada/ciclo fijo, stock general
+y demanda separada: requerido=compromiso facturado pendiente+pedido sin factura.
+Facturar sustituye pedido; entregar reduce compromiso, no descontar stock otra
+vez. Faltantes registrados se leen aparte; no fabricar faltantes desde pedidos
+por facturar ni asignar stock general automáticamente a dos rutas. Productos
+sin relación e históricos sin entrega se distinguen sin inventar vínculos/
+pendientes. Cambio operativo/reimpresión requiere revisión y muestra totales
+desconocidos, conservando subtotal verificado. Borrador e incierto separados
+de solicitado confirmado, pendiente y recibido físicos; línea completa de
+compra se cuenta una vez aunque cubra6+4. Final6 de10 conserva solicitado10,
+pendiente0, recibido6/sin cobertura4; archivo24h conserva recepción/cobertura.
+21 casos nuevos,79focalizados, **2.169pruebas/362suites**, fail0/skip0; grafo12,
+build y Chromium1440/390.24productos/páginas, cantidades10=7+3, compras10/6/4,
+incierto, próxima semana y2líneas sin relación, respuestas tardías/revisión
+comprobados.21huellas iguales por consultas, reporte legado no consultado
+de fondo. READ ONLY/REPEATABLE READ reales, permisos401/403/400. Sin esquema
+nuevo:052 libre. **85/14 (99 IDs)**. Aplicación/relevo en informe de necesidades.
+Datos sin relación/conteo/entrega histórica siguen requiriendo revisión manual;
+no cerrar las casillas del usuario por tener esta vista.
 
 ## 6. Órdenes de compra persistentes
 

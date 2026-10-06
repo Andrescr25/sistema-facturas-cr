@@ -24,7 +24,7 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -124,3 +124,9 @@ por código, sin ejecutar limpieza. No transforma recibida en cerrada.
 PENDIENTE REAL. Cierre de enviada, FAL-03/04/08 y carga/entrega. OC-03 parcial
 por cierre de enviada. Preservar ruta/ciclo cancelado y stock provisional 0.
 Relevo vigente en informe archivo; validaciones anteriores son históricas.
+
+Vista operativa de stock/demanda/faltantes/compras: [[modulo/necesidades-por-ciclo]],
+consulta por semana y producto con procedencia. No reservar/descontar stock
+otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
+nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
+estado vigente en informe necesidades-cobertura-2026-10-06.

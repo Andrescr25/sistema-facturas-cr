@@ -17,7 +17,7 @@ archivos:
   - docs/informes/registro-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/carga-entregas-por-ciclo, modulo/facturas-bodega, modulo/pedidos-por-ciclo]
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
+  relacionado: [modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
 medido: 2026-10-06
 ---
 
@@ -88,3 +88,9 @@ privada y15decisiones preservadas.82/17 operativo; independencia133/14 aparte.
 Siguiente vista stock/requerido/comprometido/cobertura, luego cierre de enviada
 y propagación final. Próxima052 solo si hace falta esquema, no reservarla
 para una consulta que no lo necesita.
+
+Vista operativa de stock/demanda/faltantes/compras: [[modulo/necesidades-por-ciclo]],
+consulta por semana y producto con procedencia. No reservar/descontar stock
+otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
+nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
+estado vigente en informe necesidades-cobertura-2026-10-06.

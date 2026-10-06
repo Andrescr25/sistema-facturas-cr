@@ -1,6 +1,7 @@
 import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
 import FaltantesPorCiclo from '../components/reporte-proveedores/FaltantesPorCiclo'
 import OrdenesCompraCiclo from '../components/reporte-proveedores/OrdenesCompraCiclo'
+import NecesidadesPorCiclo from '../components/reporte-proveedores/NecesidadesPorCiclo'
 import { useState, useEffect } from 'react'
 import { AlertCircle, Package, ClipboardList, Contact } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
@@ -18,6 +19,7 @@ import ToastContainer from '../components/ToastContainer'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteProveedores() {
+  const [vista, setVista] = useState('necesidades')
   const {
     filtroCiclo, consultaCiclo,
     proveedores,
@@ -82,7 +84,7 @@ export default function ReporteProveedores() {
     toasts,
     showToast,
     removeToast
-  } = useReporteProveedores()
+  } = useReporteProveedores({activo:vista==='faltantes'})
 
   // NAVEGACIÓN: lista de proveedores → detalle de proveedor
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
@@ -90,7 +92,6 @@ export default function ReporteProveedores() {
 
   // Dos vistas: los faltantes de siempre y las FICHAS (quién es cada
   // proveedor), que antes no se podían ver ni corregir desde el sistema.
-  const [vista, setVista] = useState('faltantes')
   const [proveedorOrden, setProveedorOrden] = useState(null)
   // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
   // y no expone `confirm`.
@@ -142,9 +143,9 @@ export default function ReporteProveedores() {
           disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
       </div>
 
-      {vista !== 'fichas' && <FiltroCicloOperacion filtro={filtroCiclo} />}
+      {vista !== 'fichas' && <FiltroCicloOperacion filtro={filtroCiclo} requiereCiclo={vista==='necesidades'} />}
       {vista === 'faltantes' && loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
-      {error && (
+      {vista==='faltantes' && error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
           <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
         </div>
@@ -152,6 +153,7 @@ export default function ReporteProveedores() {
 
       <div className="flex flex-wrap gap-2 mb-6">
         {[
+          { id: 'necesidades', texto: 'Necesidades y cobertura', icono: Package },
           { id: 'faltantes', texto: 'Faltantes y órdenes', icono: ClipboardList },
           { id: 'ordenes', texto: 'Órdenes por ciclo', icono: Package },
           { id: 'fichas', texto: 'Fichas', icono: Contact }
@@ -174,7 +176,7 @@ export default function ReporteProveedores() {
       </div>
 
       {/* Manejo de Vistas (Fichas · Listado de faltantes vs Panel Detalle) */}
-      {vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} /> : vista === 'fichas' ? (
+      {vista === 'necesidades' ? <NecesidadesPorCiclo filtro={filtroCiclo} /> : vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} /> : vista === 'fichas' ? (
         <ListaFichasProveedor
           proveedores={fichas.proveedores}
           cargando={fichas.cargando}

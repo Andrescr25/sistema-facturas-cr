@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -60,3 +60,7 @@ conservan semana y productos anteriores. Entrega exige promoción explícita
 del ciclo, no cerrar otra semana ni mover stock por marcar lo ocurrido.
 Corrección admin con motivo tras cambio operativo/reimpresión conserva historia.
 Ver [[modulo/registro-carga-entrega]] y su informe de verificación/cierre.
+
+Necesidades/cobertura compara stock general/demanda/faltantes/compras por semana
+en [[modulo/necesidades-por-ciclo]], sin reasignar documentos ni usar un saldo
+general como dos reservas.85/14 operativo; informes anteriores son históricos.

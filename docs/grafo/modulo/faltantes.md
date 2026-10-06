@@ -37,7 +37,7 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+  relacionado: [modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-06
 ---
 
@@ -251,3 +251,9 @@ arranque no la programa. API global de faltantes/cantidades rechaza 410 sin
 consultar; no borrar ajustes/notas/asignaciones ni reiniciar envíos. Configuración
 explica el archivo por recepción, sin botón. [[modulo/archivo-ordenes-compra]]
 conserva historia y cobertura; faltantes mantienen su propio flujo explícito.
+
+Vista operativa de stock/demanda/faltantes/compras: [[modulo/necesidades-por-ciclo]],
+consulta por semana y producto con procedencia. No reservar/descontar stock
+otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
+nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
+estado vigente en informe necesidades-cobertura-2026-10-06.

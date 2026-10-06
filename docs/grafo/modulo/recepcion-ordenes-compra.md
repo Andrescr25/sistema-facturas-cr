@@ -16,7 +16,7 @@ archivos:
   - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
-  relacionado: [modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -101,3 +101,9 @@ APLICACIÓN LOCAL. Código 5396049, 049 en tachi 5434 con respaldo protegido;
 permanente seguro; compartida verificada solo GET/SQL READ ONLY. Evidencia propia
 conservada, copia/base/puertos 3003/5175 retirados; relevo en memoria/informe.
 Sin producción, developer/main/push ni ejecución de limpieza semanal.
+
+Vista operativa de stock/demanda/faltantes/compras: [[modulo/necesidades-por-ciclo]],
+consulta por semana y producto con procedencia. No reservar/descontar stock
+otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
+nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
+estado vigente en informe necesidades-cobertura-2026-10-06.

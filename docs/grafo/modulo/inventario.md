@@ -18,7 +18,7 @@ archivos:
 aristas:
   depende_de: [decision/inventario-desde-cero, tabla/movimiento-inventario]
   bloqueado_por: [bloqueo/conteo-fisico]
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/compras, modulo/facturacion, tabla/compra-linea]
+  relacionado: [modulo/necesidades-por-ciclo, modulo/recepcion-ordenes-compra, modulo/compras, modulo/facturacion, tabla/compra-linea]
 medido: 2026-10-06
 ---
 
@@ -112,3 +112,9 @@ restar valores ya redondeados (regalía posterior conserva costo cero). Compras 
 sin nueva acreditación ni importación de stock histórico. Línea ya recibida
 inmutable por SQL; no corregirla editando su cantidad/factor/producto. Las frases
 sobre entrada íntegra al registrar describen compras false y la etapa042.
+
+Vista operativa de stock/demanda/faltantes/compras: [[modulo/necesidades-por-ciclo]],
+consulta por semana y producto con procedencia. No reservar/descontar stock
+otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
+nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
+estado vigente en informe necesidades-cobertura-2026-10-06.

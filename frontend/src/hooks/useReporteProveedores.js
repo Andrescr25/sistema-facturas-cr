@@ -16,7 +16,7 @@ import { useToast } from './useToast'
  * window.prompt/alert. La página debe renderizar
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
-export function useReporteProveedores() {
+export function useReporteProveedores({activo=true}={}) {
   const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/proveedor/ciclos')
   const peticion = useRef(0), peticionNotas = useRef(0)
   const consultaCiclo = Boolean(filtroCiclo.rutaId || filtroCiclo.cicloId)
@@ -163,12 +163,15 @@ export function useReporteProveedores() {
   }, [fechaInicio])
 
   useEffect(() => {
+    // El reporte legado puede asignar proveedores al abrirse. Las otras
+    // vistas no deben dispararlo de fondo ni aplicar sus borradores globales.
+    if(!activo){++peticion.current;++peticionNotas.current;return}
     loadReporte()
     loadNotas()
     if (!consultaCiclo) { loadCantidadesGuardadas(); loadPedidosEnviados() }
     else { setPedidosEnviados(new Map()); setProductosSeleccionados(new Set()) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaInicio, filtroCiclo.params])
+  }, [fechaInicio, filtroCiclo.params,activo])
 
   const usaDatosProveedor = useCallback((proveedorNombre) => {
     const preferencia = preferenciasDatosProveedor[proveedorNombre]
