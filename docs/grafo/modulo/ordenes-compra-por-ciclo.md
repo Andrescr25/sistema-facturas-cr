@@ -28,7 +28,7 @@ aristas:
 medido: 2026-10-06
 ---
 
-IMPLEMENTADO. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
+IMPLEMENTADO, código local a929ca9. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
 Preparar orden de este ciclo. Órdenes por ciclo conserva borradores, pendientes,
 enviadas y cierres SIN envío, aunque el proveedor salga del reporte. No aplica
 cantidades ni marcas globales antiguas. Envío global retirado de la pantalla
@@ -101,6 +101,9 @@ y validación final: docs/informes/envio-ordenes-ciclo-2026-10-06.md.
 Suite completa 2.059/364 suites, cero fallos/omitidas; grafo 12 y build aprobados.
 047 aplicada SOLO a tachi local 5434 con respaldo, 22 huellas idénticas y
 tabla nueva vacía. No datos de prueba en compartida ni envíos reales.
+API/lista/PDF y frontend compartidos comprobados solo GET, salidas bloqueadas;
+5174→3002 con lanzador permanente seguro, PID 92846. Base privada/3003/5175
+retirados; worktree/rama temporal se retiran al cierre, evidencia se conserva.
 
 PENDIENTE REAL. Factura/PDF del proveedor, comparación pedido/facturado/físico,
 recepción parcial/final idempotente integrada con registrarCompra (evitar doble

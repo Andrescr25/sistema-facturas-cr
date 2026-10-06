@@ -2,6 +2,7 @@
 
 Fecha: 2026-10-06, Costa Rica. Solo local, rama `independencia-alegra`.
 Continúa desde `46f96aa` (catálogo de cuatro productos por hoja).
+Implementación `a929ca9`, integrada por avance sin fusión únicamente local.
 Se cierran **OC-05/06/08/09/10, FAL-05/06 y VAL-02**: operativo **56 listos /
 43 pendientes (99 IDs)**. Independencia conserva 133/14 y sus límites de corte.
 
@@ -95,8 +96,21 @@ limpieza semanal, instalar dependencias o regenerar Prisma.
 de aplicar, las **22 huellas de negocio siguen iguales** al inicio; cero
 copias/envíos en la tabla nueva. No fixtures de esta parte en la base habitual.
 La ruta/ciclo cancelado y asignación del usuario se conservan, al igual que
-stock provisional cero. Verificación compartida final/retiro de reserva se
-registra al cerrar esta entrega.
+stock provisional cero. Compartida verificada solo GET: API nueva/health/frontend
+200; lista/PDF sin sesión 401, cero órdenes/copias/movimientos/conteos y stock
+no cero = 0. Las 22 huellas también siguen iguales tras integrar y reiniciar.
+No abrir reporte global para comprobar lectura: puede asignar proveedores.
+
+App habitual **5174→3002**, backend PID **92846**, con el lanzador seguro
+permanente `/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs`
+y Node absoluto. No usar `server.js` directo: cron semanal aún pendiente por
+código. Original 3000/PID 5370 y ramas developer `5013270` / main `e19c3e5`
+conservados; sin conexión a producción, push, despliegue o mensajes reales.
+
+Base de prueba propia y servidores 3003/5175 retirados. Worktree/rama temporal
+se retiran al cerrar el relevo. Evidencia/respaldo privado se conserva, al igual
+que catálogos de Descargas, archivo fiscal y bases de ensayo anteriores.
+Los guiones que dependan del worktree retirado no son lanzadores reutilizables.
 
 Siguiente parte: vincular factura electrónica/PDF del proveedor, comparar
 pedido/facturado/físico y registrar recepción parcial/final idempotente.

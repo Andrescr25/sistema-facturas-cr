@@ -231,7 +231,7 @@ Compartida solo GET y 19 huellas iguales respecto al estado previo a integrar;
 se conservaron acciones locales concurrentes de rutas/clientes (ver informe).
 046 local con respaldo, cero órdenes nuevas/stock provisional intacto.
 
-Segunda parte de órdenes (047, 2026-10-06): OC-05/06/08/09/10, FAL-05/06
+Segunda parte de órdenes (`a929ca9`, 047, 2026-10-06): OC-05/06/08/09/10, FAL-05/06
 y VAL-02 comprobados. PDF/número/mensaje guardados e inmutables; descarga
 autorizada y revisión explícita antes de enviar. Intento confirmado en DB
 antes del transporte; reintentos consultan sin reenviar. Incertidumbre bloquea
@@ -242,7 +242,9 @@ Cantidad pendiente total de la línea y cobertura asignada por origen son
 distintas: una caja sobrante no cubre otra ruta. Envío global retirado de UI
 y rechazado por API (409), sin convertir sus históricos. FAL-04 sigue parcial
 por cantidad recibida; OC-03 sigue parcial por recepción/cierre de enviada.
-Validación y aplicación local en el informe de esta parte. No mensajes reales.
+2.059 pruebas, grafo 12, build, Chromium 1440/390 y PDF nativo aprobados.
+047 local con respaldo y 22 huellas idénticas; cero órdenes/copias/stock nuevo.
+Validación y relevo en el informe de esta parte. No mensajes reales.
 
 ## 7. Factura del proveedor y recepción
 
