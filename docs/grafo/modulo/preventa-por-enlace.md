@@ -203,3 +203,8 @@ Verificado: 1.999 pruebas, ocho casos nuevos de taxonomía/promociones, grafo
 15 ofertas. Sin liquidaciones activas locales; prueba aislada con rollback.
 Checklist vigente 38/61. El informe visual sustituye las cifras de diseño
 anteriores para el relevo; conserva sus entregas y evidencia histórica.
+
+Integrado solo local en 427e257, aplicación 5174→3002 verificada SOLO GET y
+16 huellas iguales en compartida. Stock cero e históricos conservados, sin
+ciclos demo. Base/servidores de prueba retirados; reserva se libera al
+cerrar. Developer/main/original 3000 conservados. Sin push ni mensajes.

@@ -126,7 +126,7 @@ build y Chromium 1440/390 aprobados. Ejemplo real en Descargas (60 productos,
 faltantes. Checklist **34 listos / 61 pendientes** (95 IDs).
 Ver informe PDF para aislamiento, evidencia y límites del envío real.
 
-Ampliación visual (2026-10-05): PRE-15/16/17/18 comprobados. Categorías y
+Ampliación visual (`427e257`, solo local): PRE-15/16/17/18 comprobados. Categorías y
 subcategorías respetan configuración y orden manual; todas las rebajas y
 liquidaciones vigentes se mezclan con los productos normales y se etiquetan,
 sin duplicar ni descontar dos veces. Fotos grandes arriba, datos debajo, dos

@@ -71,3 +71,14 @@ dump local, guiones, huellas y documentos en
 guiones que dependan del worktree retirado. Sin push/despliegue/mensajes
 reales/IMAP/Hacienda REAL ni cambios de developer/main/DB de producción.
 Conservar archivo fiscal permanente y bases de ensayo anteriores.
+
+Integración local: **427e257**, sin push. Aplicación habitual 5174→3002
+verificada SOLO GET: PDF staff 404/401, caption y selección actualizados
+servidos, vista Rutas 1440/390 sin errores/desborde. **16 huellas idénticas**
+antes/después en clientes, cuentas/invitaciones, pedidos/facturas, stock,
+rutas/ciclos, carrito, series, envíos y comprobantes. Inventario cero,
+rutas/ciclos vacíos e históricos conservados. Backend 3002 con lanzador
+seguro existente (PID 69730 al cerrar); servidor original 3000/PID 5370,
+developer 5013270 y main e19c3e5 conservados. Servidores 3003/5175 propios
+detenidos y solo base de esta prueba eliminada. Reserva de worktree/rama
+se retira tras integrar este relevo; evidencia privada y ejemplo conservados.
