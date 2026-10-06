@@ -279,7 +279,7 @@ respaldo, dos tablas vacías y 23 huellas iguales; stock/conteos/movimientos cer
 Evidencia y limitaciones: [informe de esta parte](informes/facturas-ordenes-2026-10-06.md).
 
 
-**Recepción física, 049, 2026-10-06:** REC-05/06/07/09/10/11 y FAL-07
+**Recepción física, `5396049` / 049, 2026-10-06:** REC-05/06/07/09/10/11 y FAL-07
 comprobados. Cantidades nuevas por entrega en unidades propias; parcial conserva
 pendiente y cobertura, final exige motivo confirmado para toda diferencia,
 fecha del servidor y eventos inmutables con actor. «Agotado» solo por selección
@@ -295,6 +295,9 @@ vista completa de todos los conceptos/stock comprometido; OC-03 por cierre de
 orden enviada. VAL-03 conserva archivo 24 h pendiente, y VAL-04–07 validación
 integral pendiente. Informe, pruebas y aplicación local:
 [informe de recepción](informes/recepcion-ordenes-2026-10-06.md).
+2.103 pruebas/364 suites sin fallos/omitidas, grafo 12, build y Chromium 1440/390
+aprobados; 049 solo local con respaldo/32 huellas iguales y stock cero. Próxima 050: archivo 24 h
+y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producción.
 
 ## 8. Preparación, carga y entrega
 

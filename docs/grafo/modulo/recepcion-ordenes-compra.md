@@ -93,3 +93,10 @@ y próximo ciclo separado. Informe: docs/informes/recepcion-ordenes-2026-10-06.m
 
 Validación final previa a integrar: 2.103 pruebas/364 suites, cero fallos/omitidas;
 grafo 12, build aprobado. Aplicación local y retiro de pruebas en el informe.
+
+APLICACIÓN LOCAL. Código 5396049, 049 en tachi 5434 con respaldo protegido;
+32 huellas operativas iguales y compras anteriores modalidad false. Recepción/
+órdenes vacías, inventario/movimientos/conteos 0. App 5174→3002/PID 4165 con lanzador
+permanente seguro; compartida verificada solo GET/SQL READ ONLY. Evidencia propia
+conservada, copia/base/puertos 3003/5175 retirados; relevo en memoria/informe.
+Sin producción, developer/main/push ni ejecución de limpieza semanal.

@@ -1,7 +1,7 @@
 # Recepción física de órdenes por ciclo — 2026-10-06
 
-Estado de esta parte: recepción parcial/final implementada y verificada en copia
-propia. Integración local y verificaciones finales se anotan al cierre abajo.
+Estado: **implementado, probado e integrado solo local**. Código `5396049`,
+recepción parcial/final, motivos, auditoría y kardex por entrega.
 Base de partida `72c07c2`, rama tmp/codex-recepcion-ordenes-20261006; sin otra reserva
 en commits/worktrees. Solo independencia-alegra; developer/main/producción fuera.
 
@@ -73,8 +73,27 @@ Prisma. La 049 completa se aplicó a la copia restaurada antes de esta suite.
 
 ## Cierre local
 
-Pendiente de registrar aquí: suite completa, grafo/build, hash de implementación,
-respaldo/aplicación 049 local, 32 huellas operativas y retiro de copia/base/puertos.
-La implementación no se acredita aplicada hasta completar estas verificaciones.
-Evidencia privada /private/tmp/codex-recepcion-ordenes-20261006; sin secretos
-ni datos de prueba en base habitual.
+Código `5396049` integrado con avance sin fusión en independencia-alegra; sin push.
+049 aplicada solo a tachi LOCAL 5434 con respaldo privado antes-049-local.dump
+(0600). Backend local detenido durante aplicación/avance para evitar mezclar
+código anterior con modalidad nueva, y reiniciado mediante lanzador seguro:
+5174 → 3002, PID 4165, Vite 98892. Jamás server.js directo mientras cron siga vivo.
+
+32 huellas operativas iguales al inicio, antes de integrar y después de SQL/código:
+compras, líneas, precios, CxP, buzón, ventas, clientes/rutas/ciclos, carrito, series,
+envíos, fiscal, faltantes, órdenes e inventario. Comparación de compra excluye solo
+columna nueva; además se comprobó que todas las anteriores siguen false. Dos
+tablas de recepción vacías, órdenes vacías, movimientos/conteos/stock cero.
+Conservar ruta/ciclo cancelado y cliente asignado del usuario, sin restaurar su
+base habitual a un dump ni recrear demo. Verificación compartida solo GET/SQL
+READ ONLY: health/API/frontend 200; factura/PDF/recepción sin sesión 401.
+developer `5013270`, main e19c3e5 y backend original 3000/PID 5370 conservados.
+
+Copia/base tachi_codex_recepcion_ordenes_20261006 y puertos propios 3003/5175
+retirados al cerrar; reserva liberada en memoria. Evidencia/dumps/capturas/PDF
+privados conservados en /private/tmp/codex-recepcion-ordenes-20261006. Guiones
+que referencian trabajo retirado son evidencia, no lanzadores reutilizables.
+Conservar Descargas, archivo fiscal y ensayos anteriores. Próxima SQL 050.
+Memoria, decisiones, grafo/checklist y relevo actualizados; 15 instrucciones
+conservadas. Sin producción, mensajes reales, IMAP/Hacienda real, instalación,
+Prisma ni ejecución de limpieza semanal. Revisión manual del usuario pendiente.
