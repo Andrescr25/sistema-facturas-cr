@@ -59,6 +59,14 @@ const MODULOS = [
     rutasApi: ['/portal-clientes', '/clientes']
   },
   {
+    clave: 'entregas',
+    nombre: 'Carga y Entregas',
+    grupo: 'Ventas',
+    ruta: '/entregas',
+    // Permiso propio para agente/chofer sin abrir cuentas o ficha de clientes.
+    rutasApi: ['/entregas']
+  },
+  {
     clave: 'cuentas-por-cobrar',
     nombre: 'Cuentas por Cobrar',
     grupo: 'Ventas',

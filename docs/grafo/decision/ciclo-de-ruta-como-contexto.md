@@ -8,11 +8,11 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
-**Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; entrega/archivo pendientes.** La ruta define el
+**Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; archivo implementado y consulta de carga/entregas disponible; avance físico pendiente.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -50,3 +50,7 @@ Borradores propios y reservas por origen/ciclo en la 046:
 asigna a orígenes del ciclo propio; cantidad de otra semana no se consume. Ver
 [[modulo/recepcion-ordenes-compra]]. 050 archiva recibida por consulta tras 24 h sin reiniciar rutas; ver
 [[modulo/archivo-ordenes-compra]]. Carga/entregas siguen pendientes.
+
+Consulta del recorrido/carga por ciclo en [[modulo/carga-entregas-por-ciclo]]:
+orden fijo, inversa sugerida, Maps del recorrido y documentos anticipados.
+No registro físico de carga/entrega aún; no cerrar próximos ciclos al consultar.

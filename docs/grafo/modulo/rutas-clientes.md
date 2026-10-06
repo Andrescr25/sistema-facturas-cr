@@ -18,7 +18,7 @@ archivos:
   - frontend/src/hooks/useClientes.js
   - backend/tests/rutasCiclos.test.js
 aristas:
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-05
 ---
@@ -67,3 +67,10 @@ recorrido. Arrastre implementado, revisión manual del usuario pendiente.
 044 aplicada a `tachi` LOCAL con respaldo privado y 13 huellas comerciales
 iguales; nuevas tablas vacías. Sin demo en la compartida ni cambios de stock.
 Nunca ejecutar la limpieza semanal: su retiro por código sigue en ARC-01/02.
+
+2026-10-06, consulta de carga/entregas: [[modulo/carga-entregas-por-ciclo]]
+usa ciclo/documentos fijos y Maps; no pide permiso Clientes al chofer.
+Orden inverso sugerido desde revisión de bodega, sin confirmar entrega.
+Estado operativo vigente en informe carga; textos de partes anteriores
+son históricos. Limpieza global ya retirada por código en 050, ver
+[[modulo/archivo-ordenes-compra]]. ENT-06/avance físico sigue pendiente.

@@ -1,7 +1,7 @@
 import { textoCiclo } from './SelectorCiclo'
 const ESTADOS = { preventa: 'Preventa anticipada', preparacion: 'En preparación', entrega: 'En entrega', cerrado: 'Cerrado', cancelado: 'Cancelado' }
 
-export default function FiltroCicloOperacion({ filtro, disabled = false }) {
+export default function FiltroCicloOperacion({ filtro, disabled = false, requiereCiclo = false }) {
   const rutas = [...new Map(filtro.ciclos.map(c => [c.rutaId, c.rutaNombre])).entries()]
   const ciclos = filtro.ciclos.filter(c => !filtro.rutaId || String(c.rutaId) === filtro.rutaId)
   const elegido = filtro.ciclos.find(c => String(c.id) === filtro.cicloId)
@@ -16,14 +16,14 @@ export default function FiltroCicloOperacion({ filtro, disabled = false }) {
       </label>
       <label className="min-w-0 text-sm font-semibold">Semana / ciclo
         <select aria-label="Filtrar semana o ciclo" value={filtro.cicloId} disabled={disabled} onChange={e => filtro.cambiarCiclo(e.target.value)} className={select}>
-          <option value="">Todos los ciclos</option>
+          <option value="">{requiereCiclo?'Seleccioná una semana':'Todos los ciclos'}</option>
           <option value="sin-ciclo">Sin ciclo</option>
           {ciclos.map(c => <option key={c.id} value={String(c.id)}>{textoCiclo(c)} · {ESTADOS[c.estado]}</option>)}
         </select>
       </label>
     </div>
     <p className="mt-2 break-words text-sm font-semibold text-primario-700" aria-live="polite">
-      {elegido ? `${textoCiclo(elegido)} · ${ESTADOS[elegido.estado]}` : filtro.cicloId === 'sin-ciclo' ? 'Sin ciclo: documentos sin semana asignada' : 'Vista conjunta: cada documento conserva su ruta y semana'}
+      {elegido ? `${textoCiclo(elegido)} · ${ESTADOS[elegido.estado]}` : filtro.cicloId === 'sin-ciclo' ? 'Sin ciclo: documentos sin semana asignada' : requiereCiclo?'Seleccioná la semana del recorrido':'Vista conjunta: cada documento conserva su ruta y semana'}
     </p>
     {filtro.error && <p role="alert" className="mt-2 text-sm text-peligro-700">{filtro.error}</p>}
   </div>

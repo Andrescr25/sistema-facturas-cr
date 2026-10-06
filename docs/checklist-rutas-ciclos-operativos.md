@@ -5,7 +5,8 @@ Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
 bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
 cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
 comparación y recepción física parcial/final implementadas; archivo individual
-24 h y retiro semanal comprobados; carga y entregas pendientes.
+24 h y retiro semanal comprobados; consulta de recorrido/carga/Maps
+implementada, registro físico de carga/entrega pendiente.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -17,8 +18,9 @@ comparación y recepción física parcial/final implementadas; archivo individua
 [envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md) y
 [factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md) y
 [recepción física](informes/recepcion-ordenes-2026-10-06.md) y
-[archivo individual](informes/archivo-ordenes-2026-10-06.md).
-Estado vigente: **75 listos / 24 pendientes (99 IDs)**. Las cifras en las
+[archivo individual](informes/archivo-ordenes-2026-10-06.md) y
+[recorrido y carga](informes/carga-entregas-2026-10-06.md).
+Estado vigente: **79 listos / 20 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado no cierra carga/entregas.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -303,13 +305,28 @@ y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producc
 
 ## 8. Preparación, carga y entrega
 
-- [ ] ENT-01 — Mostrar clientes/pedidos en orden real de entrega del ciclo.
+- [x] ENT-01 — Mostrar clientes/pedidos en orden real de entrega del ciclo.
 - [x] ENT-02 — Usar el orden en preparación y bodega.
-- [ ] ENT-03 — Sugerir orden de carga que deje el primer pedido más accesible.
-- [ ] ENT-04 — Mostrar ese contexto en Reporte Clientes y entregas.
-- [ ] ENT-05 — Agente/chofer puede abrir Maps y consultar la parada desde celular.
+- [x] ENT-03 — Sugerir orden de carga que deje el primer pedido más accesible.
+- [x] ENT-04 — Mostrar ese contexto en Reporte Clientes y entregas.
+- [x] ENT-05 — Agente/chofer puede abrir Maps y consultar la parada desde celular.
 - [ ] ENT-06 — Registrar avance de preparación/carga/entrega sin cerrar ni
   alterar el trabajo del siguiente ciclo.
+
+**Consulta de carga/entregas, 2026-10-06:** ENT-01/03/04/05 comprobados.
+Nuevo módulo Carga y Entregas, permiso propio. Semana explícita, recorrido y
+Maps fijos, facturas emitidas/pedidos pendientes con origen/anticipado. Carga
+inversa sobre toda la ruta, incluyendo paradas de otras páginas, únicamente
+facturas con revisión de bodega. Pedido facturado se muestra una vez; Sin
+ciclo no recibe ruta/Maps supuestos. Reporte Clientes conserva mismo contexto.
+13 pruebas PostgreSQL + permiso; 2.125 pruebas/362 suites sin fallos/omitidas,
+grafo12/build y Chromium1440/390. Ruta23, carga23→2→1, detalle entre páginas,
+Maps original, dos semanas/otra ruta, anticipado y respuesta lenta comprobados.
+READ ONLY/REPEATABLE READ reales y14 huellas iguales durante consultas propias.
+Sin migración nueva ni escritura de negocio; aplicación local/relevo en informe.
+79/20, 99 IDs. **ENT-06, PRE-08 y FIL-07** siguen pendientes por registro físico
+con actor/fecha/reintentos y conservación tras revisión de documentos; tener
+una consulta no equivale a confirmar carga/entrega real. Próxima SQL051.
 
 ## 9. Fin de limpieza semanal y archivo
 

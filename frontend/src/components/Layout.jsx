@@ -31,6 +31,7 @@ export default function Layout({ children }) {
         { name: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
         { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
         { name: 'Clientes', href: '/clientes', icon: UserCircle },
+        { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
         { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
         { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
         { name: 'Impresión', href: '/impresion', icon: Printer }

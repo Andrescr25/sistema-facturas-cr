@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Carga y Entregas — recorrido fijo, carga inversa y Maps por semana](modulo/carga-entregas-por-ciclo.md)
+
 - [Recepción física — parcial/final, motivos e inventario por entrega](modulo/recepcion-ordenes-compra.md)
 
 - [Factura del proveedor en la orden — PDF privado y comparación](modulo/facturas-ordenes-compra.md)

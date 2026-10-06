@@ -22,8 +22,8 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
 aristas:
-  relacionado: [decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
-medido: 2026-10-04
+  relacionado: [modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+medido: 2026-10-06
 ---
 
 `usuarios/modulos.js` es el registro: cada módulo declara sus `rutasApi`, y
@@ -177,3 +177,14 @@ permiso HTTP real en copia desechable; contexto en informe de operación.
 
 Archivo 050 conserva ACL de detalle/PDF/historia y contratos retirados.
 401/403 antes de 410; ver [[modulo/archivo-ordenes-compra]].
+
+2026-10-06, consulta de carga/entregas: [[modulo/carga-entregas-por-ciclo]]
+usa ciclo/documentos fijos y Maps; no pide permiso Clientes al chofer.
+Orden inverso sugerido desde revisión de bodega, sin confirmar entrega.
+Estado operativo vigente en informe carga; textos de partes anteriores
+son históricos. Limpieza global ya retirada por código en 050, ver
+[[modulo/archivo-ordenes-compra]]. ENT-06/avance físico sigue pendiente.
+
+Carga y Entregas: clave entregas espejo frontend/backend, /entregas dueño
+exclusivo. Maps/detalle/ciclos protegidos; no prestar rutas de Clientes ni
+cuentas. Usuario existente conserva módulos, admin asigna explícitamente.

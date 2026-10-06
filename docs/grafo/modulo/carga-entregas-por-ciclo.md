@@ -1,0 +1,71 @@
+---
+id: modulo/carga-entregas-por-ciclo
+tipo: modulo
+titulo: Carga y entregas — consulta del recorrido fijo y carga inversa por semana
+estado: vigente
+archivos:
+  - backend/src/modules/entregas/entregas.service.js
+  - backend/src/modules/entregas/entregas.routes.js
+  - backend/src/modules/usuarios/modulos.js
+  - backend/server.js
+  - backend/tests/entregasCiclo.test.js
+  - frontend/src/pages/Entregas.jsx
+  - frontend/src/components/entregas/ParadaDetalle.jsx
+  - frontend/src/hooks/useEntregas.js
+  - frontend/src/App.jsx
+  - frontend/src/components/Layout.jsx
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/utils/modulos.js
+  - docs/informes/carga-entregas-2026-10-06.md
+aristas:
+  depende_de: [modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/facturas-bodega]
+  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
+medido: 2026-10-06
+---
+
+ALCANCE DE ESTA PARTE. Menú Ventas → Carga y Entregas. Solo consulta por
+ciclo explícito o Sin ciclo, nunca inferir semana activa/fecha del documento.
+Ruta + semana visibles, paradas con pedidos ordenadas por recorrido fijo,
+facturas emitidas y pedidos pendientes separados. Permiso propio entregas,
+API /entregas; selector/plan/detalle/Maps exigen sesión y ese permiso.
+No conceder permisos automáticamente a usuarios existentes. Admin puede
+asignar el módulo con el flujo de Usuarios. No requiere permiso Clientes.
+
+LECTURA. GET /entregas/ciclos da metadatos; GET /entregas/plan exige cicloId
+y admite rutaId/pagina/tamano (máximo50). GET /entregas/paradas/:clave con
+mismo ámbito; una parada de otro ciclo404. READ ONLY + REPEATABLE READ en
+una transacción PostgreSQL por plan/detalle: cantidades y cabecera coherentes,
+sin asignar proveedores, crear faltantes ni cambiar estados. Lista blanca
+sin precios/costos/total/deuda/cuenta del portal. Fecha antigua no excluye
+documento del ciclo. Semana cerrada conserva consultas.
+
+IDENTIDAD. rc-ID para parada fija, cl-ID para histórico sin ciclo con cliente,
+f-ID/p-ID sin ficha. Nombre/Maps del recorrido, nunca actuales del maestro.
+Sin ciclo no recibe Maps/orden supuestos ni sugerencia de carga; página20
+por defecto, agrupación por cliente/documentos sin mezclar una misma ruta
+en semanas diferentes. Factura anulada y pedido rechazado excluidos.
+Pedido facturado aparece una vez como factura, con referencia al pedido de
+origen solo si cliente/contexto coinciden. Pendiente sin factura se muestra
+por facturar, conservando origen agente/portal y preventa anticipada.
+
+CARGA. Toda la ruta en orden inverso, no solo página visible. Incluye SOLO
+facturas con revisión de bodega estado_bodega=procesado; el detalle conserva
+su orden de entrega. Revisada no garantiza paquete completo: mostrar faltantes
+pendientes/procesados, cantidades facturadas y notas, exigir revisión de paquetes
+en pantalla. No afirmar cargada/entregada. Revisión física, avance, actor/fecha,
+idempotencia y cambios tras reimpresión siguen en ENT-06 y próxima parte051.
+No mover stock por consultar ni equiparar despacho a entrega al cliente.
+
+MÓVIL. Botón Ver ubicación con enlace Maps validado, targetblank/rel seguro.
+Lista → detalle por cliente, tres resúmenes, carga/entrega y páginas. Abrir
+una parada desde carga lleva a su página aunque no estuviera visible. Cambiar
+ruta/ciclo vacía contexto/formulario; respuestas tardías anteriores ignoradas.
+Sin escrituras desde navegador. Reporte Clientes ya conserva semana/parada/Maps
+de la misma factura; Bodega conserva su filtro/contexto, no una nueva semana.
+
+EVIDENCIA. Trece pruebas PostgreSQL + contrato de permiso, SAVEPOINT/ROLLBACK,
+orden/carga/páginas, contexto tras cambio de maestro, anticipado/facturado/
+rechazado/anulado, dos semanas, histórico/Maps, autorización y filas intactas.
+Ver informe para suite/build/Chromium y aislamiento. Sin migración nueva;
+próxima SQL051 se reserva para registro de carga/entrega. No marcar ENT-06,
+PRE-08 ni FIL-07 completo por tener una vista de consulta.
