@@ -19,7 +19,7 @@ aristas:
 medido: 2026-10-05
 ---
 
-PRIMERA PARTE IMPLEMENTADA. Reporte Proveedores → elegir semana concreta o
+PRIMERA PARTE IMPLEMENTADA, commit local 004ba50. Reporte Proveedores → elegir semana concreta o
 Sin ciclo → proveedor → Preparar orden de este ciclo. La pestaña Órdenes por
 ciclo permite consultar/revisar borradores guardados y cierres, aunque el
 proveedor deje de tener faltantes en el reporte. No aplica las cantidades ni
@@ -73,7 +73,12 @@ entrega y archivo 24 h. No agregar endpoints para «marcar recibida» sin su
 evento físico. FAL-03/04/05/06/07/08 y OC-03/05/06/08/09/10 permanecen abiertos
 por esas partes. Limpieza semanal todavía pendiente POR CÓDIGO; nunca ejecutarla.
 
-PRUEBAS. PostgreSQL en base propia tachi_codex_*, SAVEPOINT/ROLLBACK y dos
+PRUEBAS. 2.032 aprobadas, 21 nuevas; grafo 12, build y Chromium 1440/390.
+PostgreSQL en base propia tachi_codex_*, SAVEPOINT/ROLLBACK y dos
 conexiones sobre fixtures ZZ locales para concurrencia/reintentos. No mensajes
 reales ni entradas de stock. Relevo y medición final en
-docs/informes/ordenes-ciclo-2026-10-05.md.
+docs/informes/ordenes-ciclo-2026-10-05.md. 046 aplicada a compartida LOCAL con
+respaldo y 19 huellas iguales al estado de integración; tablas nuevas vacías,
+stock cero. Se conservan cambios independientes de cliente/ruta/ciclo en la
+bitácora, no asumir que la copia sigue sin rutas. App 5174→3002 con lanzador
+seguro; próxima 047. Reserva privada/base/servidores se retiran al cierre.

@@ -199,7 +199,7 @@ pendientes (99 IDs)**. Ver informe de esta parte.
   solicitudes ni afirmar que el proveedor recibió un mensaje no confirmado.
 - [ ] OC-10 — Mantener correspondencia entre documento WhatsApp y orden guardada.
 
-Primera parte de órdenes (046): OC-01/02/04/07 implementados. Proveedor propio,
+Primera parte de órdenes (`004ba50`, 046): OC-01/02/04/07 implementados. Proveedor propio,
 semana fija o Sin ciclo, líneas por producto propio y origen por factura.
 Revisión con cantidades del proveedor/conversión conservadas; reserva por
 faltante impide duplicar borradores. Nueva necesidad libre genera otra orden,
@@ -212,6 +212,10 @@ OC-03/05/06/08/09/10 siguen abiertos por envío/recepción; OC-09 está parcial
 por incertidumbre del transporte aún pendiente. VAL-02 sigue abierto: el caso
 10+3 comprobado aquí es de reservas, no de envío. Checklist vigente:
 **48 listos / 51 pendientes (99 IDs)**. Evidencia en informe de esta parte.
+2.032 pruebas, grafo 12, build y Chromium 1440/390 aprobados; 21 casos nuevos.
+Compartida solo GET y 19 huellas iguales respecto al estado previo a integrar;
+se conservaron acciones locales concurrentes de rutas/clientes (ver informe).
+046 local con respaldo, cero órdenes nuevas/stock provisional intacto.
 
 ## 7. Factura del proveedor y recepción
 

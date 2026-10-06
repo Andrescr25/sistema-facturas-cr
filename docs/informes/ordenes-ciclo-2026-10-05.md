@@ -82,8 +82,38 @@ siguen al usuario o a su fase correspondiente.
 Evidencia privada, guiones, dump y capturas en
 `/private/tmp/codex-ordenes-ciclo-20261005`. No contienen credenciales impresas;
 datos de prueba y respaldos quedan fuera de Git. La base desechable y los
-servidores de pruebas se retiran al cerrar. Aplicación compartida y commit
-de implementación se registran en el cierre, después de verificar sus huellas.
+servidores de pruebas fueron retirados después de verificar la compartida.
+
+## Cierre local
+
+Implementación **`004ba50`**, avance sin fusión sobre `independencia-alegra`;
+sin push, deploy ni corte. 046 aplicada solo a `tachi` local 5434, respaldo
+privado nuevo antes de la migración. Tres tablas nuevas con cero filas;
+inventario continúa en cero provisional. Próxima migración disponible: 047.
+
+La comprobación previa detectó acciones locales independientes durante las
+pruebas: cliente/ruta/ciclo/recorrido habían cambiado y tenían bitácora de
+usuario. Se detuvo la integración, se capturó ese estado y se conservó.
+**19 huellas iguales antes/después de integrar y verificar** (incluyen
+faltantes/ajustes/borrador anterior). Desde el inicio, las otras 15 huellas
+siguen iguales; no afirmar que las cuatro con cambios independientes quedaron
+idénticas al inicio. La compartida ahora conserva una ruta y un ciclo
+cancelado: no borrarlos ni devolver la copia a «rutas/ciclos vacíos».
+
+Aplicación habitual **5174 → 3002** activa con el lanzador seguro permanente;
+backend PID **79992** al cerrar. Verificada solo GET: órdenes activas/historial
+vacíos, API 200/401/400, selector existente y módulo frontend nuevo servido.
+No abrir el reporte sin filtro para validar solo lectura: su GET anterior
+puede asignar proveedores. Navegador con escritura se ejecutó solo en la
+copia desechable propia, no en la compartida.
+
+Developer `5013270`, main `e19c3e5` y servidor original 3000/PID 5370
+conservados. Ninguna conexión a producción, mensaje real, ejecución de
+limpieza ni cambio del árbol compartido de dependencias/Prisma.
+Base propia `tachi_codex_ordenes_ciclo_20261005` y servidores 3003/5175
+retirados. Evidencia/dumps privados se conservan; worktree y rama temporal
+se retiran al finalizar el avance del cierre documental. Preservar archivo
+fiscal, bases de ensayo y ejemplos PDF anteriores en Descargas.
 
 ## Siguiente parte
 
