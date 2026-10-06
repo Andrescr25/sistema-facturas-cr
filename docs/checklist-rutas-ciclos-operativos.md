@@ -2,13 +2,15 @@
 
 Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
-bodega/reportes y procedencia implementados. Órdenes, cobertura y entregas pendientes.
+bodega/reportes, procedencia y borradores de compra con reservas implementados.
+Envío propio, cobertura de recepción y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
 [ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md) y
 [catálogo visual](informes/catalogo-visual-2026-10-05.md) y
-[operación por ciclos](informes/operacion-ciclos-2026-10-05.md).
+[operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
+[borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -184,18 +186,32 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 
 ## 6. Órdenes de compra persistentes
 
-- [ ] OC-01 — Guardar orden propia por proveedor y procedencia por ciclo.
-- [ ] OC-02 — Estados Borrador y Pendiente de enviar.
+- [x] OC-01 — Guardar orden propia por proveedor y procedencia por ciclo.
+- [x] OC-02 — Estados Borrador y Pendiente de enviar.
 - [ ] OC-03 — Estados Enviada, Parcialmente recibida, Recibida y Cerrada.
-- [ ] OC-04 — Crear/revisar cantidades y productos antes de enviar.
+- [x] OC-04 — Crear/revisar cantidades y productos antes de enviar.
 - [ ] OC-05 — Facilitar envío por WhatsApp y guardar exactamente lo enviado.
 - [ ] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
   desde API; nuevas necesidades no se agregan automáticamente.
-- [ ] OC-07 — Proponer/crear orden nueva para faltantes posteriores.
+- [x] OC-07 — Proponer/crear orden nueva para faltantes posteriores.
 - [ ] OC-08 — Mostrar cantidades pendientes sin volver a comprarlas.
 - [ ] OC-09 — Manejar concurrencia, reintentos y envío incierto sin duplicar
   solicitudes ni afirmar que el proveedor recibió un mensaje no confirmado.
 - [ ] OC-10 — Mantener correspondencia entre documento WhatsApp y orden guardada.
+
+Primera parte de órdenes (046): OC-01/02/04/07 implementados. Proveedor propio,
+semana fija o Sin ciclo, líneas por producto propio y origen por factura.
+Revisión con cantidades del proveedor/conversión conservadas; reserva por
+faltante impide duplicar borradores. Nueva necesidad libre genera otra orden,
+sin ampliar ninguna automáticamente. Pendiente bloquea líneas hasta volver
+explícitamente a borrador. Cierre SIN envío requiere motivo, libera reservas
+y conserva cantidades/procedencia en Historial de cierres. No es archivo 24 h.
+Concurrencia, claves repetidas y revisión obsoleta verificados en copia propia.
+Reserva no es solicitado ni pendiente de recibir: FAL-04/05/06/07/08 y
+OC-03/05/06/08/09/10 siguen abiertos por envío/recepción; OC-09 está parcial
+por incertidumbre del transporte aún pendiente. VAL-02 sigue abierto: el caso
+10+3 comprobado aquí es de reservas, no de envío. Checklist vigente:
+**48 listos / 51 pendientes (99 IDs)**. Evidencia en informe de esta parte.
 
 ## 7. Factura del proveedor y recepción
 

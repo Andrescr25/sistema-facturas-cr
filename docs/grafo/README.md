@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Órdenes por ciclo — borradores persistentes y reservas; envío/recepción pendientes](modulo/ordenes-compra-por-ciclo.md)
+
 - [Preventa — PDF con fotos, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
 
 - [Pedidos y facturas por ciclo — semana fija, filtros y colas conservadas](modulo/pedidos-por-ciclo.md)
@@ -75,8 +77,8 @@ toca, qué no se regenera).
 
 ## Decisiones
 
-- [El ciclo conserva recorrido y pedidos/facturas; faltantes/compras pendientes](decision/ciclo-de-ruta-como-contexto.md)
-- [Orden enviada inmutable; archivo 24 h tras recepción conservando historial — implementación pendiente](decision/orden-enviada-y-archivo-por-recepcion.md)
+- [El ciclo conserva recorrido/documentos y borradores; envío/recepción pendientes](decision/ciclo-de-ruta-como-contexto.md)
+- [Orden enviada inmutable; archivo 24 h tras recepción — borradores implementados, envío/recepción pendientes](decision/orden-enviada-y-archivo-por-recepcion.md)
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)
 - [El avance de una factura del buzón se cuenta desde sus líneas — soltar una relación no inventa un estado](decision/el-avance-de-la-factura-sale-de-sus-lineas.md)

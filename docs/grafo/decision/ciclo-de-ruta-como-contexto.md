@@ -8,11 +8,11 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-05
 ---
 
-**Decisión del usuario. Rutas/ciclos y pedidos/facturas implementados; bodega/reportes de faltantes por ciclo implementados; órdenes/cobertura pendientes.** La ruta define el
+**Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío/cobertura de recepción pendientes.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -43,3 +43,5 @@ Bodega, Clientes, Proveedores, notas y Excel filtran el mismo contexto. Sin
 ciclo mantiene históricos; compra pendiente aún no descuenta cobertura.
 Recorrido aplicado a preparación, consulta filtrada del proveedor separada
 del borrador global. Informe operacion-ciclos-2026-10-05 y [[modulo/faltantes]].
+Borradores propios y reservas por origen/ciclo en la 046:
+[[modulo/ordenes-compra-por-ciclo]]. No confundir reserva con envío confirmado.

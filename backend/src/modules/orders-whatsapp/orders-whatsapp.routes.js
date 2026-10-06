@@ -8,6 +8,9 @@ const OrdersWhatsappController = require('./orders-whatsapp.controller');
 const router = express.Router();
 const controller = new OrdersWhatsappController();
 
+// Órdenes propias por ciclo; nunca aplicar cantidades/envíos globales aquí.
+router.use('/por-ciclo', require('./ordenesCiclo.routes'));
+
 // Generar PDF
 router.post('/generar-pdf', controller.generarPDF);
 

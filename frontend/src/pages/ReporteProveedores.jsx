@@ -1,5 +1,6 @@
 import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
 import FaltantesPorCiclo from '../components/reporte-proveedores/FaltantesPorCiclo'
+import OrdenesCompraCiclo from '../components/reporte-proveedores/OrdenesCompraCiclo'
 import { useState, useEffect } from 'react'
 import { AlertCircle, Package, ClipboardList, Contact } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
@@ -100,6 +101,7 @@ export default function ReporteProveedores() {
   // Dos vistas: los faltantes de siempre y las FICHAS (quién es cada
   // proveedor), que antes no se podían ver ni corregir desde el sistema.
   const [vista, setVista] = useState('faltantes')
+  const [proveedorOrden, setProveedorOrden] = useState(null)
   // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
   // y no expone `confirm`.
   const { confirm: confirmarFicha, dialogProps: dialogFichas } = useDialog()
@@ -150,7 +152,7 @@ export default function ReporteProveedores() {
           disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
       </div>
 
-      {vista === 'faltantes' && <FiltroCicloOperacion filtro={filtroCiclo} />}
+      {vista !== 'fichas' && <FiltroCicloOperacion filtro={filtroCiclo} />}
       {vista === 'faltantes' && loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
       {error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
@@ -161,6 +163,7 @@ export default function ReporteProveedores() {
       <div className="flex flex-wrap gap-2 mb-6">
         {[
           { id: 'faltantes', texto: 'Faltantes y órdenes', icono: ClipboardList },
+          { id: 'ordenes', texto: 'Órdenes por ciclo', icono: Package },
           { id: 'fichas', texto: 'Fichas', icono: Contact }
         ].map(t => {
           const Icono = t.icono
@@ -168,7 +171,7 @@ export default function ReporteProveedores() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setVista(t.id)}
+              onClick={() => { setProveedorOrden(null); setVista(t.id) }}
               className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
                 vista === t.id ? 'bg-exito-600 text-white' : 'bg-white border-2 border-neutro-200 text-neutro-600'
               }`}
@@ -181,7 +184,7 @@ export default function ReporteProveedores() {
       </div>
 
       {/* Manejo de Vistas (Fichas · Listado de faltantes vs Panel Detalle) */}
-      {vista === 'fichas' ? (
+      {vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} /> : vista === 'fichas' ? (
         <ListaFichasProveedor
           proveedores={fichas.proveedores}
           cargando={fichas.cargando}
@@ -212,7 +215,8 @@ export default function ReporteProveedores() {
           setProveedorQuery={setProveedorQuery}
         />
       ) : proveedorActivo && consultaCiclo ? (
-        <FaltantesPorCiclo proveedor={proveedorActivo} onVolver={() => setProveedorActivoId(null)} />
+        <FaltantesPorCiclo proveedor={proveedorActivo} cicloId={filtroCiclo.cicloId} onVolver={() => setProveedorActivoId(null)}
+          onPrepararOrden={() => { setProveedorOrden({ cedula: proveedorActivo.cedula, nombre: proveedorActivo.nombre }); setVista('ordenes') }} />
       ) : proveedorActivo ? (
         <ProveedorDetalle
           notasPorProducto={notasPorProducto}

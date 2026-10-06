@@ -37,7 +37,7 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+  relacionado: [modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-05
 ---
 
@@ -227,8 +227,9 @@ Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
 Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
 ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
 un producto; Excel añade Procedencia y conserva lectura sin asignar.
-Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
-persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: borradores
+persistentes y reservas implementados en [[modulo/ordenes-compra-por-ciclo]];
+envío/cobertura de recepción pendientes, no interpretar la consulta como
 compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
 Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
 Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.
@@ -237,4 +238,5 @@ Integrado localmente en 8e656fa: 2.011 pruebas aprobadas, grafo 12, build y
 Chromium 1440/390 (tres módulos y dos Excel). Compartida solo GET, 16 huellas
 del inicio y 19 de la integración iguales; inventario cero/históricos
 conservados. Reserva propia se retira al cerrar; no nueva migración,
-próxima 046. Operativo 44/55. Sigue órdenes/cobertura por ciclo.
+próxima 046 en esa entrega. Operativo 44/55 en esa entrega. Continúa ahora la
+046 con borradores por ciclo, ver nuevo módulo e informe de órdenes.
