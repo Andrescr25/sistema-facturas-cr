@@ -324,7 +324,7 @@ y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producc
 **Decisión confirmada:** retirar de la lista activa y conservar historial.
 No implementar borrado físico en sustitución de la antigua limpieza.
 
-**Archivo individual / 050, 2026-10-06:** ARC-01–06 y VAL-03 comprobados.
+**Archivo individual `e8b1b67` / 050, 2026-10-06:** ARC-01–06 y VAL-03 comprobados.
 Vista por hora PostgreSQL: solo recibida con final a las 24 h sale de Activas;
 Historial mantiene estado/comparación/PDF/recepción y cobertura. Parciales
 antiguas permanecen; fronteras exactas con microsegundos y UTC/CR verificadas.

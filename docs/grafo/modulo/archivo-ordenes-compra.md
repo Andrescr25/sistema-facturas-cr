@@ -60,3 +60,10 @@ historia filtrada y huellas operativas iguales. Tests anteriores de limpieza
 se sustituyeron por rechazo/inmutabilidad; jamás ejecutar implementación vieja.
 Evidencia y cierre local en el informe. Carga/entregas y cierre de enviada
 permanecen pendientes. Producción/developer/main, mensajes y Hacienda reales fuera.
+
+CIERRE LOCAL. Código e8b1b67; SQL050 local5434 con respaldo, 36 huellas iguales
+incluyen asignaciones/fechas/cantidades históricas. 2.111 pruebas/362 suites,
+cero fallos/omitidas; grafo12/build/Chromium1440/390 aprobados. Backend seguro
+8366/app5174→3002, salidas bloqueadas, stock/conteos/movimientos0, sin PO/demo.
+75/24 operativo, 133/14 independencia aparte. Base/puertos propios retirados;
+reserva/copia temporal se liberan al cerrar. Próxima carga/entregas, SQL051.
