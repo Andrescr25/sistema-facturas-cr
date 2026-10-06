@@ -59,7 +59,7 @@ async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false }={
     COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
       WHERE r.faltante_id=f.id AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS reservada,
     COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
-      WHERE r.faltante_id=f.id AND r.estado IN ('enviada','parcialmente_recibida','recibida') AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS solicitada,
+      WHERE r.faltante_id=f.id AND r.estado IN ('enviada','parcialmente_recibida','recibida','cerrada') AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS solicitada,
     COALESCE((SELECT SUM(GREATEST(r.cobertura-r.cantidad_recibida,0)) FROM orden_compra_ciclo_cobertura r
       WHERE r.faltante_id=f.id AND r.estado IN ('enviada','parcialmente_recibida') AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS pendiente_recibir,
     COALESCE((SELECT SUM(r.cantidad_recibida) FROM orden_compra_ciclo_cobertura r
@@ -81,17 +81,19 @@ function agrupar(rows) {
   for (const r of rows) {
     if (!grupos.has(r.productoId)) grupos.set(r.productoId,{productoId:r.productoId,nombre:r.nombre,codigo:r.referencia,
       codigoProveedor:r.supplier_code,nombreProveedor:r.supplier_desc,mappingId:r.mapping_id,
-      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0,reservada:0,solicitada:0,reservadaBorrador:0,pendienteRecibir:0,recibida:0,disponible:0,origenes:[]});
+      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0n,reservada:0n,solicitada:0n,reservadaBorrador:0n,pendienteRecibir:0n,recibida:0n,disponible:0n,origenes:[]});
     const p=grupos.get(r.productoId),diferencia=micros(r.cantidad_faltante)-micros(r.reservada),libre=diferencia>0n?diferencia:0n;
-    p.faltante+=Number(r.cantidad_faltante);p.reservada+=Number(r.reservada);p.disponible+=Number(cantidadDe(libre));
-    p.solicitada+=Number(r.solicitada);p.pendienteRecibir+=Number(r.pendiente_recibir);p.recibida+=Number(r.recibida);
-    p.reservadaBorrador+=Number(r.reservada)-Number(r.solicitada);
+    p.faltante+=micros(r.cantidad_faltante);p.reservada+=micros(r.reservada);p.disponible+=libre;
+    p.solicitada+=micros(r.solicitada);p.pendienteRecibir+=micros(r.pendiente_recibir);p.recibida+=micros(r.recibida);
+    p.reservadaBorrador+=micros(r.reservada)-micros(r.solicitada);
     p.origenes.push({...r,disponible:cantidadDe(libre)});
   }
   return [...grupos.values()].map(p=>{
     const factorValido=Number.isFinite(p.factorConversion)&&p.factorConversion>=0.000001&&p.factorConversion<=1000000;
     const disponible=p.origenes.reduce((s,f)=>s+micros(f.disponible),0n),factor=factorValido?micros(p.factorConversion.toFixed(6)):0n;
-    return {...p,factorValido,cantidadSugerida:factorValido?Number((disponible+factor-1n)/factor):null};
+    // Sumar también los totales por origen con seis decimales exactos.
+    const totales=Object.fromEntries(['faltante','reservada','solicitada','reservadaBorrador','pendienteRecibir','recibida','disponible'].map(k=>[k,Number(cantidadDe(p[k]))]));
+    return {...p,...totales,factorValido,cantidadSugerida:factorValido?Number((disponible+factor-1n)/factor):null};
   });
 }
 function dto(o) { return {...o,referencia:`OC-${o.id}`,ciclo:o.ciclo_id?{id:o.ciclo_id,rutaNombre:o.ruta_nombre,semana:o.semana}:null}; }
@@ -171,7 +173,7 @@ async function cambiarEstado(id,datos,usuarioId) {
   if (datos.estado==='cerrada'&&(!motivo||motivo.length>1000)) throw httpError(400,'Indicá el motivo del cierre (hasta 1000 caracteres).');
   return enOrden(async db=>{const o=await obtenerEn(db,id,{bloquear:true});revision(o,datos?.version);
     if (o.estado==='cerrada') throw httpError(409,'La orden cerrada conserva su historial y no se reabre.');
-    if (o.estado==='enviada'||o.envio_id) throw httpError(409,'La orden ya fue enviada o tiene un intento por verificar; no se modifica ni se cierra sin recepción.');
+    if (o.estado==='enviada'||o.envio_id) throw httpError(409,'La orden ya fue enviada o tiene un intento por verificar; los cierres enviados requieren revisión de cobertura en su propio flujo.');
     if (o.estado===datos.estado) return o;
     if (datos.estado==='pendiente_enviar') {
       await validarPendienteEn(db,o);

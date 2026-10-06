@@ -15,7 +15,7 @@ archivos:
   - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, tabla/facturas-proveedores, tabla/compra-linea, tabla/supplier-product-mapping, decision/la-ruta-no-el-contenido]
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
+  relacionado: [modulo/cierre-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -107,3 +107,8 @@ permanece consultable/adjuntable. Cambios materiales de compra bloquean recepci�
 aceptación comercial sin cambiar cantidades/factor/producto se conserva válida.
 Las afirmaciones «recepción pendiente» anteriores describen la etapa048.
 Próxima parte: archivo 24h y retirar limpieza semanal por código; luego entregas.
+
+CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
+anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
+liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
+Necesidades incluye originales y recibido de enviada cerrada con pendiente0.

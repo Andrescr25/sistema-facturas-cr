@@ -1,3 +1,4 @@
+import CierreOrdenCiclo from './CierreOrdenCiclo'
 import { useEffect, useRef, useState } from 'react'
 import api from '../../services/api'
 import { textoCiclo } from '../SelectorCiclo'
@@ -8,7 +9,7 @@ import FacturaOrdenCiclo from './FacturaOrdenCiclo'
 import RecepcionOrdenCiclo from './RecepcionOrdenCiclo'
 
 const BASE='/orden-compra/por-ciclo'
-const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',parcialmente_recibida:'Parcialmente recibida',recibida:'Recibida · recepción final registrada',cerrada:'Cerrada sin envío'}
+const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',parcialmente_recibida:'Parcialmente recibida',recibida:'Recibida · recepción final registrada',cerrada:'Cerrada'}
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:6})
 const fecha=v=>new Date(v).toLocaleString('es-CR',{timeZone:'America/Costa_Rica'})
 
@@ -115,7 +116,7 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         {orden?.archivada&&<p className="font-semibold">Archivada · disponible en Historial desde {fecha(orden.archivada_en)}</p>}
         {orden?.archivo_programado_en&&!orden.archivada&&<p className="text-sm">Pasará al historial el {fecha(orden.archivo_programado_en)}, 24 horas después de la recepción final.</p>}
         {orden?.motivo_cierre&&<p>Motivo: {orden.motivo_cierre}</p>}
-        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?'Reservas liberadas. La orden conserva sus cantidades y procedencia.':orden?.estado==='recibida'?'Recepción final registrada; cantidades originales y procedencia conservadas.':orden?.enviada_en?'Las cantidades solicitadas conservan su cobertura; la recepción física se registra abajo.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
+        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?(orden.enviada_en?'Cierre registrado. Se conserva la cobertura recibida y se libera únicamente lo pendiente. Documento enviado y procedencia conservados.':'Reservas liberadas. La orden conserva sus cantidades y procedencia.'):orden?.estado==='recibida'?'Recepción final registrada; cantidades originales y procedencia conservadas.':orden?.enviada_en?'Las cantidades solicitadas conservan su cobertura; la recepción física se registra abajo.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
       </div>
       {!orden&&!productos.length&&<p className="card p-4">No hay faltantes libres para otra orden en este ciclo. Podés revisar las órdenes existentes.</p>}
       {productos.map(p=><div key={p.productoId} className="card min-w-0 p-4 space-y-2">
@@ -157,7 +158,8 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
       {orden&&(orden.estado==='pendiente_enviar'||orden.enviada_en)&&<EnvioOrdenCiclo key={`envio-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} prompt={prompt}
         onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
       {orden?.enviada_en&&<FacturaOrdenCiclo key={`factura-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado}/>}
-      {orden?.enviada_en&&<RecepcionOrdenCiclo key={`recepcion-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      {orden?.enviada_en&&orden.estado!=='recibida'&&<CierreOrdenCiclo key={`cierre-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      {orden?.enviada_en&&<RecepcionOrdenCiclo key={`recepcion-${orden.id}-${orden.version}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
     </>:<>
       <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>

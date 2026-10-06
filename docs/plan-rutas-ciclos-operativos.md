@@ -73,7 +73,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
   Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
-  incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; falta cierre de enviada. Reserva sin confirmación no es envío confirmado.
+  incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; cierre de enviada052 implementado: confirmación/motivo, conservar recibido
+  y liberar solo cobertura pendiente, documento enviado inmutable. Reserva sin confirmación no es envío confirmado.
 - [x] Recepción parcial/final (049): unidades físicas, motivos, auditoría y
   kardex por delta; aceptación comercial explícita separada, sin doble entrada.
   PDF/vínculo (048) permanece privado. Archivo implementado; correcciones físicas pendientes.

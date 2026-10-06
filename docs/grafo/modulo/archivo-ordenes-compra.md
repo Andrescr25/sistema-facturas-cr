@@ -20,7 +20,7 @@ archivos:
   - docs/informes/archivo-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo]
-  relacionado: [decision/orden-enviada-y-archivo-por-recepcion, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/cierre-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
 medido: 2026-10-06
 ---
 
@@ -67,3 +67,8 @@ cero fallos/omitidas; grafo12/build/Chromium1440/390 aprobados. Backend seguro
 8366/app5174→3002, salidas bloqueadas, stock/conteos/movimientos0, sin PO/demo.
 75/24 operativo, 133/14 independencia aparte. Base/puertos propios retirados;
 reserva/copia temporal se liberan al cerrar. Próxima carga/entregas, SQL051.
+
+CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
+anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
+liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
+Necesidades incluye originales y recibido de enviada cerrada con pendiente0.

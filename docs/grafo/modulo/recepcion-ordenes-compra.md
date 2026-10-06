@@ -16,7 +16,7 @@ archivos:
   - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
-  relacionado: [modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -107,3 +107,8 @@ consulta por semana y producto con procedencia. No reservar/descontar stock
 otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
 nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
 estado vigente en informe necesidades-cobertura-2026-10-06.
+
+CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
+anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
+liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
+Necesidades incluye originales y recibido de enviada cerrada con pendiente0.

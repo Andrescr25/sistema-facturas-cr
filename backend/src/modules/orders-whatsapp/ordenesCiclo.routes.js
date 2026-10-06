@@ -3,6 +3,7 @@ const s=require('./ordenesCiclo.service');
 const envios=require('./ordenesCicloEnvio.service');
 const facturas=require('./ordenesCicloFactura.service');
 const recepcion=require('./ordenesCicloRecepcion.service');
+const cierre=require('./ordenesCicloCierre.service');
 const subirPdf=require('multer')({storage:require('multer').memoryStorage(),limits:{fileSize:5*1024*1024,files:1,fields:4,fieldSize:2048}}).single('pdf');
 // /orden-compra ya pertenece a Reporte Proveedores. La sugerencia es lectura,
 // no asigna proveedores ni transforma el borrador GLOBAL anterior.
@@ -40,4 +41,6 @@ router.get('/:id/facturas/:vinculoId/pdf/:pdfId',async(req,res)=>{
 });
 router.get('/:id/recepciones',(req,res)=>responder(res,recepcion.consultar(req.params.id)));
 router.post('/:id/recepciones',(req,res)=>responder(res,recepcion.registrar(req.params.id,req.body,req.usuario?.id),201));
+router.get('/:id/cierre',(req,res)=>responder(res,cierre.consultar(req.params.id)));
+router.post('/:id/cierre',(req,res)=>responder(res,cierre.cerrar(req.params.id,req.body,req.usuario?.id),201));
 module.exports=router;

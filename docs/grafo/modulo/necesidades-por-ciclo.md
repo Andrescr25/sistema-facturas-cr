@@ -14,7 +14,7 @@ archivos:
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
+  relacionado: [modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
 medido: 2026-10-06
 ---
 
@@ -90,3 +90,8 @@ intactos. Base/puertos propios retirados; reserva se libera al cerrar memoria.
 85/14 operativo; independencia133/14 aparte. Siguiente FAL-08/OC-03, cierre
 de enviada con motivo y liberación de cobertura no recibida, preservando
 documento/PDF y mercadería ya recibida.052 sólo si hace falta esquema.
+
+CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
+anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
+liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
+Necesidades incluye originales y recibido de enviada cerrada con pendiente0.

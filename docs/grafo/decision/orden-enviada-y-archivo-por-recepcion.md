@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
+  relacionado: [modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
 medido: 2026-10-06
 ---
 
@@ -56,3 +56,8 @@ físicamente recibidas y motivos confirmados, ver [[modulo/recepcion-ordenes-com
 Final conserva eventos/fecha; SQL050 oculta tras 24 h sin cambiar recibida. Agotado solo declarado
 explícitamente. Compras nuevas ya vinculadas ingresan stock por físico; compras
 anteriores conservadas sin doble entrada. Cierre de enviada pendiente; archivo individual implementado.
+
+052 implementa cierre explícito de enviada/parcial con motivo y revisión.
+El evento conserva la cobertura recibida y libera únicamente pendiente.
+Cerrada va inmediatamente a Historial; no es recibida ni inicia archivo24h.
+Ver [[modulo/cierre-ordenes-compra]]; las restricciones anteriores son históricas.

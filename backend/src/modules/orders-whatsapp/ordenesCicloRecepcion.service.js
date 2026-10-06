@@ -38,7 +38,7 @@ async function datosEn(db,o){
  const recibidos=new Map();for(const h of historial)for(const p of h.resumen.incrementos)recibidos.set(p.productoId,(recibidos.get(p.productoId)||0n)+micro(p.cantidad));
  const productos=new Map(pedidas.map(p=>[p.producto_id,{productoId:p.producto_id,nombre:p.producto_nombre,solicitado:Number(p.cantidad_propia),facturado:0,recibido:numero(recibidos.get(p.producto_id)||0n)}]));
  for(const l of lineas){if(!l.producto_id)continue;if(!productos.has(l.producto_id))productos.set(l.producto_id,{productoId:l.producto_id,nombre:l.descripcion,solicitado:0,facturado:0,recibido:numero(recibidos.get(l.producto_id)||0n)});productos.get(l.producto_id).facturado+=Number(l.cantidad_propia)}
- const comparacion=[...productos.values()].map(p=>({...p,noRecibido:Math.max(0,p.solicitado-p.recibido),adicionalRecibido:Math.max(0,p.recibido-p.solicitado),facturadoSinRecibir:Math.max(0,p.facturado-p.recibido),pendiente:o.estado==='recibida'?0:Math.max(0,p.solicitado-p.recibido)}));
+ const comparacion=[...productos.values()].map(p=>({...p,noRecibido:Math.max(0,p.solicitado-p.recibido),adicionalRecibido:Math.max(0,p.recibido-p.solicitado),facturadoSinRecibir:Math.max(0,p.facturado-p.recibido),pendiente:['recibida','cerrada'].includes(o.estado)?0:Math.max(0,p.solicitado-p.recibido)}));
  const motivos=historial.at(-1)?.motivos||[];
  const contexto={version:o.version,vinculos:facturas.map(v=>[v.id,v.firma]),lineas,pendientes,bloqueos,recepciones:historial.map(r=>r.id)};
  return {lineas,comprasPendientes:pendientes,bloqueos,comparacion,motivos,historial,revision:hash(contexto),version:o.version,estado:o.estado,completaEn:o.recepcion_completa_en};

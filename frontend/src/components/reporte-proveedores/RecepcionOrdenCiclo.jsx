@@ -16,7 +16,7 @@ export default function RecepcionOrdenCiclo({orden,ocupado,onOcupado,onActualiza
    const firma=JSON.stringify(cuerpo);if(solicitud.current?.firma!==firma)solicitud.current={firma,clave:crypto.randomUUID()}
    const {data}=await api.post(`${BASE}/${orden.id}/recepciones`,{...cuerpo,clave:solicitud.current.clave});if(vivo.current){aplicar(data.data);onActualizar(data.data.orden)}
  }catch(e){if(vivo.current)setError(fallo(e))}finally{onOcupado(false)}}
- const completa=orden.estado==='recibida'
+ const completa=orden.estado==='recibida',cerrada=orden.estado==='cerrada'
  return <section className="card min-w-0 p-5 space-y-4" aria-label="Recepción física de la orden">
   <h3 className="text-lg font-bold">Recepción física</h3>
   <p className="text-sm text-neutro-600">Registrá lo que llegó físicamente en cada entrega. Lo facturado y lo recibido se muestran por separado.</p>
@@ -24,11 +24,12 @@ export default function RecepcionOrdenCiclo({orden,ocupado,onOcupado,onActualiza
   {!!datos?.bloqueos.length&&datos.bloqueos.map((b,i)=><p key={i} className="break-words text-nota-800">{b}</p>)}
   {!!datos?.comprasPendientes.length&&<p className="text-sm text-nota-800">Primero revisá y registrá la compra de: {datos.comprasPendientes.map(p=>p.numero).join(', ')}. Las otras facturas revisadas permiten recepción parcial.</p>}
   {datos?.comparacion.map(p=><div key={p.productoId} className="min-w-0 rounded-lg border p-3 space-y-1"><p className="font-semibold break-words">{p.nombre}</p><p className="text-sm">Solicitado: {n(p.solicitado)} · Facturado en compras: {n(p.facturado)} · Recibido físico: {n(p.recibido)} unidades propias</p>
-    {p.noRecibido>0&&<p className="text-sm">{completa?'No recibido al finalizar':'Pendiente de recibir'}: {n(p.noRecibido)}</p>}{p.adicionalRecibido>0&&<p className="text-sm text-nota-800">Adicional recibido: {n(p.adicionalRecibido)}</p>}{p.facturadoSinRecibir>0&&<p className="text-sm">Facturado sin recibir: {n(p.facturadoSinRecibir)}</p>}
+    {p.noRecibido>0&&<p className="text-sm">{completa||cerrada?'No recibido al finalizar':'Pendiente de recibir'}: {n(p.noRecibido)}</p>}{p.adicionalRecibido>0&&<p className="text-sm text-nota-800">Adicional recibido: {n(p.adicionalRecibido)}</p>}{p.facturadoSinRecibir>0&&<p className="text-sm">Facturado sin recibir: {n(p.facturadoSinRecibir)}</p>}
     {datos.motivos.filter(m=>m.productoId===p.productoId).map(m=><p key={m.productoId} className="break-words text-sm">{causas[m.tipo]}: {m.detalle}</p>)}
   </div>)}
   {completa&&<p role="status" className="rounded-lg bg-exito-50 p-3 text-exito-800">Recepción final registrada: {new Date(datos?.completaEn||orden.recepcion_completa_en).toLocaleString('es-CR',{timeZone:'America/Costa_Rica'})}. Los datos y PDF quedan en historial.</p>}
-  {!completa&&datos&&<>
+  {cerrada&&<p role="status">Orden cerrada. Las recepciones anteriores se conservan; no admite nuevas entregas del proveedor.</p>}
+  {!completa&&!cerrada&&datos&&<>
    <div className="space-y-3"><h4 className="font-bold">Cantidades que llegaron en esta entrega</h4>{datos.lineas.map(l=><div key={l.id} className="min-w-0 rounded-lg border p-3 space-y-2"><p className="font-semibold break-words">{l.descripcion} · Factura {l.numeroFactura}</p><p className="text-sm">Facturado: {n(l.cantidad)} {l.unidad} × {n(l.factor_conversion)} = {n(l.cantidad_propia)} propias. Recibido antes: {n(l.recibida)} · Pendiente en esta línea: {n(l.pendiente)}</p>
     <p className="text-sm text-neutro-600">{l.inventarioPorRecepcion?'El inventario de esta compra ingresa con lo recibido físicamente.':'Esta compra usa su entrada comercial anterior; recibir no vuelve a acreditar inventario.'}</p>
     <label className="block text-sm font-semibold">Cantidad física nueva · unidades propias<input aria-label={`Recibir línea ${l.id} de ${l.descripcion}`} type="number" min="0" max={l.pendiente} step="0.0001" value={cantidades[l.id]??''} disabled={ocupado||!l.segura||l.pendiente<=0} onChange={e=>cambiar(()=>setCantidades(q=>({...q,[l.id]:e.target.value})))} className="mt-1 block w-full max-w-xs min-h-11 rounded-lg border p-2" placeholder="0"/></label>

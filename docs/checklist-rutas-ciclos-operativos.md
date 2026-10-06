@@ -7,7 +7,8 @@ cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
 comparación y recepción física parcial/final implementadas; archivo individual
 24 h y retiro semanal comprobados; consulta de recorrido/carga/Maps
 y registro físico de carga/entrega implementados. Necesidades/cobertura
-con stock general, demanda y procedencia completa disponibles.
+con stock general, demanda y procedencia completa disponibles. Cierre enviado
+con motivo, recibido conservado y solo cobertura pendiente liberada.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -22,9 +23,10 @@ con stock general, demanda y procedencia completa disponibles.
 [archivo individual](informes/archivo-ordenes-2026-10-06.md) y
 [recorrido y carga](informes/carga-entregas-2026-10-06.md) y
 [registro físico](informes/registro-entregas-2026-10-06.md) y
-[necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md).
-Estado vigente: **85 listos / 14 pendientes (99 IDs)**. Las cifras en las
-entregas anteriores son históricas; este estado incluye el registro físico.
+[necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md) y
+[cierre de enviada](informes/cierre-ordenes-2026-10-06.md).
+Estado vigente: **87 listos / 12 pendientes (99 IDs)**. Las cifras en las
+entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -205,7 +207,7 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 - [x] FAL-06 — Una cantidad comprada no cubre dos necesidades/ciclos a la vez.
 - [x] FAL-07 — Recepción parcial actualiza pendiente y cobertura sin contar
   dos veces el inventario ni ignorar conversiones de unidad del proveedor.
-- [ ] FAL-08 — Cancelación/cierre sin recepción libera solo la cobertura que
+- [x] FAL-08 — Cancelación/cierre sin recepción libera solo la cobertura que
   corresponde y conserva el motivo/historial.
 
 
@@ -234,7 +236,7 @@ no cerrar las casillas del usuario por tener esta vista.
 
 - [x] OC-01 — Guardar orden propia por proveedor y procedencia por ciclo.
 - [x] OC-02 — Estados Borrador y Pendiente de enviar.
-- [ ] OC-03 — Estados Enviada, Parcialmente recibida, Recibida y Cerrada.
+- [x] OC-03 — Estados Enviada, Parcialmente recibida, Recibida y Cerrada.
 - [x] OC-04 — Crear/revisar cantidades y productos antes de enviar.
 - [x] OC-05 — Facilitar envío por WhatsApp y guardar exactamente lo enviado.
 - [x] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
@@ -277,6 +279,15 @@ por cantidad recibida; OC-03 sigue parcial por recepción/cierre de enviada.
 2.059 pruebas, grafo 12, build, Chromium 1440/390 y PDF nativo aprobados.
 047 local con respaldo y 22 huellas idénticas; cero órdenes/copias/stock nuevo.
 Validación y relevo en el informe de esta parte. No mensajes reales.
+
+**Cierre enviado /052, 2026-10-06:** FAL-08/OC-03 comprobados. Cierre
+con revisión/confirmación/motivo, recibido conservado y pendiente liberado
+por sus mismos orígenes; conserva pedido/PDF/envío/recepciones y stock/CxP.
+UUID/cuerpo y concurrencia con recepción sin doble evento. Historial
+inmediato con actor/hora, distinta regla del archivo24h de recibida.
+2191 pruebas/362 suites fail0/skip0,138focalizadas; grafo12/build/
+Chromium1440/390, respuesta perdida seguida del MISMO reintento comprobada.
+**87/12 (99 IDs)**. Informe de cierre para aplicación/relevo local.
 
 ## 7. Factura del proveedor y recepción
 

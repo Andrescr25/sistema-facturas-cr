@@ -79,7 +79,7 @@ async function listar(filtros){
    LEFT JOIN LATERAL (SELECT SUM(rl.cantidad) cantidad FROM orden_compra_ciclo_recepcion_linea rl
      JOIN orden_compra_ciclo_recepcion re ON re.id=rl.recepcion_id JOIN compra_linea cl ON cl.id=rl.compra_linea_id
      WHERE re.orden_id=o.id AND cl.producto_id=l.producto_id) rec ON TRUE
-   WHERE o.estado<>'cerrada' AND ${filtroOrden} ORDER BY o.id,l.id`,params)).rows;
+   WHERE (o.estado<>'cerrada' OR o.enviada_en IS NOT NULL) AND ${filtroOrden} ORDER BY o.id,l.id`,params)).rows;
   const ids=[...new Set([...demandas,...faltantes,...compras].map(x=>x.producto_id).filter(x=>x!=null))];
   const productos=(await db.query(`SELECT p.id,p.nombre,p.referencia,p.activo,p.inventariable,
    COALESCE(s.existencia,0) existencia,COALESCE(s.conteo_confirmado,FALSE) conteo_confirmado
@@ -109,7 +109,7 @@ async function listar(filtros){
     else if(['borrador','pendiente_enviar'].includes(c.estado))g.cantidades.reservadaBorrador+=micro(c.cobertura)}
   }
   for(const o of compras){
-   const g=grupos.get(o.producto_id),solicitada=['enviada','parcialmente_recibida','recibida'].includes(o.estado),pendiente=['enviada','parcialmente_recibida'].includes(o.estado)?positivo(micro(o.cantidad_propia)-micro(o.recibida)):0n;
+   const g=grupos.get(o.producto_id),solicitada=['enviada','parcialmente_recibida','recibida','cerrada'].includes(o.estado),pendiente=['enviada','parcialmente_recibida'].includes(o.estado)?positivo(micro(o.cantidad_propia)-micro(o.recibida)):0n;
    g.compras.push({ordenId:o.id,estado:o.estado,envioEstado:o.envio_estado,proveedorId:o.proveedor_id,proveedor:o.proveedor_nombre,archivada:o.archivada,
     cantidad:o.cantidad_propia,cantidadProveedor:o.cantidad_proveedor,factorConversion:o.factor_conversion,recibida:o.recibida,pendiente:texto(pendiente),
     rutaNombre:o.ruta_nombre,semana:o.semana});

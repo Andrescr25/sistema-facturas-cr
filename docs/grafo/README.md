@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Cierre de enviada — recibido conservado y pendiente liberado](modulo/cierre-ordenes-compra.md)
+
 - [Necesidades y cobertura — stock general, demanda y compras por semana](modulo/necesidades-por-ciclo.md)
 
 - [Registro físico de carga/entrega — parcial, descarga, incidencias y revisión](modulo/registro-carga-entrega.md)
