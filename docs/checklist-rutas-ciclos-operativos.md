@@ -9,6 +9,7 @@ Envío propio, cobertura de recepción y entregas pendientes.
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
 [ampliación PDF con fotos](informes/preventa-pdf-2026-10-05.md) y
 [catálogo visual](informes/catalogo-visual-2026-10-05.md) y
+[paginación de cuatro productos](informes/catalogo-paginacion-2026-10-05.md) y
 [operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
 [borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md).
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
@@ -106,8 +107,18 @@ en la ficha son los recientes (10), con origen propio distinguido.
   los demás productos, etiquetas Oferta/Liquidación y precio anterior, sin
   duplicación ni doble aplicación de rebajas.
 - [x] PRE-17 — PDF como catálogo: dos tarjetas por fila, fotos grandes y
-  datos debajo, con paginación y nombres largos legibles.
+  datos debajo, con paginación y nombres largos legibles. Corrección del
+  usuario: cuatro productos por hoja, mezclando categorías/subcategorías
+  sin huecos de separación, con ambos títulos sobre cada ficha; solo la
+  última página puede quedar parcial.
 - [x] PRE-18 — Mensaje WhatsApp explícito: CATÁLOGO DE PRODUCTOS en PDF.
+
+Corrección PRE-17: 29 pruebas focalizadas de PDF/fotos, cuatro nuevas de
+páginas físicas/grupos impares/textos largos. PDF nativo real: 58 productos,
+58 fotos y 15 ofertas en **15 páginas**, antes 33; completo 1.859 en 465.
+Nuevo ejemplo compacto en Descargas; conservar el anterior. Refina PRE-17,
+sin cerrar compras/recepción/entregas: **48 listos / 51 pendientes (99 IDs)**.
+Evidencia y relevo en informe de paginación.
 
 Segunda parte: PRE-01/02/05/06/07/09 y FIL-02 implementados con 045,
 commit `d87ee54`, 1.962 pruebas aprobadas y aplicación local verificada.

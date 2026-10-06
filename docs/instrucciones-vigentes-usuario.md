@@ -100,6 +100,11 @@ semanas, permitiendo adelantar trabajo de la siguiente ruta.
    ni duplicarlas. Fotos más grandes, dos tarjetas por fila con información
    debajo. El mensaje predeterminado debe decir explícitamente que es un
    CATÁLOGO DE PRODUCTOS en PDF.
+   **Corrección de paginación, 05/10/2026:** máximo cuatro productos por
+   página, en dos columnas y dos filas. Completar los espacios aunque cambie
+   la categoría o subcategoría; conservar ambos títulos sobre cada ficha.
+   No empezar filas/hojas nuevas para separar grupos. Solo la última página
+   puede quedar con menos de cuatro productos.
    Preparar/descargar el PDF por cliente/ciclo, adjuntarlo en el envío y
    permitir ese flujo sin obligar a crear cuenta en el portal. La invitación
    sigue disponible para quien elija pedir en línea; no interpretar una

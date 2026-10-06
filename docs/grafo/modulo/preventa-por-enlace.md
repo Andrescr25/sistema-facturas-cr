@@ -12,6 +12,7 @@ archivos:
   - backend/src/modules/portal-clientes/preventaFotos.service.js
   - backend/src/modules/portal-clientes/preventa.pdf.js
   - backend/tests/preventaPdf.test.js
+  - backend/tests/preventaPdfPaginacion.test.js
   - backend/tests/preventaFotos.test.js
   - backend/server.js
   - backend/src/utils/urlParaRegistro.js
@@ -188,9 +189,12 @@ incluir productos normales con cero stock del negocio intermediario.
 Las categorías/subcategorías contienen también las ofertas y liquidaciones:
 no hay «Tus habituales»/«Ofertas»/«Liquidaciones» como secciones del PDF. La
 selección sigue personal; la portada del portal conserva su diseño anterior.
-El renderer reserva encabezado + primera fila juntos, repite contexto y
-clasificación al cambiar de página, mide nombres sin truncarlos y dibuja
-foto arriba/datos abajo. La cache de miniaturas cambia de versión para no
+El renderer pagina la secuencia canónica completa en cuatro fichas por hoja,
+dos columnas y dos filas. Categorías/subcategorías distintas comparten incluso
+una fila; cada ficha conserva ambos títulos sobre su foto/datos. Solo la
+última hoja queda parcial. Mide textos completos con las fuentes reales y
+adapta foto/espaciado/fuente en fichas largas, sin truncarlas ni expulsarlas
+a una hoja adicional. La cache de miniaturas cambia de versión para no
 reutilizar imágenes pequeñas. Guardar/revisar/enviar una copia mantiene hash
 y bytes inmutables. El caption empieza «Te enviamos nuestro CATÁLOGO DE
 PRODUCTOS en PDF…». El bloque de instrucciones retirado no vuelve al PDF.
@@ -208,3 +212,29 @@ Integrado solo local en 427e257, aplicación 5174→3002 verificada SOLO GET y
 16 huellas iguales en compartida. Stock cero e históricos conservados, sin
 ciclos demo. Base/servidores de prueba retirados; reserva se libera al
 cerrar. Developer/main/original 3000 conservados. Sin push ni mensajes.
+
+## Cuatro fichas sin separadores vacíos — corrección 2026-10-05
+
+Petición expresa del usuario tras revisar el PDF: completar cada hoja hasta
+cuatro productos, aunque cambien de clasificación. El recorrido de productos
+conserva orden y selección originales; ya no se pagina cada grupo por parejas.
+Los títulos por ficha impiden que un producto parezca de la categoría anterior.
+Ejemplo del caso informado: P-556 comparte la tercera hoja con otros tres.
+
+29 pruebas focalizadas aprobadas, incluidas cuatro nuevas observando PDFKit
+REAL, medidas/dibujo y páginas físicas, sin reemplazar el renderer. Grupos
+impares, cuatro clasificaciones distintas, textos extensos, continuación y
+secciones vacías no crean huecos/hojas ni duplican productos. PDFKit nativo
+de macOS confirma las fichas de cada página: selección real 58/58 fotos,
+15 ofertas, **15 páginas (14×4 + 2)**; completo 1.859/1.827 fotos,
+**465 páginas (464×4 + 3)**, 32 sin foto y 16.786.947 bytes, bajo 20 MB.
+El parser nativo puede extraer las columnas en otro orden textual: se verifica
+el conjunto exacto por página; el dibujo real verifica posición/orden de lectura.
+Cabeceras repetidas presentes y bloque de instrucciones retirado ausente.
+
+Nuevo PDF `catalogo-Tachi-LICORERA-RENE-compacto.pdf` en Descargas, conservando
+el visual anterior. Una copia ya preparada mantiene sus bytes/hash: el cambio
+aplica al PREPARAR otro PDF, sin reescribir documentos revisados. Ninguna
+selección, precio, promoción, imagen original ni caption cambió.
+Evidencia vigente: `docs/informes/catalogo-paginacion-2026-10-05.md`. Operativo
+48/51; sigue envío persistente de compras/PDF inmutable y cobertura/recepción.

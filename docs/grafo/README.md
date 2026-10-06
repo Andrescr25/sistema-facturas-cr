@@ -24,7 +24,7 @@ toca, qué no se regenera).
 
 - [Órdenes por ciclo — borradores persistentes y reservas; envío/recepción pendientes](modulo/ordenes-compra-por-ciclo.md)
 
-- [Preventa — PDF con fotos, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
+- [Preventa — PDF con fotos y cuatro productos por hoja, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
 
 - [Pedidos y facturas por ciclo — semana fija, filtros y colas conservadas](modulo/pedidos-por-ciclo.md)
 
