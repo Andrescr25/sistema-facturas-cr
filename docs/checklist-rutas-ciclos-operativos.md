@@ -272,7 +272,10 @@ facturas por orden; misma factura completa no suma en dos órdenes/ciclos.
 Motivo sin confirmar para diferencias; agotamiento no inferido. Corrección con
 motivo preserva snapshots/PDF e historia. REC-07/11 parciales: no hay registro
 físico ni segunda entrada de stock; permanecen abiertos para recepción.
-Evidencia y limitaciones: informe de esta parte.
+Código `f41ce85`, solo local: 2.081 pruebas/364 suites sin fallos/omitidas,
+grafo 12, build, Chromium 1440/390 y PDF nativo aprobados. 048 local con
+respaldo, dos tablas vacías y 23 huellas iguales; stock/conteos/movimientos cero.
+Evidencia y limitaciones: [informe de esta parte](informes/facturas-ordenes-2026-10-06.md).
 
 ## 8. Preparación, carga y entrega
 

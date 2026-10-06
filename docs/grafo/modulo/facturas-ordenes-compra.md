@@ -19,6 +19,8 @@ aristas:
 medido: 2026-10-06
 ---
 
+IMPLEMENTADO, código f41ce85, solo local.
+
 ALCANCE. Orden enviada → Factura del proveedor y comparación. Buscar por
 número/clave entre comprobantes del proveedor guardado, revisar cantidades y
 confirmar vínculo explícito. No deducir orden por nombre, fecha, semana o total.
@@ -90,6 +92,11 @@ multipart, representación, visor, corrección e historia. Once huellas de
 negocio y orden enviada idénticas. PDF nativo de una hoja y 80 líneas/12 hojas
 con texto extenso, sin pérdida/duplicación ni desborde. Informe y validación
 final: docs/informes/facturas-ordenes-2026-10-06.md.
+Suite completa 2.081/364 suites, cero fallos/omitidas; grafo 12 y build aprobados.
+048 aplicada solo a tachi LOCAL 5434 con respaldo y dos tablas vacías; 23 huellas
+iguales antes/después de integrar. Stock/conteos/movimientos cero, sin demo.
+App 5174→3002 con lanzador permanente seguro, PID 97018; comprobación solo GET.
+Copia de pruebas y 3003/5175 retirados; evidencia y respaldos conservados.
 
 SIGUIENTE. Recepción física parcial/final con evento, auditoría y cantidad
 independiente; integración con registrarCompra/kardex existente sin doble

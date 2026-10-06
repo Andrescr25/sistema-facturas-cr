@@ -1,7 +1,7 @@
 # Factura del proveedor, PDF y comparación en órdenes por ciclo
 
-Entrega local del **2026-10-06**, continuando desde `9f40870`. Código de esta
-parte y verificación final registrados en el cierre de este informe.
+Entrega local del **2026-10-06**, continuando desde `9f40870`. Implementación
+`f41ce85`; verificación e integración final abajo.
 
 El operativo pasa de **56 listos / 43 pendientes** a **61 listos / 38 pendientes
 (99 IDs)**. Se cierran REC-01/02/03/04/08. Independencia anterior sigue **133/14**;
@@ -116,8 +116,9 @@ Mantener lanzador seguro mientras la limpieza semanal siga pendiente POR CÓDIGO
 
 048 aplicada únicamente a `tachi` LOCAL, localhost:5434, con respaldo nuevo
 `antes-048-local.dump` protegido en la carpeta de evidencia. Dos tablas nuevas
-vacías, sin registros demo en la base habitual. Relevo del código/app y
-comprobación posterior a integración registrados al cierre.
+vacías, sin registros demo en la base habitual. **23 huellas de negocio iguales**
+al inicio, después de 048 y después de integrar/reiniciar. Cero órdenes,
+vínculos, PDF nuevos, movimientos, conteos y productos con stock no cero.
 
 Preservar ruta/ciclo CANCELADO/asignación del usuario, inventario provisional
 cero y todos los históricos. No ejecutar reporte global para validar lectura:
@@ -125,3 +126,24 @@ puede asignar proveedores. Producción, developer/main, originales fiscales,
 catálogos de Descargas y bases de ensayo anteriores quedan conservados.
 Sin push/despliegue/corte, mensajes reales/IMAP/Hacienda real, limpieza semanal,
 instalación de dependencias ni regeneración de Prisma. Próxima SQL 049.
+
+## Cierre y relevo
+
+Código `f41ce85` integrado exclusivamente por avance rápido en
+`independencia-alegra`; rama habitual limpia, sin push. Aplicación **5174→3002**,
+backend PID **97018**, Vite **98892**. Lanzador seguro permanente:
+`/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs`, con Node
+absoluto. Mantiene guardas y sustituye limpieza ANTES de arrancar; nunca iniciar
+server.js directamente mientras el cron siga pendiente por código.
+
+Verificación compartida SOLO GET/SQL READ ONLY: `/health`, lista de órdenes y
+frontend 200; rutas de factura/PDF sin sesión 401; nuevo componente servido.
+No abrir reporte global ni probar registro de compra/recepción contra datos
+reales. Original 3000/PID 5370, developer `5013270` y main `e19c3e5` conservados.
+
+Servidores propios 3003/5175 detenidos y base desechable propia eliminada.
+Worktree/rama temporal se retiran al cerrar el relevo; reserva liberada después
+de esa comprobación. Evidencia/dumps privados se conservan, junto a Descargas,
+archivo fiscal y ensayos anteriores. Guiones que dependan del worktree retirado
+no son lanzadores reutilizables. Memoria conserva las 15 decisiones del usuario
+y el siguiente paso: recepción parcial/final sin segunda entrada de stock.

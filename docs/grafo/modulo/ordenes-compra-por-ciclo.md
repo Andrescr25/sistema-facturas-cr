@@ -28,7 +28,9 @@ aristas:
 medido: 2026-10-06
 ---
 
-ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
+ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo.
+048/f41ce85 añade factura/PDF/comparación, ver [[modulo/facturas-ordenes-compra]].
+Validación vigente 2.081 pruebas, app local segura backend PID97018. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
 Preparar orden de este ciclo. Órdenes por ciclo conserva borradores, pendientes,
 enviadas y cierres SIN envío, aunque el proveedor salga del reporte. No aplica
 cantidades ni marcas globales antiguas. Envío global retirado de la pantalla
