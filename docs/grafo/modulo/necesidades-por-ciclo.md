@@ -80,3 +80,13 @@ parcial/final/archivo, conversión/excedente, entrega/reimpresión, históricos/
 sin relación, fracciones/validación/páginas y17huellas iguales durante consulta.
 GET nativo sobre fixture confirmado comprueba READ ONLY/REPEATABLE READ real.
 Ver informe para suite/build/navegador y estado de integración local.
+
+CIERRE LOCAL. Códigoc8ecc37, sin migración; backup0600,36+7huellas iguales
+y stock/conteos/movimientos/eventos0. Datos del usuario, permisos/históricos/
+catálogo4/hoja conservados.2.169pruebas/362suites, fail0/skip0, grafo12/build/
+Chromium1440/390 aprobados,21huellas iguales por consultas, GET legado0.
+App5174→3002 PID26021/Vite98892 con lanzador seguro, producción/main/developer
+intactos. Base/puertos propios retirados; reserva se libera al cerrar memoria.
+85/14 operativo; independencia133/14 aparte. Siguiente FAL-08/OC-03, cierre
+de enviada con motivo y liberación de cobertura no recibida, preservando
+documento/PDF y mercadería ya recibida.052 sólo si hace falta esquema.

@@ -1,7 +1,7 @@
 # Necesidades y cobertura por semana — 2026-10-06
 
-Implementado y verificado en copia propia desde99b02e0, sin commits nuevos de
-Claude ni otra reserva al iniciar. Rama tmp/codex-necesidades-20261006;
+**Implementado, verificado e integrado solo local**, código `c8ecc37`,
+desde99b02e0; sin commits nuevos de Claude ni otra reserva al iniciar. Rama tmp/codex-necesidades-20261006;
 base tachi_codex_necesidades_20261006 desde dump local051. Solo local,
 sin producción, developer/main, Prisma/generate/instalación ni mensajes reales.
 
@@ -65,7 +65,7 @@ simulados de fixture únicamente en proceso node --test/base propios.
 
 FAL-01/03/04 cerrados: **85 listos/14 pendientes (99 IDs)**. Datos sin relación,
 conteo real y entrega histórica permanecen a revisión manual; no inventarlos.
-Aplicación con respaldo y cierre local se documentan tras integrar/verificar.
+Aplicación y cierre local abajo; esta parte no necesita migración.
 Los casos focalizados comprueban las cantidades y la procedencia mediante
 PostgreSQL real, SAVEPOINT/ROLLBACK; sólo sobre transaccional de las lecturas
 se adapta para leer fixtures no confirmados. Un caso nativo confirmado
@@ -78,3 +78,41 @@ Pruebas de envío usan transporte simulado sobre la base propia; nunca mensaje r
 Cierre de enviada con motivo/liberación de cobertura no recibida (FAL-08/OC-03);
 propagación final de filtros/exportaciones/históricos/Maps y validación integral.
 Revisiones manuales del usuario separadas; independencia133/14 permanece aparte.
+
+## Cierre local y relevo
+
+Código c8ecc37 integrado con rebase y avance sin fusión a independencia-alegra,
+sin push. Respaldo nuevo antes-necesidades-local.dump0600, exclusivamente tachi
+LOCAL localhost5434. No esquema/migración nueva:052 sigue libre para cierre
+de enviada si esa parte lo necesita. No importar stock ni poblar históricos.
+
+Backend local3002 detenido durante avance y reiniciado con lanzador permanente
+seguro, **PID26021**, Vite98892/app5174. Mantener
+/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs por
+IMAP/ping/Hacienda/salidas de otros módulos; no server.js directo. Limpieza
+global ya retirada050, nunca ejecutar implementación antigua.
+
+**36 huellas operativas +7 completas adicionales idénticas** al estado previo
+a implementar e integrar. Incluyen clientes/pedidos/facturas, rutas/ciclos,
+carrito, stock/cobertura/envíos, compras/CxP/precios/buzón, pagos/caja/bitácora
+y permisos. Compartida verificada sólo GET/SQL READ ONLY: salud/nueva API/
+frontend200, necesidades sin sesión401. Ciclo del usuario conservado y vacío
+de documentos nuevos; stock/conteos/movimientos/eventos0, órdenes/recepciones
+vacías y demo no recreada. No consultar reporte legado sin filtros para
+verificar, porque puede asignar proveedores. La nueva vista no lo consulta.
+
+Producción/original3000/PID5370, developer5013270/main e19c3e5 intactos.
+Sin producción, mensajes reales, Hacienda/IMAP real, Prisma/generate/install
+ni limpieza ejecutada. Catálogo4/hoja, Descargas, fiscal y ensayos anteriores
+preservados;15decisiones originales conservadas literalmente en memoria.
+
+Base tachi_codex_necesidades_20261006 y procesos propios3003/5175 retirados.
+Copia/rama temporal se retiran al cerrar documentación/memoria; reserva
+liberada en el relevo final. Evidencia/dumps/capturas privados en
+/private/tmp/codex-necesidades-20261006 conservados. Guiones dependientes del
+worktree retirado son evidencia, no lanzadores reutilizables.
+
+Los14IDs abiertos: RUT-03/08 (Maps anteriores/conservación integral), CLI-10
+y VAL-08 (usuario), FIL-09/10/11 (propagación/exportaciones/históricos),
+FAL-08/OC-03 (cierre enviada) y VAL-01/04/05/06/07 (validación integral).
+No marcar estos últimos por repetir pruebas de una sola parte.

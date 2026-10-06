@@ -209,7 +209,7 @@ pendientes (99 IDs)**. Ver informe de esta parte.
   corresponde y conserva el motivo/historial.
 
 
-**Necesidades/cobertura, 2026-10-06:** FAL-01/03/04 comprobados. Consulta
+**Necesidades/cobertura `c8ecc37`, 2026-10-06:** FAL-01/03/04 comprobados. Consulta
 por semana/producto con pedido/factura/cliente/parada/ciclo fijo, stock general
 y demanda separada: requerido=compromiso facturado pendiente+pedido sin factura.
 Facturar sustituye pedido; entregar reduce compromiso, no descontar stock otra
