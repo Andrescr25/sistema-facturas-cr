@@ -69,3 +69,11 @@ rechazado/anulado, dos semanas, histórico/Maps, autorización y filas intactas.
 Ver informe para suite/build/Chromium y aislamiento. Sin migración nueva;
 próxima SQL051 se reserva para registro de carga/entrega. No marcar ENT-06,
 PRE-08 ni FIL-07 completo por tener una vista de consulta.
+
+CIERRE LOCAL. Código393ee66, sin migración; respaldo0600,36huellas iguales,
+stock/conteos/movimientos0. 2.125pruebas/362suites sin fallos/omitidas,
+grafo12/build/Chromium1440/390. READ ONLY/REPEATABLE READ reales comprobados;
+14huellas iguales durante consultas propias. App5174→3002 segura PID14177,
+producción/main/developer fuera. Base/puertos propios retirados, evidencia
+conservada. Operativo79/20; independencia133/14 aparte. Siguiente051 para
+registro físico y revisión/corrección explícita; no cerrar ENT-06 aún.

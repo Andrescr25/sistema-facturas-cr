@@ -313,7 +313,7 @@ y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producc
 - [ ] ENT-06 — Registrar avance de preparación/carga/entrega sin cerrar ni
   alterar el trabajo del siguiente ciclo.
 
-**Consulta de carga/entregas, 2026-10-06:** ENT-01/03/04/05 comprobados.
+**Consulta de carga/entregas `393ee66`, 2026-10-06:** ENT-01/03/04/05 comprobados.
 Nuevo módulo Carga y Entregas, permiso propio. Semana explícita, recorrido y
 Maps fijos, facturas emitidas/pedidos pendientes con origen/anticipado. Carga
 inversa sobre toda la ruta, incluyendo paradas de otras páginas, únicamente
