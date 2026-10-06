@@ -23,12 +23,12 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
 
-IMPLEMENTADO, código local a929ca9. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
+ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
 Preparar orden de este ciclo. Órdenes por ciclo conserva borradores, pendientes,
 enviadas y cierres SIN envío, aunque el proveedor salga del reporte. No aplica
 cantidades ni marcas globales antiguas. Envío global retirado de la pantalla
@@ -105,9 +105,13 @@ API/lista/PDF y frontend compartidos comprobados solo GET, salidas bloqueadas;
 5174→3002 con lanzador permanente seguro, PID 92846. Base privada/3003/5175
 retirados; worktree/rama temporal se retiran al cierre, evidencia se conserva.
 
-PENDIENTE REAL. Factura/PDF del proveedor, comparación pedido/facturado/físico,
+FACTURA (048). [[modulo/facturas-ordenes-compra]] añade vínculo revisado, PDF
+privado adjuntado o representación identificada, comparación pedido/facturado,
+exceso y corrección conservada. No crea compra ni recepción ni cambia esta orden.
+
+PENDIENTE REAL. Comparación con cantidades físicamente recibidas y
 recepción parcial/final idempotente integrada con registrarCompra (evitar doble
 stock), cierre de enviada, carga/entrega y archivo 24 h. OC-03 y FAL-04 parciales;
-FAL-03/07/08, REC, ENT y ARC siguen abiertos. Limpieza semanal pendiente POR
-CÓDIGO; jamás ejecutarla. App local 5174→3002 usa lanzador seguro. Próxima SQL 048.
+FAL-03/07/08, REC-05/06/07/09/10/11, ENT y ARC siguen abiertos. Limpieza semanal pendiente POR
+CÓDIGO; jamás ejecutarla. App local 5174→3002 usa lanzador seguro. Próxima SQL 049.
 Preservar ruta/ciclo cancelado del usuario, inventario provisional cero e históricos.

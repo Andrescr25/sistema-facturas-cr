@@ -8,10 +8,12 @@ archivos:
   - backend/migrations/independencia/021_xml_ruta_compra.sql
   - backend/src/integrations/almacenamiento/local.js
   - backend/services/databaseService.js
+  - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
+  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.archivos.js
 aristas:
   depende_de: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
-medido: 2026-10-05
+  relacionado: [modulo/facturas-ordenes-compra, modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
+medido: 2026-10-06
 ---
 
 Precedente ya tomado para las facturas de VENTA
@@ -41,3 +43,10 @@ configuración por ambiente (AES-GCM); la llave maestra vive fuera de Git.
 Este cifrado permite rotación transaccional del certificado y revisión del
 token sin exponer contenido en GET/bitácora. No hay XML en la columna de
 secretos. Respaldar base, llave y archivos juntos; [[modulo/hacienda]].
+
+PDF DEL PROVEEDOR (048). [[modulo/facturas-ordenes-compra]] aplica este
+criterio: ruta/bytes/huella en DB, archivo privado fuera de Git/HTTP. Copias
+inmutables con tipo original adjuntado o representación; no regenerarlas al
+leer ni borrar al retirar vínculo. Respaldo debe incluir DB y
+ALMACENAMIENTO_PRIVADO_DIR/ordenes-facturas. La copia pequeña del PDF de la
+orden enviada (047, BYTEA) se conserva tal como ya fue implementada.

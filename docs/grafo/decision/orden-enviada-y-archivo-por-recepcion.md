@@ -8,12 +8,13 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
+  relacionado: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
 medido: 2026-10-06
 ---
 
 **Solicitud y aclaración del usuario. Borradores, envío inmutable y cobertura
-implementados; recepción y archivo pendientes.** Una orden
+implementados, junto al vínculo/PDF y comparación de factura; recepción y
+archivo pendientes.** Una orden
 de compra enviada por WhatsApp conserva exactamente sus productos/cantidades.
 Si se enviaron 10 y después faltan 3 más, las 3 requieren otra orden; no se
 agregan a la anterior. Estados pedidos: borrador, pendiente de enviar, enviada,
@@ -46,3 +47,9 @@ recepción física. Envío global viejo rechazado, históricos conservados.
 No dar por implementada recepción por confirmar el envío. La limpieza vieja
 sigue prohibida durante pruebas/desarrollo. Su retiro y el archivo nuevo
 permanecen abiertos en el checklist hasta cambiar y verificar el código.
+
+048 implementa [[modulo/facturas-ordenes-compra]]: original adjuntado privado
+o representación identificada, comparación solicitada/facturada y exceso.
+Una orden puede tener varias facturas; una factura completa no cubre dos
+órdenes vigentes. Corrección con motivo conserva snapshot/PDF. Cantidades
+físicamente recibidas y motivo confirmado de agotamiento siguen pendientes.

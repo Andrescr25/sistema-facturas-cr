@@ -167,11 +167,14 @@ independencia conserva 133 hechos / 14 abiertos, incluidos aceptación REAL de
 Hacienda y corte. El operativo se cuenta por separado.
 
 Continuidad al 2026-10-06: bodega/reportes por ciclo, catálogo con cuatro
-productos por hoja y órdenes persistentes con PDF revisado/envío inmutable
-y cobertura pendiente de recibir implementados. Operativo **56/43** (99 IDs),
-ver [envío de órdenes](informes/envio-ordenes-ciclo-2026-10-06.md).
-Próxima parte: factura/PDF del proveedor, comparación y recepción física
-parcial/final idempotente; luego carga/entrega y retiro individual 24 h
-conservando historial. La limpieza global del domingo
-sigue pendiente de retirar por código: continuar con el lanzador seguro que
-la sustituye; nunca ejecutar el cron ni el botón para probar.
+productos por hoja y órdenes con PDF revisado/envío inmutable y cobertura
+implementados. Factura del proveedor: vínculo explícito, PDF privado adjuntado
+o representación identificada de datos y comparación solicitada/facturada,
+excesos e historial de corrección terminados. Operativo **61/38** (99 IDs),
+ver [factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md).
+Próxima parte: recepción física parcial/final idempotente integrada con
+compra/kardex existente; luego carga/entrega y retiro individual 24 h conservando
+historial. Una factura no acredita recepción ni agotamiento. Si reúne varias
+órdenes, falta asignación explícita por línea/cantidad; no sumar una factura
+completa dos veces. La limpieza global del domingo sigue pendiente de retirar
+por código: mantener lanzador seguro; nunca ejecutar cron/botón para probar.

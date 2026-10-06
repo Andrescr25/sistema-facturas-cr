@@ -3,7 +3,8 @@
 Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
 bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
-cobertura pendiente de recibir implementados. Recepción física y entregas pendientes.
+cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
+comparación solicitada/facturada implementados; recepción física y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -12,8 +13,9 @@ cobertura pendiente de recibir implementados. Recepción física y entregas pend
 [paginación de cuatro productos](informes/catalogo-paginacion-2026-10-05.md) y
 [operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
 [borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md) y
-[envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md).
-Estado vigente: **56 listos / 43 pendientes (99 IDs)**. Las cifras en las
+[envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md) y
+[factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md).
+Estado vigente: **61 listos / 38 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado no cierra recepción ni archivo.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -248,19 +250,29 @@ Validación y relevo en el informe de esta parte. No mensajes reales.
 
 ## 7. Factura del proveedor y recepción
 
-- [ ] REC-01 — Vincular factura electrónica del proveedor a la orden correcta.
-- [ ] REC-02 — Mostrar/abrir PDF dentro de la orden, con acceso autorizado.
-- [ ] REC-03 — Si falta el original, facilitar carga/recuperación y distinguir
+- [x] REC-01 — Vincular factura electrónica del proveedor a la orden correcta.
+- [x] REC-02 — Mostrar/abrir PDF dentro de la orden, con acceso autorizado.
+- [x] REC-03 — Si falta el original, facilitar carga/recuperación y distinguir
   una representación del XML del PDF original del proveedor.
-- [ ] REC-04 — Comparar producto y cantidad pedidos contra facturados.
+- [x] REC-04 — Comparar producto y cantidad pedidos contra facturados.
 - [ ] REC-05 — Registrar cantidad físicamente recibida separada de facturada.
 - [ ] REC-06 — Mostrar lo recibido conforme a la orden.
 - [ ] REC-07 — Mostrar faltantes y motivo; «agotado» solo si fue confirmado,
   sin adivinar la causa de una línea que no aparece.
-- [ ] REC-08 — Mostrar productos o cantidades facturados de más y su diferencia.
+- [x] REC-08 — Mostrar productos o cantidades facturados de más y su diferencia.
 - [ ] REC-09 — Recepción parcial conserva lo pendiente y permite otra recepción.
 - [ ] REC-10 — Recepción final registra fecha/hora y conserva auditoría.
 - [ ] REC-11 — Vinculación/recepción repetida no duplica compra ni entrada de stock.
+
+**Parte de factura/PDF, 2026-10-06:** REC-01/02/03/04/08 cerrados con 048: vínculo
+explícito del proveedor, revisión/version/firma, PDF adjuntado privado o
+representación IDENTIFICADA de datos del buzón/compra, visor y comparación en
+unidades propias. No recuperar ni afirmar XML histórico inexistente. Varias
+facturas por orden; misma factura completa no suma en dos órdenes/ciclos.
+Motivo sin confirmar para diferencias; agotamiento no inferido. Corrección con
+motivo preserva snapshots/PDF e historia. REC-07/11 parciales: no hay registro
+físico ni segunda entrada de stock; permanecen abiertos para recepción.
+Evidencia y limitaciones: informe de esta parte.
 
 ## 8. Preparación, carga y entrega
 

@@ -4,6 +4,7 @@ import { textoCiclo } from '../SelectorCiclo'
 import { useDialog } from '../../hooks/useDialog'
 import ConfirmModal from '../ConfirmModal'
 import EnvioOrdenCiclo from './EnvioOrdenCiclo'
+import FacturaOrdenCiclo from './FacturaOrdenCiclo'
 
 const BASE='/orden-compra/por-ciclo'
 const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',cerrada:'Cerrada sin envío'}
@@ -137,8 +138,9 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         {orden&&['borrador','pendiente_enviar'].includes(orden.estado)&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cerrar sin enviar</button>}
       </div>
       {cambio&&<p className="text-sm text-nota-800">Guardá la revisión antes de marcar la orden pendiente de enviar.</p>}
-      {orden&&['pendiente_enviar','enviada'].includes(orden.estado)&&<EnvioOrdenCiclo key={orden.id} orden={orden} ocupado={ocupado} onOcupado={setOcupado} prompt={prompt}
+      {orden&&['pendiente_enviar','enviada'].includes(orden.estado)&&<EnvioOrdenCiclo key={`envio-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} prompt={prompt}
         onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      {orden?.estado==='enviada'&&<FacturaOrdenCiclo key={`factura-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado}/>}
     </>:<>
       <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>

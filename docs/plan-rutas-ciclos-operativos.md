@@ -21,7 +21,9 @@ por cliente/ciclo y PDF visual con fotos implementados.
 [borradores de compra](informes/ordenes-ciclo-2026-10-05.md) y
 [envío de órdenes](informes/envio-ordenes-ciclo-2026-10-06.md). Bodega/reportes,
 procedencia, PDF revisado, envío inmutable y cobertura pendiente de recibir
-implementados. Siguen recepción, carga/entrega y archivo. Operativo 56/43.
+implementados. Vínculo/PDF privado y comparación de factura implementados, ver
+[factura/PDF](informes/facturas-ordenes-2026-10-06.md). Siguen recepción física,
+carga/entrega y archivo. Operativo 61/38.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -70,7 +72,8 @@ de este trabajo. Las pruebas parten de una copia de la base local.
   Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
   incertidumbre implementados. Faltan parcial/recibida/cierre de enviada y
   cantidades recibidas. Reserva sin confirmación no es envío confirmado.
-- [ ] Recepción parcial/final, comparación de factura y PDF privado.
+- [ ] Recepción parcial/final. Vínculo, comparación solicitada/facturada y PDF
+  privado ya implementados (048); no ingresan inventario ni registran compra.
 - [ ] Carga/entrega ordenadas y avance por cliente/documento.
 - [ ] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado.
 - [ ] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.
