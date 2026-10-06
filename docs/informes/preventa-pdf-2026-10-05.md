@@ -64,6 +64,13 @@ lanzador seguro existente que la sustituye; nunca ejecutarla para probar.
 Detalle técnico: [grafo](../grafo/modulo/preventa-por-enlace.md).
 Evidencia/dump/guiones y documentos privados en
 /private/tmp/codex-preventa-pdf-20261005; los lanzadores de pruebas dependerán
-del worktree retirado y no deben reutilizarse. Aplicación habitual 5174→3002
-se verificará solo GET después de integrar; huellas de negocio guardadas
-antes para comprobar ausencia de escrituras.
+del worktree retirado y no deben reutilizarse. Integrado localmente como **05cb0fe**, sin push. Aplicación habitual
+5174→3002 verificada SOLO GET: API PDF staff 404/401 correctos, componente
+actualizado servido y vista de Rutas 1440/390 sin errores/desborde. Inventario
+cero, rutas/ciclos vacíos e históricos conservados. **16 huellas comerciales
+idénticas** antes/después: no hubo escrituras de negocio en la compartida.
+Backend 3002 activo con lanzador seguro existente (PID 66719 al verificar).
+Developer 5013270, main e19c3e5 y servidor original 3000 conservados.
+Solo esta copia de pruebas se retira; preservar originales fiscales y ensayos
+anteriores. La solicitud de retirar el bloque explicativo ya forma parte del
+código y del ejemplo actualizado, además de la memoria de continuidad.

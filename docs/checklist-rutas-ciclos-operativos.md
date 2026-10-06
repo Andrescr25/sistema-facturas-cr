@@ -108,7 +108,7 @@ fallo, sin mensajes reales. No requiere migración nueva. Evidencia en el
 tercer informe. RUT-08/FIL-11 quedan abiertos por la propagación a
 faltantes/compras/reportes; PRE-08 aún requiere preparación/carga/entrega.
 
-Ampliación PDF: PRE-11/12/13/14 comprobados. PDF personal con fotos y precios
+Ampliación PDF (`05cb0fe`, solo local): PRE-11/12/13/14 comprobados. PDF personal con fotos y precios
 con IVA, descarga privada y copia revisada adjunta al enlace; WhatsApp sin
 cuenta, invitación opcional, sin pedido automático. 1.991 pruebas, grafo 12,
 build y Chromium 1440/390 aprobados. Ejemplo real en Descargas (60 productos,

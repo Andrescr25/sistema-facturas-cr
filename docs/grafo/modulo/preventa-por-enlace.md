@@ -154,3 +154,9 @@ borra estos adjuntos ni documentos fiscales.
 
 Evidencia actualizada: `docs/informes/preventa-pdf-2026-10-05.md`. Las cifras
 anteriores documentan la tercera parte; el informe nuevo gobierna el relevo.
+
+Integración PDF local `05cb0fe`, 1.991 pruebas aprobadas, 17 de PDF/fotos
+repetidas tras retirar el bloque a petición del usuario, grafo 12 y build.
+Chromium 1440/390 aprobado; compartida 5174→3002 solo GET, 16 huellas
+idénticas, sin nuevos ciclos/negocio/stock. Operativo 34/61. Ejemplo real con
+60 productos/fotos en Descargas; cuenta/recepción REAL de WhatsApp no probada.
