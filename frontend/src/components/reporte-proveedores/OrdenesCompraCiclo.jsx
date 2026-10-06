@@ -3,9 +3,10 @@ import api from '../../services/api'
 import { textoCiclo } from '../SelectorCiclo'
 import { useDialog } from '../../hooks/useDialog'
 import ConfirmModal from '../ConfirmModal'
+import EnvioOrdenCiclo from './EnvioOrdenCiclo'
 
 const BASE='/orden-compra/por-ciclo'
-const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',cerrada:'Cerrada sin envío'}
+const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',cerrada:'Cerrada sin envío'}
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:6})
 
 /** Las cantidades de este flujo son propias; no leer el borrador global. */
@@ -97,20 +98,20 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         <p className="break-words font-semibold">{textoCiclo(orden?.ciclo||sugerencia?.ciclo)}</p>
         <p>{orden?ESTADOS[orden.estado]:'Revisá los productos y cantidades antes de guardar.'}</p>
         {orden?.motivo_cierre&&<p>Motivo: {orden.motivo_cierre}</p>}
-        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?'Reservas liberadas. La orden conserva sus cantidades y procedencia.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
+        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?'Reservas liberadas. La orden conserva sus cantidades y procedencia.':orden?.estado==='enviada'?'Las cantidades ya solicitadas cubren sus faltantes y siguen pendientes de recibir.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
       </div>
       {!orden&&!productos.length&&<p className="card p-4">No hay faltantes libres para otra orden en este ciclo. Podés revisar las órdenes existentes.</p>}
       {productos.map(p=><div key={p.productoId} className="card min-w-0 p-4 space-y-2">
         <h3 className="break-words font-bold">{p.nombre}</h3>
         <p className="break-words text-sm">{p.codigoProveedor?`Proveedor: ${p.codigoProveedor} · ${p.nombreProveedor||p.nombre}`:`Código interno: ${p.codigo||p.productoId}`}</p>
-        {!orden&&<p className="text-sm">Faltante: {numero(p.faltante)} · Reservado: {numero(p.reservada)} · Libre: {numero(p.disponible)} unidades propias</p>}
-        {orden&&<p className="text-sm">{orden.estado==='cerrada'?'Procedencia conservada':'Reservado para estas facturas'}: {numero(p.reservada)} unidades propias.</p>}
+        {!orden&&<p className="text-sm">Faltante: {numero(p.faltante)} · Apartado sin envío confirmado: {numero(p.reservadaBorrador)} · Ya pedido: {numero(p.solicitada)} · Libre: {numero(p.disponible)} unidades propias</p>}
+        {orden&&<p className="text-sm">{orden.estado==='cerrada'?'Procedencia conservada':orden.estado==='enviada'?'Cobertura solicitada para estas facturas':'Apartado para estas facturas'}: {numero(p.reservada)} unidades propias.</p>}
         <p className="text-sm">1 unidad del proveedor = {numero(p.factorConversion)} unidades propias</p>
         {editar?<label className="block text-sm font-semibold">Cantidad del proveedor
           <input aria-label={`Cantidad del proveedor de ${p.nombre}`} type="number" min="1" max="1000000" step="1" value={cantidades[p.productoId]??''}
             disabled={ocupado||p.factorValido===false} className="mt-1 block w-full max-w-xs min-h-11 rounded-lg border p-2"
             onChange={e=>setCantidades(q=>({...q,[p.productoId]:e.target.value}))}/>
-        </label>:<p className="font-bold">Pedido previsto: {numero(orden.lineas.find(l=>l.producto_id===p.productoId).cantidad_proveedor)} unidades del proveedor</p>}
+        </label>:<p className="font-bold">{orden.estado==='enviada'?'Pendiente de recibir':'Pedido previsto'}: {numero(orden.lineas.find(l=>l.producto_id===p.productoId).cantidad_proveedor)} unidades del proveedor</p>}
         {editar&&cantidades[p.productoId]&&<p className="text-sm">Equivale a {numero(Number(cantidades[p.productoId])*p.factorConversion)} unidades propias.</p>}
         {!orden&&cantidades[p.productoId]&&Number(cantidades[p.productoId])*p.factorConversion>p.disponible&&<p className="text-sm text-nota-800">Excedente de empaque: {numero(Number(cantidades[p.productoId])*p.factorConversion-p.disponible)} unidades propias sin asignar a faltantes.</p>}
         {editar&&cantidades[p.productoId]&&<button type="button" disabled={ocupado} onClick={()=>setCantidades(q=>({...q,[p.productoId]:''}))} className="text-sm text-peligro-700 underline">Excluir producto de esta revisión</button>}
@@ -132,10 +133,12 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
           <button type="button" className="btn btn-outline" disabled={ocupado} onClick={consultarAdiciones}>Agregar faltantes del mismo ciclo</button>
           <button type="button" className="btn btn-outline" disabled={ocupado||cambio} onClick={()=>estado('pendiente_enviar')}>Marcar pendiente de enviar</button>
         </>}
-        {orden?.estado==='pendiente_enviar'&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('borrador')}>Volver a borrador</button>}
-        {orden&&orden.estado!=='cerrada'&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cerrar sin enviar</button>}
+        {orden?.estado==='pendiente_enviar'&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('borrador')}>Volver a borrador</button>}
+        {orden&&['borrador','pendiente_enviar'].includes(orden.estado)&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cerrar sin enviar</button>}
       </div>
       {cambio&&<p className="text-sm text-nota-800">Guardá la revisión antes de marcar la orden pendiente de enviar.</p>}
+      {orden&&['pendiente_enviar','enviada'].includes(orden.estado)&&<EnvioOrdenCiclo key={orden.id} orden={orden} ocupado={ocupado} onOcupado={setOcupado} prompt={prompt}
+        onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
     </>:<>
       <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>

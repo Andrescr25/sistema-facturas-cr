@@ -15,9 +15,13 @@ archivos:
   - backend/config/aislado.js
   - backend/src/modules/portal-clientes/avisoPedidoNuevo.js
   - backend/tests/avisoPedidoNuevo.test.js
+  - backend/src/modules/orders-whatsapp/ordenesCicloEnvio.service.js
+  - backend/tests/ordenesCompraEnvio.test.js
+  - backend/tests/ordenCompraEnvioGlobalRetirado.test.js
+  - backend/tests/envioWhatsApp.test.js
 aristas:
-  relacionado: [leccion/telefonos-sucios, leccion/la-db-local-es-produccion]
-medido: 2026-09-29
+  relacionado: [modulo/ordenes-compra-por-ciclo, leccion/telefonos-sucios, leccion/la-db-local-es-produccion]
+medido: 2026-10-06
 ---
 
 Todo lo que el sistema manda por WhatsApp (orden de compra, factura,
@@ -25,6 +29,15 @@ cotización, saldo, invitación al portal, aviso de pedido) pasa por
 `whatsapp.client.js`: `enviarTexto` y `enviarDocumento`. El número se valida
 siempre ahí ([[leccion/telefonos-sucios]]). Nada sale automático: botón y
 confirmación (decisión del usuario).
+
+ÓRDENES POR CICLO (047). El módulo conserva el PDF revisado y reclama un
+intento durable antes de llamar al cliente. No reenvía tras un resultado
+incierto ni por recargar. `envioNoIniciado` se reconoce solo antes de elegir
+el canal o ante SIN_WHATSAPP/SIN_CONEXION previos a sendMessage; timeout o
+error de HTTP/transferencia es incierto. Confirmación del transporte no es
+recepción física. El endpoint global antiguo rechaza 409: sin cobertura
+por ciclo permitiría comprar dos veces. Ver [[modulo/ordenes-compra-por-ciclo]].
+Las guardas locales siguen cerradas; pruebas solo con dobles privados.
 
 AVISO DE PEDIDO NUEVO DEL PORTAL (2026-09-29): el único mensaje que sale
 solo, y es INTERNO — a la empresa, no al cliente

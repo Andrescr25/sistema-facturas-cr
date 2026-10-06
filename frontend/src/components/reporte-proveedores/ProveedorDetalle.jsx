@@ -1,12 +1,12 @@
 import ProcedenciaFaltante from './ProcedenciaFaltante'
-import { Users, Package, RefreshCw, FileText, Download, MessageCircle, Trash2, ArrowLeft } from 'lucide-react'
+import { Users, Package, RefreshCw, FileText, Download, Trash2, ArrowLeft } from 'lucide-react'
 import { getCantidadFinal, usaDatosProveedor } from '../../utils/reporteProveedoresUtils'
 import NotasDelProducto from './NotasDelProducto'
 import PanelNotasProveedor from './PanelNotasProveedor'
 
 /**
  * Panel de detalle de un proveedor: acciones (guardar cambios, generar PDF,
- * agregar producto, WhatsApp), tarjeta de estadísticas, y la tabla de
+ * agregar producto), tarjeta de estadísticas, y la tabla de
  * productos de la orden de compra (originales + agregados manualmente), con
  * botón flotante para reasignar productos seleccionados. Extraído de
  * ReporteProveedores.jsx (antes renderProveedorSeleccionado).
@@ -31,7 +31,6 @@ export default function ProveedorDetalle({
   actualizarCantidadAgregado,
   eliminarProductoAgregado,
   onAgregarProducto,
-  onAbrirWhatsApp,
   onAbrirModalAsignar,
   notasPorProducto,
   cargandoNotas
@@ -66,14 +65,13 @@ export default function ProveedorDetalle({
           >
             <Package size={16} className="mr-2" /> + Agregar Producto
           </button>
-          <button
-            onClick={() => onAbrirWhatsApp(proveedor)}
-            className="btn bg-exito-500 text-white hover:bg-primario-800 border-none whitespace-nowrap"
-          >
-            <MessageCircle size={16} className="mr-2" /> WhatsApp
-          </button>
         </div>
       </div>
+
+      <p className="mb-6 rounded-lg bg-nota-50 p-4 text-sm text-nota-800">
+        Para enviar una compra, elegí una semana o «Sin ciclo» en el filtro de arriba.
+        Desde ahí podés preparar una orden, revisar su PDF y consultar lo que sigue pendiente de recibir.
+      </p>
 
       {/* Tarjeta Stats Proveedor */}
       <div className="card bg-white mb-6 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">

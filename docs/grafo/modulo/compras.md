@@ -14,7 +14,7 @@ aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
   relacionado: [modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-05
+medido: 2026-10-06
 ---
 
 QUÉ ES HOY
@@ -106,6 +106,7 @@ seguimiento fiscal separados; no repetir el movimiento comercial al enviar.
 
 ÓRDENES POR CICLO (046): [[modulo/ordenes-compra-por-ciclo]] crea borradores,
 revisión/pendiente y reservas por faltante. No crea compra ni mueve stock;
-enviar/recibir y vincular con factura del buzón siguen pendientes. Reutilizar
+047 añade PDF revisado/envío inmutable y cobertura solicitada, sin stock.
+Recibir y vincular con factura del buzón siguen pendientes. Reutilizar
 este registro de compra con su entrada idempotente al diseñar recepción;
 una factura aceptada comercialmente no acredita recepción física completa.

@@ -22,7 +22,7 @@ toca, qué no se regenera).
 
 ## Módulos
 
-- [Órdenes por ciclo — borradores persistentes y reservas; envío/recepción pendientes](modulo/ordenes-compra-por-ciclo.md)
+- [Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción pendiente](modulo/ordenes-compra-por-ciclo.md)
 
 - [Preventa — PDF con fotos y cuatro productos por hoja, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
 

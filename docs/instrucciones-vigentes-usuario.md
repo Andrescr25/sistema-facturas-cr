@@ -166,8 +166,12 @@ base habitual. Lo ya implementado no se vuelve a abrir: el checklist de
 independencia conserva 133 hechos / 14 abiertos, incluidos aceptación REAL de
 Hacienda y corte. El operativo se cuenta por separado.
 
-Próxima parte: contexto y filtros en preparación/bodega/faltantes y reportes;
-luego cobertura y órdenes inmutables, factura/PDF y recepción, carga/entrega
-y retiro individual 24 h conservando historial. La limpieza global del domingo
+Continuidad al 2026-10-06: bodega/reportes por ciclo, catálogo con cuatro
+productos por hoja y órdenes persistentes con PDF revisado/envío inmutable
+y cobertura pendiente de recibir implementados. Operativo **56/43** (99 IDs),
+ver [envío de órdenes](informes/envio-ordenes-ciclo-2026-10-06.md).
+Próxima parte: factura/PDF del proveedor, comparación y recepción física
+parcial/final idempotente; luego carga/entrega y retiro individual 24 h
+conservando historial. La limpieza global del domingo
 sigue pendiente de retirar por código: continuar con el lanzador seguro que
 la sustituye; nunca ejecutar el cron ni el botón para probar.

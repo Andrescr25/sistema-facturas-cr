@@ -12,6 +12,10 @@
   [Instrucciones vigentes](instrucciones-vigentes-usuario.md) y
   [plan](plan-rutas-ciclos-operativos.md); avanzar por partes y conservar
   historial al retirar órdenes recibidas de la lista activa tras 24 h.
+  2026-10-06: envío nuevo de compras usa orden persistida por ciclo/PDF revisado;
+  el endpoint global por nombre responde 409. Históricos conservados. Ver
+  [informe de envío](informes/envio-ordenes-ciclo-2026-10-06.md); no altera el
+  conteo de independencia ni acredita recepción física/archivo.
 
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.

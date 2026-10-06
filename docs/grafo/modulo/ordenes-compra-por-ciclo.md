@@ -1,84 +1,110 @@
 ---
 id: modulo/ordenes-compra-por-ciclo
 tipo: modulo
-titulo: Órdenes por ciclo — borrador, revisión y reservas; envío y recepción pendientes
+titulo: Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción pendiente
 estado: vigente
 archivos:
   - backend/migrations/independencia/046_ordenes_compra_por_ciclo.sql
+  - backend/migrations/independencia/047_envio_orden_compra_ciclo.sql
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
+  - backend/src/modules/orders-whatsapp/ordenesCiclo.pdf.js
+  - backend/src/modules/orders-whatsapp/ordenesCicloEnvio.service.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.routes.js
+  - backend/src/integrations/whatsapp/whatsapp.client.js
   - backend/tests/ordenesCompraCiclo.test.js
+  - backend/tests/ordenesCompraEnvio.test.js
+  - backend/tests/ordenCompraEnvioGlobalRetirado.test.js
+  - backend/tests/envioWhatsApp.test.js
   - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
+  - frontend/src/components/reporte-proveedores/EnvioOrdenCiclo.jsx
+  - frontend/src/components/reporte-proveedores/ProveedorDetalle.jsx
   - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-05
+medido: 2026-10-06
 ---
 
-PRIMERA PARTE IMPLEMENTADA, commit local 004ba50. Reporte Proveedores → elegir semana concreta o
-Sin ciclo → proveedor → Preparar orden de este ciclo. La pestaña Órdenes por
-ciclo permite consultar/revisar borradores guardados y cierres, aunque el
-proveedor deje de tener faltantes en el reporte. No aplica las cantidades ni
-la marca de envío GLOBAL por nombre del flujo anterior. Ese flujo se conserva
-separado mientras se reemplaza su envío.
+IMPLEMENTADO. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
+Preparar orden de este ciclo. Órdenes por ciclo conserva borradores, pendientes,
+enviadas y cierres SIN envío, aunque el proveedor salga del reporte. No aplica
+cantidades ni marcas globales antiguas. Envío global retirado de la pantalla
+sin ciclo seleccionado y POST /api/orden-compra/enviar-whatsapp rechaza 409:
+permitirlo eludiría la cobertura y compraría de nuevo lo ya solicitado. Sus
+borradores/históricos siguen consultables; no convertirlos por suponer semana.
 
-IDENTIDAD Y PROCEDENCIA. Cabecera propia, proveedor.id, ciclo fijo o NULL
-histórico explícito; copias de nombre, cédula, ruta y semana. Líneas por
-producto.id, aun con referencias repetidas. Cada reserva identifica
-faltante/factura/cliente/parada y anticipado. No inferir el ciclo por semana
-actual ni cambiarlo cuando el cliente cambia de ruta. No convertir borradores
-globales ni envíos viejos sin evidencia de su ámbito.
+IDENTIDAD Y REVISIÓN (046). Proveedor.id y ciclo fijo o NULL histórico explícito;
+snapshots de nombre/cédula/ruta/semana. Líneas por producto.id, aún con referencias
+repetidas; origen por faltante/factura/cliente/parada y anticipado. Solo borrador
+admite cambios. Cantidad entera del proveedor, factor con seis decimales y cantidad
+propia calculada en SQL. Cajas redondeadas hacia arriba: excedente visible sin
+asignarlo a otra ruta o a stock. Mapping/código/conversión guardados se conservan
+si cambia el maestro. Clave UUID+cuerpo y revisión evitan duplicar/reescribir.
 
-REVISIÓN. Estados implementados: borrador, pendiente_enviar y cerrada sin
-envío. Solo borrador permite cambiar cantidades, excluir productos o añadir
-otros faltantes del MISMO proveedor/ciclo. Cantidad entera del proveedor;
-factor snapshot con seis decimales y cantidad propia generada en SQL.
-Sugerir redondea cajas hacia arriba; lo sobrante se muestra en la equivalencia,
-pero solo reserva necesidades reales de esta semana. No asigna ese sobrante
-a otra ruta ni al inventario. Factor/códigos guardados se conservan aunque el
-maestro cambie o se deshaga el mapeo. mapping_id es referencia histórica sin
-FK, para no bloquear esa corrección ni reescribir la orden.
+PDF REVISADO (047). En pendiente, elegir número y mensaje, preparar copia,
+abrir/descargar y confirmar revisión antes de enviar. Número CR único normalizado,
+referencia OC-id obligatoria en mensaje. PDFKit usa solamente snapshots de la
+orden; cabecera/semana/conversión y cantidades propia/proveedor. Textos extensos
+continúan con cabecera/pie sin truncar ni repetir cantidades. La propuesta inicial
+se espera antes de habilitar edición, para no sobrescribir lo escrito.
 
-RESERVA NO ES ENVÍO. Sugerencia separa faltante registrado, reservado en
-órdenes abiertas y libre. Cada origen se descuenta una vez, incluso si se
-reasigna el proveedor. La API de compras serializa modificaciones con bloqueo
-transaccional 46005/1, bloquea faltantes por id y exige versión para editar.
-Creación con UUID/cuerpo canónico: reintentos devuelven la misma orden; una
-clave con otra solicitud rechaza 409. SQL también protege contexto/historial,
-líneas pendientes y cantidades/procedencia de reservas. Errores revierten
-líneas, reservas y bitácora juntos.
+orden_compra_ciclo_envio guarda PDF BYTEA privado, SHA-256 comprobado en SQL,
+versión, número, mensaje, UUID, secuencia/actores/fechas/resultados. El backup de
+PostgreSQL conserva estos documentos. DTO expone solo metadatos; descarga exige
+permiso Reporte Proveedores, id de orden/copia correcto y private/no-store. Nunca
+regenera bytes al consultar/enviar. Copias anteriores siguen en historial, pero
+revisar una anterior no habilita enviar la actual. Máximo 5 MB; sin ruta pública.
 
-Si aparecen 3 después de reservar 10, una orden NUEVA puede reservar las 3;
-ningún borrador se amplía solo. Si bodega corrige/anula o se reasigna el origen,
-marcar pendiente exige revisar. Pendiente bloquea líneas hasta volver
-explícitamente a borrador. Cerrar SIN envío exige motivo, libera sus reservas
-y conserva cantidades/procedencia/bitácora en Historial de cierres; no se
-reabre ni se borra. No es cierre de una orden enviada ni archivo tras recepción.
+ENVÍO DURABLE. Transacción con bloqueo de orden/faltantes + advisory 46005/1,
+revalidación de versión/orígenes/proveedor/ciclo, intento enviando y enlace en
+cabecera. COMMIT ANTES del transporte, fuera de la transacción. Una repetición
+lee el resultado: no llama de nuevo, tampoco tras timeout o caída del proceso.
+Índice único impide dos intentos activos y SQL protege bytes/resultado/header/
+líneas. Confirmación positiva del adaptador al mismo número pasa a enviada;
+transportar no confirma lectura ni recepción física. El estado no permite volver
+a borrador, agregar productos o cerrar sin recepción; no hay ampliación automática.
 
-PERMISOS. /api/orden-compra/por-ciclo hereda Reporte Proveedores. Sugerencia
-solo lee; ficha propia activa por cédula, o nombre EXACTO único sin cédula.
-Ambigüedad/no ficha/inactivo se explican al usuario. Listas conservan ruta,
-semana e históricos Sin ciclo. Contexto cerrado/cancelado no admite creación
-ni nueva revisión comercial; el cierre de un borrador sí libera sus reservas.
+INCERTIDUMBRE. Timeout/fallo tras iniciar conserva cobertura y bloqueo, con motivo
+genérico sin copiar errores privados. No reenviar. Si hubo prueba de no inicio
+antes del canal/sendMessage, el intento no_enviado conserva historial y solo otra
+copia explícita permite reintentar. Fallo en DB después de transportar deja intento
+enviando durable: consultar no retransmite. Incierto o enviando con más de cinco
+minutos admite verificación explícita con proveedor + motivo/actor; confirmación
+manual no inventa ACK de WhatsApp ni entrada de inventario. La UI solo hace GET
+cada 3 s durante enviando. Guardas config/aislado permanecen cerradas en la app local.
 
-PENDIENTE. Envío propio con bytes/PDF revisados, destinatario, idempotencia e
-incertidumbre; bloqueo irreversible después de confirmación de envío; estados
-enviada/parcial/recibida/cierre de enviada y cobertura PENDIENTE DE RECIBIR.
-Después factura/PDF/recepción física separada de registrar compra, carga/
-entrega y archivo 24 h. No agregar endpoints para «marcar recibida» sin su
-evento físico. FAL-03/04/05/06/07/08 y OC-03/05/06/08/09/10 permanecen abiertos
-por esas partes. Limpieza semanal todavía pendiente POR CÓDIGO; nunca ejecutarla.
+COBERTURA. Apartado sin envío confirmado, solicitado y libre se muestran separados.
+Por faltante se descuenta cobertura válida abierta una vez, aun si cambió la
+asignación del proveedor. Pendiente de recibir TOTAL se muestra en la línea de
+orden enviada; en sugerencia se muestra solo cobertura asignada a sus orígenes.
+Ejemplo: 2 cajas × 6 = 12 pendientes, 10 asignadas a estas facturas, 2 excedentes
+sin cobertura de la siguiente semana. 10 enviadas + 3 nuevas deja la primera
+orden en 10 y ofrece 3 en otra; próximo ciclo conserva su necesidad independiente.
+Pedido incierto queda apartado, no solicitado confirmado. Recepción física no
+existe todavía: nunca escribir compra/stock/faltante para simular ese estado.
 
-PRUEBAS. 2.032 aprobadas, 21 nuevas; grafo 12, build y Chromium 1440/390.
-PostgreSQL en base propia tachi_codex_*, SAVEPOINT/ROLLBACK y dos
-conexiones sobre fixtures ZZ locales para concurrencia/reintentos. No mensajes
-reales ni entradas de stock. Relevo y medición final en
-docs/informes/ordenes-ciclo-2026-10-05.md. 046 aplicada a compartida LOCAL con
-respaldo y 19 huellas iguales al estado de integración; tablas nuevas vacías,
-stock cero. Se conservan cambios independientes de cliente/ruta/ciclo en la
-bitácora, no asumir que la copia sigue sin rutas. App 5174→3002 con lanzador
-seguro; próxima 047. Reserva privada/base/servidores se retiran al cierre.
+PERMISOS Y CIERRE. Rutas /por-ciclo heredan Reporte Proveedores, incluidos PDF y
+verificación manual; selects usan metadatos del permiso propio. Ficha activa por
+cédula o nombre EXACTO único. Ciclo cerrado/cancelado bloquea revisión comercial
+y envío antes de reclamar. Cerrar SIN envío exige motivo, libera solo reservas y
+conserva líneas/origen/bitácora. No es archivo 24 h ni cierre de enviada.
+
+VALIDACIÓN. 23 pruebas nuevas de esta parte: copia/hash/DTO, idempotencia, exactitud,
+SQL/API inmutable, 10+3 enviado, cambios de necesidad, incertidumbre/reinicio,
+preflight, manual, conversiones, no stock, dos conexiones y retiro de envío global.
+Chromium 1440/390 con transporte exclusivamente simulado; PDF nativo de una hoja
+y 80 líneas/14 hojas con texto extenso, sin pérdida/duplicación/desborde. Informe
+y validación final: docs/informes/envio-ordenes-ciclo-2026-10-06.md.
+Suite completa 2.059/364 suites, cero fallos/omitidas; grafo 12 y build aprobados.
+047 aplicada SOLO a tachi local 5434 con respaldo, 22 huellas idénticas y
+tabla nueva vacía. No datos de prueba en compartida ni envíos reales.
+
+PENDIENTE REAL. Factura/PDF del proveedor, comparación pedido/facturado/físico,
+recepción parcial/final idempotente integrada con registrarCompra (evitar doble
+stock), cierre de enviada, carga/entrega y archivo 24 h. OC-03 y FAL-04 parciales;
+FAL-03/07/08, REC, ENT y ARC siguen abiertos. Limpieza semanal pendiente POR
+CÓDIGO; jamás ejecutarla. App local 5174→3002 usa lanzador seguro. Próxima SQL 048.
+Preservar ruta/ciclo cancelado del usuario, inventario provisional cero e históricos.

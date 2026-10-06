@@ -38,7 +38,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-05
+medido: 2026-10-06
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -229,8 +229,13 @@ ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
 un producto; Excel añade Procedencia y conserva lectura sin asignar.
 Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: borradores
 persistentes y reservas implementados en [[modulo/ordenes-compra-por-ciclo]];
-envío/cobertura de recepción pendientes, no interpretar la consulta como
-compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+047 añade envío inmutable y cobertura solicitada: se descuenta por origen
+una vez, aun antes de recibir stock. El intento incierto mantiene cobertura
+bloqueada sin afirmar envío confirmado. En la revisión de orden se distingue
+apartado sin confirmación, solicitado y libre; la línea enviada muestra todo
+lo pendiente del proveedor. Excedentes de empaque no cubren otra semana.
+Recepción física/cobertura parcial siguen pendientes; pedidos sin facturar
+tampoco se alistan todavía.
 Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
 Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.
 

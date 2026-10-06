@@ -9,11 +9,11 @@ archivos:
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
   relacionado: [modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
-medido: 2026-10-05
+medido: 2026-10-06
 ---
 
-**Solicitud y aclaración del usuario. Borradores y reservas implementados;
-envío inmutable, recepción y archivo pendientes.** Una orden
+**Solicitud y aclaración del usuario. Borradores, envío inmutable y cobertura
+implementados; recepción y archivo pendientes.** Una orden
 de compra enviada por WhatsApp conserva exactamente sus productos/cantidades.
 Si se enviaron 10 y después faltan 3 más, las 3 requieren otra orden; no se
 agregan a la anterior. Estados pedidos: borrador, pendiente de enviar, enviada,
@@ -36,9 +36,13 @@ de la lista activa 24 horas después de su recepción completa, reteniendo
 historial, factura y comparación. Una recepción parcial no inicia ese archivo.
 No borrar órdenes ni documentos fiscales.
 
-[[modulo/ordenes-compra-por-ciclo]] implementa borrador/pendiente y cierre SIN
-envío con motivo, revisión y reservas. Una reserva aún no acredita pedido al
-proveedor ni pendiente de recibir. No dar por implementados los estados de
-envío/recepción por tener borradores guardados. La limpieza vieja
+[[modulo/ordenes-compra-por-ciclo]] implementa borrador/pendiente/enviada y
+cierre SIN envío con motivo. Copia revisada privada con PDF/número/mensaje;
+intento guardado antes del transporte, sin reenvío tras incertidumbre. Una
+reserva sin confirmación no acredita pedido confirmado; un envío confirmado
+sí se muestra solicitado y pendiente de recibir, sin crear stock. La
+confirmación manual verifica el mensaje con motivo/actor; tampoco acredita
+recepción física. Envío global viejo rechazado, históricos conservados.
+No dar por implementada recepción por confirmar el envío. La limpieza vieja
 sigue prohibida durante pruebas/desarrollo. Su retiro y el archivo nuevo
 permanecen abiertos en el checklist hasta cambiar y verificar el código.

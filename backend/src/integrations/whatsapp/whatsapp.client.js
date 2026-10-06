@@ -147,7 +147,10 @@ async function mandarInterno(accion, { telefono, sujeto }) {
   try {
     return await accion();
   } catch (error) {
-    throw explicarFalloInterno(error, { telefono, sujeto });
+    const explicado = explicarFalloInterno(error, { telefono, sujeto });
+    // Estos dos errores nacen antes de sock.sendMessage, en conexion.js.
+    if (['SIN_WHATSAPP', 'SIN_CONEXION'].includes(error.codigo)) explicado.envioNoIniciado = true;
+    throw explicado;
   }
 }
 
@@ -207,7 +210,13 @@ async function enviarDocumento({ telefono, mensaje, pdf, nombreArchivo, sujeto =
 
   const archivo = nombreArchivo || 'documento.pdf';
   const pie = String(mensaje ?? '').trim() || undefined;
-  const via = await canal();
+  let via;
+  try { via = await canal(); }
+  catch (error) {
+    // Todavía no se llamó a ningún envío: a diferencia de un timeout después
+    // de transmitir, este fallo permite una nueva decisión explícita segura.
+    error.envioNoIniciado = true; throw error;
+  }
   if (via === 'interno') {
     await mandarInterno(() => interno.enviarDocumento(numero.numero, pdf, archivo, pie), { telefono: numero.formateado, sujeto });
   } else {

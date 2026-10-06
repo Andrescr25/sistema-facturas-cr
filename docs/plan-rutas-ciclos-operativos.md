@@ -18,9 +18,10 @@ por cliente/ciclo y PDF visual con fotos implementados.
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
 [catálogo visual](informes/catalogo-visual-2026-10-05.md),
 [operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
-[borradores de compra](informes/ordenes-ciclo-2026-10-05.md). Bodega/reportes,
-procedencia y borradores con reservas implementados. Siguen envío inmutable,
-cobertura pendiente de recibir, recepción, carga/entrega y archivo.
+[borradores de compra](informes/ordenes-ciclo-2026-10-05.md) y
+[envío de órdenes](informes/envio-ordenes-ciclo-2026-10-06.md). Bodega/reportes,
+procedencia, PDF revisado, envío inmutable y cobertura pendiente de recibir
+implementados. Siguen recepción, carga/entrega y archivo. Operativo 56/43.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -66,8 +67,9 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [x] Bodega y reportes de faltantes filtran ruta/ciclo; procedencia en Excel.
 - [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
-  Borrador/pendiente de enviar, revisión, origen y reservas ya implementados;
-  falta envío inmutable y cobertura/estados de recepción. Reserva no es envío.
+  Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
+  incertidumbre implementados. Faltan parcial/recibida/cierre de enviada y
+  cantidades recibidas. Reserva sin confirmación no es envío confirmado.
 - [ ] Recepción parcial/final, comparación de factura y PDF privado.
 - [ ] Carga/entrega ordenadas y avance por cliente/documento.
 - [ ] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado.

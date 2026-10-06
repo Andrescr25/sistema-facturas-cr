@@ -13,7 +13,6 @@ import ProveedorDetalle from '../components/reporte-proveedores/ProveedorDetalle
 import ModalAsignarProveedor from '../components/reporte-proveedores/ModalAsignarProveedor'
 import ModalCrearProveedor from '../components/reporte-proveedores/ModalCrearProveedor'
 import ModalAgregarProducto from '../components/reporte-proveedores/ModalAgregarProducto'
-import ModalWhatsApp from '../components/reporte-proveedores/ModalWhatsApp'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
@@ -41,15 +40,6 @@ export default function ReporteProveedores() {
     togglePreferenciaProveedor,
 
     handleGenerarPDF,
-
-    modalWhatsAppVisible,
-    setModalWhatsAppVisible,
-    telefonoProveedor,
-    setTelefonoProveedor,
-    mensajeWhatsApp,
-    setMensajeWhatsApp,
-    abrirModalWhatsApp,
-    enviarWhatsApp,
 
     productosSeleccionados,
     toggleProductoSeleccionado,
@@ -240,7 +230,6 @@ export default function ReporteProveedores() {
           actualizarCantidadAgregado={actualizarCantidadAgregado}
           eliminarProductoAgregado={eliminarProductoAgregado}
           onAgregarProducto={abrirModalAgregarProducto}
-          onAbrirWhatsApp={abrirModalWhatsApp}
           onAbrirModalAsignar={abrirModalAsignar}
         />
       ) : (
@@ -303,18 +292,6 @@ export default function ReporteProveedores() {
           onBuscar={buscarProductos}
           onAgregarConCantidad={solicitarCantidadYAgregar}
           onCerrar={() => setModalAgregarProducto(false)}
-        />
-      )}
-
-      {modalWhatsAppVisible && (
-        <ModalWhatsApp
-          telefonoProveedor={telefonoProveedor}
-          setTelefonoProveedor={setTelefonoProveedor}
-          mensajeWhatsApp={mensajeWhatsApp}
-          setMensajeWhatsApp={setMensajeWhatsApp}
-          loading={loading}
-          onEnviar={enviarWhatsApp}
-          onCerrar={() => setModalWhatsAppVisible(false)}
         />
       )}
 

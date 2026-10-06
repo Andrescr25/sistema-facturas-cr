@@ -129,6 +129,23 @@ describe('mandar un PDF', () => {
     await assert.rejects(() => whatsapp.enviarDocumento({ telefono: '88272453', pdf: Buffer.alloc(0) }));
     assert.equal(registro.peticiones.length, 0);
   });
+
+  test('el bloqueo previo del canal indica que el envío nunca se inició', async () => {
+    const { whatsapp, registro } = montar(), contexto = process.env.NODE_TEST_CONTEXT;
+    delete process.env.NODE_TEST_CONTEXT;
+    try {
+      await assert.rejects(whatsapp.enviarDocumento({ telefono: '88888888', pdf }),
+        e => e.status === 423 && e.envioNoIniciado === true);
+      assert.equal(registro.peticiones.length, 0);
+    } finally { if (contexto !== undefined) process.env.NODE_TEST_CONTEXT = contexto; }
+  });
+
+  test('un timeout tras enviar el PDF conserva la incertidumbre, sin atribuirlo a un fallo previo', async () => {
+    const { whatsapp, registro } = montar({ fallo: Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }) });
+    await assert.rejects(whatsapp.enviarDocumento({ telefono: '88888888', pdf }),
+      e => e.envioNoIniciado !== true);
+    assert.equal(registro.peticiones.length, 1);
+  });
 });
 
 describe('los errores dicen qué revisar', () => {

@@ -58,7 +58,10 @@ async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false }={
     m.id AS mapping_id,m.supplier_code,m.supplier_desc,COALESCE(m.factor_conversion,1) AS factor_conversion,
     COALESCE((SELECT SUM(r.cantidad) FROM orden_compra_ciclo_origen r
       JOIN orden_compra_ciclo_linea l ON l.id=r.linea_id JOIN orden_compra_ciclo o ON o.id=l.orden_id
-      WHERE r.faltante_id=f.id AND o.estado<>'cerrada' AND ($4::int IS NULL OR o.id<>$4)),0) AS reservada
+      WHERE r.faltante_id=f.id AND o.estado<>'cerrada' AND ($4::int IS NULL OR o.id<>$4)),0) AS reservada,
+    COALESCE((SELECT SUM(r.cantidad) FROM orden_compra_ciclo_origen r
+      JOIN orden_compra_ciclo_linea l ON l.id=r.linea_id JOIN orden_compra_ciclo o ON o.id=l.orden_id
+      WHERE r.faltante_id=f.id AND o.estado='enviada' AND ($4::int IS NULL OR o.id<>$4)),0) AS solicitada
     FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id JOIN factura fa ON fa.id=f.factura_propia_id
     LEFT JOIN ciclo_ruta_cliente rc ON rc.id=fa.ciclo_ruta_cliente_id
     LEFT JOIN LATERAL (SELECT m.* FROM supplier_product_mapping m WHERE m.producto_id=p.id
@@ -76,9 +79,11 @@ function agrupar(rows) {
   for (const r of rows) {
     if (!grupos.has(r.productoId)) grupos.set(r.productoId,{productoId:r.productoId,nombre:r.nombre,codigo:r.referencia,
       codigoProveedor:r.supplier_code,nombreProveedor:r.supplier_desc,mappingId:r.mapping_id,
-      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0,reservada:0,disponible:0,origenes:[]});
+      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0,reservada:0,solicitada:0,reservadaBorrador:0,pendienteRecibir:0,disponible:0,origenes:[]});
     const p=grupos.get(r.productoId),diferencia=micros(r.cantidad_faltante)-micros(r.reservada),libre=diferencia>0n?diferencia:0n;
     p.faltante+=Number(r.cantidad_faltante);p.reservada+=Number(r.reservada);p.disponible+=Number(cantidadDe(libre));
+    p.solicitada+=Number(r.solicitada);p.pendienteRecibir+=Number(r.solicitada);
+    p.reservadaBorrador+=Number(r.reservada)-Number(r.solicitada);
     p.origenes.push({...r,disponible:cantidadDe(libre)});
   }
   return [...grupos.values()].map(p=>{
@@ -94,7 +99,9 @@ async function obtenerEn(db,id,{ bloquear=false }={}) {
   const {rows:lineas}=await db.query(`SELECT l.*,COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.orden_visita,r.faltante_id) FILTER(WHERE r.linea_id IS NOT NULL),'[]') origenes
     FROM orden_compra_ciclo_linea l LEFT JOIN orden_compra_ciclo_origen r ON r.linea_id=l.id
     WHERE l.orden_id=$1 GROUP BY l.id ORDER BY l.id`,[o.id]);
-  return {...dto(o),lineas:lineas.map(l=>({...l,factor_conversion:Number(l.factor_conversion),cantidad_propia:Number(l.cantidad_propia)}))};
+  const {rows:envios}=await db.query(`SELECT id,version_orden,numero,mensaje,nombre_archivo,sha256,octet_length(pdf) bytes,
+    estado,preparado_en,iniciado_en,confirmado_en,confirmacion,via,motivo FROM orden_compra_ciclo_envio WHERE orden_id=$1 ORDER BY secuencia DESC`,[o.id]);
+  return {...dto(o),envios,lineas:lineas.map(l=>({...l,factor_conversion:Number(l.factor_conversion),cantidad_propia:Number(l.cantidad_propia)}))};
 }
 async function sugerir(filtros) {
   const cicloId=cicloValido(filtros?.cicloId);
@@ -162,21 +169,25 @@ async function cambiarEstado(id,datos,usuarioId) {
   if (datos.estado==='cerrada'&&(!motivo||motivo.length>1000)) throw httpError(400,'Indicá el motivo del cierre (hasta 1000 caracteres).');
   return enOrden(async db=>{const o=await obtenerEn(db,id,{bloquear:true});revision(o,datos?.version);
     if (o.estado==='cerrada') throw httpError(409,'La orden cerrada conserva su historial y no se reabre.');
+    if (o.estado==='enviada'||o.envio_id) throw httpError(409,'La orden ya fue enviada o tiene un intento por verificar; no se modifica ni se cierra sin recepción.');
     if (o.estado===datos.estado) return o;
     if (datos.estado==='pendiente_enviar') {
-      if (!o.lineas.length) throw httpError(409,'La orden no tiene productos para enviar.');
-      await contextoEn(db,o.ciclo_id);const p=await proveedorEn(db,o.proveedor_id);
-      const filas=await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true}),porId=new Map(filas.map(f=>[f.faltanteId,f]));
-      for (const l of o.lineas) for (const r of l.origenes) {
-        const f=porId.get(r.faltante_id);
-        if (!f || Number(r.cantidad)>Math.max(0,Number(f.cantidad_faltante)-Number(f.reservada)))
-          throw httpError(409,'Los faltantes cambiaron. Revisá las cantidades del borrador antes de marcarlo pendiente.');
-      }
+      await validarPendienteEn(db,o);
     }
     await db.query(`UPDATE orden_compra_ciclo SET estado=$2::varchar,version=version+1,actualizado_en=NOW(),
       motivo_cierre=$3,cerrada_en=CASE WHEN $2::varchar='cerrada' THEN NOW() ELSE NULL END WHERE id=$1`,[o.id,datos.estado,datos.estado==='cerrada'?motivo:null]);
     const nueva=await obtenerEn(db,o.id);await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:datos.estado,antes:o,despues:nueva,usuarioId,motivo:motivo||null});return nueva;
   });
+}
+async function validarPendienteEn(db,o) {
+  if (!o.lineas.length) throw httpError(409,'La orden no tiene productos para enviar.');
+  await contextoEn(db,o.ciclo_id);const p=await proveedorEn(db,o.proveedor_id);
+  const filas=await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true}),porId=new Map(filas.map(f=>[f.faltanteId,f]));
+  for (const l of o.lineas) for (const r of l.origenes) {
+    const f=porId.get(r.faltante_id);
+    if (!f || micros(r.cantidad)>micros(f.cantidad_faltante)-micros(f.reservada))
+      throw httpError(409,'Los faltantes cambiaron. Revisá las cantidades del borrador antes de enviar.');
+  }
 }
 async function listar({rutaId,cicloId,proveedorId,vista='activas'}={}) {
   if (!['activas','historial'].includes(vista)) throw httpError(400,'Vista inválida.');
@@ -192,4 +203,5 @@ async function listar({rutaId,cicloId,proveedorId,vista='activas'}={}) {
     GROUP BY o.id ORDER BY o.semana DESC NULLS LAST,o.id DESC`,params);
   return rows.map(dto);
 }
-module.exports={sugerir,crear,editar,cambiarEstado,listar,obtener:id=>enTransaccion(pool,db=>obtenerEn(db,id))};
+module.exports={sugerir,crear,editar,cambiarEstado,listar,obtener:id=>enTransaccion(pool,db=>obtenerEn(db,id)),
+  interno:{entero,enOrden,obtenerEn,revision,validarPendienteEn}};

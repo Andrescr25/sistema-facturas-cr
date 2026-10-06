@@ -2,8 +2,8 @@
 
 Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
-bodega/reportes, procedencia y borradores de compra con reservas implementados.
-Envío propio, cobertura de recepción y entregas pendientes.
+bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
+cobertura pendiente de recibir implementados. Recepción física y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -11,7 +11,10 @@ Envío propio, cobertura de recepción y entregas pendientes.
 [catálogo visual](informes/catalogo-visual-2026-10-05.md) y
 [paginación de cuatro productos](informes/catalogo-paginacion-2026-10-05.md) y
 [operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
-[borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md).
+[borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md) y
+[envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md).
+Estado vigente: **56 listos / 43 pendientes (99 IDs)**. Las cifras en las
+entregas anteriores son históricas; este estado no cierra recepción ni archivo.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -187,9 +190,9 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 - [x] FAL-02 — Mostrar agregado y desglose: ejemplo 10 = 6 actual + 4 próxima.
 - [ ] FAL-03 — Separar stock actual, requerido y comprometido con clientes.
 - [ ] FAL-04 — Separar faltante, ya pedido, pendiente de recibir y recibido.
-- [ ] FAL-05 — Descontar cobertura válida de órdenes existentes al sugerir
+- [x] FAL-05 — Descontar cobertura válida de órdenes existentes al sugerir
   nuevas compras, aun antes del ingreso físico a bodega.
-- [ ] FAL-06 — Una cantidad comprada no cubre dos necesidades/ciclos a la vez.
+- [x] FAL-06 — Una cantidad comprada no cubre dos necesidades/ciclos a la vez.
 - [ ] FAL-07 — Recepción parcial actualiza pendiente y cobertura sin contar
   dos veces el inventario ni ignorar conversiones de unidad del proveedor.
 - [ ] FAL-08 — Cancelación/cierre sin recepción libera solo la cobertura que
@@ -201,14 +204,14 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 - [x] OC-02 — Estados Borrador y Pendiente de enviar.
 - [ ] OC-03 — Estados Enviada, Parcialmente recibida, Recibida y Cerrada.
 - [x] OC-04 — Crear/revisar cantidades y productos antes de enviar.
-- [ ] OC-05 — Facilitar envío por WhatsApp y guardar exactamente lo enviado.
-- [ ] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
+- [x] OC-05 — Facilitar envío por WhatsApp y guardar exactamente lo enviado.
+- [x] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
   desde API; nuevas necesidades no se agregan automáticamente.
 - [x] OC-07 — Proponer/crear orden nueva para faltantes posteriores.
-- [ ] OC-08 — Mostrar cantidades pendientes sin volver a comprarlas.
-- [ ] OC-09 — Manejar concurrencia, reintentos y envío incierto sin duplicar
+- [x] OC-08 — Mostrar cantidades pendientes sin volver a comprarlas.
+- [x] OC-09 — Manejar concurrencia, reintentos y envío incierto sin duplicar
   solicitudes ni afirmar que el proveedor recibió un mensaje no confirmado.
-- [ ] OC-10 — Mantener correspondencia entre documento WhatsApp y orden guardada.
+- [x] OC-10 — Mantener correspondencia entre documento WhatsApp y orden guardada.
 
 Primera parte de órdenes (`004ba50`, 046): OC-01/02/04/07 implementados. Proveedor propio,
 semana fija o Sin ciclo, líneas por producto propio y origen por factura.
@@ -227,6 +230,19 @@ por incertidumbre del transporte aún pendiente. VAL-02 sigue abierto: el caso
 Compartida solo GET y 19 huellas iguales respecto al estado previo a integrar;
 se conservaron acciones locales concurrentes de rutas/clientes (ver informe).
 046 local con respaldo, cero órdenes nuevas/stock provisional intacto.
+
+Segunda parte de órdenes (047, 2026-10-06): OC-05/06/08/09/10, FAL-05/06
+y VAL-02 comprobados. PDF/número/mensaje guardados e inmutables; descarga
+autorizada y revisión explícita antes de enviar. Intento confirmado en DB
+antes del transporte; reintentos consultan sin reenviar. Incertidumbre bloquea
+la orden y conserva cobertura; confirmación manual exige verificación/motivo.
+Enviada no admite cambios ni cierre sin recepción, también en SQL. Caso 10
+enviadas + 3 nuevas conserva 10 y sugiere solo 3; próximo ciclo independiente.
+Cantidad pendiente total de la línea y cobertura asignada por origen son
+distintas: una caja sobrante no cubre otra ruta. Envío global retirado de UI
+y rechazado por API (409), sin convertir sus históricos. FAL-04 sigue parcial
+por cantidad recibida; OC-03 sigue parcial por recepción/cierre de enviada.
+Validación y aplicación local en el informe de esta parte. No mensajes reales.
 
 ## 7. Factura del proveedor y recepción
 
@@ -271,7 +287,7 @@ No implementar borrado físico en sustitución de la antigua limpieza.
 
 - [ ] VAL-01 — Pruebas de separación: misma ruta en semanas distintas, actual
   y próxima simultáneas, y cliente que cambia de ruta.
-- [ ] VAL-02 — Caso de compra: 10 enviadas, aparece nuevo faltante 3; orden
+- [x] VAL-02 — Caso de compra: 10 enviadas, aparece nuevo faltante 3; orden
   anterior sigue en 10 y nueva sugerencia solo cubre las 3 sin cobertura.
 - [ ] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
 - [ ] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.

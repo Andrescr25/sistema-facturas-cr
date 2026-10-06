@@ -14,8 +14,13 @@ router.use('/por-ciclo', require('./ordenesCiclo.routes'));
 // Generar PDF
 router.post('/generar-pdf', controller.generarPDF);
 
-// Enviar WhatsApp
-router.post('/enviar-whatsapp', controller.enviarWhatsApp);
+// El envío global no registra cobertura y permitiría comprar otra vez lo ya
+// solicitado por ciclo. Conservamos lectura/borradores históricos, pero todo
+// envío nuevo pasa por la orden persistida y la copia explícitamente revisada.
+router.post('/enviar-whatsapp', (req, res) => res.status(409).json({
+  success: false,
+  message: 'Elegí una semana o Sin ciclo y prepará una orden en Órdenes por ciclo antes de enviarla.'
+}));
 
 // A quiénes ya se les mandó el pedido (para la marca en la tarjeta)
 router.get('/enviados', controller.getOrdenesEnviadas);
