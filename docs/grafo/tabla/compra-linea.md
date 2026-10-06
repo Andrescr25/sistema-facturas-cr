@@ -4,11 +4,12 @@ tipo: tabla
 titulo: La cantidad se guarda dos veces, a propósito
 estado: vigente
 archivos:
+  - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/019_compra_y_compra_linea.sql
 aristas:
   vive_en: [modulo/compras]
-  relacionado: [modulo/inventario]
-medido: 2026-09-19
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/inventario]
+medido: 2026-10-06
 ---
 
 `cantidad` es en la unidad del proveedor (la caja de 100 bandejas);
@@ -27,3 +28,12 @@ la misma clase de error que ya costó un margen falso una vez (ver
 `producto_id` puede ser NULL: 123 de 8.590 líneas no tienen mapeo. No se
 descartan — si se cayeran, el detalle dejaría de sumar lo que dice la
 factura.
+
+RECEPCIÓN049. [[modulo/recepcion-ordenes-compra]] separa aceptación comercial de
+entrada física SOLO en compras nuevas ya vinculadas al INSERT. Modalidad fija
+inventario_por_recepcion=true, cantidades propias de eventos, origen compra/id y
+delta incremental en misma transacción. Costo de las partidas del evento físico actual, sin revalorar lo previo ni
+restar valores ya redondeados (regalía posterior conserva costo cero). Compras anteriores mantienen entrada comercial,
+sin nueva acreditación ni importación de stock histórico. Línea ya recibida
+inmutable por SQL; no corregirla editando su cantidad/factor/producto. Las frases
+sobre entrada íntegra al registrar describen compras false y la etapa042.

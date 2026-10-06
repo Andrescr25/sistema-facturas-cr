@@ -56,9 +56,9 @@ export default function FacturaOrdenCiclo({orden,ocupado,onOcupado}){
     <h3 className="text-lg font-bold">Factura del proveedor y comparación</h3>
     {error&&<p role="alert" className="break-words text-peligro-700">{error}</p>}
     {cargando&&<p role="status">Consultando facturas vinculadas…</p>}
-    <p className="text-sm text-neutro-600">Vincular y consultar no registra la compra ni aumenta inventario. Recepción física pendiente de registrar.</p>
+    <p className="text-sm text-neutro-600">Vincular y consultar no registra la compra ni aumenta inventario. La recepción física se registra en su apartado.</p>
     <Comparacion datos={datos?.comparacion}/>
-    <div className="rounded-lg border p-4 space-y-3">
+    {orden.estado!=='recibida'&&<div className="rounded-lg border p-4 space-y-3">
       <label className="block text-sm font-semibold">Buscar factura de este proveedor<input aria-label="Buscar factura de este proveedor" value={buscar} maxLength={80} disabled={ocupado||cargando} onChange={e=>{setBuscar(e.target.value);setLista(null)}} className="mt-1 block w-full min-h-11 rounded-lg border p-2" placeholder="Número de factura o clave"/></label>
       <button type="button" disabled={ocupado||cargando} className="btn btn-outline" onClick={()=>consultar(1)}>Consultar facturas del proveedor</button>
       {lista&&!lista.facturas.length&&<p className="text-sm">No hay facturas del proveedor en esta búsqueda.</p>}
@@ -66,18 +66,18 @@ export default function FacturaOrdenCiclo({orden,ocupado,onOcupado}){
         {f.orden_asignada?<p className="text-sm">Vinculada a OC-{f.orden_asignada}. Una factura completa no se cuenta en dos órdenes.</p>:<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>revisar(f.id)}>Revisar factura {f.numero_consecutivo}</button>}
       </div>)}
       {lista&&<div className="flex flex-wrap gap-2"><button className="btn btn-outline" disabled={ocupado||lista.pagina===1} onClick={()=>consultar(lista.pagina-1)}>Anterior</button><button className="btn btn-outline" disabled={ocupado||!lista.hayMas} onClick={()=>consultar(lista.pagina+1)}>Siguiente</button></div>}
-    </div>
+    </div>}
     {propuesta&&<div className="rounded-lg border p-4 space-y-3"><h4 className="break-words font-bold">Revisar factura {propuesta.documento.numero_consecutivo}</h4><p className="break-words text-sm">{propuesta.documento.proveedor_nombre} · Clave {propuesta.documento.clave}</p>
       <Comparacion datos={propuesta.comparacion}/>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={revisada} disabled={ocupado} onChange={e=>setRevisada(e.target.checked)}/>Revisé el proveedor, el comprobante y las cantidades comparadas de esta orden.</label>
       <button type="button" className="btn btn-primary" disabled={ocupado||!revisada} onClick={vincular}>Vincular esta factura</button>
     </div>}
     {!!datos?.facturas.length&&<div className="space-y-3"><h4 className="font-bold">Comprobantes e historial</h4>{datos.facturas.map(f=><div key={f.id} className="rounded-lg border p-3 space-y-2 min-w-0"><p className="break-words font-semibold">Factura {f.documento.numero_consecutivo} · {f.estado==='vigente'?'Vínculo vigente':'Vínculo retirado'}</p>
-      {f.motivo&&<p className="break-words text-sm">Motivo: {f.motivo}</p>}{f.fuenteCambio&&<p role="status" className="text-sm text-nota-800">La fuente cambió desde la revisión. Esta comparación se conserva; retirala con motivo y revisá un vínculo nuevo para corregirla.</p>}
+      {f.motivo&&<p className="break-words text-sm">Motivo: {f.motivo}</p>}{f.fuenteCambio&&<p role="status" className="text-sm text-nota-800">La fuente cambió desde la revisión. Esta comparación se conserva; revisá la compra antes de recibir. Si el vínculo es incorrecto, retiralo con motivo y revisá uno nuevo.</p>}
       <div className="flex flex-wrap gap-2">{f.pdfs.map(p=><button key={p.id} type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>abrirPdf(f,p)}>Ver {tipos[p.tipo]}</button>)}</div>
       {f.estado==='vigente'&&<div className="flex flex-wrap gap-2"><button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>{setVinculoActivo(f.id);setArchivo(null);setConfirmaPdf(false);pdfSolicitud.current=null}}>Adjuntar PDF de factura {f.documento.numero_consecutivo}</button>
         <button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>guardarPdf(f,'representacion_buzon')}>Generar representación de factura {f.documento.numero_consecutivo}</button>
-        <button type="button" className="text-sm underline" disabled={ocupado} onClick={()=>retirar(f)}>Corregir vínculo de factura {f.documento.numero_consecutivo}</button></div>}
+        {orden.estado!=='recibida'&&<button type="button" className="text-sm underline" disabled={ocupado} onClick={()=>retirar(f)}>Corregir vínculo de factura {f.documento.numero_consecutivo}</button>}</div>}
     </div>)}</div>}
     {v&&<div className="rounded-lg border p-4 space-y-3"><p className="font-semibold break-words">PDF de factura {v.documento.numero_consecutivo}</p><input type="file" accept="application/pdf,.pdf" aria-label="PDF original del proveedor" disabled={ocupado} onChange={e=>{setArchivo(e.target.files?.[0]||null);setConfirmaPdf(false);pdfSolicitud.current=null}} className="block w-full text-sm"/>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={confirmaPdf} disabled={ocupado||!archivo} onChange={e=>setConfirmaPdf(e.target.checked)}/>Este PDF original corresponde a la factura {v.documento.numero_consecutivo} y a su proveedor.</label>

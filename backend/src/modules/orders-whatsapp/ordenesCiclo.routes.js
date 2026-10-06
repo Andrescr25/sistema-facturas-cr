@@ -2,6 +2,7 @@ const router=require('express').Router();
 const s=require('./ordenesCiclo.service');
 const envios=require('./ordenesCicloEnvio.service');
 const facturas=require('./ordenesCicloFactura.service');
+const recepcion=require('./ordenesCicloRecepcion.service');
 const subirPdf=require('multer')({storage:require('multer').memoryStorage(),limits:{fileSize:5*1024*1024,files:1,fields:4,fieldSize:2048}}).single('pdf');
 // /orden-compra ya pertenece a Reporte Proveedores. La sugerencia es lectura,
 // no asigna proveedores ni transforma el borrador GLOBAL anterior.
@@ -37,4 +38,6 @@ router.get('/:id/facturas/:vinculoId/pdf/:pdfId',async(req,res)=>{
     res.set({'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${nombreArchivo}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).send(pdf);
   }catch(e){res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudo abrir el PDF de la factura.'})}
 });
+router.get('/:id/recepciones',(req,res)=>responder(res,recepcion.consultar(req.params.id)));
+router.post('/:id/recepciones',(req,res)=>responder(res,recepcion.registrar(req.params.id,req.body,req.usuario?.id),201));
 module.exports=router;

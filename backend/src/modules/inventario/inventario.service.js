@@ -59,15 +59,21 @@ async function registrarEn(db, { productoId, tipo, cantidad, costoUnitario = nul
 }
 
 /** Compara contra las líneas vigentes: un reintento o una edición no descuenta dos veces. */
-async function reconciliarDocumentoEn(db, tipo, id, usuarioId = null) {
+async function reconciliarDocumentoEn(db, tipo, id, usuarioId = null, { recepcionId } = {}) {
   if (!['factura','nota_credito','compra'].includes(tipo)) throw httpError(400, 'Documento de inventario inválido.');
   id = idValido(id);
   const bodega = await bloquear(db);
   const sql = tipo === 'compra' ? `
-    SELECT l.producto_id, SUM(l.cantidad_propia) AS cantidad,
+    SELECT l.producto_id, SUM(l.cantidad_propia) AS cantidad,FALSE AS por_recepcion,
       (SUM(l.cantidad*l.precio_unitario-l.descuento+l.impuesto)/NULLIF(SUM(l.cantidad_propia),0))::numeric(20,8) AS costo
     FROM compra_linea l JOIN compra c ON c.id=l.compra_id JOIN producto p ON p.id=l.producto_id
-    WHERE c.id=$1 AND c.estado='registrada' AND p.inventariable GROUP BY l.producto_id`
+    WHERE c.id=$1 AND c.estado='registrada' AND NOT c.inventario_por_recepcion AND p.inventariable GROUP BY l.producto_id
+    UNION ALL
+    SELECT l.producto_id,SUM(r.cantidad) AS cantidad,TRUE AS por_recepcion,
+      (SUM(r.cantidad*(l.cantidad*l.precio_unitario-l.descuento+l.impuesto)/NULLIF(l.cantidad_propia,0))/NULLIF(SUM(r.cantidad),0))::numeric(20,8) AS costo
+    FROM compra_linea l JOIN compra c ON c.id=l.compra_id JOIN producto p ON p.id=l.producto_id
+    JOIN (SELECT compra_linea_id,SUM(cantidad) cantidad FROM orden_compra_ciclo_recepcion_linea GROUP BY compra_linea_id) r ON r.compra_linea_id=l.id
+    WHERE c.id=$1 AND c.estado='registrada' AND c.inventario_por_recepcion AND p.inventariable GROUP BY l.producto_id`
     : `SELECT l.producto_id, SUM(l.cantidad)*${tipo === 'factura' ? '-1' : '1'} AS cantidad
        FROM ${tipo}_linea l JOIN ${tipo} d ON d.id=l.${tipo}_id JOIN producto p ON p.id=l.producto_id
        WHERE d.id=$1 AND d.estado='emitida' AND d.alegra_id IS NULL AND p.inventariable GROUP BY l.producto_id`;
@@ -85,6 +91,20 @@ async function reconciliarDocumentoEn(db, tipo, id, usuarioId = null) {
     if (Number(d.cantidad) === 0) continue;
     const s = await saldo(db,productoId);
     let costo = tipo === 'compra' ? (despues?.costo ?? antes?.costo) : s.costo_promedio;
+    // Valorar las partidas de ESTA entrega: usar el promedio acumulado
+    // revaloraría lo anterior y restarlo perdería centésimas por redondeo.
+    // Una regalía posterior tiene costo cero aunque la partida pagada use
+    // conversión con fracciones; nunca inventar un costo negativo.
+    if (tipo === 'compra' && despues?.por_recepcion) {
+      if (!recepcionId) throw httpError(409, 'La entrada física requiere su recepción confirmada.');
+      const {rows:[valor]}=await db.query(`SELECT
+        (SUM(r.cantidad*(l.cantidad*l.precio_unitario-l.descuento+l.impuesto)/NULLIF(l.cantidad_propia,0))/NULLIF(SUM(r.cantidad),0))::numeric(20,8) costo
+        FROM orden_compra_ciclo_recepcion_linea r JOIN compra_linea l ON l.id=r.compra_linea_id
+        WHERE r.recepcion_id=$1 AND l.compra_id=$2 AND l.producto_id=$3`,
+        [recepcionId,id,productoId]);
+      if (valor.costo == null) throw httpError(409, 'La recepción no contiene la partida de esta entrada.');
+      costo=valor.costo;
+    }
     if (!despues || (tipo === 'factura' && Number(d.cantidad)>0)) costo = antes?.costo ?? costo;
     if (tipo === 'nota_credito' && despues) {
       // Devuelve el valor de la salida original, aunque hayan llegado compras

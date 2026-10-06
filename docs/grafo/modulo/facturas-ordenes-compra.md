@@ -1,9 +1,10 @@
 ---
 id: modulo/facturas-ordenes-compra
 tipo: modulo
-titulo: Factura del proveedor en la orden — vínculo revisado, PDF privado y comparación; recepción pendiente
+titulo: Factura del proveedor en la orden — vínculo revisado, PDF privado y comparación; recepción física separada
 estado: vigente
 archivos:
+  - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
   - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
   - backend/src/modules/orders-whatsapp/ordenesCicloFactura.pdf.js
@@ -14,7 +15,7 @@ archivos:
   - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, tabla/facturas-proveedores, tabla/compra-linea, tabla/supplier-product-mapping, decision/la-ruta-no-el-contenido]
-  relacionado: [modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -98,9 +99,11 @@ iguales antes/después de integrar. Stock/conteos/movimientos cero, sin demo.
 App 5174→3002 con lanzador permanente seguro, PID 97018; comprobación solo GET.
 Copia de pruebas y 3003/5175 retirados; evidencia y respaldos conservados.
 
-SIGUIENTE. Recepción física parcial/final con evento, auditoría y cantidad
-independiente; integración con registrarCompra/kardex existente sin doble
-entrada. REC-05/06/07/09/10/11 abiertos; REC-07 parcial solo muestra diferencias
-sin inventar motivo, REC-11 parcial solo vínculo idempotente. Estados recibida,
-cierre de enviada, carga/entrega, retiro de limpieza semanal por código y
-archivo individual 24 h siguen pendientes. Próxima SQL 049.
+RECEPCIÓN VIGENTE (049). [[modulo/recepcion-ordenes-compra]] añade cantidades
+físicas separadas, parcial/final, motivo confirmado y kardex idempotente. Vincular
+en enviada/parcial permite otra factura. Retirar vínculo usado en recepción
+rechaza por servicio y SQL; recibida no admite nueva vinculación/retiro. PDF
+permanece consultable/adjuntable. Cambios materiales de compra bloquean recepción;
+aceptación comercial sin cambiar cantidades/factor/producto se conserva válida.
+Las afirmaciones «recepción pendiente» anteriores describen la etapa048.
+Próxima parte: archivo 24h y retirar limpieza semanal por código; luego entregas.

@@ -128,6 +128,9 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
   const id = idBuzonValido(facturaProveedorId);
 
   return enTransaccion(async (cliente) => {
+    // Mismo orden de bloqueo que vínculos y recepciones: decidir la modalidad
+    // antes de bloquear el buzón evita carreras y dobles entradas de stock.
+    await cliente.query('SELECT pg_advisory_xact_lock(46005,1)');
     const { rows: facturas } = await cliente.query(
       'SELECT * FROM facturas_proveedores WHERE id = $1 FOR UPDATE', [id]
     );
@@ -216,6 +219,8 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
 
     // En unidades propias, incluido el factor del proveedor. El kardex usa
     // esta misma transacción: un fallo revierte también compra y costos.
+    // 049: si la compra nueva ya está vinculada, solo cantidades físicamente
+    // recibidas entran al kardex; aceptar la factura todavía no acredita stock.
     await reconciliarDocumentoEn(cliente, 'compra', compra.id, usuarioId);
 
     let costosActualizados = 0;

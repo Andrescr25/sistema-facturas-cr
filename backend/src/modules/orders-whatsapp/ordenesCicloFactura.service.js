@@ -14,7 +14,7 @@ async function ordenEn(db,id,opciones){
   // para UI, que puede perder fracciones en órdenes grandes.
   o.lineas=o.lineas.map(l=>({...l,cantidad_propia:rows.find(r=>r.id===l.id).cantidad_propia}));return o;
 }
-const enviada=o=>{if(o.estado!=='enviada')throw httpError(409,'Vinculá el comprobante a una orden con envío confirmado.');};
+const enviada=o=>{if(!['enviada','parcialmente_recibida'].includes(o.estado))throw httpError(409,'Vinculá el comprobante a una orden con envío confirmado.');};
 const micro=v=>{const [a,b='']=String(v).split('.');if(!/^\d+$/.test(a)||!/^\d{0,6}$/.test(b))throw httpError(409,'Una cantidad del comprobante requiere revisión.');return BigInt(a)*1000000n+BigInt(b.padEnd(6,'0'))};
 const cantidad=v=>Number(v)/1000000;
 
@@ -112,6 +112,7 @@ async function vinculoEn(db,o,id){const {rows:[v]}=await db.query('SELECT * FROM
 async function retirar(id,vinculoId,datos,usuarioId){
   const motivo=typeof datos?.motivo==='string'?datos.motivo.trim():'';if(!motivo||motivo.length>1000)throw httpError(400,'Indicá el motivo para corregir el vínculo (hasta 1000 caracteres).');
   return enOrden(async db=>{const o=await ordenEn(db,id,{bloquear:true}),v=await vinculoEn(db,o,vinculoId);enviada(o);
+    if((await db.query('SELECT 1 FROM orden_compra_ciclo_recepcion_linea WHERE vinculo_id=$1 LIMIT 1',[v.id])).rows.length)throw httpError(409,'Este vínculo respalda una recepción física; no se retira sin corregir esa recepción.');
     if(v.estado==='vigente'){await db.query("UPDATE orden_compra_ciclo_factura SET estado='retirada',motivo=$2,retirado_por=$3,retirado_en=NOW() WHERE id=$1",[v.id,motivo,usuarioId||null]);
       await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'retirar_factura',despues:{vinculoId:v.id},usuarioId,motivo});}
     return datosEn(db,o);
@@ -139,4 +140,4 @@ async function descargarPdf(id,vinculoId,pdfId){return enOrden(async db=>{
   if(!p)throw httpError(404,'Este PDF no corresponde a la factura de la orden.');
   return {pdf:await archivos.leer(p),nombreArchivo:`factura-${v.factura_id}-${p.tipo}.pdf`};
 })}
-module.exports={consultar,candidatas,proponer,vincular,retirar,guardarPdf,descargarPdf,comparar};
+module.exports={consultar,candidatas,proponer,vincular,retirar,guardarPdf,descargarPdf,comparar,interno:{uuid,identidad,hash}};

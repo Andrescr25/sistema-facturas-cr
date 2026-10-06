@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Compras — ya no toca Alegra para registrar una compra
 estado: vigente
 archivos:
+  - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/compras/liberarCuentaPorPagar.js
   - backend/src/modules/pagos-recurrentes/scrapers/facturas-recibidas.adapter.js
@@ -13,7 +14,7 @@ archivos:
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -108,6 +109,11 @@ seguimiento fiscal separados; no repetir el movimiento comercial al enviar.
 revisión/pendiente y reservas por faltante. No crea compra ni mueve stock;
 047 añade PDF revisado/envío inmutable y cobertura solicitada, sin stock.
 048 añade vínculo explícito del buzón/PDF y comparación, ver
-[[modulo/facturas-ordenes-compra]], sin invocar este registro. Recepción física
-sigue pendiente. Reutilizar este registro de compra con su entrada idempotente al diseñar recepción;
-una factura aceptada comercialmente no acredita recepción física completa.
+[[modulo/facturas-ordenes-compra]], sin invocar este registro. 049 añade recepción
+física, ver [[modulo/recepcion-ordenes-compra]]. Registro comercial mantiene
+aceptación financiera explícita. Compra NUEVA ya vinculada usa modalidad fija
+inventario_por_recepcion=true: no suma stock al registrar, solo según eventos
+físicos, con mismo origen compra/id. Compra anterior false mantiene entrada
+comercial; recepción no la acredita otra vez. No importar histórico sin kardex
+como stock nuevo. Advisory común 46005/1 antes del bloqueo de buzón protege
+el orden entre registro/vínculo/recepción.

@@ -22,8 +22,8 @@ por cliente/ciclo y PDF visual con fotos implementados.
 [envío de órdenes](informes/envio-ordenes-ciclo-2026-10-06.md). Bodega/reportes,
 procedencia, PDF revisado, envío inmutable y cobertura pendiente de recibir
 implementados. Vínculo/PDF privado y comparación de factura implementados, ver
-[factura/PDF](informes/facturas-ordenes-2026-10-06.md). Siguen recepción física,
-carga/entrega y archivo. Operativo 61/38.
+[factura/PDF](informes/facturas-ordenes-2026-10-06.md). Recepción física parcial/final con kardex idempotente implementada (049);
+siguen carga/entrega y archivo. Operativo 68/31.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -70,10 +70,10 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
 - [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
   Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
-  incertidumbre implementados. Faltan parcial/recibida/cierre de enviada y
-  cantidades recibidas. Reserva sin confirmación no es envío confirmado.
-- [ ] Recepción parcial/final. Vínculo, comparación solicitada/facturada y PDF
-  privado ya implementados (048); no ingresan inventario ni registran compra.
+  incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; falta cierre de enviada. Reserva sin confirmación no es envío confirmado.
+- [x] Recepción parcial/final (049): unidades físicas, motivos, auditoría y
+  kardex por delta; aceptación comercial explícita separada, sin doble entrada.
+  PDF/vínculo (048) permanece privado. Archivo/correcciones físicas pendientes.
 - [ ] Carga/entrega ordenadas y avance por cliente/documento.
 - [ ] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado.
 - [ ] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.

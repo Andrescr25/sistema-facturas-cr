@@ -8,11 +8,11 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-05
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+medido: 2026-10-06
 ---
 
-**Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío/cobertura de recepción pendientes.** La ruta define el
+**Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; entrega/archivo pendientes.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /
 semana 12/10/2026. Pedido, faltante y compra deben conservar ese contexto.
 Relacionarlos solo por ruta mezcla semanas diferentes al repetir el recorrido.
@@ -45,3 +45,7 @@ Recorrido aplicado a preparación, consulta filtrada del proveedor separada
 del borrador global. Informe operacion-ciclos-2026-10-05 y [[modulo/faltantes]].
 Borradores propios y reservas por origen/ciclo en la 046:
 [[modulo/ordenes-compra-por-ciclo]]. No confundir reserva con envío confirmado.
+
+049 aplica recepción física sin cambiar contexto. Cobertura final recibida se
+asigna a orígenes del ciclo propio; cantidad de otra semana no se consume. Ver
+[[modulo/recepcion-ordenes-compra]]. Carga/entregas y archivo siguen pendientes.

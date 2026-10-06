@@ -166,15 +166,16 @@ base habitual. Lo ya implementado no se vuelve a abrir: el checklist de
 independencia conserva 133 hechos / 14 abiertos, incluidos aceptación REAL de
 Hacienda y corte. El operativo se cuenta por separado.
 
-Continuidad al 2026-10-06: bodega/reportes por ciclo, catálogo con cuatro
-productos por hoja y órdenes con PDF revisado/envío inmutable y cobertura
-implementados. Factura del proveedor: vínculo explícito, PDF privado adjuntado
-o representación identificada de datos y comparación solicitada/facturada,
-excesos e historial de corrección terminados. Operativo **61/38** (99 IDs),
-ver [factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md).
-Próxima parte: recepción física parcial/final idempotente integrada con
-compra/kardex existente; luego carga/entrega y retiro individual 24 h conservando
-historial. Una factura no acredita recepción ni agotamiento. Si reúne varias
-órdenes, falta asignación explícita por línea/cantidad; no sumar una factura
-completa dos veces. La limpieza global del domingo sigue pendiente de retirar
-por código: mantener lanzador seguro; nunca ejecutar cron/botón para probar.
+Continuidad al 2026-10-06: catálogo de cuatro productos por hoja, rutas/ciclos,
+pedidos, bodega/reportes, órdenes con PDF/envío inmutable, vínculo/PDF privado
+y comparación solicitada/facturada ya implementados. Recepción física 049:
+parcial/final, cantidades propias, motivos confirmados, auditoría y kardex
+idempotente, sin confundir aceptación financiera con entrega. Operativo
+**68/31** (99 IDs), ver [recepción](informes/recepcion-ordenes-2026-10-06.md).
+Compras nuevas registradas después del vínculo esperan entrega física para
+stock; compras anteriores mantienen su tratamiento comercial sin nueva entrada.
+Históricos sin kardex propio no se importan como stock por recibirlos.
+Siguiente: retiro de limpieza semanal por código y archivo individual 24 h
+conservando historial, luego carga/entregas. Mantener lanzador seguro; nunca
+ejecutar cron/botón para probar. Factura con varias órdenes aún necesita
+asignación explícita por línea/cantidad, sin contarla completa dos veces.

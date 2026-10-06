@@ -1,9 +1,10 @@
 ---
 id: modulo/ordenes-compra-por-ciclo
 tipo: modulo
-titulo: Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción pendiente
+titulo: Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción física separada
 estado: vigente
 archivos:
+  - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/046_ordenes_compra_por_ciclo.sql
   - backend/migrations/independencia/047_envio_orden_compra_ciclo.sql
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
@@ -23,14 +24,14 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
 
 ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo.
 048/f41ce85 añade factura/PDF/comparación, ver [[modulo/facturas-ordenes-compra]].
-Validación vigente 2.081 pruebas, app local segura backend PID97018. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
+La validación 2.081 y PID97018 corresponden a etapa048; ver recepción vigente049. Reporte Proveedores → semana concreta o Sin ciclo → proveedor →
 Preparar orden de este ciclo. Órdenes por ciclo conserva borradores, pendientes,
 enviadas y cierres SIN envío, aunque el proveedor salga del reporte. No aplica
 cantidades ni marcas globales antiguas. Envío global retirado de la pantalla
@@ -85,8 +86,8 @@ orden enviada; en sugerencia se muestra solo cobertura asignada a sus orígenes.
 Ejemplo: 2 cajas × 6 = 12 pendientes, 10 asignadas a estas facturas, 2 excedentes
 sin cobertura de la siguiente semana. 10 enviadas + 3 nuevas deja la primera
 orden en 10 y ofrece 3 en otra; próximo ciclo conserva su necesidad independiente.
-Pedido incierto queda apartado, no solicitado confirmado. Recepción física no
-existe todavía: nunca escribir compra/stock/faltante para simular ese estado.
+Pedido incierto queda apartado, no solicitado confirmado. La etapa047 no
+registraba físico; 049 lo añade con eventos explícitos, sin simularlo desde envío.
 
 PERMISOS Y CIERRE. Rutas /por-ciclo heredan Reporte Proveedores, incluidos PDF y
 verificación manual; selects usan metadatos del permiso propio. Ficha activa por
@@ -111,9 +112,12 @@ FACTURA (048). [[modulo/facturas-ordenes-compra]] añade vínculo revisado, PDF
 privado adjuntado o representación identificada, comparación pedido/facturado,
 exceso y corrección conservada. No crea compra ni recepción ni cambia esta orden.
 
-PENDIENTE REAL. Comparación con cantidades físicamente recibidas y
-recepción parcial/final idempotente integrada con registrarCompra (evitar doble
-stock), cierre de enviada, carga/entrega y archivo 24 h. OC-03 y FAL-04 parciales;
-FAL-03/07/08, REC-05/06/07/09/10/11, ENT y ARC siguen abiertos. Limpieza semanal pendiente POR
-CÓDIGO; jamás ejecutarla. App local 5174→3002 usa lanzador seguro. Próxima SQL 049.
-Preservar ruta/ciclo cancelado del usuario, inventario provisional cero e históricos.
+RECEPCIÓN (049). [[modulo/recepcion-ordenes-compra]] añade parcial/recibida,
+recibido por línea y comparación, cobertura final solo por cantidad física.
+Cabecera comercial/bytes/orígenes conservados. Sugerencia distingue recibido y
+pendiente asignados a necesidades; un excedente no compra/cubre próxima semana.
+
+PENDIENTE REAL. Cierre de enviada, FAL-03/04/08, carga/entrega, archivo 24 h y
+limpieza semanal POR CÓDIGO; nunca ejecutarla. OC-03 parcial por cierre de enviada.
+Próxima SQL 050; preservar ruta/ciclo cancelado y stock provisional 0. Relevo
+vigente en informe recepción; cifras/puertos de validaciones anteriores históricas.

@@ -4,13 +4,14 @@ tipo: tabla
 titulo: Kardex propio, documento de origen y apertura provisional
 estado: vigente
 archivos:
+  - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/042_inventario_propio.sql
   - backend/src/modules/inventario/inventario.service.js
   - backend/tests/inventarioPropio.test.js
 aristas:
   depende_de: [decision/inventario-desde-cero]
-  relacionado: [modulo/inventario, tabla/compra-linea, modulo/facturacion]
-medido: 2026-10-05
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/inventario, tabla/compra-linea, modulo/facturacion]
+medido: 2026-10-06
 ---
 
 Implementado en la 042 y probado en copia PostgreSQL desechable. Nueve
@@ -49,3 +50,12 @@ y series idénticas antes/después. Backend local 3002 con lanzador aislado:
 HTTP confirma cero provisional y listas nuevas vacías. Producción intacta.
 Sin conteos, indicadores del panel en cero; no mostrar 100% de precisión
 sin una medición.
+
+RECEPCIÓN049. [[modulo/recepcion-ordenes-compra]] separa aceptación comercial de
+entrada física SOLO en compras nuevas ya vinculadas al INSERT. Modalidad fija
+inventario_por_recepcion=true, cantidades propias de eventos, origen compra/id y
+delta incremental en misma transacción. Costo de las partidas del evento físico actual, sin revalorar lo previo ni
+restar valores ya redondeados (regalía posterior conserva costo cero). Compras anteriores mantienen entrada comercial,
+sin nueva acreditación ni importación de stock histórico. Línea ya recibida
+inmutable por SQL; no corregirla editando su cantidad/factor/producto. Las frases
+sobre entrada íntegra al registrar describen compras false y la etapa042.

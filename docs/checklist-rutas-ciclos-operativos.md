@@ -4,7 +4,7 @@ Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
 bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
 cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
-comparación solicitada/facturada implementados; recepción física y entregas pendientes.
+comparación y recepción física parcial/final implementadas; carga, entregas y archivo pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -14,9 +14,10 @@ comparación solicitada/facturada implementados; recepción física y entregas p
 [operación por ciclos](informes/operacion-ciclos-2026-10-05.md) y
 [borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md) y
 [envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md) y
-[factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md).
-Estado vigente: **61 listos / 38 pendientes (99 IDs)**. Las cifras en las
-entregas anteriores son históricas; este estado no cierra recepción ni archivo.
+[factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md) y
+[recepción física](informes/recepcion-ordenes-2026-10-06.md).
+Estado vigente: **68 listos / 31 pendientes (99 IDs)**. Las cifras en las
+entregas anteriores son históricas; este estado no cierra carga/entregas ni archivo.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -195,7 +196,7 @@ pendientes (99 IDs)**. Ver informe de esta parte.
 - [x] FAL-05 — Descontar cobertura válida de órdenes existentes al sugerir
   nuevas compras, aun antes del ingreso físico a bodega.
 - [x] FAL-06 — Una cantidad comprada no cubre dos necesidades/ciclos a la vez.
-- [ ] FAL-07 — Recepción parcial actualiza pendiente y cobertura sin contar
+- [x] FAL-07 — Recepción parcial actualiza pendiente y cobertura sin contar
   dos veces el inventario ni ignorar conversiones de unidad del proveedor.
 - [ ] FAL-08 — Cancelación/cierre sin recepción libera solo la cobertura que
   corresponde y conserva el motivo/historial.
@@ -255,14 +256,14 @@ Validación y relevo en el informe de esta parte. No mensajes reales.
 - [x] REC-03 — Si falta el original, facilitar carga/recuperación y distinguir
   una representación del XML del PDF original del proveedor.
 - [x] REC-04 — Comparar producto y cantidad pedidos contra facturados.
-- [ ] REC-05 — Registrar cantidad físicamente recibida separada de facturada.
-- [ ] REC-06 — Mostrar lo recibido conforme a la orden.
-- [ ] REC-07 — Mostrar faltantes y motivo; «agotado» solo si fue confirmado,
+- [x] REC-05 — Registrar cantidad físicamente recibida separada de facturada.
+- [x] REC-06 — Mostrar lo recibido conforme a la orden.
+- [x] REC-07 — Mostrar faltantes y motivo; «agotado» solo si fue confirmado,
   sin adivinar la causa de una línea que no aparece.
 - [x] REC-08 — Mostrar productos o cantidades facturados de más y su diferencia.
-- [ ] REC-09 — Recepción parcial conserva lo pendiente y permite otra recepción.
-- [ ] REC-10 — Recepción final registra fecha/hora y conserva auditoría.
-- [ ] REC-11 — Vinculación/recepción repetida no duplica compra ni entrada de stock.
+- [x] REC-09 — Recepción parcial conserva lo pendiente y permite otra recepción.
+- [x] REC-10 — Recepción final registra fecha/hora y conserva auditoría.
+- [x] REC-11 — Vinculación/recepción repetida no duplica compra ni entrada de stock.
 
 **Parte de factura/PDF, 2026-10-06:** REC-01/02/03/04/08 cerrados con 048: vínculo
 explícito del proveedor, revisión/version/firma, PDF adjuntado privado o
@@ -276,6 +277,24 @@ Código `f41ce85`, solo local: 2.081 pruebas/364 suites sin fallos/omitidas,
 grafo 12, build, Chromium 1440/390 y PDF nativo aprobados. 048 local con
 respaldo, dos tablas vacías y 23 huellas iguales; stock/conteos/movimientos cero.
 Evidencia y limitaciones: [informe de esta parte](informes/facturas-ordenes-2026-10-06.md).
+
+
+**Recepción física, 049, 2026-10-06:** REC-05/06/07/09/10/11 y FAL-07
+comprobados. Cantidades nuevas por entrega en unidades propias; parcial conserva
+pendiente y cobertura, final exige motivo confirmado para toda diferencia,
+fecha del servidor y eventos inmutables con actor. «Agotado» solo por selección
+y detalle explícitos; no deducido de factura o faltante. Reintento y dos
+operadores no duplican compra ni stock. Compras NUEVAS registradas después del
+vínculo aceptan finanzas/precios/CxP, pero stock entra según recibido. Las
+anteriores conservan su entrada comercial y no se acreditan de nuevo; históricos
+sin kardex propio no se importan como mercadería nueva. Conversión revisada,
+delta físico y costo por partida; no aceptar mercadería sin compra revisada.
+Final 6 de 10 conserva cobertura 6 y libera solo 4, sin resolver automáticamente
+faltantes de clientes ni mezclar la semana próxima. FAL-04 sigue parcial por
+vista completa de todos los conceptos/stock comprometido; OC-03 por cierre de
+orden enviada. VAL-03 conserva archivo 24 h pendiente, y VAL-04–07 validación
+integral pendiente. Informe, pruebas y aplicación local:
+[informe de recepción](informes/recepcion-ordenes-2026-10-06.md).
 
 ## 8. Preparación, carga y entrega
 

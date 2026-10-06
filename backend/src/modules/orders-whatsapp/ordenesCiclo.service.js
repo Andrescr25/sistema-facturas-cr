@@ -56,12 +56,14 @@ async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false }={
   const {rows}=await db.query(`SELECT f.id AS "faltanteId",f.producto_propio_id AS "productoId",f.cantidad_faltante,
     p.nombre,p.referencia,fa.id AS "facturaId",fa.numero,fa.cliente_id,fa.cliente_nombre,fa.preventa_anticipada,rc.orden,
     m.id AS mapping_id,m.supplier_code,m.supplier_desc,COALESCE(m.factor_conversion,1) AS factor_conversion,
-    COALESCE((SELECT SUM(r.cantidad) FROM orden_compra_ciclo_origen r
-      JOIN orden_compra_ciclo_linea l ON l.id=r.linea_id JOIN orden_compra_ciclo o ON o.id=l.orden_id
-      WHERE r.faltante_id=f.id AND o.estado<>'cerrada' AND ($4::int IS NULL OR o.id<>$4)),0) AS reservada,
-    COALESCE((SELECT SUM(r.cantidad) FROM orden_compra_ciclo_origen r
-      JOIN orden_compra_ciclo_linea l ON l.id=r.linea_id JOIN orden_compra_ciclo o ON o.id=l.orden_id
-      WHERE r.faltante_id=f.id AND o.estado='enviada' AND ($4::int IS NULL OR o.id<>$4)),0) AS solicitada
+    COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
+      WHERE r.faltante_id=f.id AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS reservada,
+    COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
+      WHERE r.faltante_id=f.id AND r.estado IN ('enviada','parcialmente_recibida','recibida') AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS solicitada,
+    COALESCE((SELECT SUM(GREATEST(r.cobertura-r.cantidad_recibida,0)) FROM orden_compra_ciclo_cobertura r
+      WHERE r.faltante_id=f.id AND r.estado IN ('enviada','parcialmente_recibida') AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS pendiente_recibir,
+    COALESCE((SELECT SUM(r.cantidad_recibida) FROM orden_compra_ciclo_cobertura r
+      WHERE r.faltante_id=f.id AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS recibida
     FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id JOIN factura fa ON fa.id=f.factura_propia_id
     LEFT JOIN ciclo_ruta_cliente rc ON rc.id=fa.ciclo_ruta_cliente_id
     LEFT JOIN LATERAL (SELECT m.* FROM supplier_product_mapping m WHERE m.producto_id=p.id
@@ -79,10 +81,10 @@ function agrupar(rows) {
   for (const r of rows) {
     if (!grupos.has(r.productoId)) grupos.set(r.productoId,{productoId:r.productoId,nombre:r.nombre,codigo:r.referencia,
       codigoProveedor:r.supplier_code,nombreProveedor:r.supplier_desc,mappingId:r.mapping_id,
-      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0,reservada:0,solicitada:0,reservadaBorrador:0,pendienteRecibir:0,disponible:0,origenes:[]});
+      factorConversion:Number.isFinite(Number(r.factor_conversion))?Number(Number(r.factor_conversion).toFixed(6)):null,faltante:0,reservada:0,solicitada:0,reservadaBorrador:0,pendienteRecibir:0,recibida:0,disponible:0,origenes:[]});
     const p=grupos.get(r.productoId),diferencia=micros(r.cantidad_faltante)-micros(r.reservada),libre=diferencia>0n?diferencia:0n;
     p.faltante+=Number(r.cantidad_faltante);p.reservada+=Number(r.reservada);p.disponible+=Number(cantidadDe(libre));
-    p.solicitada+=Number(r.solicitada);p.pendienteRecibir+=Number(r.solicitada);
+    p.solicitada+=Number(r.solicitada);p.pendienteRecibir+=Number(r.pendiente_recibir);p.recibida+=Number(r.recibida);
     p.reservadaBorrador+=Number(r.reservada)-Number(r.solicitada);
     p.origenes.push({...r,disponible:cantidadDe(libre)});
   }
@@ -96,7 +98,7 @@ function dto(o) { return {...o,referencia:`OC-${o.id}`,ciclo:o.ciclo_id?{id:o.ci
 async function obtenerEn(db,id,{ bloquear=false }={}) {
   const {rows:[o]}=await db.query(`SELECT *,semana::text FROM orden_compra_ciclo WHERE id=$1 ${bloquear?'FOR UPDATE':'FOR SHARE'}`,[entero(id)]);
   if (!o) throw httpError(404,'No existe esa orden.');
-  const {rows:lineas}=await db.query(`SELECT l.*,COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.orden_visita,r.faltante_id) FILTER(WHERE r.linea_id IS NOT NULL),'[]') origenes
+  const {rows:lineas}=await db.query(`SELECT l.*,COALESCE((SELECT SUM(rl.cantidad) FROM orden_compra_ciclo_recepcion_linea rl JOIN orden_compra_ciclo_recepcion re ON re.id=rl.recepcion_id JOIN compra_linea cl ON cl.id=rl.compra_linea_id WHERE re.orden_id=l.orden_id AND cl.producto_id=l.producto_id),0) cantidad_recibida,COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.orden_visita,r.faltante_id) FILTER(WHERE r.linea_id IS NOT NULL),'[]') origenes
     FROM orden_compra_ciclo_linea l LEFT JOIN orden_compra_ciclo_origen r ON r.linea_id=l.id
     WHERE l.orden_id=$1 GROUP BY l.id ORDER BY l.id`,[o.id]);
   const {rows:envios}=await db.query(`SELECT id,version_orden,numero,mensaje,nombre_archivo,sha256,octet_length(pdf) bytes,

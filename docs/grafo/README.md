@@ -22,9 +22,11 @@ toca, qué no se regenera).
 
 ## Módulos
 
-- [Factura del proveedor en la orden — PDF privado y comparación; recepción pendiente](modulo/facturas-ordenes-compra.md)
+- [Recepción física — parcial/final, motivos e inventario por entrega](modulo/recepcion-ordenes-compra.md)
 
-- [Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción pendiente](modulo/ordenes-compra-por-ciclo.md)
+- [Factura del proveedor en la orden — PDF privado y comparación](modulo/facturas-ordenes-compra.md)
+
+- [Órdenes por ciclo — PDF revisado, envío inmutable, cobertura y recepción](modulo/ordenes-compra-por-ciclo.md)
 
 - [Preventa — PDF con fotos y cuatro productos por hoja, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
 
@@ -79,8 +81,8 @@ toca, qué no se regenera).
 
 ## Decisiones
 
-- [El ciclo conserva recorrido/documentos, órdenes y envío; recepción pendiente](decision/ciclo-de-ruta-como-contexto.md)
-- [Orden enviada inmutable y factura vinculada; recepción y archivo 24 h pendientes](decision/orden-enviada-y-archivo-por-recepcion.md)
+- [El ciclo conserva recorrido/documentos, órdenes, envío y recepción](decision/ciclo-de-ruta-como-contexto.md)
+- [Orden enviada inmutable y factura y recepción; archivo 24 h pendiente](decision/orden-enviada-y-archivo-por-recepcion.md)
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)
 - [El total del comprobante manda, no la suma de las líneas](decision/el-total-manda-sobre-las-lineas.md)
 - [El avance de una factura del buzón se cuenta desde sus líneas — soltar una relación no inventa un estado](decision/el-avance-de-la-factura-sale-de-sus-lineas.md)
