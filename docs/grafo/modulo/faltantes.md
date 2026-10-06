@@ -232,3 +232,9 @@ persistentes/cobertura/recepción pendientes, no interpretar la consulta como
 compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
 Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
 Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.
+
+Integrado localmente en 8e656fa: 2.011 pruebas aprobadas, grafo 12, build y
+Chromium 1440/390 (tres módulos y dos Excel). Compartida solo GET, 16 huellas
+del inicio y 19 de la integración iguales; inventario cero/históricos
+conservados. Reserva propia se retira al cerrar; no nueva migración,
+próxima 046. Operativo 44/55. Sigue órdenes/cobertura por ciclo.

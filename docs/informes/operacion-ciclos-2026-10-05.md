@@ -71,3 +71,15 @@ Evidencia/dump/guiones privados:
 /private/tmp/codex-operacion-ciclos-20261005. No reutilizar los que dependan
 del worktree retirado. Sin push ni cambios a developer/main/DB producción,
 IMAP, mensajes reales o aceptación fiscal. Preservar archivo fiscal/ensayos.
+
+Integración **8e656fa**, SOLO LOCAL, sin push. Compartida 5174→3002
+verificada SOLO GET: selectores vacíos, filtros/componentes nuevos servidos,
+consulta explícita de ciclo inexistente vacía (sin asignaciones automáticas),
+PDF previo 404/401 y vista Rutas 1440/390 sin errores/desborde. **16 huellas
+del inicio iguales** y **19 iguales antes/después de integrar**, incluidas
+faltantes, ajustes y orden_compra_temporal. Stock cero provisional, sin rutas
+ni ciclos demo e históricos conservados. Backend 3002 con lanzador seguro
+existente (PID 73752 al cerrar). Developer 5013270, main e19c3e5 y original
+3000/PID 5370 conservados. Solo base/servidores propios retirados; worktree
+y rama temporal se retiran tras integrar este relevo. Evidencia privada,
+PDF real del usuario y archivo fiscal/ensayos anteriores conservados.

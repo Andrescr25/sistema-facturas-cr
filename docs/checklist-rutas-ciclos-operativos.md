@@ -1,7 +1,8 @@
 # Checklist: clientes, rutas y ciclos operativos
 
 Solicitud y aclaración del usuario: **2026-10-05**.
-Estado: rutas/ciclos, ficha, pedidos/facturas, enlaces y PDF con fotos implementados; bodega, compras y entregas pendientes.
+Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
+bodega/reportes y procedencia implementados. Órdenes, cobertura y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -154,7 +155,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [ ] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
   sin asignaciones automáticas supuestas.
 
-Parte de operación (2026-10-05): FIL-04/05/06/08, FAL-02 y ENT-02
+Parte de operación (`8e656fa`, solo local): FIL-04/05/06/08, FAL-02 y ENT-02
 implementados. Bodega y reportes filtran el recorrido fijo de la factura;
 Sin ciclo conserva históricos sin reasignarlos. Bodega prepara por parada,
 selector incluye semana/estado y Maps del recorrido se abre en el detalle.
