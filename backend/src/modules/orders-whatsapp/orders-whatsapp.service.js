@@ -11,6 +11,7 @@ const { query } = require('../../../config/database');
 const whatsapp = require('../../integrations/whatsapp');
 const enviosWhatsapp = require('../envios-whatsapp/envios.service');
 const cicloPedidos = require('./cicloPedidos');
+const { httpError } = require('../../utils/validacion');
 
 /**
  * Deja un teléfono costarricense como lo espera WhatsApp: 506 + 8 dígitos.
@@ -597,10 +598,8 @@ class OrdersWhatsappService {
    * que no marcarlo.
    */
   async getOrdenesEnviadas(desde) {
-    // Y desde el último reinicio del ciclo de pedidos (cicloPedidos.js): la
-    // limpieza semanal vuelve a todos a "Sin enviar". GREATEST ignora el
-    // NULL de un reporte sin fecha de inicio.
-    await cicloPedidos.asegurarTabla();
+    // Conservar el corte histórico explícito y la fecha del reporte;
+    // nunca reiniciar por cambio de semana ni crear tablas en una consulta.
     const result = await query(`
       SELECT referencia,
              MAX(creado_en) AS ultimo_envio,
@@ -716,14 +715,10 @@ class OrdersWhatsappService {
   }
 
   /**
-   * Limpia toda la tabla temporal de orden de compra
+   * Compatibilidad retirada: no borrar el borrador histórico global
    */
   async limpiarCantidades() {
-    const countResult = await query('SELECT COUNT(*) FROM orden_compra_temporal');
-    const totalRegistros = parseInt(countResult.rows[0].count);
-
-    await query('DELETE FROM orden_compra_temporal');
-    return totalRegistros;
+    throw httpError(410, 'La limpieza global fue retirada. Las órdenes conservan su historial.');
   }
 
   /**

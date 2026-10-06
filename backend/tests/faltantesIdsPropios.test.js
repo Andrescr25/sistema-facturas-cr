@@ -401,17 +401,13 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     await assert.rejects(() => m.cola.encolarDesdeReporte(A), (e) => e.status === 409 && /anulada/.test(e.message));
   });
 
-  test('el SQL que no se ejecuta acá (limpiezas, auditoría) es válido para Postgres', async () => {
-    for (const [archivo, marcador] of [
-      ['src/modules/reports/report.service.js', 'SET bodega_observaciones = NULL'],
-      ['services/scheduledCleanup.js', 'SET bodega_observaciones = NULL']
-      // La selección crítica propia se ejecuta en auditoriasPropias.test.js.
-      // El diagnóstico de `missing-items` estuvo en esta lista hasta el
-      // 2026-10-04: se retiró, sin pantalla y leyendo la tabla vieja `productos`.
-    ]) {
-      const error = await errorAlAnalizar(sqlDe(archivo, marcador));
-      assert.equal(error, null, `${archivo}: ${error?.message}`);
-    }
+  test('el rechazo de la API retirada conserva faltantes, ajustes y observaciones', async () => {
+    const huella = async () => (await cliente.query(`SELECT
+      (SELECT jsonb_agg(to_jsonb(f) ORDER BY id) FROM faltantes f) faltantes,
+      (SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM faltantes_ajustes a) ajustes,
+      (SELECT jsonb_agg(jsonb_build_array(id,bodega_observaciones) ORDER BY id) FROM factura) notas`)).rows[0];
+    const antes=await huella(),r=await m.reportes.clearProcessedSupplierMissingItems();
+    assert.equal(r.status,410);assert.equal(r.success,false);assert.deepEqual(await huella(),antes);
   });
 
   test('la verificación sirve: una columna renombrada SÍ es rechazada', async () => {

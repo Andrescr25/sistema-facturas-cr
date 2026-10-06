@@ -13,7 +13,6 @@ require('./config/aislado');
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
-const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 const whatsapp = require('./src/integrations/whatsapp');
 
@@ -424,8 +423,8 @@ const server = app.listen(PORT, () => {
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
 
-  // Iniciar limpieza programada (Domingos 23:59)
-  iniciarLimpiezaProgramada();
+  // La operación conserva cada ciclo; el archivo de recibidas se calcula
+  // al consultar, sin limpieza global ni tareas que borren faltantes.
 
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {

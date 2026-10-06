@@ -106,7 +106,7 @@ describe('las escrituras de /reportes tienen dueño; leer sigue compartido', () 
     }
   });
 
-  test('el botón está solo en la pantalla de Configuración', () => {
+  test('la limpieza global no tiene botón en ninguna pantalla', () => {
     const recorrer = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
       const ruta = path.join(dir, e.name);
       if (e.isDirectory()) return e.name === 'node_modules' ? [] : recorrer(ruta);
@@ -117,6 +117,6 @@ describe('las escrituras de /reportes tienen dueño; leer sigue compartido', () 
       .map(ruta => path.relative(FRONTEND, ruta))
       .filter(ruta => ruta !== path.join('services', 'alegraService.js'));
 
-    assert.deepEqual(quienes, [path.join('components', 'configuracion', 'Mantenimiento.jsx')]);
+    assert.deepEqual(quienes, []);
   });
 });

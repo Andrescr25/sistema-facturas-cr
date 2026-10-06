@@ -96,7 +96,7 @@ function agrupar(rows) {
 }
 function dto(o) { return {...o,referencia:`OC-${o.id}`,ciclo:o.ciclo_id?{id:o.ciclo_id,rutaNombre:o.ruta_nombre,semana:o.semana}:null}; }
 async function obtenerEn(db,id,{ bloquear=false }={}) {
-  const {rows:[o]}=await db.query(`SELECT *,semana::text FROM orden_compra_ciclo WHERE id=$1 ${bloquear?'FOR UPDATE':'FOR SHARE'}`,[entero(id)]);
+  const {rows:[o]}=await db.query(`SELECT *,semana::text FROM orden_compra_ciclo_operativa WHERE id=$1 ${bloquear?'FOR UPDATE':'FOR SHARE'}`,[entero(id)]);
   if (!o) throw httpError(404,'No existe esa orden.');
   const {rows:lineas}=await db.query(`SELECT l.*,COALESCE((SELECT SUM(rl.cantidad) FROM orden_compra_ciclo_recepcion_linea rl JOIN orden_compra_ciclo_recepcion re ON re.id=rl.recepcion_id JOIN compra_linea cl ON cl.id=rl.compra_linea_id WHERE re.orden_id=l.orden_id AND cl.producto_id=l.producto_id),0) cantidad_recibida,COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.orden_visita,r.faltante_id) FILTER(WHERE r.linea_id IS NOT NULL),'[]') origenes
     FROM orden_compra_ciclo_linea l LEFT JOIN orden_compra_ciclo_origen r ON r.linea_id=l.id
@@ -197,12 +197,15 @@ async function listar({rutaId,cicloId,proveedorId,vista='activas'}={}) {
   filtrosOperacion({rutaId,cicloId},where,params);
   // El filtro compartido usa rc.id para Sin ciclo; rc representa aquí la orden.
   const filtros=where.map(s=>s.replaceAll('rc.id IS NULL','o.ciclo_id IS NULL'));
-  filtros.push(vista==='activas'?"o.estado<>'cerrada'":"o.estado='cerrada'");
+  // La vista usa la hora de PostgreSQL. Archivar no libera cobertura ni
+  // cambia el estado comercial; parciales siguen activas sin límite semanal.
+  filtros.push(vista==='activas'?"o.estado<>'cerrada' AND NOT o.archivada":"(o.estado='cerrada' OR o.archivada)");
   if (proveedorId!=null&&proveedorId!=='') {params.push(entero(proveedorId));filtros.push(`o.proveedor_id=$${params.length}`)}
-  const {rows}=await pool.query(`SELECT o.*,o.semana::text,COUNT(l.id)::int productos,COALESCE(SUM(l.cantidad_propia),0) cantidad_propia
-    FROM orden_compra_ciclo o LEFT JOIN ciclo_ruta cr ON cr.id=o.ciclo_id
-    LEFT JOIN orden_compra_ciclo_linea l ON l.orden_id=o.id WHERE ${filtros.join(' AND ')}
-    GROUP BY o.id ORDER BY o.semana DESC NULLS LAST,o.id DESC`,params);
+  const {rows}=await pool.query(`SELECT o.*,o.semana::text,CURRENT_TIMESTAMP AS consultada_en,l.productos,l.cantidad_propia
+    FROM orden_compra_ciclo_operativa o LEFT JOIN ciclo_ruta cr ON cr.id=o.ciclo_id
+    LEFT JOIN LATERAL (SELECT COUNT(*)::int productos,COALESCE(SUM(cantidad_propia),0) cantidad_propia
+      FROM orden_compra_ciclo_linea WHERE orden_id=o.id) l ON TRUE
+    WHERE ${filtros.join(' AND ')} ORDER BY o.semana DESC NULLS LAST,o.id DESC`,params);
   return rows.map(dto);
 }
 module.exports={sugerir,crear,editar,cambiarEstado,listar,obtener:id=>enTransaccion(pool,db=>obtenerEn(db,id)),

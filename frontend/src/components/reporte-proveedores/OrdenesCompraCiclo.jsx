@@ -10,6 +10,7 @@ import RecepcionOrdenCiclo from './RecepcionOrdenCiclo'
 const BASE='/orden-compra/por-ciclo'
 const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',parcialmente_recibida:'Parcialmente recibida',recibida:'Recibida · recepción final registrada',cerrada:'Cerrada sin envío'}
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:6})
+const fecha=v=>new Date(v).toLocaleString('es-CR',{timeZone:'America/Costa_Rica'})
 
 /** Las cantidades de este flujo son propias; no leer el borrador global. */
 export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
@@ -27,6 +28,18 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
       .catch(e=>{if(vivo)setError(fallo(e))}).finally(()=>{if(vivo)setCargando(false)})
     return()=>{vivo=false}
   },[filtro.params,vista,revision])
+  useEffect(()=>{
+    if(orden||sugerencia||ocupado||cargando)return
+    // Programar la próxima consulta con la diferencia de horas DEL SERVIDOR;
+    // el reloj del celular no decide qué se archiva. Consultar al recuperar
+    // foco cubre una pestaña suspendida. No reemplazar formularios abiertos.
+    const pendientes=lista.filter(o=>o.archivo_programado_en&&!o.archivada)
+      .map(o=>new Date(o.archivo_programado_en)-new Date(o.consultada_en)).filter(Number.isFinite)
+    const refrescar=()=>setRevision(r=>r+1)
+    const timer=pendientes.length?setTimeout(refrescar,Math.min(2147483647,Math.max(1000,Math.min(...pendientes)+1000))):null
+    window.addEventListener('focus',refrescar)
+    return()=>{clearTimeout(timer);window.removeEventListener('focus',refrescar)}
+  },[lista,orden,sugerencia,ocupado,cargando])
   useEffect(()=>{lectura.current++;setOrden(null);setSugerencia(null);setMensaje('');solicitud.current=null},[ambito])
   useEffect(()=>{
     // El botón de Faltantes inicia UNA revisión. Cambiar luego el filtro en
@@ -99,6 +112,8 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         <h2 className="break-words text-xl font-bold">{orden?orden.referencia:'Nueva orden'} · {orden?.proveedor_nombre||sugerencia?.proveedor.nombre}</h2>
         <p className="break-words font-semibold">{textoCiclo(orden?.ciclo||sugerencia?.ciclo)}</p>
         <p>{orden?ESTADOS[orden.estado]:'Revisá los productos y cantidades antes de guardar.'}</p>
+        {orden?.archivada&&<p className="font-semibold">Archivada · disponible en Historial desde {fecha(orden.archivada_en)}</p>}
+        {orden?.archivo_programado_en&&!orden.archivada&&<p className="text-sm">Pasará al historial el {fecha(orden.archivo_programado_en)}, 24 horas después de la recepción final.</p>}
         {orden?.motivo_cierre&&<p>Motivo: {orden.motivo_cierre}</p>}
         <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?'Reservas liberadas. La orden conserva sus cantidades y procedencia.':orden?.estado==='recibida'?'Recepción final registrada; cantidades originales y procedencia conservadas.':orden?.enviada_en?'Las cantidades solicitadas conservan su cobertura; la recepción física se registra abajo.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
       </div>
@@ -148,14 +163,14 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>
         <label className="text-sm font-semibold">Mostrar
           <select aria-label="Mostrar órdenes" value={vista} disabled={ocupado} onChange={e=>setVista(e.target.value)} className="ml-2 min-h-11 rounded-lg border p-2">
-            <option value="activas">Activas</option><option value="historial">Historial de cierres</option>
+            <option value="activas">Activas</option><option value="historial">Historial</option>
           </select>
         </label>
       </div>
       {!cargando&&!lista.length&&<p className="card p-5 text-neutro-600">No hay órdenes en esta selección.</p>}
       {lista.map(o=><button type="button" key={o.id} onClick={()=>abrir(o.id)} disabled={ocupado||cargando} className="card block w-full p-5 text-left hover:border-primario-400">
         <p className="break-words font-bold">{o.referencia} · {o.proveedor_nombre}</p><p className="break-words text-sm">{textoCiclo(o.ciclo)}</p>
-        <p className="mt-1 text-sm">{ESTADOS[o.estado]} · {o.productos} productos</p>
+        <p className="mt-1 text-sm">{o.archivada?'Archivada · ':''}{ESTADOS[o.estado]} · {o.productos} productos</p>
       </button>)}
     </>}
     <ConfirmModal {...dialogProps}/>

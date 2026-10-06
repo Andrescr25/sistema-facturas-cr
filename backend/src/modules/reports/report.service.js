@@ -6,7 +6,6 @@
 const { query } = require('../../../config/database');
 const { asignarProveedorAutomatico } = require('../../../services/proveedorAsignacionService');
 const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento, filtrosOperacion, listarCiclos } = require('../rutas/operacionCiclo.service');
-const cicloPedidos = require('../orders-whatsapp/cicloPedidos');
 
 class ReportService {
   /**
@@ -389,98 +388,10 @@ class ReportService {
     }
   }
 
-  /**
-   * Limpiar faltantes por proveedor y procesados (Lógica original)
-   */
+  /** Ruta antigua: responder sin consultar ni borrar datos. */
   async clearProcessedSupplierMissingItems() {
-    try {
-      console.log('🗑️ Limpiando faltantes de la BD (pendientes y procesados)...');
-
-      const faltantesPendientes = await query(`
-        SELECT f.id FROM faltantes f WHERE f.estado = 'pendiente'
-      `);
-      const faltantesProcesados = await query(`
-        SELECT f.id FROM faltantes f WHERE f.estado = 'procesado'
-      `);
-
-      if (faltantesPendientes.rows.length === 0 && faltantesProcesados.rows.length === 0) {
-        // Sin faltantes igual se resetea el ciclo: es lo que pide el botón.
-        await cicloPedidos.reiniciar();
-        return {
-          success: true,
-          message: 'No hay faltantes pendientes ni procesados para limpiar.',
-          eliminados: 0
-        };
-      }
-
-      const stats = {
-        pendientes: { faltantes: 0, ajustes: 0 },
-        procesados: { faltantes: 0, ajustes: 0 }
-      };
-
-      const faltantesPendientesIds = faltantesPendientes.rows.map(f => f.id);
-      if (faltantesPendientesIds.length > 0) {
-        const ajustesPendientes = await query(`
-          DELETE FROM faltantes_ajustes
-          WHERE faltante_id = ANY($1::int[])
-          RETURNING id
-        `, [faltantesPendientesIds]);
-
-        const pendientesEliminados = await query(`
-          DELETE FROM faltantes 
-          WHERE id = ANY($1::int[])
-          RETURNING id
-        `, [faltantesPendientesIds]);
-
-        stats.pendientes.ajustes = ajustesPendientes.rows.length;
-        stats.pendientes.faltantes = pendientesEliminados.rows.length;
-      }
-
-      const faltantesProcesadosIds = faltantesProcesados.rows.map(f => f.id);
-      if (faltantesProcesadosIds.length > 0) {
-        const ajustesProcesados = await query(`
-          DELETE FROM faltantes_ajustes
-          WHERE faltante_id = ANY($1::int[])
-          RETURNING id
-        `, [faltantesProcesadosIds]);
-
-        const procesadosEliminados = await query(`
-          DELETE FROM faltantes
-          WHERE id = ANY($1::int[])
-          RETURNING id
-        `, [faltantesProcesadosIds]);
-
-        stats.procesados.ajustes = ajustesProcesados.rows.length;
-        stats.procesados.faltantes = procesadosEliminados.rows.length;
-      }
-
-      // El encargo que Bodega anotó en la factura se va con sus faltantes.
-      // (`facturas_pendientes` ya no se vacía acá: nadie escribe en ella y su
-      // factura_id es el de la tabla vieja — migración independencia/032.)
-      await query(`
-        UPDATE factura
-        SET bodega_observaciones = NULL
-        WHERE bodega_observaciones IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1 FROM faltantes f
-            WHERE f.factura_propia_id = factura.id
-              AND f.estado = 'pendiente'
-          )
-      `);
-
-      // "Pedido enviado" vuelve a "Sin enviar" para todos (cicloPedidos.js).
-      await cicloPedidos.reiniciar();
-
-      return {
-        success: true,
-        message: `Faltantes limpiados: ${stats.pendientes.faltantes} pendientes y ${stats.procesados.faltantes} procesados.`,
-        eliminados: stats.pendientes.faltantes + stats.procesados.faltantes
-      };
-
-    } catch (error) {
-      console.error('❌ Error limpiando faltantes:', error);
-      return { success: false, error: error.message, status: error.status };
-    }
+    return { success: false, status: 410,
+      error: 'La limpieza global fue retirada. Los ciclos y faltantes conservan su historial.' };
   }
 
   /**

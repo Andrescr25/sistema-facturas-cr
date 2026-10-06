@@ -113,7 +113,7 @@ describe('cada llamada de la pantalla tiene su ruta en el servidor', () => {
     .filter(l => Object.keys(ROUTERS).some(p => l.ruta.startsWith(`${p}/`)));
 
   test('se reconocen las llamadas de las tres pantallas', () => {
-    assert.ok(llamadas.length >= 23, `se esperaban al menos 23 llamadas, se leyeron ${llamadas.length}`);
+    assert.ok(llamadas.length >= 21, `se esperaban al menos 21 llamadas, se leyeron ${llamadas.length}`);
   });
 
   for (const { archivo, metodo, ruta } of llamadas) {
@@ -163,8 +163,7 @@ describe('las dos formas en que el hueco puede volver', () => {
   test('ningún archivo de la aplicación borra `faltantes` sin filtro', () => {
     // `DELETE /faltantes/proveedor/limpiar` los borraba todos, sin pantalla.
     // Los faltantes alimentan los dos reportes y la cola de impresión. El
-    // botón de Configuración usa la del módulo de reportes, que borra solo lo
-    // procesado.
+    // camino antiguo de Configuración ahora responde 410 sin consultar.
     const recorrer = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
       const ruta = path.join(dir, e.name);
       if (e.isDirectory()) return recorrer(ruta);
@@ -177,7 +176,7 @@ describe('las dos formas en que el hueco puede volver', () => {
     assert.deepEqual(culpables, []);
     assert.match(codigo(leer('backend', 'src', 'modules', 'reports', 'report.routes.js')),
       /router\.delete\('\/faltantes\/proveedor\/limpiar', reportController\.clearProcessedSupplierMissingItems\)/);
-    assert.match(leer('frontend', 'src', 'services', 'alegraService.js'),
+    assert.doesNotMatch(leer('frontend', 'src', 'services', 'alegraService.js'),
       /api\.delete\('\/reportes\/faltantes\/proveedor\/limpiar'\)/);
   });
 });

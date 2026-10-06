@@ -48,4 +48,5 @@ Borradores propios y reservas por origen/ciclo en la 046:
 
 049 aplica recepción física sin cambiar contexto. Cobertura final recibida se
 asigna a orígenes del ciclo propio; cantidad de otra semana no se consume. Ver
-[[modulo/recepcion-ordenes-compra]]. Carga/entregas y archivo siguen pendientes.
+[[modulo/recepcion-ordenes-compra]]. 050 archiva recibida por consulta tras 24 h sin reiniciar rutas; ver
+[[modulo/archivo-ordenes-compra]]. Carga/entregas siguen pendientes.

@@ -8,13 +8,13 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
+  relacionado: [modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
 medido: 2026-10-06
 ---
 
 **Solicitud y aclaración del usuario. Borradores, envío inmutable y cobertura
 implementados, junto al vínculo/PDF, comparación y recepción física;
-archivo pendiente.** Una orden
+archivo por consulta implementado (050).** Una orden
 de compra enviada por WhatsApp conserva exactamente sus productos/cantidades.
 Si se enviaron 10 y después faltan 3 más, las 3 requieren otra orden; no se
 agregan a la anterior. Estados pedidos: borrador, pendiente de enviar, enviada,
@@ -45,14 +45,14 @@ sí se muestra solicitado y pendiente de recibir, sin crear stock. La
 confirmación manual verifica el mensaje con motivo/actor; tampoco acredita
 recepción física. Envío global viejo rechazado, históricos conservados.
 No dar por implementada recepción por confirmar el envío. La limpieza vieja
-sigue prohibida durante pruebas/desarrollo. Su retiro y el archivo nuevo
-permanecen abiertos en el checklist hasta cambiar y verificar el código.
+sigue prohibida durante pruebas/desarrollo. SQL050 retira el reinicio global y calcula el archivo individual;
+ver [[modulo/archivo-ordenes-compra]] para contratos y evidencia.
 
 048 implementa [[modulo/facturas-ordenes-compra]]: original adjuntado privado
 o representación identificada, comparación solicitada/facturada y exceso.
 Una orden puede tener varias facturas; una factura completa no cubre dos
 órdenes vigentes. Corrección con motivo conserva snapshot/PDF. 049 implementa cantidades
 físicamente recibidas y motivos confirmados, ver [[modulo/recepcion-ordenes-compra]].
-Final conserva eventos/fecha; aún no oculta orden tras 24 h. Agotado solo declarado
+Final conserva eventos/fecha; SQL050 oculta tras 24 h sin cambiar recibida. Agotado solo declarado
 explícitamente. Compras nuevas ya vinculadas ingresan stock por físico; compras
-anteriores conservadas sin doble entrada. Archivo/cierre de enviada pendientes.
+anteriores conservadas sin doble entrada. Cierre de enviada pendiente; archivo individual implementado.

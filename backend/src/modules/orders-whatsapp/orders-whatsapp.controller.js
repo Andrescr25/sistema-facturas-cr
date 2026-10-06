@@ -111,8 +111,7 @@ class OrdersWhatsappController {
       const eliminados = await this.ordersService.limpiarCantidades();
       return ResponseHelper.success(res, { registros_eliminados: eliminados }, 'Cantidades modificadas eliminadas correctamente');
     } catch (error) {
-      console.error('❌ Error eliminando cantidades:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 

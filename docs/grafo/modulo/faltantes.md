@@ -37,7 +37,7 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+  relacionado: [modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-06
 ---
 
@@ -120,11 +120,11 @@ para que no se pierdan al entrar a un cliente y volver. Dentro del pedido el
 color queda solo en el botón de la respuesta elegida y en la barra de
 progreso (vino de `developer`, 2026-10-03).
 
-LA LIMPIEZA SEMANAL (domingo 23:59 y el botón de Configuración) borra los
-faltantes y sus ajustes, limpia el encargo que Bodega anotó en la factura
-(`factura.bodega_observaciones`) y reinicia el ciclo de pedidos. Ya no vacía
-`facturas_pendientes`: nadie escribe en ella. NUNCA se ejecuta para probar —
-ni contra la base local: su SQL se verifica con PREPARE.
+LIMPIEZA SEMANAL RETIRADA (050). La implementación anterior borraba faltantes,
+ajustes, notas de bodega y reiniciaba envíos. Ya no existe ese SQL/cron/botón;
+las rutas antiguas solo rechazan 410. Nunca ejecutarla desde otra rama/copia
+ni restaurar los tests anteriores. Archivo por recepción conserva los registros.
+Ver [[modulo/archivo-ordenes-compra]].
 
 IMPRESIÓN (`procesarImpresion.js`, todo bajo `/reimpresion`, que es del
 módulo Impresión: `/facturacion` es de otro y su permiso no alcanzaría).
@@ -245,3 +245,9 @@ del inicio y 19 de la integración iguales; inventario cero/históricos
 conservados. Reserva propia se retira al cerrar; no nueva migración,
 próxima 046 en esa entrega. Operativo 44/55 en esa entrega. Continúa ahora la
 046 con borradores por ciclo, ver nuevo módulo e informe de órdenes.
+
+RETIRO SEMANAL (050). Compatibilidad scheduledCleanup no carga cron/DB;
+arranque no la programa. API global de faltantes/cantidades rechaza 410 sin
+consultar; no borrar ajustes/notas/asignaciones ni reiniciar envíos. Configuración
+explica el archivo por recepción, sin botón. [[modulo/archivo-ordenes-compra]]
+conserva historia y cobertura; faltantes mantienen su propio flujo explícito.

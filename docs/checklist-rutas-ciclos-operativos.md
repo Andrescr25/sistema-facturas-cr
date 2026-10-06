@@ -4,7 +4,8 @@ Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
 bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y
 cobertura pendiente de recibir implementados. Factura/PDF del proveedor y
-comparación y recepción física parcial/final implementadas; carga, entregas y archivo pendientes.
+comparación y recepción física parcial/final implementadas; archivo individual
+24 h y retiro semanal comprobados; carga y entregas pendientes.
 [Primera parte](informes/rutas-clientes-2026-10-05.md) y
 [segunda parte](informes/pedidos-ciclos-2026-10-05.md) y
 [tercera parte](informes/preventa-enlaces-2026-10-05.md) y
@@ -15,9 +16,10 @@ comparación y recepción física parcial/final implementadas; carga, entregas y
 [borradores por ciclo](informes/ordenes-ciclo-2026-10-05.md) y
 [envío inmutable y cobertura](informes/envio-ordenes-ciclo-2026-10-06.md) y
 [factura/PDF y comparación](informes/facturas-ordenes-2026-10-06.md) y
-[recepción física](informes/recepcion-ordenes-2026-10-06.md).
-Estado vigente: **68 listos / 31 pendientes (99 IDs)**. Las cifras en las
-entregas anteriores son históricas; este estado no cierra carga/entregas ni archivo.
+[recepción física](informes/recepcion-ordenes-2026-10-06.md) y
+[archivo individual](informes/archivo-ordenes-2026-10-06.md).
+Estado vigente: **75 listos / 24 pendientes (99 IDs)**. Las cifras en las
+entregas anteriores son históricas; este estado no cierra carga/entregas.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
 Decisiones completas: [instrucciones](instrucciones-vigentes-usuario.md).
@@ -292,7 +294,7 @@ delta físico y costo por partida; no aceptar mercadería sin compra revisada.
 Final 6 de 10 conserva cobertura 6 y libera solo 4, sin resolver automáticamente
 faltantes de clientes ni mezclar la semana próxima. FAL-04 sigue parcial por
 vista completa de todos los conceptos/stock comprometido; OC-03 por cierre de
-orden enviada. VAL-03 conserva archivo 24 h pendiente, y VAL-04–07 validación
+orden enviada. VAL-03 se cierra con la parte 050 abajo; VAL-04–07 validación
 integral pendiente. Informe, pruebas y aplicación local:
 [informe de recepción](informes/recepcion-ordenes-2026-10-06.md).
 2.103 pruebas/364 suites sin fallos/omitidas, grafo 12, build y Chromium 1440/390
@@ -311,16 +313,28 @@ y retiro de limpieza semanal por código, luego carga/entregas. Sin push/producc
 
 ## 9. Fin de limpieza semanal y archivo
 
-- [ ] ARC-01 — Retirar cron global del domingo a las 23:59 del arranque.
-- [ ] ARC-02 — Retirar los caminos de limpieza global equivalentes del botón/API.
-- [ ] ARC-03 — Tras recepción completa, ocultar orden de lista activa a las 24 h.
-- [ ] ARC-04 — Conservar orden, líneas, factura/PDF, comparación e historial.
-- [ ] ARC-05 — Vista de historial permite consultar la orden archivada.
-- [ ] ARC-06 — No archivar parciales ni reiniciar todas las rutas al cambiar
+- [x] ARC-01 — Retirar cron global del domingo a las 23:59 del arranque.
+- [x] ARC-02 — Retirar los caminos de limpieza global equivalentes del botón/API.
+- [x] ARC-03 — Tras recepción completa, ocultar orden de lista activa a las 24 h.
+- [x] ARC-04 — Conservar orden, líneas, factura/PDF, comparación e historial.
+- [x] ARC-05 — Vista de historial permite consultar la orden archivada.
+- [x] ARC-06 — No archivar parciales ni reiniciar todas las rutas al cambiar
   la semana; verificar los límites de 24 h y fecha/hora de recepción.
 
 **Decisión confirmada:** retirar de la lista activa y conservar historial.
 No implementar borrado físico en sustitución de la antigua limpieza.
+
+**Archivo individual / 050, 2026-10-06:** ARC-01–06 y VAL-03 comprobados.
+Vista por hora PostgreSQL: solo recibida con final a las 24 h sale de Activas;
+Historial mantiene estado/comparación/PDF/recepción y cobertura. Parciales
+antiguas permanecen; fronteras exactas con microsegundos y UTC/CR verificadas.
+Cron retirado del arranque; compatibilidad/API antigua 410 sin consulta,
+botón/calls frontend retirados y corte del lunes eliminado. Nunca ejecutar
+limpieza anterior. Navegador confirma transición automática en lista abierta,
+PDF posterior, historia filtrada y mantenimiento sin botón; 1440/390 sin
+fallos. 2.111 pruebas/362 suites, sin fallos ni omitidas; grafo 12 y build.
+75/24, 99 IDs. Evidencia/aplicación local en informe archivo; cierre de enviada,
+carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
 
 ## 10. Validación y entregas por partes
 
@@ -328,7 +342,7 @@ No implementar borrado físico en sustitución de la antigua limpieza.
   y próxima simultáneas, y cliente que cambia de ruta.
 - [x] VAL-02 — Caso de compra: 10 enviadas, aparece nuevo faltante 3; orden
   anterior sigue en 10 y nueva sugerencia solo cubre las 3 sin cobertura.
-- [ ] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
+- [x] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
 - [ ] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.
 - [ ] VAL-05 — Verificar flujo en navegador escritorio/celular y build.
 - [ ] VAL-06 — Migraciones/pruebas que escriben en base desechable propia;

@@ -23,7 +23,8 @@ por cliente/ciclo y PDF visual con fotos implementados.
 procedencia, PDF revisado, envío inmutable y cobertura pendiente de recibir
 implementados. Vínculo/PDF privado y comparación de factura implementados, ver
 [factura/PDF](informes/facturas-ordenes-2026-10-06.md). Recepción física parcial/final con kardex idempotente implementada (049);
-siguen carga/entrega y archivo. Operativo 68/31.
+Archivo individual 24 h y retiro semanal implementados (050), ver
+[archivo](informes/archivo-ordenes-2026-10-06.md). Sigue carga/entrega. Operativo 75/24.
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -73,9 +74,9 @@ de este trabajo. Las pruebas parten de una copia de la base local.
   incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; falta cierre de enviada. Reserva sin confirmación no es envío confirmado.
 - [x] Recepción parcial/final (049): unidades físicas, motivos, auditoría y
   kardex por delta; aceptación comercial explícita separada, sin doble entrada.
-  PDF/vínculo (048) permanece privado. Archivo/correcciones físicas pendientes.
+  PDF/vínculo (048) permanece privado. Archivo implementado; correcciones físicas pendientes.
 - [ ] Carga/entrega ordenadas y avance por cliente/documento.
-- [ ] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado.
+- [x] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado (050).
 - [ ] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.
 - [ ] Aplicación local con respaldo, grafo/checklist/memoria e informe final.
 

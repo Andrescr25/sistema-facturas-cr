@@ -24,7 +24,7 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -117,7 +117,10 @@ recibido por línea y comparación, cobertura final solo por cantidad física.
 Cabecera comercial/bytes/orígenes conservados. Sugerencia distingue recibido y
 pendiente asignados a necesidades; un excedente no compra/cubre próxima semana.
 
-PENDIENTE REAL. Cierre de enviada, FAL-03/04/08, carga/entrega, archivo 24 h y
-limpieza semanal POR CÓDIGO; nunca ejecutarla. OC-03 parcial por cierre de enviada.
-Próxima SQL 050; preservar ruta/ciclo cancelado y stock provisional 0. Relevo
-vigente en informe recepción; cifras/puertos de validaciones anteriores históricas.
+ARCHIVO (050). [[modulo/archivo-ordenes-compra]] oculta recibida a las 24 h
+desde final, conserva documentos/cobertura e incluye en Historial. Retiro global
+por código, sin ejecutar limpieza. No transforma recibida en cerrada.
+
+PENDIENTE REAL. Cierre de enviada, FAL-03/04/08 y carga/entrega. OC-03 parcial
+por cierre de enviada. Preservar ruta/ciclo cancelado y stock provisional 0.
+Relevo vigente en informe archivo; validaciones anteriores son históricas.

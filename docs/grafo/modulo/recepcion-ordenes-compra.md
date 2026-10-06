@@ -16,7 +16,7 @@ archivos:
   - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
-  relacionado: [modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -77,10 +77,11 @@ orden, jamás modificar cantidad enviada 10. Excedente sin origen no cubre otra
 semana. No resolver faltantes de clientes automáticamente; bodega prepara/despacha
 por su flujo. FAL-03/04/08 y cierre de enviada aún requieren trabajo específico.
 
-HISTORIA Y SIGUIENTE. PDF, comparación y evento final quedan dentro de orden;
-recibida continúa en lista activa en esta parte. Archivo individual 24 h, retirada
-por código de cron/botón/API semanal y carga/entregas siguen pendientes. Próxima
-SQL 050. Producción, main/developer, stock histórico y mensajes reales fuera.
+HISTORIA. PDF, comparación y evento final quedan dentro de orden. En la
+parte 049 recibida seguía activa; SQL050 añade [[modulo/archivo-ordenes-compra]]
+por consulta tras 24 h y retira cron/botón/API semanal, sin tocar eventos ni
+cobertura. Carga/entregas y cierre de enviada pendientes. Producción,
+main/developer, stock histórico y mensajes reales fuera.
 
 EVIDENCIA. 22 pruebas PostgreSQL propias incluyen parcial/final, conversión,
 fracciones, costo de partidas distintas, final 0, diferencias/motivos, histórico

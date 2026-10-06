@@ -172,5 +172,8 @@ pantalla empieza a usar una ruta que nadie le prestó. Vino de `developer`
 su módulo, sin requerir permiso Clientes. Listas ahora incluyen Maps/contexto
 fijo y dejan de ser compartidas; notas por producto pertenecen a Reporte
 Proveedores. Prefijo más largo conserva /proveedor/limpiar en Configuración
-(pendiente retirar por código, nunca ejecutar). Prueba operacionCiclos y
+(compatibilidad 410 sin consulta desde 050; botón retirado). Prueba operacionCiclos y
 permiso HTTP real en copia desechable; contexto en informe de operación.
+
+Archivo 050 conserva ACL de detalle/PDF/historia y contratos retirados.
+401/403 antes de 410; ver [[modulo/archivo-ordenes-compra]].

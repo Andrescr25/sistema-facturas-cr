@@ -18,19 +18,6 @@ export const alegraService = {
     }
   },
 
-  // Limpiar faltantes por proveedor de la BD
-  async limpiarFaltantesProveedor() {
-    try {
-      console.log('🗑️ Frontend: Limpiando faltantes de la BD');
-      const response = await api.delete('/reportes/faltantes/proveedor/limpiar')
-      console.log('✅ Frontend: Faltantes eliminados:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error limpiando faltantes:', error);
-      throw new Error(`Error limpiando faltantes: ${error.message}`)
-    }
-  },
-
   // La cola de impresión y Facturas en Bodega van por la factura PROPIA
   // (colaImpresionService.js, bodegaPropiaService.js). Los métodos de acá que
   // iban por el id de Alegra —procesar, recuperar, listas de la cola, bodega—
@@ -120,19 +107,6 @@ export const alegraService = {
     } catch (error) {
       console.error('❌ Frontend: Error guardando cantidades:', error);
       throw new Error(`Error guardando cantidades: ${error.message}`)
-    }
-  },
-
-  // Limpiar cantidades modificadas
-  async limpiarCantidadesModificadas() {
-    try {
-      console.log('🗑️ Frontend: Limpiando cantidades modificadas');
-      const response = await api.delete('/orden-compra/cantidades')
-      console.log('✅ Frontend: Cantidades limpiadas:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error limpiando cantidades:', error);
-      throw new Error(`Error limpiando cantidades: ${error.message}`)
     }
   },
 
