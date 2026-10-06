@@ -34,6 +34,9 @@ Verificación:
   con PDFKit real. La extracción textual de dos columnas puede reordenarlas.
   Cabecera/cliente/semana repetidos y bloque de instrucciones retirado ausente;
   inspección visual de fotos, ofertas y clasificaciones mixtas.
+- Grafo: **12 pruebas aprobadas**. No se repitió la suite completa de 2.032
+  de la etapa anterior ni el build del frontend: esta corrección modifica
+  únicamente el renderer PDF y añade su verificación focalizada.
 
 Una copia ya preparada conserva bytes/hash: preparar una NUEVA para obtener
 el diseño corregido. No modificar archivos revisados ni sus adjuntos.
@@ -51,3 +54,14 @@ Leer el [nodo de preventa](../grafo/modulo/preventa-por-enlace.md) y el
 [relevo de compras](ordenes-ciclo-2026-10-05.md) para continuar.
 Evidencia privada y copia local en `/private/tmp/codex-catalogo-paginacion-20261005`.
 Conservar los archivos fiscales y las bases de ensayo anteriores.
+
+Integración local: **f4cf8bf**, avance sin fusión desde b9c3389; sin push.
+Aplicación habitual 5174→3002 reiniciada con el lanzador seguro permanente
+`/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs`,
+PID **82437** al verificar. Solo GET: salud/frontend 200 y PDF sin sesión 401.
+**22 huellas de negocio idénticas** al inicio y después de integrar/reiniciar;
+se preservan la ruta y ciclo cancelado existentes y el inventario provisional.
+Backend original 3000/PID 5370, developer 5013270 y main e19c3e5 conservados.
+No conexión a producción, cambios de negocio compartido, mensajes reales,
+IMAP, Hacienda REAL ni limpieza semanal. Base/rama/worktree de ESTA prueba
+se retiran al cerrar; evidencia privada y ambos ejemplos en Descargas quedan.

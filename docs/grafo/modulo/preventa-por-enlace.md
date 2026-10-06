@@ -238,3 +238,7 @@ aplica al PREPARAR otro PDF, sin reescribir documentos revisados. Ninguna
 selección, precio, promoción, imagen original ni caption cambió.
 Evidencia vigente: `docs/informes/catalogo-paginacion-2026-10-05.md`. Operativo
 48/51; sigue envío persistente de compras/PDF inmutable y cobertura/recepción.
+Integración local f4cf8bf; grafo 12 aprobado, aplicación 5174→3002 disponible
+con lanzador seguro y 22 huellas idénticas al inicio/después. Sin nueva
+migración ni mutación de negocio compartido/producción. PDF anteriores
+conservados. Base/copia propias se retiran al cerrar la reserva.
