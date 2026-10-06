@@ -84,3 +84,7 @@ Registro de carga/entrega/descarga/incidencia y corrección explícita viven en
 si cambia el documento. Completa sale de carga sugerida, sigue consultable
 en recorrido. La revisión de bodega sigue siendo distinta de entrega real.
 Ver informe de registro para la evidencia y el estado local vigente.
+
+Estado vigente: registro físico5c9e90a/051 verificado e integrado solo local,
+82/17 operativo. Los textos de consulta393ee66 describen la etapa previa.
+App5174→3002 PID18962; ver nuevo nodo/informe para pruebas e invariantes.

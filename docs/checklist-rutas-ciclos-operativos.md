@@ -330,7 +330,7 @@ con actor/fecha/reintentos y conservación tras revisión de documentos; tener
 una consulta no equivale a confirmar carga/entrega real. Próxima SQL051.
 
 
-**Registro físico051, 2026-10-06:** ENT-06/PRE-08/FIL-07 comprobados.
+**Registro físico `5c9e90a` / 051, 2026-10-06:** ENT-06/PRE-08/FIL-07 comprobados.
 Carga nueva, entrega parcial/completa, descarga e incidencia por factura y
 recorrido fijo, cantidades propias, actor/hora del servidor e historia
 inmutable. Reintentar mismo UUID/cuerpo no duplica; dos operadores con igual

@@ -77,3 +77,14 @@ Fixtures ZZ solo en clon propio; pruebas de cantidades, reimpresión, SQL
 inmutable, rollback de bitácora, permisos y dos conexiones reales. Navegador
 prueba parcial/descarga/incidencia/revisión y respuesta perdida. SQL051 local
 solo tras pruebas y respaldo; mantener stock provisional0 y datos del usuario.
+
+CIERRE LOCAL. Código5c9e90a, SQL051 aplicada solo local con dump0600; eventos
+vacíos, sin backfill.36huellas +7 completas adicionales iguales, stock/conteos/
+movimientos0 y datos del usuario conservados.2.148pruebas/362suites, fail0/skip0,
+grafo12/build/Chromium1440/390 aprobados; dos conexiones reales y GET real
+READ ONLY/REPEATABLE READ. App5174→3002 segura PID18962/Vite98892, producción
+3000/PID5370/main/developer intactos. Base/puertos propios retirados; evidencia
+privada y15decisiones preservadas.82/17 operativo; independencia133/14 aparte.
+Siguiente vista stock/requerido/comprometido/cobertura, luego cierre de enviada
+y propagación final. Próxima052 solo si hace falta esquema, no reservarla
+para una consulta que no lo necesita.

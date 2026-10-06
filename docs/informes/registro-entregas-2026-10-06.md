@@ -1,8 +1,9 @@
 # Registro físico de carga y entrega — 2026-10-06
 
-**Implementado y verificado en copia propia desde bde69c9.** Sin commits
-nuevos de Claude ni otro worktree al iniciar. Código/aplicación local se
-completan al integrar con respaldo, sin push ni producción.
+**Implementado, verificado e integrado solo local.** Código `5c9e90a`,
+desde bde69c9; sin commits nuevos de Claude ni otra reserva al iniciar.
+Rama propia tmp/codex-entrega-fisica-20261006, rebase y avance sin fusión a
+independencia-alegra; sin push ni producción.
 
 ## Resultado
 
@@ -67,9 +68,34 @@ ENT-06/PRE-08/FIL-07 cerrados: **82 listos/17 pendientes (99 IDs)**.
 Independencia **133/14 (147 IDs)** aparte. Estas pruebas no acreditan todavía
 la validación integral de partes de compras/stock/filtros pendientes.
 
-Aplicación/cierre local y hashes se registran después de integrar y verificar
-las huellas originales. Evidencia privada en
-/private/tmp/codex-entrega-fisica-20261006. No eliminar respaldo ni capturas.
+## Cierre local y relevo
+
+SQL051 aplicada exclusivamente a tachi LOCAL localhost5434 con respaldo
+nuevo antes-051-local.dump0600. entrega_evento vacía, sin backfill ni cambio
+en filas de negocio. Backend local3002 detenido durante SQL/avance de código
+y reiniciado con lanzador permanente seguro, **PID18962**; Vite98892/app5174.
+No levantar server.js directo por trabajos IMAP/ping/Hacienda/salidas de otros
+módulos. Limpieza global ya retirada050; nunca ejecutar implementación vieja.
+
+**36 huellas operativas idénticas** al comienzo y después de integrar, más
+**7 huellas completas adicionales idénticas** de compra, pagos/aplicaciones,
+caja, bitácora y permisos. Usuario/ruta/ciclo cancelado/cliente conservados;
+stock/conteos/movimientos0, órdenes/recepciones/eventos vacíos, sin demo.
+Compartida verificada solo GET/SQL READ ONLY: salud/plan/frontend200, registro
+físico de id inexistente404 y sin sesión401, función/resumen nuevo disponible.
+No probar endpoint que escriba sobre registros reales ni Reporte Proveedores
+sin filtros, que puede asignar proveedores.
+
+Producción/backendoriginal3000/PID5370, developer5013270/main e19c3e5 intactos.
+No producción, Prisma/generate/instalación, mensajes reales, Hacienda/IMAP
+reales ni limpieza ejecutada. Catálogo cuatro fichas/hoja, Descargas, archivo
+fiscal y ensayos anteriores preservados. Las15 decisiones no se modifican.
+
+Procesos propios3003/5175 y base tachi_codex_entrega_fisica_20261006 retirados
+tras verificar. Copia/rama temporal se retiran al cerrar documentación y
+memoria; reserva liberada en el relevo final. Evidencia, dumps y capturas
+privados en /private/tmp/codex-entrega-fisica-20261006 se conservan. Los guiones
+que dependan del worktree retirado son evidencia, no lanzadores reutilizables.
 
 ## Pendientes de la solicitud
 
