@@ -56,3 +56,18 @@ ALCANCE Y VERIFICACIÓN. Cierre y comprobaciones registrados en el
 históricos y copias incompletas; RUT-08 conserva su revisión integral de
 cadena de compra/recepción/carga y estados. VAL integral y revisión manual
 siguen separados. Solo clon local desechable, sin nueva SQL ni Prisma.
+
+VERIFICACIÓN Y RELEVO. Código3c10bf1 desde387d2b7,solo local.2.228pruebas/
+362suites fail0/skip0,15nuevas(3PG/3copias/9colas),grafo12/build/Chromium1440/390:
+6vistas/12capturas/6casos IndexedDB/16huellas iguales. Una edición real solo
+clon; acuses simulados, salidas externas bloqueadas. FIL-11 cerrado90/9;
+RUT-08/VAL integral y MapsLOCAL pendientes; independencia133/14 separada.
+
+Habitual solo lecturas:36+9huellas idénticas,stock/conteos/movimientos/eventos/
+órdenes/recepciones/cierres0; maestro/ciclo cancelado conservados. App5174→3002
+seguraPID49572; usar lanzador permanente indicado en el informe. Original3000/
+PID5370,developer5013270/main e19c3e5 intactos. Sin nueva SQL:053 libre.
+Base propia/puertos retirados; copia/rama se retiran tras integrar este relevo;
+evidencia privada conservada. Memoria/reserva se cierran después, conservando
+quince decisiones originales. No interpretar documentos incompletos como Sin
+ciclo ni probar escrituras sobre históricos de la base habitual.

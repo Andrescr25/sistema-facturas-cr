@@ -222,7 +222,7 @@ contexto-operativo-2026-10-06. RUT-08/FIL-11 y VAL integral siguen abiertos;
 esta verificación de pantallas no los cierra. Cifras/textos anteriores históricos.
 
 
-**Históricos/copias, 2026-10-06:** FIL-11 cerrado. Sin ciclo confirmado se
+**Históricos/copias `3c10bf1`, 2026-10-06:** FIL-11 cerrado. Sin ciclo confirmado se
 distingue de datos de ruta/semana aún sin descargar. Facturación/listas,
 detalle/edición y cola muestran contexto propio; PUT y acuses conservan
 fotografía aun tras cambiar cliente/cerrar semana, sin nuevos documentos.

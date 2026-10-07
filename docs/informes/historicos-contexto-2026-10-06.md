@@ -64,3 +64,35 @@ No se cierran VAL-01/04–07 con pruebas limitadas a facturas/copias.
 CLI-10/VAL-08 siguen a cargo del usuario y RUT-03 requiere localizar la fuente
 LOCAL de Maps anteriores. El checklist de independencia mantiene sus cifras
 separadas; no acredita aceptación real Hacienda ni salida a producción.
+
+## Aplicación local y relevo
+
+Código **3c10bf1** integrado por rebase y avance sin fusión desde387d2b7,
+solo local/sin push. Backup nuevo de tachi LOCAL5434,0600:
+/private/tmp/codex-historicos-contexto-20261006/antes-historicos-contexto-local.dump.
+No se aplica SQL ni se cambia la base habitual. **36 huellas operativas +9
+completas adicionales idénticas**, antes/después de integración y lecturas.
+Stock/conteos/movimientos/eventos/órdenes/recepciones/cierres0; cliente/ruta/
+ciclo cancelado del usuario conservados, sin demo ni filas ZZ nuevas.
+
+App5174→3002; backend seguro **49572**, Vite98892. Lanzador permanente
+/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs.
+No usar server.js directo por IMAP/ping/Hacienda/salidas. Verificación en la
+habitual solo GET/SQL READ ONLY: ficha200/contextoSinCiclo/sin sesión401,
+salud/API/frontend200,necesidades0,3Excel vacíos200/401,detalles inexistentes404.
+Original3000/PID5370,developer5013270/main e19c3e5 intactos; producción no
+conectada. Grafo integrado12 aprobado.
+
+Base tachi_codex_historicos_contexto_20261006 y puertos propios3003/5175
+RETIRADOS. Copia/rama tmp/codex-historicos-contexto-20261006 se retiran tras
+integrar este relevo. Dumps/logs/12capturas permanecen privados0700/0600 en
+/private/tmp/codex-historicos-contexto-20261006. Guiones que dependen de la
+copia retirada son evidencia, no lanzadores reutilizables. No borrar ensayos
+anteriores, almacenamiento fiscal, originales o Descargas. La memoria se
+actualiza tras el retiro con reserva liberada y las quince decisiones del
+usuario literalmente preservadas.
+
+Siguiente: RUT-08 integral (compra/recepción/carga/entrega e históricos tras
+mover cliente/promover ciclos), VAL-01/04–07 y fuente LOCAL Maps RUT-03.
+CLI-10/VAL-08 del usuario. **90/9 operativo,133/14 independencia**.
+Revisar nuevos commits/status/worktrees/reservas antes de empezar.
