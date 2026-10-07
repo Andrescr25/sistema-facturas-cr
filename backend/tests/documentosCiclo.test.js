@@ -145,6 +145,44 @@ caso('facturación presencial admite el ciclo del recorrido aunque cambió la fi
   await assert.rejects(facturas.editarFactura(f.id, { clienteId: ajeno.id, items: [{ productoId: producto, quantity: 1, price: 1000 }] }, null), e => e.status === 409);
   await assert.rejects(facturas.editarFactura(f.id, { cicloId: actual.id, items: [{ productoId: producto, quantity: 1, price: 1000 }] }, null), e => e.status === 409);
 });
+caso('editar una factura anticipada devuelve su contexto aun a una tablet sin copia previa', async () => {
+  const pedido = await enviarPortal(actual.id), emitida = await pedidos.facturar(pedido.id, null);
+  const editada = await facturas.editarFactura(emitida.facturaId, {
+    items: [{ productoId: producto, quantity: 3, price: 1000 }], observaciones: 'Edición conservada'
+  }, null);
+  const { facturaEscrita } = await import('../../frontend/src/utils/facturasLocales.js');
+  const copiaNueva = facturaEscrita(editada), consultada = await consulta.obtenerFactura(emitida.facturaId);
+  assert.deepEqual(copiaNueva.ciclo, pedido.ciclo);
+  assert.deepEqual(copiaNueva.ciclo, consultada.ciclo);
+  assert.equal(copiaNueva.anticipado, true); assert.equal(copiaNueva.lineas[0].cantidad, 3);
+  assert.equal(copiaNueva.observaciones, 'Edición conservada');
+});
+caso('reintentar una factura después del cierre devuelve la semana guardada y no vuelve a emitir', async () => {
+  await db.query('SAVEPOINT reintento_cerrado');
+  try {
+    const clave = randomUUID(), datos = { clienteId: cliente.id, cicloId: actual.id,
+      items: [{ productoId: producto, quantity: 1, price: 1000 }] };
+    const f = await facturas.crearFactura(datos, null, { clave });
+    await rutas.cambiarEstadoCiclo(actual.id, { estado: 'cancelado', estadoAnterior: 'preventa' });
+    const antes = (await db.query('SELECT COUNT(*)::int n FROM factura')).rows[0].n;
+    const r = await facturas.crearFactura(datos, null, { clave });
+    assert.equal(r.id, f.id); assert.equal(r.yaExistia, true);
+    assert.deepEqual(r.ciclo, f.ciclo); assert.equal(r.preventa_anticipada, false);
+    assert.equal((await db.query('SELECT COUNT(*)::int n FROM factura')).rows[0].n, antes);
+    await assert.rejects(facturas.crearFactura(datos, null), e => e.status === 409);
+  } finally { await db.query('ROLLBACK TO SAVEPOINT reintento_cerrado'); }
+});
+caso('editar y reenviar una factura sin ciclo nunca le asigna la ruta actual', async () => {
+  const clave = randomUUID(), datos = { clienteId: cliente.id,
+    items: [{ productoId: producto, quantity: 1, price: 1000 }] };
+  const f = await facturas.crearFactura(datos, null, { clave });
+  const e = await facturas.editarFactura(f.id, datos, null);
+  const r = await facturas.crearFactura(datos, null, { clave });
+  for (const respuesta of [f, e, r]) {
+    assert.equal(respuesta.ciclo, null); assert.equal(respuesta.preventa_anticipada, false);
+  }
+  assert.equal((await consulta.obtenerFactura(f.id)).ciclo, null);
+});
 caso('ciclo cerrado rechaza ventas nuevas, conserva el carrito y reconoce pedidos ya confirmados', async () => {
   const clave = randomUUID(), guardado = await enviarAgente(proximo.id, clave);
   const pendiente = await enviarPortal(proximo.id);

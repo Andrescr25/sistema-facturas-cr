@@ -26,8 +26,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md) y
 [cierre de enviada](informes/cierre-ordenes-2026-10-06.md) y
 [Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md) y
-[contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md).
-Estado vigente: **89 listos / 10 pendientes (99 IDs)**. Las cifras en las
+[contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md) y
+[históricos y copias](informes/historicos-contexto-2026-10-06.md).
+Estado vigente: **90 listos / 9 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -182,7 +183,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
 - [x] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.
-- [ ] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
+- [x] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
   sin asignaciones automáticas supuestas.
 
 Parte de operación (`8e656fa`, solo local): FIL-04/05/06/08, FAL-02 y ENT-02
@@ -219,6 +220,20 @@ Quince vistas/30capturas Chromium1440/390, siete respuestas demoradas,
 **89 listos/10 pendientes (99 IDs)**. Aplicación y límites en informe
 contexto-operativo-2026-10-06. RUT-08/FIL-11 y VAL integral siguen abiertos;
 esta verificación de pantallas no los cierra. Cifras/textos anteriores históricos.
+
+
+**Históricos/copias, 2026-10-06:** FIL-11 cerrado. Sin ciclo confirmado se
+distingue de datos de ruta/semana aún sin descargar. Facturación/listas,
+detalle/edición y cola muestran contexto propio; PUT y acuses conservan
+fotografía aun tras cambiar cliente/cerrar semana, sin nuevos documentos.
+Tres reenvíos mantienen cuerpo/clave y líneas al cambiar id; fallo al guardar
+no retira cola/copia. Procedencia histórica conservada sin usar ids de Alegra
+como propios. **2.228 pruebas/362 suites** fail0/skip0,15 nuevas, grafo12/build;
+Chromium1440/390,6vistas/12capturas/6casos IndexedDB real/16huellas iguales.
+Sin nueva SQL:053 libre. **90 listos/9 pendientes (99 IDs)**.
+Informe historicos-contexto-2026-10-06. RUT-08 conserva revisión integral de
+compras/recepción/carga/entrega tras mover cliente/promover ciclos; VAL integral
+abierto. Los cierres/cifras anteriores son históricos.
 
 ## 5. Faltantes y cobertura de compras
 

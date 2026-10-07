@@ -15,13 +15,14 @@ archivos:
   - frontend/src/hooks/useFacturasEmitidas.js
   - frontend/src/components/facturacion/AvisoEdicion.jsx
   - frontend/src/components/facturacion/PanelEditarFacturas.jsx
+  - backend/tests/contextoColasFactura.test.js
   - backend/tests/facturasLocales.test.js
   - backend/tests/facturaPdfFrontend.test.js
   - backend/tests/facturacionSinAlegra.test.js
   - backend/tests/baseLocalAbierta.test.js
 aristas:
-  relacionado: [modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-05
+  relacionado: [modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
+medido: 2026-10-06
 ---
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
@@ -110,3 +111,9 @@ sesión vencida y una factura pendiente de prueba: quedó sin marcar.
 2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
 al facturar se conserva el recorrido original. Colas antiguas intactas,
 filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
+
+CONTINUIDAD 2026-10-06. La etapa de históricos/copia corrige PUT y los acuses,
+distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
+los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
+el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
+anterior. No confundir esta entrega con VAL o cierre integral RUT-08.

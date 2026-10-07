@@ -27,7 +27,7 @@ archivos:
   - backend/tests/documentosCiclo.test.js
   - backend/tests/idempotenciaFactura.test.js
 aristas:
-  relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturacion, modulo/facturacion-offline, decision/ciclo-de-ruta-como-contexto, modulo/faltantes]
+  relacionado: [modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturacion, modulo/facturacion-offline, decision/ciclo-de-ruta-como-contexto, modulo/faltantes]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -120,3 +120,9 @@ respuestas tardías descartadas, notas por semana y contexto original en la
 ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
 RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
 una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
+
+CONTINUIDAD 2026-10-06. La etapa de históricos/copia corrige PUT y los acuses,
+distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
+los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
+el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
+anterior. No confundir esta entrega con VAL o cierre integral RUT-08.

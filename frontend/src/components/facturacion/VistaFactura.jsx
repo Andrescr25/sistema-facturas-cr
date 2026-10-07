@@ -1,4 +1,4 @@
-import { textoCiclo } from '../SelectorCiclo'
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { useState, useEffect, useMemo } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
@@ -335,6 +335,7 @@ export default function VistaFactura({
         {/* Cliente y condiciones */}
         <div className="grid gap-4 border-b border-neutro-100 bg-neutro-50/60 p-5 sm:grid-cols-2">
           <div>
+            <ContextoCicloDocumento documento={f} />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Señor(es)</p>
 
             {/* En edición, el nombre se vuelve un buscador EN SU LUGAR. */}
@@ -390,7 +391,6 @@ export default function VistaFactura({
             ) : (
               <>
                 <p className="text-lg font-bold text-neutro-900">{f.cliente.nombre}</p>
-                <p className="text-xs font-semibold text-primario-700">{textoCiclo(f.ciclo)}{f.anticipado ? ' · Pedido anticipado' : ''}</p>
                 <div className="mt-1 space-y-0.5 text-sm text-neutro-600">
                   {f.cliente.identificacion && (
                     <p>{f.cliente.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física'}: {f.cliente.identificacion}</p>

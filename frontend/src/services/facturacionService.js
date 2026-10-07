@@ -11,7 +11,7 @@
 import api, { TOKEN_KEY } from './api';
 import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
-import { facturaEscrita, facturaConsultada } from '../utils/facturasLocales';
+import { facturaEscrita, facturaConsultada, combinarCopiaFactura } from '../utils/facturasLocales';
 import { hoyEnCostaRica } from '../utils/fechaCR';
 
 // Lo que se le dice a quien intenta editar una factura que no está marcada
@@ -21,6 +21,20 @@ const EDICION_DE_COPIA_VIEJA =
   'estaban en Alegra. Actualizá la lista de facturas y abrila de nuevo para editarla.';
 
 class FacturacionService {
+  async copiaFacturaConfirmada(fila, copia = null) {
+    // Una clave antigua puede reconocer una factura aún no copiada. Su
+    // cola sigue pendiente hasta tener un id propio que permita abrirla.
+    if (!fila?.id) throw new Error(fila?.mensaje || 'El servidor no devolvió el id propio de la factura. La copia sigue pendiente.');
+    const anterior = await indexedDBService.getFacturaById(fila.id).catch(() => null);
+    // Al pasar de local-UUID al id definitivo se conserva la fotografía,
+    // sin cambiar el cuerpo ni la clave del envío. El dato del servidor
+    // prevalece, incluso cuando confirma explícitamente Sin ciclo.
+    const base = combinarCopiaFactura(copia, { ...anterior, id: fila.id });
+    return { ...combinarCopiaFactura(base, facturaEscrita(fila)),
+      estado: fila.estado || anterior?.estado || 'emitida',
+      pendienteSincronizar: false, pendienteEdicion: false, esLocal: false };
+  }
+
   constructor() {
     this.isOnline = navigator.onLine;
     this.syncInProgress = false;
@@ -470,7 +484,7 @@ class FacturacionService {
           
           if (response.data.success) {
             // Se guarda la respuesta propia con número, cliente y líneas.
-            const creada = facturaEscrita(response.data.data);
+            const creada = await this.copiaFacturaConfirmada(response.data.data, facturaVista);
             console.log('✅ Factura creada online:', creada.id);
 
             // Guardar en cache para edición inmediata
@@ -575,7 +589,11 @@ class FacturacionService {
           
           if (response.data.success) {
             // Se guarda la respuesta propia con número, cliente y líneas.
-            const creada = facturaEscrita(response.data.data);
+            const creada = await this.copiaFacturaConfirmada(response.data.data,
+              await indexedDBService.getFacturaById(`local-${factura.localId}`));
+            // Conservar primero la copia definitiva: si guardar falla, la
+            // cola y la fotografía local siguen disponibles para reintentar.
+            await indexedDBService.saveFacturasCache([creada]);
             // Marcar como sincronizada
             await indexedDBService.markFacturaSincronizada(
               factura.localId, 
@@ -586,7 +604,6 @@ class FacturacionService {
             if (factura.localId) {
               await indexedDBService.deleteFacturaCache(`local-${factura.localId}`);
             }
-            await indexedDBService.saveFacturasCache([creada]);
             
             resultados.exitosas.push({
               localId: factura.localId,
@@ -682,10 +699,11 @@ class FacturacionService {
 
       if (response.data.success) {
         // Se guarda la respuesta propia con número, cliente y líneas.
-        const creada = facturaEscrita(response.data.data);
+        const creada = await this.copiaFacturaConfirmada(response.data.data,
+          await indexedDBService.getFacturaById(`local-${numeroLocal}`));
+        await indexedDBService.saveFacturasCache([creada]);
         await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
         await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
-        await indexedDBService.saveFacturasCache([creada]);
 
         return { success: true, data: creada };
       }
@@ -993,7 +1011,7 @@ class FacturacionService {
             console.log('✅ Factura editada online:', facturaId);
 
             // Actualizar cache con la nueva versión
-            const editada = facturaEscrita(response.data.data);
+            const editada = await this.copiaFacturaConfirmada(response.data.data, facturaVista);
             if (editada) {
               const facturaOnline = {
                 ...editada,
@@ -1124,9 +1142,8 @@ class FacturacionService {
 
       if (response.data.success) {
         // Se guarda la respuesta propia con número, cliente y líneas.
-        const creada = facturaEscrita(response.data.data);
-        await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
-        await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
+        const creada = await this.copiaFacturaConfirmada(response.data.data,
+          await indexedDBService.getFacturaById(`local-${numeroLocal}`) || facturaVista);
 
         const facturaOnline = {
           ...creada,
@@ -1136,6 +1153,8 @@ class FacturacionService {
           esLocal: false
         };
         await indexedDBService.saveFacturasCache([facturaOnline]);
+        await indexedDBService.markFacturaSincronizada(numeroLocal, creada.id);
+        await indexedDBService.deleteFacturaCache(`local-${numeroLocal}`);
 
         console.log(`✅ Factura pendiente ${numeroLocal} enviada con id propio ${creada.id}`);
 
@@ -1199,14 +1218,12 @@ class FacturacionService {
           const response = await api.put(`/facturacion/facturas/${edicion.facturaId}`, edicion.datosEdicion);
 
           if (response.data.success) {
-            // Marcar como sincronizada
-            await indexedDBService.markEdicionSincronizada(edicion.localId);
-
             // Guardar el documento propio actualizado para editar sin señal.
-            const editada = facturaEscrita(response.data.data);
+            const editada = await this.copiaFacturaConfirmada(response.data.data);
             if (editada) {
               await indexedDBService.saveFacturasCache([editada]);
             }
+            await indexedDBService.markEdicionSincronizada(edicion.localId);
 
             resultados.exitosas.push({
               localId: edicion.localId,

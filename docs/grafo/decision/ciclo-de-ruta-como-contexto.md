@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -72,3 +72,8 @@ respuestas tardías descartadas, notas por semana y contexto original en la
 ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
 RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
 una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
+
+2026-10-06: históricos Sin ciclo y copias sin metadata se distinguen en
+Facturación. Edición y acuses consultan la fotografía guardada aun tras
+cierre/cambio de ficha; los reenvíos conservan cuerpo/UUID y detalle descargado.
+Ver [[modulo/historicos-contexto-documentos]]. Validación integral separada.

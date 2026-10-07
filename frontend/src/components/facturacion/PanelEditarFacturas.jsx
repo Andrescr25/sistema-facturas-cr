@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Search, X, AlertCircle, Edit, RefreshCw, RotateCw, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 /**
  * Contenido de la pestaña "Editar Facturas": búsqueda de facturas
@@ -90,6 +91,7 @@ export default function PanelEditarFacturas({
                       <p className="text-sm text-neutro-600 truncate">
                         Cliente: {factura.cliente?.nombre || 'N/A'}
                       </p>
+                      <ContextoCicloDocumento documento={factura} />
                       <p className="text-sm text-neutro-500">
                         Fecha: {factura.fecha ? String(factura.fecha).slice(0, 10).split('-').reverse().join('/') : 'N/A'}
                       </p>
@@ -183,6 +185,7 @@ export default function PanelEditarFacturas({
                     <p className="text-xs text-neutro-500 mt-0.5">
                       Creada: {new Date(factura.timestamp).toLocaleString('es-CR')}
                     </p>
+                    <ContextoCicloDocumento documento={factura} />
 
                     {factura.intentosSincronizacion > 0 && (
                       <p className="text-xs text-neutro-500">

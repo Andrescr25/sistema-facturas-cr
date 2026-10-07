@@ -34,7 +34,7 @@
  */
 
 const ciclos = require('../rutas/documentosCiclo.service');
-const { pool } = require('../../../config/database');
+const { pool, query } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
 const { httpError, texto, numero, validar, idValido } = require('../../utils/validacion');
@@ -479,10 +479,15 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
       // creada en Alegra antes del corte que todavía no se copió acá. No se
       // devuelve el id de Alegra — acá ese número es otra factura.
       const { id, numero } = reserva.yaCreada;
+      // El acuse lleva el contexto GUARDADO aunque cambie la ruta o cierre
+      // la semana. No se valida de nuevo contra la ficha actual del cliente.
+      const { rows: [guardada] } = id ? await query(`SELECT f.estado, f.alegra_id, f.preventa_anticipada, ${ciclos.COLUMNAS_CICLO}
+        FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.id=$1`, [id]) : { rows: [] };
       return {
         yaExistia: true,
         id,
         numero,
+        ...(guardada ? { estado: guardada.estado, alegra_id: guardada.alegra_id, ciclo: ciclos.aCiclo(guardada), preventa_anticipada: guardada.preventa_anticipada } : {}),
         mensaje: id
           ? 'Esa factura ya estaba creada.'
           : `Esa factura ya se había creado${numero ? ` (${numero})` : ''} antes de pasar al sistema nuevo y todavía no está cargada acá.`
@@ -722,7 +727,12 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
       usuarioId, motivo: recortar(datos.motivo, 2000)
     });
 
-    return { ...actualizada[0], lineas: armado.lineas };
+    // UPDATE conserva el vínculo; la tablet también necesita la fotografía
+    // de ruta/semana de GET, aun cuando no tenía ninguna copia descargada.
+    const { rows: [contexto] } = factura.ciclo_ruta_cliente_id
+      ? await cliente.query(`SELECT ${ciclos.COLUMNAS_CICLO} FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.id=$1`, [n])
+      : { rows: [] };
+    return { ...actualizada[0], ciclo: contexto ? ciclos.aCiclo(contexto) : null, lineas: armado.lineas };
   }
 }
 

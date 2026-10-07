@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Históricos y copias — contexto original, acuses y colas sin conexión](modulo/historicos-contexto-documentos.md)
+
 - [Ruta y semana visibles — consultas tardías, notas y ficha histórica](modulo/contexto-visible-operacion.md)
 
 - [Excel operativo por ciclo — necesidades, órdenes, recorrido y carga completos](modulo/exportaciones-operativas-ciclo.md)

@@ -10,6 +10,7 @@ import ModalEnviarWhatsApp from '../whatsapp/ModalEnviarWhatsApp'
 import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 /**
  * Las facturas ya emitidas.
@@ -216,6 +217,7 @@ export default function PanelFacturasEmitidas({ f }) {
                 <p className="truncate text-xs text-neutro-500">
                   {factura.numero} · {fecha(factura.fecha)} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
                 </p>
+                <ContextoCicloDocumento documento={factura} />
                 <div className="mt-1">
                   <EtiquetaTipoFactura
                     electronica={factura.electronica}

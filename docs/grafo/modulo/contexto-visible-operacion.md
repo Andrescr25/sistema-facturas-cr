@@ -20,7 +20,7 @@ archivos:
   - backend/tests/operacionCiclos.test.js
   - backend/tests/fichaCliente.test.js
 aristas:
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/preventa-por-enlace, modulo/facturas-bodega, modulo/faltantes, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
+  relacionado: [modulo/historicos-contexto-documentos, decision/ciclo-de-ruta-como-contexto, modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/preventa-por-enlace, modulo/facturas-bodega, modulo/faltantes, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
 medido: 2026-10-06
 ---
 
@@ -82,3 +82,9 @@ Backend seguro42974,5174→3002; fuente/productos/históricos del usuario intact
 Compartida sólo GET/SQL READ ONLY, ficha200 con Sin ciclo/noauth401 y helper
 frontend200. Propios base/puertos retirados; copia/rama se retiran al cerrar.
 Quince decisiones originales preservadas; siguiente RUT-08/FIL-11 y VAL integral.
+
+CONTINUIDAD 2026-10-06. La etapa de históricos/copia corrige PUT y los acuses,
+distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
+los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
+el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
+anterior. No confundir esta entrega con VAL o cierre integral RUT-08.

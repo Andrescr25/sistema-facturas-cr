@@ -5,11 +5,15 @@ const dia = v => typeof v === 'string' ? v.slice(0, 10) : v
 /** POST/PUT devuelve la fila SQL; GET devuelve la vista propia calculada. */
 export function facturaEscrita(f) {
   if (!f) return f
+  // null confirma Sin ciclo; undefined indica un dato aún sin descargar.
+  // Una respuesta parcial tampoco debe borrar la marca anticipada.
+  const contexto = { ciclo: f.ciclo, historica: f.alegra_id === undefined ? undefined : Boolean(f.alegra_id), anticipado: f.preventa_anticipada === undefined
+    ? undefined : Boolean(f.preventa_anticipada) }
   // Idempotencia puede contestar solo id/número. Ese acuse no borra la ficha
   // y las líneas que ya estaban descargadas en la tablet.
-  if (f.yaExistia) return { id: f.id, numero: f.numero, esPropia: true, yaExistia: true }
+  if (f.yaExistia) return { id: f.id, numero: f.numero, estado: f.estado, ...contexto, esPropia: true, yaExistia: true }
   return {
-    id: f.id, ciclo: f.ciclo ?? undefined, anticipado: Boolean(f.preventa_anticipada), numero: f.numero, serie: f.serie, consecutivo: f.consecutivo,
+    id: f.id, ...contexto, numero: f.numero, serie: f.serie, consecutivo: f.consecutivo,
     estado: f.estado || 'emitida', fecha: dia(f.fecha), fechaVencimiento: dia(f.fecha_vencimiento),
     cliente: { id: f.cliente_id, nombre: f.cliente_nombre, identificacion: f.cliente_identificacion },
     observaciones: f.observaciones || '', total: numero(f.total), electronica: Boolean(f.electronica),
