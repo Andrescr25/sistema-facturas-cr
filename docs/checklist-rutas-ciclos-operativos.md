@@ -76,6 +76,12 @@ Primera parte: RUT-06/07 corresponden al estado y recorrido del ciclo. La
 separación/vinculación de documentos queda en RUT-08 y PRE-05/07. RUT-03: el
 campo Maps está implementado, falta identificar la fuente local de las
 ubicaciones anteriores; no consultar producción para completar esa casilla.
+Búsqueda ampliada2026-10-07:106 tablas/247 clientes, tres dumps locales,
+archivo tar antiguo y dos JSON históricos sin ubicaciones identificadas.
+RUT-03 continúa abierto hasta conocer su fuente.
+[Alcance y evidencia](informes/busqueda-maps-local-2026-10-07.md); no acredita
+recuperación ni cambia96/3.
+
 
 ## 2. Clientes y vista de rutas
 

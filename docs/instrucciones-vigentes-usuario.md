@@ -238,3 +238,13 @@ Sigue RUT-03 para hallar Maps anteriores exclusivamente en una fuente LOCAL;
 CLI-10/VAL-08 del usuario. Las quince decisiones anteriores siguen vigentes.
 No convertir esta auditoría de rutas en aceptación fiscal/conteo físico/corte
 ni ejecutar los ensayos de importación contra producción.
+
+
+## Continuidad de datos — búsqueda Maps local, 2026-10-07
+
+Sin cambiar decisiones ni cerrar RUT-03: base local106 tablas/247 clientes,
+tres dumps locales, respaldo tar y dos JSON de ventas no permitieron hallar
+la fuente anterior. [Informe](informes/busqueda-maps-local-2026-10-07.md) y
+[bloqueo](grafo/bloqueo/maps-anteriores-sin-fuente-local.md). Operativo96/3
+e independencia133/14 conservados. El usuario debe identificar la procedencia
+cuando esté disponible; no consultar producción ni fabricar enlaces.

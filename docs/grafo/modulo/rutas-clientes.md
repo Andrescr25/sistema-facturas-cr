@@ -18,9 +18,9 @@ archivos:
   - frontend/src/hooks/useClientes.js
   - backend/tests/rutasCiclos.test.js
 aristas:
-  relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-06
+medido: 2026-10-07
 ---
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
@@ -82,3 +82,10 @@ respuestas tardías descartadas, notas por semana y contexto original en la
 ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
 RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
 una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
+
+
+Búsqueda local2026-10-07 documentada en [[bloqueo/maps-anteriores-sin-fuente-local]].
+106 tablas/247 clientes, tres dumps locales, archivo tar antiguo y dos JSON
+históricos sin ubicaciones identificadas. RUT-03 sigue abierto; no implica
+reabrir campo/botón/ciclos ya implementados ni inventar datos o consultar
+producción. Operativo96/3 y revisiones humanas conservadas.

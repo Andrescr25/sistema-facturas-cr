@@ -137,6 +137,8 @@ toca, qué no se regenera).
 
 ## Bloqueos
 
+- [Ubicaciones Maps anteriores — falta identificar la fuente local](bloqueo/maps-anteriores-sin-fuente-local.md)
+
 - [Carga histórica electrónica — bloqueo resuelto, conservar estado real; corte y conciliación pendientes](bloqueo/carga-electronica-historica.md)
 - [Conteo real pendiente para producción; inventario propio ya implementado](bloqueo/conteo-fisico.md)
 - [Inventario nuevo en cero provisional, conteo completo al salir a producción](decision/inventario-desde-cero.md)
