@@ -24,7 +24,7 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -147,3 +147,8 @@ con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
 PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
 Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
 son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
+
+2026-10-06: matriz de permisos, reintentos/conexiones reales y unidades de
+la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
+se distingue de demanda/cobertura por semana. Informe validacion-cadena-
+2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.

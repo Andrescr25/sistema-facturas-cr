@@ -14,7 +14,7 @@ archivos:
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
+  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
 medido: 2026-10-06
 ---
 
@@ -107,3 +107,8 @@ con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
 PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
 Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
 son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
+
+2026-10-06: matriz de permisos, reintentos/conexiones reales y unidades de
+la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
+se distingue de demanda/cobertura por semana. Informe validacion-cadena-
+2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.

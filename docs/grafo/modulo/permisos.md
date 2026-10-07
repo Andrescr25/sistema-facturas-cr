@@ -22,7 +22,7 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
 aristas:
-  relacionado: [modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+  relacionado: [modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-06
 ---
 
@@ -201,3 +201,8 @@ consulta por semana y producto con procedencia. No reservar/descontar stock
 otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
 nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
 estado vigente en informe necesidades-cobertura-2026-10-06.
+
+2026-10-06: matriz de permisos, reintentos/conexiones reales y unidades de
+la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
+se distingue de demanda/cobertura por semana. Informe validacion-cadena-
+2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.

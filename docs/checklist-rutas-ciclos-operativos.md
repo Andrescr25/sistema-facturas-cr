@@ -28,8 +28,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md) y
 [contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md) y
 [históricos y copias](informes/historicos-contexto-2026-10-06.md) y
-[contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md).
-Estado vigente: **92 listos / 7 pendientes (99 IDs)**. Las cifras en las
+[contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md) y
+[permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md).
+Estado vigente: **93 listos / 6 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -455,7 +456,7 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
 - [x] VAL-02 — Caso de compra: 10 enviadas, aparece nuevo faltante 3; orden
   anterior sigue en 10 y nueva sugerencia solo cubre las 3 sin cobertura.
 - [x] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
-- [ ] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.
+- [x] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.
 - [ ] VAL-05 — Verificar flujo en navegador escritorio/celular y build.
 - [ ] VAL-06 — Migraciones/pruebas que escriben en base desechable propia;
   aplicar a copia local con respaldo y comparación cuando cada parte pase.
@@ -480,6 +481,27 @@ reporte legado de fondo. Sin cambios de servicios ni SQL nueva; 053 libre.
 VAL-04–07 conservan la verificación global; probar estos escenarios no completa
 su matriz de permisos/concurrencia/unidades ni las revisiones del usuario.
 Los pendientes citados en las etapas anteriores son históricos.
+
+**Permisos/concurrencia/unidades, 2026-10-06:** VAL-04 comprobado en toda la
+cadena con 20 casos nuevos: seis de ACL por HTTP real, ocho de conexiones/
+transacciones reales y seis de unidades. Ocho permisos individuales, admin
+y sin módulos; 28 lecturas y 19 escrituras del flujo, variantes de mayúsculas/
+barra final, revocación, actor JWT y frontera de cliente/personal. Mismo UUID
+confirma una vez; dos revisiones iguales dejan un ganador. Recepción/cierre
+conservan su origen, envío adicional no amplía la orden original y no se
+retransmite al consultar. Cajas/fracciones guardadas, costos y deltas propios
+verificados; stock general puede aumentar sin cambiar cobertura de otro ciclo.
+**2.257 pruebas / 362 suites**, sin fallos ni omitidas; grafo 12 y build.
+Servidor completo: 569 solicitudes HTTP, matriz 364 lecturas/190 escrituras
+denegadas; recepción +2 una vez, cargas/revisión con permisos y actor correctos.
+Chromium 1440/390, cinco vistas/diez capturas, 18 huellas de negocio iguales
+después de lecturas/rechazos; cero escrituras del navegador o reporte legado.
+Solo tests/documentación, sin cambios de servicios ni nueva SQL; 053 libre.
+**93 listos / 6 pendientes (99 IDs)**. Evidencia y aplicación local en
+[informe de validación](informes/validacion-cadena-2026-10-06.md).
+VAL-05–07 conservan la revisión final global, no se cierran por estas cinco
+vistas de permisos. CLI-10/VAL-08 corresponden al usuario; Maps LOCAL RUT-03
+sigue pendiente. Las cifras y pendientes de etapas anteriores son históricos.
 
 ## Orden para avanzar poco a poco
 

@@ -16,7 +16,7 @@ archivos:
   - backend/src/modules/reports/necesidades.service.js
 aristas:
   depende_de: [decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
+  relacionado: [modulo/validacion-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
 medido: 2026-10-06
 ---
 
@@ -64,3 +64,8 @@ Suite 2.237 / 362, nueve casos nuevos, grafo 12, build y Chromium 1440/390:
 11 vistas / 22 capturas y 17 huellas conservadas. El informe distingue la
 representación del buzón y la verificación de descarga de su visor headless.
 Las cifras históricas de los nodos relacionados no son el estado vigente.
+
+2026-10-06: matriz de permisos, reintentos/conexiones reales y unidades de
+la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
+se distingue de demanda/cobertura por semana. Informe validacion-cadena-
+2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.

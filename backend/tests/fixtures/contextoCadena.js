@@ -3,13 +3,14 @@ const assert = require('node:assert/strict');
 const { randomUUID, randomBytes } = require('node:crypto');
 const zz = s => `ZZ cadena ${s} ${randomUUID().slice(0, 8)}`;
 
-async function crear(db) {
+async function crear(db, { factor = 1, prepararFisico = true } = {}) {
   require('../../config/aislado').asegurarBaseLocal();
   assert.equal(process.env.PROBAR_BASE_LOCAL, '1');
   assert.ok(process.env.NODE_TEST_CONTEXT, 'La simulación solo corre con node --test.');
   const url = new URL(process.env.DATABASE_URL);
   assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
   assert.match(url.pathname, /^\/tachi_codex_[a-z0-9_]+$/);
+  assert.ok(Number.isFinite(factor) && factor > 0);
   const avisos = require('../../src/modules/portal-clientes/avisoPedidoNuevo');
   const avisoOriginal = avisos.avisar;
   // Las preferencias reales de correo/WhatsApp no participan en el ensayo.
@@ -36,7 +37,7 @@ async function crear(db) {
   const producto = (await db.query("INSERT INTO producto(nombre,referencia,precio_sin_iva,impuesto_id,cabys) VALUES($1,'ZZ-CAD',100,$2,'4294401030100') RETURNING id", [zz('Producto'), impuesto])).rows[0].id;
   const proveedor = (await db.query("INSERT INTO proveedor(nombre,identificacion,telefono_whatsapp) VALUES($1,$2,'88888888') RETURNING *", [zz('Proveedor'), randomUUID().slice(0, 18)])).rows[0];
   const mapping = (await db.query(`INSERT INTO supplier_product_mapping(id,supplier_name,supplier_cedula,supplier_code,supplier_desc,alegra_item_id,alegra_name,producto_id,proveedor_id,factor_conversion)
-    VALUES($1,$2,$3,'ZZ-CAD','ZZ Producto','','',$4,$5,1) RETURNING id`, [randomUUID(), proveedor.nombre, proveedor.identificacion, producto, proveedor.id])).rows[0].id;
+    VALUES($1,$2,$3,'ZZ-CAD','ZZ Producto','','',$4,$5,$6) RETURNING id`, [randomUUID(), proveedor.nombre, proveedor.identificacion, producto, proveedor.id, factor])).rows[0].id;
   const cuenta = (await db.query("INSERT INTO cliente_portal(cliente_id,nombre) VALUES($1,$2) RETURNING id", [a.id, a.nombre])).rows[0].id;
   const pedidoPortal = async (cicloId, cantidad) => {
     await s.carrito.ponerCantidad(cuenta, producto, cantidad);
@@ -61,11 +62,13 @@ async function crear(db) {
   const transportes = [];
   // No hay llamada de red: PDF/destino se capturan en memoria antes del acuse.
   wa.enviarDocumento = async doc => { transportes.push({ telefono: doc.telefono, pdf: doc.pdf }); return { enviado: true, numero: doc.telefono, via: 'interno' }; };
-  const d = { db, s, actor, ruta, a, b, actual, proximo, producto, proveedor, mapping, cuenta, pedidos: [pedidoA.id, pedidoB.id, pedidoProximo.id], facturas: ids, historico, transportes, liberar: () => { wa.enviarDocumento = original; avisos.avisar = avisoOriginal; } };
+  const d = { db, s, actor, ruta, a, b, actual, proximo, producto, proveedor, mapping, factor, cuenta, pedidos: [pedidoA.id, pedidoB.id, pedidoProximo.id], facturas: ids, historico, transportes, liberar: () => { wa.enviarDocumento = original; avisos.avisar = avisoOriginal; } };
   try {
     d.ordenes = [];
     for (const [cicloId, cantidad] of [[actual.id, 10], [proximo.id, 4], ['sin-ciclo', 2]]) {
-      let o = await s.ordenes.crear({ proveedorId: proveedor.id, cicloId, clave: randomUUID(), lineas: [{ productoId: producto, cantidadProveedor: cantidad }] }, actor);
+      // La demanda/físico usan unidades propias; las cajas del proveedor son
+      // enteras. El excedente redondeado no se asigna a otra semana.
+      let o = await s.ordenes.crear({ proveedorId: proveedor.id, cicloId, clave: randomUUID(), lineas: [{ productoId: producto, cantidadProveedor: Math.ceil(cantidad / factor) }] }, actor);
       o = await s.ordenes.cambiarEstado(o.id, { version: o.version, estado: 'pendiente_enviar' }, actor);
       o = await s.envio.preparar(o.id, { version: o.version, clave: randomUUID(), telefono: '88888888', mensaje: 'ZZ orden revisada ' + o.referencia }, actor);
       d.ordenes.push(await s.envio.enviar(o.id, o.envios[0].id, { confirmar: true }, actor));
@@ -73,27 +76,30 @@ async function crear(db) {
     // Datos del buzón revisados: registro comercial y físico siguen separados.
     d.vinculos = [];
     for (const [i, cantidad] of [10, 4].entries()) {
+      const cantidadProveedor = Math.ceil(cantidad / factor);
       const id = randomUUID(), linea = randomUUID(), clave = Array.from(randomBytes(50), n => n % 10).join('');
       await db.query(`INSERT INTO facturas_proveedores(id,clave,numero_consecutivo,proveedor_nombre,proveedor_cedula,fecha_emision,fecha_procesada,total_productos,total_factura,archivo_xml,estado,porcentaje_relacionado)
-        VALUES($1,$2,$3,$4,$5,'2026-10-06',NOW(),1,$6,'ZZ.xml','PROCESADA',0)`, [id, clave, 'ZZ-' + randomUUID().slice(0, 8), proveedor.nombre, proveedor.identificacion, cantidad * 10]);
+        VALUES($1,$2,$3,$4,$5,'2026-10-06',NOW(),1,$6,'ZZ.xml','PROCESADA',0)`, [id, clave, 'ZZ-' + randomUUID().slice(0, 8), proveedor.nombre, proveedor.identificacion, cantidadProveedor * 10]);
       await db.query(`INSERT INTO productos_factura_proveedor(id,factura_id,numero_linea,codigo_proveedor,descripcion,cantidad,unidad_medida,precio_unitario,descuento,impuesto,total_linea,producto_id,mapeo_id,estado_relacionado)
-        VALUES($1,$2,1,'ZZ-CAD','ZZ Producto',$3,'Unid',10,0,0,$4,$5,$6,'PENDIENTE')`, [linea, id, cantidad, cantidad * 10, producto, mapping]);
+        VALUES($1,$2,1,'ZZ-CAD','ZZ Producto',$3,'Unid',10,0,0,$4,$5,$6,'PENDIENTE')`, [linea, id, cantidadProveedor, cantidadProveedor * 10, producto, mapping]);
       const o = d.ordenes[i], p = await s.facturaOrden.proponer(o.id, id);
       const v = await s.facturaOrden.vincular(o.id, { clave: randomUUID(), facturaId: id, version: p.version, revision: p.revision, confirmar: true }, actor);
       const vinculo = v.facturas[0].id;
       const conPdf = await s.facturaOrden.guardarPdf(o.id, vinculo, { clave: randomUUID(), tipo: 'representacion_buzon' }, null, actor);
       const pdfId = conPdf.facturas[0].pdfs[0].id;
-      await s.compras.registrarCompra(id, actor);
+      await s.compras.registrarCompra(id, {}, actor);
       d.vinculos.push({ id, vinculo, pdfId });
     }
     await recibir(d, 0, 4);
     await recibir(d, 1, 1);
-    await s.rutas.cambiarEstadoCiclo(actual.id, { estado: 'preparacion', estadoAnterior: 'preventa' }, actor);
-    await s.rutas.cambiarEstadoCiclo(actual.id, { estado: 'entrega', estadoAnterior: 'preparacion' }, actor);
-    d.cargaOriginal = await solicitudFisica(d, 0, 'carga', 3);
-    await s.fisico.registrar(ids[0], d.cargaOriginal, actor);
-    await evento(d, 0, 'entrega', 1);
-    await evento(d, 2, 'carga', 1);
+    if (prepararFisico) {
+      await s.rutas.cambiarEstadoCiclo(actual.id, { estado: 'preparacion', estadoAnterior: 'preventa' }, actor);
+      await s.rutas.cambiarEstadoCiclo(actual.id, { estado: 'entrega', estadoAnterior: 'preparacion' }, actor);
+      d.cargaOriginal = await solicitudFisica(d, 0, 'carga', 3);
+      await s.fisico.registrar(ids[0], d.cargaOriginal, actor);
+      await evento(d, 0, 'entrega', 1);
+      await evento(d, 2, 'carga', 1);
+    }
     return d;
   } catch (e) { d.liberar(); throw e; }
 }

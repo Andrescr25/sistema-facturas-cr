@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -94,3 +94,9 @@ registran etapas anteriores. VAL-04–07 conservan la verificación global,
 CLI-10/VAL-08 corresponden al usuario y RUT-03 requiere la fuente LOCAL de
 Maps anteriores. No cerrar esas casillas por esta evidencia limitada a la
 cadena descrita ni completar ubicaciones consultando producción.
+
+2026-10-06: VAL-04 cerrado en [[modulo/validacion-cadena-operativa]], con
+permisos HTTP, conexiones/transacciones paralelas y conversiones de unidades.
+Stock general aumenta al recibir; cobertura/recibidos del otro ciclo no se
+reasignan. Vigente 93 listos / 6 pendientes (99 IDs). VAL-05–08 conservan la
+verificación final/manual; las cifras y pendientes anteriores son históricos.

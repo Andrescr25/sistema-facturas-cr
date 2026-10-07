@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Validación de cadena — permisos HTTP, concurrencia y unidades proveedor/propias](modulo/validacion-cadena-operativa.md)
+
 - [Contexto de toda la cadena — recepción, cierre, carga y entrega tras mover cliente/promover semana](modulo/contexto-cadena-operativa.md)
 
 - [Históricos y copias — contexto original, acuses y colas sin conexión](modulo/historicos-contexto-documentos.md)
