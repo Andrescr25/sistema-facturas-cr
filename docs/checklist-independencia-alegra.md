@@ -27,6 +27,12 @@ No cambia el conteo de independencia **133/14 (147 IDs)** ni el operativo
 **96/3 (99 IDs)**. Revisiones humanas, aceptación fiscal y corte conservan sus
 pendientes; el usuario aplazó la revisión de migración para después.
 
+Catálogo del agente, 2026-10-07: cuadrícula continua por categoría, familias
+contiguas con rótulo en cada tarjeta, especialmente en Cliente nuevo.
+[Informe](informes/catalogo-agente-sin-huecos-2026-10-07.md). Este refinamiento
+no cambia los IDs ni acredita aceptación fiscal/corte. El usuario autoriza
+llevar únicamente este ajuste visual a `main`, conservando la migración local.
+
 ## Cómo trabajar en esta rama
 
 - **Dos carpetas, una por rama**, para que corran a la vez:

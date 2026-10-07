@@ -58,12 +58,13 @@ import { colones } from '../../utils/colones'
  * el precio" no le dice nada; "oferta", sí. El precio de antes se sigue
  * viendo tachado.
  */
-function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, comoOferta = false }) {
+function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mostrarSinSubcategoria = false, comoOferta = false }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
   const favorita = product.images?.find((i) => i.favorite === true) || product.images?.[0]
   const foto = favorita?.url || null
+  const subcategoria = product.subcategoria?.nombre || (mostrarSinSubcategoria ? 'Sin subcategoría' : '')
 
   const listaPrecio = product.price?.[0]
   const base = listaPrecio?.price
@@ -119,6 +120,16 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, com
       </div>
 
       <div className="flex flex-1 flex-col gap-0.5 p-2 pt-1.5 sm:p-3 sm:pt-2">
+        {/* Dos familias pueden compartir fila. El rótulo tiene su espacio
+            propio: pegado a la referencia y truncado ya no se podía leer.
+            Sin subcategoría identifica los sueltos de una categoría dividida. */}
+        {mostrarSubcategoria && subcategoria && (
+          <p title={subcategoria} className={`line-clamp-2 text-[11px] font-semibold leading-4 sm:text-xs ${
+            product.subcategoria?.nombre ? 'text-primario-600' : 'text-neutro-400'
+          }`}>
+            {subcategoria}
+          </p>
+        )}
         <h3 className="line-clamp-2 min-h-[2rem] text-[11.5px] font-bold leading-[1rem] text-neutro-900 sm:min-h-[2.5rem] sm:text-sm sm:leading-5">
           {product.name}
         </h3>
@@ -127,17 +138,6 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, com
           {product.reference?.reference || product.reference
             ? `Ref. ${product.reference?.reference || product.reference}`
             : 'sin referencia'}
-          {/* La subcategoría va en esta misma línea y no en una propia: en la
-              tablet cada línea extra sale del alto de la foto.
-
-              NO SE DICE CUANDO LA TARJETA YA ESTÁ DENTRO DE SU FAMILIA: bajo
-              un encabezado que dice "PVC 1/2", repetirlo en las 32 tarjetas
-              es el mismo ruido que el "Incluye 13% IVA" que se sacó de acá.
-              Sí se dice en la búsqueda y en las secciones del cliente, que
-              son listas mezcladas y ahí el dato ubica. */}
-          {mostrarSubcategoria && product.subcategoria?.nombre && (
-            <span className="font-semibold text-primario-600"> · {product.subcategoria.nombre}</span>
-          )}
         </p>
 
         <div className="mt-auto pt-1">

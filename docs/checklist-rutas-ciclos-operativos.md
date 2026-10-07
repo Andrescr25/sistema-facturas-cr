@@ -566,6 +566,16 @@ local Maps. Independencia133/14 separada; migración y corte aplazados.
 
 ## Orden para avanzar poco a poco
 
+**Catálogo del agente, refinamiento visual 2026-10-07:** filas completas dentro
+de cada categoría, subcategorías contiguas y rótulo visible por tarjeta;
+Cliente nuevo conserva oferta/liquidación/A/B, sin repetir productos. Catálogo
+completo, rebajas y nuevos reutilizan la cuadrícula. Navegador con 1.859
+productos locales y casos de borde solo en caché del navegador; cuatro anchos,
+búsqueda, selección y modo sin señal; 42 pruebas de orden/búsqueda/Cliente nuevo.
+[Evidencia](informes/catalogo-agente-sin-huecos-2026-10-07.md). No añade ni cierra
+IDs: operativo **96/3**, independencia **133/14**. El usuario autoriza solo este
+ajuste visual en main; Hacienda sigue siendo su configuración y revisión real.
+
 1. Rutas/ciclos y ficha del cliente: §1 y §2.
 2. Contexto del pedido y preventa próxima: §3.
 3. Filtros, preparación y origen de faltantes: §4 y §5.

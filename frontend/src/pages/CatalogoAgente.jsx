@@ -51,15 +51,23 @@ import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
  * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
  * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
  */
-function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false, comoOferta = false }) {
+function Cuadricula({ productos, familias, statsPorProducto, comoOferta = false }) {
+  // Las familias conservan el orden canónico y la prioridad del cliente.
+  // Se recorren en una sola cuadrícula: abrir otra por subcategoría dejaba
+  // filas casi vacías. Solo el cambio de categoría empieza un bloque nuevo.
+  const productosOrdenados = useMemo(
+    () => familias ? familias.flatMap((f) => f.productos) : productos,
+    [familias, productos]
+  )
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-      {productos.map((p) => (
+      {productosOrdenados.map((p) => (
         <TarjetaProductoAgente
           key={p.id}
           product={p}
           stats={p._stats || statsPorProducto?.get(String(p.id))}
-          mostrarSubcategoria={!dentroDeSuFamilia}
+          mostrarSinSubcategoria={Boolean(familias)}
           comoOferta={comoOferta}
         />
       ))}
@@ -68,39 +76,9 @@ function Cuadricula({ productos, statsPorProducto, dentroDeSuFamilia = false, co
 }
 
 /**
- * Una familia dentro de una categoría: "PVC 1/2" dentro de "Productos de PVC".
- *
- * "Productos de PVC" son 118 piezas revueltas —el de 1/2 al lado del de 3/4 y
- * del sanitario— y así no se le encuentra nada a un cliente parado en el
- * mostrador. Partido en familias, se le enseña "PVC 1/2" y ahí está todo lo
- * de 1/2 junto.
- *
- * El encabezado es deliberadamente más chico que el de la categoría y va
- * indentado con una raya: tiene que leerse como algo DENTRO de ella, no como
- * otra categoría más. "Otros" —lo que todavía no se clasificó— va en gris,
- * apagado, porque no es una familia sino la lista pendiente.
- */
-function Subgrupo({ nombre, cantidad, sinClasificar, children }) {
-  return (
-    <div className="mb-5 last:mb-0">
-      <div className={`mb-2 flex items-baseline gap-2 border-l-2 pl-2 ${
-        sinClasificar ? 'border-neutro-200' : 'border-primario-300'
-      }`}>
-        <h3 className={`text-[13px] font-bold ${sinClasificar ? 'text-neutro-400' : 'text-primario-700'}`}>
-          {nombre}
-        </h3>
-        <span className="text-[11px] font-semibold text-neutro-400">{cantidad}</span>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-/**
- * Las categorías DENTRO de una sección (el catálogo de "Cliente nuevo"): cada
- * una con su nombre y, adentro, sus familias con el mismo encabezado que en
- * el catálogo completo. Va entre la sección y la familia en tamaño: se tiene
- * que leer como parte de "Lo más vendido", no como otra sección.
+ * Categorías dentro de ofertas, nuevos y las secciones de "Cliente nuevo".
+ * Cada una tiene su encabezado y una cuadrícula continua; las subcategorías
+ * se identifican en las tarjetas para poder compartir fila sin confusión.
  */
 function BloquesPorCategoria({ bloques, comoOferta = false }) {
   return bloques.map((b) => (
@@ -109,13 +87,7 @@ function BloquesPorCategoria({ bloques, comoOferta = false }) {
         <h3 className={`text-[15px] font-extrabold ${b.clave === 'Otros' ? 'text-neutro-400' : 'text-neutro-800'}`}>{b.nombre}</h3>
         <span className="text-xs font-semibold text-neutro-400">{b.productos.length}</span>
       </div>
-      {b.familias
-        ? b.familias.map((f) => (
-            <Subgrupo key={f.nombre} nombre={f.nombre} cantidad={f.productos.length} sinClasificar={f.sinClasificar}>
-              <Cuadricula productos={f.productos} dentroDeSuFamilia={!f.sinClasificar} comoOferta={comoOferta} />
-            </Subgrupo>
-          ))
-        : <Cuadricula productos={b.productos} comoOferta={comoOferta} />}
+      <Cuadricula productos={b.productos} familias={b.familias} comoOferta={comoOferta} />
     </div>
   ))
 }
@@ -342,13 +314,7 @@ export default function CatalogoAgente() {
             {(enTodo || categoria === '__ofertas') && productosRebajados.length > 0 && (
               <Seccion titulo="Bajamos el precio" descripcion="Ahora cuestan menos que antes"
                 icono={TrendingDown} color="bg-acento-50 text-acento-600">
-                {/* Un bloque por categoría; cada tarjeta dice su subcategoría. */}
-                {rebajasPorCategoria.map((b) => (
-                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
-                    sinClasificar={b.clave === 'Otros'}>
-                    <Cuadricula productos={b.productos} />
-                  </Subgrupo>
-                ))}
+                <BloquesPorCategoria bloques={rebajasPorCategoria} />
               </Seccion>
             )}
 
@@ -357,12 +323,7 @@ export default function CatalogoAgente() {
             {(enTodo || categoria === '__nuevos') && productosNuevos.length > 0 && (
               <Seccion titulo="Productos nuevos" descripcion="Recién llegados al catálogo"
                 icono={Sparkles} color="bg-primario-50 text-primario-600">
-                {nuevosPorCategoria.map((b) => (
-                  <Subgrupo key={b.clave} nombre={b.nombre} cantidad={b.productos.length}
-                    sinClasificar={b.clave === 'Otros'}>
-                    <Cuadricula productos={b.productos} />
-                  </Subgrupo>
-                ))}
+                <BloquesPorCategoria bloques={nuevosPorCategoria} />
               </Seccion>
             )}
 
@@ -393,22 +354,14 @@ export default function CatalogoAgente() {
             {filteredData.sortedKeys
               .filter((k) => enTodo || categoria === k)
               .map((k) => {
-                // Solo la categoría que tiene subcategorías se parte. El
-                // resto se dibuja de una tirada, como siempre: llenarlas de
-                // encabezados que dicen "Otros" no ayudaría a nadie.
+                // Las familias siguen juntas, pero comparten las filas de
+                // su categoría. No se reordena por tamaño para llenar huecos.
                 const familias = filteredData.subgrupos?.[k]
                 return (
                   <Seccion key={k} titulo={nombreVisibleDeCategoria(k, configCatalogo)} descripcion={`${filteredData.grouped[k].length} productos`}
                     icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
-                    {familias
-                      ? familias.map((f) => (
-                          <Subgrupo key={f.nombre} nombre={f.nombre} cantidad={f.productos.length}
-                            sinClasificar={f.sinClasificar}>
-                            <Cuadricula productos={f.productos} statsPorProducto={statsPorProducto}
-                              dentroDeSuFamilia={!f.sinClasificar} />
-                          </Subgrupo>
-                        ))
-                      : <Cuadricula productos={filteredData.grouped[k]} statsPorProducto={statsPorProducto} />}
+                    <Cuadricula productos={filteredData.grouped[k]} familias={familias}
+                      statsPorProducto={statsPorProducto} />
                   </Seccion>
                 )
               })}

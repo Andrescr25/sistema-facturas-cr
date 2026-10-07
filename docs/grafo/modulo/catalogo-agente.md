@@ -8,6 +8,7 @@ archivos:
   - frontend/src/utils/catalogoAgentePersonalizacion.js
   - frontend/src/utils/buscarCatalogoAgente.js
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
+  - frontend/src/components/catalogo-agente/BarraSuperior.jsx
   - backend/tests/subgruposCatalogoAgente.test.js
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
@@ -28,17 +29,29 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-05
+medido: 2026-10-07
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
 se toma en Facturación. No tiene controles para armarlo desde esta pantalla.
-Cada categoría se parte en familias (sus
-subcategorías), en el orden de `categoria_config.orden` y `subcategoria.orden`
+Cada categoría reúne sus familias (subcategorías) en una cuadrícula continua,
+en el orden de `categoria_config.orden` y `subcategoria.orden`
 — el mismo que ve Gestión de Catálogo, porque las dos pantallas usan las
 mismas funciones ([[decision/orden-canonico-compartido]]). El agente recibe
 ese orden de `GET /catalogo-agente/config-catalogo`; sin él (no sincronizó o
 falló) todo sale alfabético.
+
+2026-10-07, pedido del usuario: una subcategoría puede continuar en la misma
+fila que la anterior. Solo una categoría nueva abre otro bloque; al final de
+una categoría puede quedar una fila incompleta. `Cuadricula` recorre las
+familias canónicas seguidas, sin reordenar por tamaño ni mezclar categorías.
+La tarjeta dice la subcategoría en su propia línea, con hasta dos líneas
+visibles y el nombre completo en `title`; los sueltos de una categoría con
+familias dicen «Sin subcategoría» y siguen al final. Sin familias, no se
+inventan rótulos. Se reutiliza `BloquesPorCategoria` para rebajas y nuevos.
+Dos columnas en tablet/celular, tres desde `lg` y cuatro desde `xl`.
+Selector móvil con nombre accesible «Elegir cliente».
+[Validación visual y límites](../../informes/catalogo-agente-sin-huecos-2026-10-07.md).
 
 Con un cliente elegido, el orden se personaliza (`ordenarCatalogoParaCliente`:
 lo que suele comprar primero). Al quitar el cliente, vuelve al orden normal y

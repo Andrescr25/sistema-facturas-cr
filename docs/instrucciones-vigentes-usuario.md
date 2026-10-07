@@ -72,8 +72,15 @@ Después de consultar los pendientes de migración, el usuario indicó «esto lo
 vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
 muy desordenado». Clientes quedó reorganizado. Después pidió **rediseñar el
 Reporte de Proveedores** porque las nuevas funciones quedaron desordenadas,
-**manteniendo el diseño del sistema y reciclando código**. Ese rediseño visual
-continúa en la copia local, conservando funciones y organización por ruta/ciclo.
+**manteniendo el diseño del sistema y reciclando código**. Ambos rediseños
+quedaron integrados localmente, conservando funciones y ruta/ciclo. Mientras
+configura Hacienda, pidió mejorar el **catálogo del agente**, especialmente
+«Cliente nuevo»: llenar las filas dentro de cada categoría, mantener familias
+contiguas e identificadas en las tarjetas y separar solo al cambiar de
+categoría. Mantener recomendaciones, promociones y el diseño de tablet.
+Después autorizó **llevar este ajuste visual del catálogo directamente a
+`main`**. Esa autorización es específica: no incluye otros cambios de la
+migración, la base de producción ni modificar su configuración de Hacienda.
 La migración total y el corte
 quedan aplazados; no interpretar el rediseño como aceptación visual final,
 recuperación de Maps ni autorización para tocar producción.
@@ -83,6 +90,7 @@ título simple y recorrido lista → ficha, con secciones de encabezado neutro.
 Resultados y verificaciones en el
 [informe de Clientes](informes/clientes-redisenados-2026-10-07.md) y el
 [informe de Proveedores](informes/proveedores-redisenados-2026-10-07.md).
+Catálogo: [informe y comprobaciones](informes/catalogo-agente-sin-huecos-2026-10-07.md).
 Reutilizar la navegación y los componentes de tarjetas, botones y estados;
 separar los pasos de una orden sin perder lo escrito al navegar. La aceptación
 visual de ambas pantallas sigue al usuario, sin cerrar CLI-10/VAL-08 por este trabajo.

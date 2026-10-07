@@ -66,7 +66,7 @@ export default function BarraSuperior({
             </button>
           </div>
         ) : (
-          <button type="button" onClick={onElegirCliente}
+          <button type="button" onClick={onElegirCliente} aria-label="Elegir cliente"
             className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-primario-800 px-3 text-xs font-bold text-white active:scale-95">
             <UserPlus size={15} />
             <span className="hidden sm:inline">Elegir cliente</span>
