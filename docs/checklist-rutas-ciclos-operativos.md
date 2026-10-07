@@ -197,7 +197,7 @@ siguen parciales por propagación a órdenes/entregas y pedidos sin facturar.
 releídos y permisos HTTP comprobados. Checklist vigente **44 listos / 55
 pendientes (99 IDs)**. Ver informe de esta parte.
 
-**Excel operativo, 2026-10-06:** FIL-10 comprobado. Necesidades/órdenes/carga y
+**Excel operativo `f0fd815`, 2026-10-06:** FIL-10 comprobado. Necesidades/órdenes/carga y
 entregas exportan filtros completos, todas las páginas y detalle elegido con
 procedencia. Origen fijo, desconocidos vacíos, cantidades físicas/cobertura,
 Activas/Historial y posición global de carga conservados.2.211pruebas/362suites

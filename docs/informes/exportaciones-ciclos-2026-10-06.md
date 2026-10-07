@@ -1,9 +1,9 @@
 # Excel operativo por rutas y ciclos — 2026-10-06
 
-Implementado y verificado en copia propia desdecf2a639, sin nuevos commits de
+Implementado, verificado e integrado solo local, código **f0fd815**, desdecf2a639, sin nuevos commits de
 Claude ni otra reserva al comenzar. Rama tmp/codex-exportaciones-ciclos-20261006;
 clon tachi_codex_exportaciones_ciclos_20261006 desde dump LOCAL052. Integración
-exclusivamente local; respaldo y relevo final se anotan al cierre.
+exclusivamente local; respaldo y relevo final abajo.
 
 ## Resultado
 
@@ -87,3 +87,36 @@ fuente LOCAL de Maps anteriores (RUT-03), sin consultar producción ni inventar
 ubicaciones. Validación integral VAL-01/04–07 después. CLI-10/VAL-08 son
 revisiones del usuario. La prueba de maestro movido en exportaciones no cierra
 la conservación integral de todos los flujos del sistema.
+
+## Cierre local y relevo
+
+Código **f0fd815** integrado con rebase/avance sin fusión a independencia-alegra,
+sin push. Respaldo nuevo antes-exportaciones-local.dump0600, únicamente tachi
+LOCAL localhost5434. Sin migración nueva ni modificaciones de datos históricos;
+053 disponible. App5174→3002/backend **PID36152**, Vite98892, lanzador permanente
+seguro /private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs.
+No server.js directo por IMAP/ping/Hacienda/salidas; limpieza antigua nunca
+se ejecuta, ya retirada por050.
+
+**36 huellas operativas +9 completas adicionales idénticas** al estado previo,
+incluyendo íntegros compra/pagos/caja/bitácora/usuarios/permisos/entrega_evento/
+orden_compra_ciclo_cierre. Rutas/ciclos/cliente del usuario conservados, órdenes/
+recepciones/eventos/cierres0, stock/conteos/movimientos0 y demo no recreada.
+Compartida comprobada solo GET/SQL READ ONLY: las tres nuevas exportaciones
+releídas con encabezados vacíos200 y sin sesión401; salud/frontend200,
+cierre inexistente404. No reporte legado sin filtros, puede asignar proveedor.
+
+Original3000/PID5370 y developer5013270/main e19c3e5 intactos; sin producción,
+Prisma/generate/install, Hacienda/IMAP real, mensajes reales ni limpieza.
+Catálogo4/hoja, Descargas/fiscal/ensayos anteriores conservados.
+
+Base tachi_codex_exportaciones_ciclos_20261006 y propios3003/5175 se retiran al
+cerrar; copia/rama se retiran tras montar documentación. Reserva liberada y
+memoria/grafo/checklist/informe actualizados,15decisiones literales preservadas.
+Evidencia/dumps/capturas/XLSX privados en /private/tmp/codex-exportaciones-ciclos-20261006
+conservados. Guiones dependientes de trabajo retirado son evidencia, no lanzadores.
+
+Los11IDs abiertos: RUT-03/08, CLI-10, FIL-09/11, VAL-01/04/05/06/07/08.
+Revisiones CLI-10/VAL-08 a cargo del usuario; no cerrar validación integral
+por pruebas de esta parte. Próximo: revisión global de contexto/pantallas/
+históricos, fuente local Maps y flujo completo en copia propia.
