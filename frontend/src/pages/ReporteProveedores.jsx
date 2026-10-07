@@ -212,6 +212,7 @@ export default function ReporteProveedores() {
       ) : proveedorActivo && consultaCiclo ? (
         <FaltantesPorCiclo proveedor={proveedorActivo} cicloId={filtroCiclo.cicloId} onVolver={() => setProveedorActivoId(null)}
           notasPorProducto={notasPorProducto} cargandoNotas={cargandoNotas}
+          productosSeleccionados={productosSeleccionados} onSeleccionarProducto={toggleProductoSeleccionado} onAsignar={abrirModalAsignar}
           onPrepararOrden={() => { setProveedorOrden({ cedula: proveedorActivo.cedula, nombre: proveedorActivo.nombre }); setVista('ordenes') }} />
       ) : proveedorActivo ? (
         <ProveedorDetalle
@@ -269,6 +270,7 @@ export default function ReporteProveedores() {
       {modalAsignarVisible && (
         <ModalAsignarProveedor
           cantidadSeleccionados={productosSeleccionados.size}
+          soloCiclo={consultaCiclo}
           busquedaProveedor={busquedaProveedor}
           setBusquedaProveedor={setBusquedaProveedor}
           proveedoresDisponibles={proveedoresDisponibles}

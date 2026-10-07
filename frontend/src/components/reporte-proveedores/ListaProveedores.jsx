@@ -50,10 +50,11 @@ export default function ListaProveedores({ proveedores, pedidosEnviados, resumen
           {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => {
             const enviado = pedidosEnviados?.get(proveedor.nombre)
             return (
-            <div
+            <button
+              type="button"
               key={proveedor.id}
               onClick={() => onSelectProveedor(proveedor.id)}
-              className={`group bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${
+              className={`group min-w-0 text-left bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${
                 enviado ? 'border-exito-200 ring-1 ring-exito-100' : 'border-neutro-100'
               }`}
             >
@@ -90,7 +91,7 @@ export default function ListaProveedores({ proveedores, pedidosEnviados, resumen
                   <p className="text-xl font-bold text-primario-600">{proveedor.total_cantidad}</p>
                 </div>
               </div>
-            </div>
+            </button>
             )
           })}
         </div>

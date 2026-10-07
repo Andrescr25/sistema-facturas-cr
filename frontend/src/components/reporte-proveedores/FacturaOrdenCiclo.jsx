@@ -31,8 +31,9 @@ export default function FacturaOrdenCiclo({orden,ocupado,onOcupado}){
   const {prompt,dialogProps}=useDialog(),vivo=useRef(true),lectura=useRef(0),url=useRef(''),solicitud=useRef(null),pdfSolicitud=useRef(null)
   const fallo=e=>e.response?.data?.message||'No se pudo consultar o guardar la factura. Recargá antes de reintentar.'
   const limpiarPdf=()=>{if(url.current)URL.revokeObjectURL(url.current);url.current='';setPdfAbierto(null)}
-  useEffect(()=>{vivo.current=true;api.get(`${BASE}/${orden.id}/facturas`).then(({data})=>{if(vivo.current)setDatos(data.data)}).catch(e=>{if(vivo.current)setError(fallo(e))}).finally(()=>{if(vivo.current)setCargando(false)})
-    return()=>{vivo.current=false;lectura.current++;if(url.current)URL.revokeObjectURL(url.current)}},[orden.id])
+  useEffect(()=>{let activo=true;vivo.current=true;setCargando(true);setDatos(null)
+    api.get(`${BASE}/${orden.id}/facturas`).then(({data})=>{if(activo)setDatos(data.data)}).catch(e=>{if(activo)setError(fallo(e))}).finally(()=>{if(activo)setCargando(false)})
+    return()=>{activo=false;vivo.current=false;lectura.current++;if(url.current)URL.revokeObjectURL(url.current)}},[orden.id])
   const ejecutar=async tarea=>{onOcupado(true);setError('');try{const result=await tarea();if(vivo.current){setDatos(result);setPropuesta(null);setRevisada(false)}}catch(e){if(vivo.current)setError(fallo(e))}finally{onOcupado(false)}}
   const consultar=async pagina=>{const id=++lectura.current;onOcupado(true);setError('');try{const {data}=await api.get(`${BASE}/${orden.id}/facturas/candidatas`,{params:{buscar,pagina}});if(vivo.current&&id===lectura.current)setLista(data.data)}catch(e){if(vivo.current)setError(fallo(e))}finally{onOcupado(false)}}
   const revisar=async id=>{onOcupado(true);setError('');setPropuesta(null);setRevisada(false);try{const {data}=await api.get(`${BASE}/${orden.id}/facturas/propuesta/${id}`);if(vivo.current){setPropuesta(data.data);solicitud.current=null}}catch(e){if(vivo.current)setError(fallo(e))}finally{onOcupado(false)}}

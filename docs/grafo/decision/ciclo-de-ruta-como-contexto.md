@@ -9,7 +9,7 @@ archivos:
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
   relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-06
+medido: 2026-10-07
 ---
 
 **Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; archivo implementado y consulta de carga/entregas disponible; registro físico implementado y verificado en copia local.** La ruta define el
@@ -100,3 +100,12 @@ permisos HTTP, conexiones/transacciones paralelas y conversiones de unidades.
 Stock general aumenta al recibir; cobertura/recibidos del otro ciclo no se
 reasignan. Vigente 93 listos / 6 pendientes (99 IDs). VAL-05–08 conservan la
 verificación final/manual; las cifras y pendientes anteriores son históricos.
+
+
+Recorrido visual 2026-10-07: VAL-05 cerrado,94/5(99 IDs),seis regresiones
+nuevas/2.263 pruebas/363 suites/grafo12/build. Asignar proveedor en un ciclo
+no afecta los otros; GET filtrados consultan sin asignación automática.
+Lectura tardía de recepción no reinicia lo editado. UI conserva compra3
+separada de enviada4, recepción una vez, cierre/entrega/origen y PDF/historial
+24h. [[modulo/recorrido-visual-operativo]] e informe de esta entrega.
+VAL-06/07, fuente LOCAL Maps y revisiones del usuario siguen pendientes.

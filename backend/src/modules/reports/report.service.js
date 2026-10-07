@@ -73,7 +73,9 @@ class ReportService {
       const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
       // Exportar lee la asignación guardada: descargar un archivo no debe
       // cambiar a quién se le pide el faltante. La pantalla conserva su flujo.
-      if (asignarProveedores && productosSinAsignacion.length > 0) {
+      // Consultar una semana no decide compras ni asigna proveedores: la
+      // asignación explícita pertenece al ciclo elegido por la persona.
+      if (asignarProveedores === true && !rutaId && !cicloId && productosSinAsignacion.length > 0) {
         console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada. Asignando automáticamente...`);
         
         for (const producto of productosSinAsignacion) {
@@ -285,7 +287,7 @@ class ReportService {
       // faltante nuevo cae al fallback de la tabla legacy `proveedores` aunque el
       // producto ya tenga una relación real y vigente en supplier_product_mapping.
       const sinAsignar = result.rows.filter(row => !row.proveedor_asignado);
-      if (asignarProveedores && sinAsignar.length > 0) {
+      if (asignarProveedores === true && !rutaId && !cicloId && sinAsignar.length > 0) {
         console.log(`⚠️ ${sinAsignar.length} faltantes sin proveedor asignado. Asignando automáticamente...`);
         for (const row of sinAsignar) {
           await asignarProveedorAutomatico(row.faltante_id, row.producto_id, row.producto_codigo);

@@ -171,6 +171,7 @@ export function useReporteProveedores({activo=true}={}) {
   }, [fechaInicio])
 
   useEffect(() => {
+    setModalAsignarVisible(false)
     // El reporte legado puede asignar proveedores al abrirse. Las otras
     // vistas no deben dispararlo de fondo ni aplicar sus borradores globales.
     if(!activo){++peticion.current;++peticionNotas.current;return}
@@ -400,6 +401,10 @@ export function useReporteProveedores({activo=true}={}) {
 
   const asignarProveedorManual = useCallback(async (proveedorId) => {
     if (productosSeleccionados.size === 0) return
+    if (consultaCiclo && !filtroCiclo.cicloId) {
+      showToast('Seleccioná una semana concreta o Sin ciclo para asignar.', 'warning')
+      return
+    }
     try {
       setLoading(true)
       const productosAAsignar = []
@@ -419,7 +424,8 @@ export function useReporteProveedores({activo=true}={}) {
           // Los dos ids son PROPIOS: el producto del que cuelgan los faltantes
           // (migración 032) y la ficha del proveedor. Asignar y reasignar son
           // la misma operación.
-          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId })
+          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId,
+            ...(consultaCiclo ? { cicloId: filtroCiclo.cicloId } : {}) })
             .catch(err => ({ data: { success: false } }))
         })
         resultados.push(...(await Promise.all(promesasLote)))
@@ -437,7 +443,7 @@ export function useReporteProveedores({activo=true}={}) {
     } finally {
       setLoading(false)
     }
-  }, [productosSeleccionados, proveedores, loadReporte, showToast])
+  }, [productosSeleccionados, proveedores, loadReporte, showToast, consultaCiclo, filtroCiclo.cicloId])
 
   const crearNuevoProveedor = useCallback(async (datosProveedor) => {
     try {

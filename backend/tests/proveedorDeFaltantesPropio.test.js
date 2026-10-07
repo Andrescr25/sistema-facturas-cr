@@ -148,6 +148,59 @@ describe('el proveedor de un faltante — contra PostgreSQL local', () => {
     });
   });
 
+  describe('asignación por ciclo conserva otras semanas y Sin ciclo', () => {
+    const contexto = async () => {
+      const p = await producto('zz-tres-semanas');
+      const cliente = (await conexion.query("INSERT INTO cliente(nombre) VALUES('zz-cliente ámbito') RETURNING id")).rows[0].id;
+      const ruta = (await conexion.query("INSERT INTO ruta_cliente(nombre) VALUES('zz-ruta ámbito') RETURNING id")).rows[0].id;
+      const ciclos = [], faltantes = [];
+      for (const semana of ['2031-03-03','2031-03-10']) {
+        const ciclo = (await conexion.query('INSERT INTO ciclo_ruta(ruta_id,ruta_nombre,semana) VALUES($1,\'zz-ruta ámbito\',$2) RETURNING id', [ruta, semana])).rows[0].id;
+        const parada = (await conexion.query("INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) VALUES($1,$2,1,'zz-cliente ámbito') RETURNING id", [ciclo, cliente])).rows[0].id;
+        await conexion.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1', [ciclo]);
+        const f = (await conexion.query("INSERT INTO factura(numero,estado,fecha,cliente_nombre,ciclo_ruta_cliente_id,cliente_id) VALUES($1,'emitida',$2,'zz-cliente ámbito',$3,$4) RETURNING id", ['zz-ámbito-' + ciclo, semana, parada, cliente])).rows[0].id;
+        faltantes.push((await conexion.query("INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado) VALUES($1,$2,3,'parcial','pendiente') RETURNING id", [f,p])).rows[0].id);
+        ciclos.push(ciclo);
+      }
+      faltantes.push(await faltante(p));
+      return { p, ruta, ciclos, faltantes };
+    };
+    test('una semana asigna solo sus propios faltantes; no cambia mapeos ni cobertura global', async () => {
+      const d = await contexto(), m = await mapeo({productoId:d.p,proveedor:proveedorB});
+      const r = await manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorB.id,cicloId:String(d.ciclos[1])});
+      assert.equal(r.faltantesActualizados,1); assert.equal(r.mappingId,m);
+      assert.equal((await leer(d.faltantes[1])).proveedor_asignado,proveedorB.nombre);
+      for (const i of [0,2]) assert.equal((await leer(d.faltantes[i])).proveedor_asignado,null);
+      assert.equal((await conexion.query('SELECT proveedor_id FROM supplier_product_mapping WHERE id=$1',[m])).rows[0].proveedor_id,proveedorB.id);
+    });
+    test('Sin ciclo asigna históricos sin tomar faltantes de ninguna semana', async () => {
+      const d=await contexto();
+      assert.equal((await manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:'sin-ciclo'})).faltantesActualizados,1);
+      assert.equal((await leer(d.faltantes[2])).proveedor_asignado,proveedorA.nombre);
+      for (const i of [0,1]) assert.equal((await leer(d.faltantes[i])).proveedor_asignado,null);
+    });
+    test('ámbitos vacíos, inválidos o inexistentes rechazan sin asignar globalmente', async () => {
+      const d=await contexto();
+      for (const cicloId of [null,'',0,-1,'abc','1abc',1.5,2147483648]) await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId}),e=>e.status===400);
+      await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:2147483647}),e=>e.status===404);
+      for (const f of d.faltantes) assert.equal((await leer(f)).proveedor_asignado,null);
+    });
+    for (const ambito of ['ruta','semana','sin-ciclo']) test(`abrir ambos reportes con filtro ${ambito} no asigna ni modifica faltantes`, async () => {
+      const d=await contexto(); await mapeo({productoId:d.p,proveedor:proveedorA});
+      const reportes=new(require('../src/modules/reports/report.service'))();
+      const filtro=ambito==='ruta'?{rutaId:d.ruta}: {cicloId:ambito==='semana'?d.ciclos[1]:'sin-ciclo'};
+      const huella=async()=> (await conexion.query("SELECT md5(string_agg(to_jsonb(f)::text,'' ORDER BY id)) h FROM faltantes f WHERE id=ANY($1::int[])",[d.faltantes])).rows[0].h;
+      const antes=await huella();
+      // Usar los valores por omisión reales de la pantalla: pasar false aquí
+      // ocultaría la regresión en GET, aunque la exportación sí fuese segura.
+      const proveedor=await reportes.getMissingItemsBySupplier(null,filtro);
+      const cliente=await reportes.getMissingItemsByClient(filtro);
+      assert.equal(proveedor.success,true,proveedor.error); assert.equal(cliente.success,true,cliente.error);
+      assert.equal(await huella(),antes);
+      for (const f of d.faltantes) assert.equal((await leer(f)).proveedor_asignado,null);
+    });
+  });
+
   describe('automática, al abrir el reporte', () => {
     test('usa los mapeos del producto PROPIO; el más usado hace poco si nadie tiene precio', async () => {
       const p = await producto('zz-con dos proveedores');

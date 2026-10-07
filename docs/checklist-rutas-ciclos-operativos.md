@@ -29,8 +29,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md) y
 [históricos y copias](informes/historicos-contexto-2026-10-06.md) y
 [contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md) y
-[permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md).
-Estado vigente: **93 listos / 6 pendientes (99 IDs)**. Las cifras en las
+[permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md) y
+[recorrido visual completo](informes/recorrido-visual-2026-10-07.md).
+Estado vigente: **94 listos / 5 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -457,7 +458,7 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
   anterior sigue en 10 y nueva sugerencia solo cubre las 3 sin cobertura.
 - [x] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
 - [x] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.
-- [ ] VAL-05 — Verificar flujo en navegador escritorio/celular y build.
+- [x] VAL-05 — Verificar flujo en navegador escritorio/celular y build.
 - [ ] VAL-06 — Migraciones/pruebas que escriben en base desechable propia;
   aplicar a copia local con respaldo y comparación cuando cada parte pase.
 - [ ] VAL-07 — Comprobar que inventario provisional cero e históricos se
@@ -502,6 +503,21 @@ Solo tests/documentación, sin cambios de servicios ni nueva SQL; 053 libre.
 VAL-05–07 conservan la revisión final global, no se cierran por estas cinco
 vistas de permisos. CLI-10/VAL-08 corresponden al usuario; Maps LOCAL RUT-03
 sigue pendiente. Las cifras y pendientes de etapas anteriores son históricos.
+
+**Recorrido visual, 2026-10-07:** VAL-05 comprobado con catorce pasos de UI,
+desde catálogo PDF y pedido anticipado hasta recepción, promoción/carga/entrega
+e historial a24h. Lecturas filtradas ya no asignan proveedores; asignación
+explícita por ciclo disponible; respuesta tardía no borra cantidad/confirmación.
+Compra3 adicional no amplía enviada4, recepción+3 una vez, original4+6,
+cierre conserva1/libera3; PDF enviado idéntico al revisado, cuatro Excel.
+Escritorio1440/celular390, sin errores JS/desborde ni reporte legado; datos y
+mutaciones solo en clon propio, documentos enviados simulados. Buzón/24h son
+fixtures explícitos, no acreditan salidas reales. **2.263 pruebas/363 suites**,
+fail0/skip0; seis regresiones nuevas, grafo12/build. Sin SQL nueva:053 libre.
+**94 listos / 5 pendientes (99 IDs)**; independencia133/14 separada.
+[informe](informes/recorrido-visual-2026-10-07.md) registra evidencia y aplicación.
+Sigue VAL-06/07 para aislamiento/aplicación/preservación global. Maps LOCAL
+RUT-03 y revisiones CLI-10/VAL-08 del usuario conservan sus casillas.
 
 ## Orden para avanzar poco a poco
 

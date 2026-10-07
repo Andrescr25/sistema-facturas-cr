@@ -21,7 +21,7 @@ archivos:
   - backend/tests/fichaCliente.test.js
 aristas:
   relacionado: [modulo/historicos-contexto-documentos, decision/ciclo-de-ruta-como-contexto, modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/preventa-por-enlace, modulo/facturas-bodega, modulo/faltantes, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
-medido: 2026-10-06
+medido: 2026-10-07
 ---
 
 SELECCIÓN Y RESPUESTA. Pedidos y reportes ocultan datos de la selección
@@ -88,3 +88,11 @@ distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
 los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
 el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
 anterior. No confundir esta entrega con VAL o cierre integral RUT-08.
+
+
+Recepción/Factura de una orden también descartan respuestas de una lectura
+cancelada (2026-10-07). La doble lectura de desarrollo podía volver a aplicar
+un formulario inicial sobre cantidades ya escritas; Recepción compara turno,
+bloquea su carga local y conserva la edición al llegar la respuesta anterior.
+El recorrido Chromium demora de forma controlada ese GET y comprueba cantidad
+6 y confirmación antes de registrar. [[modulo/recorrido-visual-operativo]].

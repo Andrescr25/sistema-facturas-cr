@@ -21,16 +21,26 @@ const { pool } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
+const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 
 /**
- * @param {{productoId: number, proveedorId: number}} datos  ids propios
+ * @param {{productoId: number, proveedorId: number, cicloId?: number|'sin-ciclo'}} datos
  * @returns {Promise<{proveedor: string, faltantesActualizados: number, mappingId: string|null}>}
  */
-async function asignarProveedorAProducto({ productoId, proveedorId } = {}) {
+async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = {}) {
   const idProducto = idValido(productoId);
   const idProveedor = idValido(proveedorId);
+  const params = [];
+  // Omitir el ámbito conserva el contrato global anterior. Un ámbito vacío
+  // explícito nunca debe convertirse silenciosamente en una asignación global.
+  if (cicloId !== undefined && (cicloId === null || cicloId === '')) throw httpError(400, 'Seleccioná un ciclo o Sin ciclo.');
+  const { where } = filtrosOperacion({ cicloId }, [], params);
 
   return enTransaccion(pool, async (db) => {
+    if (cicloId !== undefined && cicloId !== 'sin-ciclo') {
+      const existe = await db.query('SELECT id FROM ciclo_ruta WHERE id=$1', [Number(cicloId)]);
+      if (!existe.rowCount) throw httpError(404, 'Ese ciclo no existe.');
+    }
     const { rows: [proveedor] } = await db.query(
       'SELECT id, nombre, identificacion, activo FROM proveedor WHERE id = $1', [idProveedor]);
     if (!proveedor) throw httpError(404, 'Ese proveedor no existe.');
@@ -52,8 +62,10 @@ async function asignarProveedorAProducto({ productoId, proveedorId } = {}) {
              asignacion_tipo = 'manual',
              fecha_asignacion = ${AHORA_CR_SQL},
              mapping_id = $3
-       WHERE producto_propio_id = $4 AND estado = 'pendiente'`,
-      [proveedor.nombre.trim(), proveedor.identificacion || null, mapeo?.id || null, idProducto]);
+       WHERE producto_propio_id = $4 AND estado = 'pendiente'
+         ${where.length ? `AND factura_propia_id IN (SELECT f.id FROM factura f ${JOIN_CICLO('f')}
+           WHERE ${where.join(' AND ').replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + 4))})` : ''}`,
+      [proveedor.nombre.trim(), proveedor.identificacion || null, mapeo?.id || null, idProducto, ...params]);
 
     return { proveedor: proveedor.nombre.trim(), faltantesActualizados: rowCount, mappingId: mapeo?.id || null };
   });

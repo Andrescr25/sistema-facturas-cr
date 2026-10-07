@@ -35,10 +35,14 @@ archivos:
   - backend/tests/horaEnvioImpresion.test.js
   - backend/tests/reporteClientesFiltros.test.js
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
+  - frontend/src/components/reporte-proveedores/ListaProveedores.jsx
+  - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
+  - frontend/src/components/reporte-proveedores/ModalAsignarProveedor.jsx
+  - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-06
+medido: 2026-10-07
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -265,3 +269,21 @@ respuestas tardías descartadas, notas por semana y contexto original en la
 ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
 RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
 una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
+
+
+## Asignación explícita en un ciclo — 2026-10-07
+
+Abrir los reportes de clientes/proveedores con ruta, semana o Sin ciclo ya
+no asigna proveedores automáticamente. El navegador detectó que los GET
+conservaban el valor por omisión del reporte global; los tests anteriores
+pasaban `asignarProveedores:false` y no ejercitaban ese camino real.
+La exportación conserva su lectura sin escrituras.
+
+Faltantes por ciclo permite seleccionar productos y asignar una ficha desde
+la misma pantalla. POST /proveedores/asignaciones recibe `cicloId` opcional:
+con ciclo positivo afecta solo sus faltantes pendientes; Sin ciclo solo los
+históricos. Vacío explícito/inválido devuelve 400, inexistente 404; omitirlo
+conserva el contrato global anterior. No modifica mapeos maestros, órdenes
+emitidas, cantidades ni stock. El cambio de selección cierra el modal.
+Las tarjetas de proveedor son botones accesibles; búsqueda cabe en celular.
+Ver [[modulo/recorrido-visual-operativo]] y las seis regresiones PostgreSQL.

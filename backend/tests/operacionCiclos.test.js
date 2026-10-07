@@ -172,7 +172,7 @@ caso('lecturas de ciclo y Maps pertenecen a cada módulo y limpieza conserva due
   assert.equal(m.moduloDeRuta('/reportes/faltantes/proveedor/ciclos'),'reporte-proveedores');
   assert.equal(m.moduloDeRuta('/reportes/faltantes/proveedor/limpiar'),'configuracion');
 });
-caso('asignación automática filtrada no cambia un faltante de la próxima semana',async()=>{
+caso('reporte filtrado no asigna automáticamente en ninguna semana',async()=>{
   await c.query('SAVEPOINT asignacion_scope');
   const rutaAsignador=require.resolve('../services/proveedorAsignacionService');
   const rutaReporte=require.resolve('../src/modules/reports/report.service');
@@ -185,7 +185,8 @@ caso('asignación automática filtrada no cambia un faltante de la próxima sema
     delete require.cache[rutaReporte];
     const reporte=new(require('../src/modules/reports/report.service'))();
     const rr=await reporte.getMissingItemsBySupplier(null,{cicloId:actual.id});assert.equal(rr.success,true,rr.error);
-    assert.deepEqual(llamadas,[docs[0].faltante]);
+    assert.deepEqual(llamadas,[]);
+    assert.equal((await c.query('SELECT proveedor_asignado FROM faltantes WHERE id=$1',[docs[0].faltante])).rows[0].proveedor_asignado,null);
     assert.equal((await c.query('SELECT proveedor_asignado FROM faltantes WHERE id=$1',[docs[2].faltante])).rows[0].proveedor_asignado,null);
   } finally {require.cache[rutaAsignador]=viejoAsignador;require.cache[rutaReporte]=viejoReporte;await c.query('ROLLBACK TO SAVEPOINT asignacion_scope')}
 });

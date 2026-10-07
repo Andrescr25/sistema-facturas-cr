@@ -194,7 +194,7 @@ de otros módulos; nunca ejecutar código de limpieza antigua. Factura con varia
 asignación explícita por línea/cantidad, sin contarla completa dos veces.
 
 
-## Relevo vigente de ejecución — contexto visible, 2026-10-06
+## Etapa previa de ejecución — contexto visible, 2026-10-06
 
 Código9fc8d8e sólo local: FIL-09 cerrado, **89 listos/10 pendientes (99 IDs)**.
 Pedidos/reportes/notas descartan selecciones anteriores y respuestas tardías;
@@ -206,3 +206,18 @@ originales; esta sección registra implementación, no las sustituye.
 RUT-08/FIL-11, fuente LOCAL Maps RUT-03 e integral siguen pendientes;
 CLI-10/VAL-08 del usuario. No cerrar esos IDs por esta revisión de pantallas.
 Independencia133/14 permanece separada y no acredita aceptación real/corte.
+
+
+## Relevo vigente de ejecución — recorrido visual, 2026-10-07
+
+VAL-05 cerrado, operativo **94 listos/5 pendientes (99 IDs)**; independencia
+**133/14 (147 IDs)** separada. Flujo real de UI en escritorio/celular y build,
+catálogo→pedido anticipado→factura→bodega→compra separada→recepción→entrega→
+archivo. Correcciones de asignación por ciclo, GET filtrado sin asignaciones
+y respuesta tardía conservando la edición. Informe recorrido-visual-2026-10-07;
+grafo modulo/recorrido-visual-operativo.2.263 pruebas/363 suites/grafo12/build.
+Sin SQL nueva:053 libre. Solo local; pruebas escriben exclusivamente al clon
+propio y documentos se envían a un doble sin red. Nunca limpieza semanal.
+Sigue VAL-06/07 global; RUT-03 Maps LOCAL, CLI-10/VAL-08 del usuario pendientes.
+Las quince decisiones originales se conservan; no volver a pedirlas ni
+acreditar Hacienda/producción/conteo por esta validación.
