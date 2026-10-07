@@ -93,3 +93,34 @@ producción o conteo físico por aprobar estos escenarios.
 de escritorio/celular y build; estas cinco vistas son la parte de permisos.
 VAL-06/07 conservan aplicación/aislamiento y preservación global; CLI-10/VAL-08
 pertenecen a las revisiones del usuario y RUT-03 requiere localizar Maps LOCAL.
+
+## Aplicación local y relevo
+
+Pruebas/documentación **05bbc4f** integradas por rebase y avance sin fusión
+desde fc19546, solo en independencia-alegra local y sin push. No cambian
+backend/src, frontend/src ni migraciones. App 5174→3002 conserva backend
+seguro **49572** y Vite **98892**, sin reinicio. Lanzador permanente:
+/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs.
+No usar server.js directo por IMAP/ping/Hacienda y salidas.
+
+Respaldo nuevo de tachi LOCAL5434 protegido 0600:
+/private/tmp/codex-validacion-cadena-20261006/antes-validacion-cadena-local.dump.
+**36 huellas operativas + 9 completas adicionales idénticas** antes/después
+de integrar y consultar. Stock/conteos/movimientos/eventos/órdenes/
+recepciones/cierres en cero; cliente/ruta/ciclo cancelado del usuario,
+usuarios/permisos, finanzas y documentos anteriores conservados. Sin nuevas
+filas ZZ ni demo en la base habitual.
+
+Habitual solo GET/SQL READ ONLY: salud/API/frontend 200, ficha con contexto
+Sin ciclo 200/sin sesión 401, necesidades vacías, tres Excel vacíos 200/401,
+detalles inexistentes 404. Producción no conectada; original 3000/PID5370,
+developer 5013270 y main e19c3e5 intactos. No instalar ni regenerar Prisma.
+
+Clon tachi_codex_validacion_cadena_20261006 y puertos propios 3003/5175
+**RETIRADOS**, comprobados por lectura. Copia/rama temporal se retiran al
+integrar este relevo. Dumps/logs/evidencia y diez capturas privados 0700/0600
+en /private/tmp/codex-validacion-cadena-20261006. Guiones que dependen de la
+copia retirada son evidencia, no lanzadores reutilizables. No borrar ensayos
+ajenos, almacenamiento fiscal ni Descargas. Memoria conserva literalmente
+las quince decisiones del usuario y libera únicamente esta reserva al cerrar.
+Grafo y checklist actualizados en la misma entrega; 053 sigue libre.

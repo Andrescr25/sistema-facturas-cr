@@ -482,7 +482,7 @@ VAL-04–07 conservan la verificación global; probar estos escenarios no comple
 su matriz de permisos/concurrencia/unidades ni las revisiones del usuario.
 Los pendientes citados en las etapas anteriores son históricos.
 
-**Permisos/concurrencia/unidades, 2026-10-06:** VAL-04 comprobado en toda la
+**Permisos/concurrencia/unidades `05bbc4f`, 2026-10-06:** VAL-04 comprobado en toda la
 cadena con 20 casos nuevos: seis de ACL por HTTP real, ocho de conexiones/
 transacciones reales y seis de unidades. Ocho permisos individuales, admin
 y sin módulos; 28 lecturas y 19 escrituras del flujo, variantes de mayúsculas/
