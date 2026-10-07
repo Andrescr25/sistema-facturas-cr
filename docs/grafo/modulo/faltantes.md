@@ -36,12 +36,13 @@ archivos:
   - backend/tests/reporteClientesFiltros.test.js
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
   - frontend/src/components/reporte-proveedores/ListaProveedores.jsx
+  - frontend/src/components/reporte-proveedores/ProveedorDetalle.jsx
   - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - frontend/src/components/reporte-proveedores/ModalAsignarProveedor.jsx
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+  relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-07
 ---
 
@@ -287,3 +288,13 @@ conserva el contrato global anterior. No modifica mapeos maestros, órdenes
 emitidas, cantidades ni stock. El cambio de selección cierra el modal.
 Las tarjetas de proveedor son botones accesibles; búsqueda cabe en celular.
 Ver [[modulo/recorrido-visual-operativo]] y las seis regresiones PostgreSQL.
+
+
+## Presentación vigente — 2026-10-07
+
+Faltantes en [[modulo/reporte-proveedores]] usa tarjetas de proveedor/producto,
+búsqueda/fecha juntas y resumen explícito del reporte completo de la selección.
+Consulta general conserva edición/selección/procedencia con controles móviles;
+preparación de orden sigue por semana o Sin ciclo. Área inactiva/error no se
+interpretan como proveedor desaparecido. Pruebas visuales interceptan incluso
+el GET general que puede asignar proveedores; no se insertan demos en la base.

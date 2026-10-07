@@ -12,6 +12,7 @@ archivos:
   - backend/src/modules/clientes/clientes.resumen.service.js
   - frontend/src/pages/Clientes.jsx
   - frontend/src/components/clientes/NavegacionClientes.jsx
+  - frontend/src/components/ui/NavegacionSecciones.jsx
   - frontend/src/components/clientes/ListaClientes.jsx
   - frontend/src/components/clientes/ListaCuentas.jsx
   - frontend/src/components/clientes/VistaRutas.jsx
@@ -21,7 +22,7 @@ archivos:
   - frontend/src/hooks/useClientes.js
   - backend/tests/rutasCiclos.test.js
 aristas:
-  relacionado: [bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-07
 ---
@@ -116,3 +117,12 @@ desbordes, escrituras ni salidas. Build y grafo12 aprobados. Auditoría106 tabla
 Evidencia y límites en `docs/informes/clientes-redisenados-2026-10-07.md`.
 CLI-10/VAL-08 siguen abiertos al usuario; RUT-03 necesita fuente local Maps.
 Operativo96/3 e independencia133/14 conservados. No acredita corte ni Hacienda real.
+
+
+## Navegación compartida con Proveedores — 2026-10-07
+
+`NavegacionClientes` reutiliza ahora `ui/NavegacionSecciones`; mantiene cuatro
+áreas, agrupación de accesos y contador real de pedidos. Extracción para el
+rediseño [[modulo/reporte-proveedores]], sin cambiar servicios ni datos de Clientes.
+Regresión1440/390: navegación y ficha abiertas sin guardar, sin errores/desbordes.
+La verificación completa previa de Clientes y sus revisiones humanas se conservan.

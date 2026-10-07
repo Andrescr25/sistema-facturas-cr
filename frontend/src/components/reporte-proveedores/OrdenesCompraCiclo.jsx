@@ -1,3 +1,8 @@
+import Boton from '../ui/Boton'
+import Insignia from '../ui/Insignia'
+import PanelSeccion from '../ui/PanelSeccion'
+import NavegacionSecciones from '../ui/NavegacionSecciones'
+import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import BotonExportarExcel from '../ui/BotonExportarExcel'
 import CierreOrdenCiclo from './CierreOrdenCiclo'
 import { useEffect, useRef, useState } from 'react'
@@ -17,7 +22,9 @@ const fecha=v=>new Date(v).toLocaleString('es-CR',{timeZone:'America/Costa_Rica'
 /** Las cantidades de este flujo son propias; no leer el borrador global. */
 export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
   const [lista,setLista]=useState([]),[vista,setVista]=useState('activas')
+  const [seccion,setSeccion]=useState('productos')
   const [orden,setOrden]=useState(null),[sugerencia,setSugerencia]=useState(null)
+  useEffect(()=>setSeccion('productos'),[orden?.id])
   const [cantidades,setCantidades]=useState({}),[error,setError]=useState(''),[mensaje,setMensaje]=useState('')
   const [cargando,setCargando]=useState(false),[ocupado,setOcupado]=useState(false),[revision,setRevision]=useState(0)
   const { prompt,dialogProps }=useDialog()
@@ -109,18 +116,30 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
     {mensaje&&<p role="status" className="rounded-lg bg-exito-50 p-3 text-exito-800">{mensaje}</p>}
     {cargando&&<p role="status">Consultando órdenes de compra…</p>}
     {(orden||sugerencia)?<>
-      {orden?<div className="flex flex-wrap gap-2"><button type="button" disabled={ocupado} className="btn btn-outline" onClick={volver}>Volver a órdenes</button><BotonExportarExcel ruta={`${BASE}/${orden.id}/exportar`} params={filtro.params} disabled={ocupado||cargando||Boolean(error)} title="Descarga esta orden y su procedencia; el PDF enviado se conserva."/></div>:<button type="button" disabled={ocupado} className="btn btn-outline" onClick={volver}>Volver a órdenes</button>}
-      <div className="card p-5 space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Boton variante="fantasma" tamano="lg" disabled={ocupado} onClick={volver}><ArrowLeft size={20}/>Volver a órdenes</Boton>
+        {orden && <BotonExportarExcel ruta={`${BASE}/${orden.id}/exportar`} params={filtro.params} disabled={ocupado||cargando||Boolean(error)} title="Descarga esta orden y su procedencia; el PDF enviado se conserva."/>}
+      </div>
+      <div className="rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6 space-y-3">
         <h2 className="break-words text-xl font-bold">{orden?orden.referencia:'Nueva orden'} · {orden?.proveedor_nombre||sugerencia?.proveedor.nombre}</h2>
         <p className="break-words font-semibold">{textoCiclo(orden?.ciclo||sugerencia?.ciclo)}</p>
-        <p>{orden?ESTADOS[orden.estado]:'Revisá los productos y cantidades antes de guardar.'}</p>
+        {orden ? <Insignia className="whitespace-normal" tono={orden.estado==='recibida'?'exito':orden.estado==='cerrada'?'neutro':orden.enviada_en?'activo':'alerta'}>{ESTADOS[orden.estado].split(' · ')[0]}</Insignia> : <p>Revisá los productos y cantidades antes de guardar.</p>}
         {orden?.archivada&&<p className="font-semibold">Archivada · disponible en Historial desde {fecha(orden.archivada_en)}</p>}
         {orden?.archivo_programado_en&&!orden.archivada&&<p className="text-sm">Pasará al historial el {fecha(orden.archivo_programado_en)}, 24 horas después de la recepción final.</p>}
         {orden?.motivo_cierre&&<p>Motivo: {orden.motivo_cierre}</p>}
-        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?(orden.enviada_en?'Cierre registrado. Se conserva la cobertura recibida y se libera únicamente lo pendiente. Documento enviado y procedencia conservados.':'Reservas liberadas. La orden conserva sus cantidades y procedencia.'):orden?.estado==='recibida'?'Recepción final registrada; cantidades originales y procedencia conservadas.':orden?.enviada_en?'Las cantidades solicitadas conservan su cobertura; la recepción física se registra abajo.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
+        <p className="text-sm text-neutro-600">{orden?.estado==='cerrada'?(orden.enviada_en?'Cierre registrado. Se conserva la cobertura recibida y se libera únicamente lo pendiente. Documento enviado y procedencia conservados.':'Reservas liberadas. La orden conserva sus cantidades y procedencia.'):orden?.estado==='recibida'?'Recepción final registrada; cantidades originales y procedencia conservadas.':orden?.enviada_en?'Las cantidades solicitadas conservan su cobertura; la recepción física se registra en la sección Recepción.':orden?.envio_id?'Intento de envío guardado. La orden queda bloqueada hasta verificar el resultado.':'Las reservas separan estos faltantes de otros borradores. La orden todavía no se ha enviado al proveedor.'}</p>
       </div>
+      <NavegacionSecciones etiqueta="Secciones de la orden" compacta seleccion={seccion} onCambiar={setSeccion} disabled={ocupado}
+        secciones={[
+          {id:'productos',titulo:'Productos'},
+          ...(orden&&(orden.estado==='pendiente_enviar'||orden.enviada_en)?[{id:'envio',titulo:'PDF y envío'}]:[]),
+          ...(orden?.enviada_en?[{id:'factura',titulo:'Factura del proveedor'},{id:'recepcion',titulo:'Recepción'}]:[]),
+          ...(orden?.enviada_en&&orden.estado!=='recibida'?[{id:'cierre',titulo:'Cerrar orden'}]:[])
+        ]}/>
+      <div hidden={seccion!=='productos'} className="space-y-5">
       {!orden&&!productos.length&&<p className="card p-4">No hay faltantes libres para otra orden en este ciclo. Podés revisar las órdenes existentes.</p>}
-      {productos.map(p=><div key={p.productoId} className="card min-w-0 p-4 space-y-2">
+      <PanelSeccion titulo="Productos de la orden" cuerpoClassName="p-5 space-y-4">
+      {productos.map(p=><div key={p.productoId} className="min-w-0 rounded-xl border border-neutro-200 p-5 space-y-3">
         <h3 className="break-words font-bold">{p.nombre}</h3>
         <p className="break-words text-sm">{p.codigoProveedor?`Proveedor: ${p.codigoProveedor} · ${p.nombreProveedor||p.nombre}`:`Código interno: ${p.codigo||p.productoId}`}</p>
         {!orden&&<p className="text-sm">Faltante: {numero(p.faltante)} · Apartado sin envío confirmado: {numero(p.reservadaBorrador)} · Ya pedido: {numero(p.solicitada)} · Libre: {numero(p.disponible)} unidades propias</p>}
@@ -139,6 +158,7 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
           {p.origenes.map(o=><p key={o.faltante_id||o.faltanteId} className="mt-1 break-words">{o.orden_visita||o.orden?`Parada ${o.orden_visita||o.orden} · `:''}{o.cliente_nombre} · Factura {o.factura_numero||o.numero} · {numero(o.cantidad??o.cantidad_faltante)} unidades{o.anticipado||o.preventa_anticipada?' · Anticipado':''}</p>)}
         </details>
       </div>)}
+      </PanelSeccion>
       {sugerencia?.adiciones&&sugerencia.productos.map(p=><div key={p.productoId} className="card p-4">
         <p className="font-bold break-words">{p.nombre} · {numero(p.disponible)} unidades libres</p>
         <label className="block text-sm">Agregar cantidad del proveedor
@@ -156,11 +176,22 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         {orden&&['borrador','pendiente_enviar'].includes(orden.estado)&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cerrar sin enviar</button>}
       </div>
       {cambio&&<p className="text-sm text-nota-800">Guardá la revisión antes de marcar la orden pendiente de enviar.</p>}
+      </div>
+      {/* Mantener los paneles montados conserva PDF revisado, adjuntos y cantidades
+          de una recepción aún sin guardar al navegar. Ocultar no reinicia sus hooks. */}
+      <div hidden={seccion!=='envio'}>
       {orden&&(orden.estado==='pendiente_enviar'||orden.enviada_en)&&<EnvioOrdenCiclo key={`envio-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} prompt={prompt}
         onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      </div>
+      <div hidden={seccion!=='factura'}>
       {orden?.enviada_en&&<FacturaOrdenCiclo key={`factura-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado}/>}
+      </div>
+      <div hidden={seccion!=='cierre'}>
       {orden?.enviada_en&&orden.estado!=='recibida'&&<CierreOrdenCiclo key={`cierre-${orden.id}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      </div>
+      <div hidden={seccion!=='recepcion'}>
       {orden?.enviada_en&&<RecepcionOrdenCiclo key={`recepcion-${orden.id}-${orden.version}`} orden={orden} ocupado={ocupado} onOcupado={setOcupado} onActualizar={nueva=>{if(actual.current!==ambito)return;setOrden(nueva);setRevision(r=>r+1)}}/>}
+      </div>
     </>:<>
       <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>
@@ -171,10 +202,16 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
         </label></div>
       </div>
       {!cargando&&!lista.length&&<p className="card p-5 text-neutro-600">No hay órdenes en esta selección.</p>}
-      {lista.map(o=><button type="button" key={o.id} onClick={()=>abrir(o.id)} disabled={ocupado||cargando} className="card block w-full p-5 text-left hover:border-primario-400">
-        <p className="break-words font-bold">{o.referencia} · {o.proveedor_nombre}</p><p className="break-words text-sm">{textoCiclo(o.ciclo)}</p>
-        <p className="mt-1 text-sm">{o.archivada?'Archivada · ':''}{ESTADOS[o.estado]} · {o.productos} productos</p>
-      </button>)}
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {lista.map(o=><button type="button" key={o.id} aria-label={`Abrir orden ${o.referencia}`} onClick={()=>abrir(o.id)} disabled={ocupado||cargando}
+          className="group flex min-w-0 flex-col rounded-2xl border border-neutro-200 bg-white p-5 text-left shadow-sm hover:border-primario-300 hover:shadow-md">
+          <div className="flex items-start gap-3"><span className="rounded-xl bg-primario-50 p-3 text-primario-800"><ShoppingCart size={24}/></span>
+            <div className="min-w-0"><p className="text-sm font-semibold text-neutro-500">{o.referencia}</p><h3 className="mt-1 break-words text-lg font-bold text-neutro-900">{o.proveedor_nombre}</h3></div></div>
+          <p className="mt-4 break-words text-sm text-neutro-600">{textoCiclo(o.ciclo)}</p>
+          <div className="mt-4"><Insignia className="whitespace-normal" tono={o.estado==='recibida'?'exito':o.estado==='cerrada'?'neutro':o.enviada_en?'activo':'alerta'}>{o.archivada?'Archivada':ESTADOS[o.estado].split(' · ')[0]}</Insignia></div>
+          <p className="mt-4 border-t border-neutro-100 pt-4 text-sm text-neutro-600">{o.productos} productos <span className="float-right font-bold text-primario-700">Ver orden →</span></p>
+        </button>)}
+      </div>
     </>}
     <ConfirmModal {...dialogProps}/>
   </div>

@@ -1,3 +1,7 @@
+import Boton from '../ui/Boton'
+import PanelSeccion from '../ui/PanelSeccion'
+import TarjetasResumen from '../pagos/TarjetasResumen'
+import {Package, ClipboardList, AlertTriangle} from 'lucide-react'
 import BotonExportarExcel from '../ui/BotonExportarExcel'
 import {useEffect,useState} from 'react'
 import {useNecesidadesCiclo} from '../../hooks/useNecesidadesCiclo'
@@ -27,8 +31,8 @@ export default function NecesidadesPorCiclo({filtro}){
  useEffect(()=>{setSeleccion(null)},[b.actual])
  const producto=d?.productos.find(p=>p.productoId===seleccion)
  return <section className="space-y-4" aria-label="Necesidades y cobertura por semana">
-  <header className="flex flex-wrap justify-between gap-3"><div><h2 className="text-2xl font-bold">Necesidades y cobertura</h2><p className="mt-2 text-neutro-600">Pedidos, bodega y compras de la semana elegida.</p></div>
-   <div className="flex flex-wrap gap-2"><BotonExportarExcel ruta="/reportes/faltantes/proveedor/necesidades/exportar" params={{...filtro.params,q:b.q,...(producto?{productoId:producto.productoId}:{})}} disabled={b.cargando||!d||Boolean(b.error)} title={producto?"Descarga este producto y su procedencia completa.":"Descarga todos los productos que coinciden con los filtros, incluidas todas las páginas."}/><button type="button" className="btn btn-outline min-h-11" onClick={b.actualizar} disabled={b.cargando||!filtro.cicloId}>Actualizar necesidades</button></div></header>
+  <header className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold">Necesidades y cobertura</h2><p className="mt-2 text-neutro-600">Pedidos, bodega y compras de la semana elegida.</p></div>
+   <div className="flex flex-wrap gap-2"><BotonExportarExcel ruta="/reportes/faltantes/proveedor/necesidades/exportar" params={{...filtro.params,q:b.q,...(producto?{productoId:producto.productoId}:{})}} disabled={b.cargando||!d||Boolean(b.error)} title={producto?"Descarga este producto y su procedencia completa.":"Descarga todos los productos que coinciden con los filtros, incluidas todas las páginas."}/><Boton variante="secundario" tamano="lg" onClick={b.actualizar} disabled={b.cargando||!filtro.cicloId}>Actualizar necesidades</Boton></div></header>
   {!filtro.cicloId?<p className="card p-5">Elegí una semana o Sin ciclo para revisar sus necesidades.</p>:<>
    <label className="block font-semibold">Buscar producto o código<input aria-label="Buscar producto en necesidades" className="mt-2 min-h-11 w-full rounded-xl border-2 p-3" value={b.q} maxLength={200} onChange={e=>b.setQ(e.target.value)}/></label>
    {b.cargando&&<p role="status">Consultando necesidades de la semana…</p>}
@@ -36,16 +40,20 @@ export default function NecesidadesPorCiclo({filtro}){
    {d&&<>
     <p className="font-semibold break-words">{d.ciclo?textoCiclo(d.ciclo):'Sin ciclo: documentos sin semana asignada'}</p>
     {d.ciclo&&['cerrado','cancelado'].includes(d.ciclo.estado)&&<p className="rounded-xl bg-alerta-50 p-4">Semana {d.ciclo.estado==='cerrado'?'cerrada':'cancelada'}. Se conserva para consulta.</p>}
-    <p>{d.resumen.productos} {d.resumen.productos===1?'producto':'productos'} · {d.resumen.pedidosPorFacturar} {d.resumen.pedidosPorFacturar===1?'pedido':'pedidos'} por facturar · {d.resumen.documentosPorRevisar} {d.resumen.documentosPorRevisar===1?'documento':'documentos'} por revisar</p>
-    <div className="rounded-xl bg-nota-50 p-4 text-sm space-y-2">
+    <TarjetasResumen compacta tarjetas={[
+      {clave:'productos',titulo:'Productos',valor:d.resumen.productos,icono:Package},
+      {clave:'pedidos',titulo:'Pedidos',valor:d.resumen.pedidosPorFacturar,pie:'Por facturar',icono:ClipboardList},
+      {clave:'revision',titulo:'Por revisar',valor:d.resumen.documentosPorRevisar,icono:AlertTriangle,tono:'alerta'}
+    ]}/>
+    <details className="rounded-xl border border-neutro-200 bg-white p-4 text-sm space-y-2"><summary className="cursor-pointer min-h-11 font-semibold text-neutro-700">Cómo interpretar las cantidades y la cobertura</summary>
      <p>El stock es general. Las facturas ya lo descuentan; el compromiso pendiente de entrega no se resta otra vez ni se reserva automáticamente para una semana.</p>
      <p>Sin cobertura corresponde a faltantes registrados en bodega, después de lo apartado en órdenes. Los pedidos por facturar todavía requieren revisión; el stock provisional no confirma mercadería física.</p>
-    </div>
+    </details>
     {producto?<>
-     <button type="button" className="btn btn-outline min-h-11" onClick={()=>setSeleccion(null)}>Volver a productos</button>
-     <article className="card p-5 space-y-5" aria-label={`Detalle de necesidades de ${producto.nombre}`}>
+     <Boton variante="fantasma" tamano="lg" onClick={()=>setSeleccion(null)}>← Volver a productos</Boton>
+     <article className="space-y-5" aria-label={`Detalle de necesidades de ${producto.nombre}`}>
       <h3 className="text-2xl font-bold break-words">{producto.nombre}</h3><p>{producto.codigo||`P-${producto.productoId}`}</p>
-      <h4 className="font-bold">Stock y pedidos</h4>
+      <PanelSeccion titulo="Stock y pedidos" cuerpoClassName="p-5 space-y-4">
       <p className="text-sm">{!producto.stock.inventariable?'Este producto no lleva stock.':producto.stock.conteoConfirmado?'Stock con conteo registrado.':'Stock provisional; conteo físico pendiente.'}</p>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
        {producto.stock.inventariable&&<Metric nombre="Stock general registrado" valor={cantidadStock(producto)}/>}
@@ -53,12 +61,12 @@ export default function NecesidadesPorCiclo({filtro}){
        <Metric nombre="Pedidos por facturar" valor={producto.cantidades.porFacturar}/><Metric nombre="Entregado verificado" valor={producto.cantidades.entregado}/><Metric nombre="En camión verificado" valor={producto.cantidades.enCamion}/>
       </div>
       {producto.requiereRevision&&<p className="rounded-xl bg-alerta-50 p-4">Hay documentos sin entrega verificada o facturas modificadas. Requerido y compromiso quedan por revisar; cantidades verificadas de los demás documentos: {numero(producto.cantidades.requeridoVerificado)}.</p>}
-      <h4 className="font-bold">Bodega y compras</h4><p className="text-sm">Todas las cantidades corresponden a unidades propias del producto. Solicitado y recibido cuentan cada línea de compra una vez; su asignación a cada faltante se muestra abajo.</p>
+      </PanelSeccion><PanelSeccion titulo="Bodega y compras" cuerpoClassName="p-5 space-y-4"><p className="text-sm">Todas las cantidades corresponden a unidades propias del producto. Solicitado y recibido cuentan cada línea de compra una vez; su asignación a cada faltante se muestra abajo.</p>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
        {Object.entries({faltanteRegistrado:'Faltante registrado',reservadaBorrador:'Apartado en borradores',envioPorVerificar:'Apartado, envío por verificar',solicitado:'Solicitado confirmado',pendienteRecibir:'Pendiente de recibir',recibido:'Recibido físicamente',sinCobertura:'Faltante sin cobertura'}).map(([k,n])=><Metric key={k} nombre={n} valor={producto.cantidades[k]}/>)}
       </div>
-      <h4 className="font-bold">Procedencia de los pedidos y faltantes</h4>{producto.origenes.map(o=><Origen key={`${o.tipo}-${o.documentoId}`} o={o}/>)}
-      <h4 className="font-bold">Órdenes del producto</h4>
+      </PanelSeccion><PanelSeccion titulo="Procedencia de los pedidos y faltantes" cuerpoClassName="p-5 space-y-4">{producto.origenes.map(o=><Origen key={`${o.tipo}-${o.documentoId}`} o={o}/>)}
+      </PanelSeccion><PanelSeccion titulo="Órdenes del producto" cuerpoClassName="p-5 space-y-4">
       {!producto.compras.length&&<p>No hay órdenes de este producto en la selección.</p>}
       {producto.compras.map(o=><article key={o.ordenId} className="rounded-xl border p-4 space-y-2">
        <p className="font-bold break-words">OC-{o.ordenId} · {o.proveedor} · {o.estado.replaceAll('_',' ')}{o.archivada?' · Archivada':''}</p>
@@ -66,16 +74,19 @@ export default function NecesidadesPorCiclo({filtro}){
        <p>{o.cantidadProveedor} unidades del proveedor × {numero(o.factorConversion)} = {numero(o.cantidad)} unidades propias</p>
        <p>Recibido: {numero(o.recibida)} · Pendiente: {numero(o.pendiente)}</p>
       </article>)}
+      </PanelSeccion>
      </article>
     </>:<>
      {!d.productos.length&&!d.sinProducto.length&&<p className="card p-5">No hay necesidades ni órdenes en esta selección.</p>}
+     <div className="grid gap-5 xl:grid-cols-2">
      {d.productos.map(p=><article key={p.productoId} className="card p-5 space-y-3">
       <h3 className="text-xl font-bold break-words">{p.nombre}</h3><p className="text-sm">{p.codigo||`P-${p.productoId}`}{!p.activo?' · Producto inactivo':''}</p>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4"><Metric nombre="Stock general registrado" valor={cantidadStock(p)} texto={p.stock.inventariable?undefined:'No lleva stock'}/><Metric nombre="Requerido por atender" valor={p.cantidades.requerido}/><Metric nombre="Faltante registrado" valor={p.cantidades.faltanteRegistrado}/><Metric nombre="Sin cobertura" valor={p.cantidades.sinCobertura}/></div>
       {p.stock.inventariable&&!p.stock.conteoConfirmado&&<p className="text-sm text-alerta-800">Stock provisional; conteo físico pendiente.</p>}
       {p.requiereRevision&&<p className="text-alerta-800">Hay documentos pendientes de revisión física o histórica.</p>}
-      <button type="button" className="btn btn-outline min-h-11" onClick={()=>setSeleccion(p.productoId)}>Ver procedencia de {p.nombre}</button>
+      <Boton variante="secundario" tamano="lg" aria-label={`Ver procedencia de ${p.nombre}`} onClick={()=>setSeleccion(p.productoId)}>Ver procedencia</Boton>
      </article>)}
+     </div>
     </>}
     {d.paginacion.sinProducto>0&&<details className="rounded-xl bg-alerta-50 p-4"><summary className="cursor-pointer font-bold">Productos sin relación propia ({d.paginacion.sinProducto})</summary><p className="my-3 text-sm">Conservan su documento y cliente. Revisá la relación del producto; no se suman a otra ficha por nombre o código.</p>
      {d.sinProducto.map((o,i)=><div key={i} className="space-y-2 my-3"><p className="font-semibold">{o.nombre||'Producto pendiente de relacionar'} · {o.codigo}</p><Origen o={o}/></div>)}

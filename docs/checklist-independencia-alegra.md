@@ -20,6 +20,13 @@
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 
+**Prioridad visual actual, 2026-10-07:** Clientes y Reporte de Proveedores
+reorganizados por pedido del usuario, reutilizando componentes del sistema.
+[Informe de Proveedores](informes/proveedores-redisenados-2026-10-07.md).
+No cambia el conteo de independencia **133/14 (147 IDs)** ni el operativo
+**96/3 (99 IDs)**. Revisiones humanas, aceptación fiscal y corte conservan sus
+pendientes; el usuario aplazó la revisión de migración para después.
+
 ## Cómo trabajar en esta rama
 
 - **Dos carpetas, una por rama**, para que corran a la vez:

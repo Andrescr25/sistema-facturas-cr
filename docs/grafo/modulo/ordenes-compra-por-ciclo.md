@@ -24,9 +24,9 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-06
+medido: 2026-10-07
 ---
 
 ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo.
@@ -152,3 +152,13 @@ son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
 la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
 se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
+
+
+## Presentación vigente — 2026-10-07
+
+Órdenes en tarjetas, activas/historial y detalle con navegación de secciones.
+Productos, PDF/envío, factura, recepción y cierre se muestran según estado;
+los paneles permanecen montados al ocultarlos para conservar PDF y formularios
+sin guardar. Se conserva el bloqueo tras envío y los componentes de cada paso.
+Ver [[modulo/reporte-proveedores]]: 28 escenarios visuales1440/390, sin escribir
+ni enviar; no sustituye la validación de negocio de los párrafos anteriores.

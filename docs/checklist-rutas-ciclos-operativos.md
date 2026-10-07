@@ -32,7 +32,8 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md) y
 [recorrido visual completo](informes/recorrido-visual-2026-10-07.md) y
 [auditoría global local](informes/auditoria-local-2026-10-07.md) y
-[rediseño de Clientes](informes/clientes-redisenados-2026-10-07.md).
+[rediseño de Clientes](informes/clientes-redisenados-2026-10-07.md) y
+[rediseño de Reporte de Proveedores](informes/proveedores-redisenados-2026-10-07.md).
 Estado vigente: **96 listos / 3 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
@@ -553,6 +554,15 @@ sin mensajes reales, limpieza semanal, nueva SQL ni reinicio de servicios.
 [Informe y relevo](informes/auditoria-local-2026-10-07.md). Solo quedan
 RUT-03 (fuente LOCAL Maps), CLI-10 y VAL-08 (revisiones del usuario).
 La auditoría técnica no cierra aceptación fiscal real, conteo físico ni corte.
+
+**Refinamiento visual solicitado, 2026-10-07:** Reporte de Proveedores conserva
+el diseño del sistema y reutiliza navegación de Clientes, tarjetas, botones y
+estados. Cuatro áreas; orden separada en productos/PDF/factura/recepción/cierre,
+con formularios y PDF conservados al navegar. Fichas y consulta general también
+adaptadas. 28 escenarios1440/390, build/grafo12;106 tablas/80 secuencias iguales,
+sin demos, escrituras ni salidas. [Informe](informes/proveedores-redisenados-2026-10-07.md).
+No añade ni cierra IDs: **96/3**; CLI-10/VAL-08 al usuario y RUT-03 sin fuente
+local Maps. Independencia133/14 separada; migración y corte aplazados.
 
 ## Orden para avanzar poco a poco
 

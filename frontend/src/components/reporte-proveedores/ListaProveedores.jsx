@@ -1,110 +1,49 @@
-import { Calendar, RefreshCw, Package, Check } from 'lucide-react'
+import { RefreshCw, Package, Check, Truck, Boxes, Search, ArrowRight } from 'lucide-react'
+import Boton from '../ui/Boton'
+import Insignia from '../ui/Insignia'
+import TarjetasResumen from '../pagos/TarjetasResumen'
 
-/**
- * Vista de listado (grid) de proveedores con búsqueda, filtro de fecha y
- * resumen global. La página conserva la búsqueda: la descarga usa el mismo
- * filtro y volver de un proveedor no lo pierde.
- *
- * LA MARCA DE "YA SE LE MANDÓ"
- * `pedidosEnviados` es un Map de nombre de proveedor a la fecha del último
- * envío por WhatsApp dentro del período del reporte. Sale del registro del
- * servidor, no del navegador, así que la marca también la ve quien abra el
- * reporte desde otra máquina — que es justo cuando se manda el pedido dos
- * veces sin querer.
- *
- * Solo cuenta lo que salió bien: un intento fallido no es un pedido enviado.
- */
+/** La búsqueda vive en la página: volver de una ficha conserva el filtro y el Excel. */
 export default function ListaProveedores({ proveedores, pedidosEnviados, resumen, fechaInicio, setFechaInicio, onRefresh, onSelectProveedor, proveedorQuery, setProveedorQuery, consultaCiclo = false }) {
-
-  const cuandoSeEnvio = (fecha) =>
-    new Date(fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
-
-  return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* Filtros Globales */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-neutro-100">
-        <div className="flex-1 w-full">
-          <input type="text" value={proveedorQuery} onChange={(e) => setProveedorQuery(e.target.value)} placeholder="Buscar nombre del proveedor..." className="input w-full md:max-w-md bg-neutro-50" />
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-neutro-50 border border-neutro-200 rounded-lg px-3 py-2">
-            <Calendar size={16} className="text-neutro-500 mr-2" />
-            <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="text-sm bg-transparent border-none focus:ring-0 p-0 text-neutro-700" title="Fecha inicial" />
-            {fechaInicio && <button onClick={() => setFechaInicio('')} className="ml-2 text-neutro-400 hover:text-peligro-500">&times;</button>}
+  const visibles = proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase()))
+  const cuandoSeEnvio = fecha => new Date(fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
+  return <div className="space-y-5">
+    <div><h2 className="text-xl font-bold text-neutro-900">Faltantes por proveedor</h2><p className="mt-1 text-sm text-neutro-500">Abrí un proveedor para revisar productos y preparar su compra.</p></div>
+    {resumen && <TarjetasResumen compacta tarjetas={[
+      {clave:'proveedores',titulo:'Proveedores',valor:proveedores.length,icono:Truck},
+      {clave:'productos',titulo:'Productos',valor:resumen.total_productos_faltantes,icono:Package},
+      {clave:'unidades',titulo:'Unidades',valor:resumen.total_cantidad_faltante,icono:Boxes}
+    ]}/>}
+    <div className="rounded-2xl border border-neutro-200 bg-white p-5">
+      <div className="grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+        <label className="block text-sm font-semibold text-neutro-700">Buscar proveedor
+          <div className="relative mt-2"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400"/>
+            <input type="search" aria-label="Buscar proveedor con faltantes" value={proveedorQuery} onChange={e=>setProveedorQuery(e.target.value)} placeholder="Nombre del proveedor" className="input min-h-12 w-full pl-10"/>
           </div>
-          <button onClick={onRefresh} className="btn btn-outline" title="Refrescar">
-            <RefreshCw size={18} />
-          </button>
-        </div>
+        </label>
+        <label className="block text-sm font-semibold text-neutro-700">Desde la fecha
+          <input type="date" aria-label="Fecha inicial de faltantes" value={fechaInicio} onChange={e=>setFechaInicio(e.target.value)} className="input mt-2 min-h-12 w-full"/>
+        </label>
+        <Boton variante="secundario" tamano="lg" onClick={onRefresh}><RefreshCw size={18}/>Actualizar</Boton>
       </div>
-
-      {/* Grid de Proveedores */}
-      {proveedores.length === 0 ? (
-        <div className="card text-center py-16">
-          <Package className="mx-auto text-neutro-300 mb-4" size={64} />
-          <h3 className="text-xl font-bold text-neutro-900 mb-2">No tienes faltantes pendientes</h3>
-          <p className="text-neutro-500">Agrega Faltantes desde la vista de facturas.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {proveedores.filter(p => p.nombre.toLowerCase().includes(proveedorQuery.toLowerCase())).map((proveedor) => {
-            const enviado = pedidosEnviados?.get(proveedor.nombre)
-            return (
-            <button
-              type="button"
-              key={proveedor.id}
-              onClick={() => onSelectProveedor(proveedor.id)}
-              className={`group min-w-0 text-left bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${
-                enviado ? 'border-exito-200 ring-1 ring-exito-100' : 'border-neutro-100'
-              }`}
-            >
-              <div className="absolute top-0 right-0 w-16 h-16 bg-primario-50 rounded-bl-[100px] -z-10 group-hover:bg-primario-100 transition-colors"></div>
-
-              <h3 className="text-lg font-bold text-neutro-900 mb-1 pr-4">{proveedor.nombre}</h3>
-              <p className="text-sm text-neutro-500 mb-3">{proveedor.contacto || 'Sin info'}</p>
-
-              {/* Ya se le mandó el pedido en este período. Va antes de los
-                  números porque la pregunta al recorrer la lista es "¿a
-                  quién le falta?", no "¿cuántos productos tiene?". */}
-              {consultaCiclo ? <p className="mb-4 text-xs font-semibold text-nota-700">Faltantes del ciclo seleccionado</p> : enviado ? (
-                <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-exito-50 px-2.5 py-1 text-xs font-bold text-exito-700 ring-1 ring-exito-200">
-                  <Check size={13} strokeWidth={3} />
-                  Pedido enviado {cuandoSeEnvio(enviado.ultimoEnvio)}
-                  {enviado.veces > 1 && (
-                    <span className="font-semibold text-exito-600">· {enviado.veces} veces</span>
-                  )}
-                </div>
-              ) : (
-                <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-neutro-100 px-2.5 py-1 text-xs font-semibold text-neutro-500">
-                  Sin enviar
-                </div>
-              )}
-
-              <div className="flex items-center gap-4 pt-4 border-t border-neutro-50">
-                <div>
-                  <p className="text-xs text-neutro-400 uppercase tracking-wider font-semibold">Productos</p>
-                  <p className="text-xl font-bold text-neutro-800">{proveedor.total_productos}</p>
-                </div>
-                <div className="h-8 w-[1px] bg-neutro-200"></div>
-                <div>
-                  <p className="text-xs text-neutro-400 uppercase tracking-wider font-semibold">Unidades</p>
-                  <p className="text-xl font-bold text-primario-600">{proveedor.total_cantidad}</p>
-                </div>
-              </div>
-            </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Resumen Global Info */}
-      {resumen && (
-        <div className="mt-8 pt-6 border-t border-neutro-200 grid grid-cols-1 md:grid-cols-3 gap-4 opacity-70">
-          <div className="text-center"><p className="text-sm text-neutro-500">Proveedores con faltantes</p><p className="text-xl font-bold text-neutro-800">{proveedores.length}</p></div>
-          <div className="text-center"><p className="text-sm text-neutro-500">Tot. Productos Únicos</p><p className="text-xl font-bold text-neutro-800">{resumen.total_productos_faltantes}</p></div>
-          <div className="text-center"><p className="text-sm text-neutro-500">Volumen Unidades</p><p className="text-xl font-bold text-neutro-800">{resumen.total_cantidad_faltante}</p></div>
-        </div>
-      )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-neutro-100 pt-4 text-sm text-neutro-500">
+        <p>{visibles.length} {visibles.length===1?'proveedor':'proveedores'} en la lista · Resumen del reporte completo arriba</p>
+        {(proveedorQuery||fechaInicio)&&<Boton variante="fantasma" onClick={()=>{setProveedorQuery('');setFechaInicio('')}}>Limpiar filtros</Boton>}
+      </div>
     </div>
-  )
+    {!visibles.length ? <div className="rounded-2xl border border-neutro-200 bg-white px-6 py-12 text-center">
+      <Package size={48} className="mx-auto mb-4 text-neutro-300"/>
+      <h3 className="text-xl font-bold text-neutro-900">{proveedores.length?'No encontramos proveedores':'No hay faltantes en esta selección'}</h3>
+      <p className="mt-2 text-base text-neutro-500">{proveedores.length?'Probá otro nombre o limpiá la búsqueda.':'Los faltantes registrados en bodega aparecerán aquí con su procedencia.'}</p>
+    </div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {visibles.map(p=>{const enviado=pedidosEnviados?.get(p.nombre);return <button key={p.id} type="button" aria-label={`Ver faltantes de ${p.nombre}`} onClick={()=>onSelectProveedor(p.id)} className="group min-w-0 rounded-2xl border border-neutro-200 bg-white p-5 text-left shadow-sm hover:border-primario-300 hover:shadow-md">
+        <div className="flex items-start gap-3"><span className="shrink-0 rounded-xl bg-primario-50 p-3 text-primario-800"><Truck size={26}/></span>
+          <div className="min-w-0"><h3 className="break-words text-lg font-bold text-neutro-900">{p.nombre}</h3><p className="mt-2 break-words text-sm text-neutro-500">{p.contacto||'Sin contacto registrado'}</p></div>
+        </div>
+        <div className="mt-4">{consultaCiclo?<Insignia tono="activo">Del ciclo seleccionado</Insignia>:enviado?<Insignia tono="exito" icono={Check}>Enviado {cuandoSeEnvio(enviado.ultimoEnvio)}{enviado.veces>1?` · ${enviado.veces} veces`:''}</Insignia>:<Insignia>Sin enviar</Insignia>}</div>
+        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-neutro-100 pt-4"><div><p className="text-sm text-neutro-500">Productos</p><p className="mt-1 text-2xl font-bold text-neutro-900">{p.total_productos}</p></div><div><p className="text-sm text-neutro-500">Unidades faltantes</p><p className="mt-1 text-2xl font-bold text-neutro-900">{p.total_cantidad}</p></div></div>
+        <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-primario-700">Ver faltantes<ArrowRight size={17}/></span>
+      </button>})}
+    </div>}
+  </div>
 }

@@ -1,13 +1,14 @@
 import { textoCiclo } from './SelectorCiclo'
 const ESTADOS = { preventa: 'Preventa anticipada', preparacion: 'En preparación', entrega: 'En entrega', cerrado: 'Cerrado', cancelado: 'Cancelado' }
 
-export default function FiltroCicloOperacion({ filtro, disabled = false, requiereCiclo = false }) {
+export default function FiltroCicloOperacion({ filtro, disabled = false, requiereCiclo = false, titulo }) {
   const rutas = [...new Map(filtro.ciclos.map(c => [c.rutaId, c.rutaNombre])).entries()]
   const ciclos = filtro.ciclos.filter(c => !filtro.rutaId || String(c.rutaId) === filtro.rutaId)
   const rutaElegida = rutas.find(([id]) => String(id) === filtro.rutaId)
   const elegido = filtro.ciclos.find(c => String(c.id) === filtro.cicloId)
   const select = 'mt-1 w-full min-w-0 rounded-xl border-2 border-neutro-200 bg-white px-3 py-3 text-sm'
-  return <div className="mb-5 rounded-xl border border-neutro-200 bg-neutro-50 p-4">
+  return <div className={`mb-5 rounded-2xl border border-neutro-200 ${titulo ? 'bg-white p-5' : 'bg-neutro-50 p-4'}`}>
+    {titulo && <h2 className="mb-4 text-base font-bold text-neutro-800">{titulo}</h2>}
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="min-w-0 text-sm font-semibold">Ruta
         <select aria-label="Filtrar ruta" value={filtro.rutaId} disabled={disabled} onChange={e => filtro.cambiarRuta(e.target.value)} className={select}>

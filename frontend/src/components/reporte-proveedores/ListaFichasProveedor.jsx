@@ -28,9 +28,9 @@ const ESTADOS = [
 
 function Dato({ icono: Icono, children, falta }) {
   return (
-    <span className={`inline-flex items-center gap-1 ${falta ? 'text-neutro-300' : 'text-neutro-500'}`}>
-      <Icono size={12} className="shrink-0" />
-      <span className="truncate">{children}</span>
+    <span className={`inline-flex items-center gap-2 ${falta ? 'text-neutro-400' : 'text-neutro-600'}`}>
+      <Icono size={17} className="shrink-0" />
+      <span className="break-words">{children}</span>
     </span>
   )
 }
@@ -50,7 +50,7 @@ export default function ListaFichasProveedor({
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre, cédula o correo..."
             aria-label="Buscar proveedores"
-            className="w-full pl-9 pr-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none"
+            className="w-full min-h-12 pl-9 pr-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none"
           />
         </div>
 
@@ -58,7 +58,7 @@ export default function ListaFichasProveedor({
           value={estado}
           onChange={(e) => setEstado(e.target.value)}
           aria-label="Filtrar proveedores por estado"
-          className="px-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none bg-white"
+          className="min-h-12 px-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none bg-white"
         >
           {ESTADOS.map(e => <option key={e.valor} value={e.valor}>{e.texto}</option>)}
         </select>
@@ -66,7 +66,7 @@ export default function ListaFichasProveedor({
         <button
           type="button"
           onClick={onNuevo}
-          className="px-4 py-2.5 rounded-xl bg-exito-600 hover:bg-exito-700 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
+          className="px-4 py-2.5 rounded-xl bg-primario-800 hover:bg-primario-900 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"
         >
           <Plus size={15} />
           Nuevo proveedor
@@ -84,18 +84,18 @@ export default function ListaFichasProveedor({
           {busqueda ? `Ningún proveedor coincide con "${busqueda}".` : 'Todavía no hay proveedores.'}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {proveedores.map(p => {
             const ocupado = procesando === p.id
             return (
               <div
                 key={p.id}
                 data-proveedor={p.id}
-                className="bg-white rounded-2xl border border-neutro-100 p-3.5 flex items-start justify-between gap-3 flex-wrap"
+                className="bg-white rounded-2xl border border-neutro-200 p-5 flex flex-col justify-between gap-5"
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-neutro-900 text-sm">{p.nombre}</p>
+                    <p className="font-bold text-neutro-900 text-lg break-words">{p.nombre}</p>
                     {!p.activo && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase bg-peligro-100 text-peligro-700">
                         Inactivo
@@ -103,14 +103,14 @@ export default function ListaFichasProveedor({
                     )}
                   </div>
 
-                  <p className="text-xs text-neutro-400">
+                  <p className="text-sm text-neutro-500">
                     {p.identificacion
                       ? `${TIPOS[p.tipo_identificacion] || 'Cédula'}: ${p.identificacion}`
                       : 'Sin cédula'}
                     {p.plazo ? ` · ${p.plazo}` : ''}
                   </p>
 
-                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs">
+                  <div className="flex items-start gap-x-3 gap-y-3 flex-col text-sm">
                     <Dato icono={MessageCircle} falta={!p.telefono_whatsapp}>
                       {p.telefono_whatsapp || 'Sin WhatsApp'}
                     </Dato>
@@ -125,14 +125,14 @@ export default function ListaFichasProveedor({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-3 flex-wrap border-t border-neutro-100 pt-4">
                   <button
                     type="button"
                     onClick={() => onAbrir(p)}
                     disabled={abriendo === p.id}
                     title="Ver y editar la ficha"
                     aria-label={`Abrir ${p.nombre}`}
-                    className="px-3 py-2 rounded-xl border-2 border-neutro-200 hover:border-primario-400 text-neutro-500 hover:text-primario-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    className="min-h-11 px-3 py-2 rounded-xl border-2 border-neutro-200 hover:border-primario-400 text-neutro-500 hover:text-primario-700 text-sm font-bold flex items-center gap-1.5 transition-colors"
                   >
                     {abriendo === p.id ? <Loader2 size={13} className="animate-spin" /> : <Pencil size={13} />}
                     Ver ficha
@@ -144,7 +144,7 @@ export default function ListaFichasProveedor({
                     disabled={ocupado}
                     title={p.activo ? 'Desactivar: deja de aparecer en la lista' : 'Reactivar'}
                     aria-label={`${p.activo ? 'Desactivar' : 'Reactivar'} ${p.nombre}`}
-                    className={`p-2 rounded-xl border-2 border-neutro-200 text-neutro-400 transition-colors ${
+                    className={`min-h-11 px-3 rounded-xl border-2 border-neutro-200 text-neutro-400 transition-colors ${
                       p.activo ? 'hover:border-peligro-300 hover:text-peligro-600' : 'hover:border-exito-400 hover:text-exito-600'
                     }`}
                   >
@@ -163,7 +163,7 @@ export default function ListaFichasProveedor({
             type="button"
             onClick={() => setPagina(p => Math.max(1, p - 1))}
             disabled={pagina <= 1}
-            className="px-3 py-2 rounded-xl border-2 border-neutro-200 text-xs font-bold text-neutro-600 disabled:text-neutro-300"
+            className="min-h-11 px-3 py-2 rounded-xl border-2 border-neutro-200 text-xs font-bold text-neutro-600 disabled:text-neutro-300"
           >
             Anterior
           </button>
@@ -174,7 +174,7 @@ export default function ListaFichasProveedor({
             type="button"
             onClick={() => setPagina(p => Math.min(paginacion.paginas, p + 1))}
             disabled={pagina >= paginacion.paginas}
-            className="px-3 py-2 rounded-xl border-2 border-neutro-200 text-xs font-bold text-neutro-600 disabled:text-neutro-300"
+            className="min-h-11 px-3 py-2 rounded-xl border-2 border-neutro-200 text-xs font-bold text-neutro-600 disabled:text-neutro-300"
           >
             Siguiente
           </button>

@@ -14,11 +14,11 @@ archivos:
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
-medido: 2026-10-06
+  relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
+medido: 2026-10-07
 ---
 
-ALCANCE. Faltantes y Compras abre en Necesidades y cobertura. Elegir ciclo
+ALCANCE. Reporte de Proveedores abre en Necesidades y cobertura. Elegir ciclo
 explícito o Sin ciclo; producto → detalle con stock/demanda, bodega/compras,
 procedencia y órdenes. GET /reportes/faltantes/proveedor/necesidades pertenece
 a Reporte Proveedores; no pedir Clientes, Inventario ni Entregas al comprador.
@@ -112,3 +112,11 @@ son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
 la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
 se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
+
+
+## Presentación vigente — 2026-10-07
+
+Reporte de Proveedores abre en Necesidades; resumen y explicación desplegable,
+productos en tarjetas y detalle con cuatro encabezados neutros. Cantidades y
+reglas de consulta conservadas. UI/reutilización/evidencia en
+[[modulo/reporte-proveedores]]; rediseño visual no cambia demanda, stock ni cobertura.

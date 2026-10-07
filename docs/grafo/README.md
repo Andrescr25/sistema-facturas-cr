@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Reporte de Proveedores — áreas claras, compras por secciones y fichas](modulo/reporte-proveedores.md)
+
 - [Auditoría global local — migraciones, historia y cero provisional](modulo/auditoria-operacion-local.md)
 
 - [Recorrido visual — acciones reales del catálogo a recepción y entrega](modulo/recorrido-visual-operativo.md)
