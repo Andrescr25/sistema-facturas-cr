@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useContextoConsulta } from './useContextoConsulta'
 import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import { bodegaPropiaService } from '../services/bodegaPropiaService'
@@ -77,6 +78,10 @@ export function useFacturasBodega() {
     return { fechaInicio: '', mostrarSinFecha: true }
   })
 
+  const lectura = useContextoConsulta(JSON.stringify([filtroCiclo.params, filtros.fechaInicio]))
+  const { esActual, confirmar } = lectura
+  const datosGuardiaRef = useRef(null)
+
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [faltantesDraft, setFaltantesDraft] = useState({})
   const [cargandoEstados, setCargandoEstados] = useState(false)
@@ -88,7 +93,6 @@ export function useFacturasBodega() {
 
   const seleccionadaRef = useRef(null)
   const pedidoRef = useRef(0)
-  const hayDatosRef = useRef(false)
   const repreguntaRef = useRef(null)
   const filtrosRef = useRef(filtros)
   filtrosRef.current = filtros
@@ -98,18 +102,20 @@ export function useFacturasBodega() {
   }
 
   /**
-   * Trae la lista. `forzar` hace que el servidor hable con Alegra ya (botón
-   * "Actualizar"); sin forzar, contesta al toque con lo que tenga.
+   * Trae documentos propios de la selección. Una respuesta anterior nunca
+   * debe guardar una lista filtrada como si fuera la copia de todas las rutas.
    */
   const cargar = useCallback(async ({ forzar = false } = {}) => {
+    if (!esActual()) return
+    const contexto = { ...cicloRef.current }
     const miPedido = ++pedidoRef.current
     setSincronizando(true)
     try {
       const { dias, limit } = calcularDiasYLimite(filtrosRef.current.fechaInicio)
       // De la base propia (sección 11): ya no hay que esperar a Alegra.
       void forzar
-      const response = await bodegaPropiaService.listar({ dias, limit, ...cicloRef.current })
-      if (miPedido !== pedidoRef.current) return
+      const response = await bodegaPropiaService.listar({ dias, limit, ...contexto })
+      if (!esActual() || miPedido !== pedidoRef.current) return
       if (!response.success) throw new Error(response.message || 'No se pudo cargar la información')
 
       const pendientesApi = response.data?.pendientes || []
@@ -120,8 +126,9 @@ export function useFacturasBodega() {
       setUltimaSync(sync)
       setAviso(response.metadata?.aviso || null)
       setError(null)
-      hayDatosRef.current = true
-      if (!cicloRef.current.rutaId && !cicloRef.current.cicloId) guardarLista(pendientesApi, historialApi, sync)
+      datosGuardiaRef.current = esActual
+      confirmar()
+      if (!contexto.rutaId && !contexto.cicloId) guardarLista(pendientesApi, historialApi, sync)
 
       // El servidor contestó con lo guardado y está trayendo lo nuevo: se
       // vuelve a preguntar en un rato, sin esperar al próximo refresco.
@@ -132,21 +139,31 @@ export function useFacturasBodega() {
         }, REPREGUNTA_MS)
       }
     } catch (err) {
-      if (miPedido !== pedidoRef.current) return
+      if (!esActual() || miPedido !== pedidoRef.current) return
       console.error('❌ Error cargando facturas de bodega:', err)
-      if (hayDatosRef.current) {
+      if (datosGuardiaRef.current === esActual) {
         // Con una lista en pantalla, un error no la borra: se avisa y se sigue.
         setAviso(`${err.message} Se muestran las facturas de la última sincronización.`)
       } else {
-        setError(err.message)
+        // La copia conjunta conserva el contexto de cada documento. Al perder
+        // la red podemos filtrarla, pero nunca presentar la lista de otra semana.
+        let guardado = null
+        try { guardado = JSON.parse(leer(STORAGE_KEYS.data) || 'null') } catch { /* copia ilegible */ }
+        setPendientesRaw(guardado?.pendientes || [])
+        setListas(guardado?.listas || [])
+        setUltimaSync(guardado?.ultimaSync || null)
+        setError(guardado ? null : err.message)
+        setAviso(guardado ? `${err.message} Se muestran los documentos guardados que corresponden a esta selección.` : null)
+        datosGuardiaRef.current = esActual
+        confirmar()
       }
     } finally {
-      if (miPedido === pedidoRef.current) {
+      if (esActual() && miPedido === pedidoRef.current) {
         setSincronizando(false)
         setCargando(false)
       }
     }
-  }, [])
+  }, [esActual, confirmar])
 
   // Arranque: lo guardado en el teléfono al instante, y después la red.
   useEffect(() => {
@@ -157,7 +174,8 @@ export function useFacturasBodega() {
         setListas(guardado.listas || [])
         setUltimaSync(guardado.ultimaSync || null)
         setCargando(false)
-        hayDatosRef.current = true
+        datosGuardiaRef.current = esActual
+        confirmar()
 
         // Si la pantalla se cerró a mitad de un despacho, se retoma.
         const idGuardado = leer(STORAGE_KEYS.selected)
@@ -169,7 +187,7 @@ export function useFacturasBodega() {
       console.warn('⚠️ No se pudo leer la lista guardada de bodega:', storageError)
     }
     cargar()
-    return () => clearTimeout(repreguntaRef.current)
+    return () => { ++pedidoRef.current; clearTimeout(repreguntaRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -419,13 +437,15 @@ export function useFacturasBodega() {
 
   return {
     // lista
-    cargando, sincronizando, error, aviso, setAviso, ultimaSync,
+    cargando: cargando || !lectura.vigente,
+    sincronizando, error: lectura.vigente ? error : null, aviso: lectura.vigente ? aviso : null, setAviso,
+    ultimaSync: lectura.vigente ? ultimaSync : null,
     actualizar: () => cargar({ forzar: true }),
     vista, setVista, busqueda, setBusqueda,
     filtros, cambiarFiltro, limpiarFiltros,
-    facturasMostradas,
+    facturasMostradas: lectura.vigente ? facturasMostradas : [],
     filtroCiclo,
-    conteos: { porPreparar: pendientes.length, historial: historial.length },
+    conteos: { porPreparar: lectura.vigente ? pendientes.length : 0, historial: lectura.vigente ? historial.length : 0 },
 
     // despacho
     facturaSeleccionada, faltantesDraft, cargandoEstados, guardando, esEdicion,

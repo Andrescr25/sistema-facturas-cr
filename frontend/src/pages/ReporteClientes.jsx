@@ -63,10 +63,11 @@ export default function ReporteClientes() {
       {error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
           <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
+          <button type="button" className="mt-2 min-h-11 font-bold underline" onClick={loadReporte}>Reintentar consulta</button>
         </div>
       )}
 
-      {loading ? null : !clienteActivo ? (
+      {loading || error ? null : !clienteActivo ? (
         <ListaClientes
           clientes={clientes}
           resumen={resumen}

@@ -37,7 +37,7 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
+  relacionado: [modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-06
 ---
 
@@ -257,3 +257,11 @@ consulta por semana y producto con procedencia. No reservar/descontar stock
 otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
 nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
 estado vigente en informe necesidades-cobertura-2026-10-06.
+
+## Contexto visible y lecturas — 2026-10-06
+
+Revisión vigente en [[modulo/contexto-visible-operacion]]: selección clara,
+respuestas tardías descartadas, notas por semana y contexto original en la
+ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
+RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
+una sola consulta, exportación o cambio de maestro. No hay nueva SQL.

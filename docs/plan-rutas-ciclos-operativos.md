@@ -26,10 +26,11 @@ implementados. Vínculo/PDF privado y comparación de factura implementados, ver
 Archivo individual 24 h y retiro semanal implementados (050), ver
 [archivo](informes/archivo-ordenes-2026-10-06.md). Consulta de recorrido/carga inversa/Maps implementada; registro de avance
 físico051 implementado, ver [carga/entregas](informes/carga-entregas-2026-10-06.md).
-Cierre052 y Excel operativo completo implementados y verificados. Operativo88/11;
+Cierre052, Excel operativo y contexto visible implementados y verificados. Operativo89/10;
 [exportaciones](informes/exportaciones-ciclos-2026-10-06.md),
 [registro físico](informes/registro-entregas-2026-10-06.md) y
-[cierre enviado](informes/cierre-ordenes-2026-10-06.md).
+[cierre enviado](informes/cierre-ordenes-2026-10-06.md) y
+[contexto visible](informes/contexto-operativo-2026-10-06.md).
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.

@@ -104,13 +104,21 @@ function FilaPedido({ pedido, procesando, onFacturar, onRechazar, onAvisar }) {
   )
 }
 
-export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, procesando, onFacturar, onRechazar, onAvisar, rutas = [], ciclos = [], contexto, setContexto }) {
+export default function ListaPedidos({ pedidos, cargando, error = '', onActualizar, filtro, setFiltro, procesando, onFacturar, onRechazar, onAvisar, rutas = [], ciclos = [], contexto, setContexto }) {
   const FILTROS = [
     { valor: 'pendiente', texto: 'En revisión' },
     { valor: 'facturado', texto: 'Facturados' },
     { valor: 'rechazado', texto: 'Rechazados' },
     { valor: 'todos', texto: 'Todos' }
   ]
+
+  const seleccionado = ciclos.find(c => String(c.id) === contexto.cicloId)
+  const rutaSeleccionada = rutas.find(r => String(r.id) === contexto.rutaId)
+  const contextoVisible = contexto.rutaId === 'sin-ciclo' || contexto.cicloId === 'sin-ciclo'
+    ? 'Sin ciclo: pedidos sin semana asignada'
+    : seleccionado ? textoCiclo({ rutaNombre: seleccionado.ruta_nombre, semana: seleccionado.semana })
+      : rutaSeleccionada ? `${rutaSeleccionada.nombre} · Todas las semanas`
+        : 'Vista conjunta: cada pedido conserva su ruta y semana'
 
   return (
     <div className="space-y-4">
@@ -136,6 +144,7 @@ export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, pro
           </select>
         </label>
       </div>
+      <p aria-live="polite" className="break-words text-sm font-semibold text-primario-700">{contextoVisible}</p>
       <p className="text-xs text-neutro-500">Hasta 200 pedidos según los filtros. Los documentos sin clasificación se muestran como Sin ciclo.</p>
       <div className="flex gap-2 flex-wrap">
         {FILTROS.map(f => (
@@ -152,9 +161,12 @@ export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, pro
         ))}
       </div>
 
+      {error && <div role="alert" className="rounded-xl border border-peligro-200 bg-peligro-50 p-4 text-sm text-peligro-700">
+        <p>{error}</p><button type="button" className="mt-2 min-h-11 font-bold underline" onClick={onActualizar}>Reintentar pedidos</button>
+      </div>}
       {cargando ? (
         <div className="py-16 flex justify-center"><Loader2 size={24} className="animate-spin text-exito-600" /></div>
-      ) : pedidos.length === 0 ? (
+      ) : error ? null : pedidos.length === 0 ? (
         <div className="bg-white rounded-3xl border border-neutro-100 p-10 text-center text-neutro-400 flex flex-col items-center gap-3">
           <Package size={36} className="text-neutro-200" />
           <p className="text-sm">No hay pedidos en esta vista.</p>

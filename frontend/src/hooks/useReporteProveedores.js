@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useContextoConsulta } from './useContextoConsulta'
 import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
@@ -31,6 +32,9 @@ export function useReporteProveedores({activo=true}={}) {
   const [cantidadesModificadas, setCantidadesModificadas] = useState(new Map())
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
   const [fechaInicio, setFechaInicio] = useState('')
+  const claveConsulta = JSON.stringify([activo, fechaInicio, filtroCiclo.params])
+  const lectura = useContextoConsulta(claveConsulta)
+  const notas = useContextoConsulta(claveConsulta)
 
   // Las notas que se escribieron al facturar, para leerlas al comprar. Se
   // piden APARTE del reporte: ambas lecturas son propias, pero agrupar las
@@ -68,12 +72,13 @@ export function useReporteProveedores({activo=true}={}) {
   const [mensajeWhatsApp, setMensajeWhatsApp] = useState('Hola buenas, adjunto el pedido\ngracias')
 
   const loadReporte = useCallback(async () => {
+    if (!activo || !lectura.esActual()) return
     const actual = ++peticion.current
     try {
       setLoading(true)
       setError(null)
       const result = await alegraService.getReporteFaltantesProveedor(fechaInicio, filtroCiclo.params)
-      if (actual !== peticion.current) return
+      if (!lectura.esActual() || actual !== peticion.current) return
 
       if (result.success) {
         // Filtrar proveedores que NO tienen productos para limpiar la vista principal
@@ -81,29 +86,32 @@ export function useReporteProveedores({activo=true}={}) {
         setProveedores(proveedoresConProductos)
         setResumen(result.resumen)
       } else {
+        setProveedores([])
+        setResumen(null)
         setError(result.message || 'Error cargando reporte')
       }
     } catch (err) {
-      if (actual === peticion.current) { setProveedores([]); setError(err.message) }
+      if (lectura.esActual() && actual === peticion.current) { setProveedores([]); setResumen(null); setError(err.message) }
     } finally {
-      if (actual === peticion.current) setLoading(false)
+      if (lectura.esActual() && actual === peticion.current) { lectura.confirmar(); setLoading(false) }
     }
-  }, [fechaInicio, filtroCiclo.params])
+  }, [activo, fechaInicio, filtroCiclo.params, lectura.esActual, lectura.confirmar])
 
   const loadNotas = useCallback(async () => {
+    if (!activo || !notas.esActual()) return
     const actual = ++peticionNotas.current
     setCargandoNotas(true)
     try {
       const r = await alegraService.getNotasDeFaltantes(fechaInicio, filtroCiclo.params)
-      if (actual !== peticionNotas.current) return
+      if (!notas.esActual() || actual !== peticionNotas.current) return
       setNotasPorProducto(r?.data?.porProducto || {})
     } catch {
       // Sin notas se compra como se compraba hasta ayer: no se estorba.
-      if (actual === peticionNotas.current) setNotasPorProducto({})
+      if (notas.esActual() && actual === peticionNotas.current) setNotasPorProducto({})
     } finally {
-      if (actual === peticionNotas.current) setCargandoNotas(false)
+      if (notas.esActual() && actual === peticionNotas.current) { notas.confirmar(); setCargandoNotas(false) }
     }
-  }, [fechaInicio, filtroCiclo.params])
+  }, [activo, fechaInicio, filtroCiclo.params, notas.esActual, notas.confirmar])
 
   const loadCantidadesGuardadas = useCallback(async () => {
     try {
@@ -568,13 +576,13 @@ export function useReporteProveedores({activo=true}={}) {
 
   return {
     filtroCiclo, consultaCiclo,
-    notasPorProducto,
-    cargandoNotas,
-    proveedores,
+    notasPorProducto: notas.vigente ? notasPorProducto : {},
+    cargandoNotas: activo && (cargandoNotas || !notas.vigente),
+    proveedores: lectura.vigente ? proveedores : [],
     pedidosEnviados,
-    resumen,
-    loading,
-    error,
+    resumen: lectura.vigente ? resumen : null,
+    loading: activo && (loading || !lectura.vigente),
+    error: lectura.vigente ? error : null,
     fechaInicio,
     setFechaInicio,
     loadReporte,

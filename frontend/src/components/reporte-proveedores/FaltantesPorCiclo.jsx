@@ -1,7 +1,9 @@
 import ProcedenciaFaltante from './ProcedenciaFaltante'
+import NotasDelProducto from './NotasDelProducto'
+import PanelNotasProveedor from './PanelNotasProveedor'
 
 /** El borrador anterior es global: no aplicarlo a una selección de semanas. */
-export default function FaltantesPorCiclo({ proveedor, onVolver, cicloId, onPrepararOrden }) {
+export default function FaltantesPorCiclo({ proveedor, onVolver, cicloId, onPrepararOrden, notasPorProducto, cargandoNotas }) {
   return <div className="space-y-4">
     <button type="button" onClick={onVolver} className="btn btn-outline">Volver a proveedores</button>
     <div className="card p-5">
@@ -12,10 +14,14 @@ export default function FaltantesPorCiclo({ proveedor, onVolver, cicloId, onPrep
         {!cicloId&&<p className="text-sm text-neutro-600">Seleccioná una semana concreta o Sin ciclo para preparar la orden.</p>}
       </div>
     </div>
+    {/* La variante pedida pertenece a la misma semana que su faltante; sin
+        estas notas una compra por ciclo perdería la información del cliente. */}
+    <PanelNotasProveedor productos={proveedor.productos_faltantes} notasPorProducto={notasPorProducto} cargando={cargandoNotas} />
     {proveedor.productos_faltantes.map(p => <div key={p.producto_id} className="card p-5">
       <h3 className="break-words text-lg font-bold">{p.nombre}</h3>
       <p className="text-sm text-neutro-500">Código {p.codigo || `P-${p.producto_id}`} · {p.cantidad_faltante} unidades</p>
       <ProcedenciaFaltante producto={p} />
+      <NotasDelProducto notas={notasPorProducto?.[String(p.producto_id)]} />
     </div>)}
   </div>
 }

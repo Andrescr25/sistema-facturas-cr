@@ -21,8 +21,8 @@ archivos:
   - backend/tests/bodegaPropia.test.js
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
-  relacionado: [modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-05
+  relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-10-06
 ---
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
@@ -101,3 +101,11 @@ Orden inverso sugerido desde revisión de bodega, sin confirmar entrega.
 Estado operativo vigente en informe carga; textos de partes anteriores
 son históricos. Limpieza global ya retirada por código en 050, ver
 [[modulo/archivo-ordenes-compra]]. ENT-06/avance físico sigue pendiente.
+
+## Contexto visible y lecturas — 2026-10-06
+
+Revisión vigente en [[modulo/contexto-visible-operacion]]: selección clara,
+respuestas tardías descartadas, notas por semana y contexto original en la
+ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
+RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
+una sola consulta, exportación o cambio de maestro. No hay nueva SQL.

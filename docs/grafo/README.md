@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Ruta y semana visibles — consultas tardías, notas y ficha histórica](modulo/contexto-visible-operacion.md)
+
 - [Excel operativo por ciclo — necesidades, órdenes, recorrido y carga completos](modulo/exportaciones-operativas-ciclo.md)
 
 - [Cierre de enviada — recibido conservado y pendiente liberado](modulo/cierre-ordenes-compra.md)

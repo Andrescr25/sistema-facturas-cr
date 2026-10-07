@@ -52,7 +52,7 @@ export default function FacturasBodega() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SkeletonContraparte /><SkeletonContraparte /><SkeletonContraparte />
         </div>
-      ) : b.facturaSeleccionada ? (
+      ) : b.error ? null : b.facturaSeleccionada ? (
         <DetalleDespacho
           factura={b.facturaSeleccionada}
           faltantesDraft={b.faltantesDraft}

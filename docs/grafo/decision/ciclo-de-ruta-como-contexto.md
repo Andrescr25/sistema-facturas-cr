@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -64,3 +64,11 @@ Ver [[modulo/registro-carga-entrega]] y su informe de verificación/cierre.
 Necesidades/cobertura compara stock general/demanda/faltantes/compras por semana
 en [[modulo/necesidades-por-ciclo]], sin reasignar documentos ni usar un saldo
 general como dos reservas.85/14 operativo; informes anteriores son históricos.
+
+## Contexto visible y lecturas — 2026-10-06
+
+Revisión vigente en [[modulo/contexto-visible-operacion]]: selección clara,
+respuestas tardías descartadas, notas por semana y contexto original en la
+ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
+RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
+una sola consulta, exportación o cambio de maestro. No hay nueva SQL.

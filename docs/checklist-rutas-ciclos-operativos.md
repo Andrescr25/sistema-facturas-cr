@@ -25,8 +25,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [registro físico](informes/registro-entregas-2026-10-06.md) y
 [necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md) y
 [cierre de enviada](informes/cierre-ordenes-2026-10-06.md) y
-[Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md).
-Estado vigente: **88 listos / 11 pendientes (99 IDs)**. Las cifras en las
+[Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md) y
+[contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md).
+Estado vigente: **89 listos / 10 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -178,7 +179,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-06 — Preparación de pedidos: filtrar ruta/ciclo.
 - [x] FIL-07 — Entregas: filtrar ruta/ciclo y conservar su avance propio.
 - [x] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
-- [ ] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
+- [x] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
 - [x] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.
 - [ ] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
@@ -205,6 +206,19 @@ fail0/skip0,99focalizadas y20nuevas; grafo12/build/Chromium1440/390,9XLSX
 releídos y21huellas iguales. Sin migración;053 libre. **88/11 (99 IDs)**.
 Aplicación/relevo en informe exportaciones-ciclos-2026-10-06. FIL-09/11,
 RUT-08 y validación integral siguen pendientes; prueba de Excel no los cierra.
+
+
+**Contexto visible, 2026-10-06:** FIL-09 cerrado. Pedidos/reportes/notes no
+muestran la consulta anterior bajo otra semana, incluso A→B→A o error503;
+selección completa visible en celular y reintento sin conclusión de lista
+vacía. Bodega conserva copia/drafts y filtra documentos guardados de la semana.
+Ficha añade contexto original a facturas/pedidos y distingue Sin ciclo.
+Quince vistas/30capturas Chromium1440/390, siete respuestas demoradas,
+18huellas iguales y reporte legado de fondo0.2.213pruebas/362suites fail0/skip0,
+14focalizadas/dosnuevasPG/grafo12/build. Sin migración:053 libre.
+**89 listos/10 pendientes (99 IDs)**. Aplicación y límites en informe
+contexto-operativo-2026-10-06. RUT-08/FIL-11 y VAL integral siguen abiertos;
+esta verificación de pantallas no los cierra. Cifras/textos anteriores históricos.
 
 ## 5. Faltantes y cobertura de compras
 

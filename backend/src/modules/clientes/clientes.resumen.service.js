@@ -19,6 +19,7 @@ const { pool } = require('../../../config/database');
 const { idValido, httpError } = require('../../utils/validacion');
 const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const ciclos = require('../rutas/documentosCiclo.service');
 
 const ULTIMAS = 10;
 const MESES_HISTORIAL = 12;
@@ -57,8 +58,9 @@ async function resumenDeCliente(id) {
     // Las últimas, con su saldo: es lo que se mira al hablar con él.
     pool.query(`
       SELECT f.id, f.numero, f.fecha, f.fecha_vencimiento, f.estado, f.total, f.electronica,
-             f.total - ${COBRADO} - ${ACREDITADO} AS saldo
-        FROM factura f WHERE f.cliente_id = $1
+             f.total - ${COBRADO} - ${ACREDITADO} AS saldo,
+             f.preventa_anticipada, ${ciclos.COLUMNAS_CICLO}
+        FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.cliente_id = $1
        ORDER BY f.fecha DESC, f.id DESC LIMIT ${ULTIMAS}`, [cliente]),
 
     // Los cobros, incluidos los anulados y marcados: esconderlos haría que
@@ -105,15 +107,17 @@ async function resumenDeCliente(id) {
     // El id propio incluye portal y agente, también sin cuenta del portal.
     // No volver al contacto externo: una ficha creada acá puede no tenerlo.
     pool.query(`
-      SELECT pc.id, pc.estado, pc.creado_en, pc.total, pc.origen
-        FROM pedido_cliente pc
+      SELECT pc.id, pc.estado, pc.creado_en, pc.total, pc.origen,
+             pc.preventa_anticipada, ${ciclos.COLUMNAS_CICLO}
+        FROM pedido_cliente pc ${ciclos.JOIN_CICLO('pc')}
        WHERE pc.cliente_id = $1
        ORDER BY pc.creado_en DESC, pc.id DESC LIMIT ${ULTIMAS}`, [cliente]),
     // Deudas de cualquier fecha, no solo las últimas diez facturas.
     pool.query(`SELECT * FROM (
       SELECT f.id, f.numero, f.fecha, f.fecha_vencimiento,
-        f.total - ${COBRADO} - ${ACREDITADO} AS saldo
-      FROM factura f WHERE f.cliente_id=$1 AND f.estado='emitida'
+        f.total - ${COBRADO} - ${ACREDITADO} AS saldo,
+        f.preventa_anticipada, ${ciclos.COLUMNAS_CICLO}
+      FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.cliente_id=$1 AND f.estado='emitida'
     ) q WHERE saldo>1 ORDER BY fecha, id`, [cliente])
   ]);
 
@@ -151,10 +155,12 @@ async function resumenDeCliente(id) {
     facturas: facturas.rows.map((f) => ({
       id: f.id, numero: f.numero, fecha: f.fecha, vencimiento: f.fecha_vencimiento,
       estado: f.estado, electronica: f.electronica,
-      total: n(f.total), saldo: Math.max(0, redondear(f.saldo))
+      total: n(f.total), saldo: Math.max(0, redondear(f.saldo)),
+      ciclo: ciclos.aCiclo(f), anticipado: Boolean(f.preventa_anticipada)
     })),
     facturasPendientes: pendientes.rows.map(f => ({ id: f.id, numero: f.numero, fecha: f.fecha,
-      vencimiento: f.fecha_vencimiento, saldo: Math.max(0, redondear(f.saldo)) })),
+      vencimiento: f.fecha_vencimiento, saldo: Math.max(0, redondear(f.saldo)),
+      ciclo: ciclos.aCiclo(f), anticipado: Boolean(f.preventa_anticipada) })),
     abonos: abonos.rows.map((a) => ({
       id: a.id, numero: a.numero, fecha: a.fecha, monto: n(a.monto),
       metodo: a.metodo, referencia: a.referencia, anulado: a.anulado
@@ -164,7 +170,8 @@ async function resumenDeCliente(id) {
       cantidad: n(p.cantidad), total: redondear(p.total), veces: p.veces, ultima: p.ultima
     })),
     pedidos: pedidos.rows.map((p) => ({
-      id: p.id, estado: p.estado, fecha: p.creado_en, total: n(p.total), origen: p.origen
+      id: p.id, estado: p.estado, fecha: p.creado_en, total: n(p.total), origen: p.origen,
+      ciclo: ciclos.aCiclo(p), anticipado: Boolean(p.preventa_anticipada)
     }))
   };
 }

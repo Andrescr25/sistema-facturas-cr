@@ -54,6 +54,55 @@ if (activo) {
 }
 const supplier = async filtros => { const r=await reportes.getMissingItemsBySupplier(null,{...filtros,asignarProveedores:false}); assert.equal(r.success,true,r.error); return r.data.flatMap(p=>p.productos_faltantes).filter(p=>p.producto_id===producto) };
 const filas = (r, hoja='Faltantes') => XLSX.utils.sheet_to_json(XLSX.read(r.buffer,{type:'buffer'}).Sheets[hoja]);
+caso('ficha distingue contexto original de facturas y pedidos aunque cambie el maestro',async()=>{
+  await c.query('SAVEPOINT ficha_contexto');
+  try {
+    const resumen=require('../src/modules/clientes/clientes.resumen.service');
+    const ids=docs.filter(d=>d.cl.id===cliente.id).map(d=>d.f);
+    await c.query('UPDATE factura SET total=20 WHERE id=ANY($1::int[])',[ids]);
+    for(const cy of [actual,proximo,null]){
+      const rc=cy?(await c.query('SELECT id FROM ciclo_ruta_cliente WHERE ciclo_id=$1 AND cliente_id=$2',[cy.id,cliente.id])).rows[0].id:null;
+      await c.query("INSERT INTO pedido_cliente(cliente_id,cliente_nombre,origen,ciclo_ruta_cliente_id,preventa_anticipada) VALUES($1,$2,'agente',$3,$4)",[cliente.id,cliente.nombre,rc,cy?.id===proximo.id]);
+    }
+    await clientes.editarCliente(cliente.id,{nombre:zz('nombre posterior'),ubicacion_maps:'https://maps.google.com/?q=10,-84'});
+    await rutas.editarRuta(ruta.id,{nombre:zz('ruta posterior')});
+    const r=await resumen.resumenDeCliente(cliente.id);
+    assert.equal(r.cliente.ruta_id,otraRuta.id);
+    assert.equal(r.cliente.ubicacion_maps,'https://maps.google.com/?q=10,-84');
+    for(const lista of [r.facturas,r.facturasPendientes]){
+      assert.equal(lista.length,4);
+      for(const d of docs.filter(d=>d.cl.id===cliente.id)){
+        const f=lista.find(f=>f.id===d.f);assert.ok(f);
+        assert.equal(f.ciclo?.id??null,d.ciclo?.id??null);
+        assert.equal(f.anticipado,d.ciclo?.id===proximo.id);
+        if(d.ciclo)assert.equal(f.ciclo.rutaNombre,d.ciclo.ruta_nombre);
+        else assert.equal(f.ciclo,null);
+      }
+    }
+    assert.deepEqual(r.pedidos.map(p=>p.ciclo?.id??null),[null,proximo.id,actual.id]);
+    assert.deepEqual(r.pedidos.map(p=>p.anticipado),[false,true,false]);
+    assert.ok(r.pedidos.every(p=>p.origen==='agente'));
+    assert.equal(r.saldo.total,80);assert.equal(r.saldo.facturas,4);
+    assert.ok(r.pedidos.filter(p=>p.ciclo).every(p=>p.ciclo.rutaNombre===ruta.nombre));
+    assert.ok(r.facturas.every(f=>!('ubicacion_maps' in f)&&!('cliente_id' in (f.ciclo||{}))));
+  } finally {await c.query('ROLLBACK TO SAVEPOINT ficha_contexto')}
+});
+caso('promover la próxima semana conserva ficha, faltantes e históricos sin reclasificar',async()=>{
+  await c.query('SAVEPOINT ficha_promocion');
+  try {
+    const resumen=require('../src/modules/clientes/clientes.resumen.service');
+    const antes=await resumen.resumenDeCliente(cliente.id);
+    const huella=(await c.query('SELECT md5(jsonb_agg(to_jsonb(f) ORDER BY id)::text) h FROM faltantes f')).rows[0].h;
+    await rutas.cambiarEstadoCiclo(actual.id,{estado:'entrega',estadoAnterior:'preparacion'});
+    await rutas.cambiarEstadoCiclo(actual.id,{estado:'cerrado',estadoAnterior:'entrega'});
+    await rutas.cambiarEstadoCiclo(proximo.id,{estado:'preparacion',estadoAnterior:'preventa'});
+    assert.deepEqual(await resumen.resumenDeCliente(cliente.id),antes);
+    assert.equal((await supplier({cicloId:actual.id}))[0].cantidad_faltante,7);
+    assert.equal((await supplier({cicloId:proximo.id}))[0].cantidad_faltante,4);
+    assert.equal((await supplier({cicloId:'sin-ciclo'}))[0].cantidad_faltante,2);
+    assert.equal((await c.query('SELECT md5(jsonb_agg(to_jsonb(f) ORDER BY id)::text) h FROM faltantes f')).rows[0].h,huella);
+  } finally {await c.query('ROLLBACK TO SAVEPOINT ficha_promocion')}
+});
 caso('bodega filtra antes de ventana/límite y prepara por el orden fijo, no creación',async()=>{
   const r=await bodega.listar({cicloId:actual.id,dias:1,limit:1});
   assert.deepEqual(r.data.pendientes.map(f=>f.factura_id),[docs[1].f,docs[0].f]);

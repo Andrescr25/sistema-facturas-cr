@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '../services/api'
+import { useContextoConsulta } from './useContextoConsulta'
 
 /**
  * Pantalla "Clientes" del sistema: cuentas del portal y pedidos que entraron.
@@ -14,10 +15,13 @@ export function useClientesPortal({ showToast, confirm }) {
   const [filtroPedidos, setFiltroPedidos] = useState('pendiente')
   const [contextoPedidos, setContextoPedidos] = useState({ rutaId: '', cicloId: '', origen: '' })
   const ultimaPeticionPedidos = useRef(0)
+  const lecturaPedidos = useContextoConsulta(JSON.stringify([filtroPedidos, contextoPedidos]))
+  const { esActual, confirmar: confirmarLectura } = lecturaPedidos
   const [busqueda, setBusqueda] = useState('')
 
   const [cargandoClientes, setCargandoClientes] = useState(false)
   const [cargandoPedidos, setCargandoPedidos] = useState(false)
+  const [errorPedidos, setErrorPedidos] = useState('')
   const [procesando, setProcesando] = useState(null)
   const [invitacion, setInvitacion] = useState(null)
 
@@ -34,17 +38,27 @@ export function useClientesPortal({ showToast, confirm }) {
   }, [showToast])
 
   const cargarPedidos = useCallback(async (estado) => {
+    if (!esActual()) return
     const peticion = ++ultimaPeticionPedidos.current
     setCargandoPedidos(true)
+    setErrorPedidos('')
     try {
       const { data } = await api.get('/portal-clientes/pedidos', { params: { estado, ...contextoPedidos } })
-      if (peticion === ultimaPeticionPedidos.current) setPedidos(data.data)
+      if (esActual() && peticion === ultimaPeticionPedidos.current) {
+        setPedidos(data.data || [])
+        confirmarLectura()
+      }
     } catch (err) {
-      showToast?.('No se pudieron cargar los pedidos.', 'error')
+      if (esActual() && peticion === ultimaPeticionPedidos.current) {
+        setPedidos([])
+        confirmarLectura()
+        setErrorPedidos('No se pudieron cargar los pedidos de esta selección.')
+        showToast?.('No se pudieron cargar los pedidos de esta selección.', 'error')
+      }
     } finally {
-      if (peticion === ultimaPeticionPedidos.current) setCargandoPedidos(false)
+      if (esActual() && peticion === ultimaPeticionPedidos.current) setCargandoPedidos(false)
     }
-  }, [showToast, contextoPedidos])
+  }, [showToast, contextoPedidos, esActual, confirmarLectura])
 
   useEffect(() => { cargarPedidos(filtroPedidos) }, [cargarPedidos, filtroPedidos])
   useEffect(() => { if (vista === 'clientes' && clientes.length === 0) cargarClientes() }, [vista])
@@ -132,7 +146,9 @@ export function useClientesPortal({ showToast, confirm }) {
   return {
     vista, setVista,
     clientes: clientesFiltrados, cargandoClientes, cargarClientes,
-    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
+    pedidos: lecturaPedidos.vigente ? pedidos : [],
+    errorPedidos: lecturaPedidos.vigente ? errorPedidos : '', actualizarPedidos: () => cargarPedidos(filtroPedidos),
+    cargandoPedidos: cargandoPedidos || !lecturaPedidos.vigente, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
     busqueda, setBusqueda,
     procesando, invitacion, setInvitacion,
     generarInvitacion, revocar, reactivar, facturar, rechazar

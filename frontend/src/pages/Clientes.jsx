@@ -39,7 +39,7 @@ export default function Clientes() {
   const {
     vista, setVista,
     clientes, cargandoClientes,
-    pedidos, cargandoPedidos, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
+    pedidos, cargandoPedidos, errorPedidos, actualizarPedidos, filtroPedidos, setFiltroPedidos, contextoPedidos, setContextoPedidos,
     busqueda, setBusqueda,
     procesando, invitacion, setInvitacion,
     generarInvitacion, revocar, reactivar, facturar, rechazar
@@ -137,6 +137,7 @@ export default function Clientes() {
           contexto={contextoPedidos} setContexto={setContextoPedidos}
           pedidos={pedidos}
           cargando={cargandoPedidos}
+          error={errorPedidos} onActualizar={actualizarPedidos}
           filtro={filtroPedidos}
           setFiltro={setFiltroPedidos}
           procesando={procesando}

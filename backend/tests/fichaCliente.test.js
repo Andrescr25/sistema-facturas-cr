@@ -32,7 +32,7 @@ function montar({ ficha = FICHA, saldo = {}, compras = {}, filas = {} } = {}) {
     if (/COUNT\(\*\)::int facturas, COALESCE\(SUM\(total\), 0\) total/.test(sql)) {
       return { rows: [{ facturas: 0, total: 0, ultima: null, primera: null, ...compras }] };
     }
-    if (/FROM factura f WHERE f\.cliente_id/.test(sql)) return { rows: filas.facturas || [] };
+    if (/FROM factura f[\s\S]*WHERE f\.cliente_id/.test(sql)) return { rows: filas.facturas || [] };
     if (/FROM pago p LEFT JOIN metodo_pago/.test(sql)) return { rows: filas.abonos || [] };
     if (/FROM factura_linea l/.test(sql)) return { rows: filas.productos || [] };
     if (/FROM pedido_cliente/.test(sql)) return { rows: filas.pedidos || [] };

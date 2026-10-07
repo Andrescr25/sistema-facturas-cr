@@ -112,6 +112,8 @@ export default function ReporteProveedores() {
    * Se avisa por qué, porque irse solo de una pantalla también desconcierta
    * si no se explica.
    */
+  useEffect(() => { setProveedorActivoId(null) }, [filtroCiclo.rutaId, filtroCiclo.cicloId, fechaInicio])
+
   useEffect(() => {
     if (!proveedorActivoId || loading) return
     if (proveedores.some(p => p.id === proveedorActivoId)) return
@@ -148,6 +150,7 @@ export default function ReporteProveedores() {
       {vista==='faltantes' && error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
           <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
+          <button type="button" className="mt-2 min-h-11 font-bold underline" onClick={loadReporte}>Reintentar consulta</button>
         </div>
       )}
 
@@ -193,7 +196,7 @@ export default function ReporteProveedores() {
           onAbrir={fichas.abrirFicha}
           onCambiarEstado={fichas.cambiarEstado}
         />
-      ) : loading ? null : !proveedorActivoId ? (
+      ) : loading || error ? null : !proveedorActivoId ? (
         <ListaProveedores
           consultaCiclo={consultaCiclo}
           proveedores={proveedores}
@@ -208,6 +211,7 @@ export default function ReporteProveedores() {
         />
       ) : proveedorActivo && consultaCiclo ? (
         <FaltantesPorCiclo proveedor={proveedorActivo} cicloId={filtroCiclo.cicloId} onVolver={() => setProveedorActivoId(null)}
+          notasPorProducto={notasPorProducto} cargandoNotas={cargandoNotas}
           onPrepararOrden={() => { setProveedorOrden({ cedula: proveedorActivo.cedula, nombre: proveedorActivo.nombre }); setVista('ordenes') }} />
       ) : proveedorActivo ? (
         <ProveedorDetalle
