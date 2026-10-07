@@ -81,3 +81,41 @@ migraciones/aplicación y preservación de inventario/históricos/salidas.
 RUT-03 requiere identificar la fuente LOCAL de Maps anteriores; CLI-10 y
 VAL-08 corresponden a las revisiones del usuario. No consultar producción para
 cerrar Maps ni acreditar aceptación Hacienda real, conteo físico o corte.
+
+## Aplicación local y relevo
+
+Pruebas y documentación **1bea785**, integradas por rebase y avance sin fusión
+desde 8d149d0, solo en independencia-alegra local y sin push. No cambian
+backend/src ni frontend/src; no se reinicia el servidor compartido ni se aplica
+SQL. Respaldo nuevo de tachi LOCAL5434, protegido 0600:
+/private/tmp/codex-contexto-cadena-20261006/antes-contexto-cadena-local.dump.
+
+Antes de las lecturas finales se comprobaron **36 huellas operativas + 9
+completas adicionales idénticas**. Al cerrar permanecen **36 + 8 idénticas**;
+usuario tiene un cambio de ultimo_ingreso. Auditoría por columnas contra el
+dump previo: no cambiaron sus otras columnas, filas ni permisos. Es compatible
+con un acceso local concurrente: el único UPDATE de ese campo está en login,
+y el ensayo habitual usó un token en memoria, solo GET y SQL READ ONLY.
+No se revierte actividad ajena ni se sustituye la referencia previa para
+ocultar la diferencia. Evidencia privada en auditoria-usuario.json.
+
+Stock/conteos/movimientos/eventos/órdenes/recepciones/cierres en cero; cliente,
+ruta y ciclo cancelado del usuario conservados, sin demo ni nuevas filas ZZ
+en la base habitual.
+
+App 5174→3002 conserva backend seguro **49572** y Vite **98892**. Lanzador
+permanente /private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs;
+no usar server.js directo por sus trabajos IMAP/ping/Hacienda y salidas.
+Comprobación habitual solo GET/SQL READ ONLY: salud/API/frontend 200,
+ficha con contexto Sin ciclo 200 y sin sesión 401, necesidades vacías,
+tres Excel vacíos 200/401 y detalles inexistentes 404. Original 3000/PID5370,
+developer 5013270 y main e19c3e5 intactos. No se conecta producción.
+
+Clon tachi_codex_contexto_cadena_20261006 y puertos propios 3003/5175
+**RETIRADOS**, comprobados por lectura. La copia/rama temporal se retiran tras
+integrar este relevo. Evidencia, dumps, logs y 22 capturas privados 0700/0600
+en /private/tmp/codex-contexto-cadena-20261006; los guiones que dependen de
+la copia retirada sirven como evidencia, no como lanzadores reutilizables.
+Conservar ensayos ajenos, datos fiscales y ejemplos de Descargas. La memoria
+mantiene literalmente las quince decisiones del usuario y libera solo esta
+reserva al cerrar. Grafo y checklist actualizados en la misma entrega.

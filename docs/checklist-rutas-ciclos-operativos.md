@@ -463,7 +463,7 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
   conservan; no importar stock previo ni enviar mensajes reales para probar.
 - [ ] VAL-08 — Revisión manual del usuario del flujo completo.
 
-**Cadena integral, 2026-10-06:** RUT-08 y VAL-01 comprobados con los servicios
+**Cadena integral `1bea785`, 2026-10-06:** RUT-08 y VAL-01 comprobados con los servicios
 reales: portal/agente → factura → bodega/faltantes → orden/PDF → compra →
 recepción → carga/entrega. Misma ruta en dos semanas y un histórico Sin ciclo;
 mover/renombrar cliente/ruta, cambiar Maps y cerrar/promover conserva los
