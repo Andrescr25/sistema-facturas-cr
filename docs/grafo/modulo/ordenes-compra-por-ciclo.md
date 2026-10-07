@@ -24,7 +24,7 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
+  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -135,3 +135,9 @@ CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
 anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
 liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
 Necesidades incluye originales y recibido de enviada cerrada con pendiente0.
+
+EXPORTACIÓN OPERATIVA. [[modulo/exportaciones-operativas-ciclo]] añade
+Excel de necesidades/órdenes/recorrido, filtros completos y detalle con
+procedencia, sin paginación truncada ni escrituras de negocio. Los textos
+de etapas anteriores son históricos; archivo/cierre/avance actuales se
+conservan al descargar. Sin migración nueva.

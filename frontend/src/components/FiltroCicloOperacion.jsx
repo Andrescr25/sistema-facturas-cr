@@ -4,6 +4,7 @@ const ESTADOS = { preventa: 'Preventa anticipada', preparacion: 'En preparación
 export default function FiltroCicloOperacion({ filtro, disabled = false, requiereCiclo = false }) {
   const rutas = [...new Map(filtro.ciclos.map(c => [c.rutaId, c.rutaNombre])).entries()]
   const ciclos = filtro.ciclos.filter(c => !filtro.rutaId || String(c.rutaId) === filtro.rutaId)
+  const rutaElegida = rutas.find(([id]) => String(id) === filtro.rutaId)
   const elegido = filtro.ciclos.find(c => String(c.id) === filtro.cicloId)
   const select = 'mt-1 w-full min-w-0 rounded-xl border-2 border-neutro-200 bg-white px-3 py-3 text-sm'
   return <div className="mb-5 rounded-xl border border-neutro-200 bg-neutro-50 p-4">
@@ -23,7 +24,7 @@ export default function FiltroCicloOperacion({ filtro, disabled = false, requier
       </label>
     </div>
     <p className="mt-2 break-words text-sm font-semibold text-primario-700" aria-live="polite">
-      {elegido ? `${textoCiclo(elegido)} · ${ESTADOS[elegido.estado]}` : filtro.cicloId === 'sin-ciclo' ? 'Sin ciclo: documentos sin semana asignada' : requiereCiclo?'Seleccioná la semana del recorrido':'Vista conjunta: cada documento conserva su ruta y semana'}
+      {elegido ? `${textoCiclo(elegido)} · ${ESTADOS[elegido.estado]}` : filtro.cicloId === 'sin-ciclo' ? 'Sin ciclo: documentos sin semana asignada' : rutaElegida?`${rutaElegida[1]} · ${requiereCiclo?'Seleccioná una semana':'Todos los ciclos; contexto propio en cada documento'}`:requiereCiclo?'Seleccioná la semana del recorrido':'Vista conjunta: cada documento conserva su ruta y semana'}
     </p>
     {filtro.error && <p role="alert" className="mt-2 text-sm text-peligro-700">{filtro.error}</p>}
   </div>

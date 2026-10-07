@@ -19,7 +19,7 @@ archivos:
   - docs/informes/carga-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/facturas-bodega]
-  relacionado: [modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
+  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
 medido: 2026-10-06
 ---
 
@@ -88,3 +88,9 @@ Ver informe de registro para la evidencia y el estado local vigente.
 Estado vigente: registro físico5c9e90a/051 verificado e integrado solo local,
 82/17 operativo. Los textos de consulta393ee66 describen la etapa previa.
 App5174→3002 PID18962; ver nuevo nodo/informe para pruebas e invariantes.
+
+EXPORTACIÓN OPERATIVA. [[modulo/exportaciones-operativas-ciclo]] añade
+Excel de necesidades/órdenes/recorrido, filtros completos y detalle con
+procedencia, sin paginación truncada ni escrituras de negocio. Los textos
+de etapas anteriores son históricos; archivo/cierre/avance actuales se
+conservan al descargar. Sin migración nueva.

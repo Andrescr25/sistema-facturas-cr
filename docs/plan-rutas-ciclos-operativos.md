@@ -25,8 +25,11 @@ implementados. Vínculo/PDF privado y comparación de factura implementados, ver
 [factura/PDF](informes/facturas-ordenes-2026-10-06.md). Recepción física parcial/final con kardex idempotente implementada (049);
 Archivo individual 24 h y retiro semanal implementados (050), ver
 [archivo](informes/archivo-ordenes-2026-10-06.md). Consulta de recorrido/carga inversa/Maps implementada; registro de avance
-físico pendiente, ver [carga/entregas](informes/carga-entregas-2026-10-06.md).
-Operativo 79/20.
+físico051 implementado, ver [carga/entregas](informes/carga-entregas-2026-10-06.md).
+Cierre052 y Excel operativo completo implementados y verificados. Operativo88/11;
+[exportaciones](informes/exportaciones-ciclos-2026-10-06.md),
+[registro físico](informes/registro-entregas-2026-10-06.md) y
+[cierre enviado](informes/cierre-ordenes-2026-10-06.md).
 El usuario reiteró que se hace todo local en la rama de migración existente
 `independencia-alegra`: `developer`, `main` y base de producción quedan fuera
 de este trabajo. Las pruebas parten de una copia de la base local.
@@ -71,7 +74,7 @@ de este trabajo. Las pruebas parten de una copia de la base local.
   integradas con etiquetas, dos columnas/fotos grandes y WhatsApp explícito.
 - [x] Bodega y reportes de faltantes filtran ruta/ciclo; procedencia en Excel.
 - [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
-- [ ] Órdenes propias: estados, foto enviada, procedencia y cobertura.
+- [x] Órdenes propias: estados, foto enviada, procedencia y cobertura (046–052).
   Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
   incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; cierre de enviada052 implementado: confirmación/motivo, conservar recibido
   y liberar solo cobertura pendiente, documento enviado inmutable. Reserva sin confirmación no es envío confirmado.
@@ -79,7 +82,7 @@ de este trabajo. Las pruebas parten de una copia de la base local.
   kardex por delta; aceptación comercial explícita separada, sin doble entrada.
   PDF/vínculo (048) permanece privado. Archivo implementado; correcciones físicas pendientes.
 - [x] Consulta de recorrido/carga inversa/Maps por cliente/documento.
-- [ ] Registrar carga/entrega y avance físico por cliente/documento.
+- [x] Registrar carga/entrega y avance físico por cliente/documento (051).
 - [x] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado (050).
 - [ ] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.
 - [ ] Aplicación local con respaldo, grafo/checklist/memoria e informe final.

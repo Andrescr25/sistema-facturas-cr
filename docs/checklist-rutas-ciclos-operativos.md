@@ -24,8 +24,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [recorrido y carga](informes/carga-entregas-2026-10-06.md) y
 [registro físico](informes/registro-entregas-2026-10-06.md) y
 [necesidades y cobertura](informes/necesidades-cobertura-2026-10-06.md) y
-[cierre de enviada](informes/cierre-ordenes-2026-10-06.md).
-Estado vigente: **87 listos / 12 pendientes (99 IDs)**. Las cifras en las
+[cierre de enviada](informes/cierre-ordenes-2026-10-06.md) y
+[Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md).
+Estado vigente: **88 listos / 11 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -179,7 +180,7 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
 - [ ] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
-- [ ] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.
+- [x] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.
 - [ ] FIL-11 — Históricos no clasificados se distinguen de los ciclos actuales,
   sin asignaciones automáticas supuestas.
 
@@ -195,6 +196,15 @@ siguen parciales por propagación a órdenes/entregas y pedidos sin facturar.
 2.011 pruebas, grafo 12, build y navegador 1440/390 aprobados; dos Excel
 releídos y permisos HTTP comprobados. Checklist vigente **44 listos / 55
 pendientes (99 IDs)**. Ver informe de esta parte.
+
+**Excel operativo, 2026-10-06:** FIL-10 comprobado. Necesidades/órdenes/carga y
+entregas exportan filtros completos, todas las páginas y detalle elegido con
+procedencia. Origen fijo, desconocidos vacíos, cantidades físicas/cobertura,
+Activas/Historial y posición global de carga conservados.2.211pruebas/362suites
+fail0/skip0,99focalizadas y20nuevas; grafo12/build/Chromium1440/390,9XLSX
+releídos y21huellas iguales. Sin migración;053 libre. **88/11 (99 IDs)**.
+Aplicación/relevo en informe exportaciones-ciclos-2026-10-06. FIL-09/11,
+RUT-08 y validación integral siguen pendientes; prueba de Excel no los cierra.
 
 ## 5. Faltantes y cobertura de compras
 

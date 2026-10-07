@@ -45,7 +45,7 @@ function generarExcel({ titulo, prefijo, informacion = [], hojas }) {
     for (let fila = 1; fila < valores.length; fila++) {
       columnas.forEach((c, columna) => {
         const direccion = XLSX.utils.encode_cell({ r: fila, c: columna });
-        if (hoja[direccion]) hoja[direccion].z = FORMATOS[c.tipo || 'texto'];
+        if (hoja[direccion]) hoja[direccion].z = c.formato || FORMATOS[c.tipo || 'texto'];
       });
     }
     // Los textos van como celdas de tipo string, incluso si empiezan con

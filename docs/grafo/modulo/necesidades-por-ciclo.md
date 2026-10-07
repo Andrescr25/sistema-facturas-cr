@@ -14,7 +14,7 @@ archivos:
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
+  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
 medido: 2026-10-06
 ---
 
@@ -95,3 +95,9 @@ CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
 anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
 liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
 Necesidades incluye originales y recibido de enviada cerrada con pendiente0.
+
+EXPORTACIÓN OPERATIVA. [[modulo/exportaciones-operativas-ciclo]] añade
+Excel de necesidades/órdenes/recorrido, filtros completos y detalle con
+procedencia, sin paginación truncada ni escrituras de negocio. Los textos
+de etapas anteriores son históricos; archivo/cierre/avance actuales se
+conservan al descargar. Sin migración nueva.

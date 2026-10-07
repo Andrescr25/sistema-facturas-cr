@@ -193,7 +193,7 @@ async function validarPendienteEn(db,o) {
       throw httpError(409,'Los faltantes cambiaron. Revisá las cantidades del borrador antes de enviar.');
   }
 }
-async function listar({rutaId,cicloId,proveedorId,vista='activas'}={}) {
+async function listarEn(db,{rutaId,cicloId,proveedorId,vista='activas'}={}, {detalleId=null}={}) {
   if (!['activas','historial'].includes(vista)) throw httpError(400,'Vista inválida.');
   const where=[],params=[];
   filtrosOperacion({rutaId,cicloId},where,params);
@@ -201,14 +201,16 @@ async function listar({rutaId,cicloId,proveedorId,vista='activas'}={}) {
   const filtros=where.map(s=>s.replaceAll('rc.id IS NULL','o.ciclo_id IS NULL'));
   // La vista usa la hora de PostgreSQL. Archivar no libera cobertura ni
   // cambia el estado comercial; parciales siguen activas sin límite semanal.
-  filtros.push(vista==='activas'?"o.estado<>'cerrada' AND NOT o.archivada":"(o.estado='cerrada' OR o.archivada)");
+  if(detalleId==null)filtros.push(vista==='activas'?"o.estado<>'cerrada' AND NOT o.archivada":"(o.estado='cerrada' OR o.archivada)");
+  else{params.push(entero(detalleId));filtros.push(`o.id=$${params.length}`)}
   if (proveedorId!=null&&proveedorId!=='') {params.push(entero(proveedorId));filtros.push(`o.proveedor_id=$${params.length}`)}
-  const {rows}=await pool.query(`SELECT o.*,o.semana::text,CURRENT_TIMESTAMP AS consultada_en,l.productos,l.cantidad_propia
+  const {rows}=await db.query(`SELECT o.*,o.semana::text,CURRENT_TIMESTAMP AS consultada_en,l.productos,l.cantidad_propia
     FROM orden_compra_ciclo_operativa o LEFT JOIN ciclo_ruta cr ON cr.id=o.ciclo_id
     LEFT JOIN LATERAL (SELECT COUNT(*)::int productos,COALESCE(SUM(cantidad_propia),0) cantidad_propia
       FROM orden_compra_ciclo_linea WHERE orden_id=o.id) l ON TRUE
     WHERE ${filtros.join(' AND ')} ORDER BY o.semana DESC NULLS LAST,o.id DESC`,params);
   return rows.map(dto);
 }
+const listar=f=>listarEn(pool,f);
 module.exports={sugerir,crear,editar,cambiarEstado,listar,obtener:id=>enTransaccion(pool,db=>obtenerEn(db,id)),
-  interno:{entero,enOrden,obtenerEn,revision,validarPendienteEn}};
+  interno:{entero,enOrden,obtenerEn,revision,validarPendienteEn,listarEn}};

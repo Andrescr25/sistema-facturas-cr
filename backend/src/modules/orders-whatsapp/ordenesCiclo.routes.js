@@ -1,5 +1,7 @@
 const router=require('express').Router();
 const s=require('./ordenesCiclo.service');
+const {enviarExcel}=require('../../utils/exportarExcel');
+const exportar=(req,res)=>require('./ordenesCiclo.excel').exportar({...req.query,...(req.params.id?{ordenId:req.params.id}:{})}).then(r=>enviarExcel(res,r)).catch(e=>res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudieron exportar las órdenes.'}));
 const envios=require('./ordenesCicloEnvio.service');
 const facturas=require('./ordenesCicloFactura.service');
 const recepcion=require('./ordenesCicloRecepcion.service');
@@ -12,6 +14,8 @@ const responder=(res,p,status=200)=>p.then(data=>res.status(status).json({succes
 router.get('/sugerencia',(req,res)=>responder(res,s.sugerir(req.query)));
 router.get('/',(req,res)=>responder(res,s.listar(req.query)));
 router.post('/',(req,res)=>responder(res,s.crear(req.body,req.usuario?.id),201));
+router.get('/exportar',exportar);
+router.get('/:id/exportar',exportar);
 router.get('/:id',(req,res)=>responder(res,s.obtener(req.params.id)));
 router.put('/:id',(req,res)=>responder(res,s.editar(req.params.id,req.body,req.usuario?.id)));
 router.patch('/:id/estado',(req,res)=>responder(res,s.cambiarEstado(req.params.id,req.body,req.usuario?.id)));

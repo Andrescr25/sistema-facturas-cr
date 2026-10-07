@@ -96,13 +96,35 @@ async function parada(clave,datos) {
     const r=await recorridoEn(db,filtros),p=r.paradas.find(p=>p.clave===clave);
     if(!p)throw httpError(404,'Esa parada no pertenece a la selección.');
     const facturas=p.documentos.filter(d=>d.tipo==='factura').map(d=>d.id),pedidos=p.documentos.filter(d=>d.tipo==='pedido').map(d=>d.id);
-    const {rows}=await db.query(`SELECT 'factura' tipo,factura_id documento_id,numero_linea orden,producto_id,nombre,referencia,descripcion,cantidad
-      FROM factura_linea WHERE factura_id=ANY($1::int[])
-      UNION ALL SELECT 'pedido',pedido_id,id,producto_id,nombre_producto,referencia,NULL,cantidad
-      FROM pedido_cliente_linea WHERE pedido_id=ANY($2::int[])
-      ORDER BY tipo,documento_id,orden`,[facturas,pedidos]);
+    const rows=await lineasEn(db,facturas,pedidos);
     return{...p,documentos:p.documentos.map(d=>({...d,lineas:rows.filter(l=>l.tipo===d.tipo&&l.documento_id===d.id)
       .map(l=>({productoId:l.producto_id,nombre:l.nombre,referencia:l.referencia,descripcion:l.descripcion,cantidad:Number(l.cantidad)}))}))};
   });
 }
-module.exports={plan,parada};
+async function lineasEn(db,facturas,pedidos){
+  return(await db.query(`SELECT 'factura' tipo,factura_id documento_id,numero_linea orden,producto_id,nombre,referencia,descripcion,cantidad
+    FROM factura_linea WHERE factura_id=ANY($1::int[])
+    UNION ALL SELECT 'pedido',pedido_id,id,producto_id,nombre_producto,referencia,NULL,cantidad
+    FROM pedido_cliente_linea WHERE pedido_id=ANY($2::int[]) ORDER BY tipo,documento_id,orden`,[facturas,pedidos])).rows;
+}
+async function paraExportar(datos){
+  const filtros=validar({...datos,pagina:1,tamano:20});
+  return lectura(async db=>{
+    const completo=await recorridoEn(db,filtros),r={...completo,paradas:completo.paradas};
+    // El detalle exportado es la parada visible; el recorrido toma TODAS las
+    // páginas. Filtrar una clave nunca permite consultar otra semana.
+    if(datos?.clave!=null){
+      if(typeof datos.clave!=='string'||!/^(rc|cl|f|p)-[1-9]\d*$/.test(datos.clave))throw httpError(400,'Parada inválida.');
+      entero(datos.clave.split('-')[1],'Parada');
+      const p=r.paradas.find(p=>p.clave===datos.clave);if(!p)throw httpError(404,'Esa parada no pertenece a la selección.');r.paradas=[p];
+    }
+    const ds=r.paradas.flatMap(p=>p.documentos);
+    const lineas=await lineasEn(db,ds.filter(d=>d.tipo==='factura').map(d=>d.id),ds.filter(d=>d.tipo==='pedido').map(d=>d.id));
+    const plan=aPlan(r,{pagina:1,tamano:Math.max(1,r.paradas.length)});
+    // La sugerencia de carga conserva su posición en el recorrido completo,
+    // también al descargar el detalle de una parada intermedia.
+    if(datos?.clave!=null){plan.carga=aPlan(completo,{pagina:1,tamano:20}).carga.filter(p=>p.clave===datos.clave)}
+    return{...plan,lineas};
+  });
+}
+module.exports={plan,parada,paraExportar};

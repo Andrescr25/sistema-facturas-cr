@@ -29,8 +29,8 @@ archivos:
   - backend/tests/reportesExcelPropios.test.js
   - backend/tests/rentabilidad.test.js
 aristas:
-  relacionado: [modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-05
+  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-10-06
 ---
 
 CIERRE DE §13. Inicio, Rentabilidad y los reportes de faltantes por cliente y
@@ -133,3 +133,9 @@ persistentes/cobertura/recepción pendientes, no interpretar la consulta como
 compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
 Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
 Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.
+
+EXPORTACIÓN OPERATIVA. [[modulo/exportaciones-operativas-ciclo]] añade
+Excel de necesidades/órdenes/recorrido, filtros completos y detalle con
+procedencia, sin paginación truncada ni escrituras de negocio. Los textos
+de etapas anteriores son históricos; archivo/cierre/avance actuales se
+conservan al descargar. Sin migración nueva.

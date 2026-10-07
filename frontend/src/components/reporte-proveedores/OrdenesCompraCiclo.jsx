@@ -1,3 +1,4 @@
+import BotonExportarExcel from '../ui/BotonExportarExcel'
 import CierreOrdenCiclo from './CierreOrdenCiclo'
 import { useEffect, useRef, useState } from 'react'
 import api from '../../services/api'
@@ -108,7 +109,7 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
     {mensaje&&<p role="status" className="rounded-lg bg-exito-50 p-3 text-exito-800">{mensaje}</p>}
     {cargando&&<p role="status">Consultando órdenes de compra…</p>}
     {(orden||sugerencia)?<>
-      <button type="button" disabled={ocupado} className="btn btn-outline" onClick={volver}>Volver a órdenes</button>
+      {orden?<div className="flex flex-wrap gap-2"><button type="button" disabled={ocupado} className="btn btn-outline" onClick={volver}>Volver a órdenes</button><BotonExportarExcel ruta={`${BASE}/${orden.id}/exportar`} params={filtro.params} disabled={ocupado||cargando||Boolean(error)} title="Descarga esta orden y su procedencia; el PDF enviado se conserva."/></div>:<button type="button" disabled={ocupado} className="btn btn-outline" onClick={volver}>Volver a órdenes</button>}
       <div className="card p-5 space-y-2">
         <h2 className="break-words text-xl font-bold">{orden?orden.referencia:'Nueva orden'} · {orden?.proveedor_nombre||sugerencia?.proveedor.nombre}</h2>
         <p className="break-words font-semibold">{textoCiclo(orden?.ciclo||sugerencia?.ciclo)}</p>
@@ -163,11 +164,11 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
     </>:<>
       <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div><h2 className="text-xl font-bold">Órdenes por ciclo</h2><p className="text-sm text-neutro-600">Para preparar una nueva, abrí un proveedor en Faltantes y elegí su semana.</p></div>
-        <label className="text-sm font-semibold">Mostrar
+        <div className="flex flex-wrap items-start gap-3"><BotonExportarExcel ruta={`${BASE}/exportar`} params={{...filtro.params,vista}} disabled={ocupado||cargando||Boolean(error)} title="Descarga las órdenes y su procedencia según los filtros y la vista activa o histórica."/><label className="text-sm font-semibold">Mostrar
           <select aria-label="Mostrar órdenes" value={vista} disabled={ocupado} onChange={e=>setVista(e.target.value)} className="ml-2 min-h-11 rounded-lg border p-2">
             <option value="activas">Activas</option><option value="historial">Historial</option>
           </select>
-        </label>
+        </label></div>
       </div>
       {!cargando&&!lista.length&&<p className="card p-5 text-neutro-600">No hay órdenes en esta selección.</p>}
       {lista.map(o=><button type="button" key={o.id} onClick={()=>abrir(o.id)} disabled={ocupado||cargando} className="card block w-full p-5 text-left hover:border-primario-400">

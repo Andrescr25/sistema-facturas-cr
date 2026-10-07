@@ -23,7 +23,7 @@ const CAMPOS=['comprometido','porFacturar','entregado','enCamion','faltanteRegis
 const origen=r=>({tipo:r.tipo,documentoId:r.documento_id,facturaId:r.factura_id,pedidoId:r.pedido_id,numero:r.numero,
  clienteId:r.cliente_id,clienteNombre:r.cliente_nombre,ciclo:aCiclo(r),anticipado:r.preventa_anticipada===true});
 
-async function listar(filtros){
+async function consultar(filtros,{completa=false}={}){
  const f=validar(filtros);
  return enTransaccion(pool,async db=>{
   await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
@@ -123,10 +123,11 @@ async function listar(filtros){
    .filter(g=>`${g.nombre} ${g.codigo||''} P-${g.productoId}`.toLocaleLowerCase('es').includes(buscar)).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')||a.productoId-b.productoId);
   for(const g of todos)g.origenes.sort((a,b)=>(a.ciclo?.orden??Infinity)-(b.ciclo?.orden??Infinity)||a.tipo.localeCompare(b.tipo)||a.documentoId-b.documentoId);
   const sinRelacion=sinProducto.filter(d=>`${d.nombre||''} ${d.codigo||''}`.toLocaleLowerCase('es').includes(buscar));
-  return{ciclo,productos:todos.slice((f.pagina-1)*f.tamano,f.pagina*f.tamano),sinProducto:sinRelacion.slice((f.pagina-1)*f.tamano,f.pagina*f.tamano),
+  return{ciclo,productos:completa?todos:todos.slice((f.pagina-1)*f.tamano,f.pagina*f.tamano),sinProducto:completa?sinRelacion:sinRelacion.slice((f.pagina-1)*f.tamano,f.pagina*f.tamano),
    resumen:{productos:todos.length,pedidosPorFacturar:new Set(demandas.filter(d=>d.tipo==='pedido').map(d=>d.documento_id)).size,
     documentosPorRevisar:new Set(demandas.filter(d=>d.revisar).map(d=>d.documento_id)).size,sinProducto:sinProducto.length},
    paginacion:{pagina:f.pagina,tamano:f.tamano,total:todos.length,sinProducto:sinRelacion.length,paginas:Math.max(1,Math.ceil(todos.length/f.tamano),Math.ceil(sinRelacion.length/f.tamano))}};
  });
 }
-module.exports={listar};
+// Exportar reutiliza UNA lectura coherente, nunca une respuestas paginadas.
+module.exports={listar:f=>consultar(f),paraExportar:f=>consultar({...f,pagina:1,tamano:20},{completa:true})};

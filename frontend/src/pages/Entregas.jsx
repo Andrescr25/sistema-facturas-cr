@@ -1,3 +1,4 @@
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 import { useState } from 'react'
 import { RefreshCw, Truck } from 'lucide-react'
 import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
@@ -13,7 +14,7 @@ export default function Entregas() {
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h1 className="text-3xl font-extrabold">Carga y Entregas</h1>
         <p className="mt-2 text-neutro-600">Paradas y pedidos de cada ruta y semana.</p></div>
-      <button type="button" onClick={b.actualizar} disabled={b.cargando||b.cargandoDetalle||!b.filtro.cicloId} className="btn btn-outline min-h-11 inline-flex gap-2"><RefreshCw size={18}/>Actualizar ruta</button>
+      <div className="flex flex-wrap gap-2"><BotonExportarExcel ruta="/entregas/exportar" params={{...b.filtro.params,...(b.seleccion?{clave:b.seleccion}:{})}} disabled={b.cargando||b.cargandoDetalle||!plan||Boolean(b.error)||(Boolean(b.seleccion)&&(!b.detalle||Boolean(b.errorDetalle)))} title={b.seleccion?"Descarga los pedidos de esta parada y su contexto.":"Descarga todo el recorrido y la sugerencia de carga, incluidas todas las páginas."}/><button type="button" onClick={b.actualizar} disabled={b.cargando||b.cargandoDetalle||!b.filtro.cicloId} className="btn btn-outline min-h-11 inline-flex gap-2"><RefreshCw size={18}/>Actualizar ruta</button></div>
     </header>
     <FiltroCicloOperacion filtro={b.filtro} requiereCiclo/>
     {!b.filtro.cicloId&&<p className="card p-5">Elegí una semana para consultar sus pedidos y preparar la carga.</p>}

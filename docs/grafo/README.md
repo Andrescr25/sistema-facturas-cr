@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Excel operativo por ciclo — necesidades, órdenes, recorrido y carga completos](modulo/exportaciones-operativas-ciclo.md)
+
 - [Cierre de enviada — recibido conservado y pendiente liberado](modulo/cierre-ordenes-compra.md)
 
 - [Necesidades y cobertura — stock general, demanda y compras por semana](modulo/necesidades-por-ciclo.md)

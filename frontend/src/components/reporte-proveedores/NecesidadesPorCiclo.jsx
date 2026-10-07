@@ -1,3 +1,4 @@
+import BotonExportarExcel from '../ui/BotonExportarExcel'
 import {useEffect,useState} from 'react'
 import {useNecesidadesCiclo} from '../../hooks/useNecesidadesCiclo'
 import {textoCiclo} from '../SelectorCiclo'
@@ -27,7 +28,7 @@ export default function NecesidadesPorCiclo({filtro}){
  const producto=d?.productos.find(p=>p.productoId===seleccion)
  return <section className="space-y-4" aria-label="Necesidades y cobertura por semana">
   <header className="flex flex-wrap justify-between gap-3"><div><h2 className="text-2xl font-bold">Necesidades y cobertura</h2><p className="mt-2 text-neutro-600">Pedidos, bodega y compras de la semana elegida.</p></div>
-   <button type="button" className="btn btn-outline min-h-11" onClick={b.actualizar} disabled={b.cargando||!filtro.cicloId}>Actualizar necesidades</button></header>
+   <div className="flex flex-wrap gap-2"><BotonExportarExcel ruta="/reportes/faltantes/proveedor/necesidades/exportar" params={{...filtro.params,q:b.q,...(producto?{productoId:producto.productoId}:{})}} disabled={b.cargando||!d||Boolean(b.error)} title={producto?"Descarga este producto y su procedencia completa.":"Descarga todos los productos que coinciden con los filtros, incluidas todas las páginas."}/><button type="button" className="btn btn-outline min-h-11" onClick={b.actualizar} disabled={b.cargando||!filtro.cicloId}>Actualizar necesidades</button></div></header>
   {!filtro.cicloId?<p className="card p-5">Elegí una semana o Sin ciclo para revisar sus necesidades.</p>:<>
    <label className="block font-semibold">Buscar producto o código<input aria-label="Buscar producto en necesidades" className="mt-2 min-h-11 w-full rounded-xl border-2 p-3" value={b.q} maxLength={200} onChange={e=>b.setQ(e.target.value)}/></label>
    {b.cargando&&<p role="status">Consultando necesidades de la semana…</p>}

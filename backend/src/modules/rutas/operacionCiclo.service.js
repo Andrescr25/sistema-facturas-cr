@@ -8,7 +8,7 @@ const { httpError } = require('../../utils/validacion');
 function filtrosOperacion({ rutaId, cicloId } = {}, where = [], params = []) {
   for (const v of [rutaId, cicloId]) {
     if (v != null && v !== '' && v !== 'sin-ciclo' &&
-      !((typeof v === 'string' && /^[1-9]\d*$/.test(v)) || (typeof v === 'number' && Number.isSafeInteger(v) && v > 0))) {
+      (!((typeof v === 'string' && /^[1-9]\d*$/.test(v)) || (typeof v === 'number' && Number.isSafeInteger(v) && v > 0)) || Number(v)>2147483647)) {
       throw httpError(400, 'Ruta o ciclo inválido.');
     }
   }
