@@ -31,7 +31,8 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md) y
 [permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md) y
 [recorrido visual completo](informes/recorrido-visual-2026-10-07.md) y
-[auditoría global local](informes/auditoria-local-2026-10-07.md).
+[auditoría global local](informes/auditoria-local-2026-10-07.md) y
+[rediseño de Clientes](informes/clientes-redisenados-2026-10-07.md).
 Estado vigente: **96 listos / 3 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
@@ -101,6 +102,14 @@ recuperación ni cambia96/3.
 CLI-01–09 y FIL-01 verificados en API y navegador 1440/700/390; arrastre
 implementado, flechas/guardado probados. CLI-10 sigue al usuario. Pedidos
 en la ficha son los recientes (10), con origen propio distinguido.
+
+**Rediseño solicitado 2026-10-07:** directorio en tarjetas, ficha con regreso
+al origen, formulario por seis secciones, rutas con historial desplegable y
+accesos del portal/tablets agrupados. Lecturas tardías/errores comprobados.
+20 escenarios de navegador1440/390, build/grafo12 y conservación106 tablas/
+80 secuencias. [Evidencia y límites](informes/clientes-redisenados-2026-10-07.md).
+Refina CLI-01–09; CLI-10 sigue abierto hasta revisión del usuario. No cambia
+96/3 ni los 133/14 de independencia. Migración/corte aplazados por el usuario.
 
 ## 3. Preventa anticipada y pedidos
 

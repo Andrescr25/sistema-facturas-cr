@@ -11,6 +11,9 @@ archivos:
   - backend/src/modules/clientes/clientes.service.js
   - backend/src/modules/clientes/clientes.resumen.service.js
   - frontend/src/pages/Clientes.jsx
+  - frontend/src/components/clientes/NavegacionClientes.jsx
+  - frontend/src/components/clientes/ListaClientes.jsx
+  - frontend/src/components/clientes/ListaCuentas.jsx
   - frontend/src/components/clientes/VistaRutas.jsx
   - frontend/src/components/clientes/ModalCliente.jsx
   - frontend/src/components/clientes/FichaCliente.jsx
@@ -89,3 +92,27 @@ Búsqueda local2026-10-07 documentada en [[bloqueo/maps-anteriores-sin-fuente-lo
 históricos sin ubicaciones identificadas. RUT-03 sigue abierto; no implica
 reabrir campo/botón/ciclos ya implementados ni inventar datos o consultar
 producción. Operativo96/3 y revisiones humanas conservadas.
+
+
+## Rediseño visual — 2026-10-07
+
+La prioridad actual del usuario es reorganizar Clientes; la revisión de
+migración queda para después. Cuatro áreas: Clientes, Rutas, Pedidos y Accesos;
+esta última reúne portal y tablets. Directorio en tarjetas grandes con filtros
+juntos; ficha con un solo título, resumen de deuda, secciones y vuelta al origen.
+Formulario de 22 campos en seis tarjetas con navegación interna, sin ocultar
+campos a la validación nativa. Rutas en tarjetas seleccionables; semanas en
+curso separadas del historial cerrado/cancelado desplegable. Conserva servicios,
+orden guardado y copias de recorrido. No inventar métricas ni datos de cliente.
+
+`useClientes` retira resultados/total anteriores desde el cambio de filtro y
+descarta respuestas tardías A → B → A mediante `useContextoConsulta`; errores
+muestran reintento en la misma selección. La ficha conserva vuelta/reintento
+si falla su consulta. La vuelta desde ficha mantiene la ruta seleccionada.
+
+Verificación vigente: 20 escenarios de navegador, 1440/390 px, sin errores JS,
+desbordes, escrituras ni salidas. Build y grafo12 aprobados. Auditoría106 tablas/
+80 secuencias iguales y stock0. Solo frontend/documentación, sin SQL ni backend.
+Evidencia y límites en `docs/informes/clientes-redisenados-2026-10-07.md`.
+CLI-10/VAL-08 siguen abiertos al usuario; RUT-03 necesita fuente local Maps.
+Operativo96/3 e independencia133/14 conservados. No acredita corte ni Hacienda real.

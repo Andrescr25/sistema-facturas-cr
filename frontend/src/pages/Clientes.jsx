@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Users, ClipboardList, Tablet, Contact, Map } from 'lucide-react'
+import { Users, Tablet } from 'lucide-react'
+import NavegacionClientes from '../components/clientes/NavegacionClientes'
 import { useRutas } from '../hooks/useRutas'
 import VistaRutas from '../components/clientes/VistaRutas'
 import { useToast } from '../hooks/useToast'
@@ -24,7 +25,8 @@ import api from '../services/api'
  * ahí.
  *
  * Fichas y Rutas separan datos y recorridos de pedidos, portal y tablets.
- * Los pedidos pendientes conservan su contador para el trabajo diario.
+ * Portal y tablets comparten Accesos para apartar su administración del
+ * directorio y del trabajo de rutas.
  *
  * "Fichas" son los datos del cliente (rama independencia-alegra): antes vivían
  * en Alegra y no había forma de crearlos ni corregirlos desde el sistema.
@@ -51,71 +53,56 @@ export default function Clientes() {
   // La ficha abierta. Es un id de cliente, que nunca es null, así que null
   // sirve de "ninguna" sin el choque que tuvo Cuentas por Cobrar.
   const [fichaAbierta, setFichaAbierta] = useState(null)
-
-  const pendientes = pedidos.filter(p => p.estado === 'pendiente').length
-
-  const TABS = [
-    { id: 'fichas', texto: 'Clientes', icono: Contact, contador: 0 },
-    { id: 'rutas', texto: 'Rutas', icono: Map, contador: 0 },
-    { id: 'pedidos', texto: 'Pedidos', icono: ClipboardList, contador: filtroPedidos === 'pendiente' ? pendientes : 0 },
-    { id: 'clientes', texto: 'Cuentas', icono: Users, contador: 0 },
-    { id: 'dispositivos', texto: 'Tablets del agente', icono: Tablet, contador: 0 }
-  ]
+  const [origenFicha, setOrigenFicha] = useState('fichas')
+  const abrirFicha = (id, origen = 'fichas') => { setOrigenFicha(origen); setFichaAbierta(id); setVista('fichas') }
+  const enFicha = vista === 'fichas' && fichaAbierta !== null
+  // El contador pertenece a los pedidos cargados de esta selección; nunca
+  // presentar el filtro de una ruta/semana como el total general.
+  const pendientes = !cargandoPedidos && !errorPedidos && filtroPedidos === 'pendiente' ? pedidos.length : 0
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold text-neutro-900">Clientes</h1>
-        <p className="text-sm text-neutro-500 mt-0.5">
-          Fichas y recorridos de clientes, pedidos y acceso al portal.
-        </p>
-      </div>
+      {!enFicha && <>
+        <div>
+          <h1 className="text-3xl font-bold text-neutro-900">Clientes</h1>
+          <p className="mt-2 text-base text-neutro-500">Organizá tus clientes y el trabajo de cada ruta.</p>
+        </div>
+        <NavegacionClientes vista={vista} onCambiar={setVista} pendientes={pendientes} />
+      </>}
 
-      {/* Las cinco vistas se acomodan en varias líneas en el teléfono. */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map(t => {
-          const Icono = t.icono
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setVista(t.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${
-                vista === t.id ? 'bg-exito-600 text-white' : 'bg-white border-2 border-neutro-200 text-neutro-600'
-              }`}
-            >
-              <Icono size={15} />
-              {t.texto}
-              {t.contador > 0 && (
-                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                  vista === t.id ? 'bg-white/25' : 'bg-alerta-100 text-alerta-700'
-                }`}>
-                  {t.contador}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {['clientes', 'dispositivos'].includes(vista) && <section className="space-y-4">
+        <div><h2 className="text-xl font-bold text-neutro-900">Accesos al sistema</h2>
+          <p className="mt-1 text-sm text-neutro-500">Administrá quién puede entrar al portal y las tablets de preventa.</p></div>
+        <nav aria-label="Administración de accesos" className="flex flex-wrap gap-3">
+          {[['clientes', 'Cuentas del portal', Users], ['dispositivos', 'Tablets del agente', Tablet]].map(([id, titulo, Icono]) =>
+            <button key={id} type="button" onClick={() => setVista(id)} aria-pressed={vista === id}
+              className={`inline-flex min-h-12 items-center gap-2 rounded-xl px-4 text-sm font-bold ${vista === id ? 'bg-primario-800 text-white' : 'border border-neutro-200 bg-white text-neutro-600'}`}>
+              <Icono size={19} />{titulo}
+            </button>)}
+        </nav>
+      </section>}
 
       {vista === 'rutas' ? (
         <VistaRutas modelo={rutas} confirm={confirm}
-          onAbrirCliente={id => { setFichaAbierta(id); setVista('fichas') }}
+          onAbrirCliente={id => abrirFicha(id, 'rutas')}
           onAsignarClientes={() => { setFichaAbierta(null); fichas.setRutaId('sin-ruta'); setVista('fichas') }} />
       ) : vista === 'dispositivos' ? (
         <DispositivosAgente />
       ) : vista === 'fichas' ? (
         fichaAbierta ? (
           <FichaCliente
+            key={fichaAbierta}
             clienteId={fichaAbierta}
             revision={fichas.revisionFicha}
-            onVolver={() => setFichaAbierta(null)}
+            onVolver={() => { setFichaAbierta(null); setVista(origenFicha) }}
+            textoVolver={origenFicha === 'rutas' ? 'Volver a Rutas' : 'Volver a Clientes'}
             onEditar={fichas.setEditando}
           />
         ) : (
         <ListaClientes
           clientes={fichas.clientes}
           cargando={fichas.cargando}
+          error={fichas.error} onActualizar={fichas.refrescar}
           busqueda={fichas.busqueda}
           setBusqueda={fichas.setBusqueda}
           estado={fichas.estado}
@@ -128,7 +115,7 @@ export default function Clientes() {
           onNuevo={() => fichas.setEditando({})}
           onEditar={fichas.setEditando}
           onCambiarEstado={async cliente => { await fichas.cambiarEstado(cliente); await rutas.refrescar() }}
-          onAbrir={(c) => setFichaAbierta(c.id)}
+          onAbrir={c => abrirFicha(c.id)}
         />
         )
       ) : vista === 'pedidos' ? (

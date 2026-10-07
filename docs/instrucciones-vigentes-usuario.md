@@ -66,6 +66,20 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
   memoria o Git. No ejecutar la limpieza semanal para probar ni enviar
   mensajes reales de prueba. Preservar archivos fiscales y respaldos.
 
+## Prioridad actual — 2026-10-07
+
+Después de consultar los pendientes de migración, el usuario indicó «esto lo
+vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
+muy desordenado». Continuar ese rediseño visual en la copia local, conservando
+las funciones y la organización por ruta/ciclo. La migración total y el corte
+quedan aplazados; no interpretar el rediseño como aceptación visual final,
+recuperación de Maps ni autorización para tocar producción.
+
+Respetar la preferencia de diseño anterior: tarjetas grandes y legibles,
+título simple y recorrido lista → ficha, con secciones de encabezado neutro.
+El resultado y las verificaciones se registran en
+[informe del rediseño](informes/clientes-redisenados-2026-10-07.md).
+
 ## Operación solicitada: clientes, rutas, pedidos y compras
 
 **Flujo actual de referencia:** lunes y martes preventa presencial; martes

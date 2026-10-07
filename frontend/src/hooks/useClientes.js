@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useContextoConsulta } from './useContextoConsulta'
 import { clientesService } from '../services/clientesService'
 
 /**
@@ -13,10 +14,15 @@ export function useClientes({ showToast, confirm }) {
   const [clientes, setClientes] = useState([])
   const [paginacion, setPaginacion] = useState({ total: 0, pagina: 1, paginas: 1 })
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('activos')
   const [pagina, setPagina] = useState(1)
   const [rutaId, setRutaId] = useState('')
+  // Una selección nueva retira también el total/listado anterior durante el
+  // debounce. La identidad distingue la primera respuesta A al volver A → B → A.
+  const lectura = useContextoConsulta(JSON.stringify([busqueda, estado, pagina, rutaId]))
+  const { esActual, confirmar } = lectura
   const [revisionFicha, setRevisionFicha] = useState(0)
   const [plazos, setPlazos] = useState([])
   const [editando, setEditando] = useState(null)   // ficha, o {} para una nueva
@@ -29,18 +35,22 @@ export function useClientes({ showToast, confirm }) {
   const cargar = useCallback(async (texto, filtroEstado, pag, filtroRuta) => {
     const mia = ++peticion.current
     setCargando(true)
+    setError('')
     try {
       const r = await clientesService.listar({ buscar: texto, estado: filtroEstado, pagina: pag, limite: 30, rutaId: filtroRuta })
-      if (mia !== peticion.current) return
+      if (mia !== peticion.current || !esActual()) return
       setClientes(r.clientes)
       setPaginacion(r.paginacion)
+      confirmar()
     } catch (error) {
-      if (mia !== peticion.current) return
-      showToast(error.response?.data?.message || 'No se pudieron cargar los clientes', 'error')
+      if (mia !== peticion.current || !esActual()) return
+      setClientes([])
+      setError(error.response?.data?.message || 'No se pudieron cargar los clientes.')
+      confirmar()
     } finally {
       if (mia === peticion.current) setCargando(false)
     }
-  }, [showToast])
+  }, [esActual, confirmar])
 
   useEffect(() => {
     const t = setTimeout(() => cargar(busqueda, estado, pagina, rutaId), busqueda ? 300 : 0)
@@ -105,7 +115,9 @@ export function useClientes({ showToast, confirm }) {
   }
 
   return {
-    clientes, paginacion, cargando,
+    clientes: lectura.vigente ? clientes : [],
+    paginacion: lectura.vigente ? paginacion : { total: 0, pagina, paginas: 1 },
+    cargando: cargando || !lectura.vigente, error: lectura.vigente ? error : '',
     busqueda, setBusqueda,
     estado, setEstado,
     pagina, setPagina,

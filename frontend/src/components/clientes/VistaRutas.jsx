@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowUp, ArrowDown, GripVertical, Plus, Save, Loader2, Pencil, ArrowLeft } from 'lucide-react'
+import { ArrowUp, ArrowDown, GripVertical, Plus, Save, Loader2, Pencil, ArrowLeft, Map, CalendarDays } from 'lucide-react'
 import Boton from '../ui/Boton'
 import HojaModal from '../pagos/HojaModal'
 import UbicacionCliente from './UbicacionCliente'
@@ -54,12 +54,21 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
         <p className="text-sm text-neutro-500">Organizá las visitas y guardá un recorrido para cada semana.</p></div>
       <Boton onClick={() => abrirEdicion(null)}><Plus size={16} />Nueva ruta</Boton>
     </div>
-    <select aria-label="Seleccionar ruta" className="input min-h-11 w-full sm:w-80" value={m.seleccion} onChange={e => m.setSeleccion(e.target.value)}>
-      <option value="">Elegí una ruta</option>{m.rutas.map(r => <option key={r.id} value={r.id}>{r.nombre} · {r.clientes_activos} clientes{r.activo ? '' : ' · inactiva'}</option>)}
-    </select>
-    {m.rutas.length === 0 && <div className="rounded-2xl border bg-white p-6 text-neutro-600">Creá la primera ruta y asigná sus clientes desde sus fichas.</div>}
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Elegir ruta">
+      {m.rutas.map(r => <button key={r.id} type="button" data-ruta={r.id} aria-pressed={String(r.id) === m.seleccion}
+        onClick={() => m.setSeleccion(String(r.id))}
+        className={`flex items-center gap-4 rounded-2xl border-2 bg-white p-5 text-left ${String(r.id) === m.seleccion ? 'border-primario-700' : 'border-neutro-200 hover:border-primario-300'}`}>
+        <span className="rounded-xl bg-primario-50 p-3 text-primario-800"><Map size={24} /></span>
+        <span><span className="block text-lg font-bold text-neutro-900">{r.nombre}</span>
+          <span className="mt-1 block text-sm text-neutro-500">{r.clientes_activos} {Number(r.clientes_activos) === 1 ? 'cliente' : 'clientes'}{!r.activo && ' · Inactiva'}</span></span>
+      </button>)}
+    </div>
+    {m.rutas.length === 0 && <div className="rounded-2xl border border-neutro-200 bg-white p-8 text-center">
+      <Map size={40} className="mx-auto mb-3 text-neutro-300" /><h3 className="text-lg font-bold">Empezá por crear una ruta</h3>
+      <p className="mt-2 text-base text-neutro-500">Después asigná los clientes desde sus fichas y definí el orden de visita.</p>
+    </div>}
     {m.cargando && <Loader2 className="animate-spin" aria-label="Cargando ruta" />}
-    {m.ruta && <section className="space-y-3 rounded-2xl border bg-white p-4">
+    {m.ruta && <section className="space-y-4 rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <h3 className="text-lg font-bold">{m.ruta.nombre}{!m.ruta.activo && ' · Inactiva'}</h3>
         <div className="flex flex-wrap gap-2"><Boton variante="secundario" onClick={() => abrirEdicion(m.ruta)}><Pencil size={14} />Editar ruta</Boton>
@@ -69,7 +78,7 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
       <ol className="space-y-2">{orden.map((c, i) => <li key={c.id} data-ruta-cliente={c.id}
         draggable={!m.guardando} onDragStart={e => { setArrastrado(i); e.dataTransfer.setData('text/plain', String(c.id)); e.dataTransfer.effectAllowed = 'move' }}
         onDragOver={e => e.preventDefault()} onDragEnd={() => setArrastrado(null)} onDrop={e => { e.preventDefault(); mover(arrastrado, i); setArrastrado(null) }}
-        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutro-200 p-3">
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutro-200 p-4">
         <div className="flex items-center gap-2 min-w-0"><GripVertical size={16} className="text-neutro-400 shrink-0" /><span className="font-bold text-neutro-400">{i + 1}.</span>
           <button className="text-left font-bold" onClick={() => onAbrirCliente(c.id)}>{c.nombre}</button>{!c.activo && <span className="text-xs text-neutro-400">Inactivo</span>}</div>
         <div className="flex items-center gap-2"><UbicacionCliente enlace={c.ubicacion_maps} />
@@ -85,14 +94,21 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
         <Boton type="submit" disabled={!m.ruta.activo || !orden.some(c => c.activo) || cambio} cargando={m.guardando}>Crear ciclo en preventa</Boton>
       </form>
     </section>}
-    <section className="space-y-3"><h3 className="text-lg font-bold">Ciclos de ruta</h3>
-      {!m.ciclos.length && <p className="text-sm text-neutro-400">Todavía no hay ciclos. Cada semana tendrá su propio recorrido.</p>}
-      {m.ciclos.map(c => <article key={c.id} className="rounded-2xl border bg-white p-4 flex flex-wrap justify-between items-center gap-3">
-        <div><p className="font-bold">{c.ruta_nombre} · semana {fecha(c.semana)}</p><p className="text-sm text-neutro-500">{c.estado === 'preventa' ? 'Preventa anticipada' : ESTADOS[c.estado]} · {c.clientes} clientes{['preparacion','entrega'].includes(c.estado) && ' · Ruta actual'}</p></div>
-        <div className="flex flex-wrap gap-2"><Boton variante="secundario" cargando={m.guardando} onClick={async () => { const r = await m.ejecutar(() => rutasService.ciclo(c.id)); if (r) setDetalle(r) }}>Ver recorrido</Boton>
-          {(ACCIONES[c.estado] || []).map(estado => <Boton key={estado} variante={estado === 'cancelado' ? 'fantasma' : 'secundario'} disabled={m.guardando} onClick={() => cambiarEstado(c, estado)}>{ESTADOS[estado]}</Boton>)}
-        </div>
-      </article>)}
+    <section className="space-y-4">
+      <div className="flex items-center gap-2"><CalendarDays size={22} className="text-primario-700" /><h3 className="text-xl font-bold">Semanas de trabajo</h3></div>
+      <p className="text-base text-neutro-500">Separá la preparación actual de la preventa de las próximas semanas.</p>
+      {m.ciclos.filter(c => !['cerrado','cancelado'].includes(c.estado)).length === 0 &&
+        <div className="rounded-2xl border border-neutro-200 bg-white p-6 text-neutro-500">No hay semanas en curso. Seleccioná una ruta para crear su próximo ciclo.</div>}
+      {m.ciclos.filter(c => !['cerrado','cancelado'].includes(c.estado)).map(c =>
+        <TarjetaCiclo key={c.id} ciclo={c} guardando={m.guardando} onEstado={cambiarEstado}
+          onRecorrido={async () => { const r = await m.ejecutar(() => rutasService.ciclo(c.id)); if (r) setDetalle(r) }} />)}
+      {m.ciclos.some(c => ['cerrado','cancelado'].includes(c.estado)) &&
+        <details className="rounded-2xl border border-neutro-200 bg-white p-5">
+          <summary className="cursor-pointer text-base font-bold text-neutro-700">Historial de semanas cerradas y canceladas</summary>
+          <div className="mt-4 space-y-3">{m.ciclos.filter(c => ['cerrado','cancelado'].includes(c.estado)).map(c =>
+            <TarjetaCiclo key={c.id} ciclo={c} guardando={m.guardando} onEstado={cambiarEstado}
+              onRecorrido={async () => { const r = await m.ejecutar(() => rutasService.ciclo(c.id)); if (r) setDetalle(r) }} />)}</div>
+        </details>}
     </section>
     {edicion && <HojaModal titulo={edicion.id ? 'Editar ruta' : 'Nueva ruta'} onCerrar={() => setEdicion(null)} ancho="sm:max-w-lg">
       <form onSubmit={guardarRuta} className="space-y-4">
@@ -102,4 +118,17 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
       </form>
     </HojaModal>}
   </div>
+}
+
+
+function TarjetaCiclo({ ciclo: c, guardando, onEstado, onRecorrido }) {
+  return <article className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-neutro-200 bg-white p-5">
+    <div><p className="text-lg font-bold text-neutro-900">{c.ruta_nombre}</p>
+      <p className="mt-1 text-base text-neutro-600">Semana {fecha(c.semana)}</p>
+      <p className="mt-2 text-sm text-neutro-500">{c.estado === 'preventa' ? 'Preventa anticipada' : ESTADOS[c.estado]} · {c.clientes} {Number(c.clientes) === 1 ? 'cliente' : 'clientes'}{['preparacion','entrega'].includes(c.estado) && ' · Ruta actual'}</p>
+    </div>
+    <div className="flex flex-wrap gap-2"><Boton variante="secundario" cargando={guardando} onClick={onRecorrido}>Ver recorrido</Boton>
+      {(ACCIONES[c.estado] || []).map(estado => <Boton key={estado} variante={estado === 'cancelado' ? 'fantasma' : 'secundario'} disabled={guardando} onClick={() => onEstado(c, estado)}>{ESTADOS[estado]}</Boton>)}
+    </div>
+  </article>
 }

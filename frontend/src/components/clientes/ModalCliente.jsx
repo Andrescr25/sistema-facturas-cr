@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Download, Save } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
 import { clientesService } from '../../services/clientesService'
@@ -28,7 +28,7 @@ const CAMPOS = [
   'ruta_id', 'orden_ruta', 'ubicacion_maps', 'dia_visita', 'dia_entrega'
 ]
 const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega'])
-const CLASE_CAMPO = 'input h-11 w-full rounded-xl border border-neutro-300'
+const CLASE_CAMPO = 'input min-h-12 w-full rounded-xl border border-neutro-300 text-base'
 
 // Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
 // valida el primer dígito de una cédula física: las cargadas empiezan con 1,
@@ -82,7 +82,7 @@ function avisoDe(tipo, identificacion) {
 
 function Etiqueta({ htmlFor, children, requerido }) {
   return (
-    <label htmlFor={htmlFor} className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-500">
+    <label htmlFor={htmlFor} className="mb-2 block text-sm font-semibold text-neutro-700">
       {children}{requerido && ' *'}
     </label>
   )
@@ -96,7 +96,27 @@ function Aviso({ children }) {
   )
 }
 
+const SECCIONES = [
+  ['general', 'Información general'], ['contacto', 'Contacto y datos fiscales'],
+  ['ruta', 'Ruta y visitas'], ['direccion', 'Dirección'], ['credito', 'Crédito'], ['notas', 'Notas']
+]
+
+/** Los campos siguen juntos para que la validación nativa pueda enfocarlos.
+ * El guardado conserva el envío de diferencias. */
+function SeccionFormulario({ id, titulo, columnas = 'sm:grid-cols-2', children }) {
+  return <section className="overflow-hidden rounded-2xl border border-neutro-200">
+    <h2 data-seccion={id} tabIndex={-1} className="scroll-mt-4 border-b border-neutro-100 bg-neutro-50 px-5 py-4 text-base font-bold text-neutro-800">{titulo}</h2>
+    <div className={`grid gap-5 p-5 ${columnas}`}>{children}</div>
+  </section>
+}
+
 export default function ModalCliente({ cliente, plazos, rutas = [], guardando, onGuardar, onCerrar }) {
+  const formulario = useRef(null)
+  const irA = id => {
+    const titulo = formulario.current?.querySelector(`[data-seccion="${id}"]`)
+    titulo?.focus({ preventScroll: true })
+    titulo?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
   const editando = Boolean(cliente?.id)
   const base = useMemo(() => valoresDe(cliente), [cliente])
   const [valores, setValores] = useState(base)
@@ -177,7 +197,11 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
       ancho="sm:max-w-2xl"
       onCerrar={onCerrar}
     >
-      <form onSubmit={enviar} className="space-y-5">
+      <form ref={formulario} onSubmit={enviar} className="space-y-5">
+        <nav aria-label="Ir a una sección del formulario" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {SECCIONES.map(([id, titulo]) => <button key={id} type="button" onClick={() => irA(id)}
+            className="min-h-11 rounded-xl border border-neutro-200 px-3 py-2 text-sm font-semibold text-neutro-600 hover:bg-neutro-50">{titulo}</button>)}
+        </nav>
         {editando && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutro-200 bg-neutro-50 p-3">
             <Insignia tono={cliente.activo ? 'exito' : 'neutro'}>{cliente.activo ? 'Activo' : 'Inactivo'}</Insignia>
@@ -185,8 +209,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
           </div>
         )}
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          <h2 className="sm:col-span-2 font-bold text-neutro-800">Información general</h2>
+        <SeccionFormulario id="general" titulo="Información general" columnas="sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Etiqueta htmlFor="cliente-nombre" requerido>Nombre</Etiqueta>
             <input id="cliente-nombre" className={CLASE_CAMPO} value={valores.nombre} onChange={cambiar('nombre')} maxLength={200} required />
@@ -223,11 +246,10 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
                 . Se puede guardar igual.
               </p>
             )}
-          </div>
-        </section>
+            </div>
+        </SeccionFormulario>
 
-        <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
-          <h2 className="sm:col-span-2 font-bold text-neutro-800">Contacto y datos fiscales</h2>
+        <SeccionFormulario id="contacto" titulo="Contacto y datos fiscales" columnas="sm:grid-cols-2">
           <div>
             <Etiqueta htmlFor="cliente-correo">Correo</Etiqueta>
             <input id="cliente-correo" type="email" className={CLASE_CAMPO} value={valores.correo} onChange={cambiar('correo')} maxLength={160} />
@@ -305,10 +327,9 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
               )}
             </div>
           )}
-        </section>
+        </SeccionFormulario>
 
-        <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
-          <h2 className="sm:col-span-2 font-bold text-neutro-800">Ruta y visitas</h2>
+        <SeccionFormulario id="ruta" titulo="Ruta y visitas" columnas="sm:grid-cols-2">
           <div><Etiqueta htmlFor="cliente-ruta_id">Ruta</Etiqueta>
             <select id="cliente-ruta_id" className={CLASE_CAMPO} value={valores.ruta_id} onChange={e => setValores(v => ({ ...v, ruta_id: e.target.value, orden_ruta: '' }))}>
               <option value="">Sin ruta</option>{rutas.filter(r => r.activo || String(r.id) === base.ruta_id).map(r => <option key={r.id} value={r.id}>{r.nombre}{r.activo ? '' : ' · inactiva'}</option>)}
@@ -323,9 +344,8 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
           <div className="sm:col-span-2"><Etiqueta htmlFor="cliente-ubicacion_maps">Ubicación de Google Maps</Etiqueta>
             <input id="cliente-ubicacion_maps" type="url" className={CLASE_CAMPO} value={valores.ubicacion_maps} onChange={cambiar('ubicacion_maps')} maxLength={2000} placeholder="https://maps.app.goo.gl/..." />
             <p className="text-xs text-neutro-500 mt-1">Pegá el enlace que comparte Google Maps.</p></div>
-        </section>
-        <section className="grid gap-4 sm:grid-cols-3">
-          <h2 className="sm:col-span-3 font-bold text-neutro-800">Dirección</h2>
+        </SeccionFormulario>
+        <SeccionFormulario id="direccion" titulo="Dirección" columnas="sm:grid-cols-3">
           <div>
             <Etiqueta htmlFor="cliente-provincia">Provincia</Etiqueta>
             <input id="cliente-provincia" className={CLASE_CAMPO} value={valores.provincia} onChange={cambiar('provincia')} maxLength={40} />
@@ -345,12 +365,11 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
           <div className="sm:col-span-2">
             <Etiqueta htmlFor="cliente-otras_senas">Otras señas</Etiqueta>
             <input id="cliente-otras_senas" className={CLASE_CAMPO} value={valores.otras_senas} onChange={cambiar('otras_senas')} maxLength={2000} placeholder="100 m norte de la iglesia" />
-          </div>
-        </section>
+            </div>
+        </SeccionFormulario>
 
-        <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
+        <SeccionFormulario id="credito" titulo="Crédito">
           <div>
-            <h2 className="font-bold text-neutro-800 mb-2">Crédito</h2>
             <Etiqueta htmlFor="cliente-plazo_credito_id">Plazo de crédito</Etiqueta>
             <select id="cliente-plazo_credito_id" className={CLASE_CAMPO} value={valores.plazo_credito_id} onChange={cambiar('plazo_credito_id')}>
               <option value="">Sin plazo</option>
@@ -361,18 +380,20 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
             <Etiqueta htmlFor="cliente-limite_credito">Límite de crédito</Etiqueta>
             <input id="cliente-limite_credito" type="number" step="1" min="0" inputMode="decimal" className={CLASE_CAMPO} value={valores.limite_credito} onChange={cambiar('limite_credito')} />
             <p className="mt-1 text-xs text-neutro-500">En blanco: sin tope definido.</p>
-          </div>
-        </section>
+            </div>
+        </SeccionFormulario>
 
-        <section>
-          <Etiqueta htmlFor="cliente-observaciones">Observaciones</Etiqueta>
-          <textarea id="cliente-observaciones" rows={2} className="input w-full rounded-xl border border-neutro-300 py-2.5" value={valores.observaciones} onChange={cambiar('observaciones')} maxLength={2000} placeholder="Entregar antes de las 10" />
-        </section>
+        <SeccionFormulario id="notas" titulo="Notas" columnas="">
+          <div>
+            <Etiqueta htmlFor="cliente-observaciones">Observaciones</Etiqueta>
+            <textarea id="cliente-observaciones" rows={2} className="input w-full rounded-xl border border-neutro-300 py-2.5" value={valores.observaciones} onChange={cambiar('observaciones')} maxLength={2000} placeholder="Entregar antes de las 10" />
+          </div>
+        </SeccionFormulario>
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutro-100 pt-4">
           {editando && hayCambios && <span className="mr-auto text-sm text-neutro-500">{Object.keys(cambios).length} cambios sin guardar</span>}
-          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
-          <Boton type="submit" cargando={guardando} disabled={editando && !hayCambios}>
+          <Boton type="button" variante="secundario" tamano="lg" onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="submit" tamano="lg" cargando={guardando} disabled={editando && !hayCambios}>
             <Save size={16} /> {editando ? 'Guardar cambios' : 'Crear cliente'}
           </Boton>
         </div>

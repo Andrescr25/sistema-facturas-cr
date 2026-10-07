@@ -54,7 +54,7 @@ toca, qué no se regenera).
 
 - [Pedidos y facturas por ciclo — semana fija, filtros y colas conservadas](modulo/pedidos-por-ciclo.md)
 
-- [Clientes y rutas — ficha por secciones, orden manual y recorrido fijo por ciclo](modulo/rutas-clientes.md)
+- [Clientes y rutas — directorio en tarjetas, ficha por secciones, accesos y recorrido fijo por ciclo](modulo/rutas-clientes.md)
 - [Hacienda — XML 4.4, configuración .p12 y emisión fiscal separada](modulo/hacienda.md)
 
 - [Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia](modulo/portal-clientes.md)

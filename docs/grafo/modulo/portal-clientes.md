@@ -22,12 +22,14 @@ archivos:
   - frontend/src/hooks/useClientesPortal.js
   - frontend/src/pages/CatalogoClientes.jsx
   - frontend/src/pages/Clientes.jsx
+  - frontend/src/components/clientes/ListaCuentas.jsx
+  - frontend/src/components/clientes/NavegacionClientes.jsx
   - backend/tests/portalIdsPropios.test.js
   - backend/tests/facturarPedidoConImpuesto.test.js
 aristas:
   depende_de: [tabla/venta-linea, modulo/facturacion]
-  relacionado: [modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-05
+  relacionado: [modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
+medido: 2026-10-07
 ---
 
 SECCIÓN 12, PARTE 2. El catálogo del cliente expone `producto.id`, incluidos
@@ -94,3 +96,12 @@ filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
 
 Tercera parte: catálogo personal por ciclo y envío explícito, con contexto
 firmado que no concede sesión: [[modulo/preventa-por-enlace]].
+
+
+2026-10-07, administración del personal reorganizada en [[modulo/rutas-clientes]]:
+Clientes reúne portal/tablets dentro de Accesos; cuentas en tarjetas legibles,
+con búsqueda y acciones de invitar/devolver/quitar acceso conservadas. Pedidos
+mantiene área propia, filtros y contador de revisión de la selección cargada.
+Sin cambiar permisos, ids ni servicios del portal. Navegador1440/390 y build
+aprobados; las acciones de escritura no se ejecutan en la base habitual.
+Ver `docs/informes/clientes-redisenados-2026-10-07.md`; CLI-10 sigue al usuario.
