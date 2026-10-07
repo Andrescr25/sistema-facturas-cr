@@ -19,7 +19,7 @@ archivos:
   - backend/tests/facturasLocales.test.js
   - backend/tests/contextoColasFactura.test.js
 aristas:
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/facturacion-offline, modulo/contexto-visible-operacion, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
+  relacionado: [modulo/contexto-cadena-operativa, decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/facturacion-offline, modulo/contexto-visible-operacion, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
 medido: 2026-10-06
 ---
 
@@ -71,3 +71,9 @@ Base propia/puertos retirados; copia/rama se retiran tras integrar este relevo;
 evidencia privada conservada. Memoria/reserva se cierran después, conservando
 quince decisiones originales. No interpretar documentos incompletos como Sin
 ciclo ni probar escrituras sobre históricos de la base habitual.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.

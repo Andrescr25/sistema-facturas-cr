@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-06
 ---
 
@@ -77,3 +77,20 @@ una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
 Facturación. Edición y acuses consultan la fotografía guardada aun tras
 cierre/cambio de ficha; los reenvíos conservan cuerpo/UUID y detalle descargado.
 Ver [[modulo/historicos-contexto-documentos]]. Validación integral separada.
+
+## Cadena integral verificada — 2026-10-06
+
+RUT-08 y VAL-01 cerrados en [[modulo/contexto-cadena-operativa]]. Dos semanas
+simultáneas de una ruta y un histórico Sin ciclo conservan sus documentos,
+compras, PDF, cobertura, recepciones y eventos tras mover/renombrar cliente,
+cambiar Maps y cerrar/promover ciclos. Recibir o liberar saldo pendiente de
+una orden anterior opera en su origen, sin trasladarlo a la semana activa.
+El cambio de estado habilita acciones nuevas sin rehacer fotografías previas.
+Nueve casos nuevos, suite 2.237, grafo 12, build y 11 vistas/22 capturas
+Chromium 1440/390. Sin SQL nueva ni cambio de servicios; 053 libre.
+
+Estado vigente: 92 listos / 7 pendientes (99 IDs). Los párrafos previos
+registran etapas anteriores. VAL-04–07 conservan la verificación global,
+CLI-10/VAL-08 corresponden al usuario y RUT-03 requiere la fuente LOCAL de
+Maps anteriores. No cerrar esas casillas por esta evidencia limitada a la
+cadena descrita ni completar ubicaciones consultando producción.

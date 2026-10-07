@@ -27,8 +27,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [cierre de enviada](informes/cierre-ordenes-2026-10-06.md) y
 [Excel operativo completo](informes/exportaciones-ciclos-2026-10-06.md) y
 [contexto visible y lecturas](informes/contexto-operativo-2026-10-06.md) y
-[históricos y copias](informes/historicos-contexto-2026-10-06.md).
-Estado vigente: **90 listos / 9 pendientes (99 IDs)**. Las cifras en las
+[históricos y copias](informes/historicos-contexto-2026-10-06.md) y
+[contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md).
+Estado vigente: **92 listos / 7 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -63,7 +64,7 @@ Primera entrega: informe del 2026-10-05, grafo y memoria actualizados.
   diferentes, sin mezclar sus documentos.
 - [x] RUT-07 — Activar/promover un ciclo mediante una acción controlada y
   mostrar qué pasa a preparación/entrega.
-- [ ] RUT-08 — Conservar el contexto de documentos al cambiar la ruta de un
+- [x] RUT-08 — Conservar el contexto de documentos al cambiar la ruta de un
   cliente o el ciclo activo; históricos sin clasificación siguen identificados.
 - [x] RUT-09 — Crear migraciones SQL y API transaccional con permisos, ids
   propios y validación de ruta/ciclo/cliente.
@@ -449,7 +450,7 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
 
 ## 10. Validación y entregas por partes
 
-- [ ] VAL-01 — Pruebas de separación: misma ruta en semanas distintas, actual
+- [x] VAL-01 — Pruebas de separación: misma ruta en semanas distintas, actual
   y próxima simultáneas, y cliente que cambia de ruta.
 - [x] VAL-02 — Caso de compra: 10 enviadas, aparece nuevo faltante 3; orden
   anterior sigue en 10 y nueva sugerencia solo cubre las 3 sin cobertura.
@@ -461,6 +462,24 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
 - [ ] VAL-07 — Comprobar que inventario provisional cero e históricos se
   conservan; no importar stock previo ni enviar mensajes reales para probar.
 - [ ] VAL-08 — Revisión manual del usuario del flujo completo.
+
+**Cadena integral, 2026-10-06:** RUT-08 y VAL-01 comprobados con los servicios
+reales: portal/agente → factura → bodega/faltantes → orden/PDF → compra →
+recepción → carga/entrega. Misma ruta en dos semanas y un histórico Sin ciclo;
+mover/renombrar cliente/ruta, cambiar Maps y cerrar/promover conserva los
+documentos anteriores. Recepción posterior acredita solo 6 nuevas en la orden
+original que ya tenía 4; cierre conserva recibido y libera su propio pendiente.
+Carga anticipada continúa en su semana, entrega exige promover y reintentos no
+duplican eventos ni stock. PDF y fotografías originales permanecen idénticos.
+Nueve casos nuevos PostgreSQL con ROLLBACK, **2.237 pruebas/362 suites**, sin
+fallos ni omitidas; grafo 12, build y Chromium 1440/390 aprobados: 11 vistas,
+22 capturas, 17 huellas conservadas en las lecturas, sin escrituras HTTP ni
+reporte legado de fondo. Sin cambios de servicios ni SQL nueva; 053 libre.
+**92 listos / 7 pendientes (99 IDs)**. Evidencia y aplicación local en
+[informe de la cadena](informes/contexto-cadena-2026-10-06.md).
+VAL-04–07 conservan la verificación global; probar estos escenarios no completa
+su matriz de permisos/concurrencia/unidades ni las revisiones del usuario.
+Los pendientes citados en las etapas anteriores son históricos.
 
 ## Orden para avanzar poco a poco
 

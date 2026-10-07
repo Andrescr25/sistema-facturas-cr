@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Contexto de toda la cadena — recepción, cierre, carga y entrega tras mover cliente/promover semana](modulo/contexto-cadena-operativa.md)
+
 - [Históricos y copias — contexto original, acuses y colas sin conexión](modulo/historicos-contexto-documentos.md)
 
 - [Ruta y semana visibles — consultas tardías, notas y ficha histórica](modulo/contexto-visible-operacion.md)

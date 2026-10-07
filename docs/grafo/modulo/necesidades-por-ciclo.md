@@ -14,7 +14,7 @@ archivos:
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
 medido: 2026-10-06
 ---
 
@@ -101,3 +101,9 @@ Excel de necesidades/órdenes/recorrido, filtros completos y detalle con
 procedencia, sin paginación truncada ni escrituras de negocio. Los textos
 de etapas anteriores son históricos; archivo/cierre/avance actuales se
 conservan al descargar. Sin migración nueva.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.

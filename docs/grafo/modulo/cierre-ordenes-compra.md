@@ -18,7 +18,7 @@ archivos:
   - docs/informes/cierre-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion]
-  relacionado: [modulo/necesidades-por-ciclo, modulo/facturas-ordenes-compra, modulo/archivo-ordenes-compra, modulo/permisos, modulo/faltantes]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, modulo/facturas-ordenes-compra, modulo/archivo-ordenes-compra, modulo/permisos, modulo/faltantes]
 medido: 2026-10-06
 ---
 
@@ -70,3 +70,9 @@ y main/developer intactos. Base/puertos/copia/rama propios retirados al cierre,
 reserva liberada y memoria15decisiones literales conservadas. Próximo: final
 propagación de filtros/exportaciones/históricos, Maps locales y validación
 integral; operativo87/12, independencia133/14 separado.053 libre.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.

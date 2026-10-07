@@ -16,7 +16,7 @@ archivos:
   - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
-  relacionado: [modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -112,3 +112,9 @@ CIERRE ENVIADO (052). [[modulo/cierre-ordenes-compra]] sustituye la limitación
 anterior de cierre: confirmación/motivo, recibido conservado y solo pendiente
 liberado. No cambiar PDF, recepción física, compra, CxP ni archivo24h.
 Necesidades incluye originales y recibido de enviada cerrada con pendiente0.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.

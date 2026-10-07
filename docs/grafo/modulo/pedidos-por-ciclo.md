@@ -27,7 +27,7 @@ archivos:
   - backend/tests/documentosCiclo.test.js
   - backend/tests/idempotenciaFactura.test.js
 aristas:
-  relacionado: [modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturacion, modulo/facturacion-offline, decision/ciclo-de-ruta-como-contexto, modulo/faltantes]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturacion, modulo/facturacion-offline, decision/ciclo-de-ruta-como-contexto, modulo/faltantes]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
@@ -126,3 +126,9 @@ distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
 los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
 el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
 anterior. No confundir esta entrega con VAL o cierre integral RUT-08.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.

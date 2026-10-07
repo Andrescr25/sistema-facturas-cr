@@ -17,7 +17,7 @@ archivos:
   - docs/informes/registro-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/carga-entregas-por-ciclo, modulo/facturas-bodega, modulo/pedidos-por-ciclo]
-  relacionado: [modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
+  relacionado: [modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
 medido: 2026-10-06
 ---
 
@@ -94,3 +94,9 @@ consulta por semana y producto con procedencia. No reservar/descontar stock
 otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
 nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
 estado vigente en informe necesidades-cobertura-2026-10-06.
+
+CONTINUIDAD 2026-10-06. [[modulo/contexto-cadena-operativa]] verifica la cadena
+con dos semanas, cliente/Maps movidos y promoción: documentos/recepciones/
+PDF/cobertura/eventos previos conservados, operaciones continuadas en su origen.
+Cifras/relevo vigentes en el informe contexto-cadena-2026-10-06; los anteriores
+son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
