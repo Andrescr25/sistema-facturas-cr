@@ -51,3 +51,7 @@ solo en clon,44 vistas/88 capturas1440/390,12 descargas y4 documentos de UI
 simulados idénticos a los revisados.2.263 pruebas/363 suites,fail0/skip0,
 grafo12/build. VAL-06/07, Maps LOCAL y revisiones humanas siguen abiertos.
 [Informe de validación y relevo](../../informes/recorrido-visual-2026-10-07.md).
+
+Aplicado localmente2519389, sin SQL nueva. Backend seguro74960/Vite98892,
+36+9 huellas iguales/stock0; original5370 y developer/main intactos. Clon y
+puertos propios retirados; memoria/reserva se cierran tras retirar copia/rama.

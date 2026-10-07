@@ -91,4 +91,27 @@ VAL-05 cerrado: **94 listos /5 pendientes (99 IDs)**. Independencia conserva
 133/14 (147 IDs). Siguen VAL-06/07 globales, Maps LOCAL RUT-03 y revisiones
 CLI-10/VAL-08 del usuario. Quince decisiones originales conservadas.
 
-La integración local y el retiro de la copia se registran tras aplicarlos.
+Código/pruebas/grafo/checklist **2519389** integrados por rebase y avance
+sin fusión desde e54589e, solo independencia-alegra local, sin push.
+App5174→3002 reiniciada con lanzador seguro, PID74960; Vite98892 conservado.
+Lanzador permanente /private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs,
+no server.js directo. Worker fiscal sandbox anterior conserva su configuración;
+cero comprobantes/cola en la base habitual, sin conexión fiscal de este trabajo.
+
+Respaldo local nuevo protegido0600:
+/private/tmp/codex-recorrido-visual-20261007/antes-recorrido-visual-local.dump.
+**36 huellas operativas+9 completas adicionales idénticas** al inicio,
+después de integrar, reiniciar y consultar. Stock/conteos/movimientos/eventos/
+órdenes/recepciones/cierres0; finanzas, maestros, usuarios/permisos e históricos
+conservados. Sin datos ZZ/demos nuevos en la base habitual.
+
+Habitual solo GET/SQL READ ONLY: salud/API/frontend200, ficha/contextoSinCiclo
+200/401, tres Excel vacíos200/401, necesidades vacías y detalles inexistentes404.
+Original3000/PID5370,developer5013270/main e19c3e5 intactos; producción no
+conectada. Prisma/dependencias sin cambios.
+
+Clon propio y puertos3003/5175 RETIRADOS. Copia/rama temporal se retiran al
+integrar este relevo. Evidencia/dumps/logs/capturas privados0700/0600 en
+/private/tmp/codex-recorrido-visual-20261007; conservar ensayos ajenos, archivos
+fiscales y Descargas. Memoria se actualiza conservando literalmente las quince
+decisiones y liberando solo esta reserva. Ninguna limpieza semanal ejecutada.

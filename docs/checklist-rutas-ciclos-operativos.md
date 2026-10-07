@@ -504,7 +504,7 @@ VAL-05–07 conservan la revisión final global, no se cierran por estas cinco
 vistas de permisos. CLI-10/VAL-08 corresponden al usuario; Maps LOCAL RUT-03
 sigue pendiente. Las cifras y pendientes de etapas anteriores son históricos.
 
-**Recorrido visual, 2026-10-07:** VAL-05 comprobado con catorce pasos de UI,
+**Recorrido visual `2519389`, 2026-10-07:** VAL-05 comprobado con catorce pasos de UI,
 desde catálogo PDF y pedido anticipado hasta recepción, promoción/carga/entrega
 e historial a24h. Lecturas filtradas ya no asignan proveedores; asignación
 explícita por ciclo disponible; respuesta tardía no borra cantidad/confirmación.
