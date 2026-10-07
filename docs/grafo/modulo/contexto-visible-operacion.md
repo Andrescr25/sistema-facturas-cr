@@ -75,3 +75,10 @@ demoradas/503/A→B→A y18huellas iguales; ningún GET legado de fondo. FIL-09
 cerrado,89/10 operativo; RUT-08/FIL-11/VAL siguen abiertos. Detalle/evidencia
 y aplicación local en el informe. No interpretar las vistas comprobadas como
 aceptación de todo el flujo o del corte.
+
+LOCAL. Código9fc8d8e integrado en independencia-alegra sin migración. Backup
+nuevo0600 y36+9huellas iguales; inventario/conteos/movimientos/eventos/órdenes0.
+Backend seguro42974,5174→3002; fuente/productos/históricos del usuario intactos.
+Compartida sólo GET/SQL READ ONLY, ficha200 con Sin ciclo/noauth401 y helper
+frontend200. Propios base/puertos retirados; copia/rama se retiran al cerrar.
+Quince decisiones originales preservadas; siguiente RUT-08/FIL-11 y VAL integral.

@@ -24,7 +24,7 @@ archivos:
   - docs/informes/exportaciones-ciclos-2026-10-06.md
 aristas:
   depende_de: [modulo/exportaciones-reportes, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/carga-entregas-por-ciclo]
-  relacionado: [decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
+  relacionado: [modulo/contexto-visible-operacion, decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
 medido: 2026-10-06
 ---
 
@@ -95,3 +95,12 @@ App5174→3002/PID36152 seguro; original3000/PID5370/main/developer intactos.
 Base/puertos/copia/rama propios retirados al cierre, evidencia conservada y
 15decisiones literales preservadas en memoria. Siguiente: revisión global de
 pantallas/contexto/Sin ciclo/Maps locales y validación integral;88/11 vigente.
+
+
+## Relevo posterior — contexto visible, 2026-10-06
+
+[[modulo/contexto-visible-operacion]] cierra FIL-09 con lecturas/contexto
+visible y ficha histórica,89/10 operativo. Código9fc8d8e,2.213pruebas/362suites,
+quincevistas/30capturas/grafo12/build y36+9huellas iguales. Exportación sigue
+con su implementación f0fd815 y evidencia original arriba; cifras/PID anteriores
+son históricos. Backend compartido seguro42974. RUT-08/FIL-11/VAL aún abiertos.

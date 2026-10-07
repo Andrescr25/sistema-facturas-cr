@@ -3,8 +3,8 @@
 Implementación desde **4e2542b**, únicamente en la migración local
 `independencia-alegra`. Copia propia tmp/codex-contexto-operativo-20261006 y
 clon tachi_codex_contexto_operativo_20261006 desde dump LOCAL052. Sin otra
-copia/reserva ni commits nuevos de Claude al comenzar. Código y aplicación
-local se registran al completar el cierre de esta entrega.
+copia/reserva ni commits nuevos de Claude al comenzar. Código **9fc8d8e**, integrado por avance sin fusión únicamente local;
+respaldo y relevo confirmados abajo.
 
 ## Resultado
 
@@ -63,7 +63,8 @@ Entregas navega hasta la página del histórico propio sin borrar otras filas,
 conserva detalle y no deduce Maps/carga. **18 huellas iguales** después de
 lecturas; HTTP del navegador solo GET/local, reporte legado de fondo0.
 Enlace firmado de preventa oculto en capturas; sin sesión/secretos en informes.
-Aplicación compartida se comprueba al finalizar la integración local.
+Aplicación compartida comprobada al finalizar la integración local; datos y
+proceso seguro registrados abajo.
 
 | Vista | Contexto que conserva |
 | --- | --- |
@@ -97,3 +98,35 @@ se conservan literalmente; guardar instrucciones no acredita implementación.
 Grafo: [contexto visible](../grafo/modulo/contexto-visible-operacion.md).
 Lista vigente: [checklist](../checklist-rutas-ciclos-operativos.md).
 El siguiente paso es completar **RUT-08/FIL-11** y luego la validación integral.
+
+## Aplicación local y cierre
+
+**9fc8d8e** aplicado por rebase y avance sin fusión desde4e2542b; rama limpia,
+sin push/corte. Respaldo nuevo de tachi LOCAL5434, privado0600:
+/private/tmp/codex-contexto-operativo-20261006/antes-contexto-local.dump.
+No se aplica ninguna SQL ni se cambia la base habitual. **36 huellas
+operativas +9 completas adicionales idénticas**, antes/después de integración
+y GET de verificación: compras íntegras, pagos/caja, permisos y bitácora incluidos.
+Stock/conteos/movimientos/eventos/órdenes/recepciones/cierres0; maestro/ruta/
+ciclo cancelado del usuario conservados. Ningún dato ZZ insertado en habitual.
+
+App5174→3002, backend seguro **42974**, Vite98892. Lanzador permanente
+/private/tmp/codex-inventario-propio-20261004/servidor-compartido.cjs.
+No arrancar server.js directo por IMAP/ping/Hacienda/salidas. Compartida sólo
+GET/SQL READ ONLY: ficha200 muestra Sin ciclo en documentos no clasificados,
+sin sesión401; helper frontend servido200. Salud/API/frontend200, necesidades
+vacías200, tres Excel vacíos200/401 y detalles inexistentes404. Original3000/
+PID5370, developer5013270/main e19c3e5 intactos; producción no conectada.
+
+Base tachi_codex_contexto_operativo_20261006 y puertos propios3003/5175
+RETIRADOS. Copia/rama tmp/codex-contexto-operativo-20261006 se retiran tras
+integrar este relevo; evidencia/dumps/logs/30capturas permanecen privados en
+/private/tmp/codex-contexto-operativo-20261006. Los guiones que usan su copia
+retirada son evidencia, no lanzadores para otra sesión. No borrar otros ensayos,
+archivos fiscales ni Descargas. Memoria de Claude: cuatro archivos actualizados,
+reserva liberada al retiro y quince decisiones originales literalmente preservadas.
+
+Sigue RUT-08/FIL-11 (documentos/históricos/colas), fuente LOCAL Maps RUT-03 y
+validación integral VAL-01/04–07; CLI-10/VAL-08 del usuario. **89/10 operativo,
+133/14 independencia**. No equivalen a salida a producción ni aceptación real
+Hacienda. Revisar nuevos commits/status/worktrees antes de reservar otra parte.

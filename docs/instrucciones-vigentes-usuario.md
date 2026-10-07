@@ -192,3 +192,17 @@ con filtros/procedencia y todas las páginas comprobadas: [informe](informes/exp
 revisión global de pantallas/contexto/históricos y validación integral. Mantener lanzador seguro para salidas
 de otros módulos; nunca ejecutar código de limpieza antigua. Factura con varias órdenes aún necesita
 asignación explícita por línea/cantidad, sin contarla completa dos veces.
+
+
+## Relevo vigente de ejecución — contexto visible, 2026-10-06
+
+Código9fc8d8e sólo local: FIL-09 cerrado, **89 listos/10 pendientes (99 IDs)**.
+Pedidos/reportes/notas descartan selecciones anteriores y respuestas tardías;
+Bodega conserva copia/drafts y ficha muestra el contexto original. Quince
+vistas/30capturas1440/390,2.213pruebas/362suites/grafo12/build;36+9huellas
+idénticas y stock0. Sin SQL nueva:053 libre. Memoria conserva las15decisiones
+originales; esta sección registra implementación, no las sustituye.
+[Informe vigente](informes/contexto-operativo-2026-10-06.md).
+RUT-08/FIL-11, fuente LOCAL Maps RUT-03 e integral siguen pendientes;
+CLI-10/VAL-08 del usuario. No cerrar esos IDs por esta revisión de pantallas.
+Independencia133/14 permanece separada y no acredita aceptación real/corte.
