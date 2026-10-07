@@ -158,8 +158,9 @@ export function enOrdenDelCatalogo(productos, configCatalogo = null) {
     clave,
     nombre: nombreVisibleDeCategoria(clave, configCatalogo),
     productos: subgrupos[clave] ? subgrupos[clave].flatMap((f) => f.productos) : grouped[clave],
-    // Las familias (subcategorías) de la categoría, o null si no tiene: el
-    // catálogo de "Cliente nuevo" las dibuja con su encabezado.
+    // Las familias (subcategorías) de la categoría, o null si no tiene.
+    // La vista las recorre seguidas y las identifica en cada tarjeta;
+    // Gestión de Catálogo conserva sus bloques para poder administrarlas.
     familias: subgrupos[clave] || null
   }))
 }

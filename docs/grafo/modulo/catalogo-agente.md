@@ -8,6 +8,7 @@ archivos:
   - frontend/src/utils/catalogoAgentePersonalizacion.js
   - frontend/src/utils/buscarCatalogoAgente.js
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
+  - frontend/src/components/catalogo-agente/BarraSuperior.jsx
   - backend/tests/subgruposCatalogoAgente.test.js
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
@@ -23,16 +24,30 @@ archivos:
 aristas:
   depende_de: [tabla/alegra-products-cache, tabla/subcategoria, tabla/categoria-config, tabla/venta-historico]
   relacionado: [modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-04
+medido: 2026-10-07
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar: el
-pedido se toma en Facturación. Cada categoría se parte en familias (sus
-subcategorías), en el orden de `categoria_config.orden` y `subcategoria.orden`
+pedido se toma en Facturación. Cada categoría reúne sus familias
+(subcategorías) en una cuadrícula continua, en el orden de
+`categoria_config.orden` y `subcategoria.orden`
 — el mismo que ve Gestión de Catálogo, porque las dos pantallas usan las
 mismas funciones ([[decision/orden-canonico-compartido]]). El agente recibe
 ese orden de `GET /catalogo-agente/config-catalogo`; sin él (no sincronizó o
 falló) todo sale alfabético.
+
+2026-10-07, pedido y autorización explícita del usuario para main: las
+subcategorías pueden continuar en la misma fila. Solo el cambio de categoría
+abre otro bloque; al final de la categoría puede quedar una fila incompleta.
+`Cuadricula` recorre las familias canónicas seguidas, sin ordenarlas por
+tamaño. Cada tarjeta dice su subcategoría en una línea propia, hasta dos
+líneas y nombre completo en `title`; los sueltos de una categoría con
+familias dicen «Sin subcategoría» y siguen al final. `BloquesPorCategoria`
+también se reutiliza para rebajas y nuevos. Se conserva el catálogo de
+Cliente nuevo, sus cuatro secciones exclusivas, búsqueda y recomendaciones.
+Dos columnas en tablet/celular, tres desde `lg`, cuatro desde `xl`; selector
+móvil con nombre accesible. No se trasladan hooks, ids ni caché de la rama
+de migración. [Validación y alcance](../../informes/catalogo-agente-sin-huecos-2026-10-07.md).
 
 Con un cliente elegido, el orden se personaliza (`ordenarCatalogoParaCliente`:
 lo que suele comprar primero). Al quitar el cliente, vuelve al orden normal y
