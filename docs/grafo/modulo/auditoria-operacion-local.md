@@ -47,3 +47,10 @@ suite; CLI rechaza remota aun con escape y salidas inseguras. Ninguna salida
 real ni limpieza semanal. Sin SQL nueva, 053 libre, servicios conservados.
 Operativo 96/3; Maps LOCAL y dos revisiones humanas pendientes. Independencia
 133/14 separada: no demuestra importación final, conteo físico, Hacienda o corte.
+
+
+Aplicación local dd17c12 por rebase/avance sin fusión desde fc2ba3e. Habitual
+solo GET/SQL READ ONLY tras integrar, salud/ficha/Excel aprobados; 106 tablas/
+80 secuencias/36+9 controles y fotos idénticos. Sin reinicio, backend74960/
+Vite98892 conservados. Dos clones propios RETIRADOS; copia/rama se retiran al
+integrar el relevo, antes de liberar reserva/memoria. Evidencia privada se conserva.

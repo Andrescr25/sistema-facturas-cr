@@ -520,7 +520,7 @@ fail0/skip0; seis regresiones nuevas, grafo12/build. Sin SQL nueva:053 libre.
 Sigue VAL-06/07 para aislamiento/aplicación/preservación global. Maps LOCAL
 RUT-03 y revisiones CLI-10/VAL-08 del usuario conservan sus casillas.
 
-**Auditoría global local, 2026-10-07:** VAL-06/07 comprobados. Respaldo LOCAL
+**Auditoría global local `dd17c12`, 2026-10-07:** VAL-06/07 comprobados. Respaldo LOCAL
 043 restaurado en clon propio; 044–052 aplicadas en una transacción, 93 tablas
 anteriores y sus secuencias conservadas, 13 nuevas vacías. Fallo real intermedio
 revierte DDL/datos; repetir 044 sobre 052 rechaza y revierte. Esquema equivalente

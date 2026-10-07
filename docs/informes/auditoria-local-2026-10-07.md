@@ -115,8 +115,16 @@ cola0, este trabajo no conecta a Hacienda. No arrancar server.js directo.
 Original3000/PID5370 y developer5013270/main e19c3e5 intactos, sin conexión
 ni pruebas contra la base de producción. Prisma/dependencias intactos.
 
-El cierre debe confirmar lectura habitual tras integrar, retiro de las dos
-bases propias `tachi_codex_auditoria_*_20261007`, copia/rama temporal y puertos
-propios libres. Solo entonces liberar esta reserva y actualizar las cuatro
-memorias conservando literalmente las quince decisiones. Conservar respaldo
-local, evidencia y ensayos ajenos. El commit de relevo registra ese retiro.
+Código/pruebas/grafo/checklist **dd17c12** integrados por rebase y avance sin
+fusión desde fc2ba3e. La habitual se verificó después: salud/API/frontend200,
+ficha/contexto Sin ciclo200/401, tres Excel vacíos200/401 y detalle inexistente404.
+Solo GET/SQL READ ONLY; 106 tablas/80 secuencias y 36+9 controles idénticos,
+2.023 fotos conservadas y stock0 también después de estas consultas.
+
+Dos bases propias RETIRADAS: tachi_codex_auditoria_local_20261007 y
+tachi_codex_auditoria_migraciones_20261007. No se arrancaron servidores propios;
+3003/5175 permanecen libres. Copia/rama temporal se retiran tras integrar este
+relevo, antes de liberar la reserva y actualizar las cuatro memorias. Las
+quince decisiones se conservan literalmente. Evidencia y respaldo privados
+permanecen; scripts privados dependientes de la copia retirada no se deben
+volver a ejecutar tal cual. Los ensayos ajenos no se retiran ni restauran.
