@@ -18,8 +18,8 @@ archivos:
 aristas:
   depende_de: [decision/inventario-desde-cero, tabla/movimiento-inventario]
   bloqueado_por: [bloqueo/conteo-fisico]
-  relacionado: [modulo/necesidades-por-ciclo, modulo/recepcion-ordenes-compra, modulo/compras, modulo/facturacion, tabla/compra-linea]
-medido: 2026-10-06
+  relacionado: [modulo/auditoria-operacion-local, modulo/necesidades-por-ciclo, modulo/recepcion-ordenes-compra, modulo/compras, modulo/facturacion, tabla/compra-linea]
+medido: 2026-10-07
 ---
 
 La 042 crea una única bodega Principal y el kardex propio. El usuario pidió
@@ -118,3 +118,10 @@ consulta por semana y producto con procedencia. No reservar/descontar stock
 otra vez ni considerar borrador/incierto como solicitado confirmado. Consulta
 nueva no asigna proveedores; no llamar reporte legado de fondo. Evidencia y
 estado vigente en informe necesidades-cobertura-2026-10-06.
+
+
+Auditoría 2026-10-07: 2.144 productos en cero provisional, sin conteo/valoración/
+apertura y sin movimientos. 17 auditorías y 470 descuentos anteriores conservados
+como históricos, ninguno activo. Migraciones 044–052 conservan esos datos;
+reactivar una auditoría o insertar un movimiento ficticio se detecta en clon
+y se revierte. [[modulo/auditoria-operacion-local]]. No equivale a contar físico.

@@ -22,6 +22,8 @@ toca, qué no se regenera).
 
 ## Módulos
 
+- [Auditoría global local — migraciones, historia y cero provisional](modulo/auditoria-operacion-local.md)
+
 - [Recorrido visual — acciones reales del catálogo a recepción y entrega](modulo/recorrido-visual-operativo.md)
 
 - [Validación de cadena — permisos HTTP, concurrencia y unidades proveedor/propias](modulo/validacion-cadena-operativa.md)

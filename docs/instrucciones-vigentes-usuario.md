@@ -208,7 +208,7 @@ CLI-10/VAL-08 del usuario. No cerrar esos IDs por esta revisión de pantallas.
 Independencia133/14 permanece separada y no acredita aceptación real/corte.
 
 
-## Relevo vigente de ejecución — recorrido visual, 2026-10-07
+## Etapa previa de ejecución — recorrido visual, 2026-10-07
 
 VAL-05 cerrado, operativo **94 listos/5 pendientes (99 IDs)**; independencia
 **133/14 (147 IDs)** separada. Flujo real de UI en escritorio/celular y build,
@@ -221,3 +221,20 @@ propio y documentos se envían a un doble sin red. Nunca limpieza semanal.
 Sigue VAL-06/07 global; RUT-03 Maps LOCAL, CLI-10/VAL-08 del usuario pendientes.
 Las quince decisiones originales se conservan; no volver a pedirlas ni
 acreditar Hacienda/producción/conteo por esta validación.
+
+
+## Relevo vigente de ejecución — auditoría global local, 2026-10-07
+
+VAL-06/07 cerrados: operativo **96 listos / 3 pendientes (99 IDs)**.
+Independencia **133/14 (147 IDs)** separada. Reconstrucción local 043→052,
+93 tablas anteriores conservadas, fallo/rollback y rechazo de segunda
+aplicación comprobados. 2.270 pruebas/363 suites sin fallos ni omitidas;
+grafo 12/build. Auditoría habitual READ ONLY: 106 tablas/80 secuencias idénticas,
+stock/conteo/apertura cero e históricos conservados; 2.023 fotos idénticas.
+[Informe vigente](informes/auditoria-local-2026-10-07.md) y
+[módulo del grafo](grafo/modulo/auditoria-operacion-local.md).
+Sin SQL nueva: 053 libre, servicios habituales conservados, sin salidas reales.
+Sigue RUT-03 para hallar Maps anteriores exclusivamente en una fuente LOCAL;
+CLI-10/VAL-08 del usuario. Las quince decisiones anteriores siguen vigentes.
+No convertir esta auditoría de rutas en aceptación fiscal/conteo físico/corte
+ni ejecutar los ensayos de importación contra producción.

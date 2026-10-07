@@ -26,7 +26,11 @@ implementados. Vínculo/PDF privado y comparación de factura implementados, ver
 Archivo individual 24 h y retiro semanal implementados (050), ver
 [archivo](informes/archivo-ordenes-2026-10-06.md). Consulta de recorrido/carga inversa/Maps implementada; registro de avance
 físico051 implementado, ver [carga/entregas](informes/carga-entregas-2026-10-06.md).
-Cierre052, Excel operativo y contexto visible implementados y verificados. Operativo89/10;
+Cierre052, Excel operativo y contexto de toda la cadena implementados y verificados.
+Estado vigente **96 listos / 3 pendientes (99 IDs)**, actualizado el 2026-10-07:
+[auditoría global local](informes/auditoria-local-2026-10-07.md).
+Restan Maps anteriores de fuente LOCAL y revisiones CLI-10/VAL-08 del usuario;
+el checklist de independencia conserva sus 133/14 separados.
 [exportaciones](informes/exportaciones-ciclos-2026-10-06.md),
 [registro físico](informes/registro-entregas-2026-10-06.md) y
 [cierre enviado](informes/cierre-ordenes-2026-10-06.md) y
@@ -64,7 +68,7 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 
 ## Ejecución
 
-- [ ] Modelo SQL de rutas, ciclos, asignaciones y contexto de documentos.
+- [x] Modelo SQL de rutas, ciclos, asignaciones y contexto de documentos.
 - [x] API de rutas/orden manual/Maps/ciclos con permisos y transacciones.
 - [x] Clientes reorganizados, ficha por secciones y vista de rutas móvil.
 - [x] Pedidos de portal/agente y facturas conservan ciclo explícito.
@@ -74,7 +78,7 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [x] Ampliación visual: categorías/subcategorías, ofertas y liquidaciones
   integradas con etiquetas, dos columnas/fotos grandes y WhatsApp explícito.
 - [x] Bodega y reportes de faltantes filtran ruta/ciclo; procedencia en Excel.
-- [ ] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
+- [x] Completar exportaciones/carga/entrega y contexto en órdenes persistentes.
 - [x] Órdenes propias: estados, foto enviada, procedencia y cobertura (046–052).
   Borrador/pendiente/enviada, revisión/PDF exacto, origen, cobertura e
   incertidumbre implementados. Parcial/recibida y cantidades físicas implementadas; cierre de enviada052 implementado: confirmación/motivo, conservar recibido
@@ -85,8 +89,11 @@ de este trabajo. Las pruebas parten de una copia de la base local.
 - [x] Consulta de recorrido/carga inversa/Maps por cliente/documento.
 - [x] Registrar carga/entrega y avance físico por cliente/documento (051).
 - [x] Retirar limpieza semanal; archivo por fecha de recepción, sin borrado (050).
-- [ ] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.
-- [ ] Aplicación local con respaldo, grafo/checklist/memoria e informe final.
+- [x] Pruebas PostgreSQL, permisos, concurrencia, navegador y build.
+- [x] Aplicación local con respaldo, grafo/checklist/memoria e informe final.
+
+- [ ] Recuperar Maps anteriores desde una fuente LOCAL (RUT-03).
+- [ ] Revisiones visuales y del flujo completo del usuario (CLI-10/VAL-08).
 
 El estado de estas filas se actualiza solo con implementación y evidencia;
 una especificación no demuestra que el flujo esté operativo.

@@ -8,7 +8,7 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/auditoria-operacion-local, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
 medido: 2026-10-07
 ---
 
@@ -109,3 +109,11 @@ Lectura tardía de recepción no reinicia lo editado. UI conserva compra3
 separada de enviada4, recepción una vez, cierre/entrega/origen y PDF/historial
 24h. [[modulo/recorrido-visual-operativo]] e informe de esta entrega.
 VAL-06/07, fuente LOCAL Maps y revisiones del usuario siguen pendientes.
+
+
+Auditoría global local 2026-10-07: VAL-06/07 cerrados en
+[[modulo/auditoria-operacion-local]], vigente **96 listos / 3 pendientes**.
+Reconstrucción local 043→052 conserva 93 tablas previas; habitual 106 tablas/
+80 secuencias y 2.023 fotos idénticas, stock provisional cero e historia
+conservada. 2.270 pruebas/363 suites/grafo 12/build. Las cifras anteriores son
+históricas. RUT-03 requiere fuente LOCAL Maps; CLI-10/VAL-08 son del usuario.

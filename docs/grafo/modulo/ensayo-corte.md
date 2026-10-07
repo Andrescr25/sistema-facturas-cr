@@ -12,9 +12,9 @@ archivos:
   - backend/tests/ensayoCorte.test.js
   - docs/plan-corte-independencia.md
 aristas:
-  relacionado: [modulo/hacienda, modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  relacionado: [modulo/auditoria-operacion-local, modulo/hacienda, modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-10-05
+medido: 2026-10-07
 ---
 
 La herramienta prepara una candidata local nueva; nunca reemplaza la base
@@ -76,3 +76,9 @@ inferior al costo según su tarifa actual; causas se superponen (101 fichas).
 Clientes: 212 sin correo, 245 sin actividad, 75 sin teléfono utilizable,
 24 sin identificación y uno con tipo pendiente; 245 fichas en total.
 Nada se rellenó con valores supuestos.
+
+
+Auditoría posterior de rutas, 2026-10-07: [[modulo/auditoria-operacion-local]]
+reconstruye SOLO 044–052 desde un respaldo LOCAL 043 y compara historia,
+esquema y cero provisional. No ejecuta cargadores de Alegra ni conciliaciones
+finales y no completa las dos pasadas del corte. Ese pendiente se conserva.

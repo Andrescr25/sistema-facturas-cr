@@ -30,8 +30,9 @@ con motivo, recibido conservado y solo cobertura pendiente liberada.
 [históricos y copias](informes/historicos-contexto-2026-10-06.md) y
 [contexto de toda la cadena](informes/contexto-cadena-2026-10-06.md) y
 [permisos, concurrencia y unidades](informes/validacion-cadena-2026-10-06.md) y
-[recorrido visual completo](informes/recorrido-visual-2026-10-07.md).
-Estado vigente: **94 listos / 5 pendientes (99 IDs)**. Las cifras en las
+[recorrido visual completo](informes/recorrido-visual-2026-10-07.md) y
+[auditoría global local](informes/auditoria-local-2026-10-07.md).
+Estado vigente: **96 listos / 3 pendientes (99 IDs)**. Las cifras en las
 entregas anteriores son históricas; este estado incluye cierre de enviada, recepción y registro físico.
 Alcance confirmado: solo local en `independencia-alegra`, sin tocar `developer`,
 `main` ni conectar con la base de producción. Copias locales para las pruebas.
@@ -459,9 +460,9 @@ carga/entrega y comprobaciones integrales VAL-04–07 siguen pendientes.
 - [x] VAL-03 — Pruebas de recepción parcial/final, exceso facturado y archivo 24 h.
 - [x] VAL-04 — Pruebas de permisos, reintentos/concurrencia y unidades.
 - [x] VAL-05 — Verificar flujo en navegador escritorio/celular y build.
-- [ ] VAL-06 — Migraciones/pruebas que escriben en base desechable propia;
+- [x] VAL-06 — Migraciones/pruebas que escriben en base desechable propia;
   aplicar a copia local con respaldo y comparación cuando cada parte pase.
-- [ ] VAL-07 — Comprobar que inventario provisional cero e históricos se
+- [x] VAL-07 — Comprobar que inventario provisional cero e históricos se
   conservan; no importar stock previo ni enviar mensajes reales para probar.
 - [ ] VAL-08 — Revisión manual del usuario del flujo completo.
 
@@ -518,6 +519,25 @@ fail0/skip0; seis regresiones nuevas, grafo12/build. Sin SQL nueva:053 libre.
 [informe](informes/recorrido-visual-2026-10-07.md) registra evidencia y aplicación.
 Sigue VAL-06/07 para aislamiento/aplicación/preservación global. Maps LOCAL
 RUT-03 y revisiones CLI-10/VAL-08 del usuario conservan sus casillas.
+
+**Auditoría global local, 2026-10-07:** VAL-06/07 comprobados. Respaldo LOCAL
+043 restaurado en clon propio; 044–052 aplicadas en una transacción, 93 tablas
+anteriores y sus secuencias conservadas, 13 nuevas vacías. Fallo real intermedio
+revierte DDL/datos; repetir 044 sobre 052 rechaza y revierte. Esquema equivalente
+a la habitual; diferencias antiguas de representación de casts documentadas.
+Suite completa sobre esa base reconstruida: **2.270 pruebas / 363 suites**,
+sin fallos ni omitidas; siete regresiones nuevas, grafo 12/build.
+Auditoría persistente READ ONLY de 106 tablas/80 secuencias, sin excluir
+columnas de negocio/historia en la comparación habitual. Stock provisional:
+2.144 productos en cero, sin conteos/valoración/apertura ni operaciones nuevas;
+17 auditorías y 470 descuentos antiguos históricos. 2.023 fotos idénticas.
+CLI rechaza base remota incluso con escape y salidas inseguras. Guardas de
+WhatsApp/correo/buzón verificadas fuera de la excepción de pruebas en la suite;
+sin mensajes reales, limpieza semanal, nueva SQL ni reinicio de servicios.
+**96 listos / 3 pendientes (99 IDs)**; independencia 133/14 separada.
+[Informe y relevo](informes/auditoria-local-2026-10-07.md). Solo quedan
+RUT-03 (fuente LOCAL Maps), CLI-10 y VAL-08 (revisiones del usuario).
+La auditoría técnica no cierra aceptación fiscal real, conteo físico ni corte.
 
 ## Orden para avanzar poco a poco
 
