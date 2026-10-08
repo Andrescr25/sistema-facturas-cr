@@ -363,6 +363,7 @@ class ReportService {
           faltante_id: row.faltante_id,
           nombre: row.producto_nombre,
           codigo: row.producto_codigo,
+          producto_alegra_id: row.producto_alegra_id,
           proveedor: row.proveedor_asignado || 'Sin proveedor',
           proveedor_asignado: row.proveedor_asignado || 'Sin proveedor',
           cantidad_faltante: parseInt(row.cantidad_faltante),

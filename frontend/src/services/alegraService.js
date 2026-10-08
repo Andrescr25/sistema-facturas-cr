@@ -297,7 +297,7 @@ export const alegraService = {
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error procesando factura:', error);
-      throw new Error(`Error procesando factura: ${error.message}`)
+      throw new Error(`Error procesando factura: ${error.response?.data?.message || error.message}`)
     }
   },
 

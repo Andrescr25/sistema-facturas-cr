@@ -51,6 +51,7 @@ export function useImpresion() {
   })
   const debounceBusquedaRef = useRef(null)
   const cacheProductosRef = useRef(new Map())
+  const cargaFacturaRef = useRef(0)
 
   const loadFacturasPendientes = async () => {
     try {
@@ -112,6 +113,8 @@ export function useImpresion() {
   }, [])
 
   const handleSetActiveTab = (tabKey) => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(null)
     setModoEdicion(false)
     setActiveTabState(tabKey)
@@ -158,8 +161,9 @@ export function useImpresion() {
         referenciaTipo = producto.reference?.type || referenciaTipo || 'CODE_OF_INTERNAL_USE'
 
         // Sincronizar con el precio de catálogo de Alegra (que tiene el precio actualizado de revisión de precios)
-        const catalogPrice = getPriceValue(producto.price ?? producto.prices ?? producto.salePrice ?? 0)
-        if (catalogPrice > 0) {
+        const precioCatalogo = producto.price ?? producto.prices ?? producto.salePrice
+        const catalogPrice = getPriceValue(precioCatalogo)
+        if (precioCatalogo != null && Number.isFinite(catalogPrice) && catalogPrice >= 0) {
           price = catalogPrice
         }
       }
@@ -185,6 +189,8 @@ export function useImpresion() {
   }
 
   const handleIniciarEdicion = (factura) => {
+    const carga = ++cargaFacturaRef.current
+    cacheProductosRef.current.clear()
     setFacturaEditando(factura)
     setItemsEditados([])
     // Las líneas vienen de Alegra y tardan. Sin esta bandera el modal se abre
@@ -200,13 +206,15 @@ export function useImpresion() {
           const items = Array.isArray(result.data.items) ? result.data.items : []
           const normalizados = normalizarItemsFactura(items, factura)
           const enriquecidos = await Promise.all(normalizados.map(completarItemConReferencia))
-          setItemsEditados(enriquecidos)
+          if (carga === cargaFacturaRef.current) setItemsEditados(enriquecidos)
+        } else {
+          throw new Error(result.message || result.error || 'No se pudo obtener la factura')
         }
       } catch (error) {
         console.error('Error cargando factura desde Alegra:', error)
-        setError(`No se pudo cargar la factura desde Alegra: ${error.message}`)
+        if (carga === cargaFacturaRef.current) setError(`No se pudo cargar la factura desde Alegra: ${error.message}`)
       } finally {
-        setCargandoItems(false)
+        if (carga === cargaFacturaRef.current) setCargandoItems(false)
       }
     }
 
@@ -215,11 +223,15 @@ export function useImpresion() {
   }
 
   const abrirRevision = (factura) => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(factura)
     setModoEdicion(false)
   }
 
   const handleCancelarEdicion = () => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(null)
     setItemsEditados([])
     setModoEdicion(false)
@@ -258,7 +270,7 @@ export function useImpresion() {
   }
 
   const handleGuardarFactura = async (imprimirDespues = false) => {
-    if (!facturaEditando) return
+    if (!facturaEditando || cargandoItems || procesando) return
 
     try {
       setProcesando(true)
@@ -580,9 +592,11 @@ export function useImpresion() {
     if (field === 'quantity') {
       const numero = parseFloat(value)
       itemActual.quantity = Number.isFinite(numero) && numero >= 0 ? numero : 0
+      itemActual.eliminar_por_faltante = itemActual.quantity === 0
     } else if (field === 'price') {
       const numero = parseFloat(value)
       itemActual.price = Number.isFinite(numero) ? numero : 0
+      itemActual.precio_editado = true
     } else if (field === 'description') {
       itemActual.description = value
     } else if (field === 'reference') {
@@ -614,10 +628,6 @@ export function useImpresion() {
           index: prev.index - 1
         }))
       }
-    }
-
-    if (newItems.length === 0) {
-      setModoEdicion(false)
     }
   }
 

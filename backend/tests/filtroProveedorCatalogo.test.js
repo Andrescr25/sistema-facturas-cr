@@ -12,6 +12,7 @@ const path = require('path');
  */
 
 const rutaPrisma = path.join(__dirname, '..', 'lib', 'prisma.js');
+const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
 const rutaAlegra = path.join(__dirname, '..', 'src', 'integrations', 'alegra', 'index.js');
 const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'catalogo', 'catalogo.service.js');
 
@@ -33,6 +34,16 @@ function montar() {
     return true;
   };
   const CACHE = ['100', '200', '500', '900'].map(id => ({ alegraId: id, name: `P${id}`, price: 1, taxPercentage: 13 }));
+
+  // listarProductos también lee los datos complementarios por pg. Sustituir
+  // solo Prisma dejaba esa consulta conectarse a la base configurada.
+  require.cache[rutaDb] = {
+    id: rutaDb, filename: rutaDb, loaded: true,
+    exports: { query: async sql => {
+      assert.match(sql.trim(), /^SELECT\b/);
+      return { rows: [] };
+    } }
+  };
 
   require.cache[rutaPrisma] = {
     id: rutaPrisma, filename: rutaPrisma, loaded: true,
@@ -69,7 +80,7 @@ function montar() {
 }
 
 beforeEach(() => {
-  for (const r of [rutaPrisma, rutaAlegra, rutaServicio]) delete require.cache[r];
+  for (const r of [rutaPrisma, rutaDb, rutaAlegra, rutaServicio]) delete require.cache[r];
 });
 
 describe('listarProductos con proveedor', () => {
