@@ -50,6 +50,22 @@ Descuentos e impuestos de cada línea llegan a Alegra y al total de la edición.
 El paso directo de Bodega (`sin_pendientes`, actualizar precios apagado)
 conserva su comportamiento.
 
+El descuento de una línea va a Alegra como objeto `{ discount, type }` (más
+`nature` si el tipo la trae), nunca como número suelto. Alegra de Costa Rica
+rechaza la factura ENTERA con «El tipo de descuento es requerido cuando se
+aplica un descuento» (código 3364). Pasó en producción el 2026-10-08, el
+mismo día en que se empezó a mandar el descuento: las facturas sin descuento
+se imprimían y la que llevaba una regalía al 100 % respondía 400. El tipo se
+toma de `discountObject`, que es donde Alegra lo devuelve al leer la factura;
+la pantalla de edición solo manda el porcentaje. Si una línea tiene descuento
+y Alegra no le conoce tipo, se bloquea nombrando el producto: el tipo es un
+dato fiscal y no se inventa. Sin descuento se manda `0`, que Alegra acepta.
+La regla vive en `descuentoParaAlegra` (`ajustesImpresion.js`). Cuando Alegra
+rechaza la modificación, a la pantalla llega el motivo que dio Alegra y no el
+«Request failed with status code 400» de axios. El formato sale de la
+documentación de Alegra (`PUT /invoices/{id}`) y de leer la factura afectada;
+Facturación sigue mandando el descuento como número y no se tocó acá.
+
 Si no se puede verificar un precio o Alegra rechaza la modificación, la cola
 queda pendiente y la factura no llega a Historial. Un bloqueo de PostgreSQL
 por factura dentro de la transacción serializa los clics simultáneos; la finalización de los estados

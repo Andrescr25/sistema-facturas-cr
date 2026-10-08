@@ -7,7 +7,7 @@ const { getInvoiceService: getAlegraInvoiceService, getProductService: getAlegra
 const DatabaseHelper = require('../../utils/database.helper');
 const { resolverProductoLocal } = require('../../utils/resolverProducto');
 const { query, getClient } = require('../../../config/database');
-const { referencia, idProducto, coincide, prepararAjustes, cantidadFinal } = require('./ajustesImpresion');
+const { referencia, idProducto, coincide, prepararAjustes, cantidadFinal, descuentoParaAlegra } = require('./ajustesImpresion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 class InvoiceService {
@@ -521,12 +521,14 @@ class InvoiceService {
           description: item.description || item.name || '',
           quantity: Number(item.quantity),
           price: precio,
-          discount: Number(item.discount) || 0,
+          discount: descuentoParaAlegra(item, actuales),
           tax: Array.isArray(item.tax) ? item.tax : item.tax ? [item.tax] : []
         };
       });
       const actualizado = await this.alegraInvoiceService.updateInvoice(alegra_id, { items: updatedItems });
-      if (!actualizado.success) throw new Error(actualizado.error || 'No se pudo actualizar la factura en Alegra');
+      // `error` es el texto de axios ("Request failed with status code 400");
+      // el motivo que dio Alegra viene en `data.message` y es el que sirve en pantalla.
+      if (!actualizado.success) throw new Error(actualizado.data?.message || actualizado.error || 'No se pudo actualizar la factura en Alegra');
       return { success: true, updated: updatedItems.length, total: actualizado.data?.total };
     } catch (error) {
       console.error('Error ajustando factura:', error.message);

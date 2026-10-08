@@ -66,4 +66,26 @@ function cantidadFinal(ajuste) {
   return original - (ajuste.estado === 'completo' ? 0 : faltante - entregada);
 }
 
-module.exports = { referencia, idProducto, coincide, prepararAjustes, cantidadFinal };
+// Alegra de Costa Rica (factura 4.4) no acepta el descuento de una línea como
+// número suelto: lo quiere como { discount, type } y, si no, rechaza la
+// factura ENTERA con 400 "El tipo de descuento es requerido cuando se aplica
+// un descuento". Al leer la factura lo devuelve aparte, en `discountObject`.
+// El tipo es un dato fiscal: se reenvía el que ya tiene la línea y nunca se
+// inventa uno. Sin descuento se manda 0, que Alegra sí acepta.
+function descuentoParaAlegra(item, actuales = []) {
+  const porcentaje = Number(item.discount?.discount ?? item.discount) || 0;
+  if (porcentaje <= 0) return 0;
+  const id = String(idProducto(item));
+  // La pantalla de edición solo manda el porcentaje. El tipo se busca en la
+  // línea de la factura con ese producto; si está repetido, la del mismo descuento.
+  const lineas = actuales.filter(actual => String(idProducto(actual)) === id && actual.discountObject?.type);
+  const origen = [item.discountObject, item.discount,
+    lineas.find(actual => Number(actual.discount) === porcentaje)?.discountObject,
+    lineas[0]?.discountObject].find(descuento => descuento?.type);
+  if (!origen) {
+    throw new Error(`El producto ${referencia(item.reference ?? item.item?.reference) || id} tiene ${porcentaje}% de descuento sin tipo de descuento. Elegí el tipo de descuento de esa línea en Alegra antes de imprimir.`);
+  }
+  return { discount: porcentaje, type: origen.type, ...(origen.nature ? { nature: origen.nature } : {}) };
+}
+
+module.exports = { referencia, idProducto, coincide, prepararAjustes, cantidadFinal, descuentoParaAlegra };
