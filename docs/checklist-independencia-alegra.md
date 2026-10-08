@@ -678,6 +678,17 @@ semanal. Evidencia en [el nodo de la demostración](grafo/modulo/demo-reporte-pr
   quedó en ₡4.689,50) → Recuperar → reprocesar sin rebajar dos veces → PDF
   propio → la 14835, con cobro, explica por qué no se edita. Todo restaurado
   y comparado byte a byte.*
+  *Adaptación de la corrección de `main`, 2026-10-08: pedido de 6 con 3
+  faltantes queda en 3; se conserva la rebaja diferencial, la edición nativa
+  y la reconciliación del inventario. Precio automático se relee al guardar,
+  manual se respeta; respuestas atrasadas no cambian la factura abierta y
+  borrar el último producto no sale de edición. Recuperar usa el bloqueo de
+  factura antes de tocar cola y faltantes. Pruebas con propuesta/payload
+  reales, IVA y descuento, recuperación/reintento, rollback, vacío y reglas
+  propias en PostgreSQL desechable; ver [el nodo](grafo/modulo/faltantes.md)
+  y [el informe](informes/impresion-pedido-exacto-2026-10-08.md).
+  Sin migración SQL ni cambios en bases de trabajo/producción. Impresora
+  física no verificada. Mantiene el conteo de independencia 133/14.*
 - [x] Retirar el puente `facturas.factura_propia_id` y el camino viejo de
   Bodega — *2026-09-30: la factura propia ya no se copia a `facturas`, Bodega
   no la espeja, y el portal (línea de tiempo del pedido) y el tablero leen el

@@ -40,6 +40,12 @@ describe('cuánto se rebaja por un faltante', () => {
 });
 
 describe('la propuesta de líneas', () => {
+  test('pedido de 6 con faltante confirmado de 3 queda en 3, con el id propio', () => {
+    const [l] = p.proponerLineas([linea(91, 6, { referencia: 'ZZ-OTRO-CODIGO' })], [faltante(91, 3, 'no_llego')], { actualizarPrecios: true });
+    assert.equal(l.cantidad, 3);
+    assert.equal(l.precio, 1200);
+    assert.equal(l.productoId, 91);
+  });
   test('rebaja lo que no llegó y pone el precio del catálogo', () => {
     const [l] = p.proponerLineas([linea(1, 10)], [faltante(1, 3, 'no_llego')], { actualizarPrecios: true });
     assert.equal(l.cantidad, 7);
@@ -103,6 +109,19 @@ describe('cuándo se edita la factura', () => {
 });
 
 describe('las líneas que manda la pantalla', () => {
+  test('el catálogo vuelve a consultarse solo para precios automáticos; respeta manuales y clientes anteriores', () => {
+    const r = p.refrescarPreciosDePantalla([
+      { productoId: 1, precio: 1200, precioEditado: false },
+      { productoId: 2, precio: 900, precioEditado: true },
+      { productoId: 3, precio: 1000 }
+    ], new Map([[1, '1500'], [2, '1600'], [3, '1700']]));
+    assert.deepEqual(r.map(l => l.precio), [1500, 900, 1000]);
+  });
+
+  test('la marca manual se valida sin cambiar el contrato de clientes anteriores', () => {
+    assert.throws(() => p.lineasDePantalla([{ productoId: 1, cantidad: 1, precio: 10, precioEditado: 'false' }]), e => e.status === 400);
+    assert.equal(p.lineasDePantalla([{ productoId: 1, cantidad: 1, precio: 10, precioEditado: false }])[0].precioEditado, false);
+  });
   test('cada una tiene que ser de un producto del catálogo, con cantidad y precio válidos', () => {
     assert.throws(() => p.lineasDePantalla([{ productoId: null, cantidad: 1, precio: 1 }]), (e) => e.status === 400 && /producto del catálogo/.test(e.message));
     assert.throws(() => p.lineasDePantalla([{ productoId: 1, cantidad: -1, precio: 1 }]), (e) => e.status === 400);
@@ -132,15 +151,16 @@ describe('lo que muestra y manda la pantalla', () => {
   test('se manda por el id propio de cada producto', async () => {
     const { lineasParaProcesar } = await cargar();
     assert.deepEqual(lineasParaProcesar([{ productoId: 1, quantity: '2', price: '15', descuento: 0, nota: 'CTE', description: 'FOLDER' }]),
-      [{ productoId: 1, cantidad: 2, precio: 15, descuento: 0, nota: 'CTE' }]);
+      [{ productoId: 1, cantidad: 2, precio: 15, precioEditado: false, descuento: 0, nota: 'CTE' }]);
   });
 
   test('no deja guardar un producto nuevo sin elegirlo, ni una factura vacía', async () => {
     const { validarItemsParaProcesar } = await cargar();
-    assert.match(validarItemsParaProcesar([{ productoId: null, quantity: 1 }]), /buscador/);
-    assert.match(validarItemsParaProcesar([{ productoId: 1, quantity: 0 }]), /mayores a cero/);
-    assert.match(validarItemsParaProcesar([{ productoId: 1, quantity: 0, eliminar_por_faltante: true }]), /sin productos/);
-    assert.equal(validarItemsParaProcesar([{ productoId: 1, quantity: 0, eliminar_por_faltante: true }, { productoId: 2, quantity: 1 }]), null);
+    assert.match(validarItemsParaProcesar([{ productoId: null, quantity: 1, price: 100 }]), /buscador/);
+    assert.match(validarItemsParaProcesar([{ productoId: 1, quantity: 0, price: 100 }]), /mayores a cero/);
+    assert.match(validarItemsParaProcesar([{ productoId: 1, quantity: 1, price: -1 }]), /precios/);
+    assert.match(validarItemsParaProcesar([{ productoId: 1, quantity: 0, price: 100, eliminar_por_faltante: true }]), /sin productos/);
+    assert.equal(validarItemsParaProcesar([{ productoId: 1, quantity: 0, price: 100, eliminar_por_faltante: true }, { productoId: 2, quantity: 1, price: 100 }]), null);
   });
 
   test('el total nuevo es el mismo que calcula el servidor, con la tarifa de cada línea', async () => {

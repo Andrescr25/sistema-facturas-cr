@@ -47,6 +47,7 @@ export function useImpresion() {
     error: null
   })
   const debounceBusquedaRef = useRef(null)
+  const cargaFacturaRef = useRef(0)
 
   const loadFacturasPendientes = async () => {
     try {
@@ -93,6 +94,8 @@ export function useImpresion() {
   }, [])
 
   const handleSetActiveTab = (tabKey) => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(null)
     setModoEdicion(false)
     setActiveTabState(tabKey)
@@ -108,6 +111,7 @@ export function useImpresion() {
   }
 
   const handleIniciarEdicion = (factura) => {
+    const carga = ++cargaFacturaRef.current
     setFacturaEditando(factura)
     setItemsEditados([])
     // Las líneas tardan en llegar. Sin esta bandera el modal se abre con
@@ -117,19 +121,29 @@ export function useImpresion() {
     setCargandoItems(true)
 
     colaImpresionService.detalle(factura.factura_id)
-      .then((detalle) => setItemsEditados((detalle.lineas || []).map(aItemDeEdicion)))
-      .catch((err) => setError(`No se pudo cargar la factura: ${err.message}`))
-      .finally(() => setCargandoItems(false))
+      .then((detalle) => {
+        if (carga === cargaFacturaRef.current) setItemsEditados((detalle.lineas || []).map(aItemDeEdicion))
+      })
+      .catch((err) => {
+        if (carga === cargaFacturaRef.current) setError(`No se pudo cargar la factura: ${err.message}`)
+      })
+      .finally(() => {
+        if (carga === cargaFacturaRef.current) setCargandoItems(false)
+      })
 
     setModoEdicion(true)
   }
 
   const abrirRevision = (factura) => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(factura)
     setModoEdicion(false)
   }
 
   const handleCancelarEdicion = () => {
+    cargaFacturaRef.current++
+    setCargandoItems(false)
     setFacturaEditando(null)
     setItemsEditados([])
     setModoEdicion(false)
@@ -151,6 +165,7 @@ export function useImpresion() {
       nota: null,
       quantity: 1,
       price: 0,
+      precioEditado: false,
       descuento: 0,
       tarifa: 0,
       esNuevo: true
@@ -179,7 +194,7 @@ export function useImpresion() {
   }
 
   const handleGuardarFactura = async (imprimirDespues = false) => {
-    if (!facturaEditando) return
+    if (!facturaEditando || cargandoItems || procesando) return
 
     if (modoEdicion && productoBusqueda.index !== null) {
       cerrarBusquedaProducto()
@@ -367,6 +382,7 @@ export function useImpresion() {
         description: producto.name || producto.reference || 'Producto sin nombre',
         quantity: item.quantity && item.quantity > 0 ? item.quantity : 1,
         price: Number(producto.price) || 0,
+        precioEditado: false,
         tarifa: Number(producto.tarifa) || 0,
         descuento: 0,
         nota: null,
@@ -394,6 +410,7 @@ export function useImpresion() {
     } else if (field === 'price') {
       const numero = parseFloat(value)
       itemActual.price = Number.isFinite(numero) ? numero : 0
+      itemActual.precioEditado = true
     } else if (field === 'description') {
       itemActual.description = value
     } else if (field === 'reference') {
@@ -421,10 +438,6 @@ export function useImpresion() {
           index: prev.index - 1
         }))
       }
-    }
-
-    if (newItems.length === 0) {
-      setModoEdicion(false)
     }
   }
 

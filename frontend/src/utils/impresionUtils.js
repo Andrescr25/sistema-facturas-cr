@@ -49,6 +49,7 @@ export function aItemDeEdicion(l) {
     nota: l.nota ?? null,
     quantity: numero(l.cantidad),
     price: numero(l.precio),
+    precioEditado: false,
     descuento: numero(l.descuento),
     tarifa: numero(l.tarifa),
     esNuevo: false,
@@ -63,6 +64,7 @@ export function lineasParaProcesar(items) {
     productoId: i.productoId,
     cantidad: numero(i.quantity),
     precio: numero(i.price),
+    precioEditado: i.precioEditado === true,
     descuento: numero(i.descuento),
     nota: i.nota ?? null
   }))
@@ -70,6 +72,9 @@ export function lineasParaProcesar(items) {
 
 /** null si se puede guardar; si no, por qué. */
 export function validarItemsParaProcesar(items) {
+  if (items.some(i => !Number.isFinite(Number(i.price)) || Number(i.price) < 0)) {
+    return 'Los precios deben ser números mayores o iguales a cero.'
+  }
   if (items.some((i) => !i.productoId)) {
     return 'Cada producto nuevo hay que elegirlo en el buscador antes de guardar.'
   }

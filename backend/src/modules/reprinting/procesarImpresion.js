@@ -21,7 +21,9 @@
  * LOS PRECIOS. Se usa `producto.precio_sin_iva` —sin IVA, como el de la línea—
  * salvo en las que Bodega despachó completas ('sin_pendientes'), que solo se
  * imprimen. En la pantalla de edición la propuesta ya trae esos precios y lo
- * que se guarda es lo que la persona deja escrito.
+ * que se guarda respeta el precio escrito a mano. Las líneas que nadie tocó
+ * consultan de nuevo el maestro al guardar: puede cambiar después de abrir
+ * la propuesta. Los clientes anteriores, sin bandera, conservan su precio.
  */
 
 const { query, pool } = require('../../../config/database');
@@ -131,8 +133,20 @@ function lineasDePantalla(lineas) {
     const precio = Number(l.precio);
     if (!Number.isFinite(cantidad) || cantidad < 0) throw httpError(400, `La línea ${i + 1}: la cantidad no es válida.`);
     if (!Number.isFinite(precio) || precio < 0) throw httpError(400, `La línea ${i + 1}: el precio no es válido.`);
-    return { productoId, cantidad, precio, descuento: numero(l.descuento), nota: l.nota ?? null };
+    if (l.precioEditado !== undefined && typeof l.precioEditado !== 'boolean') {
+      throw httpError(400, `La línea ${i + 1}: la marca de precio manual no es válida.`);
+    }
+    return { productoId, cantidad, precio, descuento: numero(l.descuento), nota: l.nota ?? null,
+      ...(l.precioEditado === undefined ? {} : { precioEditado: l.precioEditado }) };
   }).filter((l) => l.cantidad > 0);
+}
+
+/** Solo refresca lo que la pantalla mostró automáticamente; cada clave es producto.id. */
+function refrescarPreciosDePantalla(lineas, precios) {
+  return lineas.map(linea => {
+    const actual = numero(precios.get(linea.productoId));
+    return linea.precioEditado === false && actual > 0 ? { ...linea, precio: actual } : linea;
+  });
 }
 
 /** Todo lo que hace falta de una factura para procesarla. `db`: cliente de transacción o el módulo. */
@@ -218,6 +232,11 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
 
     const soloImprimir = datos.cola.categoria === 'sin_pendientes';
     let finales = pantalla;
+    if (finales && actualizarPrecios && !soloImprimir && finales.some(l => l.precioEditado === false)) {
+      const ids = [...new Set(finales.filter(l => l.precioEditado === false).map(l => l.productoId))];
+      const { rows } = await c.query('SELECT id, precio_sin_iva FROM producto WHERE id = ANY($1::int[])', [ids]);
+      finales = refrescarPreciosDePantalla(finales, new Map(rows.map(p => [p.id, p.precio_sin_iva])));
+    }
     if (!finales && !(soloImprimir && datos.faltantes.length === 0)) {
       finales = proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: actualizarPrecios && !soloImprimir })
         .filter((l) => l.cantidad > 0);
@@ -274,6 +293,9 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
 async function recuperarProcesada(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
   return enTransaccion(async (c) => {
+    // Mismo bloqueo que procesar: recuperar espera a que la factura termine
+    // de guardarse y devuelve faltantes/cola juntos a pendiente.
+    await c.query('SELECT id FROM factura WHERE id = $1 FOR UPDATE', [facturaId]);
     const faltantes = await c.query(`
       UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'
@@ -319,5 +341,5 @@ async function pdf(facturaIdCrudo) {
 
 module.exports = {
   detalle, procesar, recuperarProcesada, buscarProductos, pdf,
-  proponerLineas, rebajaObjetivo, cambiaron, lineasDePantalla
+  proponerLineas, rebajaObjetivo, cambiaron, lineasDePantalla, refrescarPreciosDePantalla
 };

@@ -147,6 +147,9 @@ async function encolarDesdeReporte(facturaIdCrudo) {
 async function devolverAlReporte(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
   return enTransaccion(async (c) => {
+    // Impresión toma primero este bloqueo. Recuperar espera a que termine
+    // de guardar para no dejar faltantes procesados fuera de su cola.
+    await c.query('SELECT id FROM factura WHERE id = $1 FOR UPDATE', [facturaId]);
     const faltantes = await c.query(`
       UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'

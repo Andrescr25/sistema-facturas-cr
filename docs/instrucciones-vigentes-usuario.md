@@ -98,6 +98,14 @@ familia; las cuatro selecciones anteriores quedan como filtros. En catálogo
 general, búsqueda e historial la promoción viaja con la ficha. Conservar
 precios/precedencia de liquidación, filas completas y rótulos de subcategoría.
 [Informe de esta ampliación](informes/catalogo-ofertas-familias-2026-10-07.md).
+
+**Autorización específica, 2026-10-08:** publicar en `main` la corrección de
+Impresión que aplica precios y faltantes confirmados del Reporte de Clientes,
+y adaptarla a `independencia-alegra` respetando su lógica distinta. El ejemplo
+confirmado es 6 unidades facturadas y 3 faltantes: quedan 3. Esa autorización
+no adelanta el corte ni autoriza pruebas con la base de producción. La
+adaptación usa factura, productos e inventario propios y se prueba en una
+copia local desechable; ver [Faltantes](grafo/modulo/faltantes.md).
 El ajuste anterior de filas se publicó en main (`cfddb83`); este segundo
 pedido se realiza en la rama local. No ampliar su autorización específica
 de publicación a otros cambios ni modificar Hacienda mientras la configura.

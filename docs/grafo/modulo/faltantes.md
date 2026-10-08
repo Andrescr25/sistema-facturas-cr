@@ -32,6 +32,9 @@ archivos:
   - backend/tests/notasDeFaltantes.test.js
   - backend/tests/fechaCalendarioReportes.test.js
   - backend/tests/impresionPropia.test.js
+  - backend/tests/impresionPropiaLocal.test.js
+  - backend/tests/impresionHook.test.js
+  - docs/informes/impresion-pedido-exacto-2026-10-08.md
   - backend/tests/horaEnvioImpresion.test.js
   - backend/tests/reporteClientesFiltros.test.js
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
@@ -43,7 +46,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-07
+medido: 2026-10-08
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -140,6 +143,30 @@ marca impresa, en UNA transacción, con la misma edición de Facturación
 solo se marcan: la factura no se toca. La pantalla de edición recibe la
 propuesta ya armada por el servidor; lo que se guarda es lo que la persona
 deja. El PDF es el mismo de Facturación, servido por la ruta de Impresión.
+
+ADAPTACIÓN DE LA CORRECCIÓN DE MAIN (2026-10-08). Un pedido de 6 con 3
+faltantes confirmados como "no llegó" queda en 3; no se elimina toda la línea.
+Se conserva el motor propio: ids `factura.id`/`producto.id`, `cantidad_rebajada`,
+edición e inventario en la misma transacción y restricciones fiscales/cobros.
+No se incorpora el servicio que escribe en Alegra ni sus snapshots.
+
+La pantalla manda `precioEditado`: al escribir un precio se marca manual y
+se respeta; si es automático se relee `producto.precio_sin_iva` al guardar,
+porque puede cambiar mientras la propuesta está abierta. La regla propia
+mantiene el precio de factura si el catálogo vale 0 y las `sin_pendientes`
+conservan sus precios. Los clientes anteriores, sin bandera, conservan el
+precio enviado. La respuesta tardía de otra factura ya no pisa la edición
+actual. Quitar el último producto conserva el formulario vacío y bloquea
+guardar; no vuelve a procesar la propuesta original. Recuperar, desde
+Impresión o Reporte de Clientes, toma primero el mismo bloqueo de factura
+que procesar para coordinar factura, faltantes y cola.
+
+`impresionPropiaLocal.test.js` ejecuta propuesta y payload reales con edición
+e inventario propios sobre una copia local `tachi_codex_*`, con fixtures ZZ
+y BEGIN/ROLLBACK: 6−3, precio cambiado entre abrir/guardar, manual, recuperación,
+fallo al finalizar, vacío, protección electrónica y `sin_pendientes`.
+`impresionHook.test.js` controla las respuestas del servicio propio y verifica
+los manejadores del formulario, sin llamadas externas ni impresora física.
 
 UN FALTANTE SE REBAJA UNA SOLA VEZ (migración 033): cada faltante recuerda
 cuánto se le quitó ya a la factura (`cantidad_rebajada`) y procesar aplica la
