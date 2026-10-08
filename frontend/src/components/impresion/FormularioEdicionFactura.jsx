@@ -1,5 +1,5 @@
 import { Plus, Printer, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
-import { formatDate } from '../../utils/impresionUtils'
+import { formatDate, totalItemsImpresion } from '../../utils/impresionUtils'
 import BuscadorProductoNuevo from './BuscadorProductoNuevo'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
@@ -52,10 +52,7 @@ export default function FormularioEdicionFactura({
   // Las líneas que se van a eliminar por faltante no suman: el total nuevo
   // tiene que ser el de la factura que se va a imprimir, no el de la que
   // está en pantalla.
-  const totalNuevo = itemsEditados.reduce(
-    (suma, i) => suma + (i.eliminar_por_faltante ? 0 : (Number(i.quantity) || 0) * (Number(i.price) || 0)),
-    0
-  )
+  const totalNuevo = totalItemsImpresion(itemsEditados)
   const totalOriginal = Number(facturaEditando.total) || 0
   const diferencia = totalNuevo - totalOriginal
 
@@ -135,7 +132,7 @@ export default function FormularioEdicionFactura({
 
         <div className="space-y-3">
           {itemsEditados.map((item, index) => {
-            const subtotal = (Number(item.quantity) || 0) * (Number(item.price) || 0)
+            const subtotal = totalItemsImpresion([item])
             return (
               <div
                 key={index}

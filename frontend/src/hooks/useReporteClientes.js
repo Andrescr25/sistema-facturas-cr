@@ -108,7 +108,7 @@ export function useReporteClientes() {
       const key = getProductKey(factura, producto)
       const ajuste = entregasAjustadas.get(key)
       if (ajuste) {
-        ajustesFactura.push({ producto_codigo: producto.codigo, producto_nombre: producto.nombre, cantidad_faltante: producto.cantidad_faltante, cantidad_entregada: ajuste.cantidadEntregada, estado: ajuste.estado, requiere_actualizacion: ajuste.requiereActualizacion })
+        ajustesFactura.push({ producto_codigo: producto.codigo, producto_alegra_id: producto.producto_alegra_id, producto_nombre: producto.nombre, cantidad_faltante: producto.cantidad_faltante, cantidad_entregada: ajuste.cantidadEntregada, estado: ajuste.estado, requiere_actualizacion: ajuste.requiereActualizacion })
       } else {
         ajustesFactura.push({ producto_codigo: producto.codigo, producto_nombre: producto.nombre, cantidad_faltante: producto.cantidad_faltante, cantidad_entregada: 0, estado: 'pendiente', requiere_actualizacion: true })
       }
@@ -132,10 +132,11 @@ export function useReporteClientes() {
     if (!confirmado) return
 
     try {
-      await alegraService.procesarFacturaIndividual(facturaData)
+      const resultado = await alegraService.procesarFacturaIndividual(facturaData)
+      if (!resultado.success) throw new Error(resultado.message || resultado.error || 'No se pudo enviar a impresión')
       const facturaKey = getFacturaKey(factura)
       const nuevosEstados = new Map(facturasEstado)
-      nuevosEstados.set(facturaKey, { estado: 'procesado', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: requiereReimpresion, origen: 'procesado' })
+      nuevosEstados.set(facturaKey, { estado: 'en_cola_impresion', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: true, origen: 'cola_impresion' })
       setFacturasEstado(nuevosEstados)
 
       showToast(`Factura #${factura.numero_factura} enviada a Impresión (${ajustesFactura.length} productos${requiereReimpresion ? ', requiere cambios' : ''}). Usa "Recuperar" si necesitas editarla.`, 'success')

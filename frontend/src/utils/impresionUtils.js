@@ -159,30 +159,27 @@ export function normalizarItemsFactura(items, factura) {
   const ajustesDetalle = Array.isArray(factura.ajustes_realizados) ? factura.ajustes_realizados : []
   const faltantesDetalle = Array.isArray(factura.faltantes_detalle) ? factura.faltantes_detalle : []
 
-  const ajustesPorCodigo = ajustesDetalle.reduce((acc, ajuste) => {
-    if (ajuste && ajuste.producto_codigo) {
-      acc[ajuste.producto_codigo.toString()] = ajuste
+  // Un producto quitado por faltante puede volver al recuperar la factura.
+  const itemsConOriginales = [...items]
+  ajustesDetalle.forEach(ajuste => {
+    if (ajuste.item_original && !itemsConOriginales.some(item =>
+      String(item.item?.id ?? item.productId ?? item.itemId ?? item.id) === String(ajuste.producto_alegra_id))) {
+      itemsConOriginales.push(ajuste.item_original)
     }
-    return acc
-  }, {})
+  })
 
-  const faltantesPorCodigo = faltantesDetalle.reduce((acc, faltante) => {
-    if (faltante && faltante.producto_codigo) {
-      acc[faltante.producto_codigo.toString()] = faltante
-    }
-    return acc
-  }, {})
-
-  return items.map(item => {
+  return itemsConOriginales.map(item => {
     const reference = getReferenceFromInvoiceItem(item)
     const description = getDescriptionFromInvoiceItem(item)
     const price = getPriceValue(item.price)
     const taxes = getTaxesArray(item.tax)
     const alegraItemId = item.item?.id ?? item.productId ?? item.itemId ?? item.id ?? null
 
-    const codigoItem = (item.id ?? reference ?? item.reference?.reference ?? '').toString()
-    const ajuste = ajustesPorCodigo[codigoItem]
-    const faltante = faltantesPorCodigo[codigoItem]
+    const coincide = detalle => detalle.producto_alegra_id != null
+      ? String(detalle.producto_alegra_id) === String(alegraItemId)
+      : String(detalle.producto_codigo ?? '').trim() === reference && Boolean(reference)
+    const ajuste = ajustesDetalle.find(coincide)
+    const faltante = faltantesDetalle.find(coincide)
 
     let cantidadOriginal = Number(item.quantity) || 0
     let cantidadFaltante = 0
@@ -190,14 +187,16 @@ export function normalizarItemsFactura(items, factura) {
     let estadoAjuste = ajuste?.estado
 
     if (ajuste) {
-      const faltanteOriginal = Number(ajuste.cantidad_faltante || ajuste.cantidad_faltante_original || 0)
+      cantidadOriginal = Number(ajuste.cantidad_original ?? item.quantity) || 0
+      const faltanteOriginal = Number(ajuste.cantidad_faltante ?? ajuste.cantidad_faltante_original ?? 0)
       const entregada = Number(ajuste.cantidad_entregada || 0)
-      const faltantePendiente = Math.max(faltanteOriginal - entregada, 0)
+      const faltantePendiente = ajuste.estado === 'completo' ? 0 : Math.max(faltanteOriginal - entregada, 0)
       cantidadFaltante = faltantePendiente
       if (faltantePendiente > 0) {
         cantidadOriginal = Math.max(cantidadOriginal - faltantePendiente, 0)
       }
-      if (ajuste.estado === 'no_llego' || cantidadOriginal === 0) {
+      if (ajuste.cantidad_final_manual != null) cantidadOriginal = Number(ajuste.cantidad_final_manual)
+      if (cantidadOriginal === 0) {
         eliminarPorFaltante = true
       }
     } else if (faltante) {
@@ -216,6 +215,8 @@ export function normalizarItemsFactura(items, factura) {
       quantity: cantidadOriginal,
       price,
       tax: taxes,
+      discount: Number(item.discount) || 0,
+      precio_editado: false,
       itemId: item.item?.id ?? alegraItemId,
       alegraItemId,
       item: item.item?.id ? { id: item.item.id } : item.item ?? undefined,
@@ -234,7 +235,7 @@ export function construirPayloadItems(itemsEditados) {
     const descripcion = (item.description ?? '').trim()
     const referencia = (item.reference ?? '').toString().trim()
     const quantity = Number(item.quantity) || 0
-    const price = Number(item.price) || 0
+    const price = Number(item.price)
     const tax = Array.isArray(item.tax) ? item.tax : getTaxesArray(item.tax)
 
     const payload = {
@@ -243,7 +244,9 @@ export function construirPayloadItems(itemsEditados) {
       name: descripcion || referencia,
       quantity,
       price,
-      tax
+      tax,
+      discount: Number(item.discount) || 0,
+      precio_editado: item.precio_editado === true
     }
 
     if (item.id) {
@@ -275,6 +278,9 @@ export function construirPayloadItems(itemsEditados) {
 // Valida los items ya transformados a payload; devuelve el mensaje de error
 // o null si está todo bien. Extraído de handleGuardarFactura.
 export function validarItemsParaGuardar(itemsParaGuardar, itemsEditados) {
+  if (!itemsParaGuardar.some(item => item.quantity > 0)) {
+    return 'La factura debe conservar al menos un producto entregado. Revisá el pedido antes de imprimir.'
+  }
   const hayReferenciaVacia = itemsParaGuardar.some(item => !item.reference)
   if (hayReferenciaVacia) {
     return 'Todos los productos deben tener una referencia antes de guardar.'
@@ -289,5 +295,17 @@ export function validarItemsParaGuardar(itemsParaGuardar, itemsEditados) {
     return 'Las cantidades deben ser mayores a cero.'
   }
 
+  if (itemsParaGuardar.some(item => !Number.isFinite(item.price) || item.price < 0)) {
+    return 'Los precios deben ser números mayores o iguales a cero.'
+  }
+
   return null
+}
+
+export function totalItemsImpresion(items) {
+  return items.reduce((suma, item) => {
+    const base = Number(item.quantity) * getPriceValue(item.price) * (1 - (Number(item.discount) || 0) / 100)
+    const porcentaje = getTaxesArray(item.tax).reduce((total, tax) => total + (Number(tax.percentage) || 0), 0)
+    return suma + base * (1 + porcentaje / 100)
+  }, 0)
 }

@@ -27,6 +27,7 @@ correo son los de PRODUCCIÓN.
 - [Revisión de Precios — la factura del proveedor se manda a Alegra y actualiza costos](modulo/revision-precios.md)
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra](modulo/facturas-bodega.md)
+- [Impresión — la factura lleva lo que se entrega y el precio revisado](modulo/impresion.md)
 - [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md)
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md)
 
