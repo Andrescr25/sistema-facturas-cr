@@ -6,12 +6,14 @@ estado: vigente
 archivos:
   - frontend/src/pages/CatalogoAgente.jsx
   - frontend/src/utils/catalogoAgentePersonalizacion.js
+  - frontend/src/utils/promocionesCatalogoAgente.js
   - frontend/src/utils/buscarCatalogoAgente.js
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
   - frontend/src/components/catalogo-agente/BarraSuperior.jsx
   - backend/tests/subgruposCatalogoAgente.test.js
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
+  - backend/tests/promocionesCatalogoAgente.test.js
   - frontend/src/components/catalogo-agente/SelectorCliente.jsx
   - backend/tests/liquidacionSinStock.test.js
   - backend/src/modules/inventario-auditorias/productosNuevos.js
@@ -60,13 +62,20 @@ arriba de todo.
 La búsqueda (`buscarCatalogoAgente.js`) descarta el agrupado y devuelve una
 lista plana; Gestión de Catálogo hace lo mismo al buscar.
 
-"Bajamos el precio" también va en el orden del catálogo (2026-09-24): un
-bloque por categoría y, dentro, por subcategoría (`enOrdenDelCatalogo`, que
-es `ordenarCatalogoParaCliente` sin cliente). Antes iba por porcentaje de
-rebaja y los productos salían revueltos. "Liquidación" sigue por porcentaje.
+2026-10-07, segunda corrección del usuario: OFERTAS DENTRO DE SU FAMILIA.
+En Todo no hay bloque superior de ofertas/rebajas/liquidación. El hook cruza
+las mismas listas de promociones con la ficha, y `conPromocionesDelCatalogo`
+adjunta `precioAntes`/`bajaPorcentaje` y/o `descuentoPorcentaje`, sin cambiar
+precio base, clasificación ni caché cruda. Categorías, búsqueda, habituales,
+perdidos y nuevos reciben esos datos. El filtro Ofertas reúne rebajas y
+liquidación por categoría/familia, sin duplicar una ficha superpuesta; gana
+la liquidación. La tarjeta Oferta usa rótulo con porcentaje, borde naranja
+doble, fondo suave y área del precio resaltada; Liquidación conserva el
+porcentaje y morado. No aplicar otra rebaja al precio ya rebajado.
+[Informe y validación](../../informes/catalogo-ofertas-familias-2026-10-07.md).
 
-PRODUCTOS NUEVOS (2026-09-27, decisión del usuario): sección propia justo
-después de "Bajamos el precio", en el mismo orden por categoría. Es una lista
+PRODUCTOS NUEVOS (2026-09-27, decisión del usuario): conserva su sección
+propia al principio, en el mismo orden por categoría. Es una lista
 MANUAL (`producto_nuevo_catalogo`: qué producto, cuándo, quién) que se
 administra en Auditoría de Inventario, pestaña "Productos nuevos" — agregar o
 quitar, nada automático. Solo entra un producto activo y visible; uno que
@@ -81,13 +90,17 @@ entra en "Cliente nuevo".
 CLIENTE NUEVO (2026-09-25). En el selector de clientes, "Cliente nuevo" va
 siempre arriba y aparece al buscarlo. No es una ficha de cliente: es un id fijo
 (`CLIENTE_NUEVO_ID`) sin compras. Con él elegido, en vez del catálogo
-completo se ve `catalogoClienteNuevo`: OFERTA (las rebajas, con la etiqueta
-"OFERTA" en vez del porcentaje), LIQUIDACIÓN (los excesos, con su
-descuento), después rotación A ("Lo más vendido") y después B ("También se
-vende bien"), cada una por categoría y subcategoría. Ningún producto sale dos
-veces: la liquidación gana (su descuento se cobra encima del precio rebajado,
-así que es el precio real), y lo de oferta no se repite en A/B. La C no se
-muestra, y el buscador sigue viendo todo el catálogo. La rotación baja al sincronizar de
+completo se ve `catalogoClienteNuevo`. Selecciona OFERTA (rebajas), LIQUIDACIÓN
+(excesos), rotación A ("Lo más vendido") y B ("También se vende bien").
+Desde el segundo pedido del 2026-10-07, `todos` reúne las cuatro selecciones
+en una sola lista por categoría/familia: cada familia aparece una vez, con
+promociones y normales juntos. Las cuatro listas anteriores y sus contadores
+se conservan como filtros exclusivos, para no cambiar la selección original.
+Ningún producto sale dos veces: liquidación gana y las promociones no se
+repiten en A/B. C sin promoción queda solo en el buscador; C promocionada
+sigue entrando como antes. Sin rotación disponible se conservan promociones
+en su familia y el aviso de actualización. El buscador mira todo el catálogo.
+La rotación baja al sincronizar de
 `GET /catalogo-agente/rotacion` (solo ids, pide sesión) y se guarda en la
 tablet como las rebajas. Es la rotación EN EL MOMENTO de
 `ventas/rotacion.js` (unidades de los últimos 3 meses, la misma de

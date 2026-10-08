@@ -7,6 +7,7 @@ import {
   CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo, enOrdenDelCatalogo
 } from '../utils/catalogoAgentePersonalizacion'
 import { fotosEnOrden, guardarFotosDelCatalogo } from '../utils/cacheImagenesCatalogo'
+import { conPromocionesDelCatalogo } from '../utils/promocionesCatalogoAgente'
 
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
 const OFERTAS_PATH = '/catalogo-agente/ofertas'
@@ -177,16 +178,52 @@ export function useCatalogoAgente() {
     }
   }, [])
 
+  const featuredProducts = useMemo(() => {
+    if (!ofertas || ofertas.length === 0) return []
+    return ofertas
+      .map((oferta) => {
+        const product = products.find((p) => String(p.id) === String(oferta.id))
+        if (!product) return null
+        return { ...product, descuentoPorcentaje: oferta.descuentoPorcentaje }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.descuentoPorcentaje - a.descuentoPorcentaje)
+  }, [products, ofertas])
+
+  // Las bajas de precio traen su propia forma; se cruzan con el catálogo
+  // descargado para que la tarjeta reciba el producto completo (foto, subcategoría)
+  // y de paso se descartan las de productos que el agente no tiene bajados.
+  const productosRebajados = useMemo(() => {
+    if (!ofertasBaja || ofertasBaja.length === 0) return []
+    return ofertasBaja
+      .map((o) => {
+        const product = products.find((p) => String(p.id) === String(o.productoId))
+        if (!product) return null
+        // NO se pasa `descuentoPorcentaje`: esa prop hace que la tarjeta
+        // recalcule el precio, y acá el del catálogo ya es el rebajado.
+        return { ...product, precioAntes: o.precioAntes, bajaPorcentaje: o.descuentoPorcentaje }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
+  }, [products, ofertasBaja])
+
+  // La oferta viaja con la ficha en categoría, búsqueda e historial del
+  // cliente. Mostrarla aparte arriba duplicaba productos y separaba familias.
+  const catalogoPromocionado = useMemo(
+    () => conPromocionesDelCatalogo(products, productosRebajados, featuredProducts),
+    [products, productosRebajados, featuredProducts]
+  )
+
   // Se calculan antes que filteredData porque el agrupado por categoría los
   // necesita para excluirlos y no duplicarlos. Vacías (sin recalcular nada)
   // cuando no hay cliente seleccionado.
   const habitualesCliente = useMemo(
-    () => productosHabituales(products, statsPorProducto),
-    [products, statsPorProducto]
+    () => productosHabituales(catalogoPromocionado, statsPorProducto),
+    [catalogoPromocionado, statsPorProducto]
   )
   const perdidosCliente = useMemo(
-    () => productosPerdidos(products, statsPorProducto),
-    [products, statsPorProducto]
+    () => productosPerdidos(catalogoPromocionado, statsPorProducto),
+    [catalogoPromocionado, statsPorProducto]
   )
 
   // --- Conservar el lugar del catálogo al buscar y volver ---------------
@@ -229,7 +266,7 @@ export function useCatalogoAgente() {
   }, [searchQuery])
 
   const filteredData = useMemo(() => {
-    let result = products
+    let result = catalogoPromocionado
     const searchQuery = busquedaAplicada
 
     // Búsqueda ordenada por PARECIDO, no alfabética: lo que el agente
@@ -273,48 +310,19 @@ export function useCatalogoAgente() {
       sortedKeys,
       subgrupos
     }
-  }, [products, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente, configCatalogo])
-
-  const featuredProducts = useMemo(() => {
-    if (!ofertas || ofertas.length === 0) return []
-    return ofertas
-      .map((oferta) => {
-        const product = products.find((p) => String(p.id) === String(oferta.id))
-        if (!product) return null
-        return { ...product, descuentoPorcentaje: oferta.descuentoPorcentaje }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.descuentoPorcentaje - a.descuentoPorcentaje)
-  }, [products, ofertas])
-
-  // Las bajas de precio traen su propia forma; se cruzan con el catálogo
-  // descargado para que la tarjeta reciba el producto completo (foto, subcategoría)
-  // y de paso se descartan las de productos que el agente no tiene bajados.
-  const productosRebajados = useMemo(() => {
-    if (!ofertasBaja || ofertasBaja.length === 0) return []
-    return ofertasBaja
-      .map((o) => {
-        const product = products.find((p) => String(p.id) === String(o.productoId))
-        if (!product) return null
-        // NO se pasa `descuentoPorcentaje`: esa prop hace que la tarjeta
-        // recalcule el precio, y acá el del catálogo ya es el rebajado.
-        return { ...product, precioAntes: o.precioAntes, bajaPorcentaje: o.descuentoPorcentaje }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.bajaPorcentaje - a.bajaPorcentaje)
-  }, [products, ofertasBaja])
+  }, [catalogoPromocionado, busquedaAplicada, statsPorProducto, habitualesCliente, perdidosCliente, configCatalogo])
 
   // "Productos nuevos" cruzados con el catálogo descargado: la tarjeta
   // necesita el producto completo, y un id que la tablet no tiene (inactivo,
   // o todavía no sincronizado) no se puede mostrar.
   const productosNuevos = useMemo(() => {
     if (!productosNuevosIds || productosNuevosIds.length === 0) return []
-    const porId = new Map(products.map((p) => [String(p.id), p]))
+    const porId = new Map(catalogoPromocionado.map((p) => [String(p.id), p]))
     return productosNuevosIds.map((n) => porId.get(String(n.productoId))).filter(Boolean)
-  }, [products, productosNuevosIds])
+  }, [catalogoPromocionado, productosNuevosIds])
 
-  // El catálogo de "Cliente nuevo": oferta, liquidación, rotación A y
-  // rotación B, cada una por categoría y subcategoría. Solo se arma con ese
+  // "Cliente nuevo" reúne oferta, liquidación, A y B por categoría/familia,
+  // con filtros que conservan las cuatro selecciones. Solo se arma con ese
   // cliente elegido.
   const clienteNuevo = useMemo(() => {
     if (!esClienteNuevo(clienteActivo)) return null

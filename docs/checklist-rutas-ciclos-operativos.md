@@ -576,6 +576,15 @@ búsqueda, selección y modo sin señal; 42 pruebas de orden/búsqueda/Cliente n
 IDs: operativo **96/3**, independencia **133/14**. El usuario autoriza solo este
 ajuste visual en main; Hacienda sigue siendo su configuración y revisión real.
 
+**Ampliación visual del mismo día:** ofertas en su familia, tarjeta naranja
+destacada y filtros conservados. Cliente nuevo reúne oferta/liquidación/A/B
+en Todo sin duplicados; el catálogo general, búsqueda e historial muestran
+la promoción en la ficha. 49 pruebas (7 regresiones nuevas), recorridos con
+datos locales y bordes en navegador; sin mutaciones comerciales.
+[Evidencia y alcance](informes/catalogo-ofertas-familias-2026-10-07.md).
+No cambia **96/3** ni los quince acuerdos originales; producción conserva
+el ajuste anterior `cfddb83`. Este segundo pedido se prepara solo local.
+
 1. Rutas/ciclos y ficha del cliente: §1 y §2.
 2. Contexto del pedido y preventa próxima: §3.
 3. Filtros, preparación y origen de faltantes: §4 y §5.

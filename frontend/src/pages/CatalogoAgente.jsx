@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Flame, TrendingDown, Star, RotateCcw, PackageOpen,
+  Flame, Star, RotateCcw, PackageOpen,
   LayoutGrid, Tag, UserCheck, Loader2, ChevronRight, Award, ThumbsUp, Sparkles, KeyRound
 } from 'lucide-react'
 import { useCatalogoAgente } from '../hooks/useCatalogoAgente'
@@ -51,7 +51,7 @@ import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
  * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
  * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
  */
-function Cuadricula({ productos, familias, statsPorProducto, comoOferta = false }) {
+function Cuadricula({ productos, familias, statsPorProducto }) {
   // Las familias conservan el orden canónico y la prioridad del cliente.
   // Se recorren en una sola cuadrícula: abrir otra por subcategoría dejaba
   // filas casi vacías. Solo el cambio de categoría empieza un bloque nuevo.
@@ -68,7 +68,6 @@ function Cuadricula({ productos, familias, statsPorProducto, comoOferta = false 
           product={p}
           stats={p._stats || statsPorProducto?.get(String(p.id))}
           mostrarSinSubcategoria={Boolean(familias)}
-          comoOferta={comoOferta}
         />
       ))}
     </div>
@@ -80,14 +79,14 @@ function Cuadricula({ productos, familias, statsPorProducto, comoOferta = false 
  * Cada una tiene su encabezado y una cuadrícula continua; las subcategorías
  * se identifican en las tarjetas para poder compartir fila sin confusión.
  */
-function BloquesPorCategoria({ bloques, comoOferta = false }) {
+function BloquesPorCategoria({ bloques }) {
   return bloques.map((b) => (
     <div key={b.clave} className="mb-6 last:mb-0">
       <div className="mb-3 flex items-baseline gap-2 border-b border-neutro-200 pb-1.5">
         <h3 className={`text-[15px] font-extrabold ${b.clave === 'Otros' ? 'text-neutro-400' : 'text-neutro-800'}`}>{b.nombre}</h3>
         <span className="text-xs font-semibold text-neutro-400">{b.productos.length}</span>
       </div>
-      <Cuadricula productos={b.productos} familias={b.familias} comoOferta={comoOferta} />
+      <Cuadricula productos={b.productos} familias={b.familias} />
     </div>
   ))
 }
@@ -132,15 +131,16 @@ export default function CatalogoAgente() {
   }, [])
 
   const ofertas = useMemo(
-    () => [...productosRebajados, ...featuredProducts],
+    // Una ficha con ambas promociones se muestra al precio de liquidación.
+    () => [...new Map([...productosRebajados, ...featuredProducts].map((p) => [String(p.id), p])).values()],
     [productosRebajados, featuredProducts]
   )
 
-  // "Bajamos el precio" en el orden del catálogo: por categoría y, dentro,
-  // por subcategoría. Revueltas por porcentaje, el agente no encontraba nada.
-  const rebajasPorCategoria = useMemo(
-    () => enOrdenDelCatalogo(productosRebajados, configCatalogo),
-    [productosRebajados, configCatalogo]
+  // Solo se usa al elegir el filtro Ofertas. En Todo, cada promoción está
+  // en su familia; no hay otra copia de la ficha arriba del catálogo.
+  const ofertasPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(ofertas, configCatalogo),
+    [ofertas, configCatalogo]
   )
 
   // "Productos nuevos" (lista manual de Auditoría de Inventario), igual que
@@ -151,8 +151,8 @@ export default function CatalogoAgente() {
   )
 
   const categorias = useMemo(() => {
-    // "Cliente nuevo": la barra salta entre sus cuatro partes, no entre las
-    // categorías del catálogo completo (que en este modo no se muestra).
+    // "Cliente nuevo": filtros de las cuatro selecciones; Todo reúne sus
+    // productos por familia en lugar de separar las ofertas arriba.
     if (clienteNuevo) {
       const { totales } = clienteNuevo
       const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: totales.oferta + totales.liquidacion + totales.A + totales.B }]
@@ -271,35 +271,12 @@ export default function CatalogoAgente() {
               />
           </Seccion>
         ) : clienteNuevo ? (
-          /* "Cliente nuevo": en vez del catálogo completo, lo más fácil de
-             vender — la oferta, la liquidación, y después la rotación A y la
-             B, cada una por categoría y subcategoría. Lo demás sigue a mano
-             en el buscador. */
+          /* Misma selección de recomendaciones, ordenada por familia.
+             La barra filtra promociones/rotación sin separarlas en Todo. */
           <>
-            {(enTodo || categoria === '__oferta') && clienteNuevo.totales.oferta > 0 && (
-              <Seccion titulo="Oferta" descripcion="Precios especiales"
-                icono={Tag} color="bg-acento-50 text-acento-600">
-                <BloquesPorCategoria bloques={clienteNuevo.oferta} comoOferta />
-              </Seccion>
-            )}
-            {(enTodo || categoria === '__liquidacion') && clienteNuevo.totales.liquidacion > 0 && (
-              <Seccion titulo="Liquidación" descripcion="Mientras dure la existencia"
-                icono={Flame} color="bg-nota-50 text-nota-600">
-                <BloquesPorCategoria bloques={clienteNuevo.liquidacion} />
-              </Seccion>
-            )}
-            {(enTodo || categoria === '__rotA') && clienteNuevo.totales.A > 0 && (
-              <Seccion titulo="Lo más vendido" descripcion="Rotación A"
-                icono={Award} color="bg-exito-50 text-exito-600">
-                <BloquesPorCategoria bloques={clienteNuevo.A} />
-              </Seccion>
-            )}
-            {(enTodo || categoria === '__rotB') && clienteNuevo.totales.B > 0 && (
-              <Seccion titulo="También se vende bien" descripcion="Rotación B"
-                icono={ThumbsUp} color="bg-primario-50 text-primario-600">
-                <BloquesPorCategoria bloques={clienteNuevo.B} />
-              </Seccion>
-            )}
+            <BloquesPorCategoria bloques={enTodo
+              ? clienteNuevo.todos
+              : clienteNuevo[{ __oferta: 'oferta', __liquidacion: 'liquidacion', __rotA: 'A', __rotB: 'B' }[categoria]] || []} />
             {clienteNuevo.totales.A + clienteNuevo.totales.B === 0 && (
               <div className="mx-auto mt-6 max-w-sm rounded-2xl bg-white p-6 text-center ring-1 ring-neutro-200">
                 <p className="text-sm font-bold text-neutro-900">Falta la lista de lo más vendido</p>
@@ -311,29 +288,19 @@ export default function CatalogoAgente() {
           </>
         ) : (
           <>
-            {(enTodo || categoria === '__ofertas') && productosRebajados.length > 0 && (
-              <Seccion titulo="Bajamos el precio" descripcion="Ahora cuestan menos que antes"
-                icono={TrendingDown} color="bg-acento-50 text-acento-600">
-                <BloquesPorCategoria bloques={rebajasPorCategoria} />
+            {categoria === '__ofertas' && ofertas.length > 0 && (
+              <Seccion titulo="Ofertas y liquidación" descripcion="Filtradas por categoría y familia"
+                icono={Tag} color="bg-acento-50 text-acento-600">
+                <BloquesPorCategoria bloques={ofertasPorCategoria} />
               </Seccion>
             )}
 
-            {/* Lista manual de Auditoría de Inventario, justo después de las
-                rebajas (decisión del usuario, 2026-09-27). */}
+            {/* Lista manual de Auditoría de Inventario: conserva su sección
+                propia (decisión del usuario, 2026-09-27). */}
             {(enTodo || categoria === '__nuevos') && productosNuevos.length > 0 && (
               <Seccion titulo="Productos nuevos" descripcion="Recién llegados al catálogo"
                 icono={Sparkles} color="bg-primario-50 text-primario-600">
                 <BloquesPorCategoria bloques={nuevosPorCategoria} />
-              </Seccion>
-            )}
-
-            {/* Sección aparte de "Bajamos el precio" a propósito: esta son
-                excesos de inventario y aquella una baja de precio decidida.
-                El argumento de venta es distinto. */}
-            {(enTodo || categoria === '__ofertas') && featuredProducts.length > 0 && (
-              <Seccion titulo="Liquidación" descripcion="Mientras dure la existencia"
-                icono={Flame} color="bg-nota-50 text-nota-600">
-                <Cuadricula productos={featuredProducts} />
               </Seccion>
             )}
 

@@ -180,17 +180,18 @@ export function esClienteNuevo(cliente) {
 }
 
 /**
- * El catálogo para un cliente nuevo, en cuatro partes y en este orden:
+ * El catálogo para un cliente nuevo selecciona cuatro clases de productos:
  *
  *   1. OFERTA: lo que bajó de precio (las mismas rebajas de "Bajamos el
  *      precio"; a quien no conoce el precio de antes se le dice "oferta").
  *   2. LIQUIDACIÓN: los excesos de inventario, con su descuento (agregada el
  *      2026-09-25 a pedido del usuario).
  *   3. Rotación A: lo que más se vende, que es lo más fácil de vender.
- *   4. Rotación B: cuando se termina la A.
+ *   4. Rotación B: lo que también se vende bien.
  *
- * Cada parte en bloques por categoría y, dentro, por subcategoría — el mismo
- * orden que el resto del catálogo (`enOrdenDelCatalogo`).
+ * Cada clase sirve como filtro. `todos` reúne las cuatro en el orden de
+ * categoría/familia: las ofertas conviven con sus vecinos, sin bloque arriba
+ * (pedido del usuario, 2026-10-07). No cambia qué productos se recomiendan.
  *
  * NINGÚN PRODUCTO SALE DOS VECES: el agente creería que son productos
  * distintos. Lo que está en Liquidación no se repite en ninguna otra parte
@@ -218,6 +219,7 @@ export function catalogoClienteNuevo(products, { rebajados = [], liquidacion = [
   const b = deClase(claseB)
 
   return {
+    todos: enOrdenDelCatalogo([...oferta, ...liquidacion, ...a, ...b], configCatalogo),
     oferta: enOrdenDelCatalogo(oferta, configCatalogo),
     liquidacion: enOrdenDelCatalogo(liquidacion, configCatalogo),
     A: enOrdenDelCatalogo(a, configCatalogo),

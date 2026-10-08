@@ -91,6 +91,16 @@ Resultados y verificaciones en el
 [informe de Clientes](informes/clientes-redisenados-2026-10-07.md) y el
 [informe de Proveedores](informes/proveedores-redisenados-2026-10-07.md).
 Catálogo: [informe y comprobaciones](informes/catalogo-agente-sin-huecos-2026-10-07.md).
+Después pidió **otro cambio del catálogo agente**: ofertas mezcladas con los
+productos de su categoría/familia, sin sección superior de ofertas, y tarjeta
+de oferta más llamativa. En Cliente nuevo, Todo reúne las recomendaciones por
+familia; las cuatro selecciones anteriores quedan como filtros. En catálogo
+general, búsqueda e historial la promoción viaja con la ficha. Conservar
+precios/precedencia de liquidación, filas completas y rótulos de subcategoría.
+[Informe de esta ampliación](informes/catalogo-ofertas-familias-2026-10-07.md).
+El ajuste anterior de filas se publicó en main (`cfddb83`); este segundo
+pedido se realiza en la rama local. No ampliar su autorización específica
+de publicación a otros cambios ni modificar Hacienda mientras la configura.
 Reutilizar la navegación y los componentes de tarjetas, botones y estados;
 separar los pasos de una orden sin perder lo escrito al navegar. La aceptación
 visual de ambas pantallas sigue al usuario, sin cerrar CLI-10/VAL-08 por este trabajo.

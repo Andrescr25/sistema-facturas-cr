@@ -33,6 +33,11 @@ contiguas con rótulo en cada tarjeta, especialmente en Cliente nuevo.
 no cambia los IDs ni acredita aceptación fiscal/corte. El usuario autoriza
 llevar únicamente este ajuste visual a `main`, conservando la migración local.
 
+Segundo pedido: ofertas dentro de su categoría/familia, tarjeta más llamativa
+y filtros en lugar de sección superior; Cliente nuevo conserva la selección
+original sin duplicados. [Informe](informes/catalogo-ofertas-familias-2026-10-07.md).
+Se implementa localmente; no altera **133/14** ni acredita aceptación fiscal.
+
 ## Cómo trabajar en esta rama
 
 - **Dos carpetas, una por rama**, para que corran a la vez:

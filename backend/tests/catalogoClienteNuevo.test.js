@@ -8,8 +8,8 @@
  * buscador si el cliente pregunta.
  *
  * LO QUE SE CUIDA
- *  - el orden: oferta, liquidación, después A, después B — y dentro de cada
- *    una, por categoría y subcategoría, como el resto del catálogo;
+ *  - la selección: oferta, liquidación, A y B; Todo reúne las cuatro por
+ *    categoría/familia sin separar promociones arriba;
  *  - que ningún producto salga dos veces (la liquidación gana: su precio es
  *    el que se cobra);
  *  - que la C no aparezca;
@@ -107,6 +107,37 @@ describe('el catálogo de "Cliente nuevo"', () => {
     assert.equal(esClienteNuevo(CLIENTE_NUEVO), true);
     assert.equal(esClienteNuevo({ id: 55, n: 'SUPER X' }), false);
     assert.equal(construirStats(CLIENTE_NUEVO).size, 0);
+  });
+
+  test('Todo coloca la oferta junto a su familia y une A/B en un solo bloque de categoría', () => {
+    const rebajados = [{ ...CATALOGO[1], precioAntes: 500 }];
+    const c = catalogoClienteNuevo(CATALOGO, { rebajados, rotacion: ROTACION, configCatalogo: CONFIG });
+    assert.deepEqual(c.todos.map(b => b.clave), ['Productos de PVC', 'Ferretería', 'Limpieza']);
+    assert.deepEqual(c.todos[0].productos.map(p => p.id), ['3', '2'], 'PVC 1/2 antes de la oferta PVC 3/4');
+    assert.deepEqual(c.todos[1].productos.map(p => p.id), ['5', '4'], 'A y B juntos en su categoría');
+    assert.equal(c.todos[0].productos[1].precioAntes, 500);
+    assert.equal(c.todos.flatMap(b => b.productos).length, 6, 'mismas recomendaciones, sin C');
+  });
+
+  test('Todo incluye C promocionada una vez y conserva precedencia de liquidación', () => {
+    const c = catalogoClienteNuevo(CATALOGO, {
+      rebajados: [{ ...CATALOGO[6], precioAntes: 500 }],
+      liquidacion: [{ ...CATALOGO[6], descuentoPorcentaje: 20 }],
+      rotacion: ROTACION, configCatalogo: CONFIG
+    });
+    const todos = c.todos.flatMap(b => b.productos);
+    assert.equal(todos.length, 7);
+    assert.equal(new Set(todos.map(p => p.id)).size, 7);
+    assert.equal(todos.find(p => p.id === '7').descuentoPorcentaje, 20);
+    assert.equal(c.totales.oferta, 0);
+    assert.equal(c.totales.liquidacion, 1);
+  });
+
+  test('sin rotación, Todo conserva ofertas en su familia y los filtros anteriores', () => {
+    const c = catalogoClienteNuevo(CATALOGO, { rebajados: [CATALOGO[1]], configCatalogo: CONFIG });
+    assert.deepEqual(c.todos, c.oferta);
+    assert.deepEqual(c.A, []);
+    assert.deepEqual(c.B, []);
   });
 });
 

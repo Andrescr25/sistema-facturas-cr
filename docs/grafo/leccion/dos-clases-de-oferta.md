@@ -9,7 +9,7 @@ archivos:
   - backend/src/modules/portal-clientes/preventaPdf.service.js
 aristas:
   relacionado: [modulo/catalogo-agente, leccion/precio-sin-iva-costo-con-iva, modulo/preventa-por-enlace]
-medido: 2026-10-05
+medido: 2026-10-07
 ---
 
 Los catálogos (agente y cliente) muestran dos clases de oferta:
@@ -21,10 +21,11 @@ Los catálogos (agente y cliente) muestran dos clases de oferta:
 
 Pasarle `descuentoPorcentaje` a una baja de precio la descuenta dos veces, y
 el agente le promete al cliente un precio que no existe. Son dos props
-separadas en `TarjetaProductoAgente.jsx`. En el catálogo de "Cliente nuevo"
-la baja de precio dice "OFERTA" en vez del porcentaje (`comoOferta`), pero
-sigue siendo `precioAntes`: el precio de antes se ve tachado y no se descuenta
-nada encima.
+separadas en `TarjetaProductoAgente.jsx`. Desde el 2026-10-07 la baja dice
+«OFERTA» con el porcentaje en cualquier vista. Sigue siendo `precioAntes`:
+antes tachado y precio base intacto. `conPromocionesDelCatalogo` adjunta la
+promoción a su familia, búsqueda e historial sin aplicar descuentos ni mutar
+la caché. Si también hay liquidación, esta etiqueta/cálculo tiene prioridad.
 
 Qué entra en "Bajamos el precio" lo decide `ofertasPorBaja.js`: precio más
 bajo Y al menos `PUNTOS_MARGEN_MINIMO` (5) puntos de margen menos. Un precio
