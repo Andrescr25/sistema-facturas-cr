@@ -25,8 +25,10 @@ const rutaServicio = path.join(__dirname, '..', 'src', 'modules', 'invoices', 'i
 /**
  * @param enFactura  precio que cada línea tiene HOY en la factura de Alegra
  * @param enCatalogo precio actual del catálogo
+ * @param lineas     líneas completas de la factura, cuando el precio no alcanza
+ * @param rechazo    lo que contesta Alegra si rechaza la modificación
  */
-function montar({ enFactura = {}, enCatalogo = {} } = {}) {
+function montar({ enFactura = {}, enCatalogo = {}, lineas = null, rechazo = null } = {}) {
   for (const r of [rutaDb, rutaServicio]) delete require.cache[r];
 
   require.cache[rutaDb] = {
@@ -42,7 +44,7 @@ function montar({ enFactura = {}, enCatalogo = {} } = {}) {
     getInvoiceById: async () => ({
       success: true,
       data: {
-        items: Object.entries(enFactura).map(([id, price]) => ({ id: Number(id), price, quantity: 1 }))
+        items: lineas || Object.entries(enFactura).map(([id, price]) => ({ id: Number(id), price, quantity: 1 }))
       }
     }),
     getUpdatedPriceById: async (id) => (enCatalogo[String(id)] ?? null),
@@ -50,7 +52,7 @@ function montar({ enFactura = {}, enCatalogo = {} } = {}) {
     updateInvoice: async (alegraId, cuerpo) => {
       enviado.alegraId = alegraId;
       enviado.items = cuerpo.items;
-      return { success: true };
+      return rechazo || { success: true };
     }
   };
 
@@ -127,5 +129,71 @@ describe('el precio nuevo en la reimpresión', () => {
     const porId = new Map(enviado.items.map(i => [i.id, i.price]));
     assert.equal(porId.get(10), 130, 'la que nadie tocó tenía que tomar el precio del catálogo');
     assert.equal(porId.get(11), 190, 'la escrita a mano tenía que quedarse como la escribieron');
+  });
+});
+
+/**
+ * LO QUE PASÓ EL 8 DE OCTUBRE DE 2026. Al empezar a mandar el descuento de
+ * cada línea, se mandó como número. Alegra de Costa Rica lo quiere como
+ * { discount, type } y rechazó la factura entera: "El tipo de descuento es
+ * requerido cuando se aplica un descuento". Solo fallaban las facturas con
+ * una línea con descuento (una regalía al 100 %), las demás se imprimían.
+ */
+describe('el descuento llega a Alegra con su tipo', () => {
+  const regalia = { id: 10, price: 55, quantity: 6, discount: 100, discountObject: { discount: 100, nature: null, type: 'COMMERCIAL_DISCOUNT' } };
+  const normal = { id: 11, price: 2550, quantity: 4, discount: 0, discountObject: { discount: 0, nature: null } };
+
+  test('sin edición, la línea con descuento conserva el tipo que tiene en la factura', async () => {
+    const { servicio, enviado } = montar({ lineas: [regalia, normal] });
+
+    const resultado = await servicio.updateInvoicePricesFromAlegra('5000', [], null, false);
+
+    assert.equal(resultado.success, true);
+    const porId = new Map(enviado.items.map(i => [i.id, i.discount]));
+    assert.deepEqual(porId.get(10), { discount: 100, type: 'COMMERCIAL_DISCOUNT' });
+    assert.equal(porId.get(11), 0, 'sin descuento se sigue mandando 0, que Alegra acepta');
+  });
+
+  test('la pantalla de edición solo manda el porcentaje y el tipo sale de la factura', async () => {
+    const { servicio, enviado } = montar({ lineas: [regalia, normal] });
+
+    await servicio.updateInvoicePricesFromAlegra('5000', [],
+      [{ ...linea(10, 55, 6), discount: 100 }, { ...linea(11, 2550, 3), discount: 0 }], false);
+
+    const porId = new Map(enviado.items.map(i => [i.id, i.discount]));
+    assert.deepEqual(porId.get(10), { discount: 100, type: 'COMMERCIAL_DISCOUNT' });
+    assert.equal(porId.get(11), 0);
+  });
+
+  test('un descuento "otro" lleva también su naturaleza', async () => {
+    const otro = { ...regalia, discount: 15, discountObject: { discount: 15, nature: 'Acuerdo con el cliente', type: 'OTHER' } };
+    const { servicio, enviado } = montar({ lineas: [otro] });
+
+    await servicio.updateInvoicePricesFromAlegra('5000', [], null, false);
+
+    assert.deepEqual(enviado.items[0].discount, { discount: 15, type: 'OTHER', nature: 'Acuerdo con el cliente' });
+  });
+
+  test('un descuento sin tipo se bloquea antes de llegar a Alegra, diciendo cuál producto', async () => {
+    const sinTipo = { ...regalia, reference: 'ZZ-REG', discountObject: { discount: 100, nature: null } };
+    const { servicio, enviado } = montar({ lineas: [sinTipo] });
+
+    const resultado = await servicio.updateInvoicePricesFromAlegra('5000', [], null, false);
+
+    assert.equal(resultado.success, false);
+    assert.match(resultado.error, /ZZ-REG.*tipo de descuento/);
+    assert.equal(enviado.items, undefined, 'no se intentó modificar la factura');
+  });
+
+  test('si Alegra rechaza, se ve el motivo que dio y no el error de axios', async () => {
+    const { servicio } = montar({
+      lineas: [normal],
+      rechazo: { success: false, error: 'Request failed with status code 400', status: 400, data: { message: 'Motivo que explicó Alegra', code: 1 } }
+    });
+
+    const resultado = await servicio.updateInvoicePricesFromAlegra('5000', [], null, false);
+
+    assert.equal(resultado.success, false);
+    assert.equal(resultado.error, 'Motivo que explicó Alegra');
   });
 });
