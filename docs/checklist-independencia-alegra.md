@@ -885,6 +885,25 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   la base (`whatsapp_sesion`). En el corte: `WHATSAPP_PROVEEDOR=interno` y
   `PERMITIR_SALIDAS=true`, y copiar la sesión de producción o volver a
   vincular con el QR. En la rama aislada no se conecta nunca.
+- [ ] **Servidor: Node 22 y `xmllint`.** Revisión del 2026-10-08: el backend
+  exige Node >= 22 y Hacienda valida el XSD con `xmllint`; sin él, preparar
+  un comprobante responde 503. `nixpacks.toml` y `frontend/package.json`
+  siguen en Node 18. Alinear y comprobar en el servidor real antes de D.
+  Detalle de este y de los tres siguientes en
+  [el plan de corte](plan-corte-independencia.md), sección del servidor.
+- [ ] **Servidor: disco persistente y respaldo** para fotos
+  (`ALMACENAMIENTO_DIR`), privados (`ALMACENAMIENTO_PRIVADO_DIR`) y el
+  almacén de Hacienda (`HACIENDA_ALMACEN_PRIVADO`, con `llave-cifrado`).
+  Hoy todo va a disco local; un servicio sin disco persistente lo pierde en
+  cada despliegue.
+- [ ] **Servidor: llaves de arranque.** `PERMITIR_BASE_REMOTA`,
+  `PERMITIR_SALIDAS`, `PERMITIR_LECTURA_BUZON`, `WHATSAPP_PROVEEDOR=interno`
+  y `HACIENDA_TRABAJADOR`. Sin las tres primeras la rama no conecta a una
+  base remota, no envía nada y no lee el buzón.
+- [ ] **Migraciones sobre la base de producción.** Las 52 de
+  `migrations/independencia/` solo se han aplicado sobre copias locales.
+  Decidir si se aplican sobre la base congelada o se promueve la candidata,
+  y ensayarlo completo antes de D.
 
 ---
 

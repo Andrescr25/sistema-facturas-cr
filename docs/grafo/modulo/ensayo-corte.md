@@ -14,7 +14,7 @@ archivos:
 aristas:
   relacionado: [modulo/auditoria-operacion-local, modulo/hacienda, modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-10-07
+medido: 2026-10-08
 ---
 
 La herramienta prepara una candidata local nueva; nunca reemplaza la base
@@ -82,3 +82,11 @@ Auditoría posterior de rutas, 2026-10-07: [[modulo/auditoria-operacion-local]]
 reconstruye SOLO 044–052 desde un respaldo LOCAL 043 y compara historia,
 esquema y cero provisional. No ejecuta cargadores de Alegra ni conciliaciones
 finales y no completa las dos pasadas del corte. Ese pendiente se conserva.
+
+REQUISITOS DEL SERVIDOR, 2026-10-08. El ensayo corre en la copia local y no
+prueba el servidor de producción. El plan operativo lista aparte lo que tiene
+que existir allá antes de D: Node 22 y `xmllint`, disco persistente para
+fotos, privados y almacén de Hacienda, las llaves `PERMITIR_*`, el paso real
+de las migraciones sobre la base de producción y la fusión a `main`, que es
+el corte mismo.
+

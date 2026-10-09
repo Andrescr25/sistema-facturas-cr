@@ -87,6 +87,50 @@ No usar `setupDatabase.js`: no monta las migraciones propias. Tampoco usar
 base compartida. No ejecutar limpieza semanal ni su botón durante ninguno de
 estos pasos. Los datos de trabajo de faltantes no son datos descartables.
 
+## Servidor de producción: lo que tiene que existir antes de D
+
+Decisión del usuario, 2026-10-08: el sistema propio queda en ESTE MISMO
+repositorio; en D todo `independencia-alegra` pasa a `main` y Alegra queda
+de consulta. No hay repositorio ni proyecto nuevo. Mientras no se diga otra
+cosa se asume el despliegue actual de `main` (Render + Supabase): confirmarlo
+con el usuario antes de preparar el servidor, porque de eso depende cómo se
+cumple cada punto. Ninguno estaba en este plan: salieron de la revisión de
+la rama del 2026-10-08 y ninguno se puede comprobar desde la copia local.
+
+1. **Node 22 y `xmllint`.** `backend/package.json` exige Node >= 22 y la
+   validación contra el XSD llama a `xmllint` (libxml2). Sin ese programa,
+   preparar un comprobante responde 503. `nixpacks.toml` y
+   `frontend/package.json` todavía piden Node 18: alinearlos y comprobar las
+   dos cosas en el servidor antes de D, no ese día.
+2. **Disco que sobreviva a un despliegue.** Todo archivo va a disco local:
+   fotos (`ALMACENAMIENTO_DIR`, 270 MB medidos en la copia), PDF y XML
+   privados (`ALMACENAMIENTO_PRIVADO_DIR`) y el almacén de Hacienda
+   (`HACIENDA_ALMACEN_PRIVADO`), que guarda `llave-cifrado` y los XML
+   firmados. Un servicio sin disco persistente los pierde en cada
+   despliegue, y sin esa llave no se recuperan las credenciales guardadas.
+   Las tres rutas apuntan a un disco persistente y entran en el respaldo.
+3. **Llaves de arranque.** Fuera de la copia local, `config/aislado.js` no
+   conecta ni deja salir nada por omisión. En el servidor se prenden a
+   propósito, en D: `PERMITIR_BASE_REMOTA=true`, `PERMITIR_SALIDAS=true`,
+   `PERMITIR_LECTURA_BUZON=true`, `WHATSAPP_PROVEEDOR=interno` y
+   `HACIENDA_TRABAJADOR=true` (o `npm run hacienda:seguir` desde un
+   planificador aparte). La aplicación ya no lee `ALEGRA_*` ni las
+   `ENABLE_*_SYNC` de Alegra; los cargadores de la migración sí usan las
+   credenciales de lectura.
+4. **Las migraciones sobre la base de producción.** Las 52 de
+   `migrations/independencia/` solo las aplican `refrescar-copia.sh` y
+   `ensayar-corte.js`, siempre sobre una copia local. Falta decidir y
+   ensayar el paso real: aplicarlas sobre la base de producción congelada o
+   promover la candidata. Cualquiera de los dos se prueba completo en el
+   ensayo antes de D.
+5. **La fusión a `main`.** Ensayada sin tocar nada el 2026-10-08
+   (`git merge-tree`): 14 archivos en conflicto, todos de Impresión y del
+   catálogo del agente, donde la rama ya tiene su versión adaptada
+   (`c204528`, `d5797d5`, `4195791`); se resuelven con la versión de la
+   rama. `f4f70fa` de `main` (tipo de descuento hacia Alegra) no aplica acá.
+   La fusión ES el corte: en cuanto entra a `main`, producción deja de usar
+   Alegra. No se adelanta.
+
 ## Vuelta atrás
 
 **Antes de la primera escritura real en el sistema nuevo:** mantenerlo cerrado,

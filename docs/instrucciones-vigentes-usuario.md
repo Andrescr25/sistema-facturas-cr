@@ -295,3 +295,21 @@ la fuente anterior. [Informe](informes/busqueda-maps-local-2026-10-07.md) y
 [bloqueo](grafo/bloqueo/maps-anteriores-sin-fuente-local.md). Operativo96/3
 e independencia133/14 conservados. El usuario debe identificar la procedencia
 cuando esté disponible; no consultar producción ni fabricar enlaces.
+
+
+## Decisión de corte — mismo repositorio, 2026-10-08
+
+El usuario confirmó: el sistema propio queda en este mismo repositorio y,
+cuando llegue el momento, todo `independencia-alegra` pasa a `main` para
+dejar de usar Alegra. Está solicitando el acceso a Hacienda para terminar
+esa configuración; cargar credenciales y obtener la aceptación real siguen
+siendo suyos. Esto NO autoriza todavía la fusión ni el corte.
+
+Revisión de la rama ese día, sin tocar la base compartida: suite, pruebas
+con PostgreSQL sobre copia desechable, grafo y build sin fallos. Los
+requisitos del servidor que faltaban quedaron en
+[el plan de corte](plan-corte-independencia.md) y en la sección 15 del
+[checklist](checklist-independencia-alegra.md). Operativo **96/3** sin
+cambio; independencia pasa a **133/18** por esos cuatro pendientes nuevos.
+Falta que el usuario confirme si producción sigue en Render + Supabase.
+
