@@ -55,6 +55,27 @@ function tipoImpuesto(t) {
   }
 }
 
+/**
+ * Código de tarifa de Hacienda (anexo 4.4) cuando la pareja tipo + tarifa solo
+ * admite uno. Una tarifa de 0 % puede ser 01, 05, 10 u 11 y cambia el
+ * tratamiento fiscal: esa la elige una persona en Configuración → Impuestos,
+ * acá queda en null. Sin este valor por defecto cada base nueva nacía con
+ * todos los impuestos "Pendiente" y no se podía preparar ningún comprobante.
+ * La migración 053 aplica la misma tabla a las bases ya cargadas.
+ */
+const TARIFAS_HACIENDA = {
+  'general:13': '08',
+  'reducido:0.5': '09',
+  'reducido:1': '02',
+  'reducido:2': '03',
+  'reducido:4': '04',
+  'transitorio:4': '06',
+  'transitorio:8': '07'
+};
+function codigoTarifaHacienda(tipo, tarifa) {
+  return TARIFAS_HACIENDA[`${tipo}:${Number(tarifa)}`] || null;
+}
+
 /** Una tarifa de IVA (GET /taxes). La tarifa se toma del número, nunca del id. */
 function impuestoDesdeAlegra(t) {
   const tarifa = Number(t.percentage);
@@ -68,6 +89,7 @@ function impuestoDesdeAlegra(t) {
     nombre,
     tarifa,
     tipo,
+    codigo_tarifa_hacienda: codigoTarifaHacienda(tipo, tarifa),
     activo: String(t.status) === 'active',
     alegra_id: String(t.id)
   };
@@ -97,4 +119,4 @@ function cuentaDesdeAlegra(b) {
   };
 }
 
-module.exports = { empresaDesdeAlegra, impuestoDesdeAlegra, tipoImpuesto, plazoDesdeAlegra, cuentaDesdeAlegra };
+module.exports = { empresaDesdeAlegra, impuestoDesdeAlegra, tipoImpuesto, codigoTarifaHacienda, TARIFAS_HACIENDA, plazoDesdeAlegra, cuentaDesdeAlegra };

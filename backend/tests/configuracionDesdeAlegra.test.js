@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const {
-  empresaDesdeAlegra, impuestoDesdeAlegra, tipoImpuesto, plazoDesdeAlegra, cuentaDesdeAlegra
+  empresaDesdeAlegra, impuestoDesdeAlegra, tipoImpuesto, codigoTarifaHacienda, TARIFAS_HACIENDA, plazoDesdeAlegra, cuentaDesdeAlegra
 } = require('../src/modules/configuracion/desdeAlegra');
 
 /**
@@ -97,4 +97,39 @@ test('plazos y cuentas', () => {
     assert.equal(cuentaDesdeAlegra({ id: 1, name: 'C', type: alegra, status: 'active' }).tipo, propio);
   }
   assert.throws(() => cuentaDesdeAlegra({ id: 9, name: 'Cripto', type: 'crypto' }), /tipo desconocido/);
+});
+
+
+// 2026-10-10. Toda base nueva nacía con los impuestos "Pendiente" ante
+// Hacienda y no se podía preparar ningún comprobante.
+test('el impuesto llega con su código de Hacienda cuando solo hay uno posible', () => {
+  const porTarifa = Object.fromEntries(TAXES.map(t => {
+    const i = impuestoDesdeAlegra(t);
+    return [`${i.tipo}:${i.tarifa}`, i.codigo_tarifa_hacienda];
+  }));
+  assert.equal(porTarifa['general:13'], '08');
+  assert.equal(porTarifa['reducido:1'], '02');
+  assert.equal(porTarifa['reducido:2'], '03');
+  assert.equal(porTarifa['reducido:4'], '04');
+  assert.equal(porTarifa['reducido:0.5'], '09');
+  assert.equal(porTarifa['transitorio:8'], '07');
+});
+
+test('una tarifa de 0 % no recibe código: la elige una persona', () => {
+  for (const tipo of ['exento', 'sin_credito', 'transitorio', 'reducido']) {
+    assert.equal(codigoTarifaHacienda(tipo, 0), null);
+  }
+  assert.equal(codigoTarifaHacienda('bienes_usados', 5), null);
+  for (const t of TAXES) {
+    const i = impuestoDesdeAlegra(t);
+    if (i.tarifa === 0) assert.equal(i.codigo_tarifa_hacienda, null, i.nombre);
+  }
+});
+
+test('la migración 053 y el cargador proponen los mismos códigos', () => {
+  const sql = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '../migrations/independencia/053_codigos_hacienda_por_defecto.sql'), 'utf8');
+  const enSql = Object.fromEntries([...sql.matchAll(/WHEN tipo = '(\w+)'\s+AND tarifa = ([\d.]+)\s+THEN '(\d{2})'/g)]
+    .map(m => [`${m[1]}:${Number(m[2])}`, m[3]]));
+  assert.deepEqual(enSql, TARIFAS_HACIENDA);
 });

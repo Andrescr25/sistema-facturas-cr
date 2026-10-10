@@ -50,10 +50,14 @@ async function main() {
     for (const t of taxes) {
       const i = impuestoDesdeAlegra(t);
       await cliente.query(
-        `INSERT INTO impuesto (nombre, tarifa, tipo, activo, alegra_id) VALUES ($1, $2, $3, $4, $5)
+        // El código de Hacienda solo se propone: lo que ya eligió una persona
+        // en Configuración no se pisa al recargar.
+        `INSERT INTO impuesto (nombre, tarifa, tipo, activo, alegra_id, codigo_tarifa_hacienda) VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (alegra_id) DO UPDATE SET nombre = EXCLUDED.nombre, tarifa = EXCLUDED.tarifa, tipo = EXCLUDED.tipo,
-           activo = EXCLUDED.activo, actualizado_en = CURRENT_TIMESTAMP`,
-        [i.nombre, i.tarifa, i.tipo, i.activo, i.alegra_id]
+           activo = EXCLUDED.activo,
+           codigo_tarifa_hacienda = COALESCE(NULLIF(impuesto.codigo_tarifa_hacienda, ''), EXCLUDED.codigo_tarifa_hacienda),
+           actualizado_en = CURRENT_TIMESTAMP`,
+        [i.nombre, i.tarifa, i.tipo, i.activo, i.alegra_id, i.codigo_tarifa_hacienda]
       );
       impuestos++;
     }
