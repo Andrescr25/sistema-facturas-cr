@@ -11,7 +11,10 @@ import {
 } from "./api";
 
 const CAMPOS = [
-  ["actividad_economica", "Actividad económica del emisor (6 dígitos)"],
+  [
+    "actividad_economica",
+    "Actividad económica del emisor (como la da Hacienda, ej. 4752.1)",
+  ],
   ["proveedor_sistemas", "Identificación del proveedor del sistema"],
   ["provincia_codigo", "Código de provincia"],
   ["canton_codigo", "Código de cantón"],

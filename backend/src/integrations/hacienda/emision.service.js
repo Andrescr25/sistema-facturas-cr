@@ -360,7 +360,13 @@ function crearServicio(pool, transporte = crearCliente()) {
       r.clave,
       r.origen === "compra" ? r.consecutivo : undefined,
     );
-    if (respuesta.status === 404) {
+    // El ambiente de pruebas contesta 400 con esta causa a una clave que no
+    // conoce, no 404. Sin reconocerla, un envío fallido no se podía repetir.
+    if (
+      respuesta.status === 404 ||
+      (respuesta.status === 400 &&
+        /no ha sido recibido/i.test(respuesta.causa || ""))
+    ) {
       await pool.query(
         "UPDATE hacienda_comprobante SET proxima_consulta=now()+interval '1 minute' WHERE id=$1",
         [r.id],
@@ -583,9 +589,12 @@ function crearServicio(pool, transporte = crearCliente()) {
       [
         r.id,
         estado,
-        estado === "error"
-          ? "Hacienda no recibió el comprobante. Revise la configuración y consulte el estado."
-          : null,
+        // El motivo que dio Hacienda es lo único que permite corregir.
+        respuesta.causa && estado !== "recibida"
+          ? ("Hacienda respondió: " + respuesta.causa).slice(0, 500)
+          : estado === "error"
+            ? "Hacienda no recibió el comprobante. Revise la configuración y consulte el estado."
+            : null,
       ],
     );
     if (r.ambiente === "produccion" && r.origen === "factura")

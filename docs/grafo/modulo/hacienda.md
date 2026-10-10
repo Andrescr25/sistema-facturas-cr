@@ -29,7 +29,7 @@ archivos:
   - docs/informes/hacienda-2026-10-05.md
 aristas:
   relacionado: [modulo/facturacion, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
-medido: 2026-10-05
+medido: 2026-10-10
 ---
 
 El usuario autorizó desarrollar Hacienda sin pedir nuevas confirmaciones,
@@ -93,3 +93,50 @@ publicado al 2026-10-05. Se usa solo para decodificar .p12; firma/verificación
 son de Node, no el verificador RSA de Forge. Caso de prueba con interceptor
 para conservar esa separación; análisis y fuente en README. No declarar
 audit limpio ni introducir cert.verify/publicKey.verify de Forge.
+
+ACTIVIDAD ECONÓMICA, 2026-10-10: el XSD pide un texto de seis caracteres, no
+seis dígitos. La consulta pública devuelve la actividad inscrita de la empresa
+como `4752.1` y las 207 facturas 4.4 archivadas con ese valor fueron aceptadas;
+24 con el código anterior `523402` también. `ACTIVIDAD` en `xml/v4.4.js`
+admite las dos formas para emisor y receptor, y Configuración usa la misma
+regla. Antes no se podía habilitar ni probar la conexión con el dato real.
+Las copias sin punto (`47521`, como dejó la carga de Alegra en facturas y en
+tres clientes) siguen rechazadas: no se adivina dónde va el punto.
+Sin decidir: el XSD hace opcional `CodigoActividadReceptor` y 243 de esas 247
+facturas aceptadas no lo traen, pero acá toda FE lo exige; de eso depende que
+los 245 clientes sin actividad bloqueen o no la factura electrónica.
+
+ALMACÉN PRIVADO Y PRUEBAS: `haciendaPg.test.js` escribe en
+`HACIENDA_ALMACEN_PRIVADO`; sin esa variable usa el almacén real. Correrla
+siempre con un directorio de descarte.
+
+CREDENCIALES RECHAZADAS, 2026-10-10: el transporte ya no responde 401 cuando
+Hacienda rechaza el usuario o la contraseña guardados (422), ni cuando rechaza
+la sesión a mitad de un pedido (502). El frontend toma todo 401 como sesión
+vencida de ESTE sistema, borra el token y manda a /ingresar: "Probar conexión"
+sacaba a la persona al ingreso sin mostrarle el motivo. Caso real: la
+contraseña del API guardada era el PIN del certificado.
+
+PRIMERA ACEPTACIÓN REAL EN PRUEBAS, 2026-10-10: un tiquete (04) y una
+factura electrónica (01) de facturas propias de la copia local quedaron
+`aceptada` en el ambiente de pruebas, con respuesta firmada verificada y
+guardada. Lo que hubo que corregir para llegar:
+
+- DIRECCIÓN DE PRUEBAS. `api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/`
+  ya no existe: la pasarela contesta 403 a todo. La vigente es
+  `api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/`. El IdP y el
+  cliente `api-stag` no cambiaron. Producción no se tocó ni se probó.
+- CAUSA DE HACIENDA. Los rechazos de recepción vienen en el encabezado
+  `X-Error-Cause`, no en el cuerpo. El transporte lo devuelve como `causa` y
+  queda en `mensaje`; antes solo se veía "Hacienda no recibió el comprobante".
+- CLAVE DESCONOCIDA. Pruebas contesta 400 con "no ha sido recibido", no 404.
+  Sin reconocerlo, un envío fallido no se podía repetir nunca.
+- CÓDIGOS POR DEFECTO. Migración 053 y `codigoTarifaHacienda` del cargador:
+  tarifa cuando tipo + porcentaje solo admite una, y medio de pago por clave
+  propia. Las tarifas de 0 % (01, 05, 10 u 11) las sigue eligiendo una persona.
+
+Falta en pruebas: nota de crédito, mensaje receptor de una compra, una línea
+con descuento o regalía, un rechazo con su sustitución y el correo con PDF +
+XML + respuesta. Los dos comprobantes aceptados usan como receptor la misma
+cédula del emisor; no prueban un cliente distinto.
+

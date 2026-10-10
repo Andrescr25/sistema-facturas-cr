@@ -88,9 +88,40 @@ test("no firma con PIN incorrecto, p12 corrupto o certificado fuera de vigencia"
     (e) => e.code === "CERTIFICADO_VENCIDO",
   );
 });
+// 2026-10-10. La actividad inscrita de la empresa es "4752.1" y así la
+// devuelve la consulta pública de Hacienda. Con la regla de "seis dígitos" no
+// se podía guardar ni probar la conexión. Las 207 facturas 4.4 de este emisor
+// que llevan ese texto fueron aceptadas.
+test("la actividad económica va como la publica Hacienda, con su punto", async () => {
+  for (const tipo of ["01", "04", "03"]) {
+    const d = venta(tipo);
+    d.emisor.actividad_economica = "4752.1";
+    d.documento.actividad_economica = "4711.1";
+    const xml = generarVenta(d);
+    assert.match(
+      xml,
+      /<CodigoActividadEmisor>4752\.1<\/CodigoActividadEmisor>/,
+    );
+    if (tipo === "01")
+      assert.match(
+        xml,
+        /<CodigoActividadReceptor>4711\.1<\/CodigoActividadReceptor>/,
+      );
+    const c = certificado();
+    await validarXml(firmar(xml, c.p12, c.pin), tipo);
+  }
+  // El código anterior de seis dígitos sigue siendo válido.
+  const d = venta();
+  d.emisor.actividad_economica = "523402";
+  assert.match(generarVenta(d), /<CodigoActividadEmisor>523402</);
+});
+
 test("los datos fiscales incompletos y los importes que no cuadran no se inventan", () => {
   for (const cambiar of [
-    (d) => (d.emisor.actividad_economica = "4752.1"),
+    // Así quedó en la base al copiar de Alegra: sin el punto no son seis.
+    (d) => (d.emisor.actividad_economica = "47521"),
+    (d) => (d.emisor.actividad_economica = "4752-1"),
+    (d) => (d.documento.actividad_economica = "47112"),
     (d) => (d.lineas[0].cabys = null),
     (d) => (d.lineas[0].codigo_tarifa_hacienda = "02"),
     (d) => (d.documento.total = "114"),

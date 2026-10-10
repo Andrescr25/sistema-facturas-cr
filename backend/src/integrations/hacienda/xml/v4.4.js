@@ -18,6 +18,11 @@ const TIPOS = {
   "03": "03",
   "04": "04",
 };
+// El XSD pide un TEXTO de seis caracteres, no seis dígitos. Hacienda publica
+// la actividad CIIU 4 con punto ("4752.1") y así la acepta: 207 facturas de
+// este emisor entre 2025-10 y 2026-10. Los seis dígitos anteriores también
+// pasan. Exigir solo dígitos impedía cargar la actividad inscrita.
+const ACTIVIDAD = /^(?:\d{6}|\d{4}\.\d)$/;
 // Cinco decimales fiscales; la venta original se conserva. No se recalcula
 // el IVA con una tarifa fija ni se ajusta un descuadre inventando un cargo.
 function decimal(v) {
@@ -144,9 +149,9 @@ function generarVenta({
   const raiz = RAICES[tipo];
   if (!raiz)
     throw error("TIPO_NO_IMPLEMENTADO", "Tipo fiscal no implementado.");
-  requerido(emisor.actividad_economica, "Actividad del emisor", /^\d{6}$/);
+  requerido(emisor.actividad_economica, "Actividad del emisor", ACTIVIDAD);
   const actividad = opciones.actividadReceptor || documento.actividad_economica;
-  if (tipo === "01") requerido(actividad, "Actividad del receptor", /^\d{6}$/);
+  if (tipo === "01") requerido(actividad, "Actividad del receptor", ACTIVIDAD);
   if (documento.moneda && documento.moneda !== "CRC")
     throw error(
       "MONEDA_NO_IMPLEMENTADA",
@@ -341,7 +346,7 @@ function generarVenta({
   if (actividad && tipo !== "04")
     xml += nodo(
       "CodigoActividadReceptor",
-      requerido(actividad, "Actividad del receptor", /^\d{6}$/),
+      requerido(actividad, "Actividad del receptor", ACTIVIDAD),
     );
   xml +=
     nodo("NumeroConsecutivo", consecutivo) +
@@ -488,6 +493,7 @@ function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
   };
 }
 module.exports = {
+  ACTIVIDAD,
   generarVenta,
   generarMensaje,
   fechaCR,

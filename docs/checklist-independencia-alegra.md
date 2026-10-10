@@ -925,7 +925,7 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
 
 ## 17. Hacienda: verificación real antes del corte
 
-- [ ] **Aceptación real de la integración con Hacienda y activación del corte.** Código separado ya implementado y probado localmente. Falta cargar las credenciales/certificado reales por Configuración, confirmar FE/TE/NC y mensaje receptor aceptados en sandbox, comprobar adjuntos del correo y preparar almacenamiento persistente/respaldos. No enviar producción desde la copia aislada. [Plan](plan-integracion-hacienda.md) y [operación](../backend/src/integrations/hacienda/README.md).
+- [ ] **Aceptación real de la integración con Hacienda y activación del corte.** Código separado ya implementado y probado localmente. Falta cargar las credenciales/certificado reales por Configuración, confirmar FE/TE/NC y mensaje receptor aceptados en sandbox, comprobar adjuntos del correo y preparar almacenamiento persistente/respaldos. No enviar producción desde la copia aislada. [Plan](plan-integracion-hacienda.md) y [operación](../backend/src/integrations/hacienda/README.md). **Avance 2026-10-10:** credenciales y llave de pruebas cargadas por el usuario; **tiquete y factura electrónica aceptados en pruebas** desde la copia local. Para llegar se corrigieron el formato de la actividad (`4752.1`), la dirección del ambiente de pruebas, el 401 que cerraba la sesión y los códigos por defecto (migración 053). Siguen pendientes NC, mensaje receptor, descuento/regalía, rechazo con sustitución, correo, producción y almacenamiento persistente. Ver [nodo Hacienda](grafo/modulo/hacienda.md).
 
 ## Orden sugerido
 

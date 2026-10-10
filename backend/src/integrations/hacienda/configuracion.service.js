@@ -2,6 +2,7 @@
 const { cifrar, descifrar } = require("./seguridad/almacen");
 const { abrir } = require("./firma/certificado");
 const { error } = require("./errores");
+const { ACTIVIDAD } = require("./xml/v4.4");
 const { registrarCambio } = require("../../utils/bitacora");
 const CAMPOS = [
   "actividad_economica",
@@ -97,7 +98,7 @@ function revisar(c) {
       "El usuario del API no corresponde a este ambiente.",
     );
   for (const [campo, patron2] of [
-    ["actividad_economica", /^\d{6}$/],
+    ["actividad_economica", ACTIVIDAD],
     ["proveedor_sistemas", /^\d{9,12}$/],
     ["provincia_codigo", /^[1-7]$/],
     ["canton_codigo", /^\d{2}$/],

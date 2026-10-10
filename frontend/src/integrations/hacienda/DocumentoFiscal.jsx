@@ -152,7 +152,7 @@ export default function DocumentoFiscal({
                       </select>
                     </label>
                     <label className="block">
-                      Actividad del receptor (6 dígitos)
+                      Actividad del receptor (como la da Hacienda, ej. 4752.1)
                       <input
                         className={INPUT}
                         value={

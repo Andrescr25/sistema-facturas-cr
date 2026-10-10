@@ -43,8 +43,16 @@ test("OAuth reutiliza un token concurrente, caduca y renueva sin seguir redirecc
         };
       },
       request: async (opts) => {
-        assert.ok(opts.url.includes("/recepcion-sandbox/"));
-        return { status: 200, data: {} };
+        assert.ok(
+          opts.url.startsWith(
+            "https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/",
+          ),
+        );
+        return {
+          status: 400,
+          data: "",
+          headers: { "x-error-cause": "ZZ causa de Hacienda" },
+        };
       },
     },
   });
@@ -53,7 +61,10 @@ test("OAuth reutiliza un token concurrente, caduca y renueva sin seguir redirecc
   now = 280000;
   await t.probar(c);
   assert.equal(posts, 2);
-  await t.consultar(c, "5".repeat(50), "00100001050000000001");
+  const r = await t.consultar(c, "5".repeat(50), "00100001050000000001");
+  // El motivo de Hacienda llega a quien lo necesita para corregir.
+  assert.equal(r.status, 400);
+  assert.equal(r.causa, "ZZ causa de Hacienda");
   assert.ok(destinos.every((u) => u.includes("/rut-stag/")));
 });
 test("errores de autenticación/red no contienen secretos ni Axios original", async () => {
@@ -110,7 +121,7 @@ test("un POST incierto no se repite automáticamente y 401 solo renueva una vez"
   });
   await assert.rejects(
     u.consultar(c, "5".repeat(50)),
-    (e) => e.code === "HACIENDA_CREDENCIALES",
+    (e) => e.code === "HACIENDA_CREDENCIALES" && e.status === 502,
   );
   assert.equal(posts, 2);
 });
@@ -131,5 +142,27 @@ test("la copia aislada bloquea preparación de producción antes de reservar una
   await assert.rejects(
     s.preparar("factura", 1, { ambiente: "produccion" }),
     (e) => e.code === "HACIENDA_SALIDA_BLOQUEADA",
+  );
+});
+
+// 2026-10-10. Con la contraseña del API mal guardada, "Probar conexión"
+// respondía 401. El frontend toma cualquier 401 como "venció tu sesión": borra
+// el token y manda a /ingresar, así que el mensaje de Hacienda nunca se veía.
+test("credenciales que Hacienda rechaza no cierran la sesión de quien las prueba", async () => {
+  const t = crearCliente({
+    entorno: () => ({ HACIENDA_PERMITIR_PRUEBAS: "true" }),
+    http: {
+      post: async () => ({
+        status: 401,
+        data: { error: "invalid_grant" },
+      }),
+    },
+  });
+  await assert.rejects(
+    t.probar(c),
+    (e) =>
+      e.code === "HACIENDA_CREDENCIALES" &&
+      e.status === 422 &&
+      /contraseña/.test(e.message),
   );
 });

@@ -50,13 +50,16 @@ cambios del cliente Prisma.
 ## Configuración y habilitación
 
 En Configuración → Empresa completar los datos verdaderos del emisor.
-En Configuración → Hacienda cargar actividad de seis dígitos, proveedor del
-sistema, códigos oficiales de ubicación, sucursal, terminal, usuario y
+En Configuración → Hacienda cargar la actividad tal como la publica Hacienda
+(seis caracteres: `4752.1`; los seis dígitos anteriores también valen),
+proveedor del sistema, códigos oficiales de ubicación, sucursal, terminal, usuario y
 contraseña del API, certificado .p12 y PIN, **por separado en cada ambiente**.
 El certificado se valida al cargar; habilitar requiere también identificación
 coincidente y credenciales completas. Campos secretos vacíos conservan lo
 guardado; no se devuelven al navegador. Configuración → Impuestos y Métodos
-de pago permite asignar sus códigos fiscales explícitos.
+de pago permite asignar sus códigos fiscales explícitos. La migración 053 y el
+cargador de configuración dejan puestos los que solo admiten una respuesta;
+las tarifas de 0 % quedan pendientes hasta que una persona elija.
 
 Variables operativas (sin credenciales en archivos de entorno):
 
@@ -109,8 +112,9 @@ extranjera y emisor alfanumérico requieren implementación específica; se
 frenan datos incompatibles, sin convertir identificaciones borrando letras.
 Tarifas transitorias 05/06/07 se usan solo en notas según el anexo vigente.
 
-Antes del corte falta subir credenciales reales, obtener **aceptación real**
-en pruebas para FE/TE/NC y mensaje receptor, comprobar rechazos/reintentos y
+El 2026-10-10 se obtuvo aceptación real en pruebas de un tiquete y una
+factura electrónica. Antes del corte falta la de nota de crédito y mensaje
+receptor, comprobar rechazos/reintentos y
 recepción del correo con PDF + XML + respuesta. Las pruebas locales usan
 certificados ZZ autofirmados y transporte simulado; no certifican aceptación
 fiscal ni homologación.

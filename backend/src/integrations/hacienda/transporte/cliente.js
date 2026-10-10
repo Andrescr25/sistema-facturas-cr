@@ -8,7 +8,11 @@ const DESTINOS = Object.freeze({
   pruebas: Object.freeze({
     token:
       "https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token",
-    api: "https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1/",
+    // Medido el 2026-10-10 con credenciales reales de pruebas: la ruta
+    // anterior (api…/recepcion-sandbox/v1/) ya no existe y la pasarela
+    // contesta 403 a todo; esta responde "no ha sido recibido" a una clave
+    // nueva. El token de rut-stag sigue saliendo del mismo IdP.
+    api: "https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/",
     clientId: "api-stag",
   }),
   produccion: Object.freeze({
@@ -64,10 +68,13 @@ function crearCliente({
           validateStatus: (s) => s < 500,
         });
         if (r.status !== 200 || !r.data?.access_token)
+          // Nunca 401 hacia el navegador: ahí 401 significa "tu sesión en
+          // ESTE sistema venció" y la pantalla saca a la persona al ingreso
+          // sin mostrarle este mensaje. Es un dato guardado que no sirve.
           throw error(
             "HACIENDA_CREDENCIALES",
-            "Hacienda no aceptó las credenciales de este ambiente.",
-            401,
+            "Hacienda no aceptó el usuario o la contraseña del API de este ambiente. Revisá que la contraseña no sea el PIN del certificado.",
+            422,
           );
         tokens.clear();
         tokens.set(k, {
@@ -123,9 +130,16 @@ function crearCliente({
         throw error(
           "HACIENDA_CREDENCIALES",
           "La sesión ante Hacienda no fue aceptada.",
-          401,
+          502,
         );
-      return { status: r.status, data: r.data };
+      // Hacienda explica sus rechazos en este encabezado, no en el cuerpo.
+      // Es texto suyo sobre el comprobante: no lleva usuario ni token.
+      const causa = r.headers?.["x-error-cause"];
+      return {
+        status: r.status,
+        data: r.data,
+        causa: typeof causa === "string" ? causa.slice(0, 500) : undefined,
+      };
     } catch (e) {
       if (["HACIENDA_LIMITE", "HACIENDA_CREDENCIALES"].includes(e.code))
         throw e;

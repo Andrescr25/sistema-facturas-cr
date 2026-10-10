@@ -67,6 +67,12 @@ test(
       consultar: async (_, clave) => {
         gets++;
         if (modo === "404") return { status: 404 };
+        // Así contesta el ambiente de pruebas a una clave que no conoce.
+        if (modo === "400")
+          return {
+            status: 400,
+            causa: `El comprobante [${clave}] no ha sido recibido.`,
+          };
         return {
           status: 200,
           data: {
@@ -200,6 +206,20 @@ test(
           assert.ok(gets > consultas);
           assert.deepEqual(enviados.at(-1), enviados.at(-2));
           assert.equal(enviados.at(-1).clave, p.clave);
+          modo = "aceptada";
+        },
+      );
+      await t.test(
+        "un 400 'no ha sido recibido' también permite reenviar los mismos bytes",
+        async () => {
+          const p = await s.preparar("factura", await crear(), {
+            ambiente: "pruebas",
+          });
+          timeout = true;
+          await assert.rejects(s.enviar(p.id));
+          modo = "400";
+          assert.equal((await s.enviar(p.id)).estado, "recibida");
+          assert.deepEqual(enviados.at(-1), enviados.at(-2));
           modo = "aceptada";
         },
       );
