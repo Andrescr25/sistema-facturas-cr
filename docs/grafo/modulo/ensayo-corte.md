@@ -14,7 +14,7 @@ archivos:
 aristas:
   relacionado: [modulo/auditoria-operacion-local, modulo/hacienda, modulo/lectura-migracion-alegra, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-compras, modulo/conciliacion-notas-credito, modulo/inventario, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
   bloqueado_por: [bloqueo/conteo-fisico, bloqueo/xml-historico-sin-recuperar]
-medido: 2026-10-08
+medido: 2026-10-10
 ---
 
 La herramienta prepara una candidata local nueva; nunca reemplaza la base
@@ -89,4 +89,28 @@ que existir allá antes de D: Node 22 y `xmllint`, disco persistente para
 fotos, privados y almacén de Hacienda, las llaves `PERMITIR_*`, el paso real
 de las migraciones sobre la base de producción y la fusión a `main`, que es
 el corte mismo.
+
+ENSAYO CON DATOS DE PRODUCCIÓN, 2026-10-09 (una pasada, base
+`tachi_ensayo_20261008_a`). Cargó 5.558 facturas, 53.851 líneas, 1.532
+cobros, 27 notas, 941 compras, 2.157 productos y 248 clientes, y se cortó en
+la verificación final, antes de las conciliaciones. Dos fallos que habrían
+aparecido igual el día del corte, corregidos el 2026-10-10:
+
+- MIGRACIÓN 032. Enlazaba faltantes y cola de impresión una sola vez, antes
+  de que existieran las facturas propias: 286 faltantes y 1.571 filas de la
+  cola quedaron sin `factura_propia_id` y esas pantallas salían vacías. Ahora
+  vuelve a enlazar cada vez que corre (está en la lista de enlaces del ensayo).
+- MIGRACIÓN 041. 4 de 65 intentos de factura no enlazaban: tiquetes que
+  Alegra pasó a factura electrónica conservan el id y cambian de número. Se
+  reconocen cuando la factura copiada está en la plantilla electrónica o trae
+  clave fiscal de origen; `facturacion/idempotencia.js` usa la misma regla.
+
+Comprobado sobre una copia de esa base devuelta al estado sin enlaces: 286 de
+286, 1.571 de 1.571 y 0 intentos sin resolver, igual en una segunda pasada, y
+la verificación del ensayo pasa. NO se repitió la carga desde Alegra.
+
+DURACIÓN. Esa pasada tardó unas 15 horas de reloj (9,8 solo facturas, 4,9
+cobros). No se sabe cuánto fue Alegra y cuánto el equipo suspendido de noche:
+medirlo antes de fijar la ventana del corte. Sigue pendiente el ensayo de dos
+pasadas desde un dump nuevo.
 

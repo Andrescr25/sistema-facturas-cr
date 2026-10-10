@@ -21,20 +21,25 @@ const path = require('path');
  *  · un intento de COTIZACIÓN (en producción usan la misma tabla), cuyo id y
  *    número de Alegra calzan los dos con una factura vieja: la cotización 7 y
  *    la factura 7 de junio de 2024. La primera versión de la migración las
- *    enlazó.
+ *    enlazó;
+ *  · un tiquete que Alegra renumeró al pasarlo a factura electrónica: mismo
+ *    id, otro número. En el ensayo del 2026-10-09 eran 4 de 65 intentos y
+ *    cortaban el ensayo antes de las conciliaciones.
  */
 
 const MIGRACION = path.join(__dirname, '..', 'migrations', 'independencia', '041_intento_de_factura_con_id_propio.sql');
 
 describe('el intento de factura y los ids propios — contra PostgreSQL local', () => {
   let pool, conexion, idem;
-  let facturaCopiada;
+  let facturaCopiada, facturaRenumerada;
 
   // Números imposibles de confundir con datos reales.
   const ALEGRA_FACTURA = '900000111';      // id de Alegra de la factura ya copiada
   const ALEGRA_SIN_COPIAR = '900000333';
   const ALEGRA_COTIZACION = '900000222';   // id de Alegra de una cotización…
   const OTRA_FACTURA = 900000111;          // …y una factura propia cuyo id ES ese número
+  const ALEGRA_RENUMERADA = '900000444';   // tiquete que Alegra pasó a factura electrónica
+  const ALEGRA_OTRO_NUMERO = '900000555';  // mismo id, otro número, y NO es electrónica
 
   const viejo = (cliente) => ({ client: cliente, date: '2026-09-07', items: [{ id: 983, quantity: 2, price: 1000 }] });
   const fila = async (clave) => (await conexion.query('SELECT * FROM factura_intento WHERE clave = $1', [clave])).rows[0];
@@ -65,6 +70,10 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     await factura('id, numero', [OTRA_FACTURA, 'ZZ-OTRA']);
     // Una factura vieja que calza en id de Alegra Y en número con una cotización.
     await factura('alegra_id, numero', [ALEGRA_COTIZACION, ALEGRA_COTIZACION]);
+    // El tiquete ZZ-TIQ-0005, que en Alegra hoy es la factura electrónica ZZ-ELEC-0009.
+    facturaRenumerada = await factura('alegra_id, numero, plantilla_electronica', [ALEGRA_RENUMERADA, 'ZZ-ELEC-0009', true]);
+    // Una factura común con ese id de Alegra y OTRO número: no es prueba de nada.
+    await factura('alegra_id, numero', [ALEGRA_OTRO_NUMERO, 'ZZ-0077']);
 
     const intento = (clave, huella, alegraId, numero) => conexion.query(
       `INSERT INTO factura_intento (clave, estado, huella, alegra_invoice_id, numero_factura)
@@ -72,6 +81,8 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     await intento('zz-disp-copiada', idem.huellaAnteriorDe(viejo(38)), ALEGRA_FACTURA, 'ZZ-0001');
     await intento('zz-disp-sin-copiar', idem.huellaAnteriorDe(viejo(39)), ALEGRA_SIN_COPIAR, 'ZZ-0003');
     await intento('zz-cot-vieja', null, ALEGRA_COTIZACION, ALEGRA_COTIZACION);
+    await intento('zz-disp-renumerada', idem.huellaAnteriorDe(viejo(40)), ALEGRA_RENUMERADA, 'ZZ-TIQ-0005');
+    await intento('zz-disp-otro-numero', idem.huellaAnteriorDe(viejo(41)), ALEGRA_OTRO_NUMERO, 'ZZ-0078');
   });
 
   after(async () => {
@@ -95,6 +106,18 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     const r = await idem.reservar('zz-disp-sin-copiar', viejo(39));
 
     assert.deepEqual(r, { seguir: false, yaCreada: { id: null, numero: 'ZZ-0003' } });
+  });
+
+  test('un tiquete que Alegra pasó a factura electrónica se reconoce aunque cambió de número', async () => {
+    const r = await idem.reservar('zz-disp-renumerada', viejo(40));
+
+    assert.deepEqual(r, { seguir: false, yaCreada: { id: facturaRenumerada, numero: 'ZZ-ELEC-0009' } });
+  });
+
+  test('el mismo id de Alegra con otro número, sin ser electrónica, no alcanza', async () => {
+    const r = await idem.reservar('zz-disp-otro-numero', viejo(41));
+
+    assert.deepEqual(r, { seguir: false, yaCreada: { id: null, numero: 'ZZ-0078' } });
   });
 
   test('la clave de una cotización no se entrega como factura, aunque calcen el id y el número', async () => {
@@ -122,7 +145,7 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     const sentencias = fs.readFileSync(MIGRACION, 'utf8')
       .replace(/^--.*$/gm, '')
       .split(';').map(s => s.trim()).filter(s => /^UPDATE factura_intento/.test(s));
-    assert.equal(sentencias.length, 2, 'la migración cambió de forma: revisar qué corre esta prueba');
+    assert.equal(sentencias.length, 3, 'la migración cambió de forma: revisar qué corre esta prueba');
 
     // Lo que hizo la primera versión de la migración: la cotización enlazada
     // a la factura vieja que calza en id y número.
@@ -136,6 +159,8 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     assert.equal((await fila('zz-disp-copiada')).factura_id, facturaCopiada);
     assert.equal((await fila('zz-disp-sin-copiar')).factura_id, null);
     assert.equal((await fila('zz-cot-vieja')).factura_id, null, 'una cotización quedó enlazada a una factura');
+    assert.equal((await fila('zz-disp-renumerada')).factura_id, facturaRenumerada, 'la renumerada por Alegra quedó sin enlazar');
+    assert.equal((await fila('zz-disp-otro-numero')).factura_id, null, 'se enlazó una factura común solo por el id');
 
     const antes = (await conexion.query(`SELECT clave, factura_id FROM factura_intento WHERE clave LIKE 'zz-%' ORDER BY clave`)).rows;
     await correr();

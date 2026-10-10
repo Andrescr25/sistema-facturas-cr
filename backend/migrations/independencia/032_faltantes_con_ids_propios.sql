@@ -106,3 +106,49 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_facturas_reimpresion_factura_propia
   ON facturas_reimpresion (factura_propia_id);
+
+-- 4 ─────────────────────────────────────────────────────────────────────────
+-- VOLVER A ENLAZAR, las veces que se corra. Agregado el 2026-10-10.
+--
+-- Los dos bloques de arriba enlazan UNA sola vez: después renombran la
+-- columna vieja y su condición ("existe `factura_id`") no se cumple nunca
+-- más. En una base armada desde cero eso pasa demasiado temprano: esta
+-- migración corre apenas se restaura la copia de producción, cuando todavía
+-- no hay ni una factura ni un producto propios, así que enlaza cero filas, y
+-- al repetirla después de las cargas ya no hace nada.
+--
+-- Medido el 2026-10-09 en el ensayo con datos de producción: los 286
+-- faltantes y las 1.571 filas de la cola de impresión quedaron sin factura
+-- propia. Reporte de Clientes, Reporte de Proveedores e Impresión salían
+-- vacíos. Habría pasado igual el día del corte.
+--
+-- Son las mismas reglas de arriba, con el nombre que las columnas tienen
+-- después del cambio. Solo llenan lo que está vacío.
+UPDATE faltantes f
+   SET factura_propia_id = fa.factura_propia_id
+  FROM facturas fa
+ WHERE fa.id = f.factura_vieja_id
+   AND f.factura_propia_id IS NULL
+   AND fa.factura_propia_id IS NOT NULL;
+
+UPDATE faltantes f
+   SET producto_propio_id = pr.id
+  FROM productos p
+  JOIN producto pr ON pr.alegra_id = p.alegra_id::text
+ WHERE p.id = f.producto_viejo_id
+   AND f.producto_propio_id IS NULL;
+
+UPDATE faltantes f
+   SET producto_propio_id = (SELECT pr.id FROM producto pr WHERE pr.referencia = p.codigo)
+  FROM productos p
+ WHERE p.id = f.producto_viejo_id
+   AND f.producto_propio_id IS NULL
+   AND p.codigo IS NOT NULL
+   AND (SELECT COUNT(*) FROM producto pr WHERE pr.referencia = p.codigo) = 1;
+
+UPDATE facturas_reimpresion r
+   SET factura_propia_id = fa.factura_propia_id
+  FROM facturas fa
+ WHERE fa.id = r.factura_vieja_id
+   AND r.factura_propia_id IS NULL
+   AND fa.factura_propia_id IS NOT NULL;

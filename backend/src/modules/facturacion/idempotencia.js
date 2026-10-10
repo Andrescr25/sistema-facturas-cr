@@ -109,6 +109,11 @@ function esElMismoDocumento(huellaGuardada, facturaData) {
  * producción esta tabla también guarda cotizaciones, y la cotización 7 de
  * Alegra calza en id y en número con la factura 7 de junio de 2024. Por eso
  * quien llama solo pasa intentos de FACTURA (los que tienen huella).
+ *
+ * UNA EXCEPCIÓN al número: un tiquete que después se pasó a factura
+ * electrónica conserva su id en Alegra y cambia de número. Si la factura
+ * copiada con ese id está en la plantilla electrónica o trae clave fiscal de
+ * origen, es la misma aunque el número no calce (migración 041, misma regla).
  */
 async function facturaDe(intento) {
   if (tiene(intento.factura_id)) {
@@ -117,7 +122,9 @@ async function facturaDe(intento) {
   if (!tiene(intento.alegra_invoice_id) || !tiene(intento.numero_factura)) return null;
 
   const { rows } = await query(
-    'SELECT id, numero FROM factura WHERE alegra_id = $1 AND numero = $2',
+    `SELECT id, numero FROM factura
+      WHERE alegra_id = $1
+        AND (numero = $2 OR plantilla_electronica OR hacienda_origen ->> 'clave' IS NOT NULL)`,
     [String(intento.alegra_invoice_id), String(intento.numero_factura)]
   );
   return rows[0] ? { id: Number(rows[0].id), numero: rows[0].numero } : null;

@@ -465,6 +465,19 @@ describe('la migración 032', () => {
     assert.match(sql, /WHERE pr\.referencia = p\.codigo\) = 1/);
   });
 
+  // 2026-10-10. En el ensayo con datos de producción los 286 faltantes y las
+  // 1.571 filas de la cola quedaron sin factura propia: la migración corre
+  // antes de que existan las facturas y, ya renombradas las columnas, no
+  // volvía a enlazar nunca.
+  test('vuelve a enlazar cada vez que corre, con los nombres ya cambiados', () => {
+    const fuera = sql.slice(sql.lastIndexOf('END $$;'));
+    assert.match(fuera, /UPDATE faltantes f\s+SET factura_propia_id = fa\.factura_propia_id\s+FROM facturas fa\s+WHERE fa\.id = f\.factura_vieja_id/);
+    assert.match(fuera, /WHERE p\.id = f\.producto_viejo_id/);
+    assert.match(fuera, /UPDATE facturas_reimpresion r\s+SET factura_propia_id = fa\.factura_propia_id\s+FROM facturas fa\s+WHERE fa\.id = r\.factura_vieja_id/);
+    // Solo llena lo vacío: nunca pisa un enlace ya hecho.
+    assert.equal((fuera.match(/_propi[ao]_id IS NULL/g) || []).length, 4);
+  });
+
   test('es repetible: lo que cambia va detrás de una revisión de la columna', () => {
     assert.equal((sql.match(/IF EXISTS \(SELECT 1 FROM information_schema\.columns/g) || []).length, 2);
   });
