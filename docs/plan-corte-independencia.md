@@ -123,11 +123,12 @@ la rama del 2026-10-08 y ninguno se puede comprobar desde la copia local.
    ensayar el paso real: aplicarlas sobre la base de producción congelada o
    promover la candidata. Cualquiera de los dos se prueba completo en el
    ensayo antes de D.
-5. **La fusión a `main`.** Ensayada sin tocar nada el 2026-10-08
-   (`git merge-tree`): 14 archivos en conflicto, todos de Impresión y del
-   catálogo del agente, donde la rama ya tiene su versión adaptada
-   (`c204528`, `d5797d5`, `4195791`); se resuelven con la versión de la
-   rama. `f4f70fa` de `main` (tipo de descuento hacia Alegra) no aplica acá.
+5. **La fusión a `main`.** Preparada el 2026-10-10 sin tocar `main`: se trajo
+   `main` a esta rama (`51dca48`) y quedó como antecesor, así que el día del
+   corte `main` solo avanza hasta la rama, sin conflictos. Los 15 conflictos
+   eran de Impresión y del catálogo del agente, donde la rama ya tenía su
+   versión adaptada; el resultado es idéntico a la rama. Si `main` recibe
+   otro arreglo antes del corte, repetir `git merge main` acá y revisar igual.
    La fusión ES el corte: en cuanto entra a `main`, producción deja de usar
    Alegra. No se adelanta.
 
