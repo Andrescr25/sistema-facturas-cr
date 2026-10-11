@@ -80,7 +80,12 @@ async function listarDeudores({ buscar = '', pagina = 1, limite = 30 } = {}) {
          AND f.total - ${COBRADO} - ${ACREDITADO} > 1
          ${filtroBusqueda}
     )
-    SELECT cliente_id, cliente_nombre, cliente_identificacion, cliente_telefono,
+    SELECT cliente_id,
+           (array_agg(cliente_nombre ORDER BY fecha DESC, id DESC))[1] AS cliente_nombre,
+           (array_agg(cliente_identificacion ORDER BY fecha DESC, id DESC)
+              FILTER (WHERE cliente_identificacion IS NOT NULL))[1] AS cliente_identificacion,
+           (array_agg(cliente_telefono ORDER BY fecha DESC, id DESC)
+              FILTER (WHERE cliente_telefono IS NOT NULL))[1] AS cliente_telefono,
            COUNT(*)::int AS facturas,
            SUM(saldo) AS saldo_total,
            MIN(fecha_vencimiento) AS vence_primero,
@@ -90,7 +95,17 @@ async function listarDeudores({ buscar = '', pagina = 1, limite = 30 } = {}) {
              'fechaVencimiento', fecha_vencimiento, 'total', total, 'saldo', saldo
            ) ORDER BY fecha) AS detalle
       FROM con_saldo
-     GROUP BY cliente_id, cliente_nombre, cliente_identificacion, cliente_telefono
+     -- Un cliente es UNA fila. El nombre, la cédula y el teléfono de cada
+     -- factura son la copia de ese día: el tiquete sale con el nombre de la
+     -- casa y la factura electrónica con el legal. Agrupando también por esas
+     -- copias, el mismo cliente salía dos veces con la deuda partida (13 de
+     -- 142 al cargar producción, 2026-10-10) y la pantalla repetía su clave.
+     -- Se muestra lo de su factura más reciente. Sin ficha de cliente no hay
+     -- con qué unir, y ahí sí se agrupa por lo que dice la factura.
+     GROUP BY cliente_id,
+              CASE WHEN cliente_id IS NULL THEN cliente_nombre END,
+              CASE WHEN cliente_id IS NULL THEN cliente_identificacion END,
+              CASE WHEN cliente_id IS NULL THEN cliente_telefono END
      ORDER BY SUM(saldo) DESC
      LIMIT ${agregar(lim)} OFFSET ${agregar((pag - 1) * lim)}
   `, params);
