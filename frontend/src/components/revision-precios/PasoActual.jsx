@@ -14,21 +14,21 @@ const PASOS = {
   PENDIENTE_RELACIONAR: {
     numero: 1,
     titulo: 'Relacionar productos',
-    detalle: 'Asociá cada producto de la factura con tu catálogo de Alegra para poder revisar sus costos.',
+    detalle: 'Asociá cada producto de la factura con tu catálogo para poder revisar sus costos.',
     tono: 'border-alerta-200 bg-alerta-50 text-alerta-900',
     circulo: 'bg-alerta-500'
   },
   LISTAS_REVISION: {
     numero: 2,
     titulo: 'Revisar precios de venta',
-    detalle: 'Mirá el costo nuevo de cada producto y ajustá el precio antes de mandar la factura a Alegra.',
+    detalle: 'Mirá el costo nuevo de cada producto y ajustá el precio antes de registrar la compra.',
     tono: 'border-primario-200 bg-primario-50 text-primario-900',
     circulo: 'bg-primario-600'
   },
   ENVIADAS: {
     numero: 3,
-    titulo: 'Enviadas a Alegra',
-    detalle: 'Ya procesadas. Se pueden consultar, pero no volver a enviar: su factura de compra ya existe allá.',
+    titulo: 'Compras registradas',
+    detalle: 'Ya procesadas. Se pueden consultar, pero no volver a registrar: ya existe una compra propia.',
     tono: 'border-exito-200 bg-exito-50 text-exito-900',
     circulo: 'bg-exito-600'
   }

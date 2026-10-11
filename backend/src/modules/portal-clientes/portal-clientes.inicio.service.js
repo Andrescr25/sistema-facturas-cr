@@ -8,18 +8,22 @@
  * DIFERENCIA CLAVE CON EL CATÁLOGO DEL AGENTE
  * El agente se descarga el historial de TODOS los clientes, porque necesita
  * elegir a cuál está visitando. Acá eso sería una fuga: el cliente vería lo
- * que compran los demás. La consulta va filtrada por su contacto y ese
- * filtro sale del TOKEN (req.cliente.contacto), nunca de un parámetro que
- * pueda cambiar en la petición.
+ * que compran los demás. La consulta se filtra por la ficha propia que el
+ * middleware resuelve desde la cuenta del token (req.cliente.clienteId),
+ * nunca de un parámetro que pueda cambiar en la petición.
  *
  * El cálculo de "habitual" y "perdido" se hace en SQL y no reusando el
  * utils del frontend porque acá ya se tiene la base a mano: traer 120 filas
  * para clasificarlas en JavaScript sería un viaje de más por nada.
+ *
+ * Los productos salen de `producto`, con la misma definición que el catálogo
+ * y el carrito (ver catalogo-clientes/consultaProducto).
  */
 
 const { query } = require('../../../config/database');
-const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const { mapaVigentes, aplicarDescuento } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
+const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
+const { HOY_CR } = require('../ventas/rotacion');
 
 // Mismos umbrales que catalogoAgentePersonalizacion.js, para que un producto
 // no sea "habitual" en la tablet del agente y otra cosa en el portal.
@@ -28,53 +32,36 @@ const VECES_MIN_PERDIDO = 3;
 const DIAS_MIN_PERDIDO = 60;
 const TOPE_SECCION = 24; // el cliente navega en un teléfono, no en una tablet
 
-const COLUMNAS = `alegra_id, name, reference, category, price, tax_percentage, image_url`;
-
 /**
  * Compras del cliente, agregadas por producto.
  *
  * `veces` cuenta FACTURAS distintas, no líneas: si un producto aparece dos
  * veces en la misma factura eso no es comprar dos veces.
  */
+// Ventas de la ficha propia del cliente, filtrada desde su sesión.
 const SQL_HISTORIAL = `
   WITH agregado AS (
-    SELECT alegra_item_id,
-           COUNT(DISTINCT alegra_invoice_id) AS veces,
-           MAX(fecha_emision) AS ultima_compra
-    FROM venta_historico
-    WHERE cliente_id = $1
-    GROUP BY alegra_item_id
+    SELECT v.producto_id,
+           COUNT(DISTINCT v.factura_id) AS veces,
+           MAX(v.fecha) AS ultima_compra
+    FROM venta_linea v
+    WHERE v.cliente_id = $1
+    GROUP BY v.producto_id
   )
-  SELECT a.alegra_item_id, a.veces, a.ultima_compra,
-         (CURRENT_DATE - a.ultima_compra::date) AS dias
+  SELECT a.producto_id, a.veces, a.ultima_compra,
+         (${HOY_CR} - a.ultima_compra) AS dias
   FROM agregado a
   ORDER BY a.veces DESC, a.ultima_compra DESC
   LIMIT 200;
 `;
 
-function mapProducto(row, descuentos, extra = {}) {
-  const precioLista = precioConImpuesto(row.price, row.tax_percentage);
-  const descuento = descuentos.get(String(row.alegra_id)) || 0;
-  return {
-    id: row.alegra_id,
-    nombre: row.name,
-    referencia: row.reference || null,
-    categoria: row.category || 'Sin categoría',
-    precio: aplicarDescuento(precioLista, descuento),
-    precioLista: descuento > 0 ? precioLista : null,
-    descuento: descuento > 0 ? descuento : null,
-    imagen: row.image_url || null,
-    ...extra
-  };
-}
-
-async function obtenerInicio(alegraContactId) {
+async function obtenerInicio(clienteId) {
   // Las compras del cliente y las ofertas vigentes no dependen entre sí, así
   // que se piden a la vez: en secuencia eran dos viajes a Supabase (~140ms
   // cada uno) para armar una pantalla que el cliente abre en el teléfono.
   const [historial, descuentos] = await Promise.all([
-    query(SQL_HISTORIAL, [String(alegraContactId)]),
-    mapaVigentes()
+    query(SQL_HISTORIAL, [Number(clienteId)]),
+    mapaVigentesPropios()
   ]);
 
   const habitualesIds = [];
@@ -84,15 +71,15 @@ async function obtenerInicio(alegraContactId) {
   for (const row of historial.rows) {
     const veces = Number(row.veces);
     const dias = Number(row.dias);
-    porItem.set(String(row.alegra_item_id), { veces, dias, ultimaCompra: row.ultima_compra });
+    porItem.set(String(row.producto_id), { veces, dias, ultimaCompra: row.ultima_compra });
 
     // Un producto vive en UNA sola sección. "Perdido" gana sobre "habitual"
     // porque perdido implica habitual (veces >= 3 > 2), y mostrarlo en las
     // dos daría etiquetas que se contradicen.
     if (veces >= VECES_MIN_PERDIDO && dias > DIAS_MIN_PERDIDO) {
-      perdidosIds.push(String(row.alegra_item_id));
+      perdidosIds.push(String(row.producto_id));
     } else if (veces >= VECES_MIN_HABITUAL) {
-      habitualesIds.push(String(row.alegra_item_id));
+      habitualesIds.push(String(row.producto_id));
     }
   }
 
@@ -107,12 +94,11 @@ async function obtenerInicio(alegraContactId) {
   // después en memoria. Tres consultas contra la misma tabla, con el mismo
   // filtro de visibilidad, no aportan nada.
   const productos = await query(`
-    SELECT ${COLUMNAS} FROM alegra_products_cache
-    WHERE alegra_id = ANY($1::varchar[])
-      AND status = 'active' AND hidden_locally = FALSE AND price > 0;
+    SELECT ${COLUMNAS} ${DESDE}
+    WHERE p.id = ANY($1::int[]) AND ${VISIBLE};
   `, [todosLosIds]);
 
-  const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
+  const porId = new Map(productos.rows.map(p => [String(p.producto_id), p]));
 
   const armar = (ids, ordenar) => ids
     .map(id => {

@@ -26,10 +26,12 @@ import PortalActivar from './pages/portal/PortalActivar'
 import PortalPedidos from './pages/portal/PortalPedidos'
 import PortalFacturas from './pages/portal/PortalFacturas'
 import Clientes from './pages/Clientes'
+import Entregas from './pages/Entregas'
 import Ingresar from './pages/Ingresar'
 import RequiereSesion from './components/RequiereSesion'
 import RequierePermiso from './components/RequierePermiso'
 import Usuarios from './pages/Usuarios'
+import Bitacora from './pages/Bitacora'
 import Rentabilidad from './pages/Rentabilidad'
 
 function App() {
@@ -131,10 +133,13 @@ function App() {
               <Route path="/reporte-contador" element={<ReporteContador />} />
               <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
               <Route path="/clientes" element={<Clientes />} />
+              <Route path="/entregas" element={<Entregas />} />
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />
               <Route path="/inventario-auditoria" element={<InventarioAuditoria />} />
               <Route path="/usuarios" element={<Usuarios />} />
+              {/* Bajo /usuarios a propósito: es de administradores, igual que ella. */}
+              <Route path="/usuarios/bitacora" element={<Bitacora />} />
             </Routes>
             </RequierePermiso>
           </Layout>

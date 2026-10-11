@@ -48,7 +48,11 @@ export default function ModalNuevaAuditoria({
           {/* Tipo de Auditoría */}
           <div>
             <label className="label text-xs font-bold text-neutro-700 uppercase tracking-wider block mb-2">Estrategia de Selección</label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setNewAuditTipo('inicial')}
+                className={`p-3 rounded-2xl border-2 font-bold text-xs ${newAuditTipo === 'inicial' ? 'border-exito-600 bg-exito-50 text-exito-800' : 'border-neutro-200 text-neutro-600'}`}>
+                Conteo inicial completo
+              </button>
               <button
                 type="button"
                 onClick={() => setNewAuditTipo('random')}
@@ -104,6 +108,7 @@ export default function ModalNuevaAuditoria({
           <div className="bg-exito-50 text-exito-900 border border-exito-200 p-3.5 rounded-2xl text-xs leading-relaxed flex items-start gap-2.5">
             <Info size={16} className="text-exito-700 shrink-0 mt-0.5" />
             <p>
+              {newAuditTipo === 'inicial' && 'Cuenta todos los productos activos inventariables pendientes de apertura física. Guarda avances y confirma el conteo completo al finalizar. Si hay movimientos durante el conteo, actualiza las existencias y cuenta otra vez.'}
               {newAuditTipo === 'random' && 'El sistema elegirá al azar 50 productos activos de la distribuidora para auditar su existencia.'}
               {newAuditTipo === 'categoria' && 'Se auditarán todos los productos clasificados bajo la categoría seleccionada.'}
               {newAuditTipo === 'critico' && 'Se auditarán los 30 productos que tienen mayor cantidad de incidencias de faltantes reportados históricamente.'}

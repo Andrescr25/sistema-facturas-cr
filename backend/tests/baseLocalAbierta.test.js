@@ -1,4 +1,4 @@
-const { test, describe, beforeEach } = require('node:test');
+const { test, describe, before, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
@@ -18,14 +18,12 @@ const { sinComentarios } = require('./dobles/sinComentarios');
  * `online` en TODAS las pantallas; al dispararse intenta mandar las facturas
  * pendientes. Pero la base local solo la abría la pantalla de Facturación al
  * montarse, y cada método usaba `this.db` a secas. En cualquier otra pantalla
- * `this.db` era null: reventaba, y lo pendiente no se mandaba. En producción
- * eso es una tablet que vuelve a tener señal en el catálogo del agente: las
- * facturas hechas sin conexión se quedaban sin salir hasta que alguien abría
- * Facturación.
+ * —y también después de que la base se cierra sola por un cambio de versión—
+ * `this.db` era null: reventaba, y lo pendiente no se mandaba.
  *
  * Acá se carga el servicio de verdad con una IndexedDB de mentira (el archivo
- * es ESM: se le quita la línea de exportación y se evalúa, como las demás
- * pruebas de utilidades del frontend).
+ * es ESM con un import sin extensión: se le quitan las líneas de módulo y se
+ * evalúa, como las demás pruebas de utilidades del frontend).
  */
 
 const FRONTEND = path.join(__dirname, '..', '..', 'frontend', 'src');
@@ -84,11 +82,17 @@ function navegadorFalso({ noAbre = false, datos = {} } = {}) {
   return { indexedDB, estado, de };
 }
 
+let copias;
+before(async () => { copias = await import('../../frontend/src/utils/facturasLocales.js'); });
+
 /** El servicio de verdad, recién creado, sobre ese navegador. */
 function servicioSobre(navegador) {
-  const cuerpo = FUENTE.replace(/^export default .*$/gm, '');
+  const cuerpo = FUENTE
+    .replace(/^import .*$/gm, '')
+    .replace(/^export default .*$/gm, '');
   const silencio = { log() {}, warn() {}, error() {} };
-  const Clase = new Function('indexedDB', 'console', `${cuerpo}\nreturn IndexedDBService;`)(navegador.indexedDB, silencio);
+  const Clase = new Function('indexedDB', 'combinarCopiaFactura', 'convertirCopiaV3', 'console',
+    `${cuerpo}\nreturn IndexedDBService;`)(navegador.indexedDB, copias.combinarCopiaFactura, copias.convertirCopiaV3, silencio);
   return new Clase();
 }
 
@@ -127,6 +131,18 @@ describe('la base local se abre cuando alguien la necesita', () => {
     await servicio.getFacturasPendientes();
     await servicio.getFacturasPendientes();
     assert.equal(navegador.estado.aperturas, 1);
+  });
+
+  test('si la base se cierra sola por un cambio de versión, la próxima llamada la reabre', async () => {
+    await servicio.getFacturasPendientes();
+    // Otra pestaña abrió una versión nueva: el navegador avisa y esta conexión se cierra.
+    navegador.estado.bases[0].onversionchange();
+    assert.equal(servicio.db, null);
+
+    const pendientes = await servicio.getFacturasPendientes();
+
+    assert.equal(pendientes.length, 2);
+    assert.equal(navegador.estado.aperturas, 2);
   });
 
   test('guardar una factura pendiente sin haber abierto la base también funciona', async () => {
@@ -210,7 +226,7 @@ describe('al volver la conexión, desde cualquier pantalla', () => {
   test('una sesión vencida a mitad del envío no le anota un error a ninguna factura ni edición', () => {
     for (const [desde, hasta, marca] of [
       ['async sincronizarFacturasPendientes()', 'async getFacturasPendientes()', 'markFacturaError'],
-      ['async sincronizarEdicionesPendientes()', 'async getEdicionesPendientes()', 'markEdicionError(edicion.localId, alegraMessage)']
+      ['async sincronizarEdicionesPendientes()', 'async getEdicionesPendientes()', 'markEdicionError(edicion.localId, motivo)']
     ]) {
       const cuerpo = codigo.slice(codigo.indexOf(desde), codigo.indexOf(hasta));
       const corte = cuerpo.indexOf('if (error?.response?.status === 401)');

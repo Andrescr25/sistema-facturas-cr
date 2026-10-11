@@ -11,9 +11,13 @@
  *     (modo transacción) no conserva el `SET TIME ZONE` de cada conexión:
  *     1 de cada 5 consultas corría en UTC y la hora quedaba 6 horas adelantada.
  *
+ * EN ESTA RAMA la cola es propia (reprinting/colaImpresion.js y
+ * procesarImpresion.js) y Bodega despacha en `factura` (bodegaPropia.js): el
+ * arreglo se aplica ahí. Hoy la rama corre contra una base local, sin pooler,
+ * pero en el corte va a correr sobre el mismo de producción.
+ *
  * Contra la base solo se lee: PREPARE y un SET LOCAL dentro de una
- * transacción que siempre hace ROLLBACK. La base de este worktree es la de
- * producción.
+ * transacción que siempre hace ROLLBACK.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -44,12 +48,17 @@ describe('la hora de la nota sale de la base', () => {
   });
 });
 
-describe('la hora de envío se guarda en hora de Costa Rica', () => {
-  test('las dos escrituras de la cola (Reporte de Clientes y Bodega) usan AHORA_CR_SQL', () => {
-    for (const archivo of [['src', 'modules', 'invoices', 'invoice.service.js'], ['src', 'modules', 'warehouse', 'warehouse.service.js']]) {
+describe('las horas se guardan en hora de Costa Rica', () => {
+  test('la cola, el procesado, el despacho de Bodega y los faltantes usan AHORA_CR_SQL', () => {
+    for (const archivo of [
+      ['src', 'modules', 'reprinting', 'colaImpresion.js'],
+      ['src', 'modules', 'reprinting', 'procesarImpresion.js'],
+      ['src', 'modules', 'warehouse', 'bodegaPropia.js'],
+      ['src', 'utils', 'guardarFaltantes.js']
+    ]) {
       const fuente = leer(...archivo);
-      const cola = fuente.split('facturas_reimpresion').slice(1).join('');
-      assert.doesNotMatch(cola, /fecha_creacion = CURRENT_TIMESTAMP/, archivo.at(-1));
+      const codigo = fuente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      assert.doesNotMatch(codigo, /CURRENT_TIMESTAMP|\bNOW\(\)/, `${archivo.at(-1)} escribe o compara con la hora de la sesión`);
       assert.match(fuente, /\$\{AHORA_CR_SQL\}/, archivo.at(-1));
     }
     assert.equal(AHORA_CR_SQL, "(now() AT TIME ZONE 'America/Costa_Rica')");
@@ -81,7 +90,11 @@ describe('contra la base, sin escribir', { skip: hayBase ? false : 'sin DATABASE
   test('la consulta del reporte es SQL válido para Postgres', async () => {
     const servicio = leer('src', 'modules', 'reports', 'report.service.js');
     const i = servicio.indexOf('fr.fecha_creacion as enviada_a_impresion_en');
-    const sql = servicio.slice(servicio.lastIndexOf('`', i) + 1, servicio.indexOf('`', i));
+    const { COLUMNAS_CICLO, JOIN_CICLO } = require('../src/modules/rutas/operacionCiclo.service');
+    const sql = servicio.slice(servicio.lastIndexOf('`', i) + 1, servicio.indexOf('`', i))
+      .split('${COLUMNAS_CICLO}').join(COLUMNAS_CICLO)
+      .split("${JOIN_CICLO('fa')}").join(JOIN_CICLO('fa'))
+      .split("${whereCiclo.length ? 'AND ' + whereCiclo.join(' AND ') : ''}").join('');
     const c = await pool.connect();
     const nombre = `verificar_reporte_clientes_${process.pid}`;
     try {

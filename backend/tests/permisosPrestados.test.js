@@ -27,7 +27,8 @@ describe('prestar una ruta a otro módulo', () => {
   });
 
   test('`exacta` presta esa dirección y no lo que cuelga de ella; `metodos`, solo esos verbos', () => {
-    assert.deepEqual(modulosQuePuedenUsar('/proveedores/3101129878', 'GET'), ['reporte-proveedores']);
+    assert.deepEqual(modulosQuePuedenUsar('/proveedores/fichas', 'GET'), ['reporte-proveedores']);
+    assert.deepEqual(modulosQuePuedenUsar('/proveedores/asignaciones', 'POST'), ['reporte-proveedores']);
     assert.deepEqual(modulosQuePuedenUsar('/proveedores', 'POST'), ['reporte-proveedores']);
     assert.deepEqual(modulosQuePuedenUsar('/proveedores', 'DELETE'), ['reporte-proveedores']);
     // Escrita como la entiende Express.
@@ -73,16 +74,39 @@ describe('lo prestado alcanza para lo que la pantalla llama', () => {
   });
 });
 
-describe('limpiar faltantes procesados es de Configuración', () => {
-  test('las dos direcciones de la ruta tienen ese dueño, y leer el reporte sigue compartido', () => {
-    for (const ruta of ['/reportes/faltantes/proveedor/limpiar', '/alegra/reportes/faltantes/proveedor/limpiar']) {
-      assert.deepEqual(clasificarRuta(ruta), { tipo: 'modulo', clave: 'configuracion', prefijo: ruta });
-    }
-    assert.equal(esCompartida('/reportes/faltantes/proveedor'), true);
-    assert.equal(esCompartida('/alegra/reportes/faltantes/proveedor'), true);
+describe('las escrituras de /reportes tienen dueño; leer sigue compartido', () => {
+  test('limpiar faltantes procesados es de Configuración', () => {
+    const ruta = '/reportes/faltantes/proveedor/limpiar';
+    assert.deepEqual(clasificarRuta(ruta), { tipo: 'modulo', clave: 'configuracion', prefijo: ruta });
   });
 
-  test('el botón está solo en la pantalla de Configuración', () => {
+  test('mandar a impresión y recuperar desde el reporte son de Reporte Clientes', () => {
+    for (const accion of ['impresion', 'recuperar']) {
+      assert.equal(clasificarRuta(`/reportes/faltantes/cliente/facturas/9/${accion}`).clave, 'reporte-clientes');
+    }
+  });
+
+  test('el historial de reportes conserva lectura compartida; los faltantes tienen dueño', () => {
+    for (const ruta of ['/reportes/historial']) {
+      assert.equal(esCompartida(ruta), true, ruta);
+    }
+  });
+
+  test('ninguna ruta que ESCRIBE debajo de /reportes queda compartida', () => {
+    // Se leen las rutas de verdad: una escritura nueva en este router nace
+    // abierta a cualquier sesión si nadie le pone dueño.
+    const rutas = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'reports', 'report.routes.js'), 'utf8');
+    const escrituras = [...rutas.matchAll(/^router\.(post|put|patch|delete)\('([^']+)'/gm)]
+      .map(m => ({ metodo: m[1].toUpperCase(), ruta: `/reportes${m[2].replace(/:[A-Za-z]+/g, '9')}` }));
+
+    assert.ok(escrituras.length >= 3, `se esperaban las escrituras del router, se leyeron ${escrituras.length}`);
+    for (const { metodo, ruta } of escrituras) {
+      assert.equal(esCompartida(ruta), false, `${metodo} ${ruta} pasa con cualquier sesión`);
+      assert.equal(clasificarRuta(ruta)?.tipo, 'modulo', `${metodo} ${ruta} no tiene dueño`);
+    }
+  });
+
+  test('la limpieza global no tiene botón en ninguna pantalla', () => {
     const recorrer = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
       const ruta = path.join(dir, e.name);
       if (e.isDirectory()) return e.name === 'node_modules' ? [] : recorrer(ruta);
@@ -93,19 +117,6 @@ describe('limpiar faltantes procesados es de Configuración', () => {
       .map(ruta => path.relative(FRONTEND, ruta))
       .filter(ruta => ruta !== path.join('services', 'alegraService.js'));
 
-    assert.deepEqual(quienes, [path.join('pages', 'Configuracion.jsx')]);
-  });
-});
-
-describe('el WhatsApp guardado del proveedor se lee de donde el servidor lo manda', () => {
-  test('`data.telefono`, no `telefono` suelto', () => {
-    const servicio = fs.readFileSync(path.join(FRONTEND, 'services', 'alegraService.js'), 'utf8');
-    const controlador = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'orders-whatsapp', 'orders-whatsapp.controller.js'), 'utf8');
-
-    // El servidor responde { success, data: { telefono } }…
-    assert.match(controlador, /ResponseHelper\.success\(res, \{ telefono \}/);
-    // …y la pantalla lo lee ahí.
-    assert.match(servicio, /return response\.data\?\.data\?\.telefono \|\| null/);
-    assert.equal(/return response\.data\.telefono/.test(servicio), false);
+    assert.deepEqual(quienes, []);
   });
 });

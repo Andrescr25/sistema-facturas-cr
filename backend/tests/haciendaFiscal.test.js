@@ -1,0 +1,374 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs/promises"),
+  os = require("node:os"),
+  path = require("node:path"),
+  crypto = require("node:crypto");
+const { certificado, venta } = require("./helpers/hacienda");
+const {
+  firmar,
+  verificar,
+  verificarRespuesta,
+  HASH_POLITICA,
+} = require("../src/integrations/hacienda/firma/xades");
+const { abrir } = require("../src/integrations/hacienda/firma/certificado");
+const {
+  generarVenta,
+  generarMensaje,
+  fechaCR,
+  clave,
+  identificacion,
+} = require("../src/integrations/hacienda/xml/v4.4");
+const { validarXml } = require("../src/integrations/hacienda/xml/validar");
+const { parsear } = require("../src/integrations/hacienda/xml/util");
+const { desdeAlegra } = require("../src/integrations/hacienda/historico");
+const almacen = require("../src/integrations/hacienda/seguridad/almacen");
+
+test("abrir .p12 y verificar firmas no usa el verificador RSA vulnerable de Forge", (t) => {
+  const forge = require("../src/integrations/hacienda/node_modules/node-forge");
+  const c = certificado(),
+    original = forge.pki.publicKeyFromAsn1;
+  let certificadosDecodificados = 0;
+  t.mock.method(forge.pki, "publicKeyFromAsn1", (...args) => {
+    const key = original(...args);
+    certificadosDecodificados++;
+    key.verify = () => {
+      throw new Error("No usar el verificador RSA de Forge");
+    };
+    return key;
+  });
+  const xml = firmar(generarVenta(venta()), c.p12, c.pin);
+  assert.ok(
+    certificadosDecodificados > 0,
+    "la prueba debe interceptar el certificado del .p12",
+  );
+  assert.equal(verificarRespuesta(xml), true);
+  const alterado = xml.replace(
+    "<TotalComprobante>113.00000</TotalComprobante>",
+    "<TotalComprobante>114.00000</TotalComprobante>",
+  );
+  assert.notEqual(alterado, xml);
+  assert.equal(verificarRespuesta(alterado), false);
+});
+
+test("FE, TE y NC cumplen los XSD actuales y una firma verificable", async () => {
+  const c = certificado();
+  for (const tipo of ["01", "04", "03"]) {
+    const x = firmar(generarVenta(venta(tipo)), c.p12, c.pin);
+    await validarXml(x, tipo);
+    assert.equal(verificar(x, c.pem), true);
+    assert.equal(verificarRespuesta(x), true);
+    assert.equal(
+      verificarRespuesta(x.replace("ZZ receptor", "OTRO receptor")),
+      false,
+    );
+    assert.equal(
+      verificar(x.replace("ZZ receptor", "OTRO receptor"), c.pem),
+      false,
+    );
+    assert.equal(
+      verificar(
+        x.replace(HASH_POLITICA, HASH_POLITICA.replace("D", "A")),
+        c.pem,
+      ),
+      false,
+    );
+    assert.equal(verificar(x.replace("113.00000", "114.00000"), c.pem), false);
+  }
+});
+test("no firma con PIN incorrecto, p12 corrupto o certificado fuera de vigencia", () => {
+  const c = certificado();
+  assert.throws(
+    () => abrir(c.p12, "malo"),
+    (e) => e.code === "CERTIFICADO_INVALIDO",
+  );
+  assert.throws(() => abrir(Buffer.from("texto"), c.pin));
+  assert.throws(
+    () => abrir(c.p12, c.pin, new Date("2036-01-01")),
+    (e) => e.code === "CERTIFICADO_VENCIDO",
+  );
+});
+// 2026-10-10. La actividad inscrita de la empresa es "4752.1" y así la
+// devuelve la consulta pública de Hacienda. Con la regla de "seis dígitos" no
+// se podía guardar ni probar la conexión. Las 207 facturas 4.4 de este emisor
+// que llevan ese texto fueron aceptadas.
+test("la actividad económica va como la publica Hacienda, con su punto", async () => {
+  for (const tipo of ["01", "04", "03"]) {
+    const d = venta(tipo);
+    d.emisor.actividad_economica = "4752.1";
+    d.documento.actividad_economica = "4711.1";
+    const xml = generarVenta(d);
+    assert.match(
+      xml,
+      /<CodigoActividadEmisor>4752\.1<\/CodigoActividadEmisor>/,
+    );
+    if (tipo === "01")
+      assert.match(
+        xml,
+        /<CodigoActividadReceptor>4711\.1<\/CodigoActividadReceptor>/,
+      );
+    const c = certificado();
+    await validarXml(firmar(xml, c.p12, c.pin), tipo);
+  }
+  // El código anterior de seis dígitos sigue siendo válido.
+  const d = venta();
+  d.emisor.actividad_economica = "523402";
+  assert.match(generarVenta(d), /<CodigoActividadEmisor>523402</);
+});
+
+test("los datos fiscales incompletos y los importes que no cuadran no se inventan", () => {
+  for (const cambiar of [
+    // Así quedó en la base al copiar de Alegra: sin el punto no son seis.
+    (d) => (d.emisor.actividad_economica = "47521"),
+    (d) => (d.emisor.actividad_economica = "4752-1"),
+    (d) => (d.documento.actividad_economica = "47112"),
+    (d) => (d.lineas[0].cabys = null),
+    (d) => (d.lineas[0].codigo_tarifa_hacienda = "02"),
+    (d) => (d.documento.total = "114"),
+    (d) => (d.documento.moneda = "USD"),
+  ]) {
+    const d = venta();
+    cambiar(d);
+    assert.throws(() => generarVenta(d));
+  }
+  const d = venta();
+  d.lineas[0].descuento_monto = "10";
+  d.lineas[0].impuesto_monto = "11.70";
+  d.lineas[0].total = "101.70";
+  d.documento.total = "101.70";
+  d.documento.descuento = "10";
+  d.documento.impuesto = "11.70";
+  assert.throws(
+    () => generarVenta(d),
+    (e) => e.code === "DATO_FISCAL_FALTANTE",
+  );
+  d.opciones.lineas = [{ numeroLinea: 1, codigoDescuento: "06" }];
+  assert.match(generarVenta(d), /<CodigoDescuento>06/);
+});
+test("clave de 50 dígitos y fecha con hora de Costa Rica", () => {
+  const d = venta();
+  assert.equal(
+    fechaCR(new Date("2026-10-06T03:00:00Z")),
+    "2026-10-05T21:00:00-06:00",
+  );
+  const k = clave(
+    d.consecutivo,
+    identificacion("CF", "123456789"),
+    d.fecha,
+    "12345678",
+  );
+  assert.match(k, /^506051026\d{41}$/);
+  assert.equal(k.slice(21, 41), d.consecutivo);
+});
+test("mensajes receptor: clave del proveedor, receptor real y crédito explícito", async () => {
+  const d = venta(),
+    c = certificado(),
+    original = firmar(generarVenta(d), c.p12, c.pin);
+  for (const mensaje of ["1", "2", "3"]) {
+    const m = generarMensaje({
+      original,
+      emisor: d.emisor,
+      consecutivo: "00100001050000000001",
+      fecha: d.fecha,
+      opciones: {
+        mensaje,
+        detalle: "ZZ respuesta",
+        condicionImpuesto: "01",
+        impuestoAcreditar: mensaje === "3" ? "0" : "13",
+        gastoAplicable: mensaje === "3" ? "0" : "100",
+      },
+    });
+    await validarXml(
+      firmar(m.xml, c.p12, c.pin),
+      mensaje === "1" ? "05" : mensaje === "2" ? "06" : "07",
+    );
+    assert.equal(m.clave, d.clave);
+  }
+  assert.throws(
+    () =>
+      generarMensaje({
+        original,
+        emisor: { ...d.emisor, identificacion: "987654321" },
+        consecutivo: d.consecutivo,
+        fecha: d.fecha,
+        opciones: {
+          mensaje: "1",
+          detalle: "ZZ",
+          condicionImpuesto: "01",
+          impuestoAcreditar: "13",
+          gastoAplicable: "100",
+        },
+      }),
+    (e) => e.code === "RECEPTOR_NO_COINCIDE",
+  );
+});
+test("XML no procesa entidades externas ni documentos enormes", () => {
+  assert.throws(() => parsear('<!DOCTYPE x SYSTEM "file:///etc/passwd"><x/>'));
+  assert.throws(() => parsear("<x>&mal;</x>"));
+  assert.throws(() => parsear("x".repeat(3 * 1024 * 1024)));
+});
+test("una plantilla electrónica no demuestra aceptación del documento histórico", () => {
+  const base = {
+    numberTemplate: { isElectronic: true },
+    stamp: { uuid: "5".repeat(50) },
+  };
+  assert.equal(desdeAlegra(base).electronica, false);
+  assert.equal(desdeAlegra(base).hacienda_estado, null);
+  assert.equal(
+    desdeAlegra({
+      ...base,
+      stamp: { ...base.stamp, legalStatus: "STAMPED_AND_ACCEPTED" },
+    }).electronica,
+    true,
+  );
+  assert.equal(
+    desdeAlegra({
+      ...base,
+      stamp: { ...base.stamp, legalStatus: "STAMPED_AND_REJECTED" },
+    }).hacienda_estado,
+    "rechazada",
+  );
+  assert.equal(
+    desdeAlegra({
+      ...base,
+      stamp: { ...base.stamp, legalStatus: "DESCONOCIDO" },
+    }).electronica,
+    false,
+  );
+});
+test("esquemas oficiales conservan las huellas registradas y códigos 2026", async () => {
+  const dir = path.join(
+      __dirname,
+      "../src/integrations/hacienda/esquemas/v4.4",
+    ),
+    m = JSON.parse(await fs.readFile(path.join(dir, "fuentes.json")));
+  for (const a of m.archivos)
+    assert.equal(
+      crypto
+        .createHash("sha256")
+        .update(await fs.readFile(path.join(dir, a.archivo)))
+        .digest("hex"),
+      a.sha256,
+    );
+  const x = await fs.readFile(
+    path.join(dir, "NotaCreditoElectronica.xsd"),
+    "utf8",
+  );
+  assert.ok(x.includes("error material"));
+  assert.ok(x.includes('value="16"'));
+});
+test("secretos cifrados por ambiente, archivos privados e integridad del XML", async () => {
+  const previo = process.env.HACIENDA_ALMACEN_PRIVADO,
+    dir = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), "zz-hacienda-")),
+    );
+  process.env.HACIENDA_ALMACEN_PRIVADO = dir;
+  try {
+    const secreto = { pin: "zz-pin", clave: "zz-password", p12: "zz-cert" },
+      c = await almacen.cifrar(secreto, "pruebas");
+    assert.ok(!c.includes("zz-password"));
+    assert.deepEqual(await almacen.descifrar(c, "pruebas"), secreto);
+    await assert.rejects(almacen.descifrar(c, "produccion"));
+    const a = await almacen.guardarXml("<ZZ/>");
+    assert.equal(await almacen.leerXml(a.ruta, a.sha256), "<ZZ/>");
+    assert.equal((await fs.stat(path.join(dir, a.ruta))).mode & 0o077, 0);
+    await fs.writeFile(path.join(dir, a.ruta), "<OTRO/>");
+    await assert.rejects(almacen.leerXml(a.ruta, a.sha256));
+    await assert.rejects(almacen.leerXml("../../.env"));
+  } finally {
+    if (previo === undefined) delete process.env.HACIENDA_ALMACEN_PRIVADO;
+    else process.env.HACIENDA_ALMACEN_PRIVADO = previo;
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("redondeos comerciales de portal conservan precio, impuesto y total cobrado", () => {
+  const d = venta();
+  Object.assign(d.lineas[0], {
+    cantidad: "2",
+    precio_unitario: "33451.32743",
+    impuesto_monto: "8697.35",
+    total: "75600",
+  });
+  Object.assign(d.documento, { total: "75600", impuesto: "8697.35" });
+  const x = generarVenta(d);
+  assert.ok(x.includes("<PrecioUnitario>33451.32743"));
+  assert.ok(x.includes("<MontoTotal>66902.65000"));
+  assert.ok(x.includes("<TotalComprobante>75600.00000"));
+  d.lineas[0].impuesto_monto = "8698.35";
+  assert.throws(() => generarVenta(d));
+});
+
+test("prefijo abreviado de Alegra no mezcla consecutivos fiscales y comerciales", () => {
+  const {
+    numeracionDesdeAlegra,
+  } = require("../src/integrations/hacienda/historico");
+  const d = venta();
+  const k = clave(
+    "00100001010000004946",
+    identificacion("CF", "123456789"),
+    d.fecha,
+    "12345678",
+  );
+  assert.deepEqual(
+    numeracionDesdeAlegra(
+      {
+        numberTemplate: {
+          prefix: "00100001",
+          number: "4946",
+          isElectronic: true,
+        },
+        stamp: { uuid: k },
+      },
+      "01",
+    ),
+    { serie: "0010000101", consecutivo: 4946 },
+  );
+  assert.deepEqual(
+    numeracionDesdeAlegra(
+      {
+        numberTemplate: {
+          prefix: "00100001",
+          number: "4946",
+          isElectronic: false,
+        },
+      },
+      "01",
+    ),
+    { serie: "00100001", consecutivo: 4946 },
+  );
+});
+
+test("firma verifica el filtro XPath exacto del ejemplo oficial sin evaluar otros filtros", async () => {
+  const c = certificado(),
+    { XMLSerializer } = require("../src/integrations/hacienda/xml/util");
+  const {
+    ExclusiveCanonicalization,
+  } = require("../src/integrations/hacienda/node_modules/xml-crypto");
+  const DS = "http://www.w3.org/2000/09/xmldsig#",
+    doc = parsear(firmar(generarVenta(venta()), c.p12, c.pin));
+  const t = doc
+    .getElementsByTagNameNS(DS, "Reference")[0]
+    .getElementsByTagNameNS(DS, "Transform")[0];
+  t.setAttribute("Algorithm", "http://www.w3.org/TR/1999/REC-xpath-19991116");
+  const x = doc.createElementNS(DS, "ds:XPath");
+  x.textContent = "not(ancestor-or-self::ds:Signature)";
+  t.appendChild(x);
+  const si = doc.getElementsByTagNameNS(DS, "SignedInfo")[0];
+  doc.getElementsByTagNameNS(DS, "SignatureValue")[0].textContent = crypto
+    .sign(
+      "RSA-SHA256",
+      Buffer.from(new ExclusiveCanonicalization().process(si, {})),
+      abrir(c.p12, c.pin).key,
+    )
+    .toString("base64");
+  const xml = new XMLSerializer().serializeToString(doc);
+  assert.equal(verificarRespuesta(xml), true);
+  await validarXml(xml, "01");
+  assert.equal(
+    verificarRespuesta(
+      xml.replace("not(ancestor-or-self::ds:Signature)", "true()"),
+    ),
+    false,
+  );
+});

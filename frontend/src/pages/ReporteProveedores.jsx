@@ -1,17 +1,28 @@
+import NavegacionSecciones from '../components/ui/NavegacionSecciones'
+import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
+import FaltantesPorCiclo from '../components/reporte-proveedores/FaltantesPorCiclo'
+import OrdenesCompraCiclo from '../components/reporte-proveedores/OrdenesCompraCiclo'
+import NecesidadesPorCiclo from '../components/reporte-proveedores/NecesidadesPorCiclo'
 import { useState, useEffect } from 'react'
-import { AlertCircle, Package } from 'lucide-react'
+import { AlertCircle, Package, ClipboardList, Contact, ShoppingCart } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
+import { useFichasProveedor } from '../hooks/useFichasProveedor'
+import { useDialog } from '../hooks/useDialog'
+import ListaFichasProveedor from '../components/reporte-proveedores/ListaFichasProveedor'
+import ModalFichaProveedor from '../components/reporte-proveedores/ModalFichaProveedor'
 import ListaProveedores from '../components/reporte-proveedores/ListaProveedores'
 import ProveedorDetalle from '../components/reporte-proveedores/ProveedorDetalle'
 import ModalAsignarProveedor from '../components/reporte-proveedores/ModalAsignarProveedor'
 import ModalCrearProveedor from '../components/reporte-proveedores/ModalCrearProveedor'
 import ModalAgregarProducto from '../components/reporte-proveedores/ModalAgregarProducto'
-import ModalWhatsApp from '../components/reporte-proveedores/ModalWhatsApp'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteProveedores() {
+  const [vista, setVista] = useState('necesidades')
   const {
+    filtroCiclo, consultaCiclo,
     proveedores,
     notasPorProducto,
     cargandoNotas,
@@ -33,28 +44,19 @@ export default function ReporteProveedores() {
 
     handleGenerarPDF,
 
-    modalWhatsAppVisible,
-    setModalWhatsAppVisible,
-    telefonoProveedor,
-    setTelefonoProveedor,
-    mensajeWhatsApp,
-    setMensajeWhatsApp,
-    abrirModalWhatsApp,
-    enviarWhatsApp,
-
     productosSeleccionados,
     toggleProductoSeleccionado,
     toggleTodosProductos,
 
     modalAsignarVisible,
     setModalAsignarVisible,
-    proveedoresAlegra,
-    setProveedoresAlegra,
+    proveedoresDisponibles,
+    setProveedoresDisponibles,
     busquedaProveedor,
     setBusquedaProveedor,
     loadingProveedores,
     abrirModalAsignar,
-    cargarProveedoresAlegra,
+    cargarProveedores,
     asignarProveedorManual,
 
     modalCrearProveedor,
@@ -71,10 +73,10 @@ export default function ReporteProveedores() {
     proveedorParaAgregar,
     busquedaProducto,
     setBusquedaProducto,
-    productosAlegra,
+    productosEncontrados,
     loadingProductos,
     abrirModalAgregarProducto,
-    buscarProductosAlegra,
+    buscarProductos,
     solicitarCantidadYAgregar,
     eliminarProductoAgregado,
     actualizarCantidadAgregado,
@@ -83,10 +85,19 @@ export default function ReporteProveedores() {
     toasts,
     showToast,
     removeToast
-  } = useReporteProveedores()
+  } = useReporteProveedores({activo:vista==='faltantes'})
 
   // NAVEGACIÓN: lista de proveedores → detalle de proveedor
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
+  const [proveedorQuery, setProveedorQuery] = useState('')
+
+  // El proveedor elegido lleva su identidad a la revisión de la orden;
+  // las fichas conservan su administración fuera del trabajo por semana.
+  const [proveedorOrden, setProveedorOrden] = useState(null)
+  // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
+  // y no expone `confirm`.
+  const { confirm: confirmarFicha, dialogProps: dialogFichas } = useDialog()
+  const fichas = useFichasProveedor({ showToast, confirm: confirmarFicha })
 
   /**
    * Si el proveedor que se está viendo desaparece del reporte, se vuelve a
@@ -102,47 +113,78 @@ export default function ReporteProveedores() {
    * Se avisa por qué, porque irse solo de una pantalla también desconcierta
    * si no se explica.
    */
+  useEffect(() => { setProveedorActivoId(null) }, [filtroCiclo.rutaId, filtroCiclo.cicloId, fechaInicio])
+
   useEffect(() => {
-    if (!proveedorActivoId || loading) return
+    // Un área inactiva o una consulta fallida no prueban que el proveedor desapareció.
+    if (vista !== 'faltantes' || !proveedorActivoId || loading || error) return
     if (proveedores.some(p => p.id === proveedorActivoId)) return
 
     setProveedorActivoId(null)
     showToast('Ese proveedor ya no tiene productos pendientes.', 'info')
-  }, [proveedorActivoId, proveedores, loading, showToast])
+  }, [vista, proveedorActivoId, proveedores, loading, error, showToast])
 
-  if (loading && !proveedores.length) {
-    return (
-      <div className="max-w-6xl mx-auto text-center py-12">
-        <div className="spinner mx-auto mb-4 border-t-2 border-b-2 border-primario-500 rounded-full w-12 h-12 animate-spin"></div>
-        <p className="text-neutro-600">Cargando reporte de proveedores...</p>
-      </div>
-    )
-  }
-
+  // El reporte de faltantes tarda; las fichas no dependen de él. Si esta
+  // espera tapara toda la página, entrar a corregir un proveedor obligaría a
+  // esperar un reporte que no se va a mirar.
   const proveedorActivo = proveedores.find(p => p.id === proveedorActivoId)
 
   const cerrarModalAsignar = () => {
     setModalAsignarVisible(false)
     setBusquedaProveedor('')
-    setProveedoresAlegra([])
+    setProveedoresDisponibles([])
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto pb-24">
-      <div className="mb-8 pl-1">
-        <h1 className="text-4xl font-extrabold text-neutro-900 tracking-tight">Faltantes y Compras</h1>
-        <p className="text-neutro-500 mt-2 text-lg">Central de proveedores, análisis predictivos y órdenes automáticas.</p>
+    <div className="max-w-[1400px] mx-auto space-y-5 pb-12">
+      <div className="pl-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+        <h1 className="text-3xl font-bold text-neutro-900">Reporte de Proveedores</h1>
+        <p className="text-neutro-500 mt-2 text-base">Organizá necesidades, compras y recepción por ruta y semana.</p>
+        </div>
+        {vista === 'faltantes' && <BotonExportarExcel ruta="/reportes/faltantes/proveedor/exportar"
+          params={{ ...filtroCiclo.params, fecha_inicio: fechaInicio, buscar: proveedorActivoId ? '' : proveedorQuery, proveedor: proveedorActivoId || '' }}
+          disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
       </div>
 
-      {error && (
-        <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
+      <NavegacionSecciones verticalEnMovil etiqueta="Áreas de Reporte de Proveedores" seleccion={vista}
+        onCambiar={id => { setProveedorOrden(null); setVista(id) }} secciones={[
+          { id: 'necesidades', titulo: 'Necesidades', detalle: 'Demanda y cobertura', icono: Package },
+          { id: 'faltantes', titulo: 'Faltantes', detalle: 'Productos por proveedor', icono: ClipboardList },
+          { id: 'ordenes', titulo: 'Órdenes', detalle: 'Compra y recepción', icono: ShoppingCart },
+          { id: 'fichas', titulo: 'Proveedores', detalle: 'Fichas y contacto', icono: Contact }
+        ]} />
+
+      {vista !== 'fichas' && <FiltroCicloOperacion titulo="Ruta y semana de trabajo" filtro={filtroCiclo} requiereCiclo={vista==='necesidades'} />}
+      {vista === 'faltantes' && loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
+      {vista==='faltantes' && error && (
+        <div role="alert" className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
           <div className="flex items-center"><AlertCircle className="text-peligro-500 mr-2" /><p className="text-peligro-700 font-medium">Error: {error}</p></div>
+          <button type="button" className="mt-2 min-h-11 font-bold underline" onClick={loadReporte}>Reintentar consulta</button>
         </div>
       )}
 
-      {/* Manejo de Vistas (Listado vs Panel Detalle) */}
-      {!proveedorActivoId ? (
+      {/* Manejo de Vistas (Fichas · Listado de faltantes vs Panel Detalle) */}
+      {vista === 'necesidades' ? <NecesidadesPorCiclo filtro={filtroCiclo} /> : vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} /> : vista === 'fichas' ? (
+        <ListaFichasProveedor
+          proveedores={fichas.proveedores}
+          cargando={fichas.cargando}
+          busqueda={fichas.busqueda}
+          setBusqueda={fichas.setBusqueda}
+          estado={fichas.estado}
+          setEstado={fichas.setEstado}
+          paginacion={fichas.paginacion}
+          pagina={fichas.pagina}
+          setPagina={fichas.setPagina}
+          procesando={fichas.procesando}
+          abriendo={fichas.abriendo}
+          onNuevo={() => fichas.setEditando({})}
+          onAbrir={fichas.abrirFicha}
+          onCambiarEstado={fichas.cambiarEstado}
+        />
+      ) : loading || error ? null : !proveedorActivoId ? (
         <ListaProveedores
+          consultaCiclo={consultaCiclo}
           proveedores={proveedores}
           pedidosEnviados={pedidosEnviados}
           resumen={resumen}
@@ -150,7 +192,14 @@ export default function ReporteProveedores() {
           setFechaInicio={setFechaInicio}
           onRefresh={loadReporte}
           onSelectProveedor={setProveedorActivoId}
+          proveedorQuery={proveedorQuery}
+          setProveedorQuery={setProveedorQuery}
         />
+      ) : proveedorActivo && consultaCiclo ? (
+        <FaltantesPorCiclo proveedor={proveedorActivo} cicloId={filtroCiclo.cicloId} onVolver={() => setProveedorActivoId(null)}
+          notasPorProducto={notasPorProducto} cargandoNotas={cargandoNotas}
+          productosSeleccionados={productosSeleccionados} onSeleccionarProducto={toggleProductoSeleccionado} onAsignar={abrirModalAsignar}
+          onPrepararOrden={() => { setProveedorOrden({ cedula: proveedorActivo.cedula, nombre: proveedorActivo.nombre }); setVista('ordenes') }} />
       ) : proveedorActivo ? (
         <ProveedorDetalle
           notasPorProducto={notasPorProducto}
@@ -174,7 +223,6 @@ export default function ReporteProveedores() {
           actualizarCantidadAgregado={actualizarCantidadAgregado}
           eliminarProductoAgregado={eliminarProductoAgregado}
           onAgregarProducto={abrirModalAgregarProducto}
-          onAbrirWhatsApp={abrirModalWhatsApp}
           onAbrirModalAsignar={abrirModalAsignar}
         />
       ) : (
@@ -193,14 +241,27 @@ export default function ReporteProveedores() {
         </div>
       )}
 
+      {fichas.editando && (
+        <ModalFichaProveedor
+          proveedor={fichas.editando.id ? fichas.editando : null}
+          plazos={fichas.plazos}
+          guardando={fichas.guardando}
+          onGuardar={fichas.guardar}
+          onCerrar={() => fichas.setEditando(null)}
+        />
+      )}
+
+      <ConfirmModal {...dialogFichas} />
+
       {modalAsignarVisible && (
         <ModalAsignarProveedor
           cantidadSeleccionados={productosSeleccionados.size}
+          soloCiclo={consultaCiclo}
           busquedaProveedor={busquedaProveedor}
           setBusquedaProveedor={setBusquedaProveedor}
-          proveedoresAlegra={proveedoresAlegra}
+          proveedoresDisponibles={proveedoresDisponibles}
           loadingProveedores={loadingProveedores}
-          onBuscar={cargarProveedoresAlegra}
+          onBuscar={cargarProveedores}
           onAsignar={asignarProveedorManual}
           onCrearNuevo={() => setModalCrearProveedor(true)}
           onCerrar={cerrarModalAsignar}
@@ -220,23 +281,11 @@ export default function ReporteProveedores() {
           proveedor={proveedorParaAgregar}
           busquedaProducto={busquedaProducto}
           setBusquedaProducto={setBusquedaProducto}
-          productosAlegra={productosAlegra}
+          productosEncontrados={productosEncontrados}
           loadingProductos={loadingProductos}
-          onBuscar={buscarProductosAlegra}
+          onBuscar={buscarProductos}
           onAgregarConCantidad={solicitarCantidadYAgregar}
           onCerrar={() => setModalAgregarProducto(false)}
-        />
-      )}
-
-      {modalWhatsAppVisible && (
-        <ModalWhatsApp
-          telefonoProveedor={telefonoProveedor}
-          setTelefonoProveedor={setTelefonoProveedor}
-          mensajeWhatsApp={mensajeWhatsApp}
-          setMensajeWhatsApp={setMensajeWhatsApp}
-          loading={loading}
-          onEnviar={enviarWhatsApp}
-          onCerrar={() => setModalWhatsAppVisible(false)}
         />
       )}
 

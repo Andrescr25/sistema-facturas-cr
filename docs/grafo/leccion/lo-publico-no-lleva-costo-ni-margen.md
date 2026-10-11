@@ -11,7 +11,7 @@ archivos:
   - backend/tests/ofertasPorBaja.test.js
 aristas:
   relacionado: [modulo/catalogo-agente, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-03
+medido: 2026-10-04
 ---
 
 Las rutas del catálogo del agente y del catálogo de clientes se abren SIN
@@ -31,9 +31,17 @@ nombres de campo de cada respuesta:
 
 Ninguna pantalla usaba esos campos. Salían porque nadie los había quitado.
 
+**En esta rama (`independencia-alegra`) pasó la mitad.** El catálogo del
+agente ya salía del maestro propio, armado campo por campo: el costo nunca
+viajó por acá. Pero los márgenes de `ofertas-baja` SÍ siguieron saliendo hasta
+el 2026-10-04: el arreglo se hizo en `main` el día anterior y la rama no lo
+tuvo hasta que se trajo `developer`. Un arreglo de seguridad hecho en una rama
+no existe en la otra hasta que se fusiona: después de cada uno hay que traer
+`developer` a esta rama, no esperar a la próxima vez que haga falta.
+
 **La regla:** lo que sale por una ruta pública se arma como una lista de lo
 que SÍ pasa (`aFormaDeTablet` en el catálogo del agente), no reenviando lo
-que devuelve Alegra o la base y quitando lo que molesta. Con una lista de lo
+que devuelve la base y quitando lo que molesta. Con una lista de lo
 que se quita, el campo sensible que aparezca mañana sale solo; con una lista
 de lo que pasa, hay que agregarlo a propósito. El margen puede seguir
 decidiendo qué es una oferta —vive en el `WHERE`— sin viajar en la respuesta.

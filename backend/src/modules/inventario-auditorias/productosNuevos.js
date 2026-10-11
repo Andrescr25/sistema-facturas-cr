@@ -1,114 +1,97 @@
 /**
- * "Productos nuevos": una lista MANUAL de productos que el catálogo del agente
- * muestra en su propia sección, justo después de "Bajamos el precio".
+ * Lista MANUAL que se muestra en la tablet. No deduce qué es nuevo.
  *
- * Decisión del usuario (2026-09-27): se maneja a mano desde Auditoría de
- * Inventario — agregar o quitar, nada más. No hay regla automática (fecha de
- * creación en Alegra, primera compra…): qué es "nuevo" para enseñárselo al
- * cliente lo decide una persona.
- *
- * La tabla guarda solo QUÉ producto, cuándo y quién lo agregó. El nombre, la
- * foto y el precio salen siempre de alegra_products_cache: copiarlos acá los
- * dejaría viejos en cuanto alguien cambie el producto.
- *
- * Un producto de la lista que se desactiva o se oculta deja de verse en el
- * catálogo (la tablet solo baja los activos), pero NO se saca solo de la
- * lista: la pantalla lo marca, para que nadie crea que el sistema está roto
- * ni pierda la lista si lo vuelven a activar.
+ * Sección 12, parte 3: producto_id es producto.id; id es la entrada de esta
+ * lista. Se quita por el id de entrada para poder retirar también un registro
+ * histórico sin correspondencia. alegra_item_id conserva SOLO la referencia
+ * anterior: jamás se usa como sustituto del producto propio (migración 036).
  */
-
 const { query } = require('../../../config/database');
-
-function httpError(status, message) {
-  const error = new Error(message);
-  error.status = status;
-  return error;
-}
+const { idValido, httpError } = require('../../utils/validacion');
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
+const { DESDE, VISIBLE, NORMALIZAR_SQL, normalizar } = require('../catalogo-clientes/consultaProducto');
 
 const SQL_TABLA = `
   CREATE TABLE IF NOT EXISTS producto_nuevo_catalogo (
-      alegra_item_id VARCHAR(100) PRIMARY KEY,
-      agregado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      agregado_por VARCHAR(255)
+    id SERIAL PRIMARY KEY,
+    producto_id INTEGER REFERENCES producto(id),
+    alegra_item_id VARCHAR(100),
+    agregado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    agregado_por VARCHAR(255)
   );
+  CREATE UNIQUE INDEX IF NOT EXISTS producto_nuevo_catalogo_producto_unico
+    ON producto_nuevo_catalogo (producto_id) WHERE producto_id IS NOT NULL;
 `;
 
-/** La lista para administrarla: lo más reciente arriba, con los datos del catálogo. */
+/** Datos actuales del maestro, sin copiar nombre, foto ni precio a la lista. */
 async function listar() {
   const { rows } = await query(`
-    SELECT n.alegra_item_id, n.agregado_en, n.agregado_por,
-           p.name, p.reference, p.category, p.image_url, p.status, p.hidden_locally
+    SELECT n.id, n.producto_id, n.alegra_item_id, n.agregado_en, n.agregado_por,
+           p.nombre, p.referencia, cat.nombre AS categoria, p.imagen_url,
+           p.activo, p.oculto, p.precio_sin_iva
       FROM producto_nuevo_catalogo n
-      LEFT JOIN alegra_products_cache p ON p.alegra_id = n.alegra_item_id
-     ORDER BY n.agregado_en DESC, n.alegra_item_id
-  `);
-  return rows.map((r) => {
-    const existe = r.name !== null && r.name !== undefined;
-    const visible = existe && r.status === 'active' && !r.hidden_locally;
+      LEFT JOIN producto p ON p.id = n.producto_id
+      LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+     ORDER BY n.agregado_en DESC, n.id DESC`);
+  return rows.map(r => {
+    const existe = r.nombre !== null && r.nombre !== undefined;
+    const visible = existe && r.activo && !r.oculto && Number(r.precio_sin_iva) > 0;
     return {
-      alegraItemId: String(r.alegra_item_id),
-      nombre: existe ? r.name : `Producto ${r.alegra_item_id}`,
-      referencia: r.reference || '',
-      categoria: r.category || '',
-      imagenUrl: r.image_url || '',
-      agregadoEn: r.agregado_en,
-      agregadoPor: r.agregado_por || null,
-      visibleEnCatalogo: visible,
-      motivoNoVisible: visible ? null
-        : !existe ? 'Ya no está en el catálogo'
-          : r.hidden_locally ? 'Está oculto en el catálogo'
-            : 'Está inactivo en Alegra'
+      registroId: r.id, productoId: r.producto_id,
+      nombre: existe ? r.nombre : `Producto histórico ${r.alegra_item_id || r.id}`,
+      referencia: r.referencia || '', categoria: r.categoria || '', imagenUrl: r.imagen_url || '',
+      agregadoEn: r.agregado_en, agregadoPor: r.agregado_por || null,
+      visibleEnCatalogo: Boolean(visible),
+      motivoNoVisible: visible ? null : !existe ? 'Falta conciliar la ficha del producto'
+        : r.oculto ? 'Está oculto en el catálogo' : !r.activo ? 'Está inactivo'
+          : 'No tiene precio de venta'
     };
   });
 }
 
-/**
- * Agrega un producto. Tiene que estar en el catálogo y visible: si no, no
- * saldría en la tablet y parecería que agregarlo no sirvió. Agregar uno que ya
- * estaba no es un error (doble toque): se avisa y no cambia su fecha.
- */
-async function agregar(alegraItemId, usuario = null) {
-  const id = String(alegraItemId || '').trim();
-  if (!id) throw httpError(400, 'Falta el producto.');
+/** Buscador propio de esta lista; no usa el de devoluciones ni consulta Alegra. */
+async function buscar(texto) {
+  const q = normalizar(texto).trim();
+  if (q.length < 2) return [];
+  const { rows } = await query(`
+    SELECT p.id AS "productoId", p.nombre, p.referencia, cat.nombre AS categoria
+    ${DESDE} WHERE ${VISIBLE}
+      AND ${NORMALIZAR_SQL("p.nombre || ' ' || COALESCE(p.referencia, '')")} LIKE $1
+    ORDER BY p.nombre, p.id LIMIT 30`, [`%${q}%`]);
+  return rows;
+}
 
-  const { rows } = await query(
-    `SELECT alegra_id, name, status, hidden_locally FROM alegra_products_cache WHERE alegra_id = $1`,
-    [id]
-  );
-  const producto = rows[0];
+/** Doble toque: una entrada por producto, sin cambiar la fecha de la anterior. */
+async function agregar(productoId, usuario = null) {
+  const id = idValido(productoId);
+  const { rows: [producto] } = await query(`
+    SELECT p.id, p.nombre, p.activo, p.oculto, p.precio_sin_iva FROM producto p WHERE p.id = $1`, [id]);
   if (!producto) throw httpError(404, 'Ese producto no está en el catálogo.');
-  if (producto.status !== 'active' || producto.hidden_locally) {
-    throw httpError(409, `"${producto.name}" está inactivo u oculto: no saldría en el catálogo.`);
+  if (!producto.activo || producto.oculto || Number(producto.precio_sin_iva) <= 0) {
+    throw httpError(409, `"${producto.nombre}" no está disponible en el catálogo.`);
   }
-
-  const r = await query(`
-    INSERT INTO producto_nuevo_catalogo (alegra_item_id, agregado_por)
-    VALUES ($1, $2)
-    ON CONFLICT (alegra_item_id) DO NOTHING
-    RETURNING alegra_item_id
-  `, [id, usuario]);
-  return { alegraItemId: id, nombre: producto.name, yaEstaba: r.rows.length === 0 };
+  const { rows } = await query(`
+    INSERT INTO producto_nuevo_catalogo (producto_id, agregado_por, agregado_en)
+    VALUES ($1, $2, ${AHORA_CR_SQL})
+    ON CONFLICT (producto_id) WHERE producto_id IS NOT NULL DO NOTHING
+    RETURNING id`, [id, usuario]);
+  return { productoId: id, nombre: producto.nombre, yaEstaba: rows.length === 0 };
 }
 
-async function quitar(alegraItemId) {
-  const id = String(alegraItemId || '').trim();
-  const r = await query(
-    `DELETE FROM producto_nuevo_catalogo WHERE alegra_item_id = $1 RETURNING alegra_item_id`,
-    [id]
-  );
-  if (r.rows.length === 0) throw httpError(404, 'Ese producto no estaba en Productos nuevos.');
-  return { alegraItemId: id, quitado: true };
+/** registroId, no productoId: funciona también para una entrada sin ficha. */
+async function quitar(registroId) {
+  const id = idValido(registroId);
+  const { rows } = await query('DELETE FROM producto_nuevo_catalogo WHERE id = $1 RETURNING id', [id]);
+  if (!rows.length) throw httpError(404, 'Ese producto no estaba en Productos nuevos.');
+  return { registroId: id, quitado: true };
 }
 
-/**
- * Lo que baja la tablet: solo los ids, lo más reciente primero. El producto
- * completo (foto, precio, categoría) ya lo tiene del catálogo descargado.
- */
+/** La tablet solo baja fichas visibles; la administración conserva las demás. */
 async function idsParaCatalogo() {
-  const { rows } = await query(
-    `SELECT alegra_item_id, agregado_en FROM producto_nuevo_catalogo ORDER BY agregado_en DESC, alegra_item_id`
-  );
-  return rows.map((r) => ({ alegraItemId: String(r.alegra_item_id), agregadoEn: r.agregado_en }));
+  const { rows } = await query(`
+    SELECT n.producto_id, n.agregado_en FROM producto_nuevo_catalogo n
+    JOIN producto p ON p.id = n.producto_id
+    WHERE ${VISIBLE} ORDER BY n.agregado_en DESC, n.id DESC`);
+  return rows.map(r => ({ productoId: r.producto_id, agregadoEn: r.agregado_en }));
 }
-
-module.exports = { SQL_TABLA, listar, agregar, quitar, idsParaCatalogo };
+module.exports = { SQL_TABLA, listar, buscar, agregar, quitar, idsParaCatalogo };

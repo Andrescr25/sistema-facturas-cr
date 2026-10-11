@@ -2,22 +2,21 @@
  * Test de comprasAnteriores (portal-clientes.sugerencias.service.js).
  *
  * POR QUÉ EXISTE ESTE ARCHIVO
- * `precio_unitario` en venta_historico es el precio SIN impuesto (así lo
- * manda Alegra en las líneas de factura). La tarjeta "Volver a pedir" sumaba
- * ese precio tal cual, así que mostraba el subtotal antes de IVA — un ~13%
- * menos que la factura real — mientras el modal "Ver y repetir" sí sumaba
- * con impuesto (vía precioConImpuesto, en detalleCompra). Se detectó con la
- * factura 5263 de "La Ecosr Sociedad Anonima (TOSCANA)": ₡279.113 en Alegra,
- * ₡248.353 en la tarjeta.
+ * La tarjeta "Volver a pedir" llegó a mostrar el subtotal antes de IVA —un
+ * ~13 % menos que la factura real— porque sumaba el precio de las líneas tal
+ * cual. Se detectó con la factura 5263 de "La Ecosr Sociedad Anonima
+ * (TOSCANA)": ₡279.113 en Alegra, ₡248.353 en la tarjeta. Se arregló
+ * reconstruyendo el total (cantidad × precio × la tarifa de hoy del producto).
+ *
+ * EN ESTA RAMA EL TOTAL SE LEE DEL DOCUMENTO. Desde la migración
+ * independencia/034 las compras anteriores salen de las facturas propias, y
+ * el total de la tarjeta es `factura.total`: el mismo monto que el cliente ve
+ * en su cuenta por cobrar, con el impuesto que se le cobró ese día. No hay
+ * nada que reconstruir, y un cambio de tarifa posterior no lo altera.
  *
  * CÓMO SE PRUEBA SIN BASE DE DATOS
- * La suma la hace Postgres, no JS — no se puede probar el cálculo completo
- * sin una base real, y esta local ES producción. Lo que sí se puede fijar es
- * que la consulta siga pidiendo el impuesto: se sustituye `query` (la misma
- * que usa portal-clientes.auth.js, que solo la reexporta de config/database)
- * y se verifica que el SQL una alegra_products_cache y multiplique por
- * (1 + tax_percentage/100). Si alguien vuelve a sumar solo precio_unitario,
- * este test lo marca roto antes de que se note en el catálogo.
+ * Se sustituye `query` y se fija la forma de la consulta. Que la consulta
+ * corre de verdad contra Postgres está en ventaLinea.test.js.
  */
 
 const { test, describe } = require('node:test');
@@ -39,7 +38,7 @@ function cargarServicioConDoble(filasSimuladas = []) {
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true, exports: {
       query: async (sql, params) => {
-        ultimaConsulta = { sql, params };
+        ultimaConsulta = { sql: String(sql).replace(/\s+/g, ' '), params };
         return { rows: filasSimuladas };
       }
     }
@@ -49,26 +48,38 @@ function cargarServicioConDoble(filasSimuladas = []) {
   return { svc, verConsulta: () => ultimaConsulta };
 }
 
-describe('comprasAnteriores — el total de la tarjeta incluye impuesto', () => {
-  test('la consulta suma con impuesto, no solo el precio sin IVA', async () => {
+describe('comprasAnteriores — el total de la tarjeta es el de la factura', () => {
+  test('sale de las facturas propias EMITIDAS del cliente, con el total del documento', async () => {
     const { svc, verConsulta } = cargarServicioConDoble([
-      { alegra_invoice_id: 5263, fecha: new Date('2026-08-18'), productos: 20, total: '279112.86' }
+      { factura_id: 4321, fecha: new Date('2026-08-18'), productos: 20, total: '279112.86' }
     ]);
 
-    await svc.comprasAnteriores('38', 10);
+    const r = await svc.comprasAnteriores('38', 10);
 
     const { sql, params } = verConsulta();
-    assert.match(sql, /alegra_products_cache/, 'debe unir con la tabla que tiene tax_percentage');
-    assert.match(sql, /1 \+ COALESCE\(p\.tax_percentage, 0\) \/ 100/, 'debe multiplicar por (1 + impuesto/100)');
-    assert.deepEqual(params, ['38', 10]);
+    assert.match(sql, /SELECT f\.id AS factura_id, f\.fecha, f\.total/, 'el total es el de la factura, con su impuesto');
+    assert.match(sql, /FROM factura f/);
+    assert.match(sql, /f\.estado = 'emitida'/, 'una proforma o una anulada no es una compra');
+    assert.match(sql, /f\.cliente_id = \$1/, 'el cliente del portal, por su ficha propia');
+    assert.doesNotMatch(sql, /venta_historico|alegra_products_cache/);
+    assert.deepEqual(params, [38, 10]);
+    assert.deepEqual(r, [{ facturaId: 4321, fecha: new Date('2026-08-18'), productos: 20, total: 279112.86 }]);
   });
 
-  test('un producto sin impuesto (COALESCE a 0) no rompe la suma', async () => {
-    const { svc } = cargarServicioConDoble([
-      { alegra_invoice_id: 1, fecha: new Date('2026-01-01'), productos: 1, total: '1000.00' }
-    ]);
+  test('la compra se abre por el id de la factura propia, y solo si es de ESE cliente', async () => {
+    const { svc, verConsulta } = cargarServicioConDoble([{ producto_id: '900', cantidad: '2.4' }]);
+    const lineas = await svc.lineasDeCompra('38', '4321');
+    const { sql, params } = verConsulta();
+    assert.match(sql, /FROM venta_linea v/);
+    assert.match(sql, /v\.cliente_id = \$1 AND v\.factura_id = \$2/);
+    assert.deepEqual(params, [38, 4321]);
+    assert.deepEqual(lineas, [{ productoId: '900', cantidad: 2 }]);
+  });
 
-    const r = await svc.comprasAnteriores('38', 5);
-    assert.equal(r[0].total, 1000);
+  test('un id de compra que no es un número no llega a la base', async () => {
+    const { svc, verConsulta } = cargarServicioConDoble([]);
+    await assert.rejects(() => svc.lineasDeCompra('38', 'abc'), (e) => e.status === 404);
+    await assert.rejects(() => svc.detalleCompra('38', '1; DROP'), (e) => e.status === 404);
+    assert.equal(verConsulta(), null);
   });
 });

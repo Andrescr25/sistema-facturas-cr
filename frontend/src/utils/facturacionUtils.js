@@ -101,23 +101,27 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
     const cache = facturasPrecargadas.find(
       f => f.localId === pendiente.localId || f.id === `local-${pendiente.localId}`
     )
-    const clienteInfo = clientes.find(c => String(c.id) === String(pendiente.client))
+    // La cola mantiene el contrato con que se creó. Solo clienteId señala
+    // una ficha propia: `client` en un pendiente antiguo es el id de Alegra.
+    const clienteInfo = pendiente.clienteId == null ? null :
+      clientes.find(c => String(c.id) === String(pendiente.clienteId))
     const total = cache?.total ?? (pendiente.items || []).reduce(
-      (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0),
-      0
-    )
-    // El cache local (facturaVista) trae los items con nombre legible;
-    // el registro crudo de facturas_pendientes solo trae id/referencia.
-    const items = (cache?.items && cache.items.length > 0 ? cache.items : pendiente.items || [])
-      .map(item => ({
+      (sum, item) => sum + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0), 0)
+    const items = Array.isArray(cache?.lineas) && cache.lineas.length > 0
+      ? cache.lineas.map(l => ({ nombre: l.nombre || l.descripcion || `Referencia ${l.referencia || l.productoId}`,
+        cantidad: Number(l.cantidad) || 0, precio: Number(l.precioUnitario) || 0 }))
+      : (pendiente.items || []).map(item => ({
         nombre: item.name || item.description || `Referencia ${item.reference || item.id}`,
-        cantidad: parseFloat(item.quantity) || 0,
-        precio: parseFloat(item.price) || 0
+        cantidad: parseFloat(item.quantity) || 0, precio: parseFloat(item.price) || 0
       }))
 
     return {
       localId: pendiente.localId,
-      clienteNombre: cache?.client?.name || clienteInfo?.name || `Cliente #${pendiente.client}`,
+      // Solo la copia del documento conoce el recorrido. El maestro actual
+      // o el ciclo activo no completan un dato faltante de una cola antigua.
+      ciclo: cache?.ciclo,
+      anticipado: cache?.anticipado,
+      clienteNombre: cache?.cliente?.nombre || clienteInfo?.name || `Cliente #${pendiente.clienteId ?? pendiente.client}`,
       total,
       items,
       cantidadItems: items.length,
@@ -126,4 +130,36 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
       errorSincronizacion: pendiente.errorSincronizacion || null
     }
   })
+}
+
+/**
+ * El id PROPIO del cliente (`cliente.id`), o null si no lo tiene.
+ *
+ * Es el que se usa para pedir lo que suele llevar. Nunca `alegraId`: los dos
+ * son números y el servidor no puede distinguirlos — con el de Alegra
+ * responde, sin error, las compras de OTRO cliente.
+ */
+export function idPropioDelCliente(cliente) {
+  const id = Number(cliente?.id)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+/**
+ * Las sugerencias que esta tablet puede agregar a la factura.
+ *
+ * Llegan con `producto.id`, el mismo id de `productos` y de las líneas: no
+ * hay nada que traducir, solo dejar las que están en el catálogo descargado
+ * (la que no está no se podría agregar).
+ *
+ * Antes se "traducían" como si trajeran el id de Alegra. Con ids propios eso
+ * cambiaba un producto por otro: el 12 propio pasaba a ser el producto cuyo
+ * id de Alegra es 12.
+ */
+export function sugerenciasDelCatalogo(sugerencias, productos) {
+  const enCatalogo = new Set((productos || []).map(p => String(p.id)))
+  const delCatalogo = (lista) => (lista || []).filter(s => enCatalogo.has(String(s.id)))
+  return {
+    habituales: delCatalogo(sugerencias?.habituales),
+    perdidos: delCatalogo(sugerencias?.perdidos)
+  }
 }

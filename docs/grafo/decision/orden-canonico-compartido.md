@@ -9,7 +9,7 @@ archivos:
   - backend/tests/subgruposCatalogoAgente.test.js
 aristas:
   relacionado: [modulo/gestion-catalogo, modulo/catalogo-agente, tabla/categoria-config, tabla/subcategoria]
-medido: 2026-09-25
+medido: 2026-10-07
 ---
 
 Gestión de Catálogo tiene que mostrar las categorías y familias en el MISMO
@@ -20,8 +20,20 @@ funciones de `catalogoAgentePersonalizacion.js`: `ordenDeCategorias`,
 `{ sinClasificarSiempre: true }` para que el bloque "Sin clasificar" aparezca
 aunque la categoría no tenga ninguna subcategoría (es justo donde hay que
 crear la primera); el agente no. Los bloques que no son el catálogo entero
-—"Bajamos el precio" (`enOrdenDelCatalogo`) y las secciones de Cliente nuevo
+—filtros de promociones (`enOrdenDelCatalogo`) y listas de Cliente nuevo
 (`catalogoClienteNuevo`)— se ordenan con las mismas funciones.
+
+2026-10-07: el agente dibuja las familias seguidas en una cuadrícula por
+categoría, con la subcategoría escrita en cada tarjeta. Compartir una fila
+no cambia el orden ni la clasificación. Gestión conserva sus bloques de
+administración; el helper canónico conserva el contrato y no importa nada.
+
+Segunda corrección del mismo día: Cliente nuevo usa `todos` para reunir
+oferta/liquidación/A/B por familia. No adelantar una oferta por su promoción:
+su lugar lo determina el mismo orden manual. Las listas individuales se
+mantienen como filtros, sin cambiar sus productos/contadores ni el contrato
+de Gestión. El catálogo general adjunta la promoción a la ficha antes de
+agrupar, también sin cambiar el orden.
 
 LA TRAMPA: ESE ARCHIVO NO PUEDE TENER NI UNA LÍNEA `import`.
 

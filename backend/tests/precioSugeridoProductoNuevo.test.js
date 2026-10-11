@@ -25,7 +25,6 @@ const assert = require('node:assert/strict');
 const rutaPrisma = require.resolve('../lib/prisma');
 const rutaDb = require.resolve('../config/database');
 const rutaServicio = require.resolve('../src/modules/productos-revision/productos-revision.service');
-const rutaAlegra = require.resolve('../src/integrations/alegra');
 
 /** La línea de la BOTA BELLOTA, tal como está en la base. */
 const LINEA_BELLOTA = {
@@ -56,18 +55,13 @@ function montar(linea = LINEA_BELLOTA, configPrecios = CONFIG_PRECIOS) {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: { query: async () => ({ rows: configPrecios }) }
   };
-  // El índice de Alegra abre conexiones al cargarse; no hace falta acá.
-  require.cache[rutaAlegra] = {
-    id: rutaAlegra, filename: rutaAlegra, loaded: true,
-    exports: { getProductService: () => ({}), getClient: () => ({}) }
-  };
   delete require.cache[rutaServicio];
   delete require.cache[require.resolve('../src/modules/precios/config')];
   return require(rutaServicio);
 }
 
 beforeEach(() => {
-  for (const r of [rutaPrisma, rutaDb, rutaServicio, rutaAlegra]) delete require.cache[r];
+  for (const r of [rutaPrisma, rutaDb, rutaServicio]) delete require.cache[r];
 });
 
 describe('el costo que se propone es el costo de verdad', () => {
@@ -145,7 +139,8 @@ describe('el precio que se propone deja margen', () => {
     const modal = fs.readFileSync(path.join(
       __dirname, '..', '..', 'frontend', 'src', 'components', 'relacionar-productos', 'ModalCrearProducto.jsx'), 'utf8');
     assert.match(modal, /params: \{ categoria: nombreDeCategoria \}/);
-    assert.match(modal, /const nombreDeCategoria = categorias\.find\(c => String\(c\.id\) === String\(categoriaSeleccionada\)\)\?\.name \|\| ''/);
+    // En esta rama las categorías son las propias y traen `nombre` (en `main`, las de Alegra traen `name`).
+    assert.match(modal, /const nombreDeCategoria = categorias\.find\(c => String\(c\.id\) === String\(categoriaSeleccionada\)\)\?\.nombre \|\| ''/);
     // Y se recalcula cuando cambia ese nombre.
     assert.match(modal, /\}, \[productoSeleccionado\.id, nombreDeCategoria\]\)/);
   });

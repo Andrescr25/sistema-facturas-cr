@@ -30,7 +30,7 @@ function NuevaCategoria({ onCrear }) {
         </div>
         <div>
           <h3 className="text-lg font-bold text-neutro-800">Nueva categoría</h3>
-          <p className="text-sm text-neutro-500">Se crea en Alegra y queda al final.</p>
+          <p className="text-sm text-neutro-500">Queda al final; después se puede mover.</p>
         </div>
       </div>
       <div className="flex gap-2">
@@ -90,7 +90,7 @@ export default function CuadriculaCategorias({
           <Move size={22} className="shrink-0" />
           <p className="text-base">
             Soltá <strong>"{arrastrando.nombre}"</strong> sobre la categoría a la que se va.
-            Sus {arrastrando.productos} producto{arrastrando.productos === 1 ? '' : 's'} cambian de categoría en Alegra.
+            Sus {arrastrando.productos} producto{arrastrando.productos === 1 ? '' : 's'} cambian de categoría.
           </p>
         </div>
       )}

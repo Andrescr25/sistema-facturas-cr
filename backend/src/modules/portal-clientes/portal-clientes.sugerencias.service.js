@@ -2,19 +2,35 @@
  * Portal de clientes - "Se lleva junto con", ficha de producto y compras
  * anteriores.
  *
- * Todo sale de venta_historico, la misma tabla que ya alimenta las secciones
- * de la portada. No se recolecta ningún dato nuevo.
+ * Todo sale de `venta_linea` (las líneas de las facturas propias emitidas,
+ * migración independencia/034), la misma fuente que alimenta las secciones de
+ * la portada. Antes salía de `venta_historico`, que se sincronizaba de Alegra.
+ *
+ * Cliente, producto y factura se identifican siempre por sus ids propios.
+ * La compra anterior se filtra por el cliente de la sesión.
  *
  * POR QUÉ SE CALCULA EN VIVO Y NO EN UNA TABLA PRECALCULADA
  * La co-ocurrencia de un producto tarda ~146ms, y la de un carrito de diez
  * productos tarda lo mismo (el índice por factura hace el trabajo).
  * Precalcular los 85.810 pares con 3+ coincidencias sería mantener una copia
  * que se desactualiza sola, para ahorrar un tiempo que nadie percibe.
+ *
+ * Las fichas de producto salen de `producto`, el maestro propio, con la misma
+ * definición que el catálogo y el carrito (ver
+ * catalogo-clientes/consultaProducto).
  */
 
 const { query, httpError } = require('./portal-clientes.auth');
-const { mapaVigentes } = require('../../utils/descuentosExceso');
-const { mapProducto, COLUMNAS, VISIBLE } = require('./portal-clientes.carrito.service');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
+const { COLUMNAS, DESDE, VISIBLE, mapProducto } = require('../catalogo-clientes/consultaProducto');
+const { HOY_CR } = require('../ventas/rotacion');
+const { idValido: idDeProducto } = require('../../utils/validacion');
+
+function idDeFactura(valor) {
+  const id = Number(valor);
+  if (!Number.isInteger(id) || id <= 0) throw httpError(404, 'No encontramos esa compra.');
+  return id;
+}
 
 // Mínimo de facturas compartidas para que un par cuente como "se lleva
 // junto". Por debajo de esto es ruido: dos productos que coincidieron una
@@ -28,38 +44,38 @@ const MAX_SUGERENCIAS = 6;
  * `excluir` saca lo que el cliente ya tiene en el carrito: sugerirle algo
  * que acaba de agregar hace ver el sistema como si no lo estuviera mirando.
  */
-async function seLlevaJuntoCon(alegraItemIds, { excluir = [], limite = MAX_SUGERENCIAS } = {}) {
-  const ids = (Array.isArray(alegraItemIds) ? alegraItemIds : [alegraItemIds])
-    .map(x => String(x).trim()).filter(Boolean);
+async function seLlevaJuntoCon(productoIds, { excluir = [], limite = MAX_SUGERENCIAS } = {}) {
+  const ids = (Array.isArray(productoIds) ? productoIds : [productoIds])
+    .map(x => String(idDeProducto(x)));
   if (ids.length === 0) return [];
 
   const fuera = new Set([...ids, ...excluir.map(String)]);
 
   const co = await query(`
-    SELECT o.alegra_item_id, COUNT(DISTINCT o.alegra_invoice_id)::int juntos
-    FROM venta_historico v
-    JOIN venta_historico o
-      ON o.alegra_invoice_id = v.alegra_invoice_id
-     AND o.alegra_item_id <> v.alegra_item_id
-    WHERE v.alegra_item_id = ANY($1::varchar[])
-    GROUP BY o.alegra_item_id
-    HAVING COUNT(DISTINCT o.alegra_invoice_id) >= $2
+    SELECT o.producto_id, COUNT(DISTINCT o.factura_id)::int juntos
+    FROM venta_linea v
+    JOIN venta_linea o
+      ON o.factura_id = v.factura_id
+     AND o.producto_id <> v.producto_id
+    WHERE v.producto_id = ANY($1::int[])
+    GROUP BY o.producto_id
+    HAVING COUNT(DISTINCT o.factura_id) >= $2
     ORDER BY juntos DESC
     LIMIT $3;
   `, [ids, MIN_COINCIDENCIAS, limite + fuera.size]);
 
-  const candidatos = co.rows.filter(r => !fuera.has(String(r.alegra_item_id))).slice(0, limite);
+  const candidatos = co.rows.filter(r => !fuera.has(String(r.producto_id))).slice(0, limite);
   if (candidatos.length === 0) return [];
 
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`,
-      [candidatos.map(c => String(c.alegra_item_id))]),
-    mapaVigentes()
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = ANY($1::int[]) AND ${VISIBLE};`,
+      [candidatos.map(c => String(c.producto_id))]),
+    mapaVigentesPropios()
   ]);
 
-  const veces = new Map(candidatos.map(c => [String(c.alegra_item_id), c.juntos]));
+  const veces = new Map(candidatos.map(c => [String(c.producto_id), c.juntos]));
   return productos.rows
-    .map(row => mapProducto(row, descuentos, { juntos: veces.get(String(row.alegra_id)) || 0 }))
+    .map(row => mapProducto(row, descuentos, { juntos: veces.get(String(row.producto_id)) || 0 }))
     .sort((a, b) => b.juntos - a.juntos);
 }
 
@@ -68,21 +84,22 @@ async function seLlevaJuntoCon(alegraItemIds, { excluir = [], limite = MAX_SUGER
  * Es lo que reemplaza a la publicidad: en vez de "otros lo recomiendan",
  * "usted lo ha llevado 26 veces".
  */
-async function fichaProducto(alegraContactId, alegraItemId) {
-  const id = String(alegraItemId).trim();
+async function fichaProducto(clienteId, productoId) {
+  const id = idDeProducto(productoId);
 
   const [prod, descuentos, hist] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = $1 AND ${VISIBLE};`, [id]),
-    mapaVigentes(),
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = $1 AND ${VISIBLE};`, [id]),
+    mapaVigentesPropios(),
     query(`
-      SELECT COUNT(DISTINCT alegra_invoice_id)::int veces,
-             MIN(fecha_emision) AS primera,
-             MAX(fecha_emision) AS ultima,
+      SELECT COUNT(DISTINCT factura_id)::int veces,
+             MIN(fecha) AS primera,
+             MAX(fecha) AS ultima,
              SUM(cantidad)::numeric AS unidades,
-             (CURRENT_DATE - MAX(fecha_emision)::date) AS dias
-      FROM venta_historico
-      WHERE cliente_id = $1 AND alegra_item_id = $2;
-    `, [String(alegraContactId), id])
+             (${HOY_CR} - MAX(fecha)) AS dias
+      FROM venta_linea
+      WHERE cliente_id = $1
+        AND producto_id = $2;
+    `, [Number(clienteId), id])
   ]);
 
   if (prod.rows.length === 0) throw httpError(404, 'Ese producto ya no está disponible.');
@@ -104,33 +121,31 @@ async function fichaProducto(alegraContactId, alegraItemId) {
 }
 
 /**
- * Compras anteriores del cliente, agrupadas por factura, para "volver a
- * pedir". Sale de venta_historico y no de los pedidos del portal: ahí está
- * la historia de verdad (5.261 facturas contra un puñado de pedidos nuevos).
+ * Compras anteriores del cliente, una por factura, para "volver a pedir".
+ * Sale de las facturas y no de los pedidos del portal: ahí está la historia
+ * de verdad (5.261 facturas contra un puñado de pedidos nuevos).
  *
- * `precio_unitario` en venta_historico es el `price` que devuelve Alegra en
- * las líneas de factura, SIN impuesto (misma asimetría que el precio de
- * lista de un producto). Sin el JOIN de abajo el total de la tarjeta era el
- * subtotal antes de IVA — no "el monto verdadero de la factura" que el
- * cliente ve en su cuenta por cobrar, sino un ~13% menos. El impuesto sale
- * de alegra_products_cache, la misma fuente que usa detalleCompra, así que
- * la tarjeta y el modal de "Ver y repetir" cuentan la misma historia.
+ * EL TOTAL ES EL DE LA FACTURA (`factura.total`), con su impuesto: el mismo
+ * monto que el cliente ve en su cuenta por cobrar. Con el historial viejo
+ * había que reconstruirlo (cantidad × precio sin IVA × la tarifa de HOY del
+ * producto) y podía no calzar con el documento; ahora se lee del documento.
+ *
+ * `facturaId` es el id de la factura PROPIA. La pantalla lo recibe y lo
+ * devuelve tal cual para abrir la compra.
  */
-async function comprasAnteriores(alegraContactId, limite = 10) {
+async function comprasAnteriores(clienteId, limite = 10) {
   const r = await query(`
-    SELECT v.alegra_invoice_id, MAX(v.fecha_emision) AS fecha,
-           COUNT(DISTINCT v.alegra_item_id)::int productos,
-           SUM(v.cantidad * v.precio_unitario * (1 + COALESCE(p.tax_percentage, 0) / 100))::numeric AS total
-    FROM venta_historico v
-    LEFT JOIN alegra_products_cache p ON p.alegra_id = v.alegra_item_id
-    WHERE v.cliente_id = $1
-    GROUP BY v.alegra_invoice_id
-    ORDER BY fecha DESC
+    SELECT f.id AS factura_id, f.fecha, f.total,
+           (SELECT COUNT(DISTINCT l.producto_id) FROM factura_linea l WHERE l.factura_id = f.id)::int AS productos
+    FROM factura f
+    WHERE f.cliente_id = $1
+      AND f.estado = 'emitida'
+    ORDER BY f.fecha DESC, f.id DESC
     LIMIT $2;
-  `, [String(alegraContactId), limite]);
+  `, [Number(clienteId), limite]);
 
   return r.rows.map(x => ({
-    facturaId: x.alegra_invoice_id,
+    facturaId: x.factura_id,
     fecha: x.fecha,
     productos: x.productos,
     total: Math.round(Number(x.total) * 100) / 100
@@ -141,20 +156,21 @@ async function comprasAnteriores(alegraContactId, limite = 10) {
  * Las líneas de una compra anterior, listas para volver al carrito.
  *
  * El filtro por cliente_id NO es decorativo: sin él, pasar el id de una
- * factura ajena devolvería lo que compró otro negocio.
+ * factura ajena devolvería lo que compró otro negocio. Y los ids de factura
+ * propios son seriales (1, 2, 3…): adivinar uno es trivial.
  */
-async function lineasDeCompra(alegraContactId, facturaId) {
+async function lineasDeCompra(clienteId, facturaId) {
   const r = await query(`
-    SELECT alegra_item_id, SUM(cantidad)::numeric AS cantidad
-    FROM venta_historico
-    WHERE cliente_id = $1 AND alegra_invoice_id = $2
-    GROUP BY alegra_item_id;
-  `, [String(alegraContactId), String(facturaId)]);
+    SELECT v.producto_id, SUM(v.cantidad)::numeric AS cantidad
+    FROM venta_linea v
+    WHERE v.cliente_id = $1 AND v.factura_id = $2
+    GROUP BY v.producto_id;
+  `, [Number(clienteId), idDeFactura(facturaId)]);
 
   if (r.rows.length === 0) throw httpError(404, 'No encontramos esa compra.');
 
   return r.rows.map(x => ({
-    alegraItemId: String(x.alegra_item_id),
+    productoId: String(x.producto_id),
     cantidad: Math.max(1, Math.round(Number(x.cantidad)))
   }));
 }
@@ -171,25 +187,25 @@ async function lineasDeCompra(alegraContactId, facturaId) {
  * disponibles: desaparecer en silencio de una lista que el cliente reconoce
  * es peor que decirle que ese ya no se consigue.
  */
-async function detalleCompra(alegraContactId, facturaId) {
+async function detalleCompra(clienteId, facturaId) {
   const lineas = await query(`
-    SELECT alegra_item_id, SUM(cantidad)::numeric AS cantidad, MAX(fecha_emision) AS fecha
-    FROM venta_historico
-    WHERE cliente_id = $1 AND alegra_invoice_id = $2
-    GROUP BY alegra_item_id;
-  `, [String(alegraContactId), String(facturaId)]);
+    SELECT v.producto_id, SUM(v.cantidad)::numeric AS cantidad, MAX(v.fecha) AS fecha
+    FROM venta_linea v
+    WHERE v.cliente_id = $1 AND v.factura_id = $2
+    GROUP BY v.producto_id;
+  `, [Number(clienteId), idDeFactura(facturaId)]);
 
   if (lineas.rows.length === 0) throw httpError(404, 'No encontramos esa compra.');
 
-  const ids = lineas.rows.map(l => String(l.alegra_item_id));
+  const ids = lineas.rows.map(l => String(l.producto_id));
   const [productos, descuentos] = await Promise.all([
-    query(`SELECT ${COLUMNAS} FROM alegra_products_cache WHERE alegra_id = ANY($1::varchar[]) AND ${VISIBLE};`, [ids]),
-    mapaVigentes()
+    query(`SELECT ${COLUMNAS} ${DESDE} WHERE p.id = ANY($1::int[]) AND ${VISIBLE};`, [ids]),
+    mapaVigentesPropios()
   ]);
-  const porId = new Map(productos.rows.map(p => [String(p.alegra_id), p]));
+  const porId = new Map(productos.rows.map(p => [String(p.producto_id), p]));
 
   const items = lineas.rows.map(l => {
-    const id = String(l.alegra_item_id);
+    const id = String(l.producto_id);
     const row = porId.get(id);
     const cantidad = Math.max(1, Math.round(Number(l.cantidad)));
     if (!row) return { id, disponible: false, cantidad, nombre: null };

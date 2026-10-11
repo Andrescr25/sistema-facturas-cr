@@ -42,10 +42,10 @@ export default function ModalConversionCantidad({
               </p>
             </div>
             <div className="bg-primario-50/50 p-4 rounded-2xl border border-primario-100/70">
-              <p className="text-xxs font-bold text-primario-700 mb-1.5 uppercase tracking-wider">TU SISTEMA (ALEGRA)</p>
-              <p className="font-semibold text-neutro-900 text-sm leading-snug">{productoRelacionado.alegraProducto.name}</p>
+              <p className="text-xxs font-bold text-primario-700 mb-1.5 uppercase tracking-wider">TU SISTEMA</p>
+              <p className="font-semibold text-neutro-900 text-sm leading-snug">{productoRelacionado.productoElegido.name}</p>
               <p className="text-xs text-neutro-600 mt-1">
-                Ref: <span className="font-mono text-neutro-800">{productoRelacionado.alegraProducto.reference || 'N/A'}</span>
+                Ref: <span className="font-mono text-neutro-800">{productoRelacionado.productoElegido.reference || 'N/A'}</span>
               </p>
             </div>
           </div>

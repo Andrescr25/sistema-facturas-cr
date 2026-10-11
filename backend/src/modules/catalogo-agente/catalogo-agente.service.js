@@ -1,30 +1,74 @@
 /**
- * Catalogo Publico Module - Service
- * Proxy de solo lectura hacia Alegra para el catálogo público (tablets/agentes
- * de venta, sin internet en campo). Réplica del server.js de catalogo-alegra-proxy-2,
- * reutilizando el cliente Alegra ya centralizado (getClient()) en vez de un
- * segundo cliente HTTP con credenciales separadas.
+ * Catálogo del agente - Service
+ *
+ * Los productos y las categorías salen de `producto`, el maestro propio. Era
+ * un proxy de solo lectura a Alegra: la tablet paginaba de a 30 CONTRA ALEGRA,
+ * así que sincronizar el catálogo en el campo dependía de que Alegra
+ * contestara, y era la última pantalla que lo hacía.
+ *
+ * Qué es un producto visible NO se redefine acá: sale de
+ * `catalogo-clientes/consultaProducto`, el mismo lugar que usan el catálogo de
+ * clientes y el portal. Si cada pantalla lo decidiera por su lado, el agente
+ * podría ofrecer algo que el cliente no ve, o a otro precio.
+ *
+ * La identidad es producto.id / cliente.id (sección 12, parte 3). Se
+ * conservan `name`, `price`, `tax`, `images` como forma de presentación;
+ * esos nombres NO convierten el id en uno de Alegra. `versionIds` permite
+ * rechazar un servidor viejo antes de guardar una caché con ids mezclados.
  */
 
-const { getClient } = require('../../integrations/alegra');
+const { COLUMNAS, DESDE, VISIBLE } = require('../catalogo-clientes/consultaProducto');
 const { ofertasPorBajaDePrecio } = require('../precios/ofertasPorBaja');
 const { query } = require('../../../config/database');
-const { listarVigentes } = require('../../utils/descuentosExceso');
+const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
-const categoriasConfig = require('../catalogo/categorias.service');
-const subcategoriasConfig = require('../catalogo/subcategorias.service');
+const taxonomia = require('../productos/taxonomiaTablas');
 const rotacion = require('../ventas/rotacion');
 
-const ALEGRA_LIMIT_MAXIMO = 30;
+// La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
+// tamaño de página para no tener que cambiarla a ella también.
+const PAGINA = 30;
+const VERSION_IDS = 'propios-v1';
+
+/**
+ * Una fila de `producto` con la forma que la tablet espera.
+ *
+ * NO SE MANDA `inventory`, y eso es a propósito: el maestro propio todavía no
+ * lleva existencias (sección 5 del checklist). Mandar un inventario vacío haría
+ * que la tarjeta calculara cero disponibles y mostrara TODO como "Agotado" —
+ * peor que no decir nada—. Sin el campo, la tarjeta no afirma nada.
+ */
+function aFormaDeTablet(row) {
+  const tarifa = Number(row.tarifa);
+
+  return {
+    id: String(row.producto_id),
+    productoId: row.producto_id,
+    name: row.nombre,
+    reference: row.referencia || '',
+    status: 'active',
+    price: [{ price: Number(row.precio_sin_iva) || 0 }],
+    tax: Number.isFinite(tarifa) && tarifa > 0 ? [{ percentage: tarifa }] : [],
+    images: row.imagen_url ? [{ url: row.imagen_url, favorite: true }] : [],
+    // `itemCategory`, como lo llama Alegra en /items: es lo que lee la tablet
+    // para partir el catálogo (catalogoAgentePersonalizacion.js). Con
+    // `category` —el nombre que usa la caché, no Alegra— los 2.012 productos
+    // caían en "Otros" y la barra de categorías quedaba vacía.
+    itemCategory: row.categoria ? { name: row.categoria } : null
+  };
+}
 
 /**
  * Pegarle a cada producto su subcategoría.
  *
- * La subcategoría es NUESTRA —vive en `alegra_products_cache`, no en Alegra—,
- * así que los productos que bajan por `/items` no la traen. Se agrega acá, de
- * a página, para que viaje con el catálogo que la tablet guarda para trabajar
- * sin señal: pedirla aparte obligaría a una segunda descarga que en el campo
- * no siempre se puede hacer.
+ * Sale de `producto.subcategoria_id` (migración 030), que es donde la pone
+ * Gestión de Catálogo en esta rama. En `main` vive en `alegra_products_cache`;
+ * leerla de allá acá haría que lo que se clasifica en la pantalla no llegara
+ * nunca a la tablet.
+ *
+ * Se agrega de a página, para que viaje con el catálogo que la tablet guarda
+ * para trabajar sin señal: pedirla aparte obligaría a una segunda descarga
+ * que en el campo no siempre se puede hacer.
  *
  * Si la consulta falla, el catálogo sale sin subcategorías en vez de no
  * salir: es un dato para ordenar la vista, no para vender.
@@ -33,18 +77,18 @@ async function conSubcategoria(productos) {
   if (productos.length === 0) return productos;
 
   try {
-    const ids = productos.map((p) => String(p.id));
+    const ids = productos.map((p) => p.productoId).filter(Boolean);
     const { rows } = await query(
-      `SELECT c.alegra_id, s.id AS sub_id, s.nombre AS sub_nombre
-         FROM alegra_products_cache c
-         JOIN subcategoria s ON s.id = c.subcategoria_id AND s.activo = true
-        WHERE c.alegra_id = ANY($1::text[])`,
+      `SELECT p.id AS producto_id, s.id AS sub_id, s.nombre AS sub_nombre
+         FROM producto p
+         JOIN subcategoria s ON s.id = p.subcategoria_id AND s.activo = true
+        WHERE p.id = ANY($1::int[])`,
       [ids]
     );
 
-    const porId = new Map(rows.map((r) => [r.alegra_id, { id: r.sub_id, nombre: r.sub_nombre }]));
+    const porId = new Map(rows.map((r) => [r.producto_id, { id: r.sub_id, nombre: r.sub_nombre }]));
     return productos.map((p) => {
-      const sub = porId.get(String(p.id));
+      const sub = porId.get(p.productoId);
       return sub ? { ...p, subcategoria: sub } : p;
     });
   } catch (error) {
@@ -58,68 +102,27 @@ async function conSubcategoria(productos) {
  * Devuelve { products, debug } igual que el proxy original, filtrando solo
  * productos activos.
  */
-/**
- * Lo ÚNICO del producto de Alegra que sale hacia la tablet.
- *
- * ESTA RUTA ES PÚBLICA (`/catalogo-agente/productos` está en PUBLICAS_EXACTAS
- * de auth.middleware.js, para que el agente trabaje sin sesión y sin señal).
- * Hasta el 2026-10-03 devolvía el producto de Alegra ENTERO, tal como llega de
- * `/items`: ahí viaja `inventory.unitCost`, el costo de compra de cada
- * producto. Cualquiera con la dirección podía bajar la lista de costos.
- *
- * Por eso es una lista de lo que SÍ pasa, no de lo que se quita: si Alegra
- * agrega mañana un campo sensible, no sale solo. Lo que está acá es
- * exactamente lo que leen TarjetaProductoAgente.jsx y
- * catalogoAgentePersonalizacion.js; un campo nuevo para la tablet se agrega
- * acá a propósito.
- */
-function aFormaDeTablet(p) {
-  const lista = Array.isArray(p.price) ? p.price[0] : null;
-  const referencia = p.reference && typeof p.reference === 'object' ? p.reference.reference : p.reference;
-
-  return {
-    id: p.id,
-    name: p.name,
-    reference: referencia || '',
-    status: p.status,
-    // Solo la primera lista de precios, que es la única que muestra la tarjeta.
-    price: lista ? [{ price: lista.price }] : [],
-    tax: (Array.isArray(p.tax) ? p.tax : []).map((t) => ({ percentage: t.percentage })),
-    images: (Array.isArray(p.images) ? p.images : []).map((i) => ({ url: i.url, favorite: i.favorite === true })),
-    itemCategory: p.itemCategory ? { name: p.itemCategory.name } : null
-  };
-}
-
 async function listarProductos({ start = 0, limit = 30 } = {}) {
-  const startNum = parseInt(start, 10) || 0;
-  const limitNum = Math.min(parseInt(limit, 10) || ALEGRA_LIMIT_MAXIMO, ALEGRA_LIMIT_MAXIMO);
+  const startNum = Math.max(parseInt(start, 10) || 0, 0);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || PAGINA, 1), PAGINA);
 
-  const client = getClient();
-  const result = await client.get('/items', { start: startNum, limit: limitNum });
-
-  if (!result.success) {
-    const error = new Error(`Error de Alegra: ${result.status || ''} ${result.error || ''}`.trim());
-    error.status = 502;
-    throw error;
-  }
-
-  const data = result.data;
-  if (!Array.isArray(data)) {
-    const error = new Error('Formato de respuesta inválido de Alegra');
-    error.status = 502;
-    throw error;
-  }
-
-  const activeProducts = data.filter((product) => product && product.status === 'active');
+  const { rows } = await query(`
+    SELECT ${COLUMNAS}
+    ${DESDE}
+    WHERE ${VISIBLE}
+    ORDER BY p.nombre, p.id
+    LIMIT $1 OFFSET $2
+  `, [limitNum, startNum]);
 
   return {
-    products: await conSubcategoria(activeProducts.map(aFormaDeTablet)),
+    versionIds: VERSION_IDS,
+    products: await conSubcategoria(rows.map(aFormaDeTablet)),
     debug: {
       start: startNum,
       limit: limitNum,
-      total_received: data.length,
-      active_filtered: activeProducts.length,
-      has_more: data.length === ALEGRA_LIMIT_MAXIMO
+      total_received: rows.length,
+      active_filtered: rows.length,
+      has_more: rows.length === limitNum
     }
   };
 }
@@ -128,16 +131,10 @@ async function listarProductos({ start = 0, limit = 30 } = {}) {
  * GET /api/catalogo-agente/categorias
  */
 async function listarCategorias() {
-  const client = getClient();
-  const result = await client.get('/item-categories');
-
-  if (!result.success) {
-    const error = new Error(`Error de Alegra: ${result.status || ''} ${result.error || ''}`.trim());
-    error.status = 502;
-    throw error;
-  }
-
-  return result.data;
+  const { rows } = await query(
+    `SELECT id, nombre FROM categoria_producto WHERE activo = TRUE ORDER BY nombre`
+  );
+  return rows.map(c => ({ id: String(c.id), name: c.nombre }));
 }
 
 /**
@@ -154,7 +151,8 @@ async function listarOfertas() {
   // porque la comparten los dos catálogos y el armado del pedido. Si cada uno
   // la escribiera por su lado, el cliente podría ver una oferta que al pedirla
   // se le cobra completa.
-  return listarVigentes();
+  const descuentos = await mapaVigentesPropios();
+  return [...descuentos].map(([id, descuentoPorcentaje]) => ({ id, descuentoPorcentaje }));
 }
 
 /**
@@ -164,279 +162,20 @@ async function listarOfertas() {
  * nada, se decidió vender más barato para mover el producto.
  */
 async function listarOfertasPorBaja() {
-  return ofertasPorBajaDePrecio();
+  const ofertas = await ofertasPorBajaDePrecio();
+  return ofertas.map(({ alegraItemId, margenAntes, margenAhora, ...oferta }) => oferta);
 }
 
 // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
-// Alimenta la personalización del catálogo público: qué le conviene mostrar
-// primero al agente según el cliente que está visitando. Ledger crudo en
-// venta_historico (histórico completo, sin poda) — a propósito separado de
-// venta_items, que tiene ventana móvil de 120 días para detección de excesos
-// y no conviene arriesgar.
-
-const LIMIT_INVOICES_HISTORIAL = 30; // máximo que acepta /invoices en Alegra
-const COLUMNAS_VENTA_HISTORICO = 7; // alegra_invoice_id, alegra_item_id, cliente_id, cliente_nombre, cantidad, precio_unitario, fecha_emision
-const FILAS_POR_INSERT = 150; // lotes moderados — un lote de 500 disparó un corte SSL contra el pooler de Supabase en vivo
-
-/**
- * INSERT multi-fila (chunked) con upsert, para no hacer un round-trip a
- * Supabase por cada línea de venta. `filas` es un array de arrays en el
- * mismo orden que COLUMNAS_VENTA_HISTORICO. Reintenta cada lote un par de
- * veces — el pooler de Supabase (PgBouncer) a veces corta la conexión con
- * un error SSL transitorio en queries grandes; es un INSERT idempotente
- * (ON CONFLICT), así que repetirlo es seguro.
- */
-async function insertarLotesVentaHistorico(filas) {
-  for (let i = 0; i < filas.length; i += FILAS_POR_INSERT) {
-    const lote = filas.slice(i, i + FILAS_POR_INSERT);
-    const placeholders = lote
-      .map((_, idx) => {
-        const base = idx * COLUMNAS_VENTA_HISTORICO;
-        const cols = Array.from({ length: COLUMNAS_VENTA_HISTORICO }, (_, c) => `$${base + c + 1}`);
-        return `(${cols.join(', ')})`;
-      })
-      .join(', ');
-    const valores = lote.flat();
-
-    const sql = `
-      INSERT INTO venta_historico (alegra_invoice_id, alegra_item_id, cliente_id, cliente_nombre, cantidad, precio_unitario, fecha_emision)
-      VALUES ${placeholders}
-      ON CONFLICT (alegra_invoice_id, alegra_item_id) DO UPDATE SET
-        cliente_id = EXCLUDED.cliente_id,
-        cliente_nombre = EXCLUDED.cliente_nombre,
-        cantidad = EXCLUDED.cantidad,
-        precio_unitario = EXCLUDED.precio_unitario,
-        fecha_emision = EXCLUDED.fecha_emision;
-    `;
-
-    let ultimoError;
-    for (let intento = 1; intento <= 3; intento++) {
-      try {
-        await query(sql, valores);
-        ultimoError = null;
-        break;
-      } catch (error) {
-        ultimoError = error;
-        console.log(`   ⚠️ [Catálogo] Error insertando lote (intento ${intento}/3): ${error.message}`);
-        await new Promise((r) => setTimeout(r, 800 * intento));
-      }
-    }
-    if (ultimoError) throw ultimoError;
-  }
-}
-
-/**
- * Borra de venta_historico las líneas que ya NO están en la factura.
- *
- * Una factura editada en Alegra (se le quita un producto, se le corrige una
- * cantidad) nunca vuelve a mandar esa línea vieja: el upsert de arriba
- * actualiza o agrega, pero nada la borra. Sin este paso esa línea queda
- * huérfana para siempre y se sigue sumando en cada total que lea
- * venta_historico — así se detectó: una factura de ₡279.113 en Alegra
- * aparecía en ₡316.566 en "Volver a pedir" del catálogo de clientes, con dos
- * productos de una edición anterior todavía contados.
- *
- * `paresPorFactura` es el mapa EXACTO de qué (factura, producto) siguen
- * siendo válidos según la respuesta que Alegra acaba de dar — el mismo que
- * ya se usó para armar `filas`. Cualquier fila en la base con esa
- * alegra_invoice_id que no esté en ese mapa dejó de existir en la factura.
- */
-async function eliminarLineasObsoletas(paresPorFactura) {
-  const facturaIds = [...paresPorFactura.keys()];
-  if (facturaIds.length === 0) return 0;
-
-  const paresValidos = [];
-  for (const [facturaId, itemIds] of paresPorFactura) {
-    for (const itemId of itemIds) paresValidos.push([facturaId, itemId]);
-  }
-
-  // Ninguna de las facturas de esta página tiene ítems: se borra todo lo que
-  // hubiera quedado de ellas. No se puede armar un VALUES() vacío.
-  if (paresValidos.length === 0) {
-    const r = await query(`DELETE FROM venta_historico WHERE alegra_invoice_id = ANY($1::integer[]) RETURNING 1;`, [facturaIds]);
-    return r.rows.length;
-  }
-
-  const placeholders = paresValidos.map((_, i) => `($${i * 2 + 1}::integer, $${i * 2 + 2}::varchar)`).join(', ');
-  const valores = paresValidos.flat();
-
-  const r = await query(`
-    DELETE FROM venta_historico t
-    WHERE t.alegra_invoice_id = ANY($${valores.length + 1}::integer[])
-      AND NOT EXISTS (
-        SELECT 1 FROM (VALUES ${placeholders}) AS v(invoice_id, item_id)
-        WHERE v.invoice_id = t.alegra_invoice_id AND v.item_id = t.alegra_item_id
-      )
-    RETURNING 1;
-  `, [...valores, facturaIds]);
-  return r.rows.length;
-}
-
-/**
- * ¿Esta factura de Alegra es una VENTA? Solo si se emitió y sigue en pie.
- *
- * Un BORRADOR (`draft`) no se emitió nunca, y una ANULADA (`void`, o anulada
- * por nota de crédito) se deshizo. Hasta el 2026-09-25 solo se descartaban las
- * anuladas por nota de crédito, y así el historial contaba 24 borradores
- * (₡294,9 millones: cuatro de ellos con 42.057 tomacorrientes cada uno, un
- * error de digitación que nunca se facturó) y 132 anuladas (₡2,7 millones).
- * Eran el 60 % de toda la plata del historial, y de ahí salen la rotación, las
- * estadísticas de Rentabilidad y "lo que más compra" de cada cliente.
- */
-function esVenta(invoice) {
-  if (!invoice) return false;
-  if (invoice.status === 'draft' || invoice.status === 'void') return false;
-  return !invoice.isVoidedByCreditNote;
-}
-
-/**
- * Las líneas de una factura, listas para venta_historico, y qué productos
- * lleva (para borrar las que ya no están).
- *
- * Devuelve `null` si no se puede usar: sin id, sin cliente o sin fecha. Si NO
- * es una venta (borrador o anulada) devuelve la factura SIN líneas: eso borra
- * lo que hubiera quedado de ella en el historial.
- *
- * Si un producto aparece en más de una línea de la misma factura, se suman
- * ANTES de insertar (no en el ON CONFLICT) — sumar ahí duplicaría el total
- * cada vez que se reprocesa la misma factura.
- */
-function lineasDeFactura(invoice) {
-  const facturaId = parseInt(invoice?.id, 10);
-  if (!Number.isInteger(facturaId)) return null;
-  if (!esVenta(invoice)) return { facturaId, filas: [], productos: new Set() };
-
-  const clienteId = invoice.client?.id;
-  const fecha = (invoice.date || '').split('T')[0];
-  if (!clienteId || !fecha) return null;
-  const clienteNombre = invoice.client?.name || null;
-
-  const porItem = new Map();
-  for (const item of invoice.items || []) {
-    if (!item.id) continue;
-    const acumulado = porItem.get(item.id) || { cantidad: 0, precioUnitario: 0 };
-    acumulado.cantidad += parseFloat(item.quantity) || 0;
-    acumulado.precioUnitario = parseFloat(item.price) || acumulado.precioUnitario;
-    porItem.set(item.id, acumulado);
-  }
-
-  const filas = [...porItem].map(([itemId, datos]) => [
-    facturaId, String(itemId), String(clienteId), clienteNombre, datos.cantidad, datos.precioUnitario, fecha
-  ]);
-  return { facturaId, filas, productos: new Set([...porItem.keys()].map(String)) };
-}
-
-/**
- * Anota en el historial una factura RECIÉN CREADA, sin esperar a la próxima
- * sincronización: es lo que hace que la rotación y las estadísticas estén al
- * día apenas se vende. La llama facturacion.service después de que Alegra la
- * confirmó.
- *
- * Nunca tira error: la factura ya existe y el cliente ya la tiene. Si esto
- * falla, la sincronización de cada hora la trae igual.
- */
-async function registrarFacturaEnHistorico(invoice) {
-  try {
-    const lineas = lineasDeFactura(invoice);
-    if (!lineas) return { lineas: 0 };
-    if (lineas.filas.length > 0) await insertarLotesVentaHistorico(lineas.filas);
-    await eliminarLineasObsoletas(new Map([[lineas.facturaId, lineas.productos]]));
-    return { lineas: lineas.filas.length };
-  } catch (error) {
-    console.error(`⚠️ No se pudo anotar la factura ${invoice?.id} en el historial de ventas (la trae la próxima sincronización):`, error.message);
-    return { lineas: 0, error: error.message };
-  }
-}
-
-/** Un día AAAA-MM-DD menos `n` días, sin pasar por la zona del servidor. */
-function diasAntes(dia, n) {
-  const d = new Date(`${String(dia).slice(0, 10)}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * Trae de Alegra las facturas de venta emitidas entre `startDate` y hoy y
- * hace upsert de sus líneas en venta_historico. Por defecto es incremental:
- * arranca 2 días antes de la última fecha ya sincronizada (margen por si
- * quedaron facturas del mismo día sin traer por límite de paginación). Sin
- * histórico previo y sin `desde` explícito, trae todo (backfill completo).
- *
- * `desde` sirve para repasar una ventana más larga: una factura vieja que se
- * anula HOY conserva su fecha vieja, y la corrida incremental no la vuelve a
- * mirar (ver server.js: una vez al día se repasan los últimos 60 días).
- * `hasta` (por omisión hoy) corta la ventana: un repaso del historial entero
- * son ~185 páginas y media hora, y por tramos un corte de internet solo obliga
- * a repetir el tramo, no todo (pasó el 2026-09-25, en la página 90).
- *
- * Los días son de Costa Rica: con `toISOString()`, después de las 6 p.m. "hoy"
- * ya era mañana.
- */
-async function sincronizarHistorialCompras({ desde, hasta } = {}) {
-  const client = getClient();
-  const endDate = hasta || hoyEnCostaRica();
-
-  let startDate = desde || null;
-  if (!startDate) {
-    const ultimaRes = await query('SELECT MAX(fecha_emision)::text as ultima FROM venta_historico;');
-    const ultimaFecha = ultimaRes.rows[0]?.ultima;
-    if (ultimaFecha) startDate = diasAntes(ultimaFecha, 2);
-  }
-
-  console.log(`🔄 [Catálogo] Sincronizando historial de compras${startDate ? ` desde ${startDate}` : ' (backfill completo)'} → ${endDate}...`);
-
-  let start = 0;
-  let totalFacturas = 0;
-  let totalLineas = 0;
-  let fuera = 0;
-
-  while (true) {
-    const params = { start, limit: LIMIT_INVOICES_HISTORIAL, order_field: 'date', order_direction: 'DESC' };
-    if (startDate) params.date_after = startDate;
-    params.date_before = endDate;
-
-    const response = await client.requestWithRetry(() =>
-      client.api.get('/invoices', { params, timeout: 60000 }),
-      3, 1000, { metodo: 'GET' }
-    );
-
-    const invoices = response.data?.data || response.data || [];
-    if (!Array.isArray(invoices) || invoices.length === 0) break;
-
-    // Junta TODAS las líneas de la página en un solo INSERT multi-fila en
-    // vez de uno por línea — con ~30 facturas × ~10 líneas cada una, un
-    // INSERT por fila significaba ~300 round-trips secuenciales a Supabase
-    // por página (varias horas para el histórico completo). Un solo INSERT
-    // por página lo baja a un round-trip por página.
-    const filas = [];
-    // Qué (factura, producto) son válidos SEGÚN ESTA RESPUESTA de Alegra,
-    // factura por factura — para poder borrar después lo que ya no está
-    // (ver eliminarLineasObsoletas). Un borrador o una anulada entran SIN
-    // productos: así se borra lo que hubiera quedado de ellas.
-    const paresPorFactura = new Map();
-    for (const invoice of invoices) {
-      const lineas = lineasDeFactura(invoice);
-      if (!lineas) continue;
-      if (lineas.filas.length === 0 && !esVenta(invoice)) fuera++;
-      paresPorFactura.set(lineas.facturaId, lineas.productos);
-      filas.push(...lineas.filas);
-    }
-
-    if (filas.length > 0) {
-      await insertarLotesVentaHistorico(filas);
-      totalLineas += filas.length;
-    }
-    await eliminarLineasObsoletas(paresPorFactura);
-
-    totalFacturas += invoices.length;
-    if (invoices.length < LIMIT_INVOICES_HISTORIAL) break;
-    start += LIMIT_INVOICES_HISTORIAL;
-    await new Promise(resolve => setTimeout(resolve, 300));
-  }
-
-  console.log(`✅ [Catálogo] Historial de compras sincronizado: ${totalFacturas} facturas, ${totalLineas} líneas procesadas, ${fuera} borradores o anuladas fuera.`);
-  return { facturas: totalFacturas, lineas: totalLineas, fuera };
-}
+// Alimenta la personalización del catálogo: qué le conviene mostrar primero al
+// agente según el cliente que está visitando.
+//
+// SALE DE `venta_linea` (las líneas de las facturas propias EMITIDAS,
+// migración independencia/034). Antes salía de `venta_historico`, una copia
+// que se llenaba al facturar en Alegra y se repasaba cada hora contra Alegra
+// (sincronizarHistorialCompras, registrarFacturaEnHistorico): todo eso se
+// retiró el 2026-10-03. La regla "un borrador o una anulada no es una venta"
+// ahora la cumple la vista.
 
 /**
  * Payload compacto para descarga offline: por cada cliente, sus top 120
@@ -445,48 +184,41 @@ async function sincronizarHistorialCompras({ desde, hasta } = {}) {
  * recencia se calcula en el dispositivo contra la fecha de hoy — no acá —
  * para que el score siga siendo correcto días después de sincronizar.
  *
- * El nombre del cliente se toma el más reciente por cliente_id (no por
- * cliente_nombre): Alegra permite renombrar contactos y el histórico trae
- * más nombres distintos que ids reales.
+ * IDS PROPIOS, incluso sin Alegra. Un cliente activo sin compras también
+ * entra en el selector, con `p: []`: no hay que inventarle una primera venta.
+ *
+ * El nombre del cliente es el de su ficha de hoy, no el que decía cada factura.
  */
 async function obtenerHistorialParaCatalogo() {
   const result = await query(`
     WITH agregado AS (
-      SELECT cliente_id, alegra_item_id,
-             COUNT(DISTINCT alegra_invoice_id) AS veces,
-             MAX(fecha_emision) AS ultima_compra
-      FROM venta_historico
-      GROUP BY cliente_id, alegra_item_id
-    ),
-    nombre_cliente AS (
-      SELECT DISTINCT ON (cliente_id) cliente_id, cliente_nombre
-      FROM venta_historico
-      WHERE cliente_nombre IS NOT NULL
-      ORDER BY cliente_id, fecha_emision DESC
+      SELECT v.cliente_id, v.producto_id,
+             COUNT(DISTINCT v.factura_id) AS veces,
+             MAX(v.fecha) AS ultima_compra
+      FROM venta_linea v
+      GROUP BY v.cliente_id, v.producto_id
     ),
     rankeado AS (
-      SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.cliente_id ORDER BY a.veces DESC, a.ultima_compra DESC) AS rn
+      SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.cliente_id ORDER BY a.veces DESC, a.ultima_compra DESC, a.producto_id) AS rn
       FROM agregado a
     )
-    SELECT r.cliente_id, nc.cliente_nombre, r.alegra_item_id, r.veces, r.ultima_compra
-    FROM rankeado r
-    LEFT JOIN nombre_cliente nc ON nc.cliente_id = r.cliente_id
-    WHERE r.rn <= 120
-    ORDER BY r.cliente_id, r.veces DESC;
+    SELECT c.id AS cliente_id, c.nombre AS cliente_nombre,
+           r.producto_id, r.veces, r.ultima_compra::text AS ultima_compra
+    FROM cliente c LEFT JOIN rankeado r ON r.cliente_id = c.id AND r.rn <= 120
+    WHERE c.activo = TRUE
+    ORDER BY c.nombre, c.id, r.veces DESC, r.producto_id;
   `);
 
   const clientesMap = new Map();
   for (const row of result.rows) {
     if (!clientesMap.has(row.cliente_id)) {
-      clientesMap.set(row.cliente_id, { id: row.cliente_id, n: row.cliente_nombre || '', p: [] });
+      clientesMap.set(row.cliente_id, { id: String(row.cliente_id), n: row.cliente_nombre || '', p: [] });
     }
-    const fechaStr = row.ultima_compra instanceof Date
-      ? row.ultima_compra.toISOString().split('T')[0]
-      : String(row.ultima_compra).split('T')[0];
-    clientesMap.get(row.cliente_id).p.push([row.alegra_item_id, Number(row.veces), fechaStr]);
+    if (row.producto_id !== null) clientesMap.get(row.cliente_id).p.push([String(row.producto_id), Number(row.veces), row.ultima_compra]);
   }
 
   return {
+    versionIds: VERSION_IDS,
     generadoEn: hoyEnCostaRica(),
     clientes: [...clientesMap.values()]
   };
@@ -502,9 +234,13 @@ async function obtenerHistorialParaCatalogo() {
  * subcategorías, no productos), así que no vale la pena paginarla.
  */
 async function obtenerConfigCatalogo() {
+  // Del maestro propio y con el mismo orden que arma Gestión de Catálogo: las
+  // dos salen de `taxonomiaTablas.categoriasEnOrden`. Hasta el 2026-10-04 las
+  // categorías se le pedían a Alegra EN VIVO cada vez que una tablet
+  // sincronizaba.
   const [categorias, subcategorias] = await Promise.all([
-    categoriasConfig.listar(),
-    subcategoriasConfig.listar({ incluirInactivas: false })
+    taxonomia.categoriasEnOrden(),
+    taxonomia.listarSubcategorias({ incluirInactivas: false })
   ]);
   return { categorias, subcategorias };
 }
@@ -522,22 +258,17 @@ async function obtenerConfigCatalogo() {
  */
 async function obtenerRotacion() {
   const clases = await rotacion.clasesAB();
-  return { ...clases, calculadoEn: new Date().toISOString() };
+  return { ...clases, versionIds: VERSION_IDS, calculadoEn: new Date().toISOString() };
 }
 
 module.exports = {
+  VERSION_IDS,
   obtenerRotacion,
   conSubcategoria,
-  aFormaDeTablet,
   listarProductos,
   listarCategorias,
   listarOfertas,
   listarOfertasPorBaja,
-  sincronizarHistorialCompras,
-  registrarFacturaEnHistorico,
-  esVenta,
-  lineasDeFactura,
   obtenerHistorialParaCatalogo,
-  eliminarLineasObsoletas,
   obtenerConfigCatalogo
 };

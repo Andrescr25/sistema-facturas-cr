@@ -20,7 +20,9 @@ export default function TarjetasResumen({ tarjetas, filtros, setFiltros, compact
 
   const rejilla = compacta
     ? `grid ${tarjetas.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-4`
-    : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4'
+    // Cinco tarjetas (Pagos a Proveedores en la rama de la migración) van en
+    // una sola fila en escritorio.
+    : `grid grid-cols-1 md:grid-cols-2 ${tarjetas.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-4`
   const relleno = compacta ? 'p-3 sm:p-5' : 'p-5'
 
   return (

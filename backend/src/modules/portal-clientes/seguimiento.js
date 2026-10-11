@@ -8,14 +8,16 @@
  *   En revisión       pedido_cliente.estado = 'pendiente'
  *                     lo envió y todavía nadie lo facturó
  *
- *   En preparación    estado = 'facturado' + facturas.estado_bodega = 'pendiente'
+ *   En preparación    estado = 'facturado' + factura.estado_bodega = 'pendiente'
  *                     ya es factura y bodega la tiene para alistar
  *
- *   Listo para envío  estado = 'facturado' + facturas.estado_bodega = 'procesado'
- *                     bodega la alistó (warehouse.service.js es el único
+ *   Listo para envío  estado = 'facturado' + factura.estado_bodega = 'procesado'
+ *                     bodega la alistó (warehouse/bodegaPropia.js es el único
  *                     lugar del sistema que escribe ese valor)
  *
  *   No procesado      estado = 'rechazado', o la factura quedó anulada
+ *                     (factura.estado = 'anulada', que la consulta entrega
+ *                     como estado_bodega 'anulada')
  *
  * DEVUELVE CLAVES, NO TEXTOS
  * Los textos en español viven en el frontend
@@ -35,8 +37,8 @@ const ETAPAS = [EN_REVISION, EN_PREPARACION, LISTO_PARA_ENVIO];
 /**
  * @param {object} pedido
  * @param {string} pedido.estado        pedido_cliente.estado
- * @param {string|null} pedido.estadoBodega  facturas.estado_bodega (null si
- *   la factura todavía no tiene fila local)
+ * @param {string|null} pedido.estadoBodega  factura.estado_bodega, o
+ *   'anulada' (null si la factura todavía no está en la base)
  */
 function etapaDePedido({ estado, estadoBodega } = {}) {
   if (estado === 'rechazado') return NO_PROCESADO;
@@ -46,9 +48,8 @@ function etapaDePedido({ estado, estadoBodega } = {}) {
     // cliente ese pedido no va a llegar: no puede quedar en "En preparación".
     if (estadoBodega === 'anulada') return NO_PROCESADO;
     if (estadoBodega === 'procesado') return LISTO_PARA_ENVIO;
-    // Sin fila en `facturas` todavía (se factura y la fila se inserta en el
-    // mismo golpe, pero puede leerse en el medio): la factura EXISTE, así que
-    // la etapa honesta es "En preparación", no un error.
+    // Sin la factura en la base todavía (puede leerse en el medio): la
+    // factura EXISTE, así que la etapa honesta es "En preparación", no un error.
     return EN_PREPARACION;
   }
 

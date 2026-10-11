@@ -1,34 +1,57 @@
 ---
 id: modulo/facturas-bodega
 tipo: modulo
-titulo: Facturas en Bodega — el despacho de cada pedido, sin hacer esperar a Alegra
+titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
-  - backend/src/modules/warehouse/warehouse.service.js
+  - backend/src/modules/rutas/operacionCiclo.service.js
+  - backend/tests/operacionCiclos.test.js
+  - frontend/src/components/FiltroCicloOperacion.jsx
+  - frontend/src/components/ContextoCicloDocumento.jsx
+  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/src/modules/warehouse/warehouse.controller.js
   - frontend/src/hooks/useFacturasBodega.js
   - frontend/src/pages/FacturasBodega.jsx
   - frontend/src/utils/facturasBodegaUtils.js
-  - backend/tests/bodegaSincronizacion.test.js
   - backend/tests/bodegaUtils.test.js
+  - backend/src/modules/warehouse/bodegaPropia.js
+  - backend/src/utils/guardarFaltantes.js
+  - backend/migrations/independencia/031_bodega_en_factura.sql
+  - frontend/src/services/bodegaPropiaService.js
+  - backend/tests/bodegaPropia.test.js
+  - backend/src/modules/reprinting/colaImpresion.js
 aristas:
-  relacionado: [modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica]
-medido: 2026-09-23
+  relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-10-06
 ---
 
-Bodega alista cada factura de venta desde el teléfono: marca cada producto
-como completo, faltó todo o parcial, y la factura pasa al historial (y, sin
-faltantes, a la cola de impresión). Las facturas vienen de Alegra; el estado
-de bodega, los faltantes y la hora de despacho (`facturas.bodega_procesado_en`)
-son nuestros.
+SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
+2026-09-30). La pantalla lista las facturas EMITIDAS de `factura` con sus
+líneas (`bodegaPropia.js`, `GET /bodega/facturas-propias`), con
+`factura_id` como identidad; el estado de alistado vive en `factura`
+(migración 031). Lo guardado en el teléfono va bajo claves nuevas
+(`facturasBodegaPropia:*`): con las viejas, un borrador de la factura 12 de
+Alegra se habría aplicado a la factura propia 12.
 
-LA SINCRONIZACIÓN NO HACE ESPERAR AL TELÉFONO (2026-09-23). La caché del
-servidor guarda SOLO lo de Alegra, por ventana de días; lo nuestro se lee de
-la base en cada pedido. Con la caché vencida se contesta con lo guardado y se
-actualiza por detrás (`metadata.actualizando`); dos pedidos a la vez comparten
-una sola sincronización. Antes cada factura despachada invalidaba la caché y
-la siguiente apertura sincronizaba todo con Alegra (60 s por página × 4
-intentos en un mal momento): ese era el "timeout al sincronizar" del teléfono.
+LOS FALTANTES Y LA COLA cuelgan de `factura.id` y `producto.id` desde la
+migración 032 (ver [[modulo/faltantes]]): la pantalla manda el `producto_id`
+propio de cada línea, y lo registrado vuelve con él (`aplicarEstadosGuardados`
+empareja primero por ese id: dos productos con la misma referencia ya no se
+pisan). Despachar sin faltantes encola la factura por su id propio, en la
+misma transacción.
+
+SIN PUENTE NI ALEGRA (2026-09-30). Durante la migración cada despacho se
+copiaba también a la tabla vieja `facturas` (enlazada por
+`facturas.factura_propia_id`), porque Faltantes, la cola de impresión y la
+línea de tiempo del portal la leían. Todos leen `factura` ahora: despachar
+escribe solo ahí. Se retiraron también las rutas por id de Alegra
+(`/bodega/facturas/:alegraId`), que le pedían la lista a Alegra con una caché
+por ventana de días: en `main` siguen así.
+
+EL CERO EN UNA COLUMNA ÚNICA: la copia de cada factura propia entraba con
+`facturas.alegra_id = 0`, y esa columna es única: la SEGUNDA factura propia
+chocaba con la primera y no se podía facturar. La 031 soltó el NOT NULL; la
+copia ya no existe.
 
 EL HISTORIAL VA EN ORDEN DE DESPACHO: la última despachada primero
 (`ordenarHistorial`, por `despachada_en`); las anteriores al 25 de agosto,
@@ -36,8 +59,8 @@ sin hora, al final.
 
 TRAMPAS QUE YA COSTARON
 - Abrir una factura le pedía el detalle a Alegra y, al llegar, pisaba lo que
-  el bodeguero ya había marcado. Ahora lo registrado sale de la base
-  (`GET /bodega/facturas/:id/estados`) y los botones esperan quietos.
+  el bodeguero ya había marcado. Lo registrado sale de la base
+  (`GET /bodega/facturas-propias/:id/estados`) y los botones esperan quietos.
 - Bodega registra también los productos COMPLETOS (tipo 'completo') para poder
   reabrir la factura igual: cualquier conteo de faltantes tiene que excluirlos
   (`tipo_faltante <> 'completo' AND cantidad_faltante > 0`), o se infla. Esta
@@ -49,5 +72,40 @@ TRAMPAS QUE YA COSTARON
   producción el 2026-09-23, con autorización y copia previa.
 - Las fechas 'YYYY-MM-DD' se leen como día local (`fechaLocal`): con
   `new Date()` la lista mostraba cada factura con un día menos.
-- `/alegra/bodega` es del módulo (no compartida): antes cualquiera con sesión
-  podía marcar facturas como despachadas.
+- `/bodega` es del módulo. Mientras la pantalla llamó a `/alegra/bodega`
+  (hasta el 2026-10-04) hubo que declararlo aparte: `/alegra` era compartida
+  y cualquiera con sesión podía marcar facturas como despachadas.
+
+## Operación por ciclos — 2026-10-05
+
+Bodega/reportes/notas/Excel leen JOIN_CICLO de la factura, nunca ruta actual
+del cliente. Filtros rutaId/cicloId estrictos y Sin ciclo; incompatibles
+producen vacío, inválidos 400. Recorrido/Maps fijo, semana/orden/anticipado
+en documentos. Selector propio por permiso del módulo; solo metadatos,
+sin exponer paradas/Maps/saldos en esa consulta. Listas de reportes y notas
+ahora tienen dueño específico en usuarios/modulos: llevan contexto privado.
+Bodega de un ámbito explícito no se recorta a ventana/límite del conjunto.
+Filtros también protegen la lista cacheada en el teléfono; drafts conservados.
+Proveedor agrega origen por faltante con cantidad, factura/cliente/parada y
+ciclo; notas/exportación mismo ámbito. Agrupación distingue proveedores de
+un producto; Excel añade Procedencia y conserva lectura sin asignar.
+Consulta filtrada no reutiliza borrador/envío GLOBAL por proveedor: órdenes
+persistentes/cobertura/recepción pendientes, no interpretar la consulta como
+compra pendiente de recibir. Pedidos sin facturar tampoco se alistan todavía.
+Limpieza semanal aún pendiente por código: lanzador seguro y nunca probarla.
+Relevo/evidencia en docs/informes/operacion-ciclos-2026-10-05.md.
+
+2026-10-06, consulta de carga/entregas: [[modulo/carga-entregas-por-ciclo]]
+usa ciclo/documentos fijos y Maps; no pide permiso Clientes al chofer.
+Orden inverso sugerido desde revisión de bodega, sin confirmar entrega.
+Estado operativo vigente en informe carga; textos de partes anteriores
+son históricos. Limpieza global ya retirada por código en 050, ver
+[[modulo/archivo-ordenes-compra]]. ENT-06/avance físico sigue pendiente.
+
+## Contexto visible y lecturas — 2026-10-06
+
+Revisión vigente en [[modulo/contexto-visible-operacion]]: selección clara,
+respuestas tardías descartadas, notas por semana y contexto original en la
+ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
+RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
+una sola consulta, exportación o cambio de maestro. No hay nueva SQL.

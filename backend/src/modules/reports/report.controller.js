@@ -3,28 +3,47 @@
  */
 
 const ReportService = require('./report.service');
+const colaImpresion = require('../reprinting/colaImpresion');
 const notasDeFaltantes = require('./notasDeFaltantes');
 const ResponseHelper = require('../../utils/response.helper');
+const excel = require('./report.excel');
+const { enviarExcel } = require('../../utils/exportarExcel');
 
 class ReportController {
   constructor() {
     this.reportService = new ReportService();
   }
 
+  getCiclos = async (req, res) => {
+    try { return res.json({ success: true, data: await require('../rutas/operacionCiclo.service').listarCiclos() }); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
+  exportarProveedores = async (req, res) => {
+    try { return enviarExcel(res, await excel.exportarProveedores(req.query)); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
+  exportarClientes = async (req, res) => {
+    try { return enviarExcel(res, await excel.exportarClientes(req.query)); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
   /**
    * GET /reports/faltantes/notas — las notas que se le escribieron a cada
    * producto al facturarlo, para leerlas mientras se le compra al proveedor.
    *
-   * Va aparte del reporte a propósito: ese se arma con la base local y carga
-   * rápido. Si esto viviera adentro, el día que Alegra esté lenta no se
-   * podría ni ver qué hay que comprar.
+   * Va aparte del reporte a propósito: si las notas fallan, el reporte se ve
+   * igual. (Antes se leían de Alegra; desde la migración independencia/032
+   * salen de la línea de la factura propia.)
    */
   getNotasDeFaltantes = async (req, res) => {
     try {
       const { fecha_inicio } = req.query;
-      const r = await notasDeFaltantes.notasPorProducto(fecha_inicio || null);
+      const r = await notasDeFaltantes.notasPorProducto(fecha_inicio || null, req.query);
       return res.json({ success: true, data: r });
     } catch (error) {
+      if (error.status) return ResponseHelper.error(res, error.message, error.status);
       console.error('❌ Error trayendo las notas de los faltantes:', error.message);
       // No se cae el reporte por esto: se responde vacío diciendo qué pasó.
       return res.json({
@@ -35,10 +54,34 @@ class ReportController {
     }
   };
 
+  /**
+   * POST /reportes/faltantes/cliente/facturas/:facturaId/impresion y
+   * .../recuperar — dar la factura por lista (a la cola de Impresión) o
+   * recuperarla para revisarla de nuevo. `facturaId` es el id PROPIO de la
+   * factura (`factura.id`), nunca el de Alegra.
+   */
+  enviarAImpresion = async (req, res) => {
+    try {
+      res.json({ success: true, data: await colaImpresion.encolarDesdeReporte(req.params.facturaId) });
+    } catch (error) {
+      if (!error.status) console.error('❌ Error enviando a impresión:', error);
+      res.status(error.status || 500).json({ success: false, message: error.message });
+    }
+  };
+
+  recuperarFactura = async (req, res) => {
+    try {
+      res.json({ success: true, data: await colaImpresion.devolverAlReporte(req.params.facturaId) });
+    } catch (error) {
+      if (!error.status) console.error('❌ Error recuperando la factura:', error);
+      res.status(error.status || 500).json({ success: false, message: error.message });
+    }
+  };
+
   getMissingItemsBySupplier = async (req, res) => {
     try {
       const { fecha_inicio } = req.query;
-      const result = await this.reportService.getMissingItemsBySupplier(fecha_inicio);
+      const result = await this.reportService.getMissingItemsBySupplier(fecha_inicio, req.query);
 
       if (result.success) {
         return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
@@ -47,7 +90,7 @@ class ReportController {
         });
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -55,7 +98,7 @@ class ReportController {
 
   getMissingItemsByClient = async (req, res) => {
     try {
-      const result = await this.reportService.getMissingItemsByClient();
+      const result = await this.reportService.getMissingItemsByClient(req.query);
 
       if (result.success) {
         return ResponseHelper.success(res, result.data, 'Reporte generado', 200, {
@@ -64,7 +107,7 @@ class ReportController {
         });
       }
 
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -78,21 +121,7 @@ class ReportController {
         return ResponseHelper.success(res, { eliminados: result.eliminados }, result.message);
       }
 
-      return ResponseHelper.error(res, result.error, 400);
-    } catch (error) {
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  getEncargosEspeciales = async (req, res) => {
-    try {
-      const result = await this.reportService.getEncargosEspeciales();
-
-      if (result.success) {
-        return ResponseHelper.success(res, result.data, 'Encargos especiales obtenidos');
-      }
-
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }
@@ -106,57 +135,7 @@ class ReportController {
         return ResponseHelper.success(res, result.data, 'Historial obtenido');
       }
 
-      return ResponseHelper.error(res, result.error, 400);
-    } catch (error) {
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  /**
-   * Reporte consolidado de faltantes
-   */
-  getMissingItemsConsolidated = async (req, res) => {
-    try {
-      const { semana, mes, ano } = req.query;
-      const result = await this.reportService.getMissingItemsConsolidated(req.query);
-
-      if (result.success) {
-        return res.json({
-          success: true,
-          data: result.data,
-          filters: { semana, mes, ano },
-          periodo: { semana, mes, ano }
-        });
-      }
-
-      return ResponseHelper.error(res, result.error, 400);
-    } catch (error) {
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  /**
-   * Reporte de compras sugeridas por proveedor
-   */
-  getSuggestedPurchases = async (req, res) => {
-    try {
-      const { semana, mes, ano, multiplicador = 1.2 } = req.query;
-      const result = await this.reportService.getSuggestedPurchases(req.query);
-
-      if (result.success) {
-        return res.json({
-          success: true,
-          data: result.data,
-          total_proveedores: result.data.length,
-          filters: { semana, mes, ano, multiplicador },
-          resumen: {
-            total_compra_general: result.data.reduce((sum, p) => sum + parseFloat(p.total_compra_sugerida || 0), 0),
-            total_productos: result.data.reduce((sum, p) => sum + (p.productos_sugeridos?.length || 0), 0)
-          }
-        });
-      }
-
-      return ResponseHelper.error(res, result.error, 400);
+      return ResponseHelper.error(res, result.error, result.status || 400);
     } catch (error) {
       return ResponseHelper.error(res, error.message, 500);
     }

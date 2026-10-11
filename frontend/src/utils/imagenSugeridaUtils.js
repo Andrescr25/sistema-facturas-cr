@@ -12,6 +12,6 @@ export function conMiniaturasProxeadas(images) {
   return images.map(img => ({
     ...img,
     thumbnailOriginal: img.thumbnail,
-    thumbnail: `${api.defaults.baseURL}/alegra/catalog/image-proxy?url=${encodeURIComponent(img.thumbnail)}`
+    thumbnail: `${api.defaults.baseURL}/catalogos/imagen-proxy?url=${encodeURIComponent(img.thumbnail)}`
   }))
 }

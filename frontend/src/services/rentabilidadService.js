@@ -12,7 +12,7 @@ export async function getProductosRentabilidad(params = {}) {
   return data.data
 }
 
-export async function getProductoRentabilidad(alegraItemId) {
-  const { data } = await api.get(`/rentabilidad/productos/${alegraItemId}`)
+export async function getProductoRentabilidad(productoId) {
+  const { data } = await api.get(`/rentabilidad/productos/${productoId}`)
   return data.data
 }

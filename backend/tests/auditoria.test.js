@@ -159,3 +159,39 @@ describe('clasificarProducto — reglas', () => {
     assert.equal(tasaIvaDe('4.000'), 4);
   });
 });
+
+describe('la tarifa de IVA del producto, cuando se conoce', () => {
+  // En este catálogo 91 productos activos NO están al 13%: 44 al 1%, 15 al 2%,
+  // 9 al 4%, 6 exentos, 3 al 8% y 14 sin impuesto asignado. Quitarles un 13%
+  // que no pagan corre el costo y con él el margen.
+
+  test('a un producto al 1% no se le quita un 13%', () => {
+    // Costo 101 con IVA al 1% son 100 sin IVA; asumiendo 13% darían 89,38.
+    const r = clasificarProducto({ price: 200, cost: 101, costoDerivado: null, tarifa: 1 });
+    assert.ok(Math.abs(r.costoSinIva - 100) < 0.01, `costo sin IVA esperado 100, fue ${r.costoSinIva}`);
+  });
+
+  test('sin tarifa se sigue asumiendo 13%, como antes', () => {
+    // Los scripts que todavía no la tienen a mano no cambian de resultado.
+    const r = clasificarProducto({ price: 200, cost: 113, costoDerivado: null });
+    assert.ok(Math.abs(r.costoSinIva - 100) < 0.01, `costo sin IVA esperado 100, fue ${r.costoSinIva}`);
+  });
+
+  test('la tarifa real puede cambiar el veredicto: un exento que se vende con pérdida', () => {
+    // Costo 105 y precio 100. Siendo exento, el costo sin IVA son 105: pierde
+    // plata. Asumiendo 13%, el costo "sin IVA" daría 92,9 y parecería sano —
+    // que es exactamente el error que este parámetro viene a evitar.
+    const conTarifaReal = clasificarProducto({ price: 100, cost: 105, costoDerivado: null, tarifa: 0 });
+    assert.equal(conTarifaReal.clasificacion, CLASIFICACION.MARGEN_NEGATIVO);
+
+    const asumiendo13 = clasificarProducto({ price: 100, cost: 105, costoDerivado: null });
+    assert.equal(asumiendo13.clasificacion, CLASIFICACION.OK);
+  });
+
+  test('una tarifa inválida no rompe: se cae al 13% en vez de dividir por basura', () => {
+    for (const mala of ['no es número', NaN, undefined]) {
+      const r = clasificarProducto({ price: 200, cost: 113, costoDerivado: null, tarifa: mala });
+      assert.ok(Math.abs(r.costoSinIva - 100) < 0.01, `con tarifa ${String(mala)} fue ${r.costoSinIva}`);
+    }
+  });
+});

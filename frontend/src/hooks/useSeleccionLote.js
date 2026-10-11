@@ -10,22 +10,22 @@ export function useSeleccionLote() {
   const [seleccionados, setSeleccionados] = useState(new Set())
   const ultimoRef = useRef(null)
 
-  const alternar = useCallback((alegraId, { rango = false, ordenPlano = [] } = {}) => {
+  const alternar = useCallback((id, { rango = false, ordenPlano = [] } = {}) => {
     setSeleccionados((prev) => {
       const next = new Set(prev)
       if (rango && ultimoRef.current) {
         const iA = ordenPlano.indexOf(ultimoRef.current)
-        const iB = ordenPlano.indexOf(alegraId)
+        const iB = ordenPlano.indexOf(id)
         if (iA !== -1 && iB !== -1) {
           const [desde, hasta] = iA < iB ? [iA, iB] : [iB, iA]
           for (let i = desde; i <= hasta; i++) next.add(ordenPlano[i])
-          ultimoRef.current = alegraId
+          ultimoRef.current = id
           return next
         }
       }
-      if (next.has(alegraId)) next.delete(alegraId)
-      else next.add(alegraId)
-      ultimoRef.current = alegraId
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      ultimoRef.current = id
       return next
     })
   }, [])

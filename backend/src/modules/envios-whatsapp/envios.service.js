@@ -19,19 +19,23 @@
 
 const { query } = require('../../../config/database');
 const whatsapp = require('../../integrations/whatsapp');
+const { telefonosDe } = require('../../utils/telefonosCliente');
 
-const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra'];
+const TIPOS = ['cotizacion', 'factura', 'saldo', 'pedido', 'invitacion', 'orden_compra', 'preventa'];
 
-async function anotar({ tipo, referencia, alegraContactId, telefono, usuarioId, exito, error }) {
+async function anotar({ tipo, referencia, alegraContactId, clienteId, telefono, usuarioId, exito, error }) {
   try {
     await query(`
       INSERT INTO envio_whatsapp
-        (tipo, referencia, alegra_contact_id, telefono, enviado_por, exito, error)
-      VALUES ($1, $2, $3, $4, $5, $6, $7);
+        (tipo, referencia, alegra_contact_id, cliente_id, telefono, enviado_por, exito, error)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
     `, [
       tipo,
       referencia ? String(referencia).slice(0, 60) : null,
       alegraContactId ? String(alegraContactId) : null,
+      // Nuestro id de cliente. Va aparte del de Alegra a propósito: meterlo en
+      // esa columna dejaría escrito un número del que nadie sabría el origen.
+      clienteId || null,
       String(telefono).slice(0, 20),
       usuarioId || null,
       exito,
@@ -51,7 +55,7 @@ async function anotar({ tipo, referencia, alegraContactId, telefono, usuarioId, 
  * @param {Buffer} [datos.pdf]        si viene, se manda como documento
  */
 async function enviarYRegistrar({
-  tipo, referencia, alegraContactId, telefono, mensaje,
+  tipo, referencia, alegraContactId, clienteId, telefono, mensaje,
   pdf, nombreArchivo, usuarioId, sujeto = 'cliente'
 }) {
   if (!TIPOS.includes(tipo)) {
@@ -65,11 +69,11 @@ async function enviarYRegistrar({
 
     // Se anota el número YA NORMALIZADO, que es al que de verdad llegó — no
     // el que se escribió en la pantalla.
-    await anotar({ tipo, referencia, alegraContactId, telefono: r.numero, usuarioId, exito: true });
+    await anotar({ tipo, referencia, alegraContactId, clienteId, telefono: r.numero, usuarioId, exito: true });
     return r;
   } catch (e) {
     await anotar({
-      tipo, referencia, alegraContactId,
+      tipo, referencia, alegraContactId, clienteId,
       telefono: String(telefono).replace(/\D/g, '').slice(0, 20) || 'sin número',
       usuarioId, exito: false, error: e.message
     });
@@ -102,4 +106,34 @@ async function historial({ tipo, referencia, limite = 5 }) {
   }));
 }
 
-module.exports = { enviarYRegistrar, historial, TIPOS };
+/**
+ * Los números a los que se le puede escribir a un cliente, leídos de su
+ * ficha PROPIA.
+ *
+ * Existe aparte de `/telefonos/:contactoId` (que le pregunta a Alegra) porque
+ * los dos ids NO son intercambiables: el cliente propio 8 es "AB CHANA", y el
+ * contacto 8 de Alegra es "EL LLANO". Pasarle un id propio a la ruta de Alegra
+ * proponía el celular de otra persona para mandarle la factura — pasó en
+ * Cuentas por Cobrar, con 47 de sus 54 deudores.
+ */
+async function telefonosDeCliente(clienteId) {
+  const id = Number(clienteId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw Object.assign(new Error('Identificador inválido.'), { status: 400 });
+  }
+  const r = await query(
+    'SELECT nombre, telefono, telefono_secundario, celular FROM cliente WHERE id = $1;',
+    [id]
+  );
+  const ficha = r.rows[0];
+  if (!ficha) throw Object.assign(new Error('No se encontró ese cliente.'), { status: 404 });
+
+  const { candidatos, sinReconocer } = telefonosDe({
+    phonePrimary: ficha.telefono,
+    phoneSecondary: ficha.telefono_secundario,
+    mobile: ficha.celular
+  });
+  return { cliente: ficha.nombre, telefonos: candidatos, telefonosSinReconocer: sinReconocer };
+}
+
+module.exports = { enviarYRegistrar, historial, telefonosDeCliente, TIPOS };

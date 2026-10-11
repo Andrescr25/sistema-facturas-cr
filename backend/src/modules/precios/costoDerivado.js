@@ -32,6 +32,21 @@
  * Se acepta porque el error que evita es de órdenes de magnitud y el que
  * introduce es de porcentajes; además `costoReciente` y `historialInestable`
  * quedan expuestos para poder mostrar la diferencia.
+ *
+ * EL COSTO ES DE UN `producto.id` (sección 13 del checklist, 2026-10-03).
+ * Hasta acá el mapa se llaveaba por el id de Alegra. `costo_historico` tiene
+ * los dos (`producto_id` desde la migración 005) y el que manda es el propio.
+ *
+ * LA VALIDEZ TAMBIÉN ES POR EL PRODUCTO PROPIO (migración 038): una fila
+ * cuenta si su línea del buzón sigue relacionada y sigue siendo de ESTE
+ * producto (`productos_factura_proveedor.producto_id`). Mientras se comparaban
+ * los ids de Alegra de los dos lados, un producto creado en el sistema, sin
+ * ficha allá, no podía tener costo de compras.
+ *
+ * LAS ÚLTIMAS N, SIN SORTEO. Dos compras del mismo día empataban en el orden
+ * y Postgres elegía cuál entraba a la ventana como le caía: medido, 6 de
+ * 1.356 productos cambiaban de costo entre una consulta y otra (LLAVE DE PASO
+ * CTE PLASTICA, ₡333,35 o ₡333,18). El desempate por `id` lo deja fijo.
  */
 
 const { query } = require('../../../config/database');
@@ -51,57 +66,85 @@ const MINIMO_PARA_JUZGAR = 3;
  */
 const SQL_COSTO_DERIVADO = `
   WITH validas AS (
-    SELECT ch.alegra_item_id,
+    SELECT ch.producto_id,
            ch.costo_unitario,
            ch.fecha,
-           ROW_NUMBER() OVER (PARTITION BY ch.alegra_item_id ORDER BY ch.fecha DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY ch.producto_id ORDER BY ch.fecha DESC, ch.id DESC) AS rn
     FROM costo_historico ch
     JOIN productos_factura_proveedor pf ON pf.id = ch.producto_factura_id
     WHERE pf.estado_relacionado = 'RELACIONADO'
-      AND pf.alegra_item_id::text = ch.alegra_item_id
+      AND pf.producto_id = ch.producto_id
   )
-  SELECT alegra_item_id,
+  SELECT producto_id,
          percentile_cont(0.5) WITHIN GROUP (ORDER BY costo_unitario) AS costo_mediana,
          MAX(costo_unitario) FILTER (WHERE rn = 1) AS costo_reciente,
          MAX(fecha) AS fecha_ultima,
          COUNT(*)::int AS entradas
   FROM validas
   WHERE rn <= ${VENTANA_ENTRADAS}
-  GROUP BY alegra_item_id
+  GROUP BY producto_id
 `;
 
+/** Una fila de la consulta, en la forma que usan los consumidores; o null. */
+function comoCosto(r) {
+  const mediana = Number(r.costo_mediana);
+  const reciente = Number(r.costo_reciente);
+  if (!Number.isFinite(mediana) || mediana <= 0) return null;
+
+  const desvio = Number.isFinite(reciente) && mediana > 0
+    ? Math.abs(reciente - mediana) / mediana
+    : 0;
+
+  return {
+    costo: mediana,
+    costoReciente: Number.isFinite(reciente) ? reciente : mediana,
+    fechaUltima: r.fecha_ultima,
+    entradas: r.entradas,
+    historialInestable: r.entradas >= MINIMO_PARA_JUZGAR && desvio > DESVIO_INESTABLE
+  };
+}
+
 /**
- * @returns {Promise<Map<string, {costo: number, costoReciente: number,
+ * @returns {Promise<Map<number, {costo: number, costoReciente: number,
  *   fechaUltima: Date, entradas: number, historialInestable: boolean}>>}
- *   indexado por alegra_item_id (string).
+ *   indexado por `producto.id` (NÚMERO). No es el id de Alegra: buscar acá
+ *   con uno devuelve el costo de otro producto, o nada.
  */
 async function obtenerCostosDerivados() {
   const res = await query(SQL_COSTO_DERIVADO);
   const mapa = new Map();
-
   for (const r of res.rows) {
-    const mediana = Number(r.costo_mediana);
-    const reciente = Number(r.costo_reciente);
-    if (!Number.isFinite(mediana) || mediana <= 0) continue;
-
-    const desvio = Number.isFinite(reciente) && mediana > 0
-      ? Math.abs(reciente - mediana) / mediana
-      : 0;
-
-    mapa.set(String(r.alegra_item_id), {
-      costo: mediana,
-      costoReciente: Number.isFinite(reciente) ? reciente : mediana,
-      fechaUltima: r.fecha_ultima,
-      entradas: r.entradas,
-      historialInestable: r.entradas >= MINIMO_PARA_JUZGAR && desvio > DESVIO_INESTABLE
-    });
+    const costo = comoCosto(r);
+    if (costo) mapa.set(Number(r.producto_id), costo);
   }
+  return mapa;
+}
 
+/**
+ * El mismo costo, indexado por el id de ALEGRA (texto).
+ *
+ * SOLO para los tres scripts que todavía recorren `alegra_products_cache`
+ * (simular-precios, auditar-costos y actualizar-costos-alegra). Se va con
+ * ellos y con esa tabla (sección 16). Nada del sistema en marcha lo usa.
+ */
+async function obtenerCostosDerivadosPorAlegra() {
+  const res = await query(`
+    SELECT p.alegra_id, c.*
+      FROM (${SQL_COSTO_DERIVADO}) c
+      JOIN producto p ON p.id = c.producto_id
+     WHERE p.alegra_id IS NOT NULL
+  `);
+  const mapa = new Map();
+  for (const r of res.rows) {
+    const costo = comoCosto(r);
+    if (costo) mapa.set(String(r.alegra_id), costo);
+  }
   return mapa;
 }
 
 module.exports = {
   obtenerCostosDerivados,
+  obtenerCostosDerivadosPorAlegra,
   SQL_COSTO_DERIVADO,
   VENTANA_ENTRADAS,
   DESVIO_INESTABLE,

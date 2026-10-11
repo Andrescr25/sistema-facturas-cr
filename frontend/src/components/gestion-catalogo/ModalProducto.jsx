@@ -1,365 +1,229 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Package, Plus, Tag, Trash2, Truck } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, EyeOff, Eye, Power, Save } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
-import Pestanas from '../ui/Pestanas'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
-import api from '../../services/api'
-import { formatCRC } from '../../utils/gestionCatalogoUtils'
 
 /**
- * La ficha de un producto: acá se gestiona todo lo suyo.
+ * Crear o editar un producto con TODOS sus datos.
  *
- * ANTES ERAN DOS PANTALLAS. Para cambiarle el precio a algo se entraba por
- * Gestión de Catálogo; para ver a cuánto lo vende cada proveedor había que
- * irse a Gestionar Relaciones y buscarlo de nuevo por nombre. Las dos
- * preguntas se hacen en el mismo momento —"¿a cómo lo pongo?" no se contesta
- * sin "¿a cómo me cuesta?"—, así que ahora viven en la misma ficha.
+ * Antes solo se podían cambiar nombre, referencia, precio, costo y
+ * categoría; el CABYS, el impuesto, la unidad y los datos de medicamento
+ * había que ir a cambiarlos a Alegra.
  *
- * DOS PESTAÑAS Y NO UNA SOLA COLUMNA. Los proveedores se piden al servidor
- * aparte; ponerlos arriba haría esperar a quien solo viene a corregir un
- * nombre, que es la mayoría de las veces. Se cargan al abrir, en segundo
- * plano, y el número sale en la pestaña para no tener que entrar a mirar si
- * hay algo.
+ * Los dos números no están en la misma base y la pantalla lo dice: el precio
+ * se escribe SIN IVA y el costo CON IVA. El margen se calcula igual que en
+ * Revisión de Precios (precio sin IVA contra costo sin IVA).
  *
- * LAS DOS CIFRAS NO ESTÁN EN LA MISMA BASE, y la pantalla lo dice: el precio
- * se escribe SIN IVA y el costo CON IVA. De ₡5.625 contra ₡4.764,64 se leía
- * un margen del 15% cuando el real es 25%. El margen se calcula como en
- * Revisión de Precios: los dos lados sin IVA.
+ * No hay "Eliminar": un producto se desactiva (sale de la venta) o se oculta
+ * (sale de los catálogos que ven los clientes). Las facturas viejas lo
+ * siguen mostrando.
  *
- * LA SUBCATEGORÍA NO VA A ALEGRA: es nuestra, se guarda aparte y por eso se
- * aplica al elegirla y no al guardar. Si esperara al botón, cambiarla
- * obligaría a mandarle también el nombre y el precio a Alegra sin necesidad.
+ * Al editar se manda solo lo que cambió. Si el servidor rechaza, la hoja
+ * queda abierta con lo tipeado.
  */
 
-const CAMPO = 'w-full rounded-xl border border-neutro-200 bg-neutro-50 px-3 py-2.5 text-sm text-neutro-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primario-500'
+const CAMPOS = [
+  'nombre', 'referencia', 'descripcion', 'categoria_id', 'unidad', 'impuesto_id', 'cabys',
+  'precio_sin_iva', 'costo_con_iva', 'inventariable', 'es_medicamento', 'forma_farmaceutica', 'registro_sanitario'
+]
+const NUMERICOS = new Set(['categoria_id', 'impuesto_id', 'precio_sin_iva', 'costo_con_iva'])
+const BOOLEANOS = new Set(['inventariable', 'es_medicamento'])
+const CLASE_CAMPO = 'input h-11 w-full rounded-xl border border-neutro-300'
+const colones = new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 2 })
 
-function Etiqueta({ children, nota }) {
+function valoresDe(p) {
+  return Object.fromEntries(CAMPOS.map(c => {
+    const v = p?.[c]
+    if (BOOLEANOS.has(c)) return [c, c === 'inventariable' ? v !== false : Boolean(v)]
+    return [c, v === null || v === undefined ? '' : String(v)]
+  }))
+}
+
+function listo(campo, v) {
+  if (BOOLEANOS.has(campo)) return Boolean(v)
+  if (NUMERICOS.has(campo)) return v === '' ? null : Number(v)
+  return String(v).trim() === '' ? null : String(v).trim()
+}
+
+function Etiqueta({ htmlFor, children, requerido }) {
   return (
-    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-500">
-      {children}
-      {nota && <span className="ml-1 font-semibold normal-case tracking-normal text-neutro-400">{nota}</span>}
+    <label htmlFor={htmlFor} className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-500">
+      {children}{requerido && ' *'}
     </label>
   )
 }
 
-/** Margen sobre el precio, con los dos lados sin IVA. */
-function margenDe(precioSinIva, costoConIva, iva) {
-  const p = Number(precioSinIva)
-  const c = Number(costoConIva)
-  if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(c) || c <= 0 || iva === null) return null
-  const costoSinIva = c / (1 + iva / 100)
-  return ((p - costoSinIva) / p) * 100
-}
-
-function TonoMargen({ margen }) {
-  if (margen === null) return <span className="text-neutro-400">—</span>
-  const tono = margen < 0 ? 'peligro' : margen < 10 ? 'alerta' : 'exito'
-  return <Insignia tono={tono}>{margen.toFixed(1)}%</Insignia>
-}
-
-/** Quién me lo vende y a cuánto. Ordenado del más barato al más caro. */
-function Proveedores({ relaciones, cargando, error, precioSinIva, iva }) {
-  if (cargando) {
-    return (
-      <p className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-neutro-400">
-        <Loader2 size={16} className="animate-spin" /> Buscando proveedores…
-      </p>
-    )
-  }
-  if (error) {
-    return <p className="py-10 text-center text-sm font-semibold text-peligro-600">{error}</p>
-  }
-  if (relaciones.length === 0) {
-    return (
-      <div className="py-10 text-center">
-        <Truck size={28} className="mx-auto mb-2 text-neutro-300" />
-        <p className="text-sm font-bold text-neutro-600">Ningún proveedor relacionado</p>
-        <p className="mt-1 text-xs text-neutro-400">
-          Las relaciones se crean al revisar una factura de compra.
-        </p>
-      </div>
-    )
-  }
-
+function Aviso({ children }) {
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-neutro-500">
-        {relaciones.length === 1 ? 'Un proveedor' : `${relaciones.length} proveedores`}, del más barato al más caro.
-        El costo es por <strong>una unidad mía</strong>, con descuento e IVA.
-      </p>
-
-      {relaciones.map((r, i) => {
-        const margen = margenDe(precioSinIva, r.precio, iva)
-        return (
-          <div
-            key={r.mapeoId}
-            className={`rounded-xl border p-3 ${i === 0 ? 'border-exito-200 bg-exito-50/40' : 'border-neutro-200 bg-white'}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-neutro-900">{r.proveedor?.nombre || 'Sin nombre'}</p>
-                {r.descripcionProveedor && (
-                  <p className="truncate text-xs text-neutro-500" title={r.descripcionProveedor}>
-                    {r.descripcionProveedor}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-bold text-neutro-900">
-                  {r.precio != null ? formatCRC(r.precio) : '—'}
-                </p>
-                {i === 0 && relaciones.length > 1 && (
-                  <span className="text-[10px] font-bold uppercase text-exito-700">Más barato</span>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutro-500">
-              {r.codigoProveedor && <span className="font-mono">Cód. {r.codigoProveedor}</span>}
-              {/* Solo cuando el proveedor NO factura en mi unidad: si el factor
-                  es 1 el dato no agrega nada y ensucia la línea. */}
-              {r.factorConversion !== 1 && (
-                <span>
-                  factor {r.factorConversion} · su unidad {r.precioProveedor != null ? formatCRC(r.precioProveedor) : '—'}
-                </span>
-              )}
-              {r.vecesUsado > 0 && <span>comprado {r.vecesUsado}×</span>}
-              <span className="ml-auto flex items-center gap-1">
-                margen <TonoMargen margen={margen} />
-              </span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-alerta-700">
+      <AlertTriangle size={12} className="shrink-0" />{children}
+    </p>
   )
 }
 
 export default function ModalProducto({
-  editName, setEditName,
-  editRef, setEditRef,
-  editPrice, setEditPrice,
-  editCost, setEditCost,
-  editCategoria, setEditCategoria,
-  categorias,
-  producto,
-  subcategorias = [],
-  onCrearSubcategoria,
-  onAsignarSubcategoria,
-  taxPercentage,
-  savingEdit,
-  confirmDelete,
-  deletingProduct,
-  onSubmit,
-  onEliminar,
-  onCerrar
+  producto, plantilla, categorias, impuestos, guardando,
+  onGuardar, onCambiarEstado, onCerrar
 }) {
-  const [pestana, setPestana] = useState('datos')
+  const editando = Boolean(producto)
+  const base = useMemo(() => valoresDe(producto || plantilla), [producto, plantilla])
+  const [valores, setValores] = useState(base)
+  const cambiar = (campo) => (e) => {
+    const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setValores(prev => ({ ...prev, [campo]: v }))
+  }
 
-  // Los proveedores se piden acá y no en la página: es la ficha la que
-  // necesita saberlos, y bajarlos desde arriba obligaría a pasar tres props
-  // más por una pantalla que ya pasa veinte.
-  const [relaciones, setRelaciones] = useState([])
-  const [cargandoRel, setCargandoRel] = useState(true)
-  const [errorRel, setErrorRel] = useState(null)
+  const impuesto = impuestos.find(i => String(i.id) === String(valores.impuesto_id))
+  const tarifa = impuesto ? Number(impuesto.tarifa) : null
+  const precio = Number(valores.precio_sin_iva)
+  const costo = Number(valores.costo_con_iva)
+  const precioConIva = tarifa !== null && valores.precio_sin_iva !== '' ? Math.round(precio * (1 + tarifa / 100) * 100) / 100 : null
+  const costoSinIva = tarifa !== null && valores.costo_con_iva !== '' ? costo / (1 + tarifa / 100) : null
+  const margen = costoSinIva !== null && precio > 0 ? ((precio - costoSinIva) / precio) * 100 : null
 
-  const alegraId = producto?.alegraId
-
-  useEffect(() => {
-    if (!alegraId) return
-    let vigente = true
-    setCargandoRel(true); setErrorRel(null)
-    api.get(`/productos-revision/producto/${alegraId}/relaciones`)
-      .then(({ data }) => {
-        if (!vigente) return
-        setRelaciones(data?.relaciones || [])
-      })
-      .catch(() => {
-        if (!vigente) return
-        // Que no se puedan ver los proveedores no impide corregir un precio.
-        setErrorRel('No se pudieron cargar los proveedores.')
-      })
-      .finally(() => { if (vigente) setCargandoRel(false) })
-    return () => { vigente = false }
-  }, [alegraId])
-
-  // null/undefined es "todavía no se sincronizó el impuesto de este
-  // producto", que no es lo mismo que exento: ahí no se muestra un número
-  // inventado.
-  const iva = taxPercentage === null || taxPercentage === undefined ? null : Number(taxPercentage)
-  const precioNum = parseFloat(editPrice)
-  const precioConIva = iva !== null && Number.isFinite(precioNum)
-    ? Math.round(precioNum * (1 + iva / 100) * 100) / 100
+  const cabys = String(valores.cabys).replace(/\D/g, '')
+  const avisoCabys = valores.cabys && cabys.length !== 13 ? `El CABYS tiene 13 dígitos; este tiene ${cabys.length}.` : null
+  const avisoMedicamento = valores.es_medicamento && (!valores.forma_farmaceutica || !valores.registro_sanitario)
+    ? 'Un medicamento necesita forma farmacéutica y registro sanitario.'
     : null
-  const margen = useMemo(() => margenDe(editPrice, editCost, iva), [editPrice, editCost, iva])
 
-  const categoriaDelProducto = producto?.category || ''
-  const suyas = subcategorias.filter(s => s.categoria === categoriaDelProducto && s.activo)
+  // Una categoría inactiva que ya tiene el producto se sigue mostrando.
+  const opcionesCategoria = categorias.filter(c => c.activo || String(c.id) === String(base.categoria_id))
 
-  const [nueva, setNueva] = useState('')
-  const [creando, setCreando] = useState(false)
-  const [errorSub, setErrorSub] = useState(null)
+  const cambios = useMemo(() => Object.fromEntries(
+    CAMPOS.filter(c => valores[c] !== base[c]).map(c => [c, listo(c, valores[c])])
+  ), [valores, base])
+  const hayCambios = Object.keys(cambios).length > 0
 
-  const crearSub = async () => {
-    const nombre = nueva.trim()
-    if (!nombre) return
-    setCreando(true); setErrorSub(null)
-    try {
-      const s = await onCrearSubcategoria(categoriaDelProducto, nombre)
-      await onAsignarSubcategoria(alegraId, s.id)
-      setNueva('')
-    } catch (e) {
-      setErrorSub(e?.response?.data?.message || 'No se pudo crear.')
-    } finally {
-      setCreando(false)
-    }
+  const enviar = async (e) => {
+    e.preventDefault()
+    const datos = editando ? cambios : Object.fromEntries(CAMPOS.map(c => [c, listo(c, valores[c])]))
+    if (editando && !hayCambios) { onCerrar(); return }
+    if (!editando && datos.unidad === null) delete datos.unidad
+    if (await onGuardar(datos)) onCerrar()
   }
 
   return (
     <HojaModal
-      titulo={producto?.name || 'Producto'}
-      subtitulo={producto?.reference ? `Ref. ${producto.reference}` : 'Sin referencia'}
+      titulo={editando ? 'Editar producto' : (plantilla ? 'Agregar otra marca' : 'Nuevo producto')}
+      subtitulo={editando ? producto.nombre : (plantilla ? `A partir de ${plantilla.nombreOriginal}` : undefined)}
       ancho="sm:max-w-2xl"
       onCerrar={onCerrar}
     >
-      {/* Lo que identifica al producto, de un vistazo y sin entrar a nada. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {producto?.category && <Insignia tono="activo" icono={Tag}>{producto.category}</Insignia>}
-        {producto?.subcategoria && <Insignia tono="neutro">{producto.subcategoria.nombre}</Insignia>}
-        <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-neutro-500">
-          Margen <TonoMargen margen={margen} />
-        </span>
-      </div>
+      <form onSubmit={enviar} className="space-y-5">
+        {editando && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-neutro-200 bg-neutro-50 p-3">
+            <Insignia tono={producto.activo ? 'exito' : 'neutro'}>{producto.activo ? 'Activo' : 'Inactivo'}</Insignia>
+            {producto.oculto && <Insignia tono="alerta">Oculto en los catálogos</Insignia>}
+            <div className="ml-auto flex flex-wrap gap-1.5">
+              <Boton type="button" variante="fantasma" tamano="sm" disabled={guardando}
+                onClick={() => onCambiarEstado({ oculto: !producto.oculto })}>
+                {producto.oculto ? <Eye size={14} /> : <EyeOff size={14} />} {producto.oculto ? 'Mostrar' : 'Ocultar'}
+              </Boton>
+              <Boton type="button" variante="secundario" tamano="sm" disabled={guardando}
+                onClick={() => onCambiarEstado({ activo: !producto.activo })}>
+                <Power size={14} /> {producto.activo ? 'Desactivar' : 'Activar'}
+              </Boton>
+            </div>
+          </div>
+        )}
 
-      <Pestanas
-        activa={pestana}
-        onCambiar={setPestana}
-        pestanas={[
-          { clave: 'datos', texto: 'Datos', icono: Package },
-          {
-            clave: 'proveedores',
-            texto: 'Proveedores',
-            icono: Truck,
-            // El número va en la pestaña para no tener que entrar a ver si hay
-            // algo: la respuesta "ninguno" también sirve.
-            contador: cargandoRel ? 0 : relaciones.length
-          }
-        ]}
-      />
-
-      {pestana === 'datos' ? (
-        <form onSubmit={onSubmit} className="space-y-4">
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Etiqueta htmlFor="producto-nombre" requerido>Nombre</Etiqueta>
+            <input id="producto-nombre" className={CLASE_CAMPO} value={valores.nombre} onChange={cambiar('nombre')} maxLength={250} required />
+          </div>
           <div>
-            <Etiqueta>Nombre</Etiqueta>
-            <input
-              type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
-              required placeholder="Ej: Coca Cola Sabor Original 350ml" className={CAMPO}
-            />
+            <Etiqueta htmlFor="producto-referencia">Referencia</Etiqueta>
+            <input id="producto-referencia" className={CLASE_CAMPO} value={valores.referencia} onChange={cambiar('referencia')} maxLength={100} />
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Etiqueta nota="código de barras o interno">Referencia</Etiqueta>
-              <input
-                type="text" value={editRef} onChange={(e) => setEditRef(e.target.value)}
-                required placeholder="Ej: 744100123456" className={CAMPO}
-              />
-            </div>
-            <div>
-              <Etiqueta>Categoría</Etiqueta>
-              <select value={editCategoria} onChange={(e) => setEditCategoria(e.target.value)} className={CAMPO}>
-                <option value="">Sin cambios</option>
-                {categorias.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+          <div>
+            <Etiqueta htmlFor="producto-categoria_id">Categoría</Etiqueta>
+            <select id="producto-categoria_id" className={CLASE_CAMPO} value={valores.categoria_id} onChange={cambiar('categoria_id')}>
+              <option value="">Sin categoría</option>
+              {opcionesCategoria.map(c => <option key={c.id} value={String(c.id)}>{c.nombre}{c.activo ? '' : ' (inactiva)'}</option>)}
+            </select>
           </div>
+          <div className="sm:col-span-2">
+            <Etiqueta htmlFor="producto-descripcion">Descripción</Etiqueta>
+            <textarea id="producto-descripcion" rows={2} className="input w-full rounded-xl border border-neutro-300 py-2.5" value={valores.descripcion} onChange={cambiar('descripcion')} maxLength={2000} />
+          </div>
+        </section>
 
-          {categoriaDelProducto && onAsignarSubcategoria && (
-            <div>
-              <Etiqueta nota={`dentro de ${categoriaDelProducto}`}>Subcategoría</Etiqueta>
-              <select
-                value={producto?.subcategoria?.id ? String(producto.subcategoria.id) : ''}
-                onChange={(e) => onAsignarSubcategoria(alegraId, e.target.value || null)}
-                className={CAMPO}
-              >
-                <option value="">Sin clasificar</option>
-                {suyas.map((s) => <option key={s.id} value={String(s.id)}>{s.nombre}</option>)}
-              </select>
+        <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-3">
+          <div>
+            <Etiqueta htmlFor="producto-impuesto_id" requerido>Impuesto</Etiqueta>
+            <select id="producto-impuesto_id" className={CLASE_CAMPO} value={valores.impuesto_id} onChange={cambiar('impuesto_id')} required>
+              <option value="" disabled>Elegir…</option>
+              {impuestos.map(i => <option key={i.id} value={String(i.id)}>{i.nombre}</option>)}
+            </select>
+            {editando && !valores.impuesto_id && <Aviso>Este producto no tiene impuesto: no se puede facturar.</Aviso>}
+          </div>
+          <div>
+            <Etiqueta htmlFor="producto-cabys" requerido>CABYS</Etiqueta>
+            <input id="producto-cabys" className={CLASE_CAMPO} inputMode="numeric" value={valores.cabys} onChange={cambiar('cabys')} maxLength={13} required />
+            {avisoCabys && <Aviso>{avisoCabys}</Aviso>}
+          </div>
+          <div>
+            <Etiqueta htmlFor="producto-unidad">Unidad</Etiqueta>
+            <input id="producto-unidad" className={CLASE_CAMPO} value={valores.unidad} onChange={cambiar('unidad')} maxLength={20} placeholder="Unid" />
+          </div>
+        </section>
 
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="text" value={nueva} onChange={(e) => setNueva(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); crearSub() } }}
-                  placeholder={`Nueva subcategoría en ${categoriaDelProducto}`} maxLength={80}
-                  className="flex-1 rounded-xl border border-neutro-200 bg-white px-3 py-2 text-xs text-neutro-900 focus:outline-none focus:ring-2 focus:ring-primario-500"
-                />
-                <Boton
-                  tamano="sm" variante="secundario" icono={Plus}
-                  onClick={crearSub} cargando={creando} disabled={!nueva.trim()}
-                >
-                  Crear
-                </Boton>
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Etiqueta htmlFor="producto-precio_sin_iva" requerido>Precio de venta, sin IVA</Etiqueta>
+            <input id="producto-precio_sin_iva" type="number" step="0.01" min="0" inputMode="decimal" className={CLASE_CAMPO} value={valores.precio_sin_iva} onChange={cambiar('precio_sin_iva')} required />
+            <p className="mt-1 text-xs text-neutro-500">
+              {precioConIva !== null
+                ? <>Con IVA ({tarifa} %): <span className="font-bold text-neutro-800">{colones.format(precioConIva)}</span></>
+                : 'Elija el impuesto para ver el precio con IVA.'}
+            </p>
+          </div>
+          <div>
+            <Etiqueta htmlFor="producto-costo_con_iva">Costo unitario, con IVA</Etiqueta>
+            <input id="producto-costo_con_iva" type="number" step="0.01" min="0" inputMode="decimal" className={CLASE_CAMPO} value={valores.costo_con_iva} onChange={cambiar('costo_con_iva')} />
+            <p className="mt-1 text-xs text-neutro-500">
+              {margen !== null
+                ? <>Margen: <span className={`font-bold ${margen < 15 ? 'text-peligro-700' : margen < 20 ? 'text-alerta-700' : 'text-exito-700'}`}>{margen.toFixed(1)} %</span> (sobre el precio sin IVA)</>
+                : 'Con precio, costo e impuesto se calcula el margen.'}
+            </p>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <label className="flex items-center gap-3 text-sm font-medium text-neutro-800">
+            <input id="producto-inventariable" type="checkbox" className="h-4 w-4" checked={valores.inventariable} onChange={cambiar('inventariable')} />
+            Lleva inventario
+          </label>
+          <label className="flex items-center gap-3 text-sm font-medium text-neutro-800">
+            <input id="producto-es_medicamento" type="checkbox" className="h-4 w-4" checked={valores.es_medicamento} onChange={cambiar('es_medicamento')} />
+            Es medicamento
+          </label>
+          {valores.es_medicamento && (
+            <div className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
+              <div>
+                <Etiqueta htmlFor="producto-forma_farmaceutica" requerido>Forma farmacéutica (código)</Etiqueta>
+                <input id="producto-forma_farmaceutica" className={CLASE_CAMPO} inputMode="numeric" value={valores.forma_farmaceutica} onChange={cambiar('forma_farmaceutica')} maxLength={3} />
               </div>
-              {errorSub && <p className="mt-1 text-xs font-semibold text-peligro-600">{errorSub}</p>}
+              <div>
+                <Etiqueta htmlFor="producto-registro_sanitario" requerido>Registro sanitario</Etiqueta>
+                <input id="producto-registro_sanitario" className={CLASE_CAMPO} value={valores.registro_sanitario} onChange={cambiar('registro_sanitario')} maxLength={60} />
+              </div>
+              {avisoMedicamento && <div className="sm:col-span-2"><Aviso>{avisoMedicamento}</Aviso></div>}
             </div>
           )}
+        </section>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Etiqueta nota="sin IVA">Precio de venta</Etiqueta>
-              <input
-                type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
-                required className={CAMPO}
-              />
-              <p className="mt-1 text-[11px] text-neutro-500">
-                {precioConIva !== null
-                  ? <>Con IVA ({iva}%): <span className="font-bold text-neutro-800">{formatCRC(precioConIva)}</span></>
-                  : 'Sin dato de impuesto todavía: sincronizá el catálogo.'}
-              </p>
-            </div>
-            <div>
-              <Etiqueta nota="con IVA">Costo unitario</Etiqueta>
-              <input
-                type="number" step="0.01" value={editCost} onChange={(e) => setEditCost(e.target.value)}
-                className={CAMPO}
-              />
-              <p className="mt-1 text-[11px] text-neutro-500">
-                {relaciones.length > 0 && relaciones[0].precio != null
-                  ? <>Más barato hoy: <span className="font-bold text-neutro-800">{formatCRC(relaciones[0].precio)}</span></>
-                  : ' '}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 border-t border-neutro-100 pt-4">
-            {/* Sin confirmar es "fantasma" y confirmando es "peligro": el
-                botón se pone rojo entero recién cuando el siguiente clic
-                borra de verdad. Mezclar las dos variantes con `className` no
-                serviría —en Tailwind gana el orden del CSS, no el del
-                atributo— y el botón quedaría rojo desde el principio. */}
-            <Boton
-              variante={confirmDelete ? 'peligro' : 'fantasma'} tamano="sm" icono={Trash2}
-              onClick={onEliminar} cargando={deletingProduct} disabled={savingEdit}
-            >
-              {confirmDelete ? '¿Confirmar?' : 'Eliminar'}
-            </Boton>
-
-            <div className="flex gap-2">
-              <Boton variante="fantasma" onClick={onCerrar}>Cancelar</Boton>
-              <Boton type="submit" cargando={savingEdit}>Guardar cambios</Boton>
-            </div>
-          </div>
-        </form>
-      ) : (
-        <Proveedores
-          relaciones={relaciones}
-          cargando={cargandoRel}
-          error={errorRel}
-          precioSinIva={editPrice}
-          iva={iva}
-        />
-      )}
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutro-100 pt-4">
+          {editando && hayCambios && <span className="mr-auto text-sm text-neutro-500">{Object.keys(cambios).length} cambios sin guardar</span>}
+          <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="submit" cargando={guardando} disabled={editando && !hayCambios}>
+            <Save size={16} /> {editando ? 'Guardar cambios' : 'Crear producto'}
+          </Boton>
+        </div>
+      </form>
     </HojaModal>
   )
 }

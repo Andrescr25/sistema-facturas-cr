@@ -1,3 +1,4 @@
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { useState } from 'react'
 import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react'
 import {
@@ -74,6 +75,10 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
       coincidencias: productosQueCoinciden(cliente, filtros.producto)
     }))
     .sort((a, b) => {
+      const ca = a.cliente.facturas_con_faltantes.find(f => f.ciclo)?.ciclo
+      const cb = b.cliente.facturas_con_faltantes.find(f => f.ciclo)?.ciclo
+      if (ca || cb) return String(ca?.semana || '9999').localeCompare(cb?.semana || '9999') ||
+        (ca?.id || Infinity) - (cb?.id || Infinity) || (ca?.orden || Infinity) - (cb?.orden || Infinity) || a.cliente.nombre.localeCompare(b.cliente.nombre)
       const orden = ordenClienteProgreso(a.progreso) - ordenClienteProgreso(b.progreso)
       return orden !== 0 ? orden : a.cliente.nombre.localeCompare(b.cliente.nombre)
     })
@@ -259,6 +264,8 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-bold text-neutro-900 truncate">{cliente.nombre}</h3>
+          <ContextoCicloDocumento documento={cliente.facturas_con_faltantes[0]} />
+          {new Set(cliente.facturas_con_faltantes.map(f => f.ciclo?.id || 'sin-ciclo')).size > 1 && <p className="mt-1 text-xs text-nota-700">Pedidos de varios ciclos; ver semana en cada factura</p>}
           {cliente.email && <p className="text-xs text-neutro-500 truncate">{cliente.email}</p>}
         </div>
       </div>

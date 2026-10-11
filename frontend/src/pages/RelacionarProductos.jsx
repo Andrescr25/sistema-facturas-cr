@@ -22,7 +22,7 @@ export default function RelacionarProductos() {
     productosFiltrados,
     stats,
     progreso,
-    productoAlegraInfo,
+    productoInfoPorLinea,
 
     modalBusqueda,
     productoSeleccionado,
@@ -67,6 +67,9 @@ export default function RelacionarProductos() {
     setFormaFarmaceutica,
     registroSanitario,
     setRegistroSanitario,
+    impuestos,
+    impuestoSugerido,
+    porcentajeDeLaLinea,
     categoriaSeleccionada,
     handleCategoriaChange,
     codigoCabys,
@@ -117,7 +120,7 @@ export default function RelacionarProductos() {
           <ProductoRelacionarCard
             key={producto.id}
             producto={producto}
-            alegraInfo={productoAlegraInfo[producto.id]}
+            productoInfo={productoInfoPorLinea[producto.id]}
             onRelacionar={abrirModalBusqueda}
             onCambiarRelacion={cambiarRelacion}
             onEditarFactor={editarFactor}
@@ -145,6 +148,9 @@ export default function RelacionarProductos() {
         <ModalCrearProducto
           productoSeleccionado={productoSeleccionado}
           categorias={categorias}
+          impuestos={impuestos}
+          impuestoSugerido={impuestoSugerido}
+          porcentajeDeLaLinea={porcentajeDeLaLinea}
           categoriaSeleccionada={categoriaSeleccionada}
           onCategoriaChange={handleCategoriaChange}
           codigoCabys={codigoCabys}

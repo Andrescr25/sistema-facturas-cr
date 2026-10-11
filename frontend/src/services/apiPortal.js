@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ingresoPreventa } from '../utils/enlacePreventa'
 
 /**
  * Cliente HTTP del PORTAL DE CLIENTES.
@@ -55,7 +56,7 @@ apiPortal.interceptors.response.use(
     if (error.response?.status === 401 && !esIngreso) {
       setTokenPortal(null)
       if (!window.location.pathname.startsWith('/portal/ingresar')) {
-        window.location.href = '/portal/ingresar'
+        window.location.href = ingresoPreventa(window.location.search)
       }
     }
     return Promise.reject(error)

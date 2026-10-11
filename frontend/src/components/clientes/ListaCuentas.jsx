@@ -21,41 +21,41 @@ export default function ListaCuentas({
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar por nombre o cédula..."
-          className="w-full pl-9 pr-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none"
+          aria-label="Buscar cuentas del portal" className="w-full min-h-12 pl-9 pr-3 py-2.5 border-2 border-neutro-200 focus:border-primario-500 rounded-xl text-sm font-semibold focus:outline-none"
         />
       </div>
 
       {cargando ? (
         <div className="py-16 flex justify-center"><Loader2 size={24} className="animate-spin text-exito-600" /></div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {clientes.map(c => {
             const badge = ESTADO[c.estado] || ESTADO.sin_cuenta
-            const ocupado = procesando === c.alegraContactId
+            const ocupado = procesando === c.clienteId
 
             return (
-              <div key={c.alegraContactId} className="bg-white rounded-2xl border border-neutro-100 p-3.5 flex items-center justify-between gap-3 flex-wrap">
+              <div key={c.clienteId} className="bg-white rounded-2xl border border-neutro-200 p-5 flex flex-col justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-neutro-900 text-sm truncate">{c.nombre}</p>
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0 ${badge.clase}`}>
+                    <p className="font-bold text-neutro-900 text-lg break-words">{c.nombre}</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase shrink-0 ${badge.clase}`}>
                       {badge.texto}
                     </span>
                   </div>
-                  <p className="text-xs text-neutro-400">
+                  <p className="mt-2 break-words text-sm text-neutro-500">
                     {c.identificacion || 'Sin cédula'}
                     {c.usuario ? ` · usuario: ${c.usuario}` : ''}
                     {c.pedidos > 0 ? ` · ${c.pedidos} pedido(s)` : ''}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-3 border-t border-neutro-100 pt-4">
                   <button
                     type="button"
                     onClick={() => onInvitar(c)}
                     disabled={ocupado}
                     title={c.estado === 'activo' ? 'Genera un enlace nuevo (la cuenta actual sigue funcionando)' : 'Generar enlace para crear la cuenta'}
-                    className="px-3 py-2 rounded-xl bg-primario-800 hover:bg-primario-900 disabled:bg-neutro-200 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                    className="min-h-11 px-3 py-2 rounded-xl bg-primario-800 hover:bg-primario-900 disabled:bg-neutro-200 text-white text-sm font-bold flex items-center gap-1.5 transition-colors"
                   >
                     {ocupado ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
                     {c.estado === 'sin_cuenta' ? 'Invitar' : 'Nuevo enlace'}
@@ -66,18 +66,20 @@ export default function ListaCuentas({
                       type="button"
                       onClick={() => onReactivar(c)}
                       title="Devolverle el acceso"
-                      className="p-2 rounded-xl border-2 border-neutro-200 hover:border-exito-400 text-neutro-400 hover:text-exito-600"
+                      aria-label={`Devolver acceso a ${c.nombre}`}
+                      className="inline-flex min-h-11 items-center gap-2 px-3 rounded-xl border-2 border-neutro-200 hover:border-exito-400 text-neutro-400 hover:text-exito-600"
                     >
-                      <RotateCcw size={14} />
+                      <RotateCcw size={16} /> Reactivar
                     </button>
                   ) : c.estado !== 'sin_cuenta' && (
                     <button
                       type="button"
                       onClick={() => onRevocar(c)}
                       title="Quitarle el acceso"
-                      className="p-2 rounded-xl border-2 border-neutro-200 hover:border-peligro-300 text-neutro-400 hover:text-peligro-600"
+                      aria-label={`Quitar acceso a ${c.nombre}`}
+                      className="inline-flex min-h-11 items-center gap-2 px-3 rounded-xl border-2 border-neutro-200 hover:border-peligro-300 text-neutro-400 hover:text-peligro-600"
                     >
-                      <Ban size={14} />
+                      <Ban size={16} /> Quitar acceso
                     </button>
                   )}
                 </div>

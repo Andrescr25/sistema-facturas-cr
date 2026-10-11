@@ -13,6 +13,9 @@
  * tenga la pasa en `tasaIva`; IVA_ASUMIDO queda solo para cuando la tarifa
  * no se sincronizó (NULL no es "exento").
  *
+ * Las dos ramas llegaron por separado al mismo arreglo, con nombres distintos:
+ * `tasaIva` (developer) y `tarifa` (la migración). Se aceptan los dos.
+ *
  * Dos señales, no una sola, porque una sola no alcanza: un caso real
  * (CINTA MOTEX 5500) tenía el costo de Alegra Y el costo derivado de
  * costo_historico de acuerdo entre sí — ambos venían del mismo mapeo con
@@ -69,12 +72,17 @@ const CLASIFICACION = {
  * @param {boolean} [datos.historialInestable] - las compras recientes de ese
  *        producto se contradicen entre sí (factor de conversión mal puesto en
  *        alguna). Basta para no confiar en el costo, venga de donde venga.
+ * @param {number|null} [datos.tarifa] - la tarifa de IVA del producto, en
+ *        porcentaje (0, 1, 2, 4, 8, 13). Sin ella se asume IVA_ASUMIDO.
  * @returns {{clasificacion: string, costoSinIva: number|null, margenReal: number|null,
  *   costoSugerido: number|null, diffPorcentaje: number|null, origenCosto: string|null}}
  */
-function clasificarProducto({ price, cost, costoDerivado, historialInestable = false, tasaIva = null }) {
+function clasificarProducto({ price, cost, costoDerivado, historialInestable = false, tasaIva = null, tarifa = null }) {
   const precioVenta = Number(price) || 0;
   const costoAlegra = Number(cost) || 0;
+  // La tarifa del producto cuando se conoce; si no, la de siempre. Un 0 es una
+  // tarifa válida (exento), así que no vale preguntarle si es "falsy".
+  const tasa = tasaIvaDe(tasaIva ?? tarifa);
   const derivado = costoDerivado != null && Number.isFinite(Number(costoDerivado)) && Number(costoDerivado) > 0
     ? Number(costoDerivado)
     : null;
@@ -94,7 +102,7 @@ function clasificarProducto({ price, cost, costoDerivado, historialInestable = f
     };
   }
 
-  const costoSinIva = costoBase / (1 + tasaIvaDe(tasaIva) / 100);
+  const costoSinIva = costoBase / (1 + tasa / 100);
   const ratioCostoPrecio = precioVenta > 0 ? costoSinIva / precioVenta : Infinity;
 
   const sospechoso = (diffPorcentaje = null) => ({

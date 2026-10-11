@@ -16,7 +16,7 @@ import { useToast } from './useToast'
 
 /**
  * Estado y lógica de negocio de la relación de productos de una factura:
- * carga de la factura + productos, búsqueda y relación con Alegra, creación
+ * carga de la factura + productos, búsqueda y relación con el producto propio, creación
  * de producto nuevo (con detección de medicamento/CABYS/forma farmacéutica),
  * y el factor de conversión de cantidades. Extraído de RelacionarProductos.jsx.
  *
@@ -44,10 +44,14 @@ export function useRelacionarProductos(facturaId) {
   // Modal crear producto
   const [modalCrear, setModalCrear] = useState(false)
   const [categorias, setCategorias] = useState([])
+  // Los impuestos propios y el que calza con el IVA de la línea elegida.
+  const [impuestos, setImpuestos] = useState([])
+  const [impuestoSugerido, setImpuestoSugerido] = useState(null)
+  const [porcentajeDeLaLinea, setPorcentajeDeLaLinea] = useState(null)
   const [imagenPreview, setImagenPreview] = useState(null)
 
   // Sugerencia automática de imagen (mismo modal que Gestión de Catálogo). El
-  // producto todavía no existe en Alegra en este punto, así que la sugerencia
+  // producto todavía no existe en este punto, así que la sugerencia
   // elegida solo se guarda como pendiente: se sube recién al crear el
   // producto (ver crearProducto), no al seleccionarla.
   const [imagenModalOpen, setImagenModalOpen] = useState(false)
@@ -68,8 +72,8 @@ export function useRelacionarProductos(facturaId) {
   const [cantidadProveedor, setCantidadProveedor] = useState(1)
   const [cantidadMia, setCantidadMia] = useState(1)
 
-  // Estado para producto Alegra completo (con más info)
-  const [productoAlegraInfo, setProductoAlegraInfo] = useState({})
+  // El producto PROPIO con el que está relacionada cada línea, por id de línea.
+  const [productoInfoPorLinea, setProductoInfoPorLinea] = useState({})
 
   // Estado para forma farmacéutica (solo productos farmacéuticos)
   const [formaFarmaceutica, setFormaFarmaceutica] = useState('')
@@ -96,17 +100,17 @@ export function useRelacionarProductos(facturaId) {
         const prods = response.data.data.productos || []
         setProductos(prods)
 
-        // La info de productos Alegra ya viene en la respuesta del backend
-        const infoAlegra = {}
+        // El producto propio de cada línea ya viene en la respuesta del backend
+        const infoPorLinea = {}
         prods.forEach(prod => {
-          if (prod.alegraProductInfo) {
-            infoAlegra[prod.id] = {
-              ...prod.alegraProductInfo,
+          if (prod.productoInfo) {
+            infoPorLinea[prod.id] = {
+              ...prod.productoInfo,
               factorConversion: prod.mapeo?.factorConversion || 1
             }
           }
         })
-        setProductoAlegraInfo(infoAlegra)
+        setProductoInfoPorLinea(infoPorLinea)
       }
     } catch (err) {
       setError(err.message || 'Error cargando factura')
@@ -166,13 +170,14 @@ export function useRelacionarProductos(facturaId) {
     setResultadosBusqueda([])
   }
 
-  const relacionarProducto = async (alegraProducto) => {
+  // `productoElegido` viene del buscador del maestro: su `id` es `producto.id`.
+  const relacionarProducto = async (productoElegido) => {
     if (!productoSeleccionado) return
 
     try {
       const response = await api.post('/productos-revision/relacion', {
         productoProveedorId: productoSeleccionado.id,
-        alegraItemId: alegraProducto.id,
+        productoPropioId: productoElegido.id,
         facturaId: facturaId
       })
 
@@ -180,15 +185,19 @@ export function useRelacionarProductos(facturaId) {
         // Actualizar producto en la lista
         setProductos(prev => prev.map(p =>
           p.id === productoSeleccionado.id
-            ? { ...p, estadoRelacionado: 'RELACIONADO', alegraItemId: alegraProducto.id }
+            ? { ...p, estadoRelacionado: 'RELACIONADO', productoPropioId: productoElegido.id }
             : p
         ))
+        setProductoInfoPorLinea(prev => ({
+          ...prev,
+          [productoSeleccionado.id]: { id: productoElegido.id, name: productoElegido.name, reference: productoElegido.reference, price: productoElegido.price }
+        }))
         cerrarModalBusqueda()
 
         // Abrir modal de conversión
         setProductoRelacionado({
           ...productoSeleccionado,
-          alegraProducto: alegraProducto,
+          productoElegido: productoElegido,
           mapeoId: response.data.mapeo.id
         })
         setCantidadProveedor(1)
@@ -200,22 +209,23 @@ export function useRelacionarProductos(facturaId) {
     }
   }
 
-  const loadCategorias = async () => {
-    if (categorias.length > 0) return
+  // Lo que el formulario de producto nuevo necesita: categorías e impuestos
+  // del maestro propio, y el impuesto que calza con el IVA de ESTA línea (por
+  // eso se pide cada vez, y no una sola vez como antes las categorías).
+  const cargarFormulario = async (producto) => {
+    setImpuestoSugerido(null)
+    setPorcentajeDeLaLinea(null)
     try {
-      const response = await api.get('/alegra/categorias')
-      if (response.data.success) {
-        const cats = response.data.categorias || []
-        setCategorias(cats)
-
-        if (cats.length === 0) {
-          console.warn('⚠️ No hay categorías de productos en Alegra. El usuario deberá crearlas primero.')
-        }
+      const { data } = await api.get(`/productos-revision/${producto.id}/formulario-producto`)
+      if (data.success) {
+        setCategorias(data.categorias || [])
+        setImpuestos(data.impuestos || [])
+        setImpuestoSugerido(data.impuestoSugerido || null)
+        setPorcentajeDeLaLinea(data.porcentajeDeLaLinea ?? null)
       }
     } catch (err) {
-      console.error('Error cargando categorías:', err)
-      showToast('Error cargando categorías de Alegra. Verifica tu conexión e inténtalo de nuevo.', 'error')
-      setCategorias([])
+      console.error('Error cargando el formulario de producto nuevo:', err)
+      showToast('No se pudieron cargar las categorías y los impuestos. Inténtalo de nuevo.', 'error')
     }
   }
 
@@ -229,7 +239,7 @@ export function useRelacionarProductos(facturaId) {
     setArchivoImagenSeleccionado(null)
     setImagenSugerencias([])
     setImagenBusqueda('')
-    loadCategorias()
+    cargarFormulario(producto)
 
     // Inicializar CABYS editable
     const cabysInicial = producto.codigoCabys || ''
@@ -356,7 +366,7 @@ export function useRelacionarProductos(facturaId) {
     setCargandoImagenSugerencias(true)
     setImagenSugerencias([])
     try {
-      const response = await api.get('/alegra/catalog/search-images', { params: { q: query } })
+      const response = await api.get('/catalogos/imagenes-sugeridas', { params: { q: query } })
       if (response.data?.success) {
         setImagenSugerencias(conMiniaturasProxeadas(response.data.images))
       }
@@ -393,17 +403,10 @@ export function useRelacionarProductos(facturaId) {
   const crearProducto = async (e) => {
     e.preventDefault()
     const formData = new FormData(e.target)
-    const categoriaActual = categorias.find(cat => String(cat.id) === String(categoriaSeleccionada))
     // Manda la casilla, no la detección. Antes esto era un OR con las
     // reglas automáticas, así que desmarcarla no servía de nada: el producto
     // se enviaba como medicamento igual.
-    const productoEsMedicamento = esMedicamento
-
-    if (categoriaActual) {
-      formData.set('categoriaNombre', categoriaActual.name || '')
-    }
-
-    formData.set('esMedicamento', productoEsMedicamento ? 'true' : 'false')
+    formData.set('esMedicamento', esMedicamento ? 'true' : 'false')
 
     // Si el archivo se eligió desde el modal de sugerencias (no desde el
     // input nativo del formulario), FormData(e.target) no lo tiene — se
@@ -414,8 +417,8 @@ export function useRelacionarProductos(facturaId) {
     }
 
     // Si se eligió una sugerencia de imagen (en vez de subir un archivo), se
-    // manda la URL para que el backend la descargue y suba después de crear
-    // el producto en Alegra (recién ahí existe el alegraId).
+    // manda la URL para que el backend la descargue y la guarde después de
+    // crear el producto (recién ahí existe su id).
     if (imagenSugeridaUrl) {
       formData.set('imageUrl', imagenSugeridaUrl)
       if (imagenSugeridaFallbackUrl) {
@@ -515,7 +518,7 @@ export function useRelacionarProductos(facturaId) {
 
   // Cambiar relación de un producto ya relacionado
   const cambiarRelacion = async (producto) => {
-    const confirmado = await confirm(`¿Cambiar la relación del producto "${producto.descripcion}"?\n\nEsto eliminará la relación actual y podrás seleccionar un nuevo producto de Alegra.`)
+    const confirmado = await confirm(`¿Cambiar la relación del producto "${producto.descripcion}"?\n\nEsto eliminará la relación actual y podrás elegir otro producto del catálogo.`)
     if (!confirmado) return
 
     try {
@@ -525,7 +528,7 @@ export function useRelacionarProductos(facturaId) {
       // Actualizar estado local
       setProductos(prev => prev.map(p =>
         p.id === producto.id
-          ? { ...p, estadoRelacionado: 'SIN_RELACIONAR', alegraItemId: null, mapeoId: null }
+          ? { ...p, estadoRelacionado: 'SIN_RELACIONAR', productoPropioId: null, mapeoId: null }
           : p
       ))
 
@@ -538,18 +541,18 @@ export function useRelacionarProductos(facturaId) {
 
   // Editar factor de conversión de un producto relacionado
   const editarFactor = async (producto) => {
-    if (!producto.alegraItemId) return
+    if (!producto.productoPropioId) return
 
     try {
       // Obtener mapeo actual
       const response = await api.get(`/productos-revision/mapeo/${producto.id}`)
       if (response.data.success) {
         const mapeo = response.data.mapeo
-        const alegraInfo = productoAlegraInfo[producto.id]
+        const info = productoInfoPorLinea[producto.id]
 
         setProductoRelacionado({
           ...producto,
-          alegraProducto: alegraInfo || { name: 'Producto Alegra', reference: producto.alegraItemId },
+          productoElegido: info || { name: mapeo.productoNombre || 'Producto', reference: mapeo.productoReferencia || '' },
           mapeoId: mapeo.id
         })
 
@@ -598,7 +601,7 @@ export function useRelacionarProductos(facturaId) {
     productosFiltrados,
     stats,
     progreso,
-    productoAlegraInfo,
+    productoInfoPorLinea,
 
     modalBusqueda,
     productoSeleccionado,
@@ -613,6 +616,9 @@ export function useRelacionarProductos(facturaId) {
     modalCrear,
     setModalCrear,
     categorias,
+    impuestos,
+    impuestoSugerido,
+    porcentajeDeLaLinea,
     imagenPreview,
     abrirModalCrear,
     handleImagenChange,

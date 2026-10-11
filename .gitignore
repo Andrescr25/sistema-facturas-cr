@@ -63,5 +63,8 @@ productos-clase-A-a-revisar.xlsx
 * 2.*
 * 3.*
 
-# Configuración local de Claude Code: es de cada máquina, no del proyecto.
+# Era ".local.json" pero estaba versionado, y una vez quedó con una
+# autorización de una sesión puntual nombrando ocho clientes reales. Ese tipo
+# de permiso no puede vivir en un archivo que se comitea: la próxima persona
+# que lo lea lo lee como si siguiera vigente.
 .claude/settings.local.json

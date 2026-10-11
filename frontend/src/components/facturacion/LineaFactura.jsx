@@ -95,6 +95,15 @@ export default function LineaFactura({
             {colones(item.price)} c/u
             {item.discount > 0 && <span className="ml-1 font-bold text-alerta-600">−{item.discount}%</span>}
           </p>
+          {/* De dónde viene el descuento: si es una oferta de exceso, el
+              cajero tiene que saber que no lo escribió nadie a mano —y que es
+              la misma que el cliente vio en el catálogo—. Si lo cambió, deja
+              de decirlo. */}
+          {item.ofertaExceso > 0 && item.discount === item.ofertaExceso && (
+            <p className="text-[10px] font-bold uppercase tracking-wide text-exito-600">
+              Oferta de exceso
+            </p>
+          )}
           <p className="text-lg font-extrabold leading-tight text-neutro-900">{colones(subtotal)}</p>
         </div>
       </div>

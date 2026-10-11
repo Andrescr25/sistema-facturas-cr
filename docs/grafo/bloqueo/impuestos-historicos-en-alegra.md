@@ -4,10 +4,11 @@ tipo: bloqueo
 titulo: Lo ya registrado con la tarifa equivocada sigue así — decisión del usuario y su contador
 estado: vigente
 archivos:
-  - backend/utils/impuestosAlegra.js
+  - backend/src/modules/precios/costo.js
+  - backend/src/modules/reporte-contador/desdeElSistema.js
 aristas:
   relacionado: [leccion/el-impuesto-es-de-cada-linea]
-medido: 2026-09-23
+medido: 2026-10-04
 ---
 
 El código está corregido ([[leccion/el-impuesto-es-de-cada-linea]]); los

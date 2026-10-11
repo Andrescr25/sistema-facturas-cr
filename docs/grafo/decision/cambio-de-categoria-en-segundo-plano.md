@@ -2,15 +2,24 @@
 id: decision/cambio-de-categoria-en-segundo-plano
 tipo: decision
 titulo: Cambiar la categoría de muchos productos es un trabajo de fondo que se sondea
-estado: vigente
+estado: retirado
 archivos:
-  - backend/src/modules/catalogo/catalogo.service.js
+  - backend/src/modules/productos/taxonomia.service.js
   - frontend/src/hooks/useAccionesLote.js
-  - backend/tests/catalogoLote.test.js
+  - backend/tests/taxonomiaCatalogo.test.js
 aristas:
   relacionado: [modulo/gestion-catalogo, leccion/la-db-local-es-produccion]
-medido: 2026-09-25
+medido: 2026-10-04
 ---
+
+**RETIRADA EN ESTA RAMA (2026-10-04).** La decisión es de `main`, donde la
+categoría es de Alegra y cambiarla cuesta dos llamadas por producto. Acá la
+categoría es `producto.categoria_id`: mover muchos productos es un `UPDATE`
+en el momento (`taxonomia.service.js`), sin trabajo de fondo ni sondeo. El
+código que la implementaba —la Gestión de Catálogo vieja, `modules/catalogo`—
+se borró de esta rama. Lo de abajo queda como registro de por qué `main` lo
+hace así.
+
 
 La categoría es de Alegra: cambiarla es un `GET` + un `PUT /items/:id` por
 producto, ~3 s cada uno. Ochenta productos serían cuatro minutos de una

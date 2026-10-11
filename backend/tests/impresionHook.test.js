@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-// Ejecuta los manejadores reales con estado React simulado; las llamadas a
-// Alegra están controladas por cada prueba, sin navegador ni red externa.
+// Manejadores reales del formulario con estado React simulado y API propia
+// controlada: permite resolver las respuestas en orden inverso, sin red.
 async function montar(api) {
   const src = path.resolve(__dirname, '../../frontend/src');
   const utils = await import(pathToFileURL(path.join(src, 'utils/impresionUtils.js')));
@@ -24,66 +24,82 @@ async function montar(api) {
     if (!(i in estados)) estados[i] = { current: valor };
     return estados[i];
   };
-  const nombres = ['useState', 'useRef', 'useEffect', 'useDialog', 'alegraService', ...Object.keys(utils)];
+  const nombres = ['useState', 'useRef', 'useEffect', 'useDialog', 'colaImpresionService', ...Object.keys(utils)];
   const valores = [useState, useRef, () => {}, () => ({ confirm: async () => true }), api, ...Object.values(utils)];
   const hook = new Function(...nombres, `${fuente}\nreturn useImpresion;`)(...valores);
   return () => { indice = 0; return hook(); };
 }
 
 const turno = () => new Promise(resolve => setImmediate(resolve));
-const factura = id => ({ alegra_id: id, ajustes_realizados: [] });
-const linea = id => ({ id, reference: `ZZ-${id}`, description: `ZZ ${id}`, quantity: 2, price: 100, tax: [] });
-const apiInmediata = {
-  getInvoiceById: async id => ({ success: true, data: { items: [linea(id)] } }),
-  getProductoInfoAlegra: async id => ({ success: true, producto: { id, reference: `ZZ-${id}`, price: 130 } })
-};
+const factura = id => ({ factura_id: id });
+const linea = id => ({ productoId: id, referencia: `ZZ-${id}`, nombre: `ZZ ${id}`, cantidad: 3, precio: 1200 });
+const apiInmediata = { detalle: async id => ({ lineas: [linea(id)] }) };
 
-test('una respuesta atrasada de otra factura no pisa los productos de la que está abierta', async () => {
+test('la respuesta atrasada de otra factura propia no cambia la edición abierta', async () => {
   const respuestas = new Map();
-  const render = await montar({ ...apiInmediata, getInvoiceById: id => new Promise(resolve => respuestas.set(id, resolve)) });
+  const render = await montar({ detalle: id => new Promise(resolve => respuestas.set(id, resolve)) });
   render().handleIniciarEdicion(factura(101));
   render().handleCancelarEdicion();
   assert.equal(render().cargandoItems, false);
   render().handleIniciarEdicion(factura(202));
-  respuestas.get(202)({ success: true, data: { items: [linea(202)] } });
+  respuestas.get(202)({ lineas: [linea(202)] });
   await turno();
-  assert.equal(render().itemsEditados[0].id, 202);
-  respuestas.get(101)({ success: true, data: { items: [linea(101)] } });
+  respuestas.get(101)({ lineas: [linea(101)] });
   await turno();
-  assert.equal(render().itemsEditados[0].id, 202);
-  assert.equal(render().facturaEditando.alegra_id, 202);
+  assert.equal(render().itemsEditados[0].productoId, 202);
+  assert.equal(render().facturaEditando.factura_id, 202);
   assert.equal(render().cargandoItems, false);
 });
 
-test('el precio mostrado del catálogo no se confunde con uno escrito a mano', async () => {
+test('cambiar de pestaña invalida también un error tardío', async () => {
+  let rechazar;
+  const render = await montar({ detalle: () => new Promise((resolve, reject) => { rechazar = reject; }) });
+  render().handleIniciarEdicion(factura(101));
+  render().setActiveTab('procesadas');
+  rechazar(new Error('ZZ carga anterior'));
+  await turno();
+  assert.equal(render().error, null);
+  assert.equal(render().cargandoItems, false);
+  assert.equal(render().facturaEditando, null);
+});
+
+test('el precio del catálogo es automático; escribirlo a mano lo marca y elegir un producto lo restablece', async () => {
   const render = await montar(apiInmediata);
   render().handleIniciarEdicion(factura(101));
   await turno();
-  assert.equal(render().itemsEditados[0].price, 130);
-  assert.equal(render().itemsEditados[0].precio_editado, false);
-  render().handleItemChange(0, 'price', '90');
-  assert.equal(render().itemsEditados[0].price, 90);
-  assert.equal(render().itemsEditados[0].precio_editado, true);
+  assert.equal(render().itemsEditados[0].precioEditado, false);
+  render().handleItemChange(0, 'price', '900');
+  assert.equal(render().itemsEditados[0].price, 900);
+  assert.equal(render().itemsEditados[0].precioEditado, true);
+  render().handleAgregarItem();
+  render().handleItemChange(1, 'price', '10');
+  render().seleccionarProductoBusqueda(1, { productoId: 302, price: 1400 });
+  assert.equal(render().itemsEditados[1].precioEditado, false);
+  assert.equal(render().itemsEditados[1].price, 1400);
 });
 
-test('borrar el último producto mantiene la edición vacía y bloquea guardar', async () => {
+test('borrar el último producto mantiene la edición vacía y bloquea procesar', async () => {
   let enviados = 0;
-  const render = await montar({ ...apiInmediata, procesarFacturaIndividual: async () => { enviados++; } });
+  const render = await montar({ ...apiInmediata, procesar: async () => { enviados++; } });
   render().handleIniciarEdicion(factura(101));
   await turno();
   render().handleEliminarItem(0);
   assert.equal(render().modoEdicion, true);
   await render().handleGuardarFactura();
   assert.equal(enviados, 0);
-  assert.match(render().error, /al menos un producto/);
+  assert.match(render().error, /sin productos/);
 });
 
-test('restaurar una cantidad positiva quita la marca de eliminación', async () => {
-  const render = await montar(apiInmediata);
+test('guardar durante la carga no procesa la propuesta sin revisarla', async () => {
+  let enviados = 0;
+  let resolver;
+  const render = await montar({
+    detalle: () => new Promise(resolve => { resolver = resolve; }),
+    procesar: async () => { enviados++; }
+  });
   render().handleIniciarEdicion(factura(101));
+  await render().handleGuardarFactura();
+  assert.equal(enviados, 0);
+  resolver({ lineas: [linea(101)] });
   await turno();
-  render().handleItemChange(0, 'quantity', '0');
-  assert.equal(render().itemsEditados[0].eliminar_por_faltante, true);
-  render().handleItemChange(0, 'quantity', '2');
-  assert.equal(render().itemsEditados[0].eliminar_por_faltante, false);
 });

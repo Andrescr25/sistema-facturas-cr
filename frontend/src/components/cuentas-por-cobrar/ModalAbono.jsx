@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Loader2, CalendarDays, CreditCard } from 'lucide-react'
-import { formatCurrency, formatDate, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
+import { formatCurrency, formatDate } from '../../utils/cuentasPorCobrarUtils'
+import { getMetodosPago } from '../../services/cuentasPorCobrarService'
+import { hoyEnCostaRica } from '../../utils/fechaCR'
 import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'
 import OpcionesPago from '../pagos/OpcionesPago'
@@ -15,16 +17,38 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * Proveedores se ve igual sin que nadie mantenga dos veces la misma hoja.
  *
  * Y se le agregó el detalle de productos, que solo tenía el módulo de
- * pagar. Las líneas no viven en el espejo local: se le piden a Alegra al
- * abrir la factura, porque es la única vez que se miran.
+ * pagar. Las líneas salen de la factura propia (GET /facturacion/facturas/:id).
  */
+
+/**
+ * El método de un abono ya registrado, como texto. Los copiados de Alegra
+ * traen su clave cruda ('cash', 'TRANSFER', 'SINPE_MOVIL'); los propios, el
+ * nombre del catálogo ('Efectivo'). La lista de abajo es solo para traducir
+ * los viejos.
+ *
+ * Antes se buscaba en METODOS_PAGO, que se dejó de importar al pasar el
+ * cobro a la base propia: abrir una factura con abonos rompía la pantalla.
+ */
+const METODOS_ALEGRA = {
+  cash: 'Efectivo', transfer: 'Transferencia', 'credit-card': 'Tarjeta de crédito',
+  'debit-card': 'Tarjeta de débito', check: 'Cheque', sinpe_movil: 'SINPE Móvil'
+}
+const nombreMetodo = (texto) => METODOS_ALEGRA[String(texto || '').toLowerCase()] || texto || '—'
+
 export default function ModalAbono({
   factura, clienteNombre, procesando, onRegistrar, onCargarAbonos, onCargarProductos, onCerrar
 }) {
   const [seleccion, setSeleccion] = useState(null) // 'total' | 'parcial'
   const [monto, setMonto] = useState('')
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
-  const [metodoPago, setMetodoPago] = useState('cash')
+  // El día en Costa Rica, no en UTC: después de las 6 de la tarde eso da
+  // mañana, y un abono recibido de noche quedaría fechado al día siguiente.
+  const [fecha, setFecha] = useState(hoyEnCostaRica())
+
+  // Los métodos salen de NUESTRO catálogo. La lista que había escrita a mano
+  // no tenía SINPE Móvil, que es como paga mucha gente.
+  const [metodos, setMetodos] = useState([])
+  const [metodoPagoId, setMetodoPagoId] = useState(null)
+  const [referencia, setReferencia] = useState('')
 
   const [abonos, setAbonos] = useState([])
   const [cargandoAbonos, setCargandoAbonos] = useState(true)
@@ -33,38 +57,52 @@ export default function ModalAbono({
 
   useEffect(() => {
     let cancelado = false
+    getMetodosPago().then((lista) => {
+      if (cancelado) return
+      setMetodos(lista)
+      const efectivo = lista.find(m => m.clave === 'efectivo') || lista[0]
+      setMetodoPagoId(efectivo ? efectivo.id : null)
+    }).catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
     setCargandoAbonos(true)
-    onCargarAbonos(factura.alegraInvoiceId).then((data) => {
+    onCargarAbonos(factura.id).then((data) => {
       if (!cancelado) { setAbonos(data); setCargandoAbonos(false) }
     })
     return () => { cancelado = true }
-  }, [factura.alegraInvoiceId, onCargarAbonos])
+  }, [factura.id, onCargarAbonos])
 
   useEffect(() => {
     if (!onCargarProductos) { setCargandoProductos(false); return }
     let cancelado = false
     setCargandoProductos(true)
-    onCargarProductos(factura.alegraInvoiceId).then((data) => {
+    onCargarProductos(factura.id).then((data) => {
       if (!cancelado) { setProductos(data); setCargandoProductos(false) }
     })
     return () => { cancelado = true }
-  }, [factura.alegraInvoiceId, onCargarProductos])
+  }, [factura.id, onCargarProductos])
 
   const saldarTotal = seleccion === 'total'
   const montoNum = Number(monto)
+  const metodo = metodos.find(m => m.id === metodoPagoId) || null
+  const faltaReferencia = Boolean(metodo?.pideReferencia) && !referencia.trim()
   const montoInvalido = !saldarTotal && (!monto || montoNum <= 0 || montoNum > factura.saldo)
 
   const handleRegistrar = async () => {
-    if (montoInvalido) return
-    // Saldar total no manda un monto: el backend usa el saldo que Alegra
-    // reporte al momento de aplicar el pago, así no falla si el espejo local
-    // quedó viejo ni deja un resto de céntimos.
+    if (montoInvalido || faltaReferencia || !metodoPagoId) return
+    // Saldar total no manda un monto: el servidor relee el saldo CON BLOQUEO
+    // al aplicar el abono, así no falla si otra caja cobró mientras tanto ni
+    // deja un resto de céntimos.
     const exito = await onRegistrar({
-      alegraInvoiceId: factura.alegraInvoiceId,
-      numeroFactura: factura.numeroFactura,
+      facturaId: factura.id,
+      numero: factura.numero,
       monto: saldarTotal ? factura.saldo : montoNum,
       fecha,
-      metodoPago,
+      metodoPagoId,
+      referencia: referencia.trim() || null,
       saldarTotal
     })
     if (exito) onCerrar()
@@ -78,7 +116,7 @@ export default function ModalAbono({
   return (
     <HojaModal
       titulo={clienteNombre}
-      subtitulo={`Factura #${factura.numeroFactura}`}
+      subtitulo={`Factura #${factura.numero}`}
       onCerrar={onCerrar}
     >
       <ResumenSaldo
@@ -134,7 +172,7 @@ export default function ModalAbono({
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
+              max={hoyEnCostaRica()}
               className="input h-12 w-full text-base"
             />
           </div>
@@ -145,14 +183,27 @@ export default function ModalAbono({
               ¿Cómo pagó?
             </label>
             <select
-              value={metodoPago}
-              onChange={(e) => setMetodoPago(e.target.value)}
+              value={metodoPagoId ?? ''}
+              onChange={(e) => { setMetodoPagoId(Number(e.target.value)); setReferencia('') }}
               className="input h-12 w-full text-base"
             >
-              {METODOS_PAGO.map((m) => (
+              {metodos.map((m) => (
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
+
+            {/* SINPE y transferencia sin número son imposibles de cuadrar
+                después contra el banco. El catálogo dice cuáles lo piden. */}
+            {metodo?.pideReferencia && (
+              <input
+                type="text"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                placeholder={`Referencia del ${metodo.label.toLowerCase()}…`}
+                maxLength={60}
+                className="input mt-2 h-12 w-full text-base"
+              />
+            )}
           </div>
         </div>
       )}
@@ -168,10 +219,9 @@ export default function ModalAbono({
           >
             {procesando ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
             {procesando
-              ? 'Registrando en Alegra…'
+              ? 'Registrando…'
               : saldarTotal ? `Pagar ${formatCurrency(factura.saldo)}` : 'Registrar abono'}
           </button>
-          <p className="text-center text-xs text-neutro-400">Esto crea un pago real en Alegra.</p>
         </div>
       )}
 
@@ -188,11 +238,17 @@ export default function ModalAbono({
         ) : (
           <div className="divide-y divide-neutro-100 overflow-hidden rounded-xl border border-neutro-100">
             {abonos.map((abono) => (
-              <div key={abono.id} className="px-4 py-3">
-                <p className="text-base font-bold text-neutro-800">{formatCurrency(abono.monto)}</p>
-                <p className="text-sm text-neutro-500">
-                  {formatDate(abono.fecha)} · {METODOS_PAGO.find(m => m.id === abono.metodoPago)?.label || abono.metodoPago}
+              <div key={abono.id} className={`px-4 py-3 ${abono.anulado ? 'bg-neutro-50' : ''}`}>
+                <p className={`text-base font-bold ${abono.anulado ? 'text-neutro-400 line-through' : 'text-neutro-800'}`}>
+                  {formatCurrency(abono.monto)}
                 </p>
+                <p className="text-sm text-neutro-500">
+                  {formatDate(abono.fecha)} · {nombreMetodo(abono.metodo)}
+                  {abono.referencia ? ` · Ref. ${abono.referencia}` : ''}
+                </p>
+                {abono.anulado && (
+                  <p className="text-sm text-peligro-600">Anulado{abono.motivoAnulacion ? `: ${abono.motivoAnulacion}` : ''}</p>
+                )}
               </div>
             ))}
           </div>

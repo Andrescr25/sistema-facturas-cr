@@ -31,6 +31,12 @@ export default function ModalNuevaDevolucion({
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          <label className="block text-sm font-bold">Dirección del movimiento
+            <select name="destino" className="input w-full mt-2" defaultValue="cliente">
+              <option value="cliente">De cliente — ingreso a inventario</option>
+              <option value="proveedor">A proveedor — salida de inventario</option>
+            </select>
+          </label>
           <div>
             <label className="label text-xs font-bold text-neutro-700 uppercase tracking-wider block mb-1">Nombre (automático)</label>
             <div className="w-full py-2.5 px-3 border-2 border-neutro-200 bg-neutro-50 rounded-xl text-base font-bold text-neutro-700 flex items-center gap-2">
@@ -42,7 +48,7 @@ export default function ModalNuevaDevolucion({
           <div className="bg-exito-50 text-exito-900 border border-exito-200 p-3.5 rounded-2xl text-xs leading-relaxed flex items-start gap-2.5">
             <Info size={16} className="text-exito-700 shrink-0 mt-0.5" />
             <p>
-              Arranca vacía. Después de crearla, busca y agrega uno por uno los productos que llegaron de vuelta, con su cantidad.
+              Arranca vacía. Después de crearla, busca y agrega uno por uno los productos con su cantidad. Al finalizar se registra el ingreso o la salida elegida. Esta operación de inventario no crea un documento financiero.
             </p>
           </div>
 

@@ -35,14 +35,15 @@ function analizar(overrides = {}) {
   return utils.analizarProducto(
     {
       id: 1,
-      alegraItemId: 'A1',
+      // La línea trae su producto propio; los datos del catálogo van por ese id.
+      productoPropioId: 501,
       cantidad,
       totalLinea,
       precioUnitario: totalLinea / cantidad,
       mapeo: { factorConversion }
     },
     {
-      productosAlegra: { A1: { price, taxPercentage, cost } },
+      productosDelCatalogo: { 501: { price, taxPercentage, cost } },
       preciosAjustados,
       sugerenciasPrecio: {}
     }
@@ -111,14 +112,41 @@ test('el IVA del producto manda cuando viene', () => {
   assert.strictEqual(a.precioVentaSinIva, 1000);
 });
 
-test('sin IVA declarado se asume 13% (comportamiento actual, ver nota)', () => {
-  // OJO: 12 productos tienen `tax: []` en Alegra y acá se les asume 13%,
-  // mientras el catálogo público les aplica 0% y muestra otro precio para
-  // el mismo producto. Entre esos 12 hay unos que sí son exentos (gasa,
-  // curitas, esparadrapo) y otros a los que simplemente nunca se les puso
-  // el impuesto en Alegra (un tornillo, un desodorante). Cuál de los dos
-  // números es el bueno es una decisión de la empresa, no del código, así
-  // que esta prueba fija lo que hoy hace y no lo que debería hacer.
-  const a = analizar({ price: 1130, taxPercentage: 0 });
+test('sin impuesto ASIGNADO se asume 13 % (lo que ya hacía, ver nota)', () => {
+  // Con Alegra, "exento" y "nunca se le puso el impuesto" llegaban igual
+  // (`tax: []` → 0) y a los dos se les asumía 13 %. Cuál era cuál era una
+  // decisión de la empresa, no del código, así que se dejó fijado lo que hacía.
+  //
+  // En el maestro propio esa decisión YA ESTÁ TOMADA, producto por producto:
+  // el que no tiene impuesto asignado llega con la tarifa en `null` (14
+  // activos, a corregir), y el exento tiene su impuesto de 0 %. El primero
+  // sigue asumiendo 13 %, como siempre.
+  for (const sinTarifa of [null, undefined, '']) {
+    const a = analizar({ price: 1130, taxPercentage: sinTarifa });
+    assert.strictEqual(a.ivaPorcentaje, 13);
+    assert.strictEqual(a.precioVentaSinIva, 1000);
+  }
+});
+
+test('un producto EXENTO (0 %) se analiza con 0 %, no con 13 %', () => {
+  // Es como se vende: la factura propia le cobra 0 %. Analizarlo al 13 % le
+  // "quitaba" a su costo un IVA que no trae: el costo sin IVA salía más bajo
+  // y el margen, más alto de lo que es.
+  const a = analizar({ price: 1000, taxPercentage: 0, totalLinea: 800 });
+  assert.strictEqual(a.ivaPorcentaje, 0);
   assert.strictEqual(a.precioVentaSinIva, 1000);
+  assert.strictEqual(a.costoNuevoSinIva, 800);
+  assert.strictEqual(Math.round(a.margenActual), 20);
+  // Con el 13 % de antes: costo 707,96 y margen 29 % — nueve puntos de más.
+  assert.strictEqual(utils.tarifaDeAnalisis(0), 0);
+  assert.strictEqual(utils.tarifaDeAnalisis('1.00'), 1);
+  assert.strictEqual(utils.tarifaDeAnalisis(-5), 13);
+});
+
+test('sin el producto del catálogo no revienta: usa la descripción de la línea', () => {
+  const a = utils.analizarProducto(
+    { id: 9, productoPropioId: null, descripcion: 'zz-línea sin producto', cantidad: 1, totalLinea: 113, precioUnitario: 100 },
+    { productosDelCatalogo: {}, preciosAjustados: {}, sugerenciasPrecio: {} });
+  assert.strictEqual(a.nombre, 'zz-línea sin producto');
+  assert.strictEqual(a.costoNuevoSinIva, 100);
 });

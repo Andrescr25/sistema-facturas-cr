@@ -17,6 +17,8 @@ router.get('/notas-credito/:id/candidatas', pagosProveedoresController.listarCan
 router.post('/notas-credito/:id/aplicar-a/:cuentaId', pagosProveedoresController.aplicarNotaACuenta);
 router.delete('/notas-credito/:id', pagosProveedoresController.eliminarNotaCredito);
 router.patch('/notas-credito/:id/inventario', pagosProveedoresController.marcarInventarioRevisado);
+router.post('/pagos', pagosProveedoresController.registrarPago);
+router.post('/pagos/:id/anular', pagosProveedoresController.anularPago);
 router.patch('/:id', pagosProveedoresController.actualizarCuenta);
 
 module.exports = router;

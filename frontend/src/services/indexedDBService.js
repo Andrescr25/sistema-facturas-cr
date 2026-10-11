@@ -5,8 +5,10 @@
  * Soporta ~1600 productos + múltiples clientes sin límite de almacenamiento
  */
 
+import { combinarCopiaFactura, convertirCopiaV3 } from '../utils/facturasLocales'
+
 const DB_NAME = 'SistemaFacturasCR';
-const DB_VERSION = 3; // 3: pedidos que levanta el agente en la calle
+const DB_VERSION = 4; // 4: la copia de facturas usa el contrato propio
 
 // Stores
 const STORES = {
@@ -34,8 +36,10 @@ class IndexedDBService {
    * llama la pantalla de Facturación al montarse, pero este servicio lo usa
    * también lo que no espera a esa pantalla: al volver la conexión se intenta
    * mandar lo pendiente desde CUALQUIER pantalla —el catálogo del agente, por
-   * ejemplo—. Con `this.db` en null cada método reventaba con "Cannot read
-   * properties of null (reading 'transaction')", y lo pendiente no se mandaba.
+   * ejemplo—, y la base puede haberse cerrado sola por un cambio de versión
+   * desde otra pestaña. Con `this.db` en null cada método reventaba con
+   * "Cannot read properties of null (reading 'transaction')", y lo pendiente
+   * no se mandaba.
    */
   async abierta() {
     if (this.db) return this.db;
@@ -52,6 +56,12 @@ class IndexedDBService {
     if (this.db) return this.db;
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
+      let bloqueada = false;
+
+      request.onblocked = () => {
+        bloqueada = true;
+        reject(new Error('Cerrá las otras pestañas del sistema para actualizar la copia de facturas.'));
+      };
 
       request.onerror = () => {
         console.error('❌ Error abriendo IndexedDB:', request.error);
@@ -59,7 +69,13 @@ class IndexedDBService {
       };
 
       request.onsuccess = () => {
+        if (bloqueada) { request.result.close(); return; }
         this.db = request.result;
+        const abierta = this.db;
+        abierta.onversionchange = () => {
+          abierta.close();
+          if (this.db === abierta) this.db = null;
+        };
         console.log('✅ IndexedDB inicializada correctamente');
         resolve(this.db);
       };
@@ -113,9 +129,9 @@ class IndexedDBService {
         // Store de cache de facturas (para edición offline)
         if (!db.objectStoreNames.contains(STORES.FACTURAS_CACHE)) {
           const facturasCacheStore = db.createObjectStore(STORES.FACTURAS_CACHE, { keyPath: 'id' });
-          facturasCacheStore.createIndex('numberTemplate', 'numberTemplate.fullNumber', { unique: false });
-          facturasCacheStore.createIndex('client', 'client', { unique: false });
-          facturasCacheStore.createIndex('date', 'date', { unique: false });
+          facturasCacheStore.createIndex('numero', 'numero', { unique: false });
+          facturasCacheStore.createIndex('cliente', 'cliente.nombre', { unique: false });
+          facturasCacheStore.createIndex('fecha', 'fecha', { unique: false });
           console.log('📋 Store de cache de facturas creado');
         }
 
@@ -129,6 +145,30 @@ class IndexedDBService {
           edicionesStore.createIndex('timestamp', 'timestamp', { unique: false });
           edicionesStore.createIndex('sincronizada', 'sincronizada', { unique: false });
           console.log('✏️ Store de ediciones pendientes creado');
+        }
+
+        if (event.oldVersion > 0 && event.oldVersion < 4) {
+          const tx = request.transaction;
+          const cache = tx.objectStore(STORES.FACTURAS_CACHE);
+          for (const indice of [...cache.indexNames]) cache.deleteIndex(indice);
+          cache.createIndex('numero', 'numero', { unique: false });
+          cache.createIndex('cliente', 'cliente.nombre', { unique: false });
+          cache.createIndex('fecha', 'fecha', { unique: false });
+          // Leer ambas listas ANTES de reemplazar las copias, en la misma
+          // transacción de versión. Las tres colas no se escriben ni se limpian.
+          const copias = cache.getAll();
+          const pendientes = tx.objectStore(STORES.FACTURAS_PENDIENTES).getAll();
+          const convertir = () => {
+            if (!copias.result || !pendientes.result) return;
+            try {
+              const nuevas = copias.result.map(f => convertirCopiaV3(f,
+                pendientes.result.find(p => p.localId === f.localId || f.id === `local-${p.localId}`)));
+              cache.clear();
+              for (const f of nuevas) cache.put({ ...f, id: String(f.id) });
+            } catch { tx.abort(); }
+          };
+          let listasLeidas = 0;
+          copias.onsuccess = pendientes.onsuccess = () => { if (++listasLeidas === 2) convertir(); };
         }
       };
     });
@@ -351,12 +391,13 @@ class IndexedDBService {
     };
 
     return new Promise((resolve, reject) => {
+      let localId;
+      transaction.oncomplete = () => resolve(localId);
+      transaction.onabort = () => reject(transaction.error || new Error('No se pudo guardar la factura pendiente.'));
       const request = store.add(facturaConMetadata);
       request.onsuccess = () => {
-        console.log('💾 Factura guardada localmente con ID:', request.result);
-        resolve(request.result);
+        localId = request.result;
       };
-      request.onerror = () => reject(request.error);
     });
   }
 
@@ -422,7 +463,7 @@ class IndexedDBService {
   /**
    * Marcar factura como sincronizada
    */
-  async markFacturaSincronizada(localId, alegraId) {
+  async markFacturaSincronizada(localId, facturaId) {
     const db = await this.abierta();
     const transaction = db.transaction([STORES.FACTURAS_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.FACTURAS_PENDIENTES);
@@ -434,12 +475,12 @@ class IndexedDBService {
         const factura = getRequest.result;
         if (factura) {
           factura.sincronizada = true;
-          factura.alegraId = alegraId;
+          factura.facturaId = facturaId;
           factura.sincronizadaEn = Date.now();
           
           const updateRequest = store.put(factura);
           updateRequest.onsuccess = () => {
-            console.log(`✅ Factura ${localId} marcada como sincronizada (Alegra ID: ${alegraId})`);
+            console.log(`✅ Factura ${localId} marcada como sincronizada (id propio: ${facturaId})`);
             resolve(factura);
           };
           updateRequest.onerror = () => reject(updateRequest.error);
@@ -637,6 +678,17 @@ class IndexedDBService {
   /**
    * Limpiar todo el cache (útil para desarrollo/testing)
    */
+  async clearProductosCache() {
+    const db = await this.abierta();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORES.PRODUCTOS, STORES.CONFIGURACION], 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error || new Error('No se pudo reparar el catálogo local.'));
+      tx.objectStore(STORES.PRODUCTOS).clear();
+      tx.objectStore(STORES.CONFIGURACION).delete('productos_last_update');
+    });
+  }
+
   async clearAll() {
     const db = await this.abierta();
     const transaction = db.transaction(
@@ -672,39 +724,26 @@ class IndexedDBService {
       return 0;
     }
 
-    const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
-    const store = transaction.objectStore(STORES.FACTURAS_CACHE);
-
-    let guardadas = 0;
+    const unicas = new Map();
     for (const factura of facturas) {
-      if (!factura) continue;
-
-      // Normalizar la factura: usar alegra_id como id si no existe id
-      const facturaNormalizada = { ...factura };
-      if (!facturaNormalizada.id && facturaNormalizada.alegra_id) {
-        facturaNormalizada.id = facturaNormalizada.alegra_id;
-      }
-
-      // Convertir siempre el ID a String para evitar duplicados por tipo (number vs string)
-      if (facturaNormalizada.id) {
-        facturaNormalizada.id = String(facturaNormalizada.id);
-      }
-
-      // Verificar que la factura tenga id (clave primaria)
-      if (facturaNormalizada.id) {
-        try {
-          await store.put(facturaNormalizada);
-          guardadas++;
-        } catch (error) {
-          console.warn('⚠️ Error guardando factura en cache:', facturaNormalizada.id, error.message);
-        }
-      } else {
-        console.warn('⚠️ Factura sin ID ni alegra_id, no se puede guardar en cache:', factura);
-      }
+      if (!factura?.id) continue;
+      const id = String(factura.id);
+      unicas.set(id, combinarCopiaFactura(unicas.get(id), factura));
     }
-
-    console.log(`✅ ${guardadas} facturas guardadas en cache`);
-    return guardadas;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORES.FACTURAS_CACHE], 'readwrite');
+      const store = tx.objectStore(STORES.FACTURAS_CACHE);
+      tx.oncomplete = () => resolve(unicas.size);
+      tx.onabort = () => reject(tx.error || new Error('No se pudo guardar la copia de facturas.'));
+      tx.onerror = () => {}; // onabort responde una sola vez, con todo revertido
+      for (const [id, factura] of unicas) {
+        const request = store.get(id);
+        request.onsuccess = () => {
+          try { store.put(combinarCopiaFactura(request.result, factura)); }
+          catch { tx.abort(); }
+        };
+      }
+    });
   }
 
   async deleteFacturaCache(id) {
@@ -718,7 +757,7 @@ class IndexedDBService {
     const store = transaction.objectStore(STORES.FACTURAS_CACHE);
 
     return new Promise((resolve, reject) => {
-      const request = store.delete(id);
+      const request = store.delete(String(id));
       request.onsuccess = () => resolve(true);
       request.onerror = () => reject(request.error);
     });
@@ -747,7 +786,7 @@ class IndexedDBService {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORES.FACTURAS_CACHE], 'readonly');
       const store = transaction.objectStore(STORES.FACTURAS_CACHE);
-      const request = store.get(facturaId);
+      const request = store.get(String(facturaId));
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -764,8 +803,7 @@ class IndexedDBService {
     if (!term) return [];
 
     return facturas.filter(f => {
-      const fullNumber = f.numberTemplate?.fullNumber ?
-        String(f.numberTemplate.fullNumber).toLowerCase() : '';
+      const fullNumber = String(f.numero || '').toLowerCase();
       return fullNumber.includes(term);
     });
   }
@@ -780,8 +818,7 @@ class IndexedDBService {
     if (!term) return [];
 
     return facturas.filter(f => {
-      const clientName = f.client?.name ?
-        String(f.client.name).toLowerCase() : '';
+      const clientName = String(f.cliente?.nombre || '').toLowerCase();
       return clientName.includes(term);
     });
   }
@@ -789,7 +826,7 @@ class IndexedDBService {
   /**
    * Guardar edición pendiente de factura
    */
-  async saveEdicionPendiente(facturaId, datosEdicion) {
+  async saveEdicionPendiente(facturaId, datosEdicion, esPropia = false) {
     const db = await this.abierta();
     const transaction = db.transaction([STORES.EDICIONES_PENDIENTES], 'readwrite');
     const store = transaction.objectStore(STORES.EDICIONES_PENDIENTES);
@@ -797,6 +834,9 @@ class IndexedDBService {
     const edicionConMetadata = {
       facturaId,
       datosEdicion,
+      // De dónde salió la factura: decide a qué ruta se reintenta. Un id
+      // nuestro mandado a la ruta de Alegra edita otro documento.
+      esPropia,
       timestamp: Date.now(),
       sincronizada: false,
       intentosSincronizacion: 0,
@@ -907,4 +947,3 @@ class IndexedDBService {
 const indexedDBService = new IndexedDBService();
 
 export default indexedDBService;
-

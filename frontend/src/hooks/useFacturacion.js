@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import api from '../services/api'
+import { hoyEnCostaRica } from '../utils/fechaCR'
 import facturacionService from '../services/facturacionService'
-import { alegraService } from '../services/alegraService'
+import { abrirPdfFacturaPropia } from '../services/facturaPdf'
 import {
   getReference,
   normalizarImpuestos,
@@ -12,7 +14,9 @@ import {
   calcularTotal,
   detectarEsMobile,
   scrollElementIntoView,
-  enriquecerFacturasPendientes
+  enriquecerFacturasPendientes,
+  idPropioDelCliente,
+  sugerenciasDelCatalogo
 } from '../utils/facturacionUtils'
 
 const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha'
@@ -63,19 +67,52 @@ export function useFacturacion() {
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
   const [impuestos, setImpuestos] = useState([])
+  // Cómo paga el cliente ESTA venta. No es la condición de venta del
+  // documento: un cliente con crédito puede pagar de una, y uno de contado
+  // puede quedar debiendo.
+  // Los descuentos de exceso vivos, por id de producto. Se cargan con los
+  // catálogos porque hacen falta justo al agregar una línea.
+  const [ofertas, setOfertas] = useState(new Map())
+  const [metodosPago, setMetodosPago] = useState([])
+  const [metodoPagoId, setMetodoPagoId] = useState(null)
+  const [referenciaPago, setReferenciaPago] = useState('')
   const [impuestoPrincipal, setImpuestoPrincipal] = useState(null)
   const [facturasPendientes, setFacturasPendientes] = useState([])
   const [reintentandoLocalId, setReintentandoLocalId] = useState(null)
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+  const [ciclosCliente, setCiclosCliente] = useState([])
+  const [cicloId, setCicloId] = useState('sin-ciclo')
+  const [cargandoCiclos, setCargandoCiclos] = useState(false)
+  const [errorCiclos, setErrorCiclos] = useState('')
+  useEffect(() => { setCicloId(''); setCiclosCliente([]) }, [clienteSeleccionado?.id])
+  useEffect(() => {
+    let vigente = true
+    setErrorCiclos('')
+    if (modoEdicion) {
+      const c = facturaEditando?.ciclo
+      setCiclosCliente(c ? [c] : []); setCicloId(c ? String(c.id) : c === null ? 'sin-ciclo' : 'sin-descargar'); setCargandoCiclos(false)
+      return () => { vigente = false }
+    }
+    if (!clienteSeleccionado) { setCicloId('sin-ciclo'); setCargandoCiclos(false); return }
+    setCargandoCiclos(true)
+    facturacionService.getCiclosCliente(clienteSeleccionado.id).then(ciclos => {
+      if (!vigente) return
+      setCiclosCliente(ciclos)
+      setCicloId(prev => prev === 'sin-ciclo' || ciclos.some(c => String(c.id) === prev)
+        ? prev : ciclos.length ? '' : 'sin-ciclo')
+    }).catch(e => { if (vigente) setErrorCiclos(e.message || 'No se pudieron consultar los ciclos.') })
+      .finally(() => { if (vigente) setCargandoCiclos(false) })
+    return () => { vigente = false }
+  }, [clienteSeleccionado, modoEdicion, facturaEditando, isOnline])
 
   // Lo que ese cliente suele llevar. Es el mismo cálculo que ve él en su
   // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
   // que el portal no le muestra.
   const [sugerencias, setSugerencias] = useState({ habituales: [], perdidos: [] })
   const [items, setItems] = useState([])
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
+  const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [observaciones, setObservaciones] = useState('')
   const [descuentoGlobal, setDescuentoGlobal] = useState(0)
 
@@ -349,7 +386,7 @@ export function useFacturacion() {
     setReintentandoLocalId(localId)
     try {
       await facturacionService.reintentarFacturaPendiente(localId)
-      mostrarMensaje('Factura enviada a Alegra correctamente', 'success')
+      mostrarMensaje('Factura enviada al servidor correctamente', 'success')
     } catch (error) {
       console.error('Error reintentando factura pendiente:', error)
       mostrarMensaje('No se pudo enviar la factura: ' + error.message, 'error')
@@ -369,10 +406,12 @@ export function useFacturacion() {
       await facturacionService.init()
 
       // Cargar datos del cache
-      const [productosCache, clientesCache, impuestosData, pendientes, stats] = await Promise.all([
+      const [productosCache, clientesCache, impuestosData, metodosData, ofertasData, pendientes, stats] = await Promise.all([
         facturacionService.getProductos(),
         facturacionService.getClientes(),
         facturacionService.getImpuestos(),
+        facturacionService.getMetodosPago().catch(() => []),
+        facturacionService.getOfertasExceso().catch(() => []),
         facturacionService.getFacturasPendientes(),
         facturacionService.getCacheStats()
       ])
@@ -380,6 +419,8 @@ export function useFacturacion() {
       setProductos(productosCache)
       setClientes(clientesCache)
       prepararImpuestosIniciales(impuestosData)
+      setMetodosPago(metodosData || [])
+      setOfertas(new Map((ofertasData || []).map(o => [Number(o.productoId), o.descuentoPorcentaje])))
       setFacturasPendientes(pendientes)
       setCacheStats(stats)
 
@@ -452,7 +493,7 @@ export function useFacturacion() {
   }
 
   const ocultarRecordatorioActualizacion = () => {
-    const fechaHoy = new Date().toISOString().split('T')[0]
+    const fechaHoy = hoyEnCostaRica()
     localStorage.setItem(RECORDATORIO_ACTUALIZACION_KEY, fechaHoy)
     setMostrarRecordatorioActualizacion(false)
   }
@@ -481,7 +522,7 @@ export function useFacturacion() {
 
   // Reintento automático periódico de facturas/ediciones pendientes. No depende
   // del evento 'online' del navegador (que solo refleja si la interfaz de red
-  // está conectada, no si Alegra es realmente alcanzable) — así una factura que
+  // está conectada, no si el servidor es realmente alcanzable) — así una factura que
   // quedó pendiente por un fallo puntual se reintenta sola sin que haga falta
   // recargar la página.
   useEffect(() => {
@@ -556,8 +597,8 @@ export function useFacturacion() {
       // Primero buscar en las facturas precargadas (offline)
       const terminoLower = termino.toLowerCase()
       let facturasLocales = facturasPrecargadas.filter(factura => {
-        const numero = factura.numberTemplate?.fullNumber?.toString().toLowerCase() || ''
-        const cliente = factura.client?.name?.toLowerCase() || ''
+        const numero = factura.numero?.toString().toLowerCase() || ''
+        const cliente = factura.cliente?.nombre?.toLowerCase() || ''
         return numero.includes(terminoLower) || cliente.includes(terminoLower)
       })
 
@@ -589,6 +630,12 @@ export function useFacturacion() {
     try {
       setLoading(true)
 
+      // Una copia con id de Alegra jamás se consulta por ese número en el
+      // espacio propio: podría abrir la factura de otra persona y marcarla
+      // como nuestra antes de intentar editarla.
+      if (!factura.esPropia) {
+        throw new Error('Esta copia viene del sistema anterior. Actualizá la lista con conexión y abrí la factura propia para editarla.');
+      }
       // Obtener detalles completos de la factura
       let facturaCompleta = factura
       const esLocal = typeof factura.id === 'string' && factura.id.startsWith('local-')
@@ -611,53 +658,39 @@ export function useFacturacion() {
         facturaCompleta.pendienteSincronizar = true
       }
 
+      if (!Array.isArray(facturaCompleta.lineas) || facturaCompleta.detalleDisponible === false) {
+        throw new Error('El detalle de esta factura no está descargado. Abrila con conexión antes de editarla sin señal.');
+      }
       // Cargar datos en el formulario
       setFacturaEditando(facturaCompleta)
       setModoEdicion(true)
 
-      // Cliente
-      if (facturaCompleta.client) {
-        setClienteSeleccionado(facturaCompleta.client)
-      }
-
-      // Items
-      if (facturaCompleta.items && facturaCompleta.items.length > 0) {
-        const itemsFormateados = facturaCompleta.items.map(item => ({
-          id: item.id,
-          reference: getReference(item.reference),
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          tax: item.tax || [],
-          discount: item.discount || 0,
-          description: typeof item.description === 'string'
-            ? item.description.slice(0, DESCRIPCION_MAX)
-            : ''
-        }))
-        setItems(itemsFormateados)
-      }
-
-      // Fecha
-      if (facturaCompleta.date) {
-        setFecha(facturaCompleta.date)
-      }
-
-      // Observaciones
-      if (facturaCompleta.observations) {
-        setObservaciones(facturaCompleta.observations)
-      }
-
-      // Descuento global (si existe en la factura)
-      if (facturaCompleta.discount) {
-        setDescuentoGlobal(parseFloat(facturaCompleta.discount) || 0)
-      }
+      // Los controles del catálogo mantienen su forma de formulario; el
+      // documento y la copia persistida usan cliente y líneas propios.
+      const clienteFactura = facturaCompleta.cliente;
+      setClienteSeleccionado(clienteFactura ? {
+        ...clienteFactura,
+        name: clienteFactura.nombre,
+        identification: clienteFactura.identificacion
+      } : null);
+      setItems(facturaCompleta.lineas.map(linea => ({
+        id: linea.productoId, productoId: linea.productoId,
+        reference: getReference(linea.referencia), name: linea.nombre,
+        quantity: linea.cantidad, price: linea.precioUnitario,
+        tax: [{ id: linea.impuestoId, percentage: linea.tarifa }],
+        discount: linea.descuentoPorcentaje || 0,
+        description: String(linea.descripcion || '').slice(0, DESCRIPCION_MAX)
+      })));
+      setFecha(facturaCompleta.fecha || hoyEnCostaRica());
+      setObservaciones(facturaCompleta.observaciones || '');
+      setDescuentoGlobal(facturaCompleta.descuentoGlobal || 0);
 
       // Cambiar a la pestaña de nueva/editar para mostrar el formulario
       setTabActiva('nueva')
       setBusquedaFactura('')
       setFacturasEncontradas([])
 
-      mostrarMensaje(`Factura ${facturaCompleta.numberTemplate?.fullNumber || facturaCompleta.id} cargada para edición`, 'success')
+      mostrarMensaje(`Factura ${facturaCompleta.numero || facturaCompleta.id} cargada para edición`, 'success')
     } catch (error) {
       console.error('Error cargando factura:', error)
       mostrarMensaje('Error cargando factura: ' + error.message, 'error')
@@ -746,17 +779,30 @@ export function useFacturacion() {
   }
 
   // Se piden al elegir al cliente, no al abrir la pantalla: sin cliente no hay
-  // nada que sugerir. Si falla, se factura igual que hasta ayer.
+  // nada que sugerir. Si falla, se factura igual que siempre.
+  //
+  // TODO VA EN IDS PROPIOS: se pide con `cliente.id` y cada sugerencia llega
+  // con `producto.id`. El histórico (`venta_linea`) habla en ids propios
+  // desde que las ventas salen de las facturas propias (sección 12). Esta
+  // pantalla siguió pidiendo con el id de Alegra del cliente, y como los dos
+  // son números no hubo error: a 216 de los 247 clientes se les mostraba lo
+  // que compra OTRO, el que tiene ese número como id propio. Ver
+  // docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
+  const clienteIdSugerencias = idPropioDelCliente(clienteSeleccionado)
   useEffect(() => {
-    const id = clienteSeleccionado?.id
-    if (!id) { setSugerencias({ habituales: [], perdidos: [] }); return }
+    if (!clienteIdSugerencias) { setSugerencias({ habituales: [], perdidos: [] }); return }
 
     let vigente = true
-    facturacionService.getSugerenciasCliente(id)
+    facturacionService.getSugerenciasCliente(clienteIdSugerencias)
       .then(r => { if (vigente) setSugerencias(r) })
       .catch(() => { if (vigente) setSugerencias({ habituales: [], perdidos: [] }) })
     return () => { vigente = false }
-  }, [clienteSeleccionado?.id])
+  }, [clienteIdSugerencias])
+
+  // Solo las que están en el catálogo de la tablet. Los ids ya son de la
+  // misma clase que los de `productos` y los de las líneas de la factura.
+  const sugerenciasPropias = useMemo(
+    () => sugerenciasDelCatalogo(sugerencias, productos), [sugerencias, productos])
 
   /**
    * Agregar desde una sugerencia.
@@ -796,11 +842,15 @@ export function useFacturacion() {
 
       // LA TARIFA ES LA DEL PRODUCTO, no la principal de la factura.
       //
-      // Antes toda línea nacía con el impuesto principal (13 %), y ese id es el
-      // que viajaba a Alegra. Un producto al 1 % se facturaba al 13 %: medido
-      // sobre lo ya emitido, 213 líneas en 147 facturas de productos al 1 %
-      // salieron al 13 %, 13 líneas al 2 % y 6 exentas. No era un cambio de
-      // tarifas: el mismo producto aparece a las dos en el mismo período.
+      // Antes toda línea nacía con el impuesto principal (13 %), y eso es lo
+      // que la pantalla le sumaba al cliente. Con un producto al 1 % el cajero
+      // cobraba 13 % mientras el servidor guardaba 1 %: en una factura de dos
+      // líneas al 1 % y al 2 % la diferencia fue de ₡191,82. El papel y la
+      // pantalla tienen que decir lo mismo.
+      //
+      // En producción, donde ese id viajaba a Alegra, el daño quedó medido
+      // sobre lo ya emitido: 213 líneas en 147 facturas de productos al 1 %
+      // salieron al 13 %, 13 líneas al 2 % y 6 exentas.
       const impuestoDelProducto = Array.isArray(producto.tax) && producto.tax.length
         ? producto.tax.map(t => ({
           id: t.id,
@@ -810,14 +860,24 @@ export function useFacturacion() {
         }))
         : impuestoDefault
 
+      // Si el producto está en oferta de exceso, la línea NACE con ese
+      // descuento. Es el mismo que el cliente ya ve en el catálogo y en el
+      // portal: la oferta que se promete y la que se cobra tienen que ser la
+      // misma, y nadie en la caja tiene por qué acordarse de cuáles son.
+      const ofertaExceso = ofertas.get(Number(producto.productoId ?? producto.id)) || 0
+
       const nuevoItem = {
         id: producto.id,
+        // El id propio viaja con la línea: es el que el servidor usa para
+        // resolver el producto contra su maestro.
+        productoId: producto.productoId ?? producto.id,
         reference: getReference(producto.reference),
         name: producto.name,
         quantity: cantidad,
         price: producto.price || 0,
         tax: impuestoDelProducto,
-        discount: 0,
+        discount: ofertaExceso,
+        ofertaExceso,
         description: ''
       }
 
@@ -884,16 +944,22 @@ export function useFacturacion() {
       return
     }
 
+    if (cargandoCiclos || !cicloId) { mostrarMensaje('Seleccioná la ruta y semana del pedido', 'error'); return }
+
     try {
       setLoading(true)
 
-      // Preparar datos según formato Alegra
+      // La petición conserva los nombres aceptados por el backend y lleva ids propios
       const facturaData = {
         date: fecha,
         dueDate: fecha, // Misma fecha por defecto
-        client: parseInt(clienteSeleccionado.id),
+        // NUESTROS ids, no los de Alegra: así el servidor resuelve contra su
+        // propio maestro y una venta deja de depender de la columna alegra_id,
+        // que algún día va a estar vacía.
+        clienteId: parseInt(clienteSeleccionado.id),
         items: items.map(item => ({
           id: parseInt(item.id),
+          productoId: parseInt(item.productoId ?? item.id),
           reference: item.reference || '', // Campo reference
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
@@ -908,39 +974,54 @@ export function useFacturacion() {
         status: 'open'
       }
 
+      // Solo el ID elegido viaja con la venta; el servidor valida la parada.
+      // Las colas antiguas no se actualizan al refrescar este formulario.
+      if (!['sin-ciclo', 'sin-descargar'].includes(cicloId) && (!modoEdicion || facturaEditando?.pendienteSincronizar || String(facturaEditando?.id).startsWith('local-'))) facturaData.cicloId = Number(cicloId)
+
+      // El cobro viaja con la factura y se registra en la misma transacción:
+      // si la factura no se guarda, tampoco queda un pago suelto. Sin método
+      // elegido, la factura sale con su saldo y va a Cuentas por Cobrar.
+      if (metodoPagoId) {
+        const metodo = metodosPago.find(m => m.id === metodoPagoId)
+        facturaData.metodoPagoId = metodoPagoId
+        facturaData.metodoPagoTexto = metodo?.name || null
+        facturaData.cobro = {
+          metodoPagoId,
+          referencia: referenciaPago.trim() || null
+        }
+      }
+
       // Guardar con descuento global si existe
       if (descuentoGlobal > 0) {
         facturaData.discount = descuentoGlobal
       }
 
-      const itemsVista = items.map(item => ({
-        id: item.id,
-        name: item.name,
-        reference: item.reference,
-        quantity: item.quantity,
-        price: item.price,
-        discount: item.discount || 0,
-        description: (item.description || '').slice(0, DESCRIPCION_MAX),
-        tax: item.tax || []
-      }))
-
+      const lineasVista = items.map(item => ({
+        productoId: item.productoId ?? item.id,
+        nombre: item.name, referencia: item.reference,
+        cantidad: item.quantity, precioUnitario: item.price,
+        descuentoPorcentaje: item.discount || 0,
+        descripcion: (item.description || '').slice(0, DESCRIPCION_MAX),
+        impuestoId: item.tax?.[0]?.id, tarifa: item.tax?.[0]?.percentage || 0
+      }));
       const facturaVista = {
         id: facturaEditando?.id || null,
         localId: facturaEditando?.localId || null,
-        cliente: clienteSeleccionado,
-        items: itemsVista,
+        // Una factura nueva usa el catálogo propio; una edición conserva la
+        // procedencia del documento. Las colas antiguas no se renombran.
+        esPropia: !modoEdicion || Boolean(facturaEditando?.esPropia),
+        cliente: { id: clienteSeleccionado.id, nombre: clienteSeleccionado.name,
+          identificacion: clienteSeleccionado.identification },
+        // Editar no convierte una copia incompleta en Sin ciclo ni pierde
+        // su origen anticipado. El servidor completa el contexto al responder.
+        ciclo: modoEdicion ? facturaEditando?.ciclo : ciclosCliente.find(c => String(c.id) === cicloId) || null,
+        anticipado: modoEdicion ? facturaEditando?.anticipado : false,
+        lineas: lineasVista,
         total: calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuestos),
-        numberTemplate: facturaEditando?.numberTemplate || null,
-        observaciones,
-        date: fecha,
-        estado: facturaEditando?.status || 'open'
-      }
-
-      if (!facturaVista.numberTemplate) {
-        const numeroTemporal = `LOCAL-${Date.now()}`
-        facturaVista.numberTemplate = { fullNumber: numeroTemporal }
-        facturaVista.numeroTemporal = numeroTemporal
-      }
+        numero: facturaEditando?.numero || `LOCAL-${Date.now()}`,
+        observaciones, fecha, descuentoGlobal,
+        estado: facturaEditando?.estado || 'borrador'
+      };
 
       let resultado
       const esFacturaLocalPendiente = modoEdicion && (
@@ -959,7 +1040,10 @@ export function useFacturacion() {
           resultado = await facturacionService.actualizarFacturaPendiente(localIdEdicion, facturaData, facturaVista)
         }
       } else if (modoEdicion && facturaEditando) {
-        resultado = await facturacionService.editarFactura(facturaEditando.id, facturaData, facturaVista)
+        // La marca dice que el id es NUESTRO. Sin ella la factura salió de
+        // una copia vieja de la tablet, con el id de Alegra, y no se edita.
+        resultado = await facturacionService.editarFactura(
+          facturaEditando.id, facturaData, facturaVista, { esPropia: Boolean(facturaEditando.esPropia) })
       } else {
         // Crear factura nueva
         resultado = await facturacionService.crearFactura(facturaData, facturaVista)
@@ -967,11 +1051,11 @@ export function useFacturacion() {
 
       if (resultado.success) {
         const numeroFacturaDisplay = modoEdicion
-          ? (facturaEditando?.numberTemplate?.fullNumber ||
-            facturaVista.numberTemplate?.fullNumber ||
+          ? (facturaEditando?.numero ||
+            facturaVista.numero ||
             facturaEditando?.id)
-          : (resultado.data?.numberTemplate?.fullNumber ||
-            facturaVista.numberTemplate?.fullNumber ||
+          : (resultado.data?.numero ||
+            facturaVista.numero ||
             resultado.data?.id)
 
         const mensajeTexto = modoEdicion
@@ -984,20 +1068,24 @@ export function useFacturacion() {
 
         mostrarMensaje(mensajeTexto, 'success', 5000)
 
-        // Visualizar PDF desde Alegra (solo si se creó/editó online y no está en modo edición)
+        // Abrir el PDF (solo si se creó o editó con conexión). Es el nuestro:
+        // toda factura que llega acá se guardó en la base propia.
         if (resultado.online && resultado.data?.id) {
           try {
-            await alegraService.visualizarPDFFactura(resultado.data.id)
+            await abrirPdfFacturaPropia(api, resultado.data.id)
             mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000)
           } catch (pdfError) {
-            console.error('❌ Error visualizando PDF desde Alegra:', pdfError)
+            console.error('❌ Error visualizando el PDF:', pdfError)
             console.error('❌ Stack:', pdfError.stack)
             mostrarMensaje('⚠️ Error abriendo PDF. La factura fue creada correctamente.', 'warning', 3000)
           }
         } else if (!resultado.online) {
-          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se sincronice con Alegra', 'info', 4000)
+          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se envíe', 'info', 4000)
         } else {
-          console.warn('⚠️ No se puede mostrar PDF: online=', resultado.online, 'id=', resultado.data?.id)
+          // El servidor reconoció la factura pero no devolvió un id nuestro:
+          // se había creado en Alegra antes de pasar al sistema nuevo y
+          // todavía no está copiada acá. No se abre un PDF adivinando.
+          mostrarMensaje('ℹ️ Esa factura ya estaba creada desde antes del cambio de sistema. Su PDF se podrá abrir cuando esté cargada acá.', 'info', 6000)
         }
 
         // Limpiar formulario
@@ -1032,7 +1120,7 @@ export function useFacturacion() {
   const limpiarFactura = () => {
     setClienteSeleccionado(null)
     setItems([])
-    setFecha(new Date().toISOString().split('T')[0])
+    setFecha(hoyEnCostaRica())
     setObservaciones('')
     setDescuentoGlobal(0)
     setCodigoProducto('')
@@ -1078,6 +1166,19 @@ export function useFacturacion() {
     setClienteSeleccionado(cliente)
     setBusquedaCliente('')
     setClientesEncontrados([])
+
+    // Por omisión, lo que pasa casi siempre: un cliente con plazo de crédito
+    // se lleva la factura y paga después; el de contado paga en el mostrador,
+    // y en efectivo. Quien factura lo puede cambiar en un toque.
+    const tieneCredito = Boolean(cliente?.plazoCreditoId) && cliente.plazoCreditoId !== 1
+    const efectivo = metodosPago.find(m => m.type === 'efectivo') || metodosPago[0] || null
+    setMetodoPagoId(tieneCredito ? null : (efectivo ? efectivo.id : null))
+    setReferenciaPago('')
+  }
+
+  const elegirMetodoPago = (id) => {
+    setMetodoPagoId(id)
+    if (id === null) setReferenciaPago('')
   }
 
   // --- Entrada rápida / búsqueda de producto ---
@@ -1133,16 +1234,33 @@ export function useFacturacion() {
   const cambiarTab = (tab) => {
     if (tab === 'nueva') {
       setTabActiva('nueva')
-      if (modoEdicion) {
-        limpiarFactura()
-      }
-    } else {
-      setTabActiva('editar')
-      limpiarFactura()
+      if (modoEdicion) limpiarFactura()
+      return
     }
+
+    // "Facturas" es SOLO CONSULTA y no toca la factura en curso: alguien que
+    // está armando una venta y va a mirar un documento viejo no puede volver
+    // y encontrarse el mostrador vacío. Antes cualquier pestaña que no fuera
+    // "nueva" caía en "editar" y borraba lo que había.
+    if (tab === 'facturas') {
+      setTabActiva('facturas')
+      return
+    }
+
+    setTabActiva('editar')
+    limpiarFactura()
   }
 
   return {
+    ofertas,
+
+    // Cómo se cobra esta venta
+    metodosPago,
+    metodoPagoId,
+    elegirMetodoPago,
+    referenciaPago,
+    setReferenciaPago,
+
     // Estado principal
     isOnline,
     isMobile,
@@ -1156,11 +1274,12 @@ export function useFacturacion() {
     // Datos
     productos,
     clientes,
-    sugerencias,
+    sugerencias: sugerenciasPropias,
     agregarSugerencia,
     facturasPendientes,
 
     // Factura actual
+    ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
     clienteSeleccionado,
     setClienteSeleccionado,
     deseleccionarCliente,

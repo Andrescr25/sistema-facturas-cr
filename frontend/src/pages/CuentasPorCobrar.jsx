@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, ClipboardList, Clock, Users, Wallet } from 'lucide-react'
+import { AlertTriangle, ClipboardList, Clock, Landmark, Users, Wallet } from 'lucide-react'
 import { useCuentasPorCobrar } from '../hooks/useCuentasPorCobrar'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
@@ -9,6 +9,7 @@ import ListaContrapartes from '../components/pagos/ListaContrapartes'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ClienteDetalle from '../components/cuentas-por-cobrar/ClienteDetalle'
 import CuadreCajaDia from '../components/cuentas-por-cobrar/CuadreCajaDia'
+import CajaGeneral from '../components/cuentas-por-cobrar/CajaGeneral'
 import { formatCurrency } from '../utils/pagos'
 
 /**
@@ -28,20 +29,28 @@ export default function CuentasPorCobrar() {
   const {
     clientes, resumen, loading, error,
     filters, setFilters, resetFilters,
-    sincronizando, handleSincronizar,
-    handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono,
+    actualizando, handleActualizar,
+    handleCargarAbonos, handleCargarProductos, registrandoAbono, handleRegistrarAbono, handleRegistrarCobroVarias,
     dialogProps, toasts, removeToast
   } = useCuentasPorCobrar()
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente (estado local, mismo
   // patrón que ReporteClientes.jsx)
-  const [clienteActivoId, setClienteActivoId] = useState(null)
-  const clienteActivo = clientes.find((c) => c.clienteId === clienteActivoId)
+  // `undefined` es "ninguno seleccionado", NO `null`: hay 14 facturas cuyo
+  // cliente se borró en Alegra antes de la copia y su `clienteId` es null.
+  // Con null como centinela, `null === null` coincidía y la pantalla abría
+  // sola ese grupo; peor, "Volver a clientes" lo volvía a encontrar y no se
+  // podía salir ni llegar a los otros 54 deudores.
+  const [clienteActivoId, setClienteActivoId] = useState(undefined)
+  const clienteActivo = clienteActivoId === undefined
+    ? null
+    : clientes.find((c) => c.clienteId === clienteActivoId)
 
   const [tab, setTab] = useState('pendientes')
   const tabs = [
     { key: 'pendientes', label: 'Pendientes', icon: ClipboardList },
-    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet }
+    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet },
+    { key: 'caja', label: 'Caja General', icon: Landmark }
   ]
 
   const tarjetas = resumen ? [
@@ -66,13 +75,15 @@ export default function CuentasPorCobrar() {
   ] : []
 
   // El servidor ya manda los clientes agrupados; solo se marca cuáles tienen
-  // alguna factura vencida, que es lo que pinta la tarjeta de rojo.
+  // alguna factura vencida, que es lo que pinta la tarjeta de rojo. `facturas`
+  // y `totalSaldo` son las props de la lista compartida con Pagos a
+  // Proveedores (components/pagos), no los nombres del deudor.
   const grupos = clientes.map((c) => ({
     id: c.clienteId,
-    nombre: c.clienteNombre,
-    facturas: c.facturas,
-    totalSaldo: c.totalSaldo,
-    urgente: c.facturas.some((f) => f.estado === 'VENCIDA')
+    nombre: c.nombre,
+    facturas: c.detalle,
+    totalSaldo: c.saldoTotal,
+    urgente: c.detalle.some((f) => f.estado === 'VENCIDA')
   }))
 
   const hayFiltrosActivos =
@@ -90,7 +101,7 @@ export default function CuentasPorCobrar() {
         </div>
       </div>
 
-      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-md">
+      <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-xl">
         {tabs.map((t) => {
           const Icon = t.icon
           const activa = tab === t.key
@@ -122,8 +133,9 @@ export default function CuentasPorCobrar() {
                 placeholderBusqueda="Buscar cliente o factura..."
                 hayFiltrosActivos={hayFiltrosActivos}
                 onLimpiar={resetFilters}
-                onActualizar={handleSincronizar}
-                actualizando={sincronizando}
+                onActualizar={handleActualizar}
+                actualizando={actualizando}
+                textoActualizar="Actualizar"
               />
             </>
           )}
@@ -151,17 +163,19 @@ export default function CuentasPorCobrar() {
           ) : (
             <ClienteDetalle
               cliente={clienteActivo}
-              onVolver={() => setClienteActivoId(null)}
+              onVolver={() => setClienteActivoId(undefined)}
               onCargarAbonos={handleCargarAbonos}
               onCargarProductos={handleCargarProductos}
               registrandoAbono={registrandoAbono}
               onRegistrarAbono={handleRegistrarAbono}
+              onRegistrarCobroVarias={handleRegistrarCobroVarias}
             />
           )}
         </>
       )}
 
       {tab === 'cobros-dia' && <CuadreCajaDia />}
+      {tab === 'caja' && <CajaGeneral />}
     </div>
   )
 }

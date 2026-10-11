@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package, Flame, TrendingDown, Repeat, Tag } from 'lucide-react'
+import { Package, Flame, Repeat, Tag } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 
@@ -53,17 +53,17 @@ import { colones } from '../../utils/colones'
  * la cuadrícula, que se pinta cientos de veces en cada búsqueda.
  */
 /**
- * `comoOferta`: la rebaja dice "OFERTA" en vez del porcentaje. Es para el
- * catálogo de "Cliente nuevo": a quien no conoce el precio de antes, "bajamos
- * el precio" no le dice nada; "oferta", sí. El precio de antes se sigue
- * viendo tachado.
+ * La baja de precio dice «OFERTA» en cualquier vista. Como ahora comparte
+ * familia con fichas normales, borde, etiqueta y precio la destacan sin
+ * sacarla de su lugar. Liquidación conserva otra etiqueta y su cálculo.
  */
-function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, comoOferta = false }) {
+function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mostrarSinSubcategoria = false }) {
   const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
   const favorita = product.images?.find((i) => i.favorite === true) || product.images?.[0]
   const foto = favorita?.url || null
+  const subcategoria = product.subcategoria?.nombre || (mostrarSinSubcategoria ? 'Sin subcategoría' : '')
 
   const listaPrecio = product.price?.[0]
   const base = listaPrecio?.price
@@ -82,20 +82,22 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, com
   const rebaja = descuentoPorcentaje > 0
     ? descuentoPorcentaje
     : (precioTachado > 0 ? Math.round(((precioTachado - precioConIva) / precioTachado) * 100) : 0)
+  const esOferta = descuentoPorcentaje === 0 && precioTachado > 0
 
   return (
     <article
-      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white ring-1 transition-shadow ${
-        rebaja > 0 ? 'ring-acento-300' : 'ring-neutro-200'
+      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white transition-shadow ${
+        esOferta ? 'ring-2 ring-acento-400 shadow-md shadow-acento-100' : descuentoPorcentaje > 0 ? 'ring-1 ring-nota-300' : 'ring-1 ring-neutro-200'
       }`}
     >
       {/* Los avisos van sobre la foto y no debajo del nombre: es lo primero
           que el ojo encuentra al recorrer una cuadrícula. */}
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
-        {rebaja > 0 && (
+        {(esOferta || descuentoPorcentaje > 0) && (
           <Etiqueta tono={descuentoPorcentaje > 0 ? 'liquidacion' : 'oferta'}
-            icono={descuentoPorcentaje > 0 ? Flame : comoOferta ? Tag : TrendingDown}>
-            {comoOferta && descuentoPorcentaje === 0 ? 'OFERTA' : `−${rebaja}%`}
+            icono={descuentoPorcentaje > 0 ? Flame : Tag}
+            className={esOferta ? 'px-2 py-1 text-[11px] shadow-sm' : ''}>
+            {esOferta ? `OFERTA${rebaja > 0 ? ` · −${rebaja}%` : ''}` : `−${rebaja}%`}
           </Etiqueta>
         )}
         {stats?.esHabitual && (
@@ -118,7 +120,17 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, com
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-0.5 p-2 pt-1.5 sm:p-3 sm:pt-2">
+      <div className={`flex flex-1 flex-col gap-0.5 p-2 pt-1.5 sm:p-3 sm:pt-2 ${esOferta ? 'bg-acento-50' : ''}`}>
+        {/* Dos familias pueden compartir fila. El rótulo tiene su espacio
+            propio: pegado a la referencia y truncado ya no se podía leer.
+            Sin subcategoría identifica los sueltos de una categoría dividida. */}
+        {mostrarSubcategoria && subcategoria && (
+          <p title={subcategoria} className={`line-clamp-2 text-[11px] font-semibold leading-4 sm:text-xs ${
+            product.subcategoria?.nombre ? 'text-primario-600' : 'text-neutro-400'
+          }`}>
+            {subcategoria}
+          </p>
+        )}
         <h3 className="line-clamp-2 min-h-[2rem] text-[11.5px] font-bold leading-[1rem] text-neutro-900 sm:min-h-[2.5rem] sm:text-sm sm:leading-5">
           {product.name}
         </h3>
@@ -127,24 +139,13 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, com
           {product.reference?.reference || product.reference
             ? `Ref. ${product.reference?.reference || product.reference}`
             : 'sin referencia'}
-          {/* La subcategoría va en esta misma línea y no en una propia: en la
-              tablet cada línea extra sale del alto de la foto.
-
-              NO SE DICE CUANDO LA TARJETA YA ESTÁ DENTRO DE SU FAMILIA: bajo
-              un encabezado que dice "PVC 1/2", repetirlo en las 32 tarjetas
-              es el mismo ruido que el "Incluye 13% IVA" que se sacó de acá.
-              Sí se dice en la búsqueda y en las secciones del cliente, que
-              son listas mezcladas y ahí el dato ubica. */}
-          {mostrarSubcategoria && product.subcategoria?.nombre && (
-            <span className="font-semibold text-primario-600"> · {product.subcategoria.nombre}</span>
-          )}
         </p>
 
-        <div className="mt-auto pt-1">
-          <p className="h-[13px] text-[10px] font-semibold text-neutro-300 line-through sm:h-4 sm:text-xs">
+        <div className={`mt-auto ${esOferta ? 'rounded-xl bg-acento-100 px-2 py-1.5 sm:px-3 sm:py-2' : 'pt-1'}`}>
+          <p className={`h-[13px] text-[10px] font-semibold line-through sm:h-4 sm:text-xs ${esOferta ? 'text-acento-700/70' : 'text-neutro-300'}`}>
             {precioTachado > 0 ? colones(precioTachado) : ''}
           </p>
-          <p className={`text-[15px] font-extrabold leading-tight sm:text-xl ${rebaja > 0 ? 'text-acento-600' : 'text-neutro-900'}`}>
+          <p className={`text-[15px] font-extrabold leading-tight sm:text-xl ${esOferta ? 'text-acento-700' : descuentoPorcentaje > 0 ? 'text-nota-700' : 'text-neutro-900'}`}>
             {colones(precioFinal)}
           </p>
 

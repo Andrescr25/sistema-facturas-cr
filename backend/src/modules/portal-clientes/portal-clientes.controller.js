@@ -9,6 +9,8 @@ const inicio = require('./portal-clientes.inicio.service');
 const carrito = require('./portal-clientes.carrito.service');
 const sugerencias = require('./portal-clientes.sugerencias.service');
 const saldo = require('./portal-clientes.saldo.service');
+const preventa = require('./preventa.service');
+const preventaPdf = require('./preventaPdf.service');
 
 function responder(res, promesa, mensajeError) {
   return promesa
@@ -25,19 +27,19 @@ const listarClientes = (req, res) =>
   responder(res, personal.listarClientes({ busqueda: req.query.q }), 'Error listando clientes del portal');
 
 const generarInvitacion = (req, res) =>
-  responder(res, personal.generarInvitacion(req.params.contactoId, req.usuario?.id), 'Error generando la invitación');
+  responder(res, personal.generarInvitacion(req.params.clienteId, req.usuario?.id), 'Error generando la invitación');
 
 const enviarInvitacionWhatsApp = (req, res) =>
-  responder(res, personal.enviarInvitacionWhatsApp(req.params.contactoId, req.body || {}), 'Error enviando la invitación por WhatsApp');
+  responder(res, personal.enviarInvitacionWhatsApp(req.params.clienteId, req.body || {}), 'Error enviando la invitación por WhatsApp');
 
 const revocarAcceso = (req, res) =>
-  responder(res, personal.revocarAcceso(req.params.contactoId), 'Error revocando el acceso');
+  responder(res, personal.revocarAcceso(req.params.clienteId), 'Error revocando el acceso');
 
 const reactivarAcceso = (req, res) =>
-  responder(res, personal.reactivarAcceso(req.params.contactoId), 'Error reactivando el acceso');
+  responder(res, personal.reactivarAcceso(req.params.clienteId), 'Error reactivando el acceso');
 
 const listarPedidos = (req, res) =>
-  responder(res, pedidos.listarPedidos({ estado: req.query.estado }), 'Error listando pedidos');
+  responder(res, pedidos.listarPedidos(req.query), 'Error listando pedidos');
 
 const detallePedido = (req, res) =>
   responder(res, pedidos.detalle(req.params.pedidoId), 'Error obteniendo el pedido');
@@ -68,17 +70,17 @@ const entrar = (req, res) =>
 
 const yo = (req, res) => res.json({ success: true, data: req.cliente });
 
-// El contacto sale del TOKEN, no de la petición: así un cliente no puede
-// pedir la portada de otro cambiando un parámetro.
+// La ficha propia sale de la cuenta validada por el middleware: cambiar
+// un parámetro de la petición nunca permite abrir la portada de otro.
 const portada = (req, res) =>
-  responder(res, inicio.obtenerInicio(req.cliente.contacto), 'Error armando la portada del cliente');
+  responder(res, inicio.obtenerInicio(req.cliente.clienteId), 'Error armando la portada del cliente');
 
 // ---- Carrito ----
 const verCarrito = (req, res) =>
   responder(res, carrito.obtenerCarrito(req.cliente.id), 'Error leyendo el carrito');
 
 const ponerEnCarrito = (req, res) =>
-  responder(res, carrito.ponerCantidad(req.cliente.id, req.body?.alegraItemId, req.body?.cantidad), 'Error actualizando el carrito');
+  responder(res, carrito.ponerCantidad(req.cliente.id, req.body?.productoId, req.body?.cantidad), 'Error actualizando el carrito');
 
 const vaciarCarrito = (req, res) =>
   responder(res, carrito.vaciarCarrito(req.cliente.id), 'Error vaciando el carrito');
@@ -93,16 +95,16 @@ const juntoCon = (req, res) => {
 };
 
 const fichaProducto = (req, res) =>
-  responder(res, sugerencias.fichaProducto(req.cliente.contacto, req.params.itemId), 'Error abriendo el producto');
+  responder(res, sugerencias.fichaProducto(req.cliente.clienteId, req.params.productoId), 'Error abriendo el producto');
 
 const misFacturas = (req, res) =>
-  responder(res, saldo.facturasPendientes(req.cliente.contacto), 'Error listando las facturas del cliente');
+  responder(res, saldo.facturasPendientes(req.cliente.clienteId), 'Error listando las facturas del cliente');
 
 const detalleCompra = (req, res) =>
-  responder(res, sugerencias.detalleCompra(req.cliente.contacto, req.params.facturaId), 'Error abriendo la compra');
+  responder(res, sugerencias.detalleCompra(req.cliente.clienteId, req.params.facturaId), 'Error abriendo la compra');
 
 const comprasAnteriores = (req, res) =>
-  responder(res, sugerencias.comprasAnteriores(req.cliente.contacto), 'Error listando compras anteriores');
+  responder(res, sugerencias.comprasAnteriores(req.cliente.clienteId), 'Error listando compras anteriores');
 
 /**
  * Repetir una compra: se resuelven las líneas contra el historial de ESTE
@@ -111,7 +113,7 @@ const comprasAnteriores = (req, res) =>
  */
 const repetirCompra = async (req, res) => {
   try {
-    const lineas = await sugerencias.lineasDeCompra(req.cliente.contacto, req.params.facturaId);
+    const lineas = await sugerencias.lineasDeCompra(req.cliente.clienteId, req.params.facturaId);
     const resultado = await carrito.agregarVarios(req.cliente.id, lineas);
     res.json({ success: true, data: resultado });
   } catch (error) {
@@ -130,8 +132,28 @@ const misPedidos = (req, res) =>
 const miPedido = (req, res) =>
   responder(res, clienteSvc.detallePedido(req.cliente.id, req.params.pedidoId), 'Error obteniendo el pedido');
 
+async function descargarPdfPreventa(req, res) {
+  try {
+    const { documento, pdf } = await preventaPdf.leer(req.params.clienteId, req.query.cicloId, req.params.pdfId);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${documento.nombreArchivo}"`);
+    res.set('Cache-Control', 'private, no-store');
+    res.send(pdf);
+  } catch (e) {
+    if (!e.status) console.error('Error descargando catálogo PDF:', e.message);
+    res.status(e.status || 500).json({ success: false, message: e.status ? e.message : 'No se pudo preparar el PDF.' });
+  }
+}
+
 module.exports = {
+  descargarPdfPreventa,
+  prepararPdfPreventa: (req, res) => responder(res, preventaPdf.preparar(req.params.clienteId, req.body || {}), 'Error preparando catálogo PDF'),
+  prepararPreventa: (req, res) => responder(res, preventa.preparar(req.params.clienteId, req.query.cicloId), 'Error preparando catálogo'),
+  invitarPreventa: (req, res) => responder(res, preventa.invitar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error preparando invitación'),
+  enviarPreventa: (req, res) => responder(res, preventa.enviar(req.params.clienteId, req.body || {}, req.usuario?.id), 'Error enviando catálogo'),
+  resolverPreventa: (req, res) => responder(res, preventa.resolver(req.cliente.id, req.query.token), 'Error abriendo catálogo de preventa'),
   listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
+  ciclosDisponibles: (req, res) => responder(res, require('../rutas/documentosCiclo.service').paraCuenta(req.cliente.id), 'Error consultando ciclos'),
   listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes, enviarAvisoPedido,
   verInvitacion, activar, entrar, yo, portada, crearPedido, misPedidos, miPedido,
   verCarrito, ponerEnCarrito, vaciarCarrito, agregarVariosAlCarrito,

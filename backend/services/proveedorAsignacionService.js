@@ -3,65 +3,55 @@ const prisma = require('../lib/prisma');
 const { calcularCostoUnitarioPropio } = require('../src/modules/precios/costo');
 
 /**
- * ═════════════════════════════════════════════════════════════════════════════
- * Asignar automáticamente proveedor a un faltante basado en precio más bajo
- * ═════════════════════════════════════════════════════════════════════════════
- * 
- * Esta función busca TODOS los proveedores que tienen el producto y selecciona
- * el que tiene el precio más bajo.
- * 
- * @param {number} faltanteId - ID del faltante en la tabla faltantes
- * @param {number} productoId - ID del producto en la tabla productos (BD local)
- * @param {number} allegraId - ID del producto en Alegra (ej: 900)
- * @param {string} productoCodigo - Código/reference del producto (ej: "SED")
- * 
+ * Asignar automáticamente proveedor a un faltante: de los proveedores a los
+ * que se les compró ESE producto, el de precio más bajo.
+ *
+ * EL PRODUCTO ES `producto.id` (el de `faltantes.producto_propio_id`). Los
+ * mapeos lo llevan desde la migración independencia/018: 2.057 de 2.061; los
+ * otros 4 son de productos que ya no existen.
+ *
+ * Hasta el 2026-10-03 se buscaba además por el id de Alegra y por la
+ * referencia, los tres a la vez. Medido antes de quitarlo, sobre 1.874
+ * productos activos: ninguno llegaba a un mapeo solo por el id de Alegra, así
+ * que ese camino se fue. Por la referencia llegaban 4, y los 4 son fichas
+ * DUPLICADAS del mismo producto (dos "SPRAY BOSNY BLANCO BRILLANTE", tres
+ * "LAMINA FUSIBLE 60 AMP", dos "PEGA PRES PP-98") cuyo mapeo quedó en la
+ * gemela. La referencia se conserva SOLO como segundo intento, cuando el
+ * producto no tiene ningún mapeo propio, para que esos cuatro no queden "Sin
+ * proveedor" mientras no se unan las fichas. Ya no se suma a los mapeos
+ * propios: antes los de la gemela entraban siempre a competir por precio.
+ *
+ * @param {number} faltanteId - id en `faltantes`
+ * @param {number} productoId - id PROPIO del producto
+ * @param {string} productoReferencia - la referencia del producto ("SED"),
+ *   nunca un id
  * @returns {Promise<Object>} { success, proveedor, precio }
- * 
- * ═════════════════════════════════════════════════════════════════════════════
- * IMPORTANTE: productoCodigo debe ser el REFERENCE real, NO el alegra_id
- * ═════════════════════════════════════════════════════════════════════════════
- * 
- * ✅ CORRECTO: asignarProveedorAutomatico(1, 88, 900, "SED")
- * ❌ MAL:      asignarProveedorAutomatico(1, 88, 900, "900")
- * 
- * RAZÓN: Los mappings en supplier_product_mapping usan el reference ("SED")
- *        no el alegra_id ("900")
- * 
- * ═════════════════════════════════════════════════════════════════════════════
  */
-async function asignarProveedorAutomatico(faltanteId, productoId, allegraId, productoCodigo) {
+async function asignarProveedorAutomatico(faltanteId, productoId, productoReferencia) {
   try {
-    console.log(`🤖 Asignación automática para faltante ${faltanteId} (producto: ${productoCodigo})`);
+    const idProducto = Number.isInteger(Number(productoId)) && Number(productoId) > 0 ? Number(productoId) : null;
+    const referencia = String(productoReferencia || '').trim();
+    console.log(`🤖 Asignación automática para faltante ${faltanteId} (producto ${idProducto}, ${referencia || 'sin referencia'})`);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PASO 1: Buscar TODOS los mappings del producto
-    // ─────────────────────────────────────────────────────────────────────────
-    // Buscamos por:
-    //   - alegra_item_id: El ID numérico de Alegra (ej: 900)
-    //   - alegra_reference: El código interno del producto (ej: "SED")
-    //
-    // ¿Por qué ambos? Porque algunos mappings usan uno u otro
-    // ─────────────────────────────────────────────────────────────────────────
-    const mappings = await query(`
-      SELECT
+    const COLUMNAS_MAPEO = `
         id,
         supplier_name as "supplierName",
         supplier_cedula as "supplierCedula",
-        alegra_item_id as "alegraItemId",
-        alegra_reference as "alegraReference",
         origen,
         last_used_date as "lastUsedDate",
-        factor_conversion as "factorConversion"
-      FROM supplier_product_mapping
-      WHERE (
-        (alegra_item_id::text = $1 AND $1 IS NOT NULL)
-        OR alegra_reference = $2
-      )
-      -- Sin ORDER BY confidence: todos los mapeos los asignó una persona,
-      -- así que valen lo mismo. Ordenar por ese campo hacía que un mapeo con
-      -- una confianza inventada (999.99) le ganara a los reales.
-      ORDER BY last_used_date DESC NULLS LAST
-    `, [allegraId?.toString(), productoCodigo]);
+        factor_conversion as "factorConversion"`;
+    // No se ordena por la confianza: todos los mapeos los asignó una persona,
+    // así que valen lo mismo. Ordenar por ese campo hacía que un mapeo con una
+    // confianza inventada (999.99) le ganara a los reales.
+    const ORDEN = 'ORDER BY last_used_date DESC NULLS LAST';
+
+    let mappings = idProducto
+      ? await query(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE producto_id = $1 ${ORDEN}`, [idProducto])
+      : { rows: [] };
+    if (mappings.rows.length === 0 && referencia) {
+      mappings = await query(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE alegra_reference = $1 ${ORDEN}`, [referencia]);
+    }
+    const productoCodigo = referencia || idProducto;
 
     if (mappings.rows.length === 0) {
       console.log(`⚠️ No se encontraron mappings para producto ${productoCodigo}`);

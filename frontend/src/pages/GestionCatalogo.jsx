@@ -1,55 +1,85 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ExternalLink, ImageOff, Layers, Link as LinkIcon, Package, RefreshCw, Search, Truck, X } from 'lucide-react'
-import api from '../services/api'
+import { AlertTriangle, ExternalLink, ImageOff, Layers, Link as LinkIcon, Package, Plus, RefreshCw, Search, Tags, Truck, X } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { useDialog } from '../hooks/useDialog'
 import { useTaxonomiaCatalogo } from '../hooks/useTaxonomiaCatalogo'
 import { useListaCatalogo } from '../hooks/useListaCatalogo'
 import { useSeleccionLote } from '../hooks/useSeleccionLote'
-import { useFichaCatalogo } from '../hooks/useFichaCatalogo'
+import { useFichaProducto } from '../hooks/useFichaProducto'
 import { useAccionesLote } from '../hooks/useAccionesLote'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
 import Boton from '../components/ui/Boton'
+import Pestanas from '../components/ui/Pestanas'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import CuadriculaCategorias from '../components/gestion-catalogo/CuadriculaCategorias'
 import DetalleCategoria from '../components/gestion-catalogo/DetalleCategoria'
 import ResultadosBusqueda from '../components/gestion-catalogo/ResultadosBusqueda'
 import BarraLote from '../components/gestion-catalogo/BarraLote'
-import ModalSugerirImagen from '../components/ModalSugerirImagen'
-import ModalDuplicarMarca from '../components/gestion-catalogo/ModalDuplicarMarca'
 import ModalProducto from '../components/gestion-catalogo/ModalProducto'
+import ModalSugerirImagen from '../components/ModalSugerirImagen'
+import TablaCatalogo from '../components/configuracion/TablaCatalogo'
+import ModalElementoCatalogo from '../components/configuracion/ModalElementoCatalogo'
+import { urlArchivo } from '../utils/urlArchivo'
 
 const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
 
 /**
- * Gestión de Catálogo, con la forma del resto del sistema (Cuentas por
- * Cobrar, el reporte de proveedores): título, tarjetas de resumen que sirven
- * de filtro, una tarjeta grande por categoría —con sus subcategorías
- * adentro— y, al entrar a una, sus subcategorías como tarjetas con sus
- * productos.
+ * La pestaña de categorías usa la misma tabla y el mismo formulario que los
+ * catálogos de Configuración. Es donde se cambia el nombre DE VERDAD de una
+ * categoría y donde se desactiva; el nombre que se ve en los catálogos se
+ * cambia en la tarjeta de la categoría.
+ */
+const CATEGORIAS = {
+  clave: 'categorias',
+  texto: 'Categorías',
+  singular: 'categoría',
+  uno: 'una categoría',
+  icono: Tags,
+  descripcion: 'Agrupan los productos en los catálogos y en los reportes. Una inactiva no se ofrece para productos nuevos, pero los que ya la tienen la conservan.',
+  columnas: [
+    { campo: 'nombre', titulo: 'Nombre', principal: true },
+    { campo: 'productos', titulo: 'Productos activos' }
+  ],
+  campos: [{ campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 80 }],
+  nuevo: { nombre: '' }
+}
+
+const ESTADOS = [
+  { valor: 'activos', texto: 'A la venta' },
+  { valor: 'ocultos', texto: 'Ocultos de los catálogos' },
+  { valor: 'inactivos', texto: 'Dados de baja' }
+]
+
+/**
+ * Gestión de Catálogo, con la forma del resto del sistema: título, tarjetas
+ * de resumen que sirven de filtro, una tarjeta grande por categoría —con sus
+ * subcategorías adentro— y, al entrar a una, sus subcategorías como
+ * secciones con sus productos.
  *
- * TODO EN EL ORDEN DEL AGENTE: las categorías como vienen de GET /arbol
- * (categoria_config.orden) y las subcategorías con compararSubcategorias, la
- * misma función que usa el catálogo del agente. Lo que se acomoda acá es lo
- * que el agente ve.
+ * ES EL REDISEÑO DE `main`, SOBRE EL MAESTRO PROPIO. Allá lee la caché de
+ * Alegra y cambiar de categoría le escribe a Alegra; acá todo va contra
+ * `producto` y es inmediato. La ficha es la de esta rama (CABYS, impuesto,
+ * unidad, medicamento, ocultar y dar de baja), y los ocultos y dados de baja
+ * se encuentran con el filtro de estado del buscador.
  *
- * Las dos tareas que más tiempo llevan tienen su atajo en las tarjetas de
- * arriba: "Sin clasificar" deja solo las categorías con productos por
- * acomodar y entra directo a ellos; "Sin foto" hace lo mismo con las fotos.
+ * TODO EN EL ORDEN DEL AGENTE: las categorías como vienen de GET
+ * /maestro/arbol (categoria_config.orden) y las subcategorías con
+ * compararSubcategorias, la misma función que usa el catálogo del agente.
  */
 export default function GestionCatalogo() {
   const { toasts, showToast, removeToast } = useToast()
   const { confirm, dialogProps } = useDialog()
   const mostrarToast = useCallback((type, message) => showToast(message, type), [showToast])
-  const [syncing, setSyncing] = useState(false)
+  const [pestana, setPestana] = useState('catalogo')
+  const [edicionCategoria, setEdicionCategoria] = useState(null)
   // Mismo formato que usan las tarjetas de Cuentas por Cobrar: `estado` es el
   // atajo elegido (todos | sinClasificar | sinFoto).
   const [vista, setVista] = useState({ estado: 'todos', dias: 'todos' })
 
   const taxonomia = useTaxonomiaCatalogo()
-  const { arbol, loadingArbol, categoriaActiva, subFoco, sinAlegra, errorArbol } = taxonomia
+  const { arbol, loadingArbol, categoriaActiva, subFoco, errorArbol } = taxonomia
 
   const lista = useListaCatalogo({ arbol, categoriaActiva, subFoco })
   const seleccion = useSeleccionLote()
@@ -72,19 +102,19 @@ export default function GestionCatalogo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista.estado, categoriaActiva])
 
-  const ficha = useFichaCatalogo({
-    arbol,
-    patchProducto: lista.patchProducto,
-    quitarProductos: lista.quitarProductos,
-    recargarLista: lista.recargar,
-    recargarArbol: taxonomia.recargarArbol,
-    categoriaActiva,
-    mostrarToast
+  const ficha = useFichaProducto({
+    mostrarToast,
+    alCambiar: () => { lista.recargar(); taxonomia.recargarArbol() },
+    alPonerFoto: (id, imagenUrl) => {
+      lista.patchProducto(id, { imageUrl: urlArchivo(imagenUrl) })
+      taxonomia.recargarArbol()
+    }
   })
 
   const acciones = useAccionesLote({
     arbol,
     patchProducto: lista.patchProducto,
+    quitarProductos: lista.quitarProductos,
     recargarArbol: taxonomia.recargarArbol,
     recargarLista: lista.recargar,
     mostrarToast
@@ -110,9 +140,7 @@ export default function GestionCatalogo() {
     : vista.estado === 'sinFoto'
       ? arbol.filter((c) => c.sinImagen > 0)
       : arbol
-  // Solo las que tienen id de Alegra: sin él no hay a dónde mandar el cambio
-  // (pasa cuando Alegra no respondió y las categorías salieron de la copia local).
-  const otrasCategorias = arbol.filter((c) => c.id != null && c.name !== categoriaActiva)
+  const otrasCategorias = arbol.filter((c) => c.name !== categoriaActiva)
 
   const entrar = (nombre, foco) => {
     // Con un atajo de arriba elegido, se entra directo a lo pendiente.
@@ -128,14 +156,10 @@ export default function GestionCatalogo() {
   }
 
   const moverSubcategoria = async (sub, destino) => {
-    if (destino.id == null) {
-      mostrarToast('error', 'Alegra no está respondiendo: por ahora no se puede mover nada de categoría.')
-      return
-    }
     const origen = sub.categoriaVisible || sub.categoria
     const ok = await confirm(
       `"${sub.nombre}" pasa completa de ${origen} a ${destino.nombreVisible}, con ${plural(sub.productos, 'producto', 'productos')}. ` +
-      'Cada uno cambia de categoría en Alegra (unos segundos por producto) y siguen agrupados en la misma subcategoría.',
+      'Siguen agrupados en la misma subcategoría.',
       { title: 'Mover subcategoría', confirmLabel: 'Mover' }
     )
     if (!ok) return
@@ -151,8 +175,7 @@ export default function GestionCatalogo() {
   const cambiarCategoriaDeSeleccion = async (destino) => {
     const ids = [...seleccion.seleccionados]
     const ok = await confirm(
-      `${plural(ids.length, 'producto pasa', 'productos pasan')} a ${destino.nombreVisible}. ` +
-      'Se cambia la categoría en Alegra, uno por uno, y allá quedan en "Sin clasificar".',
+      `${plural(ids.length, 'producto pasa', 'productos pasan')} a ${destino.nombreVisible}, y allá quedan en "Sin clasificar".`,
       { title: 'Cambiar de categoría', confirmLabel: 'Cambiar' }
     )
     if (!ok) return
@@ -164,27 +187,6 @@ export default function GestionCatalogo() {
       mostrarToast('error', e?.response?.data?.message || 'No se pudo borrar la subcategoría.')
     })
 
-  const sincronizar = async () => {
-    setSyncing(true)
-    mostrarToast('info', 'Sincronizando con Alegra… puede tardar unos minutos.')
-    try {
-      // En producción ya se vio tardar más de 3 minutos con 2000+ productos.
-      const { data } = await api.post('/alegra/sincronizar/cache-productos', {}, { timeout: 10 * 60 * 1000 })
-      if (data?.success) {
-        mostrarToast('success', `Sincronización lista: ${data.count} productos.`)
-        taxonomia.recargarArbol()
-        lista.recargar()
-      } else {
-        mostrarToast('error', 'La sincronización falló.')
-      }
-    } catch (error) {
-      console.error('Sync catalog error:', error)
-      mostrarToast('error', 'Error del servidor durante la sincronización.')
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   const copiarLink = async () => {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/catalogo-agente`)
@@ -195,10 +197,17 @@ export default function GestionCatalogo() {
   }
 
   const accionesFila = {
-    onEditar: ficha.openEditProduct,
+    onEditar: ficha.abrirEditar,
     onSugerirFoto: ficha.openImageSuggestions,
-    onDuplicar: ficha.openBrandDuplication
+    onDuplicar: ficha.abrirOtraMarca
   }
+
+  const pestanas = [
+    { clave: 'catalogo', texto: 'Catálogo', icono: Package, contador: totales.productos },
+    { clave: 'categorias', texto: 'Categorías', icono: Tags, contador: ficha.categorias.filter((c) => c.activo).length }
+  ]
+
+  const hayFiltroBusqueda = lista.estado !== 'activos'
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-48">
@@ -215,28 +224,27 @@ export default function GestionCatalogo() {
             Ver catálogo
           </Boton>
           <Boton variante="secundario" icono={LinkIcon} onClick={copiarLink}>Copiar link</Boton>
-          <Boton icono={RefreshCw} cargando={syncing} onClick={sincronizar}>
-            {syncing ? 'Sincronizando…' : 'Sincronizar con Alegra'}
-          </Boton>
+          <Boton icono={Plus} onClick={ficha.abrirNuevo}>Nuevo producto</Boton>
         </div>
       </div>
 
-      {sinAlegra && (
-        <div className="flex items-start gap-3 rounded-xl border border-alerta-200 bg-alerta-50 px-5 py-4 text-alerta-800">
-          <AlertTriangle size={22} className="mt-0.5 shrink-0" />
-          <p className="text-base">
-            Alegra no está respondiendo: las categorías salen de la copia local. Se puede ver, clasificar en
-            subcategorías y poner fotos, pero mover productos de categoría y crear categorías vuelve cuando Alegra responda.
-          </p>
-        </div>
-      )}
+      <Pestanas activa={pestana} onCambiar={setPestana} pestanas={pestanas} />
 
-      {!categoriaActiva ? (
+      {pestana === 'categorias' ? (
+        <TablaCatalogo
+          definicion={CATEGORIAS}
+          filas={ficha.categorias}
+          trabajando={false}
+          onAgregar={() => setEdicionCategoria({ fila: null })}
+          onEditar={(fila) => setEdicionCategoria({ fila })}
+          onCambiarActivo={ficha.cambiarActivoCategoria}
+        />
+      ) : !categoriaActiva ? (
         <>
           <TarjetasResumen tarjetas={tarjetas} filtros={vista} setFiltros={setVista} />
 
-          <div className="flex flex-col gap-3 rounded-xl border border-neutro-100 bg-white p-4 shadow-sm md:flex-row md:items-center">
-            <div className="relative min-w-0 flex-1">
+          <div className="flex flex-col gap-3 rounded-xl border border-neutro-100 bg-white p-4 shadow-sm md:flex-row md:flex-wrap md:items-center">
+            <div className="relative min-w-0 flex-1 md:min-w-[280px]">
               <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
               <input
                 value={lista.busqueda}
@@ -253,7 +261,7 @@ export default function GestionCatalogo() {
             </div>
             {/* Proveedor, por cédula. Si la lista no cargó, el filtro no se muestra. */}
             {lista.proveedores.proveedores.length > 0 && (
-              <div className="relative shrink-0 md:w-80">
+              <div className="relative shrink-0 md:w-72">
                 <Truck size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
                 <select
                   value={lista.proveedor}
@@ -273,6 +281,19 @@ export default function GestionCatalogo() {
                 </select>
               </div>
             )}
+            {/* Los ocultos y los dados de baja no cuentan en las categorías
+                (tampoco los ve el agente): se encuentran acá, para volverlos
+                a la venta desde su ficha. */}
+            <select
+              value={lista.estado}
+              onChange={(e) => lista.setEstado(e.target.value)}
+              aria-label="Estado de los productos"
+              className={`shrink-0 rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primario-500/30 md:w-60 ${
+                hayFiltroBusqueda ? 'border-primario-300 bg-primario-50 font-semibold text-primario-800' : 'border-neutro-200 bg-neutro-50 text-neutro-900'
+              }`}
+            >
+              {ESTADOS.map((e) => <option key={e.valor} value={e.valor}>{e.texto}</option>)}
+            </select>
             {filtrada && (
               <button type="button" onClick={() => setVista({ estado: 'todos', dias: 'todos' })}
                 className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primario-50 px-4 py-3 text-sm font-semibold text-primario-700 ring-1 ring-primario-200 hover:bg-primario-100">
@@ -283,7 +304,7 @@ export default function GestionCatalogo() {
 
           {lista.busquedaActiva ? (
             <ResultadosBusqueda
-              busqueda={lista.busqueda}
+              busqueda={lista.busqueda || ESTADOS.find((e) => e.valor === lista.estado)?.texto}
               proveedorNombre={nombreProveedor}
               resultados={lista.resultados}
               loading={lista.loading}
@@ -306,7 +327,7 @@ export default function GestionCatalogo() {
             <CuadriculaCategorias
               categorias={categoriasVisibles}
               filtrada={filtrada}
-              puedeCrear={!sinAlegra}
+              puedeCrear
               onEntrar={entrar}
               onReordenar={taxonomia.reordenarCategorias}
               onSoltarSubcategoria={moverSubcategoria}
@@ -354,22 +375,29 @@ export default function GestionCatalogo() {
         </div>
       )}
 
-      <BarraLote
-        cantidad={seleccion.cantidad}
-        enBusqueda={!categoriaActiva}
-        subsDeLaCategoria={lista.subsOrdenadas}
-        otrasCategorias={otrasCategorias}
-        moviendo={acciones.moviendo}
-        trabajo={acciones.trabajo}
-        onMoverASubcategoria={moverSeleccionASubcategoria}
-        onCambiarCategoria={cambiarCategoriaDeSeleccion}
-        onCerrarTrabajo={acciones.cerrarTrabajo}
-        onLimpiar={seleccion.limpiar}
-      />
+      {pestana === 'catalogo' && (
+        <BarraLote
+          cantidad={seleccion.cantidad}
+          enBusqueda={!categoriaActiva}
+          subsDeLaCategoria={lista.subsOrdenadas}
+          otrasCategorias={otrasCategorias}
+          moviendo={acciones.moviendo}
+          trabajo={acciones.trabajo}
+          onMoverASubcategoria={moverSeleccionASubcategoria}
+          onCambiarCategoria={cambiarCategoriaDeSeleccion}
+          onCerrarTrabajo={acciones.cerrarTrabajo}
+          onLimpiar={seleccion.limpiar}
+        />
+      )}
 
       {ficha.isImageModalOpen && ficha.selectedProduct && (
         <ModalSugerirImagen
-          producto={ficha.selectedProduct}
+          producto={{
+            ...ficha.selectedProduct,
+            name: ficha.selectedProduct.nombre,
+            reference: ficha.selectedProduct.referencia,
+            imageUrl: ficha.selectedProduct.imagen_url ? urlArchivo(ficha.selectedProduct.imagen_url) : null
+          }}
           customSearchQuery={ficha.customSearchQuery}
           setCustomSearchQuery={ficha.setCustomSearchQuery}
           imageSuggestions={ficha.imageSuggestions}
@@ -382,43 +410,28 @@ export default function GestionCatalogo() {
         />
       )}
 
-      {ficha.isBrandModalOpen && ficha.selectedProduct && (
-        <ModalDuplicarMarca
-          producto={ficha.selectedProduct}
-          newProductName={ficha.newProductName}
-          brandRef={ficha.brandRef} setBrandRef={ficha.setBrandRef}
-          brandPrice={ficha.brandPrice} setBrandPrice={ficha.setBrandPrice}
-          brandCost={ficha.brandCost} setBrandCost={ficha.setBrandCost}
-          brandImageUrl={ficha.brandImageUrl} setBrandImageUrl={ficha.setBrandImageUrl}
-          brandSuggestions={ficha.brandSuggestions}
-          loadingBrandSuggestions={ficha.loadingBrandSuggestions}
-          creatingDuplicate={ficha.creatingDuplicate}
-          onNewProductNameChange={ficha.handleNewProductNameChange}
-          onBuscarSugerencias={ficha.handleBrandSearchSuggestions}
-          onSubmit={ficha.handleDuplicateBrand}
-          onCerrar={() => ficha.setIsBrandModalOpen(false)}
+      {ficha.edicion && (
+        <ModalProducto
+          key={ficha.edicion.producto?.id ?? (ficha.edicion.plantilla ? `marca-${ficha.edicion.plantilla.id}` : 'nuevo')}
+          producto={ficha.edicion.producto}
+          plantilla={ficha.edicion.plantilla}
+          categorias={ficha.categorias}
+          impuestos={ficha.impuestos}
+          guardando={ficha.guardando}
+          onGuardar={ficha.guardarProducto}
+          onCambiarEstado={ficha.cambiarEstadoProducto}
+          onCerrar={ficha.cerrarEdicion}
         />
       )}
 
-      {ficha.isEditModalOpen && ficha.selectedProduct && (
-        <ModalProducto
-          editName={ficha.editName} setEditName={ficha.setEditName}
-          editRef={ficha.editRef} setEditRef={ficha.setEditRef}
-          editPrice={ficha.editPrice} setEditPrice={ficha.setEditPrice}
-          editCost={ficha.editCost} setEditCost={ficha.setEditCost}
-          editCategoria={ficha.editCategoria} setEditCategoria={ficha.setEditCategoria}
-          categorias={ficha.categorias}
-          producto={ficha.selectedProduct}
-          subcategorias={ficha.subcategoriasPlanas}
-          onCrearSubcategoria={taxonomia.crearSubcategoria}
-          onAsignarSubcategoria={ficha.asignarSubcategoria}
-          taxPercentage={ficha.selectedProduct.taxPercentage}
-          savingEdit={ficha.savingEdit}
-          confirmDelete={ficha.confirmDelete}
-          deletingProduct={ficha.deletingProduct}
-          onSubmit={ficha.handleSaveEdit}
-          onEliminar={ficha.handleDeleteProduct}
-          onCerrar={ficha.closeEditModal}
+      {edicionCategoria && (
+        <ModalElementoCatalogo
+          key={edicionCategoria.fila?.id ?? 'nueva'}
+          definicion={CATEGORIAS}
+          fila={edicionCategoria.fila}
+          guardando={false}
+          onGuardar={(valores) => ficha.guardarCategoria(edicionCategoria.fila?.id, valores)}
+          onCerrar={() => setEdicionCategoria(null)}
         />
       )}
     </div>

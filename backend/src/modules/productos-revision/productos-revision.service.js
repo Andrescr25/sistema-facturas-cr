@@ -1,15 +1,24 @@
 /**
  * Productos-Revision Module - Service
- * Lógica de negocio para la gestión de relaciones producto proveedor ↔ Alegra
- * (mapeos), ajustes de productos de factura y creación de productos en Alegra.
+ * Las relaciones entre lo que factura un proveedor y los productos (mapeos),
+ * los ajustes de las líneas de factura y la creación de productos nuevos.
+ *
+ * VOCABULARIO, porque acá "producto" quiere decir dos cosas:
+ *   · `productoId` / `productoProveedorId` en las rutas de este módulo es la
+ *     LÍNEA de la factura del proveedor (`productos_factura_proveedor.id`).
+ *   · `productoPropioId` es el producto del maestro (`producto.id`).
+ *
+ * LA RELACIÓN SE ESCRIBE POR `producto.id` (migración 038, 2026-10-03): ver
+ * relacionPropia.js. Crear un producto nuevo desde una línea está en
+ * productoDesdeLinea.js y lo crea en el maestro propio. En este archivo ya no
+ * queda nada que le hable a Alegra.
  */
 
 const prisma = require('../../../lib/prisma');
-const { getProductService } = require('../../integrations/alegra');
+const {
+  productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas, recalcularAvance
+} = require('./relacionPropia');
 const { query } = require('../../../config/database');
-const { cabysPareceMedicamento } = require('../../utils/medicamento');
-const { calcularPorcentajeIva, obtenerImpuestoAlegra, cargarImpuestosAlegra } = require('../../../utils/impuestosAlegra');
-const { filaDeCache } = require('../../integrations/alegra/productoCache');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
@@ -20,21 +29,6 @@ const {
   esReferenciaConfiable,
   calcularScoreCatalogo
 } = require('../precios/matcher');
-
-const productService = getProductService();
-
-/**
- * getProductById del servicio de integrations devuelve {success, data};
- * este helper restaura la semántica de data directa o throw que esperan
- * los call sites de este módulo.
- */
-async function obtenerProductoAlegra(alegraItemId) {
-  const resultado = await productService.getProductById(alegraItemId);
-  if (!resultado.success) {
-    throw new Error(resultado.error || `No se pudo obtener el producto ${alegraItemId} de Alegra`);
-  }
-  return resultado.data;
-}
 
 /**
  * Error con código de estado HTTP para que el controller responda con el status correcto.
@@ -111,14 +105,17 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
     // No poder encontrar algo por el nombre con que la propia pantalla lo
     // llama es de las cosas que hacen desconfiar del buscador entero.
     // Son 98 de 2.056 relaciones las que tienen el nombre desfasado.
-    const productos = await query(
-      `SELECT alegra_id FROM alegra_products_cache
-        WHERE name ILIKE $1 OR reference ILIKE $1
+    // El nombre de hoy es el del maestro propio, y la relación se cruza por
+    // `producto_id` (que Prisma no conoce): se traen los ids de los mapeos.
+    const mapeos = await query(
+      `SELECT m.id FROM supplier_product_mapping m
+         JOIN producto p ON p.id = m.producto_id
+        WHERE p.nombre ILIKE $1 OR p.referencia ILIKE $1
         LIMIT ${MAX_PRODUCTOS_BUSQUEDA}`,
       [`%${busqueda}%`]
     );
-    if (productos.rows.length > 0) {
-      filtros.OR.push({ alegraItemId: { in: productos.rows.map(f => String(f.alegra_id)) } });
+    if (mapeos.rows.length > 0) {
+      filtros.OR.push({ id: { in: mapeos.rows.map(f => f.id) } });
     }
   }
 
@@ -160,18 +157,20 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
   // "...VOLTECK"). Se resuelve contra el catálogo actual, igual que se hizo en
   // reporte-proveedores. Si el producto ya no está en el catálogo se conserva
   // el nombre guardado y se marca, en vez de mostrar un hueco.
-  const idsAlegra = [...new Set(relaciones.map(r => r.alegraItemId).filter(Boolean).map(String))];
   const catalogo = new Map();
-  if (idsAlegra.length > 0) {
+  if (relaciones.length > 0) {
     const filas = await query(
-      `SELECT alegra_id, name, reference FROM alegra_products_cache WHERE alegra_id::text = ANY($1)`,
-      [idsAlegra]
+      `SELECT m.id AS mapeo_id, p.id, p.nombre, p.referencia
+         FROM supplier_product_mapping m
+         JOIN producto p ON p.id = m.producto_id
+        WHERE m.id = ANY($1::uuid[])`,
+      [relaciones.map(r => r.id)]
     );
-    filas.rows.forEach(f => catalogo.set(String(f.alegra_id), { name: f.name, reference: f.reference }));
+    filas.rows.forEach(f => catalogo.set(f.mapeo_id, { id: f.id, name: f.nombre, reference: f.referencia }));
   }
 
   const productosFormateados = relaciones.map(mapeo => {
-    const actual = mapeo.alegraItemId ? catalogo.get(String(mapeo.alegraItemId)) : null;
+    const actual = catalogo.get(mapeo.id) || null;
     const nombreActual = actual?.name || mapeo.alegraName;
     const referenciaActual = actual?.reference || mapeo.alegraReference;
     const productoExiste = Boolean(actual);
@@ -188,12 +187,12 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
       codigoProveedor: mapeo.supplierCode, // Para compatibilidad
       descripcion: mapeo.supplierDesc,
 
-      // Datos de Alegra — nombre y referencia ACTUALES del catálogo.
-      alegraItemId: mapeo.alegraItemId,
-      alegraReference: referenciaActual,
-      alegraName: nombreActual,
+      // El producto propio — nombre y referencia ACTUALES del maestro.
+      productoPropioId: actual ? actual.id : null,
+      productoReferencia: referenciaActual,
+      productoNombre: nombreActual,
       // Para poder avisar en pantalla en vez de mostrar un dato muerto.
-      alegraNombreGuardado: mapeo.alegraName,
+      nombreGuardado: mapeo.alegraName,
       nombreDesactualizado,
       productoExisteEnCatalogo: productoExiste,
 
@@ -209,9 +208,9 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
       // Información de relación (para compatibilidad con frontend)
       mapeo: {
         id: mapeo.id,
-        alegraItemId: mapeo.alegraItemId,
-        alegraName: nombreActual,
-        alegraReference: referenciaActual,
+        productoPropioId: actual ? actual.id : null,
+        productoNombre: nombreActual,
+        productoReferencia: referenciaActual,
         confidence: mapeo.confidence,
         factorConversion: mapeo.factorConversion || 1
       }
@@ -228,15 +227,21 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
 }
 
 /**
- * Obtener todas las relaciones de un producto de Alegra (con diferentes proveedores),
- * con el último costo real de cada proveedor (descuento + IVA real de la línea)
+ * Obtener todas las relaciones de un producto PROPIO (con sus distintos
+ * proveedores), con el último costo real de cada proveedor (descuento + IVA
+ * real de la línea).
  */
-async function getRelacionesDeProducto(alegraItemId) {
-  console.log(`🔍 Obteniendo todas las relaciones para producto Alegra: ${alegraItemId}`);
+async function getRelacionesDeProducto(productoPropioId) {
+  const producto = await productoPropio(productoPropioId);
+  console.log(`🔍 Obteniendo todas las relaciones del producto ${producto.id}`);
+
+  // `producto_id` no está en el esquema de Prisma: los ids de los mapeos se
+  // traen aparte y Prisma arma el resto.
+  const { rows: suyos } = await query('SELECT id FROM supplier_product_mapping WHERE producto_id = $1', [producto.id]);
 
   const relaciones = await prisma.supplierProductMapping.findMany({
     where: {
-      alegraItemId: alegraItemId.toString()
+      id: { in: suyos.map(m => m.id) }
     },
     orderBy: [
       { confidence: 'desc' },
@@ -312,10 +317,10 @@ async function getRelacionesDeProducto(alegraItemId) {
       },
       codigoProveedor: mapeo.supplierCode,
       descripcionProveedor: mapeo.supplierDesc,
-      productoAlegra: {
-        id: mapeo.alegraItemId,
-        reference: mapeo.alegraReference,
-        name: mapeo.alegraName
+      producto: {
+        id: producto.id,
+        reference: producto.referencia,
+        name: producto.nombre
       },
       confianza: mapeo.confidence,
       factorConversion: factor,
@@ -342,10 +347,10 @@ async function getRelacionesDeProducto(alegraItemId) {
   });
 
   return {
-    productoAlegra: {
-      id: alegraItemId,
-      reference: relaciones[0]?.alegraReference || null,
-      name: relaciones[0]?.alegraName || null
+    producto: {
+      id: producto.id,
+      reference: producto.referencia || null,
+      name: producto.nombre
     },
     relaciones: relacionesFormateadas,
     total: relacionesFormateadas.length
@@ -353,291 +358,110 @@ async function getRelacionesDeProducto(alegraItemId) {
 }
 
 /**
- * Crear nueva relación producto-proveedor con Alegra
+ * Relacionar una línea de factura de proveedor con un producto PROPIO.
+ *
+ * El producto sale del maestro (`producto`), por su id. Antes se pedía el id
+ * de Alegra, se buscaba en la caché y, si no estaba, se le preguntaba a Alegra
+ * en vivo: un producto creado en el sistema no se podía relacionar.
  */
-async function crearRelacion({ productoProveedorId, alegraItemId }) {
-  console.log(`🔗 Creando relación: Producto ${productoProveedorId} → Alegra ${alegraItemId}`);
+async function crearRelacion({ productoProveedorId, productoPropioId }) {
+  console.log(`🔗 Creando relación: línea ${productoProveedorId} → producto ${productoPropioId}`);
 
-  const producto = await prisma.productoFactura.findUnique({
+  const linea = await prisma.productoFactura.findUnique({
     where: { id: productoProveedorId },
     include: { factura: true }
   });
 
-  if (!producto) {
+  if (!linea) {
     throw httpError(404, 'Producto del proveedor no encontrado');
   }
 
-  // Obtener info del producto de Alegra desde caché local o API
-  let alegraProduct = await prisma.alegraProduct.findUnique({
-    where: { alegraId: alegraItemId.toString() }
-  });
+  const producto = await productoPropio(productoPropioId);
 
-  // Si no está en caché, buscar en la API de Alegra
-  if (!alegraProduct) {
-    console.log(`📡 Producto ${alegraItemId} no en caché, consultando Alegra API...`);
-    try {
-      const alegraData = await obtenerProductoAlegra(alegraItemId);
-
-      // Extraer reference como string
-      const refStr = typeof alegraData.reference === 'object'
-        ? alegraData.reference?.reference || ''
-        : alegraData.reference || '';
-
-      // Guardar en caché para futuras búsquedas
-      alegraProduct = await prisma.alegraProduct.create({
-        data: {
-          alegraId: alegraData.id.toString(),
-          name: alegraData.name,
-          reference: refStr,
-          price: alegraData.price?.[0]?.price || 0,
-          searchText: `${alegraData.name} ${refStr}`.toLowerCase()
-        }
-      });
-
-      console.log(`✅ Producto guardado en caché: ${alegraProduct.name}`);
-    } catch (alegraError) {
-      console.error('❌ Error obteniendo producto de Alegra:', alegraError);
-      throw httpError(404, `Producto de Alegra no encontrado: ${alegraError.message}`);
-    }
-  }
-
-  // Crear o actualizar mapeo usando upsert
-  const mapeo = await prisma.supplierProductMapping.upsert({
-    where: {
-      supplierCedula_supplierCode: {
-        supplierCedula: producto.factura.proveedorCedula,
-        supplierCode: producto.codigoProveedor
-      }
-    },
-    update: {
-      supplierName: producto.factura.proveedorNombre.trim(),
-      supplierDesc: producto.descripcion,
-      alegraItemId: alegraItemId.toString(),
-      alegraReference: alegraProduct.reference,
-      alegraName: alegraProduct.name,
-      confidence: 100,
-      lastUsedDate: new Date(),
-      timesUsed: { increment: 1 }
-    },
-    create: {
-      supplierName: producto.factura.proveedorNombre.trim(),
-      supplierCedula: producto.factura.proveedorCedula,
-      supplierCode: producto.codigoProveedor,
-      supplierDesc: producto.descripcion,
-      alegraItemId: alegraItemId.toString(),
-      alegraReference: alegraProduct.reference,
-      alegraName: alegraProduct.name,
-      confidence: 100,
-      origen: 'manual'
-    }
-  });
+  const mapeo = await guardarMapeo({
+    cedula: linea.factura.proveedorCedula,
+    codigo: linea.codigoProveedor,
+    nombreProveedor: linea.factura.proveedorNombre,
+    descripcion: linea.descripcion
+  }, producto);
   console.log(`✅ Mapeo guardado: ID ${mapeo.id}`);
 
-  // Actualizar producto como RELACIONADO
-  const productoActualizado = await prisma.productoFactura.update({
-    where: { id: productoProveedorId },
-    data: {
-      alegraItemId: alegraItemId.toString(),
-      estadoRelacionado: 'RELACIONADO',
-      confianza: 100,
-      mapeoId: mapeo.id
-    }
-  });
+  await relacionarLineas({ lineaIds: [productoProveedorId] }, producto, { mapeoId: mapeo.id });
+  const productoActualizado = await prisma.productoFactura.findUnique({ where: { id: productoProveedorId } });
 
   // El costo de esta compra entra a costo_historico en el momento en que la
   // línea queda relacionada — antes esto solo pasaba al correr el backfill a
   // mano, así que los costos envejecían sin que nadie se enterara.
   await sincronizarCostoDeLineas([productoProveedorId]);
 
-  // Verificar si todos los productos de la factura están relacionados
-  const totalProductos = await prisma.productoFactura.count({
-    where: { facturaId: producto.facturaId }
-  });
+  // El avance de la factura se vuelve a contar desde sus líneas.
+  const [avance] = await recalcularAvance([productoProveedorId]);
+  if (avance?.completa) console.log(`🎉 Factura ${linea.facturaId} ahora está 100% relacionada`);
 
-  const productosRelacionados = await prisma.productoFactura.count({
-    where: {
-      facturaId: producto.facturaId,
-      estadoRelacionado: 'RELACIONADO'
-    }
-  });
-
-  const porcentajeRelacionado = Math.round((productosRelacionados / totalProductos) * 100);
-
-  // Si está 100% relacionado, actualizar estado de la factura
-  if (porcentajeRelacionado === 100) {
-    try {
-      await prisma.factura.update({
-        where: { id: producto.facturaId },
-        data: {
-          estadoRelacionado: 'RELACIONADO',
-          porcentajeRelacionado: 100
-        }
-      });
-      console.log(`🎉 Factura ${producto.facturaId} ahora está 100% relacionada`);
-    } catch (err) {
-      // Ignorar si las columnas no existen aún (migración pendiente)
-      console.log(`⚠️ No se pudo actualizar estado de factura (migración pendiente): ${err.message}`);
-    }
-  } else {
-    try {
-      await prisma.factura.update({
-        where: { id: producto.facturaId },
-        data: {
-          porcentajeRelacionado: porcentajeRelacionado
-        }
-      });
-    } catch (err) {
-      // Ignorar si las columnas no existen aún
-      console.log(`⚠️ No se pudo actualizar porcentaje (migración pendiente)`);
-    }
-  }
-
-  console.log(`✅ Producto relacionado: ${producto.descripcion} → ${alegraProduct.name}`);
+  console.log(`✅ Producto relacionado: ${linea.descripcion} → ${producto.nombre}`);
 
   return {
     message: 'Producto relacionado exitosamente',
-    producto: productoActualizado,
-    mapeo: mapeo,
-    porcentajeRelacionado: porcentajeRelacionado,
-    facturaCompleta: porcentajeRelacionado === 100
+    producto: { ...productoActualizado, productoPropioId: producto.id },
+    mapeo: comoMapeo(mapeo),
+    porcentajeRelacionado: avance ? avance.porcentaje : 0,
+    facturaCompleta: Boolean(avance?.completa)
   };
 }
 
 /**
- * Ajustar cantidad y/o precio de producto (y opcionalmente el precio en Alegra)
+ * El mapeo como lo esperan las pantallas: los nombres de siempre (camelCase)
+ * más el producto propio.
  */
-async function ajustarProducto({ productoId, nuevaCantidad, nuevoPrecio, alegraItemId }) {
-  console.log(`⚙️ Ajustando producto: ${productoId}`);
-
-  const productoActual = await prisma.productoFactura.findUnique({
-    where: { id: productoId }
-  });
-
-  if (!productoActual) {
-    throw httpError(404, 'Producto no encontrado');
-  }
-
-  const cantidadFinal = nuevaCantidad || productoActual.cantidad;
-  const precioFinal = nuevoPrecio || productoActual.precioUnitario;
-  const totalLineaFinal = cantidadFinal * precioFinal;
-
-  // Si se actualiza precio Y hay alegraItemId, actualizar precio en Alegra
-  if (nuevoPrecio && alegraItemId) {
-    try {
-      // El precio del frontend viene CON IVA; Alegra espera el precio SIN IVA
-      const impuestoTotal = productoActual.impuesto || 0;
-      const totalSinImpuesto = productoActual.totalLinea - impuestoTotal;
-      const porcentajeImpuesto = totalSinImpuesto > 0 ? (impuestoTotal / totalSinImpuesto) * 100 : 0;
-      const factorIVA = 1 + (porcentajeImpuesto / 100);
-      const precioSinIVA = nuevoPrecio / factorIVA;
-
-      await productService.updateProductPrice(alegraItemId, precioSinIVA);
-      console.log(`✅ Precio actualizado en Alegra: ${alegraItemId}`);
-    } catch (alegraError) {
-      console.error('❌ Error actualizando precio en Alegra:', alegraError);
-    }
-  }
-
-  const datosActualizacion = {};
-  if (nuevaCantidad) datosActualizacion.cantidad = cantidadFinal;
-  if (nuevoPrecio) datosActualizacion.precioUnitario = precioFinal;
-  if (nuevaCantidad || nuevoPrecio) datosActualizacion.totalLinea = totalLineaFinal;
-
-  const productoActualizado = await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: datosActualizacion
-  });
-
+function comoMapeo(m) {
   return {
-    message: 'Producto ajustado exitosamente',
-    cambios: {
-      cantidadAnterior: productoActual.cantidad,
-      cantidadNueva: productoActualizado.cantidad,
-      precioAnterior: productoActual.precioUnitario,
-      precioNuevo: productoActualizado.precioUnitario,
-      totalAnterior: productoActual.totalLinea,
-      totalNuevo: productoActualizado.totalLinea,
-      actualizoAlegra: !!(nuevoPrecio && alegraItemId)
-    },
-    producto: productoActualizado
+    id: m.id,
+    supplierName: m.supplier_name,
+    supplierCedula: m.supplier_cedula,
+    supplierCode: m.supplier_code,
+    supplierDesc: m.supplier_desc,
+    productoPropioId: m.producto_id,
+    productoNombre: m.alegra_name,
+    productoReferencia: m.alegra_reference,
+    confidence: Number(m.confidence),
+    origen: m.origen,
+    factorConversion: m.factor_conversion,
+    timesUsed: m.times_used,
+    lastUsedDate: m.last_used_date
   };
 }
 
 /**
- * Editar relación existente.
+ * Editar relación existente: el mismo código del proveedor pasa a ser otro
+ * producto, y con él todas las líneas que usan ese mapeo.
  *
  * NOTA: El frontend envía el ID del supplierProductMapping (mapeo.id),
- * no el ID del productoFactura. Por lo tanto, buscamos el mapeo y
- * actualizamos todos los productos de factura que lo usan.
+ * no el ID del productoFactura.
  */
-async function editarRelacion(mapeoId, nuevoAlegraItemId) {
-  console.log(`✏️ Editando relación para mapeo: ${mapeoId} → ${nuevoAlegraItemId}`);
+async function editarRelacion(mapeoId, nuevoProductoPropioId) {
+  console.log(`✏️ Editando relación para mapeo: ${mapeoId} → producto ${nuevoProductoPropioId}`);
 
-  const mapeo = await prisma.supplierProductMapping.findUnique({
-    where: { id: mapeoId },
-    include: {
-      productos: {
-        take: 1,
-        include: { factura: true }
-      }
-    }
-  });
-
+  const mapeo = await prisma.supplierProductMapping.findUnique({ where: { id: mapeoId } });
   if (!mapeo) {
     throw httpError(404, 'Relación no encontrada', { mapeoId });
   }
 
-  const productoEjemplo = mapeo.productos[0];
-  if (!productoEjemplo) {
-    throw httpError(404, 'No hay productos asociados a esta relación');
-  }
+  const producto = await productoPropio(nuevoProductoPropioId);
 
-  // Obtener info del nuevo producto de Alegra
-  const nuevoAlegraProduct = await prisma.alegraProduct.findUnique({
-    where: { alegraId: nuevoAlegraItemId }
-  });
-
-  if (!nuevoAlegraProduct) {
-    throw httpError(404, 'Nuevo producto de Alegra no encontrado');
-  }
-
-  // Actualizar el mapeo existente con el nuevo producto de Alegra
-  const mapeoActualizado = await prisma.supplierProductMapping.update({
-    where: { id: mapeoId },
-    data: {
-      alegraItemId: nuevoAlegraProduct.alegraId.toString(),
-      alegraReference: nuevoAlegraProduct.reference,
-      alegraName: nuevoAlegraProduct.name,
-      confidence: 100,
-      lastUsedDate: new Date(),
-      origen: 'manual'
-    }
-  });
-
-  // Actualizar todos los productos de factura que usan este mapeo
-  const resultado = await prisma.productoFactura.updateMany({
-    where: {
-      mapeoId: mapeoId
-    },
-    data: {
-      alegraItemId: nuevoAlegraItemId.toString(),
-      estadoRelacionado: 'RELACIONADO',
-      confianza: 100,
-      mapeoId: mapeoId // Mantener el mismo mapeoId
-    }
-  });
+  const mapeoActualizado = await cambiarProductoDelMapeo(mapeoId, producto);
+  const afectadas = await relacionarLineas({ deMapeoId: mapeoId }, producto, { mapeoId });
 
   // Cambió el producto de TODAS las líneas de este mapeo: hay que reescribir
   // sus costos para que no queden apuntando al producto anterior.
   await sincronizarCostoDeMapeo(mapeoId);
 
-  console.log(`✅ Relación editada: ${mapeo.supplierDesc} → ${nuevoAlegraProduct.name}`);
-  console.log(`✅ ${resultado.count} producto(s) actualizado(s)`);
+  console.log(`✅ Relación editada: ${mapeo.supplierDesc} → ${producto.nombre}`);
+  console.log(`✅ ${afectadas} producto(s) actualizado(s)`);
 
   return {
-    message: `Relación editada exitosamente. ${resultado.count} producto(s) actualizado(s)`,
-    productosAfectados: resultado.count,
-    mapeo: mapeoActualizado
+    message: `Relación editada exitosamente. ${afectadas} producto(s) actualizado(s)`,
+    productosAfectados: afectadas,
+    mapeo: comoMapeo(mapeoActualizado)
   };
 }
 
@@ -671,19 +495,15 @@ async function eliminarRelacionPorMapeo(mapeoId) {
 
   console.log(`🔍 Encontrados ${productosAfectados.length} productos usando este mapeo`);
 
-  const resultado = await prisma.productoFactura.updateMany({
-    where: {
-      mapeoId: mapeoId
-    },
-    data: {
-      alegraItemId: null,
-      estadoRelacionado: 'PENDIENTE',
-      confianza: null,
-      mapeoId: null
-    }
-  });
+  const resultado = { count: await soltarLineas({ deMapeoId: mapeoId }) };
 
   console.log(`✅ ${resultado.count} productos actualizados a PENDIENTE`);
+
+  // Esas líneas ya no son de ningún producto: sus compras salen del historial
+  // de costos (antes se quedaban ahí, y solo las ignoraba quien leía), y sus
+  // facturas vuelven a contar cuánto les falta.
+  await sincronizarCostoDeLineas(productosAfectados.map(p => p.id));
+  await recalcularAvance(productosAfectados.map(p => p.id));
 
   // Limpiar referencia en faltantes (si existiera)
   const faltantesActualizados = await query(
@@ -720,11 +540,8 @@ async function eliminarRelacionPorMapeo(mapeoId) {
 }
 
 /**
- * Crear producto nuevo en Alegra (con imagen opcional), guardarlo en caché
- * local y relacionarlo automáticamente con el producto del proveedor.
- */
-/**
- * Qué costo y qué precio proponerle a quien está creando un producto nuevo.
+ * Qué costo y qué precio proponerle a quien está creando un producto nuevo
+ * (el producto se crea en productoDesdeLinea.js).
  *
  * POR QUÉ HIZO FALTA
  * El formulario prellenaba AMBOS campos —precio de venta y costo— con el
@@ -741,15 +558,14 @@ async function eliminarRelacionPorMapeo(mapeoId) {
  *
  * Acá se calculan las dos cosas bien y con las piezas que ya existen:
  *   costo   calcularCostoUnitarioPropio (con IVA, con descuento, con factor),
- *           que es la convención con la que el resto del sistema escribe
- *           inventory.unitCost en Alegra.
+ *           que es la convención de `producto.costo_con_iva`.
  *   precio  el motor de precios, el mismo que sugiere en Revisión de Precios
  *           (margen real medido por categoría). Sin sugerencia confiable
  *           devuelve null y el formulario deja el campo vacío, en vez de
  *           inventar un número.
  *
  * La categoría llega desde el formulario porque se elige ahí mismo: el
- * margen meta depende de ella, y el producto todavía no existe en Alegra.
+ * margen meta depende de ella, y el producto todavía no existe.
  */
 async function precioSugerido(productoId, categoriaNombre) {
   const producto = await prisma.productoFactura.findUnique({
@@ -761,7 +577,7 @@ async function precioSugerido(productoId, categoriaNombre) {
   const { costoConIva, costoSinIvaConDescuento, factor, porcentajeIva, descuentoPorcentaje } =
     calcularCostoUnitarioPropio(producto, producto.mapeo?.factorConversion);
 
-  const costoUnitario = costoConIva / factor;   // el que va a Alegra
+  const costoUnitario = costoConIva / factor;   // el que va a `producto.costo_con_iva`
   const costoSinIva = costoSinIvaConDescuento / factor;
 
   const configPrecios = await obtenerConfigPrecios();
@@ -793,293 +609,6 @@ async function precioSugerido(productoId, categoriaNombre) {
   };
 }
 
-async function crearProducto(datos, imagen) {
-  const {
-    productoId, nombre, descripcion, referencia, unidad,
-    precio, costo, categoria, cantidadInicial, formaFarmaceutica,
-    codigoCabys, registroSanitario, esMedicamento, categoriaNombre,
-    imageUrl, fallbackImageUrl, factorConversion
-  } = datos;
-
-  // Si el proveedor factura este producto en una unidad distinta a como se
-  // vende (ej: factura 25 sueltos, se vende como 1 paquete de 25), el
-  // formulario ya manda "Cantidad Inicial" convertida a la unidad propia —
-  // acá solo se normaliza el factor para guardarlo en el mapeo, no se vuelve
-  // a aplicar a la cantidad.
-  const factorConversionNum = factorConversion ? parseFloat(factorConversion) : null;
-
-  const productoOriginal = await prisma.productoFactura.findUnique({
-    where: { id: productoId },
-    include: { factura: true }
-  });
-
-  if (!productoOriginal) {
-    throw httpError(404, 'Producto original no encontrado');
-  }
-
-  const normalizarTexto = (texto) => (texto || '')
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  const categoriaTexto = normalizarTexto(categoriaNombre);
-  const medicineCategoryIds = (process.env.ALEGRA_MEDICINE_CATEGORY_IDS || '22')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean);
-  const categoriaEsMedicamento =
-    medicineCategoryIds.includes(String(categoria)) ||
-    categoriaTexto.includes('medicamento') ||
-    categoriaTexto.includes('farmac');
-
-  const cabysAUsar = codigoCabys?.trim() || productoOriginal.codigoCabys;
-  const cabysEsMedicamento = cabysPareceMedicamento(cabysAUsar);
-
-  // MANDA LA CASILLA. Antes esto era un OR contra las reglas automáticas, y
-  // el CABYS '35' arrastraba pinturas, aceites y cosméticos: quien creaba un
-  // producto de línea de ciclo lo desmarcaba en pantalla y el servidor se lo
-  // volvía a marcar, exigiéndole forma farmacéutica y registro sanitario que
-  // ese producto no tiene ni puede tener.
-  //
-  // Las reglas automáticas siguen valiendo solo cuando quien envía NO se
-  // pronunció (no vino el campo). Si vino 'false', es una decisión tomada.
-  const sePronuncio = esMedicamento === 'true' || esMedicamento === 'false';
-  const medicamentoMarcado = sePronuncio
-    ? esMedicamento === 'true'
-    : (categoriaEsMedicamento || cabysEsMedicamento || Boolean(formaFarmaceutica || registroSanitario));
-  const formaFarmaceuticaLimpia = formaFarmaceutica?.trim();
-  const registroSanitarioLimpio = registroSanitario?.trim();
-
-  if (medicamentoMarcado && (!formaFarmaceuticaLimpia || !registroSanitarioLimpio)) {
-    throw httpError(400, 'Para medicamentos debes indicar forma farmacéutica y registro sanitario');
-  }
-
-  if (formaFarmaceuticaLimpia) {
-    const formCode = parseInt(formaFarmaceuticaLimpia, 10);
-    const isValidForm = !isNaN(formCode) && formCode >= 1 && formCode <= 229;
-    if (!isValidForm) {
-      throw httpError(400, 'Forma farmacéutica inválida');
-    }
-  }
-
-  console.log('🔍 Producto original de la factura:', {
-    descripcion: productoOriginal.descripcion,
-    codigoProveedor: productoOriginal.codigoProveedor,
-    codigoCabys: productoOriginal.codigoCabys,
-    impuesto: productoOriginal.impuesto,
-    precioUnitario: productoOriginal.precioUnitario
-  });
-
-  // Preparar datos para Alegra
-  const productoData = {
-    name: nombre.trim(),
-    // Sin descripción se manda vacía, NO el nombre. El fallback `|| nombre`
-    // tenía sentido cuando el formulario traía el campo precargado; al
-    // quitarlo del modal pasó a duplicar el nombre en Alegra sin que nadie lo
-    // pidiera (149 productos del catálogo quedaron así).
-    description: descripcion?.trim() || '',
-    reference: referencia?.trim() || productoOriginal.codigoProveedor,
-    price: parseFloat(precio),
-    cost: parseFloat(costo),
-    status: 'active',
-    type: 'product', // Siempre producto (no servicio) para inventario
-    unit: unidad || 'unit'
-  };
-
-  if (categoria) {
-    productoData.itemCategory = {
-      id: parseInt(categoria)
-    };
-  }
-
-  if (cantidadInicial && parseFloat(cantidadInicial) > 0) {
-    productoData.initialQuantity = parseFloat(cantidadInicial);
-  }
-
-  // Código CABYS (productKey): el editado por el usuario, o el original
-  if (cabysAUsar) {
-    productoData.productKey = cabysAUsar;
-    console.log('✅ Código CABYS agregado:', cabysAUsar);
-    if (codigoCabys && codigoCabys !== productoOriginal.codigoCabys) {
-      console.log('   📝 CABYS editado por usuario:', productoOriginal.codigoCabys, '→', cabysAUsar);
-    }
-  }
-
-  // Forma farmacéutica y registro sanitario (medicamentos)
-  if (formaFarmaceuticaLimpia) {
-    productoData.pharmaceuticalForm = formaFarmaceuticaLimpia;
-    console.log('✅ Forma farmacéutica agregada:', formaFarmaceuticaLimpia);
-  }
-
-  if (registroSanitarioLimpio) {
-    productoData.sanitaryRegistry = registroSanitarioLimpio;
-    console.log('✅ Registro sanitario agregado:', registroSanitarioLimpio);
-  }
-
-  // Impuestos (tax) - Detección automática desde el impuesto real de la línea
-  if (productoOriginal.impuesto > 0) {
-    const impuestoSeleccionado = obtenerImpuestoAlegra({
-      impuesto: productoOriginal.impuesto,
-      totalLinea: productoOriginal.totalLinea
-    }, await cargarImpuestosAlegra());
-
-    if (impuestoSeleccionado) {
-      productoData.tax = [{ id: impuestoSeleccionado.id }];
-      console.log(`✅ Impuesto aplicado: ${impuestoSeleccionado.nombre} (${impuestoSeleccionado.porcentaje}%) - ID: ${impuestoSeleccionado.id}`);
-    } else {
-      const porcentajeImpuesto = calcularPorcentajeIva({
-        impuesto: productoOriginal.impuesto,
-        totalLinea: productoOriginal.totalLinea
-      });
-      console.log(`⚠️ Impuesto ${porcentajeImpuesto.toFixed(2)}% no reconocido - Se aplicará sin impuesto`);
-    }
-  } else {
-    console.log('ℹ️ Producto sin impuesto (exento)');
-  }
-
-  console.log('📤 Datos a enviar a Alegra:', productoData);
-
-  // Crear producto en Alegra
-  const nuevoProductoAlegra = await productService.createProduct(productoData);
-
-  if (!nuevoProductoAlegra || !nuevoProductoAlegra.id) {
-    throw new Error('No se pudo crear el producto en Alegra');
-  }
-
-  const warnings = Array.isArray(nuevoProductoAlegra._warnings) ? nuevoProductoAlegra._warnings : [];
-
-  console.log(`✅ Producto creado en Alegra: ${nuevoProductoAlegra.id}`);
-
-  // Si hay imagen, subirla a Alegra usando endpoint /attachment
-  if (imagen) {
-    try {
-      console.log('📸 Subiendo imagen a Alegra...');
-      const FormData = require('form-data');
-      const formData = new FormData();
-
-      formData.append('image', imagen.buffer, {
-        filename: imagen.originalname,
-        contentType: imagen.mimetype
-      });
-
-      await productService.uploadProductImage(nuevoProductoAlegra.id, formData);
-      console.log('✅ Imagen subida exitosamente a Alegra');
-    } catch (imgError) {
-      console.error('⚠️ Error subiendo imagen (continuando):', imgError.message);
-      console.error('   Stack:', imgError.stack);
-      // No fallar si la imagen no se puede subir
-    }
-  } else if (imageUrl) {
-    // Imagen elegida desde el buscador de sugerencias (Brave) en vez de un
-    // archivo manual: se descarga server-side y se sube a Alegra. Si la
-    // imagen de tamaño completo falla (sitio de origen bloqueado), reintenta
-    // con la miniatura de respaldo antes de rendirse — mismo comportamiento
-    // que el buscador de imágenes en Gestión de Catálogo.
-    try {
-      console.log('📸 Subiendo imagen sugerida a Alegra...');
-      const resultado = await productService.downloadAndUploadProductImage(nuevoProductoAlegra.id, imageUrl, fallbackImageUrl);
-      if (resultado.success) {
-        console.log('✅ Imagen sugerida subida exitosamente a Alegra');
-      } else {
-        console.error('⚠️ No se pudo subir la imagen sugerida (continuando):', resultado.error);
-      }
-    } catch (imgError) {
-      console.error('⚠️ Error subiendo imagen sugerida (continuando):', imgError.message);
-      // No fallar la creación del producto si la imagen no se puede subir
-    }
-  }
-
-  // Guardar en caché local.
-  //
-  // Se vuelve a leer el producto de Alegra en vez de usar la respuesta del
-  // alta por dos razones: la foto se sube DESPUÉS de crear, así que la
-  // respuesta del alta todavía no la trae; y la categoría viene resuelta a
-  // nombre (`itemCategory.name`), que es lo que muestra Gestión de Catálogo,
-  // mientras que acá solo se mandó el id.
-  //
-  // Antes se guardaban cinco campos —id, nombre, referencia, precio y texto
-  // de búsqueda— y el producto recién creado aparecía en Gestión de Catálogo
-  // sin foto y sin categoría hasta que corriera la sincronización completa.
-  // Si además se desactivaba antes de eso, se quedaba así para siempre: el
-  // sincronizador no reescribe campo por campo los productos inactivos.
-  const releido = await productService.getProductById(String(nuevoProductoAlegra.id))
-    .then(r => (r?.success ? r.data : null))
-    .catch(err => {
-      console.error('⚠️ No se pudo releer el producto de Alegra:', err.message);
-      return null;
-    });
-
-  const fila = filaDeCache(releido || nuevoProductoAlegra);
-  const refString = fila.reference;
-
-  // Si Alegra todavía no devuelve precio o costo se usan los que se acaban de
-  // enviar, en vez de dejar la fila en cero.
-  if (!fila.price) fila.price = parseFloat(precio) || 0;
-  if (!fila.cost) fila.cost = parseFloat(costo) || 0;
-
-  await prisma.alegraProduct.create({ data: fila })
-    .catch(err => console.error('Error guardando en caché:', err));
-
-  // Crear o actualizar mapeo usando upsert
-  const nuevoMapeo = await prisma.supplierProductMapping.upsert({
-    where: {
-      supplierCedula_supplierCode: {
-        supplierCedula: productoOriginal.factura.proveedorCedula,
-        supplierCode: productoOriginal.codigoProveedor
-      }
-    },
-    update: {
-      supplierName: productoOriginal.factura.proveedorNombre,
-      supplierDesc: productoOriginal.descripcion,
-      alegraItemId: nuevoProductoAlegra.id.toString(),
-      alegraReference: refString || referencia || '',
-      alegraName: nuevoProductoAlegra.name,
-      confidence: 100,
-      lastUsedDate: new Date(),
-      timesUsed: { increment: 1 },
-      origen: 'manual',
-      ...(factorConversionNum ? { factorConversion: factorConversionNum } : {})
-    },
-    create: {
-      supplierName: productoOriginal.factura.proveedorNombre,
-      supplierCedula: productoOriginal.factura.proveedorCedula,
-      supplierCode: productoOriginal.codigoProveedor,
-      supplierDesc: productoOriginal.descripcion,
-      alegraItemId: nuevoProductoAlegra.id.toString(),
-      alegraReference: refString || referencia || '',
-      alegraName: nuevoProductoAlegra.name,
-      confidence: 100,
-      origen: 'manual',
-      ...(factorConversionNum ? { factorConversion: factorConversionNum } : {})
-    }
-  });
-
-  // Actualizar producto como RELACIONADO
-  await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: {
-      alegraItemId: nuevoProductoAlegra.id.toString(),
-      estadoRelacionado: 'RELACIONADO',
-      confianza: 100,
-      mapeoId: nuevoMapeo.id
-    }
-  });
-
-  await sincronizarCostoDeLineas([productoId]);
-
-  console.log(`✅ Producto relacionado automáticamente: ${productoOriginal.descripcion} → ${nombre}`);
-
-  return {
-    message: warnings.length > 0
-      ? `Producto "${nombre}" creado y relacionado exitosamente, con advertencias`
-      : `Producto "${nombre}" creado y relacionado exitosamente`,
-    alegraProductId: nuevoProductoAlegra.id,
-    mapeoId: nuevoMapeo.id,
-    imagenSubida: !!imagen,
-    warnings
-  };
-}
-
 /**
  * Guardar factor de conversión en mapeo
  */
@@ -1108,120 +637,56 @@ async function guardarFactorConversion(mapeoId, factorNumerico) {
     mapeo: {
       id: mapeo.id,
       factorConversion: mapeo.factorConversion,
-      alegraItemId: mapeo.alegraItemId,
-      alegraName: mapeo.alegraName
+      productoNombre: mapeo.alegraName
     }
   };
 }
 
 /**
- * Buscar productos en la caché local de Alegra
+ * Buscar un producto para relacionarlo: en el maestro propio (`producto`).
+ *
+ * Antes se buscaba en `alegra_products_cache`, la copia de Alegra: un producto
+ * creado en el sistema no aparecía, así que no se podía relacionar.
+ *
+ * `id` es `producto.id`. Salen los activos, estén o no ocultos del catálogo:
+ * ocultar un producto es no mostrárselo al cliente, y se sigue comprando.
  */
-async function buscarEnCache(q) {
+async function buscarProductos(q) {
   const termino = String(q || '').trim();
-  console.log(`🔍 Buscando en caché local: "${termino}"`);
+  console.log(`🔍 Buscando en el maestro: "${termino}"`);
 
   const claves = palabrasClave(termino, 4);
-  const condiciones = [
-    { name: { contains: termino, mode: 'insensitive' } },
-    { reference: { contains: termino, mode: 'insensitive' } },
-    { searchText: { contains: termino, mode: 'insensitive' } },
-    ...claves.map(palabra => ({
-      searchText: {
-        contains: palabra,
-        mode: 'insensitive'
-      }
-    }))
-  ];
+  const patrones = [`%${termino}%`, ...claves.map(palabra => `%${palabra}%`)];
 
-  const productos = await prisma.alegraProduct.findMany({
-    where: {
-      AND: [
-        { status: 'active' },
-        { hiddenLocally: false },
-        { OR: condiciones }
-      ]
-    },
-    take: MAX_CANDIDATOS_BUSQUEDA_ALEGRA,
-    orderBy: {
-      name: 'asc'
-    }
-  });
+  const { rows } = await query(`
+    SELECT p.id, p.nombre AS name, p.referencia AS reference, p.precio_sin_iva AS price,
+           p.costo_con_iva AS cost, cat.nombre AS category
+      FROM producto p
+      LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+     WHERE p.activo = TRUE
+       AND (p.nombre ILIKE ANY($1::text[]) OR COALESCE(p.referencia, '') ILIKE $2)
+     ORDER BY p.nombre
+     LIMIT ${MAX_CANDIDATOS_BUSQUEDA_ALEGRA}
+  `, [patrones, `%${termino}%`]);
 
-  const productosOrdenados = ordenarProductosPorRelevancia(termino, productos);
+  const productosOrdenados = ordenarProductosPorRelevancia(termino, rows.map(p => ({
+    ...p,
+    // El comparador de relevancia mira nombre y referencia juntos.
+    searchText: `${p.name} ${p.reference || ''}`.toLowerCase()
+  })));
 
   const productosFormateados = productosOrdenados.map(p => ({
-    id: p.alegraId,
+    id: p.id,
+    productoPropioId: p.id,
     name: p.name,
     reference: p.reference,
-    price: p.price,
-    cost: p.cost,
+    price: p.price === null ? null : Number(p.price),
+    cost: p.cost === null ? null : Number(p.cost),
     category: p.category,
     similarityScore: p.similarityScore
   }));
 
   return { productos: productosFormateados, total: productosFormateados.length };
-}
-
-/**
- * Buscar productos directamente en la API de Alegra
- */
-async function buscarEnAlegra(q) {
-  console.log(`🔍 Buscando en Alegra API: "${q}"`);
-
-  const resultado = await productService.searchProducts(q.trim());
-  const productos = resultado.success ? resultado.data : [];
-
-  return { productos, total: productos.length };
-}
-
-/**
- * Obtener información completa de un producto de Alegra (caché primero, API si no está)
- */
-async function getInfoAlegra(alegraItemId) {
-  console.log(`📦 Obteniendo info de producto Alegra ${alegraItemId}`);
-
-  let producto = await prisma.alegraProduct.findUnique({
-    where: { alegraId: alegraItemId.toString() }
-  });
-
-  // Si no está en caché, consultar API
-  if (!producto) {
-    const alegraData = await obtenerProductoAlegra(alegraItemId);
-
-    // Extraer reference como string
-    const refStr = typeof alegraData.reference === 'object'
-      ? alegraData.reference?.reference || ''
-      : alegraData.reference || '';
-
-    producto = await prisma.alegraProduct.create({
-      data: {
-        alegraId: alegraData.id.toString(),
-        name: alegraData.name,
-        reference: refStr,
-        price: alegraData.price?.[0]?.price || 0,
-        searchText: `${alegraData.name} ${refStr}`.toLowerCase()
-      }
-    });
-  }
-
-  // Buscar factor de conversión si existe
-  const mapeo = await prisma.supplierProductMapping.findFirst({
-    where: {
-      alegraItemId: alegraItemId.toString()
-    },
-    orderBy: {
-      lastUsedDate: 'desc'
-    }
-  });
-
-  return {
-    producto: {
-      ...producto,
-      price: parseFloat(producto.price || 0),
-      factorConversion: mapeo?.factorConversion || 1
-    }
-  };
 }
 
 /**
@@ -1240,15 +705,11 @@ async function eliminarRelacionDeProducto(productoId) {
     throw httpError(404, 'Producto no encontrado');
   }
 
-  await prisma.productoFactura.update({
-    where: { id: productoId },
-    data: {
-      estadoRelacionado: 'PENDIENTE',
-      alegraItemId: null,
-      mapeoId: null,
-      confianza: null
-    }
-  });
+  await soltarLineas({ lineaIds: [productoId] });
+  // La línea ya no es de ningún producto: su costo sale del historial, y a
+  // su factura le vuelve a faltar una.
+  await sincronizarCostoDeLineas([productoId]);
+  await recalcularAvance([productoId]);
 
   console.log(`✅ Relación eliminada`);
 
@@ -1283,20 +744,27 @@ async function getMapeoDeProducto(productoId) {
     throw httpError(404, 'Mapeo no encontrado');
   }
 
+  const { rows: [propio] } = await query(`
+    SELECT m.producto_id, p.nombre, p.referencia
+      FROM supplier_product_mapping m LEFT JOIN producto p ON p.id = m.producto_id
+     WHERE m.id = $1`, [mapeo.id]);
+
   return {
     mapeo: {
       id: mapeo.id,
       factorConversion: mapeo.factorConversion || 1,
-      alegraItemId: mapeo.alegraItemId,
-      alegraName: mapeo.alegraName,
+      productoPropioId: propio?.producto_id ?? null,
+      // El nombre de HOY del producto; el guardado en el mapeo es una foto.
+      productoNombre: propio?.nombre || mapeo.alegraName,
+      productoReferencia: propio?.referencia || mapeo.alegraReference,
       confidence: mapeo.confidence
     }
   };
 }
 
 /**
- * Obtener una factura específica con sus productos, enriquecidos con
- * información de Alegra (en lote desde la caché; API solo para faltantes)
+ * Obtener una factura de proveedor con sus líneas, cada una con el producto
+ * propio con el que está relacionada (`productoPropioId`, `productoInfo`).
  */
 async function getFacturaConProductos(facturaId) {
   console.log(`📄 Obteniendo factura de Prisma: ${facturaId}`);
@@ -1316,72 +784,29 @@ async function getFacturaConProductos(facturaId) {
     throw httpError(404, 'Factura no encontrada');
   }
 
-  // Enriquecer productos con información de Alegra en lote (1 sola consulta en vez de N)
-  const alegraItemIds = factura.productos
-    .map(p => p.alegraItemId)
-    .filter(Boolean);
+  // El producto de cada línea, del maestro propio y en una sola consulta.
+  // `producto_id` no está en el esquema de Prisma (migración 038): se lee
+  // aparte, por el id de la línea.
+  const idsDeLineas = factura.productos.map(p => p.id);
+  const propios = idsDeLineas.length > 0
+    ? await query(`
+        SELECT l.id AS linea_id, p.id, p.nombre, p.referencia, p.precio_sin_iva
+          FROM productos_factura_proveedor l
+          JOIN producto p ON p.id = l.producto_id
+         WHERE l.id = ANY($1::uuid[])`, [idsDeLineas])
+    : { rows: [] };
+  const propioPorLinea = new Map(propios.rows.map(r => [r.linea_id, r]));
 
-  const cachedProducts = alegraItemIds.length > 0
-    ? await prisma.alegraProduct.findMany({
-        where: { alegraId: { in: alegraItemIds } }
-      })
-    : [];
-
-  const cacheMap = new Map(cachedProducts.map(p => [p.alegraId, p]));
-
-  const productosEnriquecidos = await Promise.all(
-    factura.productos.map(async (producto) => {
-      let alegraProductInfo = null;
-
-      if (producto.alegraItemId) {
-        const alegraProduct = cacheMap.get(producto.alegraItemId);
-
-        if (alegraProduct) {
-          alegraProductInfo = {
-            id: alegraProduct.alegraId,
-            name: alegraProduct.name,
-            reference: alegraProduct.reference,
-            price: parseFloat(alegraProduct.price || 0)
-          };
-        } else {
-          // Si no está en caché, consultar API
-          try {
-            const alegraData = await obtenerProductoAlegra(producto.alegraItemId);
-            if (alegraData) {
-              const refStr = typeof alegraData.reference === 'object'
-                ? alegraData.reference?.reference || ''
-                : alegraData.reference || '';
-
-              alegraProductInfo = {
-                id: alegraData.id,
-                name: alegraData.name,
-                reference: refStr,
-                price: alegraData.price?.[0]?.price || 0
-              };
-
-              // Guardar en caché para futuras consultas
-              await prisma.alegraProduct.create({
-                data: {
-                  alegraId: alegraData.id.toString(),
-                  name: alegraData.name,
-                  reference: refStr,
-                  price: alegraData.price?.[0]?.price || 0,
-                  searchText: `${alegraData.name} ${refStr}`.toLowerCase()
-                }
-              }).catch(err => console.error('Error guardando en caché:', err));
-            }
-          } catch (err) {
-            console.error(`⚠️ Error obteniendo producto Alegra ${producto.alegraItemId}:`, err.message);
-          }
-        }
-      }
-
-      return {
-        ...producto,
-        alegraProductInfo
-      };
-    })
-  );
+  const productosEnriquecidos = factura.productos.map((linea) => {
+    const propio = propioPorLinea.get(linea.id) || null;
+    return {
+      ...linea,
+      productoPropioId: propio ? propio.id : null,
+      productoInfo: propio
+        ? { id: propio.id, name: propio.nombre, reference: propio.referencia, price: Number(propio.precio_sin_iva) || 0 }
+        : null
+    };
+  });
 
   return {
     data: {
@@ -1396,14 +821,10 @@ module.exports = {
   getRelacionados,
   getRelacionesDeProducto,
   crearRelacion,
-  ajustarProducto,
   editarRelacion,
   eliminarRelacionPorMapeo,
-  crearProducto,
   guardarFactorConversion,
-  buscarEnCache,
-  buscarEnAlegra,
-  getInfoAlegra,
+  buscarProductos,
   eliminarRelacionDeProducto,
   getMapeoDeProducto,
   getFacturaConProductos

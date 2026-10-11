@@ -1,17 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Undo2, Loader2, CalendarX, Receipt } from 'lucide-react'
 import { formatCurrency, formatFecha, formatFechaHora, categoriaInfo, quincenaLabel } from '../../utils/pagosRecurrentesUtils'
+import { getOpcionesPago } from '../../services/configuracionService'
 
 /**
  * Los pagos que caen en el mes. Cada fila pendiente trae su propio campo de
  * monto ya cargado con el estimado: el caso normal es que la luz llegue por
  * un monto distinto al presupuestado, así que se corrige y se marca pagado
  * en un solo gesto, sin abrir nada.
+ *
+ * SALE DE CAJA GENERAL (decisión del usuario: no hay cajas separadas) y dice
+ * CÓMO se pagó —efectivo, SINPE, transferencia—, que es lo que decide si
+ * baja el efectivo al cerrar la caja. La fila trae elegido el método que se
+ * usó la última vez para ese mismo gasto, así que sigue siendo un solo gesto.
  */
-function FilaPago({ pago, onPagar, onRevertir }) {
+function FilaPago({ pago, metodos, onPagar, onRevertir }) {
   // Vacío (no '0') mientras se espera la consulta, para que se vea el
   // placeholder '—' en vez de un cero que parece un monto real.
   const [monto, setMonto] = useState(pago.esperandoConsulta ? '' : String(pago.monto ?? ''))
+  const [metodoId, setMetodoId] = useState(pago.metodoSugeridoId ? String(pago.metodoSugeridoId) : '')
   const [guardando, setGuardando] = useState(false)
   const info = categoriaInfo(pago.categoria)
   const quincena = quincenaLabel(pago.periodo)
@@ -19,7 +26,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
   const pagar = async () => {
     setGuardando(true)
     try {
-      await onPagar(pago, monto)
+      await onPagar(pago, monto, Number(metodoId))
     } finally {
       setGuardando(false)
     }
@@ -47,7 +54,7 @@ function FilaPago({ pago, onPagar, onRevertir }) {
         <p className="text-xs text-neutro-500 mt-0.5">
           {pago.proveedor && <>{pago.proveedor} · </>}
           Vence {formatFecha(pago.fechaVencimiento)}
-          {pagado && <> · pagado {formatFecha(pago.fechaPago)}</>}
+          {pagado && <> · pagado {formatFecha(pago.fechaPago)}{pago.metodo && <> · {pago.metodo}</>}</>}
         </p>
         {/* Trazabilidad del recibo traído por la consulta automática: sin
             esto el monto aparece "por arte de magia" y no hay forma de
@@ -81,7 +88,18 @@ function FilaPago({ pago, onPagar, onRevertir }) {
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <select
+            value={metodoId}
+            onChange={(e) => setMetodoId(e.target.value)}
+            aria-label="Cómo se pagó"
+            className={`py-2 px-2 border-2 rounded-xl text-sm font-semibold focus:outline-none focus:border-primario-500 ${
+              metodoId ? 'border-neutro-200 text-neutro-800' : 'border-alerta-200 text-neutro-500'
+            }`}
+          >
+            <option value="" disabled>¿Cómo se pagó?</option>
+            {metodos.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+          </select>
           <div className="relative">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-neutro-400 font-bold">₡</span>
             <input
@@ -98,7 +116,8 @@ function FilaPago({ pago, onPagar, onRevertir }) {
           </div>
           <button
             onClick={pagar}
-            disabled={guardando}
+            disabled={guardando || !metodoId}
+            title={metodoId ? 'Sale de Caja General' : 'Elegí cómo se pagó'}
             className="bg-primario-600 hover:bg-primario-700 disabled:bg-neutro-200 text-white text-sm font-bold py-2 px-4 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap"
           >
             {guardando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
@@ -111,6 +130,13 @@ function FilaPago({ pago, onPagar, onRevertir }) {
 }
 
 export default function ListaPagosMes({ pagos, loading, onPagar, onRevertir }) {
+  const [metodos, setMetodos] = useState([])
+  useEffect(() => {
+    let cancelado = false
+    getOpcionesPago().then((o) => { if (!cancelado) setMetodos(o.metodos) }).catch(() => {})
+    return () => { cancelado = true }
+  }, [])
+
   return (
     <div className="card !p-0 overflow-hidden">
       <div className="px-5 py-4 border-b border-neutro-100 flex items-center justify-between">
@@ -126,7 +152,7 @@ export default function ListaPagosMes({ pagos, loading, onPagar, onRevertir }) {
       ) : (
         <div className="divide-y divide-neutro-100">
           {pagos.map(p => (
-            <FilaPago key={p.id} pago={p} onPagar={onPagar} onRevertir={onRevertir} />
+            <FilaPago key={p.id} pago={p} metodos={metodos} onPagar={onPagar} onRevertir={onRevertir} />
           ))}
         </div>
       )}

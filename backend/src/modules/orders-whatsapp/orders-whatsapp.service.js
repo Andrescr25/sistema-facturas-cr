@@ -11,6 +11,7 @@ const { query } = require('../../../config/database');
 const whatsapp = require('../../integrations/whatsapp');
 const enviosWhatsapp = require('../envios-whatsapp/envios.service');
 const cicloPedidos = require('./cicloPedidos');
+const { httpError } = require('../../utils/validacion');
 
 /**
  * Deja un teléfono costarricense como lo espera WhatsApp: 506 + 8 dígitos.
@@ -104,7 +105,7 @@ class OrdersWhatsappService {
         supplier_cedula as "supplierCedula",
         alegra_reference as "alegraReference",
         alegra_name as "alegraName",
-        alegra_item_id as "alegraItemId",
+        producto_id as "productoId",
         confidence,
         origen,
         factor_conversion as "factorConversion",
@@ -168,14 +169,17 @@ class OrdersWhatsappService {
       return pickFirstMatching(rows);
     };
 
-    const getMappingByAlegraId = async (alegraItemId) => {
-      if (!alegraItemId) return null;
+    // Por el id PROPIO del producto (`producto.id`), que es el que manda el
+    // reporte. Un id que no sea un entero positivo no es de ningún producto.
+    const getMappingByProducto = async (productoId) => {
+      const id = Number(productoId);
+      if (!Number.isInteger(id) || id <= 0) return null;
       const rows = await fetchMappings(
         `${mappingSelect}
-          WHERE alegra_item_id::text = $1
+          WHERE producto_id = $1
           ORDER BY last_used_date DESC, times_used DESC
           LIMIT 10`,
-        [alegraItemId.toString()]
+        [id]
       );
       return pickFirstMatching(rows, { skipStrictValidation: false });
     };
@@ -231,7 +235,7 @@ class OrdersWhatsappService {
           codigoProveedorEntrada: sanitizeCodigoProveedor(producto.codigoProveedor || producto.codigo_proveedor),
           nombreProveedorEntrada: normalize(producto.nombreProveedor || producto.nombre_proveedor),
           mappingId: producto.mappingId || producto.mapping_id || null,
-          alegraItemId: producto.alegraItemId || producto.alegra_item_id || null,
+          productoId: producto.productoId || producto.producto_id || null,
           cantidadFinal: parseInt(producto.cantidad, 10) || 0,
           factorConversion: producto.factorConversion || producto.factor_conversion || 1,
           observaciones: producto.observaciones || '',
@@ -273,10 +277,10 @@ class OrdersWhatsappService {
         }
 
         if (!mapping) {
-          const mappingByAlegra = await getMappingByAlegraId(payloadInfo.alegraItemId);
-          if (mappingByAlegra) {
-            mapping = mappingByAlegra;
-            mappingFuente = 'alegraId';
+          const mappingByProducto = await getMappingByProducto(payloadInfo.productoId);
+          if (mappingByProducto) {
+            mapping = mappingByProducto;
+            mappingFuente = 'productoId';
           }
         }
 
@@ -288,7 +292,7 @@ class OrdersWhatsappService {
           }
         }
 
-        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'alegraId' && !mappingMatchesProveedor(mapping)) {
+        if (mapping && mappingFuente !== 'mappingId' && mappingFuente !== 'productoId' && !mappingMatchesProveedor(mapping)) {
           mapping = null;
         }
 
@@ -594,10 +598,8 @@ class OrdersWhatsappService {
    * que no marcarlo.
    */
   async getOrdenesEnviadas(desde) {
-    // Y desde el último reinicio del ciclo de pedidos (cicloPedidos.js): la
-    // limpieza semanal vuelve a todos a "Sin enviar". GREATEST ignora el
-    // NULL de un reporte sin fecha de inicio.
-    await cicloPedidos.asegurarTabla();
+    // Conservar el corte histórico explícito y la fecha del reporte;
+    // nunca reiniciar por cambio de semana ni crear tablas en una consulta.
     const result = await query(`
       SELECT referencia,
              MAX(creado_en) AS ultimo_envio,
@@ -713,14 +715,10 @@ class OrdersWhatsappService {
   }
 
   /**
-   * Limpia toda la tabla temporal de orden de compra
+   * Compatibilidad retirada: no borrar el borrador histórico global
    */
   async limpiarCantidades() {
-    const countResult = await query('SELECT COUNT(*) FROM orden_compra_temporal');
-    const totalRegistros = parseInt(countResult.rows[0].count);
-
-    await query('DELETE FROM orden_compra_temporal');
-    return totalRegistros;
+    throw httpError(410, 'La limpieza global fue retirada. Las órdenes conservan su historial.');
   }
 
   /**
@@ -757,38 +755,79 @@ class OrdersWhatsappService {
   }
 
   /**
-   * Obtiene el teléfono de WhatsApp registrado de un proveedor
+   * La ficha del proveedor de una orden de compra, o null si no tiene.
+   *
+   * El reporte identifica a cada proveedor por la cédula con que se le asignó
+   * el faltante, y a los que se asignaron a mano, solo por el nombre. Se busca
+   * por CÉDULA, que en el maestro es única. Por nombre solo cuando la orden
+   * no trae cédula y hay UNA ficha con ese nombre exacto: el mismo proveedor
+   * aparece con dos grafías, y elegir entre dos fichas sería adivinar a quién
+   * se le escribe.
    */
-  async getProveedorContacto(nombreProveedor) {
-    const result = await query(
-      'SELECT telefono_whatsapp FROM proveedor_contactos WHERE nombre_proveedor = $1',
-      [nombreProveedor]
-    );
-    return result.rows.length > 0 ? result.rows[0].telefono_whatsapp : null;
+  async fichaDelProveedor({ cedula, nombre } = {}) {
+    const ced = String(cedula || '').trim();
+    if (ced && ced !== 'SIN_PROVEEDOR') {
+      const { rows } = await query(
+        'SELECT id, nombre, telefono_whatsapp FROM proveedor WHERE identificacion = $1', [ced]);
+      return rows[0] || null;
+    }
+
+    const texto = String(nombre || '').trim();
+    if (!texto) return null;
+    const { rows } = await query(
+      'SELECT id, nombre, telefono_whatsapp FROM proveedor WHERE lower(trim(nombre)) = lower($1) LIMIT 2', [texto]);
+    return rows.length === 1 ? rows[0] : null;
   }
 
   /**
-   * Guarda o actualiza el teléfono de WhatsApp de un proveedor.
+   * El WhatsApp al que se le manda la orden a ese proveedor: el de su FICHA.
    *
-   * Se guarda YA NORMALIZADO (506 + 8 dígitos). Limpiarlo solo al enviar
-   * dejaría la basura invisible guardada para siempre, reapareciendo en cada
-   * pantalla que muestre el teléfono; y un número imposible se rechaza acá,
-   * al escribirlo, que es cuando la persona todavía lo tiene a la vista.
+   * Hasta el 2026-10-04 salía de `proveedor_contactos`, una tabla aparte
+   * llaveada por el NOMBRE del proveedor. La ficha tiene su propio campo
+   * ("WhatsApp (para la orden de compra)") y no se usaba: cambiarlo ahí no
+   * cambiaba a dónde iba la orden. Eran dos lugares para el mismo dato.
    */
-  async guardarProveedorContacto(nombreProveedor, cedulaProveedor, telefono) {
+  async getProveedorContacto({ cedula, nombre } = {}) {
+    const ficha = await this.fichaDelProveedor({ cedula, nombre });
+    return {
+      proveedorId: ficha ? ficha.id : null,
+      telefono: ficha?.telefono_whatsapp || null
+    };
+  }
+
+  /**
+   * Guarda en la ficha el WhatsApp que se usó para mandar la orden.
+   *
+   * Un número imposible se rechaza acá, al escribirlo, que es cuando la
+   * persona todavía lo tiene a la vista — y nunca se guarda con la basura
+   * invisible que trae un número copiado y pegado.
+   *
+   * Pasa por `editarFicha`, igual que si lo cambiaran desde la pestaña Fichas:
+   * misma validación, EL MISMO FORMATO en que la ficha guarda sus teléfonos
+   * ("8888 2222"; al mandar se le vuelve a poner el 506), y queda en la
+   * bitácora quién lo cambió. Un proveedor sin ficha no tiene dónde
+   * guardarlo: se dice, y la orden se manda igual con el número escrito.
+   */
+  async guardarProveedorContacto({ cedula, nombre, telefono } = {}, usuarioId = null) {
     const telefonoLimpio = normalizarTelefonoCR(telefono);
 
-    const result = await query(`
-      INSERT INTO proveedor_contactos (nombre_proveedor, cedula_proveedor, telefono_whatsapp, updated_at)
-      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-      ON CONFLICT (nombre_proveedor) DO UPDATE SET
-        telefono_whatsapp = EXCLUDED.telefono_whatsapp,
-        cedula_proveedor = COALESCE(EXCLUDED.cedula_proveedor, proveedor_contactos.cedula_proveedor),
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `, [nombreProveedor, cedulaProveedor || null, telefonoLimpio]);
+    const ficha = await this.fichaDelProveedor({ cedula, nombre });
+    if (!ficha) {
+      throw Object.assign(
+        new Error(`${String(nombre || 'Ese proveedor').trim()} no tiene ficha: el número no se guardó. Se puede crear en la pestaña Fichas.`),
+        { status: 404 });
+    }
+    // Sin cambio no se escribe: no ensucia la bitácora con cada envío. Se
+    // comparan como número, porque la ficha puede tenerlo con o sin el 506.
+    let actual = null;
+    try { actual = ficha.telefono_whatsapp ? normalizarTelefonoCR(ficha.telefono_whatsapp) : null; } catch { actual = null; }
+    if (actual === telefonoLimpio) {
+      return { proveedorId: ficha.id, telefono: ficha.telefono_whatsapp, cambiado: false };
+    }
 
-    return result.rows[0];
+    const { editarFicha } = require('../proveedores/proveedores.maestro.service');
+    const guardada = await editarFicha(ficha.id, { telefono_whatsapp: telefonoLimpio }, usuarioId);
+    return { proveedorId: ficha.id, telefono: guardada.telefono_whatsapp, cambiado: true };
   }
 }
 

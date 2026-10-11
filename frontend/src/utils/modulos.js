@@ -19,6 +19,7 @@ export const MODULOS = [
   { clave: 'cotizaciones', nombre: 'Cotizaciones', grupo: 'Ventas', ruta: '/cotizaciones' },
   { clave: 'facturas-bodega', nombre: 'Facturas en Bodega', grupo: 'Ventas', ruta: '/facturas-bodega' },
   { clave: 'clientes', nombre: 'Clientes', grupo: 'Ventas', ruta: '/clientes' },
+  { clave: 'entregas', nombre: 'Carga y Entregas', grupo: 'Ventas', ruta: '/entregas' },
   { clave: 'cuentas-por-cobrar', nombre: 'Cuentas por Cobrar', grupo: 'Ventas', ruta: '/cuentas-por-cobrar' },
   { clave: 'reporte-clientes', nombre: 'Reporte Clientes', grupo: 'Ventas', ruta: '/reportes/clientes' },
   { clave: 'impresion', nombre: 'Impresión', grupo: 'Ventas', ruta: '/impresion' },
@@ -62,6 +63,24 @@ export function porGrupo() {
  * en vez de decir que no hay acceso. Espeja RUTAS_ADMIN del backend.
  */
 export const RUTAS_ADMIN = ['/usuarios']
+
+/**
+ * Acciones que solo hace un administrador AUNQUE la persona tenga el módulo.
+ *
+ * Decisión del usuario (2026-10-03): anular una factura, anular un cobro y
+ * reabrir una caja ya cerrada. Espeja `ACCIONES_ADMIN` del backend
+ * (usuarios/modulos.js); una prueba compara las dos listas.
+ *
+ * Esto solo decide si se DIBUJA el botón. Quien protege es el servidor, que
+ * responde 403 aunque alguien llame la ruta a mano.
+ */
+export const ACCIONES_SOLO_ADMIN = ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega']
+
+export function puedeAccion(usuario, clave) {
+  if (!usuario) return false
+  if (ACCIONES_SOLO_ADMIN.includes(clave)) return Boolean(usuario.esAdmin)
+  return true
+}
 
 /**
  * ¿Este usuario ve esta ruta?

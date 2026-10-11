@@ -20,7 +20,18 @@ after(() => {
   else process.env.JWT_SECRET = SECRETO_PREVIO;
 });
 
-const { tokenDe, idDesdeToken, enlaceDe } = require('../src/modules/cotizaciones/enlacePublico');
+const crypto = require('crypto');
+const { tokenDe, leerToken, enlaceDe } = require('../src/modules/cotizaciones/enlacePublico');
+
+/** El id propio dentro del token, o null. */
+const idDesdeToken = (t) => {
+  const llave = leerToken(t);
+  return llave && !llave.legado ? llave.id : null;
+};
+
+/** Un token como los que salieron por WhatsApp antes de la migración 029. */
+const tokenDeAlegra = (id) => `${id}-${crypto.createHmac('sha256', process.env.JWT_SECRET)
+  .update(`cotizacion:${id}`).digest('base64url').slice(0, 22)}`;
 
 describe('el token de una cotización', () => {
   test('se puede leer de vuelta', () => {
@@ -70,6 +81,14 @@ describe('el token de una cotización', () => {
     const url = enlaceDe('8');
     assert.match(url, /\/cotizacion\/8-/);
     assert.ok(url.startsWith('http'), 'tiene que ser una dirección completa para mandarla por WhatsApp');
+  });
+
+  test('un enlace viejo de Alegra NO abre la cotización propia con el mismo número', () => {
+    // El 11 de Alegra es de un cliente; el 11 propio, de otro. Si se firmaran
+    // igual, el enlace viejo mostraría nombre y precios ajenos.
+    assert.deepEqual(leerToken(tokenDeAlegra('11')), { id: '11', legado: true });
+    assert.deepEqual(leerToken(tokenDe('11')), { id: '11', legado: false });
+    assert.notEqual(tokenDeAlegra('11'), tokenDe('11'));
   });
 
   test('el mismo id da siempre el mismo enlace', () => {

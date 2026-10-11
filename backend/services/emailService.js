@@ -4,7 +4,7 @@ const imapConfig = require('../config/imap');
 const XmlParser = require('./xmlParser');
 const DatabaseService = require('./databaseService');
 const notasCreditoService = require('./notasCreditoService');
-const { getProductService } = require('../src/integrations/alegra');
+const almacenamiento = require('../src/integrations/almacenamiento');
 
 // Configuración de logging
 const VERBOSE_LOGGING = process.env.VERBOSE_LOGGING === 'true' || false;
@@ -14,7 +14,6 @@ class EmailService {
         this.imap = null;
         this.xmlParser = new XmlParser();
         this.dbService = new DatabaseService();
-        this.alegraProductService = getProductService();
         this.isConnected = false;
         this.isMonitoring = false;
         this.isClosingIntentionally = false; // ✅ Flag para evitar reconexión cuando cerramos a propósito
@@ -419,12 +418,36 @@ class EmailService {
 
         if (VERBOSE_LOGGING) console.log(`\n📄 Documento electrónico CR detectado: ${filename}`);
 
+        // EL XML SE GUARDA ACÁ, ANTES DE PARSEAR NADA — es la última vez que
+        // el Buffer completo existe en el camino. Hasta hoy se parseaba y se
+        // descartaba: la columna `archivo_xml` solo guarda el NOMBRE del
+        // adjunto, nunca su contenido (comprobado en las 862/882 facturas ya
+        // recibidas: ninguna trae un `<`). Se guarda como ruta, no como
+        // contenido — mismo criterio que las facturas de venta
+        // (`independencia/015`) — en un almacenamiento que NO se sirve por
+        // HTTP: un comprobante fiscal no puede quedar accesible sin sesión.
+        //
+        // Que no se pueda guardar no puede tumbar la ingestión: se sigue sin
+        // él, como se venía haciendo hasta ahora.
+        let xmlGuardado = null;
+        try {
+            xmlGuardado = await almacenamiento.guardarArchivo({
+                carpeta: 'compras-proveedor',
+                prefijo: 'xml',
+                buffer: attachment.content,
+                extension: 'xml'
+            });
+        } catch (error) {
+            console.error(`⚠️ No se pudo guardar el XML de ${filename}:`, error.message);
+        }
+        const xmlRuta = xmlGuardado?.ruta || null;
+
         // Las notas de crédito se desvían ANTES del flujo de compra: no son
         // una compra, son un descuento sobre una factura anterior. Meterlas
         // por el camino normal sumaría productos al inventario que en
         // realidad se devolvieron o ni siquiera se movieron.
         if (XmlParser.esNotaCredito(attachment.content)) {
-            return this.procesarNotaCredito(attachment.content, filename);
+            return this.procesarNotaCredito(attachment.content, filename, xmlRuta);
         }
 
         try {
@@ -454,6 +477,7 @@ class EmailService {
                 });
                 if (facturaExistente) {
                     if (VERBOSE_LOGGING) console.log(`⚠️ Factura ya existe en BD: ${claveFactura}`);
+                    if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
                     return;
                 }
             }
@@ -467,6 +491,7 @@ class EmailService {
             // Ignorar facturas de nuestra propia empresa
             if (facturaData.emisor.identificacion.numero === '204050474') {
                 if (VERBOSE_LOGGING) console.log(`🚫 Factura de nuestra empresa (Distribuidora Tachi), ignorando`);
+                if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
                 return;
             }
 
@@ -483,10 +508,11 @@ class EmailService {
             }
 
             // Procesar la factura parseada
-            await this.processParsedFactura(facturaData, filename, `${seqno}`);
+            await this.processParsedFactura(facturaData, filename, `${seqno}`, xmlRuta);
 
         } catch (error) {
             console.error(`❌ Error procesando ${filename}:`, error.message);
+            if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
         }
     }
 
@@ -496,7 +522,7 @@ class EmailService {
      * revisión humana porque el XML no distingue una devolución física de una
      * corrección de precio.
      */
-    async procesarNotaCredito(contenido, filename) {
+    async procesarNotaCredito(contenido, filename, xmlRuta = null) {
         try {
             const nc = await this.xmlParser.parseNotaCreditoXML(contenido);
             this.xmlParser.validateNotaCredito(nc);
@@ -505,10 +531,14 @@ class EmailService {
             // nuestro favor — mismo criterio que con las facturas.
             if (nc.emisor.identificacion?.numero === '204050474') {
                 if (VERBOSE_LOGGING) console.log('🚫 Nota de crédito emitida por nosotros, ignorando');
+                if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
                 return false;
             }
 
-            const { guardada } = await notasCreditoService.guardarNotaCredito(nc);
+            // `guardarNotaCredito` ya borra el XML si resulta ser un
+            // duplicado (`ON CONFLICT DO NOTHING`), así que acá no hace
+            // falta repetirlo.
+            const { guardada } = await notasCreditoService.guardarNotaCredito(nc, xmlRuta);
             if (guardada) {
                 console.log(`💳 Nota de crédito de ${nc.emisor.nombre}: ₡${nc.montoTotal} sobre la factura ${nc.claveReferencia} (${nc.razon || 'sin razón'})`);
             } else if (VERBOSE_LOGGING) {
@@ -517,6 +547,7 @@ class EmailService {
             return true;
         } catch (error) {
             console.error(`❌ Error procesando nota de crédito ${filename}:`, error.message);
+            if (xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
             return false;
         }
     }
@@ -524,7 +555,7 @@ class EmailService {
     /**
      * Procesa una factura ya parseada - INTEGRACIÓN COMPLETA
      */
-    async processParsedFactura(facturaData, filename, emailId) {
+    async processParsedFactura(facturaData, filename, emailId, xmlRuta = null) {
         try {
             if (VERBOSE_LOGGING) console.log(`\n🔄 PROCESANDO FACTURA COMPLETA...`);
 
@@ -533,7 +564,8 @@ class EmailService {
             const facturaGuardada = await this.dbService.saveFactura(
                 facturaData,
                 filename,
-                emailId
+                emailId,
+                xmlRuta
             );
 
             // 2. Procesar relacionado inteligente (solo productos PENDIENTES)
@@ -565,22 +597,15 @@ class EmailService {
                 // mirarlo, y el costo del producto equivocado terminaba
                 // afectando su precio de venta.
                 //
-                // La primera vez lo decide una persona en Revisión de
-                // Precios. A partir de ahí el sistema lo reusa solo, que es
+                // La primera vez lo decide una persona en Relacionar
+                // Productos. A partir de ahí el sistema lo reusa solo, que es
                 // cuando de verdad hay certeza.
-                const similares = await this.alegraProductService.findSimilarProducts(
-                    producto.descripcion,
-                    producto.codigoProveedor
-                );
-
-                if (similares.length > 0) {
-                    // Solo se registra en el log como pista para quien revise.
-                    console.log(`💡 Posible coincidencia (sin aplicar): ${similares[0].name}`);
-                    productosPendientes++;
-                } else {
-                    console.log(`❌ Sin productos similares`);
-                    productosPendientes++;
-                }
+                //
+                // Tampoco se busca un parecido "como pista": era una consulta
+                // a la caché de Alegra por cada línea pendiente, solo para
+                // escribir una línea en el log que nadie leía. Quien relaciona
+                // tiene el buscador del catálogo en la pantalla.
+                productosPendientes++;
             }
 
             // 3. Actualizar estado — salvo que la factura ya se haya marcado
@@ -589,8 +614,17 @@ class EmailService {
             // PROCESADA/RELACIONADA la devolvía al flujo de compras: era la
             // razón por la que la intercepción "funcionaba" en el log y aun
             // así la factura terminaba en PROCESADA.
+            //
+            // `estadoFinal` se declara ACÁ AFUERA, no dentro del `if`: estaba
+            // adentro y se leía en el resumen de más abajo, fuera de ese
+            // bloque. Eso lanzaba `ReferenceError: estadoFinal is not
+            // defined` en TODA factura procesada, atrapado por el catch de
+            // esta función — la factura ya estaba guardada, así que no se
+            // perdía nada, pero el log decía "Error en procesamiento
+            // completo" siempre, incluso cuando todo había salido bien.
+            let estadoFinal = facturaGuardada.estado;
             if (facturaGuardada.estado !== 'GASTO_RECURRENTE') {
-                const estadoFinal = productosPendientes === 0 ? 'RELACIONADA' : 'PROCESADA';
+                estadoFinal = productosPendientes === 0 ? 'RELACIONADA' : 'PROCESADA';
                 await this.dbService.prisma.factura.update({
                     where: { id: facturaGuardada.id },
                     data: { estado: estadoFinal }
@@ -646,6 +680,14 @@ class EmailService {
      * Inicia el monitoreo continuo
      */
     startMonitoring() {
+        // Rama aislada: el buzón es el mismo que usa producción. Leerlo desde
+        // acá metería facturas reales en la copia y competiría con main.
+        // Misma llave que revisa `connect()` — antes cada método tenía la
+        // suya y quedaban desincronizadas si alguien encendía una sin la otra.
+        if (!require('../config/aislado').lecturaBuzonPermitida()) {
+            console.log('📭 Rama aislada: el buzón de facturas no se lee sin PERMITIR_LECTURA_BUZON=true (ver config/aislado.js)');
+            return;
+        }
         if (this.isMonitoring) {
             console.log('⚠️ El monitoreo ya está activo');
             return;
@@ -713,6 +755,16 @@ class EmailService {
      * Conecta al servidor IMAP
      */
     connect() {
+        // Rama aislada: el buzón es el mismo que usa producción. Esta guarda
+        // vivía SOLO en `startMonitoring()`; algo que llamara a `connect()`
+        // directamente se conectaba sin que nada lo frenara. Un recuperador
+        // de XML históricos (ver scripts/independencia/) es exactamente ese
+        // "algo", así que ahora la revisión está acá también.
+        if (!require('../config/aislado').lecturaBuzonPermitida()) {
+            console.log('📭 Rama aislada: el buzón de facturas no se lee sin PERMITIR_LECTURA_BUZON=true (ver config/aislado.js)');
+            return;
+        }
+
         if (!imapConfig.user || !imapConfig.password) {
             console.error('❌ Configuración IMAP incompleta. Verifica IMAP_USER e IMAP_PASSWORD en .env');
             return;

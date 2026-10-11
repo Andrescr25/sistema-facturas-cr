@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./aislado'); // la rama aislada no lee el buzón: ver config/aislado.js
 
 const imapConfig = {
   user: process.env.IMAP_USER,

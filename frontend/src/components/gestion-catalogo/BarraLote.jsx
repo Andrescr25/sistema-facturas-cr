@@ -5,14 +5,16 @@ const SELECT = 'min-w-0 flex-1 rounded-xl border border-neutro-200 bg-neutro-50 
 /**
  * El panel flotante de abajo a la derecha — el mismo lugar donde el reporte
  * de proveedores pone "Mover N a otro proveedor". Aparece cuando hay
- * productos seleccionados, o mientras corre un movimiento en Alegra.
+ * productos seleccionados, o mientras corre un movimiento.
  *
  * Flota en la esquina y no es una barra de ancho completo: una barra fija a
  * todo el ancho se le montaría encima al sidebar en escritorio (ver
  * vocabularioDiseno.test.js).
  *
- * DOS ACCIONES, A PROPÓSITO SEPARADAS: mover a subcategoría es instantáneo;
- * cambiar de categoría escribe en Alegra producto por producto y tarda.
+ * DOS ACCIONES, A PROPÓSITO SEPARADAS: mover a subcategoría deja los
+ * productos en la misma categoría; cambiar de categoría los manda a "Sin
+ * clasificar" de la otra. (En `main` además la segunda escribe en Alegra y
+ * tarda; en la base propia las dos son inmediatas.)
  */
 export default function BarraLote({
   cantidad,
@@ -43,7 +45,7 @@ export default function BarraLote({
                 : <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-exito-500" />}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-neutro-500">
-                {trabajo.terminado ? 'Movimiento terminado' : 'Moviendo en Alegra…'}
+                {trabajo.terminado ? 'Movimiento terminado' : 'Moviendo…'}
               </p>
               <p className="truncate text-base font-bold text-neutro-900">{trabajo.descripcion}</p>
               <p className="text-sm text-neutro-500">

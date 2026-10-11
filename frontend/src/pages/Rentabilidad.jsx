@@ -7,6 +7,7 @@ import CuandoSeVende from '../components/rentabilidad/CuandoSeVende'
 import ListaProductos from '../components/rentabilidad/ListaProductos'
 import DetalleProducto from '../components/rentabilidad/DetalleProducto'
 import { colonesCorto, porcentaje } from '../utils/rentabilidadFormato'
+import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 /**
  * Rentabilidad — una sola pantalla, sin pestañas (rehecha el 2026-09-25).
@@ -32,6 +33,10 @@ export default function Rentabilidad() {
   if (r.seleccionado) {
     return (
       <div className="mx-auto max-w-6xl pb-24">
+        <div className="mb-4 flex justify-end">
+          <BotonExportarExcel ruta={`/rentabilidad/productos/${r.seleccionado.productoId}/exportar`}
+            disabled={r.cargandoDetalle || !r.detalle || Boolean(r.errorDetalle)} />
+        </div>
         <DetalleProducto seleccionado={r.seleccionado} detalle={r.detalle} cargando={r.cargandoDetalle}
           error={r.errorDetalle} onVolver={r.cerrar} />
       </div>
@@ -41,7 +46,10 @@ export default function Rentabilidad() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-24">
       <EncabezadoPagina titulo="Rentabilidad"
-        descripcion="Margen de cada producto, su rotación real y cuándo se vende — al día, con las ventas de los últimos 3 meses." />
+        descripcion="Margen de cada producto, su rotación real y cuándo se vende — al día, con las ventas de los últimos 3 meses."
+        acciones={<BotonExportarExcel ruta="/rentabilidad/exportar" params={r.filtrosAplicados}
+          disabled={r.cargandoLista || r.busquedaPendiente || !resumen || Boolean(r.errorLista || r.errorResumen)}
+          title="Incluye todos los resultados con estos filtros y las series del negocio." />} />
 
       {r.errorResumen && <p className="rounded-xl bg-peligro-50 px-4 py-3 text-sm text-peligro-800">{r.errorResumen}</p>}
 

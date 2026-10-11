@@ -28,7 +28,8 @@ export const formatDate = (value) =>
 export function calcularKpis(auditorias) {
   const finalizadas = auditorias.filter(a => a.estado === 'finalizado')
   if (finalizadas.length === 0) {
-    return { precision: 100, descuadre: 0, total: 0 }
+    // Sin conteos no hay una precisión medida. No mostrar un 100% inventado.
+    return { precision: 0, descuadre: 0, total: auditorias.length }
   }
 
   const sumPrecision = finalizadas.reduce((acc, curr) => acc + Number(curr.precision_porcentaje || 0), 0)
@@ -60,10 +61,10 @@ export function filtrarItemsAuditoria(items, { executionSearch, executionFilter,
       return conteoReal === ''
     }
     if (executionFilter === 'correcto') {
-      return item.ajustado_alegra || (conteoReal !== '' && Number(conteoReal) === stockSistema)
+      return item.ajustado_inventario || (conteoReal !== '' && Number(conteoReal) === stockSistema)
     }
     if (executionFilter === 'descuadre') {
-      return !item.ajustado_alegra && conteoReal !== '' && Number(conteoReal) !== stockSistema
+      return !item.ajustado_inventario && conteoReal !== '' && Number(conteoReal) !== stockSistema
     }
 
     return true
@@ -81,7 +82,7 @@ export function calcularItemsStats(items, conteosDraft) {
     const conteo = conteosDraft[item.id]
     const stockSistema = Number(item.stock_sistema)
 
-    if (item.ajustado_alegra) {
+    if (item.ajustado_inventario) {
       correctos++
     } else if (conteo === '') {
       pendientes++
@@ -118,7 +119,7 @@ export function calcularAjustesPreview(items, conteosDraft) {
       diferencia: diff,
       costo_unitario: costoVal,
       impacto_dinero: diff * costoVal,
-      ajustado_alegra: item.ajustado_alegra
+      ajustado_inventario: item.ajustado_inventario
     }
   })
 }
@@ -128,7 +129,7 @@ export function calcularImpactoFinanciero(conteosDraft, items) {
   Object.entries(conteosDraft).forEach(([itemId, val]) => {
     if (val === '') return
     const item = items?.find(i => i.id === Number(itemId))
-    if (!item || item.ajustado_alegra) return
+    if (!item || item.ajustado_inventario) return
     const diff = Number(val) - Number(item.stock_sistema)
     sum += (diff * Number(item.costo_unitario || 0))
   })
@@ -153,9 +154,9 @@ export function calcularSiguienteNombreDevolucion(devoluciones) {
 // Clasifica un producto de la hoja de conteo según su estado actual, para
 // que el componente decida bordes/badge sin repetir la lógica numérica.
 export function clasificarItemConteo(item, conteoRaw) {
-  const stockSis = Math.round(Number(item.stock_sistema))
+  const stockSis = Number(item.stock_sistema)
 
-  if (item.ajustado_alegra) {
+  if (item.ajustado_inventario) {
     const realVal = item.stock_real !== null ? Number(item.stock_real) : stockSis
     const diff = realVal - stockSis
     return { estado: 'ajustado', stockSis, diff, diffCost: null }

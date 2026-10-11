@@ -3,7 +3,7 @@
  *
  * Solo lectura: pagina GET /invoices?status=open en Alegra y vuelca todo a
  * un CSV + JSON local. Es el único registro de quién debía qué antes del
- * cierre masivo (ver cerrar-cartera-historica.js), así que se corre SIEMPRE
+ * cierre histórico (guion retirado en esta rama), así que se corre SIEMPRE
  * primero.
  *
  * Uso: cd backend && node scripts/exportar-cartera-abierta.js
@@ -12,7 +12,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const fs = require('fs');
 const path = require('path');
-const { getClient } = require('../src/integrations/alegra');
+const { getClient } = require('./independencia/lib/lectura-alegra');
 
 const client = getClient();
 const SALIDA_DIR = path.join(__dirname, 'salida');

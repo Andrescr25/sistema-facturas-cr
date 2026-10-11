@@ -14,6 +14,8 @@
  */
 
 const { query } = require('../../../config/database');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { idCajaGeneral } = require('../../utils/cajaGeneral');
 const acueductos = require('./scrapers/acueductos.adapter');
 const iceElectricidad = require('./scrapers/ice-electricidad.adapter');
 const facturasRecibidas = require('./scrapers/facturas-recibidas.adapter');
@@ -354,6 +356,11 @@ function mapPago(row, hoy) {
     fechaPago: row.fecha_pago,
     estado: row.estado,
     metodo: row.metodo,
+    // Sale siempre de Caja General (decisión del usuario, 2026-09-23). La
+    // fila trae elegido el método que se usó la última vez para este mismo
+    // gasto, para pagar en un solo gesto.
+    metodoPagoId: row.metodo_pago_id || null,
+    metodoSugeridoId: row.metodo_sugerido_id || null,
     notas: row.notas,
     // "Vencido" se calcula acá y no se guarda: es una función de la fecha de
     // hoy, y guardarlo obligaría a un job que lo mantenga al día.
@@ -374,7 +381,12 @@ async function obtenerPeriodo(periodoMes) {
 
   const result = await query(`
     SELECT p.*, g.nombre, g.categoria, g.proveedor, g.frecuencia, g.monto_estimado,
-           g.fuente_auto, g.ultima_consulta
+           g.fuente_auto, g.ultima_consulta,
+           (SELECT p2.metodo_pago_id
+              FROM pago_recurrente p2
+             WHERE p2.gasto_id = p.gasto_id AND p2.metodo_pago_id IS NOT NULL
+             ORDER BY p2.fecha_pago DESC NULLS LAST
+             LIMIT 1) AS metodo_sugerido_id
     FROM pago_recurrente p
     JOIN gasto_recurrente g ON g.id = p.gasto_id
     WHERE p.periodo LIKE $1 || '%'
@@ -441,26 +453,45 @@ async function actualizarPago(id, { monto, fechaVencimiento, metodo, notas }) {
  * Marca un pago como hecho. El monto es opcional: si viene, reemplaza al
  * estimado — el caso normal es que la luz venga distinta de lo presupuestado
  * y ese número real es justamente el que interesa guardar.
+ *
+ * SALE DE CAJA GENERAL (decisión del usuario, 2026-09-23): no hay cajas
+ * separadas. Se pide el método —efectivo, SINPE, transferencia—, que es lo
+ * que distingue si la plata salió de los billetes que se cuentan al cerrar.
+ *
+ * La fecha por omisión es el día de COSTA RICA, no `CURRENT_DATE`: en una
+ * base en UTC (la de producción lo es) eso es mañana después de las 6 p.m.
  */
-async function marcarPagado(id, { monto, fechaPago, metodo, notas } = {}) {
+async function marcarPagado(id, { monto, fechaPago, metodoPagoId, notas } = {}) {
   if (monto !== undefined && monto !== null && monto !== '') {
     const n = Number(monto);
     if (!Number.isFinite(n) || n < 0) throw httpError(400, 'El monto no puede ser negativo.');
   }
+  if (!Number(metodoPagoId)) throw httpError(400, 'Falta cómo se pagó (efectivo, SINPE, transferencia…).');
+  const fecha = fechaPago ? String(fechaPago).slice(0, 10) : hoyEnCostaRica();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw httpError(400, 'La fecha del pago no es válida.');
+
+  const cajaId = await idCajaGeneral({ query });
+  const metodos = await query('SELECT id, nombre FROM metodo_pago WHERE id = $1 AND activo = TRUE;', [Number(metodoPagoId)]);
+  const metodo = metodos.rows[0];
+  if (!metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
 
   const result = await query(`
     UPDATE pago_recurrente SET
       estado = 'pagado',
       monto = COALESCE($1, monto),
-      fecha_pago = COALESCE($2, CURRENT_DATE),
-      metodo = COALESCE($3, metodo),
-      notas = COALESCE($4, notas)
-    WHERE id = $5
+      fecha_pago = $2,
+      cuenta_dinero_id = $3,
+      metodo_pago_id = $4,
+      metodo = COALESCE($5, metodo),
+      notas = COALESCE($6, notas)
+    WHERE id = $7
     RETURNING *;
   `, [
     monto !== undefined && monto !== null && monto !== '' ? Number(monto) : null,
-    fechaPago || null,
-    metodo || null,
+    fecha,
+    cajaId,
+    metodo.id,
+    metodo.nombre,
     notas !== undefined ? notas : null,
     id
   ]);
@@ -469,9 +500,11 @@ async function marcarPagado(id, { monto, fechaPago, metodo, notas } = {}) {
   return result.rows[0];
 }
 
+/** Deshacer el pago: vuelve a pendiente y deja de contar como salida de la cuenta. */
 async function revertirPago(id) {
   const result = await query(`
-    UPDATE pago_recurrente SET estado = 'pendiente', fecha_pago = NULL
+    UPDATE pago_recurrente
+       SET estado = 'pendiente', fecha_pago = NULL, cuenta_dinero_id = NULL, metodo_pago_id = NULL
     WHERE id = $1 RETURNING *;
   `, [id]);
   if (result.rows.length === 0) throw httpError(404, 'Pago no encontrado.');
@@ -644,16 +677,16 @@ async function sincronizarGasto(gastoId) {
   await query(`UPDATE gasto_recurrente SET ultima_consulta = CURRENT_TIMESTAMP WHERE id = $1;`, [gastoId]);
 
   // Algunas fuentes, además de traer el recibo, tienen que dejar la compra
-  // registrada en Alegra — es de ahí que el Reporte Contador toma las compras
-  // y el IVA acreditable. Se hace DESPUÉS de guardar el pago y sin tumbar la
-  // sincronización si falla: el gasto ya quedó visible, y la compra se
-  // reintenta sola en la próxima corrida.
+  // registrada (`compra` + `compra_linea`, local — ya no en Alegra, ver
+  // facturas-recibidas.adapter.js). Se hace DESPUÉS de guardar el pago y sin
+  // tumbar la sincronización si falla: el gasto ya quedó visible, y la
+  // compra se reintenta sola en la próxima corrida.
   let contabilidad = null;
-  if (typeof fuente.adaptador.registrarEnAlegra === 'function') {
+  if (typeof fuente.adaptador.registrarComoCompra === 'function') {
     try {
-      contabilidad = await fuente.adaptador.registrarEnAlegra(config);
+      contabilidad = await fuente.adaptador.registrarComoCompra(config);
     } catch (error) {
-      console.error(`❌ [Pagos Recurrentes] No se pudo registrar en Alegra: ${error.message}`);
+      console.error(`❌ [Pagos Recurrentes] No se pudo registrar la compra: ${error.message}`);
       contabilidad = { registradas: 0, fallidas: 0, error: error.message };
     }
   }

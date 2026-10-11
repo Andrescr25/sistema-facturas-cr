@@ -2,7 +2,7 @@ import { Package, XCircle } from 'lucide-react'
 import { useModal } from '../../hooks/useModal'
 
 /**
- * Modal que muestra todas las relaciones de un producto de Alegra con los
+ * Modal que muestra todas las relaciones de un producto propio con los
  * distintos proveedores que lo suministran. Extraído de
  * GestionarRelaciones.jsx.
  */
@@ -27,21 +27,21 @@ export default function ModalVerRelaciones({ producto, relaciones, cargando, onC
             </button>
           </div>
 
-          {/* Info del producto de Alegra */}
+          {/* El producto propio */}
           <div className="bg-primario-50 rounded-lg p-4 border border-primario-200">
-            <h4 className="font-semibold text-primario-900 mb-2">Producto en Alegra:</h4>
+            <h4 className="font-semibold text-primario-900 mb-2">Producto:</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-primario-600 font-medium">Nombre:</span>
-                <p className="text-primario-900">{producto.mapeo?.alegraName || producto.alegraName || 'N/A'}</p>
+                <p className="text-primario-900">{producto.mapeo?.productoNombre || producto.productoNombre || 'N/A'}</p>
               </div>
               <div>
                 <span className="text-primario-600 font-medium">Referencia:</span>
-                <p className="text-primario-900 font-mono">{producto.mapeo?.alegraReference || producto.alegraReference || 'N/A'}</p>
+                <p className="text-primario-900 font-mono">{producto.mapeo?.productoReferencia || producto.productoReferencia || 'N/A'}</p>
               </div>
               <div>
-                <span className="text-primario-600 font-medium">ID Alegra:</span>
-                <p className="text-primario-900 font-mono text-xs">{producto.alegraItemId}</p>
+                <span className="text-primario-600 font-medium">Código interno:</span>
+                <p className="text-primario-900 font-mono text-xs">{producto.productoPropioId}</p>
               </div>
             </div>
           </div>

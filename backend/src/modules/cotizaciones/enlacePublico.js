@@ -19,6 +19,14 @@
  * único que se pierde es poder anular un enlace sin borrar la cotización —
  * para una cotización eso no hace falta: si no se quiere que se vea más, se
  * elimina y el enlace muere con ella.
+ *
+ * DOS ESPACIOS DE FIRMA, Y NO ES DECORACIÓN
+ * Los enlaces que ya salieron por WhatsApp llevan el id de ALEGRA firmado
+ * como "cotizacion:<id>". Las cotizaciones propias tienen ids propios, que
+ * arrancan en 1: si se firmaran igual, el enlace viejo de la cotización 11
+ * de Alegra abriría nuestra cotización 11 — la de otro cliente, con su
+ * nombre y sus precios. Las propias se firman como "cotizacion-propia:<id>";
+ * un token viejo se reconoce como LEGADO y se busca por `alegra_id`.
  */
 
 const crypto = require('crypto');
@@ -29,26 +37,37 @@ function secreto() {
   return s;
 }
 
-function firmar(id) {
+const PROPIA = 'cotizacion-propia';
+const LEGADO = 'cotizacion';
+
+function firmar(id, espacio) {
   return crypto
     .createHmac('sha256', secreto())
-    .update(`cotizacion:${id}`)
+    .update(`${espacio}:${id}`)
     .digest('base64url')
     .slice(0, 22);
 }
 
-/** El token que va en la URL: el número y su firma. */
+/** El token que va en la URL: el id propio y su firma. */
 function tokenDe(id) {
-  return `${id}-${firmar(id)}`;
+  return `${id}-${firmar(id, PROPIA)}`;
+}
+
+/** Iguales en tiempo constante: comparar con === filtra la firma correcta a quien mida cuánto tarda en fallar. */
+function iguales(a, b) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
 /**
- * El id que hay dentro de un token, o null si la firma no cuadra.
+ * Lo que hay dentro de un token: `{ id, legado }`, o null si la firma no
+ * cuadra con ninguno de los dos espacios.
  *
- * La comparación es de tiempo constante: comparar con === filtra información
- * sobre la firma correcta a quien mida cuánto tarda en fallar.
+ * `legado: true` quiere decir que el id es de Alegra (un enlace mandado antes
+ * de la migración) y hay que buscarlo por `alegra_id`, nunca por `id`.
  */
-function idDesdeToken(token) {
+function leerToken(token) {
   const texto = String(token || '');
   // El PRIMER guion, no el último: el alfabeto base64url incluye '-', así que
   // la firma puede traer los suyos. Partiendo por el último, un token como
@@ -61,12 +80,9 @@ function idDesdeToken(token) {
   const firma = texto.slice(guion + 1);
   if (!/^\d+$/.test(id)) return null;
 
-  const esperada = Buffer.from(firmar(id));
-  const recibida = Buffer.from(firma);
-  if (esperada.length !== recibida.length) return null;
-  if (!crypto.timingSafeEqual(esperada, recibida)) return null;
-
-  return id;
+  if (iguales(firmar(id, PROPIA), firma)) return { id, legado: false };
+  if (iguales(firmar(id, LEGADO), firma)) return { id, legado: true };
+  return null;
 }
 
 /** La dirección completa que se le manda al cliente. */
@@ -75,4 +91,4 @@ function enlaceDe(id) {
   return `${base}/cotizacion/${tokenDe(id)}`;
 }
 
-module.exports = { tokenDe, idDesdeToken, enlaceDe };
+module.exports = { tokenDe, leerToken, enlaceDe };

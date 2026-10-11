@@ -25,20 +25,24 @@ const upload = multer({
 // El orden de registro se preserva del router legacy: las rutas con
 // parámetro en el primer segmento (/:mapeoId/...) van después de las literales
 router.get('/relacionados', productosRevisionController.getRelacionados);
-router.get('/producto/:alegraItemId/relaciones', productosRevisionController.getRelacionesDeProducto);
+router.get('/producto/:productoPropioId/relaciones', productosRevisionController.getRelacionesDeProducto);
 router.post('/relacion', productosRevisionController.crearRelacion);
-router.post('/ajustar', productosRevisionController.ajustarProducto);
 router.put('/:mapeoId/editar-relacion', productosRevisionController.editarRelacion);
 router.delete('/:mapeoId/relacion', productosRevisionController.eliminarRelacionPorMapeo);
-// El costo real y el precio sugerido para un producto que todavía no existe
-// en Alegra. La categoría llega por query porque se elige en el mismo
-// formulario y el margen meta depende de ella.
+// El costo real y el precio sugerido para un producto que todavía no existe.
+// La categoría llega por query porque se elige en el mismo formulario y el
+// margen meta depende de ella.
 router.get('/:productoId/precio-sugerido', productosRevisionController.precioSugerido);
+// Categorías e impuestos propios para ese formulario, y el impuesto que calza
+// con el IVA de la línea. `:productoId` es la LÍNEA del proveedor.
+router.get('/:productoId/formulario-producto', productosRevisionController.formularioProducto);
+// Crea el producto en el maestro propio. `/ajustar`, que escribía el precio en
+// Alegra, se quitó: ninguna pantalla lo llamaba.
 router.post('/crear', upload.single('imagen'), productosRevisionController.crearProducto);
 router.post('/factor-conversion', productosRevisionController.guardarFactorConversion);
-router.get('/buscar', productosRevisionController.buscarEnCache);
-router.get('/buscar-alegra', productosRevisionController.buscarEnAlegra);
-router.get('/info-alegra/:alegraItemId', productosRevisionController.getInfoAlegra);
+// Busca en el maestro propio. Las dos rutas que le preguntaban a Alegra
+// (/buscar-alegra e /info-alegra) se quitaron: ninguna pantalla las usaba.
+router.get('/buscar', productosRevisionController.buscarProductos);
 router.delete('/relacion/:productoId', productosRevisionController.eliminarRelacionDeProducto);
 router.get('/mapeo/:productoId', productosRevisionController.getMapeoDeProducto);
 router.get('/factura/:facturaId', productosRevisionController.getFacturaConProductos);

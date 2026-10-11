@@ -1,3 +1,4 @@
+import { textoCiclo } from '../SelectorCiclo'
 import { useState } from 'react'
 import { Loader2, FileText, XCircle, Package } from 'lucide-react'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
@@ -30,6 +31,7 @@ function FilaPedido({ pedido, procesando, onFacturar, onRechazar, onAvisar }) {
         </div>
       </div>
 
+      <p className="text-xs font-semibold text-primario-700">{textoCiclo(pedido.ciclo)} · {pedido.origen === 'agente' ? 'Agente' : 'En línea'}{pedido.anticipado ? ' · Anticipado' : ''}{pedido.ciclo?.orden ? ` · Parada ${pedido.ciclo.orden}` : ''}</p>
       {pedido.observaciones && (
         <p className="text-xs text-neutro-500 bg-neutro-50 rounded-xl px-3 py-2">{pedido.observaciones}</p>
       )}
@@ -102,7 +104,7 @@ function FilaPedido({ pedido, procesando, onFacturar, onRechazar, onAvisar }) {
   )
 }
 
-export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, procesando, onFacturar, onRechazar, onAvisar }) {
+export default function ListaPedidos({ pedidos, cargando, error = '', onActualizar, filtro, setFiltro, procesando, onFacturar, onRechazar, onAvisar, rutas = [], ciclos = [], contexto, setContexto }) {
   const FILTROS = [
     { valor: 'pendiente', texto: 'En revisión' },
     { valor: 'facturado', texto: 'Facturados' },
@@ -110,8 +112,40 @@ export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, pro
     { valor: 'todos', texto: 'Todos' }
   ]
 
+  const seleccionado = ciclos.find(c => String(c.id) === contexto.cicloId)
+  const rutaSeleccionada = rutas.find(r => String(r.id) === contexto.rutaId)
+  const contextoVisible = contexto.rutaId === 'sin-ciclo' || contexto.cicloId === 'sin-ciclo'
+    ? 'Sin ciclo: pedidos sin semana asignada'
+    : seleccionado ? textoCiclo({ rutaNombre: seleccionado.ruta_nombre, semana: seleccionado.semana })
+      : rutaSeleccionada ? `${rutaSeleccionada.nombre} · Todas las semanas`
+        : 'Vista conjunta: cada pedido conserva su ruta y semana'
+
   return (
     <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="text-xs font-semibold">Ruta
+          <select aria-label="Filtrar pedidos por ruta" className="mt-1 w-full min-h-11 rounded-xl border-2 border-neutro-200 bg-white p-2" value={contexto.rutaId}
+            onChange={e => setContexto(prev => ({ ...prev, rutaId: e.target.value, cicloId: '' }))}>
+            <option value="">Todas las rutas</option><option value="sin-ciclo">Sin ciclo</option>
+            {rutas.map(r => <option key={r.id} value={String(r.id)}>{r.nombre}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold">Ciclo / semana
+          <select aria-label="Filtrar pedidos por ciclo" className="mt-1 w-full min-h-11 rounded-xl border-2 border-neutro-200 bg-white p-2" value={contexto.cicloId}
+            disabled={contexto.rutaId === 'sin-ciclo'} onChange={e => setContexto(prev => ({ ...prev, cicloId: e.target.value }))}>
+            <option value="">Todas las semanas</option><option value="sin-ciclo">Sin ciclo</option>
+            {ciclos.filter(c => !contexto.rutaId || String(c.ruta_id) === contexto.rutaId).map(c => <option key={c.id} value={String(c.id)}>{textoCiclo({ rutaNombre: c.ruta_nombre, semana: c.semana })}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold">Origen
+          <select aria-label="Filtrar pedidos por origen" className="mt-1 w-full min-h-11 rounded-xl border-2 border-neutro-200 bg-white p-2" value={contexto.origen}
+            onChange={e => setContexto(prev => ({ ...prev, origen: e.target.value }))}>
+            <option value="">Todos los orígenes</option><option value="portal">En línea</option><option value="agente">Agente</option>
+          </select>
+        </label>
+      </div>
+      <p aria-live="polite" className="break-words text-sm font-semibold text-primario-700">{contextoVisible}</p>
+      <p className="text-xs text-neutro-500">Hasta 200 pedidos según los filtros. Los documentos sin clasificación se muestran como Sin ciclo.</p>
       <div className="flex gap-2 flex-wrap">
         {FILTROS.map(f => (
           <button
@@ -127,9 +161,12 @@ export default function ListaPedidos({ pedidos, cargando, filtro, setFiltro, pro
         ))}
       </div>
 
+      {error && <div role="alert" className="rounded-xl border border-peligro-200 bg-peligro-50 p-4 text-sm text-peligro-700">
+        <p>{error}</p><button type="button" className="mt-2 min-h-11 font-bold underline" onClick={onActualizar}>Reintentar pedidos</button>
+      </div>}
       {cargando ? (
         <div className="py-16 flex justify-center"><Loader2 size={24} className="animate-spin text-exito-600" /></div>
-      ) : pedidos.length === 0 ? (
+      ) : error ? null : pedidos.length === 0 ? (
         <div className="bg-white rounded-3xl border border-neutro-100 p-10 text-center text-neutro-400 flex flex-col items-center gap-3">
           <Package size={36} className="text-neutro-200" />
           <p className="text-sm">No hay pedidos en esta vista.</p>

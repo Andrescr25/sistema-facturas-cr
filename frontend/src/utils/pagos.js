@@ -29,7 +29,10 @@ export const ESTADO_FACTURA = {
   PENDIENTE: { etiqueta: 'Pendiente', badge: 'bg-neutro-100 text-neutro-700', borde: 'border-l-neutro-300' },
   PARCIAL: { etiqueta: 'Con abono', badge: 'bg-primario-100 text-primario-800', borde: 'border-l-primario-400' },
   VENCIDA: { etiqueta: 'Vencida', badge: 'bg-peligro-100 text-peligro-800', borde: 'border-l-peligro-400' },
-  PAGADA: { etiqueta: 'Pagada', badge: 'bg-exito-100 text-exito-800', borde: 'border-l-exito-400' }
+  PAGADA: { etiqueta: 'Pagada', badge: 'bg-exito-100 text-exito-800', borde: 'border-l-exito-400' },
+  // Solo del lado de pagar (migración 028): una compra de contado a la que
+  // falta anotarle cómo se pagó. No es un atraso, así que no va en rojo.
+  CONTADO: { etiqueta: 'Contado', badge: 'bg-alerta-100 text-alerta-800', borde: 'border-l-alerta-400' }
 }
 
 export function estiloEstado(estado) {

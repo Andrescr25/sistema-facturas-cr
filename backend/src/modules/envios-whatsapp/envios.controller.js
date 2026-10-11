@@ -7,35 +7,11 @@
  */
 
 const servicio = require('./envios.service');
-const { getClient } = require('../../integrations/alegra');
-const { telefonosDe } = require('../../utils/telefonosCliente');
 
-/**
- * Los números a los que se le puede escribir a un cliente.
- *
- * Devuelve TODOS los candidatos de la ficha, no uno elegido: las fichas de
- * Alegra traen el nombre de quien contesta pegado, dos números en el mismo
- * campo o ningún número, y elegir por nuestra cuenta sería adivinar a quién
- * le llega un documento del cliente.
- */
-async function telefonosDelContacto(req, res) {
+/** Los números de un cliente, desde su ficha propia (ver envios.service.js). */
+async function telefonosDelCliente(req, res) {
   try {
-    let contacto;
-    try {
-      contacto = await getClient().request('GET', `/contacts/${req.params.contactoId}`);
-    } catch {
-      return res.status(404).json({ success: false, message: 'Ese cliente no existe en Alegra.' });
-    }
-
-    const { candidatos, sinReconocer } = telefonosDe(contacto);
-    res.json({
-      success: true,
-      data: {
-        cliente: contacto.name,
-        telefonos: candidatos,
-        telefonosSinReconocer: sinReconocer
-      }
-    });
+    res.json({ success: true, data: await servicio.telefonosDeCliente(req.params.clienteId) });
   } catch (error) {
     console.error('Error obteniendo los teléfonos del cliente:', error.message);
     res.status(error.status || 500).json({ success: false, message: error.message });
@@ -56,4 +32,4 @@ async function historial(req, res) {
   }
 }
 
-module.exports = { telefonosDelContacto, historial };
+module.exports = { telefonosDelCliente, historial };

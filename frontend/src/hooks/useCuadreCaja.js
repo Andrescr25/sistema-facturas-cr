@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCobrosDia } from '../services/cuentasPorCobrarService'
+import { hoyEnCostaRica } from '../utils/fechaCR'
 
 /**
  * Hook para el cuadre de caja diario: carga los cobros registrados en un día
@@ -7,10 +8,11 @@ import { getCobrosDia } from '../services/cuentasPorCobrarService'
  * para que solo se cargue cuando el usuario abre la pestaña.
  */
 export function useCuadreCaja() {
-  const hoy = new Date().toISOString().slice(0, 10)
+  const hoy = hoyEnCostaRica()
   const [fecha, setFecha] = useState(hoy)
   const [cobros, setCobros] = useState([])
   const [resumen, setResumen] = useState(null)
+  const [cierre, setCierre] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -24,15 +26,18 @@ export function useCuadreCaja() {
       if (result?.success === false) {
         setCobros([])
         setResumen(null)
+      setCierre(null)
         setError(result.message || 'No se pudo cargar la información')
         return
       }
 
       setCobros(result?.cobros || [])
       setResumen(result?.resumen || null)
+      setCierre(result?.cierre || null)
     } catch (err) {
       setCobros([])
       setResumen(null)
+      setCierre(null)
       setError(err.message || 'Error desconocido')
     } finally {
       setLoading(false)
@@ -48,7 +53,7 @@ export function useCuadreCaja() {
   }, [])
 
   const irAHoy = useCallback(() => {
-    setFecha(new Date().toISOString().slice(0, 10))
+    setFecha(hoyEnCostaRica())
   }, [])
 
   const irAyer = useCallback(() => {
@@ -66,6 +71,7 @@ export function useCuadreCaja() {
     cambiarFecha,
     irAHoy,
     irAyer,
+    cierre,
     recargar: () => cargar(fecha)
   }
 }

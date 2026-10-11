@@ -45,7 +45,7 @@ export default function ModalInvitacion({ invitacion, onCerrar }) {
         mensajeInicial={mensajeInvitacion(invitacion.enlace)}
         onEnviar={async ({ telefono, mensaje }) => {
           const { data } = await api.post(
-            `/portal-clientes/clientes/${invitacion.alegraContactId}/invitacion/whatsapp`,
+            `/portal-clientes/clientes/${invitacion.clienteId}/invitacion/whatsapp`,
             { telefono, mensaje }
           )
           return data.data

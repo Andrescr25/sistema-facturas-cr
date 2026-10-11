@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useContextoConsulta } from './useContextoConsulta'
+import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 import { construirProductosParaOrden } from '../utils/reporteProveedoresUtils'
@@ -15,7 +17,10 @@ import { useToast } from './useToast'
  * window.prompt/alert. La página debe renderizar
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
-export function useReporteProveedores() {
+export function useReporteProveedores({activo=true}={}) {
+  const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/proveedor/ciclos')
+  const peticion = useRef(0), peticionNotas = useRef(0)
+  const consultaCiclo = Boolean(filtroCiclo.rutaId || filtroCiclo.cicloId)
   const { prompt, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
@@ -27,17 +32,20 @@ export function useReporteProveedores() {
   const [cantidadesModificadas, setCantidadesModificadas] = useState(new Map())
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
   const [fechaInicio, setFechaInicio] = useState('')
+  const claveConsulta = JSON.stringify([activo, fechaInicio, filtroCiclo.params])
+  const lectura = useContextoConsulta(claveConsulta)
+  const notas = useContextoConsulta(claveConsulta)
 
   // Las notas que se escribieron al facturar, para leerlas al comprar. Se
-  // piden APARTE del reporte: ese sale de la base local y aparece enseguida,
-  // y estas tienen que ir hasta Alegra. Si tardan o fallan, el reporte ya
+  // piden APARTE del reporte: ambas lecturas son propias, pero agrupar las
+  // notas no debe retrasar el listado. Si tardan o fallan, el reporte ya
   // está en pantalla.
   const [notasPorProducto, setNotasPorProducto] = useState({})
   const [cargandoNotas, setCargandoNotas] = useState(false)
 
   // Estados Modal Asignar Lotes
   const [modalAsignarVisible, setModalAsignarVisible] = useState(false)
-  const [proveedoresAlegra, setProveedoresAlegra] = useState([])
+  const [proveedoresDisponibles, setProveedoresDisponibles] = useState([])
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [modalCrearProveedor, setModalCrearProveedor] = useState(false)
@@ -50,7 +58,7 @@ export function useReporteProveedores() {
   const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
   const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
   const [busquedaProducto, setBusquedaProducto] = useState('')
-  const [productosAlegra, setProductosAlegra] = useState([])
+  const [productosEncontrados, setProductosEncontrados] = useState([])
   const [loadingProductos, setLoadingProductos] = useState(false)
 
   // Estados WhatsApp
@@ -64,10 +72,13 @@ export function useReporteProveedores() {
   const [mensajeWhatsApp, setMensajeWhatsApp] = useState('Hola buenas, adjunto el pedido\ngracias')
 
   const loadReporte = useCallback(async () => {
+    if (!activo || !lectura.esActual()) return
+    const actual = ++peticion.current
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio)
+      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio, filtroCiclo.params)
+      if (!lectura.esActual() || actual !== peticion.current) return
 
       if (result.success) {
         // Filtrar proveedores que NO tienen productos para limpiar la vista principal
@@ -75,27 +86,32 @@ export function useReporteProveedores() {
         setProveedores(proveedoresConProductos)
         setResumen(result.resumen)
       } else {
+        setProveedores([])
+        setResumen(null)
         setError(result.message || 'Error cargando reporte')
       }
     } catch (err) {
-      setError(err.message)
+      if (lectura.esActual() && actual === peticion.current) { setProveedores([]); setResumen(null); setError(err.message) }
     } finally {
-      setLoading(false)
+      if (lectura.esActual() && actual === peticion.current) { lectura.confirmar(); setLoading(false) }
     }
-  }, [fechaInicio])
+  }, [activo, fechaInicio, filtroCiclo.params, lectura.esActual, lectura.confirmar])
 
   const loadNotas = useCallback(async () => {
+    if (!activo || !notas.esActual()) return
+    const actual = ++peticionNotas.current
     setCargandoNotas(true)
     try {
-      const r = await alegraService.getNotasDeFaltantes(fechaInicio)
+      const r = await alegraService.getNotasDeFaltantes(fechaInicio, filtroCiclo.params)
+      if (!notas.esActual() || actual !== peticionNotas.current) return
       setNotasPorProducto(r?.data?.porProducto || {})
     } catch {
       // Sin notas se compra como se compraba hasta ayer: no se estorba.
-      setNotasPorProducto({})
+      if (notas.esActual() && actual === peticionNotas.current) setNotasPorProducto({})
     } finally {
-      setCargandoNotas(false)
+      if (notas.esActual() && actual === peticionNotas.current) { notas.confirmar(); setCargandoNotas(false) }
     }
-  }, [fechaInicio])
+  }, [activo, fechaInicio, filtroCiclo.params, notas.esActual, notas.confirmar])
 
   const loadCantidadesGuardadas = useCallback(async () => {
     try {
@@ -155,12 +171,16 @@ export function useReporteProveedores() {
   }, [fechaInicio])
 
   useEffect(() => {
+    setModalAsignarVisible(false)
+    // El reporte legado puede asignar proveedores al abrirse. Las otras
+    // vistas no deben dispararlo de fondo ni aplicar sus borradores globales.
+    if(!activo){++peticion.current;++peticionNotas.current;return}
     loadReporte()
     loadNotas()
-    loadCantidadesGuardadas()
-    loadPedidosEnviados()
+    if (!consultaCiclo) { loadCantidadesGuardadas(); loadPedidosEnviados() }
+    else { setPedidosEnviados(new Map()); setProductosSeleccionados(new Set()) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaInicio])
+  }, [fechaInicio, filtroCiclo.params,activo])
 
   const usaDatosProveedor = useCallback((proveedorNombre) => {
     const preferencia = preferenciasDatosProveedor[proveedorNombre]
@@ -260,7 +280,8 @@ export function useReporteProveedores() {
     setMensajeWhatsApp('Hola buenas, adjunto el pedido\ngracias')
     setModalWhatsAppVisible(true)
     try {
-      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor.nombre)
+      // El de la ficha del proveedor: el mismo en todas las computadoras.
+      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor)
       if (telefonoDB) {
         setTelefonoProveedor(telefonoDB)
       } else {
@@ -295,7 +316,7 @@ export function useReporteProveedores() {
 
       // Guardar/Actualizar teléfono del proveedor de una vez
       try {
-        await alegraService.guardarTelefonoProveedor(proveedor.nombre, telefonoProveedor, proveedor.cedula)
+        await alegraService.guardarTelefonoProveedor(proveedor, telefonoProveedor)
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
       } catch (e) {
         localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
@@ -348,12 +369,16 @@ export function useReporteProveedores() {
     })
   }, [])
 
-  const cargarProveedoresAlegra = useCallback(async (busqueda) => {
+  const cargarProveedores = useCallback(async (busqueda) => {
     try {
       setLoadingProveedores(true)
-      const response = await api.get(`/alegra/proveedores`, { params: { busqueda } })
+      // Las fichas PROPIAS de proveedor (`proveedor.id`), no los contactos de
+      // Alegra. El modal las pinta con `name` e `identification`.
+      const response = await api.get('/proveedores/fichas', { params: { buscar: busqueda || '', limite: 100 } })
       if (response.data.success) {
-        setProveedoresAlegra(response.data.data)
+        setProveedoresDisponibles((response.data.data || []).map(f => ({
+          id: f.id, name: f.nombre, identification: f.identificacion || ''
+        })))
       } else {
         showToast('Error cargando proveedores: ' + response.data.message, 'error')
       }
@@ -371,11 +396,15 @@ export function useReporteProveedores() {
     }
     setModalAsignarVisible(true)
     setBusquedaProveedor('')
-    await cargarProveedoresAlegra('')
-  }, [productosSeleccionados, cargarProveedoresAlegra])
+    await cargarProveedores('')
+  }, [productosSeleccionados, cargarProveedores])
 
   const asignarProveedorManual = useCallback(async (proveedorId) => {
     if (productosSeleccionados.size === 0) return
+    if (consultaCiclo && !filtroCiclo.cicloId) {
+      showToast('Seleccioná una semana concreta o Sin ciclo para asignar.', 'warning')
+      return
+    }
     try {
       setLoading(true)
       const productosAAsignar = []
@@ -392,14 +421,12 @@ export function useReporteProveedores() {
       for (let i = 0; i < productosAAsignar.length; i += BATCH_SIZE) {
         const lote = productosAAsignar.slice(i, i + BATCH_SIZE)
         const promesasLote = lote.map(({ producto, proveedorActual }) => {
-          const body = {
-            alegraReference: producto.codigo,
-            alegraItemId: producto.alegra_item_id || null,
-            alegraName: producto.nombre,
-            [proveedorActual !== 'Sin_Proveedor' ? 'nuevoProveedorId' : 'proveedorId']: proveedorId
-          }
-          const endpoint = proveedorActual !== 'Sin_Proveedor' ? '/alegra/faltantes/reasignar-proveedor' : '/alegra/faltantes/asignar-proveedor-manual'
-          return api.post(endpoint, body).catch(err => ({ data: { success: false } }))
+          // Los dos ids son PROPIOS: el producto del que cuelgan los faltantes
+          // (migración 032) y la ficha del proveedor. Asignar y reasignar son
+          // la misma operación.
+          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId,
+            ...(consultaCiclo ? { cicloId: filtroCiclo.cicloId } : {}) })
+            .catch(err => ({ data: { success: false } }))
         })
         resultados.push(...(await Promise.all(promesasLote)))
       }
@@ -416,21 +443,26 @@ export function useReporteProveedores() {
     } finally {
       setLoading(false)
     }
-  }, [productosSeleccionados, proveedores, loadReporte, showToast])
+  }, [productosSeleccionados, proveedores, loadReporte, showToast, consultaCiclo, filtroCiclo.cicloId])
 
   const crearNuevoProveedor = useCallback(async (datosProveedor) => {
     try {
       setLoading(true)
-      const response = await api.post('/alegra/proveedores', datosProveedor)
+      // Se crea la FICHA propia y se le asignan los productos elegidos.
+      const response = await api.post('/proveedores/fichas', {
+        nombre: datosProveedor.name,
+        tipo_identificacion: datosProveedor.identificationType || undefined,
+        identificacion: datosProveedor.identification || undefined
+      })
       if (response.data.success) {
-        showToast(`Proveedor creado: ${response.data.data.name}`, 'success')
+        showToast(`Proveedor creado: ${response.data.data.nombre}`, 'success')
         setModalCrearProveedor(false)
         await asignarProveedorManual(response.data.data.id)
       } else {
         showToast(`Error: ${response.data.message}`, 'error')
       }
     } catch (error) {
-      showToast('Error creando proveedor: ' + error.message, 'error')
+      showToast('Error creando proveedor: ' + (error.response?.data?.message || error.message), 'error')
     } finally {
       setLoading(false)
     }
@@ -441,7 +473,7 @@ export function useReporteProveedores() {
     setProductosEliminados(prev => new Set(prev).add(key))
 
     try {
-      await api.post('/alegra/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
+      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
     } catch (error) {
       console.error('Error:', error)
     }
@@ -456,7 +488,7 @@ export function useReporteProveedores() {
     })
 
     try {
-      await api.delete('/alegra/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
+      await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
     } catch (error) {
       console.error('No se pudo restaurar el producto:', error)
       showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -467,16 +499,20 @@ export function useReporteProveedores() {
     setProveedorParaAgregar(proveedor)
     setModalAgregarProducto(true)
     setBusquedaProducto('')
-    setProductosAlegra([])
+    setProductosEncontrados([])
   }, [])
 
-  const buscarProductosAlegra = useCallback(async (query) => {
-    if (!query || query.length < 2) { setProductosAlegra([]); return }
+  const buscarProductos = useCallback(async (query) => {
+    if (!query || query.length < 2) { setProductosEncontrados([]); return }
     try {
       setLoadingProductos(true)
       // Sin desactivados: no tiene sentido pedirle al proveedor algo que ya no se vende.
-      const res = await api.get('/alegra/productos/buscar', { params: { query, soloActivos: 1 } })
-      if (res.data.success) setProductosAlegra(res.data.data || [])
+      // Del maestro propio, solo activos (la lectura compartida de
+      // /catalogos). El modal los pinta con `name` y `reference`.
+      const res = await api.get('/catalogos/productos', { params: { buscar: query, limite: 30 } })
+      if (res.data.success) {
+        setProductosEncontrados((res.data.data || []).map(p => ({ id: p.id, name: p.nombre, reference: p.referencia || '' })))
+      }
     } catch (e) {
       // Búsqueda mientras se escribe: no se avisa —una petición cortada por
       // la siguiente tecla no es un problema— pero sí queda en consola.
@@ -494,7 +530,7 @@ export function useReporteProveedores() {
     setProductosAgregados(nuevosAgregados)
 
     try {
-      await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
+      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
     } catch (error) {
       console.error('No se pudo registrar el producto agregado:', error)
       showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -518,7 +554,7 @@ export function useReporteProveedores() {
     setProductosAgregados(nuevos)
 
     try {
-      await api.delete('/alegra/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
+      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
     } catch (e) {
       console.error('No se pudo quitar el producto agregado:', e)
       showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -536,7 +572,7 @@ export function useReporteProveedores() {
       setProductosAgregados(nuevos)
 
       try {
-        await api.post('/alegra/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
+        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
       } catch (e) {
         console.error('No se pudo guardar la cantidad:', e)
         showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -545,13 +581,14 @@ export function useReporteProveedores() {
   }, [productosAgregados])
 
   return {
-    notasPorProducto,
-    cargandoNotas,
-    proveedores,
+    filtroCiclo, consultaCiclo,
+    notasPorProducto: notas.vigente ? notasPorProducto : {},
+    cargandoNotas: activo && (cargandoNotas || !notas.vigente),
+    proveedores: lectura.vigente ? proveedores : [],
     pedidosEnviados,
-    resumen,
-    loading,
-    error,
+    resumen: lectura.vigente ? resumen : null,
+    loading: activo && (loading || !lectura.vigente),
+    error: lectura.vigente ? error : null,
     fechaInicio,
     setFechaInicio,
     loadReporte,
@@ -583,13 +620,13 @@ export function useReporteProveedores() {
 
     modalAsignarVisible,
     setModalAsignarVisible,
-    proveedoresAlegra,
-    setProveedoresAlegra,
+    proveedoresDisponibles,
+    setProveedoresDisponibles,
     busquedaProveedor,
     setBusquedaProveedor,
     loadingProveedores,
     abrirModalAsignar,
-    cargarProveedoresAlegra,
+    cargarProveedores,
     asignarProveedorManual,
 
     modalCrearProveedor,
@@ -606,10 +643,10 @@ export function useReporteProveedores() {
     proveedorParaAgregar,
     busquedaProducto,
     setBusquedaProducto,
-    productosAlegra,
+    productosEncontrados,
     loadingProductos,
     abrirModalAgregarProducto,
-    buscarProductosAlegra,
+    buscarProductos,
     solicitarCantidadYAgregar,
     eliminarProductoAgregado,
     actualizarCantidadAgregado,

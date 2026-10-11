@@ -11,8 +11,9 @@ import ToastContainer from '../components/ToastContainer'
 /**
  * Reporte Contador — control interno mensual de ventas y compras.
  *
- * Se suben los dos Excel que exporta Alegra ("Impuestos en Ventas" /
- * "Impuestos en Compras"). En ventas, el módulo detecta automáticamente
+ * El mes se trae de las facturas, notas de crédito y compras del sistema
+ * (también se puede subir el Excel que exportaba Alegra, para un mes viejo).
+ * En ventas, el módulo detecta automáticamente
  * facturas que están duplicadas — la misma venta registrada como documento
  * interno ("sin emisión") y además como factura electrónica — y las deja
  * pre-marcadas para excluir, siempre reversible. Todo lo demás se edita a
@@ -21,7 +22,7 @@ import ToastContainer from '../components/ToastContainer'
 export default function ReporteContador() {
   const {
     periodoSeleccionado, setPeriodoSeleccionado,
-    periodos, periodoDe, subiendo, handleSubirArchivo, handleImportarAlegra, handleEliminarPeriodo,
+    periodos, periodoDe, subiendo, handleSubirArchivo, handleImportarDelSistema, handleEliminarPeriodo,
     tabActiva, setTabActiva, detalle, loadingDetalle, resumenVentas, resumenCompras,
     handleToggleFactura, handleEditarLinea, handleEliminarLinea,
     handleRedetectar, handleExportar,
@@ -50,15 +51,15 @@ export default function ReporteContador() {
             Reporte Contador
           </h1>
           <p className="text-neutro-600 mt-1">
-            Control interno mensual de ventas y compras — se traen de Alegra, los revisás y exportás.
+            Control interno mensual de ventas y compras — se traen del sistema, los revisás y exportás.
           </p>
         </div>
         <SelectorMes periodo={periodoSeleccionado} onCambiar={setPeriodoSeleccionado} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <TarjetaPeriodo tipo="ventas" periodo={ventas} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarAlegra} onEliminar={handleEliminarPeriodo} />
-        <TarjetaPeriodo tipo="compras" periodo={compras} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarAlegra} onEliminar={handleEliminarPeriodo} />
+        <TarjetaPeriodo tipo="ventas" periodo={ventas} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarDelSistema} onEliminar={handleEliminarPeriodo} />
+        <TarjetaPeriodo tipo="compras" periodo={compras} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarDelSistema} onEliminar={handleEliminarPeriodo} />
       </div>
 
       <ResumenComparativo ventas={ventas} compras={compras} resumenVentas={resumenVentas} resumenCompras={resumenCompras} />

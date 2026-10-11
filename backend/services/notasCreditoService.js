@@ -17,18 +17,24 @@
  */
 
 const { query } = require('../config/database');
+const almacenamiento = require('../src/integrations/almacenamiento');
 
 /**
  * Guarda una NC ya parseada. Idempotente por la clave: si el mismo correo se
  * reprocesa (el monitoreo relee 30 días cada vez), no duplica ni revierte el
  * estado de aplicación.
+ *
+ * `xmlRuta` es la ruta del XML ya guardado en almacenamiento privado (ver
+ * `emailService.saveXmlAttachment`). Con `ON CONFLICT DO NOTHING`, si la
+ * nota ya existía el `INSERT` no toca nada y el XML recién guardado queda
+ * huérfano — por eso se borra cuando `result.rows.length === 0`.
  */
-async function guardarNotaCredito(nc) {
+async function guardarNotaCredito(nc, xmlRuta = null) {
   const result = await query(`
     INSERT INTO nota_credito_proveedor
       (clave, clave_referencia, numero_consecutivo, proveedor_nombre, proveedor_cedula,
-       fecha_emision, monto_total, moneda, razon, codigo_referencia, lineas)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       fecha_emision, monto_total, moneda, razon, codigo_referencia, lineas, xml_ruta)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (clave) DO NOTHING
     RETURNING id;
   `, [
@@ -42,10 +48,14 @@ async function guardarNotaCredito(nc) {
     nc.moneda || 'CRC',
     nc.razon || null,
     nc.codigoReferencia || null,
-    JSON.stringify(nc.lineas || [])
+    JSON.stringify(nc.lineas || []),
+    xmlRuta
   ]);
 
-  return { guardada: result.rows.length > 0, id: result.rows[0]?.id || null };
+  const guardada = result.rows.length > 0;
+  if (!guardada && xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
+
+  return { guardada, id: result.rows[0]?.id || null };
 }
 
 /**
@@ -61,11 +71,14 @@ async function guardarNotaCredito(nc) {
  */
 async function aplicarNotasCreditoPendientes() {
   const pendientes = await query(`
-    SELECT nc.*, cxp.id AS cuenta_id, cxp.saldo_pendiente, cxp.monto_total AS cuenta_monto,
+    SELECT nc.*, cxp.id AS cuenta_id, v.saldo AS saldo_pendiente, cxp.monto_total AS cuenta_monto,
            cxp.numero_consecutivo AS cuenta_consecutivo
     FROM nota_credito_proveedor nc
     JOIN facturas_proveedores f ON f.clave = nc.clave_referencia
     JOIN cuentas_por_pagar cxp ON cxp.factura_id = f.id
+    -- El saldo se calcula (migración 025): la columna saldo_pendiente ya no
+    -- es la fuente.
+    JOIN cuenta_por_pagar_saldo v ON v.id = cxp.id
     WHERE nc.aplicada = FALSE
       -- Una nota eliminada NO se vuelve a aplicar: sin esto, el correo la
       -- reingresa y le resta el saldo a la factura por segunda vez.
@@ -74,9 +87,15 @@ async function aplicarNotasCreditoPendientes() {
   `);
 
   const aplicadas = [];
+  // El saldo se leyó UNA vez, antes del ciclo. Si dos notas de la misma
+  // corrida acreditan la misma factura, la segunda tiene que ver lo que dejó
+  // la primera — si no, entre las dos descuentan más que el saldo.
+  const saldoPorCuenta = new Map();
 
   for (const nc of pendientes.rows) {
-    const saldoActual = Number(nc.saldo_pendiente);
+    const saldoActual = saldoPorCuenta.has(nc.cuenta_id)
+      ? saldoPorCuenta.get(nc.cuenta_id)
+      : Number(nc.saldo_pendiente);
     const credito = Number(nc.monto_total);
     const yaAplicado = Number(nc.monto_aplicado) || 0;
     const porAplicar = Math.round((credito - yaAplicado) * 100) / 100;
@@ -100,6 +119,7 @@ async function aplicarNotasCreditoPendientes() {
       saldoActual,
       origen: 'automatica'
     });
+    saldoPorCuenta.set(nc.cuenta_id, nuevoSaldo);
 
     aplicadas.push({
       clave: nc.clave,
@@ -190,22 +210,6 @@ async function listarPorCuentas(cuentaIds) {
 }
 
 /**
- * Total ya acreditado sobre una cuenta. Lo necesita liberarCuentaPorFactura,
- * que reinicia el saldo al monto total y tiene que volver a descontarlo.
- */
-async function totalAplicadoEnCuenta(cuentaId) {
-  // Del registro de aplicaciones: es lo único que sabe cuánto se descontó
-  // de ESTA cuenta en particular.
-  const result = await query(
-    `SELECT COALESCE(SUM(monto), 0) AS total
-     FROM nota_credito_aplicacion
-     WHERE cuenta_por_pagar_id = $1;`,
-    [cuentaId]
-  );
-  return Number(result.rows[0].total) || 0;
-}
-
-/**
  * Crédito que quedó sin aplicar, agrupado por proveedor: plata que te deben
  * y que se puede descontar de una próxima factura de ese proveedor. Sale de
  * las notas contra facturas ya pagadas o de excedentes.
@@ -217,8 +221,9 @@ async function saldosAFavor() {
            (monto_total - monto_aplicado) AS disponible,
            EXISTS (
              SELECT 1 FROM cuentas_por_pagar c
+             JOIN cuenta_por_pagar_saldo v ON v.id = c.id
              WHERE c.proveedor_cedula = nota_credito_proveedor.proveedor_cedula
-               AND c.liberada = TRUE AND c.saldo_pendiente > 0
+               AND c.liberada = TRUE AND v.saldo > 0
            ) AS hay_donde_aplicar
     FROM nota_credito_proveedor
     WHERE monto_total > monto_aplicado
@@ -263,20 +268,13 @@ async function saldosAFavor() {
 }
 
 /**
- * Descuenta `monto` de una cuenta y deja registrada la aplicación. Es el
- * único punto que toca saldos por notas de crédito — automática o manual
- * pasan por acá para que el registro quede siempre completo.
+ * Deja registrada la aplicación de `monto` de una nota a una cuenta. Es el
+ * único punto que aplica notas de crédito — automática o manual pasan por
+ * acá para que el registro quede siempre completo. El saldo de la cuenta no
+ * se toca: se calcula a partir de este registro (vista cuenta_por_pagar_saldo).
  */
 async function registrarAplicacion({ notaId, cuentaId, monto, saldoActual, origen }) {
   const nuevoSaldo = Math.round((saldoActual - monto) * 100) / 100;
-
-  await query(`
-    UPDATE cuentas_por_pagar
-    SET saldo_pendiente = $1::numeric,
-        estado = CASE WHEN $1::numeric <= 0 THEN 'PAGADA' ELSE estado END,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = $2;
-  `, [nuevoSaldo, cuentaId]);
 
   await query(`
     INSERT INTO nota_credito_aplicacion (nota_credito_id, cuenta_por_pagar_id, monto, origen)
@@ -311,10 +309,11 @@ async function cuentasCandidatas(notaId) {
   const disponible = Math.round((Number(n.monto_total) - Number(n.monto_aplicado)) * 100) / 100;
 
   const cuentas = await query(`
-    SELECT cxp.id, cxp.numero_consecutivo, cxp.monto_total, cxp.saldo_pendiente,
-           cxp.fecha_emision, cxp.fecha_vencimiento, cxp.estado
+    SELECT cxp.id, cxp.numero_consecutivo, cxp.monto_total, v.saldo AS saldo_pendiente,
+           cxp.fecha_emision, cxp.fecha_vencimiento, v.estado
     FROM cuentas_por_pagar cxp
-    WHERE cxp.proveedor_cedula = $1 AND cxp.liberada = TRUE AND cxp.saldo_pendiente > 0
+    JOIN cuenta_por_pagar_saldo v ON v.id = cxp.id
+    WHERE cxp.proveedor_cedula = $1 AND cxp.liberada = TRUE AND v.saldo > 0
     ORDER BY cxp.fecha_vencimiento ASC;
   `, [n.proveedor_cedula]);
 
@@ -361,7 +360,11 @@ async function aplicarNotaACuenta(notaId, cuentaId, montoSolicitado) {
     throw e;
   }
 
-  const cuenta = await query(`SELECT * FROM cuentas_por_pagar WHERE id = $1;`, [cuentaId]);
+  const cuenta = await query(`
+    SELECT c.*, v.saldo AS saldo_pendiente
+      FROM cuentas_por_pagar c
+      JOIN cuenta_por_pagar_saldo v ON v.id = c.id
+     WHERE c.id = $1;`, [cuentaId]);
   if (cuenta.rows.length === 0) {
     const e = new Error('Cuenta por pagar no encontrada.');
     e.status = 404;
@@ -441,37 +444,26 @@ async function eliminarNotaCredito(id) {
     [id]
   );
 
-  const revertidas = [];
-  for (const a of aplicaciones.rows) {
-    const c = await query(`SELECT saldo_pendiente, monto_total, numero_consecutivo FROM cuentas_por_pagar WHERE id = $1;`, [a.cuenta_por_pagar_id]);
-    if (c.rows.length === 0) continue;
-
-    const saldoActual = Number(c.rows[0].saldo_pendiente);
-    // No puede quedar por encima del monto de la factura: si mientras tanto
-    // se registraron pagos, devolver el crédito no debe inventar deuda.
-    const restaurado = Math.min(
-      Math.round((saldoActual + Number(a.monto)) * 100) / 100,
-      Number(c.rows[0].monto_total)
-    );
-
-    await query(`
-      UPDATE cuentas_por_pagar
-      SET saldo_pendiente = $1::numeric,
-          estado = CASE WHEN $1::numeric > 0 AND estado = 'PAGADA' THEN 'PENDIENTE' ELSE estado END,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2;
-    `, [restaurado, a.cuenta_por_pagar_id]);
-
-    revertidas.push({
-      factura: c.rows[0].numero_consecutivo,
-      devuelto: Number(a.monto),
-      saldoRestaurado: restaurado
-    });
-  }
-
-  // Las aplicaciones sí se borran: ya se revirtieron arriba y dejarlas haría
-  // que la nota siguiera figurando como aplicada en cada cuenta.
+  // Borrar las aplicaciones ES devolverles el crédito a las facturas: el
+  // saldo se calcula a partir de ellas (vista cuenta_por_pagar_saldo), así
+  // que no hay ningún saldo que restaurar a mano — ni forma de restaurarlo
+  // dos veces.
   await query(`DELETE FROM nota_credito_aplicacion WHERE nota_credito_id = $1;`, [id]);
+
+  const cuentaIds = aplicaciones.rows.map((a) => a.cuenta_por_pagar_id);
+  const despues = cuentaIds.length === 0 ? { rows: [] } : await query(`
+    SELECT c.id, c.numero_consecutivo, v.saldo
+      FROM cuentas_por_pagar c
+      JOIN cuenta_por_pagar_saldo v ON v.id = c.id
+     WHERE c.id = ANY($1::uuid[]);`, [cuentaIds]);
+  const porId = new Map(despues.rows.map((r) => [r.id, r]));
+  const revertidas = aplicaciones.rows
+    .filter((a) => porId.has(a.cuenta_por_pagar_id))
+    .map((a) => ({
+      factura: porId.get(a.cuenta_por_pagar_id).numero_consecutivo,
+      devuelto: Number(a.monto),
+      saldoRestaurado: Number(porId.get(a.cuenta_por_pagar_id).saldo)
+    }));
 
   // La nota se marca. El monto aplicado vuelve a 0 y deja de estar aplicada,
   // para que ninguna vista la siga contando.
@@ -509,7 +501,6 @@ module.exports = {
   aplicarNotasCreditoPendientes,
   listarHuerfanas,
   listarPorCuentas,
-  totalAplicadoEnCuenta,
   saldosAFavor,
   cuentasCandidatas,
   aplicarNotaACuenta,

@@ -6,7 +6,7 @@ import { useDialog } from './useDialog'
 /**
  * Estado y lógica de negocio de la revisión de precios: navegación
  * lista↔revisión, pestañas por estado de factura, ajuste de precios,
- * factor de conversión, y envío a Alegra. Extraído de RevisionPrecios.jsx.
+ * factor de conversión, y registro de la compra. Extraído de RevisionPrecios.jsx.
  *
  * El toast (array, con duración null para el mensaje "enviando" persistente
  * y remoción por tipo) se mantiene con su implementación local igual que en
@@ -22,7 +22,8 @@ export function useRevisionPrecios() {
   const [facturas, setFacturas] = useState([])
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [productos, setProductos] = useState([])
-  const [productosAlegra, setProductosAlegra] = useState({})
+  // Llaveado por `producto.id`.
+  const [productosDelCatalogo, setProductosDelCatalogo] = useState({})
   const [sugerenciasPrecio, setSugerenciasPrecio] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -34,7 +35,6 @@ export function useRevisionPrecios() {
   const [preciosAjustados, setPreciosAjustados] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [devolviendo, setDevolviendo] = useState(false)
-  const [sincronizando, setSincronizando] = useState(false)
 
   // Factor de conversión inline
   const [modalFactor, setModalFactor] = useState(false)
@@ -69,7 +69,10 @@ export function useRevisionPrecios() {
         // Facturas 100% relacionadas listas para revisión
         response = await api.get('/revision-precios/facturas-relacionadas')
       } else if (tabActiva === 'ENVIADAS') {
-        // Facturas ya enviadas a Alegra
+        // Facturas con compra ya registrada. El filtro sigue siendo por
+        // estado 'ENVIADA' en la base — el nombre quedó de cuando esto de
+        // verdad mandaba algo a Alegra; cambiarlo es un cambio de esquema
+        // aparte, no de esta pantalla.
         response = await api.get('/revision-precios/facturas?estado=ENVIADA')
       }
 
@@ -90,30 +93,6 @@ export function useRevisionPrecios() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, tabActiva])
 
-  const sincronizarProductos = useCallback(async () => {
-    try {
-      setSincronizando(true)
-      showToast('Sincronizando productos desde Alegra...', 'info')
-
-      const response = await api.post('/alegra/sincronizar/cache-productos')
-
-      if (response.data.success) {
-        showToast(
-          `Sincronización exitosa: ${response.data.total} productos actualizados`,
-          'success'
-        )
-      }
-    } catch (err) {
-      console.error('Error sincronizando productos:', err)
-      showToast(
-        `Error al sincronizar: ${err.message}`,
-        'error'
-      )
-    } finally {
-      setSincronizando(false)
-    }
-  }, [showToast])
-
   const abrirRevision = useCallback(async (factura) => {
     try {
       setLoading(true)
@@ -122,18 +101,22 @@ export function useRevisionPrecios() {
       setPreciosAjustados({})
       setSugerenciasPrecio({})
 
-      // Obtener datos de Alegra para comparación
-      const alegraIds = factura.productos
-        .map(p => p.alegraItemId)
-        .filter(Boolean)
+      // El precio y el costo de HOY de cada producto, del maestro propio y
+      // por `producto.id` (cada línea trae su `productoPropioId`). Antes se le
+      // preguntaba a Alegra en vivo, por el id de Alegra: mostraba el precio
+      // de allá —no el que "Registrar compra" cambia acá— y un producto sin
+      // ficha en Alegra no se podía revisar.
+      const productoIds = [...new Set(factura.productos
+        .map(p => p.productoPropioId)
+        .filter(Boolean))]
 
-      if (alegraIds.length > 0) {
+      if (productoIds.length > 0) {
         const response = await api.post('/revision-precios/productos-batch', {
-          alegraIds
+          productoIds
         })
 
         if (response.data.success) {
-          setProductosAlegra(response.data.productos)
+          setProductosDelCatalogo(response.data.productos)
         }
       }
 
@@ -161,7 +144,7 @@ export function useRevisionPrecios() {
     setVista('lista')
     setFacturaSeleccionada(null)
     setProductos([])
-    setProductosAlegra({})
+    setProductosDelCatalogo({})
     setPreciosAjustados({})
     setSugerenciasPrecio({})
   }, [])
@@ -264,7 +247,7 @@ export function useRevisionPrecios() {
     }
   }, [productoSeleccionadoFactor, cantidadProveedor, cantidadMia, showToast])
 
-  const enviarAlegra = useCallback(async () => {
+  const registrarCompra = useCallback(async () => {
     if (!facturaSeleccionada) return
 
     // Contar cuántos precios se van a actualizar
@@ -273,12 +256,11 @@ export function useRevisionPrecios() {
     ).length
 
     const confirmacion = await confirm(
-      `¿Enviar factura ${facturaSeleccionada.numeroConsecutivo} a Alegra?\n\n` +
+      `¿Registrar la compra de la factura ${facturaSeleccionada.numeroConsecutivo}?\n\n` +
       `Se realizará:\n` +
       `✅ Actualizar ${productos.length} costos\n` +
       `💰 Actualizar ${preciosQueActualizar} precios de venta\n` +
-      `📄 Crear factura de proveedor\n` +
-      `🔄 Marcar como ENVIADA`
+      `💳 Liberar la cuenta por pagar, si la tiene`
     )
 
     if (!confirmacion) return
@@ -287,62 +269,49 @@ export function useRevisionPrecios() {
     const facturaNumero = facturaSeleccionada.numeroConsecutivo
     const facturaId = facturaSeleccionada.id
 
-    // Mostrar toast de "enviando" y volver a la lista inmediatamente
-    showToast(`📤 Enviando factura ${facturaNumero} a Alegra...`, 'loading', null)
+    // Mostrar toast de "registrando" y volver a la lista inmediatamente
+    showToast(`📤 Registrando la compra de la factura ${facturaNumero}...`, 'loading', null)
     volverALista()
 
-    // Enviar en segundo plano
+    // Registrar en segundo plano. A diferencia del envío a Alegra de antes,
+    // esto es todo o nada: si algo falla, no queda nada a medias — no hay
+    // un "costos actualizados pero la compra no se creó" posible.
     try {
-      const response = await api.post('/revision-precios/enviar-alegra', {
+      const response = await api.post('/compras/registrar', {
         facturaId: facturaId,
         preciosAjustados: preciosAjustados
       })
 
       if (response.data.success) {
-        const resultado = response.data.resultado
-        const facturaCreada = response.data.facturaCreada
+        const resultado = response.data.data
 
-        // Remover toast de "enviando"
+        // Remover toast de "registrando"
         setToasts(prev => prev.filter(t => t.type !== 'loading'))
 
-        // Mostrar resultado apropiado
-        if (facturaCreada) {
-          showToast(
-            `✅ Factura ${facturaNumero} enviada exitosamente\n` +
-            `📄 ID Alegra: ${resultado.alegraFacturaId}\n` +
-            `💰 Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
-            `🔄 Precios ajustados: ${resultado.preciosActualizados || 0}`,
-            'success',
-            8000
-          )
-        } else {
-          // El motivo REAL viene del backend. Antes acá decía siempre "sin
-          // permisos · contacta soporte de Alegra", pasara lo que pasara:
-          // un producto inactivo, uno sin inventario, un CABYS rechazado...
-          // Ese mensaje mandaba a pedir un permiso que ya se tiene y ocultaba
-          // lo único accionable, que es qué producto falla.
-          const motivo = response.data.motivoFacturaNoCreada
-          showToast(
-            `⚠️ Factura ${facturaNumero} procesada parcialmente\n` +
-            `✅ Costos actualizados: ${resultado.costosActualizados}/${resultado.totalProductos}\n` +
-            `✅ Precios ajustados: ${resultado.preciosActualizados || 0}\n` +
-            `❌ La factura de compra no se creó en Alegra\n` +
-            (motivo ? `📋 ${motivo}` : '📋 Alegra no indicó el motivo — revisá el registro del servidor'),
-            'warning',
-            15000
-          )
-        }
+        showToast(
+          `✅ Compra de la factura ${facturaNumero} registrada\n` +
+          `📦 ${resultado.lineas} líneas\n` +
+          `💰 Costos actualizados: ${resultado.costosActualizados}\n` +
+          `🔄 Precios ajustados: ${resultado.preciosActualizados}` +
+          (resultado.sinProductoPropio ? `\n⚠️ ${resultado.sinProductoPropio} línea(s) sin producto propio, sin actualizar` : '') +
+          (resultado.cuentaLiberada ? `\n💳 Cuenta por pagar liberada` : '') +
+          (resultado.cuentaDeContado ? `\n💵 De contado: quedó pendiente en Pagos a Proveedores para anotar cómo se pagó` : ''),
+          'success',
+          8000
+        )
 
         // Recargar la lista para actualizar estados
         loadFacturas()
       }
     } catch (err) {
-      // Remover toast de "enviando"
+      // Remover toast de "registrando"
       setToasts(prev => prev.filter(t => t.type !== 'loading'))
 
-      // Mostrar error
+      // El mensaje del servidor es el motivo real (factura ya registrada,
+      // sin proveedor propio, sin líneas...); si algo interno se cayó,
+      // no queda nada a medias porque la transacción hizo ROLLBACK.
       showToast(
-        `❌ Error enviando factura ${facturaNumero}\n${err.message}`,
+        `❌ No se pudo registrar la compra de ${facturaNumero}\n${err.response?.data?.message || err.message}`,
         'error',
         10000
       )
@@ -354,7 +323,7 @@ export function useRevisionPrecios() {
     facturas,
     facturaSeleccionada,
     productos,
-    productosAlegra,
+    productosDelCatalogo,
     sugerenciasPrecio,
     loading,
     error,
@@ -363,14 +332,12 @@ export function useRevisionPrecios() {
     preciosAjustados,
     enviando,
     devolviendo,
-    sincronizando,
-    sincronizarProductos,
     abrirRevision,
     volverALista,
     devolverFactura,
     ajustarPrecio,
     aplicarPrecioSugerido,
-    enviarAlegra,
+    registrarCompra,
 
     modalFactor,
     productoSeleccionadoFactor,

@@ -32,7 +32,7 @@ function colorMargen(margen) {
  */
 export default function FilaProducto({
   producto,
-  productosAlegra,
+  productosDelCatalogo,
   preciosAjustados,
   sugerenciasPrecio,
   soloLectura = false,
@@ -40,7 +40,7 @@ export default function FilaProducto({
   onAplicarPrecioSugerido,
   onAbrirFactor
 }) {
-  const a = analizarProducto(producto, { productosAlegra, preciosAjustados, sugerenciasPrecio })
+  const a = analizarProducto(producto, { productosDelCatalogo, preciosAjustados, sugerenciasPrecio })
   const cantidad = calcularInfoCantidad(producto)
 
   const valorInput = preciosAjustados[producto.id] !== undefined

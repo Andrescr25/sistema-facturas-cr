@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 
 /**
  * Categorías y subcategorías con sus conteos, en el orden canónico (GET
- * /catalog/arbol — el mismo orden que arma el catálogo del agente), qué
+ * /maestro/arbol — el mismo orden que arma el catálogo del agente), qué
  * categoría se está mirando, y la edición de esa taxonomía (crear,
  * renombrar, reordenar, borrar). La edición vive en las propias tarjetas y
  * secciones de la pantalla, no en un modal aparte.
  *
+ * Es el hook de `main` sobre el maestro propio. Las categorías se siguen
+ * nombrando por su NOMBRE en la pantalla (así las cuelgan `subcategoria` y
+ * `categoria_config`), pero al servidor viaja su id propio.
+ *
  * REORDENAR Y RENOMBRAR SON OPTIMISTAS (el estado local cambia antes de que
- * vuelva el servidor) — mismo criterio que ya tenía useGestionCatalogo.js:
- * esperar la vuelta del PUT era el botón de subir/bajar tardando ~3 s.
- * CREAR Y BORRAR SÍ esperan: son acciones deliberadas, no un hot path, y
- * crear categoría además escribe en Alegra (no es instantáneo).
+ * vuelva el servidor): esperar la vuelta del PUT era el botón de subir/bajar
+ * tardando ~3 s. CREAR Y BORRAR SÍ esperan: son acciones deliberadas.
  */
 export function useTaxonomiaCatalogo() {
   const [arbol, setArbol] = useState([])
@@ -21,20 +23,19 @@ export function useTaxonomiaCatalogo() {
   // Qué bloque mirar dentro de la categoría activa: null = toda la categoría,
   // 'sin' = solo lo no clasificado, o el id de una subcategoría puntual.
   const [subFoco, setSubFoco] = useState(null)
-
-  // `sinAlegra`: las categorías vinieron de la copia local porque Alegra no
-  // respondió (sin id: no se puede mover nada de categoría). `errorArbol`:
-  // ni eso — la pantalla lo dice en vez de quedar vacía.
-  const [sinAlegra, setSinAlegra] = useState(false)
   const [errorArbol, setErrorArbol] = useState(null)
+
+  // El árbol de este momento, para pasar de nombre a id sin rehacer los callbacks.
+  const arbolRef = useRef([])
+  arbolRef.current = arbol
+  const idDe = (nombre) => arbolRef.current.find((c) => c.name === nombre)?.id
 
   const cargarArbol = useCallback(async () => {
     setLoadingArbol(true)
     try {
-      const { data } = await api.get('/alegra/catalog/arbol')
-      const categorias = data?.success ? (data.categorias || []) : []
+      const { data } = await api.get('/maestro/arbol')
+      const categorias = data?.success ? (data.data || []) : []
       setArbol(categorias)
-      setSinAlegra(Boolean(data?.sinAlegra))
       setErrorArbol(null)
       return categorias
     } catch (error) {
@@ -68,15 +69,17 @@ export function useTaxonomiaCatalogo() {
   // --- categorías ---
 
   const crearCategoria = useCallback(async (nombre) => {
-    const { data } = await api.post('/alegra/catalog/categorias-config/crear', { nombre })
+    const { data } = await api.post('/maestro/categorias', { nombre })
     await cargarArbol()
-    return data?.categoria
+    return data?.data
   }, [cargarArbol])
 
+  /** El nombre que se ve en los catálogos; el del sistema se cambia en la pestaña Categorías. */
   const renombrarCategoria = useCallback(async (categoria, nombreVisible) => {
+    const id = idDe(categoria)
     setArbol((prev) => prev.map((c) => (c.name === categoria ? { ...c, nombreVisible: nombreVisible || categoria } : c)))
     try {
-      await api.put('/alegra/catalog/categorias-config/nombre', { categoria, nombreVisible })
+      await api.put(`/maestro/categorias/${id}/nombre-visible`, { nombreVisible })
     } catch (error) {
       console.error('Error renombrando categoría:', error)
       await cargarArbol()
@@ -90,7 +93,7 @@ export function useTaxonomiaCatalogo() {
       return nombresEnOrden.map((nombre, i) => ({ ...porNombre.get(nombre), name: nombre, orden: i }))
     })
     try {
-      await api.put('/alegra/catalog/categorias-config/orden', { categorias: nombresEnOrden })
+      await api.put('/maestro/categorias-orden', { categorias: nombresEnOrden })
     } catch (error) {
       console.error('Error reordenando categorías:', error)
       await cargarArbol()
@@ -100,8 +103,8 @@ export function useTaxonomiaCatalogo() {
   // --- subcategorías ---
 
   const crearSubcategoria = useCallback(async (categoria, nombre) => {
-    const { data } = await api.post('/alegra/catalog/subcategorias', { categoria, nombre })
-    const s = data?.subcategoria
+    const { data } = await api.post('/maestro/subcategorias', { categoriaId: idDe(categoria), nombre })
+    const s = data?.data
     if (s) {
       setArbol((prev) => prev.map((c) => (c.name === categoria
         ? { ...c, subcategorias: [...c.subcategorias, { id: s.id, nombre: s.nombre, orden: 0, activo: true, productos: 0 }] }
@@ -115,7 +118,7 @@ export function useTaxonomiaCatalogo() {
       ? { ...c, subcategorias: c.subcategorias.map((s) => (s.id === id ? { ...s, nombre } : s)) }
       : c)))
     try {
-      await api.put(`/alegra/catalog/subcategorias/${id}`, { nombre })
+      await api.put(`/maestro/subcategorias/${id}`, { nombre })
     } catch (error) {
       console.error('Error renombrando subcategoría:', error)
       await cargarArbol()
@@ -131,7 +134,7 @@ export function useTaxonomiaCatalogo() {
       return { ...c, subcategorias: reordenadas }
     }))
     try {
-      await api.put('/alegra/catalog/subcategorias-orden', { categoria, ids: idsEnOrden })
+      await api.put('/maestro/subcategorias-orden', { categoriaId: idDe(categoria), ids: idsEnOrden })
     } catch (error) {
       console.error('Error reordenando subcategorías:', error)
       await cargarArbol()
@@ -140,7 +143,7 @@ export function useTaxonomiaCatalogo() {
 
   /** Solo tiene sentido si ya está en 0 productos — el backend lo exige igual. */
   const eliminarSubcategoria = useCallback(async (categoria, id) => {
-    await api.delete(`/alegra/catalog/subcategorias/${id}`)
+    await api.delete(`/maestro/subcategorias/${id}`)
     setArbol((prev) => prev.map((c) => (c.name === categoria
       ? { ...c, subcategorias: c.subcategorias.filter((s) => s.id !== id) }
       : c)))
@@ -150,7 +153,6 @@ export function useTaxonomiaCatalogo() {
   return {
     arbol,
     loadingArbol,
-    sinAlegra,
     errorArbol,
     categoriaActiva,
     subFoco,

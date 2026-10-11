@@ -5,7 +5,7 @@ import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
  * Buscador para agregar productos a mano a una tanda de excesos.
  *
  * A diferencia de BuscadorProductoDevolucion no pide cantidad: en un exceso
- * la cantidad la define el stock que ya hay en Alegra, y si la física no
+ * la cantidad la define el stock que ya hay en el inventario propio, y si la física no
  * coincide se corrige al empacar (ver ItemExcesoCard). Pedir un número acá
  * sería pedir un dato que todavía nadie contó.
  */
@@ -49,7 +49,7 @@ export default function BuscadorProductoExceso({
             <p className="text-sm text-neutro-400 text-center py-6">No se encontraron productos para "{busqueda}"</p>
           ) : (
             resultados.map(producto => (
-              <div key={producto.alegraId} className="p-3 flex items-center justify-between gap-3">
+              <div key={producto.productoId} className="p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-bold text-neutro-900 text-sm truncate">{producto.nombre}</p>
                   <p className="text-xs text-neutro-400">

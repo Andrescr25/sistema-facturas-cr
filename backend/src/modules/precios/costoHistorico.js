@@ -16,6 +16,17 @@
  * relación. Es idempotente y arregla las dos direcciones: si la línea quedó
  * válida la inserta o actualiza, y si dejó de serlo la borra. Llamarlo dos
  * veces con los mismos ids deja el mismo resultado.
+ *
+ * LA FILA NACE CON SU `producto_id`, QUE ES EL DE LA LÍNEA. Quien lee el
+ * costo (precios/costoDerivado.js) lo busca por el id propio. Hasta el
+ * 2026-10-03 este INSERT no lo escribía: la migración 005 lo había rellenado
+ * una vez y toda compra posterior quedaba sin él, o sea fuera del costo del
+ * producto.
+ *
+ * El producto de la línea es `productos_factura_proveedor.producto_id`
+ * (migración 038). Antes hacía falta que la línea tuviera un id de Alegra: la
+ * compra de un producto creado en el sistema no dejaba costo. El id de Alegra
+ * se sigue guardando al lado, cuando existe, solo como referencia.
  */
 
 const prisma = require('../../../lib/prisma');
@@ -40,14 +51,22 @@ async function sincronizarCostoDeLineas(productoFacturaIds) {
     }
   });
 
+  // El producto PROPIO de cada línea. Prisma no conoce esa columna (no se
+  // regenera el cliente: ver relacionPropia.js), así que se lee aparte.
+  const propios = lineas.length > 0
+    ? await query('SELECT id, producto_id FROM productos_factura_proveedor WHERE id = ANY($1::uuid[])', [lineas.map(l => l.id)])
+    : { rows: [] };
+  const productoDeLinea = new Map(propios.rows.map(r => [r.id, r.producto_id]));
+
   const filas = [];
   const aBorrar = [];
 
   for (const l of lineas) {
+    const productoId = productoDeLinea.get(l.id) || null;
     // Mismas condiciones que usa la lectura (ver costoDerivado.js): solo
     // cuenta una línea confirmada, con producto, precio y fecha.
     const valida = l.estadoRelacionado === 'RELACIONADO'
-      && l.alegraItemId
+      && productoId
       && Number(l.precioUnitario) > 0
       && l.factura?.fechaEmision;
 
@@ -57,7 +76,8 @@ async function sincronizarCostoDeLineas(productoFacturaIds) {
     if (!Number.isFinite(costoUnitario) || costoUnitario <= 0) { aBorrar.push(l.id); continue; }
 
     filas.push([
-      l.alegraItemId,
+      l.alegraItemId || null,
+      productoId,
       l.id,
       l.factura.proveedorCedula || null,
       l.factura.proveedorNombre || null,
@@ -71,7 +91,7 @@ async function sincronizarCostoDeLineas(productoFacturaIds) {
   // Las líneas que ya no califican se borran SIEMPRE, incluso las que ni
   // siquiera existen ya: es lo que hace que cambiar una relación no deje el
   // costo viejo apuntando al producto anterior.
-  const idsSinFila = ids.filter(id => !filas.some(f => String(f[1]) === id));
+  const idsSinFila = ids.filter(id => !filas.some(f => String(f[2]) === id));
   const todosABorrar = [...new Set([...aBorrar.map(String), ...idsSinFila])];
 
   let eliminadas = 0;
@@ -84,17 +104,21 @@ async function sincronizarCostoDeLineas(productoFacturaIds) {
   }
 
   if (filas.length > 0) {
-    const COLUMNAS = 8;
+    const COLUMNAS = 9;
     const placeholders = filas
       .map((_, idx) => `(${Array.from({ length: COLUMNAS }, (_, c) => `$${idx * COLUMNAS + c + 1}`).join(', ')})`)
       .join(', ');
 
     await query(`
       INSERT INTO costo_historico
-        (alegra_item_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
-      VALUES ${placeholders}
+        (alegra_item_id, producto_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
+      SELECT v.alegra_item_id, v.producto_id::int, v.producto_factura_id::uuid, v.proveedor_cedula, v.proveedor_nombre,
+             v.fecha::date, v.costo_unitario::numeric, v.factor_conversion::numeric, v.origen
+        FROM (VALUES ${placeholders})
+             AS v(alegra_item_id, producto_id, producto_factura_id, proveedor_cedula, proveedor_nombre, fecha, costo_unitario, factor_conversion, origen)
       ON CONFLICT (producto_factura_id) DO UPDATE SET
         alegra_item_id = EXCLUDED.alegra_item_id,
+        producto_id = EXCLUDED.producto_id,
         proveedor_cedula = EXCLUDED.proveedor_cedula,
         proveedor_nombre = EXCLUDED.proveedor_nombre,
         fecha = EXCLUDED.fecha,

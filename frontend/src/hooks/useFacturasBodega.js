@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useContextoConsulta } from './useContextoConsulta'
+import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
+import { bodegaPropiaService } from '../services/bodegaPropiaService'
 import {
   filtrarPendientesPorFecha,
   getItemIdFromFacturaItem,
@@ -16,12 +19,16 @@ const REFRESCO_MS = 2 * 60 * 1000
 // Si el servidor avisó que estaba actualizando, se vuelve a pedir en un rato
 // corto para traer lo nuevo sin esperar al próximo refresco.
 const REPREGUNTA_MS = 20 * 1000
+// RAMA independencia-alegra: la lista, la factura abierta y los borradores se
+// guardan con el id PROPIO de la factura (`factura_id`), bajo claves nuevas.
+// Con las de antes, un borrador de la factura 12 de ALEGRA se habría aplicado
+// a la factura propia 12, que es otra (leccion/ids-propios-y-de-alegra-no-se-mezclan).
 const STORAGE_KEYS = {
-  data: 'facturasBodega:data',
-  selected: 'facturasBodega:selectedId',
+  data: 'facturasBodegaPropia:data',
+  selected: 'facturasBodegaPropia:selectedId',
   vista: 'facturasBodega:vista',
   filtros: 'facturasBodega:filtros',
-  draft: (alegraId) => `facturasBodega:draft:${alegraId}`
+  draft: (facturaId) => `facturasBodegaPropia:draft:${facturaId}`
 }
 
 const leer = (clave) => { try { return localStorage.getItem(clave) } catch { return null } }
@@ -47,6 +54,9 @@ const borrar = (clave) => { try { localStorage.removeItem(clave) } catch { /* na
  *    guardada, con un aviso.
  */
 export function useFacturasBodega() {
+  const filtroCiclo = useFiltroCicloOperacion('/bodega/ciclos')
+  const cicloRef = useRef(filtroCiclo.params)
+  cicloRef.current = filtroCiclo.params
   const [pendientesRaw, setPendientesRaw] = useState([])
   const [listas, setListas] = useState([])
   const [ultimaSync, setUltimaSync] = useState(null)
@@ -68,6 +78,10 @@ export function useFacturasBodega() {
     return { fechaInicio: '', mostrarSinFecha: true }
   })
 
+  const lectura = useContextoConsulta(JSON.stringify([filtroCiclo.params, filtros.fechaInicio]))
+  const { esActual, confirmar } = lectura
+  const datosGuardiaRef = useRef(null)
+
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
   const [faltantesDraft, setFaltantesDraft] = useState({})
   const [cargandoEstados, setCargandoEstados] = useState(false)
@@ -79,7 +93,6 @@ export function useFacturasBodega() {
 
   const seleccionadaRef = useRef(null)
   const pedidoRef = useRef(0)
-  const hayDatosRef = useRef(false)
   const repreguntaRef = useRef(null)
   const filtrosRef = useRef(filtros)
   filtrosRef.current = filtros
@@ -89,16 +102,20 @@ export function useFacturasBodega() {
   }
 
   /**
-   * Trae la lista. `forzar` hace que el servidor hable con Alegra ya (botón
-   * "Actualizar"); sin forzar, contesta al toque con lo que tenga.
+   * Trae documentos propios de la selección. Una respuesta anterior nunca
+   * debe guardar una lista filtrada como si fuera la copia de todas las rutas.
    */
   const cargar = useCallback(async ({ forzar = false } = {}) => {
+    if (!esActual()) return
+    const contexto = { ...cicloRef.current }
     const miPedido = ++pedidoRef.current
     setSincronizando(true)
     try {
       const { dias, limit } = calcularDiasYLimite(filtrosRef.current.fechaInicio)
-      const response = await alegraService.getFacturasBodega({ force_refresh: forzar, dias, limit })
-      if (miPedido !== pedidoRef.current) return
+      // De la base propia (sección 11): ya no hay que esperar a Alegra.
+      void forzar
+      const response = await bodegaPropiaService.listar({ dias, limit, ...contexto })
+      if (!esActual() || miPedido !== pedidoRef.current) return
       if (!response.success) throw new Error(response.message || 'No se pudo cargar la información')
 
       const pendientesApi = response.data?.pendientes || []
@@ -109,8 +126,9 @@ export function useFacturasBodega() {
       setUltimaSync(sync)
       setAviso(response.metadata?.aviso || null)
       setError(null)
-      hayDatosRef.current = true
-      guardarLista(pendientesApi, historialApi, sync)
+      datosGuardiaRef.current = esActual
+      confirmar()
+      if (!contexto.rutaId && !contexto.cicloId) guardarLista(pendientesApi, historialApi, sync)
 
       // El servidor contestó con lo guardado y está trayendo lo nuevo: se
       // vuelve a preguntar en un rato, sin esperar al próximo refresco.
@@ -121,21 +139,31 @@ export function useFacturasBodega() {
         }, REPREGUNTA_MS)
       }
     } catch (err) {
-      if (miPedido !== pedidoRef.current) return
+      if (!esActual() || miPedido !== pedidoRef.current) return
       console.error('❌ Error cargando facturas de bodega:', err)
-      if (hayDatosRef.current) {
+      if (datosGuardiaRef.current === esActual) {
         // Con una lista en pantalla, un error no la borra: se avisa y se sigue.
         setAviso(`${err.message} Se muestran las facturas de la última sincronización.`)
       } else {
-        setError(err.message)
+        // La copia conjunta conserva el contexto de cada documento. Al perder
+        // la red podemos filtrarla, pero nunca presentar la lista de otra semana.
+        let guardado = null
+        try { guardado = JSON.parse(leer(STORAGE_KEYS.data) || 'null') } catch { /* copia ilegible */ }
+        setPendientesRaw(guardado?.pendientes || [])
+        setListas(guardado?.listas || [])
+        setUltimaSync(guardado?.ultimaSync || null)
+        setError(guardado ? null : err.message)
+        setAviso(guardado ? `${err.message} Se muestran los documentos guardados que corresponden a esta selección.` : null)
+        datosGuardiaRef.current = esActual
+        confirmar()
       }
     } finally {
-      if (miPedido === pedidoRef.current) {
+      if (esActual() && miPedido === pedidoRef.current) {
         setSincronizando(false)
         setCargando(false)
       }
     }
-  }, [])
+  }, [esActual, confirmar])
 
   // Arranque: lo guardado en el teléfono al instante, y después la red.
   useEffect(() => {
@@ -146,19 +174,20 @@ export function useFacturasBodega() {
         setListas(guardado.listas || [])
         setUltimaSync(guardado.ultimaSync || null)
         setCargando(false)
-        hayDatosRef.current = true
+        datosGuardiaRef.current = esActual
+        confirmar()
 
         // Si la pantalla se cerró a mitad de un despacho, se retoma.
         const idGuardado = leer(STORAGE_KEYS.selected)
         const todas = [...(guardado.pendientes || []), ...(guardado.listas || [])]
-        const retomar = idGuardado && todas.find((f) => String(f.alegra_id) === String(idGuardado))
+        const retomar = idGuardado && todas.find((f) => String(f.factura_id) === String(idGuardado))
         if (retomar) abrirFactura(retomar)
       }
     } catch (storageError) {
       console.warn('⚠️ No se pudo leer la lista guardada de bodega:', storageError)
     }
     cargar()
-    return () => clearTimeout(repreguntaRef.current)
+    return () => { ++pedidoRef.current; clearTimeout(repreguntaRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -180,7 +209,7 @@ export function useFacturasBodega() {
   useEffect(() => {
     if (primeraVez.current) { primeraVez.current = false; return }
     cargar()
-  }, [filtros.fechaInicio, cargar])
+  }, [filtros.fechaInicio, filtroCiclo.rutaId, filtroCiclo.cicloId, cargar])
 
   // Arriba de todo al abrir una factura.
   useEffect(() => {
@@ -192,11 +221,11 @@ export function useFacturasBodega() {
   useEffect(() => {
     if (!facturaSeleccionada || cargandoEstados || facturaSeleccionada.estado_bodega === 'procesado') return
     if (Object.keys(faltantesDraft).length === 0) return
-    escribir(STORAGE_KEYS.draft(facturaSeleccionada.alegra_id), JSON.stringify(faltantesDraft))
+    escribir(STORAGE_KEYS.draft(facturaSeleccionada.factura_id), JSON.stringify(faltantesDraft))
   }, [faltantesDraft, facturaSeleccionada, cargandoEstados])
 
-  // Las fotos ya asignadas en el catálogo, para los productos de la factura
-  // abierta: las líneas de Alegra no traen foto propia.
+  // Las fotos ya asignadas en el catálogo propio, para los productos de la
+  // factura abierta: las líneas no traen la foto.
   useEffect(() => {
     const items = facturaSeleccionada?.items
     const referencias = Array.from(new Set((items || [])
@@ -225,9 +254,9 @@ export function useFacturasBodega() {
 
   /** Abrir una factura: pendiente para despacharla, o del historial para revisarla. */
   async function abrirFactura(factura) {
-    seleccionadaRef.current = factura.alegra_id
+    seleccionadaRef.current = factura.factura_id
     setFacturaSeleccionada(factura)
-    escribir(STORAGE_KEYS.selected, factura.alegra_id)
+    escribir(STORAGE_KEYS.selected, factura.factura_id)
 
     const base = buildDraftForFactura(factura)
     const esPendiente = factura.estado_bodega !== 'procesado'
@@ -236,7 +265,7 @@ export function useFacturasBodega() {
     // teléfono ya la despachó, lo registrado manda sobre un borrador viejo.
     if (esPendiente) {
       let enProgreso = null
-      try { enProgreso = JSON.parse(leer(STORAGE_KEYS.draft(factura.alegra_id)) || 'null') } catch { enProgreso = null }
+      try { enProgreso = JSON.parse(leer(STORAGE_KEYS.draft(factura.factura_id)) || 'null') } catch { enProgreso = null }
       if (enProgreso && Object.keys(base).every((k) => enProgreso[k])) {
         setFaltantesDraft(enProgreso)
         return
@@ -253,13 +282,13 @@ export function useFacturasBodega() {
     // quedan quietos para que nada de lo que se toque se pierda al llegar.
     setCargandoEstados(true)
     try {
-      const estados = await alegraService.getEstadosFacturaBodega(factura.alegra_id)
-      if (seleccionadaRef.current === factura.alegra_id) setFaltantesDraft(aplicarEstadosGuardados(base, estados))
+      const estados = await bodegaPropiaService.estados(factura.factura_id)
+      if (seleccionadaRef.current === factura.factura_id) setFaltantesDraft(aplicarEstadosGuardados(base, estados))
     } catch (err) {
       console.error('Error cargando lo registrado de la factura:', err)
       setAviso('No se pudo cargar lo que ya se había registrado de esta factura.')
     } finally {
-      if (seleccionadaRef.current === factura.alegra_id) setCargandoEstados(false)
+      if (seleccionadaRef.current === factura.factura_id) setCargandoEstados(false)
     }
   }
 
@@ -318,6 +347,9 @@ export function useFacturasBodega() {
     try {
       setGuardando(true)
       const payload = Object.values(faltantesDraft).map((item) => ({
+        // El id PROPIO del producto primero: es con el que se guarda el
+        // faltante. La referencia y el de Alegra quedan para líneas viejas.
+        producto_id: item.producto_id || null,
         referencia: item.referenciaReal || null,
         alegra_item_id: item.alegra_id || null,
         nombre_producto: item.nombre,
@@ -328,9 +360,9 @@ export function useFacturasBodega() {
         observaciones: item.observaciones || ''
       }))
       if (payload.length > 0) {
-        await alegraService.registrarFaltantes(factura.alegra_id, payload, 'Bodega', '')
+        await bodegaPropiaService.registrarFaltantes(factura.factura_id, payload, 'Bodega')
       }
-      await alegraService.actualizarEstadoFacturaBodega(factura.alegra_id, 'procesado', null, sinFaltantes)
+      await bodegaPropiaService.actualizarEstado(factura.factura_id, 'procesado', null, sinFaltantes)
 
       // Al historial, ARRIBA: es la última despachada.
       const despachada = {
@@ -339,10 +371,10 @@ export function useFacturasBodega() {
         despachada_en: new Date().toISOString(),
         estadosProductos: { ...faltantesDraft }
       }
-      setPendientesRaw((prev) => prev.filter((f) => f.alegra_id !== factura.alegra_id))
-      setListas((prev) => [despachada, ...prev.filter((f) => f.alegra_id !== factura.alegra_id)])
+      setPendientesRaw((prev) => prev.filter((f) => f.factura_id !== factura.factura_id))
+      setListas((prev) => [despachada, ...prev.filter((f) => f.factura_id !== factura.factura_id)])
 
-      borrar(STORAGE_KEYS.draft(factura.alegra_id))
+      borrar(STORAGE_KEYS.draft(factura.factura_id))
       cerrarFactura()
       setSuccessMessage(sinFaltantes
         ? 'Factura lista y enviada a impresión'
@@ -381,12 +413,15 @@ export function useFacturasBodega() {
     escribir(STORAGE_KEYS.filtros, JSON.stringify(nuevos))
   }
 
-  const pendientes = useMemo(() => filtrarPendientesPorFecha(pendientesRaw, filtros), [pendientesRaw, filtros])
+  const coincide = f => (!filtroCiclo.rutaId || String(f.ciclo?.rutaId) === filtroCiclo.rutaId) &&
+    (!filtroCiclo.cicloId || (filtroCiclo.cicloId === 'sin-ciclo' ? !f.ciclo : String(f.ciclo?.id) === filtroCiclo.cicloId))
+  const pendientes = filtrarPendientesPorFecha(pendientesRaw.filter(coincide), filtros)
+  const historial = listas.filter(coincide)
   // Dos vistas: lo que hay que alistar y el historial. Los faltantes se
   // siguen en su propio módulo (decisión del usuario, 2026-09-23).
   const facturasMostradas = useMemo(
-    () => filtrarPorBusqueda(vista === 'historial' ? listas : pendientes, busqueda),
-    [vista, pendientes, listas, busqueda]
+    () => filtrarPorBusqueda(vista === 'historial' ? historial : pendientes, busqueda),
+    [vista, pendientes, historial, busqueda]
   )
 
   const checkedItemsCount = useMemo(() => {
@@ -402,12 +437,15 @@ export function useFacturasBodega() {
 
   return {
     // lista
-    cargando, sincronizando, error, aviso, setAviso, ultimaSync,
+    cargando: cargando || !lectura.vigente,
+    sincronizando, error: lectura.vigente ? error : null, aviso: lectura.vigente ? aviso : null, setAviso,
+    ultimaSync: lectura.vigente ? ultimaSync : null,
     actualizar: () => cargar({ forzar: true }),
     vista, setVista, busqueda, setBusqueda,
     filtros, cambiarFiltro, limpiarFiltros,
-    facturasMostradas,
-    conteos: { porPreparar: pendientes.length, historial: listas.length },
+    facturasMostradas: lectura.vigente ? facturasMostradas : [],
+    filtroCiclo,
+    conteos: { porPreparar: lectura.vigente ? pendientes.length : 0, historial: lectura.vigente ? historial.length : 0 },
 
     // despacho
     facturaSeleccionada, faltantesDraft, cargandoEstados, guardando, esEdicion,

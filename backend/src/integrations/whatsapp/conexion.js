@@ -34,6 +34,10 @@ const os = require('os');
 const crypto = require('crypto');
 const sesion = require('./sesionDb');
 const turno = require('./turno');
+// Rama independencia-alegra: una copia aislada NUNCA se conecta a WhatsApp.
+// Conectarse sería vincular un teléfono real a esta base local. Ver
+// config/aislado.js.
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 
 const DURACION_TURNO_S = 60;
 const CICLO_CON_TURNO_MS = 20000;
@@ -245,6 +249,10 @@ async function ciclo() {
 
 async function iniciar() {
   if (!habilitado() || estado.habilitado) return;
+  if (salidasBloqueadas()) {
+    console.log('📱 WhatsApp interno NO se conecta: esta copia corre aislada (config/aislado.js).');
+    return;
+  }
   estado.habilitado = true;
   detenido = false;
   await sesion.asegurarTabla();
@@ -272,6 +280,7 @@ async function detener() {
  *                                     (con código de país)
  */
 async function vincular({ modo = 'qr', numero = null } = {}) {
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('vincular un teléfono de WhatsApp');
   if (!habilitado()) throw falla('APAGADO', 'WhatsApp interno está apagado (falta WHATSAPP_PROVEEDOR=interno en el servidor).');
   if (!estado.conTurno) throw falla('SIN_TURNO', 'El servidor se está reiniciando. Intente en unos segundos.');
   if (estado.vinculado) throw falla('YA_VINCULADO', `Ya hay un teléfono vinculado (${estado.numero || 'conectando'}). Desvincúlelo primero.`, 409);

@@ -1,0 +1,61 @@
+{
+  "consultado": "2026-10-05",
+  "indice": "https://ovitribucr.hacienda.go.cr/comprobantes-electronicos",
+  "version": "4.4",
+  "archivos": [
+    {
+      "archivo": "FacturaElectronica.xsd",
+      "url": "https://www.hacienda.go.cr/docs/FacturaElectronica_V4.4.xsd",
+      "sha256": "926ba81325bc21102755bd8e4e570a63caaca086e680a877c3a6d15d6ee8a62f",
+      "bytes": 119689
+    },
+    {
+      "archivo": "TiqueteElectronico.xsd",
+      "url": "https://www.hacienda.go.cr/docs/TiqueteElectronico_V4.4.xsd",
+      "sha256": "d7783baf818f316596d0b58b17481be689595982a248d98102d707f72967ae6e",
+      "bytes": 117940
+    },
+    {
+      "archivo": "NotaCreditoElectronica.xsd",
+      "url": "https://www.hacienda.go.cr/docs/NotaCreditoElectronica_V4.4.xsd",
+      "sha256": "b7ed3347c5599e78e5683d9ae83842695ab9497e173df9cd3be8d77c0851f556",
+      "bytes": 123011
+    },
+    {
+      "archivo": "NotaDebitoElectronica.xsd",
+      "url": "https://www.hacienda.go.cr/docs/NotaDebitoElectronica_V4.4.xsd",
+      "sha256": "3709389ccc434fb1ef4571079b1a628654fa04f07c1f3f1044b2416ba12eb7ff",
+      "bytes": 123029
+    },
+    {
+      "archivo": "MensajeReceptor.xsd",
+      "url": "https://www.hacienda.go.cr/docs/MensajeReceptor_V4.4.xsd",
+      "sha256": "b883e3a9321eadf2ccc1a9dc853d9e3bd483918dcd6e2152d902ddf2f244365f",
+      "bytes": 6564
+    },
+    {
+      "archivo": "MensajeHacienda.xsd",
+      "url": "https://www.hacienda.go.cr/docs/MensajeHacienda_V4.4.xsd",
+      "sha256": "b2606156042b7aa7b7f7f61945f0ff1323661b43b5a1489ad5eafad1c52fd25e",
+      "bytes": 7799
+    },
+    {
+      "archivo": "ReciboElectronicoPago.xsd",
+      "url": "https://www.hacienda.go.cr/docs/ReciboElectronicoPago_V4.4.xsd",
+      "sha256": "86e3aa5f0615b757a3b2e9c300973d573ac321f76adba7b4b05e59d854da82b7",
+      "bytes": 41655
+    },
+    {
+      "archivo": "FacturaElectronicaCompra.xsd",
+      "url": "https://www.hacienda.go.cr/docs/FacturaElectronicaCompra_V4.4.xsd",
+      "sha256": "57e4cedb12d5045884670ff2e4795d2027e69b96d45752f60cd1a1930e2768a3",
+      "bytes": 97300
+    },
+    {
+      "archivo": "FacturaElectronicaExportacion.xsd",
+      "url": "https://www.hacienda.go.cr/docs/FacturaElectronicaExportacion_V4.4.xsd",
+      "sha256": "e571d8296bb74e86cb9ef7889601844c61ac50bedca90aa8d52badf15198242e",
+      "bytes": 101881
+    }
+  ]
+}

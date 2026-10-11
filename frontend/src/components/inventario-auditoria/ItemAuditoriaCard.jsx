@@ -85,8 +85,8 @@ export default function ItemAuditoriaCard({ item, conteoRaw, onConteoChange, onV
               type="number"
               value={conteoRaw}
               min="0"
-              step="1"
-              disabled={item.ajustado_alegra}
+              step="0.0001"
+              disabled={item.ajustado_inventario}
               onChange={(e) => onConteoChange(item.id, e.target.value)}
               placeholder="Cantidad"
               className="w-20 text-center py-1 px-2 border-2 border-neutro-300 focus:border-primario-500 rounded-xl font-extrabold text-sm focus:outline-none bg-white disabled:bg-neutro-100 disabled:text-neutro-500"

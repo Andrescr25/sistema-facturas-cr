@@ -24,11 +24,10 @@ export async function cargarPeriodo({ archivo, tipo, anio, mes }) {
 }
 
 /**
- * Trae el mes directo de la API de Alegra, sin Excel. Puede tardar: recorre
- * todas las facturas del mes paginando de 30 en 30.
+ * Trae el mes de las facturas, notas de crédito y compras del sistema.
  */
-export async function importarDesdeAlegra({ tipo, anio, mes }) {
-  const response = await api.post('/reporte-contador/periodos/importar-alegra', { tipo, anio, mes }, { timeout: 180000 })
+export async function importarDelSistema({ tipo, anio, mes }) {
+  const response = await api.post('/reporte-contador/periodos/importar-sistema', { tipo, anio, mes }, { timeout: 60000 })
   return response.data
 }
 

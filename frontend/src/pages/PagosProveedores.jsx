@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AlertTriangle, Clock, Shield, Truck, Wallet } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertTriangle, Banknote, Clock, Shield, Truck, Wallet } from 'lucide-react'
 import { usePagosProveedores } from '../hooks/usePagosProveedores'
 import ToastContainer from '../components/ToastContainer'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
@@ -9,6 +9,8 @@ import DetalleContraparte from '../components/pagos/DetalleContraparte'
 import TablaFacturas from '../components/pagos/TablaFacturas'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ModalDetalleCuenta from '../components/pagos-proveedores/ModalDetalleCuenta'
+import ModalPagoVarias from '../components/pagos/ModalPagoVarias'
+import BarraSeleccion from '../components/pagos/BarraSeleccion'
 import SaldosAFavor from '../components/pagos-proveedores/SaldosAFavor'
 import ModalAplicarNota from '../components/pagos-proveedores/ModalAplicarNota'
 import { agruparPorContraparte, formatCurrency } from '../utils/pagos'
@@ -42,6 +44,8 @@ const ESTADOS = [
   { value: 'todos', label: 'Todos' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'vencida', label: 'Vencidas' },
+  // Compras de contado a las que falta anotarles cómo se pagaron (028).
+  { value: 'contado', label: 'De contado' },
   { value: 'pagada', label: 'Pagadas' }
 ]
 
@@ -49,15 +53,31 @@ export default function PagosProveedores() {
   const {
     cuentas, resumen, loading, error,
     filters, setFilters, resetFilters,
-    proveedoresDisponibles, actualizarEstado, procesandoId, reload,
+    proveedoresDisponibles, registrarPago, anularPago, procesandoId, reload,
     toasts, removeToast,
     saldosAFavor, totalAFavor, loadingFavor, cargarSaldosAFavor,
     handleAplicarNota, handleEliminarNota, eliminandoNota
   } = usePagosProveedores()
 
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
-  const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null)
+  // Por id, y la cuenta se busca en la lista recién cargada: así, después de
+  // pagar o anular, el modal muestra el saldo nuevo y no una copia vieja. Si
+  // la factura sale del filtro (se terminó de pagar), el modal se cierra solo.
+  const [cuentaSeleccionadaId, setCuentaSeleccionadaId] = useState(null)
+  const cuentaSeleccionada = cuentas.find((c) => c.id === cuentaSeleccionadaId) || null
   const [notaAAplicar, setNotaAAplicar] = useState(null)
+
+  // Varias facturas del mismo proveedor en un solo pago ("este pago cubre A,
+  // B y C"): un solo movimiento que sale de Caja General. Lo elegido es de
+  // ESE proveedor: al cambiar de proveedor se suelta.
+  const [elegidas, setElegidas] = useState(new Set())
+  const [pagandoVarias, setPagandoVarias] = useState(false)
+  useEffect(() => { setElegidas(new Set()) }, [proveedorActivoId])
+  const alternar = (f) => setElegidas((prev) => {
+    const nuevo = new Set(prev)
+    if (nuevo.has(f.id)) nuevo.delete(f.id); else nuevo.add(f.id)
+    return nuevo
+  })
 
   // El servidor manda las facturas una por una; el agrupado por proveedor se
   // hace acá, que es donde ya están los datos.
@@ -67,7 +87,8 @@ export default function PagosProveedores() {
     (c) => c.saldoPendiente
   ).map((g) => ({
     ...g,
-    urgente: g.facturas.some((f) => f.estado === 'VENCIDA' || f.diasRestantes < 0)
+    // Una de contado no es un atraso (vence el día que se recibe).
+    urgente: g.facturas.some((f) => f.estado === 'VENCIDA' || (f.estado !== 'CONTADO' && f.diasRestantes < 0))
   }))
 
   const proveedorActivo = grupos.find((g) => g.id === proveedorActivoId)
@@ -87,6 +108,12 @@ export default function PagosProveedores() {
       valor: formatCurrency(resumen.proximasAVencer?.monto || 0),
       filtro: { dias: 'vence7' }
     },
+    // Solo cuando hay alguna: es trabajo pendiente, no un dato fijo.
+    ...(resumen.deContado?.cantidad > 0 ? [{
+      clave: 'contado', titulo: `De contado sin anotar (${resumen.deContado.cantidad})`, icono: Banknote, tono: 'alerta',
+      valor: formatCurrency(resumen.deContado.monto),
+      filtro: { estado: 'contado' }
+    }] : []),
     {
       clave: 'proveedores', titulo: 'Proveedores activos', icono: Shield, tono: 'exito',
       valor: resumen.totalProveedores
@@ -204,20 +231,56 @@ export default function PagosProveedores() {
           textoVolver="Volver a proveedores"
           onVolver={() => setProveedorActivoId(null)}
         >
+          {proveedorActivo.facturas.length > 1 && (
+            <BarraSeleccion
+              cantidad={elegidas.size}
+              total={proveedorActivo.facturas.filter((c) => elegidas.has(c.id)).reduce((s, c) => s + c.saldoPendiente, 0)}
+              totalFacturas={proveedorActivo.facturas.length}
+              accion="Pagar"
+              onElegirTodas={() => setElegidas(new Set(proveedorActivo.facturas.map((c) => c.id)))}
+              onQuitar={() => setElegidas(new Set())}
+              onAccion={() => setPagandoVarias(true)}
+            />
+          )}
           <TablaFacturas
             facturas={filasDe(proveedorActivo.facturas)}
-            onSeleccionar={(f) => setCuentaSeleccionada(f.original)}
+            onSeleccionar={(f) => setCuentaSeleccionadaId(f.original.id)}
             vacio="Este proveedor no tiene facturas con saldo."
+            seleccionadas={elegidas}
+            onAlternar={proveedorActivo.facturas.length > 1 ? alternar : undefined}
           />
         </DetalleContraparte>
+      )}
+
+      {pagandoVarias && proveedorActivo && (
+        <ModalPagoVarias
+          sentido="salida"
+          titulo={proveedorActivo.nombre}
+          facturas={proveedorActivo.facturas
+            .filter((c) => elegidas.has(c.id))
+            .map((c) => ({ id: c.id, numero: c.numeroConsecutivo, saldo: c.saldoPendiente }))}
+          procesando={procesandoId === 'varias'}
+          onRegistrar={async ({ lineas, metodoPagoId, referencia, fecha }) => {
+            const ok = await registrarPago('varias', {
+              aplicaciones: lineas.map((l) => (l.todo
+                ? { cuentaPorPagarId: l.id, pagarTodo: true }
+                : { cuentaPorPagarId: l.id, monto: l.monto })),
+              metodoPagoId, referencia, fecha
+            })
+            if (ok) setElegidas(new Set())
+            return ok
+          }}
+          onCerrar={() => setPagandoVarias(false)}
+        />
       )}
 
       {cuentaSeleccionada && (
         <ModalDetalleCuenta
           cuenta={cuentaSeleccionada}
           procesando={procesandoId === cuentaSeleccionada.id}
-          onRegistrarPago={actualizarEstado}
-          onCerrar={() => setCuentaSeleccionada(null)}
+          onRegistrarPago={registrarPago}
+          onAnularPago={anularPago}
+          onCerrar={() => setCuentaSeleccionadaId(null)}
         />
       )}
 

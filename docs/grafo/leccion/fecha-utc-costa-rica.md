@@ -39,6 +39,8 @@ las 6 p.m. Se vio en la nota "En impresión" del Reporte de Clientes: una
 factura enviada a las 11:25 decía 17:25. Escribir con `AHORA_CR_SQL`
 (`now() AT TIME ZONE 'America/Costa_Rica'`, en `utils/fechaCR.js`), que da la
 hora de Costa Rica en cualquier sesión. Un `Date` de JavaScript pasado como
-parámetro sí llega bien. Quedan otras columnas escritas con
-`CURRENT_TIMESTAMP` (Bodega, ajustes, bitácoras): mismo riesgo.
+parámetro sí llega bien. EN ESTA RAMA ya lo usan la cola de impresión, el
+despacho de Bodega, los faltantes y sus ajustes (sección 11); quedan otras
+columnas escritas con `CURRENT_TIMESTAMP` (bitácoras, compras, cobros): mismo
+riesgo el día del corte, cuando la rama corra sobre ese pooler.
 

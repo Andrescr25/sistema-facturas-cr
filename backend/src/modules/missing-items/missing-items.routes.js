@@ -11,18 +11,14 @@ const missingItemsController = require('./missing-items.controller');
 router.post('/ajustes', missingItemsController.saveAdjustment);
 router.delete('/ajustes/:faltanteId', missingItemsController.deleteAdjustment);
 
-// Limpieza
-// `DELETE /proveedor/limpiar` se retiró el 2026-10-04. Borraba TODOS los
-// faltantes (`DELETE FROM faltantes`, sin filtro), no tenía pantalla —el botón
-// de Configuración llama a `/reportes/faltantes/proveedor/limpiar`, que borra
-// solo lo ya procesado— y por `/alegra/faltantes` la alcanzaba cualquiera con
-// sesión.
+// El borrado global se retiró. La antigua ruta de Reportes responde 410
+// sin consultas; Configuración explica el archivo individual por recepción.
 
-// Diagnóstico
-router.get('/diagnostico/:alegraReference', missingItemsController.getDiagnostic);
+// `/diagnostico/:alegraReference` se retiró el 2026-10-04: nadie lo llamaba y
+// buscaba el producto en la tabla vieja `productos`, que ya no se actualiza.
 
-// Asignación manual/reasignación de proveedores desde ReporteProveedores
-router.post('/reasignar-proveedor', missingItemsController.assignSupplierManual);
-router.post('/asignar-proveedor-manual', missingItemsController.assignSupplierManual);
+// Asignar un proveedor a un producto se hace por `POST /proveedores/asignaciones`
+// (proveedores.asignacion.service.js), con ids propios. Lo que había acá le
+// preguntaba el proveedor a Alegra en vivo.
 
 module.exports = router;

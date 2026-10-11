@@ -1,13 +1,17 @@
 import { CalendarDays, Banknote, ArrowRightLeft, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react'
 import { useCuadreCaja } from '../../hooks/useCuadreCaja'
-import { formatCurrency, formatDate, METODOS_PAGO } from '../../utils/cuentasPorCobrarUtils'
+import { formatCurrency, formatDate } from '../../utils/cuentasPorCobrarUtils'
+import PanelCierreCaja from './PanelCierreCaja'
+import { hoyEnCostaRica } from '../../utils/fechaCR'
 
 /**
  * Configuración visual de cada método de pago: ícono, colores y etiqueta
  * para las tarjetas de resumen y los badges en la lista de cobros.
  */
 const METODO_CONFIG = {
-  cash: {
+  // Las claves de NUESTRO catálogo. Antes eran las de Alegra ('cash',
+  // 'transfer') y por eso todo caía en "Otro".
+  efectivo: {
     label: 'Efectivo',
     icon: Banknote,
     bg: 'bg-exito-50',
@@ -16,8 +20,8 @@ const METODO_CONFIG = {
     textMonto: 'text-exito-900',
     badge: 'bg-exito-100 text-exito-800'
   },
-  transfer: {
-    label: 'Transferencia / SINPE',
+  sinpe_movil: {
+    label: 'SINPE Móvil',
     icon: ArrowRightLeft,
     bg: 'bg-primario-50',
     border: 'border-primario-100',
@@ -69,7 +73,7 @@ function getMetodoConfig(metodoId) {
 }
 
 function getMetodoLabel(metodoId) {
-  return METODOS_PAGO.find(m => m.id === metodoId)?.label || metodoId
+  return metodoId
 }
 
 /**
@@ -88,16 +92,17 @@ export default function CuadreCajaDia() {
     cambiarFecha,
     irAHoy,
     irAyer,
+    cierre,
     recargar
   } = useCuadreCaja()
 
-  const hoy = new Date().toISOString().slice(0, 10)
+  const hoy = hoyEnCostaRica()
   const esHoy = fecha === hoy
 
   // Obtener las categorías de método que tienen al menos un cobro
   const metodosConCobros = resumen?.porMetodo ? Object.keys(resumen.porMetodo) : []
   // Orden fijo para las tarjetas
-  const ordenMetodos = ['cash', 'transfer', 'credit-card', 'debit-card', 'check']
+  const ordenMetodos = ['efectivo', 'sinpe_movil', 'transferencia', 'tarjeta_debito', 'tarjeta_credito', 'cheque']
   const metodosOrdenados = ordenMetodos.filter(m => metodosConCobros.includes(m))
   // Agregar cualquier método no listado al final
   const metodosExtra = metodosConCobros.filter(m => !ordenMetodos.includes(m))
@@ -179,6 +184,20 @@ export default function CuadreCajaDia() {
         </div>
       )}
 
+      {/* El cierre va FUERA del bloque de cobros: un día sin cobros pero con
+          plata que salió de la caja (un proveedor pagado en efectivo) también
+          se cuenta y se cierra. */}
+      {!loading && !error && resumen && (
+        <PanelCierreCaja
+          fecha={fecha}
+          efectivoEsperado={resumen.efectivoEsperado}
+          efectivoCobrado={resumen.efectivoCobrado}
+          salidas={resumen.salidas}
+          cierre={cierre}
+          onCambio={recargar}
+        />
+      )}
+
       {/* ── Contenido con datos ── */}
       {!loading && !error && cobros.length > 0 && resumen && (
         <>
@@ -217,7 +236,7 @@ export default function CuadreCajaDia() {
             })}
           </div>
 
-          {/* Lista detallada de cobros */}
+
           <div>
             <h3 className="text-sm font-semibold text-neutro-600 mb-3">Detalle de cobros</h3>
             <div className="divide-y divide-neutro-100 border border-neutro-100 rounded-2xl overflow-hidden bg-white">

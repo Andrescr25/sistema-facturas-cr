@@ -53,7 +53,7 @@ async function publica(req, res) {
 async function crear(req, res) {
   try {
     const { clienteId, lineas, observaciones, validezDias, claveIdempotencia } = req.body;
-    const r = await servicio.crear({ clienteId, lineas, observaciones, validezDias, claveIdempotencia });
+    const r = await servicio.crear({ clienteId, lineas, observaciones, validezDias, claveIdempotencia }, req.usuario?.id);
     res.json({
       success: true,
       data: r,
@@ -68,7 +68,7 @@ async function crear(req, res) {
 async function editar(req, res) {
   try {
     const { clienteId, lineas, observaciones, vence } = req.body;
-    const r = await servicio.editar(req.params.id, { clienteId, lineas, observaciones, vence });
+    const r = await servicio.editar(req.params.id, { clienteId, lineas, observaciones, vence }, req.usuario?.id);
     res.json({ success: true, data: r, message: 'Cotización actualizada.' });
   } catch (error) {
     console.error('Error editando cotización:', error.message);
@@ -104,7 +104,7 @@ async function enviarPorWhatsApp(req, res) {
 
 async function eliminar(req, res) {
   try {
-    const r = await servicio.eliminar(req.params.id);
+    const r = await servicio.eliminar(req.params.id, req.usuario?.id);
     res.json({ success: true, data: r, message: `Cotización ${r.numero} eliminada.` });
   } catch (error) {
     console.error('Error eliminando la cotización:', error.message);
@@ -118,7 +118,7 @@ async function facturar(req, res) {
     // confirmó que quiere sostener un precio vencido.
     const r = await servicio.facturar(req.params.id, {
       aunqueVencida: req.body?.aunqueVencida === true
-    });
+    }, req.usuario?.id);
     res.json({
       success: true,
       data: r,

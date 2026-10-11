@@ -129,6 +129,23 @@ describe('mandar un PDF', () => {
     await assert.rejects(() => whatsapp.enviarDocumento({ telefono: '88272453', pdf: Buffer.alloc(0) }));
     assert.equal(registro.peticiones.length, 0);
   });
+
+  test('el bloqueo previo del canal indica que el envío nunca se inició', async () => {
+    const { whatsapp, registro } = montar(), contexto = process.env.NODE_TEST_CONTEXT;
+    delete process.env.NODE_TEST_CONTEXT;
+    try {
+      await assert.rejects(whatsapp.enviarDocumento({ telefono: '88888888', pdf }),
+        e => e.status === 423 && e.envioNoIniciado === true);
+      assert.equal(registro.peticiones.length, 0);
+    } finally { if (contexto !== undefined) process.env.NODE_TEST_CONTEXT = contexto; }
+  });
+
+  test('un timeout tras enviar el PDF conserva la incertidumbre, sin atribuirlo a un fallo previo', async () => {
+    const { whatsapp, registro } = montar({ fallo: Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }) });
+    await assert.rejects(whatsapp.enviarDocumento({ telefono: '88888888', pdf }),
+      e => e.envioNoIniciado !== true);
+    assert.equal(registro.peticiones.length, 1);
+  });
 });
 
 describe('los errores dicen qué revisar', () => {
@@ -165,7 +182,10 @@ describe('el registro de lo que sale', () => {
 
     const ins = registro.escrituras.find(e => /INSERT INTO envio_whatsapp/.test(e.sql));
     assert.ok(ins, 'debió anotarse');
-    assert.deepEqual(ins.params.slice(0, 6), ['cotizacion', 'COT-8', '141', '50688272453', 4, true]);
+    // El orden es (tipo, referencia, alegra_contact_id, cliente_id, telefono,
+    // enviado_por, exito): `cliente_id` se agregó para no meter un id nuestro
+    // en la columna de Alegra.
+    assert.deepEqual(ins.params.slice(0, 7), ['cotizacion', 'COT-8', '141', null, '50688272453', 4, true]);
   });
 
   test('un envío fallido TAMBIÉN queda anotado, con el motivo', async () => {
@@ -176,8 +196,8 @@ describe('el registro de lo que sale', () => {
     }));
 
     const ins = registro.escrituras.find(e => /INSERT INTO envio_whatsapp/.test(e.sql));
-    assert.equal(ins.params[5], false);
-    assert.match(ins.params[6], /no pudo recibir el mensaje/);
+    assert.equal(ins.params[6], false);
+    assert.match(ins.params[7], /no pudo recibir el mensaje/);
   });
 
   test('si la base falla al anotar, el envío no se deshace', async () => {
@@ -196,5 +216,45 @@ describe('el registro de lo que sale', () => {
       tipo: 'lo_que_sea', telefono: '88272453', mensaje: 'x'
     }), (e) => e.status === 400);
     assert.equal(registro.peticiones.length, 0);
+  });
+});
+
+describe('los teléfonos de un cliente por su id PROPIO', () => {
+  /** La base con una sola ficha: el cliente propio 8. */
+  function conFicha() {
+    const consultas = [];
+    require.cache[rutaDb] = {
+      id: rutaDb, filename: rutaDb, loaded: true,
+      exports: {
+        query: async (sql, params) => {
+          consultas.push({ sql: String(sql), params });
+          return {
+            rows: Number(params?.[0]) === 8
+              ? [{ nombre: 'AB CHANA', telefono: '2445 1010', telefono_secundario: '22 33', celular: '8827 2453' }]
+              : []
+          };
+        }
+      }
+    };
+    for (const r of [rutaCliente, rutaIndice, rutaEnvios]) delete require.cache[r];
+    return { envios: require(rutaEnvios), consultas };
+  }
+
+  test('se leen de la ficha propia, no de Alegra', async () => {
+    // El cliente propio 8 es "AB CHANA"; el contacto 8 de Alegra es "EL
+    // LLANO". Preguntarle a Alegra con el id propio proponía el celular de
+    // otra persona (47 de los 54 deudores de Cuentas por Cobrar).
+    const { envios, consultas } = conFicha();
+    const r = await envios.telefonosDeCliente(8);
+    assert.match(consultas[0].sql, /FROM cliente WHERE id = \$1/);
+    assert.equal(r.cliente, 'AB CHANA');
+    assert.equal(r.telefonos[0].nacional, '88272453', 'el celular va primero');
+    assert.deepEqual(r.telefonosSinReconocer, ['22 33'], 'lo ilegible se avisa, no se descarta');
+  });
+
+  test('un cliente que no existe es 404, y un id raro es 400', async () => {
+    const { envios } = conFicha();
+    await assert.rejects(() => envios.telefonosDeCliente(99), (e) => e.status === 404);
+    await assert.rejects(() => envios.telefonosDeCliente('abc'), (e) => e.status === 400);
   });
 });

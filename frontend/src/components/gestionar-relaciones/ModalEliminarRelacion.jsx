@@ -40,7 +40,7 @@ export default function ModalEliminarRelacion({ producto, onConfirmar, onCerrar 
           <p className="text-sm text-neutro-700">{producto.descripcion}</p>
           {producto.mapeo && (
             <p className="mt-2 text-sm text-neutro-600">
-              Relacionado con: <strong>{producto.mapeo.alegraName}</strong>
+              Relacionado con: <strong>{producto.mapeo.productoNombre}</strong>
             </p>
           )}
         </div>

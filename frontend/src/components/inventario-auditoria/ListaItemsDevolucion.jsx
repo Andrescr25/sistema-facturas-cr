@@ -4,7 +4,7 @@ import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 /**
  * Lista de productos ya agregados a una devolución en progreso — como las
  * líneas de una factura: producto, cantidad devuelta, stock antes/después,
- * valor, y botón para quitarlo (si aún no se aplicó el ajuste en Alegra).
+ * valor, y botón para quitarlo (si aún no se aplicó el ajuste en el inventario propio).
  */
 export default function ListaItemsDevolucion({ items, onQuitar }) {
   if (!items || items.length === 0) {
@@ -36,12 +36,12 @@ export default function ListaItemsDevolucion({ items, onQuitar }) {
               <div className="flex items-center gap-4 shrink-0">
                 <div className="text-right">
                   <span className="inline-block font-extrabold text-xs px-2.5 py-0.5 rounded-md uppercase bg-primario-100 text-primario-800">
-                    +{cantidad} unid.
+                    {cantidad > 0 ? '+' : ''}{cantidad} unid.
                   </span>
                   <p className="text-xs font-bold mt-1 text-primario-600">{formatCurrency(valor)}</p>
                 </div>
-                {item.ajustado_alegra ? (
-                  <span className="text-exito-600" title="Ya aplicado en Alegra">
+                {item.ajustado_inventario ? (
+                  <span className="text-exito-600" title="Ya aplicado en el inventario propio">
                     <CheckCircle size={18} />
                   </span>
                 ) : (

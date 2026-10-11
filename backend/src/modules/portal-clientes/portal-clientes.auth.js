@@ -48,7 +48,7 @@ function hashToken(token) {
 
 function firmarToken(cuenta) {
   return jwt.sign(
-    { sub: String(cuenta.id), contacto: cuenta.alegra_contact_id, nombre: cuenta.nombre },
+    { sub: String(cuenta.id), clienteId: cuenta.cliente_id, nombre: cuenta.nombre },
     secretoClientes(),
     { expiresIn: VIGENCIA_TOKEN }
   );

@@ -1,3 +1,5 @@
+// Rama independencia-alegra: solo contra la base local. Ver config/aislado.js.
+require('../config/aislado').asegurarBaseLocal();
 const { PrismaClient } = require('@prisma/client');
 
 /**

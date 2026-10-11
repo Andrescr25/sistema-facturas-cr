@@ -17,6 +17,9 @@ const path = require('path');
  *
  * No poder encontrar algo por el nombre con que la propia pantalla lo llama es
  * de las cosas que hacen desconfiar del buscador entero.
+ *
+ * DESDE EL 2026-10-03 el nombre de hoy es el del maestro propio (`producto`),
+ * y la relación se cruza con él por `producto_id`, no por el id de Alegra.
  */
 
 const rutaPrisma = path.join(__dirname, '..', 'lib', 'prisma.js');
@@ -40,8 +43,9 @@ const MAPEO = {
   lastUsedDate: new Date('2026-09-01')
 };
 
+// El maestro propio, visto desde el mapeo: `m.producto_id → producto`.
 const CATALOGO = [
-  { alegra_id: '1031', name: 'EXTENSION CTE BLANCA 3 MTS VOLTECK', reference: '111' }
+  { mapeo_id: 'm1', id: 501, nombre: 'EXTENSION CTE BLANCA 3 MTS VOLTECK', referencia: '111' }
 ];
 
 function montar() {
@@ -59,7 +63,7 @@ function montar() {
           // del OR se cumple.
           if (!where?.OR) return [MAPEO];
           const calza = where.OR.some((cond) => {
-            if (cond.alegraItemId?.in) return cond.alegraItemId.in.includes(MAPEO.alegraItemId);
+            if (cond.id?.in) return cond.id.in.includes(MAPEO.id);
             const [campo, regla] = Object.entries(cond)[0];
             return String(MAPEO[campo] || '').toLowerCase().includes(String(regla.contains).toLowerCase());
           });
@@ -74,15 +78,15 @@ function montar() {
     exports: {
       query: async (sql, params) => {
         visto.consultas.push({ sql, params });
-        if (/FROM alegra_products_cache\s+WHERE name ILIKE/.test(sql)) {
+        if (/WHERE p\.nombre ILIKE/.test(sql)) {
           const termino = String(params[0]).replace(/%/g, '').toLowerCase();
           return {
             rows: CATALOGO
-              .filter(p => p.name.toLowerCase().includes(termino) || String(p.reference).toLowerCase().includes(termino))
-              .map(p => ({ alegra_id: p.alegra_id }))
+              .filter(p => p.nombre.toLowerCase().includes(termino) || String(p.referencia).toLowerCase().includes(termino))
+              .map(p => ({ id: p.mapeo_id }))
           };
         }
-        if (/alegra_id::text = ANY/.test(sql)) return { rows: CATALOGO };
+        if (/WHERE m\.id = ANY/.test(sql)) return { rows: CATALOGO.filter(p => params[0].includes(p.mapeo_id)) };
         return { rows: [] };
       }
     }
@@ -100,6 +104,23 @@ describe('buscar por el nombre que se ve en pantalla', () => {
     const r = await servicio.getRelacionados({ busqueda: 'EXTENSION CTE BLANCA 3 MTS VOLTECK' });
 
     assert.equal(cuantas(r), 1, 'no se encuentra por el nombre que la propia pantalla muestra');
+  });
+
+  test('lo que se devuelve nombra al producto propio, no al de Alegra', async () => {
+    const { servicio } = montar();
+    const [relacion] = (await servicio.getRelacionados({})).productos;
+
+    assert.equal(relacion.productoPropioId, 501);
+    assert.equal(relacion.productoNombre, 'EXTENSION CTE BLANCA 3 MTS VOLTECK');
+    assert.equal(relacion.productoReferencia, '111');
+    // El nombre guardado en la relación es de antes del renombre: se avisa.
+    assert.equal(relacion.nombreGuardado, 'EXTENSION CTE BLANCA 3 MTS CTE');
+    assert.equal(relacion.nombreDesactualizado, true);
+    assert.deepEqual(
+      { id: relacion.mapeo.productoPropioId, nombre: relacion.mapeo.productoNombre },
+      { id: 501, nombre: 'EXTENSION CTE BLANCA 3 MTS VOLTECK' });
+    // Ni un id de Alegra sale por acá: la pantalla ya no tiene con qué pedirlo.
+    assert.ok(!JSON.stringify(relacion).includes('alegra'), 'la respuesta todavía habla de Alegra');
   });
 
   test('el nombre VIEJO guardado también sigue encontrando', async () => {
@@ -136,7 +157,7 @@ describe('cómo se consulta', () => {
     await servicio.getRelacionados({});
 
     assert.ok(
-      !visto.consultas.some(c => /WHERE name ILIKE/.test(c.sql)),
+      !visto.consultas.some(c => /p\.nombre ILIKE/.test(c.sql)),
       'se consultó el catálogo sin que nadie buscara nada'
     );
   });
@@ -147,7 +168,7 @@ describe('cómo se consulta', () => {
     const { servicio, visto } = montar();
     await servicio.getRelacionados({ busqueda: 'EXTENSION' });
 
-    const consulta = visto.consultas.find(c => /WHERE name ILIKE/.test(c.sql));
+    const consulta = visto.consultas.find(c => /p\.nombre ILIKE/.test(c.sql));
     assert.match(consulta.sql, /LIMIT \d+/);
   });
 
@@ -158,6 +179,6 @@ describe('cómo se consulta', () => {
     const campos = visto.where.OR.map(c => Object.keys(c)[0]);
     assert.ok(campos.includes('supplierDesc'), 'se perdió la búsqueda por descripción del proveedor');
     assert.ok(campos.includes('alegraName'), 'se perdió la búsqueda por el nombre guardado');
-    assert.ok(campos.includes('alegraItemId'), 'no se agregó la búsqueda por el nombre actual');
+    assert.ok(campos.includes('id'), 'no se agregó la búsqueda por el nombre actual');
   });
 });

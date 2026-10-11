@@ -13,18 +13,25 @@ import api from '../../services/api'
  * apretar. Con cinco copias de esta pantalla, basta que una se quede atrás
  * para perder esa defensa justo donde nadie está mirando.
  *
- * Los teléfonos de las fichas de Alegra vienen sucios (el nombre de quien
- * contesta pegado, dos números en el mismo campo, o ninguno), así que se
- * muestran TODOS los candidatos y elige una persona. Ver
+ * Los teléfonos de las fichas vienen sucios (el nombre de quien contesta
+ * pegado, dos números en el mismo campo, o ninguno), así que se muestran
+ * TODOS los candidatos y elige una persona. Ver
  * backend/src/utils/telefonosCliente.js.
+ *
+ * `clienteId` ES EL ID PROPIO del cliente, nunca el de Alegra. El cliente
+ * propio 8 es "AB CHANA" y el contacto 8 de Alegra es "EL LLANO": pasar uno
+ * por el otro propone el celular de otra persona. Hubo una segunda prop,
+ * `contactoId`, que iba a buscar el teléfono a Alegra; se retiró el
+ * 2026-10-04, cuando ya nadie la pasaba.
  */
 export default function ModalEnviarWhatsApp({
   titulo,
   subtitulo,
-  // Los teléfonos ya resueltos, o el contacto de Alegra para ir a buscarlos.
+  // Los teléfonos ya resueltos, o de quién ir a buscarlos: `clienteId`, el
+  // id propio del cliente.
   telefonos: telefonosIniciales,
   telefonosSinReconocer: sinReconocerInicial,
-  contactoId,
+  clienteId,
   mensajeInicial = '',
   // Para avisar si ya se mandó antes: { tipo, referencia }
   documento,
@@ -35,7 +42,8 @@ export default function ModalEnviarWhatsApp({
 
   const [telefonos, setTelefonos] = useState(telefonosIniciales || [])
   const [sinReconocer, setSinReconocer] = useState(sinReconocerInicial || [])
-  const [cargando, setCargando] = useState(Boolean(contactoId) && !telefonosIniciales)
+  const origen = clienteId ? `/envios-whatsapp/telefonos-cliente/${clienteId}` : null
+  const [cargando, setCargando] = useState(Boolean(origen) && !telefonosIniciales)
   const [previos, setPrevios] = useState([])
 
   const [numero, setNumero] = useState(telefonosIniciales?.[0]?.numero || '')
@@ -49,10 +57,10 @@ export default function ModalEnviarWhatsApp({
   useEffect(() => { setMensaje(mensajeInicial) }, [mensajeInicial])
 
   useEffect(() => {
-    if (!contactoId || telefonosIniciales) return
+    if (!origen || telefonosIniciales) return
     let vivo = true
     setCargando(true)
-    api.get(`/envios-whatsapp/telefonos/${contactoId}`)
+    api.get(origen)
       .then(r => {
         if (!vivo) return
         const lista = r.data?.data?.telefonos || []
@@ -63,7 +71,7 @@ export default function ModalEnviarWhatsApp({
       .catch(() => { if (vivo) { setTelefonos([]); setSinReconocer([]) } })
       .finally(() => { if (vivo) setCargando(false) })
     return () => { vivo = false }
-  }, [contactoId, telefonosIniciales])
+  }, [origen, telefonosIniciales])
 
   // "¿Ya le mandé esto?" — sin el aviso se termina mandando dos veces.
   useEffect(() => {

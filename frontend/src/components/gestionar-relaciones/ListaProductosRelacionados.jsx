@@ -54,14 +54,14 @@ export default function ListaProductosRelacionados({
                 </div>
               </div>
 
-              {/* Info producto Alegra */}
+              {/* El producto propio */}
               <div className="lg:col-span-5">
                 {producto.mapeo ? (
                   <div className="bg-exito-50/50 rounded-2xl p-4 border border-exito-100">
-                    <p className="text-xxs font-bold uppercase tracking-wider text-exito-600 mb-1.5">Relacionado con Alegra</p>
-                    <h5 className="font-semibold text-exito-950 mb-1 text-sm">{producto.mapeo.alegraName}</h5>
+                    <p className="text-xxs font-bold uppercase tracking-wider text-exito-600 mb-1.5">Relacionado con</p>
+                    <h5 className="font-semibold text-exito-950 mb-1 text-sm">{producto.mapeo.productoNombre}</h5>
                     <div className="text-xs text-exito-800 space-y-1 font-mono">
-                      <p>Ref: {producto.mapeo.alegraReference || 'N/A'}</p>
+                      <p>Ref: {producto.mapeo.productoReferencia || 'N/A'}</p>
                       {producto.factorConversion && producto.factorConversion !== 1 && (
                         <p className="text-primario-600 font-bold mt-1 text-xs">
                           🔄 Factor: {producto.factorConversion}

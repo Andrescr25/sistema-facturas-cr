@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono, sincronizarCuentasPorCobrar } from '../services/cuentasPorCobrarService'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getCuentasPorCobrar, getAbonosFactura, getProductosFactura, registrarAbono } from '../services/cuentasPorCobrarService'
+import { conVencimiento, filtrarDeudores, resumenDeudores } from '../utils/filtrosCobros'
 import { useToast } from './useToast'
 import { useDialog } from './useDialog'
 
@@ -20,62 +21,66 @@ export function useCuentasPorCobrar(initialFilters = {}) {
   const { confirm, dialogProps } = useDialog()
 
   const [filters, setFilters] = useState({ ...defaultFilters, ...initialFilters })
-  const [clientes, setClientes] = useState([])
-  const [resumen, setResumen] = useState(null)
+  // La cartera entera; lo que ve la pantalla es `clientes`, ya filtrado.
+  const [cartera, setCartera] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [sincronizando, setSincronizando] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
   const [registrandoAbono, setRegistrandoAbono] = useState(false)
 
-  const loadCuentas = useCallback(async (overrideFilters) => {
-    const params = overrideFilters || filters
+  // Los filtros ya no viajan al servidor (ver utils/filtrosCobros.js): se
+  // carga la cartera una vez y cambiar un filtro no vuelve a pedir nada.
+  const loadCuentas = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const result = await getCuentasPorCobrar(params)
+      const result = await getCuentasPorCobrar()
 
       if (result?.success === false) {
-        setClientes([])
-        setResumen(null)
+        setCartera([])
         setError(result.message || 'No se pudo cargar la información')
         return
       }
 
-      setClientes(result?.data || [])
-      setResumen(result?.resumen || null)
+      // Lo único que se le agrega a lo que manda el servidor: cuánto le falta
+      // a cada factura para vencer, que depende de hoy.
+      setCartera(conVencimiento(result?.data || []))
     } catch (err) {
-      setClientes([])
-      setResumen(null)
+      setCartera([])
       setError(err.message || 'Error desconocido')
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [])
 
   useEffect(() => {
-    loadCuentas(filters)
-  }, [filters, loadCuentas])
+    loadCuentas()
+  }, [loadCuentas])
+
+  const clientes = useMemo(() => filtrarDeudores(cartera, filters), [cartera, filters])
+  const resumen = useMemo(() => (cartera.length ? resumenDeudores(cartera) : null), [cartera])
 
   const resetFilters = useCallback(() => {
     setFilters({ ...defaultFilters })
   }, [])
 
-  const handleSincronizar = useCallback(async () => {
-    setSincronizando(true)
+  /**
+   * Volver a leer los saldos. Antes esto pedía una sincronización con Alegra y
+   * esperaba a que bajara la cartera entera; ahora los saldos salen de nuestra
+   * base y se calculan al momento, así que basta con releer.
+   */
+  const handleActualizar = useCallback(async () => {
+    setActualizando(true)
     try {
-      await sincronizarCuentasPorCobrar()
-      await loadCuentas(filters)
-      showToast('Cuentas por cobrar actualizadas desde Alegra', 'success')
-    } catch (err) {
-      showToast(err.message || 'Error sincronizando con Alegra', 'error')
+      await loadCuentas()
     } finally {
-      setSincronizando(false)
+      setActualizando(false)
     }
-  }, [filters, loadCuentas, showToast])
+  }, [loadCuentas])
 
-  const handleCargarAbonos = useCallback(async (alegraInvoiceId) => {
+  const handleCargarAbonos = useCallback(async (facturaId) => {
     try {
-      const result = await getAbonosFactura(alegraInvoiceId)
+      const result = await getAbonosFactura(facturaId)
       return result?.data || []
     } catch (err) {
       showToast(err.message || 'Error cargando el historial de abonos', 'error')
@@ -87,12 +92,12 @@ export function useCuentasPorCobrar(initialFilters = {}) {
    * Las líneas de la factura, para el detalle del modal.
    *
    * Falla en silencio devolviendo una lista vacía: el detalle es contexto,
-   * no un requisito para cobrar. Si Alegra no contesta, la tabla dice que no
-   * hay detalle y el abono se registra igual.
+   * no un requisito para cobrar. Si no carga, la tabla dice que no hay
+   * detalle y el abono se registra igual.
    */
-  const handleCargarProductos = useCallback(async (alegraInvoiceId) => {
+  const handleCargarProductos = useCallback(async (facturaId) => {
     try {
-      const result = await getProductosFactura(alegraInvoiceId)
+      const result = await getProductosFactura(facturaId)
       return result?.data || []
     } catch (err) {
       console.error('No se pudo cargar el detalle de la factura:', err.message)
@@ -100,14 +105,15 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     }
   }, [])
 
-  const handleRegistrarAbono = useCallback(async ({ alegraInvoiceId, numeroFactura, monto, fecha, metodoPago, saldarTotal = false }) => {
-    // Al saldar total el monto lo decide el backend con el saldo que Alegra
-    // reporta en ese momento, así que la confirmación dice lo que va a pasar
-    // en vez de un número que puede quedar viejo.
+  const handleRegistrarAbono = useCallback(async ({ facturaId, numero, monto, fecha, metodoPagoId, referencia, saldarTotal = false }) => {
+    // Al saldar total el monto lo decide el backend con el saldo que relee
+    // en ese momento (con bloqueo), así que la confirmación dice lo que va a
+    // pasar en vez de un número que puede quedar viejo. Decía "esto crea un
+    // pago real en Alegra": en esta rama el cobro es propio y no toca Alegra.
     const confirmado = await confirm(
       saldarTotal
-        ? `¿Saldar por completo la factura #${numeroFactura}? Se pagará el saldo pendiente que tenga en Alegra (aprox. ₡${Number(monto).toLocaleString('es-CR')}) y quedará en cero. Esto crea un pago real en Alegra.`
-        : `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numeroFactura}? Esto crea un pago real en Alegra.`,
+        ? `¿Saldar por completo la factura #${numero}? Se cobrará el saldo pendiente que tenga en este momento (aprox. ₡${Number(monto).toLocaleString('es-CR')}) y quedará en cero.`
+        : `¿Registrar un abono de ₡${Number(monto).toLocaleString('es-CR')} sobre la factura #${numero}?`,
       { title: saldarTotal ? 'Saldar factura completa' : 'Confirmar abono',
         confirmLabel: saldarTotal ? 'Saldar completa' : 'Registrar abono' }
     )
@@ -115,8 +121,8 @@ export function useCuentasPorCobrar(initialFilters = {}) {
 
     setRegistrandoAbono(true)
     try {
-      await registrarAbono({ alegraInvoiceId, monto, fecha, metodoPago, saldarTotal })
-      await loadCuentas(filters)
+      await registrarAbono({ facturaId, monto, fecha, metodoPagoId, referencia, saldarTotal })
+      await loadCuentas()
       showToast(saldarTotal ? 'Factura saldada por completo' : 'Abono registrado correctamente', 'success')
       return true
     } catch (err) {
@@ -125,7 +131,36 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     } finally {
       setRegistrandoAbono(false)
     }
-  }, [confirm, filters, loadCuentas, showToast])
+  }, [confirm, loadCuentas, showToast])
+
+  /**
+   * Un cobro que cubre VARIAS facturas del mismo cliente: un solo documento y
+   * un solo movimiento que entra a Caja General, con una línea por factura.
+   */
+  const handleRegistrarCobroVarias = useCallback(async ({ lineas, metodoPagoId, referencia, fecha }) => {
+    const total = lineas.reduce((s, l) => s + Number(l.monto || 0), 0)
+    const confirmado = await confirm(
+      `¿Registrar un cobro de ₡${total.toLocaleString('es-CR')} que cubre ${lineas.length} factura${lineas.length === 1 ? '' : 's'}? Entra a Caja General.`,
+      { title: 'Confirmar cobro', confirmLabel: 'Registrar cobro' }
+    )
+    if (!confirmado) return false
+
+    setRegistrandoAbono(true)
+    try {
+      await registrarAbono({
+        aplicaciones: lineas.map((l) => (l.todo ? { facturaId: l.id, saldarTotal: true } : { facturaId: l.id, monto: l.monto })),
+        metodoPagoId, referencia, fecha
+      })
+      await loadCuentas()
+      showToast('Cobro registrado', 'success')
+      return true
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Error registrando el cobro', 'error')
+      return false
+    } finally {
+      setRegistrandoAbono(false)
+    }
+  }, [confirm, loadCuentas, showToast])
 
   return {
     clientes,
@@ -135,13 +170,14 @@ export function useCuentasPorCobrar(initialFilters = {}) {
     filters,
     setFilters,
     resetFilters,
-    sincronizando,
-    handleSincronizar,
+    actualizando,
+    handleActualizar,
     handleCargarAbonos,
     handleCargarProductos,
     registrandoAbono,
     handleRegistrarAbono,
-    reload: () => loadCuentas(filters),
+    handleRegistrarCobroVarias,
+    reload: () => loadCuentas(),
     dialogProps,
     toasts,
     removeToast

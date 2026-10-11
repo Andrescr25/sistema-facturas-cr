@@ -20,12 +20,17 @@ const { requireCliente } = require('./portal-clientes.middleware');
 const rutasPersonal = express.Router();
 
 rutasPersonal.get('/clientes', controller.listarClientes);
-rutasPersonal.post('/clientes/:contactoId/invitacion', controller.generarInvitacion);
+rutasPersonal.get('/clientes/:clienteId/preventa', controller.prepararPreventa);
+rutasPersonal.post('/clientes/:clienteId/preventa/pdf', controller.prepararPdfPreventa);
+rutasPersonal.get('/clientes/:clienteId/preventa/pdf/:pdfId', controller.descargarPdfPreventa);
+rutasPersonal.post('/clientes/:clienteId/preventa/invitacion', controller.invitarPreventa);
+rutasPersonal.post('/clientes/:clienteId/preventa/whatsapp', controller.enviarPreventa);
+rutasPersonal.post('/clientes/:clienteId/invitacion', controller.generarInvitacion);
 // El enlace se manda desde la pantalla porque el servidor ya no lo tiene:
 // del token queda solo el hash, igual que con una contraseña.
-rutasPersonal.post('/clientes/:contactoId/invitacion/whatsapp', controller.enviarInvitacionWhatsApp);
-rutasPersonal.post('/clientes/:contactoId/revocar', controller.revocarAcceso);
-rutasPersonal.post('/clientes/:contactoId/reactivar', controller.reactivarAcceso);
+rutasPersonal.post('/clientes/:clienteId/invitacion/whatsapp', controller.enviarInvitacionWhatsApp);
+rutasPersonal.post('/clientes/:clienteId/revocar', controller.revocarAcceso);
+rutasPersonal.post('/clientes/:clienteId/reactivar', controller.reactivarAcceso);
 
 rutasPersonal.get('/pedidos', controller.listarPedidos);
 rutasPersonal.get('/pedidos/pendientes', controller.contarPendientes);
@@ -51,11 +56,14 @@ rutasCliente.post('/carrito/varios', controller.agregarVariosAlCarrito);
 rutasCliente.delete('/carrito', controller.vaciarCarrito);
 
 rutasCliente.get('/junto-con', controller.juntoCon);
-rutasCliente.get('/productos/:itemId', controller.fichaProducto);
+rutasCliente.get('/productos/:productoId', controller.fichaProducto);
 rutasCliente.get('/facturas', controller.misFacturas);
 rutasCliente.get('/compras', controller.comprasAnteriores);
 rutasCliente.get('/compras/:facturaId', controller.detalleCompra);
 rutasCliente.post('/compras/:facturaId/repetir', controller.repetirCompra);
+
+rutasCliente.get('/ciclos', controller.ciclosDisponibles);
+rutasCliente.get('/preventa', controller.resolverPreventa);
 
 rutasCliente.post('/pedidos', controller.crearPedido);
 rutasCliente.get('/pedidos', controller.misPedidos);

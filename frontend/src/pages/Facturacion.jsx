@@ -1,5 +1,6 @@
 import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { useFacturacion } from '../hooks/useFacturacion'
+import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
 import CabeceraFacturacion from '../components/facturacion/CabeceraFacturacion'
 import PestanasFacturacion from '../components/facturacion/PestanasFacturacion'
 import AvisoFlotante from '../components/facturacion/AvisoFlotante'
@@ -7,6 +8,8 @@ import AvisoActualizar from '../components/facturacion/AvisoActualizar'
 import AvisoEdicion from '../components/facturacion/AvisoEdicion'
 import EstadoCatalogo from '../components/facturacion/EstadoCatalogo'
 import PasoCliente from '../components/facturacion/PasoCliente'
+import SelectorCiclo from '../components/SelectorCiclo'
+import ContextoCicloDocumento from '../components/ContextoCicloDocumento'
 import TarjetaCliente from '../components/facturacion/TarjetaCliente'
 import AgregarProductos from '../components/facturacion/AgregarProductos'
 import BarraSugerencias from '../components/facturacion/BarraSugerencias'
@@ -14,6 +17,7 @@ import LineaFactura from '../components/facturacion/LineaFactura'
 import PanelCobro from '../components/facturacion/PanelCobro'
 import ModalCantidad from '../components/facturacion/ModalCantidad'
 import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
+import PanelFacturasEmitidas from '../components/facturacion/PanelFacturasEmitidas'
 
 /**
  * Facturación.
@@ -46,9 +50,11 @@ import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
  */
 export default function Facturacion() {
   const {
+    metodosPago, metodoPagoId, elegirMetodoPago, referenciaPago, setReferenciaPago,
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
     productos, sugerencias, agregarSugerencia, facturasPendientes,
+    ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
     clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
@@ -77,6 +83,12 @@ export default function Facturacion() {
     calcularSubtotal, calcularImpuestos, calcularDescuentoGlobal, calcularTotal,
     impuestoPrincipal
   } = useFacturacion()
+
+  // VA ANTES DEL RETURN DE CARGA, y no después: un hook que solo se llama en
+  // algunos renders rompe el orden y React tumba la pantalla entera con
+  // "Rendered more hooks than during the previous render". Solo consulta
+  // cuando la pestaña está abierta, que es lo que evita buscar de gusto.
+  const emitidas = useFacturasEmitidas({ activa: tabActiva === 'facturas' })
 
   if (loading && productos.length === 0) {
     return (
@@ -138,6 +150,8 @@ export default function Facturacion() {
         />
       )}
 
+      {tabActiva === 'facturas' && <PanelFacturasEmitidas f={emitidas} />}
+
       {tabActiva === 'nueva' && (
         <>
           {modoEdicion && facturaEditando && (
@@ -172,6 +186,12 @@ export default function Facturacion() {
                   actuar porque nada le pedía encogerse primero. */}
               <div className="flex flex-col gap-4 lg:col-span-2 min-w-0">
                 <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
+                <div className="rounded-2xl border border-neutro-200 bg-white p-3">
+                  {modoEdicion && facturaEditando?.ciclo === undefined
+                    ? <ContextoCicloDocumento documento={facturaEditando} />
+                    : <SelectorCiclo ciclos={ciclosCliente} valor={cicloId} onChange={setCicloId} cargando={cargandoCiclos} error={errorCiclos} disabled={modoEdicion} />}
+                  {modoEdicion && <p className="mt-1 text-xs text-neutro-500">La factura conserva su semana original.</p>}
+                </div>
 
                 <AgregarProductos
                   cardRef={productoCardRef}
@@ -245,6 +265,11 @@ export default function Facturacion() {
 
               {hayLineas && (
                 <PanelCobro
+              metodosPago={metodosPago}
+              metodoPagoId={metodoPagoId}
+              onElegirMetodoPago={elegirMetodoPago}
+              referenciaPago={referenciaPago}
+              onCambiarReferenciaPago={setReferenciaPago}
                   items={items}
                   descuentoGlobal={descuentoGlobal}
                   impuestoPrincipal={impuestoPrincipal}

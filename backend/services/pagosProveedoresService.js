@@ -1,6 +1,19 @@
-const { EstadoCuentaPorPagar } = require('@prisma/client');
 const prisma = require('../lib/prisma');
+const { query } = require('../config/database');
 const notasCreditoService = require('./notasCreditoService');
+const pagosProveedor = require('../src/modules/pagos-proveedores/pagosProveedor.service');
+
+/**
+ * Cuentas por pagar: la lista de lo que se le debe a cada proveedor.
+ *
+ * EL SALDO Y EL ESTADO SE CALCULAN (migración 025, vista
+ * `cuenta_por_pagar_saldo`): total − notas de crédito − lo pagado antes del
+ * corte − los pagos vigentes. Las columnas `saldo_pendiente` y `estado` de la
+ * tabla siguen existiendo porque el cliente de Prisma —compartido con
+ * main/developer— las exige, pero en esta rama nadie las lee: se quedaban
+ * viejas (13 cuentas figuraban PENDIENTE meses después de vencer, porque el
+ * estado solo se corregía al abrir la pantalla).
+ */
 
 class PagosProveedoresService {
   constructor() {
@@ -24,23 +37,6 @@ class PagosProveedoresService {
     return cuentas
       .map((c) => ({ cedula: c.proveedorCedula, nombre: c.proveedorNombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }
-
-  async marcarVencidas() {
-    await this.prisma.cuentaPorPagar.updateMany({
-      where: {
-        liberada: true,
-        estado: {
-          in: [EstadoCuentaPorPagar.PENDIENTE, EstadoCuentaPorPagar.PARCIAL]
-        },
-        fechaVencimiento: {
-          lt: new Date()
-        }
-      },
-      data: {
-        estado: EstadoCuentaPorPagar.VENCIDA
-      }
-    });
   }
 
   calcularDiasRestantes(fechaVencimiento) {
@@ -100,8 +96,14 @@ class PagosProveedoresService {
       fechaEmision: cuenta.fechaEmision,
       fechaVencimiento: cuenta.fechaVencimiento,
       montoTotal: Number(cuenta.montoTotal) || 0,
-      saldoPendiente: Number(cuenta.saldoPendiente) || 0,
-      estado: cuenta.estado,
+      saldoPendiente: cuenta.saldo?.saldo ?? 0,
+      estado: cuenta.saldo?.estado ?? 'PENDIENTE',
+      // De qué se compone el saldo, para poder explicarlo en la pantalla.
+      pagado: cuenta.saldo?.pagado ?? 0,
+      pagadoSinDetalle: cuenta.saldo?.pagadoSinDetalle ?? 0,
+      // De contado (migración 028): nació al registrar la compra y espera que
+      // alguien anote cómo se pagó.
+      deContado: cuenta.saldo?.deContado ?? false,
       diasRestantes: cuenta.diasRestantes,
       notas: cuenta.notas,
       productos: cuenta.factura?.productos?.map((producto) => ({
@@ -125,35 +127,65 @@ class PagosProveedoresService {
     const totalVencidas = cuentas
       .filter((c) => c.estado === 'VENCIDA')
       .reduce((sum, c) => sum + c.saldoPendiente, 0);
-    const proximas = cuentas.filter((c) => c.diasRestantes >= 0 && c.diasRestantes <= 7);
+    // Las de contado no "vencen pronto": se pagaron al recibirlas y falta anotarlo.
+    const proximas = cuentas.filter((c) => c.estado !== 'CONTADO' && c.diasRestantes >= 0 && c.diasRestantes <= 7);
+    const contado = cuentas.filter((c) => c.estado === 'CONTADO');
     const proximasMonto = proximas.reduce((sum, c) => sum + c.saldoPendiente, 0);
 
+    // Sumas de colones con decimales: sin redondear salían cosas como
+    // 431562.64999999997.
+    const redondear = (v) => Math.round(v * 100) / 100;
     return {
       totalFacturas,
       totalProveedores,
-      totalPendiente,
-      totalVencidas,
+      totalPendiente: redondear(totalPendiente),
+      totalVencidas: redondear(totalVencidas),
       proximasAVencer: {
         cantidad: proximas.length,
-        monto: proximasMonto
+        monto: redondear(proximasMonto)
+      },
+      // Compras de contado a las que falta anotarles el pago.
+      deContado: {
+        cantidad: contado.length,
+        monto: redondear(contado.reduce((sum, c) => sum + c.saldoPendiente, 0))
       }
     };
   }
 
+  /**
+   * El filtro de estado, sobre el estado CALCULADO (la vista), no la columna.
+   *
+   * "Todos" quiere decir todo lo que queda por pagar, no todo lo que existe.
+   * Antes traía también las pagadas y eran la enorme mayoría —244 de 311 al
+   * hacer este cambio—, así que lo que de verdad se va a pagar quedaba
+   * enterrado entre facturas ya cerradas. Las pagadas siguen siendo
+   * alcanzables con su propio filtro.
+   */
+  filtroEstado(filtros = {}) {
+    if (filtros.estado && filtros.estado !== 'todos') {
+      return { igual: String(filtros.estado).toUpperCase() };
+    }
+    return { distinto: 'PAGADA' };
+  }
+
+  /** Las cuentas cuyo estado calculado pasa el filtro. */
+  async idsPorEstado(filtros = {}) {
+    const f = this.filtroEstado(filtros);
+    const soloLiberadas = filtros.incluirRevision !== 'true';
+    const { rows } = await query(
+      `SELECT c.id
+         FROM cuentas_por_pagar c
+         JOIN cuenta_por_pagar_saldo v ON v.id = c.id
+        WHERE ${soloLiberadas ? 'c.liberada = TRUE AND' : ''}
+              v.estado ${f.igual ? '=' : '<>'} $1`,
+      [f.igual || f.distinto]
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /** Proveedor y búsqueda: lo que no depende del saldo. */
   buildWhereFilters(filtros = {}) {
     const andFilters = [];
-    if (filtros.estado && filtros.estado !== 'todos') {
-      andFilters.push({ estado: filtros.estado.toUpperCase() });
-    } else {
-      // "Todos" quiere decir todo lo que queda por pagar, no todo lo que
-      // existe. Antes traía también las pagadas y eran la enorme mayoría
-      // —244 de 311 al hacer este cambio—, así que lo que de verdad se va a
-      // pagar quedaba enterrado entre facturas ya cerradas.
-      //
-      // Las pagadas siguen siendo alcanzables con su propio filtro; lo que
-      // deja de pasar es que aparezcan cuando nadie las pidió.
-      andFilters.push({ estado: { not: 'PAGADA' } });
-    }
 
     if (filtros.proveedor && filtros.proveedor !== 'todos') {
       andFilters.push({
@@ -178,18 +210,12 @@ class PagosProveedoresService {
   }
 
   async listarCuentas(filtros = {}) {
-    await this.marcarVencidas();
-
     const dynamicFilters = this.buildWhereFilters(filtros);
     const where = {
-      ...(dynamicFilters || {})
+      ...(dynamicFilters || {}),
+      id: { in: await this.idsPorEstado(filtros) }
     };
 
-    if (filtros.incluirRevision === 'true') {
-      // no filter
-    } else {
-      where.liberada = true;
-    }
     const cuentas = await this.prisma.cuentaPorPagar.findMany({
       where,
       include: {
@@ -218,23 +244,29 @@ class PagosProveedoresService {
       }
     });
 
+    const saldos = await pagosProveedor.saldosDeCuentas(cuentas.map((c) => c.id));
     const enriquecidas = cuentas.map((cuenta) => ({
       ...cuenta,
+      saldo: saldos.get(cuenta.id),
       diasRestantes: this.calcularDiasRestantes(cuenta.fechaVencimiento)
     }));
 
     const filtradas = this.aplicarFiltrosDias(enriquecidas, filtros);
     const data = this.prepararSalida(filtradas);
 
-    // El saldo que llega de la BD YA tiene los créditos restados (se aplican
-    // al recibir la nota, ver notasCreditoService). Esto es para poder
-    // EXPLICAR el número: sin mostrar la nota, una factura de ₡60.000 que
-    // aparece con saldo ₡30.000 se lee como un error.
-    const notasPorCuenta = await notasCreditoService.listarPorCuentas(data.map((c) => c.id));
+    // El saldo ya tiene restados los créditos y los pagos. Esto es para
+    // poder EXPLICAR el número: sin mostrar la nota o el pago, una factura
+    // de ₡60.000 que aparece con saldo ₡30.000 se lee como un error.
+    const ids = data.map((c) => c.id);
+    const [notasPorCuenta, pagosPorCuenta] = await Promise.all([
+      notasCreditoService.listarPorCuentas(ids),
+      pagosProveedor.pagosDeCuentas(ids)
+    ]);
     for (const cuenta of data) {
       const notas = notasPorCuenta.get(cuenta.id) || [];
       cuenta.notasCredito = notas;
       cuenta.creditoAplicado = notas.reduce((suma, n) => suma + n.monto, 0);
+      cuenta.pagos = pagosPorCuenta.get(cuenta.id) || [];
     }
 
     const resumen = this.calcularResumen(data);
@@ -251,59 +283,25 @@ class PagosProveedoresService {
     };
   }
 
-  async liberarCuentaPorFactura(facturaId) {
-    if (!facturaId) return null;
+  // Liberar la cuenta de una factura del buzón es de Registrar compra
+  // (`compras/liberarCuentaPorPagar.js`). El método que había acá solo lo
+  // llamaba el envío viejo a Alegra, y se fue con él.
 
-    const cuenta = await this.prisma.cuentaPorPagar.findUnique({
-      where: { facturaId }
-    });
-
-    if (!cuenta) {
-      return null;
+  /**
+   * Lo único que se edita a mano de una cuenta son sus notas. El saldo y el
+   * estado ya no: un pago se registra como pago (y se anula como pago), para
+   * que quede cuándo, de qué cuenta salió y con qué referencia.
+   */
+  async actualizarCuenta(id, payload = {}) {
+    if (payload.saldoPendiente !== undefined || payload.estado !== undefined) {
+      const error = new Error('El saldo ya no se edita a mano: registrá un pago (o anulá uno) desde la factura.');
+      error.status = 400;
+      throw error;
     }
-
-    const estado = cuenta.fechaVencimiento < new Date()
-      ? EstadoCuentaPorPagar.VENCIDA
-      : EstadoCuentaPorPagar.PENDIENTE;
-
-    // Liberar reinicia el saldo al monto total, así que hay que volver a
-    // descontar las notas de crédito que ya se habían aplicado — si no, una
-    // NC que llegó antes de liberar la factura se perdería y se terminaría
-    // pagando de más.
-    const credito = await notasCreditoService.totalAplicadoEnCuenta(cuenta.id);
-    const saldo = Math.max(0, Math.round((Number(cuenta.montoTotal) - credito) * 100) / 100);
-
-    return this.prisma.cuentaPorPagar.update({
-      where: { facturaId },
-      data: {
-        liberada: true,
-        estado: saldo <= 0 ? EstadoCuentaPorPagar.PAGADA : estado,
-        saldoPendiente: saldo
-      }
-    });
-  }
-
-  async actualizarCuenta(id, payload) {
     const data = {};
-    if (payload.estado) {
-      data.estado = payload.estado.toUpperCase();
-    }
-    if (payload.saldoPendiente !== undefined) {
-      const saldo = Number(payload.saldoPendiente);
-      data.saldoPendiente = saldo >= 0 ? saldo : 0;
-      if (data.saldoPendiente === 0 && (!data.estado || data.estado !== 'PAGADA')) {
-        data.estado = 'PAGADA';
-      }
-    }
-    if (payload.notas !== undefined) {
-      data.notas = payload.notas;
-    }
+    if (payload.notas !== undefined) data.notas = payload.notas;
 
-    const cuenta = await this.prisma.cuentaPorPagar.update({
-      where: { id },
-      data
-    });
-
+    const cuenta = await this.prisma.cuentaPorPagar.update({ where: { id }, data });
     return {
       ...cuenta,
       diasRestantes: this.calcularDiasRestantes(cuenta.fechaVencimiento)

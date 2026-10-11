@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { destinoCatalogo, tokenPreventa } from '../../utils/enlacePreventa'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Lock, User, Loader2, AlertCircle } from 'lucide-react'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
@@ -20,7 +21,7 @@ export default function PortalIngresar() {
     setEnviando(true)
     try {
       await entrar({ usuario: usuario.trim(), password })
-      navigate(location.state?.destino || '/catalogo', { replace: true })
+      navigate(tokenPreventa(location.search) !== null ? destinoCatalogo(location.search) : location.state?.destino || '/catalogo', { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo entrar. Revise su conexión.')
       setPassword('')
@@ -77,7 +78,7 @@ export default function PortalIngresar() {
       </form>
 
       <p className="mt-6 text-center text-xs text-neutro-400">
-        <Link to="/catalogo" className="font-semibold text-naranja-600 hover:underline">Ver el catálogo sin entrar</Link>
+        <Link to={destinoCatalogo(location.search)} className="font-semibold text-naranja-600 hover:underline">Ver el catálogo sin entrar</Link>
       </p>
     </AccesoLayout>
   )

@@ -167,18 +167,65 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/contactos', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/reportes/historial', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 
-  test('Gestión de Catálogo ya no queda abierta por vivir debajo de /alegra', async () => {
-    // Antes este mismo prefijo era el EJEMPLO de ruta compartida: cualquiera
-    // con sesión podía borrar productos o cambiar categorías en Alegra en lote.
+  test('mandarle una orden de compra a un proveedor pide Reporte Proveedores', async () => {
+    // Colgaba de '/alegra', compartida: hasta el 2026-10-04 esto pasaba con
+    // cualquier sesión, y el envío sale por WhatsApp a un proveedor de verdad.
+    const sinModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(sinModulo.middleware, { ruta: '/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.codigo, 403);
+    assert.equal(r.cuerpo.modulo, 'reporte-proveedores');
+
+    const conModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-proveedores' }]
+    });
+    const ok = await correr(conModulo.middleware, { ruta: '/orden-compra/enviar-whatsapp', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(ok.bloqueado, false);
+  });
+
+  test('cambiar lo que se le entregó a un cliente pide Reporte Clientes', async () => {
+    const sinModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(sinModulo.middleware, { ruta: '/faltantes/ajustes', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.cuerpo.modulo, 'reporte-clientes');
+
+    const conModulo = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-clientes' }]
+    });
+    const ok = await correr(conModulo.middleware, { ruta: '/faltantes/ajustes/33', metodo: 'DELETE', usuario: { id: 4 } });
+    assert.equal(ok.bloqueado, false);
+  });
+
+  test('procesar una factura de la cola de Impresión pide el módulo', async () => {
     const { middleware } = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
     });
-    const r = await correr(middleware, { ruta: '/alegra/catalog/productos/categoria-lote', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/reimpresion/facturas/9/procesar', metodo: 'POST', usuario: { id: 4 } });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.cuerpo.modulo, 'impresion');
+  });
+
+  test('mover productos de categoría en lote pide el permiso de Gestión de Catálogo', async () => {
+    // En la Gestión de Catálogo vieja esto vivía debajo de '/alegra', que es
+    // compartida: cualquiera con sesión podía cambiar categorías en lote.
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }]
+    });
+    const r = await correr(middleware, { ruta: '/maestro/lote/categoria', usuario: { id: 4 } });
 
     assert.equal(r.bloqueado, true);
     assert.equal(r.codigo, 403);
@@ -187,7 +234,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('las fotos que usan otras pantallas siguen abiertas a quien tenga sesión', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/alegra/catalog/search-images', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/catalogos/imagenes-sugeridas', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 
@@ -236,7 +283,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.match(r.cuerpo.error, /administrador/);
     }
-    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Alegra/Catalog/productos']) {
+    for (const ruta of ['/Rentabilidad/resumen', '/RENTABILIDAD', '/Reporte-Contador/periodos', '/Maestro/Productos', '/Bodega/Facturas-Propias', '/Orden-Compra/cantidades']) {
       const r = await correr(middleware, { ruta, usuario: { id: 4 } });
       assert.equal(r.codigo, 403, `${ruta} pasó`);
       assert.equal(r.cuerpo.code, 'SIN_PERMISO');
@@ -244,21 +291,69 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
   });
 
   test('y una cuenta desactivada tampoco pasa cambiando mayúsculas', async () => {
-    // Con el token todavía vigente llegaba hasta el módulo: el guardián ni
-    // siquiera miraba si la cuenta seguía activa.
     const { middleware } = cargarConDobles({ 'FROM usuario WHERE id': [USUARIO({ activo: false })] });
     const r = await correr(middleware, { ruta: '/Rentabilidad/resumen', usuario: { id: 4 } });
     assert.equal(r.codigo, 401);
   });
 
-  test('el módulo que sí tiene sigue entrando, escrito como sea', async () => {
+  test('anular una factura o un cobro y reabrir la caja piden administrador aunque se tenga el módulo', async () => {
     const { middleware } = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],
-      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'rentabilidad' }]
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }, { modulo: 'cuentas-por-cobrar' }]
     });
-    for (const ruta of ['/rentabilidad/resumen', '/Rentabilidad/resumen/']) {
-      assert.equal((await correr(middleware, { ruta, usuario: { id: 4 } })).bloqueado, false, `${ruta} quedó bloqueada`);
+    const casos = [
+      ['PATCH', '/facturacion/facturas/5482/anular', 'anular-factura', /anular una factura/],
+      ['PATCH', '/Facturacion/Facturas/5482/Anular/', 'anular-factura', /anular una factura/],
+      ['PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular', 'anular-cobro', /anular un cobro/],
+      ['POST', '/cuentas-por-cobrar/propios/caja/reabrir', 'reabrir-caja', /reabrir una caja/]
+    ];
+    for (const [metodo, ruta, clave, mensaje] of casos) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${metodo} ${ruta} pasó`);
+      assert.equal(r.cuerpo.accion, clave);
+      assert.match(r.cuerpo.error, mensaje);
+      assert.equal(r.cuerpo.message, r.cuerpo.error, 'la pantalla lee `message`');
     }
+  });
+
+  test('con el módulo, todo lo demás sigue igual: facturar, nota de crédito, editar, cobrar y cerrar caja', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'facturacion' }, { modulo: 'cuentas-por-cobrar' }]
+    });
+    for (const [metodo, ruta] of [
+      ['POST', '/facturacion/facturas'],
+      ['PUT', '/facturacion/facturas/5482'],
+      ['POST', '/facturacion/notas-credito'],
+      ['PATCH', '/facturacion/notas-credito/3/anular'],
+      ['POST', '/cuentas-por-cobrar/propios/abonos'],
+      ['POST', '/cuentas-por-cobrar/propios/caja/cerrar'],
+      ['GET', '/facturacion/facturas/5482']
+    ]) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.bloqueado, false, `${metodo} ${ruta} quedó bloqueado`);
+    }
+  });
+
+  test('un administrador sí anula y reabre', async () => {
+    const { middleware } = cargarConDobles({ 'FROM usuario WHERE id': [USUARIO({ es_admin: true })] });
+    for (const [metodo, ruta] of [
+      ['PATCH', '/facturacion/facturas/5482/anular'],
+      ['PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular'],
+      ['POST', '/cuentas-por-cobrar/propios/caja/reabrir']
+    ]) {
+      const r = await correr(middleware, { metodo, ruta, usuario: { id: 4 } });
+      assert.equal(r.bloqueado, false, `${metodo} ${ruta} bloqueó a un administrador`);
+    }
+  });
+
+  test('sin el módulo, la acción de administrador tampoco pasa (y lo dice como falta de administrador)', async () => {
+    const { middleware } = cargarConDobles({
+      'FROM usuario WHERE id': [USUARIO()],
+      'FROM usuario_modulo WHERE usuario_id': []
+    });
+    const r = await correr(middleware, { metodo: 'PATCH', ruta: '/facturacion/facturas/1/anular', usuario: { id: 4 } });
+    assert.equal(r.codigo, 403);
   });
 
   test('una cuenta desactivada recibe 401 aunque su token siga vigente', async () => {
@@ -295,7 +390,9 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
       'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'gestionar-relaciones' }]
     });
     for (const [metodo, ruta, dueno] of [
-      ['GET', '/proveedores/3101129878', 'reporte-proveedores'],
+      ['GET', '/proveedores/fichas', 'reporte-proveedores'],
+      ['POST', '/proveedores/fichas', 'reporte-proveedores'],
+      ['POST', '/proveedores/asignaciones', 'reporte-proveedores'],
       ['POST', '/proveedores', 'reporte-proveedores'],
       ['GET', '/revision-precios/facturas', 'revision-precios'],
       ['GET', '/rentabilidad/resumen', 'rentabilidad']
@@ -322,10 +419,10 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     assert.equal(r.cuerpo.modulo, 'revision-precios');
   });
 
-  test('limpiar los faltantes procesados pide Configuración, por cualquiera de sus dos direcciones', async () => {
-    // Colgaba de '/reportes' y de '/alegra/reportes', compartidas: cualquiera
-    // con sesión podía borrarlos. El botón está solo en Configuración.
-    for (const ruta of ['/reportes/faltantes/proveedor/limpiar', '/alegra/reportes/faltantes/proveedor/limpiar', '/Alegra/Reportes/Faltantes/Proveedor/Limpiar/']) {
+  test('limpiar los faltantes procesados pide Configuración', async () => {
+    // Colgaba de '/reportes', compartida: cualquiera con sesión podía
+    // borrarlos. El botón está solo en Configuración (Mantenimiento).
+    for (const ruta of ['/reportes/faltantes/proveedor/limpiar', '/Reportes/Faltantes/Proveedor/Limpiar/']) {
       const sin = cargarConDobles({
         'FROM usuario WHERE id': [USUARIO()],
         'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-proveedores' }]
@@ -342,10 +439,34 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     }
   });
 
-  test('leer el reporte de proveedores sigue abierto a quien tenga sesión', async () => {
-    const { middleware } = cargarConDobles({});
-    for (const ruta of ['/reportes/faltantes/proveedor', '/alegra/reportes/faltantes/proveedor']) {
-      assert.equal((await correr(middleware, { ruta, usuario: { id: 4 } })).bloqueado, false, ruta);
+  test('consultar faltantes o sus notas requiere el módulo dueño', async () => {
+    for (const [ruta,modulo] of [['/reportes/faltantes/proveedor','reporte-proveedores'],['/reportes/faltantes/cliente','reporte-clientes'],['/reportes/faltantes/notas','reporte-proveedores']]) {
+      const sin=cargarConDobles({'FROM usuario WHERE id':[USUARIO()],'FROM usuario_modulo WHERE usuario_id':[{modulo:'facturacion'}]});
+      assert.equal((await correr(sin.middleware,{ruta,usuario:{id:4}})).codigo,403);
+      const con=cargarConDobles({'FROM usuario WHERE id':[USUARIO()],'FROM usuario_modulo WHERE usuario_id':[{modulo}]});
+      assert.equal((await correr(con.middleware,{ruta,usuario:{id:4}})).bloqueado,false);
+    }
+  });
+
+  test('mandar una factura a impresión y recuperarla desde el reporte piden Reporte Clientes', async () => {
+    // Los dos botones son de esa pantalla; por colgar de '/reportes' los podía
+    // usar cualquiera con sesión. Tener Impresión no alcanza: su cola va por
+    // '/reimpresion'.
+    for (const accion of ['impresion', 'recuperar']) {
+      const ruta = `/reportes/faltantes/cliente/facturas/9/${accion}`;
+      const sin = cargarConDobles({
+        'FROM usuario WHERE id': [USUARIO()],
+        'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'impresion' }]
+      });
+      const r = await correr(sin.middleware, { ruta, metodo: 'POST', usuario: { id: 4 } });
+      assert.equal(r.codigo, 403, `${ruta} pasó`);
+      assert.equal(r.cuerpo.modulo, 'reporte-clientes');
+
+      const con = cargarConDobles({
+        'FROM usuario WHERE id': [USUARIO()],
+        'FROM usuario_modulo WHERE usuario_id': [{ modulo: 'reporte-clientes' }]
+      });
+      assert.equal((await correr(con.middleware, { ruta, metodo: 'POST', usuario: { id: 4 } })).bloqueado, false);
     }
   });
 

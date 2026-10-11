@@ -6,11 +6,12 @@ estado: vigente
 archivos:
   - backend/migrations/add_subcategorias.sql
   - backend/migrations/add_orden_categorias.sql
-  - backend/src/modules/catalogo/subcategorias.service.js
-  - backend/tests/subcategorias.test.js
+  - backend/src/modules/productos/taxonomiaTablas.js
+  - backend/src/modules/productos/taxonomia.service.js
+  - backend/tests/taxonomiaTablas.test.js
 aristas:
-  relacionado: [tabla/alegra-products-cache, tabla/categoria-config, decision/orden-canonico-compartido]
-medido: 2026-09-23
+  relacionado: [tabla/alegra-products-cache, tabla/categoria-config, decision/orden-canonico-compartido, modulo/gestion-catalogo]
+medido: 2026-10-04
 ---
 
 `subcategoria (id, categoria, nombre, activo, orden)`, única por
@@ -27,3 +28,17 @@ Reglas que el servicio hace cumplir:
   categoría.
 - Borrar solo se puede si está en 0 productos (409 si no).
 - `orden` es manual, dentro de su categoría ([[decision/orden-canonico-compartido]]).
+
+EN `independencia-alegra`: los productos la apuntan con
+`producto.subcategoria_id` (migración 030), porque el maestro es `producto`.
+La columna de la caché se sigue llenando en `main` hasta el corte y se copia
+en cada carga de productos. Ver `modulo/gestion-catalogo`.
+
+EN ESTA RAMA el producto guarda su subcategoría en `producto.subcategoria_id`
+(migración `independencia/030`), no en la caché de Alegra. Crear, renombrar,
+ordenar y listar están en `taxonomiaTablas.js`; asignar, mover y borrar, en
+`taxonomia.service.js`. El conteo de productos de cada una mira `producto` con
+el mismo "a la vista" que las listas: al compararlo el 2026-10-04 contra el
+que salía de la caché, las 183 subcategorías eran las mismas y en el mismo
+orden, pero la caché contaba 1.998 productos clasificados y el maestro 1.837.
+

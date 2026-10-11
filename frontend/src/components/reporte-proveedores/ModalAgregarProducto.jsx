@@ -10,7 +10,7 @@ export default function ModalAgregarProducto({
   proveedor,
   busquedaProducto,
   setBusquedaProducto,
-  productosAlegra,
+  productosEncontrados,
   loadingProductos,
   onBuscar,
   onAgregarConCantidad,
@@ -27,9 +27,9 @@ export default function ModalAgregarProducto({
           <input type="text" value={busquedaProducto} onChange={(e) => { setBusquedaProducto(e.target.value); if (e.target.value.length >= 2) onBuscar(e.target.value); }} placeholder="Tipea nombre o código referencial..." className="w-full px-4 py-3 border border-neutro-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primario-500 outline-none" autoFocus />
         </div>
         <div className="flex-1 overflow-y-auto p-4 bg-white">
-          {loadingProductos ? (<div className="text-center py-4"><div className="spinner mx-auto"></div></div>) : productosAlegra.length === 0 ? (<div className="text-center py-6 text-neutro-400">Sin coincidencias.</div>) : (
+          {loadingProductos ? (<div className="text-center py-4"><div className="spinner mx-auto"></div></div>) : productosEncontrados.length === 0 ? (<div className="text-center py-6 text-neutro-400">Sin coincidencias.</div>) : (
             <div className="grid gap-2">
-              {productosAlegra.map((p, i) => {
+              {productosEncontrados.map((p, i) => {
                 const reference = typeof p.reference === 'object' ? p.reference?.reference || p.reference?.code : p.reference
                 return (
                   <div key={i} className="p-3 border border-neutro-100 rounded-lg flex items-center justify-between hover:bg-neutro-50">

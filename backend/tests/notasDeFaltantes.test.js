@@ -1,5 +1,6 @@
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
 
 /**
  * Las notas que se escribieron al facturar, para leerlas al comprar.
@@ -8,185 +9,130 @@ const assert = require('node:assert/strict');
  * "Solo 75w". Bodega ya las mostraba; quien compra no las veía, y muchas
  * describen variantes que todavía no están en el catálogo.
  *
+ * Desde la migración independencia/032 salen de la línea de la factura PROPIA
+ * (`factura_linea.descripcion`) con una consulta; antes se recorría la lista
+ * de facturas de Alegra, ~5 segundos por página.
+ *
  * LO QUE SE CUIDA:
- *   · que no se lea de más —cada página de Alegra tarda unos 5 segundos—;
- *   · que la misma nota repetida no llene la pantalla y tape la que importa;
- *   · que un fallo de Alegra no se lleve puesto el reporte.
+ *   · que vayan indexadas por el id PROPIO del producto (el `producto_id` de
+ *     cada línea del reporte), nunca por el de Alegra;
+ *   · que la descripción del producto no pase por nota;
+ *   · que la misma nota repetida no llene la pantalla y tape la que importa.
  */
 
 const rutaDb = require.resolve('../config/database');
-const rutaCliente = require.resolve('../src/integrations/alegra');
 const rutaServicio = require.resolve('../src/modules/reports/notasDeFaltantes');
 
-/** Una factura como la devuelve la lista de Alegra. */
-const factura = (id, fecha, cliente, items) => ({
-  id, date: fecha,
-  client: { name: cliente },
-  numberTemplate: { fullNumber: `00100001${id}` },
-  items
-});
+let consultas;
 
-const linea = (id, description) => ({ id, name: `ITEM ${id}`, description });
-
-/**
- * @param facturasLocales  filas de la consulta a la base (alegra_id + fecha)
- * @param paginas          lo que devuelve Alegra, página por página
- */
-function montar(facturasLocales, paginas = []) {
-  for (const r of [rutaDb, rutaCliente, rutaServicio]) delete require.cache[r];
-
-  const registro = { consultas: 0, paginasPedidas: 0 };
-
+/** `filas`: lo que devuelve la consulta, ya en el orden de la base (lo más nuevo primero). */
+function montar(filas) {
+  for (const r of [rutaDb, rutaServicio]) delete require.cache[r];
+  consultas = [];
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: {
-      query: async () => { registro.consultas++; return { rows: facturasLocales }; }
+      query: async (sql, params = []) => {
+        consultas.push({ t: String(sql).replace(/\s+/g, ' ').trim(), params });
+        return { rows: filas };
+      }
     }
   };
-
-  require.cache[rutaCliente] = {
-    id: rutaCliente, filename: rutaCliente, loaded: true,
-    exports: {
-      getClient: () => ({
-        request: async (metodo, ruta, params) => {
-          registro.paginasPedidas++;
-          const pagina = Math.floor((params.start || 0) / params.limit);
-          return paginas[pagina] || [];
-        }
-      })
-    }
-  };
-
-  const servicio = require(rutaServicio);
-  servicio.olvidarCache();
-  return { servicio, registro };
+  return require(rutaServicio);
 }
 
-const LOCAL = [
-  { alegra_id: '5414', fecha_emision: '2026-09-14' },
-  { alegra_id: '5420', fecha_emision: '2026-09-15' }
-];
+let n = 0;
+const linea = (productoId, nota, { factura = 1, cliente = 'KEPESCA', fecha = '2026-09-15', numero } = {}) => ({
+  linea_id: ++n, producto_id: productoId, nota, factura_id: factura,
+  numero: numero || `0010000149${factura}`, cliente_nombre: cliente, fecha
+});
+
+beforeEach(() => { n = 0; });
 
 describe('qué notas se devuelven', () => {
-  test('van indexadas por el id del producto en Alegra', async () => {
-    // Es el mismo `alegra_item_id` que trae cada línea del reporte: si no
-    // calzaran, las notas no aparecerían en ningún producto.
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'Solo 75w')]),
-      factura('5420', '2026-09-15', 'KEPESCA', [linea('370', 'AZUL')])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-
-    assert.equal(r.porProducto['29'][0].nota, 'Solo 75w');
-    assert.equal(r.porProducto['370'][0].nota, 'AZUL');
+  test('van indexadas por el id PROPIO del producto', async () => {
+    const s = montar([linea(1709, 'Solo 75w'), linea(42, 'AZUL')]);
+    const r = await s.notasPorProducto();
+    assert.equal(r.porProducto['1709'][0].nota, 'Solo 75w');
+    assert.equal(r.porProducto['42'][0].nota, 'AZUL');
   });
 
-  test('una línea sin nota no aparece', async () => {
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', ''), linea('30', '   '), linea('31', null)]),
-      factura('5420', '2026-09-15', 'KEPESCA', [])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-    assert.deepEqual(r.porProducto, {});
+  test('la consulta cruza el faltante con SU línea: misma factura propia, mismo producto propio', async () => {
+    const s = montar([]);
+    await s.notasPorProducto();
+    const { t } = consultas[0];
+    assert.match(t, /JOIN factura fa ON fa\.id = f\.factura_propia_id/);
+    assert.match(t, /JOIN factura_linea l ON l\.factura_id = fa\.id AND l\.producto_id = f\.producto_propio_id/);
+    assert.match(t, /fa\.estado <> 'anulada'/, 'una anulada no se compra');
+    assert.match(t, /f\.tipo_faltante <> 'completo'/);
   });
 
-  test('las facturas que no tienen faltantes pendientes se saltan', async () => {
-    // El reporte es de lo que hay que comprar: una factura ya alistada no
-    // tiene por qué meter notas en la lista.
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'Solo 75w')]),
-      factura('9999', '2026-09-15', 'OTRO', [linea('77', 'ESTA NO VA')]),
-      factura('5420', '2026-09-15', 'KEPESCA', [])
-    ]]);
+  test('la descripción del producto no es una nota, y una línea vacía tampoco', async () => {
+    const s = montar([]);
+    await s.notasPorProducto();
+    const { t } = consultas[0];
+    assert.match(t, /btrim\(COALESCE\(l\.descripcion, ''\)\) <> ''/);
+    assert.match(t, /btrim\(l\.descripcion\) IS DISTINCT FROM btrim\(COALESCE\(p\.descripcion, ''\)\)/);
+  });
 
-    const r = await servicio.notasPorProducto();
-    assert.ok(!r.porProducto['77'], 'se coló una nota de una factura que no está en el reporte');
+  test('con fecha de inicio, filtra por la fecha de la factura propia', async () => {
+    const s = montar([]);
+    await s.notasPorProducto('2026-09-14');
+    assert.match(consultas[0].t, /fa\.fecha >= \$1::date/);
+    assert.deepEqual(consultas[0].params, ['2026-09-14']);
+  });
+
+  test('sin faltantes no hay notas', async () => {
+    const s = montar([]);
+    assert.deepEqual(await s.notasPorProducto(), { porProducto: {}, facturas: 0, desde: null });
   });
 });
 
 describe('la misma nota repetida', () => {
-  test('se junta en una sola, contando las veces', async () => {
-    // Un "Entregado" escrito cinco veces llenaría la pantalla y taparía la
-    // que sí dice qué variante comprar.
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'OJO NEGRA')]),
-      factura('5420', '2026-09-15', 'DELICHINO', [linea('29', 'ojo negra')])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-
-    assert.equal(r.porProducto['29'].length, 1, 'se repitió la misma nota');
-    assert.equal(r.porProducto['29'][0].veces, 2);
+  test('se junta en una sola, contando las veces y los clientes', async () => {
+    const s = montar([
+      linea(29, 'Solo 75w', { factura: 2, cliente: 'AB GINA' }),
+      linea(29, 'solo 75W', { factura: 1, cliente: 'KEPESCA' })
+    ]);
+    const [nota] = (await s.notasPorProducto()).porProducto['29'];
+    assert.equal(nota.veces, 2);
+    assert.deepEqual(nota.clientes.sort(), ['AB GINA', 'KEPESCA']);
   });
 
-  test('junta los clientes que la escribieron', async () => {
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'AZUL')]),
-      factura('5420', '2026-09-15', 'KEPESCA', [linea('29', 'AZUL')])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-    assert.deepEqual(r.porProducto['29'][0].clientes.sort(), ['AB GINA', 'KEPESCA']);
+  test('se queda con la factura más reciente (la primera, porque vienen de la más nueva)', async () => {
+    const s = montar([
+      linea(29, 'AZUL', { factura: 2, fecha: '2026-09-15', numero: 'NUEVA' }),
+      linea(29, 'AZUL', { factura: 1, fecha: '2026-09-14', numero: 'VIEJA' })
+    ]);
+    const [nota] = (await s.notasPorProducto()).porProducto['29'];
+    assert.equal(nota.numeroFactura, 'NUEVA');
+    assert.equal(nota.fecha, '2026-09-15');
   });
 
-  test('se queda con la factura más reciente de las repetidas', async () => {
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'AZUL')]),
-      factura('5420', '2026-09-15', 'KEPESCA', [linea('29', 'AZUL')])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-    assert.equal(r.porProducto['29'][0].fecha, '2026-09-15');
-  });
-
-  test('notas distintas del mismo producto van de la más nueva a la más vieja', async () => {
-    // La más reciente describe lo que se está pidiendo ahora.
-    const { servicio } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'AB GINA', [linea('29', 'LA VIEJA')]),
-      factura('5420', '2026-09-15', 'KEPESCA', [linea('29', 'LA NUEVA')])
-    ]]);
-
-    const r = await servicio.notasPorProducto();
-    assert.deepEqual(r.porProducto['29'].map(n => n.nota), ['LA NUEVA', 'LA VIEJA']);
+  test('notas distintas del mismo producto quedan de la más nueva a la más vieja', async () => {
+    const s = montar([
+      linea(29, 'LA NUEVA', { factura: 2, fecha: '2026-09-15' }),
+      linea(29, 'LA VIEJA', { factura: 1, fecha: '2026-09-10' })
+    ]);
+    const r = await s.notasPorProducto();
+    assert.deepEqual(r.porProducto['29'].map((x) => x.nota), ['LA NUEVA', 'LA VIEJA']);
+    assert.equal(r.facturas, 2);
+    assert.equal(r.desde, '2026-09-10');
   });
 });
 
-describe('cuánto se le pide a Alegra', () => {
-  test('sin faltantes pendientes NO se le pide nada', async () => {
-    // Cada página tarda unos 5 segundos: no se paga por nada.
-    const { servicio, registro } = montar([], [[factura('1', '2026-09-15', 'X', [])]]);
-
-    const r = await servicio.notasPorProducto();
-
-    assert.equal(registro.paginasPedidas, 0);
-    assert.deepEqual(r, { porProducto: {}, facturas: 0, desde: null });
+describe('lo que no se puede romper', () => {
+  test('ya no le pregunta nada a Alegra', () => {
+    const fuente = fs.readFileSync(rutaServicio, 'utf8');
+    assert.doesNotMatch(fuente, /integrations\/alegra|getClient/);
   });
 
-  test('se deja de pedir apenas aparecieron todas las facturas', async () => {
-    const { servicio, registro } = montar(LOCAL, [
-      [factura('5414', '2026-09-14', 'A', [linea('1', 'UNA')]),
-       factura('5420', '2026-09-15', 'B', [linea('2', 'OTRA')])],
-      [factura('9998', '2026-09-10', 'C', [linea('3', 'NO SE DEBERÍA LEER')])]
-    ]);
-
-    const r = await servicio.notasPorProducto();
-
-    assert.equal(registro.paginasPedidas, 1, 'siguió pidiendo páginas sin necesidad');
-    assert.ok(!r.porProducto['3']);
-  });
-
-  test('la segunda consulta seguida sale de la caché', async () => {
-    const { servicio, registro } = montar(LOCAL, [[
-      factura('5414', '2026-09-14', 'A', [linea('1', 'UNA')]),
-      factura('5420', '2026-09-15', 'B', [])
-    ]]);
-
-    await servicio.notasPorProducto();
-    const pedidas = registro.paginasPedidas;
-    await servicio.notasPorProducto();
-
-    assert.equal(registro.paginasPedidas, pedidas, 'volvió a pagar los segundos de Alegra');
+  test('la pantalla busca las notas por el producto_id de cada línea del reporte', () => {
+    const raiz = require('path').join(__dirname, '..', '..', 'frontend', 'src', 'components', 'reporte-proveedores');
+    for (const archivo of ['PanelNotasProveedor.jsx', 'ProveedorDetalle.jsx']) {
+      const fuente = fs.readFileSync(require('path').join(raiz, archivo), 'utf8');
+      assert.match(fuente, /notasPorProducto\?\.\[String\((p|producto)\.producto_id\)\]/, archivo);
+      assert.doesNotMatch(fuente, /notasPorProducto\?\.\[String\([a-z]+\.alegra_item_id\)\]/, archivo);
+    }
   });
 });

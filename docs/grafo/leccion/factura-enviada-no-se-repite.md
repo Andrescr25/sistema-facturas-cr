@@ -2,14 +2,23 @@
 id: leccion/factura-enviada-no-se-repite
 tipo: leccion
 titulo: ENVIADA prueba que la compra ya existe en Alegra — reenviarla duplica el gasto
-estado: vigente
+estado: retirado
 archivos:
+  - backend/src/modules/compras/compras.service.js
   - backend/src/modules/revision-precios/revision-precios.service.js
-  - backend/tests/facturaProveedorNoSeDuplica.test.js
+  - backend/tests/registrarCompra.test.js
 aristas:
-  relacionado: [modulo/revision-precios]
-medido: 2026-09-25
+  relacionado: [modulo/revision-precios, modulo/compras]
+medido: 2026-10-04
 ---
+
+**RETIRADA EN ESTA RAMA (2026-10-04).** `enviarFacturaAlegra` se borró: acá la
+compra se registra con `registrarCompra`, y lo que impide registrarla dos
+veces ya no es el estado `ENVIADA` sino algo más directo — ¿existe ya una fila
+en `compra` para esta factura del buzón? (409 si existe; probado en
+`registrarCompra.test.js`). `devolverFactura` tampoco deja devolver a
+relacionar una factura ya registrada. Lo de abajo es cómo pasó en `main`, y
+por qué la guarda tiene que estar en el servidor y no en el botón.
 
 En Revisión de Precios, el estado `ENVIADA` de una factura de proveedor es la
 prueba de que su factura de compra se creó en Alegra: cuando ese paso falla,

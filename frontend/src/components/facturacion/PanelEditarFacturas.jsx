@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Search, X, AlertCircle, Edit, RefreshCw, RotateCw, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 /**
  * Contenido de la pestaña "Editar Facturas": búsqueda de facturas
@@ -85,17 +86,14 @@ export default function PanelEditarFacturas({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-neutro-900 truncate">
-                        Factura #{factura.numberTemplate?.fullNumber || factura.id}
+                        Factura #{factura.numero || factura.id}
                       </p>
                       <p className="text-sm text-neutro-600 truncate">
-                        Cliente: {factura.client?.name || factura.cliente_nombre || 'N/A'}
+                        Cliente: {factura.cliente?.nombre || 'N/A'}
                       </p>
+                      <ContextoCicloDocumento documento={factura} />
                       <p className="text-sm text-neutro-500">
-                        Fecha: {factura.date
-                          ? new Date(factura.date).toLocaleDateString('es-CR')
-                          : factura.fecha_emision
-                            ? new Date(factura.fecha_emision).toLocaleDateString('es-CR')
-                            : 'N/A'}
+                        Fecha: {factura.fecha ? String(factura.fecha).slice(0, 10).split('-').reverse().join('/') : 'N/A'}
                       </p>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {factura.pendienteSincronizar && (
@@ -159,7 +157,7 @@ export default function PanelEditarFacturas({
               Facturas Pendientes de Envío
             </h4>
             <p className="text-sm text-alerta-800 mb-3">
-              Hay {facturasPendientesDetalle.length} factura(s) que se enviarán a Alegra cuando haya conexión.
+              Hay {facturasPendientesDetalle.length} factura(s) que se enviarán al servidor cuando haya conexión.
             </p>
             <div className="space-y-3">
               {facturasPendientesDetalle.map((factura) => {
@@ -187,6 +185,7 @@ export default function PanelEditarFacturas({
                     <p className="text-xs text-neutro-500 mt-0.5">
                       Creada: {new Date(factura.timestamp).toLocaleString('es-CR')}
                     </p>
+                    <ContextoCicloDocumento documento={factura} />
 
                     {factura.intentosSincronizacion > 0 && (
                       <p className="text-xs text-neutro-500">

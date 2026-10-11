@@ -4,7 +4,7 @@ import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 
 /**
  * Buscador de productos para agregar a una devolución en progreso: escribe
- * el nombre/referencia, aparecen coincidencias en vivo de Alegra, y cada
+ * el nombre/referencia, aparecen coincidencias en vivo del inventario propio, y cada
  * resultado tiene su propio campo de cantidad devuelta + botón agregar.
  */
 export default function BuscadorProductoDevolucion({
@@ -17,14 +17,14 @@ export default function BuscadorProductoDevolucion({
 }) {
   const [cantidades, setCantidades] = useState({})
 
-  const cambiarCantidad = (alegraId, val) => {
-    setCantidades(prev => ({ ...prev, [alegraId]: val }))
+  const cambiarCantidad = (productoId, val) => {
+    setCantidades(prev => ({ ...prev, [productoId]: val }))
   }
 
   const handleAgregar = (producto) => {
-    const cantidad = cantidades[producto.alegraId] || 1
+    const cantidad = cantidades[producto.productoId] || 1
     onAgregar(producto, cantidad)
-    setCantidades(prev => ({ ...prev, [producto.alegraId]: '' }))
+    setCantidades(prev => ({ ...prev, [producto.productoId]: '' }))
   }
 
   return (
@@ -54,7 +54,7 @@ export default function BuscadorProductoDevolucion({
             <p className="text-sm text-neutro-400 text-center py-6">No se encontraron productos para "{busqueda}"</p>
           ) : (
             resultados.map(producto => (
-              <div key={producto.alegraId} className="p-3 flex items-center justify-between gap-3">
+              <div key={producto.productoId} className="p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-bold text-neutro-900 text-sm truncate">{producto.nombre}</p>
                   <p className="text-xs text-neutro-400">
@@ -65,9 +65,9 @@ export default function BuscadorProductoDevolucion({
                   <input
                     type="number"
                     min="1"
-                    step="1"
-                    value={cantidades[producto.alegraId] ?? ''}
-                    onChange={(e) => cambiarCantidad(producto.alegraId, e.target.value)}
+                    step="0.0001"
+                    value={cantidades[producto.productoId] ?? ''}
+                    onChange={(e) => cambiarCantidad(producto.productoId, e.target.value)}
                     placeholder="Cant."
                     className="input w-20 py-2 px-2 border-2 border-neutro-300 focus:border-primario-500 rounded-lg text-sm text-center"
                   />

@@ -34,7 +34,7 @@ export default function SeccionSubcategoria({
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState(seccion.nombre)
 
-  const ids = seccion.productos.map((p) => p.alegraId)
+  const ids = seccion.productos.map((p) => p.id)
   const todos = ids.length > 0 && ids.every((id) => estaSeleccionado(id))
   const esSub = Boolean(seccion.sub) && !seccion.sub.inactiva
   const vacia = esSub && seccion.sub.productos === 0
@@ -141,9 +141,9 @@ export default function SeccionSubcategoria({
         <div className="divide-y divide-neutro-100">
           {seccion.productos.map((p) => (
             <FilaProducto
-              key={p.alegraId}
+              key={p.id}
               producto={p}
-              seleccionado={estaSeleccionado(p.alegraId)}
+              seleccionado={estaSeleccionado(p.id)}
               onAlternarSeleccion={onAlternar}
               onEditar={onEditar}
               onSugerirFoto={onSugerirFoto}

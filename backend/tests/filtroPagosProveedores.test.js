@@ -22,38 +22,41 @@ const Servicio = require('../services/pagosProveedoresService');
 // toma la instancia de cualquiera de las dos formas.
 const servicio = typeof Servicio === 'function' ? new Servicio() : Servicio;
 
-/** Aplana el AND que arma buildWhereFilters para poder revisarlo. */
-const condiciones = (filtros) => (servicio.buildWhereFilters(filtros)?.AND) || [];
+// El estado se CALCULA desde la migración 025 (vista cuenta_por_pagar_saldo):
+// el filtro ya no es una condición de Prisma sobre la columna, es lo que
+// `filtroEstado` le pide a la vista.
+const filtro = (filtros) => servicio.filtroEstado(filtros);
 
 describe('el filtro de estado', () => {
   test('"todos" deja fuera las pagadas', () => {
-    const c = condiciones({ estado: 'todos' });
-    assert.deepEqual(c, [{ estado: { not: 'PAGADA' } }]);
+    assert.deepEqual(filtro({ estado: 'todos' }), { distinto: 'PAGADA' });
   });
 
   test('sin estado se comporta igual que "todos"', () => {
     // La pantalla no siempre manda el parámetro; el resultado tiene que ser
     // el mismo y no "traeme absolutamente todo".
-    assert.deepEqual(condiciones({}), [{ estado: { not: 'PAGADA' } }]);
+    assert.deepEqual(filtro({}), { distinto: 'PAGADA' });
   });
 
   test('un estado concreto filtra por ese estado', () => {
-    assert.deepEqual(condiciones({ estado: 'vencida' }), [{ estado: 'VENCIDA' }]);
-    assert.deepEqual(condiciones({ estado: 'pendiente' }), [{ estado: 'PENDIENTE' }]);
+    assert.deepEqual(filtro({ estado: 'vencida' }), { igual: 'VENCIDA' });
+    assert.deepEqual(filtro({ estado: 'pendiente' }), { igual: 'PENDIENTE' });
   });
 
   test('las pagadas siguen siendo alcanzables', () => {
     // Que no salgan en "Todos" no puede significar que no se puedan ver.
-    assert.deepEqual(condiciones({ estado: 'pagada' }), [{ estado: 'PAGADA' }]);
+    assert.deepEqual(filtro({ estado: 'pagada' }), { igual: 'PAGADA' });
   });
 
-  test('una cuenta con abono parcial cae dentro de "todos"', () => {
-    // Se quitó el filtro "En seguimiento" (PARCIAL) porque siempre estuvo
-    // vacío, pero el estado lo sigue produciendo calcularPayloadPago al
-    // registrar un abono. Si apareciera, tiene que verse en algún lado.
-    const [regla] = condiciones({ estado: 'todos' });
-    assert.notEqual(regla.estado.not, 'PARCIAL');
-    assert.equal(regla.estado.not, 'PAGADA');
+  test('una cuenta con abono (PARCIAL) cae dentro de "todos"', () => {
+    // La vista la marca PARCIAL cuando tiene pagos y todavía saldo; "Todos"
+    // solo excluye las pagadas, así que se ve.
+    assert.notEqual(filtro({ estado: 'todos' }).distinto, 'PARCIAL');
+  });
+
+  test('buildWhereFilters ya no filtra por la columna estado', () => {
+    const condiciones = servicio.buildWhereFilters({ estado: 'pagada' })?.AND || [];
+    assert.equal(condiciones.some((c) => 'estado' in c), false);
   });
 });
 
@@ -66,8 +69,8 @@ describe('los chips de la pantalla', () => {
       'el filtro PARCIAL filtraba a una lista siempre vacía');
   });
 
-  test('quedan los cuatro que sirven', () => {
-    for (const valor of ['todos', 'pendiente', 'vencida', 'pagada']) {
+  test('quedan los que sirven, más "De contado" (migración 028)', () => {
+    for (const valor of ['todos', 'pendiente', 'vencida', 'contado', 'pagada']) {
       assert.match(pagina, new RegExp(`value: '${valor}'`));
     }
   });

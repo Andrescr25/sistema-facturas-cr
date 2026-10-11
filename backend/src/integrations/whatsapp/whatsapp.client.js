@@ -23,6 +23,7 @@
  */
 
 const axios = require('axios');
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const interno = require('./conexion');
 
@@ -114,6 +115,10 @@ function prepararNumero(telefono) {
 
 /** Por dónde sale el mensaje: 'interno' o 'evolution'. */
 async function canal() {
+  // Rama aislada: ni por Evolution ni por la conexión de adentro. Ver
+  // config/aislado.js. Va acá, antes de elegir, porque el canal de adentro
+  // (conexion.js) no pasa por `postear`, donde estaba el bloqueo original.
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar mensajes de WhatsApp');
   if (interno.habilitado()) {
     const e = interno.estado();
     if (e.conectado) return 'interno';
@@ -142,11 +147,16 @@ async function mandarInterno(accion, { telefono, sujeto }) {
   try {
     return await accion();
   } catch (error) {
-    throw explicarFalloInterno(error, { telefono, sujeto });
+    const explicado = explicarFalloInterno(error, { telefono, sujeto });
+    // Estos dos errores nacen antes de sock.sendMessage, en conexion.js.
+    if (['SIN_WHATSAPP', 'SIN_CONEXION'].includes(error.codigo)) explicado.envioNoIniciado = true;
+    throw explicado;
   }
 }
 
 async function postear(ruta, payload, { telefono, sujeto }) {
+  // Rama aislada: no se le escribe a nadie de verdad. Ver config/aislado.js.
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar mensajes de WhatsApp');
   const { url, clave, instancia } = configuracion();
   try {
     const r = await axios.post(`${url}/${ruta}/${instancia}`, payload, {
@@ -200,7 +210,13 @@ async function enviarDocumento({ telefono, mensaje, pdf, nombreArchivo, sujeto =
 
   const archivo = nombreArchivo || 'documento.pdf';
   const pie = String(mensaje ?? '').trim() || undefined;
-  const via = await canal();
+  let via;
+  try { via = await canal(); }
+  catch (error) {
+    // Todavía no se llamó a ningún envío: a diferencia de un timeout después
+    // de transmitir, este fallo permite una nueva decisión explícita segura.
+    error.envioNoIniciado = true; throw error;
+  }
   if (via === 'interno') {
     await mandarInterno(() => interno.enviarDocumento(numero.numero, pdf, archivo, pie), { telefono: numero.formateado, sujeto });
   } else {

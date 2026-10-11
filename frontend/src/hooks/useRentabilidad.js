@@ -78,7 +78,7 @@ export function useRentabilidad() {
     setErrorDetalle(null)
     setCargandoDetalle(true)
     window.scrollTo({ top: 0 })
-    getProductoRentabilidad(producto.alegraItemId)
+    getProductoRentabilidad(producto.productoId)
       .then((r) => { if (pedidoDetalle.current === miPedido) setDetalle(r) })
       .catch((e) => { if (pedidoDetalle.current === miPedido) setErrorDetalle(mensaje(e, 'No se pudo cargar el producto.')) })
       .finally(() => { if (pedidoDetalle.current === miPedido) setCargandoDetalle(false) })
@@ -93,6 +93,8 @@ export function useRentabilidad() {
   return {
     resumen, errorResumen,
     filtros, setFiltros, limpiarFiltros,
+    filtrosAplicados: { ...filtros, buscar: buscarAplicado },
+    busquedaPendiente: filtros.buscar.trim() !== buscarAplicado,
     lista, cargandoLista, errorLista,
     seleccionado, detalle, cargandoDetalle, errorDetalle, abrir, cerrar
   }

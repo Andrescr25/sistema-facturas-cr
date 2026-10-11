@@ -1,49 +1,110 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'AlegraCatalogReactDB'
-const DB_VERSION = 2
+// El nombre se conserva para migrar la base que YA tiene la tablet. Cambiarlo
+// dejaría la copia anterior abandonada, sin ejecutar la invalidación.
+const DB_VERSION = 3
+export const VERSION_IDS = 'propios-v1'
+let conexion = null
+
+export function validarVersionIds(datos) {
+  if (datos?.versionIds !== VERSION_IDS) {
+    throw new Error('El catálogo del servidor cambió. Recargue la aplicación antes de actualizarlo.')
+  }
+}
+
+function validarProductos(productos) {
+  if (!Array.isArray(productos) || productos.some(p => !Number.isInteger(p.productoId) || p.productoId <= 0 || String(p.id) !== String(p.productoId)) ||
+      new Set(productos.map(p => p.productoId)).size !== productos.length) {
+    throw new Error('No se pudo verificar el catálogo. Se conserva la copia anterior.')
+  }
+}
 
 export const catalogoAgenteDb = {
   async connect() {
-    return openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        // Additivo: cada bloque revisa si el store ya existe antes de
-        // crearlo, así un dispositivo que ya tiene v1 (con "products" ya
-        // poblado) sube a v2 sin perder el catálogo descargado.
-        if (!db.objectStoreNames.contains('products')) {
-          const store = db.createObjectStore('products', { keyPath: 'id' })
-          store.createIndex('status', 'status')
-        }
-        if (!db.objectStoreNames.contains('metadata')) {
-          db.createObjectStore('metadata')
-        }
-        if (!db.objectStoreNames.contains('clientes')) {
-          db.createObjectStore('clientes', { keyPath: 'id' })
-        }
-      }
-    })
+    if (conexion) return conexion
+    conexion = new Promise((resolve, reject) => {
+      let bloqueada = false, abierta
+      openDB(DB_NAME, DB_VERSION, {
+        upgrade(db, anterior, nueva, tx) {
+          if (!db.objectStoreNames.contains('products')) {
+            const store = db.createObjectStore('products', { keyPath: 'id' })
+            store.createIndex('status', 'status')
+          }
+          if (!db.objectStoreNames.contains('metadata')) {
+            db.createObjectStore('metadata')
+          }
+          if (!db.objectStoreNames.contains('clientes')) {
+            db.createObjectStore('clientes', { keyPath: 'id' })
+          }
+          if (anterior > 0 && anterior < 3) {
+            // Cambió el ESPACIO de ids. "12" de Alegra puede ser otro producto
+            // que producto.id=12: no sirve conservar productos y borrar solo
+            // el historial. Todo lo que usa esos ids se invalida JUNTO.
+            // configCatalogo y las fotos se conservan: no dependen de esos ids.
+            // NO se abre SistemaFacturasCR: allí viven pedidos y facturas sin
+            // enviar, que jamás se borran al renovar esta caché de consulta.
+            tx.objectStore('products').clear()
+            tx.objectStore('clientes').clear()
+            const meta = tx.objectStore('metadata')
+            for (const clave of ['lastUpdate', 'ofertas', 'ofertasBaja', 'productosNuevos', 'rotacion', 'clienteActivoId']) meta.delete(clave)
+            meta.put(true, 'requiereActualizar')
+          }
+          tx.objectStore('metadata').put(VERSION_IDS, 'versionIds')
+        },
+        blocked() {
+          bloqueada = true
+          reject(new Error('Cierre las otras pestañas del catálogo y vuelva a abrirlo para actualizarlo.'))
+        },
+        blocking() { abierta?.close(); conexion = null },
+        terminated() { conexion = null }
+      }).then(db => {
+        abierta = db
+        if (bloqueada) db.close()
+        else resolve(db)
+      }, reject)
+    }).catch(error => { conexion = null; throw error })
+    return conexion
   },
 
+  async getRequiereActualizar() {
+    const db = await this.connect()
+    return Boolean(await db.get('metadata', 'requiereActualizar'))
+  },
+
+  /** Reemplazo atómico: no se borra la última copia por una descarga a medias. */
+  async guardarCatalogo({ products, clientes, timestamp, ...metadata }) {
+    validarProductos(products)
+    const db = await this.connect()
+    const tx = db.transaction(['products', 'clientes', 'metadata'], 'readwrite')
+    const operaciones = []
+    try {
+      const productosStore = tx.objectStore('products')
+      operaciones.push(productosStore.clear())
+      for (const p of products) operaciones.push(productosStore.put(p))
+      if (clientes !== undefined) {
+        const clientesStore = tx.objectStore('clientes')
+        operaciones.push(clientesStore.clear())
+        for (const c of clientes) operaciones.push(clientesStore.put(c))
+      }
+      const meta = tx.objectStore('metadata')
+      for (const [clave, valor] of Object.entries(metadata)) operaciones.push(meta.put(valor, clave))
+      operaciones.push(meta.put(timestamp, 'lastUpdate'), meta.put(VERSION_IDS, 'versionIds'), meta.put(false, 'requiereActualizar'))
+      await Promise.all([...operaciones, tx.done])
+    } catch (error) {
+      // También un error SINCRÓNICO de put() debe revertir los clear() ya
+      // encolados. Esperar todas las promesas evita rechazos sin manejar.
+      try { tx.abort() } catch { /* IndexedDB pudo abortarla antes. */ }
+      await Promise.allSettled([...operaciones, tx.done])
+      throw error
+    }
+  },
+
+  // No se exponen clear/save por bloques: renovar la copia pasa siempre
+  // por guardarCatalogo(). El cliente elegido sí se guarda por separado.
   async getAllProducts() {
     const db = await this.connect()
     return db.getAll('products')
-  },
-
-  async saveProducts(productsTarget) {
-    const db = await this.connect()
-    const tx = db.transaction('products', 'readwrite')
-    await Promise.all(productsTarget.map((p) => tx.store.put(p)))
-    await tx.done
-  },
-
-  async clearProducts() {
-    const db = await this.connect()
-    await db.clear('products')
-  },
-
-  async saveLastUpdate(timestamp = Date.now()) {
-    const db = await this.connect()
-    await db.put('metadata', timestamp, 'lastUpdate')
   },
 
   async getLastUpdate() {
@@ -51,22 +112,9 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'lastUpdate')
   },
 
-  async saveOfertas(ofertas) {
-    const db = await this.connect()
-    await db.put('metadata', ofertas, 'ofertas')
-  },
-
   async getOfertas() {
     const db = await this.connect()
     return db.get('metadata', 'ofertas')
-  },
-
-  // Las bajas de precio van en su propia llave del mismo almacén: no hace
-  // falta cambiar el esquema ni subir DB_VERSION, que en una tablet en la
-  // calle es una migración que puede fallar sin nadie mirando.
-  async saveOfertasBaja(ofertas) {
-    const db = await this.connect()
-    await db.put('metadata', ofertas, 'ofertasBaja')
   },
 
   async getOfertasBaja() {
@@ -74,36 +122,14 @@ export const catalogoAgenteDb = {
     return db.get('metadata', 'ofertasBaja')
   },
 
-  // "Productos nuevos": la lista manual de Auditoría de Inventario (solo ids).
-  // Una llave más del mismo almacén, sin subir DB_VERSION.
-  async saveProductosNuevos(productos) {
-    const db = await this.connect()
-    await db.put('metadata', productos, 'productosNuevos')
-  },
-
   async getProductosNuevos() {
     const db = await this.connect()
     return db.get('metadata', 'productosNuevos')
   },
 
-  // El orden y el nombre visible de categorías, y el orden de subcategorías
-  // dentro de cada una — mismo patrón que las ofertas: una llave más del
-  // mismo almacén, sin subir DB_VERSION.
-  async saveConfigCatalogo(config) {
-    const db = await this.connect()
-    await db.put('metadata', config, 'configCatalogo')
-  },
-
   async getConfigCatalogo() {
     const db = await this.connect()
     return db.get('metadata', 'configCatalogo')
-  },
-
-  // Qué productos son A y B en rotación (catálogo de "Cliente nuevo"). Una
-  // llave más del mismo almacén, sin subir DB_VERSION.
-  async saveRotacion(rotacion) {
-    const db = await this.connect()
-    await db.put('metadata', rotacion, 'rotacion')
   },
 
   async getRotacion() {
@@ -113,13 +139,6 @@ export const catalogoAgenteDb = {
 
   // ==================== HISTORIAL DE COMPRAS POR CLIENTE ====================
 
-  async saveClientes(clientes) {
-    const db = await this.connect()
-    const tx = db.transaction('clientes', 'readwrite')
-    await Promise.all(clientes.map((c) => tx.store.put(c)))
-    await tx.done
-  },
-
   async getAllClientes() {
     const db = await this.connect()
     return db.getAll('clientes')
@@ -128,11 +147,6 @@ export const catalogoAgenteDb = {
   async getCliente(id) {
     const db = await this.connect()
     return db.get('clientes', id)
-  },
-
-  async clearClientes() {
-    const db = await this.connect()
-    await db.clear('clientes')
   },
 
   async saveClienteActivo(id) {

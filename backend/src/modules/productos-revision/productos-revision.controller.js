@@ -1,9 +1,10 @@
 /**
  * Productos-Revision Module - Controller
- * Controladores HTTP para la gestión de relaciones producto proveedor ↔ Alegra
+ * Controladores HTTP para la gestión de relaciones producto proveedor ↔ producto propio
  */
 
 const productosRevisionService = require('./productos-revision.service');
+const productoDesdeLinea = require('./productoDesdeLinea');
 
 /**
  * Algunos endpoints de mutación se llaman desde el frontend en dominios
@@ -29,12 +30,12 @@ async function getRelacionados(req, res) {
 }
 
 /**
- * GET /productos-revision/producto/:alegraItemId/relaciones
+ * GET /productos-revision/producto/:productoPropioId/relaciones
  */
 async function getRelacionesDeProducto(req, res) {
   try {
-    const { alegraItemId } = req.params;
-    const result = await productosRevisionService.getRelacionesDeProducto(alegraItemId);
+    const { productoPropioId } = req.params;
+    const result = await productosRevisionService.getRelacionesDeProducto(productoPropioId);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error obteniendo relaciones del producto:', error);
@@ -47,33 +48,21 @@ async function getRelacionesDeProducto(req, res) {
  */
 async function crearRelacion(req, res) {
   try {
-    const { productoProveedorId, alegraItemId } = req.body;
+    // `productoPropioId` es `producto.id`. No se acepta el id de Alegra: los
+    // dos son números, y tomar uno por otro relacionaría con otro producto.
+    const { productoProveedorId, productoPropioId } = req.body;
 
-    if (!productoProveedorId || !alegraItemId) {
+    if (!productoProveedorId || !productoPropioId) {
       return res.status(400).json({
         success: false,
-        error: 'Faltan campos requeridos: productoProveedorId, alegraItemId'
+        error: 'Faltan campos requeridos: productoProveedorId, productoPropioId'
       });
     }
 
-    const result = await productosRevisionService.crearRelacion({ productoProveedorId, alegraItemId });
+    const result = await productosRevisionService.crearRelacion({ productoProveedorId, productoPropioId });
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error creando relación:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
-  }
-}
-
-/**
- * POST /productos-revision/ajustar
- */
-async function ajustarProducto(req, res) {
-  try {
-    const { productoId, nuevaCantidad, nuevoPrecio, alegraItemId } = req.body;
-    const result = await productosRevisionService.ajustarProducto({ productoId, nuevaCantidad, nuevoPrecio, alegraItemId });
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error ajustando producto:', error);
     res.status(error.status || 500).json({ success: false, error: error.message });
   }
 }
@@ -86,9 +75,12 @@ async function editarRelacion(req, res) {
 
   try {
     const { mapeoId } = req.params;
-    const { nuevoAlegraItemId } = req.body;
+    const { productoPropioId } = req.body;
+    if (!productoPropioId) {
+      return res.status(400).json({ success: false, error: 'Falta el producto: productoPropioId' });
+    }
 
-    const result = await productosRevisionService.editarRelacion(mapeoId, nuevoAlegraItemId);
+    const result = await productosRevisionService.editarRelacion(mapeoId, productoPropioId);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error editando relación:', error);
@@ -117,7 +109,7 @@ async function eliminarRelacionPorMapeo(req, res) {
 }
 
 /**
- * POST /productos-revision/crear (multipart, imagen opcional)
+ * GET /productos-revision/:productoId/precio-sugerido
  */
 async function precioSugerido(req, res) {
   try {
@@ -134,12 +126,26 @@ async function precioSugerido(req, res) {
   }
 }
 
+/**
+ * GET /productos-revision/:productoId/formulario-producto
+ * Categorías e impuestos propios, y el impuesto que se propone para la línea.
+ */
+async function formularioProducto(req, res) {
+  try {
+    const data = await productoDesdeLinea.formularioProducto(req.params.productoId);
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('Error armando el formulario de producto nuevo:', error.message);
+    res.status(error.status || 500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * POST /productos-revision/crear (multipart, imagen opcional)
+ * Crea el producto en el maestro propio y relaciona la línea con él.
+ */
 async function crearProducto(req, res) {
   try {
-    console.log('📦 Creando producto nuevo en Alegra...');
-    console.log('📝 Datos recibidos:', req.body);
-    console.log('🖼️ Imagen recibida:', req.file ? req.file.originalname : (req.body.imageUrl || 'Sin imagen'));
-
     const { nombre, precio, costo, productoId } = req.body;
 
     if (!nombre || !precio || !costo || !productoId) {
@@ -149,13 +155,13 @@ async function crearProducto(req, res) {
       });
     }
 
-    const result = await productosRevisionService.crearProducto(req.body, req.file);
+    const result = await productoDesdeLinea.crearProductoDesdeLinea(req.body, req.file, req.usuario?.id);
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('❌ Error creando producto:', error);
+    console.error('❌ Error creando producto:', error.message);
     res.status(error.status || error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Error creando producto en Alegra'
+      error: error.message || 'Error creando el producto'
     });
   }
 }
@@ -199,7 +205,7 @@ async function guardarFactorConversion(req, res) {
 /**
  * GET /productos-revision/buscar
  */
-async function buscarEnCache(req, res) {
+async function buscarProductos(req, res) {
   try {
     const { q } = req.query;
 
@@ -211,47 +217,11 @@ async function buscarEnCache(req, res) {
       });
     }
 
-    const result = await productosRevisionService.buscarEnCache(q);
+    const result = await productosRevisionService.buscarProductos(q);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error buscando productos:', error);
     res.status(error.status || 500).json({ success: false, error: error.message, productos: [] });
-  }
-}
-
-/**
- * GET /productos-revision/buscar-alegra
- */
-async function buscarEnAlegra(req, res) {
-  try {
-    const { q } = req.query;
-
-    if (!q || q.trim().length < 2) {
-      return res.json({
-        success: false,
-        error: 'Término de búsqueda debe tener al menos 2 caracteres'
-      });
-    }
-
-    const result = await productosRevisionService.buscarEnAlegra(q);
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error buscando en Alegra:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
-  }
-}
-
-/**
- * GET /productos-revision/info-alegra/:alegraItemId
- */
-async function getInfoAlegra(req, res) {
-  try {
-    const { alegraItemId } = req.params;
-    const result = await productosRevisionService.getInfoAlegra(alegraItemId);
-    res.json({ success: true, ...result });
-  } catch (error) {
-    console.error('❌ Error obteniendo producto Alegra:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 }
 
@@ -303,15 +273,13 @@ module.exports = {
   getRelacionados,
   getRelacionesDeProducto,
   crearRelacion,
-  ajustarProducto,
   editarRelacion,
   eliminarRelacionPorMapeo,
   crearProducto,
+  formularioProducto,
   precioSugerido,
   guardarFactorConversion,
-  buscarEnCache,
-  buscarEnAlegra,
-  getInfoAlegra,
+  buscarProductos,
   eliminarRelacionDeProducto,
   getMapeoDeProducto,
   getFacturaConProductos

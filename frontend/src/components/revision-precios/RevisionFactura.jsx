@@ -2,6 +2,7 @@ import { ArrowLeft, Loader2, RotateCcw, Send, CheckCircle2 } from 'lucide-react'
 import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
+import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
 
 /**
  * Revisar los precios de una factura.
@@ -16,19 +17,25 @@ import { formatCurrency, formatDate } from '../../utils/pagos'
  *    pegada abajo, igual que el cobro en Facturación: con 89 productos,
  *    llegar a enviar obligaba a recorrer la factura entera.
  *
- * YA ENVIADA = su factura de compra existe en Alegra. En ese caso la
- * pantalla queda de solo lectura: sin devolver, sin enviar y sin editar
- * precios. Antes el historial abría esta misma vista con todo activo, y
- * desde ahí se podía crear una SEGUNDA factura de compra por la misma
- * compra — con 838 facturas en ese estado, a un clic de distancia.
+ * YA REGISTRADA = ya existe una compra propia para esta factura
+ * (independencia-alegra, sección 8: "Enviar a Alegra" pasó a ser "Registrar
+ * compra", ya no se toca Alegra). En ese caso la pantalla queda de solo
+ * lectura: sin devolver, sin registrar de nuevo y sin editar precios. Antes
+ * el historial abría esta misma vista con todo activo, y desde ahí se podía
+ * crear una SEGUNDA compra por la misma factura — con 838 facturas en ese
+ * estado, a un clic de distancia.
+ *
+ * El campo interno sigue llamándose `estado: 'ENVIADA'` en la base por
+ * compatibilidad con lo que ya filtra por ese valor; acá adentro solo se lee,
+ * nunca se muestra ese nombre.
  */
 export default function RevisionFactura({
-  facturaSeleccionada, productos, productosAlegra, sugerenciasPrecio, preciosAjustados,
+  facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
   loading, devolviendo, enviando,
   onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar
 }) {
   const ajustados = Object.keys(preciosAjustados).filter(id => preciosAjustados[id] > 0).length
-  const yaEnviada = facturaSeleccionada?.estado === 'ENVIADA'
+  const yaRegistrada = facturaSeleccionada?.estado === 'ENVIADA'
 
   return (
     <div className="mx-auto max-w-5xl pb-6">
@@ -52,10 +59,11 @@ export default function RevisionFactura({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <Insignia tono={yaEnviada ? 'neutro' : 'exito'}>
-              {yaEnviada ? 'Ya enviada' : 'Lista para enviar'}
+            <Insignia tono={yaRegistrada ? 'neutro' : 'exito'}>
+              {yaRegistrada ? 'Ya registrada' : 'Lista para registrar'}
             </Insignia>
-            {!yaEnviada && (
+            {yaRegistrada&&<DocumentoFiscal origen="compra" documento={facturaSeleccionada} desdeBuzon/>}
+            {!yaRegistrada && (
               <button
                 onClick={onDevolver}
                 disabled={devolviendo}
@@ -75,7 +83,7 @@ export default function RevisionFactura({
           <span className="text-neutro-500">
             Productos <span className="font-bold text-neutro-900">{productos.length}</span>
           </span>
-          {!yaEnviada && (
+          {!yaRegistrada && (
             <span className="text-neutro-500">
               Precios ajustados <span className={`font-bold ${ajustados > 0 ? 'text-alerta-600' : 'text-neutro-900'}`}>{ajustados}</span>
             </span>
@@ -97,17 +105,17 @@ export default function RevisionFactura({
             <span>Producto</span>
             <span>Costo nuevo</span>
             <span>Precio actual</span>
-            <span>{yaEnviada ? 'Precio enviado' : 'Precio nuevo'}</span>
+            <span>{yaRegistrada ? 'Precio registrado' : 'Precio nuevo'}</span>
           </div>
 
           {productos.map(producto => (
             <FilaProducto
               key={producto.id}
               producto={producto}
-              productosAlegra={productosAlegra}
+              productosDelCatalogo={productosDelCatalogo}
               sugerenciasPrecio={sugerenciasPrecio}
               preciosAjustados={preciosAjustados}
-              soloLectura={yaEnviada}
+              soloLectura={yaRegistrada}
               onAjustarPrecio={onAjustarPrecio}
               onAplicarPrecioSugerido={onAplicarPrecioSugerido}
               onAbrirFactor={onAbrirFactor}
@@ -116,15 +124,14 @@ export default function RevisionFactura({
         </div>
       )}
 
-      {yaEnviada ? (
+      {yaRegistrada ? (
         <div className="mt-4 flex items-start gap-3 rounded-2xl border border-neutro-200 bg-neutro-50 p-4">
           <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-exito-600" />
           <div>
-            <p className="font-bold text-neutro-900">Esta factura ya se envió a Alegra</p>
+            <p className="font-bold text-neutro-900">Ya se registró la compra de esta factura</p>
             <p className="mt-1 text-sm text-neutro-600">
-              Su factura de compra ya existe allá. No se puede volver a enviar ni devolver a
-              relacionar: se crearía una segunda factura de compra por la misma compra y el gasto
-              quedaría contado dos veces. Si de verdad hay que rehacerla, primero anulala en Alegra.
+              No se puede volver a registrar ni devolver a relacionar: se crearía una segunda
+              compra por la misma factura y el gasto quedaría contado dos veces.
             </p>
           </div>
         </div>
@@ -144,7 +151,7 @@ export default function RevisionFactura({
                 {productos.length} {productos.length === 1 ? 'costo' : 'costos'}
                 {ajustados > 0 && <span className="text-alerta-600"> · {ajustados} precios</span>}
               </p>
-              <p className="truncate text-xs text-neutro-500">Se crea la factura de compra en Alegra</p>
+              <p className="truncate text-xs text-neutro-500">Se registra la compra y se libera la cuenta por pagar</p>
             </div>
             <button
               onClick={onEnviar}
@@ -152,7 +159,7 @@ export default function RevisionFactura({
               className="btn btn-primary flex shrink-0 items-center gap-2 px-6 py-3 font-bold disabled:opacity-50"
             >
               {enviando ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              {enviando ? 'Enviando…' : 'Enviar a Alegra'}
+              {enviando ? 'Registrando…' : 'Registrar compra'}
             </button>
           </div>
         </div>

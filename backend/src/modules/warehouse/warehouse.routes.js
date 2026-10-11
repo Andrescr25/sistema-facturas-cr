@@ -7,11 +7,12 @@ const express = require('express');
 const router = express.Router();
 const warehouseController = require('./warehouse.controller');
 
-// GET /bodega/facturas - Obtener facturas para bodega
-router.get('/facturas', warehouseController.getFacturas);
-router.get('/facturas/:alegraId/estados', warehouseController.getEstadosFactura);
-
-// POST /bodega/facturas/:alegraId/estado - Actualizar estado de factura
-router.post('/facturas/:alegraId/estado', warehouseController.updateEstadoFactura);
+// Facturas PROPIAS (sección 11 del checklist), por su id. Las de Alegra
+// (`/facturas/:alegraId`) se retiraron el 2026-09-30.
+router.get('/ciclos', warehouseController.getCiclos);
+router.get('/facturas-propias', warehouseController.getFacturasPropias);
+router.get('/facturas-propias/:facturaId/estados', warehouseController.getEstadosFacturaPropia);
+router.post('/facturas-propias/:facturaId/faltantes', warehouseController.registrarFaltantesFacturaPropia);
+router.post('/facturas-propias/:facturaId/estado', warehouseController.updateEstadoFacturaPropia);
 
 module.exports = router;

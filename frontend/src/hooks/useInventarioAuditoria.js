@@ -7,7 +7,6 @@ import {
   guardarConteos,
   guardarConteoIndividual,
   finalizarAuditoria,
-  ajustarAlegra,
   resyncAuditoria,
   getDevoluciones,
   crearDevolucion as crearDevolucionApi,
@@ -40,7 +39,7 @@ import { useToast } from './useToast'
 /**
  * Estado y lógica de negocio de la auditoría de inventario: dashboard con
  * KPIs e historial, creación de sesiones, ejecución del conteo físico
- * (hoja de conteo, filtros, guardado con ajuste en Alegra), y el reporte
+ * (hoja de conteo, filtros, guardado con ajuste en el inventario propio), y el reporte
  * final con la acción correctiva. Extraído de InventarioAuditoria.jsx.
  *
  * Incluye confirm() (useDialog) y showToast()/toasts (useToast) en vez de
@@ -65,7 +64,7 @@ export function useInventarioAuditoria() {
 
   // Modal states
   const [showNewModal, setShowNewModal] = useState(false)
-  const [newAuditTipo, setNewAuditTipo] = useState('random')
+  const [newAuditTipo, setNewAuditTipo] = useState('inicial')
   const [newAuditCategoria, setNewAuditCategoria] = useState('')
   const [newAuditNombre, setNewAuditNombre] = useState('')
   const [imagenProductoActivo, setImagenProductoActivo] = useState(null) // item completo, o null
@@ -74,11 +73,7 @@ export function useInventarioAuditoria() {
   const [executionSearch, setExecutionSearch] = useState('')
   const [executionFilter, setExecutionFilter] = useState('todos') // 'todos', 'pendiente', 'correcto', 'descuadre'
 
-  // Alegra adjustment state
-  const [loadingAjuste, setLoadingAjuste] = useState(false)
-  const [successAjuste, setSuccessAjuste] = useState(null)
-
-  // Shown while conteos/ajustes se están enviando a Alegra (puede tardar varios segundos por el loteo)
+  // Visible mientras se confirma la transacción del conteo y sus movimientos.
   const [applyingAdjustments, setApplyingAdjustments] = useState(false)
 
   // Pestaña de nivel de página: Auditorías (conteo cíclico) o Devoluciones
@@ -208,7 +203,7 @@ export function useInventarioAuditoria() {
 
   const handleGenerarExcesosAhora = async () => {
     setGenerandoExcesos(true)
-    showToast('Generando excesos: consulta el stock completo en vivo de Alegra, puede tardar varios minutos...', 'info', 15000)
+    showToast('Revisando las existencias y ventas propias para detectar excesos...', 'info')
     try {
       const result = await generarExcesosAhora()
       if (result.success) {
@@ -308,7 +303,7 @@ export function useInventarioAuditoria() {
     if (!auditoriaActiva) return
     setAgregandoItemExceso(true)
     try {
-      const result = await agregarItemExcesoApi(auditoriaActiva.id, { alegraId: producto.alegraId })
+      const result = await agregarItemExcesoApi(auditoriaActiva.id, { productoId: producto.productoId })
       if (result.success) {
         showToast(`"${producto.nombre}" agregado a la tanda.`, 'success')
         setBusquedaProductoExceso('')
@@ -388,9 +383,9 @@ export function useInventarioAuditoria() {
     }
   }
 
-  const handleGuardarDescuento = async (alegraItemId, descuentoPorcentaje, nombre) => {
+  const handleGuardarDescuento = async (productoId, descuentoPorcentaje, nombre) => {
     try {
-      const result = await guardarDescuentoExcesoApi({ alegraItemId, descuentoPorcentaje })
+      const result = await guardarDescuentoExcesoApi({ productoId, descuentoPorcentaje })
       if (result.success) {
         showToast(`Descuento de "${nombre || result.data.nombre_producto}" en ${descuentoPorcentaje}%.`, 'success')
         await loadDescuentos()
@@ -401,14 +396,14 @@ export function useInventarioAuditoria() {
     }
   }
 
-  const handleEliminarDescuento = async (alegraItemId, nombre) => {
+  const handleEliminarDescuento = async (productoId, nombre) => {
     const confirmado = await confirm(
       `¿Quitar el descuento de "${nombre}"? Deja de verse en el catálogo público de inmediato.`
     )
     if (!confirmado) return
 
     try {
-      const result = await eliminarDescuentoExcesoApi(alegraItemId)
+      const result = await eliminarDescuentoExcesoApi(productoId)
       if (result.success) {
         showToast(`Descuento de "${result.nombre}" eliminado.`, 'success')
         await loadDescuentos()
@@ -429,7 +424,6 @@ export function useInventarioAuditoria() {
   const handleSelectAuditoria = async (id) => {
     setLoading(true)
     setError(null)
-    setSuccessAjuste(null)
     try {
       const result = await getAuditoriaDetalle(id)
       if (result.success) {
@@ -437,7 +431,7 @@ export function useInventarioAuditoria() {
         // Initialize draft counts
         const draft = {}
         result.data.items.forEach(item => {
-          draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : ''
+          draft[item.id] = item.stock_real !== null ? Number(item.stock_real) : ''
         })
         setConteosDraft(draft)
         setObservacionesFinales(result.data.observaciones || '')
@@ -476,12 +470,14 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Resync expired audit stocks from Alegra
+  // Resync expired audit stocks from inventario propio
   const handleResyncAuditoria = async () => {
     if (!auditoriaActiva) return
+    if (!await confirm('Se borrarán los conteos pendientes para tomar existencias actuales. Será necesario contar otra vez. ¿Continuar?')) return
+    Object.values(conteoSaveTimers.current).forEach(clearTimeout)
     setLoading(true)
     setError(null)
-    showToast('Re-sincronizando stocks de Alegra en vivo...', 'info')
+    showToast('Actualizando las existencias. Será necesario contar otra vez los productos pendientes.', 'info')
     try {
       const result = await resyncAuditoria(auditoriaActiva.id)
       if (result.success) {
@@ -490,6 +486,7 @@ export function useInventarioAuditoria() {
         const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id)
         if (updatedDetail.success) {
           setAuditoriaActiva(updatedDetail.data)
+          setConteosDraft(Object.fromEntries(updatedDetail.data.items.map(i => [i.id, i.stock_real == null ? '' : Number(i.stock_real)])))
         }
       }
     } catch (err) {
@@ -511,6 +508,7 @@ export function useInventarioAuditoria() {
       return
     }
 
+    Object.values(conteoSaveTimers.current).forEach(clearTimeout)
     setLoading(true)
     try {
       // First, save all current counts
@@ -538,34 +536,9 @@ export function useInventarioAuditoria() {
       }
     } catch (err) {
       console.error('Error finalizando auditoría:', err)
-      showToast('Error al finalizar la auditoría.', 'error')
+      showToast(err.response?.data?.message || 'Error al finalizar la auditoría.', 'error')
     } finally {
       setLoading(false)
-      setApplyingAdjustments(false)
-    }
-  }
-
-  // Send adjustments to Alegra API
-  const handleApplyAlegraAdjustment = async () => {
-    if (!auditoriaActiva) return
-
-    const confirmado = await confirm('Esto enviará una transacción de Ajuste de Inventario a Alegra y actualizará de forma irreversible el stock de los productos. ¿Está completamente seguro?')
-    if (!confirmado) return
-
-    setLoadingAjuste(true)
-    setApplyingAdjustments(true)
-    setSuccessAjuste(null)
-    setError(null)
-    try {
-      const result = await ajustarAlegra(auditoriaActiva.id)
-      if (result.success) {
-        setSuccessAjuste(result.message || 'Ajuste de inventario aplicado con éxito en Alegra.')
-      }
-    } catch (err) {
-      console.error('Error enviando ajustes a Alegra:', err)
-      setError(err.response?.data?.message || 'Error al aplicar ajustes en Alegra. Verifique los logs.')
-    } finally {
-      setLoadingAjuste(false)
       setApplyingAdjustments(false)
     }
   }
@@ -573,12 +546,13 @@ export function useInventarioAuditoria() {
   // Handle key digit/conteo changes — se guarda en la db unos milisegundos
   // después de dejar de teclear, para que un conteo ya escrito no se pierda
   // si el navegador se recarga o se cierra antes de "Guardar y Ajustar".
-  // Es solo un borrador persistido: no dispara ningún ajuste en Alegra (eso
+  // Es solo un borrador persistido: no dispara ningún ajuste en el inventario propio (eso
   // sigue siendo la acción explícita de guardarConteos/finalizarAuditoria).
   const conteoSaveTimers = useRef({})
+  useEffect(() => () => { Object.values(conteoSaveTimers.current).forEach(clearTimeout) }, [auditoriaActiva?.id])
 
   const handleConteoChange = (itemId, val) => {
-    const parsed = val === '' ? '' : Math.round(Number(val))
+    const parsed = val
     setConteosDraft(prev => ({
       ...prev,
       [itemId]: parsed
@@ -588,7 +562,7 @@ export function useInventarioAuditoria() {
     clearTimeout(conteoSaveTimers.current[itemId])
     conteoSaveTimers.current[itemId] = setTimeout(() => {
       guardarConteoIndividual(auditoriaActiva.id, itemId, parsed === '' ? null : parsed).catch(err => {
-        console.error('No se pudo autoguardar el conteo:', err)
+        showToast(err.response?.data?.message || 'No se pudo guardar este borrador. Guarda los conteos antes de salir.', 'error')
       })
     }, 700)
   }
@@ -599,7 +573,7 @@ export function useInventarioAuditoria() {
   const volverAlDashboard = () => {
     const tipoActivo = auditoriaActiva?.tipo
     setAuditoriaActiva(null)
-    if (tipoActivo === 'devolucion') {
+    if (['devolucion','devolucion_proveedor'].includes(tipoActivo)) {
       loadDevoluciones()
     } else if (tipoActivo === 'exceso') {
       loadExcesos()
@@ -615,7 +589,8 @@ export function useInventarioAuditoria() {
     setLoading(true)
     setError(null)
     try {
-      const result = await crearDevolucionApi()
+      const destino = new FormData(e.currentTarget).get('destino') || 'cliente'
+      const result = await crearDevolucionApi(destino)
       if (result.success) {
         setShowNewDevolucionModal(false)
         await handleSelectAuditoria(result.data.id)
@@ -663,7 +638,7 @@ export function useInventarioAuditoria() {
       setAuditoriaActiva(updatedDetail.data)
       const draft = {}
       updatedDetail.data.items.forEach(item => {
-        draft[item.id] = item.stock_real !== null ? Math.round(Number(item.stock_real)) : ''
+        draft[item.id] = item.stock_real !== null ? Number(item.stock_real) : ''
       })
       setConteosDraft(draft)
     }
@@ -679,10 +654,10 @@ export function useInventarioAuditoria() {
 
     setAgregandoItemDevolucion(true)
     try {
-      // El backend consulta el producto en vivo en Alegra (stock/costo
+      // El backend consulta el producto en vivo en el inventario propio (stock/costo
       // frescos) al momento de agregarlo — solo hace falta mandar cuál y cuántos.
       const result = await agregarItemDevolucionApi(auditoriaActiva.id, {
-        alegraId: producto.alegraId,
+        productoId: producto.productoId,
         cantidadDevuelta: cantidadNum
       })
       if (result.success) {
@@ -713,12 +688,7 @@ export function useInventarioAuditoria() {
     }
   }
 
-  // Finalizar una devolución: a diferencia de handleFinalize (auditorías),
-  // NO llama guardarConteos primero — los ítems ya quedaron guardados con su
-  // stock_real correcto al agregarlos, y ninguno debe aplicarse a Alegra
-  // todavía. El único paso explícito y confirmado que sí aplica el ajuste en
-  // Alegra sigue siendo el botón "Aplicar Ajuste en Alegra" (handleApplyAlegraAdjustment),
-  // reutilizado sin cambios.
+  // El cierre confirma la devolución y sus movimientos en la misma transacción.
   const handleFinalizeDevolucion = async () => {
     if (!auditoriaActiva) return
     if (!auditoriaActiva.items || auditoriaActiva.items.length === 0) {
@@ -730,14 +700,14 @@ export function useInventarioAuditoria() {
     try {
       const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
       if (result.success) {
-        showToast('Devolución finalizada. Ahora puedes aplicar el ajuste en Alegra.', 'success')
+        showToast('Devolución finalizada y movimiento registrado en el inventario propio.', 'success')
         await refrescarAuditoriaActiva()
         const data = await getDevoluciones()
         if (data.success) setDevoluciones(data.data)
       }
     } catch (err) {
       console.error('Error finalizando devolución:', err)
-      showToast('Error al finalizar la devolución.', 'error')
+      showToast(err.response?.data?.message || 'Error al finalizar la devolución.', 'error')
     } finally {
       setLoading(false)
     }
@@ -791,7 +761,7 @@ export function useInventarioAuditoria() {
     [auditoriaActiva, conteosDraft]
   )
 
-  // Adjustments preview for finalization / Alegra
+  // Adjustments preview for finalization / inventario propio
   const adjustmentsPreview = useMemo(
     () => calcularAjustesPreview(auditoriaActiva?.items, conteosDraft),
     [auditoriaActiva, conteosDraft]
@@ -882,13 +852,10 @@ export function useInventarioAuditoria() {
     executionFilter,
     setExecutionFilter,
 
-    loadingAjuste,
-    successAjuste,
     applyingAdjustments,
 
     handleResyncAuditoria,
     handleFinalize,
-    handleApplyAlegraAdjustment,
     handleConteoChange,
     imagenProductoActivo,
     handleVerImagenProducto,

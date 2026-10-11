@@ -22,6 +22,8 @@ const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumF
  *     desglose se abre tocándolo, porque lo que se necesita mirar seguido es
  *     el total, no el impuesto.
  */
+import SelectorPago from './SelectorPago'
+
 export default function PanelCobro({
   items,
   descuentoGlobal,
@@ -30,6 +32,11 @@ export default function PanelCobro({
   impuestosTotal,
   descuentoTotal,
   total,
+  metodosPago,
+  metodoPagoId,
+  onElegirMetodoPago,
+  referenciaPago,
+  onCambiarReferenciaPago,
   modoEdicion,
   loading,
   clienteSeleccionado,
@@ -39,9 +46,10 @@ export default function PanelCobro({
   const [desgloseAbierto, setDesgloseAbierto] = useState(false)
 
   const bloqueado = !clienteSeleccionado || items.length === 0 || loading
+
   // La etiqueta sale de las TARIFAS QUE HAY EN LA FACTURA, no del impuesto
-  // principal. Decía "IVA 13 %" al lado de un monto que podía ser 1 % + 2 %:
-  // el cajero leía una contradicción y no sabía a cuál de los dos creerle.
+  // principal. Decía "IVA 13 %" al lado de un monto que era 1 % + 2 %: el
+  // cajero leía una contradicción y no sabía cuál de los dos creerle.
   const tarifas = [...new Set(
     items.map(i => Number(i.tax?.[0]?.percentage ?? impuestoPrincipal?.percentage ?? 0))
   )].sort((a, b) => a - b)
@@ -70,6 +78,17 @@ export default function PanelCobro({
       </div>
     </div>
   )
+
+  // Editando una factura ya emitida no se cobra: el cobro se registra aparte.
+  const selectorPago = !modoEdicion && metodosPago?.length > 0 ? (
+    <SelectorPago
+      metodos={metodosPago}
+      metodoId={metodoPagoId}
+      onElegirMetodo={onElegirMetodoPago}
+      referencia={referenciaPago}
+      onCambiarReferencia={onCambiarReferenciaPago}
+    />
+  ) : null
 
   const botones = (
     <div className="flex flex-col gap-2">
@@ -110,6 +129,8 @@ export default function PanelCobro({
             <span className="text-2xl font-extrabold text-exito-600">{colones(total)}</span>
           </div>
 
+          {selectorPago}
+
           {botones}
         </div>
       </aside>
@@ -122,6 +143,7 @@ export default function PanelCobro({
         {desgloseAbierto && (
           <div className="flex flex-col gap-3 border-b border-neutro-100 px-4 py-3">
             {desglose}
+            {selectorPago}
             <button onClick={onCancelar} className="btn btn-outline flex w-full items-center justify-center gap-2">
               <X size={18} /> Cancelar factura
             </button>

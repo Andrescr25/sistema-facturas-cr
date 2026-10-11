@@ -16,13 +16,15 @@
  *                     bloqueáramos, y el daño de un falso "prohibido" acá es
  *                     que el sistema deja de funcionar sin explicación. Los
  *                     módulos con datos sensibles SÍ están mapeados, que es
- *                     lo que importa. Hay un test que revisa que cada prefijo
- *                     montado en server.js esté clasificado
- *                     (tests/permisosModulos.test.js).
+ *                     lo que importa. Que no quede ninguno sin clasificar lo
+ *                     cuida un test que recorre cada prefijo montado en
+ *                     server.js (tests/permisosModulos.test.js). Ese test se
+ *                     nombraba acá desde el principio y no existía: había un
+ *                     prefijo, /envios-whatsapp, pasando por omisión.
  */
 
 const { permisosDe } = require('./usuarios.service');
-const { moduloDeRuta, esCompartida, esRutaAdmin, modulosQuePuedenUsar } = require('./modulos');
+const { moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin, modulosQuePuedenUsar } = require('./modulos');
 
 function requirePermiso(req, res, next) {
   if (req.method === 'OPTIONS') return next();
@@ -38,7 +40,9 @@ function requirePermiso(req, res, next) {
   if (esCompartida(ruta)) return next();
 
   const clave = moduloDeRuta(ruta);
-  const necesitaAdmin = esRutaAdmin(ruta);
+  // Lo que pide administrador aunque se tenga el módulo (anular, reabrir caja).
+  const accion = accionDeAdmin(req.method, ruta);
+  const necesitaAdmin = esRutaAdmin(ruta) || Boolean(accion);
   if (!clave && !necesitaAdmin) return next();
 
   permisosDe(req.usuario.id)
@@ -53,8 +57,12 @@ function requirePermiso(req, res, next) {
       }
 
       if (necesitaAdmin && !permisos.esAdmin) {
+        const mensaje = accion
+          ? `Solo un administrador puede ${accion.que}.`
+          : 'Solo un administrador puede hacer esto.';
         return res.status(403).json({
-          success: false, error: 'Solo un administrador puede hacer esto.', code: 'SIN_PERMISO'
+          success: false, error: mensaje, message: mensaje, code: 'SIN_PERMISO',
+          ...(accion ? { accion: accion.clave } : {})
         });
       }
 

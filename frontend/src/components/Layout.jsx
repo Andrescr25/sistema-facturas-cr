@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Home, FileText, Users, TrendingUp, DollarSign, Link2, Printer, Settings,
   Menu, X, CreditCard, ClipboardList, Boxes, Image, Wallet, PieChart,
-  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck
+  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
@@ -31,6 +31,7 @@ export default function Layout({ children }) {
         { name: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
         { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
         { name: 'Clientes', href: '/clientes', icon: UserCircle },
+        { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
         { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
         { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
         { name: 'Impresión', href: '/impresion', icon: Printer }
@@ -65,7 +66,8 @@ export default function Layout({ children }) {
     },
     { name: 'Configuración', href: '/configuracion', icon: Settings },
     // Solo para administradores. Se filtra abajo junto con todo lo demás.
-    { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true }
+    { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true },
+    { name: 'Bitácora', href: '/usuarios/bitacora', icon: History, soloAdmin: true }
   ]
 
   // El menú muestra únicamente lo que esta persona puede abrir. Es cosmética,

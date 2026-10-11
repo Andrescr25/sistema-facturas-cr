@@ -1,152 +1,38 @@
 /**
- * El historial de ventas y la rotación en tiempo real.
+ * La rotación en tiempo real, sobre las ventas propias.
  *
  * LO QUE SE CUIDA
- *  - Solo cuenta como venta una factura EMITIDA que sigue en pie. Hasta el
- *    2026-09-25 el historial contaba 24 borradores (₡294,9 millones: cuatro
- *    con 42.057 tomacorrientes cada uno, un error de digitación nunca
- *    facturado) y 132 anuladas: el 60 % de toda la plata del historial.
- *  - Lo que quedó de un borrador o una anulada se BORRA al volver a leerla.
- *  - Una factura recién creada entra al historial en el momento, sin frenar
- *    nunca la venta.
  *  - La rotación es por UNIDADES, de los últimos 3 meses, con el día de
  *    Costa Rica; el motor de precios conserva su ventana de 12 meses.
+ *  - Las ventas salen de `venta_linea` (las facturas propias EMITIDAS,
+ *    migración independencia/034) y se agrupan por `producto.id`. Hasta el
+ *    2026-10-03 salían de `venta_historico`, que se sincronizaba de Alegra.
+ *  - Nadie vuelve a leer ni a llenar ese historial viejo, ni la foto de
+ *    `producto_rotacion`.
+ *
+ * Que un borrador o una anulada no cuenten como venta se prueba contra la
+ * base en ventaLinea.test.js: ahora lo cumple la vista, no una sincronización.
  */
 
-const { test, describe, beforeEach } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
 const rutaDb = require.resolve('../config/database');
-const rutaAlegra = require.resolve('../src/integrations/alegra');
-const rutaServicio = require.resolve('../src/modules/catalogo-agente/catalogo-agente.service');
 const rutaRotacion = require.resolve('../src/modules/ventas/rotacion');
-const rutaExcesos = require.resolve('../src/utils/descuentosExceso');
 
-// Esta base local ES producción: nada de este archivo llega a la real.
 function dobleDeBase(query) {
   require.cache[rutaDb] = { id: rutaDb, filename: rutaDb, loaded: true, exports: { query, pool: { query } } };
 }
 
-function montar({ facturas = [] } = {}) {
-  const log = [];
-  const query = async (sql, params = []) => {
-    const texto = String(sql).replace(/\s+/g, ' ').trim();
-    log.push({ sql: texto, params });
-    if (/MAX\(fecha_emision\)/.test(texto)) return { rows: [{ ultima: '2026-09-20' }] };
-    if (/^DELETE FROM venta_historico/.test(texto)) return { rows: [] };
-    return { rows: [] };
-  };
-  dobleDeBase(query);
-  require.cache[rutaExcesos] = { id: rutaExcesos, filename: rutaExcesos, loaded: true, exports: { listarVigentes: async () => [] } };
-  const pedidos = [];
-  require.cache[rutaAlegra] = {
-    id: rutaAlegra, filename: rutaAlegra, loaded: true,
-    exports: {
-      getClient: () => ({
-        requestWithRetry: (fn) => fn(),
-        api: {
-          get: async (_ruta, { params }) => {
-            pedidos.push(params);
-            return { data: params.start === 0 ? facturas : [] };
-          }
-        }
-      })
-    }
-  };
-  delete require.cache[rutaServicio];
-  return { servicio: require(rutaServicio), log, pedidos };
-}
-
-beforeEach(() => { for (const r of [rutaDb, rutaAlegra, rutaServicio, rutaRotacion, rutaExcesos]) delete require.cache[r]; });
-
-const factura = (id, extra = {}) => ({
-  id: String(id), status: 'open', date: '2026-09-24', client: { id: '55', name: 'SUPER X' },
-  items: [{ id: '688', quantity: '2', price: '1748' }], ...extra
+const archivosJs = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+  const p = path.join(dir, e.name);
+  if (e.isDirectory()) return archivosJs(p);
+  return p.endsWith('.js') ? [p] : [];
 });
-
-describe('qué es una venta', () => {
-  test('los borradores y las anuladas no; las emitidas (abiertas o cerradas) sí', () => {
-    const { servicio } = montar();
-    assert.equal(servicio.esVenta(factura(1, { status: 'draft' })), false);
-    assert.equal(servicio.esVenta(factura(1, { status: 'void' })), false);
-    assert.equal(servicio.esVenta(factura(1, { isVoidedByCreditNote: true })), false);
-    assert.equal(servicio.esVenta(factura(1, { status: 'open' })), true);
-    assert.equal(servicio.esVenta(factura(1, { status: 'closed' })), true);
-  });
-
-  test('las líneas repetidas del mismo producto se suman antes de guardar', () => {
-    const { servicio } = montar();
-    const l = servicio.lineasDeFactura(factura(7, { items: [
-      { id: '688', quantity: '2', price: '1748' }, { id: '688', quantity: '3', price: '1748' }, { id: '12', quantity: '1', price: '500' }
-    ] }));
-    assert.deepEqual(l.filas.map((f) => [f[1], f[4]]), [['688', 5], ['12', 1]]);
-    assert.deepEqual([...l.productos], ['688', '12']);
-  });
-
-  test('un borrador sale SIN líneas: así se borra lo que hubiera quedado de él', () => {
-    const { servicio } = montar();
-    const l = servicio.lineasDeFactura(factura(1079, { status: 'draft', items: [{ id: '688', quantity: '42057', price: '1748' }] }));
-    assert.deepEqual(l, { facturaId: 1079, filas: [], productos: new Set() });
-  });
-});
-
-describe('la sincronización con Alegra', () => {
-  test('borra las líneas de las anuladas y los borradores, y guarda las emitidas', async () => {
-    const { servicio, log } = montar({ facturas: [factura(1), factura(2, { status: 'void' }), factura(3, { status: 'draft' })] });
-    const r = await servicio.sincronizarHistorialCompras({});
-    assert.equal(r.fuera, 2);
-    const insert = log.find((l) => /^INSERT INTO venta_historico/.test(l.sql));
-    assert.deepEqual(insert.params.slice(0, 2), [1, '688'], 'solo la emitida se inserta');
-    const borrado = log.find((l) => /^DELETE FROM venta_historico/.test(l.sql));
-    const facturasTocadas = borrado.params[borrado.params.length - 1];
-    assert.deepEqual([...facturasTocadas].sort(), [1, 2, 3], 'la anulada y el borrador entran al borrado');
-  });
-
-  test('el día es el de Costa Rica, no el de UTC', async () => {
-    const { servicio, pedidos } = montar({ facturas: [] });
-    await servicio.sincronizarHistorialCompras({});
-    const { hoyEnCostaRica } = require('../src/utils/fechaCR');
-    assert.equal(pedidos[0].date_before, hoyEnCostaRica());
-    assert.equal(pedidos[0].date_after, '2026-09-18', 'dos días antes de la última fecha guardada');
-  });
-
-  test('un repaso se puede hacer por tramos, con desde y hasta', async () => {
-    const { servicio, pedidos, log } = montar({ facturas: [] });
-    await servicio.sincronizarHistorialCompras({ desde: '2024-10-31', hasta: '2024-12-01' });
-    assert.equal(pedidos[0].date_after, '2024-10-31');
-    assert.equal(pedidos[0].date_before, '2024-12-01');
-    assert.ok(!log.some((l) => /MAX\(fecha_emision\)/.test(l.sql)), 'con desde no mira la última fecha guardada');
-  });
-});
-
-describe('la factura recién creada', () => {
-  test('entra al historial en el momento', async () => {
-    const { servicio, log } = montar();
-    const r = await servicio.registrarFacturaEnHistorico(factura(9001));
-    assert.equal(r.lineas, 1);
-    assert.ok(log.some((l) => /^INSERT INTO venta_historico/.test(l.sql)));
-  });
-
-  test('si falla, NO tira error: la factura ya existe y la trae la sincronización', async () => {
-    montar();
-    require.cache[rutaDb].exports.query = async () => { throw new Error('se cayó la base'); };
-    delete require.cache[rutaServicio];
-    // Anulada: va directo al borrado, sin los reintentos con espera del INSERT.
-    const r = await require(rutaServicio).registrarFacturaEnHistorico(factura(9002, { status: 'void' }));
-    assert.equal(r.lineas, 0);
-    assert.match(r.error, /se cayó/);
-  });
-
-  test('facturación la anota después de que Alegra confirmó la factura', () => {
-    const fuente = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'facturacion', 'facturacion.service.js'), 'utf8');
-    const crear = fuente.slice(fuente.indexOf('async _crearEnAlegraYRegistrar'));
-    const iConfirma = crear.indexOf('_mandarFacturaDestrabando');
-    const iAnota = crear.indexOf('registrarFacturaEnHistorico(response)');
-    assert.ok(iConfirma >= 0 && iAnota > iConfirma, 'la venta tiene que anotarse con la respuesta de Alegra, no antes');
-  });
-});
+const RAIZ = path.join(__dirname, '..');
+const relativo = (p) => path.relative(RAIZ, p);
 
 describe('la rotación', () => {
   const cargar = () => { dobleDeBase(async () => ({ rows: [] })); return require(rutaRotacion); };
@@ -173,15 +59,46 @@ describe('la rotación', () => {
     assert.throws(() => sqlRotacion(0));
   });
 
+  test('sale de las ventas propias, por producto.id, y trae además el id de Alegra del producto', () => {
+    assert.match(SQL_ROTACION, /FROM venta_linea/);
+    assert.match(SQL_ROTACION, /GROUP BY producto_id/);
+    assert.match(SQL_ROTACION, /SELECT v\.producto_id,\s+pr\.alegra_id AS alegra_item_id/);
+    assert.match(SQL_ROTACION, /SUM\(importe\) AS ventas/, 'lo vendido lleva el descuento restado');
+  });
+
+  test('el mapa y A/B usan producto.id, incluidos los productos sin Alegra', async () => {
+    const filas = [
+      { producto_id: 5, alegra_item_id: '900', clase: 'A', unidades: '10', ventas: '1000', unidades_mes: '3.33', unidades_semana: '0.8', facturas: '4', clientes_distintos: '2', ultima_venta: '2026-09-30' },
+      { producto_id: 6, alegra_item_id: null, clase: 'B', unidades: '2', ventas: '50', unidades_mes: '0.67', unidades_semana: '0.2', facturas: '1', clientes_distintos: '1', ultima_venta: '2026-09-01' }
+    ];
+    const consultas = [];
+    dobleDeBase(async (sql) => { consultas.push(String(sql)); return { rows: filas }; });
+    delete require.cache[rutaRotacion];
+    const r = require(rutaRotacion);
+    const mapa = await r.rotacionPorProducto();
+    assert.deepEqual([...mapa.keys()], [5, 6]);
+    assert.equal(mapa.get(6).alegraItemId, null, 'un producto creado acá no tiene id de Alegra');
+    assert.deepEqual(await r.clasesAB(), { A: ['5'], B: ['6'] });
+    assert.doesNotMatch(consultas.at(-1), /alegra_item_id IS NOT NULL/);
+  });
+});
+
+describe('el historial viejo ya no se usa', () => {
+  const fuentes = [...archivosJs(path.join(RAIZ, 'src')), ...archivosJs(path.join(RAIZ, 'services')), ...archivosJs(path.join(RAIZ, 'scripts')), path.join(RAIZ, 'server.js')];
+  const sinComentarios = (p) => fs.readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/^\s*--.*$/gm, '');
+
+  test('nadie lee ni escribe venta_historico', () => {
+    const culpables = fuentes.filter((p) => /\b(FROM|JOIN|INTO|UPDATE)\s+venta_historico\b/.test(sinComentarios(p))).map(relativo);
+    assert.deepEqual(culpables, []);
+  });
+
+  test('no queda nada de la sincronización contra Alegra', () => {
+    const culpables = fuentes.filter((p) => /sincronizarHistorialCompras|registrarFacturaEnHistorico|ENABLE_HISTORIAL_SYNC/.test(sinComentarios(p))).map(relativo);
+    assert.deepEqual(culpables, []);
+  });
+
   test('nadie lee ya la foto vieja de producto_rotacion', () => {
-    const buscar = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) return buscar(p);
-      return p.endsWith('.js') ? [p] : [];
-    });
-    const culpables = [...buscar(path.join(__dirname, '..', 'src')), ...buscar(path.join(__dirname, '..', 'scripts'))]
-      .filter((p) => /(FROM|JOIN)\s+producto_rotacion\b/.test(fs.readFileSync(p, 'utf8')))
-      .map((p) => path.relative(path.join(__dirname, '..'), p));
+    const culpables = fuentes.filter((p) => /(FROM|JOIN)\s+producto_rotacion\b/.test(fs.readFileSync(p, 'utf8'))).map(relativo);
     assert.deepEqual(culpables, []);
   });
 });

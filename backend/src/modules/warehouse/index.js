@@ -5,10 +5,10 @@
 
 const warehouseRoutes = require('./warehouse.routes');
 const warehouseController = require('./warehouse.controller');
-const warehouseService = require('./warehouse.service');
+const bodegaPropia = require('./bodegaPropia');
 
 module.exports = {
   routes: warehouseRoutes,
   controller: warehouseController,
-  service: warehouseService
+  service: bodegaPropia
 };

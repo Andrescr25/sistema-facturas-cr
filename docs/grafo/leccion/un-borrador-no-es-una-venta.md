@@ -7,8 +7,8 @@ archivos:
   - backend/src/modules/catalogo-agente/catalogo-agente.service.js
   - backend/tests/rotacionVentas.test.js
 aristas:
-  relacionado: [tabla/venta-historico, modulo/rentabilidad]
-medido: 2026-09-25
+  relacionado: [tabla/venta-linea, tabla/venta-historico, modulo/rentabilidad]
+medido: 2026-10-03
 ---
 
 `GET /invoices` de Alegra devuelve TODO: emitidas, borradores (`draft`) y
@@ -36,3 +36,8 @@ tirón son ~185 páginas y un corte de internet obliga a empezar de nuevo.
 La lección de método: una suma que "se ve grande" no se discute, se desarma
 por factura. Ordenar por `cantidad × precio` descendente y mirar las cinco de
 arriba lo mostró en un minuto.
+
+EN ESTA RAMA la regla la cumple la vista [[tabla/venta-linea]]
+(`WHERE f.estado = 'emitida'`), no una sincronización: no hay nada que
+releer ni que limpiar. `esVenta` y `lineasDeFactura` se retiraron con el
+historial (2026-10-03).

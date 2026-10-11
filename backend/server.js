@@ -3,19 +3,25 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { urlParaRegistro } = require('./src/utils/urlParaRegistro');
 const path = require('path');
 const axios = require('axios');
 require('dotenv').config();
+// Rama independencia-alegra: .env.aislado gana sobre .env (base local,
+// sincronizaciones apagadas). Tiene que ir antes de leer cualquier ENABLE_*.
+require('./config/aislado');
 
 // Importar servicio de email para monitoreo continuo
 const EmailService = require('./services/emailService');
-const { getSyncService } = require('./src/integrations/alegra');
-const { iniciarLimpiezaProgramada } = require('./services/scheduledCleanup');
 const { leerDias, debeMantenerDespierto, nombrarDias } = require('./src/utils/horarioPing');
 const whatsapp = require('./src/integrations/whatsapp');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// La rama aislada corre en el 3002 para convivir con developer en el 3000.
+// El 3001 quedó descartado: lo ocupa otro proyecto de la misma máquina
+// (sistema-facilitadores-judiciales). MODO_AISLADO viene de .env.aislado y
+// PORT en la terminal gana siempre.
+const PORT = process.env.PORT || (process.env.MODO_AISLADO === 'true' ? 3002 : 3000);
 
 // Configuración CORS para desarrollo y producción
 const corsOptions = {
@@ -93,13 +99,32 @@ app.use(helmet({
 
 // Logging mejorado
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+  console.log(`${req.method} ${urlParaRegistro(req.path)} - Origin: ${req.headers.origin || 'No origin'}`);
   next();
 });
 
+// Nunca guardar enlaces de acceso ni contexto personal en URL o Referer.
+morgan.token('url', req => urlParaRegistro(req.originalUrl || req.url));
+morgan.token('referrer', req => urlParaRegistro(req.headers.referer || req.headers.referrer));
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rama independencia-alegra: fotos propias (ver src/integrations/almacenamiento).
+// Siempre montado, fuera de /api y fuera del bloque de desarrollo local: las
+// fotos las ven los catálogos públicos, sin sesión, en cualquier ambiente.
+// (Primero quedó dentro del bloque de LOCAL_DEV y respondía 404.)
+app.use('/archivos', express.static(require('./src/integrations/almacenamiento').RAIZ, {
+  index: false,
+  dotfiles: 'deny',
+  fallthrough: false,
+  maxAge: '7d',
+  setHeaders: (res) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    // En desarrollo el frontend corre en otro puerto; sin esto helmet bloquea la imagen.
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // ⚠️ NUNCA servir frontend desde el backend en Render
 // El frontend debe estar en un servicio separado (Render Static Site)
@@ -113,14 +138,12 @@ if (isLocalDevelopment) {
 }
 
 // Importar rutas
-const facturaRoutes = require('./src/modules/invoices/invoice.routes');
-const productoRoutes = require('./src/modules/products/product.routes');
 const reporteRoutes = require('./src/modules/reports/report.routes');
-const alegraRoutes = require('./routes/alegra');
 
 // Módulos nuevos (arquitectura modular)
 const warehouseModule = require('./src/modules/warehouse');
 const missingItemsModule = require('./src/modules/missing-items');
+const ordenesDeCompraRoutes = require('./src/modules/orders-whatsapp');
 const reprintingModule = require('./src/modules/reprinting');
 const adminModule = require('./src/modules/admin');
 const revisionPreciosModule = require('./src/modules/revision-precios');
@@ -129,15 +152,19 @@ const pagosProveedoresModule = require('./src/modules/pagos-proveedores');
 const pagosRecurrentesModule = require('./src/modules/pagos-recurrentes');
 const reporteContadorModule = require('./src/modules/reporte-contador');
 const proveedoresModule = require('./src/modules/proveedores');
-const faltantesModule = require('./src/modules/faltantes');
 const inventarioAuditoriasModule = require('./src/modules/inventario-auditorias');
 const catalogoAgenteModule = require('./src/modules/catalogo-agente');
 const cotizacionesModule = require('./src/modules/cotizaciones');
+const configuracionModule = require('./src/modules/configuracion');
+const haciendaModule = require('./src/integrations/hacienda/rutas');
+const productosModule = require('./src/modules/productos');
+const clientesModule = require('./src/modules/clientes');
 const facturacionModule = require('./src/modules/facturacion');
+const { respuestaDeError } = require('./src/utils/manejadorErrores');
 const enviosWhatsAppModule = require('./src/modules/envios-whatsapp');
 const cuentasPorCobrarModule = require('./src/modules/cuentas-por-cobrar');
+const comprasModule = require('./src/modules/compras');
 const rentabilidadModule = require('./src/modules/rentabilidad');
-const duplicadosElectronicaModule = require('./src/modules/duplicados-electronica');
 const authModule = require('./src/modules/auth');
 const catalogoClientesModule = require('./src/modules/catalogo-clientes');
 const portalClientesModule = require('./src/modules/portal-clientes');
@@ -166,37 +193,48 @@ app.use('/api/portal-clientes', portalClientesModule.rutasPersonal);
 app.use('/api/dashboard', dashboardModule.routes);
 
 // Usar rutas de API (Rutas Legacy y Base)
-app.use('/api/facturas', facturaRoutes);
-app.use('/api/productos', productoRoutes);
+// /api/facturas y /api/productos (los módulos viejos, sobre copias locales de
+// Alegra) se retiraron el 2026-10-04: las facturas son las propias, en
+// /api/facturacion, y los productos el maestro, en /api/maestro y
+// /api/catalogos.
 app.use('/api/proveedores', proveedoresModule.routes);
 app.use('/api/reportes', reporteRoutes);
-// /api/alegra es un router adaptador (routes/alegra.js) que monta debajo:
-// /catalog, /productos, /facturas, /bodega, /reimpresion, /reportes,
-// /contactos, /proveedores, /faltantes y /orden-compra
-app.use('/api/alegra', alegraRoutes);
-
-// Facturación va en su PROPIO prefijo, no debajo de /api/alegra.
-//
-// Colgaba de ahí, y como '/alegra' está en la lista de rutas COMPARTIDAS
-// (usuarios/modulos.js), el middleware de permisos la dejaba pasar sin mirar
-// el módulo: cualquiera con sesión podía llamar /api/alegra/facturacion/...,
-// incluido el POST que crea la factura. Comprobado con un usuario sin ese
-// permiso: daba 200 donde /api/rentabilidad le daba 403.
-//
-// Con el prefijo propio, el permiso del módulo Facturación se aplica solo,
-// sin tocar la lista de compartidas.
-app.use('/api/facturacion', facturacionModule);
+// /api/alegra ya no existe (2026-10-04). Era un router adaptador que montaba
+// debajo de un mismo prefijo —compartido, sin permiso— módulos que hoy tienen
+// cada uno su dirección: /api/bodega, /api/reportes, /api/faltantes y
+// /api/orden-compra. Un prefijo nuevo se registra en usuarios/modulos.js.
 app.use('/api/revision-precios', revisionPreciosModule.routes);
+app.use('/api/compras', comprasModule.routes);
 app.use('/api/productos-revision', productosRevisionModule.routes);
 app.use('/api/pagos-proveedores', pagosProveedoresModule.routes);
 app.use('/api/pagos-recurrentes', pagosRecurrentesModule.routes);
 app.use('/api/reporte-contador', reporteContadorModule.routes);
 app.use('/api/cuentas-por-cobrar', cuentasPorCobrarModule.routes);
-app.use('/api/duplicados-electronica', duplicadosElectronicaModule.routes);
 app.use('/api/rentabilidad', rentabilidadModule.routes);
 app.use('/api/inventario-auditorias', inventarioAuditoriasModule.routes);
 app.use('/api/catalogo-agente', catalogoAgenteModule.routes);
 app.use('/api/cotizaciones', cotizacionesModule.routes);
+// Rama independencia-alegra: configuración propia. Cambiar pide el módulo
+// Configuración; leer lo activo es compartido (ver usuarios/modulos.js).
+// Mismo módulo de permisos de cada pantalla, con implementación fiscal aparte.
+app.use('/api/configuracion/hacienda', haciendaModule.configuracion);
+app.use('/api/facturacion/hacienda', haciendaModule.ventas);
+app.use('/api/compras/hacienda', haciendaModule.compras);
+// Optativo y exclusivo: consulta estados, nunca envía comprobantes nuevos.
+if (process.env.HACIENDA_TRABAJADOR === 'true') haciendaModule.iniciarSeguimiento();
+app.use('/api/configuracion', configuracionModule.routes);
+app.use('/api/catalogos', configuracionModule.rutasCompartidas);
+// Rama independencia-alegra: maestro de productos propio.
+app.use('/api/maestro', productosModule.routes);
+app.use('/api/catalogos', productosModule.rutasCompartidas);
+// Rama independencia-alegra: maestro de clientes propio. La ficha completa
+// pide el módulo Clientes; buscar un cliente para facturarle es compartido.
+app.use('/api/clientes', clientesModule.routes);
+// Facturación va en su PROPIO prefijo. Colgaba de /api/alegra, que era un
+// prefijo compartido: el permiso del módulo no se aplicaba y cualquiera con
+// sesión podía llamar hasta el POST que crea la factura.
+app.use('/api/facturacion', facturacionModule);
+app.use('/api/catalogos', clientesModule.rutasCompartidas);
 // La cotización que el cliente abre desde el enlace del WhatsApp. Sin login,
 // protegida por el token firmado que lleva la URL (ver enlacePublico.js).
 app.use('/api/cotizacion-publica', cotizacionesModule.rutasPublicas);
@@ -204,14 +242,19 @@ app.use('/api/envios-whatsapp', enviosWhatsAppModule.routes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);
+app.use('/api/entregas', require('./src/modules/entregas/entregas.routes'));
 app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);
 
-// ⚠️ NOTA: El endpoint /api/faltantes tiene ruteo híbrido (fall-through).
-// Las peticiones básicas de gestión de faltantes son procesadas por 'faltantesModule.routes'.
-// Las operaciones de ajustes y mantenimiento caen en 'missingItemsModule.routes' (Modular).
-app.use('/api/faltantes', faltantesModule.routes);
+// /api/faltantes: los ajustes de entrega del Reporte de Clientes. El módulo
+// viejo `faltantes` (alta y consulta por el id de la tabla vieja, sin
+// ninguna pantalla que lo llamara) se retiró el 2026-09-30 con la migración
+// independencia/032.
 app.use('/api/faltantes', missingItemsModule.routes);
+
+// /api/orden-compra: la orden de compra del Reporte de Proveedores
+// (cantidades, PDF, contacto del proveedor y envío por WhatsApp).
+app.use('/api/orden-compra', ordenesDeCompraRoutes);
 
 // Ruta para verificar estado de la API
 app.get('/health', (req, res) => {
@@ -232,12 +275,11 @@ app.get('/api', (req, res) => {
 });
 
 // Manejo de errores
+// Un JSON mal formado es 400, no 500 (ver src/utils/manejadorErrores.js).
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Error interno'
-  });
+  const { status, cuerpo } = respuestaDeError(err, { desarrollo: process.env.NODE_ENV === 'development' });
+  if (status >= 500) console.error('Error:', err);
+  res.status(status).json(cuerpo);
 });
 
 // Catch-all handler
@@ -248,11 +290,9 @@ app.get('*', (req, res) => {
       error: 'Ruta de API no encontrada',
       path: req.originalUrl,
       availableRoutes: [
-        '/api/alegra/*',
-        '/api/facturas/*',
-        '/api/productos/*',
         '/api/proveedores/*',
         '/api/faltantes/*',
+        '/api/orden-compra/*',
         '/api/reportes/*',
         '/api/pagos-proveedores/*',
         '/api/pagos-recurrentes/*',
@@ -278,10 +318,6 @@ app.get('*', (req, res) => {
 
 // Iniciar monitoreo de emails (variable global para poder detenerlo)
 let emailService = null;
-let productSyncInterval = null;
-let cuentasPorCobrarSyncInterval = null;
-let historialClientesSyncInterval = null;
-let historialRepasoInterval = null;
 let whatsappPingInterval = null;
 
 // Cada cuánto se toca Evolution API. Render duerme un servicio tras ~15
@@ -371,69 +407,10 @@ async function pingWhatsApp() {
   }
 }
 
-// Función para sincronizar productos de Alegra
-async function syncAlegraProducts() {
-  try {
-    console.log('\n📦 ========================================');
-    console.log('📦 Sincronizando productos de Alegra...');
-    console.log('📦 ========================================\n');
-
-    const syncService = getSyncService();
-    const productos = await syncService.syncProductsFromAlegra();
-    console.log(`✅ Sincronización completada: ${productos.length} productos actualizados`);
-    console.log(`📅 Próxima sincronización en 6 horas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando productos de Alegra:', error.message);
-  }
-}
-
-// Función para sincronizar el espejo local de cuentas por cobrar desde Alegra
-async function syncCuentasPorCobrar() {
-  // Primero las copias que deja Alegra al convertir una factura a
-  // electrónica: si se anulan DESPUÉS de sincronizar, la copia alcanza a
-  // entrar al espejo y el cliente aparece debiendo el doble hasta la próxima
-  // corrida. Va en su propio try para que un fallo acá no impida sincronizar.
-  try {
-    const r = await duplicadosElectronicaModule.service.revisarDuplicados();
-    if (r.anulados > 0 || r.requierenRevision > 0 || r.errores > 0) {
-      console.log(`\n🧾 Duplicados por conversión a electrónica: ${r.anulados} anulados, ${r.requierenRevision} para revisar, ${r.errores} con error`);
-    }
-  } catch (error) {
-    console.error('❌ Error revisando duplicados de electrónica:', error.message);
-  }
-
-  try {
-    console.log('\n💰 Sincronizando cuentas por cobrar desde Alegra...');
-    const resultado = await cuentasPorCobrarModule.service.sincronizarDesdeAlegra();
-    console.log(`✅ Cuentas por cobrar sincronizadas: ${resultado.vigentes} vigentes, ${resultado.removidas} removidas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando cuentas por cobrar:', error.message);
-  }
-}
-
-// El historial de ventas (venta_historico): de ahí salen la rotación, las
-// estadísticas de Rentabilidad y "lo que más compra" de cada cliente. Cada
-// factura creada en el sistema ya entra al crearse (facturacion.service); esta
-// corrida trae lo que se hizo directo en Alegra y saca lo que se anuló.
-// Incremental: parte de la última fecha guardada. Con `desde`, repasa una
-// ventana más larga (una factura vieja anulada hoy conserva su fecha vieja).
-async function syncHistorialClientes(desde) {
-  try {
-    console.log(`\n🛒 Sincronizando historial de ventas${desde ? ` (repaso desde ${desde})` : ''}...`);
-    const resultado = await catalogoAgenteModule.service.sincronizarHistorialCompras(desde ? { desde } : {});
-    console.log(`✅ Historial de ventas sincronizado: ${resultado.facturas} facturas, ${resultado.lineas} líneas\n`);
-  } catch (error) {
-    console.error('❌ Error sincronizando el historial de ventas:', error.message);
-  }
-}
-
-/** Hace 60 días, en días de Costa Rica. */
-function hace60Dias() {
-  const { hoyEnCostaRica } = require('./src/utils/fechaCR');
-  const d = new Date(`${hoyEnCostaRica()}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 60);
-  return d.toISOString().slice(0, 10);
-}
+// El historial de ventas ya no se sincroniza: la rotación, las estadísticas de
+// Rentabilidad y "lo que más compra" de cada cliente salen de las facturas
+// propias (`venta_linea`, migración independencia/034). La tarea que lo traía
+// de Alegra cada hora se retiró el 2026-10-03.
 
 // Iniciar servidor
 const server = app.listen(PORT, () => {
@@ -447,8 +424,8 @@ const server = app.listen(PORT, () => {
   console.log(`   - https://sistema-facturas-cr.onrender.com`);
   console.log(`   - Todos los subdominios *.onrender.com`);
 
-  // Iniciar limpieza programada (Domingos 23:59)
-  iniciarLimpiezaProgramada();
+  // La operación conserva cada ciclo; el archivo de recibidas se calcula
+  // al consultar, sin limpieza global ni tareas que borren faltantes.
 
   // Iniciar monitoreo de emails solo si está configurado
   if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.ENABLE_EMAIL_MONITORING !== 'false') {
@@ -464,47 +441,12 @@ const server = app.listen(PORT, () => {
     console.log('   O establece ENABLE_EMAIL_MONITORING=false para desactivar este mensaje\n');
   }
 
-  // Sincronizar productos de Alegra al iniciar
-  if (process.env.ENABLE_ALEGRA_SYNC !== 'false') {
-    // Ejecutar sincronización inicial después de 5 segundos (dar tiempo al servidor para estabilizarse)
-    setTimeout(() => {
-      syncAlegraProducts();
-    }, 5000);
+  // Productos y existencias propios: no hay sincronización externa al iniciar.
 
-    // Programar sincronización periódica cada 6 horas (21600000 ms)
-    productSyncInterval = setInterval(() => {
-      syncAlegraProducts();
-    }, 6 * 60 * 60 * 1000);
-
-    console.log('\n📦 Sincronización de productos Alegra activada');
-    console.log('   - Sincronización inicial: En 5 segundos');
-    console.log('   - Sincronización periódica: Cada 6 horas');
-    console.log('   - Para desactivar: ENABLE_ALEGRA_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización de productos Alegra desactivada');
-    console.log('   Establece ENABLE_ALEGRA_SYNC=true en .env para activarla\n');
-  }
-
-  // Sincronizar cuentas por cobrar al iniciar
-  if (process.env.ENABLE_COBRAR_SYNC !== 'false') {
-    setTimeout(() => {
-      syncCuentasPorCobrar();
-    }, 8000);
-
-    // Cada 30 minutos — el volumen es bajo (facturas a crédito desde el
-    // cierre de cartera) así que no hace falta el intervalo de 6h de productos
-    cuentasPorCobrarSyncInterval = setInterval(() => {
-      syncCuentasPorCobrar();
-    }, 30 * 60 * 1000);
-
-    console.log('\n💰 Sincronización de Cuentas por Cobrar activada');
-    console.log('   - Sincronización inicial: En 8 segundos');
-    console.log('   - Sincronización periódica: Cada 30 minutos');
-    console.log('   - Para desactivar: ENABLE_COBRAR_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización de Cuentas por Cobrar desactivada');
-    console.log('   Establece ENABLE_COBRAR_SYNC=true en .env para activarla\n');
-  }
+  // Cuentas por cobrar YA NO SE SINCRONIZA. Se copiaba la cartera de Alegra
+  // cada 30 minutos a la tabla `cuentas_por_cobrar`; ahora el saldo se calcula
+  // de nuestras propias facturas y cobros cada vez que alguien pregunta, así
+  // que no hay nada que copiar ni media hora de atraso que explicar.
 
   // Mantener despierto Evolution API (WhatsApp).
   //
@@ -535,57 +477,11 @@ const server = app.listen(PORT, () => {
   // producción, no le disputa la sesión al servidor de Render.
   whatsapp.iniciar().catch((e) => console.error('📱 No se pudo iniciar WhatsApp interno:', e.message));
 
-  // Historial de ventas: cada HORA lo nuevo (la rotación y Rentabilidad son en
-  // tiempo real, y lo facturado en el sistema ya entró al crearse), y una vez
-  // al día un repaso de los últimos 60 días para sacar lo que se anuló tarde.
-  if (process.env.ENABLE_HISTORIAL_SYNC !== 'false') {
-    setTimeout(() => {
-      syncHistorialClientes();
-    }, 12000);
-
-    historialClientesSyncInterval = setInterval(() => {
-      syncHistorialClientes();
-    }, 60 * 60 * 1000);
-
-    historialRepasoInterval = setInterval(() => {
-      syncHistorialClientes(hace60Dias());
-    }, 24 * 60 * 60 * 1000);
-
-    console.log('\n🛒 Sincronización del historial de ventas activada');
-    console.log('   - Inicial: En 12 segundos');
-    console.log('   - Periódica: Cada hora (y un repaso de 60 días cada 24 horas)');
-    console.log('   - Para desactivar: ENABLE_HISTORIAL_SYNC=false en .env\n');
-  } else {
-    console.log('\n⚠️ Sincronización del historial de ventas desactivada');
-    console.log('   Establece ENABLE_HISTORIAL_SYNC=true en .env para activarla\n');
-  }
-
 });
 
 // Manejo de cierre graceful
 const gracefulShutdown = async (signal) => {
   console.log(`\n🛑 Señal ${signal} recibida. Cerrando servidor...`);
-
-  // Detener sincronización de productos
-  if (productSyncInterval) {
-    console.log('📦 Deteniendo sincronización de productos...');
-    clearInterval(productSyncInterval);
-  }
-
-  // Detener sincronización de cuentas por cobrar
-  if (cuentasPorCobrarSyncInterval) {
-    console.log('💰 Deteniendo sincronización de cuentas por cobrar...');
-    clearInterval(cuentasPorCobrarSyncInterval);
-  }
-
-  // Detener sincronización de historial de compras por cliente
-  if (historialRepasoInterval) {
-    clearInterval(historialRepasoInterval);
-  }
-  if (historialClientesSyncInterval) {
-    console.log('🛒 Deteniendo sincronización de historial de compras...');
-    clearInterval(historialClientesSyncInterval);
-  }
 
   // Detener el ping a Evolution API
   if (whatsappPingInterval) {

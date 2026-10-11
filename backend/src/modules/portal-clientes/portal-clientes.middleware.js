@@ -30,7 +30,7 @@ async function requireCliente(req, res, next) {
   }
 
   const datos = verificarTokenCliente(token);
-  if (!datos) {
+  if (!datos || !Number.isInteger(Number(datos.sub)) || Number(datos.sub) <= 0) {
     return res.status(401).json({ success: false, error: 'Sesión vencida', code: 'TOKEN_INVALIDO' });
   }
 
@@ -44,7 +44,13 @@ async function requireCliente(req, res, next) {
   // de dejar entrar a alguien a quien ya se le cerró la puerta.
   let cuenta;
   try {
-    const r = await query(`SELECT id, activo FROM cliente_portal WHERE id = $1;`, [Number(datos.sub)]);
+    // Se relee la ficha por la cuenta del token. También sirve para tokens
+    // viejos: su `contacto` se ignora, nunca se interpreta como cliente.id.
+    const r = await query(`
+      SELECT cp.id, cp.activo, cp.cliente_id, cp.usuario,
+             c.nombre, c.activo AS cliente_activo
+        FROM cliente_portal cp LEFT JOIN cliente c ON c.id = cp.cliente_id
+       WHERE cp.id = $1;`, [Number(datos.sub)]);
     cuenta = r.rows[0];
   } catch (error) {
     console.error('Error verificando la cuenta del cliente:', error.message);
@@ -54,7 +60,7 @@ async function requireCliente(req, res, next) {
   if (!cuenta) {
     return res.status(401).json({ success: false, error: 'Sesión vencida', code: 'CUENTA_INEXISTENTE' });
   }
-  if (!cuenta.activo) {
+  if (!cuenta.activo || !cuenta.cliente_id || !cuenta.cliente_activo) {
     return res.status(403).json({
       success: false,
       message: 'Su cuenta está desactivada. Comuníquese con nosotros.',
@@ -62,7 +68,7 @@ async function requireCliente(req, res, next) {
     });
   }
 
-  req.cliente = { id: Number(datos.sub), contacto: datos.contacto, nombre: datos.nombre };
+  req.cliente = { id: cuenta.id, clienteId: cuenta.cliente_id, nombre: cuenta.nombre, usuario: cuenta.usuario };
   next();
 }
 

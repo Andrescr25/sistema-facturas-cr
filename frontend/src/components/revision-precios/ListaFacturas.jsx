@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { DollarSign, RotateCcw, AlertCircle, PackageOpen, ArrowRight } from 'lucide-react'
+import { DollarSign, AlertCircle, PackageOpen, ArrowRight } from 'lucide-react'
 import Pestanas from '../ui/Pestanas'
 import EncabezadoPagina from '../ui/EncabezadoPagina'
 import Vacio from '../ui/Vacio'
@@ -16,8 +16,8 @@ const VACIOS = {
     descripcion: 'Aparecen acá cuando quedan relacionadas al 100%.'
   },
   ENVIADAS: {
-    titulo: 'Todavía no hay facturas enviadas',
-    descripcion: 'Las que mandés a Alegra se van guardando en este historial.'
+    titulo: 'Todavía no hay compras registradas',
+    descripcion: 'Las que registrés se van guardando en este historial.'
   }
 }
 
@@ -30,7 +30,7 @@ const VACIOS = {
  */
 export default function ListaFacturas({
   facturas, loading, error, tabActiva, setTabActiva,
-  sincronizando, onSincronizar, onAbrirRevision
+  onAbrirRevision
 }) {
   const navigate = useNavigate()
 
@@ -58,19 +58,8 @@ export default function ListaFacturas({
     <div className="mx-auto max-w-5xl">
       <EncabezadoPagina
         titulo="Revisión de Precios"
-        descripcion="Mirá cómo cambió el costo y ajustá el precio antes de mandar la factura a Alegra."
+        descripcion="Mirá cómo cambió el costo y ajustá el precio antes de registrar la compra."
         icono={DollarSign}
-        acciones={
-          <button
-            onClick={onSincronizar}
-            disabled={sincronizando}
-            className="btn btn-outline flex items-center gap-2 disabled:opacity-50"
-            title="Traer de Alegra los costos y precios de hoy"
-          >
-            <RotateCcw size={16} className={sincronizando ? 'animate-spin' : ''} />
-            {sincronizando ? 'Sincronizando…' : 'Sincronizar'}
-          </button>
-        }
       />
 
       <Pestanas
@@ -81,7 +70,7 @@ export default function ListaFacturas({
         pestanas={[
           { clave: 'PENDIENTE_RELACIONAR', texto: 'Relacionar' },
           { clave: 'LISTAS_REVISION', texto: 'Revisar precios' },
-          { clave: 'ENVIADAS', texto: 'Enviadas' }
+          { clave: 'ENVIADAS', texto: 'Registradas' }
         ]}
       />
 

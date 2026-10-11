@@ -3,6 +3,13 @@
  */
 
 const service = require('./dashboard.service');
+const excel = require('./dashboard.excel');
+const { enviarExcel } = require('../../utils/exportarExcel');
+
+async function exportar(req, res) {
+  try { return enviarExcel(res, await excel.exportar()); }
+  catch (error) { res.status(500).json({ success: false, error: 'No se pudo exportar el resumen.' }); }
+}
 
 async function resumen(req, res) {
   try {
@@ -13,4 +20,4 @@ async function resumen(req, res) {
   }
 }
 
-module.exports = { resumen };
+module.exports = { resumen, exportar };
