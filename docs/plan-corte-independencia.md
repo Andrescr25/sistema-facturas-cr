@@ -150,8 +150,8 @@ suponer que producción sigue como antes:
 | Verificación del estado (`verificarEstado`) y enlaces | Hecha: pasa. 0 intentos sin resolver, series seguras, 322 faltantes y 1.577 filas de Impresión enlazadas |
 | Conciliación contra Alegra, 2026-09-01 a 2026-10-10 | Ventas sin diferencias (233). Cobros sin diferencias (270). Saldos: 320 de 320 cobrables iguales. Notas: ninguna en el tramo. Compras: sin vínculo guardado, no se certifica (117 contra 117) |
 | Backend nuevo en local contra producción, solo lectura | 16 pantallas responden. Por cobrar: 45 clientes, 61 facturas, ₡2.509.202 |
-| Variables del servicio en Render | Pendiente |
-| `main` avanza hasta esta rama y se sube | Pendiente. Es lo último |
+| Variables del servicio en Render | Hechas por el usuario, con disco persistente en `/var/data` |
+| `main` avanza hasta esta rama y se sube | Hecho por el usuario, 22:39. El sistema propio está en vivo en Render |
 
 Mientras `main` no avance, en Render sigue el sistema anterior sobre una
 base ya migrada. Lo que se sabe que le falla: **Impresión y los reportes de
@@ -171,9 +171,14 @@ y para Hacienda en pruebas `HACIENDA_PERMITIR_PRUEBAS=true` y
 
 Pendiente aparte del despliegue, visto al verificar:
 
-- **Fotos.** 1.844 productos activos tienen la foto apuntando a Alegra; esas
-  direcciones firmadas vencen en unos ocho días. Hay que correr
-  `migrar-fotos.js` con almacenamiento persistente antes de que venzan.
+- **Fotos: hecho el 2026-10-10.** 2.045 fotos (273 MB) en el disco
+  persistente del servicio (`/var/data`, `ALMACENAMIENTO_DIR`), migradas
+  desde la consola de Render; 40 de 40 al azar las entrega el servidor. Un
+  primer intento, con la variable puesta pero SIN disco montado, guardó todo
+  en espacio temporal y dejó producción sin fotos hasta devolver las
+  direcciones de Alegra: antes de migrar, `df -h /var/data` tiene que mostrar
+  el disco. `migrar-fotos.js` ya no corre contra una base remota sin
+  `ALMACENAMIENTO_DIR`, pero no puede saber si esa ruta es un disco de verdad.
 - **Hacienda** no está configurada en producción (ningún ambiente). Tres
   impuestos de 0 % siguen sin código: los elige una persona.
 - **Inventario** en cero, a propósito, hasta el conteo.
