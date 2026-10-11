@@ -12,5 +12,8 @@ router.patch('/ciclos/:id/estado', (req, res) => responder(res, s.cambiarEstadoC
 router.get('/:id', (req, res) => responder(res, s.obtenerRuta(req.params.id)));
 router.put('/:id', (req, res) => responder(res, s.editarRuta(req.params.id, req.body, req.usuario?.id)));
 router.put('/:id/orden', (req, res) => responder(res, s.reordenarRuta(req.params.id, req.body, req.usuario?.id)));
+// Marcar de una vez qué clientes van en la ruta, sin abrir ficha por ficha.
+router.get('/:id/asignacion', (req, res) => responder(res, s.candidatosDeRuta(req.params.id)));
+router.put('/:id/clientes', (req, res) => responder(res, s.asignarClientes(req.params.id, req.body, req.usuario?.id)));
 router.post('/:id/ciclos', (req, res) => responder(res, s.crearCiclo(req.params.id, req.body, req.usuario?.id), 201));
 module.exports = router;

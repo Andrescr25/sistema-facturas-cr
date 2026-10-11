@@ -313,3 +313,19 @@ requisitos del servidor que faltaban quedaron en
 cambio; independencia pasa a **133/18** por esos cuatro pendientes nuevos.
 Falta que el usuario confirme si producción sigue en Render + Supabase.
 
+## 2026-10-11 — Asignar clientes desde la ruta
+
+El usuario va a poner a un empleado que se sabe las rutas a asignarlas, y
+pidió, textual: «quiero que dentro de rutas, si yo toco una ruta y le doy
+asignar clientes NO me redirija al portal de clientes sino que me traiga una
+lista de esos clientes donde puedo darle click y poner un check para
+asignarlo, para que sea más rápido asignarle a cada cliente su ruta y
+demás… apegate al diseño».
+
+**Hecho** el mismo día: [el nodo de rutas](grafo/modulo/rutas-clientes.md),
+sección "Asignar clientes desde la ruta". Decisión de Claude, a revisar por
+él si no le sirve: los toques se guardan juntos con un botón al final, no
+uno por uno (el porqué está en ese nodo). Del «y demás» solo se hizo la
+ruta: día de visita, día de entrega y ubicación Maps se siguen poniendo en
+la ficha de cada cliente; falta que diga si también los quiere en lote.
+

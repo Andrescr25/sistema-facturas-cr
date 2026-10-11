@@ -61,6 +61,10 @@ Primera entrega: informe del 2026-10-05, grafo y memoria actualizados.
 
 - [x] RUT-01 — Crear rutas con identidad propia, nombre y estado.
 - [x] RUT-02 — Asignar cada cliente a su ruta y guardar su orden de visita.
+  Desde el 2026-10-11 también en lote, desde la propia ruta: «Asignar
+  clientes» abre la lista con un check por cliente (antes mandaba al
+  directorio a editar ficha por ficha). Pedido textual en las instrucciones
+  vigentes; detalle en el grafo, `modulo/rutas-clientes`.
 - [ ] RUT-03 — Guardar ubicación Maps conservando las existentes.
 - [x] RUT-04 — Evaluar/documentar e incluir día habitual de visita o entrega
   cuando sea útil; este campo es opcional en la petición.

@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react'
-import { ArrowUp, ArrowDown, GripVertical, Plus, Save, Loader2, Pencil, ArrowLeft, Map, CalendarDays } from 'lucide-react'
+import { ArrowUp, ArrowDown, GripVertical, Plus, Save, Loader2, Pencil, ArrowLeft, Map, CalendarDays, UserPlus } from 'lucide-react'
 import Boton from '../ui/Boton'
 import HojaModal from '../pagos/HojaModal'
 import UbicacionCliente from './UbicacionCliente'
 import ModalPreventa from './ModalPreventa'
+import AsignarClientesRuta from './AsignarClientesRuta'
 import { rutasService } from '../../services/rutasService'
 
 const ESTADOS = { preventa: 'Preventa', preparacion: 'Preparación', entrega: 'Entrega', cerrado: 'Cerrado', cancelado: 'Cancelado' }
 const ACCIONES = { preventa: ['preparacion', 'cancelado'], preparacion: ['entrega', 'cancelado'], entrega: ['cerrado'] }
 const fecha = s => s?.split('-').reverse().join('/') || '—'
 
-export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsignarClientes }) {
+export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onEnfoque }) {
   const [edicion, setEdicion] = useState(null), [nombre, setNombre] = useState(''), [activo, setActivo] = useState(true)
   const [orden, setOrden] = useState([]), [arrastrado, setArrastrado] = useState(null)
   const [semana, setSemana] = useState(''), [detalle, setDetalle] = useState(null)
   const [preventa, setPreventa] = useState(null)
+  // La ruta cuyos clientes se están eligiendo. Antes "Asignar clientes" mandaba
+  // al directorio filtrado por "sin ruta", a editar ficha por ficha.
+  const [asignando, setAsignando] = useState(null)
+  // Mientras se eligen clientes, la página suelta su cabecera y sus pestañas
+  // (igual que al abrir una ficha): la lista es larga y es lo único que se usa.
+  useEffect(() => { onEnfoque?.(Boolean(asignando)); return () => onEnfoque?.(false) }, [asignando, onEnfoque])
   useEffect(() => { setOrden(m.ruta?.clientes || []) }, [m.ruta])
   const abrirEdicion = r => { setEdicion(r || {}); setNombre(r?.nombre || ''); setActivo(r?.activo ?? true) }
   const guardarRuta = async e => {
@@ -36,6 +43,7 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
       { title: 'Cambiar ciclo', confirmLabel: 'Continuar', variant: estado === 'cancelado' ? 'danger' : 'default' })
     if (ok) await m.ejecutar(() => rutasService.estadoCiclo(c, estado), 'Estado del ciclo actualizado')
   }
+  if (asignando) return <AsignarClientesRuta key={asignando.id} ruta={asignando} modelo={m} confirm={confirm} onVolver={() => setAsignando(null)} />
   if (detalle) return <div className="space-y-4">
     <Boton variante="secundario" onClick={() => setDetalle(null)}><ArrowLeft size={16} />Volver a rutas</Boton>
     <h2 className="text-xl font-extrabold">{detalle.ruta_nombre} · semana {fecha(detalle.semana)}</h2>
@@ -65,14 +73,14 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
     </div>
     {m.rutas.length === 0 && <div className="rounded-2xl border border-neutro-200 bg-white p-8 text-center">
       <Map size={40} className="mx-auto mb-3 text-neutro-300" /><h3 className="text-lg font-bold">Empezá por crear una ruta</h3>
-      <p className="mt-2 text-base text-neutro-500">Después asigná los clientes desde sus fichas y definí el orden de visita.</p>
+      <p className="mt-2 text-base text-neutro-500">Después tocá «Asignar clientes» para elegir quiénes van en ella y definí el orden de visita.</p>
     </div>}
     {m.cargando && <Loader2 className="animate-spin" aria-label="Cargando ruta" />}
     {m.ruta && <section className="space-y-4 rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <h3 className="text-lg font-bold">{m.ruta.nombre}{!m.ruta.activo && ' · Inactiva'}</h3>
         <div className="flex flex-wrap gap-2"><Boton variante="secundario" onClick={() => abrirEdicion(m.ruta)}><Pencil size={14} />Editar ruta</Boton>
-          <Boton variante="secundario" onClick={onAsignarClientes}>Asignar clientes</Boton></div>
+          <Boton variante={orden.length ? 'secundario' : 'primario'} disabled={cambio} onClick={() => setAsignando(m.ruta)}><UserPlus size={14} />Asignar clientes</Boton></div>
       </div>
       <p className="text-sm text-neutro-500">Arrastrá los clientes o usá las flechas. Guardá el orden al terminar.</p>
       <ol className="space-y-2">{orden.map((c, i) => <li key={c.id} data-ruta-cliente={c.id}
@@ -86,7 +94,7 @@ export default function VistaRutas({ modelo: m, confirm, onAbrirCliente, onAsign
           <Boton variante="secundario" disabled={i === orden.length - 1 || m.guardando} onClick={() => mover(i, i + 1)} aria-label={`Bajar ${c.nombre}`}><ArrowDown size={16} /></Boton>
         </div>
       </li>)}</ol>
-      {!orden.length && <p className="text-sm text-neutro-400">Sin clientes asignados.</p>}
+      {!orden.length && <p className="text-base text-neutro-500">Esta ruta todavía no tiene clientes. Tocá «Asignar clientes» para elegirlos de la lista.</p>}
       {cambio && <div className="flex flex-wrap gap-2"><Boton cargando={m.guardando} onClick={() => m.ejecutar(() => rutasService.ordenar(m.ruta.id, orden.map(c => c.id), m.ruta.version), 'Orden de visita guardado')}><Save size={16} />Guardar orden</Boton>
         <Boton variante="secundario" onClick={() => setOrden(m.ruta.clientes)}>Descartar cambios</Boton></div>}
       <form onSubmit={crearCiclo} className="flex flex-wrap items-end gap-3 border-t pt-4">

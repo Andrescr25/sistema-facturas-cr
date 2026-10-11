@@ -110,6 +110,112 @@ async function registrarAsignacionEn(db, contexto, usuarioId) {
   }
 }
 
+/**
+ * Todos los clientes con la ruta que tienen hoy, para marcar de una vez
+ * cuáles van en ESTA.
+ *
+ * Es la lectura de la pantalla "Asignar clientes" de una ruta. Antes ese
+ * botón mandaba al directorio filtrado por "sin ruta" y había que abrir la
+ * ficha de cada cliente, editarla y volver: con 247 clientes, 247 veces.
+ * Van los activos, y también los inactivos que ya están en esta ruta (para
+ * poder sacarlos). La dirección va porque quien arma las rutas las conoce
+ * por lugar, no por nombre.
+ */
+async function candidatosDeRuta(id) {
+  return enRuta(async db => {
+    const r = await rutaEn(db, id);
+    const { rows } = await db.query(`SELECT c.id, c.nombre, c.activo, c.ruta_id, r.nombre AS ruta_nombre, c.orden_ruta,
+        c.provincia, c.canton, c.distrito, c.barrio, c.otras_senas, c.telefono, c.celular
+      FROM cliente c LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
+      WHERE c.activo OR c.ruta_id = $1 ORDER BY lower(c.nombre), c.id`, [r.id]);
+    return { ruta: r, clientes: rows };
+  });
+}
+
+const LIMITE_ASIGNACION = 5000;
+function listaDeIds(valor, etiqueta) {
+  if (valor === undefined || valor === null) return [];
+  if (!Array.isArray(valor) || valor.length > LIMITE_ASIGNACION) throw httpError(400, `${etiqueta}: enviá una lista de clientes.`);
+  return valor;
+}
+
+/**
+ * Agregar y quitar varios clientes de una ruta, en UNA transacción.
+ *
+ * `agregar` trae, por cada cliente, la ruta en la que la pantalla lo estaba
+ * viendo (`desdeRutaId`; null = sin ruta). Si entre tanto alguien lo movió,
+ * no se le pisa el cambio: 409 con el nombre, y no se guarda nada. Es lo que
+ * impide que una lista abierta hace una hora le saque clientes a otra ruta
+ * sin que nadie lo haya decidido.
+ *
+ * Los que entran van AL FINAL, en el orden en que llegaron (el orden en que
+ * se tocaron); los que ya estaban conservan su lugar. Sacar o mover un
+ * cliente compacta el recorrido de la ruta que deja. No se pide `version`:
+ * agregar o quitar no depende del orden que hubiera, así que reordenar en
+ * otra pantalla no hace perder la selección.
+ *
+ * Los recorridos de las semanas ya creadas no cambian: son una foto
+ * (ciclo_ruta_cliente).
+ */
+async function asignarClientes(id, datos, usuarioId) {
+  const pedidos = listaDeIds(datos?.agregar, 'Agregar').map(a => ({
+    clienteId: idValido(a?.clienteId),
+    desdeRutaId: a?.desdeRutaId === null || a?.desdeRutaId === undefined ? null : idValido(a.desdeRutaId)
+  }));
+  const quitar = listaDeIds(datos?.quitar, 'Quitar').map(idValido);
+  const todos = [...pedidos.map(a => a.clienteId), ...quitar];
+  if (!todos.length) throw httpError(400, 'No hay cambios para guardar.');
+  if (new Set(todos).size !== todos.length) throw httpError(400, 'Hay clientes repetidos en la selección.');
+
+  return enRuta(async db => {
+    const r = await rutaEn(db, id);
+    if (pedidos.length && !r.activo) throw httpError(400, 'La ruta está inactiva: no se le pueden agregar clientes.');
+
+    const { rows } = await db.query(`SELECT c.id, c.nombre, c.activo, c.ruta_id, r.nombre AS ruta_nombre
+      FROM cliente c LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
+      WHERE c.id = ANY($1::int[]) ORDER BY c.id FOR UPDATE OF c`, [todos]);
+    const ficha = new Map(rows.map(c => [c.id, c]));
+    if (ficha.size !== todos.length) throw httpError(404, 'Uno de los clientes ya no existe. Recargá la lista.');
+
+    // Lo que la pantalla creía y ya no es cierto.
+    const movidosPorOtro = pedidos.filter(a => {
+      const actual = ficha.get(a.clienteId).ruta_id;
+      return actual !== r.id && actual !== a.desdeRutaId;
+    }).map(a => {
+      const c = ficha.get(a.clienteId);
+      return `${c.nombre} (ahora ${c.ruta_nombre ? `en ${c.ruta_nombre}` : 'sin ruta'})`;
+    });
+    if (movidosPorOtro.length) {
+      throw httpError(409, `Estos clientes cambiaron de ruta en otra pantalla: ${movidosPorOtro.slice(0, 5).join(', ')}` +
+        `${movidosPorOtro.length > 5 ? ` y ${movidosPorOtro.length - 5} más` : ''}. Recargá la lista y volvé a marcarlos.`);
+    }
+    const inactivos = pedidos.filter(a => !ficha.get(a.clienteId).activo && ficha.get(a.clienteId).ruta_id !== r.id);
+    if (inactivos.length) throw httpError(400, `${ficha.get(inactivos[0].clienteId).nombre} está inactivo: no se agrega a una ruta.`);
+
+    // Solo lo que de verdad cambia: marcar lo que ya estaba no es un cambio.
+    const entran = pedidos.filter(a => ficha.get(a.clienteId).ruta_id !== r.id).map(a => a.clienteId);
+    const salen = quitar.filter(n => ficha.get(n).ruta_id === r.id);
+    const origenes = [...new Set(entran.map(n => ficha.get(n).ruta_id).filter(Boolean))];
+    const afectados = [r.id, ...origenes];
+    const antes = {};
+    for (const rutaId of afectados) antes[rutaId] = await miembrosEn(db, rutaId);
+    if (!entran.length && !salen.length) return { ...r, clientes: antes[r.id], agregados: 0, quitados: 0, movidos: 0 };
+
+    const fuera = new Set([...entran, ...salen]);
+    // Primero se sueltan: la restricción pide ruta y orden juntos o ninguno.
+    await db.query('UPDATE cliente SET ruta_id=NULL, orden_ruta=NULL, actualizado_en=NOW() WHERE id = ANY($1::int[])', [[...fuera]]);
+    for (const rutaId of origenes) await escribirOrdenEn(db, antes[rutaId].filter(c => !fuera.has(c.id)).map(c => c.id));
+    // Los que se quedan conservan su lugar; los que entran van al final.
+    const recorrido = [...antes[r.id].filter(c => !fuera.has(c.id)).map(c => c.id), ...entran];
+    if (recorrido.length) await db.query(`UPDATE cliente c SET ruta_id=$2, orden_ruta=s.orden, actualizado_en=NOW()
+      FROM unnest($1::int[]) WITH ORDINALITY s(id,orden) WHERE c.id=s.id`, [recorrido, r.id]);
+
+    await registrarAsignacionEn(db, { afectados, antes }, usuarioId);
+    return { ...await rutaEn(db, r.id), clientes: await miembrosEn(db, r.id),
+      agregados: entran.length, quitados: salen.length, movidos: entran.filter(n => ficha.get(n).ruta_id).length };
+  });
+}
+
 async function listarCiclos({ rutaId } = {}) {
   const params = [], filtro = rutaId ? (params.push(idValido(rutaId)), 'AND c.ruta_id=$1') : '';
   const { rows } = await pool.query(`SELECT c.*, c.semana::text AS semana,
@@ -163,4 +269,5 @@ async function cambiarEstadoCiclo(id, datos, usuarioId) {
   });
 }
 module.exports = { bloquearRutasEn, prepararAsignacionEn, registrarAsignacionEn, listarRutas, obtenerRuta,
-  crearRuta, editarRuta, reordenarRuta, listarCiclos, obtenerCiclo, crearCiclo, cambiarEstadoCiclo };
+  crearRuta, editarRuta, reordenarRuta, candidatosDeRuta, asignarClientes,
+  listarCiclos, obtenerCiclo, crearCiclo, cambiarEstadoCiclo };

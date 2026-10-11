@@ -16,6 +16,11 @@ archivos:
   - frontend/src/components/clientes/ListaClientes.jsx
   - frontend/src/components/clientes/ListaCuentas.jsx
   - frontend/src/components/clientes/VistaRutas.jsx
+  - frontend/src/components/clientes/AsignarClientesRuta.jsx
+  - frontend/src/utils/asignacionRuta.js
+  - frontend/src/services/rutasService.js
+  - backend/tests/rutasAsignarClientes.test.js
+  - backend/tests/asignacionRutaPantalla.test.js
   - frontend/src/components/clientes/ModalCliente.jsx
   - frontend/src/components/clientes/FichaCliente.jsx
   - frontend/src/hooks/useRutas.js
@@ -24,7 +29,7 @@ archivos:
 aristas:
   relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-07
+medido: 2026-10-11
 ---
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
@@ -126,3 +131,51 @@ Operativo96/3 e independencia133/14 conservados. No acredita corte ni Hacienda r
 rediseño [[modulo/reporte-proveedores]], sin cambiar servicios ni datos de Clientes.
 Regresión1440/390: navegación y ficha abiertas sin guardar, sin errores/desbordes.
 La verificación completa previa de Clientes y sus revisiones humanas se conservan.
+
+## Asignar clientes desde la ruta — 2026-10-11
+
+Pedido del usuario, que va a poner a un empleado que se sabe las rutas a
+asignarlas: «si yo toco una ruta y le doy asignar clientes NO me redirija al
+portal de clientes sino que me traiga una lista de esos clientes donde puedo
+darle click y poner un check para asignarlo». El botón mandaba al directorio
+filtrado por "sin ruta" y había que abrir, editar y cerrar la ficha de cada
+uno; en producción hay 3 rutas y 248 clientes sin ruta.
+
+Ahora "Asignar clientes" abre, dentro de Rutas, `AsignarClientesRuta`:
+tarjetas de resumen que filtran (Sin ruta / En esta ruta / En otra ruta),
+buscador que mira nombre Y lugar (cantón, distrito, señas: quien arma las
+rutas las conoce por lugar), "Marcar los N de esta lista", y una tarjeta
+grande por cliente que entera es el check. Mientras está abierta, la página
+suelta su cabecera y sus pestañas, igual que al abrir una ficha.
+
+SE GUARDA AL FINAL, NO EN CADA TOQUE, a propósito. Sacar a un cliente le hace
+perder su puesto en el recorrido y traerlo de otra ruta lo saca de allá: con
+guardado inmediato, un toque de más ya hizo ese daño. La marca es un cambio
+que se deshace tocando otra vez; lo pendiente queda en una barra pegada abajo
+("3 se agregan · 1 se quita · Todavía no se guardó"), y salir con cambios
+pregunta antes. Es la misma costumbre del orden de visita.
+
+EN EL SERVIDOR: `GET /clientes/rutas/:id/asignacion` (todos los activos con
+su ruta de hoy, más los inactivos que ya están en esta) y
+`PUT /clientes/rutas/:id/clientes` con `{ agregar: [{clienteId, desdeRutaId}],
+quitar: [ids] }`, en una transacción bajo el mismo bloqueo de rutas:
+- los que entran van al final, en el orden en que se tocaron; los que ya
+  estaban conservan su lugar;
+- sacar o mover compacta el recorrido que se deja (hay UNIQUE sobre
+  ruta + orden, diferida) y sube la versión de CADA ruta tocada, para que
+  quien la tenga abierta ordenándola se entere;
+- `desdeRutaId` es la ruta en que la pantalla veía al cliente: si otra
+  pantalla ya lo movió, responde 409 con el nombre y NO guarda nada. Una
+  lista abierta hace una hora no le saca clientes a otra ruta sin que nadie
+  lo haya decidido. Traer a alguien de otra ruta, además, se confirma en
+  pantalla antes de guardar;
+- no pide `version` de la ruta: agregar o quitar no depende del orden, y
+  reordenar en otra pantalla no hace perder la selección;
+- los recorridos de las semanas ya creadas no cambian (son una foto).
+
+Las cuentas de la pantalla (qué es una marca, qué se manda, qué marcas
+sobreviven a una recarga) viven sin React en `utils/asignacionRuta.js`.
+Comprobado en Chromium a 1440, 820 y 390 px sobre una base desechable:
+buscar un lugar, marcar todos, desmarcar uno, guardar, quitar, traer de otra
+ruta con su confirmación y salir sin guardar; después de cada paso se leyó
+la base. La ficha del cliente sigue pudiendo cambiar ruta y puesto.

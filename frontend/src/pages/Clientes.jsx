@@ -56,13 +56,17 @@ export default function Clientes() {
   const [origenFicha, setOrigenFicha] = useState('fichas')
   const abrirFicha = (id, origen = 'fichas') => { setOrigenFicha(origen); setFichaAbierta(id); setVista('fichas') }
   const enFicha = vista === 'fichas' && fichaAbierta !== null
+  // Rutas también tiene una pantalla de trabajo propia (elegir los clientes
+  // de una ruta): mientras está abierta, la cabecera y las pestañas se van.
+  const [rutasEnfoque, setRutasEnfoque] = useState(false)
+  const sinCabecera = enFicha || (vista === 'rutas' && rutasEnfoque)
   // El contador pertenece a los pedidos cargados de esta selección; nunca
   // presentar el filtro de una ruta/semana como el total general.
   const pendientes = !cargandoPedidos && !errorPedidos && filtroPedidos === 'pendiente' ? pedidos.length : 0
 
   return (
     <div className="space-y-5">
-      {!enFicha && <>
+      {!sinCabecera && <>
         <div>
           <h1 className="text-3xl font-bold text-neutro-900">Clientes</h1>
           <p className="mt-2 text-base text-neutro-500">Organizá tus clientes y el trabajo de cada ruta.</p>
@@ -84,8 +88,7 @@ export default function Clientes() {
 
       {vista === 'rutas' ? (
         <VistaRutas modelo={rutas} confirm={confirm}
-          onAbrirCliente={id => abrirFicha(id, 'rutas')}
-          onAsignarClientes={() => { setFichaAbierta(null); fichas.setRutaId('sin-ruta'); setVista('fichas') }} />
+          onAbrirCliente={id => abrirFicha(id, 'rutas')} onEnfoque={setRutasEnfoque} />
       ) : vista === 'dispositivos' ? (
         <DispositivosAgente />
       ) : vista === 'fichas' ? (
