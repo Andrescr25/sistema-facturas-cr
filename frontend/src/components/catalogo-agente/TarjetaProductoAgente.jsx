@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Package, Flame, Repeat, Tag } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * Un producto en el catálogo del agente.
@@ -62,7 +63,7 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mos
   const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
 
   const favorita = product.images?.find((i) => i.favorite === true) || product.images?.[0]
-  const foto = favorita?.url || null
+  const foto = urlArchivo(favorita?.url)
   const subcategoria = product.subcategoria?.nombre || (mostrarSinSubcategoria ? 'Sin subcategoría' : '')
 
   const listaPrecio = product.price?.[0]

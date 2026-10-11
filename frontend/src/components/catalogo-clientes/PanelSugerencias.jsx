@@ -1,6 +1,7 @@
 import { Sparkles, Plus, Package } from 'lucide-react'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { notaHabitual, notaPerdido } from '../../utils/notasCatalogo'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 const TOPE = 8
 
@@ -60,7 +61,7 @@ export default function PanelSugerencias({ habituales, perdidos, onAgregar, carr
           ? 'w-full h-16 bg-neutro-50 rounded-lg flex items-center justify-center overflow-hidden'
           : 'w-11 h-11 shrink-0 bg-neutro-50 rounded-lg flex items-center justify-center overflow-hidden'}>
           {p.imagen
-            ? <img src={p.imagen} alt="" loading="lazy" className="w-full h-full object-contain"
+            ? <img src={urlArchivo(p.imagen)} alt="" loading="lazy" className="w-full h-full object-contain"
                    onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
             : <Package size={16} className="text-neutro-300" />}
         </div>

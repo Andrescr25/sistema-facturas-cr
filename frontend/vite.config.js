@@ -43,11 +43,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
         // Las fotos de los productos las sirve el backend como estáticos y se
-        // guardan como rutas relativas ("/archivos/productos/…"). En producción
-        // el frontend y la API son el mismo origen y cargan solas; en
-        // desarrollo están en puertos distintos, así que sin este proxy TODAS
-        // las fotos salen rotas y no se puede revisar ninguna pantalla que las
-        // muestre.
+        // guardan como rutas relativas ("/archivos/productos/…"). Este proxy
+        // es solo una ayuda de desarrollo. NO alcanza para producción: en
+        // Render la web y la API viven en direcciones distintas, y una ruta
+        // puesta a secas en un <img> le pide la foto a la web (404, visto el
+        // 2026-10-10). Toda foto se muestra con urlArchivo(), que la completa
+        // con la dirección de la API.
         '/archivos': {
           target: apiOrigen,
           changeOrigin: true,

@@ -157,6 +157,52 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
   return rows;
 }
 
+/** La referencia tal como se compara: sin espacios de borde y sin distinguir mayúsculas. */
+const referenciaComparable = (valor) => String(valor ?? '').trim().toLowerCase();
+
+/** El nombre tal como se compara: sin acentos, sin mayúsculas y con los espacios juntos. */
+const nombreComparable = (valor) => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** La cédula tal como se compara: solo letras y números ("3-101-123456" = "3101123456"). */
+const cedulaComparable = (valor) => String(valor ?? '').replace(/[^0-9a-z]/gi, '').toLowerCase();
+
+/**
+ * ¿Lo que mostraba la pantalla es lo que hay acá con ese id?
+ *
+ * Recibe pares [lo que mandó la pantalla, lo que dice la ficha]. Con que UNA
+ * seña calce, es el mismo: así corregirle el nombre a un cliente en la
+ * oficina no rechaza la factura que una tablet hizo sin señal con el nombre
+ * de antes (la cédula sigue calzando). Quien no manda ninguna seña (el
+ * portal, Impresión, una cola antigua) no se revisa.
+ */
+function esLoMostrado(pares) {
+  const dichas = pares.filter(([mostrado]) => mostrado);
+  return dichas.length === 0 || dichas.some(([mostrado, real]) => mostrado === real);
+}
+
+/**
+ * EL CLIENTE QUE EL CAJERO VIO TIENE QUE SER EL QUE SE FACTURA.
+ *
+ * El id de Alegra de un cliente es el id propio de otro. El 2026-10-10, en
+ * producción, un dispositivo con el catálogo de antes del corte mandó el id
+ * de Alegra como si fuera el propio y dos facturas salieron a nombre de
+ * PANADERÍA SION, sin un solo error. El id solo no alcanza para darse
+ * cuenta. La pantalla manda además el nombre y la cédula que mostraba; si
+ * ninguno es el de la ficha con ese id, no se factura.
+ */
+function exigirClienteMostrado(datos, ficha) {
+  if (esLoMostrado([
+    [nombreComparable(datos?.clienteNombre), nombreComparable(ficha.nombre)],
+    [cedulaComparable(datos?.clienteIdentificacion), cedulaComparable(ficha.identificacion)]
+  ])) return;
+  const mostrado = String(datos.clienteNombre || datos.clienteIdentificacion).trim();
+  throw httpError(409,
+    `El cliente elegido no coincide con el del servidor: la pantalla mostraba «${mostrado}» ` +
+    `y ese código acá es «${ficha.nombre}». El catálogo de este dispositivo está viejo: toque ` +
+    '«Actualizar catálogo» y arme la factura de nuevo.');
+}
+
 /**
  * Arma las líneas con la tarifa del maestro y calcula los totales.
  *
@@ -164,7 +210,7 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
  * también en monto para que sumar la factura no exija rehacer la regla de tres
  * en cada consulta.
  */
-function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set(), preciosConImpuesto = false } = {}) {
+function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set(), preciosConImpuesto = false, exigirLoMostrado = false } = {}) {
   const lineas = [];
   let subtotal = 0;
   let descuentoTotal = 0;
@@ -174,6 +220,26 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
     const clave = claveDe(item);
     const producto = productosPorClave.get(String(clave));
     if (!producto) throw httpError(400, `No se encontró el producto ${clave}.`);
+
+    // LO QUE EL CAJERO VIO TIENE QUE SER LO QUE SE FACTURA. La línea llega con
+    // el id del producto Y con la referencia y el nombre que la pantalla
+    // mostraba. Si el dispositivo conserva un catálogo de antes del corte,
+    // ese id es el de Alegra y acá es OTRO producto: el 2026-10-10, en
+    // producción, se pidió la referencia 0005 (UNIÓN LISA) y se facturó JARRA
+    // VIDRIO MD LABRADA, sin un solo error. No se revisa lo que ya estaba en
+    // la factura: su referencia es la copia de aquel día y pudo cambiar.
+    if (exigirLoMostrado && !yaFacturados.has(producto.id) && !esLoMostrado([
+      [referenciaComparable(item.reference ?? item.referencia), referenciaComparable(producto.referencia)],
+      [nombreComparable(item.name ?? item.nombre), nombreComparable(producto.nombre)]
+    ])) {
+      const pedido = [item.reference ?? item.referencia, item.name ?? item.nombre]
+        .map(v => String(v ?? '').trim()).filter(Boolean).join(' ');
+      throw httpError(409,
+        `La línea ${indice + 1} no coincide con el catálogo del servidor: la pantalla pidió «${pedido}» ` +
+        `y ese código acá es «${[producto.referencia, producto.nombre].filter(Boolean).join(' ')}». ` +
+        'El catálogo de este dispositivo está viejo: toque «Actualizar catálogo» y arme la factura de nuevo.');
+    }
+
     // Un producto desactivado DESPUÉS de facturarlo se puede conservar al
     // editar esa factura (Impresión la ajusta para reimprimirla); lo que no se
     // puede es agregarlo nuevo.
@@ -439,7 +505,18 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
     usaAlegraId ? [] : items.map(i => i.productoId)
   );
   const porClave = new Map(productos.map(p => [String(usaAlegraId ? p.alegra_id : p.id), p]));
-  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), { preciosConImpuesto });
+  // Solo cuando el cliente llegó por id propio: una cola antigua lo trae por
+  // el id de Alegra (`client`) y se resolvió por ESE id.
+  if (datos.clienteId !== undefined && datos.clienteId !== null && datos.clienteId !== '') {
+    exigirClienteMostrado(datos, clienteFacturado);
+  }
+
+  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
+    preciosConImpuesto,
+    // Solo en el contrato propio: una cola antigua de tablet llega con ids
+    // de Alegra y se resuelve por ESE id: ahí el id sí es el que mostraba.
+    exigirLoMostrado: !usaAlegraId
+  });
 
   return guardarFactura(cliente, {
     datos: { ...datos, ...cabecera },
@@ -646,7 +723,9 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
       'SELECT DISTINCT producto_id FROM factura_linea WHERE factura_id = $1 AND producto_id IS NOT NULL', [n]
     );
     const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
-      yaFacturados: new Set(yaEnLaFactura.map(r => r.producto_id))
+      yaFacturados: new Set(yaEnLaFactura.map(r => r.producto_id)),
+      // Al editar, lo que ya estaba en la factura no se revisa; lo que se agrega, sí.
+      exigirLoMostrado: !usaAlegraId
     });
 
     // SE PUEDE CORREGIR EL CLIENTE, que es el error más caro de una factura:
@@ -659,6 +738,8 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
         && Number(datos.clienteId) !== Number(factura.cliente_id)) {
       if (factura.ciclo_ruta_cliente_id) throw httpError(409, 'La factura pertenece al recorrido de ese cliente. Anule y emita otra para corregir el destinatario.');
       const nuevo = await buscarCliente(cliente, { clienteId: datos.clienteId });
+      // Corregir el cliente con un catálogo viejo lo cambiaría por OTRO.
+      exigirClienteMostrado(datos, nuevo);
       const dias = Number(nuevo.plazo_dias) || 0;
       const aCredito = Boolean(nuevo.plazo_credito_id) && dias > 0;
       cambioCliente = {

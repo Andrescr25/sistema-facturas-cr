@@ -20,6 +20,19 @@ const EDICION_DE_COPIA_VIEJA =
   'Esta factura viene de una copia vieja guardada en la tablet, de cuando las facturas ' +
   'estaban en Alegra. Actualizá la lista de facturas y abrila de nuevo para editarla.';
 
+/**
+ * Solo lo que guardó el sistema propio.
+ *
+ * El sistema anterior dejó en este dispositivo productos y clientes con el id
+ * de ALEGRA en `id`; los del sistema propio llevan además su id en
+ * `productoId` / `clienteId`. Una fila sin ese campo es del catálogo viejo y
+ * NO se puede facturar con ella: su `id` es el id propio de OTRO producto u
+ * otro cliente (2026-10-10, producción: se eligió un cliente y la factura
+ * salió a nombre de otro). Al dejarlas afuera, la pantalla ve el catálogo
+ * vacío y lo descarga de nuevo, que es justo lo que hace falta.
+ */
+const soloPropios = (lista, campo) => (lista || []).filter(fila => fila && fila[campo] != null);
+
 class FacturacionService {
   async copiaFacturaConfirmada(fila, copia = null) {
     // Una clave antigua puede reconocer una factura aún no copiada. Su
@@ -276,7 +289,7 @@ class FacturacionService {
   async getProductos() {
     try {
       const productos = await indexedDBService.getProductos();
-      return productos;
+      return soloPropios(productos, 'productoId');
     } catch (error) {
       console.error('❌ Error obteniendo productos del cache:', error);
       throw error;
@@ -289,7 +302,8 @@ class FacturacionService {
   async buscarProductoPorCodigo(codigo) {
     try {
       console.log(`🔍 Buscando producto con código: "${codigo}"`);
-      const producto = await indexedDBService.getProductoByReference(codigo);
+      const encontrado = await indexedDBService.getProductoByReference(codigo);
+      const producto = soloPropios(encontrado ? [encontrado] : [], 'productoId')[0] || null;
       
       if (producto) {
         console.log(`✅ Producto encontrado: ${producto.name} (ref: "${producto.reference}")`);
@@ -310,7 +324,7 @@ class FacturacionService {
   async buscarProductosPorNombre(nombre) {
     try {
       const productos = await indexedDBService.searchProductosByName(nombre);
-      return productos;
+      return soloPropios(productos, 'productoId');
     } catch (error) {
       console.error('❌ Error buscando productos por nombre:', error);
       throw error;
@@ -323,7 +337,7 @@ class FacturacionService {
   async getClientes() {
     try {
       const clientes = await indexedDBService.getClientes();
-      return clientes;
+      return soloPropios(clientes, 'clienteId');
     } catch (error) {
       console.error('❌ Error obteniendo clientes del cache:', error);
       throw error;
@@ -336,7 +350,7 @@ class FacturacionService {
   async buscarClientesPorNombre(nombre) {
     try {
       const clientes = await indexedDBService.searchClientesByName(nombre);
-      return clientes;
+      return soloPropios(clientes, 'clienteId');
     } catch (error) {
       console.error('❌ Error buscando clientes:', error);
       throw error;

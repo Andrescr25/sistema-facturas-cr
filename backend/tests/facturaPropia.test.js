@@ -487,3 +487,139 @@ describe('rastro', () => {
     assert.equal(hubo(log, /INSERT INTO facturas \(/), false);
   });
 });
+
+/**
+ * LO QUE EL CAJERO VIO ES LO QUE SE FACTURA.
+ *
+ * 2026-10-10, producción, el día del corte. El navegador conservaba el
+ * catálogo del sistema anterior, donde `id` era el id de ALEGRA, y la pantalla
+ * nueva lo mandó como id propio. Los dos son números del mismo rango: el
+ * servidor encontró a OTRO cliente y OTRO producto y facturó, sin un error.
+ * Se eligió a un cliente y la factura salió a nombre de PANADERÍA SION; se
+ * pidió la referencia 0005 (UNIÓN LISA) y salió JARRA VIDRIO MD LABRADA.
+ *
+ * La pantalla manda, además del id, lo que mostraba (referencia y nombre del
+ * producto; nombre y cédula del cliente). Si nada de eso es lo que el
+ * servidor tiene con ese id, no se factura.
+ */
+describe('lo que el cajero vio es lo que se factura', () => {
+  // Lo que el servidor tiene con el id 1084; la pantalla creía que era la unión.
+  const JARRA = { ...TORNILLO, id: 1084, alegra_id: '2210', nombre: 'JARRA VIDRIO MD LABRADA', referencia: 'JAR14' };
+  const UNION = { ...TORNILLO, id: 1084, alegra_id: '2210', nombre: 'UNION LISA 1/2', referencia: '0005' };
+  const pedido = (linea = {}, cabecera = {}) => ({
+    clienteId: 7, fecha: '2026-09-12',
+    items: [{ productoId: 1084, reference: '0005', name: 'UNION LISA 1/2', quantity: 1, price: 1000, ...linea }],
+    ...cabecera
+  });
+
+  test('un id que acá es OTRO producto no se factura, y no gasta número', async () => {
+    const { servicio, log } = montar({ productos: [JARRA] });
+    await assert.rejects(servicio.crearFactura(pedido(), 4), (e) => {
+      assert.equal(e.status, 409);
+      assert.match(e.message, /0005/, 'no dice qué pidió la pantalla');
+      assert.match(e.message, /JARRA VIDRIO MD LABRADA/, 'no dice qué hay acá con ese id');
+      assert.match(e.message, /Actualizar catálogo/, 'no dice cómo arreglarlo');
+      return true;
+    });
+    assert.equal(hubo(log, /INSERT INTO factura \(/), false, 'quedó una factura');
+    assert.equal(hubo(log, /UPDATE serie_consecutivo/), false, 'se gastó un número');
+  });
+
+  test('si es el mismo producto, se factura', async () => {
+    const { servicio, log } = montar({ productos: [UNION] });
+    await servicio.crearFactura(pedido(), 4);
+    assert.ok(hubo(log, /INSERT INTO factura \(/));
+  });
+
+  test('la referencia se compara sin espacios ni mayúsculas, y los ceros cuentan', async () => {
+    const iguales = montar({ productos: [{ ...UNION, referencia: 'Tor02 ' }] });
+    await iguales.servicio.crearFactura(pedido({ reference: ' TOR02', name: '' }), 4);
+
+    // "0005" y "5" son dos productos distintos: no se convierten a número.
+    const distintos = montar({ productos: [{ ...JARRA, referencia: '5' }] });
+    await assert.rejects(distintos.servicio.crearFactura(pedido({ name: '' }), 4), e => e.status === 409);
+  });
+
+  test('con que una seña calce alcanza: cambiarle la referencia en la oficina no rechaza a la tablet', async () => {
+    const { servicio, log } = montar({ productos: [{ ...UNION, referencia: '0005-A' }] });
+    await servicio.crearFactura(pedido(), 4);
+    assert.ok(hubo(log, /INSERT INTO factura \(/), 'el nombre calzaba y aun así se rechazó');
+  });
+
+  test('un producto sin referencia se reconoce por el nombre', async () => {
+    const mismo = montar({ productos: [{ ...UNION, referencia: null }] });
+    await mismo.servicio.crearFactura(pedido({ reference: '' }), 4);
+
+    const otro = montar({ productos: [{ ...JARRA, referencia: null }] });
+    await assert.rejects(otro.servicio.crearFactura(pedido({ reference: '' }), 4), e => e.status === 409);
+  });
+
+  test('un id que acá es OTRO cliente no se factura', async () => {
+    const { servicio, log } = montar({ productos: [UNION] });
+    await assert.rejects(
+      servicio.crearFactura(pedido({}, { clienteNombre: 'Tarcicio Gerardo Vargas Chavarria', clienteIdentificacion: '203330444' }), 4),
+      (e) => {
+        assert.equal(e.status, 409);
+        assert.match(e.message, /Tarcicio Gerardo Vargas Chavarria/);
+        assert.match(e.message, /PULPERÍA LA ESQUINA/, 'no dice a nombre de quién iba a salir');
+        return true;
+      }
+    );
+    assert.equal(hubo(log, /INSERT INTO factura \(/), false);
+    assert.equal(hubo(log, /UPDATE serie_consecutivo/), false);
+  });
+
+  test('el cliente se reconoce por el nombre sin acentos o por la cédula con guiones', async () => {
+    const porNombre = montar({ productos: [UNION] });
+    await porNombre.servicio.crearFactura(pedido({}, { clienteNombre: '  pulperia   la esquina ' }), 4);
+
+    // Le corrigieron el nombre en la oficina mientras la tablet andaba sin señal.
+    const porCedula = montar({ productos: [UNION] });
+    await porCedula.servicio.crearFactura(
+      pedido({}, { clienteNombre: 'PULPERIA ESQUINA (nombre de antes)', clienteIdentificacion: '3-101-123456' }), 4);
+    assert.ok(hubo(porCedula.log, /INSERT INTO factura \(/));
+  });
+
+  test('quien no manda señas no se revisa: el portal e Impresión ponen el id en el servidor', async () => {
+    const { servicio, log } = montar({ productos: [JARRA] });
+    await servicio.crearFactura({ clienteId: 7, fecha: '2026-09-12', items: [{ productoId: 1084, quantity: 1, price: 1000 }] }, 4);
+    assert.ok(hubo(log, /INSERT INTO factura \(/));
+  });
+
+  test('una cola antigua de tablet (ids de Alegra) sigue entrando: ahí el id sí es el que mostraba', async () => {
+    const { servicio, log } = montar();
+    await servicio.crearFactura({
+      ...VENTA, clienteNombre: 'OTRO NOMBRE',
+      items: [{ id: '1183', reference: 'REF-DE-ANTES', name: 'NOMBRE DE ANTES', quantity: 2, price: 1000 }]
+    }, 4);
+    assert.ok(hubo(log, /INSERT INTO factura \(/));
+  });
+
+  test('al editar: lo que ya estaba no se revisa, lo que se agrega sí', async () => {
+    // La referencia de una línea ya facturada es la copia de aquel día.
+    const ya = montarEmitida({ productos: [JARRA], enLaFactura: [JARRA.id] });
+    await ya.servicio.editarFactura(500, { items: [{ productoId: 1084, reference: 'REF-VIEJA', name: 'NOMBRE VIEJO', quantity: 1, price: 1000 }] }, 4);
+    assert.ok(hubo(ya.log, /^UPDATE factura/));
+
+    const nueva = montarEmitida({ productos: [JARRA], enLaFactura: [] });
+    await assert.rejects(
+      nueva.servicio.editarFactura(500, { items: [{ productoId: 1084, reference: '0005', name: 'UNION LISA 1/2', quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 409 && /JARRA VIDRIO MD LABRADA/.test(e.message)
+    );
+    assert.equal(hubo(nueva.log, /DELETE FROM factura_linea/), false, 'borró las líneas antes de darse cuenta');
+  });
+
+  test('al corregir el cliente de una factura tampoco se cambia por otro', async () => {
+    const clienteNuevo = {
+      id: 9, activo: true, nombre: 'FERRETERÍA EL CLAVO', tipo_identificacion: 'CJ', identificacion: '3101999999',
+      correo: null, telefono: null, celular: null, provincia: null, canton: null, distrito: null, barrio: null,
+      otras_senas: null, plazo_credito_id: null, plazo_dias: 0, plazo_nombre: 'De contado'
+    };
+    const { servicio, log } = montarEmitida({ clienteNuevo });
+    await assert.rejects(
+      servicio.editarFactura(500, { clienteId: 9, clienteNombre: 'SODA LA AMISTAD', items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4),
+      e => e.status === 409 && /FERRETERÍA EL CLAVO/.test(e.message)
+    );
+    assert.equal(hubo(log, /^UPDATE factura/), false);
+  });
+});

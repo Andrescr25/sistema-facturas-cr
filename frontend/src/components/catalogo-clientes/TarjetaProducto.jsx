@@ -1,6 +1,7 @@
 import { Plus, Package } from 'lucide-react'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import InputCantidad from './InputCantidad'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * Un producto, en tarjeta con la foto como protagonista.
@@ -33,7 +34,7 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
       >
         {producto.imagen ? (
           <img
-            src={producto.imagen}
+            src={urlArchivo(producto.imagen)}
             alt={producto.nombre}
             loading="lazy"
             className="w-full h-full object-contain p-2"

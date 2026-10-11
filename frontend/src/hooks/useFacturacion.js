@@ -956,11 +956,18 @@ export function useFacturacion() {
         // NUESTROS ids, no los de Alegra: así el servidor resuelve contra su
         // propio maestro y una venta deja de depender de la columna alegra_id,
         // que algún día va a estar vacía.
-        clienteId: parseInt(clienteSeleccionado.id),
+        clienteId: parseInt(clienteSeleccionado.clienteId ?? clienteSeleccionado.id),
+        // Lo que el cajero tiene en pantalla, además del id: el servidor lo
+        // compara con la ficha de ese id y, si no es la misma, no factura.
+        // Así un catálogo viejo en el dispositivo no cambia un cliente por
+        // otro ni un producto por otro (pasó el 2026-10-10 en producción).
+        clienteNombre: clienteSeleccionado.name || '',
+        clienteIdentificacion: clienteSeleccionado.identification || '',
         items: items.map(item => ({
           id: parseInt(item.id),
           productoId: parseInt(item.productoId ?? item.id),
           reference: item.reference || '', // Campo reference
+          name: item.name || '',
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
           discount: item.discount || 0,

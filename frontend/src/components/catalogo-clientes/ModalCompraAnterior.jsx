@@ -3,6 +3,7 @@ import { X, Loader2, Minus, Plus, Trash2, Package, AlertCircle, ShoppingCart } f
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { useModal } from '../../hooks/useModal'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * Una compra anterior, abierta para revisarla antes de repetirla.
@@ -111,7 +112,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                   >
                     <div className="w-11 h-11 shrink-0 bg-neutro-50 rounded-lg overflow-hidden flex items-center justify-center">
                       {i.imagen
-                        ? <img src={i.imagen} alt="" loading="lazy" className="w-full h-full object-contain"
+                        ? <img src={urlArchivo(i.imagen)} alt="" loading="lazy" className="w-full h-full object-contain"
                                onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
                         : <Package size={15} className="text-neutro-300" />}
                     </div>

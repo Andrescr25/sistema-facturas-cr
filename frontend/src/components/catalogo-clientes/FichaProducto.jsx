@@ -6,6 +6,7 @@ import { haceCuanto } from '../../utils/notasCatalogo'
 import SugerenciasJuntoCon from './SugerenciasJuntoCon'
 import InputCantidad from './InputCantidad'
 import { useModal } from '../../hooks/useModal'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * Ficha de un producto.
@@ -59,7 +60,7 @@ export default function FichaProducto({ itemId, cantidadEnCarrito, onCambiar, on
             <div className="sm:flex sm:gap-5 p-4 sm:p-5">
               <div className="sm:w-56 shrink-0 aspect-square bg-neutro-50 rounded-2xl flex items-center justify-center overflow-hidden relative">
                 {producto.imagen ? (
-                  <img src={producto.imagen} alt={producto.nombre} className="w-full h-full object-contain" />
+                  <img src={urlArchivo(producto.imagen)} alt={producto.nombre} className="w-full h-full object-contain" />
                 ) : (
                   <ImageOff size={32} className="text-neutro-200" />
                 )}

@@ -13,7 +13,7 @@ archivos:
   - backend/tests/catalogoAgenteIdsPropios.test.js
 aristas:
   relacionado: [modulo/catalogo-agente, modulo/portal-clientes, modulo/facturacion-offline, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fotos-del-catalogo-en-la-tablet]
-medido: 2026-10-04
+medido: 2026-10-10
 ---
 
 SECCIÓN 12, PARTE 3. `AlegraCatalogReactDB` conserva su nombre y pasa a
@@ -43,6 +43,15 @@ Al retirar el traductor de Facturación se actualiza solo la copia de facturas,
 con procedencia explícita, sin escribir las tres colas ni regenerar sus claves.
 Reparar productos corruptos tampoco limpia la venta pendiente. Migración,
 fallos y reintentos se describen en [[modulo/facturacion-offline]].
+
+FACTURACIÓN V5 (2026-10-10): LO QUE LA V4 NO HIZO. La v4 convirtió la copia
+de facturas y dejó `productos` y `clientes` como estaban, con los ids de
+Alegra del sistema anterior. Facturación solo descarga el catálogo si lo
+encuentra vacío, así que el día del corte siguió vendiendo con esas filas y
+dos facturas reales salieron a nombre de otro cliente y con otro producto
+(caso 7 de [[leccion/ids-propios-y-de-alegra-no-se-mezclan]]). La v5 vacía
+esas dos listas al abrir —desde la 3 y desde la 4— y deja intactas las tres
+colas. `backend/tests/catalogoViejoEnElNavegador.test.js` lo prueba.
 
 LA COPIA ANTERIOR SOLO SE REEMPLAZA COMPLETA. Una página fallida se reintenta
 hasta tres veces al mismo offset; si no llega, no se avanza ni se confirma.

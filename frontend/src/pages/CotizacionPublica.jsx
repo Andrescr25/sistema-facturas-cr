@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Loader2, AlertCircle, Package, Clock, CheckCircle2 } from 'lucide-react'
 import api from '../services/api'
 import { colones } from '../utils/colones'
+import { urlArchivo } from '../utils/urlArchivo'
 
 /**
  * La cotización como la ve el cliente en el navegador.
@@ -102,7 +103,7 @@ export default function CotizacionPublica() {
                   un ícono en vez de dejar un hueco. */}
               {l.imagen ? (
                 <img
-                  src={l.imagen}
+                  src={urlArchivo(l.imagen)}
                   alt={l.nombre}
                   loading="lazy"
                   className="h-16 w-16 shrink-0 rounded-xl border border-neutro-100 bg-white object-contain"

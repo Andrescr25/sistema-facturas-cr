@@ -1,4 +1,5 @@
 import { Sparkles, Plus, Package } from 'lucide-react'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 const TOPE = 10
 // De los 10, hasta 3 se guardan para lo que DEJÓ de llevar. Sin esta reserva,
@@ -77,7 +78,7 @@ export default function BarraSugerencias({ sugerencias, items, onAgregar }) {
             >
               <div className="flex h-16 w-full items-center justify-center overflow-hidden rounded-lg bg-neutro-50">
                 {p.imagen
-                  ? <img src={p.imagen} alt="" loading="lazy" className="h-full w-full object-contain" />
+                  ? <img src={urlArchivo(p.imagen)} alt="" loading="lazy" className="h-full w-full object-contain" />
                   : <Package size={20} className="text-neutro-300" />}
               </div>
 

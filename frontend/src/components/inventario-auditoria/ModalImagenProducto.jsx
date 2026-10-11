@@ -1,5 +1,6 @@
 import { X, ImageIcon } from 'lucide-react'
 import { useModal } from '../../hooks/useModal'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * Modal de solo lectura: muestra la foto que el producto ya tiene guardada
@@ -35,7 +36,7 @@ export default function ModalImagenProducto({ item, onCerrar }) {
         <div className="p-6 flex items-center justify-center bg-neutro-50 min-h-[280px]">
           {item.image_url ? (
             <img
-              src={item.image_url}
+              src={urlArchivo(item.image_url)}
               alt={item.nombre_producto}
               className="object-contain max-h-[60vh] w-full rounded-lg"
               loading="lazy"

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Sparkles } from 'lucide-react'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * "Se lleva junto con" — la recomendación por co-ocurrencia.
@@ -50,7 +51,7 @@ export default function SugerenciasJuntoCon({ ids, titulo = 'Se lleva junto con'
           >
             {p.imagen && (
               <img
-                src={p.imagen}
+                src={urlArchivo(p.imagen)}
                 alt=""
                 loading="lazy"
                 className={compacto ? 'w-10 h-10 object-contain rounded-lg shrink-0' : 'w-full aspect-square object-contain'}

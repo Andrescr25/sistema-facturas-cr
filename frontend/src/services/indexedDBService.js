@@ -8,7 +8,9 @@
 import { combinarCopiaFactura, convertirCopiaV3 } from '../utils/facturasLocales'
 
 const DB_NAME = 'SistemaFacturasCR';
-const DB_VERSION = 4; // 4: la copia de facturas usa el contrato propio
+// 4: la copia de facturas usa el contrato propio
+// 5: se vacían los productos y clientes que dejó el sistema anterior
+const DB_VERSION = 5;
 
 // Stores
 const STORES = {
@@ -145,6 +147,21 @@ class IndexedDBService {
           edicionesStore.createIndex('timestamp', 'timestamp', { unique: false });
           edicionesStore.createIndex('sincronizada', 'sincronizada', { unique: false });
           console.log('✏️ Store de ediciones pendientes creado');
+        }
+
+        // CAMBIÓ EL ESPACIO DE IDS, y esta copia no se enteraba. El sistema
+        // anterior guardaba acá cada producto y cliente con el id de ALEGRA
+        // en `id`. Facturación solo descarga el catálogo si lo encuentra
+        // vacío, así que seguía usando esas filas y mandaba el id de Alegra
+        // como si fuera el propio: el 2026-10-10, en producción, se eligió un
+        // cliente y la factura salió a nombre de otro, y la referencia 0005
+        // se facturó como otro producto. Vaciar las dos listas obliga a
+        // descargarlas del sistema nuevo al abrir. Las tres colas (facturas,
+        // ediciones y pedidos sin enviar) NO se tocan.
+        if (event.oldVersion > 0 && event.oldVersion < 5) {
+          request.transaction.objectStore(STORES.PRODUCTOS).clear();
+          request.transaction.objectStore(STORES.CLIENTES).clear();
+          console.log('🧹 Catálogo del sistema anterior vaciado: se descarga de nuevo');
         }
 
         if (event.oldVersion > 0 && event.oldVersion < 4) {

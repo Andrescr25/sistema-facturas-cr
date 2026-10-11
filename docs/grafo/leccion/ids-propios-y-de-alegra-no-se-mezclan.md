@@ -15,9 +15,15 @@ archivos:
   - backend/tests/sugerenciasFacturacion.test.js
   - backend/src/modules/facturacion/idempotencia.js
   - backend/tests/intentoDeFacturaIdPropio.test.js
+  - backend/src/modules/facturacion/facturaPropia.service.js
+  - frontend/src/services/indexedDBService.js
+  - frontend/src/services/facturacionService.js
+  - frontend/src/hooks/useFacturacion.js
+  - backend/tests/catalogoViejoEnElNavegador.test.js
+  - backend/tests/facturaPropia.test.js
 aristas:
   relacionado: [modulo/cotizaciones, modulo/facturacion, modulo/facturacion-offline, leccion/cache-con-ids-propios-no-borra-pendientes]
-medido: 2026-10-04
+medido: 2026-10-10
 ---
 
 Los ids propios son seriales (1, 2, 3…) y los de Alegra también. Pasar uno
@@ -76,6 +82,32 @@ Casos en esta rama:
    número" parecía suficiente y enlazó cuatro cotizaciones con cuatro
    facturas ajenas; se vio solo porque se miró el resultado fila por fila.
 
+7. **El catálogo guardado en el navegador, el día del corte** (2026-10-10,
+   EN PRODUCCIÓN, con facturas reales). Facturación guarda productos y
+   clientes en la IndexedDB del dispositivo. El sistema anterior los
+   guardaba con el id de Alegra en `id`; al desplegar el sistema propio esas
+   filas siguieron ahí, porque la pantalla solo descarga el catálogo cuando
+   lo encuentra vacío y la subida a la versión 4 no lo vaciaba. La pantalla
+   nueva mandó ese `id` como `clienteId` / `productoId`. Se eligió a un
+   cliente (propio 237, Alegra 151) y la factura salió a nombre del cliente
+   propio 151, PANADERÍA SION; se pidió la referencia 0005 (UNIÓN LISA) y se
+   facturó el producto propio 1084, JARRA VIDRIO MD LABRADA. Dos facturas
+   reales, ningún error. El caso 4 había previsto esto para el catálogo del
+   agente (`AlegraCatalogReactDB` se vacía al pasar a v3) y NO para la base
+   de Facturación, que es otra. Tres defensas, cada una alcanza sola:
+   - `SistemaFacturasCR` pasa a la versión 5 y vacía `productos` y
+     `clientes` (nunca las tres colas);
+   - `facturacionService` no devuelve una fila que no traiga `productoId` /
+     `clienteId`: la del sistema anterior no los tiene, así que el catálogo
+     se ve vacío y se descarga;
+   - **el servidor ya no confía en el id solo.** La pantalla manda además lo
+     que mostraba —referencia y nombre de cada línea, nombre y cédula del
+     cliente— y `facturaPropia.service.js` responde 409 si NADA de eso es lo
+     que hay con ese id (`esLoMostrado`: con una seña que calce alcanza, para
+     que corregir un nombre en la oficina no rechace la venta que una tablet
+     hizo sin señal). Quien no manda señas (el portal, Impresión) no se
+     revisa: ahí el id lo puso el servidor.
+
 **Una columna, una clase de id.** Si una tabla copiada de producción va a
 recibir ids propios, van en una columna nueva; la vieja se queda con lo que
 tenía. Y para traducir lo viejo, buscar qué distingue de verdad a cada
@@ -88,3 +120,10 @@ Facturación) y se migró pensando en uno.
 **Cómo aplicarlo:** una ruta o una prop que recibe un id dice en su nombre
 de quién es. Si un componente puede recibir los dos, recibe dos props
 distintas, nunca una que "depende del llamador".
+
+**Un caché del navegador es otra base de datos, y también hay que migrarla.**
+Antes de un corte que cambia el espacio de ids, listar TODAS las copias que
+viven en los dispositivos (acá eran dos bases de IndexedDB) y comprobar que
+cada una se invalida al abrir la versión nueva. Y cuando una pantalla manda un
+id que eligió una persona, que mande también lo que esa persona estaba
+viendo: es lo único que deja al servidor notar que el id apunta a otro.

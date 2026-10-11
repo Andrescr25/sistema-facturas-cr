@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, ImageOff, Search, TrendingDown, X } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colonesCorto, colonesExactos, porcentaje, unidades } from '../../utils/rentabilidadFormato'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * La lista de productos, como tarjetas grandes que se tocan enteras (la
@@ -31,7 +32,7 @@ export function Foto({ url, nombre, tamano = 'h-16 w-16' }) {
       </div>
     )
   }
-  return <img src={url} alt={nombre} onError={() => setRota(true)} className={`${tamano} shrink-0 rounded-xl bg-neutro-50 object-contain`} />
+  return <img src={urlArchivo(url)} alt={nombre} onError={() => setRota(true)} className={`${tamano} shrink-0 rounded-xl bg-neutro-50 object-contain`} />
 }
 
 /** El margen con su aviso: sin costo no hay margen, y bajo cero se pierde plata. */

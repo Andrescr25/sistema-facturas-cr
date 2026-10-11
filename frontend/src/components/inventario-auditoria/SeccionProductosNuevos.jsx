@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, Check, ImageOff, Loader2, Plus, Search, Sparkles, Trash2, X } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { useProductosNuevos } from '../../hooks/useProductosNuevos'
+import { urlArchivo } from '../../utils/urlArchivo'
 
 /**
  * "Productos nuevos" del catálogo del agente (2026-09-27, decisión del
@@ -25,7 +26,7 @@ function Foto({ url, nombre }) {
       </div>
     )
   }
-  return <img src={url} alt={nombre} onError={() => setRota(true)} className="h-16 w-16 shrink-0 sm:h-20 sm:w-20 rounded-2xl bg-neutro-50 object-contain" />
+  return <img src={urlArchivo(url)} alt={nombre} onError={() => setRota(true)} className="h-16 w-16 shrink-0 sm:h-20 sm:w-20 rounded-2xl bg-neutro-50 object-contain" />
 }
 
 function TarjetaProductoNuevo({ producto: p, ocupado, onQuitar }) {

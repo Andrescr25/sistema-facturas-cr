@@ -210,7 +210,9 @@ test('una línea nace con la tarifa del PRODUCTO, no con la principal de la fact
 test('la línea lleva nuestro id de producto', () => {
   const fuente = fs.readFileSync(HOOK, 'utf8');
   assert.match(fuente, /productoId: producto\.productoId \?\? producto\.id/);
-  assert.match(fuente, /clienteId: parseInt\(clienteSeleccionado\.id\)/);
+  // El id propio explícito primero; `id` queda para la ficha que viene de una
+  // factura abierta para editar (ver catalogoViejoEnElNavegador.test.js).
+  assert.match(fuente, /clienteId: parseInt\(clienteSeleccionado\.clienteId \?\? clienteSeleccionado\.id\)/);
 });
 
 test('los catálogos de la pantalla salen de la base propia', () => {
