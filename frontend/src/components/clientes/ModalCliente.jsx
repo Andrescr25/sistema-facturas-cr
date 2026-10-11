@@ -145,8 +145,9 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
     return () => { vigente = false; clearTimeout(t) }
   }, [identificacion, cliente?.id])
   // Lo que Hacienda dice de esa cédula. De las 247 fichas cargadas, 245 no
-  // tienen actividad económica, y sin ella no se puede emitir una factura
-  // electrónica a nombre del cliente. Se PROPONE: el nombre legal casi nunca
+  // tienen actividad económica. Es un dato opcional: desde el 2026-10-11 la
+  // factura electrónica se emite sin ella (antes se exigía, y la ficha
+  // avisaba que sin ese dato no se podía). Se PROPONE: el nombre legal casi nunca
   // es el que usa la casa —"OG PWR HOUSE SOCIEDAD DE RESPONSABILIDAD
   // LIMITADA" contra "OG PWR HOUSE …-GYM Palmares"— y pisarlo dejaría fichas
   // que nadie reconoce.
@@ -170,10 +171,6 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
       setConsultando(false)
     }
   }
-
-  const avisoActividad = editando && !valores.actividad_economica
-    ? 'Sin actividad económica no se puede emitir una factura electrónica a nombre de este cliente.'
-    : null
 
   // Un plazo inactivo que el cliente ya tiene se sigue mostrando.
   const opcionesPlazo = plazos.filter(p => p.activo || String(p.id) === String(base.plazo_credito_id))
@@ -273,7 +270,6 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
           <div>
             <Etiqueta htmlFor="cliente-actividad_economica">Actividad económica</Etiqueta>
             <input id="cliente-actividad_economica" className={CLASE_CAMPO} inputMode="numeric" value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} placeholder="523402" />
-            {avisoActividad && <Aviso>{avisoActividad}</Aviso>}
           </div>
 
           {hacienda && (

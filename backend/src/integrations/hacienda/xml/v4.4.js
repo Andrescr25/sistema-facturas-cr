@@ -150,8 +150,18 @@ function generarVenta({
   if (!raiz)
     throw error("TIPO_NO_IMPLEMENTADO", "Tipo fiscal no implementado.");
   requerido(emisor.actividad_economica, "Actividad del emisor", ACTIVIDAD);
-  const actividad = opciones.actividadReceptor || documento.actividad_economica;
-  if (tipo === "01") requerido(actividad, "Actividad del receptor", ACTIVIDAD);
+  // LA ACTIVIDAD DEL RECEPTOR ES OPCIONAL (decisión del usuario, 2026-10-11).
+  // Se exigía para la factura electrónica y el modal la pedía a mano en cada
+  // emisión. El esquema oficial la trae con minOccurs="0", y de las 247
+  // facturas 4.4 de este emisor que Hacienda aceptó, 243 no la llevan. Ya no
+  // se pide: si el documento trae una bien escrita se manda, y si no trae o
+  // está mal escrita ("47112", como quedó al copiar de Alegra sin el punto)
+  // se omite. No se bloquea una venta por un dato que nadie tiene que dar,
+  // y no se manda un código inventado.
+  const actividadCruda = String(
+    opciones.actividadReceptor || documento.actividad_economica || "",
+  ).trim();
+  const actividad = ACTIVIDAD.test(actividadCruda) ? actividadCruda : null;
   if (documento.moneda && documento.moneda !== "CRC")
     throw error(
       "MONEDA_NO_IMPLEMENTADA",
@@ -344,10 +354,7 @@ function generarVenta({
     ) +
     nodo("CodigoActividadEmisor", emisor.actividad_economica);
   if (actividad && tipo !== "04")
-    xml += nodo(
-      "CodigoActividadReceptor",
-      requerido(actividad, "Actividad del receptor", ACTIVIDAD),
-    );
+    xml += nodo("CodigoActividadReceptor", actividad);
   xml +=
     nodo("NumeroConsecutivo", consecutivo) +
     nodo("FechaEmision", fecha) +

@@ -139,9 +139,11 @@ las credenciales de la API.
 - **Proveedor de sistemas.** Identifica quién hizo el software. Con desarrollo
   propio lo más probable es que vaya la cédula de la empresa: **confirmar**.
 - **Actividad económica del emisor.** En Alegra está registrada la 523402.
-- **Actividad económica del receptor.** Obligatoria en facturas y notas que
+- **Actividad económica del receptor.** ~~Obligatoria en facturas y notas que
   identifican al cliente; según las guías, Hacienda **rechaza** el comprobante
-  si falta.
+  si falta.~~ **No se pide (decisión del usuario, 2026-10-11).** El esquema
+  oficial la trae como opcional y 243 de las 247 facturas 4.4 de este emisor
+  que Hacienda aceptó no la llevan. Ver `docs/grafo/modulo/hacienda.md`.
 - **Medios de pago detallados**, incluido SINPE Móvil.
 - **CABYS en cada línea.**
 - **Medicamentos:** registro sanitario y forma farmacéutica.
@@ -150,7 +152,7 @@ las credenciales de la API.
 
 | Dato | Estado | Consecuencia |
 |---|---|---|
-| Actividad económica del cliente | **2 de 204** clientes la tienen | Facturas rechazadas (ver nota) |
+| Actividad económica del cliente | **2 de 204** clientes la tienen | ~~Facturas rechazadas~~ Ya no bloquea: es opcional (2026-10-11) |
 | Correo del cliente | 28 de 204 | No hay a dónde entregar el comprobante; buscar alternativa (portal o WhatsApp) |
 | Identificación del cliente | 195 de 204 | Los 9 restantes solo pueden recibir tiquete |
 | Medicamentos: registro sanitario | **0 de 8** | Esas líneas no se pueden facturar en 4.4 |

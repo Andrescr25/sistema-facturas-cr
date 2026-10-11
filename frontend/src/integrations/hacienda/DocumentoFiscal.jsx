@@ -151,22 +151,9 @@ export default function DocumentoFiscal({
                         <option value="04">Tiquete electrónico</option>
                       </select>
                     </label>
-                    <label className="block">
-                      Actividad del receptor (como la da Hacienda, ej. 4752.1)
-                      <input
-                        className={INPUT}
-                        value={
-                          datos.actividadReceptor ||
-                          detalle.actividadEconomica ||
-                          documento.actividadEconomica ||
-                          ""
-                        }
-                        onChange={(e) =>
-                          actualizar("actividadReceptor", e.target.value)
-                        }
-                        maxLength={6}
-                      />
-                    </label>
+                    {/* La actividad económica del receptor no se pide: es
+                        opcional para Hacienda (decisión del usuario,
+                        2026-10-11; ver xml/v4.4.js). */}
                   </>
                 )}
                 {origen === "nota_credito" && (

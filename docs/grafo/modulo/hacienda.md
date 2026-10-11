@@ -102,10 +102,20 @@ como `4752.1` y las 207 facturas 4.4 archivadas con ese valor fueron aceptadas;
 admite las dos formas para emisor y receptor, y Configuración usa la misma
 regla. Antes no se podía habilitar ni probar la conexión con el dato real.
 Las copias sin punto (`47521`, como dejó la carga de Alegra en facturas y en
-tres clientes) siguen rechazadas: no se adivina dónde va el punto.
-Sin decidir: el XSD hace opcional `CodigoActividadReceptor` y 243 de esas 247
-facturas aceptadas no lo traen, pero acá toda FE lo exige; de eso depende que
-los 245 clientes sin actividad bloqueen o no la factura electrónica.
+tres clientes) siguen rechazadas PARA EL EMISOR: no se adivina dónde va el
+punto.
+
+LA ACTIVIDAD DEL RECEPTOR NO SE PIDE (decisión del usuario, 2026-10-11:
+«la actividad económica del receptor no es necesaria, quitala del modal»).
+El XSD hace opcional `CodigoActividadReceptor` y 243 de esas 247 facturas
+aceptadas no lo traen; acá toda factura electrónica lo exigía y el modal de
+emisión lo pedía a mano cada vez, con 245 de 247 clientes sin ese dato. Ahora
+el modal no lo muestra y `xml/v4.4.js` no lo exige: si el documento ya trae
+una actividad bien escrita se manda; si no trae, o está mal escrita, se
+omite (ni se inventa un código ni se bloquea la venta). La ficha del cliente
+conserva el campo y dejó de avisar que sin él no se puede facturar. La del
+emisor sigue siendo obligatoria. Pruebas en `haciendaFiscal.test.js`, contra
+el XSD oficial.
 
 ALMACÉN PRIVADO Y PRUEBAS: `haciendaPg.test.js` escribe en
 `HACIENDA_ALMACEN_PRIVADO`; sin esa variable usa el almacén real. Correrla

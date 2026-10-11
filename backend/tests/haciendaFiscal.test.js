@@ -121,7 +121,6 @@ test("los datos fiscales incompletos y los importes que no cuadran no se inventa
     // Así quedó en la base al copiar de Alegra: sin el punto no son seis.
     (d) => (d.emisor.actividad_economica = "47521"),
     (d) => (d.emisor.actividad_economica = "4752-1"),
-    (d) => (d.documento.actividad_economica = "47112"),
     (d) => (d.lineas[0].cabys = null),
     (d) => (d.lineas[0].codigo_tarifa_hacienda = "02"),
     (d) => (d.documento.total = "114"),
@@ -145,6 +144,62 @@ test("los datos fiscales incompletos y los importes que no cuadran no se inventa
   d.opciones.lineas = [{ numeroLinea: 1, codigoDescuento: "06" }];
   assert.match(generarVenta(d), /<CodigoDescuento>06/);
 });
+// 2026-10-11, decisión del usuario: la actividad económica del RECEPTOR no se
+// pide. Se exigía para la factura electrónica y el modal de emisión la pedía a
+// mano cada vez. El esquema oficial la trae con minOccurs="0", y 243 de las
+// 247 facturas 4.4 de este emisor que Hacienda aceptó no la llevan. La del
+// EMISOR sigue siendo obligatoria (arriba).
+test("la factura electrónica se emite sin la actividad del receptor, y cumple el esquema", async () => {
+  const c = certificado();
+  for (const tipo of ["01", "03"]) {
+    const d = venta(tipo);
+    delete d.documento.actividad_economica;
+    const xml = generarVenta(d);
+    assert.doesNotMatch(xml, /CodigoActividadReceptor/);
+    assert.match(xml, /<CodigoActividadEmisor>/);
+    await validarXml(firmar(xml, c.p12, c.pin), tipo);
+  }
+});
+
+test("una actividad del receptor mal escrita se omite: ni se manda ni bloquea la venta", async () => {
+  const c = certificado();
+  // "47112" es como quedó en la base al copiar de Alegra: sin el punto no son
+  // seis dígitos. Mandarla sería inventar un código; exigirla, pedir un dato
+  // que ya nadie tiene dónde escribir.
+  for (const mala of ["47112", "4711-1", "abc", "   ", null]) {
+    const d = venta("01");
+    d.documento.actividad_economica = mala;
+    const xml = generarVenta(d);
+    assert.doesNotMatch(xml, /CodigoActividadReceptor/, `se mandó "${mala}"`);
+    await validarXml(firmar(xml, c.p12, c.pin), "01");
+  }
+});
+
+test("si el documento ya trae una actividad del receptor bien escrita, se conserva", () => {
+  for (const buena of ["4711.1", "471101"]) {
+    const d = venta("01");
+    d.documento.actividad_economica = buena;
+    assert.match(generarVenta(d), new RegExp(`<CodigoActividadReceptor>${buena.replace(".", "\\.")}</CodigoActividadReceptor>`));
+  }
+  // El tiquete no tiene ese elemento en su esquema, la traiga o no.
+  const tiquete = venta("04");
+  tiquete.documento.actividad_economica = "4711.1";
+  assert.doesNotMatch(generarVenta(tiquete), /CodigoActividadReceptor/);
+});
+
+test("ninguna pantalla pide ni exige la actividad del receptor", () => {
+  const leer = (...partes) =>
+    require("node:fs").readFileSync(path.join(__dirname, "..", "..", "frontend", "src", ...partes), "utf8");
+  const sinComentarios = (t) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const modal = sinComentarios(leer("integrations", "hacienda", "DocumentoFiscal.jsx"));
+  assert.doesNotMatch(modal, /actividadReceptor/);
+  assert.doesNotMatch(modal, /Actividad del receptor/);
+  // La ficha del cliente conserva el dato, pero ya no dice que sin él no se puede facturar.
+  const ficha = sinComentarios(leer("components", "clientes", "ModalCliente.jsx"));
+  assert.match(ficha, /cliente-actividad_economica/);
+  assert.doesNotMatch(ficha, /no se puede emitir una factura/);
+});
+
 test("clave de 50 dígitos y fecha con hora de Costa Rica", () => {
   const d = venta();
   assert.equal(
