@@ -38,7 +38,18 @@ export function useReporteClientes() {
   // También el rollback de un ajuste pertenece a su semana. Un fallo tardío
   // no puede reemplazar las respuestas que ya llegaron para otra selección.
   const [entregasAjustadas, setEntregasAjustadasActual] = useState(new Map())
-  const setEntregasAjustadas = useCallback(valor => { if (esActual()) setEntregasAjustadasActual(valor) }, [esActual])
+  const entregasActuales = useRef(entregasAjustadas)
+  const entregasConfirmadas = useRef(new Map())
+  const versionesAjuste = useRef(new Map())
+  const guardadosPendientes = useRef(new Map())
+  const setEntregasAjustadas = useCallback(valor => {
+    if (!esActual()) return
+    // La referencia también recoge cambios del mismo clic, antes del render.
+    // Cada operación modifica su línea sobre el mapa más reciente.
+    const siguiente = typeof valor === 'function' ? valor(entregasActuales.current) : valor
+    entregasActuales.current = siguiente
+    setEntregasAjustadasActual(siguiente)
+  }, [esActual])
   const [historialCambios, setHistorialCambiosActual] = useState(new Map())
   const setHistorialCambios = useCallback(valor => { if (esActual()) setHistorialCambiosActual(valor) }, [esActual])
   const [facturasEstado, setFacturasEstadoActual] = useState(new Map())
@@ -94,12 +105,14 @@ export function useReporteClientes() {
         })
 
         setFacturasEstado(estadosMap)
+        entregasConfirmadas.current = new Map(ajustesMap)
         setEntregasAjustadas(ajustesMap)
       } else {
         setClientes([])
         setResumen(null)
         setFacturasEstado(new Map())
         setEntregasAjustadas(new Map())
+        entregasConfirmadas.current = new Map()
         setHistorialCambios(new Map())
         setError(result.message || 'Error cargando reporte')
       }
@@ -107,6 +120,7 @@ export function useReporteClientes() {
       if (esActual() && actual === peticion.current) {
         setClientes([]); setResumen(null)
         setFacturasEstado(new Map()); setEntregasAjustadas(new Map()); setHistorialCambios(new Map())
+        entregasConfirmadas.current = new Map()
         setError(err.message)
       }
     } finally {
@@ -120,9 +134,23 @@ export function useReporteClientes() {
 
   // ==================== ACCIONES SOBRE FACTURAS ====================
 
+  const esperarGuardados = useCallback(async factura => {
+    while (esActual()) {
+      const pendientes = factura.productos_faltantes.map(p => guardadosPendientes.current.get(p.faltante_id)).filter(Boolean)
+      if (!pendientes.length) return
+      const resultados = await Promise.allSettled(pendientes)
+      const fallo = resultados.find(r => r.status === 'rejected')
+      if (fallo) throw fallo.reason
+    }
+  }, [esActual])
+
   const handleFacturaLista = useCallback(async (clienteNombre, factura) => {
-    if (!facturaListaParaImprimir(factura, entregasAjustadas)) {
-      const progreso = getFacturaProgreso(factura, entregasAjustadas)
+    try { await esperarGuardados(factura) }
+    catch (e) { if (esActual()) showToast(`No se pudo guardar la revisión: ${e.message}`, 'error'); return }
+    if (!esActual()) return
+    const confirmadas = entregasConfirmadas.current
+    if (!facturaListaParaImprimir(factura, confirmadas)) {
+      const progreso = getFacturaProgreso(factura, confirmadas)
       showToast(`Falta revisar ${progreso.porRevisar} producto(s) antes de enviar a impresión`, 'warning')
       return
     }
@@ -130,7 +158,7 @@ export function useReporteClientes() {
     const ajustesFactura = []
     factura.productos_faltantes.forEach((producto) => {
       const key = getProductKey(factura, producto)
-      const ajuste = entregasAjustadas.get(key)
+      const ajuste = confirmadas.get(key)
       if (ajuste) {
         ajustesFactura.push({ producto_codigo: producto.codigo, producto_nombre: producto.nombre, cantidad_faltante: producto.cantidad_faltante, cantidad_entregada: ajuste.cantidadEntregada, estado: ajuste.estado, requiere_actualizacion: ajuste.requiereActualizacion })
       } else {
@@ -150,21 +178,26 @@ export function useReporteClientes() {
     if (!confirmado || !esActual()) return
 
     try {
+      await esperarGuardados(factura)
+      if (!esActual()) return
+      if (!facturaListaParaImprimir(factura, entregasConfirmadas.current)) {
+        showToast('La revisión cambió. Confirma los productos antes de enviarla a Impresión.', 'warning')
+        return
+      }
       // Por el id PROPIO de la factura. El servidor arma los ajustes con lo
       // que esta pantalla fue guardando producto por producto; los de acá
       // son solo para el resumen de la confirmación.
       await colaImpresionService.enviarDesdeReporte(factura.factura_id)
+      if (!esActual()) return
       const facturaKey = getFacturaKey(factura)
-      const nuevosEstados = new Map(facturasEstado)
       // El mismo estado con que vuelve al recargar: en la cola de Impresión.
-      nuevosEstados.set(facturaKey, { estado: 'en_cola_impresion', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: true, origen: 'cola_impresion' })
-      setFacturasEstado(nuevosEstados)
+      setFacturasEstado(prev => new Map(prev).set(facturaKey, { estado: 'en_cola_impresion', timestamp: new Date().toISOString(), ajustes: ajustesFactura, requiere_reimpresion: true, origen: 'cola_impresion' }))
 
       showToast(`Factura #${factura.numero_factura} enviada a Impresión (${ajustesFactura.length} productos${requiereReimpresion ? ', requiere cambios' : ''}). Usa "Recuperar" si necesitas editarla.`, 'success')
     } catch (error) {
       showToast(`Error procesando factura: ${error.message}`, 'error')
     }
-  }, [entregasAjustadas, facturasEstado, confirm, showToast, esActual, setFacturasEstado])
+  }, [confirm, showToast, esActual, setFacturasEstado, esperarGuardados])
 
   const handleRecuperarFactura = useCallback(async (factura) => {
     const facturaKey = getFacturaKey(factura)
@@ -172,14 +205,13 @@ export function useReporteClientes() {
     if (!confirmado || !esActual()) return
     try {
       await colaImpresionService.recuperarDesdeReporte(factura.factura_id)
-      const nuevosEstados = new Map(facturasEstado)
-      nuevosEstados.delete(facturaKey)
-      setFacturasEstado(nuevosEstados)
+      if (!esActual()) return
+      setFacturasEstado(prev => { const nuevosEstados = new Map(prev); nuevosEstados.delete(facturaKey); return nuevosEstados })
       showToast(`Factura #${factura.numero_factura} recuperada.`, 'success')
     } catch (error) {
       showToast(`Error recuperando factura: ${error.message}`, 'error')
     }
-  }, [facturasEstado, confirm, showToast, esActual, setFacturasEstado])
+  }, [confirm, showToast, esActual, setFacturasEstado])
 
   // ==================== AJUSTES DE ENTREGA POR PRODUCTO ====================
 
@@ -191,219 +223,157 @@ export function useReporteClientes() {
     })
   }, [setHistorialCambios])
 
+  const serializarGuardado = useCallback((producto, trabajo) => {
+    const id = producto?.faltante_id
+    if (!id) return Promise.reject(new Error('Recarga el reporte: el producto no tiene un faltante válido.'))
+    // Elegir otra respuesta o confirmar puede ocurrir antes del primer POST.
+    // Una línea va en orden; distintas líneas siguen guardándose en paralelo.
+    const anterior = guardadosPendientes.current.get(id) || Promise.resolve()
+    const siguiente = anterior.catch(() => {}).then(() => {
+      if (!esActual()) throw new Error('La selección cambió; recarga el reporte.')
+      return trabajo()
+    })
+    guardadosPendientes.current.set(id, siguiente)
+    const retirar = () => { if (guardadosPendientes.current.get(id) === siguiente) guardadosPendientes.current.delete(id) }
+    siguiente.then(retirar, retirar)
+    return siguiente
+  }, [esActual])
+
   const guardarAjusteEnBD = useCallback(async (producto, ajuste) => {
-    if (!producto?.faltante_id) return
     try {
-      await alegraService.guardarAjusteFaltante({
+      await serializarGuardado(producto, () => alegraService.guardarAjusteFaltante({
         faltanteId: producto.faltante_id,
         cantidadEntregada: ajuste.cantidad_entregada,
         estado: ajuste.estado,
         requiereActualizacion: ajuste.requiere_actualizacion,
         revisado: ajuste.revisado
-      })
+      }))
     } catch (error) {
       setError(`Error guardando ajuste: ${error.message}`)
       throw error
     }
-  }, [setError])
+  }, [setError, serializarGuardado])
 
   const eliminarAjusteDeBD = useCallback(async (producto) => {
-    if (!producto?.faltante_id) return
     try {
-      await alegraService.eliminarAjusteFaltante(producto.faltante_id)
+      await serializarGuardado(producto, () => alegraService.eliminarAjusteFaltante(producto.faltante_id))
     } catch (error) {
       setError(`Error eliminando ajuste: ${error.message}`)
       throw error
     }
-  }, [setError])
+  }, [setError, serializarGuardado])
+
+  const cambiarEntrega = useCallback(async (key, producto, nueva) => {
+    const version = Symbol()
+    versionesAjuste.current.set(key, version)
+    const poner = (mapa, entrega) => { const siguiente = new Map(mapa); if (entrega) siguiente.set(key, entrega); else siguiente.delete(key); return siguiente }
+    setEntregasAjustadas(prev => poner(prev, nueva))
+    try {
+      if (nueva) await guardarAjusteEnBD(producto, {
+        cantidad_entregada: nueva.cantidadEntregada, estado: nueva.estado,
+        requiere_actualizacion: nueva.requiereActualizacion, revisado: nueva.revisado
+      })
+      else await eliminarAjusteDeBD(producto)
+      if (esActual()) entregasConfirmadas.current = poner(entregasConfirmadas.current, nueva)
+    } catch (e) {
+      // Volver solo esta línea a lo persistido. Un fallo viejo tampoco puede
+      // pisar una respuesta más nueva, ni borrar éxitos de otras líneas.
+      if (versionesAjuste.current.get(key) === version) {
+        setEntregasAjustadas(prev => poner(prev, entregasConfirmadas.current.get(key)))
+      }
+      throw e
+    } finally {
+      if (versionesAjuste.current.get(key) === version) versionesAjuste.current.delete(key)
+    }
+  }, [setEntregasAjustadas, guardarAjusteEnBD, eliminarAjusteDeBD, esActual])
 
   const handleCantidadEntregadaChange = useCallback(async (key, cantidadEntregada, producto) => {
     setError(null)
     const cantidadNumerica = Number.parseInt(cantidadEntregada ?? 0, 10)
     const cantidadFaltante = producto.cantidad_faltante
     const cantidadNormalizada = Number.isNaN(cantidadNumerica) ? 0 : Math.min(Math.max(cantidadNumerica, 0), cantidadFaltante)
-    const entregaAnterior = getEntregaInfo(key, producto, entregasAjustadas)
+    const entregaAnterior = getEntregaInfo(key, producto, entregasActuales.current)
     if (cantidadNormalizada === (entregaAnterior.cantidadEntregada ?? 0) && entregaAnterior.estado === 'parcial' && entregaAnterior.revisado === false) return
     if (entregaAnterior.tieneAjuste) guardarHistorial(key, 'cambio_cantidad', entregaAnterior.cantidadEntregada, cantidadNormalizada)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    let estado = 'pendiente', cantidadAReducir = 0, requiereActualizacion = false
-    if (cantidadNormalizada >= cantidadFaltante) { estado = 'completo' }
-    else if (cantidadNormalizada > 0) { estado = 'parcial'; cantidadAReducir = Math.max(cantidadFaltante - cantidadNormalizada, 0); requiereActualizacion = true }
-    if (cantidadNormalizada === 0) {
-      newMap.delete(key)
-      setEntregasAjustadas(newMap)
-      try { await eliminarAjusteDeBD(producto) } catch (e) { setEntregasAjustadas(prevMap) }
-      return
-    }
-    const nuevoAjuste = {
+    const nuevoAjuste = cantidadNormalizada === 0 ? null : {
       faltanteId: producto.faltante_id,
       cantidadFaltante,
       cantidadEntregada: cantidadNormalizada,
-      cantidadAReducir,
-      estado,
+      cantidadAReducir: Math.max(cantidadFaltante - cantidadNormalizada, 0),
+      estado: cantidadNormalizada >= cantidadFaltante ? 'completo' : 'parcial',
       tieneAjuste: true,
-      requiereActualizacion,
+      requiereActualizacion: cantidadNormalizada < cantidadFaltante,
       revisado: false
     }
-    newMap.set(key, nuevoAjuste)
-    setEntregasAjustadas(newMap)
-    try {
-      await guardarAjusteEnBD(producto, {
-        cantidad_entregada: cantidadNormalizada,
-        estado,
-        requiere_actualizacion: requiereActualizacion,
-        revisado: false
-      })
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, eliminarAjusteDeBD, setEntregasAjustadas, setError])
+    try { await cambiarEntrega(key, producto, nuevoAjuste) } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega, setError])
 
   const handleMarcarCompleto = useCallback(async (key, producto) => {
-    guardarHistorial(key, 'marcar_completo', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, producto.cantidad_faltante)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    const nuevoAjuste = {
-      faltanteId: producto.faltante_id,
-      cantidadFaltante: producto.cantidad_faltante,
-      cantidadEntregada: producto.cantidad_faltante,
-      cantidadAReducir: 0,
-      estado: 'completo',
-      tieneAjuste: true,
-      requiereActualizacion: false,
-      revisado: false
-    }
-    newMap.set(key, nuevoAjuste)
-    setEntregasAjustadas(newMap)
+    guardarHistorial(key, 'marcar_completo', getEntregaInfo(key, producto, entregasActuales.current).cantidadEntregada, producto.cantidad_faltante)
     try {
-      await guardarAjusteEnBD(producto, {
-        cantidad_entregada: producto.cantidad_faltante,
+      await cambiarEntrega(key, producto, {
+        faltanteId: producto.faltante_id,
+        cantidadFaltante: producto.cantidad_faltante,
+        cantidadEntregada: producto.cantidad_faltante,
+        cantidadAReducir: 0,
         estado: 'completo',
-        requiere_actualizacion: false,
+        tieneAjuste: true,
+        requiereActualizacion: false,
         revisado: false
       })
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, setEntregasAjustadas, setError])
+    } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega])
 
   const handleNoLlegoNada = useCallback(async (key, producto) => {
-    guardarHistorial(key, 'no_llego_nada', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, -1)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    const nuevoAjuste = {
-      faltanteId: producto.faltante_id,
-      cantidadFaltante: producto.cantidad_faltante,
-      cantidadEntregada: 0,
-      cantidadAReducir: producto.cantidad_faltante,
-      estado: 'no_llego',
-      tieneAjuste: true,
-      requiereActualizacion: true,
-      revisado: false
-    }
-    newMap.set(key, nuevoAjuste)
-    setEntregasAjustadas(newMap)
+    guardarHistorial(key, 'no_llego_nada', getEntregaInfo(key, producto, entregasActuales.current).cantidadEntregada, -1)
     try {
-      await guardarAjusteEnBD(producto, {
-        cantidad_entregada: 0,
+      await cambiarEntrega(key, producto, {
+        faltanteId: producto.faltante_id,
+        cantidadFaltante: producto.cantidad_faltante,
+        cantidadEntregada: 0,
+        cantidadAReducir: producto.cantidad_faltante,
         estado: 'no_llego',
-        requiere_actualizacion: true,
+        tieneAjuste: true,
+        requiereActualizacion: true,
         revisado: false
       })
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, setEntregasAjustadas, setError])
+    } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega])
 
   const handleMarcarRevisado = useCallback(async (key, producto) => {
-    const entrega = entregasAjustadas.get(key)
+    const entrega = entregasActuales.current.get(key)
     if (!entrega) return
     guardarHistorial(key, 'marcar_revisado', false, true)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    const actualizado = { ...entrega, revisado: true }
-    newMap.set(key, actualizado)
-    setEntregasAjustadas(newMap)
-    try {
-      await guardarAjusteEnBD(producto, {
-        cantidad_entregada: entrega.cantidadEntregada,
-        estado: entrega.estado,
-        requiere_actualizacion: entrega.requiereActualizacion,
-        revisado: true
-      })
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, setEntregasAjustadas, setError])
+    try { await cambiarEntrega(key, producto, { ...entrega, revisado: true }) } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega])
 
   const handleReabrirRevision = useCallback(async (key, producto) => {
-    const entrega = entregasAjustadas.get(key)
+    const entrega = entregasActuales.current.get(key)
     if (!entrega) return
     guardarHistorial(key, 'reabrir_revision', true, false)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    const actualizado = { ...entrega, revisado: false }
-    newMap.set(key, actualizado)
-    setEntregasAjustadas(newMap)
-    try {
-      await guardarAjusteEnBD(producto, {
-        cantidad_entregada: entrega.cantidadEntregada,
-        estado: entrega.estado,
-        requiere_actualizacion: entrega.requiereActualizacion,
-        revisado: false
-      })
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, guardarAjusteEnBD, setEntregasAjustadas, setError])
+    try { await cambiarEntrega(key, producto, { ...entrega, revisado: false }) } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega])
 
   const handleQuitarRespuesta = useCallback(async (key, producto) => {
-    guardarHistorial(key, 'quitar_respuesta', getEntregaInfo(key, producto, entregasAjustadas).cantidadEntregada, 0)
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
-    newMap.delete(key)
-    setEntregasAjustadas(newMap)
-    try {
-      await eliminarAjusteDeBD(producto)
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-    }
-  }, [entregasAjustadas, guardarHistorial, eliminarAjusteDeBD, setEntregasAjustadas, setError])
+    guardarHistorial(key, 'quitar_respuesta', getEntregaInfo(key, producto, entregasActuales.current).cantidadEntregada, 0)
+    try { await cambiarEntrega(key, producto, null) } catch { /* el banner explica el fallo */ }
+  }, [guardarHistorial, cambiarEntrega])
 
   const handleMarcarFacturaRevisada = useCallback(async (factura) => {
-    const prevMap = new Map(entregasAjustadas)
-    const newMap = new Map(entregasAjustadas)
     const promesasGuardado = []
-
-    factura.productos_faltantes.forEach((producto) => {
+    factura.productos_faltantes.forEach(producto => {
       const key = getProductKey(factura, producto)
-      const entrega = newMap.get(key)
-      if (entrega && !entrega.revisado) {
-        const actualizado = { ...entrega, revisado: true }
-        newMap.set(key, actualizado)
-        promesasGuardado.push(
-          guardarAjusteEnBD(producto, {
-            cantidad_entregada: entrega.cantidadEntregada,
-            estado: entrega.estado,
-            requiere_actualizacion: entrega.requiereActualizacion,
-            revisado: true
-          })
-        )
-      }
+      const entrega = entregasActuales.current.get(key)
+      if (entrega && !entrega.revisado) promesasGuardado.push(cambiarEntrega(key, producto, { ...entrega, revisado: true }))
     })
-
-    if (promesasGuardado.length === 0) return
-
-    setEntregasAjustadas(newMap)
-    try {
-      await Promise.all(promesasGuardado)
-      showToast(`Factura #${factura.numero_factura} revisada correctamente`, 'success')
-    } catch (e) {
-      setEntregasAjustadas(prevMap)
-      showToast(`Error confirmando revisión de la factura: ${e.message}`, 'error')
-    }
-  }, [entregasAjustadas, guardarAjusteEnBD, showToast, setEntregasAjustadas, setError])
+    if (!promesasGuardado.length) return
+    // Cada resultado conserva o revierte su propia línea, incluso si otra falla.
+    const resultados = await Promise.allSettled(promesasGuardado)
+    if (!esActual()) return
+    const fallo = resultados.find(r => r.status === 'rejected')
+    if (fallo) showToast(`Error confirmando revisión de la factura: ${fallo.reason.message}`, 'error')
+    else showToast(`Factura #${factura.numero_factura} revisada correctamente`, 'success')
+  }, [cambiarEntrega, showToast, esActual])
 
   // ==================== CONTADORES ====================
 

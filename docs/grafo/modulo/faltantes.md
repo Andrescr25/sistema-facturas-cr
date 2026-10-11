@@ -17,6 +17,8 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
   - backend/src/modules/reprinting/procesarImpresion.js
   - backend/src/modules/missing-items/missing-items.service.js
+  - backend/src/modules/missing-items/ajusteEntrega.js
+  - backend/src/modules/missing-items/missing-items.controller.js
   - backend/services/proveedorAsignacionService.js
   - backend/src/modules/proveedores/proveedores.asignacion.service.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.service.js
@@ -34,6 +36,9 @@ archivos:
   - backend/tests/impresionPropia.test.js
   - backend/tests/impresionPropiaLocal.test.js
   - backend/tests/impresionHook.test.js
+  - backend/tests/ajustesFaltantesImpresion.test.js
+  - backend/tests/reporteClientesGuardado.test.js
+  - docs/informes/auditoria-impresion-2026-10-11.md
   - docs/informes/impresion-pedido-exacto-2026-10-08.md
   - backend/tests/horaEnvioImpresion.test.js
   - backend/tests/reporteClientesFiltros.test.js
@@ -46,7 +51,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-08
+medido: 2026-10-11
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -93,8 +98,35 @@ DAR POR LISTA (Reporte de Clientes → Impresión,
 `POST /reportes/faltantes/cliente/facturas/:facturaId/impresion`): los
 ajustes se arman en el servidor con lo que la pantalla fue guardando
 producto por producto (`faltantes_ajustes`), no con lo que mande la
-pantalla; un faltante sin respuesta se rebaja entero. La cola reusa la fila
-de la factura: hay una por factura.
+pantalla. Desde la auditoría del 2026-10-11, un envío nuevo exige una respuesta
+coherente y `revisado = true` persistido para cada faltante. La cola reusa la
+fila de la factura: hay una por factura.
+
+GUARDADOS Y ENVÍO COORDINADOS (auditoría tras el corte, 2026-10-11). Antes,
+guardar/borrar un ajuste no bloqueaba la factura ni comprobaba si estaba en
+Impresión; encolar tampoco exigía la revisión en la base. Un POST atrasado
+podía cambiar una entrega ya enviada, o Impresión podía recibir la respuesta
+anterior mientras se guardaba la confirmación. Guardar/borrar toma primero
+el bloqueo de factura y después el de faltante, en la misma transacción, y
+rechaza facturas anuladas, faltantes procesados o una cola pendiente (409).
+Recuperar desde Reporte de Clientes habilita de nuevo sus ajustes.
+
+La entrega es un entero entre 0 y el faltante: `no_llego` es 0, `completo`
+es toda esa cantidad, y `parcial` queda entre ambos. El servidor deriva
+`requiere_actualizacion` de la cantidad, y una respuesta cambiada sin bandera
+de revisión pierde su confirmación anterior. Encolar comprueba también los
+ajustes antiguos, bajo el mismo bloqueo, antes de escribir la cola. Las colas
+ya existentes conservan su procesamiento; no hay migración ni corrección
+automática de documentos emitidos.
+
+En la pantalla, los guardados y borrados de un mismo faltante se ejecutan en
+orden. Enviar espera las respuestas pendientes y comprueba la revisión
+persistida antes y después del diálogo. El rollback vuelve solo la línea que
+falló al último valor confirmado, sin borrar éxitos de otras líneas ni pisar
+una intención más nueva. La revisión masiva conserva cada éxito. Una respuesta
+de otra selección no modifica la vista actual ni envía sus peticiones en espera.
+Las pruebas nuevas reproducen estos cruces con PostgreSQL desechable y los
+manejadores reales del hook con promesas controladas; ver el informe del día.
 
 RECUPERAR desde el Reporte de Clientes (`.../recuperar`): si todavía no se
 imprimió, la factura SALE de la cola; si ya se procesó, sus faltantes vuelven
@@ -173,7 +205,8 @@ cuánto se le quitó ya a la factura (`cantidad_rebajada`) y procesar aplica la
 diferencia. Antes —también con Alegra— se calculaba sobre la cantidad de hoy:
 una factura recuperada y vuelta a procesar se rebajaba dos veces. Si después
 llegó más, se le devuelve a la línea (o la línea vuelve, con el precio del
-catálogo). Un faltante sin respuesta se rebaja entero.
+catálogo). Una cola histórica sin respuesta conserva la rebaja completa;
+los envíos nuevos exigen confirmar explícitamente qué llegó.
 
 UNA FACTURA CON COBROS NO SE EDITA: Impresión lo dice ("hay que revertir el
 cobro antes de editarla") y la deja en la cola. Medido en el historial: en

@@ -666,6 +666,14 @@ semanal. Evidencia en [el nodo de la demostración](grafo/modulo/demo-reporte-pr
   bloqueada al recargar) o reabre los faltantes de la ya procesada. Visto en
   el navegador: Bodega → No llegó → Confirmar revisión → Enviar a impresión →
   aparece en Impresión → Recuperar → editable al recargar.*
+  *Auditoría posterior al corte, 2026-10-11: guardar/borrar y encolar comparten
+  el bloqueo de factura; no se modifican entregas en cola/procesadas/anuladas.
+  Encolar exige respuestas coherentes y revisión persistida. La pantalla
+  serializa cada línea, espera sus guardados y revierte solo el ajuste que
+  falló, conservando éxitos concurrentes y de revisión masiva. 26 regresiones
+  nuevas y 75 pruebas existentes pasan sobre copia desechable o dobles sin
+  salidas, más build frontend. Sin migración SQL ni escrituras de prueba en
+  producción. [Informe](informes/auditoria-impresion-2026-10-11.md).*
 - [x] Impresión: editar con la edición propia, PDF propio y marcar procesada
   sin Alegra — *2026-09-30: `reprinting/procesarImpresion.js` bajo
   `/reimpresion`: rebaja faltantes, pone precios del catálogo y marca

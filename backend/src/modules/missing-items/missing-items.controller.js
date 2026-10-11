@@ -23,8 +23,8 @@ async function saveAdjustment(req, res) {
 
     res.json(result);
   } catch (error) {
-    console.error('❌ Error guardando ajuste:', error);
-    res.status(500).json({ success: false, error: error.message });
+    if (!error.status) console.error('❌ Error guardando ajuste:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 }
 
@@ -38,8 +38,8 @@ async function deleteAdjustment(req, res) {
     const result = await missingItemsService.deleteAdjustment(faltanteId);
     res.json(result);
   } catch (error) {
-    console.error('❌ Error eliminando ajuste:', error);
-    res.status(500).json({ success: false, error: error.message });
+    if (!error.status) console.error('❌ Error eliminando ajuste:', error);
+    res.status(error.status || 500).json({ success: false, error: error.message });
   }
 }
 

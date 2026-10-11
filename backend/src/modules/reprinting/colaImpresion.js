@@ -23,6 +23,7 @@
 const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
+const { validarEntrega } = require('../missing-items/ajusteEntrega');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -83,13 +84,13 @@ async function ponerEnCola(db, facturaId, { ajustes, categoria }) {
 /**
  * Lo que llegó de cada faltante de una factura, tal como quedó guardado en
  * el Reporte de Clientes (`faltantes_ajustes`, que se escribe producto por
- * producto mientras se revisa). Un faltante sin respuesta es "no se sabe":
- * se rebaja todo.
+ * producto mientras se revisa). La propuesta de una cola anterior conserva
+ * su comportamiento; un envío nuevo exige respuesta y revisión persistidas.
  */
 async function ajustesDeFactura(db, facturaId) {
   const { rows } = await db.query(`
     SELECT f.id AS faltante_id, f.cantidad_faltante, p.id AS producto_id, p.referencia, p.nombre,
-           aj.cantidad_entregada, aj.estado, aj.requiere_actualizacion
+           aj.cantidad_entregada, aj.estado, aj.requiere_actualizacion, aj.revisado
       FROM faltantes f
       JOIN producto p ON p.id = f.producto_propio_id
       LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
@@ -107,6 +108,7 @@ async function ajustesDeFactura(db, facturaId) {
     cantidad_faltante: Number(r.cantidad_faltante),
     cantidad_entregada: Number(r.cantidad_entregada) || 0,
     estado: r.estado || 'pendiente',
+    revisado: r.revisado === true,
     requiere_actualizacion: r.estado ? r.requiere_actualizacion === true : true
   }));
 }
@@ -128,6 +130,18 @@ async function encolarDesdeReporte(facturaIdCrudo) {
 
     const ajustes = await ajustesDeFactura(c, facturaId);
     if (ajustes.length === 0) throw httpError(409, `La factura ${f.numero} no tiene faltantes pendientes.`);
+    // El formulario confirma antes de enviarla, pero ese guardado puede
+    // seguir en vuelo. Se exige la revisión persistida bajo el mismo bloqueo.
+    for (const ajuste of ajustes) {
+      if (!ajuste.revisado) throw httpError(409, 'Falta confirmar la revisión de todos los productos antes de enviar a Impresión.');
+      try {
+        ajuste.requiere_actualizacion = validarEntrega(ajuste.cantidad_faltante, {
+          cantidadEntregada: ajuste.cantidad_entregada, estado: ajuste.estado, revisado: ajuste.revisado
+        }).requiereActualizacion;
+      } catch (error) {
+        throw httpError(409, 'Hay una entrega incoherente. Recupere y revise la factura antes de enviarla a Impresión.');
+      }
+    }
     const requiereCambios = ajustes.some((aj) => aj.requiere_actualizacion);
     await ponerEnCola(c, facturaId, { ajustes, categoria: requiereCambios ? 'requiere_cambios' : 'sin_cambios' });
     return { factura_id: facturaId, numero_factura: f.numero, total_ajustes: ajustes.length, requiere_cambios: requiereCambios };
