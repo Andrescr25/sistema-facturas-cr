@@ -75,6 +75,14 @@ planificador separado, con el mismo almacenamiento y base. Producción sigue
 la guarda `salidasBloqueadas`; la copia de migración conserva sus salidas
 reales bloqueadas. Las dos configuraciones parten deshabilitadas.
 
+## Numeración
+
+El próximo comprobante sale con el número que dice el numerador de su tipo
+(factura, tiquete, nota de crédito) y un número ya usado se salta solo. Se ve
+y se cambia en Configuración → Hacienda → “Numeración”; cada cambio queda en
+la bitácora. No se puede retroceder al medio de una numeración ya usada.
+Regla y porqué: `numeracion.js`.
+
 ## Flujo y recuperación
 
 **Una factura se emite con un clic** (2026-10-11): el botón “Emitir

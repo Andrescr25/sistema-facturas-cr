@@ -9,6 +9,7 @@ archivos:
   - backend/src/integrations/hacienda/rutas.js
   - backend/src/integrations/hacienda/configuracion.service.js
   - backend/src/integrations/hacienda/emision.service.js
+  - backend/src/integrations/hacienda/numeracion.js
   - backend/src/integrations/hacienda/lectura.service.js
   - backend/src/integrations/hacienda/trabajador.js
   - backend/src/integrations/hacienda/transporte/cliente.js
@@ -30,6 +31,10 @@ archivos:
   - frontend/src/integrations/hacienda/api.js
   - backend/tests/emisionUnClic.test.js
   - backend/tests/haciendaUnClicPg.test.js
+  - backend/tests/haciendaNumeracion.test.js
+  - backend/tests/haciendaNumeracionPg.test.js
+  - frontend/src/integrations/hacienda/NumeracionHacienda.jsx
+  - frontend/src/integrations/hacienda/numeracionTexto.js
   - frontend/src/integrations/hacienda/catalogos.js
   - backend/tests/haciendaFiscal.test.js
   - backend/tests/haciendaTransporte.test.js
@@ -202,13 +207,11 @@ Dos cosas medidas ese día en producción, que explican lo que se va a ver:
   Cada base lleva su propio numerador de pruebas; el segundo intento usa el 2.
   De paso confirma que en Render ya funciona toda la cadena: XML, firma,
   envío y respuesta.
-- **La primera FE real saldrá con el número 4947, no con el 2481.** En
-  producción la serie de Alegra va por el 2480, pero hay dos facturas
-  aceptadas con consecutivo 4902 y 4946 (nacieron como tiquete y Alegra les
-  dejó ese número). `numerar` arranca en el máximo + 1 para no repetir
-  nunca. Deja un salto de numeración; a cambio, si Alegra —que queda de
-  respaldo— vuelve a emitir, sigue en 2481 y no choca. Es decisión fiscal del
-  usuario si prefiere continuar en 2481 saltándose esos dos.
+- **La primera FE real salió con el número 4947, no con el 2481**
+  (aceptada el 2026-10-11 a las 14:19, factura 5565; y una nota de crédito
+  con el 82). En producción la serie de Alegra iba por el 2480, pero hay dos
+  facturas aceptadas con consecutivo 4902 y 4946 (nacieron como tiquete y
+  Alegra les dejó ese número), y `numerar` arrancaba en el máximo + 1.
 
 UN CLIC EMITE, Y LA FACTURA CUENTA QUÉ PASA (2026-10-11). Pedido del usuario:
 «ocupo que con solo darle a este botón ya se emita electrónicamente y no me
@@ -272,3 +275,43 @@ Hacienda y correo simulados: aceptación, tiquete, rechazo y reemisión, envío
 no recibido, Hacienda lenta, descuento, pruebas y correo bloqueado. **No se
 emitió nada real ni salió ningún correo**: la primera factura de producción y
 su correo los va a ver el usuario.
+
+LA NUMERACIÓN LA DECIDE EL DUEÑO (2026-10-11, noche). Con la primera factura
+ya en el 4947, el usuario dijo, textual: «empieza la factura electrónica con
+2481». Con la regla vieja no se podía: el número era siempre "el mayor que
+exista + 1", releído en cada reserva, y todo valor menor se ignoraba.
+
+La regla nueva (`numeracion.js`):
+- **Manda el numerador** (`hacienda_numerador.siguiente`). "El mayor + 1" solo
+  sirve para arrancar una serie que todavía no tiene numerador.
+- **Un número ya usado se salta al llegar**, sea de una factura de Alegra (por
+  serie y consecutivo, o porque consta en su clave) o de un comprobante
+  propio. Protege igual que antes —si se carga después un documento de Alegra
+  con un número de adelante, se salta ese y nada más— sin que un número suelto
+  arrastre toda la serie. Seguir desde 2481 deja 4902, 4946 y 4947 para
+  saltarse cuando toque.
+- **Se cambia desde Configuración → Hacienda → "Numeración"**
+  (`NumeracionHacienda.jsx`; `GET`/`PUT /api/configuracion/hacienda/:ambiente/numeracion`),
+  por tipo: factura, tiquete y nota de crédito. Pide el módulo Configuración
+  y queda en la bitácora (`hacienda_numerador`). La pantalla dice qué número
+  sale y cuáles ya usados se van a saltar.
+- **No deja retroceder al medio de una numeración ya usada**: se rechaza un
+  número que tenga por delante más de diez usados. De los 2.480 números de
+  Alegra esta base conoce 502; "libre" ahí no quiere decir "sin usar".
+- En pruebas vale lo mismo, con su propia cuenta: sirve para adelantarla
+  cuando otra copia ya gastó esos números con la misma cuenta de Hacienda.
+
+POR QUÉ ES UN BOTÓN Y NO UNA MIGRACIÓN: producción no tiene quien corra
+migraciones solo, y el número es una decisión fiscal que puede volver a
+cambiar. **Falta que el usuario lo ponga en 2481** en producción (hoy dice
+4948); el código solo no lo cambia.
+
+Riesgo que él aceptó: Alegra queda de respaldo con su propia cuenta en 2481.
+Si vuelve a emitir desde allá sin cambiarle la numeración, Hacienda rechaza
+el repetido. La pantalla lo avisa.
+
+Verificado: `haciendaNumeracion.test.js`, `haciendaNumeracionPg.test.js`
+(base desechable, con el caso real: serie en 2480, sueltos en 4902 y 4946,
+primera en 4947, cambio a 2481; rompiendo cada regla, alguna prueba falla) y
+un Chromium real a 1440, 820 y 390 px: cambio a 2481, dos facturas emitidas
+con 2481 y 2482, y el salto de 4946 a 4948.

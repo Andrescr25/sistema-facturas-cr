@@ -376,10 +376,24 @@ test(
           assert.equal(original.numero, "ZZ-hacienda");
           assert.equal(original.total, "113.00");
           assert.equal(original.electronica, false);
+          // DECISIÓN DEL USUARIO (2026-10-11): un número suelto de más
+          // adelante ya no arrastra la serie. Antes, con el 9900 cargado, la
+          // siguiente saltaba al 9901; así fue como la primera factura real
+          // salió con el 4947 cuando la serie iba por el 2480. Ahora sigue
+          // donde dice el numerador y el 9900 se salta AL LLEGAR.
           const p = await s.preparar("factura", await crear(), {
             ambiente: "produccion",
           });
-          assert.equal(p.consecutivo, "00100001010000009901");
+          assert.ok(
+            Number(p.consecutivo.slice(-10)) < 9900,
+            "un número suelto de más adelante arrastró la serie",
+          );
+          const numeracion = require("../src/integrations/hacienda/numeracion");
+          await numeracion.fijar(puente, "produccion", { tipo: "01", siguiente: "9900" });
+          const q = await s.preparar("factura", await crear(), {
+            ambiente: "produccion",
+          });
+          assert.equal(q.consecutivo, "00100001010000009901");
           assert.deepEqual(await inventario(), antes);
         },
       );

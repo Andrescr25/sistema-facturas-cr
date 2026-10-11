@@ -9,6 +9,7 @@ import {
   descargar,
   mensajeError,
 } from "./api";
+import NumeracionHacienda from "./NumeracionHacienda";
 
 const CAMPOS = [
   [
@@ -270,6 +271,9 @@ export default function ConfiguracionHacienda() {
           </>
         )}
       </div>
+      {/* Con qué número sale el próximo comprobante. Se relee al guardar la
+          configuración: la serie depende de la sucursal y la terminal. */}
+      {estado && <NumeracionHacienda key={`${ambiente}-${estado.revision}`} ambiente={ambiente} />}
       <div className="rounded-2xl border border-neutro-200 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-bold">

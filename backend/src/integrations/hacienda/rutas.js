@@ -5,6 +5,7 @@ const { pool } = require("../../../config/database");
 const config = require("./configuracion.service");
 const { crearServicio } = require("./emision.service");
 const { crearCliente } = require("./transporte/cliente");
+const numeracion = require("./numeracion");
 const { enTransaccion } = require("../../utils/transaccion");
 const { error } = require("./errores");
 // EL CORREO SE ENCHUFA ACÁ, no dentro del servicio fiscal: el módulo de
@@ -93,6 +94,25 @@ configuracion.put(
       req.file?.buffer.fill(0);
     }
   }),
+);
+// Con qué número sale el próximo comprobante de cada tipo, y cambiarlo. Es
+// una decisión fiscal del dueño: ver numeracion.js.
+configuracion.get(
+  "/:ambiente/numeracion",
+  envolver(async (req, res) =>
+    res.json({ success: true, data: await numeracion.ver(pool, req.params.ambiente) }),
+  ),
+);
+configuracion.put(
+  "/:ambiente/numeracion",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: await enTransaccion(pool, (db) =>
+        numeracion.fijar(db, req.params.ambiente, req.body || {}, req.usuario?.id),
+      ),
+    }),
+  ),
 );
 configuracion.post(
   "/:ambiente/probar",

@@ -21,6 +21,16 @@ export async function guardar(ambiente, datos, archivo) {
     })
   ).data.data;
 }
+/** Con qué número sale el próximo comprobante de cada tipo en ese ambiente. */
+export async function numeracion(ambiente) {
+  return (await api.get(`/configuracion/hacienda/${ambiente}/numeracion`)).data.data;
+}
+/** Cambiar el número con que sale el próximo comprobante de un tipo. */
+export async function fijarNumeracion(ambiente, tipo, siguiente) {
+  return (
+    await api.put(`/configuracion/hacienda/${ambiente}/numeracion`, { tipo, siguiente })
+  ).data.data;
+}
 export async function preparar(origen, id, datos) {
   const plural = {
     factura: "facturas",

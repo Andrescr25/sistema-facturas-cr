@@ -13,6 +13,7 @@ const { firmar, verificarRespuesta } = require("./firma/xades");
 const { validarXml } = require("./xml/validar");
 const { parsear, texto } = require("./xml/util");
 const { crearCliente } = require("./transporte/cliente");
+const numeracion = require("./numeracion");
 const { enTransaccion } = require("../../utils/transaccion");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
@@ -123,44 +124,9 @@ function lineasDadas(dadas) {
 
 function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   const tx = (fn) => enTransaccion(pool, fn);
-  async function numerar(db, c, tipo) {
-    const a = c.ambiente,
-      s = c.emisor.sucursal,
-      t = c.emisor.terminal,
-      pref = s + t + tipo;
-    let inicio = "1";
-    if (a === "produccion") {
-      // Nunca reiniciar la serie que Alegra ya usó. La carga final se ejecuta
-      // con origen congelado; este máximo se relee antes de cada reserva.
-      const tabla = tipo === "03" ? "nota_credito" : "factura";
-      const r = await db.query(
-        `SELECT GREATEST(COALESCE((SELECT max(consecutivo)+1 FROM ${tabla} WHERE serie=$1),1),COALESCE((SELECT max(siguiente) FROM serie_consecutivo WHERE serie=$1),1),COALESCE((SELECT max(substring(clave_hacienda from 32 for 10)::bigint)+1 FROM ${tabla} WHERE clave_hacienda ~ '^506[0-9]{47}$' AND substring(clave_hacienda from 22 for 10)=$1 AND substring(clave_hacienda from 10 for 12)=$2),1))::text AS siguiente`,
-        [pref, String(c.emisor.identificacion).padStart(12, "0")],
-      );
-      inicio = r.rows[0].siguiente;
-    }
-    await db.query(
-      "INSERT INTO hacienda_numerador(ambiente,sucursal,terminal,tipo,siguiente) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
-      [a, s, t, tipo, inicio],
-    );
-    const r = (
-      await db.query(
-        "SELECT siguiente::text FROM hacienda_numerador WHERE ambiente=$1 AND sucursal=$2 AND terminal=$3 AND tipo=$4 FOR UPDATE",
-        [a, s, t, tipo],
-      )
-    ).rows[0];
-    const siguiente =
-      BigInt(r.siguiente) > BigInt(inicio)
-        ? BigInt(r.siguiente)
-        : BigInt(inicio);
-    if (siguiente >= 9999999999n)
-      throw error("SERIE_AGOTADA", "La serie fiscal llegó a su límite.");
-    await db.query(
-      "UPDATE hacienda_numerador SET siguiente=$5 WHERE ambiente=$1 AND sucursal=$2 AND terminal=$3 AND tipo=$4",
-      [a, s, t, tipo, String(siguiente + 1n)],
-    );
-    return pref + String(siguiente).padStart(10, "0");
-  }
+  // El número lo da numeracion.js: manda el numerador y se saltan los ya
+  // usados (decisión del usuario del 2026-10-11, explicada ahí).
+  const numerar = (db, c, tipo) => numeracion.reservar(db, c, tipo);
   async function preparar(origen, origenId, datos, usuarioId) {
     if (!["factura", "nota_credito", "compra"].includes(origen))
       throw error("ORIGEN_INVALIDO", "Origen fiscal inválido.");

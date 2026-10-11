@@ -354,6 +354,13 @@ Decisiones de Claude para que el clic no pregunte, a revisar por él:
   dentro de la misma factura. Si siempre es el mismo motivo, falta que lo
   diga para dejarlo fijo.
 
-Sigue sin contestar de antes: si la primera factura electrónica real sale
-con el número **4947** (como está) o con el 2481.
+Contestó esa misma noche, textual: «si, los descuentos dejalos así y empieza
+la factura electrónica con 2481».
 
+- **Descuentos:** quedan como están: la factura con descuento pide el motivo
+  en la misma factura. No volver a proponer dejarlo fijo.
+- **Numeración:** la factura electrónica sigue desde el **2481**. Para
+  entonces la primera real ya había salido con el 4947 (14:19 de ese día).
+  Hecho: [nodo de Hacienda](grafo/modulo/hacienda.md), "LA NUMERACIÓN LA
+  DECIDE EL DUEÑO". El número se pone desde Configuración → Hacienda →
+  Numeración; **falta que él lo ponga en producción**.
