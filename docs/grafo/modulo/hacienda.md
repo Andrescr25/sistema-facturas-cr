@@ -18,6 +18,7 @@ archivos:
   - backend/src/integrations/hacienda/xml/v4.4.js
   - backend/src/integrations/hacienda/xml/validar.js
   - backend/tests/haciendaValidadorXsd.test.js
+  - backend/tests/haciendaUsuarioAmbiente.test.js
   - backend/src/integrations/hacienda/esquemas/v4.4/fuentes.json
   - backend/migrations/independencia/043_hacienda.sql
   - frontend/src/integrations/hacienda/ConfiguracionHacienda.jsx
@@ -174,3 +175,29 @@ De paso, al rechazar dice CUÁL elemento falló («…esquema oficial 4.4
 módulo, buscar `child_process` y preguntarse si ese programa existe donde se
 despliega. Hoy el backend no ejecuta ninguno (el `git` de `utils/grafo.js`
 es de las pruebas del grafo, no del servidor).
+
+PRODUCCIÓN ERA UN CAMINO QUE NADIE HABÍA RECORRIDO (2026-10-11). Al habilitar
+el ambiente de producción con las credenciales reales, Configuración
+respondió «El usuario del API no corresponde a este ambiente». La regla pedía
+que el usuario terminara en `@comprobanteselectronicos.go.cr`, a secas, y
+Hacienda entrega `…@prod.comprobanteselectronicos.go.cr` (y `@stag.` en
+pruebas). El formato exigido no existe: las pruebas usaban un usuario
+inventado con esa forma y pasaban. Ahora `USUARIO_API` tiene una regla por
+ambiente con la forma real, el mensaje dice cómo debe terminar, y el usuario
+se guarda sin espacios de borde (se pega desde la OVi).
+
+Dos cosas medidas ese día en producción, que explican lo que se va a ver:
+- **Hacienda rechaza un consecutivo repetido, también en pruebas.** La
+  primera FE de prueba hecha desde Render salió con el número 1 y fue
+  rechazada (-99, «la numeración consecutiva … ya existe»): ese número lo
+  había usado el día anterior la copia local, con la misma cuenta de pruebas.
+  Cada base lleva su propio numerador de pruebas; el segundo intento usa el 2.
+  De paso confirma que en Render ya funciona toda la cadena: XML, firma,
+  envío y respuesta.
+- **La primera FE real saldrá con el número 4947, no con el 2481.** En
+  producción la serie de Alegra va por el 2480, pero hay dos facturas
+  aceptadas con consecutivo 4902 y 4946 (nacieron como tiquete y Alegra les
+  dejó ese número). `numerar` arranca en el máximo + 1 para no repetir
+  nunca. Deja un salto de numeración; a cambio, si Alegra —que queda de
+  respaldo— vuelve a emitir, sigue en 2481 y no choca. Es decisión fiscal del
+  usuario si prefiere continuar en 2481 saltándose esos dos.

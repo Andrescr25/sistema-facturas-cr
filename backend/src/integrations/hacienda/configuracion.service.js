@@ -13,6 +13,11 @@ const CAMPOS = [
   "sucursal",
   "terminal",
 ];
+/** Cómo termina el usuario del API en cada ambiente, tal como lo entrega Hacienda. */
+const USUARIO_API = Object.freeze({
+  pruebas: /^[^@\s]+@stag\.comprobanteselectronicos\.go\.cr$/i,
+  produccion: /^[^@\s]+@prod\.comprobanteselectronicos\.go\.cr$/i,
+});
 function ambiente(v) {
   if (!["pruebas", "produccion"].includes(v))
     throw error("AMBIENTE_INVALIDO", "Elija pruebas o producción.");
@@ -88,14 +93,22 @@ function revisar(c) {
       "CERTIFICADO_OTRO_EMISOR",
       "La identificación del certificado no coincide con la empresa.",
     );
-  const patron =
-    c.ambiente === "pruebas"
-      ? /@stag\.comprobanteselectronicos\.go\.cr$/i
-      : /@comprobanteselectronicos\.go\.cr$/i;
-  if (!patron.test(c.secretos.usuario))
+  // EL USUARIO DEL API DICE DE QUÉ AMBIENTE ES: Hacienda entrega
+  // "…@stag.comprobanteselectronicos.go.cr" para pruebas y
+  // "…@prod.comprobanteselectronicos.go.cr" para producción. La regla de
+  // producción pedía el dominio a secas, sin "prod.": un formato que no
+  // existe. Las pruebas usaban un usuario inventado con esa forma y pasaban;
+  // con el usuario real, el 2026-10-11, no se pudo habilitar producción:
+  // «El usuario del API no corresponde a este ambiente».
+  // La regla existe para que las credenciales de un ambiente no se guarden
+  // en el otro; se compara sin espacios de borde porque el usuario se pega.
+  const usuario = String(c.secretos.usuario || "").trim();
+  if (!USUARIO_API[c.ambiente]?.test(usuario))
     throw error(
       "USUARIO_OTRO_AMBIENTE",
-      "El usuario del API no corresponde a este ambiente.",
+      c.ambiente === "pruebas"
+        ? "El usuario del API no corresponde a este ambiente: el de pruebas termina en @stag.comprobanteselectronicos.go.cr."
+        : "El usuario del API no corresponde a este ambiente: el de producción termina en @prod.comprobanteselectronicos.go.cr.",
     );
   for (const [campo, patron2] of [
     ["actividad_economica", ACTIVIDAD],
@@ -139,7 +152,10 @@ async function guardar(db, a, datos, archivo, usuarioId) {
     if (datos[campo]) {
       if (typeof datos[campo] !== "string" || datos[campo].length > 300)
         throw error("DATO_INVALIDO", "Credencial inválida.");
-      secretos[campo] = datos[campo];
+      // El usuario se pega desde la OVi: un espacio de más al final hace
+      // que Hacienda rechace el ingreso sin decir por qué. La contraseña y
+      // el PIN se guardan tal cual.
+      secretos[campo] = campo === "usuario" ? datos[campo].trim() : datos[campo];
     }
   let cert = r.certificado;
   if (archivo) {
@@ -184,4 +200,4 @@ async function guardar(db, a, datos, archivo, usuarioId) {
   });
   return publica(fila);
 }
-module.exports = { ambiente, publica, obtener, privada, revisar, guardar };
+module.exports = { ambiente, publica, obtener, privada, revisar, guardar, USUARIO_API };

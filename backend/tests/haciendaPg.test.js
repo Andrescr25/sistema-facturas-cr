@@ -116,9 +116,13 @@ test(
           {
             ...emisor,
             pin: c.pin,
+            // Como los entrega Hacienda: "@stag." en pruebas y "@prod." en
+            // producción. Esta prueba usaba el dominio a secas para
+            // producción —un formato que no existe— y por eso la regla mala
+            // pasaba (ver haciendaUsuarioAmbiente.test.js).
             usuario:
-              "123456789@" +
-              (a === "pruebas" ? "stag." : "") +
+              "cpf-01-2345-6789@" +
+              (a === "pruebas" ? "stag." : "prod.") +
               "comprobanteselectronicos.go.cr",
             clave: "zz-password",
             habilitada: true,
